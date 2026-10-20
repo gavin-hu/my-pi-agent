@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	baseName,
+	entryPaths,
 	expandGroup,
 	groupPaths,
 	parseNameStatus,
@@ -22,13 +23,10 @@ describe("parseNameStatus", () => {
 		]);
 	});
 
-	test("expands a rename into the deleted and added path", () => {
+	test("pairs a rename into one entry with its source", () => {
 		const changed = parseNameStatus("R100\tbefore/name.ts\tafter/name.ts");
 
-		expect(changed).toEqual([
-			{ path: "before/name.ts", change: "deleted" },
-			{ path: "after/name.ts", change: "added" },
-		]);
+		expect(changed).toEqual([{ path: "after/name.ts", change: "renamed", from: "before/name.ts" }]);
 	});
 
 	test("expands a copy into its created path only: the source is untouched", () => {
@@ -76,11 +74,22 @@ describe("expandGroup", () => {
 	});
 });
 
+describe("entryPaths", () => {
+	test("names both sides of a rename and just the path otherwise", () => {
+		expect(entryPaths({ path: "after.ts", change: "renamed", from: "before.ts" })).toEqual(["before.ts", "after.ts"]);
+		expect(entryPaths({ path: "only.ts", change: "modified" })).toEqual(["only.ts"]);
+	});
+});
+
 describe("summarize", () => {
 	test("counts modified and deleted as changed, added as removed", () => {
 		const changed = parseNameStatus(["M\ta.ts", "D\tb.ts", "A\tc.ts", "A\td.ts"].join("\n"));
 
 		expect(summarize(changed)).toEqual({ changed: 2, removed: 2 });
+	});
+
+	test("counts a rename as one changed file, not a change plus a creation", () => {
+		expect(summarize(parseNameStatus("R100\tbefore.ts\tafter.ts"))).toEqual({ changed: 1, removed: 0 });
 	});
 
 	test("an empty diff counts nothing", () => {
@@ -90,7 +99,7 @@ describe("summarize", () => {
 
 describe("SELECTION_MARKS", () => {
 	test("gives every change kind a one-column mark", () => {
-		for (const change of ["modified", "deleted", "added"] as const) {
+		for (const change of ["modified", "deleted", "added", "renamed"] as const) {
 			expect(SELECTION_MARKS[change]).toHaveLength(1);
 		}
 	});
@@ -127,5 +136,14 @@ describe("toReviewEntries", () => {
 			[4, 1],
 			[null, null],
 		]);
+	});
+
+	test("joins a rename's added lines from its destination and removed lines from its source", () => {
+		const entries = toReviewEntries(
+			parseNameStatus("R100\tbefore.ts\tafter.ts"),
+			parseNumStat("0\t9\tbefore.ts\n9\t0\tafter.ts"),
+		);
+
+		expect(entries).toEqual([{ path: "after.ts", change: "renamed", from: "before.ts", added: 9, removed: 9 }]);
 	});
 });

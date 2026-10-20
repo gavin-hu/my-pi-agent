@@ -186,6 +186,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   header marker alone, and `/bytefly update` reports `could not check package
   updates` instead of `up to date`.
 
+- `rewind`: `/review` and the `/rewind` path checklist show a rename as one `R`
+  row, and reverting it recreates the old path and removes the new one. Before,
+  it was a `D` row and an `A` row, so reverting one left the pair half-applied.
+  Rename detection is explicit (`-M`), so a `diff.renames=false` config cannot
+  split the row again, and a case-only rename on a case-insensitive filesystem
+  keeps the file instead of deleting it with the destination.
+
 ## [0.15.0] - 2026-10-20
 
 ### Added

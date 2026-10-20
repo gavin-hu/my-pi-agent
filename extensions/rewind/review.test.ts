@@ -164,6 +164,57 @@ describe.skipIf(!runSlowSuites)("/review command", () => {
 		expect(ctx.confirms.at(-1)?.title).toBe("Revert all 2 files?");
 	});
 
+	test("reverts a rename as one row, restoring both sides", async () => {
+		const repo = await makeRepo("pi-rw-review-rename-");
+		cleanups.push(repo);
+		const fake = setupRewind([WRITE_TOOL]);
+		const ctx = makeCtx(fake, {
+			cwd: repo,
+			hasUI: true,
+			mode: "tui",
+			branch: branchWithUser("e1"),
+			sessionId: "s1",
+		});
+		ctx.command = fake.commands.get("review");
+		await primeRewind(fake, ctx);
+		await runGit(["mv", "README.md", "renamed.md"], { cwd: repo });
+
+		const mounts = await review(ctx, [screen({ kind: "revert", paths: ["renamed.md"] }), screen()]);
+
+		expect(mounts).toBe(2);
+		expect(readFileSync(join(repo, "README.md"), "utf-8")).toBe("hello\n");
+		expect(existsSync(join(repo, "renamed.md"))).toBe(false);
+		// The unrelated creation stays until it is reverted on its own.
+		expect(existsSync(join(repo, "after.txt"))).toBe(true);
+		expect(ctx.confirms.at(-1)?.title).toBe("Revert renamed.md?");
+		expect(ctx.confirms.at(-1)?.message).toContain("renamed from README.md");
+		expect(ctx.notices.at(-1)?.message).toContain("Reverted 1 file.");
+	});
+
+	test("R reverts a rename together with the other changes", async () => {
+		const repo = await makeRepo("pi-rw-review-rename-all-");
+		cleanups.push(repo);
+		const fake = setupRewind([WRITE_TOOL]);
+		const ctx = makeCtx(fake, {
+			cwd: repo,
+			hasUI: true,
+			mode: "tui",
+			branch: branchWithUser("e1"),
+			sessionId: "s1",
+		});
+		ctx.command = fake.commands.get("review");
+		await primeRewind(fake, ctx);
+		await runGit(["mv", "README.md", "renamed.md"], { cwd: repo });
+
+		await review(ctx, [screen({ kind: "revertAll" })]);
+
+		expect(readFileSync(join(repo, "README.md"), "utf-8")).toBe("hello\n");
+		expect(existsSync(join(repo, "renamed.md"))).toBe(false);
+		expect(existsSync(join(repo, "after.txt"))).toBe(false);
+		expect(ctx.confirms.at(-1)?.title).toBe("Revert all 2 files?");
+		expect(ctx.notices.at(-1)?.message).toContain("No changes remain.");
+	});
+
 	test("a declined confirmation leaves the file and reopens the list", async () => {
 		const repo = await makeRepo("pi-rw-review-cancel-");
 		cleanups.push(repo);

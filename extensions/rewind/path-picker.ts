@@ -16,6 +16,7 @@ import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEvent
 import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
 import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { checkbox, listRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
@@ -181,7 +182,9 @@ export class PathPickerComponent implements Component {
 					? "A — created after the snapshot; restoring removes it."
 					: row.path.change === "deleted"
 						? "D — deleted since the snapshot; restoring brings it back."
-						: "M — modified since the snapshot; restoring rewrites it.";
+						: row.path.change === "renamed"
+							? `R — renamed from ${sanitizeLine(row.path.from)}; restoring brings the old path back and removes this one.`
+							: "M — modified since the snapshot; restoring rewrites it.";
 		return [clip(`  ${paint(this.theme, "meta", text)}`, width)];
 	}
 

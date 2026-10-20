@@ -199,6 +199,20 @@ describe("ReviewListComponent", () => {
 		expect(screen).not.toContain("file-00");
 	});
 
+	test("renders a rename as one R row that names its source", () => {
+		const renamed: ReviewEntry[] = [
+			{ path: "after/name.ts", change: "renamed", from: "before/name.ts", added: 9, removed: 9 },
+		];
+		const { component } = list({ entries: renamed });
+		const screen = text(component);
+
+		expect(screen).toContain("1 file · +9 −9");
+		expect(screen).toContain("after/name.ts");
+		expect(screen).toContain("R");
+		expect(screen).toContain("renamed from before/name.ts");
+		expect(screen).toContain("+9 −9");
+	});
+
 	test("shows an empty state", () => {
 		const { component } = list({ entries: [] });
 
@@ -271,6 +285,19 @@ describe("ReviewDiffComponent", () => {
 
 		expect(screen).toContain("already committed");
 		expect(screen).toContain("working tree only");
+	});
+
+	test("names the rename source in the diff detail", () => {
+		const entry: ReviewEntry = {
+			path: "after/name.ts",
+			change: "renamed",
+			from: "before/name.ts",
+			added: 9,
+			removed: 9,
+		};
+		const { component } = diff({ entry });
+
+		expect(text(component)).toContain("renamed from before/name.ts");
 	});
 
 	test("colors additions, deletions, and hunk markers by role", () => {

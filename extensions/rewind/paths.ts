@@ -6,27 +6,36 @@
  * cannot disagree about what changed. Pure: parsing, grouping, marks, and the
  * counts `RestoreSummary` reports.
  *
- * A rename arrives as `R100\told\tnew`. It is expanded into two entries — the old
- * path as deleted and the new one as added — because that is exactly what the
- * restore does to each: selecting the old path brings it back, selecting the new
- * one removes it. Both rows appear in the checklist rather than one opaque one.
+ * A rename arrives as `R100\told\tnew` and stays one entry: `path` is the
+ * destination, `from` the path it had in the snapshot, and the mark is `R`.
+ * Keeping both sides on one entry is what makes a single selection atomic — the
+ * restore recreates `from` and deletes `path`, so neither side can be left
+ * behind. `entryPaths` is the one place that names both.
  */
 
-/** What a restore does to one path. */
-export type PathChange = "modified" | "deleted" | "added";
+/** The single-path statuses, which never carry a source path. */
+type SimpleChange = "modified" | "deleted" | "added";
 
-/** One path the snapshot differs on, and how. */
-export interface ChangedPath {
-	/** Repository-relative path, as git reports it. */
+/** What a restore does to one path. */
+export type PathChange = SimpleChange | "renamed";
+
+/** Fields every changed path carries. */
+interface ChangedPathBase {
+	/** Repository-relative path, as git reports it; a rename's destination. */
 	path: string;
-	change: PathChange;
 }
+
+/** One path the snapshot differs on, and how. A rename always names its source. */
+export type ChangedPath =
+	| (ChangedPathBase & { change: SimpleChange })
+	| (ChangedPathBase & { change: "renamed"; from: string });
 
 /** The trailing mark for each change in the checklist. */
 export const SELECTION_MARKS: Readonly<Record<PathChange, string>> = {
 	modified: "M",
 	deleted: "D",
 	added: "A",
+	renamed: "R",
 };
 
 /** One directory's files, for the checklist's grouping. */
@@ -38,7 +47,7 @@ export interface PathGroup {
 }
 
 /** The status letter → change kind, for the single-path statuses. */
-function changeOf(letter: string): PathChange | undefined {
+function changeOf(letter: string): SimpleChange | undefined {
 	switch (letter) {
 		case "M":
 		case "T": // a type change (file ↔ symlink) rewrites the path
@@ -53,10 +62,10 @@ function changeOf(letter: string): PathChange | undefined {
 }
 
 /**
- * Parse `git diff --name-status` output. A rename expands to both of its paths
- * (as described in the module comment) and a copy to its destination only — the
- * source is untouched, so it is not a changed path. An unknown status letter is
- * skipped rather than guessed at.
+ * Parse `git diff --name-status` output. A rename keeps both of its paths on
+ * one entry and a copy becomes its destination only — the source is untouched,
+ * so it is not a changed path. An unknown status letter is skipped rather than
+ * guessed at.
  */
 export function parseNameStatus(stdout: string): ChangedPath[] {
 	const changed: ChangedPath[] = [];
@@ -67,8 +76,8 @@ export function parseNameStatus(stdout: string): ChangedPath[] {
 		const letter = status[0] ?? "";
 		if (letter === "R" || letter === "C") {
 			if (!second) continue;
-			if (letter === "R") changed.push({ path: first, change: "deleted" });
-			changed.push({ path: second, change: "added" });
+			if (letter === "R") changed.push({ path: second, change: "renamed", from: first });
+			else changed.push({ path: second, change: "added" });
 			continue;
 		}
 		const kind = changeOf(letter);
@@ -113,9 +122,19 @@ export function expandGroup(group: PathGroup): string[] {
 }
 
 /**
- * The counts the plan and the summary report: `changed` is modified plus deleted
- * (files rewritten from the snapshot), and `removed` is the paths created after
- * it, which the restore deletes.
+ * Every path an entry spans: both sides of a rename, otherwise just its path.
+ * A restore and a diff request both use this, so one selection covers the move.
+ */
+export function entryPaths(entry: ChangedPath): string[] {
+	return entry.change === "renamed" ? [entry.from, entry.path] : [entry.path];
+}
+
+/**
+ * The counts the plan and the summary report: `changed` is every path rewritten
+ * from the snapshot (modified, deleted, or a rename's source), and `removed` is
+ * the paths created after it, which the restore deletes. A rename counts once:
+ * it is one file changed, and its destination is removed as part of the move
+ * rather than counted a second time.
  */
 export function summarize(paths: readonly ChangedPath[]): { changed: number; removed: number } {
 	let changed = 0;
@@ -136,10 +155,10 @@ export interface PathStat {
 }
 
 /** A changed path with the line counts the review list shows. */
-export interface ReviewEntry extends ChangedPath {
+export type ReviewEntry = ChangedPath & {
 	added: number | null;
 	removed: number | null;
-}
+};
 
 /**
  * Parse `git diff --numstat` output into a path -> line-count map.
@@ -165,13 +184,19 @@ export function parseNumStat(stdout: string): Map<string, PathStat> {
 	return stats;
 }
 
-/** Attach line counts to changed paths and sort them for a stable screen order. */
+/**
+ * Attach line counts to changed paths and sort them for a stable screen order.
+ * Line counts are read with `--no-renames`, so a rename's `+n` lives on its
+ * destination and its `−n` on its source.
+ */
 export function toReviewEntries(paths: readonly ChangedPath[], stats: ReadonlyMap<string, PathStat>): ReviewEntry[] {
-	return [...paths]
-		.sort((a, b) => a.path.localeCompare(b.path))
-		.map((entry) => ({
-			...entry,
-			added: stats.get(entry.path)?.added ?? null,
-			removed: stats.get(entry.path)?.removed ?? null,
-		}));
+	const countsOf = (entry: ChangedPath): PathStat => {
+		const destination = stats.get(entry.path);
+		const source = entry.change === "renamed" ? stats.get(entry.from) : undefined;
+		return {
+			added: destination?.added ?? null,
+			removed: (source ?? destination)?.removed ?? null,
+		};
+	};
+	return [...paths].sort((a, b) => a.path.localeCompare(b.path)).map((entry) => ({ ...entry, ...countsOf(entry) }));
 }

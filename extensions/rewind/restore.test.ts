@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyRestore, planRestore } from "./restore.ts";
 import { createSnapshot } from "./snapshot.ts";
@@ -154,6 +154,71 @@ describe.skipIf(!runSlowSuites)("rewind", () => {
 		);
 
 		expect(readFileSync(join(back, "keep.txt"), "utf-8")).toBe("keep1\n");
+	});
+
+	test("a partial restore selected by a rename's destination restores both sides", async () => {
+		const moved = await makeRepo("pi-rw-restore-rename-");
+		cleanups.push(moved);
+		writeFileSync(join(moved, "before.txt"), "original\n");
+		await runGit(["add", "."], { cwd: moved });
+		await runGit(["commit", "-qm", "base"], { cwd: moved });
+		const snapshot = await createSnapshot({ runGit, now: () => 1000, idFactory: () => "rn1" }, snapshotInput(moved));
+
+		await runGit(["mv", "before.txt", "after.txt"], { cwd: moved });
+		const indexBefore = (await runGit(["diff", "--cached", "--name-status"], { cwd: moved })).stdout;
+
+		const plan = await planRestore({ runGit }, { root: moved, indexFile: indexFileFor(moved), target: snapshot });
+		expect(plan.ok).toBe(true);
+		if (!plan.ok) return;
+		expect(plan.plan.paths).toEqual([{ path: "after.txt", change: "renamed", from: "before.txt" }]);
+		expect(plan.plan.changed).toBe(1);
+		expect(plan.plan.removed).toBe(0);
+		expect(plan.plan.diff).toContain("before.txt");
+		expect(plan.plan.diff).toContain("after.txt");
+
+		// Selecting only the destination is the row's key; the restore must still
+		// recreate the source, or the rename is left half-applied.
+		const summary = await applyRestore(
+			{ runGit },
+			{ root: moved, indexFile: indexFileFor(moved), target: snapshot, paths: ["after.txt"] },
+		);
+		expect(summary.changed).toBe(1);
+		expect(summary.removed).toBe(0);
+		expect(summary.of).toBe(1);
+		expect(readFileSync(join(moved, "before.txt"), "utf-8")).toBe("original\n");
+		expect(existsSync(join(moved, "after.txt"))).toBe(false);
+		// The real index still holds the staged rename; the restore stayed on the
+		// temporary index.
+		expect((await runGit(["diff", "--cached", "--name-status"], { cwd: moved })).stdout).toBe(indexBefore);
+
+		// Selecting the source side of the pair is the same move.
+		renameSync(join(moved, "before.txt"), join(moved, "after.txt"));
+		await applyRestore(
+			{ runGit },
+			{ root: moved, indexFile: indexFileFor(moved), target: snapshot, paths: ["before.txt"] },
+		);
+		expect(readFileSync(join(moved, "before.txt"), "utf-8")).toBe("original\n");
+		expect(existsSync(join(moved, "after.txt"))).toBe(false);
+	});
+
+	test("a case-only rename restores the file without deleting it", async () => {
+		const cased = await makeRepo("pi-rw-restore-case-");
+		cleanups.push(cased);
+		writeFileSync(join(cased, "foo.txt"), "original\n");
+		await runGit(["add", "."], { cwd: cased });
+		await runGit(["commit", "-qm", "base"], { cwd: cased });
+		const snapshot = await createSnapshot({ runGit, now: () => 1000, idFactory: () => "c1" }, snapshotInput(cased));
+		await runGit(["mv", "foo.txt", "Foo.txt"], { cwd: cased });
+
+		await applyRestore(
+			{ runGit },
+			{ root: cased, indexFile: indexFileFor(cased), target: snapshot, paths: ["Foo.txt"] },
+		);
+
+		// On a case-insensitive filesystem both names resolve to one file, so the
+		// checkout renames it and the destination delete must be skipped.
+		expect(readFileSync(join(cased, "foo.txt"), "utf-8")).toBe("original\n");
+		expect(readdirSync(cased).filter((name) => name.toLowerCase() === "foo.txt")).toEqual(["foo.txt"]);
 	});
 
 	test("a path with a glob character restores literally", async () => {
