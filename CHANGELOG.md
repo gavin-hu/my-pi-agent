@@ -110,6 +110,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   records — 500, 3,000, and 10,000 records, plus 3,000 against a 100-key rate
   table — with a determinism gate in the suite.
 
+- docs: `ROADMAP.md` adds the three highest user-value candidates to `Next` —
+  a verification panel (`P1`), background delegation (`P2`), and turn review
+  (`S3`) — each with the gap it closes and a concrete acceptance condition, and
+  updates the promise ledger and the `Next` exit condition to match.
+
 ### Removed
 
 - `file-browse`: the **On this page** outline is gone. Headings keep their
