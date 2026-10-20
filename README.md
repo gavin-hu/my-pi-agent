@@ -83,7 +83,7 @@ Then, from inside Pi:
 - `/bytefly update` re-runs the package update check now and reports the
   updateable packages, this package's version and release URL, or a skip.
 - `/plan <task>` starts a task in read-only planning mode.
-- `/init` creates or updates `AGENTS.md` through a short built-in interview and a plan you review first.
+- `/skill:init` creates or updates `AGENTS.md` through a short built-in interview and a plan you review first.
 
 One thing the pack does on its own: once per interactive session, `bytefly`
 asks Pi's package manager which configured packages are behind, suppresses Pi's
@@ -102,7 +102,7 @@ command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `/init`, `--plan` | Read-only planning: the model investigates, saves a plan under `.pi/plans`, and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments. `/init` asks a short built-in interview and uses the same review to create or update a project's `AGENTS.md`. |
+| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `.pi/plans`, and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments. The `init` skill uses the same review to create or update a project's `AGENTS.md`. |
 | [`check`](./extensions/check/) | `run_check`, `/check` | Detect the project's test, lint, or typecheck command (or take `check.command`), run it in a supervised process, and turn failures into a navigable `file:line` list. |
 | [`subagent`](./extensions/subagent/) | `subagent`, `/agents` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, chained, or in the background, with a footer chip while it runs and a finish notice. |
 | [`todo`](./extensions/todo/) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |

@@ -44,7 +44,7 @@ Use the first matching row. Fill option labels with evidence before asking.
 | Done | What must be true before a task is done? | Multi-select: Tests pass; Lint and typecheck pass; Docs and changelog updated; Diff self-reviewed; Pull request opened | No contributor guide defines done, test level, or documentation expectations. |
 | Sensitive | Are any files, directories, or workflows off-limits for agents? | Free-form, including generated, vendored, and secret-bearing paths | Access boundaries are unclear, or generated, vendored, or secret-bearing paths need explicit exclusion. |
 | External changes | May an agent add dependencies or use the network? | Single-select: Yes, when needed; Ask first; Offline and no new dependencies | A manifest exists and dependency, package-install, or network rules are unclear. |
-| Existing file | How should `/init` handle the current `AGENTS.md`? | Single-select: Review and update in place; Keep it and only append missing guidance; Rewrite it from this interview | `AGENTS.md` already exists. |
+| Existing file | How should the `init` skill handle the current `AGENTS.md`? | Single-select: Review and update in place; Keep it and only append missing guidance; Rewrite it from this interview | `AGENTS.md` already exists. |
 
 ## State questions
 

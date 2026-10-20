@@ -100,12 +100,10 @@ function setup(options: {
 	summaries?: PlanSummary[];
 	result: PlanReviewResult;
 	idle?: boolean;
-	skill?: boolean;
 }) {
 	const { runtime, readCalls, latestCalls, indexCalls, enableCalls, marks } = fakeRuntime(options);
 	const { web, started, starts, closeCalls } = fakeWeb(options.result);
 	const pi = makeFakePi();
-	pi.pi.getCommands = () => (options.skill === false ? [] : [{ name: "skill:init", source: "skill" }]);
 	registerCommands(pi.pi, runtime, web);
 	const { ctx, notifications } = fakeCtx({ cwd: "/repo", isIdle: () => options.idle ?? true });
 	return {
@@ -341,46 +339,7 @@ describe("/plan review", () => {
 	});
 });
 
-describe("/init", () => {
-	test("enters plan mode and invokes the packaged init skill", async () => {
-		const { pi, ctx, notifications, enableCalls } = setup({ result: { status: "cancelled" } });
-
-		await pi.commands.get("init").handler("", ctx);
-
-		expect(enableCalls).toEqual(["enable"]);
-		expect(notifications.some((message) => message.includes("Plan mode enabled"))).toBe(true);
-		expect(pi.sentMessages).toEqual([{ content: "/skill:init", options: { expandPromptTemplates: true } }]);
-	});
-
-	test("does not re-enable plan mode", async () => {
-		const { pi, ctx, enableCalls } = setup({ enabled: true, result: { status: "cancelled" } });
-
-		await pi.commands.get("init").handler("", ctx);
-
-		expect(enableCalls).toEqual([]);
-		expect(pi.sentMessages).toHaveLength(1);
-	});
-
-	test("queues the skill behind a running turn", async () => {
-		const { pi, ctx } = setup({ idle: false, result: { status: "cancelled" } });
-
-		await pi.commands.get("init").handler("", ctx);
-
-		expect(pi.sentMessages).toEqual([
-			{ content: "/skill:init", options: { expandPromptTemplates: true, deliverAs: "followUp" } },
-		]);
-	});
-
-	test("refuses when only the plan extension is loaded", async () => {
-		const { pi, ctx, notifications, enableCalls } = setup({ skill: false, result: { status: "cancelled" } });
-
-		await pi.commands.get("init").handler("", ctx);
-
-		expect(enableCalls).toEqual([]);
-		expect(pi.sentMessages).toEqual([]);
-		expect(notifications.some((message) => message.includes("packaged skill"))).toBe(true);
-	});
-
+describe("init skill", () => {
 	test("packages a built-in interview, plan-first, quality-gated skill", () => {
 		const skill = readFileSync(join(import.meta.dir, "../../skills/init/SKILL.md"), "utf-8");
 		const questions = readFileSync(
