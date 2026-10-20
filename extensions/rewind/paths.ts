@@ -126,3 +126,52 @@ export function summarize(paths: readonly ChangedPath[]): { changed: number; rem
 	}
 	return { changed, removed };
 }
+
+/** Line counts for one path, or nulls when git reports a binary change. */
+export interface PathStat {
+	/** Added lines, or null when git reports `-` (binary). */
+	added: number | null;
+	/** Removed lines, or null when git reports `-` (binary). */
+	removed: number | null;
+}
+
+/** A changed path with the line counts the review list shows. */
+export interface ReviewEntry extends ChangedPath {
+	added: number | null;
+	removed: number | null;
+}
+
+/**
+ * Parse `git diff --numstat` output into a path -> line-count map.
+ *
+ * Counts are `-` for a binary file, which becomes null so the screen can say
+ * `bin` instead of inventing a zero. A malformed line is skipped rather than
+ * guessed at, and the path is the rest of the line so a path containing a tab
+ * survives the split.
+ */
+export function parseNumStat(stdout: string): Map<string, PathStat> {
+	const stats = new Map<string, PathStat>();
+	for (const line of stdout.split("\n")) {
+		if (line.trim() === "") continue;
+		const [addedRaw, removedRaw, ...rest] = line.split("\t");
+		const path = rest.join("\t");
+		if (addedRaw === undefined || removedRaw === undefined || path === "") continue;
+		const added = addedRaw === "-" ? null : Number.parseInt(addedRaw, 10);
+		const removed = removedRaw === "-" ? null : Number.parseInt(removedRaw, 10);
+		if (added !== null && !Number.isFinite(added)) continue;
+		if (removed !== null && !Number.isFinite(removed)) continue;
+		stats.set(path, { added, removed });
+	}
+	return stats;
+}
+
+/** Attach line counts to changed paths and sort them for a stable screen order. */
+export function toReviewEntries(paths: readonly ChangedPath[], stats: ReadonlyMap<string, PathStat>): ReviewEntry[] {
+	return [...paths]
+		.sort((a, b) => a.path.localeCompare(b.path))
+		.map((entry) => ({
+			...entry,
+			added: stats.get(entry.path)?.added ?? null,
+			removed: stats.get(entry.path)?.removed ?? null,
+		}));
+}

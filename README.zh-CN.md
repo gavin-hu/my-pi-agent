@@ -100,7 +100,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
 | [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree status|enter|exit|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
-| [`rewind`](./extensions/rewind/) | `/rewind`, `↺ N` 状态标记 | 每次提示时在 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者。 |
+| [`rewind`](./extensions/rewind/) | `/rewind`, `/review`, `↺ N` 状态标记 | 每次提示时在 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者，并在还原文件前审阅本轮改动。 |
 | [`memory`](./extensions/memory/) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
 
 ### 连通外部世界

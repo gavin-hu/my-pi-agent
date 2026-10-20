@@ -2,15 +2,19 @@
 
 Snapshot the working tree at the start of each task and return to an earlier
 prompt from a menu — restoring the **code**, the **conversation**, or **both**.
-A snapshot is a git commit kept under `refs/pi/rewind/<id>`; restoring one
-rewrites the working tree **without touching the real index or moving HEAD**, so
-commits, branches, staged state, and the reflog are untouched. Conversation
-rewind uses Pi's session tree, so the branch you leave is not erased.
+`/review` uses the same snapshot to show the latest turn's changes and revert one
+file or the whole turn. A snapshot is a git commit kept under
+`refs/pi/rewind/<id>`; restoring one rewrites the working tree **without
+touching the real index or moving HEAD**, so commits, branches, staged state, and
+the reflog are untouched. Conversation rewind uses Pi's session tree, so the
+branch you leave is not erased.
 
 This is the `rewind` extension entrypoint; it is one of two sibling git
 extensions in this package (`worktree` is the other).
 
 <img src="../../assets/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%">
+
+<img src="../../assets/review.png" alt="The /review screen: changed files with M, A, and D marks, line counts, and the focused file's detail" width="100%">
 
 ```
 pi --extension ./extensions/rewind   # load this extension alone
@@ -22,6 +26,11 @@ pi install ./                        # install the package
 
 - Takes **one automatic snapshot per user prompt**, before the prompt's first
   mutating tool call. A read-only prompt snapshots nothing.
+- `/review` compares the working tree with the snapshot taken before the latest
+  prompt on the active branch. The file list carries `M`/`A`/`D` and line
+  counts; `Enter` opens a scrollable patch, `r` reverts the focused file, and
+  `R` reverts every changed path. Each revert asks first and takes the usual
+  pre-restore safety snapshot.
 - `/rewind` lists **every user prompt on the active branch** (newest first), each
   marked `⬥` when a code snapshot was captured for it.
 - Picking a point asks what to restore: **Code and conversation**,
@@ -52,6 +61,7 @@ the main checkout; `list`/matching filter to the current root by default.
 | Command | What it does |
 |---|---|
 | `/rewind` | Open the timeline; pick a prompt, then a restore scope, then (for code) the paths. |
+| `/review` | Review the latest prompt's changes; open a diff, revert a file, or revert all of them. |
 
 The path checklist is its own `ctx.ui.custom` screen: `Space` toggles the focused
 row, `a`/`n` select all or none, `Enter` returns the selection, and `Esc` cancels
@@ -63,13 +73,18 @@ The scope choice and the confirmation (with a diff preview) run after the screen
 closes. The path checklist is the same grammar: `Space` toggles, `a`/`n` select
 all or none, `Enter` restores the selection, `Esc` cancels the rewind.
 
+The review list is keyboard-driven too: `↑`/`↓` or `j`/`k` move, `PgUp`/`PgDn` and
+`Home`/`End` jump, `Enter` opens the focused file's diff, `r` reverts that file,
+`R` reverts every changed path, and `Esc` closes. In the diff, `j`/`k`, the arrows,
+`PgUp`/`PgDn`, and `g`/`G` scroll, `r` reverts the file, and `Esc` goes back.
+
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| Interactive TUI | Full selectable timeline component, then the scope choice, the path checklist, and the confirmation. |
-| RPC (`hasUI`) | Timeline falls back to `ui.select`; scope choice and confirmation use forwarded dialogs. |
-| `print` / `json` | No picker: the prompt list is printed. |
+| Interactive TUI | Full selectable timeline, then the scope choice, the path checklist, and the confirmation. `/review` mounts the changed-file list and the per-file diff. |
+| RPC (`hasUI`) | Timeline falls back to `ui.select`; scope choice and confirmation use forwarded dialogs. `/review` prints the changed-path list. |
+| `print` / `json` | No picker: the prompt list is printed. `/review` prints the changed-path list. |
 
 ## Configuration
 
@@ -126,6 +141,14 @@ commit. These refs are not branches and are not touched by `git push --all`.
 - **The path checklist is TUI-only.** RPC, `print`, and `json` modes restore the
   whole tree; there is no typed path syntax, because a list of exact paths is what
   the checklist is for and a glob would need its own validation and preview.
+- **`/review` is whole-file only.** There is no hunk selection. A rename is two
+  rows (`D` old, `A` new), so reverting both undoes it and reverting one leaves
+  the pair half-applied.
+- **`/review` follows the latest prompt with a snapshot.** A read-only prompt
+  after it does not change the target, and a turn whose snapshot failed has no
+  review of its own. Actions are TUI-only; other modes print the changed list.
+- **`/review` refuses while plan mode is on.** Plan mode is read-only, so approve
+  the plan before reverting its changes.
 
 ## Non-goals
 
@@ -140,8 +163,8 @@ commit. These refs are not branches and are not touched by `git push --all`.
 
 | Integration point | Value |
 |---|---|
-| Model-facing tools | None. `/rewind` is user-driven; automatic snapshots cover the start of every task. |
-| Commands | `/rewind` (`pi.registerCommand`). |
+| Model-facing tools | None. `/rewind` and `/review` are user-driven; automatic snapshots cover the start of every task. |
+| Commands | `/rewind` and `/review` (`pi.registerCommand`). |
 | Events | `session_start` (reset run state, status, stale-index sweep), `session_tree` (status refresh after tree navigation), `before_agent_start` (record the prompt — absent on a run a custom message starts — and resolve the run's snapshot decision), `tool_call` (take the run's snapshot before the first mutating call), `session_shutdown` (release indexes, clear status). |
 | State storage | Git refs `refs/pi/rewind/<id>` with metadata in the commit body. No tool-result `details` and no `pi.appendEntry`. |
 | Lifecycle | Index paths are created lazily and released in `session_shutdown`; status chip is set on start/tree/snapshot and cleared on shutdown. |
@@ -194,6 +217,11 @@ commit. These refs are not branches and are not touched by `git push --all`.
   records its `root`; listing and matching filter to the current root and
   restoring another worktree's snapshot is refused. The effective root follows
   `PI_WORKTREE_ROOT` when set.
+- **Review is derived, not stored.** `/review` uses the same
+  `buildRewindPoints` pairing as `/rewind`, calls `planRestore`, and fetches a
+  patch only when a file is opened. A revert is the existing subset restore, so
+  the safety snapshot and the working-tree-only rewrite are the ones `/rewind`
+  already guarantees.
 - **Identity is fixed for internal commits.** `commit-tree` runs with
   `-c user.name=pi -c user.email=pi@localhost`, so snapshots work without committer
   identity configured and never depend on the user's git config.
@@ -202,23 +230,25 @@ commit. These refs are not branches and are not touched by `git push --all`.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Registrar: wire the runtime, the command, and the run-state module to Pi's events (`registerRewind`). |
+| `index.ts` | Registrar: wire the runtime, the commands, and the run-state module to Pi's events (`registerRewind`). |
 | `types.ts` | `Snapshot`, `SnapshotReason`, `RestoreSummary`. |
 | `config.ts` | Config defaults and merge/normalize over `lib/config.ts`. |
-| `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes, and the production `RunGit`. |
+| `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes (name status, stat, patch, and `--numstat`), and the production `RunGit`. |
 | `snapshot.ts` | Create a snapshot (tree from a temporary index → commit → ref). |
 | `snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
 | `restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths. |
-| `paths.ts` | Pure: the changed-path list from `git diff --name-status`, its directory grouping, the change marks, and the restore counts. |
+| `paths.ts` | Pure: the changed-path list from `git diff --name-status`, its directory grouping, the change marks, the `--numstat` counts, and the restore counts. |
 | `path-picker.ts` | The checklist screen a partial restore opens: grouped paths, toggles, and the selection it returns. |
 | `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `policy.ts` | Which tool calls are worth a snapshot. |
 | `temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
 | `status.ts` | The `↺ N` status chip. |
 | `queue.ts` | The serialized git operation queue for staging calls (`GIT_INDEX_FILE`). |
-| `runtime.ts` | Root/config caches and the snapshot/list/plan/restore operations. |
+| `runtime.ts` | Root/config caches and the snapshot/list/plan/patch/numstat/restore operations. |
 | `timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
 | `rewind.ts` | Scope choice, the path step, confirmation, and applying code + conversation rewind. |
+| `review.ts` | The `/review` orchestration: the latest snapshot, the list/diff loop, confirmations, and the revert. |
+| `review-tui.ts` | The changed-file list and the scrollable per-file diff. |
 | `rewind-tui.ts` | The selectable, width-safe timeline component, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
-| `commands.ts` | The `/rewind` command. |
-| `format.ts` | Model-facing and transcript text (pure). |
+| `commands.ts` | The `/rewind` and `/review` commands. |
+| `format.ts` | Pure rewind and review text, including diff bounding. |

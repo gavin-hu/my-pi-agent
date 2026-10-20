@@ -57,6 +57,8 @@ import type { StoredPlan } from "../extensions/plan/plans.ts";
 import { PlanViewComponent } from "../extensions/plan/tui.ts";
 import { askViaTui } from "../extensions/question/tui.ts";
 import type { Question } from "../extensions/question/types.ts";
+import { ReviewListComponent } from "../extensions/rewind/review-tui.ts";
+import type { ReviewEntry } from "../extensions/rewind/paths.ts";
 import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
 import type { RewindPoint } from "../extensions/rewind/timeline.ts";
 import { TodoListComponent } from "../extensions/todo/tui.ts";
@@ -255,6 +257,14 @@ const REWIND_POINTS: RewindPoint[] = [
 			entryId: "e1",
 		},
 	},
+];
+
+/** The changed files the review screen shows after a documentation turn. */
+const REVIEW_ENTRIES: ReviewEntry[] = [
+	{ path: "extensions/rewind/review.ts", change: "modified", added: 42, removed: 3 },
+	{ path: "extensions/rewind/review-tui.ts", change: "added", added: 180, removed: 0 },
+	{ path: "extensions/rewind/commands.ts", change: "modified", added: 6, removed: 1 },
+	{ path: "assets/review.png", change: "added", added: null, removed: null },
 ];
 
 /** The plan the review screen shows; its `Steps` section changed on this review. */
@@ -582,6 +592,19 @@ export const SCREENS: Record<string, Screen> = {
 		render: (width, rows) =>
 			new RewindListComponent({
 				points: REWIND_POINTS,
+				theme,
+				onClose: noop,
+				requestRender: noop,
+				viewportRows: () => rows,
+			}).render(width),
+	},
+	review: {
+		asset: "review",
+		title: "π - my-pi-agent · /review",
+		render: (width, rows) =>
+			new ReviewListComponent({
+				entries: REVIEW_ENTRIES,
+				prompt: "Refresh the README screenshots",
 				theme,
 				onClose: noop,
 				requestRender: noop,

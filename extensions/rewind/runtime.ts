@@ -11,9 +11,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { loadConfig, type RewindConfig } from "./config.ts";
-import { createRewindRunner, repoRoot, type RunGit } from "./git.ts";
+import { createRewindRunner, diffNumStat, diffPatch, repoRoot, type RunGit } from "./git.ts";
 import { createOperationQueue } from "./queue.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
+import type { PathStat } from "./paths.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { createStatusChip } from "./status.ts";
 import { belongsToRoot, listSnapshots, pruneSnapshots } from "./store.ts";
@@ -35,6 +36,10 @@ export interface RewindRuntime {
 	list(root: string): Promise<Snapshot[]>;
 	/** Preview a restore; `paths` narrows it to a subset of the changed paths. */
 	plan(root: string, target: Snapshot, paths?: readonly string[]): Promise<PlanResult>;
+	/** Unified patch between a snapshot and the working-tree tree `tree`. Read-only. */
+	patch(root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<string>;
+	/** Per-path line counts for the same comparison. Read-only. */
+	numStat(root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<Map<string, PathStat>>;
 	restore(
 		ctx: ExtensionContext,
 		root: string,
@@ -123,6 +128,16 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 			return planRestore({ runGit }, { root, indexFile: await indexStore.pathFor(root), target, paths });
 		});
 
+	const patch = (root: string, target: Snapshot, tree: string, paths?: readonly string[]): Promise<string> =>
+		diffPatch(runGit, root, target.commit, tree, paths);
+
+	const numStat = (
+		root: string,
+		target: Snapshot,
+		tree: string,
+		paths?: readonly string[],
+	): Promise<Map<string, PathStat>> => diffNumStat(runGit, root, target.commit, tree, paths);
+
 	const restore = (
 		ctx: ExtensionContext,
 		root: string,
@@ -169,6 +184,8 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		snapshot,
 		list,
 		plan,
+		patch,
+		numStat,
 		restore,
 		setStatus: status.set,
 		clearStatus: status.clear,

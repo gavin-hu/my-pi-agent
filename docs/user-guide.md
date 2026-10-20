@@ -34,7 +34,9 @@ you press is written as a key such as `a` or `Esc`.
    to approve ([Plan first, then write](#plan-first-then-write)).
 4. **Know you can undo a turn** — `/rewind` lists the prompts you can return to
    ([Undoing a turn](#undoing-a-turn)).
-5. **Remember something for next time** — ask, or run `/memory`
+5. **Review the last turn** — `/review` shows what changed; `Enter` opens a diff
+   and `r` reverts a file ([Reviewing the last turn](#reviewing-the-last-turn)).
+6. **Remember something for next time** — ask, or run `/memory`
    ([Remembering between sessions](#remembering-between-sessions)).
 
 The rest of the guide is reference: read what you need, in any order, and switch
@@ -61,7 +63,7 @@ is unfamiliar, it is defined in [Words used in this guide](#words-used-in-this-g
 | Feature | What it does | Walkthrough |
 |---|---|---|
 | `worktree` | Works on a branch in a separate folder | [Working on a branch safely](#working-on-a-branch-safely) |
-| `rewind` | Snapshots each prompt and restores code or conversation | [Undoing a turn](#undoing-a-turn) |
+| `rewind` | Snapshots each prompt, restores code or conversation, and reviews a turn's changes | [Undoing a turn](#undoing-a-turn) |
 | `memory` | Notes that carry across sessions | [Remembering between sessions](#remembering-between-sessions) |
 
 **Reach the world**
@@ -692,6 +694,42 @@ This feature needs `git`. Snapshots are stored as git references under
   modes `/rewind` restores the whole tree.
 - Rewind only tracks your project; files outside it are untouched.
 
+### Reviewing the last turn
+
+**What it is.** `/review` shows what a turn changed without opening the rewind
+timeline. It compares the working tree with the snapshot taken before the latest
+prompt, so you can read the diff and keep or discard each file.
+
+1. After a turn, type:
+
+   ```text
+   /review
+   ```
+
+   A file list opens; each file is marked `M` (modified), `A` (added), or `D`
+   (deleted), with added and removed line counts.
+
+   <img src="../assets/review.png" alt="The /review screen: changed files with M, A, and D marks, line counts, and the focused file's detail" width="100%">
+
+   *The changed files from the latest prompt.*
+
+2. Press Enter on a file to read its diff. `j` / `k`, the arrows, `PgUp` /
+   `PgDn`, and `g` / `G` move through it; `Esc` goes back to the list.
+
+3. Press `r` to revert the focused file, or `R` to revert every changed file.
+   Both ask first, and both take a safety snapshot, so `/rewind` can undo the
+   revert.
+
+4. `Esc` closes the list without changing anything.
+
+**Good to know.**
+
+- Reverting is whole-file. There is no hunk selection; a renamed file appears as
+  a deletion and an addition, so revert both to undo the rename.
+- Review actions exist only in the terminal interface. In text-only modes
+  `/review` prints the changed-path list.
+- Plan mode refuses `/review`: approve the plan first.
+
 ## Remembering between sessions
 
 **What it is.** **Memory** holds short notes that are carried from one session to
@@ -1107,6 +1145,7 @@ lists them so you can delete what you no longer want.
 | `/worktree exit [--keep\|--remove]` | Leave the worktree |
 | `/worktree prune` | Remove clean worktrees older than seven days |
 | `/rewind` | Open the rewind timeline |
+| `/review` | Review the latest turn's changes and revert a file or all of them |
 | `/memory` | Open the note picker |
 | `/memory list`, `path`, `edit`, `reload`, `doctor`, `clear` | Memory subcommands |
 | `/browse` | Start the read-only file browser |

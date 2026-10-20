@@ -24,6 +24,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   every extension, plus settings, WeChat, and the terminal chrome, each with a
   plain-language overview and a numbered walkthrough of keys and commands.
 
+- `rewind`: `/review` opens the latest prompt's snapshot diff as a changed-file
+  list with `M`/`A`/`D` marks and line counts, shows a scrollable per-file patch,
+  and reverts one file or the whole turn through the existing safety snapshot.
+  The actions are TUI-only; other modes print the changed-path list, and plan
+  mode refuses until the plan is approved.
+
 ### Changed
 
 - `file-browse`: a rendered Markdown page fills the card instead of being the

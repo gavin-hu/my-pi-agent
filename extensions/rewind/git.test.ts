@@ -6,6 +6,8 @@ import { join } from "node:path";
 import {
 	busyGitState,
 	currentBranch,
+	diffNumStat,
+	diffPatch,
 	diffStat,
 	gitDir,
 	nameStatus,
@@ -73,6 +75,32 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 			{ path: "new.txt", change: "added" },
 		]);
 		expect(await diffStat(runGit, repo, before, current, ["new.txt"])).not.toContain("README.md");
+
+		await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
+		await runGit(["clean", "-fdq"], { cwd: repo });
+	});
+
+	test("diffPatch and diffNumStat describe the same tree diff", async () => {
+		const before = (await revParse(runGit, repo, "HEAD^{tree}")) as string;
+		writeFileSync(join(repo, "README.md"), "changed\n");
+		writeFileSync(join(repo, "new.txt"), "new\n");
+		writeFileSync(join(repo, "binary.bin"), "\u0000\u0001\u0002");
+		writeFileSync(join(repo, "weird[1].txt"), "literal\n");
+		const current = await treeFromWorkingTree(runGit, repo, indexFileFor(repo, "patch"), true);
+
+		const stats = await diffNumStat(runGit, repo, before, current);
+		expect(stats.get("README.md")).toEqual({ added: 1, removed: 1 });
+		expect(stats.get("new.txt")).toEqual({ added: 1, removed: 0 });
+		expect(stats.get("binary.bin")).toEqual({ added: null, removed: null });
+
+		const patch = await diffPatch(runGit, repo, before, current, ["README.md"]);
+		expect(patch).toContain("diff --git a/README.md b/README.md");
+		expect(patch).toContain("+changed");
+		expect(patch).not.toContain("new.txt");
+
+		const literal = await diffPatch(runGit, repo, before, current, ["weird[1].txt"]);
+		expect(literal).toContain("weird[1].txt");
+		expect(literal).toContain("+literal");
 
 		await runGit(["reset", "--hard", "-q", "HEAD"], { cwd: repo });
 		await runGit(["clean", "-fdq"], { cwd: repo });

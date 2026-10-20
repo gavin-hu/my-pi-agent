@@ -52,6 +52,8 @@ export interface RestorePlan {
 	removed: number;
 	/** Every changed path, with how the restore treats it. */
 	paths: ChangedPath[];
+	/** Tree id of the staged working tree the comparison used. */
+	currentTree: string;
 }
 
 export type PlanResult = { ok: true; plan: RestorePlan } | { ok: false; reason: string };
@@ -65,7 +67,7 @@ export async function planRestore(deps: RestoreDeps, input: RestoreInput): Promi
 	const cur = await stagedTree(deps, input);
 	const paths = await changedPaths(deps, input, cur);
 	const diff = await diffStat(deps.runGit, input.root, input.target.commit, cur, selectionOf(paths));
-	return { ok: true, plan: { diff, ...summarize(paths), paths } };
+	return { ok: true, plan: { diff, ...summarize(paths), paths, currentTree: cur } };
 }
 
 /** The selection narrowed to paths the plan actually found, or undefined for all. */
