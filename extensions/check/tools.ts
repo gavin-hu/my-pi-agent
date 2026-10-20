@@ -5,13 +5,30 @@
  * should fix it), and an error result only when the check could not run at all.
  * The structured content is the machine-readable mirror of the text; the tail is
  * extra detail for the transcript and is deliberately not in that contract.
+ *
+ * A run can take minutes and can print nothing for long stretches, so `execute`
+ * publishes one partial result as soon as the runtime starts. The renderer turns
+ * that into a running line and repaints its elapsed time once a second instead
+ * of waiting for the first chunk.
  */
 
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
+import { sanitizeLine } from "../../lib/format.ts";
+import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import {
+	elapsedSuffix,
+	errorLine,
+	rejectionLine,
+	reuseCallText,
+	syncElapsedTimer,
+	toolCallTitle,
+} from "../../lib/tui/tool.ts";
+import { paint } from "../../lib/tui/tokens.ts";
 import { formatCheckReport } from "./format.ts";
-import type { CheckRuntime } from "./runtime.ts";
-import type { RunCheckDetails } from "./types.ts";
+import { CheckResultBlock } from "./render.ts";
+import { errorResult, type CheckRuntime } from "./runtime.ts";
+import type { ActiveCheck, CheckResult, RunCheckDetails } from "./types.ts";
 
 /** The tool's registered name, shared with the naming guard. */
 export const TOOL_NAME = "run_check";
@@ -54,6 +71,39 @@ export const RunCheckOutput = Type.Object({
 
 export type RunCheckStructured = Static<typeof RunCheckOutput>;
 
+/** One settled run as Pi stores it: model text, transcript details, structured mirror. */
+function resultPayload(result: CheckResult) {
+	const details: RunCheckDetails = { ...result };
+	const structured: RunCheckStructured = {
+		target: result.target,
+		status: result.status,
+		commands: result.commands,
+		exitCode: result.exitCode,
+		durationMs: result.durationMs,
+		truncated: result.truncated,
+		failures: result.failures,
+	};
+	return {
+		content: [{ type: "text" as const, text: formatCheckReport(result) }],
+		details,
+		structuredContent: structured,
+		isError: result.status === "error",
+	};
+}
+
+/** The partial result's details: no failures yet, and the commands now running. */
+function runningDetails(active: ActiveCheck): RunCheckDetails {
+	return {
+		target: active.target,
+		status: "running",
+		commands: [...active.commands],
+		exitCode: null,
+		durationMs: active.elapsedMs(),
+		truncated: false,
+		failures: [],
+	};
+}
+
 export function registerCheckTool(pi: ExtensionAPI, runtime: CheckRuntime): void {
 	pi.registerTool({
 		name: TOOL_NAME,
@@ -73,25 +123,51 @@ export function registerCheckTool(pi: ExtensionAPI, runtime: CheckRuntime): void
 		executionMode: "sequential",
 		annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
 
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx: ExtensionToolContext) {
-			const target = (params as RunCheckArgs).target ?? "all";
-			const result = await runtime.run(target, ctx);
-			const details: RunCheckDetails = { ...result };
-			const structured: RunCheckStructured = {
-				target: result.target,
-				status: result.status,
-				commands: result.commands,
-				exitCode: result.exitCode,
-				durationMs: result.durationMs,
-				truncated: result.truncated,
-				failures: result.failures,
-			};
-			return {
-				content: [{ type: "text", text: formatCheckReport(result) }],
-				details,
-				structuredContent: structured,
-				isError: result.status === "error",
-			};
+		async execute(_toolCallId, params, _signal, onUpdate, ctx: ExtensionToolContext) {
+			const target = params.target ?? "all";
+			let active: ActiveCheck;
+			try {
+				active = runtime.start(target, ctx);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return resultPayload(errorResult(target, message));
+			}
+			onUpdate?.({ content: [], details: runningDetails(active) });
+			return resultPayload(await active.promise);
+		},
+
+		renderCall(args, theme, context) {
+			const subject = context.argsComplete ? (args.target ?? "all") : "…";
+			const text = reuseCallText(context.lastComponent, "", "middle");
+			text.setText(toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "meta", sanitizeLine(subject)));
+			return text;
+		},
+
+		renderResult(result, options, theme, context) {
+			const details = toolDetails<RunCheckDetails>(result.details);
+			const startedAt = syncElapsedTimer(options.isPartial, context);
+			if (!details) {
+				const text = reuseText(context.lastComponent);
+				text.setText(rejectionLine(theme, result, options.expanded));
+				return text;
+			}
+			if (details.status === "running") {
+				const text = reuseText(context.lastComponent);
+				const commands = details.commands.length > 0 ? sanitizeLine(details.commands.join(", ")) : "checks";
+				const elapsed = startedAt === undefined ? "" : elapsedSuffix(theme, Date.now() - startedAt);
+				text.setText(paint(theme, "info", `Running ${commands}…`) + elapsed);
+				return text;
+			}
+			if (details.status === "error") {
+				const text = reuseText(context.lastComponent);
+				text.setText(errorLine(theme, details.error ?? "the check could not run"));
+				return text;
+			}
+			const input = { details, expanded: options.expanded };
+			const view =
+				context.lastComponent instanceof CheckResultBlock ? context.lastComponent : new CheckResultBlock(input, theme);
+			view.setInput(input, theme);
+			return view;
 		},
 	});
 }

@@ -71,7 +71,8 @@ export interface CheckResult {
 /** The model-facing details and structuredContent mirror. */
 export interface RunCheckDetails {
 	target: CheckTarget;
-	status: CheckStatus;
+	/** A terminal state, or "running" for the partial result the host replaces. */
+	status: CheckStatus | "running";
 	commands: string[];
 	exitCode: number | null;
 	durationMs: number;
@@ -79,6 +80,8 @@ export interface RunCheckDetails {
 	failures: Failure[];
 	/** Extra detail for the transcript renderer; not in structuredContent. */
 	tail?: string;
+	/** Set when the run could not start or a command failed to spawn. */
+	error?: string;
 }
 
 /** A run that can be observed while it is still active. */

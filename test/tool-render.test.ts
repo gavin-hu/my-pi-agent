@@ -14,6 +14,7 @@ import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ToolCallText } from "../lib/tui/tool.ts";
 import bytefly from "../extensions/bytefly/index.ts";
+import check from "../extensions/check/index.ts";
 import document from "../extensions/document/index.ts";
 import goal from "../extensions/goal/index.ts";
 import jobs from "../extensions/job/index.ts";
@@ -30,6 +31,7 @@ import { createFakePi, fakeTheme } from "./helpers/fakes.ts";
 /** Every extension that registers a tool with a renderer, as the gallery does. */
 const EXTENSIONS: Array<(pi: any) => void> = [
 	bytefly,
+	check,
 	document,
 	goal,
 	jobs,
