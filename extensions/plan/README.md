@@ -39,9 +39,11 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 - **Model entry point.** The model can call `enter_plan_mode` to ask for plan
   mode before a non-trivial task; the user confirms.
 - **AGENTS.md bootstrap.** `/init` enters plan mode and starts the packaged `init`
-  skill. The skill inspects the repository, creates or updates `AGENTS.md`,
-  gates the draft through a quality checklist, and writes only after plan
-  approval. It handles an empty repository without inventing commands.
+  skill. The skill reconnoiters the repository, runs one built-in interview of at
+  most four questions, creates or updates `AGENTS.md`, gates the draft through a
+  quality checklist, and writes only after plan approval. It supports existing and
+  empty repositories, and falls back to evidence with recorded assumptions when
+  the interview is unavailable or cancelled; it never invents commands.
 - **Plan files.** The model saves the plan with `write_plan`; the file lands in
   `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` (or `<agent-dir>/plans`
   outside a repository). The plans directory is self-ignoring, so plan files
@@ -166,11 +168,11 @@ what to do. Its workflow is:
 ```text
 /init
   └─> plan mode (read-only)
-        └─> inspect the repository
-              ├─ no AGENTS.md
-              │    ├─ empty or near-empty repo ──> honest minimal file
-              │    └─ real project ──────────────> draft from repository evidence
-              └─ AGENTS.md exists ───────────────> review it, then draft exact edits
+        └─> recon: manifests, docs, CI, tests, existing instructions
+        └─> interview: built-in bank, one call of at most 4 questions
+              ├─ answered ───────────────> reconcile with evidence
+              └─ unavailable/cancelled ──> evidence + assumptions
+        └─> draft: new file, exact edits, or an honest no-op
         └─> quality gate
         └─> write_plan ──> exit_plan_mode
                              ├─ not approved ──> refine the same plan
@@ -178,7 +180,17 @@ what to do. Its workflow is:
                                                  └─ read back + quality checklist
 ```
 
-The skill's quality reference is
+The interview comes from a built-in bank in
+[`skills/init/references/interview-questions.md`](../../skills/init/references/interview-questions.md):
+core questions cover purpose, verification, non-obvious rules, isolation,
+completion, sensitive paths, and dependency or network limits, with state-specific
+entries for an existing file, an empty repository, and related instruction files.
+The first call uses a deterministic four-question set for the repository state;
+a second call is allowed only for a material ambiguity. If the tool is inactive,
+there is no UI, or the user cancels, the skill records the gaps as assumptions
+and continues from repository evidence.
+
+The quality reference is
 [`skills/init/references/agents-md-quality.md`](../../skills/init/references/agents-md-quality.md).
 An existing `AGENTS.md` is reviewed and updated only after approval, an accurate
 file can produce a no-op plan, and an empty repository gets only known facts.

@@ -15,11 +15,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   read-only; after a choice it hands off to a contract, a baseline, small
   verified steps, and the full check.
 
-- `plan`: `/init` enters plan mode and starts the packaged `init` skill, which
-  creates or updates `AGENTS.md` from repository evidence. The skill reviews an
-  existing file instead of replacing it, gates the draft through a quality
-  checklist, and writes only after the plan is approved; an empty repository gets
-  only known facts.
+- `plan`: `/init` enters plan mode and starts the redesigned packaged `init`
+  skill. It reconnoiters the repository, asks one built-in interview of at most
+  four questions (purpose, verification, rules, isolation, completion, sensitive
+  paths, and dependency or network limits, plus state-specific prompts), and turns
+  the answers and evidence into a draft or exact edits. Existing and empty
+  repositories are both supported; an unavailable or cancelled interview falls
+  back to evidence with recorded assumptions. The skill reviews an existing file
+  instead of replacing it, gates the draft through a quality checklist, and writes
+  only after the plan is approved.
 
 ### Changed
 
