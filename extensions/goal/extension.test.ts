@@ -599,6 +599,30 @@ describe("/goal command", () => {
 		});
 	});
 
+	test("names the todo items still open when /goal done completes the goal", async () => {
+		const { command, ctx, notifications } = await started([
+			resultEntry(active("ship it")),
+			{
+				type: "message",
+				message: {
+					role: "toolResult",
+					toolName: "todo",
+					details: {
+						todos: [
+							{ content: "Close the docs", status: "completed" },
+							{ content: "Ship the parser", status: "in_progress" },
+						],
+						action: "write",
+					},
+				},
+			},
+		]);
+		await command.handler("done", ctx);
+		expect(notifications.at(-1)).toBe(
+			"Goal achieved: ship it\n1 todo item is still open; close or clear the list if that work is done.",
+		);
+	});
+
 	test("marking an already achieved goal done again is a no-op", async () => {
 		const { command, ctx, notifications, entries } = await started([resultEntry(achieved("ship it"))]);
 		await command.handler("done", ctx);

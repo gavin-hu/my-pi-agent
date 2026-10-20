@@ -52,6 +52,19 @@ export function goalObjective(goal: Goal, theme: Theme): string {
 }
 
 /**
+ * One sentence about a todo list that still holds open items, or `undefined`
+ * when nothing is open.
+ *
+ * Shared by the tool result and `/goal done`'s notice, so completing the *what*
+ * points at the *how* the same way on both paths.
+ */
+function openTodoNote(openTodos: number): string | undefined {
+	if (openTodos <= 0) return undefined;
+	const items = openTodos === 1 ? "1 todo item is" : `${openTodos} todo items are`;
+	return `${items} still open; close or clear the list if that work is done.`;
+}
+
+/**
  * Model-facing result text. `openTodos` counts the todo items the branch still
  * has open, so marking a goal achieved can point at work the list still holds.
  */
@@ -59,9 +72,8 @@ export function formatGoalText(goal: Goal | null, openTodos = 0): string {
 	if (goal === null) return "Goal cleared.";
 	if (goal.status === "achieved") {
 		const text = `Goal achieved: ${goal.objective}`;
-		if (openTodos <= 0) return text;
-		const items = openTodos === 1 ? "1 todo item is" : `${openTodos} todo items are`;
-		return `${text}\n${items} still open; close or clear the list if that work is done.`;
+		const note = openTodoNote(openTodos);
+		return note === undefined ? text : `${text}\n${note}`;
 	}
 	return `Goal: ${goal.objective}\nKeep this objective in mind as you work, and mark it achieved with the goal tool when it is done.`;
 }

@@ -3,10 +3,11 @@
  *
  * `/goal <prompt>` runs the understanding loop: the model restates the goal as
  * it understands it, the command asks any questions the model needs answered,
- * the model folds the answers into the final restatement, and the user confirms
- * or corrects it before the goal is recorded and the run starts. Because the
- * command does not produce a tool result, every goal it sets is persisted as a
- * `goal` custom entry (`pi.appendEntry`) so it follows the session branch.
+ * and the user confirms or corrects the restatement — folding an answer into it
+ * where the model's questions left a gap — before the goal is recorded and the
+ * run starts. Because the command does not produce a tool result, every goal it
+ * sets is persisted as a `goal` custom entry (`pi.appendEntry`) so it follows
+ * the session branch.
  *
  * `/goal raw <prompt>` skips the loop and records the typed words verbatim.
  * `/goal set [<prompt>]` and `/goal edit [<prompt>]` run the loop but record
@@ -15,9 +16,10 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { prepareGoalPrompt } from "./clarify.ts";
-import { formatGoalNotice, GOAL_HELP } from "./format.ts";
+import { formatGoalNotice, formatGoalText, GOAL_HELP } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { normalizeGoal } from "./schema.ts";
+import { openTodoCount } from "./state.ts";
 import { GOAL_ENTRY_TYPE, type Goal } from "./types.ts";
 
 /** Title of the record-only edit dialog, spelling out both exits. */
@@ -96,7 +98,10 @@ export function parseGoalCommand(input: string): GoalCommand {
 export function completeGoalArg(prefix: string): Array<{ value: string; label: string }> | null {
 	const text = prefix.trimStart();
 	if (text.includes(" ")) return null;
-	const items = GOAL_COMPLETIONS.filter((item) => item.label.startsWith(text));
+	// The parser lowercases the first word, so a completion must too: `/goal S`
+	// has to offer `set` rather than nothing.
+	const lower = text.toLowerCase();
+	const items = GOAL_COMPLETIONS.filter((item) => item.label.startsWith(lower));
 	return items.length > 0 ? items : null;
 }
 
@@ -143,7 +148,9 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				const achieved: Goal = { objective: current.objective, status: "achieved" };
 				runtime.setGoal(achieved, ctx);
 				persist(achieved);
-				ctx.ui.notify(`Goal achieved: ${current.objective}`, "info");
+				// The same text the tool returns, so completing the *what* points at the
+				// list's open *how* on both paths.
+				ctx.ui.notify(formatGoalText(achieved, openTodoCount(ctx.sessionManager.getBranch())), "info");
 				return;
 			}
 

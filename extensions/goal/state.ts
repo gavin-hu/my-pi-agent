@@ -6,9 +6,12 @@
  * a branch in order and returns the last valid goal, so navigating or branching
  * the session reproduces the goal that was correct at that point. Stored values
  * are re-validated and re-sanitized so corrupt or tampered branch data cannot
- * inject escapes or wipe the goal.
+ * inject escapes or wipe the goal. {@link openTodoCount} is the other
+ * branch-derived fact: the *how* both completion paths check before closing the
+ * *what*.
  */
 
+import { lastTodos } from "../../lib/todo-state.ts";
 import { normalizeStoredGoal } from "./schema.ts";
 import { GOAL_ENTRY_TYPE, type Goal, type GoalDetails } from "./types.ts";
 
@@ -66,4 +69,16 @@ export function reconstructGoal(entries: Iterable<unknown>): Goal | null {
 /** True when the goal exists and is still being pursued. */
 export function isActiveGoal(goal: Goal | null): goal is Goal {
 	return goal?.status === "active";
+}
+
+/**
+ * How many items the branch's todo list still has open.
+ *
+ * `todo` is the *how* to the goal's *what*, so both paths that complete a goal
+ * — the tool and `/goal done` — consult this count before closing the *what*
+ * over an unfinished list. The list is replayed from the branch
+ * (`lib/todo-state.ts`), never by importing the todo extension.
+ */
+export function openTodoCount(entries: Iterable<unknown>): number {
+	return lastTodos(entries).filter((todo) => todo.status !== "completed").length;
 }

@@ -80,8 +80,9 @@ or edit) and starts the run; `/goal raw` records the typed words verbatim,
 `/goal set`/`edit` record without running, and `/goal done`/`clear` change state
 only. Tool-set goals live in tool-result `details` and command-set goals as a
 session entry, so either survives `/resume` and `/tree`. Marking a goal achieved
-while the todo list still has open items names the count in the result, so the
-model closes the *how* before it calls the *what* done.
+while the todo list still has open items names the count in the result, and
+`/goal done` says the same in its notice, so the model closes the *how* before it
+calls the *what* done.
 
 Tool: `goal`. Command: `/goal`.
 

@@ -23,9 +23,9 @@ How the `goal` call and its result look in the transcript — the call line as a
 - Tracks `status`: `active` while the goal is being pursued, `achieved` when it
   is done. Achieving it while the branch's todo list still has open items names
   the count in the result (`1 todo item is still open…`), so the model closes the
-  *how* instead of declaring the *what* done over an unfinished list. The count
-  is read from the branch through `lib/todo-state.ts`; the structured result is
-  unchanged.
+  *how* instead of declaring the *what* done over an unfinished list; `/goal done`
+  appends the same sentence to its notice. The count is read from the branch
+  through `lib/todo-state.ts`; the structured result is unchanged.
 - Shows a persistent one-line rail above the editor whenever a goal exists,
   label-first to match the [`todo`](../todo/) widget, pinned at the top of the
   `Goal / Todos` stack when both are loaded:
@@ -87,10 +87,11 @@ to one logical line and stops model text from injecting terminal sequences.
 
 A successful `status: "achieved"` call also appends one line to the model-facing
 text when the branch's todo list still has open items — `3 todo items are still
-open; close or clear the list if that work is done.` The list is replayed from
-the branch, so the note appears whether the todos were written by the model, by
-`/todos`, or by an approved plan. It is text only: `details`,
-`structuredContent`, and the transcript header are unaffected.
+open; close or clear the list if that work is done.` `/goal done` shows the same
+text in its notice. The list is replayed from the branch, so the note appears
+whether the todos were written by the model, by `/todos`, or by an approved
+plan. It is text only: `details`, `structuredContent`, and the transcript header
+are unaffected.
 
 `goal` is allowlisted in `plan-mode` (alongside `todo`), so the model can record
 or update the objective during read-only exploration without leaving plan mode.
@@ -111,7 +112,7 @@ entry; `reconstructGoal` replays both entry kinds in branch order.
 | `/goal raw <prompt>` | Skip the loop: record the typed words verbatim and start the run. |
 | `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. An explicit `set`/`edit <text>` replaces an active goal without asking, since the command already says so. |
 | `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
-| `/goal done` (or `/goal achieved`) | Mark the current goal achieved (idempotent). |
+| `/goal done` (or `/goal achieved`) | Mark the current goal achieved (idempotent), naming the todo items the list still has open. |
 | `/goal clear` | Clear the goal. |
 | `/goal help` (or `-h` / `--help`) | Show the command usage. |
 
@@ -236,9 +237,11 @@ depends on config.
   restores the dimmed widget line; config only affects presentation.
 - **Completing the *what* checks the *how*.** Marking a goal achieved while the
   todo list still holds open items appends one line to the model-facing result
-  naming the count. The list is replayed from the branch by
-  `lib/todo-state.ts` (shared with plan's approval-time merge, which reads the
-  same channel), never by importing the `todo` extension. The same reasoning
+  naming the count, and `/goal done` puts the same sentence in its notice, so
+  neither path can close the *what* silently over an unfinished list. The list is
+  replayed from the branch by `lib/todo-state.ts` (shared with plan's
+  approval-time merge, which reads the same channel), never by importing the
+  `todo` extension. The same reasoning
   applies to the goal itself: `lib/goal-state.ts` owns the entry type and the
   objective limit, and plan reads the published goal through it. Only the text is
   affected: `details` and `structuredContent` stay the goal alone, and the

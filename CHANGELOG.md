@@ -32,6 +32,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `goal`: `/goal done` names the todo items the list still has open, in the same
+  words the tool's result uses, so completing the *what* from the command cannot
+  silently leave the *how* unfinished.
+
+- `goal`: `/goal` argument completions match any case, as the parser already
+  did, so `/goal S` offers `set` instead of nothing.
+
 - `goal`: the `/goal <prompt>` confirm step no longer records its answer notes
   into the objective. The `Also: <question> → <answer>` lines sit below a
   `--- notes (not saved) ---` sentinel that is cut on save, so the default Enter

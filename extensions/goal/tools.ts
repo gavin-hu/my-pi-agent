@@ -11,7 +11,6 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
-import { lastTodos } from "../../lib/todo-state.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -19,6 +18,7 @@ import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { formatCallText, formatGoalText } from "./format.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { GoalParams, GoalResult, normalizeGoal, type GoalArgs } from "./schema.ts";
+import { openTodoCount } from "./state.ts";
 import { GoalHeader } from "./tui.ts";
 import type { GoalAction, GoalDetails } from "./types.ts";
 
@@ -44,17 +44,6 @@ function toStructuredContent(details: GoalDetails): Record<string, JsonValue> {
 	};
 	if (details.error !== undefined) content.error = details.error;
 	return content;
-}
-
-/**
- * How many items the branch's todo list still has open.
- *
- * `todo` is the *how* to the goal's *what*, so completing one while the other
- * still holds work is worth saying out loud. The list is read from the branch
- * (`lib/todo-state.ts`), so no todo module is imported.
- */
-function openTodoCount(entries: Iterable<unknown>): number {
-	return lastTodos(entries).filter((todo) => todo.status !== "completed").length;
 }
 
 /**
