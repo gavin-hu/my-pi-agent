@@ -1,5 +1,5 @@
 /**
- * Contract guard for `docs/references/bytefly-config.md`.
+ * Contract guard for `docs/configuration.md`.
  *
  * The page replaced `assets/bytefly.schema.json`, so it is now the list a hand
  * edit is checked against. This test pins every section to the defaults its
@@ -35,8 +35,9 @@ import { DEFAULT_SEARCH_CONFIG } from "../extensions/web-access/search/config.ts
 import { DEFAULT_CONFIG as DEFAULT_WORKTREE_CONFIG } from "../extensions/worktree/config.ts";
 
 const docs = join(import.meta.dir, "..", "docs");
-const reference = readFileSync(join(docs, "references", "bytefly-config.md"), "utf-8");
 const configuration = readFileSync(join(docs, "configuration.md"), "utf-8");
+/** The same page carries the key tables and the section index. */
+const reference = configuration;
 
 /** The reference's top-level headings, in order. */
 const headings = reference
@@ -99,7 +100,7 @@ function keyPaths(value: unknown, prefix = ""): Array<[path: string, value: unkn
 function documentedRows(section: string): Map<string, unknown> {
 	const lines = reference.split("\n");
 	const start = lines.findIndex((line) => line.startsWith(`## \`${section}\``));
-	if (start === -1) throw new Error(`No \`## ${section}\` section in bytefly-config.md`);
+	if (start === -1) throw new Error(`No \`## ${section}\` section in configuration.md`);
 	const rows = new Map<string, unknown>();
 	for (const line of lines.slice(start + 1)) {
 		if (line.startsWith("## ")) break;

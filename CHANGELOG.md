@@ -19,6 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: the configuration page absorbs the key reference. It opens with the two
+  scopes and the merge order, the settings screen, and a "what people usually
+  change" table, then carries every section and key the loaders accept with their
+  defaults. `docs/references/bytefly-config.md` is gone, and
+  `test/config-docs.test.ts` reads the one page.
+
 - docs: the user guide teaches the keys that interrupt, clear, expand, and leave
   (`Esc`, `Ctrl+C`, `Ctrl+O`, `Ctrl+D`), names the `/bytefly settings` rows instead
   of raw config keys, states that only DeepSeek's rates are built in, and covers an
@@ -562,8 +568,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path or package entry beside it) so the row returns to its inherited state
   without a `pi config` round-trip.
 - `bytefly`: `bytefly.json` is documented in
-  [`docs/references/bytefly-config.md`](./docs/references/bytefly-config.md),
-  one table per section with each key's type, default, and bounds. It replaces
+  `docs/references/bytefly-config.md`, one table per section with each key's type, default, and bounds. It replaces
   `assets/bytefly.schema.json`, so editor completion for the file goes with it —
   delete a `$schema` line that points at that URL — and `config:migrate` no
   longer stamps `$schema`.

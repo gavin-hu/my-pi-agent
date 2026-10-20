@@ -389,7 +389,7 @@ summarises progress.
 
 3. When the assistant finishes the work, completed items are ticked and the
    widget hides once everything is done. To keep it visible even then, the
-   [configuration reference](./references/bytefly-config.md) has the switch.
+   [`todo` section](./configuration.md#todo--the-todo-widget) has the switch.
 
 **Walkthrough (goal).**
 
@@ -638,8 +638,8 @@ This feature needs `git` installed and a project folder that git tracks.
   `.env`) to copy into each new worktree. Without one, the configuration
   reference can list the same files.
 - By default a worktree starts from the newest remote version of the main branch;
-  a setting in the configuration reference starts it from your current local
-  commit instead.
+  a setting on the configuration page starts it from your current local commit
+  instead.
 - On Windows the PowerShell tool is refused while you are inside a worktree,
   because it cannot be pointed at the isolated folder.
 
@@ -788,7 +788,8 @@ no key and no account, and can be pointed at a different provider if you prefer.
 - PDF reading is optional; if the PDF reader is not installed the reply says so
   instead of failing silently.
 - To use a self-hosted search service or a Brave API key, the
-  [configuration reference](./references/bytefly-config.md) has the keys. The
+  [`web-access` section](./configuration.md#web-access--search-and-fetch) has
+  the keys. The
   default stays keyless until a provider is both named and configured.
 
 ## Documents and files
@@ -854,8 +855,8 @@ outside it is refused.
 - The browser is read-only: it cannot edit, save, or delete anything.
 - It listens only on your own machine (`127.0.0.1`), never on your network.
   [Security](./security.md) explains the boundary in full.
-- The port is chosen once per session; the configuration reference can pin a
-  specific one. A pinned port that is already in use is reported, not silently
+- The port is chosen once per session; the configuration page can pin a specific
+  one. A pinned port that is already in use is reported, not silently
   replaced.
 
 ### Opening a file in its usual application
@@ -1149,8 +1150,7 @@ no longer need it.
   and theme, grouped, with the exact tool and command names.
 - Each extension's own README, linked from that catalog, has the exhaustive
   detail: its full tool surface, how it integrates with Pi, and its design notes.
-- [Configuration](./configuration.md) — where settings live, and every section.
-- [Configuration reference](./references/bytefly-config.md) — every setting, with
-  its type, default, and limits.
+- [Configuration](./configuration.md) — where settings live, every section, and
+  every key with its type, default, and limits.
 - [Security](./security.md) — what the local web pages, the shell, and the WeChat
   bridge can and cannot reach.

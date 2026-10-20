@@ -169,10 +169,10 @@ one image per tool under [`assets/tools/`](./assets/tools).
 Most extensions need no configuration. Every setting lives in one shared
 document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and merged with
 `<cwd>/.pi/bytefly.json` (project wins), under a top-level section named for the
-extension. Each extension's `README.md` covers the behaviour around its keys,
-[`docs/configuration.md`](./docs/configuration.md) indexes the sections, and
-[`docs/references/bytefly-config.md`](./docs/references/bytefly-config.md) lists
-every key with its type, default, and bounds.
+extension. Each extension's `README.md` covers the behaviour around its keys, and
+[`docs/configuration.md`](./docs/configuration.md) has the resolution rules, the
+settings screen walkthrough, and every section's keys with their type, default,
+and bounds.
 
 Every extension is on by default. To load the pack without some of them, set
 `PI_DISABLED_EXTENSIONS` to a comma- or whitespace-separated list of extension
@@ -191,8 +191,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | Guide | What it covers |
 |---|---|
 | [User guide](./docs/user-guide.md) | Every feature in plain language, with step-by-step walkthroughs, keys, and commands. |
-| [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
-| [Configuration reference](./docs/references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
+| [Configuration](./docs/configuration.md) | Resolution, the settings screen, and every `bytefly.json` key with its default and bounds. |
 | [Architecture](./docs/architecture.md) | The load path, runtime model, state, process shapes, and where new code belongs. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |

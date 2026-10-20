@@ -270,8 +270,8 @@ One doc per audience. Do not duplicate across them:
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants rather than restating them.
 - `docs/` — repo-level guides: `user-guide` (every feature for an end user),
-  `configuration`, `architecture`, `development`, `security`, and `references/`
-  for exhaustive listings a hand edit is checked against. The catalog lives in
+  `configuration` (resolution, the settings screen, and every key with its
+  default), `architecture`, `development`, and `security`. The catalog lives in
   `README.md`.
 - `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
   its ids, links, citations, and bucket caps, and shipping an item means

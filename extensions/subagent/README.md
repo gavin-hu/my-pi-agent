@@ -96,7 +96,7 @@ at most 8 steps (like the parallel task cap).
 
 Read from the shared `bytefly.json` section `subagent` (global then project),
 once per session. Keys and bounds live in the
-[configuration reference](../../docs/references/bytefly-config.md#subagent--delegated-runs);
+[configuration page](../../docs/configuration.md#subagent--delegated-runs);
 the behaviour is here.
 
 - **`timeoutMs`** (default ten minutes, `0` disables) bounds one child run. The
