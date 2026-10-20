@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-20
+
 ### Added
 
 - `bytefly`: the Settings screen now has a **Theme** row that lists `system`
@@ -2255,7 +2257,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.15.0
 [0.14.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.14.0
 [0.13.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.13.1
 [0.13.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.13.0
