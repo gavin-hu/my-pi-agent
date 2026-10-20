@@ -158,8 +158,10 @@ interface RowBadge {
  * The row's badge. Settings is the enablement axis the checkbox already shows,
  * so an off extension gets one verdict (`off`) instead of a health word that
  * contradicts it. `PI_DISABLED_EXTENSIONS` is a different axis, so it is named
- * rather than sharing the word: `env disabled`. A row without a report leaves
- * the glyph and the word blank instead of claiming `ok`.
+ * rather than sharing the word: `env disabled`. The glyph marks what needs
+ * attention — a warning, a miss, a disable — so a row with nothing to report
+ * carries no glyph at all, and the column reads as one shape instead of a
+ * checkmark that comes and goes.
  */
 export function rowBadge(row: PanelRow): RowBadge {
 	if (row.item && !row.item.enabled) return { glyph: GLYPHS.disabled, role: "faint", text: "off" };
@@ -167,6 +169,7 @@ export function rowBadge(row: PanelRow): RowBadge {
 	if (!report) return { role: "faint" };
 	if (!report.enabled) return { glyph: GLYPHS.disabled, role: "faint", text: "env disabled" };
 	const severity = reportSeverity(report);
+	if (severity === "ok") return { role: "faint", text: reportSummary(report) };
 	return { glyph: severityGlyphChar(severity), role: severityRole(severity), text: reportSummary(report) };
 }
 

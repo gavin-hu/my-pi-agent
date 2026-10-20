@@ -588,7 +588,7 @@ when the row is switched off in settings, `env disabled` when
 glyph and summary. The screen is drawn from the design system: a label-first
 `bytefly ────` title rule,
 the `Extensions · Settings` section bar beside the section's counts, one row
-grammar (`❯ ◼ ✓ name … summary`), and the shared `◼` / `◻` checkbox.
+grammar (`❯ ◼ name … summary`), and the shared `◼` / `◻` checkbox.
 `/bytefly doctor [extension] [refresh]` selects the doctor report, the same text
 the `run_doctor` tool returns; in `tui` it opens the same screen. `[extension]`
 narrows the Extensions section to one extension and `refresh` forces the first
@@ -612,12 +612,13 @@ installs or fetches a package.
   manages the list is never a selectable row; its doctor report still appears in
   the trailing `Not resolved` group.
 - Shows whether each one is enabled (`◼`) or disabled (`◻`) in settings.
-- Gives each row one verdict from the doctor's report: the worst severity (`✓`
-  ok, `!` degraded, `✕` missing) and its summary. A row that is `◻` reads `off`
-  instead, because it will not load; a row the session's
+- Gives each row one verdict from the doctor's report: the worst severity's
+  glyph (`!` degraded, `✕` missing) and its summary. A row that is `◻` reads
+  `off` instead, because it will not load; a row the session's
   `PI_DISABLED_EXTENSIONS` excludes reads `env disabled`, so the two axes cannot
-  contradict each other. An extension with no doctor report leaves the glyph
-  column and the summary blank rather than claiming `ok`.
+  contradict each other. The glyph marks what needs attention, so a row with
+  nothing to report — a clean report or none at all — leaves the glyph column
+  blank and says `ok` in words when a report exists.
 - Toggles the focused extension with `Space`, writing `+pattern` / `-pattern`
   into `extensions` (and package filter objects) in the active scope. A row in
   the trailing `Not resolved` group has no pattern to write, so `Space` says so

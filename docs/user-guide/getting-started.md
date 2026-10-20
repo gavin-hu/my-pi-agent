@@ -109,9 +109,10 @@ your normal Pi configuration is unchanged when you quit.
    extension, an enable checkbox, and a health verdict. Rows from this pack carry
    their extension names; Pi's built-in extensions may appear too.
 
-3. Read the verdicts. `✓` means ready, `!` means the feature works with less than
-   it could, and `✕` means something is missing. Focus a row and press `Enter` to
-   expand its findings.
+3. Read the verdicts. A glyph appears only when something needs attention: `!`
+   means the feature works with less than it could, and `✕` means something is
+   missing. A row with no glyph is fine; a clean report says `ok` in words.
+   Focus a row and press `Enter` to expand its findings.
 
 4. If you want the same report as text:
 

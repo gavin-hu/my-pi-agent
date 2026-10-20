@@ -182,6 +182,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   below began with the same `r reverts`. `/agents` drops the footnote that
   repeated the focused run's id, status, and elapsed time.
 
+- `bytefly`: the extension list marks only what needs attention. A clean or
+  unprobed row leaves the glyph column blank and says `ok` in words, so `✓` no
+  longer comes and goes between rows that are both fine.
+
 - `file-browse`: a done task-list item draws the theme's success check instead
   of the UA's disabled gray, and an open one a bordered empty box, so both
   states read the same in light and dark.

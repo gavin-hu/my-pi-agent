@@ -132,7 +132,9 @@ describe("formatRow", () => {
 			agentDir: "/agent",
 		}).rows[0];
 		if (!reported) throw new Error("expected a row");
-		expect(formatRow(reported)).toBe(`  ${GLYPHS.check} bytefly — ok`);
+		// Nothing to fix, so no glyph: the column only marks what needs attention.
+		expect(formatRow(reported)).toBe("  bytefly — ok");
+		expect(formatRow(reported)).not.toContain(GLYPHS.check);
 	});
 });
 
