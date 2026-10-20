@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: `DockListScreen` gained four optional members — width-aware facts above
+  the pane, a live pane that re-reads its source each frame, an optional poll
+  source, and a verb that works inside the pane — plus per-rows and per-row hint
+  hooks. `job` and `watch` are unchanged; `/check`'s failure list and the
+  `/agents` board now subclass the base instead of re-assembling the frame.
+
+- `subagent`: the `/agents` detail header names the run as its title with its
+  status and duration beneath, so it reads like the `/jobs` and `/watch` panes.
+
 - `lib`: one shared kit replaces four extensions' private copies — `spawn.ts`
   (spawn, tree-kill, pid liveness), `lines.ts` (a byte-safe line splitter),
   `format.ts`'s `sanitizeUntrustedLine`, `report.ts` (pending result → notice →

@@ -49,6 +49,13 @@ export interface DetailContents {
 	more?: boolean;
 	/** Subtitle under the title, e.g. the log file path. */
 	subtitle?: string;
+	/**
+	 * Rows above the scrollable body that depend on the width: key/value facts,
+	 * a legend, a divider. Read fresh every frame with the live width and already
+	 * painted by the subclass, because the body's lines are built once at open and
+	 * would keep the width they were built at. Counted against the pane's height.
+	 */
+	facts?: (width: number) => string[];
 }
 
 /** What the pane can be refreshed from: the lines for one row id. */
@@ -76,8 +83,14 @@ export interface DockListScreenOptions {
 }
 
 /**
- * One docked list screen. Subclass it and implement the six hooks; the frame,
- * the keys, and the confirm layer are shared.
+ * One docked list screen. Subclass it and implement the vocabulary hooks; the
+ * frame, the keys, the confirm layer, and the pane lifecycle are shared.
+ *
+ * `/jobs`, `/watch`, `/agents`, and `/check` are the subclasses. The optional
+ * members are for a screen that needs more than the basic shape, and default to
+ * the behavior a plain list wants: no pollable pane (`detailById`), a pane whose
+ * lines are fixed at open (`liveDetail`), and no verb inside the pane
+ * (`handleDetailVerb`).
  */
 export abstract class DockListScreen<T> implements Component {
 	/** Focus anchored to a row id; the list is re-sorted from live state each render. */
@@ -87,6 +100,7 @@ export abstract class DockListScreen<T> implements Component {
 	private mode: "list" | "detail" = "list";
 	private readonly confirmState = new ConfirmState();
 	private feedback: string | undefined;
+	private detailFacts: ((width: number) => string[]) | undefined;
 
 	constructor(protected readonly options: DockListScreenOptions) {}
 
@@ -101,13 +115,19 @@ export abstract class DockListScreen<T> implements Component {
 	/** The summary cells, painted by the subclass and joined by the base. */
 	protected abstract summaryCells(rows: readonly T[]): string[];
 	/** Footer hints while listing. */
-	protected abstract listHints(): ScreenHint[];
+	protected abstract listHints(rows: readonly T[]): ScreenHint[];
 	/** Footer hints while reading a detail pane. */
-	protected abstract detailHints(): ScreenHint[];
+	protected abstract detailHints(row: T | undefined): ScreenHint[];
 	/** What to open for `row`, fetched fresh. */
 	protected abstract detailFor(row: T): DetailContents;
-	/** The lines to refresh an already-open pane with. */
-	protected abstract detailById(id: string): DetailSource | undefined;
+	/** The lines to refresh an already-open pane with; omit when nothing polls it. */
+	protected detailById?(id: string): DetailSource | undefined;
+	/** Whether the open pane must re-read its source on every frame. */
+	protected liveDetail(): boolean {
+		return false;
+	}
+	/** A verb inside the open pane; returns whether it consumed the key. */
+	protected handleDetailVerb?(key: string, row: T): boolean;
 	/** A list-mode verb other than navigation, open, and close. */
 	protected abstract handleVerb(key: string, focused: T | undefined): void;
 
@@ -120,6 +140,13 @@ export abstract class DockListScreen<T> implements Component {
 	protected get focused(): T | undefined {
 		const rows = this.rows();
 		return rows[this.cursor.indexOf(rows, (row) => this.idOf(row))];
+	}
+
+	/** The row whose pane is open, while it is still in the list. */
+	protected get detailRow(): T | undefined {
+		const id = this.pane.id;
+		if (!id) return undefined;
+		return this.rows().find((row) => this.idOf(row) === id);
 	}
 
 	/** Ask for a y/N confirmation before `accept` runs. */
@@ -144,6 +171,9 @@ export abstract class DockListScreen<T> implements Component {
 
 	/** Replace the open detail pane's contents. */
 	setDetail(contents: DetailContents): void {
+		// Facts stay with the pane unless this update supplies its own, so a poll that
+		// only refreshes the body cannot drop the facts the row opened with.
+		if (contents.facts) this.detailFacts = contents.facts;
 		const changed =
 			contents.subtitle === undefined
 				? this.pane.update({ title: contents.title, lines: contents.lines, more: contents.more })
@@ -163,7 +193,7 @@ export abstract class DockListScreen<T> implements Component {
 
 	/** Re-read the open detail pane, so a poll cannot show stale lines. */
 	refreshDetail(id: string): void {
-		const source = this.detailById(id);
+		const source = this.detailById?.(id);
 		if (source && this.pane.update({ lines: source.lines, more: source.more })) this.options.requestRender();
 	}
 
@@ -201,8 +231,10 @@ export abstract class DockListScreen<T> implements Component {
 	private openDetail(): void {
 		const row = this.focused;
 		if (!row) return;
+		const contents = this.detailFor(row);
 		this.mode = "detail";
-		this.pane.open(this.idOf(row), this.detailFor(row));
+		this.detailFacts = contents.facts;
+		this.pane.open(this.idOf(row), contents);
 		this.options.requestRender();
 	}
 
@@ -256,18 +288,22 @@ export abstract class DockListScreen<T> implements Component {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.backspace) || data === "q") {
 			this.mode = "list";
 			this.pane.close();
+			this.detailFacts = undefined;
 			this.options.requestRender();
 			return;
 		}
+		const row = this.detailRow;
+		// The verb owns its repaint: it may change state the host already watches.
+		if (row !== undefined && this.handleDetailVerb?.(data, row) === true) return;
 		if (this.pane.handleKey(data)) this.options.requestRender();
 	}
 
 	/** The footer: a pending confirmation, one line of feedback, or the hints. */
-	private hint(width: number): string {
+	private hint(width: number, rows: readonly T[]): string {
 		const pending = this.confirmState.pending;
 		if (pending) return clip(`  ${paint(this.theme, "warn", pending.prompt)}`, width);
 		if (this.feedback) return clip(`  ${paint(this.theme, "meta", this.feedback)}`, width);
-		return screenHint(this.theme, width, this.listHints());
+		return screenHint(this.theme, width, this.listHints(rows));
 	}
 
 	private summary(rows: readonly T[], width: number): string {
@@ -314,15 +350,25 @@ export abstract class DockListScreen<T> implements Component {
 			body,
 			range,
 			detail: block.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w)),
-			hint: this.hint(w),
+			hint: this.hint(w, rows),
 		});
 	}
 
 	private renderDetail(w: number): string[] {
-		const visible = fitRows(this.options.viewportRowsSource, this.pane.count, DETAIL_CHROME_ROWS, SCREEN_DEFAULT_ROWS);
+		this.syncDetail();
+		// A live pane whose row is gone has already closed itself: draw the list.
+		if (this.mode !== "detail") return this.renderList(w);
+		const facts = this.detailFacts ? this.detailFacts(w) : [];
+		const visible = fitRows(
+			this.options.viewportRowsSource,
+			this.pane.count,
+			DETAIL_CHROME_ROWS + facts.length,
+			SCREEN_DEFAULT_ROWS,
+		);
 		this.pane.fit(visible);
 
-		const body: string[] = [];
+		const body: string[] = [...facts];
+		if (body.length > 0) body.push("");
 		let range: string | undefined;
 		if (this.pane.count === 0) {
 			body.push(...emptyState(this.theme, w, { label: this.options.emptyDetail }));
@@ -339,7 +385,26 @@ export abstract class DockListScreen<T> implements Component {
 			summary: clip(`  ${paint(this.theme, "faint", this.pane.subtitleLine())}`, w),
 			body,
 			range,
-			hint: screenHint(this.theme, w, this.detailHints()),
+			hint: screenHint(this.theme, w, this.detailHints(this.detailRow)),
 		});
+	}
+
+	/**
+	 * Re-read a live pane in place. This runs inside a render, so it must not ask
+	 * for another frame; a source that disappeared closes the pane instead of
+	 * showing lines the list no longer has a row for.
+	 */
+	private syncDetail(): void {
+		if (!this.liveDetail()) return;
+		const id = this.pane.id;
+		if (!id) return;
+		const source = this.detailById?.(id);
+		if (!source) {
+			this.mode = "list";
+			this.pane.close();
+			this.detailFacts = undefined;
+			return;
+		}
+		this.pane.update({ lines: source.lines, more: source.more });
 	}
 }

@@ -426,7 +426,7 @@ step's `Output`.
 | `config.ts` | The `subagent` section of `bytefly.json`: deadline, transcripts, retention. |
 | `run.ts` | Runs one subagent process and captures its result (including the background abort-as-result path). |
 | `background.ts` | Background run entries, replay, capacity, cancel, collect, and shutdown. |
-| `background-tui.ts` | The `/agents` list/detail board. |
+| `background-tui.ts` | The `/agents` board: a `DockListScreen` with a live output pane and width-aware facts. |
 | `commands.ts` | The `/agents` command. |
 | `ui.ts` | The running-count footer chip and finish notices. |
 | `format.ts` | Token/usage/tool-call formatting (pure). |

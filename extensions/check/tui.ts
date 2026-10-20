@@ -2,25 +2,20 @@
  * The two check screens: a live run tail and a navigable failure list.
  *
  * `CheckRunComponent` owns only a `LinePane` over the runtime's live lines;
- * `CheckResultComponent` owns a list cursor and a detail pane built from the
- * failure and the bounded tail. Git reads, parsing, and process lifecycle stay
- * in `runtime.ts`, so both components can be tested without a process.
+ * `CheckResultComponent` is a `DockListScreen`, so the frame, the id-anchored
+ * cursor, the navigation keys, the range row, and the detail pane come from the
+ * shared base and nothing here draws chrome. Git reads, parsing, and process
+ * lifecycle stay in `runtime.ts`, so both components can be tested without a
+ * process.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { formatDuration } from "../../lib/format.ts";
-import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { formatDuration, sanitizeLine } from "../../lib/format.ts";
+import { dockListFrame, screenHint, type ScreenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
-import {
-	fitRows,
-	formatRange,
-	isCloseKey,
-	ListCursor,
-	navigateList,
-	scrollList,
-	wheelDelta,
-} from "../../lib/tui/cursor.ts";
+import { fitRows, formatRange, isCloseKey, wheelDelta } from "../../lib/tui/cursor.ts";
+import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { LinePane } from "../../lib/tui/line-pane.ts";
 import { emptyState, listRow } from "../../lib/tui/rows.ts";
@@ -28,16 +23,10 @@ import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { formatFailureDetail, formatFailureLocation, formatResultSummary } from "./format.ts";
 import { readSourceExcerpt } from "./source.ts";
-import { sanitizeLine } from "../../lib/format.ts";
 import type { CheckResult, Failure } from "./types.ts";
 
 const RUN_DEFAULT_ROWS = 20;
 const RUN_CHROME_ROWS = 5;
-const RESULT_DEFAULT_ROWS = 12;
-const RESULT_CHROME_ROWS = 6;
-const DETAIL_DEFAULT_ROWS = 20;
-/** Header, summary, blank, blank, hint, and blank rows around the excerpt. */
-const DETAIL_CHROME_ROWS = 6;
 
 export interface CheckRunOptions {
 	command: string;
@@ -120,140 +109,87 @@ export interface CheckResultOptions {
 	viewportRows?: ViewportRowsSource;
 }
 
-/** The failure list, with a per-failure detail phase. */
-export class CheckResultComponent implements Component {
-	private readonly cursor: ListCursor;
-	private readonly pane = new LinePane();
-	private phase: "list" | "detail" = "list";
+/**
+ * The failure list, with a per-failure detail pane.
+ *
+ * A failure carries no id of its own, but a finished run's `failures` array is
+ * fixed for the life of this screen, so the index is a stable cursor key. It is
+ * mapped once in the constructor: an `indexOf` per row per frame would be
+ * quadratic on the 200-failure cap.
+ */
+export class CheckResultComponent extends DockListScreen<Failure> {
+	private readonly ids = new Map<Failure, string>();
 
-	constructor(private readonly options: CheckResultOptions) {
-		this.cursor = new ListCursor(options.requestRender);
+	constructor(private readonly view: CheckResultOptions) {
+		super({
+			theme: view.theme,
+			title: "Check",
+			detailTitle: "Failure",
+			emptyList: "No failures parsed.",
+			emptyDetail: "Nothing to show.",
+			requestRender: view.requestRender,
+			onClose: view.onClose,
+			viewportRowsSource: view.viewportRows,
+		});
+		view.result.failures.forEach((failure, index) => this.ids.set(failure, String(index)));
 	}
 
-	handleInput(data: string): void {
-		if (this.phase === "detail") {
-			if (isCloseKey(data)) {
-				this.phase = "list";
-				this.options.requestRender();
-				return;
-			}
-			if (this.pane.handleKey(data)) this.options.requestRender();
-			return;
-		}
-		if (isCloseKey(data)) {
-			this.options.onClose();
-			return;
-		}
-		if (navigateList(data, this.cursor, this.options.result.failures.length)) return;
-		if (matchesKey(data, Key.enter)) {
-			const failure = this.options.result.failures[this.cursor.selected];
-			if (failure) this.openDetail(failure);
-			return;
-		}
-		if (data === "r") this.options.onRerun();
+	protected rows(): readonly Failure[] {
+		return this.view.result.failures;
 	}
 
-	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (this.phase === "detail") {
-			const delta = wheelDelta(event);
-			if (delta === undefined) return undefined;
-			this.pane.setScroll(this.pane.scroll + delta * 3);
-			this.options.requestRender();
-			return { handled: true };
-		}
-		return scrollList(event, this.cursor, this.options.result.failures.length);
+	protected idOf(failure: Failure): string {
+		return this.ids.get(failure) ?? "0";
 	}
 
-	dispose(): void {}
+	protected rowLine(failure: Failure, width: number, selected: boolean): string {
+		return listRow(this.theme, width, {
+			selected,
+			glyph: "✗",
+			glyphRole: "bad",
+			label: formatFailureLocation(failure),
+			labelRole: selected ? "accent" : "label",
+			trailing: "",
+		});
+	}
 
-	invalidate(): void {}
+	protected detailBlock(failure: Failure): string[] {
+		return [sanitizeLine(failure.message)];
+	}
 
-	private openDetail(failure: Failure): void {
-		const source = failure.path ? readSourceExcerpt(this.options.cwd, failure) : undefined;
-		this.pane.open(failure.path ?? failure.test ?? "check", {
+	protected summaryCells(): string[] {
+		return [paint(this.theme, "meta", formatResultSummary(this.view.result))];
+	}
+
+	protected listHints(rows: readonly Failure[]): ScreenHint[] {
+		// An empty list has nothing to open, so it offers only the two ways out.
+		if (rows.length === 0) return ["Esc close", { text: "r rerun", color: "accent" }];
+		return [
+			"Esc close",
+			{ text: "Enter detail", color: "accent" },
+			{ text: "r rerun", color: "warning" },
+			"↑/↓ select",
+		];
+	}
+
+	protected detailHints(): ScreenHint[] {
+		return ["Esc back", "j/k scroll", "g/G top/end"];
+	}
+
+	protected detailFor(failure: Failure): DetailContents {
+		// The excerpt is read once, when the pane opens, as it always has been.
+		const source = failure.path ? readSourceExcerpt(this.view.cwd, failure) : undefined;
+		return {
 			title: formatFailureLocation(failure),
-			lines: formatFailureDetail(failure, this.options.result.tail, source),
-		});
-		this.pane.setScroll(0);
-		this.phase = "detail";
-		this.options.requestRender();
+			// The base clips a detail line but never paints it, so the body keeps the
+			// role this screen gave it.
+			lines: formatFailureDetail(failure, this.view.result.tail, source).map((line) =>
+				paint(this.theme, "label", line),
+			),
+		};
 	}
 
-	render(width: number): string[] {
-		const w = Math.max(1, width);
-		const header = titleRule(this.theme, w, "Check");
-		const result = this.options.result;
-		const summary = clip(`  ${paint(this.theme, "meta", formatResultSummary(result))}`, w);
-
-		if (this.phase === "detail") {
-			const total = this.pane.count;
-			this.pane.visible = fitRows(this.options.viewportRows, total, DETAIL_CHROME_ROWS, DETAIL_DEFAULT_ROWS);
-			this.pane.fit(this.pane.visible);
-			const { start, end } = this.pane.window();
-			const body = this.pane.lines.slice(start, end).map((line) => clip(paint(this.theme, "label", line), w));
-			// The pane's first line names the failure and its command, so the summary
-			// keeps the run's counts instead of printing the same line twice.
-			return dockListFrame({
-				header,
-				summary,
-				body,
-				range: start > 0 || end < total ? formatRange(this.theme, w, { start, end, total, label: "line" }) : undefined,
-				hint: screenHint(this.theme, w, ["Esc back", "j/k scroll", "g/G top/end"]),
-			});
-		}
-
-		if (result.failures.length === 0) {
-			return dockListFrame({
-				header,
-				summary,
-				body: emptyState(this.theme, w, { label: "No failures parsed." }),
-				hint: screenHint(this.theme, w, ["Esc close", { text: "r rerun", color: "accent" }]),
-			});
-		}
-
-		const cursor = this.cursor;
-		const focused = result.failures[cursor.selected];
-		const detail = focused ? [clip(`  ${paint(this.theme, "meta", sanitizeLine(focused.message))}`, w)] : undefined;
-		cursor.visible = fitRows(
-			this.options.viewportRows,
-			result.failures.length,
-			RESULT_CHROME_ROWS + detailBlockRows(detail),
-			RESULT_DEFAULT_ROWS,
-		);
-		const { start, end } = cursor.window(result.failures.length);
-		const body: string[] = [];
-		for (let index = start; index < end; index++) {
-			const failure = result.failures[index];
-			const selected = index === cursor.selected;
-			body.push(
-				listRow(this.theme, w, {
-					selected,
-					glyph: "✗",
-					glyphRole: "bad",
-					label: formatFailureLocation(failure),
-					labelRole: selected ? "accent" : "label",
-					trailing: "",
-				}),
-			);
-		}
-		return dockListFrame({
-			header,
-			summary,
-			body,
-			range: cursor.clipped(result.failures.length)
-				? formatRange(this.theme, w, { start, end, total: result.failures.length })
-				: undefined,
-			detail,
-			hint: screenHint(this.theme, w, [
-				"Esc close",
-				{ text: "Enter detail", color: "accent" },
-				{ text: "r rerun", color: "warning" },
-				"↑/↓ select",
-			]),
-		});
-	}
-
-	private get theme(): Theme {
-		return this.options.theme;
+	protected handleVerb(key: string): void {
+		if (key === "r") this.view.onRerun();
 	}
 }

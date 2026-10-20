@@ -217,6 +217,11 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
 - **The transcript is a capped view.** `render.ts` draws from the same `details`
   the model report reads but caps the rows and never prints the report; `/check`
   is still the full navigable list.
+- **The failure list is a `DockListScreen`.** The frame, the id-anchored cursor,
+  the navigation keys, the range row, and the detail pane come from
+  `lib/tui/dock-screen.ts`, the base `/jobs`, `/watch`, and `/agents` share, so
+  this module holds only the check vocabulary. A failure has no id, so its index
+  in the finished run's fixed array is the cursor key.
 - **One run at a time.** The runtime refuses a second start instead of
   interleaving outputs or processes.
 
@@ -233,7 +238,7 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
 | `source.ts` | Guarded source excerpt around a failure's `path:line`. |
 | `runtime.ts` | Planning, sequencing, aggregation, live lines, cancel/shutdown. |
 | `format.ts` | Summary, failure rows, source-excerpt/detail text, model report. |
-| `tui.ts` | `CheckRunComponent` and `CheckResultComponent`. |
+| `tui.ts` | `CheckRunComponent` (a live tail) and `CheckResultComponent` (a `DockListScreen` over the failures). |
 | `tools.ts` | `run_check` schema, registration, the running partial result, and the call/result renderers. |
 | `render.ts` | The transcript result block: status summary, capped failure rows, tail fallback. |
 | `commands.ts` | `/check`, target parsing, completions, TUI/headless flow. |

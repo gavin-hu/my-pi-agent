@@ -47,15 +47,32 @@ from reading as one more row. A screen that sizes its body through `fitRows`
 counts the block with `detailBlockRows`, or the hint row is pushed off the
 bottom of a short terminal.
 
-A list that **opens a pane over one row** — `/jobs`, `/watch`, the agent board —
-subclasses [`dock-screen.ts`](./dock-screen.ts) instead of re-assembling the
-frame. `DockListScreen` owns the two modes, the `IdCursor` and `LinePane`, the
-navigation and wheel keys, the y/N confirmation, the one-line feedback notice,
-and the range rows; the subclass supplies `rows`, `idOf`, `rowLine`,
-`detailBlock`, `summaryCells`, `listHints`, `detailHints`, `detailFor`,
-`detailById`, and `handleVerb`. Keep the ordering in `rows()` (the base re-reads
+A list that **opens a pane over one row** — `/jobs`, `/watch`, `/agents`,
+`/check` — subclasses [`dock-screen.ts`](./dock-screen.ts) instead of
+re-assembling the frame. `DockListScreen` owns the two modes, the `IdCursor` and
+`LinePane`, the navigation and wheel keys, the y/N confirmation, the one-line
+feedback notice, and the range rows; the subclass supplies `rows`, `idOf`,
+`rowLine`, `detailBlock`, `summaryCells`, `listHints(rows)`, `detailHints(row)`,
+`detailFor`, and `handleVerb`. Keep the ordering in `rows()` (the base re-reads
 it every render) and return it by stable id, so a live re-sort cannot move the
 cursor or swap the open pane out from under the reader.
+
+Four optional members cover what a richer screen needs, and each defaults to
+what a plain list wants — do not hand-roll the frame to get one of them:
+
+- `DetailContents.facts(width)` — rows *above* the scrollable body that depend on
+  the width (key/value facts, a legend). The body's lines are built once at open,
+  so anything width-dependent belongs here, and the base counts the rows against
+  the pane's height.
+- `liveDetail()` — set it when the pane's source changes between frames on its
+  own (a child's output) rather than on a poll. The base then re-reads
+  `detailById` while rendering, without asking for another frame, and closes the
+  pane if the row is gone.
+- `detailById(id)` — the poll source job and watch read every 500 ms; omit it
+  when nothing polls the pane.
+- `handleDetailVerb(key, row)` — a verb that also works while reading the pane
+  (`c` collect, `x` cancel). Return `true` for the keys it claimed; everything
+  else falls through to the pane's scroll keys.
 
 A destructive action asks through [`confirm.ts`](./confirm.ts):
 `ConfirmState.ask(prompt, accept)` holds the question, `resolve(data)` accepts on

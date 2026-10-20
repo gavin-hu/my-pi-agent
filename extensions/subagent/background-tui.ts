@@ -2,30 +2,27 @@
  * The `/agents` board: background runs, live status, and a per-run detail.
  *
  * The board reads runs from a getter on every render, so a finish or cancel is
- * reflected without rebuilding the component. It owns the list cursor, the
- * detail phase, and the output pane; spawning, cancelling, and collecting stay
- * in the command and background runtime.
+ * reflected without rebuilding the component. The frame, the id-anchored cursor,
+ * the navigation and wheel keys, and the pane lifecycle come from the shared
+ * `DockListScreen`, so this module owns only the run vocabulary: the row, the
+ * status view, the key/value facts, the hints, and what `c` and `x` do.
+ *
+ * Two of that base's optional members are why the board can be one: the pane is
+ * live (`liveDetail`), because a running child's output arrives between frames
+ * and nothing polls it, and the facts are a `facts` hook, because the key/value
+ * rows are built from the current width.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { stripControlChars } from "../../lib/format.ts";
-import { dockListFrame, screenHint, type ScreenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "../../lib/tui/cursor.ts";
+import { sanitizeLine, stripControlChars } from "../../lib/format.ts";
+import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { LinePane } from "../../lib/tui/line-pane.ts";
-import { emptyState, keyValueRow, statusRow } from "../../lib/tui/rows.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
+import { keyValueRow, statusRow } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { BackgroundRun, BackgroundStatus } from "./background.ts";
 import { canCollect } from "./background.ts";
 import { formatBackgroundDuration, formatUsageStats } from "./format.ts";
-import { sanitizeLine } from "../../lib/format.ts";
-
-const LIST_DEFAULT_ROWS = 12;
-const LIST_CHROME_ROWS = 6;
-const DETAIL_DEFAULT_ROWS = 16;
 
 /** One status's glyph, role, and readable label. */
 function statusView(status: BackgroundStatus): { glyph: string; role: TuiRole; label: string } {
@@ -43,11 +40,6 @@ function statusView(status: BackgroundStatus): { glyph: string; role: TuiRole; l
 		case "interrupted":
 			return { glyph: GLYPHS.unknown, role: "faint", label: "interrupted" };
 	}
-}
-
-/** Stable key for the id-anchored cursor. */
-function keyOf(run: BackgroundRun): string {
-	return run.id;
 }
 
 /** A short task label for a list row. */
@@ -102,215 +94,115 @@ export interface AgentsBoardOptions {
 }
 
 /** The list/detail board for background subagent runs. */
-export class AgentsBoardComponent implements Component {
-	private readonly cursor = new IdCursor();
-	private readonly pane = new LinePane();
-	private phase: "list" | "detail" = "list";
-	private detailId: string | undefined;
-
-	constructor(private readonly options: AgentsBoardOptions) {}
-
-	private get theme(): Theme {
-		return this.options.theme;
+export class AgentsBoardComponent extends DockListScreen<BackgroundRun> {
+	constructor(private readonly board: AgentsBoardOptions) {
+		super({
+			theme: board.theme,
+			title: "Agents",
+			detailTitle: "Run",
+			emptyList: "No background subagents yet.",
+			emptyDetail: "(no output recorded)",
+			requestRender: board.requestRender,
+			onClose: board.onClose,
+			viewportRowsSource: board.viewportRows,
+		});
 	}
 
 	private get now(): number {
-		return (this.options.now ?? Date.now)();
+		return (this.board.now ?? Date.now)();
 	}
 
-	handleInput(data: string): void {
-		if (this.phase === "detail") {
-			const run = this.detailRun();
-			if (!run) {
-				this.phase = "list";
-				this.options.requestRender();
-				return;
-			}
-			if (isCloseKey(data)) {
-				this.phase = "list";
-				this.options.requestRender();
-				return;
-			}
-			if (data === "c" && canCollect(run)) {
-				this.options.onCollect(run.id);
-				return;
-			}
-			if (data === "x" && run.status === "running") {
-				this.options.onCancel(run.id);
-				return;
-			}
-			if (this.pane.handleKey(data)) this.options.requestRender();
-			return;
+	/** `c` collects a finished run and `x` cancels a running one, in either mode. */
+	private act(key: string, run: BackgroundRun | undefined): boolean {
+		if (!run) return false;
+		if (key === "c" && canCollect(run)) {
+			this.board.onCollect(run.id);
+			return true;
 		}
-
-		if (isCloseKey(data)) {
-			this.options.onClose();
-			return;
+		if (key === "x" && run.status === "running") {
+			this.board.onCancel(run.id);
+			return true;
 		}
-		const runs = this.options.runs();
-		if (this.move(data, runs)) return;
-		const focused = runs[this.cursor.indexOf(runs, keyOf)];
-		if (!focused) return;
-		if (matchesKey(data, Key.enter)) {
-			this.detailId = focused.id;
-			this.pane.open(focused.id, { title: focused.id, lines: outputLines(focused) });
-			this.pane.setScroll(0);
-			this.phase = "detail";
-			this.options.requestRender();
-			return;
-		}
-		if (data === "c" && canCollect(focused)) this.options.onCollect(focused.id);
-		else if (data === "x" && focused.status === "running") this.options.onCancel(focused.id);
+		return false;
 	}
 
-	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (this.phase === "detail") {
-			const delta = wheelDelta(event);
-			if (delta === undefined) return undefined;
-			this.pane.setScroll(this.pane.scroll + delta * 3);
-			this.options.requestRender();
-			return { handled: true };
-		}
-		const delta = wheelDelta(event);
-		if (delta === undefined) return undefined;
-		const runs = this.options.runs();
-		const index = this.cursor.indexOf(runs, keyOf);
-		this.cursor.select(runs, keyOf, index + delta);
-		this.options.requestRender();
-		return { handled: true };
+	protected rows(): readonly BackgroundRun[] {
+		return this.board.runs();
 	}
 
-	dispose(): void {}
-
-	invalidate(): void {}
-
-	private detailRun(): BackgroundRun | undefined {
-		if (this.detailId === undefined) return undefined;
-		return this.options.runs().find((run) => run.id === this.detailId);
+	protected idOf(run: BackgroundRun): string {
+		return run.id;
 	}
 
-	/** Apply a navigation key to the stable-id cursor. */
-	private move(data: string, runs: readonly BackgroundRun[]): boolean {
-		const index = this.cursor.indexOf(runs, keyOf);
-		const visible = this.cursor.visible;
-		switch (navIntent(data)) {
-			case "up":
-				this.cursor.select(runs, keyOf, index - 1);
-				return true;
-			case "down":
-				this.cursor.select(runs, keyOf, index + 1);
-				return true;
-			case "pageUp":
-				this.cursor.select(runs, keyOf, index - Math.max(1, visible));
-				return true;
-			case "pageDown":
-				this.cursor.select(runs, keyOf, index + Math.max(1, visible));
-				return true;
-			case "home":
-				this.cursor.select(runs, keyOf, 0);
-				return true;
-			case "end":
-				this.cursor.select(runs, keyOf, runs.length - 1);
-				return true;
-			default:
-				return false;
-		}
+	protected rowLine(run: BackgroundRun, width: number, selected: boolean): string {
+		const view = statusView(run.status);
+		const usage = run.usage ? formatUsageStats(run.usage) : "";
+		const trailing = [view.label, formatBackgroundDuration(run, this.now), usage].filter(Boolean).join(SEPARATORS.item);
+		return statusRow(this.theme, width, {
+			selected,
+			glyph: view.glyph,
+			glyphRole: view.role,
+			label: `${run.id} ${sanitizeLine(run.agent)}  ${taskLabel(run)}`,
+			labelRole: selected ? "accent" : "label",
+			trailing,
+		});
 	}
 
-	render(width: number): string[] {
-		const w = Math.max(1, width);
-		return this.phase === "detail" ? this.renderDetail(w) : this.renderList(w);
+	/** The board has never carried a focus block: the detail pane states the facts. */
+	protected detailBlock(): string[] {
+		return [];
 	}
 
-	private renderList(w: number): string[] {
-		const runs = this.options.runs();
-		const header = titleRule(this.theme, w, "Agents");
-		if (runs.length === 0) {
-			return dockListFrame({
-				header,
-				body: emptyState(this.theme, w, { label: "No background subagents yet." }),
-				hint: screenHint(this.theme, w, ["Esc close"]),
-			});
-		}
+	protected summaryCells(rows: readonly BackgroundRun[]): string[] {
+		const running = rows.filter((run) => run.status === "running").length;
+		const cells = [paint(this.theme, "meta", `${rows.length} run${rows.length === 1 ? "" : "s"}`)];
+		if (running > 0) cells.push(paint(this.theme, "meta", `${running} running`));
+		return cells;
+	}
 
-		this.cursor.clamp(runs, keyOf);
-		this.cursor.visible = fitRows(this.options.viewportRows, runs.length, LIST_CHROME_ROWS, LIST_DEFAULT_ROWS);
-		const start = this.cursor.scroll;
-		const end = Math.min(runs.length, start + this.cursor.visible);
-		const clipped = start > 0 || end < runs.length;
-		const body: string[] = [];
-		for (let index = start; index < end; index++) {
-			const run = runs[index];
-			const view = statusView(run.status);
-			const selected = index === this.cursor.indexOf(runs, keyOf);
-			const usage = run.usage ? formatUsageStats(run.usage) : "";
-			const trailing = [view.label, formatBackgroundDuration(run, this.now), usage]
-				.filter(Boolean)
-				.join(SEPARATORS.item);
-			body.push(
-				statusRow(this.theme, w, {
-					selected,
-					glyph: view.glyph,
-					glyphRole: view.role,
-					label: `${run.id} ${sanitizeLine(run.agent)}  ${taskLabel(run)}`,
-					labelRole: selected ? "accent" : "label",
-					trailing,
-				}),
-			);
-		}
-
-		const focused = runs[this.cursor.indexOf(runs, keyOf)];
-		const running = runs.filter((run) => run.status === "running").length;
+	protected listHints(): ScreenHint[] {
+		const focused = this.focused;
 		const hints: ScreenHint[] = ["Esc close", { text: "Enter detail", color: "accent" }];
 		if (focused && canCollect(focused)) hints.push({ text: "c collect", color: "accent" });
 		if (focused?.status === "running") hints.push({ text: "x cancel", color: "warning" });
 		hints.push("↑/↓ select");
-		return dockListFrame({
-			header,
-			summary: clip(
-				`  ${paint(this.theme, "meta", `${runs.length} run${runs.length === 1 ? "" : "s"}${running ? `${SEPARATORS.item}${running} running` : ""}`)}`,
-				w,
-			),
-			body,
-			range: clipped ? formatRange(this.theme, w, { start, end, total: runs.length }) : undefined,
-			hint: screenHint(this.theme, w, hints),
-		});
+		return hints;
 	}
 
-	private renderDetail(w: number): string[] {
-		const run = this.detailRun();
-		if (!run) {
-			this.phase = "list";
-			return this.renderList(w);
-		}
-		this.pane.update({ lines: outputLines(run) });
-		const rows = detailRows(run, this.now, this.theme, w);
-		const chrome = 6 + rows.length;
-		this.pane.visible = fitRows(this.options.viewportRows, this.pane.count, chrome, DETAIL_DEFAULT_ROWS);
-		this.pane.fit(this.pane.visible);
-		const { start, end } = this.pane.window();
-		const body = rows;
-		if (body.length > 0) body.push("");
-		for (const line of this.pane.lines.slice(start, end)) {
-			body.push(clip(paint(this.theme, "label", line), w));
-		}
-		if (this.pane.count === 0) body.push(...emptyState(this.theme, w, { label: "(no output recorded)" }));
-		const hint: ScreenHint[] = ["Esc back"];
-		if (canCollect(run)) hint.push({ text: "c collect", color: "accent" });
-		if (run.status === "running") hint.push({ text: "x cancel", color: "warning" });
-		hint.push("j/k scroll");
-		return dockListFrame({
-			header: titleRule(this.theme, w, "Agents"),
-			summary: clip(
-				`  ${paint(this.theme, "meta", `${run.id} ${sanitizeLine(run.agent)}${SEPARATORS.item}${statusView(run.status).label}${SEPARATORS.item}${formatBackgroundDuration(run, this.now)}`)}`,
-				w,
-			),
-			body,
-			range:
-				this.pane.count > this.pane.visible
-					? formatRange(this.theme, w, { start, end, total: this.pane.count, label: "line" })
-					: undefined,
-			hint: screenHint(this.theme, w, hint),
-		});
+	protected detailHints(run: BackgroundRun | undefined): ScreenHint[] {
+		const hints: ScreenHint[] = ["Esc back"];
+		if (run && canCollect(run)) hints.push({ text: "c collect", color: "accent" });
+		if (run?.status === "running") hints.push({ text: "x cancel", color: "warning" });
+		hints.push("j/k scroll");
+		return hints;
+	}
+
+	protected detailFor(run: BackgroundRun): DetailContents {
+		return {
+			title: `${run.id} ${sanitizeLine(run.agent)}`,
+			subtitle: `${statusView(run.status).label}${SEPARATORS.item}${formatBackgroundDuration(run, this.now)}`,
+			// The key/value rows need the current width, so they are rebuilt per frame.
+			facts: (width) => detailRows(run, this.now, this.theme, width),
+			lines: outputLines(run),
+		};
+	}
+
+	/** The output a live run keeps producing; a removed run has none, which closes the pane. */
+	protected detailById(id: string): { lines: string[] } | undefined {
+		const run = this.rows().find((entry) => entry.id === id);
+		return run ? { lines: outputLines(run) } : undefined;
+	}
+
+	/** Re-read the pane on every frame: a child's output arrives without a poll. */
+	protected liveDetail(): boolean {
+		return true;
+	}
+
+	protected handleVerb(key: string, focused: BackgroundRun | undefined): void {
+		this.act(key, focused);
+	}
+
+	protected handleDetailVerb(key: string, run: BackgroundRun): boolean {
+		return this.act(key, run);
 	}
 }

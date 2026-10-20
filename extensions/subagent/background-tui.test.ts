@@ -83,7 +83,9 @@ describe("AgentsBoardComponent", () => {
 		component.handleInput("\r");
 
 		const detail = text(component);
-		expect(detail).toContain("a2 explorer · running");
+		// The run names the pane's title; its status and duration sit beneath it.
+		expect(detail).toContain("Run · a2 explorer");
+		expect(detail).toContain("running · 11.0s");
 		expect(detail).toContain("Task");
 		expect(detail).toContain("Map the auth module");
 		expect(detail).toContain("Cwd");
