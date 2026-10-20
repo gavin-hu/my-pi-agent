@@ -60,6 +60,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `subagent`: `/agents` follows a bounded live preview while a background run is
   active, and a finished run no longer keeps the child's full result in memory;
   collection still uses the bounded output.
+- `subagent`: a running background helper adds a `↳ N` footer chip, and a
+  finished, failed, or timed-out run posts a notice pointing at `/agents`.
 
 ### Changed
 

@@ -33,7 +33,8 @@ How the `subagent` call and its result look in the transcript — the call line 
   never replace the built-ins silently.
 - **Three modes, plus background.** One agent, a parallel batch, or a sequential
   chain; a single run can also continue after the tool returns and be collected
-  from `/agents`.
+  from `/agents`. A running helper adds a `↳ N` footer chip, and a finish notice
+  points back at `/agents`.
 - **Streaming.** Tool calls and progress update live in the transcript while the
   subagent runs; the `app.tools.expand` key (`ctrl+o` by default) expands the
   full task, tool calls, Markdown output, and usage.
@@ -78,10 +79,11 @@ How the `subagent` call and its result look in the transcript — the call line 
 The tool returns immediately with a run id such as `a2`. `/agents` lists every
 run with its status, elapsed time, and usage; `Enter` opens the run, `c` collects
 a finished result into the conversation, and `x` cancels a running one. While a
-run is active, its detail pane follows a bounded preview of the latest output;
-the finalized result replaces it when the run finishes. A background run is
-session-owned and is bounded by the same timeout and transcript settings as a
-foreground run.
+run is active, its detail pane follows a bounded preview of the latest output,
+and a `↳ N` chip in the footer counts running helpers. A finish notice points
+back at `/agents`; the finalized result replaces the preview when the run
+finishes. A background run is session-owned and is bounded by the same timeout
+and transcript settings as a foreground run.
 
 ### Parallel
 
@@ -335,8 +337,8 @@ step's `Output`.
   full stream. The `/agents` detail keeps only a bounded live preview, and a
   finished run keeps its bounded output in the session record rather than the
   child's full result.
-- There is no OS notification when a background run finishes; open `/agents` to
-  see it.
+- A finish notice appears in the TUI, but there is no OS notification; the run
+  remains listed in `/agents`.
 
 ## Pi integration
 
@@ -348,7 +350,7 @@ step's `Output`.
 | Output schema | none; the full result lives in tool-result `details` |
 | Execution | spawns `pi --mode json` subprocesses; external agents discovered from `<agent-dir>/agents` and `.pi/agents` |
 | State storage | tool-result `details`; optional per-run transcripts under `.pi/subagents/`; background start/finish entries (`subagent-background`) on the session branch |
-| Lifecycle | `session_start` loads the config and prunes expired transcripts; `session_shutdown` aborts every live background child |
+| Lifecycle | `session_start` loads the config, prunes expired transcripts, and attaches the footer chip; `session_shutdown` aborts every live background child and clears the chip |
 
 ## Design notes
 
@@ -426,6 +428,7 @@ step's `Output`.
 | `background.ts` | Background run entries, replay, capacity, cancel, collect, and shutdown. |
 | `background-tui.ts` | The `/agents` list/detail board. |
 | `commands.ts` | The `/agents` command. |
+| `ui.ts` | The running-count footer chip and finish notices. |
 | `format.ts` | Token/usage/tool-call formatting (pure). |
 | `render.ts` | `renderCall` / `renderResult` transcript rendering. |
 | `types.ts` | Shared result and process types. |

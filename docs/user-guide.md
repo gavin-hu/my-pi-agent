@@ -248,7 +248,7 @@ the turn rule, and the footer.*
 | Turn rule | A rule such as `╌╌╌ turn 3 ╌╌╌` closes a finished turn and summarises it, adding the duration, the tool count, and any failures where the width allows. |
 | Footer | Two lines under the input box: the folder you are in, the session name, the git branch, the running cost, how full the model's context is, the mode, and the model name. |
 | Widgets | Up to two one-line lines above the input box: your **to-do list** and your **goal**, when either exists. |
-| Status chips | Small badges in the footer: `≡ plan` (plan mode on), `↺ 4` (rewind points), `▸ 2` (running jobs), `✗ 1` (a finished job you have not read), `⊚ 1` (running watchers), `! 2` (watcher matches you have not read), `◉ 41234` (the file browser's port). |
+| Status chips | Small badges in the footer: `≡ plan` (plan mode on), `↺ 4` (rewind points), `▸ 2` (running jobs), `✗ 1` (a finished job you have not read), `↳ 1` (running background helpers), `⊚ 1` (running watchers), `! 2` (watcher matches you have not read), `◉ 41234` (the file browser's port). |
 
 Three kinds of input are used throughout this guide:
 
@@ -644,7 +644,9 @@ The built-in helpers are:
    start an explorer on the auth module in the background
    ```
 
-   Pi replies with a run id such as `a2` and returns to the prompt.
+   Pi replies with a run id such as `a2` and returns to the prompt. A `↳ 1`
+   chip appears in the footer while it runs, and a finish notice points at
+   `/agents`.
 
 2. Type `/agents` to see the board. `j` / `k` choose a run, `Enter` opens its
    detail, `c` collects a finished result into the conversation, and `x` cancels
