@@ -948,8 +948,8 @@ describe("set_plan_steps", () => {
 			{
 				plan_path: planPath,
 				updates: [
-					{ step: 1, status: "completed" },
-					{ step: 3, status: "completed" },
+					{ step: 1, status: "completed", expected: "One" },
+					{ step: 3, status: "completed", expected: "Three" },
 				],
 			},
 			ctx,
@@ -970,7 +970,11 @@ describe("set_plan_steps", () => {
 		await approvePlan(exit, planPath, root);
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setSteps, { plan_path: planPath, updates: [{ step: 1, status: "pending" }] }, ctx);
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "pending", expected: "First" }] },
+			ctx,
+		);
 		const details = result.details as { done: number };
 
 		expect(result.isError).toBeUndefined();
@@ -1025,8 +1029,8 @@ describe("set_plan_steps", () => {
 			{
 				plan_path: planPath,
 				updates: [
-					{ step: 1, status: "completed" },
-					{ step: 5, status: "completed" },
+					{ step: 1, status: "completed", expected: "One" },
+					{ step: 5, status: "completed", expected: "Five" },
 				],
 			},
 			ctx,
@@ -1046,7 +1050,7 @@ describe("set_plan_steps", () => {
 		const { ctx } = fakeCtx({ cwd: root });
 		const result = await call(
 			setSteps,
-			{ plan_path: join(root, "secret.md"), updates: [{ step: 1, status: "completed" }] },
+			{ plan_path: join(root, "secret.md"), updates: [{ step: 1, status: "completed", expected: "One" }] },
 			ctx,
 		);
 
@@ -1060,7 +1064,11 @@ describe("set_plan_steps", () => {
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "- One");
 
 		const { ctx } = fakeCtx({ cwd: root });
-		const result = await call(setSteps, { plan_path: planPath, updates: [{ step: 1, status: "completed" }] }, ctx);
+		const result = await call(
+			setSteps,
+			{ plan_path: planPath, updates: [{ step: 1, status: "completed", expected: "One" }] },
+			ctx,
+		);
 
 		expect(result.isError).toBe(true);
 		expect(runtime.isEnabled()).toBe(true);

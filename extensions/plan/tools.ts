@@ -77,12 +77,10 @@ const StepUpdateParams = Type.Object({
 	status: StringEnum(["pending", "completed"] as const, {
 		description: "The step's new state.",
 	}),
-	expected: Type.Optional(
-		Type.String({
-			description:
-				"The step's text as exit_plan_mode listed it. When given, the update is refused if the step at that number no longer matches, so a reordered plan is caught instead of mis-ticked.",
-		}),
-	),
+	expected: Type.String({
+		description:
+			"The step's text as it was listed when the plan was approved. A mismatch refuses the whole batch, so a reordered plan is caught instead of mis-ticked.",
+	}),
 });
 
 const SetPlanStepsParams = Type.Object({

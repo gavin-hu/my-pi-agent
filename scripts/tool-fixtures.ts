@@ -711,13 +711,16 @@ export const FIXTURES: ToolFixture[] = [
 		name: "set_plan_steps",
 		group: "package",
 		label: "one step ticked off",
-		args: { plan_path: `${CWD}/.pi/plans/add-rate-limiting.md`, updates: [{ step: 1, status: "completed" }] },
+		args: {
+			plan_path: `${CWD}/.pi/plans/add-rate-limiting.md`,
+			updates: [{ step: 1, status: "completed", expected: "Add a token-bucket limiter" }],
+		},
 		result: {
 			content: [{ type: "text", text: "Step 1 completed (1/3 done)." }],
 			details: {
 				path: `${CWD}/.pi/plans/add-rate-limiting.md`,
 				relativePath: ".pi/plans/add-rate-limiting.md",
-				updates: [{ step: 1, status: "completed" }],
+				updates: [{ step: 1, status: "completed", expected: "Add a token-bucket limiter" }],
 				done: 1,
 				total: 3,
 			},

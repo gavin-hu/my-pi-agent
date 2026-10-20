@@ -114,7 +114,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. A plan with more than 50 top-level steps in its `Steps` section is refused, with the cap and the fix named, and nothing is written. |
 | `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Refuses a file whose step list is over the cap, before the review screen. |
-| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and optionally `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
+| `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. |
 
 ### Commands and flags
 
@@ -516,7 +516,7 @@ file and returns them to the model.
   (`isContainedPlan`), in a single all-or-nothing write — refusing every entry
   if any step is out of range or an entry's `expected` text no longer matches —
   and refuses while plan mode is on, so the read-only guarantee and the path
-  backstop are unchanged. The optional `expected` is what makes an ordinal safe:
+  backstop are unchanged. A required `expected` is what makes an ordinal safe:
   a plan edited between approval and ticking is caught instead of silently
   marking the step that moved into that number.
 - **Direction: enforce capabilities at the tool boundary.** (1) A shared

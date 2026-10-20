@@ -32,6 +32,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: `set_plan_steps` requires each update's `expected` step text. The
+  stale-step guard was opt-in, so an update that omitted it could tick the step
+  that moved into that number after an edit; a missing `expected` is now refused
+  by the tool's schema instead of silently skipping the check.
+
 - `goal`: `/goal done` names the todo items the list still has open, in the same
   words the tool's result uses, so completing the *what* from the command cannot
   silently leave the *how* unfinished.
