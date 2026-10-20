@@ -14,7 +14,7 @@ import {
 	jobOutcome,
 	pendingFailures,
 	shortLabel,
-	statusGlyph,
+	statusGlyphChar,
 	tailLines,
 } from "./format.ts";
 import type { JobRecord } from "./types.ts";
@@ -53,7 +53,7 @@ describe("tailLines", () => {
 describe("status glyphs", () => {
 	test("are one terminal column wide", () => {
 		for (const status of ["running", "exited", "killed", "failed", "unknown"] as const) {
-			expect(visibleWidth(statusGlyph(status, fakeTheme as any))).toBe(1);
+			expect(visibleWidth(statusGlyphChar(status))).toBe(1);
 		}
 	});
 });
