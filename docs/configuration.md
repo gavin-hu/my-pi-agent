@@ -376,14 +376,19 @@ ignored, and an absent id keeps its registry default.
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `autoSnapshots` | boolean | `true` | | Take one automatic snapshot per user prompt. |
-| `max` | integer | `20` | `0`–`1000` | Snapshots kept per root before the oldest are pruned. |
+| `max` | integer | `20` | `0`–`1000` | Snapshot refs kept per root; automatic and pre-restore safety snapshots both count. |
 | `includeUntracked` | boolean | `true` | | Include untracked, non-ignored files in a snapshot. |
 | `safetySnapshot` | boolean | `true` | | Snapshot the current state before a restore, so a rewind can itself be undone. |
-| `autoPrune` | boolean | `true` | | Prune refs beyond `max` after each save. |
+| `autoPrune` | boolean | `true` | | Prune refs beyond `max` after an automatic snapshot. |
 | `showStatus` | boolean | `true` | | Show the `↺ N` chip. |
 | `watch` | string[] | `[]` | | Extra tool names treated as mutating, so a call triggers a snapshot. |
 | `ignore` | string[] | `[]` | | Tool names never to snapshot; the extension's own tools are always excluded. |
 | `refNamespace` | string | `"refs/pi/rewind"` | | Git ref namespace for stored snapshots; trailing slashes are stripped. |
+
+Pruning runs after an automatic snapshot, not after a restore, so a safety
+snapshot and the snapshot it restored from remain available for a follow-up
+restore. Both count toward `max`, so a restore-heavy session keeps fewer prompt
+snapshots than the number alone implies.
 
 ## `subagent` — delegated runs
 

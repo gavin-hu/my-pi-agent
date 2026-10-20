@@ -11,13 +11,13 @@ import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.t
 export interface RewindConfig {
 	/** Take one automatic snapshot per user prompt. Default: true. */
 	autoSnapshots: boolean;
-	/** Ref count kept per root before the oldest are pruned on save. */
+	/** Ref count kept per root; automatic and pre-restore safety snapshots both count. */
 	max: number;
 	/** Include untracked, non-ignored files in a snapshot. Default: true. */
 	includeUntracked: boolean;
 	/** Snapshot the current state before a restore, so a rewind is undoable. */
 	safetySnapshot: boolean;
-	/** Prune oldest refs beyond `max` after saving. */
+	/** Prune the oldest refs beyond `max` after an automatic snapshot. */
 	autoPrune: boolean;
 	/** Show a `↺ N` status chip while the session runs. */
 	showStatus: boolean;

@@ -533,7 +533,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		id: "rewind.max",
 		group: "snapshots",
 		label: "Snapshots kept",
-		description: "Snapshots kept per repository before the oldest are pruned; 0 keeps none.",
+		description: "Snapshot refs kept per repository, including pre-restore safety snapshots; 0 keeps none.",
 		source: "bytefly",
 		kind: "text",
 		fallback: "20",

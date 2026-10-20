@@ -124,6 +124,26 @@ describe.skipIf(!runSlowSuites)("ref-backed storage", () => {
 		expect(remaining.map((snapshot) => snapshot.id)).toEqual(["p3", "p2"]);
 	});
 
+	test("counts a pre-restore safety snapshot in the same budget", async () => {
+		const fresh = await makeRepo("pi-rw-prune-safety-");
+		cleanups.push(fresh);
+		await createSnapshot({ runGit, now: () => 1000, idFactory: () => "auto-1" }, snapshotInput(fresh));
+		await createSnapshot(
+			{ runGit, now: () => 2000, idFactory: () => "safety-1" },
+			snapshotInput(fresh, { reason: "pre-restore" }),
+		);
+
+		// Two refs, so a budget of two keeps both: the safety snapshot is not a
+		// free extra.
+		expect(await pruneSnapshots(runGit, fresh, NS, 2, fresh)).toBe(0);
+
+		// A budget of one prunes the oldest automatic snapshot and keeps the
+		// safety snapshot, which is the newer and more useful undo point.
+		expect(await pruneSnapshots(runGit, fresh, NS, 1, fresh)).toBe(1);
+		const remaining = await listSnapshots(runGit, fresh, NS, { root: fresh });
+		expect(remaining.map((snapshot) => snapshot.id)).toEqual(["safety-1"]);
+	});
+
 	test("deleteSnapshots removes refs", async () => {
 		const snapshots = await listSnapshots(runGit, repo, NS);
 		const removed = await deleteSnapshots(runGit, repo, snapshots);
