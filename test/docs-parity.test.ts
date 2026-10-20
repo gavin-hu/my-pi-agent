@@ -8,9 +8,9 @@
  *
  * Policy: the two entry READMEs stay in sync; deep docs (`docs/`,
  * `extensions/<name>/README.md`, `lib/`, `test/`) stay English until a
- * translation owner exists. `test/docs-truth.test.ts` pins the catalog against
- * the code, `test/config-docs.test.ts` pins the configuration reference against
- * the loaders, and this file pins the translation against its original.
+ * translation owner exists. `test/config-docs.test.ts` pins the configuration
+ * reference against the loaders, `test/naming.test.ts` pins the tool names, and
+ * this file pins the translation against its original.
  *
  * Deliberately not compared: heading and cell text (they are translated), pure
  * `#anchor` links (their fragments are translated), absolute URLs (the badges),

@@ -49,7 +49,7 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 pi install npm:@gavin-hu/my-pi-agent
 ```
 
-[快速开始](./docs/getting-started.md) 介绍其余安装方式——git、固定版本、
+[用户指南](./docs/user-guide.md) 介绍其余安装方式——git、固定版本、
 仅项目本地安装，以及不写入任何内容的试用——还有适用性判断、首个工作流和移除方式。
 
 `git` 需在 `PATH` 上，供 [`worktree`](./extensions/worktree/) 与
@@ -174,11 +174,10 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 
 | 指南 | 内容 |
 |---|---|
-| [快速开始](./docs/getting-started.md) | 是否适合你、试用、安装选项、验证加载、首个工作流、移除。 |
-| [扩展](./docs/extensions.md) | 所有扩展与主题的完整目录。 |
+| [用户指南](./docs/user-guide.md) | 用通俗语言介绍每个功能，并给出分步骤操作、按键与命令。 |
 | [配置](./docs/configuration.md) | 配置文件解析、按扩展索引、环境变量。 |
 | [配置参考](./docs/references/bytefly-config.md) | 列出 `bytefly.json` 的每个 section 与键，包括类型、默认值和取值范围。 |
-| [架构](./docs/architecture.md) | 包、各扩展与 `lib/` 如何协同。 |
+| [架构](./docs/architecture.md) | 加载路径、运行时模型、状态、进程形态，以及新代码应放在哪里。 |
 | [开发](./docs/development.md) | 本地设置、检查、测试、跨平台注意事项与发布流程。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |
 | [路线图](./ROADMAP.md) | 包的下一步方向，按 README 的承诺分组，并列出每条事项的依据。 |

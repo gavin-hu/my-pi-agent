@@ -14,12 +14,9 @@
  * Built-in overrides (`read`/`write`/`edit`/`bash`/`grep`/`find`/`ls`) are
  * deliberately excluded: they reuse the built-in names.
  *
- * The entry READMEs advertise the tool surface as a table and `docs/extensions.md`
- * as a one-line `Tool:` / `Tools:` sentence plus a gallery paragraph, so the
- * second half of this file holds all three lists to the same set: a renamed
- * tool must not linger in any of them, and a shipped tool must not be missing
- * from one. The catalog's commands and flags are guarded separately, in
- * `docs-truth.test.ts`.
+ * The entry READMEs advertise the tool surface as a table, so the second half of
+ * this file holds both lists to the same set: a renamed tool must not linger in
+ * either, and a shipped tool must not be missing from one.
  */
 
 import { readFileSync } from "node:fs";
@@ -124,46 +121,8 @@ export function toolColumn(markdown: string): string[] {
 	return tokens;
 }
 
-/**
- * The tool-shaped tokens in the catalog's per-extension `Tool:` / `Tools:` lines.
- *
- * The sentence is cut at its first period, so a `Command:` clause on the same
- * line contributes no names. Tool names never contain a period.
- */
-function catalogToolLines(markdown: string): string[] {
-	const tokens: string[] = [];
-	for (const line of markdown.split("\n")) {
-		const sentence = /^Tools?:\s+([^.]+)\./.exec(line)?.[1];
-		if (sentence === undefined) continue;
-		for (const span of sentence.matchAll(/`([^`\n]+)`/g)) {
-			if (TOOL_SHAPED.test(span[1])) tokens.push(span[1]);
-		}
-	}
-	return tokens;
-}
-
-/**
- * The tool-shaped tokens in the gallery paragraph that names every tool this
- * package registers, under `### Tool renderings`.
- *
- * The paragraph wraps, so the match runs to the first period instead of one
- * line.
- */
-function catalogGalleryTools(markdown: string): string[] {
-	const sentence = /this package registers: ([^.]+)\./.exec(markdown)?.[1];
-	if (sentence === undefined) return [];
-	return [...sentence.matchAll(/`([^`\n]+)`/g)].map((span) => span[1]).filter((name) => TOOL_SHAPED.test(name));
-}
-
 const englishTools = toolColumn(readFileSync(join(import.meta.dir, "..", "README.md"), "utf-8"));
 const chineseTools = toolColumn(readFileSync(join(import.meta.dir, "..", "README.zh-CN.md"), "utf-8"));
-const catalog = readFileSync(join(import.meta.dir, "..", "docs", "extensions.md"), "utf-8");
-
-/** The two places the catalog enumerates the tool surface, each held to the registry. */
-const catalogLists = [
-	{ place: "per-extension Tool lines", tools: catalogToolLines(catalog) },
-	{ place: "tool-renderings gallery", tools: catalogGalleryTools(catalog) },
-];
 
 describe("extension tool naming", () => {
 	test("every name is lowercase snake_case", () => {
@@ -237,29 +196,5 @@ describe("entry README tool names", () => {
 		const used = new Set(englishTools);
 		const stale = [...NOT_TOOLS.keys()].filter((name) => !used.has(name)).sort();
 		expect(stale).toEqual([]);
-	});
-});
-
-describe("catalog tool names", () => {
-	test("finds each list the catalog is expected to have", () => {
-		// A parser that stopped matching would make the checks below vacuous.
-		for (const { place, tools } of catalogLists) {
-			expect(tools.length, place).toBeGreaterThan(0);
-		}
-	});
-
-	test("names only registered tools in the catalog", () => {
-		for (const { place, tools } of catalogLists) {
-			const unknown = [...new Set(tools)].filter((name) => !nameSet.has(name)).sort();
-			expect(unknown, `docs/extensions.md names a tool this package does not register (${place})`).toEqual([]);
-		}
-	});
-
-	test("advertises every registered tool in the catalog", () => {
-		for (const { place, tools } of catalogLists) {
-			const advertised = new Set(tools);
-			const missing = names.filter((name) => !advertised.has(name)).sort();
-			expect(missing, `docs/extensions.md does not name a registered tool (${place})`).toEqual([]);
-		}
 	});
 });

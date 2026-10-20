@@ -100,10 +100,9 @@ These are enforced or reviewed; the full list is in [`AGENTS.md`](./AGENTS.md):
    [`test/README.md`](./test/README.md)).
 3. Write `extensions/<name>/README.md` in the section order documented in
    [`AGENTS.md`](./AGENTS.md).
-4. Add the extension to [`docs/extensions.md`](./docs/extensions.md) and to the
-   table in both entry READMEs — `README.zh-CN.md` mirrors `README.md` row by row
-   and `test/docs-parity.test.ts` compares them — then update
-   [`test/naming.test.ts`](./test/naming.test.ts) and the
+4. Add the extension to the catalog table in both entry READMEs — `README.zh-CN.md`
+   mirrors `README.md` row by row and `test/docs-parity.test.ts` compares them —
+   then update [`test/naming.test.ts`](./test/naming.test.ts) and the
    [`lib/tool-names.ts`](./lib/tool-names.ts) contract if it shares a tool name.
 
 ## Release

@@ -7,7 +7,7 @@
  * those three agree, so a missed bump or a mistyped tag would ship silently.
  * This test ties them together.
  *
- * The same flow bumps the install pin the getting-started guide offers as the
+ * The same flow bumps the install pin the user guide offers as the
  * copy-paste way to hold a release, so that page is checked against the package
  * version too: a pin is only useful while it names a version that exists.
  *

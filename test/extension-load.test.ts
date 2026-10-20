@@ -18,7 +18,7 @@
  * by invariant, and a module-level value there would surface as a cross-extension
  * failure instead of a subtle reload bug.
  *
- * The same load answers the size claim the getting-started guide makes when a
+ * The same load answers the size claim the user guide makes when a
  * reader weighs the pack: the extension and tool counts are derived here and
  * compared with what that page states.
  */
@@ -91,7 +91,7 @@ describe("every extension loads through the fake runtime", () => {
 
 describe("the documented footprint", () => {
 	/** The page that states how big the pack is, where a reader decides on it. */
-	const guide = readFileSync(join(root, "docs", "getting-started.md"), "utf-8");
+	const guide = readFileSync(join(root, "docs", "user-guide.md"), "utf-8");
 	/** A size the guide states: `16 extensions`, `21 tools`. */
 	const CLAIM = /(\d+) (extensions|tools)\b/g;
 
@@ -119,7 +119,7 @@ describe("the documented footprint", () => {
 		// A regex that stopped matching would make the loop below vacuous.
 		expect(claims.length).toBeGreaterThan(0);
 		for (const [, count, noun] of claims) {
-			expect(Number(count), `${noun} stated in docs/getting-started.md`).toBe(actual[noun]);
+			expect(Number(count), `${noun} stated in docs/user-guide.md`).toBe(actual[noun]);
 		}
 	});
 });

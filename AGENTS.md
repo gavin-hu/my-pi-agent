@@ -132,12 +132,11 @@ why.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range, never `dependencies`.
 - Adding or renaming a tool also means updating `test/naming.test.ts` and the
-  catalog in `docs/extensions.md` (and the group it belongs to in `README.md`).
-  Adding or renaming a command or flag means updating the catalog too, and
-  registering it with a string literal: `test/docs-truth.test.ts` compares the
-  two lists in both directions.
-- Adding an extension is more than the code: the `pi` manifest, the catalog,
-  `README.md` and its `README.zh-CN.md` mirror (compared row by row), and
+  catalog table in `README.md` (in the group it belongs to). Adding or renaming
+  a command or flag means updating that table too, and registering it with a
+  string literal.
+- Adding an extension is more than the code: the `pi` manifest, the catalog table
+  in `README.md` and its `README.zh-CN.md` mirror (compared row by row), and
   `lib/tool-names.ts` if it shares a name. `CONTRIBUTING.md` lists the steps.
 - Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
   `promptGuidelines`, injected context) is budgeted. Keep each channel to its
@@ -270,9 +269,10 @@ One doc per audience. Do not duplicate across them:
   relative links. Deep docs stay English until a translation owner exists.
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants rather than restating them.
-- `docs/` — repo-level guides: `getting-started`, `extensions` (the full
-  catalog), `configuration`, `architecture`, `development`, `security`, and
-  `references/` for exhaustive listings a hand edit is checked against.
+- `docs/` — repo-level guides: `user-guide` (every feature for an end user),
+  `configuration`, `architecture`, `development`, `security`, and `references/`
+  for exhaustive listings a hand edit is checked against. The catalog lives in
+  `README.md`.
 - `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
   its ids, links, citations, and bucket caps, and shipping an item means
   renumbering or removing it in the same commit.
@@ -281,7 +281,8 @@ One doc per audience. Do not duplicate across them:
 - `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
   `test/README.md` — the deep per-area contracts.
 
-When behavior changes, update the catalog (`docs/extensions.md`), the relevant
+When behavior changes, update the catalog table in `README.md` (and its
+`README.zh-CN.md` mirror), the relevant
 `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
 
 Renaming a heading or moving a file also means fixing the links to it:

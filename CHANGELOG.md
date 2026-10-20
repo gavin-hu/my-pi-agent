@@ -13,7 +13,34 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A path filter still shows every folder, so a folded branch cannot hide a
   match, and clearing the filter restores the tree exactly as it was.
 
+- docs: [`docs/user-guide.md`](./docs/user-guide.md) is a single end-user guide —
+  every extension, plus settings, WeChat, and the terminal chrome, each with a
+  plain-language overview and a numbered walkthrough of keys and commands.
+
 ### Changed
+
+- docs: the user guide opens with a five-minute tour and a per-feature index, and
+  gains a glossary, a section on cost and what leaves the machine, and
+  screenshots for the nine screens it asks the reader to operate.
+
+- docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
+  contributor: five diagrams (the load path, an extension's anatomy, a turn, the
+  process shapes, and where new code belongs), the state stores, the three ways
+  extensions cooperate, and a reading tour. It explains the reasons and links the
+  normative docs instead of restating them.
+
+- docs: `docs/extensions.md` is removed. The grouped catalog in `README.md` is the
+  one surface list, and each `extensions/<name>/README.md` still carries the full
+  tool, command, and design detail. The two tests that read the catalog go with
+  it, so commands and flags are no longer checked against the docs; the tool
+  names stay pinned in `test/naming.test.ts`.
+
+- docs: `docs/getting-started.md` is folded into the user guide and removed. The
+  install routes (including the `@vX.Y.Z` pin), the fit decision, the
+  prerequisites, what an install changes, and removal now live in
+  [`docs/user-guide.md`](./docs/user-guide.md), which the entry READMEs and the
+  docs index link to; the footprint guard and the install-pin guard read the
+  guide instead.
 
 - `plan`: the injected plan-mode context states each rule once — the shell rule no
   longer repeats the read-only summary, and the delegation bullet leaves "forced
@@ -223,7 +250,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   summaries, and skill blocks sit on the canvas instead of inside a filled
   purple band.
 
-- `docs`: [getting started](./docs/getting-started.md) is now a page that ends in a
+- `docs`: getting started is now a page that ends in a
   decision. It opens with what the pack is for and the conditions on each side of
   the fit question, then a trial with `pi -e .` that writes nothing, install,
   verification, the first three workflows, how to turn parts off, and how to
@@ -233,7 +260,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   release. The catalog is unchanged.
 
 - `docs`: the entry READMEs no longer repeat the install matrix. Each keeps the npm
-  command and points at [getting started](./docs/getting-started.md) for git, a
+  command and points at getting started for git, a
   pinned release, a project-local install, and a trial that writes nothing, so
   the copy-paste options have one home; the `@vX.Y.Z` pin now lives on that page
   alone, and the release steps in [`docs/development.md`](./docs/development.md)

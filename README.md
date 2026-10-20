@@ -55,7 +55,7 @@ Requires a working [Pi](https://pi.dev) installation.
 pi install npm:@gavin-hu/my-pi-agent
 ```
 
-[Getting started](./docs/getting-started.md) has the other sources — git, a
+[User guide](./docs/user-guide.md) has the other sources — git, a
 pinned release, a project-local install, and a trial that writes nothing — plus
 the fit decision, the first workflows, and how to remove the pack.
 
@@ -190,11 +190,10 @@ stops the factories from registering; to drop the whole package, use Pi's
 
 | Guide | What it covers |
 |---|---|
-| [Getting started](./docs/getting-started.md) | Whether the pack fits, a trial run, install options, verifying the load, first workflows, and removal. |
-| [Extensions](./docs/extensions.md) | The full catalog of every extension and theme. |
+| [User guide](./docs/user-guide.md) | Every feature in plain language, with step-by-step walkthroughs, keys, and commands. |
 | [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
 | [Configuration reference](./docs/references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |
-| [Architecture](./docs/architecture.md) | How the package, its extensions, and `lib/` fit together. |
+| [Architecture](./docs/architecture.md) | The load path, runtime model, state, process shapes, and where new code belongs. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |
