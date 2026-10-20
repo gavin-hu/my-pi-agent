@@ -393,8 +393,10 @@ Rust, Go, Python, Make, or Just project.
    *A failed check; Enter opens the focused failure.*
 
 2. On a failure, the list shows `file:line` locations. `Enter` opens the
-   focused failure's detail, `j` / `k` and the arrows scroll, and `Esc` goes
-   back. `r` reruns; `Esc` from the list closes it.
+   focused failure's detail: the message and a few lines of the source around
+   the location, marked with `>`. If the file cannot be read, the detail shows
+   the end of the command output and says why. `j` / `k` and the arrows scroll,
+   and `Esc` goes back. `r` reruns; `Esc` from the list closes it.
 
 3. A passing run is one line in the transcript, such as
    `Check passed: bun run check · 12.4s`.

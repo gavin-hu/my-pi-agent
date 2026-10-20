@@ -3,9 +3,10 @@
  * detail body, and the model-facing report. No terminal access and no git.
  */
 
-import { formatDuration, sanitizeLine } from "../../lib/format.ts";
+import { formatDuration, sanitizeLine, stripControlChars } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import type { CheckResult, Failure } from "./types.ts";
+import type { SourceResult } from "./source.ts";
 
 /** Failures shown in a model-facing report. */
 export const MODEL_FAILURES = 20;
@@ -53,13 +54,34 @@ export function formatResultSummary(result: CheckResult): string {
 	return `error${SEPARATORS.item}${sanitizeLine(result.error ?? "unknown error")}`;
 }
 
-/** The lines a failure detail pane shows: location, reason, and the bounded tail. */
-export function formatFailureDetail(failure: Failure, tail: string): string[] {
+/** The source excerpt rows with a target marker and aligned line numbers. */
+export function formatSourceExcerpt(excerpt: {
+	startLine: number;
+	endLine: number;
+	targetLine: number;
+	lines: readonly string[];
+}): string[] {
+	const width = String(excerpt.endLine).length;
+	return excerpt.lines.map((text, index) => {
+		const number = excerpt.startLine + index;
+		const marker = number === excerpt.targetLine ? ">" : " ";
+		const clean = stripControlChars(text).replaceAll("\t", "    ").slice(0, 2_000).trimEnd();
+		return `${marker} ${String(number).padStart(width)} │ ${clean}`;
+	});
+}
+
+/** The lines a failure detail pane shows: location, reason, source or tail. */
+export function formatFailureDetail(failure: Failure, tail: string, source?: SourceResult): string[] {
 	const lines = [
 		`${formatFailureLocation(failure)}${SEPARATORS.item}${sanitizeLine(failure.command)}`,
 		"",
 		...sanitizeLine(failure.message).split("\n"),
 	];
+	if (source?.ok) {
+		lines.push("", "Source:", ...formatSourceExcerpt(source.excerpt));
+		return lines;
+	}
+	if (source && failure.path) lines.push("", `(source unavailable: ${sanitizeLine(source.reason)})`);
 	const tailLines = tail
 		.split("\n")
 		.map((line) => sanitizeLine(line))
