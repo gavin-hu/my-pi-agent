@@ -648,7 +648,8 @@ The built-in helpers are:
 
 2. Type `/agents` to see the board. `j` / `k` choose a run, `Enter` opens its
    detail, `c` collects a finished result into the conversation, and `x` cancels
-   a running one. `Esc` goes back or closes.
+   a running one. The detail follows the latest output while the run is live,
+   keeping only a bounded preview. `Esc` goes back or closes.
 
    <img src="../assets/agents.png" alt="The /agents screen: running and finished background helpers with status, task, elapsed time, and usage" width="100%">
 

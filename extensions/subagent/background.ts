@@ -3,9 +3,9 @@
  *
  * A background run is the same child process and result as a foreground one;
  * only the wait moves off the tool call. The session branch is the durable
- * record: a start entry, then a finish entry. The live map keeps the full result
- * for collection until the process ends; after a restart the branch can only
- * report a start without a finish as interrupted.
+ * record: a start entry, then a finish entry. The live map keeps a bounded
+ * preview and the final output for collection; after a restart the branch can
+ * only report a start without a finish as interrupted.
  */
 
 import { resolve } from "node:path";
@@ -21,6 +21,8 @@ export const BACKGROUND_ENTRY = "subagent-background";
 
 /** Cap on the output stored in the entry and sent by collect. */
 const MAX_OUTPUT_CHARS = 50 * 1024;
+/** Cap on the live preview shown while a run is active. */
+const MAX_PREVIEW_CHARS = 8 * 1024;
 /** Cap on the task stored in an entry. */
 const MAX_TASK_CHARS = 4 * 1024;
 
@@ -39,6 +41,7 @@ export interface BackgroundRun {
 	stopReason?: string;
 	errorMessage?: string;
 	usage?: UsageStats;
+	/** Latest bounded output: a live preview while running, final output after. */
 	output?: string;
 	artifactPath?: string;
 }
@@ -180,6 +183,13 @@ function finalOutput(result: SingleResult): string {
 	return text.length > MAX_OUTPUT_CHARS ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n… output truncated` : text;
 }
 
+/** The latest output for a running run, bounded and kept at the tail. */
+function liveOutput(result: SingleResult): string {
+	const text = stripControlChars(getFinalOutput(result.messages) || result.stderr.trim());
+	if (text.length <= MAX_PREVIEW_CHARS) return text;
+	return `… earlier output omitted\n${text.slice(-MAX_PREVIEW_CHARS)}`;
+}
+
 /** One run from a start entry and an optional finish. */
 function runFromEntries(start: StartEntry, finish?: FinishEntry): BackgroundRun {
 	return {
@@ -232,7 +242,6 @@ function nextId(branch: readonly unknown[], live: ReadonlyMap<string, Background
 interface LiveRun {
 	controller: AbortController;
 	run: BackgroundRun;
-	result?: SingleResult;
 }
 
 export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime {
@@ -259,7 +268,6 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 		const status = statusOf(result);
 		const output = finalOutput(result);
 		const finishedAt = result.finishedAt ?? now();
-		entry.result = result;
 		entry.run = {
 			...entry.run,
 			status,
@@ -368,10 +376,11 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 						if (!current) return;
 						const entry = live.get(id);
 						if (!entry) return;
-						entry.result = current;
+						const preview = liveOutput(current);
 						entry.run = {
 							...entry.run,
 							...(current.usage ? { usage: current.usage } : {}),
+							...(preview ? { output: preview } : {}),
 						};
 						notify();
 					},
@@ -398,7 +407,7 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 		if (!run) return { ok: false, reason: `No background run ${runId}.` };
 		if (run.status === "running") return { ok: false, reason: `${runId} is still running.` };
 		if (run.status === "interrupted") return { ok: false, reason: `${runId} was interrupted before it finished.` };
-		const output = entry?.result ? finalOutput(entry.result) : (run.output ?? "");
+		const output = run.output ?? "";
 		const usage = run.usage ? formatUsageStats(run.usage) : "";
 		const lines = [
 			`Background subagent ${run.id} (${sanitizeLine(run.agent)}) ${run.status}.`,

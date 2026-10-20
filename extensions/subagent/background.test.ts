@@ -4,7 +4,7 @@ import { makeClock } from "../../test/helpers/clock.ts";
 import { BUILTIN_AGENTS } from "./agents.ts";
 import { BACKGROUND_ENTRY, canCollect, createBackgroundRuntime, backgroundDuration } from "./background.ts";
 import type { RunOptions } from "./run.ts";
-import { createResult } from "./stream.ts";
+import { applyEvent, createResult } from "./stream.ts";
 import type { SingleResult, UsageStats } from "./types.ts";
 
 const AGENT = BUILTIN_AGENTS[0]!.name;
@@ -103,6 +103,39 @@ describe("background runtime", () => {
 		expect(collected.text).toContain("Background subagent a1");
 		expect(collected.text).toContain("finished output");
 		expect(collected.text).toContain("Usage:");
+	});
+
+	test("updates a running row with a bounded live preview", async () => {
+		const h = harness();
+		h.start();
+		await settle();
+		const partial = result("", { exitCode: -1 });
+		applyEvent(partial, {
+			type: "message_end",
+			message: { role: "assistant", content: [{ type: "text", text: "Reading auth..." }] },
+		});
+		h.run()?.onUpdate?.({ content: [], details: { mode: "single", results: [partial] } });
+		h.run()?.onUpdate?.({ content: [], details: { mode: "single", results: [result("", { exitCode: -1 })] } });
+
+		expect(h.runtime.list([])[0]).toMatchObject({ status: "running", output: "Reading auth..." });
+	});
+
+	test("keeps a long live preview bounded at the tail", async () => {
+		const h = harness();
+		h.start();
+		await settle();
+		const partial = result("", { exitCode: -1 });
+		const text = `${"x".repeat(9_000)}tail`;
+		applyEvent(partial, {
+			type: "message_end",
+			message: { role: "assistant", content: [{ type: "text", text }] },
+		});
+		h.run()?.onUpdate?.({ content: [], details: { mode: "single", results: [partial] } });
+
+		const output = h.runtime.list([])[0]?.output ?? "";
+		expect(output.startsWith("… earlier output omitted")).toBe(true);
+		expect(output.endsWith("tail")).toBe(true);
+		expect(output.length).toBeLessThan(text.length);
 	});
 
 	test("cancels one run and reports it as cancelled", async () => {
