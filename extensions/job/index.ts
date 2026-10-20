@@ -13,13 +13,13 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL, type JobFinishedEvent } from "../../lib/events.ts";
-import { noticeMessage, type NoticeMessage, pruneStaleNotices } from "../../lib/notice.ts";
-import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
+import { createPendingReporter } from "../../lib/report.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion, jobOutcome, shortLabel } from "./format.ts";
 import { createJobsRuntime, type JobsRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
-import type { Job, JobRecord } from "./types.ts";
+import type { JobRecord } from "./types.ts";
 
 /** Marker embedded in the injected completion context. */
 const JOB_CONTEXT_MARKER = "[BACKGROUND JOBS]";
@@ -65,33 +65,27 @@ export interface JobsDeps {
 export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	if (!isExtensionEnabled("job")) return;
 	const runtime = deps.runtime ?? createJobsRuntime();
-	let busy = false;
+
+	// Opt-in wake: a `wake` job finished while the agent is idle. The reporter
+	// reports *all* pending completions, not just the waking one, so a job that
+	// finished earlier is not silently marked seen and dropped.
+	const reporter = createPendingReporter<JobRecord>({
+		wake: (notice) => pi.sendMessage(notice, { triggerTurn: true }),
+		pending: () => runtime.pendingCompletions(),
+		markReported: (records) => runtime.markReported(records.map((job) => job.id)),
+		buildNotice: jobNotice,
+		source: "job",
+	});
 
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
 
-	// Opt-in wake: a `wake` job finished while the agent is idle. Report *all*
-	// pending completions, not just the waking one, so a non-wake job that
-	// finished earlier is not silently marked seen and dropped.
-	const handleFinish = (_job: Job): void => {
-		if (busy) return;
-		const pending = runtime.pendingCompletions();
-		if (pending.length === 0) return;
-		try {
-			pi.sendMessage(jobNotice(pending), { triggerTurn: true });
-			// Mark only once the send succeeded; a throw leaves them for the next turn.
-			runtime.markReported(pending.map((job) => job.id));
-		} catch {
-			// Waking is best-effort; the next turn still reports the completion.
-		}
-	};
-
 	pi.on("session_start", (_event, ctx) => {
-		busy = false;
+		reporter.sessionStart();
 		runtime.load(ctx);
-		// `shutdown` clears this; a reload or session replacement reuses the
-		// runtime, so re-arm it on every session start.
-		runtime.onFinish = handleFinish;
+		// `shutdown` clears these; a reload or session replacement reuses the
+		// runtime, so re-arm them on every session start.
+		runtime.onFinish = () => reporter.report();
 		// Notify-listening extensions follow completions on the shared bus; the
 		// runtime only knows the callback, never the channel.
 		runtime.onComplete = (job) => {
@@ -109,37 +103,28 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	});
 
 	pi.on("agent_start", () => {
-		busy = true;
+		reporter.agentStart();
 	});
 	pi.on("agent_settled", () => {
-		busy = false;
+		reporter.agentSettled();
 	});
 
 	// Report completions to the model at the start of the next turn.
 	pi.on("before_agent_start", (_event, ctx) => {
-		const pending = runtime.pendingCompletions();
-		if (pending.length === 0) return undefined;
-		runtime.markReported(pending.map((job) => job.id));
+		const reported = reporter.beforeAgentStart();
+		if (!reported) return undefined;
 		runtime.setStatus(ctx);
-		return { message: jobNotice(pending) };
+		return reported;
 	});
 
 	// Keep stale completion notices out of later turns. Only this extension's
 	// notices are pruned; another source's are left for its own handler.
-	pi.on("context", (event) => {
-		const pruned = pruneStaleNotices(event.messages, "job");
-		return pruned ? { messages: pruned } : undefined;
-	});
+	pi.on("context", (event) => reporter.filterContext(event.messages));
 
-	pi.on("session_shutdown", async (_event, ctx) => {
+	// `shutdown` detaches the UI controller, which clears both chips.
+	pi.on("session_shutdown", async () => {
 		runtime.onFinish = undefined;
 		runtime.onComplete = undefined;
 		await runtime.shutdown();
-		try {
-			ctx.ui.setStatus(STATUS_KEYS.jobs, undefined);
-			ctx.ui.setStatus(STATUS_KEYS.jobsFailure, undefined);
-		} catch {
-			// UI may already be gone.
-		}
 	});
 }

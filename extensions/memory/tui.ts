@@ -26,6 +26,7 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
+import { ConfirmState } from "../../lib/tui/confirm.ts";
 import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
 import { dockListFrame, editorTheme, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
@@ -91,8 +92,8 @@ export class MemoryPickerComponent implements Component {
 	private mergePair: { first: Note; second: Note } | undefined;
 	/** The note marked with `m`, awaiting a second `m` to merge into it. */
 	private mergeSource: Note | undefined;
-	/** Note awaiting a y/N forget confirmation. */
-	private confirm: Note | undefined;
+	/** The y/N forget confirmation, shared with the other destructive screens. */
+	private readonly confirm = new ConfirmState();
 	/** Transient feedback shown in place of the hint. */
 	private notice: string | undefined;
 	private componentFocused = false;
@@ -355,17 +356,7 @@ export class MemoryPickerComponent implements Component {
 	}
 
 	private handleConfirm(data: string): void {
-		const note = this.confirm;
-		if (!note) return;
-		if (data === "y" || data === "Y" || matchesKey(data, Key.enter)) {
-			this.confirm = undefined;
-			this.forgetNote(note);
-			return;
-		}
-		if (data === "n" || data === "N" || isCloseKey(data) || data === "q") {
-			this.confirm = undefined;
-			this.requestRender();
-		}
+		if (this.confirm.resolve(data) !== undefined) this.requestRender();
 	}
 
 	handleInput(data: string): void {
@@ -378,7 +369,7 @@ export class MemoryPickerComponent implements Component {
 			this.requestRender();
 			return;
 		}
-		if (this.confirm) {
+		if (this.confirm.pending) {
 			this.handleConfirm(data);
 			return;
 		}
@@ -417,14 +408,14 @@ export class MemoryPickerComponent implements Component {
 		else if (data === "p") this.moveNote(focused);
 		else if (data === "d") {
 			if (!focused) return;
-			this.confirm = focused;
+			this.confirm.ask(this.confirmPrompt(focused), () => this.forgetNote(focused));
 			this.requestRender();
 		} else if (data === "r") this.reload();
 	}
 
 	/** Wheel scrolling moves the selection, matching the other list screens. */
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (this.mode !== "list" || this.confirm) return undefined;
+		if (this.mode !== "list" || this.confirm.pending) return undefined;
 		const notes = this.notes();
 		const handled = scrollList(event, this.cursor, notes.length);
 		if (handled) this.selectedKey = notes[this.cursor.selected] ? noteKey(notes[this.cursor.selected]) : undefined;
@@ -472,9 +463,7 @@ export class MemoryPickerComponent implements Component {
 		});
 	}
 
-	private confirmPrompt(): string {
-		const note = this.confirm;
-		if (!note) return "";
+	private confirmPrompt(note: Note): string {
 		const label = sanitizeLine(note.text);
 		const clipped = label.length > 40 ? `${label.slice(0, 39)}…` : label;
 		return `Forget ${scopeLabel(note.scope)} note "${clipped}"? y/N`;
@@ -519,8 +508,9 @@ export class MemoryPickerComponent implements Component {
 			}
 		}
 
-		const hint = this.confirm
-			? clip(`  ${paint(this.theme, "warn", this.confirmPrompt())}`, w)
+		const pending = this.confirm.pending;
+		const hint = pending
+			? clip(`  ${paint(this.theme, "warn", pending.prompt)}`, w)
 			: this.notice !== undefined
 				? clip(`  ${paint(this.theme, "meta", this.notice)}`, w)
 				: this.mergeSource

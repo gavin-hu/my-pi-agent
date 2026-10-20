@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_CONFIG, type WatchConfig } from "../../../extensions/watch/config.ts";
-import type { KillTreeFn, SpawnFn } from "../../../extensions/watch/process.ts";
+import type { KillTreeFn, SpawnFn } from "../../../lib/spawn.ts";
 import { createWatchRuntime, type WatchRuntime } from "../../../extensions/watch/runtime.ts";
 import { makeClock, type Clock } from "../clock.ts";
 import { fakeCtx as sharedFakeCtx, type FakeCtxResult } from "../context.ts";
@@ -47,7 +47,7 @@ export function makeHarness(
 		kills.push({ pid, signal, force });
 	};
 	const runtime = createWatchRuntime({
-		spawn: spawn as unknown as SpawnFn,
+		spawn,
 		killTree,
 		now: () => clock.advance(10),
 		config,
@@ -62,7 +62,7 @@ export function makeHarness(
 		config,
 		clock,
 		dir,
-		spawn: spawn as unknown as SpawnFn,
+		spawn,
 		children,
 		kills,
 		cleanup: () => rmSync(dir, { recursive: true, force: true }),

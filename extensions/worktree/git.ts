@@ -14,6 +14,7 @@ import {
 	hasCommits as sharedHasCommits,
 	repoRootFor,
 } from "../../lib/git/index.ts";
+import { isPidAlive } from "../../lib/spawn.ts";
 import type { WorktreeConfig } from "./config.ts";
 
 async function git(pi: ExtensionAPI, args: string[], cwd: string, timeout?: number) {
@@ -433,17 +434,6 @@ export async function unlockWorktree(pi: ExtensionAPI, repoRoot: string, dir: st
 	await git(pi, ["worktree", "unlock", dir], repoRoot);
 }
 
-/** Whether a process id is alive on this host. */
-export function isProcessAlive(pid: number): boolean {
-	if (!Number.isFinite(pid) || pid <= 0) return false;
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (error) {
-		return (error as NodeJS.ErrnoException).code === "EPERM";
-	}
-}
-
 /** Owning pid from a `pi:<pid>:<session>` lock reason, when present. */
 export function lockOwnerPid(reason: string): number | undefined {
 	const match = reason.match(/^pi:(\d+):/);
@@ -453,5 +443,5 @@ export function lockOwnerPid(reason: string): number | undefined {
 /** Whether a lock reason names a `pi` process that is no longer alive. */
 export function isStaleLock(reason: string): boolean {
 	const pid = lockOwnerPid(reason);
-	return pid !== undefined && !isProcessAlive(pid);
+	return pid !== undefined && !isPidAlive(pid);
 }

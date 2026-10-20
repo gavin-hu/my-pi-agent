@@ -197,6 +197,14 @@ other.
 
 ## Design notes
 
+The shared seams are `lib/`'s: `lib/spawn.ts` (spawn, tree-kill), `lib/lines.ts`
+(the byte-safe splitter), `lib/format.ts` (`sanitizeUntrustedLine`),
+`lib/report.ts` (pending matches → notice → one wake turn),
+`lib/tui/status-controller.ts` (chips and the alert), and
+`lib/tui/dock-screen.ts` (the `/watch` frame, navigation, and confirm layer).
+What stays here is the watcher policy: the tailer, the matcher, the source
+model, and the watcher vocabulary.
+
 The file tailer polls and exposes `tick()` publicly; the interval is a thin
 wrapper over `tick()`, so tests drive matching deterministically with no real
 timer. A command tailer is event-driven and feeds both output streams through
@@ -214,15 +222,15 @@ outlive the session.
 
 | Module | Responsibility |
 |---|---|
-| `index.ts` | Extension factory: registers the tool and command, wires the lifecycle and the shared notices. |
+| `index.ts` | Extension factory: registers the tool and command, wires the lifecycle, the shared `lib/report.ts` match reporter, and the shared notices. |
 | `tools.ts` | The `watch` tool definition, execution, and transcript rendering. |
 | `schema.ts` | TypeBox parameters and pure `normalizeCall` validation. |
 | `types.ts` | `WatchAction`/`WatchStatus`, `WatchRecord`, `WatchDetails`, `PendingMatch`. |
-| `runtime.ts` | The session-scoped watcher table, matcher, poll tick, and shutdown. |
-| `process.ts` | Injectable spawn and process-tree kill. |
-| `format.ts` | Pure sanitization and text formatting. |
-| `ui.ts` | Status chips and the match alert, over the shared `lib/tui/status-controller.ts`. |
-| `tui.ts` | `WatchResult` transcript block and the `/watch` dock screen, drawn from the `lib/tui/` kit (`titleRule`, `listRow`, `emptyState`, `IdCursor`, `LinePane`). |
+| `runtime.ts` | The session-scoped watcher table, matcher, poll tick, and shutdown; spawning, tree-kill, and line splitting come from `lib/spawn.ts` and `lib/lines.ts`. |
+
+| `format.ts` | Pure text formatting; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
+| `ui.ts` | Status chips and the match alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
+| `tui.ts` | `WatchResult` transcript block, and the `/watch` screen as a `DockListScreen` subclass: watcher rows, focus block, counts, verbs. |
 | `commands.ts` | The `/watch` command and its completions. |
 | `config.ts` | The `watch` config section load and normalization. |
 

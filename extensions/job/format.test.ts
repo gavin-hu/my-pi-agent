@@ -13,8 +13,6 @@ import {
 	jobCounts,
 	jobOutcome,
 	pendingFailures,
-	sanitizeLogLine,
-	sanitizeLogText,
 	shortLabel,
 	statusGlyph,
 	tailLines,
@@ -45,32 +43,7 @@ const job = (overrides: Partial<JobRecord> = {}): JobRecord => ({
 	...overrides,
 });
 
-describe("sanitizeLogLine", () => {
-	test("strips ANSI colour and OSC sequences", () => {
-		expect(sanitizeLogLine("\u001b[31mred\u001b[0m")).toBe("red");
-		expect(sanitizeLogLine("\u001b]0;title\u0007after")).toBe("after");
-	});
-
-	test("resolves carriage-return progress to the final segment", () => {
-		expect(sanitizeLogLine("10%\r50%\r100% done")).toBe("100% done");
-	});
-
-	test("replaces control characters and collapses whitespace", () => {
-		expect(sanitizeLogLine("a\u0007b\tc   d")).toBe("a b c d");
-	});
-
-	test("clips very long lines", () => {
-		const line = sanitizeLogLine("x".repeat(500));
-		expect(line.length).toBeLessThanOrEqual(200);
-		expect(line.endsWith("…")).toBe(true);
-	});
-});
-
-describe("sanitizeLogText / tailLines", () => {
-	test("sanitizes each line independently", () => {
-		expect(sanitizeLogText("ok\n\u001b[32mgreen\u001b[0m\n")).toEqual(["ok", "green", ""]);
-	});
-
+describe("tailLines", () => {
 	test("keeps only the last N lines", () => {
 		expect(tailLines(["a", "b", "c"], 2)).toEqual(["b", "c"]);
 		expect(tailLines(["a"], 0)).toEqual([]);

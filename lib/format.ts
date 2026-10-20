@@ -96,6 +96,40 @@ export function sanitizeLine(text: string): string {
 	return sanitize(stripControlChars(text));
 }
 
+/** Longest untrusted line kept for display; longer lines are clipped. */
+export const MAX_OUTPUT_LINE = 200;
+
+/** ESC-introduced sequences: OSC, CSI, and single-character escapes. */
+const OSC = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
+const CSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
+const OTHER_ESC = /\u001b[@-Z\\-_]/g;
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g;
+
+/**
+ * The boundary for one line of **program output**: a log file, a child's
+ * stdout, a tailed file.
+ *
+ * Stronger than {@link sanitizeLine}, which strips control characters but leaves
+ * the printable tail of an ANSI sequence behind. This removes whole OSC, CSI,
+ * and single-character escapes first, then resolves carriage returns the way a
+ * terminal would (keep the text after the last `\r`, so progress rewrites
+ * collapse to their final state), squeezes whitespace, and clips the result.
+ *
+ * The escape-stripping has to happen before the control-character pass: once
+ * ESC has become a space, the rest of the sequence is ordinary text.
+ */
+export function sanitizeUntrustedLine(raw: string, maxLength: number = MAX_OUTPUT_LINE): string {
+	const withoutAnsi = raw.replace(OSC, "").replace(CSI, "").replace(OTHER_ESC, "");
+	const afterCr = withoutAnsi.slice(withoutAnsi.lastIndexOf("\r") + 1);
+	const cleaned = afterCr.replace(CONTROL, " ").replace(/\s+/g, " ").trim();
+	return cleaned.length > maxLength ? `${cleaned.slice(0, maxLength - 1)}…` : cleaned;
+}
+
+/** {@link sanitizeUntrustedLine} for a block of output, one entry per line. */
+export function sanitizeUntrustedText(raw: string, maxLength: number = MAX_OUTPUT_LINE): string[] {
+	return raw.split("\n").map((line) => sanitizeUntrustedLine(line, maxLength));
+}
+
 /**
  * Replace a home-directory prefix with `~`, matching at a path boundary so
  * `/home/bob` does not shorten `/home/bobby`. Separators are normalized to `/`

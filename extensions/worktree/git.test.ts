@@ -13,7 +13,6 @@ import {
 	fetchPrRef,
 	fetchStale,
 	hasCommits,
-	isProcessAlive,
 	listManagedWorktrees,
 	lockWorktree,
 	mergeBase,
@@ -175,11 +174,6 @@ describe.skipIf(!runSlowSuites)("git helpers", () => {
 			return args[1] === "status" ? { stdout: " abc sub\n", code: 0 } : { code: 1 };
 		});
 		expect(await submoduleChanges(stub, "/repo")).toEqual({ known: false, count: 0 });
-	});
-
-	test("isProcessAlive", () => {
-		expect(isProcessAlive(process.pid)).toBe(true);
-		expect(isProcessAlive(-1)).toBe(false);
 	});
 
 	test("withGitNoPrompt sets and restores GIT_TERMINAL_PROMPT", async () => {

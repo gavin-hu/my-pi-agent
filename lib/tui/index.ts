@@ -19,7 +19,9 @@
 
 export * from "./chrome.ts";
 export * from "./columns.ts";
+export * from "./confirm.ts";
 export * from "./cursor.ts";
+export * from "./dock-screen.ts";
 export * from "./gauge.ts";
 export * from "./glyphs.ts";
 export * from "./line-pane.ts";

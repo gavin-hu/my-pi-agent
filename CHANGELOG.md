@@ -8,10 +8,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: one shared kit replaces four extensions' private copies — `spawn.ts`
+  (spawn, tree-kill, pid liveness), `lines.ts` (a byte-safe line splitter),
+  `format.ts`'s `sanitizeUntrustedLine`, `report.ts` (pending result → notice →
+  one wake turn), `tui/status-controller.ts`'s context and `notify`,
+  `tui/dock-screen.ts` (the `/jobs` and `/watch` screen body), and
+  `tui/confirm.ts` (the y/N layer). No tool, action, parameter, command, or
+  config key changed.
+
 - `check`: `run_check` draws its own transcript block — a status summary, up to
   five failure rows with an expand hint, and the bounded tail when nothing
   parses — instead of printing the model report, and shows a live elapsed line
   while the command runs. A failed run stays a normal result.
+
+### Fixed
+
+- `job`: output is split on newlines before it is decoded, so a multi-byte
+  character that a pipe read splits no longer shows as U+FFFD in `logs`, in a
+  completion note, or on the `/jobs` screen. A `\r` progress rewrite is now one
+  line whose text after the last carriage return is kept, instead of several
+  partial lines.
+
+- `job`: two `wake` jobs finishing in the same tick raise one triggered turn
+  instead of two. The second completion queues and is reported at the start of
+  that turn, which is what `watch` already did.
 
 ## [0.16.0] - 2026-10-20
 

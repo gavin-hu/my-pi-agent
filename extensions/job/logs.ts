@@ -7,7 +7,8 @@
  */
 
 import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
-import { sanitizeLogText, tailLines } from "./format.ts";
+import { sanitizeUntrustedText } from "../../lib/format.ts";
+import { tailLines } from "./format.ts";
 
 /** Bytes of log read for a `logs` call. */
 const LOG_READ_BYTES = 64 * 1024;
@@ -50,7 +51,7 @@ export function readLogTail(path: string | undefined, lines: number): LogTail {
 	} catch {
 		// A missing/unreadable log yields an empty tail.
 	}
-	const all = dropTrailingBlank(sanitizeLogText(text));
+	const all = dropTrailingBlank(sanitizeUntrustedText(text));
 	const more = start > 0 || all.length > lines;
 	return { lines: tailLines(all, lines), truncated, more };
 }

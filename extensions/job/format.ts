@@ -7,50 +7,18 @@
  *
  * Raw log output is untrusted: it can contain ANSI escapes, carriage-return
  * progress rewrites, and control characters. Every boundary that surfaces log
- * text goes through `sanitizeLogLine`/`sanitizeLogText`, which strip those so a
- * background process cannot restyle or corrupt the terminal. The raw log file
- * is never modified.
+ * text goes through `sanitizeUntrustedLine`/`sanitizeUntrustedText` from
+ * `lib/format.ts`, so a background process cannot restyle or corrupt the
+ * terminal. The raw log file is never modified.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatDuration } from "../../lib/format.ts";
+import { formatDuration, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { clip, LABEL_WIDTH, labelLine } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { byRunningFirst } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
-
-/** Longest sanitized log line kept for display; longer lines are clipped. */
-const MAX_LOG_LINE = 200;
-
-/** ESC-introduced sequences: OSC, CSI, and single-character escapes. */
-const OSC = /\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/g;
-const CSI = /\u001b\[[0-?]*[ -/]*[@-~]/g;
-const OTHER_ESC = /\u001b[@-Z\\-_]/g;
-const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g;
-
-/** Remove ANSI/OSC escape sequences and control characters from one line. */
-function stripEscapes(raw: string): string {
-	return raw.replace(OSC, "").replace(CSI, "").replace(OTHER_ESC, "");
-}
-
-/**
- * Make one line of untrusted log output safe to render.
- *
- * Resolves carriage returns the way a terminal would (keep the text after the
- * last `\r`, so progress rewrites collapse to their final state), strips
- * escapes and control characters, collapses whitespace, and clips the result.
- */
-export function sanitizeLogLine(raw: string): string {
-	const withoutAnsi = stripEscapes(raw);
-	const afterCr = withoutAnsi.slice(withoutAnsi.lastIndexOf("\r") + 1);
-	const cleaned = afterCr.replace(CONTROL, " ").replace(/\s+/g, " ").trim();
-	return cleaned.length > MAX_LOG_LINE ? `${cleaned.slice(0, MAX_LOG_LINE - 1)}…` : cleaned;
-}
-
-/** Sanitize a block of log text line by line. */
-export function sanitizeLogText(raw: string): string[] {
-	return raw.split("\n").map(sanitizeLogLine);
-}
 
 /** The last `count` entries of `lines`. */
 export function tailLines(lines: string[], count: number): string[] {
@@ -108,7 +76,7 @@ function statusWord(job: JobRecord): string {
 
 /** A label clipped to one safe display line. */
 export function clipLabel(text: string): string {
-	return labelLine(text, sanitizeLogLine);
+	return labelLine(text, sanitizeUntrustedLine);
 }
 
 /** A job's label (falling back to its command) clipped to one safe display line. */
@@ -138,12 +106,12 @@ export function formatJobList(jobs: JobRecord[], now = Date.now(), ownSessionId?
 export function formatJobStatus(job: JobRecord, now = Date.now(), ownSessionId?: string): string {
 	const lines = [
 		`${job.id}: ${statusWord(job)}`,
-		`command: ${sanitizeLogLine(job.command)}`,
-		`cwd: ${sanitizeLogLine(job.cwd)}`,
+		`command: ${sanitizeUntrustedLine(job.command)}`,
+		`cwd: ${sanitizeUntrustedLine(job.cwd)}`,
 		`elapsed: ${formatDuration(elapsedMs(job, now))}`,
 	];
 	if (job.pid) lines.push(`pid: ${job.pid}`);
-	if (job.logPath) lines.push(`log: ${sanitizeLogLine(job.logPath)}`);
+	if (job.logPath) lines.push(`log: ${sanitizeUntrustedLine(job.logPath)}`);
 	if (ownSessionId !== undefined && job.sessionId !== ownSessionId) lines.push("session: another session");
 	if (job.lastLine) lines.push(`last: ${job.lastLine}`);
 	return lines.join("\n");
@@ -172,10 +140,10 @@ export function formatCompletion(job: JobRecord, now = Date.now()): string {
 
 /** Transcript call text for the `job` tool. */
 export function formatCallText(action: string, args: Record<string, unknown>, argsComplete = true): string {
-	const target = typeof args.id === "string" && args.id ? sanitizeLogLine(args.id) : undefined;
+	const target = typeof args.id === "string" && args.id ? sanitizeUntrustedLine(args.id) : undefined;
 	switch (action) {
 		case "start": {
-			const command = typeof args.command === "string" ? sanitizeLogLine(args.command.trim()) : "";
+			const command = typeof args.command === "string" ? sanitizeUntrustedLine(args.command.trim()) : "";
 			if (!command) return argsComplete ? "start" : "start …";
 			const preview = clip(command, LABEL_WIDTH);
 			return `start → ${preview}`;
@@ -184,7 +152,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 			return `kill ${target ?? ""}`.trim();
 		case "send": {
 			if (!target) return "send";
-			const input = typeof args.input === "string" ? sanitizeLogLine(args.input) : "";
+			const input = typeof args.input === "string" ? sanitizeUntrustedLine(args.input) : "";
 			const preview = input ? clip(input, LABEL_WIDTH) : "";
 			const parts = [preview, args.eof === true ? "EOF" : ""].filter(Boolean).join(" + ");
 			return parts ? `send ${target} → ${parts}` : `send ${target}`;
@@ -201,10 +169,7 @@ export function formatCallText(action: string, args: Record<string, unknown>, ar
 }
 
 /** Order jobs for display: running first, then by most recent start. */
-export function compareJobs(a: JobRecord, b: JobRecord): number {
-	const rank = (job: JobRecord): number => (job.status === "running" ? 0 : 1);
-	return rank(a) - rank(b) || b.startedAt - a.startedAt;
-}
+export const compareJobs = byRunningFirst<JobRecord>((job) => job.status === "running");
 
 export interface JobCounts {
 	total: number;
@@ -267,11 +232,11 @@ export function formatJobOutcomeLine(job: JobRecord, theme: Theme, now = Date.no
 /** Unstyled, sanitized detail lines for the `/jobs` focus pane. */
 export function formatJobDetail(job: JobRecord, now = Date.now(), ownSessionId?: string): string[] {
 	const lines = [
-		sanitizeLogLine(`command: ${job.command}`),
-		sanitizeLogLine(`cwd: ${job.cwd} · ${jobOutcome(job)} · ${formatDuration(elapsedMs(job, now))}`),
+		sanitizeUntrustedLine(`command: ${job.command}`),
+		sanitizeUntrustedLine(`cwd: ${job.cwd} · ${jobOutcome(job)} · ${formatDuration(elapsedMs(job, now))}`),
 	];
 	if (ownSessionId !== undefined && job.sessionId !== ownSessionId) lines.push("owner: another session");
-	const last = sanitizeLogLine(job.lastLine);
+	const last = sanitizeUntrustedLine(job.lastLine);
 	if (last) lines.push(`last: ${last}`);
 	return lines;
 }

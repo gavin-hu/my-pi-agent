@@ -14,8 +14,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { WATCH_MATCH_CHANNEL, type WatchMatchEvent } from "../../lib/events.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import { noticeMessage, type NoticeMessage, pruneStaleNotices } from "../../lib/notice.ts";
-import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
+import { createPendingReporter } from "../../lib/report.ts";
 import { registerCommands } from "./commands.ts";
 import { clipLabel, formatPendingMatch } from "./format.ts";
 import { createWatchRuntime, type WatchRuntime } from "./runtime.ts";
@@ -62,53 +62,46 @@ export interface WatchDeps {
 export default function watch(pi: ExtensionAPI, deps: WatchDeps = {}): void {
 	if (!isExtensionEnabled("watch")) return;
 	const runtime = deps.runtime ?? createWatchRuntime();
-	let busy = false;
-	let waking = false;
 
-	registerTools(pi, runtime);
-	registerCommands(pi, runtime);
-
-	// Opt-in wake: a `wake` watcher matched while the agent is idle. Report *all*
-	// pending matches, not just the waking one, so a non-wake match is not
-	// silently dropped. `waking` guards the window before `agent_start` fires.
-	const handleMatch = (): void => {
-		if (busy || waking) return;
-		const pending = runtime.pendingMatches();
-		if (pending.length === 0) return;
-		try {
-			pi.sendMessage(watchNotice(pending), { triggerTurn: true });
-			runtime.markReported(pending);
-			waking = true;
-		} catch {
-			// Waking is best-effort; the next turn still reports the matches.
-			return;
-		}
+	// Opt-in wake: a `wake` watcher matched while the agent is idle. The reporter
+	// reports *all* pending matches, not just the waking one, so a non-wake match
+	// is not silently dropped.
+	const reporter = createPendingReporter<PendingMatch>({
+		wake: (notice) => pi.sendMessage(notice, { triggerTurn: true }),
+		pending: () => runtime.pendingMatches(),
+		markReported: (matches) => runtime.markReported(matches),
+		buildNotice: watchNotice,
+		source: "watch",
 		// A wake means the user is away from the terminal, so the alert also leaves
 		// the process. bytefly's notify capability owns delivery; this publishes the
 		// fact and never learns how it is sent. The newest match is the one an alert
 		// is about, while the count covers the whole cycle.
-		const newest = pending[pending.length - 1];
-		if (!newest) return;
-		try {
-			const event: WatchMatchEvent = {
-				count: pending.length,
-				watcherId: newest.watcherId,
-				label: newest.label,
-				line: newest.line,
-			};
-			pi.events.emit(WATCH_MATCH_CHANNEL, event);
-		} catch {
-			// A throwing listener must not cost the wake that already happened.
-		}
-	};
+		onWoke: (matches) => {
+			const newest = matches[matches.length - 1];
+			if (!newest) return;
+			try {
+				const event: WatchMatchEvent = {
+					count: matches.length,
+					watcherId: newest.watcherId,
+					label: newest.label,
+					line: newest.line,
+				};
+				pi.events.emit(WATCH_MATCH_CHANNEL, event);
+			} catch {
+				// A throwing listener must not cost the wake that already happened.
+			}
+		},
+	});
+
+	registerTools(pi, runtime);
+	registerCommands(pi, runtime);
 
 	pi.on("session_start", (_event, ctx) => {
-		busy = false;
-		waking = false;
+		reporter.sessionStart();
 		runtime.load(ctx);
 		// `shutdown` clears this; a reload or session replacement reuses the
 		// runtime, so re-arm it on every session start.
-		runtime.onMatch = handleMatch;
+		runtime.onMatch = () => reporter.report();
 	});
 
 	// Tree navigation does not change the watcher table; only repaint.
@@ -117,37 +110,27 @@ export default function watch(pi: ExtensionAPI, deps: WatchDeps = {}): void {
 	});
 
 	pi.on("agent_start", () => {
-		busy = true;
+		reporter.agentStart();
 	});
 	pi.on("agent_settled", () => {
-		busy = false;
-		waking = false;
+		reporter.agentSettled();
 	});
 
 	// Report matches to the model at the start of the next turn.
 	pi.on("before_agent_start", (_event, ctx) => {
-		const pending = runtime.pendingMatches();
-		if (pending.length === 0) return undefined;
-		runtime.markReported(pending);
+		const reported = reporter.beforeAgentStart();
+		if (!reported) return undefined;
 		runtime.setStatus(ctx);
-		return { message: watchNotice(pending) };
+		return reported;
 	});
 
 	// Keep stale match notices out of later turns. Only this extension's notices
 	// are pruned; another source's are left for its own handler.
-	pi.on("context", (event) => {
-		const pruned = pruneStaleNotices(event.messages, "watch");
-		return pruned ? { messages: pruned } : undefined;
-	});
+	pi.on("context", (event) => reporter.filterContext(event.messages));
 
-	pi.on("session_shutdown", async (_event, ctx) => {
+	// `shutdown` detaches the UI controller, which clears both chips.
+	pi.on("session_shutdown", async () => {
 		runtime.onMatch = undefined;
 		await runtime.shutdown();
-		try {
-			ctx.ui.setStatus(STATUS_KEYS.watch, undefined);
-			ctx.ui.setStatus(STATUS_KEYS.watchMatches, undefined);
-		} catch {
-			// UI may already be gone.
-		}
 	});
 }

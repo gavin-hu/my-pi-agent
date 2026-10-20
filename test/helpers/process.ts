@@ -9,7 +9,8 @@
 import { EventEmitter } from "node:events";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import type { Readable } from "node:stream";
-import type { KillTreeFn, LivenessFn, SpawnFn, SpawnedProcess, StartTokenFn } from "../../extensions/job/process.ts";
+import type { KillTreeFn, SpawnFn, SpawnedProcess } from "../../lib/spawn.ts";
+import type { LivenessFn, StartTokenFn } from "../../extensions/job/process.ts";
 import type { SpawnFn as SubagentSpawnFn } from "../../extensions/subagent/types.ts";
 
 /** A recording stand-in for a job's stdin pipe. */
@@ -79,6 +80,11 @@ export class JobChild extends EventEmitter implements SpawnedProcess {
 		this.stdout.emit("data", Buffer.from(text));
 	}
 
+	/** Emit raw stdout bytes, to model a read boundary inside a character. */
+	writeBytes(bytes: Uint8Array): void {
+		this.stdout.emit("data", Buffer.from(bytes));
+	}
+
 	/** Emit stderr data. */
 	emitStderr(text: string): void {
 		this.stderr.emit("data", Buffer.from(text));
@@ -87,6 +93,11 @@ export class JobChild extends EventEmitter implements SpawnedProcess {
 	/** Emit a close event. */
 	close(code: number | null = 0, signal: string | null = null): void {
 		this.emit("close", code, signal);
+	}
+
+	/** Emit a spawn-time error; a caller that models Node's close sends it next. */
+	fail(message: string | Error = "spawn failed"): void {
+		this.emit("error", typeof message === "string" ? new Error(message) : message);
 	}
 }
 
