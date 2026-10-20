@@ -191,6 +191,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | Guide | What it covers |
 |---|---|
 | [Getting started](./docs/getting-started.md) | Whether the pack fits, a trial run, install options, verifying the load, first workflows, and removal. |
+| [User guide](./docs/user-guide.md) | Every feature in plain language, with step-by-step walkthroughs, keys, and commands. |
 | [Extensions](./docs/extensions.md) | The full catalog of every extension and theme. |
 | [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |
 | [Configuration reference](./docs/references/bytefly-config.md) | Every `bytefly.json` section and key, with its type, default, and bounds. |

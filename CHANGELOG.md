@@ -13,6 +13,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   A path filter still shows every folder, so a folded branch cannot hide a
   match, and clearing the filter restores the tree exactly as it was.
 
+- docs: [`docs/user-guide.md`](./docs/user-guide.md) is a single end-user guide —
+  every extension, plus settings, WeChat, and the terminal chrome, each with a
+  plain-language overview and a numbered walkthrough of keys and commands.
+
 ### Changed
 
 - `plan`: the injected plan-mode context states each rule once — the shell rule no

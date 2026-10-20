@@ -197,6 +197,8 @@ It leaves state in three places, all inert and safe to delete:
 
 ## Where to go next
 
+- [User guide](./user-guide.md) — every feature explained in plain language,
+  with step-by-step walkthroughs.
 - [Extensions](./extensions.md) — every extension, and the names it registers.
 - [Configuration](./configuration.md) — `bytefly.json`, environment variables,
   and the [full reference](./references/bytefly-config.md).
