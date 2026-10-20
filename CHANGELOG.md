@@ -34,6 +34,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   leaves the commits in place. The actions are TUI-only; other modes print the
   changed-path list, and plan mode refuses until the plan is approved.
 
+- `check`: `/check` detects a project's test, lint, or typecheck command (or
+  takes `check.command`), streams the run, and opens a navigable `file:line`
+  failure list with a per-failure detail view. The `run_check` tool returns the
+  same failures as structured data. Detection covers package.json, Cargo, Go,
+  pytest, just, and Make; any other stack uses the config command. Runs are
+  bounded by a timeout and a log tail, plan mode refuses, and a parser miss falls
+  back to the bounded tail instead of inventing a location.
+
 ### Changed
 
 - `file-browse`: a rendered Markdown page fills the card instead of being the

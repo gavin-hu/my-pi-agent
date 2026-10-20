@@ -31,7 +31,7 @@ const extensionsDir = posix(join(import.meta.dir, "..", "extensions"));
 const libDir = posix(join(import.meta.dir, "..", "lib"));
 
 /** Aggregate test names that do not map to a single source module. */
-const AGGREGATE_STEMS = new Set(["bridge.delivery", "bridge.inbound", "bridge.slash", "extension", "render"]);
+const AGGREGATE_STEMS = new Set(["bridge.delivery", "bridge.inbound", "bridge.slash", "check", "extension", "render"]);
 
 function dirsOf(dir: string): string[] {
 	return readdirSync(dir)

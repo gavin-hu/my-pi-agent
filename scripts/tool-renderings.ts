@@ -38,6 +38,7 @@ import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
 import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { nameplate } from "../extensions/bytefly/message/format.ts";
 import bytefly from "../extensions/bytefly/index.ts";
+import check from "../extensions/check/index.ts";
 import document from "../extensions/document/index.ts";
 import goal from "../extensions/goal/index.ts";
 import jobs from "../extensions/job/index.ts";
@@ -84,6 +85,7 @@ const CWD = "/home/u/repo/project";
 /** The extensions whose tools carry a renderer, in Pi's manifest order. */
 const EXTENSIONS = [
 	bytefly,
+	check,
 	document,
 	goal,
 	jobs,
