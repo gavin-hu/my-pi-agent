@@ -78,8 +78,6 @@ Then, from inside Pi:
   at runtime.
 - `/bytefly update` re-runs the package update check now and reports the
   updateable packages, this package's version and release URL, or a skip.
-- `/settings` remains Pi's own settings screen; `/bytefly settings` also has a
-  **Theme** row.
 - `/plan <task>` starts a task in read-only planning mode.
 
 One thing the pack does on its own: once per interactive session, `bytefly`
@@ -110,7 +108,7 @@ extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree*`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
+| [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree status|enter|exit|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
 | [`rewind`](./extensions/rewind/) | `/rewind`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind` and restore code, conversation, or both. |
 | [`memory`](./extensions/memory/) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 

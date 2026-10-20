@@ -62,13 +62,12 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 - `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
   及其运行时健康状况，启用或禁用一个扩展，并用 `x` 清除项目级覆盖。
 - `/bytefly settings` 打开控制中心的 Settings 区：十个分组覆盖启动、通知、
-  诊断、计价、转录、终端、worktree、快照、任务与监听器、记忆，并新增 **Theme**
+  诊断、计价、转录、终端、worktree、快照、任务与监听器、记忆，并提供 **Theme**
   行；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project 作用域。
 - `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
   检查每个已启用扩展在运行时是否具备所需条件。
 - `/bytefly update` 立即重跑包更新检查，报告可更新的包、本包版本与 release URL，
   或跳过原因。
-- `/settings` 仍是 Pi 自己的设置界面；`/bytefly settings` 也提供 **Theme** 行。
 - `/plan <任务>` 以只读规划模式开始一个任务。
 
 还有一件包会自行做的事：每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器
@@ -97,7 +96,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree*`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
+| [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree status|enter|exit|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
 | [`rewind`](./extensions/rewind/) | `/rewind`, `↺ N` 状态标记 | 每次提示时在 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者。 |
 | [`memory`](./extensions/memory/) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
 
