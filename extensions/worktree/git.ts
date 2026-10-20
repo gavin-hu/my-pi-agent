@@ -15,13 +15,16 @@ import {
 	hasCommits as sharedHasCommits,
 	repoRootFor,
 	revParse,
+	type RunGitOptions,
 } from "../../lib/git/index.ts";
 import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import { isPidAlive } from "../../lib/spawn.ts";
 import type { WorktreeConfig } from "./config.ts";
 
-async function git(pi: ExtensionAPI, args: string[], cwd: string, timeout?: number) {
-	return createExecRunner(pi)(args, { cwd, ...(timeout ? { timeoutMs: timeout } : {}) });
+type GitCallOptions = Omit<RunGitOptions, "cwd">;
+
+async function git(pi: ExtensionAPI, args: string[], cwd: string, options: GitCallOptions = {}) {
+	return createExecRunner(pi)(args, { cwd, ...options });
 }
 
 type GitOutcome = { ok: true; stdout: string } | { ok: false; code: number; error: string };
@@ -34,20 +37,10 @@ async function gitOutcome(pi: ExtensionAPI, args: string[], cwd: string): Promis
 }
 
 /**
- * Run a network git operation with terminal prompting disabled, so a fetch that
- * would ask for credentials fails fast instead of hanging until its timeout.
- * The environment is restored afterwards.
+ * A network fetch: terminal prompting is disabled through the runner's env seam,
+ * so a credentials prompt fails fast instead of hanging until its timeout.
  */
-export async function withGitNoPrompt<T>(fn: () => Promise<T>): Promise<T> {
-	const previous = process.env.GIT_TERMINAL_PROMPT;
-	process.env.GIT_TERMINAL_PROMPT = "0";
-	try {
-		return await fn();
-	} finally {
-		if (previous === undefined) delete process.env.GIT_TERMINAL_PROMPT;
-		else process.env.GIT_TERMINAL_PROMPT = previous;
-	}
-}
+const NO_TERMINAL_PROMPT: GitCallOptions = { env: { GIT_TERMINAL_PROMPT: "0" } };
 
 /** Absolute path of the repository root containing `cwd`, or undefined when not a git repo. */
 export async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
@@ -84,7 +77,10 @@ export async function resolveBaseRef(
 	if (branch) {
 		if (config.fetchRemote && (await fetchStale(pi, repoRoot))) {
 			// Never block on credentials: treat an error or timeout as "keep using the cache".
-			await withGitNoPrompt(() => git(pi, ["fetch", "--no-tags", "origin", branch], repoRoot, config.fetchTimeoutMs));
+			await git(pi, ["fetch", "--no-tags", "origin", branch], repoRoot, {
+				...NO_TERMINAL_PROMPT,
+				timeoutMs: config.fetchTimeoutMs,
+			});
 		}
 		const remoteRef = `origin/${branch}`;
 		if (await refExists(pi, repoRoot, remoteRef)) return { ref: remoteRef, mode: "fresh" };
@@ -152,7 +148,10 @@ export async function fetchPrRef(
 			? [`merge-requests/${pr.number}/head`]
 			: [`pull/${pr.number}/head`, `merge-requests/${pr.number}/head`];
 	for (const spec of specs) {
-		const result = await withGitNoPrompt(() => git(pi, ["fetch", "--no-tags", "origin", spec], repoRoot, timeoutMs));
+		const result = await git(pi, ["fetch", "--no-tags", "origin", spec], repoRoot, {
+			...NO_TERMINAL_PROMPT,
+			timeoutMs,
+		});
 		if (result.code === 0) return { ok: true };
 	}
 	return { ok: false, error: `Failed to fetch PR/MR #${pr.number}` };

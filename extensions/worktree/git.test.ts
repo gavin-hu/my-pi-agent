@@ -22,7 +22,6 @@ import {
 	statusEntries,
 	submoduleChanges,
 	unlockWorktree,
-	withGitNoPrompt,
 	worktreeAdd,
 	worktreeExists,
 	worktreePath,
@@ -195,21 +194,21 @@ describe.skipIf(!runSlowSuites)("git helpers", () => {
 		});
 		expect(await submoduleChanges(stub, "/repo")).toEqual({ known: false, count: 0 });
 	});
+});
 
-	test("withGitNoPrompt sets and restores GIT_TERMINAL_PROMPT", async () => {
-		await withEnv({ GIT_TERMINAL_PROMPT: undefined }, async () => {
-			let during: string | undefined;
-			await withGitNoPrompt(async () => {
-				during = process.env.GIT_TERMINAL_PROMPT;
-			});
-			expect(during).toBe("0");
-			expect(process.env.GIT_TERMINAL_PROMPT).toBeUndefined();
+describe("git fetch environment", () => {
+	test("disables terminal prompting for a fetch and restores the value", async () => {
+		let during: string | undefined;
+		const stub = stubPi(() => {
+			during = process.env.GIT_TERMINAL_PROMPT;
+			return { code: 0 };
 		});
 
 		await withEnv({ GIT_TERMINAL_PROMPT: "keepme" }, async () => {
-			await withGitNoPrompt(async () => {});
+			expect((await fetchPrRef(stub, "/repo", { number: 1, host: "github" }, 1000)).ok).toBe(true);
 			expect(process.env.GIT_TERMINAL_PROMPT).toBe("keepme");
 		});
+		expect(during).toBe("0");
 	});
 });
 
