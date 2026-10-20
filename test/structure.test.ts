@@ -12,6 +12,7 @@ import { join, posix as posixPath } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { REQUIREMENTS } from "../lib/requirements.ts";
 import { SHARED_CONFIG_FILE } from "../lib/config.ts";
+import { allowsAt } from "./helpers/comments.ts";
 import { walkFiles } from "./helpers/files.ts";
 
 /** Normalise separators so path comparisons work on Windows too. */
@@ -42,6 +43,7 @@ function dirsOf(dir: string): string[] {
 const ROOT_TEST_FILES = new Set([
 	"config-docs.test.ts",
 	"docs-parity.test.ts",
+	"drift.test.ts",
 	"extension-load.test.ts",
 	"naming.test.ts",
 	"prompt-budget.test.ts",
@@ -159,24 +161,6 @@ function scanBans(file: string, bans: Ban[] = BANS, exempt: Set<string> = EXEMPT
 	return violations;
 }
 
-/** A comment line: `//`, or the `*`-prefixed body and fence of a block comment. */
-const COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/;
-
-/**
- * Whether `marker` appears on that line or in the comment block directly above
- * it, walking up until the block ends. An allowance reads best where the reason
- * belongs: beside the line, or inside the doc comment that already explains it.
- */
-function allowsAt(lines: string[], index: number, marker: string): boolean {
-	if (lines[index]?.includes(marker) === true) return true;
-	for (let above = index - 1; above >= 0; above--) {
-		const line = lines[above] ?? "";
-		if (!COMMENT_LINE.test(line)) return false;
-		if (line.includes(marker)) return true;
-	}
-	return false;
-}
-
 describe("test layout", () => {
 	test("test/ holds only helpers and package-level tests", () => {
 		expect(dirsOf(testDir)).toEqual(["helpers"]);
@@ -236,24 +220,68 @@ const MAX_MODULE_LINES = 600;
 
 /**
  * Source modules over the bar, each with the one responsibility that keeps it
- * whole. Listing a module here is a deliberate choice, so a new oversized module
- * fails until someone states why it stays; an entry that later drops below the
- * bar is stale and fails too, so the list cannot quietly grow.
+ * whole and its own height. Listing a module here is a deliberate choice, so a
+ * new oversized module fails until someone states why it stays; the height makes
+ * the entry a ceiling rather than a licence, since one added line fails and only
+ * a smaller file lowers it. An entry that drops below the bar is stale and fails
+ * too, so the list cannot quietly grow.
  */
-const LONG_MODULES: Record<string, string> = {
-	"extensions/bytefly/panel/settings.ts": "the curated settings catalogue and the value arithmetic over it",
-	"extensions/bytefly/panel/tui.ts": "the panel's key state machine and its two section renderers",
-	"extensions/file-browse/client.ts": "the browse page's dependency-free client script, shipped as one asset",
-	"extensions/file-browse/html.ts": "the browse pages' renderers and their page-only stylesheet",
-	"extensions/file-browse/markdown.ts": "one escape-first block and inline scan for README Markdown",
-	"extensions/job/runtime.ts": "the session's job table, child handles, and repaint clock",
-	"extensions/plan/tools.ts": "the four plan tools' schemas, results, and transcripts",
-	"extensions/plan/web-client.ts": "the review page's dependency-free client script, shipped as one asset",
-	"extensions/wechat/bridge.ts": "the bridge's composition root, connection lifecycle, and status snapshot",
-	"extensions/worktree/guard.ts": "the five isolation guards over one shell-escape predicate",
-	"lib/highlight.ts": "one tokenizer per language over a shared escape-first scan",
-	"lib/requirements.ts": "one prerequisite table plus the pure probe over its injected seams",
+const LONG_MODULES: Record<string, { lines: number; why: string }> = {
+	"extensions/bytefly/panel/settings.ts": {
+		lines: 783,
+		why: "the curated settings catalogue and the value arithmetic over it",
+	},
+	"extensions/bytefly/panel/tui.ts": {
+		lines: 789,
+		why: "the panel's key state machine and its two section renderers",
+	},
+	"extensions/file-browse/client.ts": {
+		lines: 720,
+		why: "the browse page's dependency-free client script, shipped as one asset",
+	},
+	"extensions/file-browse/html.ts": {
+		lines: 736,
+		why: "the browse pages' renderers and their page-only stylesheet",
+	},
+	"extensions/file-browse/markdown.ts": {
+		lines: 885,
+		why: "one escape-first block and inline scan for README Markdown",
+	},
+	"extensions/job/runtime.ts": {
+		lines: 1087,
+		why: "the session's job table, child handles, and repaint clock",
+	},
+	"extensions/plan/tools.ts": {
+		lines: 750,
+		why: "the four plan tools' schemas, results, and transcripts",
+	},
+	"extensions/plan/web-client.ts": {
+		lines: 794,
+		why: "the review page's dependency-free client script, shipped as one asset",
+	},
+	"extensions/wechat/bridge.ts": {
+		lines: 722,
+		why: "the bridge's composition root, connection lifecycle, and status snapshot",
+	},
+	"extensions/worktree/guard.ts": {
+		lines: 612,
+		why: "the five isolation guards over one shell-escape predicate",
+	},
+	"lib/highlight.ts": {
+		lines: 1000,
+		why: "one tokenizer per language over a shared escape-first scan",
+	},
+	"lib/requirements.ts": {
+		lines: 822,
+		why: "one prerequisite table plus the pure probe over its injected seams",
+	},
 };
+
+/**
+ * The named modules' total, written down so raising one height has to lower
+ * another. It falls whenever a module shrinks; it never rises.
+ */
+const LONG_MODULE_TOTAL = 9700;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {
@@ -289,12 +317,31 @@ describe("source conventions", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	test("a named module keeps its own height, never headroom", () => {
+		// A height above the file would pass a few new lines through, which is the
+		// growth this gate exists to stop.
+		const slack = Object.entries(LONG_MODULES)
+			.filter(([relative, entry]) => lineCount(join(repo, relative)) !== entry.lines)
+			.map(
+				([relative, entry]) =>
+					`${relative}: named ${entry.lines}, file ${lineCount(join(repo, relative))}; set it to the file's height`,
+			);
+		expect(slack).toEqual([]);
+	});
+
 	test("LONG_MODULES carries no stale entry", () => {
 		const stale = Object.keys(LONG_MODULES).filter((relative) => {
 			const path = join(repo, relative);
 			return !existsSync(path) || lineCount(path) <= MAX_MODULE_LINES;
 		});
-		expect(stale).toEqual([]);
+		expect(stale, "delete the entry: that module fits the bar again").toEqual([]);
+	});
+
+	test("the named modules cannot grow in total", () => {
+		const total = Object.values(LONG_MODULES).reduce((sum, entry) => sum + entry.lines, 0);
+		expect(total, "lower LONG_MODULE_TOTAL with the file: a split lowers it, nothing raises it").toBe(
+			LONG_MODULE_TOTAL,
+		);
 	});
 
 	test("tool renderers reuse context.lastComponent", () => {

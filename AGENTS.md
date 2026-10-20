@@ -5,8 +5,36 @@ is a Pi package of extensions, themes, and shared helpers. Pi discovers
 resources from the `pi` manifest in `package.json` and loads each extension as
 plain TypeScript, so there is no build step to run one.
 
-Keep this file short and universally applicable. Detail belongs in the docs it
-links to, not here.
+This file is the entry point, not the manual: each rule is stated once, the test
+that holds it is named, and the detail lives in the doc it links to.
+`test/drift.test.ts` keeps it inside a word budget, so a new paragraph either
+replaces one or belongs in a doc.
+
+## Four rules that keep this repo out of refactors
+
+Every large sweep in this repo's history is one of these rules broken at the
+second copy. Rules 1 to 3 are red tests; rule 4 is review, because no test can
+tell a cross-cutting change from a feature. The habits alone did not hold.
+
+1. **Reuse before you write.** A helper a second extension needs belongs in
+   `lib/`; a copy inside an extension is a bug. `lib/README.md` is the index —
+   read it before writing one. `test/drift.test.ts` fails when one function body
+   appears in two owners; the accepted list and an `allow:dup` comment are the
+   only exceptions, and the list may only shrink.
+2. **No module grows.** A new module stays at most 600 lines. A module already
+   past that is named in `LONG_MODULES` in `test/structure.test.ts` at its own
+   height, which may only fall: a split costs twenty lines at 620 and a week at
+   1,088.
+3. **One owner per concept.** A concept two extensions share has exactly one
+   implementation, in `lib/`. A new `lib/` module ships with a co-located test (a
+   subdirectory may be covered through its barrel, as `lib/git/index.test.ts`
+   covers `git/read.ts`) and a row in `lib/README.md`, in the same commit — the
+   row is compared against the tree, so a module nobody indexed fails instead of
+   being rewritten by the next session.
+4. **A cross-cutting change is its own task.** A plan names every extension it
+   touches. When one concept has to change in two extensions, that is an
+   extraction first, proposed and approved as its own task — never folded into a
+   feature, which is how a nine-commit migration happens.
 
 ## Commands
 
@@ -19,7 +47,8 @@ bun run test    # bun test --parallel=4 --timeout 30000
 
 - Run `bun run check` after code changes and fix every failure. A fresh worktree
   has no `node_modules`, so install once first; otherwise typecheck stops on
-  `scripts/theme.ts` and says nothing about your change.
+  `scripts/theme.ts` and says nothing about your change. Run any test you add or
+  change and iterate until it passes.
 - That check skips the gated `rewind` and `worktree` suites unless `CI` or
   `PI_SLOW_TESTS=1` is set. Run `PI_SLOW_TESTS=1 bun run test` when touching
   either; CI runs them. On macOS, fall back to `bun run check:serial` when a
@@ -31,12 +60,10 @@ bun run test    # bun test --parallel=4 --timeout 30000
   `compat` CI job installs the newest published peers and runs typecheck plus the
   serial suite. Reproduce it locally as `docs/development.md` describes; do not
   commit the peer bump.
-- Run any test you add or change and iterate until it passes.
 - An ad-hoc render or screenshot script drives a picker against injected fixtures
   (`test/helpers/fixtures/picker.ts`) inside `useAgentDir()` (`test/helpers/env.ts`),
   never against a real `discoverExtensions` result: the rows persist to the live
-  agent `settings.json`, so a stray Space or Enter edits the user's own
-  configuration.
+  agent `settings.json`, so a stray Space or Enter edits the user's own config.
 
 ## Git workflow (`main` treated as protected)
 
@@ -51,6 +78,11 @@ local merge into `main` is allowed; a pull request is optional.
   `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It branches from
   `origin/main`, which lags the local `main` here, so rebase onto `main` right
   after entering. One worktree per task; keep the `main` checkout clean.
+- **Clear the worktree when the branch lands.** `prune_worktrees` (or
+  `/worktree prune`) removes clean, unlocked worktrees past `pruneAfterDays`; a
+  merged branch still needs its own delete. Leftovers accumulate silently —
+  `extensions/worktree/README.md` has the rules. This is housekeeping after the
+  exit below, never a way to skip it.
 - **Ask before ending the task.** When the work is done, ask the user how to
   reconcile the branch (commit, merge, keep, or discard) and only call
   `exit_worktree` (or `git worktree remove`) after they decide. Never exit on
@@ -73,9 +105,8 @@ local merge into `main` is allowed; a pull request is optional.
   checkout.
 - Commit format: `type(scope): summary`, where `scope` is the extension name,
   the shared area (`lib`, `docs`, `test`, `ci`), or a comma list when one change
-  spans two (`fix(plan,rewind): …`). Add a short why-body for non-trivial
-  changes.
-
+  spans two (`fix(plan,rewind): …`), and `lib` for a change with no
+  per-extension surface. Add a short why-body for non-trivial changes.
 ## Release
 
 Distribution is git and npm: `main` is installable as a git Pi package, and every
@@ -104,64 +135,41 @@ change. This section holds only what an agent must not get wrong:
   exactly one scoped bullet (`lib` is the scope for a change with no
   per-extension surface), and no bullet may describe a state that was
   reverted earlier in the same window.
+- The hero image prints the package version, so the bump and
+  `bun run screenshots chrome` are one step; the capture needs macOS, so CI
+  cannot catch a stale one. See [`docs/development.md`](./docs/development.md#screenshots).
 
 ## Invariants
 
-Easy to get wrong, and not caught by types or tests. The linked docs explain
-why.
+Easy to get wrong and cheap to break silently. The gate column is the test that
+notices; `review` means nothing downstream will.
 
-- `lib/` is shared by extensions that load with isolated module caches, so it
-  must stay value-only: no module-level state, which `test/structure.test.ts`
-  asserts.
-- No extension imports another extension's modules. Shared tool and parameter
-  names live in `lib/tool-names.ts`; shared glyphs and status keys in
-  `lib/tui/glyphs.ts`.
-- A trust boundary two extensions answer — a loopback server, a served page — has
-  one policy module in `lib/`, never one copy each. Two copies are how a header,
-  a `Host` rule, or an allowlist drifts apart; `lib/http/` is that module for the
-  two local servers.
-- An extension factory only registers. Start long-lived resources from
-  `session_start` and release them in an idempotent `session_shutdown`.
-- State that must survive `/resume` and `/tree` lives in tool-result `details`
-  (or a custom entry) and is rebuilt from `ctx.sessionManager.getBranch()`;
-  widgets are derived, never authoritative.
-- Sanitize model text at the boundary before it reaches a widget or the
-  terminal; `lib/tui/README.md` names the helper for each case.
-- A path is data, not a string. Compare it as a resolved path, build it with the
-  platform joiner (`resolve`, `join`, or `path.posix` for repo-relative docs),
-  and canonicalize it before it becomes a state key. Never assert a literal
-  `a/b` against a value the code built with `join`: macOS stays green and only
-  Windows fails.
-- A rejected tool call returns an error carrying the previous state; never
-  half-apply.
-- Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
-  with a `"*"` range, never `dependencies`.
-- Adding or renaming a tool also means updating `test/naming.test.ts` and the
-  catalog table in `README.md` (in the group it belongs to). Adding or renaming
-  a command or flag means updating that table too, and registering it with a
-  string literal.
-- Adding a `lib/` module is more than the code: the module, a co-located
-  `<module>.test.ts` (which `test/structure.test.ts` asserts), and a
-  `lib/README.md` table row. A new subdirectory gets one row naming each of its
-  modules, the way `git/`, `http/`, `tui/`, and `web/` each have one.
-- Adding an extension is more than the code: the `pi` manifest, the catalog table
-  in `README.md` and its `README.zh-CN.md` mirror (compared row by row), and
-  `lib/tool-names.ts` if it shares a name. `CONTRIBUTING.md` lists the steps.
-- Always-on model-facing text (`description`, parameter docs, `promptSnippet`,
-  `promptGuidelines`, injected context) is budgeted. Keep each channel to its
-  one job; `test/prompt-budget.test.ts` holds the injected-context ceilings.
+| Invariant | Held by |
+|---|---|
+| `lib/` is value-only, no module-level state: each extension loads its own module cache | `test/structure.test.ts` "lib value-only" |
+| No extension imports another's modules; shared tool and parameter names live in `lib/tool-names.ts`, shared glyphs and status keys in `lib/tui/glyphs.ts` | `test/structure.test.ts` "extension boundaries" |
+| An extension factory only registers; long-lived resources start in `session_start` and stop in an idempotent `session_shutdown` | review |
+| State that must survive `/resume` and `/tree` lives in tool-result `details` (or a custom entry) and is rebuilt from `ctx.sessionManager.getBranch()`; widgets are derived, never authoritative | review |
+| Sanitize model text at the boundary, before it reaches a widget or the terminal; `lib/tui/README.md` names the helper for each case | review |
+| A path is data, not a string: compare it resolved, build it with `resolve`/`join` (`path.posix` for repo-relative docs), canonicalize it before it becomes a state key. A literal `a/b` assertion stays green on macOS and fails only on Windows | review; `test/structure.test.ts` doc links |
+| A trust boundary two extensions answer — a loopback server, a served page — has one policy module in `lib/`, never a copy each: two copies are how a header, a `Host` rule, or an allowlist drifts apart. `lib/http/` is that module for the two local servers | review |
+| A rejected tool call returns an error carrying the previous state; never half-apply | review |
+| Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies` with a `"*"` range, never `dependencies` | review |
+| A new or renamed tool updates `test/naming.test.ts` and the catalog table in `README.md`; a new command or flag also updates that table, registered with a string literal | `test/naming.test.ts` |
+| A new extension also touches the `pi` manifest, the catalog in `README.md` and `README.zh-CN.md`, and `lib/tool-names.ts` if it shares a name | `test/docs-parity.test.ts` |
+| Always-on model-facing text (`description`, parameter docs, `promptSnippet`, `promptGuidelines`, injected context) is budgeted, one job per channel | `test/prompt-budget.test.ts` |
 
 ## Code quality
 
-Extension code is read far more often than it is written, so each of these is a
-rule rather than a preference.
+Extension code is read far more often than written; these are rules, not
+preferences.
 
 - One job per module, and a name that says it. Past 600 lines a module either
   splits or is named in `LONG_MODULES` in `test/structure.test.ts` with the one
-  responsibility holding it together, so a new oversized module fails instead of
-  joining a silent pile that only review would catch.
-- The second copy of a helper goes in `lib/`, not the third, and only when a
-  second extension really needs it. `lib/README.md` lists what is already there.
+  responsibility holding it together, and with the module's own height, so a new
+  oversized module fails instead of joining a silent pile.
+- The second copy of a helper goes in `lib/`, not the third — rule 1 above, and
+  `lib/README.md` lists what is already there.
 - No dead branch, no commented-out code, no comment that restates its line. A
   comment carries the why the code cannot: a host quirk, a trap, a limit.
 - `unknown` at a boundary, never `any`. A cast is a claim about a value you did
@@ -169,37 +177,31 @@ rule rather than a preference.
 - An obvious loop beats a dense one-liner, and a name beats a comment.
 
 `test/structure.test.ts` fails a `TODO` marker, a suppression comment, an `any`,
-a commented-out statement, and a module over the line bar that `LONG_MODULES`
-does not name; the rest of this section is review.
+and a commented-out statement in `extensions/*/` and `lib/` **source** — not in
+`scripts/` and not in `*.test.ts` — plus a module over the line bar that
+`LONG_MODULES` does not name. A genuine match stays with `allow:<name>` on the
+line or in the comment block above it. The rest of this section is review.
 
-Performance is the same bar: do work once per render rather than per frame, take
-the cheap path before allocating, and keep nothing that grows with the
-transcript or the session unbounded. A change that makes a long session feel
-slow is a bug even when every test passes, so measure it with
-`bun run bench:render` against the budget in
-[`docs/development.md`](./docs/development.md#performance), and keep its
-determinism gate, which runs in the suite, green.
+Performance is the same bar: work once per render, not per frame; take the cheap
+path before allocating; keep nothing that grows with the transcript. Measure with
+`bun run bench:render` against the budget in [`docs/development.md`](./docs/development.md#performance), and
+keep its determinism gate green.
 
 ## TUI design conventions
 
-Follow Pi's built-in TUI design system; do not invent a private visual
-language. Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
+Follow Pi's built-in TUI design system; do not invent a private visual language.
+Pi's [Terminal UI](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/tui.md)
 and [Themes](https://github.com/earendil-works/pi/tree/main/packages/coding-agent/docs/themes.md)
-docs are normative, and [`lib/tui/README.md`](./lib/tui/README.md) is this
-package's contract for them: host components before custom code, the block
-grammar, the shared primitives, color roles, width math, sanitizing at the
-boundary, keyboard bindings, and the render rules.
+docs are normative, and [`lib/tui/README.md`](./lib/tui/README.md) is the
+package's contract for them.
 
-Three traps are worth repeating here because each one fails silently:
+Three fail silently, so know them before opening the doc: never name a member
+`focused` unless it is a real focus `get`/`set` pair (Pi's `setFocus` assigns a boolean there, so the first call
+throws); a widget derives its state on each render and calls `requestRender()`
+only after a change; and a component that derives lines from another component's
+output memoizes them with `RenderCache` and drops the memo in `invalidate()`.
 
-- Reserve the name `focused` for a real focus `get` / `set` pair. Pi's
-  `setFocus` duck-types with `"focused" in component` and then assigns a boolean
-  there, so any other member of that name is shadowed and the first call throws.
-- A widget is derived from state, never authoritative: read live state on each
-  render and call `requestRender()` only after a change.
-- A component that derives its lines from another component's output memoizes
-  them with `RenderCache` and drops the memo in `invalidate()`. Re-deriving every
-  line per frame is what makes a long transcript feel slow.
+## Docs and conventions
 
 A screen that lists rows and opens a pane subclasses
 [`lib/tui/dock-screen.ts`](./lib/tui/dock-screen.ts) rather than re-assembling
@@ -208,114 +210,31 @@ with an opt-in member whose default is the current behaviour, and prove the seam
 by leaving the existing subclasses and their tests untouched — that is the test
 of whether it belongs in the base at all.
 
-## Prompt conventions
+The contributor contracts live in [`docs/development.md`](./docs/development.md):
 
-Everything an extension puts in front of the model — `description`,
-`promptSnippet`, `promptGuidelines`, parameter docs, injected context — is
-always-on context. Give each channel one job, and never restate the same
-instruction in two of them.
-
-- `description` says what the tool is and what it guarantees: contract, limits,
-  side effects, prerequisites. Not "use it when…".
-- `promptSnippet` is required on every registered tool: the one line in the
-  system prompt's Available tools list, not a copy of the description.
-- `promptGuidelines` say when, when not, and in what order: one idea per bullet,
-  imperative, never restating the description.
-- Parameter descriptions give meaning, default, and bounds only.
-- Injected context states the current facts and the single next action, stays
-  short, and is matched by `customType`, never by marker text.
-- Tool errors name the problem and the corrective action; a rejected call
-  returns the unchanged state.
-
-## Tool surface conventions
-
-The non-prompt fields of a tool definition are a contract a permission
-extension and the plan-mode policy read, so keep them uniform across
-extensions.
-
-- `annotations`: declare `readOnlyHint` and `openWorldHint` on every tool. A
-  mutating tool (`readOnlyHint: false`) also declares `destructiveHint`;
-  `idempotentHint` is omitted on a read-only tool because it only describes
-  repeating a mutation. Missing hints default to the restrictive MCP values, so
-  leaving one out is never a safe shortcut.
-- `executionMode`: set `"sequential"` on a tool that mutates session, UI, or
-  in-memory runtime state, or whose calls are order-dependent. Omit it (the host
-  default, parallel) when calls are independent, such as reads or processes each
-  call spawns itself.
-- `exposure` / `defaultActive`: set them only when they differ from the default
-  (`direct`, active on registration) — `model-only`, `codemode`, and a tool
-  activated later from `session_start` say so explicitly.
-- `outputSchema`: declare it exactly when the result carries a
-  `structuredContent` mirror; the two are one contract.
-- A command that takes subcommands or flags implements
-  `getArgumentCompletions` for them.
-
-## Extension docs
-
-Each extension has one doc, `extensions/<name>/README.md`; there is no separate
-`DESIGN.md`. Follow this section order, omitting empty optional sections:
-
-1. `# <name> — <tagline>`, then a 1–3 sentence intro.
-2. Quickstart: `pi --extension ./extensions/<name>`, `pi -e .`, `pi install ./`.
-3. `## What it does` — capability bullets.
-4. Surface — `## Tool` / `## Tools` / `## Commands` / `## Commands and flags` /
-   `## Routes`.
-5. `## Behaviour by mode` (optional) — `tui`, RPC, JSON, print.
-6. `## Configuration` (optional).
-7. `## Security` (optional) — only with a real trust boundary.
-8. Extension-specific deep dives (optional).
-9. `## Limitations` (optional).
-10. `## Non-goals` (optional).
-11. `## Pi integration` — the contract, derived from source: integration
-    points, tool `exposure`/`executionMode`/`annotations`/`outputSchema`, state
-    storage, and lifecycle hooks (`session_start`/`session_shutdown`).
-12. `## Design notes` — a short why, not a design doc.
-13. `## Files` — module responsibility table.
-14. `## Testing` (optional).
-
-Use Pi's vocabulary from Pi's own `docs/extensions.md`, account for every mode,
-and keep user-facing content above the contributor sections.
-
-## Documentation layout
-
-One doc per audience. Do not duplicate across them:
-
-- `README.md` — the end-user front door: what the package is, install, the
-  grouped catalog, configuration, and links onward. `README.zh-CN.md` mirrors it
-  section for section: the two entry READMEs stay in sync, and
-  `test/docs-parity.test.ts` enforces the shared headings, table rows, and
-  relative links. Deep docs stay English until a translation owner exists.
-- `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
-  for the invariants rather than restating them.
-- `docs/` — repo-level guides: `user-guide/` (the chaptered end-user manual),
-  `configuration` (resolution, the settings screen, and every key with its
-  default), `architecture`, `development`, and `security`. The catalog lives in
-  `README.md`.
-- `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
-  its ids, links, citations, and bucket caps, and shipping an item means
-  renumbering or removing it in the same commit.
-- `AGENTS.md` (this file) — the machine-facing contract and the repo
-  invariants.
-- `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
-  `test/README.md` — the deep per-area contracts.
+- [Extension conventions](./docs/development.md#extension-conventions) — the one
+  doc per extension, its section order, the `## Pi integration` contract, and
+  where each repo doc belongs.
+- [Drift rules](./docs/development.md#drift-rules) — the accepted-copy list, the
+  named modules and their heights, and why neither list may grow.
+- [Tool and prompt surface](./docs/development.md#tool-and-prompt-surface) — the
+  prompt channels, the tool metadata a permission or plan-mode policy reads, and
+  what a new command implements.
 
 When behavior changes, update the catalog table in `README.md` (and its
-`README.zh-CN.md` mirror), the relevant
-`docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
-
-Renaming a heading or moving a file also means fixing the links to it:
-`test/structure.test.ts` resolves every relative link and `#anchor` in the root
-docs, `docs/`, `lib/`, `test/`, `.github/`, and `extensions/`.
+`README.zh-CN.md` mirror), the relevant `docs/` guide, and `CHANGELOG.md` under
+`## [Unreleased]`. A moved heading is a broken link, which
+`test/structure.test.ts` fails on rather than reports.
 
 ## Read more
 
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — setup, the branch flow, checks, and
-  commit format for human contributors.
-- [`docs/README.md`](./docs/README.md) — the index of user and contributor
-  guides.
+  commit format for humans; [`docs/README.md`](./docs/README.md) indexes the
+  user and contributor guides.
 - [`test/README.md`](./test/README.md) — test principles, co-located layout,
   and helper conventions.
-- [`lib/README.md`](./lib/README.md) — shared helpers, host seams, module rules.
+- [`lib/README.md`](./lib/README.md) — the shared helper index, host seams,
+  module rules.
 - [`lib/tui/README.md`](./lib/tui/README.md) — the terminal design system every
   interactive surface draws with.
 - [`extensions/<name>/README.md`](./extensions/) — each extension's full tool
@@ -330,7 +249,7 @@ docs, `docs/`, `lib/`, `test/`, `.github/`, and `extensions/`.
 - Be short and direct; no emojis in commits, code, or docs.
 - Answer the user's question before making edits.
 - State agreement or disagreement explicitly.
-- Ask before removing functionality that looks intentional; do not add backward
-  compatibility unless asked.
+- Ask before removing functionality that looks intentional; never add backward
+  compatibility unasked.
 - If an explicit user instruction conflicts with this file, ask before
   overriding.

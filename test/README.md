@@ -54,9 +54,15 @@ gate is stated in the test.
 4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
    `test/tool-render.test.ts`, `test/roadmap.test.ts`,
-   `test/docs-parity.test.ts`, `test/extension-load.test.ts`) — cross-cutting
+   `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
+   `test/drift.test.ts`) — cross-cutting
    contracts. No extension test may
-   duplicate these. `tool-render.test.ts` renders every registered tool's call
+   duplicate these. `drift.test.ts` holds the anti-refactor rules `AGENTS.md`
+   states: one function body may not appear in two owners, every `lib/` module
+   has a row in `lib/README.md`, and `AGENTS.md` stays inside its word budget.
+   Its accepted-copy list is the backlog, pinned to its size so it cannot grow;
+   the module line bar and its heights are `LONG_MODULES` in `structure.test.ts`.
+   `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
    and that a second render of the same component at the same width returns the
    same line array — the deterministic half of the render-cache contract, since
@@ -227,11 +233,12 @@ test/
   README.md
   helpers/                 # ALL shared doubles and fixtures
     fakes.ts  context.ts  process.ts  env.ts  entries.ts
-    git.ts    platform.ts  preload.ts  clock.ts  files.ts
+    git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
     fixtures/<name>.ts     # extension-specific fixtures
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
-  structure.test.ts        # layout, banned-pattern, boundary, and doc-link (path + anchor) guards
+  structure.test.ts        # layout, banned-pattern, boundary, line bar, and doc-link guards
+  drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   prompt-budget.test.ts    # injected-context size ceilings
