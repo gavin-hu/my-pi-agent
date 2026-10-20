@@ -28,9 +28,12 @@ pi install ./                        # install the package
   mutating tool call. A read-only prompt snapshots nothing.
 - `/review` compares the working tree with the snapshot taken before the latest
   prompt on the active branch. The file list carries `M`/`A`/`D` and line
-  counts; `Enter` opens a scrollable patch, `r` reverts the focused file, and
-  `R` reverts every changed path. Each revert asks first and takes the usual
-  pre-restore safety snapshot.
+  counts; `Enter` opens a scrollable patch, `Space` selects files, `r` reverts
+  the selection (or the focused file when nothing is selected), and `R` reverts
+  every changed path. A selected batch is one restore and one pre-restore
+  safety snapshot, not one per file. When the working tree matches HEAD, the
+  screen says the changes are already committed and a revert leaves the commits
+  in place.
 - `/rewind` lists **every user prompt on the active branch** (newest first), each
   marked `⬥` when a code snapshot was captured for it.
 - Picking a point asks what to restore: **Code and conversation**,
@@ -61,7 +64,7 @@ the main checkout; `list`/matching filter to the current root by default.
 | Command | What it does |
 |---|---|
 | `/rewind` | Open the timeline; pick a prompt, then a restore scope, then (for code) the paths. |
-| `/review` | Review the latest prompt's changes; open a diff, revert a file, or revert all of them. |
+| `/review` | Review the latest prompt's changes; open a diff, select files with `Space`, revert the selection, or revert all of them. |
 
 The path checklist is its own `ctx.ui.custom` screen: `Space` toggles the focused
 row, `a`/`n` select all or none, `Enter` returns the selection, and `Esc` cancels
@@ -74,9 +77,11 @@ closes. The path checklist is the same grammar: `Space` toggles, `a`/`n` select
 all or none, `Enter` restores the selection, `Esc` cancels the rewind.
 
 The review list is keyboard-driven too: `↑`/`↓` or `j`/`k` move, `PgUp`/`PgDn` and
-`Home`/`End` jump, `Enter` opens the focused file's diff, `r` reverts that file,
-`R` reverts every changed path, and `Esc` closes. In the diff, `j`/`k`, the arrows,
-`PgUp`/`PgDn`, and `g`/`G` scroll, `r` reverts the file, and `Esc` goes back.
+`Home`/`End` jump, `Space` toggles the focused file, `a`/`n` select all or none,
+`Enter` opens the focused file's diff, `r` reverts the selection (or the focused
+file when nothing is selected), `R` reverts every changed path, and `Esc` closes.
+In the diff, `j`/`k`, the arrows, `PgUp`/`PgDn`, and `g`/`G` scroll, `r` reverts
+the file, and `Esc` goes back.
 
 ## Behaviour by mode
 
@@ -149,6 +154,11 @@ commit. These refs are not branches and are not touched by `git push --all`.
   review of its own. Actions are TUI-only; other modes print the changed list.
 - **`/review` refuses while plan mode is on.** Plan mode is read-only, so approve
   the plan before reverting its changes.
+- **`/review` labels committed changes only when the working tree is clean.**
+  `currentTree === HEAD^{tree}` means every reviewed difference is in commits;
+  the confirm then says the commit stays. A dirty tree with some commits since
+  the snapshot is unlabelled and keeps the generic "HEAD and the index are
+  untouched" wording.
 
 ## Non-goals
 
@@ -221,7 +231,9 @@ commit. These refs are not branches and are not touched by `git push --all`.
   `buildRewindPoints` pairing as `/rewind`, calls `planRestore`, and fetches a
   patch only when a file is opened. A revert is the existing subset restore, so
   the safety snapshot and the working-tree-only rewrite are the ones `/rewind`
-  already guarantees.
+  already guarantees. A selected batch is one subset restore, which is why it
+  takes one safety snapshot; the list carries the selection across a diff/back
+  round without persisting it.
 - **Identity is fixed for internal commits.** `commit-tree` runs with
   `-c user.name=pi -c user.email=pi@localhost`, so snapshots work without committer
   identity configured and never depend on the user's git config.

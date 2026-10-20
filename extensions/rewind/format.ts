@@ -152,8 +152,8 @@ export function formatReviewEntryCounts(entry: Pick<ReviewEntry, "added" | "remo
 	return parts.length > 0 ? parts.join(" ") : "0";
 }
 
-/** The review list's summary: `4 files · +128 −19`, plus `bin` when needed. */
-export function formatReviewSummary(entries: readonly ReviewEntry[]): string {
+/** The review list's summary: `4 files · +128 −19`, plus `N selected` and `bin` when needed. */
+export function formatReviewSummary(entries: readonly ReviewEntry[], selected = 0): string {
 	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
 	let added = 0;
 	let removed = 0;
@@ -168,6 +168,7 @@ export function formatReviewSummary(entries: readonly ReviewEntry[]): string {
 	const parts = [files];
 	if (added > 0 || removed > 0) parts.push(`+${added} −${removed}`);
 	if (binary) parts.push("bin");
+	if (selected > 0) parts.push(`${selected} selected`);
 	return parts.join(SEPARATORS.item);
 }
 
@@ -183,14 +184,19 @@ export function formatReviewDetail(entry: ReviewEntry): string {
 }
 
 /** Headless `/review` text for modes without a custom screen. */
-export function formatReviewListText(entries: readonly ReviewEntry[], prompt: string | undefined): string {
+export function formatReviewListText(
+	entries: readonly ReviewEntry[],
+	prompt: string | undefined,
+	committed = false,
+): string {
 	const label = summarizePrompt(prompt) ?? "the last prompt";
 	const rows = entries.map((entry) => {
 		const counts = formatReviewEntryCounts(entry);
 		return `  ${SELECTION_MARKS[entry.change]} ${sanitizeLine(entry.path)}${counts ? `  ${counts}` : ""}`;
 	});
 	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
-	return [`Reviewing after "${label}" (${files}):`, ...rows].join("\n");
+	const note = committed ? ["These changes are already committed; reverting rewrites the working tree only."] : [];
+	return [`Reviewing after "${label}" (${files}):`, ...rows, ...note].join("\n");
 }
 
 /** What one review revert did, and what is left to review. */
@@ -210,8 +216,15 @@ function changeDescription(change: ReviewEntry["change"]): string {
 	return "modified since the snapshot; reverting rewrites it";
 }
 
+/** What a revert does to HEAD and the index, with the committed case named. */
+function headNote(committed: boolean): string {
+	return committed
+		? "These changes are already committed; reverting rewrites the working tree and leaves the commits in place. HEAD and the index are untouched."
+		: "HEAD and the index are untouched.";
+}
+
 /** The confirmation body for reverting one file. */
-export function formatRevertOneBody(entry: ReviewEntry, prompt: string, safety: boolean): string {
+export function formatRevertOneBody(entry: ReviewEntry, prompt: string, safety: boolean, committed = false): string {
 	const label = summarizePrompt(prompt) ?? "this prompt";
 	const counts =
 		entry.added === null && entry.removed === null
@@ -222,6 +235,7 @@ export function formatRevertOneBody(entry: ReviewEntry, prompt: string, safety: 
 		counts,
 		"",
 		`Returns ${sanitizeLine(entry.path)} to the snapshot taken before "${label}".`,
+		headNote(committed),
 		safety
 			? "A safety snapshot first makes the revert undoable with /rewind."
 			: "Safety snapshots are off; this cannot be undone.",
@@ -229,13 +243,38 @@ export function formatRevertOneBody(entry: ReviewEntry, prompt: string, safety: 
 }
 
 /** The confirmation body for reverting every changed path in the review. */
-export function formatRevertAllBody(entries: readonly ReviewEntry[], prompt: string, safety: boolean): string {
+export function formatRevertAllBody(
+	entries: readonly ReviewEntry[],
+	prompt: string,
+	safety: boolean,
+	committed = false,
+): string {
 	const label = summarizePrompt(prompt) ?? "this prompt";
 	const files = `${entries.length} file${entries.length === 1 ? "" : "s"}`;
 	return [
 		`Restores ${files} to the snapshot taken before "${label}".`,
 		formatReviewSummary(entries),
-		"HEAD and the index are untouched.",
+		headNote(committed),
+		safety
+			? "A safety snapshot first makes the revert undoable with /rewind."
+			: "Safety snapshots are off; this cannot be undone.",
+	].join("\n");
+}
+
+/** The confirmation body for reverting a chosen subset. */
+export function formatRevertSelectedBody(
+	entries: readonly ReviewEntry[],
+	prompt: string,
+	safety: boolean,
+	committed = false,
+): string {
+	const label = summarizePrompt(prompt) ?? "this prompt";
+	const selected = `${entries.length} selected file${entries.length === 1 ? "" : "s"}`;
+	return [
+		`Restores ${selected} to the snapshot taken before "${label}".`,
+		"Other changed files stay as they are.",
+		formatReviewSummary(entries),
+		headNote(committed),
 		safety
 			? "A safety snapshot first makes the revert undoable with /rewind."
 			: "Safety snapshots are off; this cannot be undone.",

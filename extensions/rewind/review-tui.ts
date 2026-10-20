@@ -27,7 +27,7 @@ import {
 } from "../../lib/tui/cursor.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { LinePane } from "../../lib/tui/line-pane.ts";
-import { emptyState, listRow } from "../../lib/tui/rows.ts";
+import { checkbox, emptyState, listRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { formatReviewDetail, formatReviewEntryCounts, formatReviewSummary } from "./format.ts";
@@ -49,8 +49,14 @@ const DIFF_WHEEL_ROWS = 3;
 /** What the list returns to `review.ts`. */
 export type ReviewListAction =
 	| { kind: "diff"; path: string }
-	| { kind: "revert"; path: string }
+	| { kind: "revert"; paths: string[] }
 	| { kind: "revertAll" };
+
+/** The list's close result: the action and the selection to restore next time. */
+export interface ReviewListResult {
+	action?: ReviewListAction;
+	selected: string[];
+}
 
 /** What the diff returns to `review.ts`. */
 export type ReviewDiffAction = "back" | "revert";
@@ -91,8 +97,12 @@ export interface ReviewListOptions {
 	theme: Theme;
 	/** Focused row to restore when returning from a diff. */
 	initialIndex?: number;
-	/** Called once when the screen closes, with the chosen action or undefined. */
-	onClose: (action?: ReviewListAction) => void;
+	/** Rows selected before this mount, e.g. after returning from a diff. */
+	initialSelected?: readonly string[];
+	/** Whether the working tree is clean against HEAD, so the diff is all committed. */
+	committed?: boolean;
+	/** Called once when the screen closes, with the action and the current selection. */
+	onClose: (result: ReviewListResult) => void;
 	requestRender: () => void;
 	viewportRows?: ViewportRowsSource;
 }
@@ -100,6 +110,7 @@ export interface ReviewListOptions {
 /** The changed-file list `/review` opens. */
 export class ReviewListComponent implements Component {
 	private readonly cursor: ListCursor;
+	private readonly chosen = new Set<string>();
 
 	constructor(private readonly options: ReviewListOptions) {
 		this.cursor = new ListCursor(options.requestRender);
@@ -107,25 +118,49 @@ export class ReviewListComponent implements Component {
 		// Returning from a diff can land deep in the list; put the focused row in
 		// view before the first render finds a window that omits it.
 		this.cursor.scrollTop = this.cursor.selected;
+		const present = new Set(options.entries.map((entry) => entry.path));
+		for (const path of options.initialSelected ?? []) if (present.has(path)) this.chosen.add(path);
+	}
+
+	/** Close with an action and the current selection. */
+	private close(action?: ReviewListAction): void {
+		this.options.onClose({ action, selected: [...this.chosen] });
 	}
 
 	handleInput(data: string): void {
 		if (isCloseKey(data)) {
-			this.options.onClose(undefined);
+			this.close();
 			return;
 		}
 		if (navigateList(data, this.cursor, this.options.entries.length)) return;
 		const entry = this.options.entries[this.cursor.selected];
 		if (!entry) return;
+		if (data === " ") {
+			if (this.chosen.has(entry.path)) this.chosen.delete(entry.path);
+			else this.chosen.add(entry.path);
+			this.options.requestRender();
+			return;
+		}
+		if (data === "a") {
+			for (const candidate of this.options.entries) this.chosen.add(candidate.path);
+			this.options.requestRender();
+			return;
+		}
+		if (data === "n") {
+			this.chosen.clear();
+			this.options.requestRender();
+			return;
+		}
 		if (matchesKey(data, Key.enter)) {
-			this.options.onClose({ kind: "diff", path: entry.path });
+			this.close({ kind: "diff", path: entry.path });
 			return;
 		}
 		if (data === "r") {
-			this.options.onClose({ kind: "revert", path: entry.path });
+			const paths = this.chosen.size > 0 ? [...this.chosen] : [entry.path];
+			this.close({ kind: "revert", paths });
 			return;
 		}
-		if (data === "R") this.options.onClose({ kind: "revertAll" });
+		if (data === "R") this.close({ kind: "revertAll" });
 	}
 
 	/** Wheel scrolling in fullscreen moves the cursor; regular mode leaves the wheel to the terminal. */
@@ -149,10 +184,18 @@ export class ReviewListComponent implements Component {
 		}
 
 		const cursor = this.cursor;
+		const selectionLine =
+			this.chosen.size > 0
+				? `  r reverts ${this.chosen.size} selected file${this.chosen.size === 1 ? "" : "s"}; R reverts all.`
+				: undefined;
+		const committedLine = this.options.committed
+			? "  These changes are already committed; reverting rewrites the working tree only."
+			: undefined;
+		const extraDetailRows = (selectionLine ? 1 : 0) + (committedLine ? 1 : 0);
 		cursor.visible = fitRows(
 			this.options.viewportRows,
 			this.options.entries.length,
-			LIST_CHROME_ROWS,
+			LIST_CHROME_ROWS + extraDetailRows,
 			LIST_DEFAULT_ITEMS,
 		);
 		const { start, end } = cursor.window(this.options.entries.length);
@@ -163,6 +206,7 @@ export class ReviewListComponent implements Component {
 			body.push(
 				listRow(this.theme, w, {
 					selected,
+					leading: checkbox(this.theme, this.chosen.has(entry.path)),
 					glyph: SELECTION_MARKS[entry.change],
 					glyphRole: markRole(entry.change),
 					label: sanitizeLine(entry.path),
@@ -175,10 +219,16 @@ export class ReviewListComponent implements Component {
 
 		const focused = this.options.entries[cursor.selected];
 		const label = sanitizeLine(this.options.prompt || "the last prompt");
+		const summaryParts = [formatReviewSummary(this.options.entries, this.chosen.size)];
+		if (this.options.committed) summaryParts.push("committed");
 		const summary = clip(
-			`  ${paint(this.theme, "meta", `after "${label}"${SEPARATORS.item}${formatReviewSummary(this.options.entries)}`)}`,
+			`  ${paint(this.theme, "meta", `after "${label}"${SEPARATORS.item}${summaryParts.join(SEPARATORS.item)}`)}`,
 			w,
 		);
+		const detail: string[] = [];
+		if (focused) detail.push(clip(`  ${paint(this.theme, "meta", formatReviewDetail(focused))}`, w));
+		if (selectionLine) detail.push(clip(`  ${paint(this.theme, "meta", selectionLine.slice(2))}`, w));
+		if (committedLine) detail.push(clip(`  ${paint(this.theme, "meta", committedLine.slice(2))}`, w));
 		return dockListFrame({
 			header,
 			summary,
@@ -186,7 +236,7 @@ export class ReviewListComponent implements Component {
 			range: cursor.clipped(this.options.entries.length)
 				? formatRange(this.theme, w, { start, end, total: this.options.entries.length })
 				: undefined,
-			detail: focused ? [clip(`  ${paint(this.theme, "meta", formatReviewDetail(focused))}`, w)] : undefined,
+			detail: detail.length > 0 ? detail : undefined,
 			hint: this.hint(w),
 		});
 	}
@@ -200,9 +250,10 @@ export class ReviewListComponent implements Component {
 		return screenHint(this.theme, width, [
 			"Esc close",
 			{ text: "Enter diff", color: "accent" },
+			"Space select",
 			{ text: "r revert", color: "warning" },
 			"R all",
-			"↑/↓ select",
+			"a/n all/none",
 		]);
 	}
 }
@@ -213,6 +264,8 @@ export interface ReviewDiffOptions {
 	prompt?: string;
 	/** Sanitized, tab-expanded patch lines from `boundDiff`. */
 	lines: readonly string[];
+	/** Whether the working tree is clean against HEAD, so the diff is all committed. */
+	committed?: boolean;
 	theme: Theme;
 	/** Called once when the screen closes, with the chosen action or undefined. */
 	onClose: (action?: ReviewDiffAction) => void;
@@ -259,7 +312,8 @@ export class ReviewDiffComponent implements Component {
 		const w = Math.max(1, width);
 		const header = titleRule(this.theme, w, "Review");
 		const total = this.pane.count;
-		this.pane.visible = fitRows(this.options.viewportRows, total, DIFF_CHROME_ROWS, DIFF_DEFAULT_ITEMS);
+		const committedRows = this.options.committed ? 1 : 0;
+		this.pane.visible = fitRows(this.options.viewportRows, total, DIFF_CHROME_ROWS + committedRows, DIFF_DEFAULT_ITEMS);
 		this.pane.fit(this.pane.visible);
 		const { start, end } = this.pane.window();
 		const body = this.options.lines
@@ -273,12 +327,21 @@ export class ReviewDiffComponent implements Component {
 			w,
 		);
 		const label = sanitizeLine(this.options.prompt || "the last prompt");
+		const detail = [clip(`  ${paint(this.theme, "meta", `after "${label}"`)}`, w)];
+		if (this.options.committed) {
+			detail.push(
+				clip(
+					`  ${paint(this.theme, "meta", "These changes are already committed; reverting rewrites the working tree only.")}`,
+					w,
+				),
+			);
+		}
 		return dockListFrame({
 			header,
 			summary,
 			body,
 			range: start > 0 || end < total ? formatRange(this.theme, w, { start, end, total, label: "line" }) : undefined,
-			detail: [clip(`  ${paint(this.theme, "meta", `after "${label}"`)}`, w)],
+			detail,
 			hint: this.hint(w),
 		});
 	}

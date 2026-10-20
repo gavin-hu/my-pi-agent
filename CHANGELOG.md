@@ -26,9 +26,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `rewind`: `/review` opens the latest prompt's snapshot diff as a changed-file
   list with `M`/`A`/`D` marks and line counts, shows a scrollable per-file patch,
-  and reverts one file or the whole turn through the existing safety snapshot.
-  The actions are TUI-only; other modes print the changed-path list, and plan
-  mode refuses until the plan is approved.
+  and reverts selected files or the whole turn through the existing safety
+  snapshot. `Space` selects, `a`/`n` select all or none, `r` reverts the
+  selection (or the focused file), and `R` reverts all; a selected batch is one
+  restore and one safety snapshot. When the working tree matches HEAD, the list
+  and confirmations say the changes are already committed and that a revert
+  leaves the commits in place. The actions are TUI-only; other modes print the
+  changed-path list, and plan mode refuses until the plan is approved.
 
 ### Changed
 
