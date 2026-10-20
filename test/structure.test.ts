@@ -231,6 +231,35 @@ function sourceFiles(root: string): string[] {
 	return walkFiles(root).filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
 }
 
+/** The line bar from AGENTS.md "Code quality". */
+const MAX_MODULE_LINES = 600;
+
+/**
+ * Source modules over the bar, each with the one responsibility that keeps it
+ * whole. Listing a module here is a deliberate choice, so a new oversized module
+ * fails until someone states why it stays; an entry that later drops below the
+ * bar is stale and fails too, so the list cannot quietly grow.
+ */
+const LONG_MODULES: Record<string, string> = {
+	"extensions/bytefly/panel/settings.ts": "the curated settings catalogue and the value arithmetic over it",
+	"extensions/bytefly/panel/tui.ts": "the panel's key state machine and its two section renderers",
+	"extensions/file-browse/client.ts": "the browse page's dependency-free client script, shipped as one asset",
+	"extensions/file-browse/html.ts": "the browse pages' renderers and their page-only stylesheet",
+	"extensions/file-browse/markdown.ts": "one escape-first block and inline scan for README Markdown",
+	"extensions/job/runtime.ts": "the session's job table, child handles, and repaint clock",
+	"extensions/plan/tools.ts": "the four plan tools' schemas, results, and transcripts",
+	"extensions/plan/web-client.ts": "the review page's dependency-free client script, shipped as one asset",
+	"extensions/wechat/bridge.ts": "the bridge's composition root, connection lifecycle, and status snapshot",
+	"extensions/worktree/guard.ts": "the five isolation guards over one shell-escape predicate",
+	"lib/highlight.ts": "one tokenizer per language over a shared escape-first scan",
+	"lib/requirements.ts": "one prerequisite table plus the pure probe over its injected seams",
+};
+
+/** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
+function lineCount(file: string): number {
+	return readFileSync(file, "utf-8").replace(/\n$/, "").split("\n").length;
+}
+
 /** A `renderCall(` / `renderResult(` definition at the start of a line. */
 const RENDERER_DEF = /^\s*(?:async\s+)?render(?:Call|Result)\s*\(/m;
 /** The raw expand keybinding id; import `EXPAND_KEYBINDING` from `lib/tui/glyphs.ts`. */
@@ -245,6 +274,27 @@ describe("source conventions", () => {
 			for (const file of sourceFiles(dir)) offenders.push(...scanBans(file, SOURCE_BANS));
 		}
 		expect(offenders).toEqual([]);
+	});
+
+	test("a module over the line bar states the responsibility that keeps it whole", () => {
+		const offenders: string[] = [];
+		for (const root of [extensionsDir, libDir]) {
+			for (const file of sourceFiles(root)) {
+				const relative = file.slice(repo.length + 1);
+				const lines = lineCount(file);
+				if (lines <= MAX_MODULE_LINES || LONG_MODULES[relative] !== undefined) continue;
+				offenders.push(`${relative}: ${lines} lines; split it, or name it in LONG_MODULES with the one responsibility`);
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+
+	test("LONG_MODULES carries no stale entry", () => {
+		const stale = Object.keys(LONG_MODULES).filter((relative) => {
+			const path = join(repo, relative);
+			return !existsSync(path) || lineCount(path) <= MAX_MODULE_LINES;
+		});
+		expect(stale).toEqual([]);
 	});
 
 	test("tool renderers reuse context.lastComponent", () => {
