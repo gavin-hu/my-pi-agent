@@ -270,9 +270,10 @@ One doc per audience. Do not duplicate across them:
   relative links. Deep docs stay English until a translation owner exists.
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants rather than restating them.
-- `docs/` — repo-level guides: `getting-started`, `extensions` (the full
-  catalog), `configuration`, `architecture`, `development`, `security`, and
-  `references/` for exhaustive listings a hand edit is checked against.
+- `docs/` — repo-level guides: `user-guide` (every feature for an end user),
+  `extensions` (the full catalog), `configuration`, `architecture`,
+  `development`, `security`, and `references/` for exhaustive listings a hand
+  edit is checked against.
 - `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
   its ids, links, citations, and bucket caps, and shipping an item means
   renumbering or removing it in the same commit.

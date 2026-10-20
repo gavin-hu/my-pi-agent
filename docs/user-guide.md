@@ -60,9 +60,9 @@ its actions appear in the same transcript, one turn at a time.
 
 This package adds tools and screens on top of that, without replacing Pi:
 
-- **Sixteen extensions.** Some add abilities (planning, background jobs, memory,
-  web search, and so on) and some add convenience (the settings screen, a file
-  browser, the themed transcript chrome). You can enable or disable any of them.
+- **16 extensions and 21 tools.** Some add abilities (planning, background jobs,
+  memory, web search, and so on) and some add convenience (the settings screen, a
+  file browser, the themed transcript chrome). Every one can be switched off.
 - **Two themes.** A dark and a light colour palette that match the package's
   transcript styling. Installing the pack does not change your current theme.
 
@@ -70,26 +70,62 @@ If a feature needs something extra — `git`, a PDF reader, a WeChat bot account
 it either degrades quietly or says what is missing in `/bytefly doctor`. Nothing
 about your Pi installation is modified.
 
+### Is this pack for you?
+
+It fits if you want the assistant to:
+
+- **plan before it writes** — plan mode takes the writing tools away until you
+  approve a plan ([Plan first, then write](#plan-first-then-write));
+- **delegate the work** — specialist helpers, background jobs, and watchers keep
+  long tasks out of the conversation
+  ([Background jobs and watchers](#background-jobs-and-watchers),
+  [Delegating to specialist helpers](#delegating-to-specialist-helpers));
+- **keep tasks isolated and turns undoable** — a task can run in its own copy of
+  the project, and any prompt can be undone
+  ([Working on a branch safely](#working-on-a-branch-safely),
+  [Undoing a turn](#undoing-a-turn));
+- **remember between sessions** — notes are plain text you can read and edit
+  ([Remembering between sessions](#remembering-between-sessions));
+- **reach the web and your own files** — search, page reading, PDFs and office
+  documents, a file browser, and native file opening
+  ([Searching and reading the web](#searching-and-reading-the-web),
+  [Documents and files](#documents-and-files)).
+
+It does not fit if you do not run Pi (nothing here is standalone), if you want
+Pi's stock look and tool list (installing changes both), or if you need
+isolation in a project that `git` does not track (the worktree and rewind
+features need it; plan mode still works).
+
 ## Getting it installed
 
-1. Make sure Pi itself is installed and working. In a terminal, run:
+**What you need.** A current Pi on your `PATH` — `pi --version` should print a
+version — on Windows, macOS, or Linux. That is the only requirement. Some
+features add their own: `git` for worktrees and rewind, a PDF reader for PDF
+text, and a WeChat bot account for the phone bridge. Each one degrades or
+disables cleanly, and `/bytefly doctor` names what is missing.
+
+1. Install the package, from whichever source suits you:
 
    ```bash
-   pi --version
-   ```
-
-   If that prints a version, you are ready.
-
-2. Install this package:
-
-   ```bash
+   # Published release from npm
    pi install npm:@gavin-hu/my-pi-agent
+
+   # Personal install from git, tracking the default branch
+   pi install git:github.com/gavin-hu/my-pi-agent
+
+   # Pin a release (npm versions and git tags name the same version)
+   pi install git:github.com/gavin-hu/my-pi-agent@v0.15.0
+
+   # Project-local install (.pi/settings.json in the current project)
+   pi install ./ -l
    ```
 
-   Other install routes — from git, a pinned release, or a project-local install
-   — are in [Getting started](./getting-started.md#install).
+   An install writes one entry to Pi's settings — global by default, the
+   project's `.pi/settings.json` with `-l` — and fetches the package into Pi's
+   cache rather than into your project. `pi list` confirms the entry, and
+   `pi update --extensions` moves it to the newest release.
 
-3. Start Pi in any project folder and type:
+2. Start Pi in any project folder and type:
 
    ```text
    /bytefly
@@ -98,7 +134,7 @@ about your Pi installation is modified.
    The control centre opens with one row per extension and a health check. If a
    row says `missing`, the detail underneath names what is absent.
 
-4. Optional: try the pack before installing anything, from a copy of its source:
+3. Optional: try the pack before installing anything, from a copy of its source:
 
    ```bash
    git clone https://github.com/gavin-hu/my-pi-agent
@@ -108,8 +144,17 @@ about your Pi installation is modified.
 
    `-e` loads the folder for that one run only. Nothing is added to your settings.
 
-To remove it later, run `pi remove npm:@gavin-hu/my-pi-agent`. The leftovers are
-all inert files, listed in [What this package writes to disk](#what-this-package-writes-to-disk).
+To remove the pack later, see
+[Turning features off, or removing the pack](#turning-features-off-or-removing-the-pack).
+
+**What install changes.** The pack's tools join the model's tool list (each with
+a one-line description), the transcript chrome is redrawn — the `You` nameplate,
+the turn rule, and the frame around each tool block — and at most one update
+request per interactive session checks for a newer release. `PI_OFFLINE=1` skips
+that request, and nothing about the session is sent. Your theme does not change,
+and the startup header stays off until you turn it on. Two pages are served on
+your own machine only (`127.0.0.1`): the file browser and the plan review;
+[Security](./security.md) covers the boundaries.
 
 ## The screen at a glance
 
@@ -121,7 +166,7 @@ parts of the screen before using a feature.
 | Startup header | A two-tone nameplate at the top. It is **off by default**; turn it on in `/bytefly settings` → **Bytefly startup TUI**. |
 | Your message | A small `You` label sits above each request you type. |
 | Tool block | When the assistant uses a tool, you see a headline naming it (for example `read src/app.ts`) with the result indented underneath, behind a thin vertical rail. That is one tool call. |
-| Turn rule | A rule like `╌╌╌ turn 3 · 12s · 4 tools ╌╌╌` closes a finished turn and summarises it. |
+| Turn rule | A rule such as `╌╌╌ turn 3 ╌╌╌` closes a finished turn and summarises it, adding the duration, the tool count, and any failures where the width allows. |
 | Footer | Two lines under the input box: the folder you are in, the session name, the git branch, the running cost, how full the model's context is, the mode, and the model name. |
 | Widgets | Up to two one-line lines above the input box: your **to-do list** and your **goal**, when either exists. |
 | Status chips | Small badges in the footer: `≡ plan` (plan mode on), `↺ 4` (rewind points), `▸ 2` (running jobs), `✗ 1` (a finished job you have not read), `⊚ 1` (running watchers), `! 2` (watcher matches you have not read), `◉ 41234` (the file browser's port). |
@@ -880,8 +925,8 @@ ignored.
 
 **Removing everything.** Run `pi remove npm:@gavin-hu/my-pi-agent` (add `-l` if
 it was installed for one project). Your files, plans, notes, and snapshots are
-left alone; the next section lists them so you can delete what you no longer
-want.
+left alone; [What this package writes to disk](#what-this-package-writes-to-disk)
+lists them so you can delete what you no longer want.
 
 ## When something looks wrong
 
@@ -971,8 +1016,6 @@ no longer need it.
 
 ## Where to read more
 
-- [Getting started](./getting-started.md) — the fit decision, every install
-  route, first workflows, and removal.
 - [Extensions](./extensions.md) — the full catalog, with the exact tool and
   command names.
 - [Configuration](./configuration.md) — where settings live, and every section.

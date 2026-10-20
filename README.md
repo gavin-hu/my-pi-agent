@@ -55,7 +55,7 @@ Requires a working [Pi](https://pi.dev) installation.
 pi install npm:@gavin-hu/my-pi-agent
 ```
 
-[Getting started](./docs/getting-started.md) has the other sources — git, a
+[User guide](./docs/user-guide.md) has the other sources — git, a
 pinned release, a project-local install, and a trial that writes nothing — plus
 the fit decision, the first workflows, and how to remove the pack.
 
@@ -190,7 +190,6 @@ stops the factories from registering; to drop the whole package, use Pi's
 
 | Guide | What it covers |
 |---|---|
-| [Getting started](./docs/getting-started.md) | Whether the pack fits, a trial run, install options, verifying the load, first workflows, and removal. |
 | [User guide](./docs/user-guide.md) | Every feature in plain language, with step-by-step walkthroughs, keys, and commands. |
 | [Extensions](./docs/extensions.md) | The full catalog of every extension and theme. |
 | [Configuration](./docs/configuration.md) | Config-file resolution, the per-extension index, environment variables. |

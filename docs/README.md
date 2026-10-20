@@ -1,14 +1,13 @@
 # Documentation
 
 Guides for using, configuring, and extending `@gavin-hu/my-pi-agent`. Start with
-[Getting started](./getting-started.md), then jump to the guide you need. The
-deep technical contracts live outside this directory and are linked below.
+the [User guide](./user-guide.md), then jump to the guide you need. The deep
+technical contracts live outside this directory and are linked below.
 
 ## Guides
 
 | Guide | What it covers |
 |---|---|
-| [Getting started](./getting-started.md) | Whether the pack fits, a trial run, install options, verifying the load, first workflows, turning parts off, and removal. |
 | [User guide](./user-guide.md) | Every feature explained for people who use Pi rather than work on it: an overview of each, then a numbered walkthrough with the keys and commands. |
 | [Extensions](./extensions.md) | The full catalog of every extension and theme, with its tools and commands. |
 | [Configuration](./configuration.md) | Config-file resolution, the per-extension index, and environment variables. |

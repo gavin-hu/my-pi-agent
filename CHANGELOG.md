@@ -19,6 +19,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: `docs/getting-started.md` is folded into the user guide and removed. The
+  install routes (including the `@vX.Y.Z` pin), the fit decision, the
+  prerequisites, what an install changes, and removal now live in
+  [`docs/user-guide.md`](./docs/user-guide.md), which the entry READMEs and the
+  docs index link to; the footprint guard and the install-pin guard read the
+  guide instead.
+
 - `plan`: the injected plan-mode context states each rule once — the shell rule no
   longer repeats the read-only summary, and the delegation bullet leaves "forced
   read-only" to the line that already carries it — so a planning turn's always-on
@@ -227,7 +234,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   summaries, and skill blocks sit on the canvas instead of inside a filled
   purple band.
 
-- `docs`: [getting started](./docs/getting-started.md) is now a page that ends in a
+- `docs`: getting started is now a page that ends in a
   decision. It opens with what the pack is for and the conditions on each side of
   the fit question, then a trial with `pi -e .` that writes nothing, install,
   verification, the first three workflows, how to turn parts off, and how to
@@ -237,7 +244,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   release. The catalog is unchanged.
 
 - `docs`: the entry READMEs no longer repeat the install matrix. Each keeps the npm
-  command and points at [getting started](./docs/getting-started.md) for git, a
+  command and points at getting started for git, a
   pinned release, a project-local install, and a trial that writes nothing, so
   the copy-paste options have one home; the `@vX.Y.Z` pin now lives on that page
   alone, and the release steps in [`docs/development.md`](./docs/development.md)
