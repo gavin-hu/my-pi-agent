@@ -9,6 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { formatCheckReport, formatCheckSummary } from "./format.ts";
@@ -80,6 +81,7 @@ async function runTui(runtime: CheckRuntime, ctx: ExtensionCommandContext, targe
 		const choice = await ctx.ui.custom<"rerun" | undefined>((tui, theme, _keybindings, done) => {
 			const component = new CheckResultComponent({
 				result,
+				cwd: resolveEffectiveCwd(ctx.cwd),
 				theme,
 				onRerun: () => done("rerun"),
 				onClose: () => done(undefined),

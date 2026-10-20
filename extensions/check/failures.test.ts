@@ -20,7 +20,8 @@ describe("parseFailures", () => {
 			message: "error TS2322: Type 'string' is not assignable to type 'number'.",
 			command: "tsc --noEmit",
 		});
-		expect(failures[1]).toMatchObject({ path: "C:\\repo\\b.ts", line: 3, column: 1 });
+		expect(failures.find((failure) => failure.path === "C:\\repo\\b.ts")).toMatchObject({ line: 3, column: 1 });
+		expect(failures.some((failure) => failure.path === "src/a.ts" && failure.line === 13)).toBe(true);
 	});
 
 	test("reads pytest's FAILED lines", () => {
@@ -64,6 +65,43 @@ describe("parseFailures", () => {
 			test: "TestDetect",
 			message: "expected cargo test",
 		});
+	});
+
+	test("attaches a Jest/Vitest stack frame to its test name", () => {
+		const failures = parseFailures(
+			[
+				"FAIL src/a.test.ts > adds",
+				"  ● suite > adds numbers",
+				"    expect(received).toBe(expected)",
+				"    at Object.<anonymous> (src/a.test.ts:12:5)",
+			].join("\n"),
+			"bun run test",
+			1,
+		);
+
+		expect(failures).toContainEqual({
+			path: "src/a.test.ts",
+			line: 12,
+			column: 5,
+			test: "suite > adds numbers",
+			message: "Test failed",
+			command: "bun run test",
+		});
+	});
+
+	test("reads a bare stack frame, a Java frame, and a Python traceback", () => {
+		const bare = parseFailures(["● adds", "  at src/b.ts:3:4"].join("\n"), "bun run test", 1);
+		expect(bare[0]).toMatchObject({ path: "src/b.ts", line: 3, column: 4, test: "adds" });
+
+		const java = parseFailures("at com.foo.Bar.baz(Bar.java:12)", "gradle test", 1);
+		expect(java[0]).toMatchObject({ path: "Bar.java", line: 12, message: "Stack frame" });
+
+		const python = parseFailures('  File "tests/test_a.py", line 12, in test_x', "pytest", 1);
+		expect(python[0]).toMatchObject({ path: "tests/test_a.py", line: 12, message: "Traceback" });
+	});
+
+	test("does not parse stack frames from a passing run", () => {
+		expect(parseFailures("  at src/a.test.ts:12:5\n", "bun run test", 0)).toEqual([]);
 	});
 
 	test("reads Cargo's panic line", () => {

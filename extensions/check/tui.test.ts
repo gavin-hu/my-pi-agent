@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { tempDir } from "../../test/helpers/env.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import type { CheckResult, Failure } from "./types.ts";
 import { CheckResultComponent, CheckRunComponent } from "./tui.ts";
@@ -27,15 +30,21 @@ const RESULT: CheckResult = {
 	tail: "src/check.test.ts:12: nope\nmore output",
 };
 
+const dirs: string[] = [];
+afterAll(() => {
+	for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+});
+
 function resultText(component: CheckResultComponent, width = 80): string {
 	return stripTerminalSequences(component.render(width).join("\n"));
 }
 
 /** Mount the result screen. */
-function result(overrides: Partial<CheckResult> = {}) {
+function result(overrides: Partial<CheckResult> = {}, cwd = "/tmp") {
 	const closed = { rerun: 0, close: 0 };
 	const component = new CheckResultComponent({
 		result: { ...RESULT, ...overrides },
+		cwd,
 		theme: fakeTheme,
 		onRerun: () => {
 			closed.rerun += 1;
@@ -124,6 +133,25 @@ describe("CheckResultComponent", () => {
 
 		expect(closed.rerun).toBe(1);
 		expect(closed.close).toBe(1);
+	});
+
+	test("reads the source around the focused failure", () => {
+		const cwd = tempDir("pi-check-tui-source-");
+		dirs.push(cwd);
+		mkdirSync(join(cwd, "src"), { recursive: true });
+		writeFileSync(join(cwd, "src", "a.ts"), Array.from({ length: 20 }, (_, index) => `line ${index + 1}`).join("\n"));
+		const { component } = result(
+			{ failures: [{ path: "src/a.ts", line: 10, message: "nope", command: "bun run test" }] },
+			cwd,
+		);
+
+		component.handleInput("\r");
+		const screen = resultText(component);
+
+		expect(screen).toContain("Source:");
+		expect(screen).toContain("> 10 │ line 10");
+		expect(screen).toContain("line 5");
+		expect(screen).toContain("line 15");
 	});
 
 	test("renders an empty failure list without pretending it parsed", () => {

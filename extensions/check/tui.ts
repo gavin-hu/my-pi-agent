@@ -27,6 +27,7 @@ import { emptyState, listRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { formatFailureDetail, formatFailureLocation, formatResultSummary } from "./format.ts";
+import { readSourceExcerpt } from "./source.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import type { CheckResult, Failure } from "./types.ts";
 
@@ -109,6 +110,8 @@ export class CheckRunComponent implements Component {
 
 export interface CheckResultOptions {
 	result: CheckResult;
+	/** Project root used to read a failure's source excerpt. */
+	cwd: string;
 	theme: Theme;
 	onRerun: () => void;
 	onClose: () => void;
@@ -166,9 +169,10 @@ export class CheckResultComponent implements Component {
 	invalidate(): void {}
 
 	private openDetail(failure: Failure): void {
+		const source = failure.path ? readSourceExcerpt(this.options.cwd, failure) : undefined;
 		this.pane.open(failure.path ?? failure.test ?? "check", {
 			title: formatFailureLocation(failure),
-			lines: formatFailureDetail(failure, this.options.result.tail),
+			lines: formatFailureDetail(failure, this.options.result.tail, source),
 		});
 		this.pane.setScroll(0);
 		this.detailFailure = failure;

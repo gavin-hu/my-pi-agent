@@ -633,6 +633,7 @@ export const SCREENS: Record<string, Screen> = {
 		render: (width, rows) =>
 			new CheckResultComponent({
 				result: CHECK_RESULT,
+				cwd: repo,
 				theme,
 				onRerun: noop,
 				onClose: noop,

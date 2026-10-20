@@ -32,7 +32,8 @@ How the `run_check` call and its result look in the transcript — the call line
 - **Runs it in a supervised process** with a wall-clock timeout and a bounded
   log; `Esc` cancels the process tree.
 - **Shows a live tail** while the command runs, then a failure list with a
-  detail view for the focused failure.
+  detail view for the focused failure: a source excerpt around `path:line` when
+  the file is readable, otherwise the bounded tail.
 - **Returns structured failures** to the model with `path`, `line`, `column`,
   `test`, `message`, and `command`.
 - **Falls back honestly**: a failed command with no recognizable failure becomes
@@ -123,7 +124,9 @@ the fallback for everything else:
 | Output shape | Parser |
 |---|---|
 | `path:line(:col): error …` | generic, including a Windows `C:\…` path |
-| `FAIL path` / `● test` | Vitest/Jest |
+| `FAIL path` and `● test` | Vitest/Jest |
+| `● test` and `at … (path:line:col)` | Jest/Vitest, Java, and bare stack frames |
+| `File "path", line N, in test` | Python tracebacks |
 | `FAILED path::test - message` | pytest |
 | `--- FAIL: Test` and `path:line:` | Go |
 | `panicked at path:line` / `thread 'test'` | Cargo |
@@ -151,6 +154,9 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
 - Parsing is best-effort. A custom reporter that prints neither a location nor a
   known shape falls back to the tail, not to a guessed file.
 - The failure list and detail are TUI-only; other modes print the report.
+- A source excerpt is read only from a regular file inside the project root, at
+  most 512 KiB, and only when the reported line exists. A missing, binary,
+  oversized, or external file falls back to the bounded tail with the reason.
 - There is no run history, retry policy, or watch mode. Each invocation is one
   run.
 - A test runner that opens a full-screen UI is not supported: stdout is a pipe,
@@ -179,6 +185,11 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
 
 ## Design notes
 
+- **The excerpt is guarded like a path-taking tool.** The path comes from command
+  output, so `source.ts` resolves it, requires both string and real-path
+  containment under the project root, rejects non-files, binaries, and files over
+  512 KiB, and checks the line before reading. A miss shows the tail, never a
+  guessed source line.
 - **Why `check`.** It runs the project's *check* command, matching `bun run check`
   and the scripts it detects. `/verify` describes a verdict rather than the
   action, and `run_verify` reads worse than `run_check`; the extension,
@@ -203,9 +214,10 @@ made non-interactive (`CI=1`, `NO_COLOR=1`, `FORCE_COLOR=0`, `TERM=dumb`,
 | `config.ts` | `check` config defaults, clamps, and loader. |
 | `detect.ts` | The detector registry and `check.command` planning. |
 | `runner.ts` | One-shot streaming process, bounded log, timeout, cancel, tree kill. |
-| `failures.ts` | Generic-first failure parsers and the tail fallback. |
+| `failures.ts` | Known-runner and generic failure parsers, stack frames, and the tail fallback. |
+| `source.ts` | Guarded source excerpt around a failure's `path:line`. |
 | `runtime.ts` | Planning, sequencing, aggregation, live lines, cancel/shutdown. |
-| `format.ts` | Summary, failure rows, detail text, model report. |
+| `format.ts` | Summary, failure rows, source-excerpt/detail text, model report. |
 | `tui.ts` | `CheckRunComponent` and `CheckResultComponent`. |
 | `tools.ts` | `run_check` schema and registration. |
 | `commands.ts` | `/check`, target parsing, completions, TUI/headless flow. |

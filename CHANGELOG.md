@@ -40,7 +40,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   same failures as structured data. Detection covers package.json, Cargo, Go,
   pytest, just, and Make; any other stack uses the config command. Runs are
   bounded by a timeout and a log tail, plan mode refuses, and a parser miss falls
-  back to the bounded tail instead of inventing a location.
+  back to the bounded tail instead of inventing a location. The detail pane reads
+  a five-line source excerpt around a failure when the file is inside the project
+  and not binary or oversized; stack frames from Jest/Vitest, Java, and Python
+  now attach their `path:line` to the failure.
 
 ### Changed
 

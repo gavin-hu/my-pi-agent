@@ -64,6 +64,48 @@ function failLine(rest: string, command: string): Failure | undefined {
 	return { path, message: "Test failed", command };
 }
 
+/** Jest/Vitest's `● suite > test` name; the next located frame attaches it. */
+function testName(line: string): string | undefined {
+	const match = /^●\s+(.+)$/.exec(line);
+	return match?.[1]?.trim() || undefined;
+}
+
+/** A stack frame with a real location: `at … (path:line:col)` or `at path:line:col`. */
+function stackFailure(line: string, command: string, pendingTest: string | undefined): Failure | undefined {
+	const parenthesized = /^\s*at\s+.*?\((.+?):(\d+)(?::(\d+))?\)\s*$/.exec(line);
+	const bare = parenthesized ? undefined : /^\s*at\s+(.+?):(\d+)(?::(\d+))?\s*$/.exec(line);
+	const match = parenthesized ?? bare;
+	if (!match) return undefined;
+	const path = match[1]?.trim() ?? "";
+	const lineNumber = Number.parseInt(match[2] ?? "", 10);
+	const column = match[3] === undefined ? undefined : Number.parseInt(match[3], 10);
+	if (!looksLikePath(path) || !Number.isFinite(lineNumber)) return undefined;
+	return {
+		path,
+		line: lineNumber,
+		...(column === undefined || !Number.isFinite(column) ? {} : { column }),
+		...(pendingTest ? { test: pendingTest } : {}),
+		message: pendingTest ? "Test failed" : "Stack frame",
+		command,
+	};
+}
+
+/** Python's `File "path", line N, in test` traceback line. */
+function pythonTraceback(line: string, command: string, pendingTest: string | undefined): Failure | undefined {
+	const match = /^File "(.+)", line (\d+)/.exec(line);
+	if (!match) return undefined;
+	const path = match[1]?.trim() ?? "";
+	const lineNumber = Number.parseInt(match[2] ?? "", 10);
+	if (!looksLikePath(path) || !Number.isFinite(lineNumber)) return undefined;
+	return {
+		path,
+		line: lineNumber,
+		...(pendingTest ? { test: pendingTest } : {}),
+		message: pendingTest ? "Test failed" : "Traceback",
+		command,
+	};
+}
+
 /** Go's `--- FAIL: TestName` line; the next location attaches to it. */
 function goFailure(line: string, command: string): Failure | undefined {
 	const match = /^--- FAIL:\s+(\S+)/.exec(line);
@@ -128,10 +170,30 @@ export function parseFailures(output: string, command: string, exitCode: number 
 		const line = lineOf(raw);
 		if (!line) continue;
 
+		const test = testName(line);
+		if (test) {
+			pendingTest = test;
+			continue;
+		}
+
 		const go = goFailure(line, command);
 		if (go) {
 			pendingTest = go.test;
 			add(go);
+			continue;
+		}
+
+		const stack = stackFailure(line, command, pendingTest);
+		if (stack) {
+			add(stack);
+			pendingTest = undefined;
+			continue;
+		}
+
+		const python = pythonTraceback(line, command, pendingTest);
+		if (python) {
+			add(python);
+			pendingTest = undefined;
 			continue;
 		}
 
