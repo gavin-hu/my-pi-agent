@@ -196,27 +196,30 @@ git checkout package.json bun.lock && bun install --frozen-lockfile
 
 ## Drift rules
 
-Rules 1 to 3 of `AGENTS.md` are gates; rule 4 is review, since no test can tell a
-cross-cutting change from a feature. The gates and the lists behind them are the
-backlog rather than a blessing, and each list is pinned to its size:
+Three rules in `AGENTS.md` are gates; the fourth, a cross-cutting change is its
+own task, is review, since no test can tell one from a feature. The gates and the
+lists behind them are a backlog rather than a blessing, and every list is pinned
+to its size so it can only shrink:
 
-- **Rule 1**, one body in one owner, is `test/drift.test.ts`'s **accepted copies**
-  list: a duplicate this change did not extract, with the reason. An entry is
-  deleted when the helper lands in `lib/`, together with a lower
-  `ACCEPTED_COUNT`; a new copy fails the suite instead.
-- **Rule 2**, no module grows, is `LONG_MODULES` in `test/structure.test.ts`: every
-  module past 600 lines carries the one responsibility that keeps it whole and its
-  own height. One added line fails. A height is lowered with the file, deleted once
-  the module fits the bar, and the total (`LONG_MODULE_TOTAL`) may only fall —
-  raising either number is the refactor this gate exists to prevent.
-- **Rule 3**, one owner per concept, is the `lib/README.md` row check: a module
-  with no row fails, so the next session reads the index instead of writing a
-  fourth copy.
-- **The word budget** keeps `AGENTS.md` an entry point: a new paragraph replaces
-  one or moves here.
+- **One body, one owner** is `test/shared-helpers.test.ts`: an extension may not
+  declare a helper `lib/` already exports, and a body identical to one in `lib/`
+  or in another extension is a copy. The two exception maps carry the reason a
+  same-name wrapper is legitimate (a different shape, an injected seam), and the
+  guard reads declarations through the TypeScript AST, so an annotated arrow or a
+  nested helper is in scope. Its map sizes are pinned: a new copy is extracted,
+  not excepted.
+- **No module grows** is `LONG_MODULES` in `test/structure.test.ts`: every module
+  past 600 lines carries the one responsibility that keeps it whole and its own
+  height. One added line fails. A height is lowered with the file, deleted once the
+  module fits the bar, and the total (`LONG_MODULE_TOTAL`) may only fall — raising
+  either number is the refactor this gate exists to prevent.
+- **One owner per concept** is `test/drift.test.ts`: every `lib/` module needs a
+  row in `lib/README.md`, so the next session reads the index instead of writing a
+  fourth copy. The same file keeps `AGENTS.md` inside its word budget, so it stays
+  an entry point rather than a second manual.
 
 A module holding two jobs is a refactor waiting for a release: the split costs a
-few lines at the limit and a rewrite a thousand lines later.
+few lines at the bar and a rewrite a thousand lines later.
 
 ## Extension conventions
 
@@ -342,7 +345,10 @@ authenticates with npm trusted publishing (OIDC). See
    `test/release.test.ts` fails on a stale pin. Recapture the hero in the same
    step: `bun run screenshots chrome` re-renders `assets/chrome.png` from the new
    `package.json`, and nothing else can, because the capture needs macOS and
-   Terminal.app — see [Screenshots](#screenshots).
+   Terminal.app — see [Screenshots](#screenshots). Bump the pack version in the
+   edition line on the [user guide home](./user-guide/README.md) in the same
+   commit, and the Pi version there if the guide was rechecked against a newer
+   one, so the stamp does not lag the package.
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:

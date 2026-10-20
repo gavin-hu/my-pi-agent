@@ -10,6 +10,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { messageOf } from "../../lib/errors.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
@@ -66,11 +67,6 @@ type RevertResult =
 	| { kind: "ok"; summary: RestoreSummary; next: ReviewView }
 	| { kind: "empty"; summary: RestoreSummary }
 	| { kind: "error"; message: string };
-
-/** One-line error text for a notification. */
-function errorText(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
 
 /** The latest prompt on the branch with a code snapshot, or a reason there is none. */
 async function loadReview(runtime: RewindRuntime, ctx: ExtensionCommandContext): Promise<LoadResult> {
@@ -135,7 +131,7 @@ async function revertPaths(
 	try {
 		summary = await runtime.restore(ctx, review.root, review.snapshot, runtime.configFor(review.root), paths);
 	} catch (error) {
-		return { kind: "error", message: `Revert failed: ${errorText(error)}` };
+		return { kind: "error", message: `Revert failed: ${messageOf(error)}` };
 	}
 	try {
 		await runtime.setStatus(ctx);
@@ -148,7 +144,7 @@ async function revertPaths(
 	try {
 		refreshed = await refreshView(runtime, review.root, review.snapshot);
 	} catch (error) {
-		return { kind: "error", message: `Reverted, but could not refresh the review: ${errorText(error)}` };
+		return { kind: "error", message: `Reverted, but could not refresh the review: ${messageOf(error)}` };
 	}
 	if (refreshed.kind === "error") return { kind: "error", message: refreshed.message };
 	if (refreshed.kind === "empty") return { kind: "empty", summary };
@@ -294,7 +290,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 		try {
 			patch = await runtime.patch(review.root, review.snapshot, view.plan.currentTree, entryPaths(entry));
 		} catch (error) {
-			ctx.ui.notify(`Could not read the diff: ${errorText(error)}`, "error");
+			ctx.ui.notify(`Could not read the diff: ${messageOf(error)}`, "error");
 			continue;
 		}
 		const filePatch = parseFilePatch(patch);
@@ -345,7 +341,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 				);
 				safetyId = reverted.safety;
 			} catch (error) {
-				ctx.ui.notify(`Revert failed: ${errorText(error)}`, "error");
+				ctx.ui.notify(`Revert failed: ${messageOf(error)}`, "error");
 				continue;
 			}
 			try {
@@ -359,7 +355,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 			try {
 				refreshed = await refreshView(runtime, review.root, review.snapshot);
 			} catch (error) {
-				ctx.ui.notify(`Reverted, but could not refresh the review: ${errorText(error)}`, "error");
+				ctx.ui.notify(`Reverted, but could not refresh the review: ${messageOf(error)}`, "error");
 				return;
 			}
 			if (refreshed.kind === "error") {
@@ -410,7 +406,7 @@ export async function openReview(
 	try {
 		loaded = await loadReview(runtime, ctx);
 	} catch (error) {
-		ctx.ui.notify(`Review failed: ${errorText(error)}`, "error");
+		ctx.ui.notify(`Review failed: ${messageOf(error)}`, "error");
 		return;
 	}
 	if (!loaded.ok) {

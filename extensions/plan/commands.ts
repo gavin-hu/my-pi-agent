@@ -28,6 +28,13 @@ export function planModeNotice(enabled: boolean): string {
 	return enabled ? ENABLED_NOTICE : DISABLED_NOTICE;
 }
 
+/** Enter plan mode when needed, with the same notice `/plan <task>` shows. */
+function ensurePlanMode(runtime: PlanRuntime, ctx: ExtensionContext): void {
+	if (runtime.isEnabled()) return;
+	runtime.enable(ctx);
+	ctx.ui.notify(ENABLED_NOTICE, "info");
+}
+
 /** The plan path a `/plan review` line names, or undefined to review the newest plan. */
 function reviewTarget(args: string): string | undefined {
 	const target = args.slice(REVIEW_PREFIX.length).trim();
@@ -189,10 +196,7 @@ export function registerCommands(
 			}
 
 			// A task always means "plan this": enter if needed, then send.
-			if (!runtime.isEnabled()) {
-				runtime.enable(ctx);
-				ctx.ui.notify(ENABLED_NOTICE, "info");
-			}
+			ensurePlanMode(runtime, ctx);
 			if (ctx.isIdle()) await pi.sendUserMessage(prompt);
 			else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
 		},

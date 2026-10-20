@@ -149,7 +149,11 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 }
 
 /** Build the response entry and text for a failed URL. */
-function errorResult(url: string, request: FetchRequest, message: string): { response: FetchResponse; text: string } {
+function fetchErrorResult(
+	url: string,
+	request: FetchRequest,
+	message: string,
+): { response: FetchResponse; text: string } {
 	return {
 		response: {
 			url,
@@ -209,7 +213,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 				({ response: page, text } = pageResult(loaded, request));
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				({ response: page, text } = errorResult(request.url, request, message));
+				({ response: page, text } = fetchErrorResult(request.url, request, message));
 			}
 
 			return {

@@ -6,7 +6,7 @@
  * malformed documents are ignored, and every value is clamped to a safe range.
  */
 
-import { clampInteger, cleanString, loadConfigSection } from "../../lib/config.ts";
+import { clampInteger, cleanString, loadConfigSection, stringList } from "../../lib/config.ts";
 
 export interface RewindConfig {
 	/** Take one automatic snapshot per user prompt. Default: true. */
@@ -40,14 +40,6 @@ export const DEFAULT_CONFIG: RewindConfig = {
 	ignore: [],
 	refNamespace: "refs/pi/rewind",
 };
-
-/** Keep only trimmed, non-empty strings from an untrusted array. */
-function stringList(value: unknown, fallback: string[]): string[] {
-	if (!Array.isArray(value)) return fallback;
-	return value
-		.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-		.map((item) => item.trim());
-}
 
 /** Normalize one merged config object over the running base. */
 export function normalizeConfig(raw: Record<string, unknown> | undefined, base: RewindConfig): RewindConfig {

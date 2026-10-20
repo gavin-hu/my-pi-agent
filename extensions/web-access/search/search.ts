@@ -7,6 +7,7 @@
  * object created per extension instance, so there is no module-level state.
  */
 
+import { messageOf } from "../../../lib/errors.ts";
 import { createFetchRunner, type HttpRunner } from "../http.ts";
 import { resolveSearchApiKey, type WebSearchConfig } from "./config.ts";
 import { resolveProvider } from "./registry.ts";
@@ -75,10 +76,6 @@ export function createThrottle(now: () => number = Date.now, sleep: ThrottleSlee
 	};
 }
 
-function describe(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
 /** A model-readable reason a forced provider cannot run. */
 function notConfigured(id: SearchProviderId): string {
 	if (id === "searxng") {
@@ -119,7 +116,7 @@ export async function runSearch(
 		});
 	} catch (error) {
 		if (error instanceof WebSearchError) throw error;
-		throw new WebSearchError(`Search failed: ${describe(error)}`);
+		throw new WebSearchError(`Search failed: ${messageOf(error)}`);
 	}
 
 	if (!result.answer && result.results.length === 0) {

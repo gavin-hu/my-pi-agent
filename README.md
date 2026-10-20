@@ -8,7 +8,7 @@
 [![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
 
 `my-pi-agent` is a single [Pi](https://pi.dev) package that adds a curated set
-of extensions and themes to the agent you already use — install the pack, turn
+of extensions, skills, and themes to the agent you already use — install the pack, turn
 off what you do not want, and keep using Pi unchanged.
 
 This page is the catalog and the setup instructions. For how to use a feature —
@@ -83,6 +83,7 @@ Then, from inside Pi:
 - `/bytefly update` re-runs the package update check now and reports the
   updateable packages, this package's version and release URL, or a skip.
 - `/plan <task>` starts a task in read-only planning mode.
+- `/skill:init` creates or updates `AGENTS.md` through a short built-in interview and a plan you review first.
 
 One thing the pack does on its own: once per interactive session, `bytefly`
 asks Pi's package manager which configured packages are behind, suppresses Pi's
@@ -93,14 +94,15 @@ Nothing about the session is sent, and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-Seventeen extensions, grouped by what you are trying to do, plus two themes. Each
-extension's own `README.md` has the full tool and command surface.
+Seventeen extensions and two packaged skills, grouped by what you are trying to
+do, plus two themes. Each extension's own `README.md` has the full tool and
+command surface.
 
 ### Plan and delegate
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `.pi/plans`, and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments. |
+| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `.pi/plans`, and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments. The `init` skill uses the same review to create or update a project's `AGENTS.md`. |
 | [`check`](./extensions/check/) | `run_check`, `/check` | Detect the project's test, lint, or typecheck command (or take `check.command`), run it in a supervised process, and turn failures into a navigable `file:line` list. |
 | [`subagent`](./extensions/subagent/) | `subagent`, `/agents` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, chained, or in the background, with a footer chip while it runs and a finish notice. |
 | [`todo`](./extensions/todo/) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
@@ -132,6 +134,17 @@ extension's own `README.md` has the full tool and command surface.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you. `bytefly.json` is the config document every extension reads. |
+
+### Skills
+
+Packaged workflows loaded on demand: each skill's name and description are
+advertised to the model, and its instructions load only when the task matches
+(`/skill:<name>` forces one).
+
+| Skill | What it does |
+|---|---|
+| [`init`](./skills/init/SKILL.md) | Creates or updates a project's `AGENTS.md` through a built-in interactive interview and plan review, from repository evidence. |
+| [`refactor`](./skills/refactor/SKILL.md) | Audits a project or path for refactoring opportunities: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Returns a ranked shortlist with evidence and verification commands; discovery is read-only. |
 
 ### Themes
 

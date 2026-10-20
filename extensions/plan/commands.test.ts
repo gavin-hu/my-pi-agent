@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { registerCommands } from "./commands.ts";
 import type { PlanAnnotation } from "./feedback.ts";
@@ -27,13 +29,20 @@ function fakeRuntime(
 	const readCalls: string[] = [];
 	const latestCalls: string[] = [];
 	const indexCalls: string[] = [];
+	const enableCalls: string[] = [];
 	const marks: Array<{ path: string; content: string }> = [];
 	const file = options.file;
 	const summaries: PlanSummary[] = options.summaries ?? [];
+	let enabled = options.enabled ?? false;
 	const runtime = {
-		isEnabled: () => options.enabled ?? false,
-		enable: () => {},
-		toggle: () => {},
+		isEnabled: () => enabled,
+		enable: () => {
+			enableCalls.push("enable");
+			enabled = true;
+		},
+		toggle: () => {
+			enabled = !enabled;
+		},
 		lastPlanPath: () => options.last ?? file?.path,
 		reviewed: () => (options.baseline === undefined ? undefined : sectionDigests(options.baseline)),
 		markReviewed: (path: string, content: string) => marks.push({ path, content }),
@@ -53,7 +62,7 @@ function fakeRuntime(
 			dirFor: async () => "/repo/.pi/plans",
 		},
 	};
-	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, indexCalls, marks };
+	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, indexCalls, enableCalls, marks };
 }
 
 function fakeWeb(result: PlanReviewResult) {
@@ -90,13 +99,27 @@ function setup(options: {
 	baseline?: string;
 	summaries?: PlanSummary[];
 	result: PlanReviewResult;
+	idle?: boolean;
 }) {
-	const { runtime, readCalls, latestCalls, indexCalls, marks } = fakeRuntime(options);
+	const { runtime, readCalls, latestCalls, indexCalls, enableCalls, marks } = fakeRuntime(options);
 	const { web, started, starts, closeCalls } = fakeWeb(options.result);
 	const pi = makeFakePi();
 	registerCommands(pi.pi, runtime, web);
-	const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
-	return { pi, ctx, notifications, runtime, readCalls, latestCalls, indexCalls, marks, started, starts, closeCalls };
+	const { ctx, notifications } = fakeCtx({ cwd: "/repo", isIdle: () => options.idle ?? true });
+	return {
+		pi,
+		ctx,
+		notifications,
+		runtime,
+		readCalls,
+		latestCalls,
+		indexCalls,
+		enableCalls,
+		marks,
+		started,
+		starts,
+		closeCalls,
+	};
 }
 
 describe("/plan review", () => {
@@ -313,5 +336,34 @@ describe("/plan review", () => {
 		await pi.commands.get("plan").handler("review the auth flow", ctx);
 
 		expect(pi.sentMessages).toEqual([{ content: "review the auth flow", options: undefined }]);
+	});
+});
+
+describe("init skill", () => {
+	test("packages a built-in interview, plan-first, quality-gated skill", () => {
+		const skill = readFileSync(join(import.meta.dir, "../../skills/init/SKILL.md"), "utf-8");
+		const questions = readFileSync(
+			join(import.meta.dir, "../../skills/init/references/interview-questions.md"),
+			"utf-8",
+		);
+		const quality = readFileSync(join(import.meta.dir, "../../skills/init/references/agents-md-quality.md"), "utf-8");
+
+		expect(skill).toContain("name: init");
+		expect(skill).toContain("ask_user_question");
+		expect(skill).toContain("Existing project, no `AGENTS.md`");
+		expect(skill).toContain("Empty or near-empty repository");
+		expect(skill).toContain("record each unanswered gap under assumptions");
+		expect(skill).toContain("exit_plan_mode");
+		expect(skill).toContain("references/interview-questions.md");
+		expect(skill).toContain("references/agents-md-quality.md");
+		expect(questions).toContain("## Deterministic default sets");
+		expect(questions).toContain("| Isolation |");
+		expect(questions).toContain("| Existing file |");
+		expect(questions).toContain("| Stack |");
+		expect(quality).toContain("## Question-bank use");
+		expect(quality).toContain("## Interview quality");
+		expect(quality).toContain("## Existing files");
+		expect(quality).toContain("## Empty repository");
+		expect(quality).toContain("## Final read-back");
 	});
 });

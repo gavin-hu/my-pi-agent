@@ -12,7 +12,7 @@
  * extension.
  */
 
-import { sanitizeLine } from "../../lib/format.ts";
+import { lineOf, sanitizeLine } from "../../lib/format.ts";
 import { MAX_OBJECTIVE } from "./schema.ts";
 
 /** Most clarifying questions kept from one clarifier reply. */
@@ -128,11 +128,6 @@ function extractJsonObject(text: string): { found: boolean; value?: unknown } {
 	return { found: start === 0 };
 }
 
-/** A single-line, control-character-free string, or `""`. */
-function clean(value: unknown): string {
-	return typeof value === "string" ? sanitizeLine(value) : "";
-}
-
 /** Sanitized options, deduplicated and capped; a lone option becomes free-form. */
 function normalizeOptions(raw: unknown): ClarifyOption[] {
 	if (!Array.isArray(raw)) return [];
@@ -141,7 +136,7 @@ function normalizeOptions(raw: unknown): ClarifyOption[] {
 	for (const entry of raw) {
 		if (!entry || typeof entry !== "object") continue;
 		const record = entry as Record<string, unknown>;
-		const label = clean(record.label);
+		const label = lineOf(record.label);
 		if (!label) continue;
 		const key = label.toLowerCase();
 		if (seen.has(key)) continue;
@@ -156,7 +151,7 @@ function normalizeOptions(raw: unknown): ClarifyOption[] {
 function normalizeQuestion(raw: unknown): ClarifyQuestion | undefined {
 	if (!raw || typeof raw !== "object") return undefined;
 	const record = raw as Record<string, unknown>;
-	const question = clean(record.question);
+	const question = lineOf(record.question);
 	if (!question) return undefined;
 	return { question, options: normalizeOptions(record.options) };
 }
@@ -189,7 +184,7 @@ export function parseClarification(raw: string | undefined): Clarification | und
 		if (value && typeof value === "object" && !Array.isArray(value)) {
 			const record = value as Record<string, unknown>;
 			if (typeof record.understood === "boolean") {
-				const goal = toObjective(clean(record.goal));
+				const goal = toObjective(lineOf(record.goal));
 				const questions = record.understood ? [] : normalizeQuestions(record.questions);
 				const understood = record.understood || questions.length === 0;
 				return { understood, goal, questions: understood ? [] : questions };

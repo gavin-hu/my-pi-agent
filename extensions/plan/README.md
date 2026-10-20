@@ -38,6 +38,12 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   and `ls` tools.
 - **Model entry point.** The model can call `enter_plan_mode` to ask for plan
   mode before a non-trivial task; the user confirms.
+- **AGENTS.md bootstrap.** The packaged `init` skill (`/skill:init`) enters plan
+  mode, reconnoiters the repository, runs one built-in interview of at
+  most four questions, creates or updates `AGENTS.md`, gates the draft through a
+  quality checklist, and writes only after plan approval. It supports existing and
+  empty repositories, and falls back to evidence with recorded assumptions when
+  the interview is unavailable or cancelled; it never invents commands.
 - **Plan files.** The model saves the plan with `write_plan`; the file lands in
   `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` (or `<agent-dir>/plans`
   outside a repository). The plans directory is self-ignoring, so plan files
@@ -128,6 +134,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `/plan <prompt>` | the user, with the task | immediate |
 | `/plan list` | the user, browsing the plans directory | immediate |
 | `/plan review [path]` | the user, reviewing a plan in the browser | immediate |
+| `/skill:init` | the user, creating or updating `AGENTS.md` | enters plan mode; write waits for plan approval |
 | `Ctrl+Alt+P` | the user | immediate |
 | `--plan` | the user, at launch | immediate |
 
@@ -151,6 +158,45 @@ plans directory (newest modification time); `/plan review <path>.md` (or a path
 with a separator) reviews that plan. A line that merely starts with the word —
 `review the auth flow` — is still treated as a planning task, so the subcommand
 never swallows one.
+
+### `/skill:init`
+
+`/skill:init` loads the packaged `init` skill. The skill enters plan mode itself
+when it is not active, then decides what to do; nothing is written before
+approval. Its workflow is:
+
+```text
+/skill:init
+  └─> plan mode (read-only)
+        └─> recon: manifests, docs, CI, tests, existing instructions
+        └─> interview: built-in bank, one call of at most 4 questions
+              ├─ answered ───────────────> reconcile with evidence
+              └─ unavailable/cancelled ──> evidence + assumptions
+        └─> draft: new file, exact edits, or an honest no-op
+        └─> quality gate
+        └─> write_plan ──> exit_plan_mode
+                             ├─ not approved ──> refine the same plan
+                             └─ approved ──────> write/edit AGENTS.md
+                                                 └─ read back + quality checklist
+```
+
+The interview comes from a built-in bank in
+[`skills/init/references/interview-questions.md`](../../skills/init/references/interview-questions.md):
+core questions cover purpose, verification, non-obvious rules, isolation,
+completion, sensitive paths, and dependency or network limits, with state-specific
+entries for an existing file, an empty repository, and related instruction files.
+The first call uses a deterministic four-question set for the repository state;
+a second call is allowed only for a material ambiguity. If the tool is inactive,
+there is no UI, or the user cancels, the skill records the gaps as assumptions
+and continues from repository evidence.
+
+The quality reference is
+[`skills/init/references/agents-md-quality.md`](../../skills/init/references/agents-md-quality.md).
+An existing `AGENTS.md` is reviewed and updated only after approval, an accurate
+file can produce a no-op plan, and an empty repository gets only known facts.
+The skill needs the plan extension for its review gate. It also ships with the
+package, so load the whole package (`pi -e .`) or install it; loading only
+`./extensions/plan` leaves `/skill:init` unavailable.
 
 ## Behaviour by mode
 
@@ -453,7 +499,7 @@ file and returns them to the model.
 | Integration point | How |
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
-| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
+| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan never writes a goal itself: an approval offer records one through `ctx.executeTool("goal", { objective })`. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with an active session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |

@@ -9,6 +9,7 @@
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
+import { optionalString } from "../../lib/config.ts";
 import { WATCH_ACTIONS, type WatchAction } from "./types.ts";
 
 /** Longest accepted label. */
@@ -78,10 +79,6 @@ export type WatchCall =
 	| { action: "logs"; id: string; lines?: number }
 	| { action: "stop"; id: string }
 	| { action: "clear"; id?: string; all?: boolean };
-
-function optionalString(value: unknown): string | undefined {
-	return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 
 function assertRegex(value: string, field: string): void {
 	if (value.length > MAX_PATTERN) throw new Error(`${field} is longer than ${MAX_PATTERN} characters.`);

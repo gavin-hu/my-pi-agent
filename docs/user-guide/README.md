@@ -12,6 +12,10 @@ the limits where they matter. You do not need to program to follow it. A few
 features touch your project's git history — worktrees, snapshots, the browser's
 change view — and each one says so.
 
+This edition was checked against my-pi-agent 0.16.0 and Pi 1.3.0. Run
+`pi --version` and `pi list` if a key or screen differs; the
+[changelog](../../CHANGELOG.md) lists what changed since this edition.
+
 <img src="../../assets/transcript.png" alt="A Pi transcript with the You nameplate, a tool call and its result behind the rail, a notice, the turn rule, and the footer status chips" width="100%">
 
 *A turn with the pack loaded: your nameplate, a tool call with its result indented
@@ -32,7 +36,7 @@ for administration and lookup.
 | [5. Using it from WeChat](./wechat.md) | Login, conversations, the control screen, files, limits | You want to reach the session from your phone |
 | [6. Settings and customization](./settings-and-customization.md) | The control centre, every settings group, themes, notifications, disabling and removal | You want to change how the pack behaves |
 | [7. Troubleshooting](./troubleshooting.md) | Triage, symptoms and causes, FAQ, how to get help | Something looks wrong |
-| [8. Reference](./reference.md) | All commands, shared keys, files on disk, extension and tool matrix | You know what you want and need the exact name |
+| [8. Reference](./reference.md) | All commands and an alphabetical index, shared keys, platform notes, files on disk, actions that discard work, extension and tool matrix | You know what you want and need the exact name |
 
 Every chapter follows the same shape: what the feature is for, when to use it,
 the concepts you need, numbered walkthroughs with an observable result, a key or

@@ -60,7 +60,7 @@ function cleanLine(line: string): string {
 }
 
 /** An error result for a plan or lifecycle failure. */
-export function errorResult(target: CheckTarget, message: string): CheckResult {
+export function checkErrorResult(target: CheckTarget, message: string): CheckResult {
 	return {
 		target,
 		status: "error",
@@ -208,7 +208,7 @@ export function createCheckRuntime(options: CheckRuntimeOptions = {}): CheckRunt
 		controller = runController;
 		let handle: ActiveCheck;
 		const promise = execute(target, cwd, config, commands, lines, runController.signal, onUpdate)
-			.catch((error) => errorResult(target, error instanceof Error ? error.message : String(error)))
+			.catch((error) => checkErrorResult(target, error instanceof Error ? error.message : String(error)))
 			.finally(() => {
 				if (controller === runController) controller = undefined;
 				if (active === handle) active = undefined;
@@ -230,8 +230,8 @@ export function createCheckRuntime(options: CheckRuntimeOptions = {}): CheckRunt
 		try {
 			handle = start(target, ctx);
 		} catch (error) {
-			if (error instanceof CheckError) return errorResult(target, error.message);
-			return errorResult(target, error instanceof Error ? error.message : String(error));
+			if (error instanceof CheckError) return checkErrorResult(target, error.message);
+			return checkErrorResult(target, error instanceof Error ? error.message : String(error));
 		}
 		return handle.promise;
 	};

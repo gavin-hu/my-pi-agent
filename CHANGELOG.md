@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `skills`: a model-invoked `refactor` skill audits a project or path for
+  refactoring opportunities — duplication, oversized modules, coupling, drift,
+  and high-churn code with weak tests — and returns a ranked shortlist with
+  `path:line` evidence, risk, effort, and verification commands. Discovery is
+  read-only; after a choice it hands off to a contract, a baseline, small
+  verified steps, and the full check.
+
+- `plan`: the packaged `init` skill is invoked as `/skill:init`. It reconnoiters
+  the repository, asks one built-in interview of at most
+  four questions (purpose, verification, rules, isolation, completion, sensitive
+  paths, and dependency or network limits, plus state-specific prompts), and turns
+  the answers and evidence into a draft or exact edits. Existing and empty
+  repositories are both supported; an unavailable or cancelled interview falls
+  back to evidence with recorded assumptions. The skill reviews an existing file
+  instead of replacing it, gates the draft through a quality checklist, and writes
+  only after the plan is approved.
+
 ### Changed
 
 - `wechat`: each control verb has one implementation and one message, so the
@@ -48,6 +67,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   five failure rows with an expand hint, and the bounded tail when nothing
   parses — instead of printing the model report, and shows a live elapsed line
   while the command runs. A failed run stays a normal result.
+
+- docs: the user guide gains a per-feature readiness matrix, a recovery choice
+  table, a central list of actions that discard work, an alphabetical command
+  index, and platform and terminal notes. The guide home now states the pack and
+  Pi versions it was checked against, and the release checklist bumps that
+  edition with the install pin.
+
+- test: `test/shared-helpers.test.ts` fails an extension that reimplements a
+  `lib/` export by name or copies a `lib/` or another extension's function body.
+  The exact copies it found are now shared: `asBoolean`, `optionalString`,
+  `stringList`, `lineOf`, and `clipLabel` in `lib/`, `messageOf` in `lib/errors.ts`,
+  and the rejected-call shape in `lib/tool-result.ts`. Legitimate same-name
+  wrappers are listed with reasons in the test.
+
+- docs: `AGENTS.md` is rebuilt from the current guides and code as a leaner
+  machine-facing contract: commands, the worktree and commit discipline, the
+  release constraints, the invariants, and the extension-README section order,
+  with the reasoning linked instead of restated.
+
+### Removed
+
+- `plan`: the `/init` wrapper command is gone. Use `/skill:init` to start the
+  packaged `init` skill; the skill enters plan mode itself.
 
 ### Fixed
 

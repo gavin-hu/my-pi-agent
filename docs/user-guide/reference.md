@@ -13,6 +13,7 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/plan <task>` | Turn plan mode on and send the task |
 | `/plan list` | List saved plans, newest first |
 | `/plan review [path]` | Review a plan in the browser (comments only) |
+| `/skill:init` | Create or update `AGENTS.md` through a built-in interview and reviewed plan |
 | `Ctrl+Alt+P` | Toggle plan mode where the terminal sends the chord |
 | `/check` | Run every detected check |
 | `/check test` | Run the detected test command |
@@ -108,6 +109,41 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `PI_DISABLED_EXTENSIONS=todo,job` | Load without the named extensions for one run |
 | `PI_OFFLINE=1` | Skip the session's automatic update check |
 
+## Command index
+
+Alphabetical, for lookup. Each subcommand is explained in its parent section.
+
+| Name | Where explained |
+|---|---|
+| `/agents` | [Delegating to specialist helpers](./plan-and-delegate.md#delegating-to-specialist-helpers) |
+| `/browse` | [Browsing a project](./web-and-files.md#browsing-a-project) |
+| `/bytefly` | [The control centre](./settings-and-customization.md#the-control-centre) |
+| `/check` | [Checking your work](./plan-and-delegate.md#checking-your-work) |
+| `/goal` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
+| `/skill:init` | [Plan first, then write](./plan-and-delegate.md#plan-first-then-write) |
+| `/jobs` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
+| `/memory` | [Remembering between sessions](./keep-work-safe.md#remembering-between-sessions) |
+| `/open` | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |
+| `/plan` | [Plan first, then write](./plan-and-delegate.md#plan-first-then-write) |
+| `/review` | [Reviewing the last turn](./keep-work-safe.md#reviewing-the-last-turn) |
+| `/rewind` | [Undoing a turn](./keep-work-safe.md#undoing-a-turn) |
+| `/todos` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
+| `/watch` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
+| `/wechat` | [The control screen](./wechat.md#the-control-screen) |
+| `/worktree` | [Working on a branch safely](./keep-work-safe.md#working-on-a-branch-safely) |
+| `--plan` | [Launch flags and environment](#launch-flags-and-environment) |
+| `--worktree` | [Launch flags and environment](#launch-flags-and-environment) |
+| `PI_DISABLED_EXTENSIONS` | [One run only](./settings-and-customization.md#one-run-only) |
+| `PI_OFFLINE` | [Update checks](./settings-and-customization.md#update-checks) |
+
+Pi's own commands are documented by Pi. The guide uses them here:
+
+| Pi command | Used in this guide |
+|---|---|
+| `/help`, `/resume`, `/settings`, `/tree` | [Getting started](./getting-started.md) and [Themes](./settings-and-customization.md#themes) |
+| `pi install`, `pi list`, `pi update`, `pi remove` | [Install](./getting-started.md#install) and [Update and remove](./getting-started.md#update-and-remove) |
+| `pi --version` | [Prerequisites](./getting-started.md#prerequisites) |
+
 ## Keys
 
 These keys work in most pack screens. A screen's own footer is authoritative;
@@ -132,6 +168,16 @@ some keys mean different things in an editor or a diff.
 | `Ctrl+D` | Exit Pi when the input is empty |
 | `?` | Show the shortcut sheet in a browser page |
 
+## Platform and terminal notes
+
+| Platform or surface | What differs | Where it is set |
+|---|---|---|
+| Windows | PowerShell is refused while you are isolated; a job cannot detach; `toast` is the OS notification route | [`worktree.guard.blockPowershell`](../configuration.md#worktree--isolated-worktrees), [`job.detachedByDefault`](../configuration.md#job--background-jobs), [`notify.method`](../configuration.md#notify--os-notifications) |
+| macOS | `osascript` is the OS notification route; a launch that starts and then fails adds a notification | [`notify.method`](../configuration.md#notify--os-notifications) |
+| Linux | `notify-send` is the OS notification route | [`notify.method`](../configuration.md#notify--os-notifications) |
+| Any terminal | OSC 777 and OSC 99 need terminal support; `auto` falls back to the platform. `Ctrl+Alt+P` is sent by some terminals but not others, so `/plan` is the portable toggle. A theme cannot correct a mismatched terminal background | [`notify.method`](../configuration.md#notify--os-notifications), [Themes](./settings-and-customization.md#themes) |
+| RPC, JSON, print | Screens print a report instead; `question` is inactive; `/open` and the WeChat QR login need the terminal | [What each feature needs](./getting-started.md#what-each-feature-needs) |
+
 ## Files on disk
 
 Everything the pack writes is listed here. All of it is safe to delete when you
@@ -154,6 +200,23 @@ no longer need it; deleting a settings file restores defaults.
 | `refs/pi/rewind` in the project's git | Rewind snapshots; list them with `git for-each-ref refs/pi/rewind` |
 
 `<agent-dir>` is Pi's agent directory, usually `~/.pi/agent`.
+
+## Actions that discard something
+
+| Action | What is discarded | Recoverable? |
+|---|---|---|
+| `/worktree exit --remove` | Uncommitted changes in that worktree; a clean merged branch may also be deleted | No for the uncommitted changes. Commits on a kept branch survive. |
+| `/worktree prune` | Clean, unlocked, non-current worktrees older than `pruneAfterDays` (seven days by default) | Nothing uncommitted was there. A branch is deleted only if merged; otherwise it is kept. |
+| A code restore from `/rewind` | Current working-tree changes | Normally yes: a pre-restore safety snapshot is taken. It needs `safetySnapshot` and room under `max`; a pruned ref is gone. |
+| A revert from `/review` | The selected files or hunks | Yes, by the same batch safety snapshot. |
+| `/memory clear [scope]`, or `d` in the picker | Every note in that scope, or the focused note | No undo. |
+| `/wechat logout` | Stored credentials and the running bridge | Scan the QR code again; conversations stay on disk. |
+| `/goal clear` | The session goal | No undo; set it again if you still have the text. |
+| `pi remove ...` | The package entry, not your data | Reinstall to use the pack again; plans, notes, snapshots, conversations, and settings stay on disk. |
+
+Snapshots and their limits are configured in
+[`rewind`](../configuration.md#rewind--snapshots); worktree pruning in
+[`worktree`](../configuration.md#worktree--isolated-worktrees).
 
 ## Extensions and tools
 

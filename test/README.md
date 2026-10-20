@@ -55,13 +55,12 @@ gate is stated in the test.
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
    `test/tool-render.test.ts`, `test/roadmap.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
-   `test/drift.test.ts`) — cross-cutting
-   contracts. No extension test may
-   duplicate these. `drift.test.ts` holds the anti-refactor rules `AGENTS.md`
-   states: one function body may not appear in two owners, every `lib/` module
-   has a row in `lib/README.md`, and `AGENTS.md` stays inside its word budget.
-   Its accepted-copy list is the backlog, pinned to its size so it cannot grow;
-   the module line bar and its heights are `LONG_MODULES` in `structure.test.ts`.
+   `test/drift.test.ts`, `test/shared-helpers.test.ts`) — cross-cutting
+   contracts. No extension test may duplicate these. `shared-helpers.test.ts`
+   fails an extension that reimplements what `lib/` owns, by name or by body, and
+   pins its two exception maps; `drift.test.ts` keeps every `lib/` module in the
+   `lib/README.md` index and `AGENTS.md` inside its word budget; the module line
+   bar and its `LONG_MODULES` heights live in `structure.test.ts`.
    `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
    and that a second render of the same component at the same width returns the
@@ -241,6 +240,7 @@ test/
   drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
+  shared-helpers.test.ts   # no extension reimplements a lib helper or copies another extension's body
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
 ```
@@ -251,8 +251,8 @@ Rules:
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
   `structure.test.ts`, `docs-parity.test.ts`,
-  `extension-load.test.ts`, `prompt-budget.test.ts`, `theme.test.ts`, and the
-  other package-level contracts listed above.
+  `extension-load.test.ts`, `shared-helpers.test.ts`, `prompt-budget.test.ts`,
+  `theme.test.ts`, and the other package-level contracts listed above.
 - A co-located test's file stem matches the source module it covers. The only
   exceptions are the documented aggregates in `structure.test.ts`.
 - A test that asserts platform behaviour pins it through the injectable seam

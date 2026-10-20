@@ -119,8 +119,86 @@ describe precisely.
   declare themselves read-only. `/check` and `/review` refuse until the plan is
   approved, because both can write caches or the working tree. `todo` and `goal`
   stay available, and a subagent is forced read-only.
-- The review screen needs the terminal interface. In text-only modes the plan is
-  printed instead of opening a screen.
+- The review screen needs the terminal interface. A dialog-capable mode such as
+  RPC offers the same choices as a select menu; a run with no UI at all fails
+  with an actionable message instead of approving for you.
+
+### Initializing AGENTS.md with /skill:init
+
+`/skill:init` creates or updates the project's `AGENTS.md` through a short built-in
+interview and the same plan review. The skill enters plan mode, reconnoiters the
+repository, asks up to four questions, and prepares a proposal. Nothing is written
+until you approve the plan.
+
+```text
+/skill:init
+  └─> plan mode (read-only)
+        └─> recon: manifests, docs, CI, tests, existing instructions
+        └─> interview: built-in bank, one call of at most 4 questions
+              ├─ answered ───────────────> reconcile with evidence
+              └─ unavailable/cancelled ──> evidence + assumptions
+        └─> draft: new file, exact edits, or an honest no-op
+        └─> quality gate
+        └─> write_plan ──> exit_plan_mode
+                             ├─ not approved ──> refine the same plan
+                             └─ approved ──────> write/edit AGENTS.md
+                                                 └─ read back + quality checklist
+```
+
+The skill uses a packaged question bank, so the whole workflow is explicit rather
+than an improvised prompt. The built-in bank covers purpose, verification commands,
+non-obvious rules, isolation, completion, sensitive paths, and dependency or
+network limits, with state-specific questions for an existing `AGENTS.md`, an
+empty repository, and related instruction files. The first call uses a
+deterministic four-question set for the repository state; a second call is allowed
+only for a material ambiguity. If the question tool is inactive, there is no UI,
+or you cancel, the skill records the unanswered gaps as assumptions and continues
+from evidence instead of stalling.
+
+The skill's quality checklist requires every command and path to come from a file
+that defines it, keeps the file short and specific, and preserves correct
+instructions in an existing `AGENTS.md`. An accurate file can produce a no-op plan
+instead of rewriting it. Both an existing repository and an empty one are
+supported; an empty repository gets only known facts, with no invented commands.
+`/skill:init` needs plan mode, so it is unavailable when the `plan` extension is
+disabled. It ships with the full package; loading only `extensions/plan` makes
+`/skill:init` unavailable rather than sending a bare skill name.
+
+### Finding refactoring opportunities
+
+The packaged `refactor` skill audits a project or path for refactoring work before
+any code moves. It is model-invoked: a request such as "what should I refactor
+here?" can load it automatically, and `/skill:refactor` forces it. Discovery is
+read-only and returns a ranked shortlist instead of editing files.
+
+Give it a scope with a path, or let it use the current project:
+
+```text
+/skill:refactor @extensions
+/skill:refactor @extensions/plan
+/skill:refactor @extensions/plan/plans.ts
+```
+
+A directory is an audit scope, a file is the starting point, and several paths
+can be audited together. The skill reads the project's own instructions and CI
+thresholds first, then looks for duplication, oversized modules, coupling,
+structural drift, high-churn code with weak tests, test friction, and boundary
+erosion. It checks callers and tests before keeping a candidate, so intentional
+duplication and public API are not reported as opportunities.
+
+The report names the scope and method, then three to five candidates ranked as
+**Do next**, **Worth planning**, or **Leave it**. Each candidate includes
+`path:line` evidence, the proposed structural change, expected benefit, risk and
+blast radius, effort, and the commands that would verify it. Rejected signals are
+listed with their reasons. Nothing is edited during the audit.
+
+After you choose a candidate, the handoff keeps the refactor safe: state the
+behavior contract, run the project's check for a baseline, add characterization
+tests if the behavior is untested, enter plan mode when the change spans files or
+a public surface, make one structural change per step, and run the full check at
+the end. The skill is advisory rather than an enforcement layer; it can miss a
+request or be ignored, but `.pi/plans` review and the check command still gate
+the work once a refactor starts.
 
 ## Checking your work
 
