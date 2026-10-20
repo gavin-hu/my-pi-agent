@@ -13,6 +13,7 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/plan <task>` | Turn plan mode on and send the task |
 | `/plan list` | List saved plans, newest first |
 | `/plan review [path]` | Review a plan in the browser (comments only) |
+| `/init` | Create or update `AGENTS.md` through a reviewed plan |
 | `Ctrl+Alt+P` | Toggle plan mode where the terminal sends the chord |
 | `/check` | Run every detected check |
 | `/check test` | Run the detected test command |
@@ -119,6 +120,7 @@ Alphabetical, for lookup. Each subcommand is explained in its parent section.
 | `/bytefly` | [The control centre](./settings-and-customization.md#the-control-centre) |
 | `/check` | [Checking your work](./plan-and-delegate.md#checking-your-work) |
 | `/goal` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
+| `/init` | [Plan first, then write](./plan-and-delegate.md#plan-first-then-write) |
 | `/jobs` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
 | `/memory` | [Remembering between sessions](./keep-work-safe.md#remembering-between-sessions) |
 | `/open` | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |
@@ -223,7 +225,7 @@ tools so they follow the active root; those are replacements, not additions.
 
 | Extension | Tools | Commands and flags |
 |---|---|---|
-| `plan` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps` | `/plan`, `/plan list`, `/plan review`, `--plan` |
+| `plan` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps` | `/plan`, `/plan list`, `/plan review`, `/init`, `--plan` |
 | `check` | `run_check` | `/check` |
 | `todo` | `todo` | `/todos` |
 | `goal` | `goal` | `/goal` |

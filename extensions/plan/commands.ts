@@ -5,7 +5,8 @@
  * `Ctrl+Alt+P` toggles too. Two subcommands are reserved: `/plan review [path]`
  * opens a plan in the browser (and sends saved comments to the model as a
  * refinement), and `/plan list` shows the plans directory, newest first, with
- * Enter opening a review.
+ * Enter opening a review. `/init` enters plan mode and starts the packaged
+ * `init` skill, whose goal is to create or update `AGENTS.md`.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -22,10 +23,21 @@ const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const REVIEW_PREFIX = "review";
 const LIST_PREFIX = "list";
+/** Explicit skill invocation; prompt expansion is enabled only for this command. */
+const INIT_INVOCATION = "/skill:init";
+/** The command name Pi lists for that skill, once the package's skills are loaded. */
+const INIT_SKILL_COMMAND = INIT_INVOCATION.slice(1);
 
 /** Notice text for the current mode; shared by `/plan` and the `Ctrl+Alt+P` shortcut. */
 export function planModeNotice(enabled: boolean): string {
 	return enabled ? ENABLED_NOTICE : DISABLED_NOTICE;
+}
+
+/** Enter plan mode when needed, with the same notice `/plan <task>` shows. */
+function ensurePlanMode(runtime: PlanRuntime, ctx: ExtensionContext): void {
+	if (runtime.isEnabled()) return;
+	runtime.enable(ctx);
+	ctx.ui.notify(ENABLED_NOTICE, "info");
 }
 
 /** The plan path a `/plan review` line names, or undefined to review the newest plan. */
@@ -189,12 +201,31 @@ export function registerCommands(
 			}
 
 			// A task always means "plan this": enter if needed, then send.
-			if (!runtime.isEnabled()) {
-				runtime.enable(ctx);
-				ctx.ui.notify(ENABLED_NOTICE, "info");
-			}
+			ensurePlanMode(runtime, ctx);
 			if (ctx.isIdle()) await pi.sendUserMessage(prompt);
 			else await pi.sendUserMessage(prompt, { deliverAs: "followUp" });
+		},
+	});
+
+	pi.registerCommand("init", {
+		description: "Create or update AGENTS.md through a plan you review first",
+		handler: async (_args, ctx) => {
+			// Loading only this extension leaves the packaged skill behind. Refuse before
+			// entering plan mode, so a failed invocation does not change the session.
+			const hasSkill = pi
+				.getCommands()
+				.some((command) => command.name === INIT_SKILL_COMMAND && command.source === "skill");
+			if (!hasSkill) {
+				ctx.ui.notify(
+					"/init needs its packaged skill. Load the whole package with `pi -e .` or install it, instead of loading only ./extensions/plan.",
+					"warning",
+				);
+				return;
+			}
+			ensurePlanMode(runtime, ctx);
+			const options = { expandPromptTemplates: true };
+			if (ctx.isIdle()) await pi.sendUserMessage(INIT_INVOCATION, options);
+			else await pi.sendUserMessage(INIT_INVOCATION, { ...options, deliverAs: "followUp" });
 		},
 	});
 }

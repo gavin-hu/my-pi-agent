@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plan`: `/init` enters plan mode and starts the packaged `init` skill, which
+  creates or updates `AGENTS.md` from repository evidence. The skill reviews an
+  existing file instead of replacing it, gates the draft through a quality
+  checklist, and writes only after the plan is approved; an empty repository gets
+  only known facts.
+
 ### Changed
 
 - `lib`: one shared kit replaces four extensions' private copies — `spawn.ts`

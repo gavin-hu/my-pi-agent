@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { registerCommands } from "./commands.ts";
 import type { PlanAnnotation } from "./feedback.ts";
@@ -27,13 +29,20 @@ function fakeRuntime(
 	const readCalls: string[] = [];
 	const latestCalls: string[] = [];
 	const indexCalls: string[] = [];
+	const enableCalls: string[] = [];
 	const marks: Array<{ path: string; content: string }> = [];
 	const file = options.file;
 	const summaries: PlanSummary[] = options.summaries ?? [];
+	let enabled = options.enabled ?? false;
 	const runtime = {
-		isEnabled: () => options.enabled ?? false,
-		enable: () => {},
-		toggle: () => {},
+		isEnabled: () => enabled,
+		enable: () => {
+			enableCalls.push("enable");
+			enabled = true;
+		},
+		toggle: () => {
+			enabled = !enabled;
+		},
 		lastPlanPath: () => options.last ?? file?.path,
 		reviewed: () => (options.baseline === undefined ? undefined : sectionDigests(options.baseline)),
 		markReviewed: (path: string, content: string) => marks.push({ path, content }),
@@ -53,7 +62,7 @@ function fakeRuntime(
 			dirFor: async () => "/repo/.pi/plans",
 		},
 	};
-	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, indexCalls, marks };
+	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, indexCalls, enableCalls, marks };
 }
 
 function fakeWeb(result: PlanReviewResult) {
@@ -90,13 +99,29 @@ function setup(options: {
 	baseline?: string;
 	summaries?: PlanSummary[];
 	result: PlanReviewResult;
+	idle?: boolean;
+	skill?: boolean;
 }) {
-	const { runtime, readCalls, latestCalls, indexCalls, marks } = fakeRuntime(options);
+	const { runtime, readCalls, latestCalls, indexCalls, enableCalls, marks } = fakeRuntime(options);
 	const { web, started, starts, closeCalls } = fakeWeb(options.result);
 	const pi = makeFakePi();
+	pi.pi.getCommands = () => (options.skill === false ? [] : [{ name: "skill:init", source: "skill" }]);
 	registerCommands(pi.pi, runtime, web);
-	const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
-	return { pi, ctx, notifications, runtime, readCalls, latestCalls, indexCalls, marks, started, starts, closeCalls };
+	const { ctx, notifications } = fakeCtx({ cwd: "/repo", isIdle: () => options.idle ?? true });
+	return {
+		pi,
+		ctx,
+		notifications,
+		runtime,
+		readCalls,
+		latestCalls,
+		indexCalls,
+		enableCalls,
+		marks,
+		started,
+		starts,
+		closeCalls,
+	};
 }
 
 describe("/plan review", () => {
@@ -313,5 +338,62 @@ describe("/plan review", () => {
 		await pi.commands.get("plan").handler("review the auth flow", ctx);
 
 		expect(pi.sentMessages).toEqual([{ content: "review the auth flow", options: undefined }]);
+	});
+});
+
+describe("/init", () => {
+	test("enters plan mode and invokes the packaged init skill", async () => {
+		const { pi, ctx, notifications, enableCalls } = setup({ result: { status: "cancelled" } });
+
+		await pi.commands.get("init").handler("", ctx);
+
+		expect(enableCalls).toEqual(["enable"]);
+		expect(notifications.some((message) => message.includes("Plan mode enabled"))).toBe(true);
+		expect(pi.sentMessages).toEqual([{ content: "/skill:init", options: { expandPromptTemplates: true } }]);
+	});
+
+	test("does not re-enable plan mode", async () => {
+		const { pi, ctx, enableCalls } = setup({ enabled: true, result: { status: "cancelled" } });
+
+		await pi.commands.get("init").handler("", ctx);
+
+		expect(enableCalls).toEqual([]);
+		expect(pi.sentMessages).toHaveLength(1);
+	});
+
+	test("queues the skill behind a running turn", async () => {
+		const { pi, ctx } = setup({ idle: false, result: { status: "cancelled" } });
+
+		await pi.commands.get("init").handler("", ctx);
+
+		expect(pi.sentMessages).toEqual([
+			{ content: "/skill:init", options: { expandPromptTemplates: true, deliverAs: "followUp" } },
+		]);
+	});
+
+	test("refuses when only the plan extension is loaded", async () => {
+		const { pi, ctx, notifications, enableCalls } = setup({ skill: false, result: { status: "cancelled" } });
+
+		await pi.commands.get("init").handler("", ctx);
+
+		expect(enableCalls).toEqual([]);
+		expect(pi.sentMessages).toEqual([]);
+		expect(notifications.some((message) => message.includes("packaged skill"))).toBe(true);
+	});
+
+	test("packages a plan-first, quality-gated skill", () => {
+		const skill = readFileSync(join(import.meta.dir, "../../skills/init/SKILL.md"), "utf-8");
+		const quality = readFileSync(join(import.meta.dir, "../../skills/init/references/agents-md-quality.md"), "utf-8");
+
+		expect(skill).toContain("name: init");
+		expect(skill).toContain("create or update `AGENTS.md`");
+		expect(skill).toContain("empty or near-empty repo");
+		expect(skill).toContain("review it, then draft exact edits");
+		expect(skill).toContain("write/edit AGENTS.md");
+		expect(skill).toContain("exit_plan_mode");
+		expect(skill).toContain("references/agents-md-quality.md");
+		expect(quality).toContain("Existing files");
+		expect(quality).toContain("Empty repository");
+		expect(quality).toContain("Final read-back");
 	});
 });

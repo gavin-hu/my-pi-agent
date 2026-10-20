@@ -123,6 +123,37 @@ describe precisely.
   RPC offers the same choices as a select menu; a run with no UI at all fails
   with an actionable message instead of approving for you.
 
+### Initializing AGENTS.md with /init
+
+`/init` creates or updates the project's `AGENTS.md` through the same plan review.
+It enters plan mode, inspects the repository, and prepares a proposal. Nothing is
+written until you approve the plan.
+
+```text
+/init
+  └─> plan mode (read-only)
+        └─> inspect the repository
+              ├─ no AGENTS.md
+              │    ├─ empty or near-empty repo ──> honest minimal file
+              │    └─ real project ──────────────> draft from repository evidence
+              └─ AGENTS.md exists ───────────────> review it, then draft exact edits
+        └─> quality gate
+        └─> write_plan ──> exit_plan_mode
+                             ├─ not approved ──> refine the same plan
+                             └─ approved ──────> write/edit AGENTS.md
+                                                 └─ read back + quality checklist
+```
+
+The command uses a packaged skill, so the whole workflow is explicit rather than
+an improvised prompt. The skill's quality checklist requires every command and
+path to come from a file that defines it, keeps the file short and specific, and
+preserves correct instructions in an existing `AGENTS.md`. An accurate file can
+produce a no-op plan instead of rewriting it. An empty repository gets only known
+facts, with no invented commands. `/init` needs plan mode, so it is unavailable
+when the `plan` extension is disabled. It also needs the packaged skill, which
+ships with the full package; loading only `extensions/plan` makes the command
+refuse rather than send a bare skill name.
+
 ## Checking your work
 
 ### What it is

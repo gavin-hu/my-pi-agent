@@ -71,6 +71,24 @@ describe("extension manifest", () => {
 	});
 });
 
+describe("skill manifest", () => {
+	const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as {
+		files?: string[];
+		pi?: { skills?: string[] };
+	};
+
+	test("declares and publishes the packaged skills", () => {
+		expect(pkg.pi?.skills).toContain("./skills");
+		expect(pkg.files).toContain("skills/**");
+
+		const skills = walkFiles(join(root, "skills")).filter((file) => file.endsWith("/SKILL.md"));
+		expect(skills.length).toBeGreaterThan(0);
+		for (const file of skills) {
+			expect(readFileSync(file, "utf-8"), file).toMatch(/^---\nname: [a-z0-9-]+\ndescription: /);
+		}
+	});
+});
+
 describe("every extension loads through the fake runtime", () => {
 	for (const entry of manifest) {
 		test(entry, async () => {

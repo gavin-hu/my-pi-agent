@@ -8,7 +8,7 @@
 [![built for Pi](https://img.shields.io/badge/built%20for-Pi-5A4FCF)](https://pi.dev)
 
 `my-pi-agent` 是一个 [Pi](https://pi.dev) 包，在你已经使用的智能体之上新增一组精选
-扩展和主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
+扩展、技能和主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
 
 本页是目录与安装说明。要了解某个功能怎么用 —— 按键、命令以及应有的效果 ——
 请先看[用户指南](./docs/user-guide/)。
@@ -72,6 +72,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 - `/bytefly update` 立即重跑包更新检查，报告可更新的包、本包版本与 release URL，
   或跳过原因。
 - `/plan <任务>` 以只读规划模式开始一个任务。
+- `/init` 通过先审阅的计划创建或更新 `AGENTS.md`。
 
 还有一件包会自行做的事：每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器
 哪些已配置的包有更新，抑制 Pi 自己的启动更新块，并用一个主题化 notice 列出它们
@@ -80,14 +81,14 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 ## 包含内容
 
-十七个扩展，按你想达成的目标分组，外加两个主题。每个扩展自己的 `README.md`
+十七个扩展和一个随包技能，按你想达成的目标分组，外加两个主题。每个扩展自己的 `README.md`
 提供完整的工具与命令说明。
 
 ### 规划与委派
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | 只读规划：模型先调研，把计划保存到 `.pi/plans` 下，你在写入任何内容前先批准。可在 TUI 中审阅，或在浏览器中打开以留下行内评论。 |
+| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `set_plan_steps`, `/plan`, `/init`, `--plan` | 只读规划：模型先调研，把计划保存到 `.pi/plans` 下，你在写入任何内容前先批准。可在 TUI 中审阅，或在浏览器中打开以留下行内评论。`/init` 复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
 | [`check`](./extensions/check/) | `run_check`, `/check` | 检测项目的测试、lint 或类型检查命令（或使用 `check.command`），在受监管的进程中运行，并把失败整理成可导航的 `file:line` 列表。 |
 | [`subagent`](./extensions/subagent/) | `subagent`, `/agents` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`、`researcher`、`tester`、`debugger`、`documenter`），运行在它自己的 Pi 进程中 —— 单个、并行、链式或在后台运行；后台运行时在页脚显示数量，完成后发出提示。 |
 | [`todo`](./extensions/todo/) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |

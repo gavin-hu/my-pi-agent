@@ -283,6 +283,8 @@ One doc per audience. Do not duplicate across them:
   invariants.
 - `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
   `test/README.md` — the deep per-area contracts.
+- `skills/<name>/SKILL.md` — a packaged skill's model-facing workflow, with any
+  references kept beside it and paths resolved from the skill directory.
 
 When behavior changes, update the catalog table in `README.md` (and its
 `README.zh-CN.md` mirror), the relevant
