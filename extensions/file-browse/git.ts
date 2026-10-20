@@ -38,6 +38,37 @@ export interface GitStatusOptions {
 }
 
 /**
+ * Memoize `read` for `ttlMs`, sharing an in-flight call. `checkedAt` is stamped
+ * before the read starts, so a failure is cached for the same window instead of
+ * retrying on every page render.
+ */
+function ttlMemo<T>(
+	read: () => Promise<T | undefined>,
+	ttlMs: number,
+	now: () => number,
+): () => Promise<T | undefined> {
+	let cached: T | undefined;
+	let checkedAt = 0;
+	let pending: Promise<T | undefined> | undefined;
+	return () => {
+		if (pending) return pending;
+		const t = now();
+		if (checkedAt !== 0 && t - checkedAt < ttlMs) return Promise.resolve(cached);
+		checkedAt = t;
+		pending = read()
+			.catch(() => undefined)
+			.then((next) => {
+				cached = next;
+				return next;
+			})
+			.finally(() => {
+				pending = undefined;
+			});
+		return pending;
+	};
+}
+
+/**
  * Build a provider for `root` that caches its result for `ttlMs`. It never
  * throws: a non-repository, a failed git call, or a timeout yields `undefined`,
  * and the page simply omits the chip.
@@ -48,36 +79,16 @@ export function createGitStatus(
 	options: GitStatusOptions = {},
 ): GitStatusProvider {
 	const runGit = createExecRunner(pi);
-	const ttlMs = options.ttlMs ?? 2000;
-	const now = options.now ?? (() => Date.now());
-	let cached: GitStatus | undefined;
-	let checkedAt = 0;
-	let pending: Promise<GitStatus | undefined> | undefined;
 
-	async function read(run: RunGit): Promise<GitStatus | undefined> {
-		if (!(await repoRoot(run, root))) return undefined;
-		const branch = await currentBranch(run, root);
-		const head = branch ? undefined : (await revParse(run, root, "HEAD"))?.slice(0, 7);
+	async function read(): Promise<GitStatus | undefined> {
+		if (!(await repoRoot(runGit, root))) return undefined;
+		const branch = await currentBranch(runGit, root);
+		const head = branch ? undefined : (await revParse(runGit, root, "HEAD"))?.slice(0, 7);
 		if (!branch && !head) return undefined;
 		return { branch, head };
 	}
 
-	return async () => {
-		if (pending) return pending;
-		const t = now();
-		if (checkedAt !== 0 && t - checkedAt < ttlMs) return cached;
-		checkedAt = t;
-		pending = read(runGit)
-			.catch(() => undefined)
-			.then((status) => {
-				cached = status;
-				return status;
-			})
-			.finally(() => {
-				pending = undefined;
-			});
-		return pending;
-	};
+	return ttlMemo(read, options.ttlMs ?? 2000, options.now ?? (() => Date.now()));
 }
 
 /** One comparison scope's change list. */
@@ -151,16 +162,10 @@ export function createGitDiff(
 ): GitDiffProvider {
 	const exec = createExecRunner(pi);
 	const run: RunGit = (args, opts) => exec(args, { timeoutMs: options.timeoutMs ?? 4000, ...opts });
-	const ttlMs = options.ttlMs ?? 2000;
 	const context = Math.max(0, options.context ?? 3);
 	const maxLines = Math.max(1, options.maxLines ?? 4000);
 	const maxFileBytes = options.maxFileBytes ?? 1024 * 1024;
 	const maxTextLines = options.maxTextLines ?? 5000;
-	const now = options.now ?? (() => Date.now());
-
-	let cached: RepoState | undefined;
-	let checkedAt = 0;
-	let pending: Promise<RepoState | undefined> | undefined;
 
 	async function read(): Promise<RepoState | undefined> {
 		if (!(await repoRoot(run, root))) return undefined;
@@ -170,22 +175,7 @@ export function createGitDiff(
 	}
 
 	/** The cached repository state, or `undefined` outside a repository. */
-	function state(): Promise<RepoState | undefined> {
-		if (pending) return pending;
-		const t = now();
-		if (checkedAt !== 0 && t - checkedAt < ttlMs) return Promise.resolve(cached);
-		checkedAt = t;
-		pending = read()
-			.catch(() => undefined)
-			.then((next) => {
-				cached = next;
-				return next;
-			})
-			.finally(() => {
-				pending = undefined;
-			});
-		return pending;
-	}
+	const state = ttlMemo(read, options.ttlMs ?? 2000, options.now ?? (() => Date.now()));
 
 	/** `head` needs a commit; before the first one, compare the index instead. */
 	const effectiveMode = (mode: DiffMode, has: boolean): DiffMode => (mode === "head" && !has ? "staged" : mode);
