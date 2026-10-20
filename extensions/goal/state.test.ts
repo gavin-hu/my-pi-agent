@@ -1,97 +1,50 @@
 import { describe, expect, test } from "bun:test";
-import { isActiveGoal, reconstructGoal } from "./state.ts";
+import { isActiveGoal, openTodoCount, reconstructGoal } from "./state.ts";
 import type { Goal } from "./types.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 
 const active = (objective: string): Goal => ({ objective, status: "active" });
 const achieved = (objective: string): Goal => ({ objective, status: "achieved" });
 
+/** A session entry carrying one todo tool result. */
+function todoResult(todos: unknown): unknown {
+	return { type: "message", message: { role: "toolResult", toolName: "todo", details: { todos, action: "write" } } };
+}
+
 describe("reconstructGoal", () => {
-	test("returns null for an empty branch", () => {
-		expect(reconstructGoal([])).toBeNull();
-	});
-
-	test("uses the last goal written on the branch", () => {
-		const entries = [
-			resultEntry(active("first")),
-			{ type: "message", message: { role: "assistant", content: "ok" } },
-			resultEntry(achieved("second")),
-		];
-		expect(reconstructGoal(entries)).toEqual(achieved("second"));
-	});
-
-	test("ignores results from other tools", () => {
-		expect(reconstructGoal([resultEntry(active("mine")), resultEntry(active("theirs"), "todo")])).toEqual(
-			active("mine"),
+	// The replay rules live in `lib/goal-state.ts` and are tested there; this
+	// proves the extension reads the branch through that one contract.
+	test("reads the last goal written on the branch", () => {
+		expect(reconstructGoal([resultEntry(active("first")), resultEntry(achieved("second"))])).toEqual(
+			achieved("second"),
 		);
 	});
 
-	test("a clear (null goal) resets state", () => {
+	test("reads a command entry and honours an explicit clear", () => {
+		const command = { type: "custom", customType: "goal", data: { goal: active("from command") } };
+		expect(reconstructGoal([command])).toEqual(active("from command"));
 		expect(reconstructGoal([resultEntry(active("one")), resultEntry(null)])).toBeNull();
 	});
 
-	test("ignores non-message and malformed entries", () => {
-		const entries = [
-			{ type: "label", targetId: "x" },
-			{ type: "message", message: { role: "toolResult", toolName: "goal", details: {} } },
-			resultEntry(active("kept")),
-			null,
+	test("returns null for an empty branch", () => {
+		expect(reconstructGoal([])).toBeNull();
+	});
+});
+
+describe("openTodoCount", () => {
+	test("counts only the items the list still has open", () => {
+		const branch = [
+			todoResult([
+				{ content: "Close the docs", status: "completed" },
+				{ content: "Ship the parser", status: "in_progress" },
+				{ content: "Write the notes", status: "pending" },
+			]),
 		];
-		expect(reconstructGoal(entries)).toEqual(active("kept"));
+		expect(openTodoCount(branch)).toBe(2);
 	});
 
-	test("ignores malformed custom entries instead of throwing or wiping state", () => {
-		const malformed = ["nope", 42, true, [], null, undefined, {}, { goal: undefined }];
-		for (const data of malformed) {
-			expect(() =>
-				reconstructGoal([resultEntry(active("kept")), { type: "custom", customType: "goal", data }]),
-			).not.toThrow();
-			expect(reconstructGoal([resultEntry(active("kept")), { type: "custom", customType: "goal", data }])).toEqual(
-				active("kept"),
-			);
-		}
-	});
-
-	test("an explicit null custom goal clears state", () => {
-		expect(
-			reconstructGoal([resultEntry(active("one")), { type: "custom", customType: "goal", data: { goal: null } }]),
-		).toBeNull();
-	});
-
-	test("does not alias the stored goal", () => {
-		const stored = active("original");
-		const result = reconstructGoal([resultEntry(stored)]);
-		result!.objective = "mutated";
-		expect(stored.objective).toBe("original");
-	});
-
-	test("re-sanitizes a stored objective and ignores an over-long one", () => {
-		expect(reconstructGoal([resultEntry({ objective: "safe\u001b[31mRED", status: "active" })])).toEqual(
-			active("safe [31mRED"),
-		);
-		expect(
-			reconstructGoal([resultEntry(active("kept")), resultEntry({ objective: "x".repeat(5000), status: "active" })]),
-		).toEqual(active("kept"));
-	});
-
-	test("ignores a malformed tool-result goal instead of wiping state", () => {
-		const malformed = {
-			type: "message",
-			message: { role: "toolResult", toolName: "goal", details: { goal: { objective: 42 }, action: "set" } },
-		};
-		expect(reconstructGoal([resultEntry(active("kept")), malformed])).toEqual(active("kept"));
-	});
-
-	test("does not replay a rejected call as a state write", () => {
-		const rejected = {
-			type: "message",
-			message: {
-				role: "toolResult",
-				toolName: "goal",
-				details: { goal: null, action: "clear", error: "objective is too long" },
-			},
-		};
-		expect(reconstructGoal([resultEntry(active("kept")), rejected])).toEqual(active("kept"));
+	test("is zero without a list", () => {
+		expect(openTodoCount([])).toBe(0);
 	});
 });
 

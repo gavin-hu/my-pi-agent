@@ -66,6 +66,32 @@ describe("lastGoal", () => {
 		expect(lastGoal(branch)?.objective).toBe("good");
 	});
 
+	test("ignores a result from another tool", () => {
+		const branch = [
+			toolResult({ objective: "mine", status: "active" }),
+			{
+				type: "message",
+				message: { role: "toolResult", toolName: "todo", details: { goal: { objective: "theirs", status: "active" } } },
+			},
+		];
+		expect(lastGoal(branch)?.objective).toBe("mine");
+	});
+
+	test("returns a fresh goal rather than an alias of the stored value", () => {
+		const stored = { objective: "original", status: "active" };
+		const goal = lastGoal([toolResult(stored)]);
+		goal!.objective = "mutated";
+		expect(stored.objective).toBe("original");
+	});
+
+	test("ignores any malformed command payload", () => {
+		const kept = toolResult({ objective: "kept", status: "active" });
+		const malformed = ["nope", 42, true, [], null, undefined, {}, { goal: undefined }];
+		for (const data of malformed) {
+			expect(lastGoal([kept, { type: "custom", customType: GOAL_ENTRY_TYPE, data }])?.objective).toBe("kept");
+		}
+	});
+
 	test("ignores a blank or over-long objective", () => {
 		const blank = [toolResult({ objective: "  ", status: "active" })];
 		expect(lastGoal(blank)).toBeNull();

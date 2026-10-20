@@ -103,7 +103,8 @@ or achieved — is never replaced by that offer.
 ### `/goal` command
 
 The command has no tool result, so it persists each change as a `goal` custom
-entry; `reconstructGoal` replays both entry kinds in branch order.
+entry; `reconstructGoal` replays both entry kinds in branch order through
+`lib/goal-state.ts`, so its readers agree.
 
 | Command | What it does |
 |---|---|
@@ -212,7 +213,8 @@ depends on config.
   state. The `goal` tool remains the model's silent setter.
 - **State in `details` and a custom entry.** A `goal` tool call stores the goal
   in its result's `details`; the `/goal` command appends a `goal` custom entry
-  (`pi.appendEntry`). `reconstructGoal` replays both in branch order, last
+  (`pi.appendEntry`). `reconstructGoal` reads the branch through
+  `lib/goal-state.ts`'s `lastGoal`, which replays both in branch order, last
   writer wins, so `/resume` and `/tree` reproduce the goal that was correct at
   that point and stale branches never leak. An appendEntry-only design was
   rejected because a durable side-channel would not branch with the
@@ -265,7 +267,7 @@ depends on config.
 | `clarify-prompt.ts` | The comprehension prompt and its message builder (pure). |
 | `clarify-parse.ts` | Parse the `{ understood, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
 | `clarify.ts` | The model call, its cancellable loader, the in-command questionnaire, and the confirm/edit dialog (host). |
-| `state.ts` | Branch reconstruction (pure). |
+| `state.ts` | Branch-derived facts (pure): the published replay from `lib/goal-state.ts`, the open-todo count, and `isActiveGoal`. |
 | `format.ts` | Model-facing and terminal text plus the header and rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (the `goal` section of `bytefly.json`). |
 | `tui.ts` | The persistent goal widget and the transcript status header. |

@@ -1,3 +1,9 @@
+/**
+ * End-to-end wiring for the goal extension: the real factory registered against
+ * a fake host, covering the session hooks, the injected reminder, the widget,
+ * and the `/goal` command flow. The tool's internals, the clarify loop, and the
+ * renderers are tested by their own files.
+ */
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
