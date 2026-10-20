@@ -170,7 +170,11 @@ export function createRuntime(pi: ExtensionAPI): RewindRuntime {
 		}
 	};
 
-	/** Snapshot the current state before a restore, returning its id. */
+	/**
+	 * Snapshot the current state before a restore, returning its id. The ref is
+	 * not pruned here: the next automatic snapshot applies `max`, so the snapshot
+	 * being restored from stays available for a follow-up restore.
+	 */
 	const safetySnapshot = async (
 		ctx: ExtensionContext,
 		root: string,

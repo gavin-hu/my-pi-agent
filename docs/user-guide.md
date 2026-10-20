@@ -760,7 +760,8 @@ This feature needs `git`. Snapshots are stored as git references under
 
 **Good to know.**
 
-- Twenty snapshots are kept by default; the oldest are pruned, and a pruned ref is
+- Twenty snapshot refs are kept by default, including the pre-restore safety
+  snapshots that make an undo possible; the oldest are pruned, and a pruned ref is
   gone rather than hidden. **Snapshots kept** in `/bytefly settings` changes the
   number.
 - The per-file checklist exists only in the terminal interface. In text-only

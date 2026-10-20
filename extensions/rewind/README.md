@@ -120,14 +120,18 @@ The `rewind` section of the shared `bytefly.json` (global document, then
 | Key | Meaning |
 |---|---|
 | `autoSnapshots` | Take one automatic snapshot per prompt. Default `true`. |
-| `max` | Snapshot refs kept per root before the oldest are pruned on save. |
+| `max` | Snapshot refs kept per root; automatic and pre-restore safety snapshots both count. |
 | `includeUntracked` | Capture untracked, non-ignored files. |
 | `safetySnapshot` | Save the current state before a code restore. |
-| `autoPrune` | Delete the oldest refs beyond `max` after saving. |
+| `autoPrune` | Delete the oldest refs beyond `max` after an automatic snapshot. |
 | `showStatus` | Draw the `↺ N` status chip. |
 | `watch` | Extra tool names to treat as mutating. |
 | `ignore` | Tool names never to snapshot; this package's own tools are always excluded. |
 | `refNamespace` | Ref namespace for stored snapshots. |
+
+A restore's safety snapshot is not pruned immediately, so the snapshot it
+restored from stays available for a follow-up restore; the next automatic
+snapshot applies the cap.
 
 ## How snapshots are stored
 
