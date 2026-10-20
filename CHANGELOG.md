@@ -26,6 +26,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- docs: the root README names the user guide as the manual — a positioning line
+  in the intro and a hand-off after the extension catalog, mirrored in
+  `README.zh-CN.md` — so a first-time reader reaches the walkthroughs without
+  scrolling to the documentation table.
+
 - docs: the configuration page absorbs the key reference. It opens with the two
   scopes and the merge order, the settings screen, and a "what people usually
   change" table, then carries every section and key the loaders accept with their

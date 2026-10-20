@@ -10,6 +10,9 @@
 `my-pi-agent` 是一个 [Pi](https://pi.dev) 包，在你已经使用的智能体之上新增一组精选
 扩展和主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
 
+本页是目录与安装说明。要了解某个功能怎么用 —— 按键、命令以及应有的效果 ——
+请先看[用户指南](./docs/user-guide.md)。
+
 ![一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏](assets/chrome.png)
 
 ## 目录
@@ -149,6 +152,9 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 `bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
 [`assets/tools/`](./assets/tools) 下为每个工具输出一张图。
+
+准备上手了？[用户指南](./docs/user-guide.md) 为每个扩展都准备了分步讲解：
+第一次运行、关键按键，以及屏幕上会出现什么。
 
 ## 配置
 
