@@ -225,10 +225,39 @@ export function writeConfigValue(path: string, section: string, key: string, val
  * malformed document and an empty path.
  */
 export function writeConfigValueAt(path: string, section: string, keyPath: readonly string[], value: unknown): void {
-	if (keyPath.length === 0) throw new Error(`Cannot update ${path}: empty key path`);
+	writeConfigValuesAt(path, [{ section, path: keyPath, value }]);
+}
+
+/** One leaf edit for {@link writeConfigValuesAt}. */
+export interface ConfigLeafEdit {
+	section: string;
+	path: readonly string[];
+	value: unknown;
+}
+
+/**
+ * Set several leaves in one document pass, with the guarantees of
+ * {@link writeConfigValueAt}.
+ *
+ * A row that also writes a companion leaf (the currency writes its default
+ * precision) must not read, write, and re-read the file between the two: a
+ * failure in the second write would leave the first one on disk while the
+ * caller reports that nothing was saved. Every edit is applied to one parsed
+ * document and written once, so the file is either wholly updated or untouched.
+ * Later edits see the sections earlier ones built.
+ */
+export function writeConfigValuesAt(path: string, edits: readonly ConfigLeafEdit[]): void {
+	if (edits.length === 0) return;
+	for (const edit of edits) {
+		if (edit.path.length === 0) throw new Error(`Cannot update ${path}: empty key path`);
+	}
 	const document = readEditableDocument(path);
-	const current = configSection(document, section) ?? {};
-	document[section] = setPath(current, keyPath, value);
+	const sections = new Map<string, Record<string, unknown>>();
+	for (const edit of edits) {
+		const current = sections.get(edit.section) ?? configSection(document, edit.section) ?? {};
+		sections.set(edit.section, setPath(current, edit.path, edit.value));
+	}
+	for (const [section, value] of sections) document[section] = value;
 	writeConfigFile(path, document);
 }
 

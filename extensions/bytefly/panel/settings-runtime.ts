@@ -18,7 +18,7 @@ import {
 	readJson,
 	SHARED_CONFIG_FILE,
 	unsetConfigValueAt,
-	writeConfigValueAt,
+	writeConfigValuesAt,
 } from "../../../lib/config.ts";
 import type { SettingsStore, WriteScope } from "../picker/types.ts";
 import {
@@ -31,6 +31,7 @@ import {
 	settingViews,
 	storedValue,
 	textError,
+	UNTRUSTED_SETTINGS_NOTE,
 } from "./settings.ts";
 
 /** Host seams for the Settings runtime. */
@@ -104,7 +105,7 @@ function applyAppSetting(store: SettingsStore, row: SettingDescriptor, raw: stri
 /** Why `row` cannot be written in `scope`, or `undefined` when it can. */
 function refusal(row: SettingDescriptor, scope: WriteScope, trusted: boolean): string | undefined {
 	if (scope === "project" && !trusted) {
-		return "Project is not trusted; settings can only be changed in Global scope.";
+		return UNTRUSTED_SETTINGS_NOTE;
 	}
 	if (row.source === "app" && scope !== "global") return `${row.label} is a Global setting.`;
 	return undefined;
@@ -136,8 +137,12 @@ export function createSettingsRuntime(deps: SettingsRuntimeDeps): SettingsRuntim
 		const config = row.config;
 		if (!config) throw new Error(`Setting ${row.id} has no config section`);
 		const path = configPath(scope, deps.cwd, deps.agentDir);
-		writeConfigValueAt(path, config.section, config.path, storedValue(row, raw));
-		for (const leaf of row.also?.(raw) ?? []) writeConfigValueAt(path, leaf.section, leaf.path, leaf.value);
+		// One document pass for the row and every companion leaf it declares, so a
+		// failure cannot leave the row written and its companion not.
+		writeConfigValuesAt(path, [
+			{ section: config.section, path: config.path, value: storedValue(row, raw) },
+			...(row.also?.(raw) ?? []),
+		]);
 	};
 
 	/** Take a completed write: re-read the snapshot, mark it dirty, repaint. */

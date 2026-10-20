@@ -21,6 +21,7 @@ import {
 	writeConfigSection,
 	writeConfigValue,
 	writeConfigValueAt,
+	writeConfigValuesAt,
 } from "./config.ts";
 
 const temps = makeTempTracker();
@@ -311,6 +312,57 @@ describe("writeConfigValueAt", () => {
 		expect(() => writeConfigValueAt(path, "price", [], 3)).toThrow(/empty key path/);
 		expect(() => writeConfigValueAt(path, "price", ["currency"], 3)).toThrow(/Cannot update/);
 		expect(readFileSync(path, "utf-8")).toBe(before);
+	});
+});
+
+describe("writeConfigValuesAt", () => {
+	test("sets several leaves in one document pass, keeping every sibling", () => {
+		const dir = temps.track(tempDir("pi-config-multi-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		writeConfigFile(path, {
+			$schema: "https://example.test/meta.json",
+			price: { currency: { symbol: "¥", decimals: 2 }, fallbackToRecordedCost: true },
+			notify: { enabled: true },
+		});
+
+		writeConfigValuesAt(path, [
+			{ section: "price", path: ["currency", "code"], value: "USD" },
+			{ section: "price", path: ["currency", "decimals"], value: 3 },
+		]);
+
+		expect(readJson(path)).toEqual({
+			$schema: "https://example.test/meta.json",
+			price: { currency: { symbol: "¥", decimals: 3, code: "USD" }, fallbackToRecordedCost: true },
+			notify: { enabled: true },
+		});
+	});
+
+	test("refuses the whole change when the document cannot be parsed", () => {
+		const dir = temps.track(tempDir("pi-config-multi-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+		const before = "{ not json";
+		writeFileSync(path, before);
+
+		expect(() =>
+			writeConfigValuesAt(path, [
+				{ section: "price", path: ["currency", "code"], value: "USD" },
+				{ section: "price", path: ["currency", "decimals"], value: 3 },
+			]),
+		).toThrow(/Cannot update/);
+		expect(readFileSync(path, "utf-8")).toBe(before);
+	});
+
+	test("refuses an empty path before writing anything", () => {
+		const dir = temps.track(tempDir("pi-config-multi-"));
+		const path = join(dir, SHARED_CONFIG_FILE);
+
+		expect(() =>
+			writeConfigValuesAt(path, [
+				{ section: "price", path: ["currency", "code"], value: "USD" },
+				{ section: "price", path: [], value: 3 },
+			]),
+		).toThrow(/empty key path/);
+		expect(existsSync(path)).toBe(false);
 	});
 });
 

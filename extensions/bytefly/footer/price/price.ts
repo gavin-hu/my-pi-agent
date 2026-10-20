@@ -11,7 +11,7 @@
 import { emptyUsage } from "../collect/entries.ts";
 import type { ByteflyConfig, ModelRates } from "./types.ts";
 import type { UsageRecord, UsageTotals } from "../types.ts";
-import { findRates } from "./rates.ts";
+import { createRateLookup } from "./rates.ts";
 import { isPeak, peakFormatter } from "./schedule.ts";
 
 const TOKENS_PER_MILLION = 1_000_000;
@@ -37,7 +37,9 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 	// Both currencies price from `rates` and the tariff; they differ only in what
 	// an unmatched model falls back to, and Pi's recorded cost is already dollars.
 	const dollars = config.currency.code === "USD";
-	// Building a formatter is the expensive part, and only a schedule needs one.
+	// Both are built once per config, never per record: the table splits every key
+	// and remembers the last match, and the formatter is the expensive part.
+	const lookup = createRateLookup(config.rates);
 	const format = config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
 
 	return (records) => {
@@ -47,7 +49,7 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 			totals.output += record.output;
 			totals.cacheRead += record.cacheRead;
 			totals.cacheWrite += record.cacheWrite;
-			const rates = findRates(config.rates, record.provider, record.model);
+			const rates = lookup(record.provider, record.model);
 			if (rates !== undefined) {
 				totals.cost += ratedCost(config, format, record, rates);
 				continue;

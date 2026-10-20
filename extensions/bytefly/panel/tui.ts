@@ -23,6 +23,7 @@ import { titleRule } from "../../../lib/tui/rules.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import type { ExtensionsPickerRuntime } from "../picker/runtime.ts";
 import { buildPanelModel } from "./join.ts";
+import { SETTING_ROWS, UNTRUSTED_SETTINGS_NOTE } from "./settings.ts";
 import type { SettingsSurface } from "./settings-runtime.ts";
 import type { PanelModel, PanelSection } from "./types.ts";
 import { entriesOf, entryKey, isSelectable, selectableRange, settingEntries, type PanelEntry } from "./tui/entries.ts";
@@ -49,6 +50,10 @@ import {
 	settingsHints,
 	settingsSummary,
 } from "./tui/settings-view.ts";
+
+/** Bracketed-paste markers a terminal wraps around pasted text. */
+const PASTE_START = "\x1b[200~";
+const PASTE_END = "\x1b[201~";
 
 /** Terminal rows, or `undefined` when the height is unknown. */
 function totalRows(source: ViewportRowsSource | undefined): number | undefined {
@@ -182,7 +187,7 @@ export class PanelComponent implements Component {
 		if (next === "project" && !this.options.runtime.projectAvailable()) {
 			this.notify(
 				this.section === "settings"
-					? "Project is not trusted; settings can only be changed in Global scope."
+					? UNTRUSTED_SETTINGS_NOTE
 					: "Project is not trusted; manage extensions in Global scope only.",
 			);
 			return;
@@ -192,7 +197,8 @@ export class PanelComponent implements Component {
 		const focused = entryKey(this.activeEntries()[this.cursor.selected]);
 		this.options.runtime.setScope(next);
 		// Keep the setting under the cursor across the layer switch; the two scopes
-		// do not share entry indices because Project drops the app rows.
+		// do not share entry indices because Project drops the app rows, so the
+		// render's focus retention and clamp land on the nearest row when it cannot.
 		if (focused !== undefined) {
 			const index = this.activeEntries().findIndex((entry) => entryKey(entry) === focused);
 			if (index >= 0) this.cursor.selected = index;
@@ -288,15 +294,6 @@ export class PanelComponent implements Component {
 			.then(() => this.options.requestRender());
 	}
 
-	/** The text row being edited, read live so a scope switch cannot point at a stale row. */
-	private editingRow(): { view: ReturnType<SettingsSurface["views"]>[number] } | undefined {
-		const editing = this.editing;
-		if (!editing) return undefined;
-		const scope = this.options.runtime.scope();
-		const view = this.options.settings.views(scope).find((entry) => entry.id === editing.id);
-		return view ? { view } : undefined;
-	}
-
 	/**
 	 * Editor keys. `Esc` cancels the edit rather than closing the screen, and
 	 * everything else the screen binds is inert until the editor closes.
@@ -334,9 +331,13 @@ export class PanelComponent implements Component {
 		} else if (matchesKey(data, "ctrl+u")) {
 			this.editing = { ...editing, buffer: "", caret: 0 };
 		} else {
+			// A pasted chunk arrives wrapped in bracketed-paste markers. Its ESC is
+			// dropped by the filter below, which would leave `[200~` in the value, so
+			// strip the markers first, the way Pi's own Input and Editor do.
+			const text = data.replaceAll(PASTE_START, "").replaceAll(PASTE_END, "");
 			// Anything else must be printable; control sequences are not text.
-			const typed = [...data].filter((char) => char >= " " && char !== "\u007f").join("");
-			const max = this.editingRow()?.view.text?.maxLength;
+			const typed = [...text].filter((char) => char >= " " && char !== "\u007f").join("");
+			const max = SETTING_ROWS.find((row) => row.id === editing.id)?.text?.maxLength;
 			if (typed && max !== undefined && buffer.length + typed.length <= max) {
 				this.editing = {
 					...editing,
@@ -345,6 +346,9 @@ export class PanelComponent implements Component {
 				};
 			}
 		}
+		// A key that changed nothing (backspace at the start, a refused character)
+		// has no frame to ask for.
+		if (this.editing?.buffer === buffer && this.editing.caret === caret) return;
 		this.options.requestRender();
 	}
 
@@ -623,6 +627,61 @@ export class PanelComponent implements Component {
 		this.options.requestRender();
 	}
 
+	/** Retain the focus across a rebuild and return the entry it landed on. */
+	private retain(entries: PanelEntry[]): PanelEntry | undefined {
+		this.retainFocus(entries);
+		this.clampSelection(entries);
+		return entries[this.cursor.selected];
+	}
+
+	/**
+	 * The frame both sections share: the cursor window, the visible body rows, the
+	 * range row, the optional rows that give way on a short terminal, and the
+	 * chrome around them. Each section supplies its summary, its detail pane, its
+	 * hint row, and how one entry is drawn.
+	 */
+	private frame(options: {
+		width: number;
+		header: string;
+		summary: string;
+		entries: PanelEntry[];
+		note?: string;
+		detail: string[];
+		hint: string;
+		draw: (entry: PanelEntry, index: number) => string | undefined;
+	}): string[] {
+		const { width, entries, note, detail } = options;
+		this.cursor.visible = fitRows(
+			this.options.viewportRows,
+			entries.length,
+			FRAME_ROWS + detail.length + (note ? 1 : 0),
+			SCREEN_DEFAULT_ROWS,
+		);
+		this.cursor.sync(entries.length);
+		const { start, end } = this.cursor.window(entries.length);
+
+		const body: string[] = [];
+		if (note) body.push(note);
+		for (let index = start; index < end; index += 1) {
+			const line = options.draw(entries[index], index);
+			if (line !== undefined) body.push(line);
+		}
+
+		const range = this.cursor.clipped(entries.length)
+			? formatRange(this.theme, width, selectableRange(entries, { start, end }))
+			: undefined;
+		const fitted = this.fitOptionalLines({ body, note, range, detail });
+		this.noteShown = fitted.noteShown;
+		return dockListFrame({
+			header: options.header,
+			summary: options.summary,
+			body: fitted.body,
+			range: fitted.range,
+			detail: fitted.detail.length > 0 ? fitted.detail : undefined,
+			hint: options.hint,
+		});
+	}
+
 	/** The Settings body: scope counts, the project note, rows, and detail. */
 	private renderSettings(width: number, header: string): string[] {
 		const scope = this.options.runtime.scope();
@@ -636,11 +695,11 @@ export class PanelComponent implements Component {
 		const entries = settingEntries(views);
 		const note = scope === "project" ? projectNote(this.theme, width) : undefined;
 
-		this.retainFocus(entries);
-		this.clampSelection(entries);
-
-		const focusedEntry = entries[this.cursor.selected];
+		const focusedEntry = this.retain(entries);
 		const focused = focusedEntry?.kind === "setting" ? focusedEntry.setting : undefined;
+		// A row with no section leaves the mode off, so moving away and back cannot
+		// reopen a pane the user closed.
+		if (focused && !focused.config) this.json = false;
 		const jsonConfig = this.json ? focused?.config : undefined;
 		const detail =
 			jsonConfig && focused
@@ -662,38 +721,20 @@ export class PanelComponent implements Component {
 						paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
 					});
 
-		this.cursor.visible = fitRows(
-			this.options.viewportRows,
-			entries.length,
-			FRAME_ROWS + detail.length + (note ? 1 : 0),
-			SCREEN_DEFAULT_ROWS,
-		);
-		this.cursor.sync(entries.length);
-		const { start, end } = this.cursor.window(entries.length);
-
-		const body: string[] = [];
-		if (note) body.push(note);
-		for (let index = start; index < end; index += 1) {
-			const entry = entries[index];
-			if (entry.kind === "group") body.push(groupLine(this.theme, width, entry));
-			else if (entry.kind === "setting") {
-				const editing = this.editing?.id === entry.setting.id ? this.editing : undefined;
-				body.push(settingRow(this.theme, width, entry.setting, index === this.cursor.selected, editing));
-			}
-		}
-
-		const range = this.cursor.clipped(entries.length)
-			? formatRange(this.theme, width, selectableRange(entries, { start, end }))
-			: undefined;
-		const fitted = this.fitOptionalLines({ body, note, range, detail });
-		this.noteShown = fitted.noteShown;
-		return dockListFrame({
+		return this.frame({
+			width,
 			header,
 			summary,
-			body: fitted.body,
-			range: fitted.range,
-			detail: fitted.detail.length > 0 ? fitted.detail : undefined,
+			entries,
+			note,
+			detail,
 			hint: this.hintRow(width, { jsonOpen: jsonConfig !== undefined }),
+			draw: (entry, index) => {
+				if (entry.kind === "group") return groupLine(this.theme, width, entry);
+				if (entry.kind !== "setting") return undefined;
+				const editing = this.editing?.id === entry.setting.id ? this.editing : undefined;
+				return settingRow(this.theme, width, entry.setting, index === this.cursor.selected, editing);
+			},
 		});
 	}
 
@@ -720,41 +761,23 @@ export class PanelComponent implements Component {
 			});
 		}
 
-		this.retainFocus(entries);
-		this.clampSelection(entries);
-
-		const focusedEntry = entries[this.cursor.selected];
+		const focusedEntry = this.retain(entries);
 		const focused = focusedEntry?.kind === "row" ? focusedEntry.row : undefined;
 		const expanded = focused !== undefined && this.expanded.has(focused.key);
 		const detail = extensionDetail(this.theme, w, focused, this.detailRows(expanded), expanded, this.dirty);
 
-		this.cursor.visible = fitRows(
-			this.options.viewportRows,
-			entries.length,
-			FRAME_ROWS + detail.length,
-			SCREEN_DEFAULT_ROWS,
-		);
-		this.cursor.sync(entries.length);
-		const { start, end } = this.cursor.window(entries.length);
-
-		const body: string[] = [];
-		for (let index = start; index < end; index += 1) {
-			const entry = entries[index];
-			if (entry.kind === "group") body.push(groupLine(this.theme, w, entry));
-			else if (entry.kind === "row") body.push(extensionRow(this.theme, w, entry.row, index === this.cursor.selected));
-		}
-
-		const range = this.cursor.clipped(entries.length)
-			? formatRange(this.theme, w, selectableRange(entries, { start, end }))
-			: undefined;
-		const fitted = this.fitOptionalLines({ body, note: undefined, range, detail });
-		return dockListFrame({
+		return this.frame({
+			width: w,
 			header,
 			summary,
-			body: fitted.body,
-			range: fitted.range,
-			detail: fitted.detail.length > 0 ? fitted.detail : undefined,
+			entries,
+			detail,
 			hint: this.hintRow(w, { expanded }),
+			draw: (entry, index) => {
+				if (entry.kind === "group") return groupLine(this.theme, w, entry);
+				if (entry.kind !== "row") return undefined;
+				return extensionRow(this.theme, w, entry.row, index === this.cursor.selected);
+			},
 		});
 	}
 }

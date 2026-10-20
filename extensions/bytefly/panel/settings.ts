@@ -604,6 +604,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 ];
 
+/** The one refusal for a Project write while the project is untrusted. */
+export const UNTRUSTED_SETTINGS_NOTE = "Project is not trusted; settings can only be changed in Global scope.";
+
 /** The rows a scope can write: app rows are personal-file only. */
 export function rowsForScope(scope: WriteScope): readonly SettingDescriptor[] {
 	return scope === "global" ? SETTING_ROWS : SETTING_ROWS.filter((row) => row.source === "bytefly");

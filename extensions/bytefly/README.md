@@ -474,7 +474,10 @@ it with its own rates for the models they match:
 - **Which rate.** The most specific key wins, with the model segment outranking
   the provider one: `provider/model`, then `*/model`, then `provider/*`, then
   `*`. A segment ending in a star is a prefix match (`*/gpt-*`); equally
-  specific keys are resolved in file order.
+  specific keys are resolved in file order. A key splits at its first slash, so
+  the model segment may contain one: an OpenRouter id is
+  `anthropic/claude-fable-5` and its key is
+  `openrouter/anthropic/claude-fable-5`.
 - **Which formula.** `tokens × rate ÷ 1,000,000`, summed over the four token
   classes. Cache tokens are never billed again as fresh input.
 - **Which tariff.** Each record is dated by its session entry, so a window is
@@ -1137,7 +1140,7 @@ rather than showing a wrong value.
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
-| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`, `setTheme`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValueAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer, and `u` calls `unsetConfigValueAt` with the same path. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
+| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`, `setTheme`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValuesAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer, and a row that also writes a companion leaf (the currency and its default precision) applies both in one document pass; and `u` calls `unsetConfigValueAt` with the same path. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`, `openWorldHint: false`), direct exposure and active on registration (the defaults, so not declared), with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
@@ -1187,8 +1190,12 @@ rather than showing a wrong value.
   expand toggle, so no themed string outlives its theme. `indentBlockLines` only
   measures a line it cannot prove fits, and the header memoizes on the width,
   theme, shape, and the help chords it prints, so a live rebind still repaints.
-  The footer's context estimate joins its pricing scan in the leaf-keyed memo:
-  both are O(session) work the host recomputes from scratch.
+  `SeparatorComponent` uses the same memo for its full-width rule, so a long
+  session does not repaint every turn's rule each frame. The footer's context
+  estimate and session name join its pricing scan in the leaf-keyed memo: all
+  three are O(session) work the host recomputes from scratch, and
+  `createRateLookup` compiles the rate table once per config instead of once per
+  record.
 - **The frame delegates; it does not re-render.** Pi resolves tool renderers
   through the extension chain, and the resolved object is the definition the row
   reads, so a resolver can override `renderShell` and wrap `next()`'s
@@ -1415,10 +1422,10 @@ columns, gauge), so the look follows the active theme.
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |
 | `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
-| `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan per branch leaf. |
+| `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan, context estimate, and session name per branch leaf. |
 | `footer/price/types.ts` | `Currency`, `ModelRates`, `PeakWindow`/`PeakSchedule`, `ByteflyConfig`. |
 | `footer/price/config.ts` | The `price` section of `bytefly.json`: schema, defaults, built-in DeepSeek rates/tariff, currency defaults, normalizer, loader. |
-| `footer/price/rates.ts` | Model-key matching: exact and wildcard, most specific first. |
+| `footer/price/rates.ts` | Model-key matching: `createRateLookup` splits every key once, splits a key at its first slash (so an OpenRouter model id may contain one), matches exact and wildcard most-specific-first, and remembers the last record's model. |
 | `footer/price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
 | `footer/price/price.ts` | Records → totals: rated cost in both modes, Pi's recorded cost as USD's fallback, and the peak multiplier. |
 | `footer/render/format.ts` | Generic formatters (tokens, cost in the configured currency, cwd, the context role, truncation). |
@@ -1439,7 +1446,7 @@ columns, gauge), so the look follows the active theme.
 | `block/register.ts` | The `registerToolRenderer` resolver that frames every tool; it recolours a shell call's string before the frame wraps it, rails the result body by status, and rails the call body for `edit`/`write` (the two whose call body carries the result). |
 | `separator/config.ts` | Turn-rule tuning: `customType`, glyph, label prefix, padding, receipt minimum duration and outcome wording, and roles. |
 | `separator/register.ts` | Registers the entry renderer, tracks the run's tools and failures, and appends the receipt on `agent_settled`. |
-| `separator/component.ts` | `SeparatorComponent`: the stateless entry renderer. |
+| `separator/component.ts` | `SeparatorComponent`: the entry renderer, memoized on the width so a repeat frame does not rebuild the rule. |
 | `separator/format.ts` | Pure `receiptLabel` (the width ladder), `receiptRole`, and `separatorLine`, drawn by the kit's `centeredRule`. |
 | `separator/types.ts` | `TurnSeparatorData`: the turn plus the optional receipt fields. |
 | `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the words, the tool singular/plural, and the tick interval. |

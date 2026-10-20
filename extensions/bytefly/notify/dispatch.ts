@@ -14,7 +14,7 @@
  * to smuggle a control character into an escape sequence or a shell argument.
  */
 
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { sanitizeLine } from "../../../lib/format.ts";
 import type { NotifyConfig, NotifyMethod } from "./types.ts";
 
@@ -30,7 +30,7 @@ export interface NotifySeams {
 	run(command: string, args: string[]): void;
 }
 
-/** The production seams: this process's platform, environment, stdout, and `execFile`. */
+/** The production seams: this process's platform, environment, stdout, and a detached notifier. */
 export function defaultSeams(): NotifySeams {
 	return {
 		platform: process.platform,
@@ -38,9 +38,14 @@ export function defaultSeams(): NotifySeams {
 		stdout: process.stdout,
 		run: (command, args) => {
 			try {
-				execFile(command, args, { windowsHide: true }, () => {});
+				// No pipes and unref'd: the notifier is best-effort and must not keep
+				// Pi alive, which `/quit` right after a turn would otherwise wait out
+				// (PowerShell's cold start alone is a second).
+				const child = spawn(command, args, { windowsHide: true, stdio: "ignore" });
+				child.on("error", () => {});
+				child.unref();
 			} catch {
-				// The notifier is best-effort; a missing command must not break a turn.
+				// A missing command must not break a turn.
 			}
 		},
 	};

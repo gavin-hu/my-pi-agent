@@ -1,17 +1,26 @@
 /**
  * The transcript component that draws one separator entry.
  *
- * It is stateless: the line is derived from the stored entry data and the width
- * passed to `render`, so there is nothing to invalidate.
+ * `render` runs on every frame Pi draws, and a session holds one separator per
+ * turn, so the line is a pure function of the stored entry data, the width, and
+ * the theme it was built with. `centeredRule` paints and measures a full-width
+ * rule, so the placed line is memoized on the width (`RenderCache`); without it
+ * a long session rebuilds every turn's rule on every frame. Pi rebuilds the
+ * component from the renderer on a theme change (its
+ * `CustomEntryComponent.invalidate` re-runs it), so the captured theme cannot go
+ * stale; `invalidate` drops the memo anyway, in case that changes.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
+import { RenderCache } from "../../../lib/tui/render-cache.ts";
 import { separatorLine } from "./format.ts";
 import type { TurnSeparatorData } from "./types.ts";
 
 /** Renders one separator entry; the data comes from the stored entry. */
 export class SeparatorComponent implements Component {
+	private readonly cache = new RenderCache();
+
 	constructor(
 		private readonly data: TurnSeparatorData,
 		private readonly theme: Theme,
@@ -19,10 +28,11 @@ export class SeparatorComponent implements Component {
 	) {}
 
 	invalidate(): void {
-		// Stateless: the line is derived from the data and the width passed to render.
+		this.cache.invalidate();
 	}
 
 	render(width: number): string[] {
-		return separatorLine(this.data, width, this.theme, this.pad);
+		const w = Math.max(1, width);
+		return this.cache.lines(w, undefined, () => separatorLine(this.data, w, this.theme, this.pad));
 	}
 }

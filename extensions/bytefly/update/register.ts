@@ -27,7 +27,7 @@ import {
 	type UpdateCacheEntry,
 } from "./cache.ts";
 import { fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
-import { updateNotice } from "./format.ts";
+import { isOwnPackage, updateNotice } from "./format.ts";
 import type { UpdateOutcome, UpdateSource } from "./state.ts";
 import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
 import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
@@ -77,11 +77,6 @@ function diskCache(): UpdateCache {
 			}
 		},
 	};
-}
-
-/** Whether a package update is this package, whose version the header shows. */
-function isOwnPackage(update: PackageUpdate): boolean {
-	return update.type === "npm" && update.displayName === pkg.name;
 }
 
 /**

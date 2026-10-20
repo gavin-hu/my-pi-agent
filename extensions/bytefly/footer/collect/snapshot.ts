@@ -48,6 +48,7 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 	let delegationTotals = { runs: 0, usage: emptyUsage() };
 	let cacheHitRate: number | null = null;
 	let context: ContextInfo = { tokens: null, contextWindow: 0, percent: null };
+	let sessionName: string | null = null;
 
 	let last: UsageTotals | undefined;
 
@@ -70,6 +71,10 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 				contextWindow: usageInfo?.contextWindow ?? current?.contextWindow ?? 0,
 				percent: usageInfo?.percent ?? null,
 			};
+			// The host walks the file backwards for the latest `session_info`, and a
+			// session renamed early makes that the whole transcript. A rename appends
+			// an entry, which moves the leaf, so the memo key already covers it.
+			sessionName = session.getSessionName() ?? null;
 			key = nextKey;
 			last = usage;
 		}
@@ -80,7 +85,7 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 
 		return {
 			cwd: ctx.cwd,
-			sessionName: ctx.sessionManager.getSessionName() ?? null,
+			sessionName,
 			branch: footerData.getGitBranch(),
 			statuses: footerData.getExtensionStatuses(),
 			model,

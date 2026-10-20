@@ -85,8 +85,9 @@ export class ByteflyHeader implements Component {
 
 	/**
 	 * The header is static, so the lines are memoized on everything they read: the
-	 * width, the theme, the resolved shape, and the key chords the help rows print.
-	 * `keyText` is re-read every frame, so a live rebind still shows.
+	 * width, the theme the getter returned, the resolved shape, and the key chords
+	 * the help rows print. `keyText` is re-read every frame, so a live rebind still
+	 * shows.
 	 */
 	render(width: number): string[] {
 		const w = Math.max(1, width);

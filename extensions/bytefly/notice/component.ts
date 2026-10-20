@@ -24,14 +24,19 @@ import { NOTICE_CONFIG } from "./config.ts";
 /** Severity order, so the rail can carry the worst one. */
 const SEVERITY_RANK: Readonly<Record<NoticeSeverity, number>> = { info: 0, ok: 1, warn: 2, bad: 3 };
 
+/** A severity this module knows, or `fallback` for a value from stored data. */
+function knownSeverity(value: NoticeSeverity | undefined, fallback: NoticeSeverity): NoticeSeverity {
+	return value !== undefined && Object.hasOwn(SEVERITY_RANK, value) ? value : fallback;
+}
+
 /** The severity a row draws with, falling back to the notice's own. */
 function severityOf(item: NoticeItem, fallback: NoticeSeverity): NoticeSeverity {
-	return item.severity ?? fallback;
+	return knownSeverity(item.severity, fallback);
 }
 
 /** The worst severity across the headline and its rows; the rail's role. */
 function worstSeverity(details: NoticeDetails): NoticeSeverity {
-	const fallback = details.severity ?? "info";
+	const fallback = knownSeverity(details.severity, "info");
 	let worst: NoticeSeverity = fallback;
 	for (const item of details.items ?? []) {
 		const severity = severityOf(item, fallback);
@@ -65,7 +70,7 @@ export function noticeLines(
 	const title = paint(theme, NOTICE_CONFIG.titleRole, sanitizeLine(details.title));
 	const items = details.items ?? [];
 	const shown = items.slice(0, NOTICE_CONFIG.maxItems);
-	const fallback = details.severity ?? "info";
+	const fallback = knownSeverity(details.severity, "info");
 	const gap = " ".repeat(GLYPH_GAP);
 
 	const rows = shown.map((item) => {
