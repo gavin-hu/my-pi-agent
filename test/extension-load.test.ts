@@ -18,13 +18,13 @@
  * by invariant, and a module-level value there would surface as a cross-extension
  * failure instead of a subtle reload bug.
  *
- * The same load answers the size claim the user guide makes when a
- * reader weighs the pack: the extension and tool counts are derived here and
- * compared with what that page states.
+ * The same load answers the size claims the entry READMEs and the user guide make
+ * when a reader weighs the pack: the extension, tool, skill, and theme counts are
+ * derived here and compared with what those pages state.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
@@ -47,6 +47,16 @@ function extensionNames(): string[] {
 	return readdirSync(join(root, "extensions"))
 		.filter((name) => statSync(join(root, "extensions", name)).isDirectory())
 		.sort();
+}
+
+/** Every packaged skill, found on disk: one `SKILL.md` per skill directory. */
+function skillFiles(): string[] {
+	return walkFiles(join(root, "skills")).filter((file) => file.endsWith("/SKILL.md"));
+}
+
+/** Every theme the package ships. */
+function themeFiles(): string[] {
+	return readdirSync(join(root, "themes")).filter((name) => name.endsWith(".json"));
 }
 
 /** How many things a factory registered for the host to hold. */
@@ -93,7 +103,7 @@ describe("skill manifest", () => {
 		expect(pkg.pi?.skills).toContain("./skills");
 		expect(pkg.files).toContain("skills/**");
 
-		const skills = walkFiles(join(root, "skills")).filter((file) => file.endsWith("/SKILL.md"));
+		const skills = skillFiles();
 		expect(skills.length).toBeGreaterThan(0);
 		for (const file of skills) {
 			expect(readFileSync(file, "utf-8"), file).toMatch(/^---\nname: [a-z0-9-]+\ndescription: /);
@@ -138,16 +148,33 @@ async function registeredSurface(): Promise<{ tools: Set<string>; commands: Set<
 	return { tools, commands };
 }
 
-describe("the documented footprint", () => {
-	/** The manual that states how big the pack is, where a reader decides on it. */
-	const guide = walkFiles(join(root, "docs", "user-guide"))
-		.filter((file) => file.endsWith(".md"))
-		.map((file) => readFileSync(file, "utf-8"))
-		.join("\n");
-	/** A size the guide states: `16 extensions`, `21 tools`. */
-	const CLAIM = /(\d+) (extensions|tools)\b/g;
+/** The kinds of thing a page can say the pack has. */
+type Noun = "extensions" | "tools" | "skills" | "themes";
 
-	test("every count in the guide is what actually loads", async () => {
+describe("the documented footprint", () => {
+	/** The pages that state how big the pack is, where a reader weighs it. */
+	const pages = [join(root, "README.md"), join(root, "README.zh-CN.md")]
+		.concat(walkFiles(join(root, "docs", "user-guide")).filter((file) => file.endsWith(".md")))
+		.map((file) => ({ file: relative(root, file), text: readFileSync(file, "utf-8") }));
+
+	/** A size a page states: `17 extensions`, `22 tools`, `17 个扩展`, `2 个随包技能`. */
+	const CLAIM = /(\d+)\s*(extensions|tools|skills|themes|个(?:随包)?(?:扩展|技能|工具|主题))(?![a-z0-9])/g;
+
+	/** The fact a stated noun counts, in either language. */
+	const NOUNS = new Map<string, Noun>([
+		["extensions", "extensions"],
+		["个扩展", "extensions"],
+		["个随包扩展", "extensions"],
+		["tools", "tools"],
+		["个工具", "tools"],
+		["skills", "skills"],
+		["个技能", "skills"],
+		["个随包技能", "skills"],
+		["themes", "themes"],
+		["个主题", "themes"],
+	]);
+
+	test("every count a page states is what the package actually loads", async () => {
 		const { tools: names } = await registeredSurface();
 
 		// Pi's path tools are re-registered by `worktree` so they follow the active
@@ -156,13 +183,25 @@ describe("the documented footprint", () => {
 		const overridden = new Set<string>(ROOT_TOOL_NAMES);
 		const added = [...names].filter((name) => !overridden.has(name));
 
-		const actual: Record<string, number> = { extensions: manifest.length, tools: added.length };
-		const claims = [...guide.matchAll(CLAIM)];
-		// A regex that stopped matching would make the loop below vacuous.
-		expect(claims.length).toBeGreaterThan(0);
-		for (const [, count, noun] of claims) {
-			expect(Number(count), `${noun} stated in docs/user-guide/`).toBe(actual[noun]);
+		const actual: Record<Noun, number> = {
+			extensions: manifest.length,
+			tools: added.length,
+			skills: skillFiles().length,
+			themes: themeFiles().length,
+		};
+
+		const claimed = new Set<Noun>();
+		for (const { file, text } of pages) {
+			for (const [, count, spelling] of text.matchAll(CLAIM)) {
+				const noun = NOUNS.get(spelling);
+				if (noun === undefined) throw new Error(`${file} states a size with an unknown noun: ${spelling}`);
+				claimed.add(noun);
+				expect(Number(count), `${noun} stated in ${file}`).toBe(actual[noun]);
+			}
 		}
+
+		// A noun no page states would make the assertions above vacuous for it.
+		expect([...claimed].sort(), "a size fact no page states").toEqual(["extensions", "skills", "themes", "tools"]);
 	});
 });
 

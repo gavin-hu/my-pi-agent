@@ -140,10 +140,11 @@ input box is empty.
 |---|---|
 | [The catalog in the entry README](../../README.md#what-you-get) | Every extension and theme, grouped, with its exact tools and commands |
 | [`extensions/<name>/README.md`](../../extensions/) | One page per extension: full tool surface, Pi integration, design notes |
-| [Configuration](../configuration.md) | Where settings live, every `bytefly.json` section and key, and the environment variables |
-| [Security](../security.md) | What the local web pages, the shell, and the WeChat bridge can and cannot reach |
-| [Roadmap](../../ROADMAP.md) | Where the pack is going |
 | [Changelog](../../CHANGELOG.md) | What changed in each release |
+
+The [entry README's Documentation table](../../README.md#documentation) covers the
+guides this list leaves out: configuration, architecture, development, security,
+and the roadmap.
 
 ## Getting help
 
