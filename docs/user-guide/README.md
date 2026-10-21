@@ -12,7 +12,7 @@ the limits where they matter. You do not need to program to follow it. A few
 features touch your project's git history — worktrees, snapshots, the browser's
 change view — and each one says so.
 
-This edition was checked against my-pi-agent 0.16.0 and Pi 1.3.0. Run
+This edition was checked against my-pi-agent 0.15.0 and Pi 1.3.0. Run
 `pi --version` and `pi list` if a key or screen differs; the
 [changelog](../../CHANGELOG.md) lists what changed since this edition.
 

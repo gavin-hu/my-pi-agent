@@ -6,7 +6,72 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-21
+
 ### Added
+
+- `bytefly`: the Settings screen now has a **Theme** row that lists `system`
+  first, then the two palettes this package ships, `bytefly-dark` and
+  `bytefly-light`. It writes Pi's personal `theme` setting and applies after
+  reload; Pi's built-ins, other packages' themes, and automatic light/dark pairs
+  stay in Pi's `/settings`.
+
+- `file-browse`: the sidebar tree gains a `fold all` / `expand all` control and
+  a `-` shortcut, so a deep tree folds down to its top level in one keystroke.
+  A path filter still shows every folder, so a folded branch cannot hide a
+  match, and clearing the filter restores the tree exactly as it was.
+
+- `file-browse`: rendered Markdown accepts a sanitized subset of raw HTML, so a
+  README's `<details>`/`<summary>`, `<img>`, `<kbd>`, and hand-written tables
+  display instead of showing as source. Only allowlisted elements and
+  attributes are re-emitted (no `script`, `style`, `svg`, event handlers,
+  `style=`, or `class=`), open elements are balanced so a stray tag cannot
+  swallow the page, and `markdownHtml: false` restores escape-only rendering.
+
+- docs: [`docs/user-guide/`](./docs/user-guide/) is an eight-chapter end-user
+  manual with a guide home, getting started, plan and delegate, keep work safe,
+  web and files, WeChat, settings, troubleshooting, and reference. Each chapter
+  carries task-focused walkthroughs, key tables, limits, and cross-links; the
+  single-page `docs/user-guide.md` is removed and every reference is repointed.
+
+- `rewind`: `/review` opens the latest prompt's snapshot diff as a changed-file
+  list with `M`/`A`/`D` marks and line counts, shows a scrollable per-file patch,
+  and reverts selected files or the whole turn through the existing safety
+  snapshot. `Space` selects, `a`/`n` select all or none, `r` reverts the
+  selection (or the focused file), and `R` reverts all; a selected batch is one
+  restore and one safety snapshot. When the working tree matches HEAD, the list
+  and confirmations say the changes are already committed and that a revert
+  leaves the commits in place. The actions are TUI-only; other modes print the
+  changed-path list, and plan mode refuses until the plan is approved.
+
+- `check`: `/check` detects a project's test, lint, or typecheck command (or
+  takes `check.command`), streams the run, and opens a navigable `file:line`
+  failure list with a per-failure detail view. The `run_check` tool returns the
+  same failures as structured data. Detection covers package.json, Cargo, Go,
+  pytest, just, and Make; any other stack uses the config command. Runs are
+  bounded by a timeout and a log tail, plan mode refuses, and a parser miss falls
+  back to the bounded tail instead of inventing a location. The detail pane reads
+  a five-line source excerpt around a failure when the file is inside the project
+  and not binary or oversized; stack frames from Jest/Vitest, Java, and Python
+  now attach their `path:line` to the failure.
+
+- `rewind`: `/review` can revert chosen hunks of a modified text file. `h` in the
+  file's diff opens a hunk checklist; the selection is one reverse patch and one
+  pre-restore safety snapshot, so the rest of the file stays as it is. Added,
+  deleted, renamed, and binary files still revert whole, and a file edited after
+  its diff was read fails atomically instead of applying stale context.
+- `subagent`: a single run can start in the background and keep working after
+  the tool returns. `/agents` lists running and finished runs with status,
+  elapsed time, and usage; `Enter` opens a run, `c` collects a finished result
+  into the conversation, and `x` cancels a running one. Start and finish
+  records live on the session branch, so `/resume` shows finished runs and a
+  start without a finish as interrupted; `backgroundMax` bounds concurrent
+  children.
+- `subagent`: `/agents` follows a bounded live preview while a background run is
+  active, and a finished run no longer keeps the child's full result in memory;
+  collection still uses the bounded output.
+- `subagent`: a running background helper adds a `↳ N` footer chip, and a
+  finished, failed, or timed-out run posts a notice pointing at `/agents`.
 
 - `goal`: a goal now has a phase. Recording a new one asks once whether to plan
   first; accepting enters plan mode and stores the objective as `planning`, which
@@ -40,6 +105,115 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   only after the plan is approved.
 
 ### Changed
+
+- `bytefly`: the update surface now uses Pi's package manager as its only
+  detector. bytefly suppresses Pi's `Package Updates Available` block and posts
+  one themed notice listing every updateable configured package plus
+  `pi update --extensions`; the header marker still shows only this package's new
+  version, and the version arrow and release URL remain. The 24-hour cache now
+  stores a project-scoped snapshot keyed by cwd and package sources, and
+  `/bytefly update` re-runs the check on demand. Unmanaged installs such as
+  `pi -e .` no longer get an update prompt.
+
+- `bytefly`: the footer's group divider is a hardcoded `│` instead of the shared
+  `╎`, so the status line reads as a divider while the transcript rail and
+  `chrome.rail`'s default keep the dashed glyph.
+
+- dev: `bun run screenshots` crops Terminal's title bar off every capture. Its
+  last segment is the foreground process's argv, which no profile title switch
+  covers, so each image repeated the capture command's worktree path (and the
+  hero its proxy environment) and cut off mid-word. The `check-detail` screen is
+  new, and the job fixture prints `/home/u/repo` instead of the checkout that
+  happened to capture it.
+
+- `file-browse`: a rendered Markdown page fills the card instead of being the
+  1012px scroll box itself, so the scroll bar sits at the card edge. Headings,
+  prose, and code keep a centred measure of at most 1012px. Tables
+  start at that column and take the free gutter to its right instead of
+  scrolling inside the measure, and a table wider than the pane fades its right
+  edge until scrolled to the end.
+
+- docs: the root README names the user guide as the manual — a positioning line
+  in the intro and a hand-off after the extension catalog, mirrored in
+  `README.zh-CN.md` — so a first-time reader reaches the walkthroughs without
+  scrolling to the documentation table.
+
+- docs: the configuration page absorbs the key reference. It opens with the two
+  scopes and the merge order, the settings screen, and a "what people usually
+  change" table, then carries every section and key the loaders accept with their
+  defaults. `docs/references/bytefly-config.md` is gone, and
+  `test/config-docs.test.ts` reads the one page.
+
+- docs: the user guide teaches the keys that interrupt, clear, expand, and leave
+  (`Esc`, `Ctrl+C`, `Ctrl+O`, `Ctrl+D`), names the `/bytefly settings` rows instead
+  of raw config keys, states that only DeepSeek's rates are built in, and covers an
+  expired WeChat login and a busy browser port in troubleshooting.
+
+- docs: the root `SECURITY.md` is removed. Its supported-version rule, private
+  reporting route, and what a report includes now live in `docs/security.md`, which
+  already owned the trust boundaries.
+
+- docs: the user guide opens with a five-minute tour and a per-feature index, and
+  its contents are grouped into five lines. It gains a glossary (including prompt,
+  turn, and model), a section on cost and what leaves the machine, and screenshots
+  through the guide — the transcript frame included. Two surprises are named
+  where they bite: a deleted memory note has no undo, and a busy browser port is
+  reported rather than re-picked.
+
+- dev: `bun run screenshots` gains a `transcript` screen and `assets/transcript.png`,
+  drawn from `renderTranscript()` so the frame carries no version string.
+
+- docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
+  contributor: five diagrams (the load path, an extension's anatomy, a turn, the
+  process shapes, and where new code belongs), the state stores, the three ways
+  extensions cooperate, and a reading tour. It explains the reasons and links the
+  normative docs instead of restating them.
+
+- docs: `docs/extensions.md` is removed. The grouped catalog in `README.md` is the
+  one surface list, and each `extensions/<name>/README.md` still carries the full
+  tool, command, and design detail. The two tests that read the catalog go with
+  it, so commands and flags are no longer checked against the docs; the tool
+  names stay pinned in `test/naming.test.ts`.
+
+- docs: `docs/getting-started.md` is folded into the user guide and removed. The
+  install routes (including the `@vX.Y.Z` pin), the fit decision, the
+  prerequisites, what an install changes, and removal now live in
+  [`docs/user-guide/`](./docs/user-guide/), which the entry READMEs and the
+  docs index link to; the footprint guard and the install-pin guard read the
+  guide instead.
+
+- `plan`: the injected plan-mode context states each rule once — the shell rule no
+  longer repeats the read-only summary, and the delegation bullet leaves "forced
+  read-only" to the line that already carries it — so a planning turn's always-on
+  context is about 110 characters smaller and its budget ceiling drops from 1100
+  to 960.
+
+- `bytefly`: the footer prices a growing session in bounded time. The rate table
+  is compiled once per config instead of being re-split for every record on every
+  appended entry, the lookup remembers the model it just matched, the context
+  estimate and session name join the pricing scan in the leaf-keyed memo, and a
+  turn separator reuses its line instead of rebuilding the full-width rule each
+  frame. A 3,000-record branch with a 100-key `rates` table cost about 200 ms per
+  new message before; it now costs fractions of a millisecond.
+
+- `bytefly`: the Settings JSON pane no longer reopens when the focus returns to
+  a row after moving to a Global-only row (Theme, startup TUI, output pad,
+  hardware cursor); closing it takes a `J`, as the key's own hint says.
+
+- `bytefly`: the proactive doctor check no longer holds the first prompt. Its
+  hard-requirement probes are fired after `session_start` returns, and
+  `run_doctor` and the panel's refresh probe a few extensions at a time instead
+  of one after another, so both answer in the slowest probe's time rather than
+  their sum.
+
+- dev: `bun run bench:render` also measures one re-price of a branch's usage
+  records — 500, 3,000, and 10,000 records, plus 3,000 against a 100-key rate
+  table — with a determinism gate in the suite.
+
+- docs: `ROADMAP.md` adds the three highest user-value candidates to `Next` —
+  a verification panel (`P1`), background delegation (`P2`), and turn review
+  (`S3`) — each with the gap it closes and a concrete acceptance condition, and
+  updates the promise ledger and the `Next` exit condition to match.
 
 - `goal`: `/goal` on a goal that is still being planned now names the phase's
   exits — approve the plan to set the final goal, or leave plan mode to keep the
@@ -156,190 +330,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `file-browse`: the **On this page** outline is gone. Headings keep their
+  stable anchor ids, so in-document `#anchor` links still work.
+
 - `plan`: the `/init` wrapper command is gone. Use `/skill:init` to start the
   packaged `init` skill; the skill enters plan mode itself.
 
 ### Fixed
 
-- `worktree`: a managed path resolves every missing component, so a worktree
-  created under a symlinked directory keeps one registry identity instead of a
-  second spelling of the same checkout.
+- `bytefly`, `plan`: the plan-mode chip uses `≡` instead of the vertical
+  ellipsis `⋮`, which read as a menu affordance rather than the open planning
+  artifact; the footer, the plan README, and the glyph vocabulary agree.
 
-- `job`: output is split on newlines before it is decoded, so a multi-byte
-  character that a pipe read splits no longer shows as U+FFFD in `logs`, in a
-  completion note, or on the `/jobs` screen. A `\r` progress rewrite is now one
-  line whose text after the last carriage return is kept, instead of several
-  partial lines.
-
-- `job`: two `wake` jobs finishing in the same tick raise one triggered turn
-  instead of two. The second completion queues and is reported at the start of
-  that turn, which is what `watch` already did.
-
-## [0.16.0] - 2026-10-20
-
-### Added
-
-- `file-browse`: the sidebar tree gains a `fold all` / `expand all` control and
-  a `-` shortcut, so a deep tree folds down to its top level in one keystroke.
-  A path filter still shows every folder, so a folded branch cannot hide a
-  match, and clearing the filter restores the tree exactly as it was.
-
-- `file-browse`: rendered Markdown accepts a sanitized subset of raw HTML, so a
-  README's `<details>`/`<summary>`, `<img>`, `<kbd>`, and hand-written tables
-  display instead of showing as source. Only allowlisted elements and
-  attributes are re-emitted (no `script`, `style`, `svg`, event handlers,
-  `style=`, or `class=`), open elements are balanced so a stray tag cannot
-  swallow the page, and `markdownHtml: false` restores escape-only rendering.
-
-- docs: [`docs/user-guide/`](./docs/user-guide/) is an eight-chapter end-user
-  manual with a guide home, getting started, plan and delegate, keep work safe,
-  web and files, WeChat, settings, troubleshooting, and reference. Each chapter
-  carries task-focused walkthroughs, key tables, limits, and cross-links; the
-  single-page `docs/user-guide.md` is removed and every reference is repointed.
-
-- `rewind`: `/review` opens the latest prompt's snapshot diff as a changed-file
-  list with `M`/`A`/`D` marks and line counts, shows a scrollable per-file patch,
-  and reverts selected files or the whole turn through the existing safety
-  snapshot. `Space` selects, `a`/`n` select all or none, `r` reverts the
-  selection (or the focused file), and `R` reverts all; a selected batch is one
-  restore and one safety snapshot. When the working tree matches HEAD, the list
-  and confirmations say the changes are already committed and that a revert
-  leaves the commits in place. The actions are TUI-only; other modes print the
-  changed-path list, and plan mode refuses until the plan is approved.
-
-- `check`: `/check` detects a project's test, lint, or typecheck command (or
-  takes `check.command`), streams the run, and opens a navigable `file:line`
-  failure list with a per-failure detail view. The `run_check` tool returns the
-  same failures as structured data. Detection covers package.json, Cargo, Go,
-  pytest, just, and Make; any other stack uses the config command. Runs are
-  bounded by a timeout and a log tail, plan mode refuses, and a parser miss falls
-  back to the bounded tail instead of inventing a location. The detail pane reads
-  a five-line source excerpt around a failure when the file is inside the project
-  and not binary or oversized; stack frames from Jest/Vitest, Java, and Python
-  now attach their `path:line` to the failure.
-
-- `rewind`: `/review` can revert chosen hunks of a modified text file. `h` in the
-  file's diff opens a hunk checklist; the selection is one reverse patch and one
-  pre-restore safety snapshot, so the rest of the file stays as it is. Added,
-  deleted, renamed, and binary files still revert whole, and a file edited after
-  its diff was read fails atomically instead of applying stale context.
-- `subagent`: a single run can start in the background and keep working after
-  the tool returns. `/agents` lists running and finished runs with status,
-  elapsed time, and usage; `Enter` opens a run, `c` collects a finished result
-  into the conversation, and `x` cancels a running one. Start and finish
-  records live on the session branch, so `/resume` shows finished runs and a
-  start without a finish as interrupted; `backgroundMax` bounds concurrent
-  children.
-- `subagent`: `/agents` follows a bounded live preview while a background run is
-  active, and a finished run no longer keeps the child's full result in memory;
-  collection still uses the bounded output.
-- `subagent`: a running background helper adds a `↳ N` footer chip, and a
-  finished, failed, or timed-out run posts a notice pointing at `/agents`.
-
-### Changed
-
-- dev: `bun run screenshots` crops Terminal's title bar off every capture. Its
-  last segment is the foreground process's argv, which no profile title switch
-  covers, so each image repeated the capture command's worktree path (and the
-  hero its proxy environment) and cut off mid-word. The `check-detail` screen is
-  new, and the job fixture prints `/home/u/repo` instead of the checkout that
-  happened to capture it.
-
-- `file-browse`: a rendered Markdown page fills the card instead of being the
-  1012px scroll box itself, so the scroll bar sits at the card edge. Headings,
-  prose, and code keep a centred measure of at most 1012px. Tables
-  start at that column and take the free gutter to its right instead of
-  scrolling inside the measure, and a table wider than the pane fades its right
-  edge until scrolled to the end.
-
-- docs: the root README names the user guide as the manual — a positioning line
-  in the intro and a hand-off after the extension catalog, mirrored in
-  `README.zh-CN.md` — so a first-time reader reaches the walkthroughs without
-  scrolling to the documentation table.
-
-- docs: the configuration page absorbs the key reference. It opens with the two
-  scopes and the merge order, the settings screen, and a "what people usually
-  change" table, then carries every section and key the loaders accept with their
-  defaults. `docs/references/bytefly-config.md` is gone, and
-  `test/config-docs.test.ts` reads the one page.
-
-- docs: the user guide teaches the keys that interrupt, clear, expand, and leave
-  (`Esc`, `Ctrl+C`, `Ctrl+O`, `Ctrl+D`), names the `/bytefly settings` rows instead
-  of raw config keys, states that only DeepSeek's rates are built in, and covers an
-  expired WeChat login and a busy browser port in troubleshooting.
-
-- docs: the root `SECURITY.md` is removed. Its supported-version rule, private
-  reporting route, and what a report includes now live in `docs/security.md`, which
-  already owned the trust boundaries.
-
-- docs: the user guide opens with a five-minute tour and a per-feature index, and
-  its contents are grouped into five lines. It gains a glossary (including prompt,
-  turn, and model), a section on cost and what leaves the machine, and screenshots
-  through the guide — the transcript frame included. Two surprises are named
-  where they bite: a deleted memory note has no undo, and a busy browser port is
-  reported rather than re-picked.
-
-- dev: `bun run screenshots` gains a `transcript` screen and `assets/transcript.png`,
-  drawn from `renderTranscript()` so the frame carries no version string.
-
-- docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
-  contributor: five diagrams (the load path, an extension's anatomy, a turn, the
-  process shapes, and where new code belongs), the state stores, the three ways
-  extensions cooperate, and a reading tour. It explains the reasons and links the
-  normative docs instead of restating them.
-
-- docs: `docs/extensions.md` is removed. The grouped catalog in `README.md` is the
-  one surface list, and each `extensions/<name>/README.md` still carries the full
-  tool, command, and design detail. The two tests that read the catalog go with
-  it, so commands and flags are no longer checked against the docs; the tool
-  names stay pinned in `test/naming.test.ts`.
-
-- docs: `docs/getting-started.md` is folded into the user guide and removed. The
-  install routes (including the `@vX.Y.Z` pin), the fit decision, the
-  prerequisites, what an install changes, and removal now live in
-  [`docs/user-guide/`](./docs/user-guide/), which the entry READMEs and the
-  docs index link to; the footprint guard and the install-pin guard read the
-  guide instead.
-
-- `plan`: the injected plan-mode context states each rule once — the shell rule no
-  longer repeats the read-only summary, and the delegation bullet leaves "forced
-  read-only" to the line that already carries it — so a planning turn's always-on
-  context is about 110 characters smaller and its budget ceiling drops from 1100
-  to 960.
-
-- `bytefly`: the footer prices a growing session in bounded time. The rate table
-  is compiled once per config instead of being re-split for every record on every
-  appended entry, the lookup remembers the model it just matched, the context
-  estimate and session name join the pricing scan in the leaf-keyed memo, and a
-  turn separator reuses its line instead of rebuilding the full-width rule each
-  frame. A 3,000-record branch with a 100-key `rates` table cost about 200 ms per
-  new message before; it now costs fractions of a millisecond.
-
-- `bytefly`: the Settings JSON pane no longer reopens when the focus returns to
-  a row after moving to a Global-only row (Theme, startup TUI, output pad,
-  hardware cursor); closing it takes a `J`, as the key's own hint says.
-
-- `bytefly`: the proactive doctor check no longer holds the first prompt. Its
-  hard-requirement probes are fired after `session_start` returns, and
-  `run_doctor` and the panel's refresh probe a few extensions at a time instead
-  of one after another, so both answer in the slowest probe's time rather than
-  their sum.
-
-- dev: `bun run bench:render` also measures one re-price of a branch's usage
-  records — 500, 3,000, and 10,000 records, plus 3,000 against a 100-key rate
-  table — with a determinism gate in the suite.
-
-- docs: `ROADMAP.md` adds the three highest user-value candidates to `Next` —
-  a verification panel (`P1`), background delegation (`P2`), and turn review
-  (`S3`) — each with the gap it closes and a concrete acceptance condition, and
-  updates the promise ledger and the `Next` exit condition to match.
-
-### Removed
-
-- `file-browse`: the **On this page** outline is gone. Headings keep their
-  stable anchor ids, so in-document `#anchor` links still work.
-
-### Fixed
+- `bytefly`: Windows toast notifications select the text node through
+  `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`,
+  which PowerShell 5.1 rejects with `BadEnumeration`. Delivery remains
+  best-effort and silent on failure.
+- `bytefly`: the Settings screen keeps the focused setting when `Tab` switches
+  scope, names a Project default as `Default` instead of `Inherited from Global`,
+  and points an inherited value at the personal file rather than the project one.
+- `bytefly`: `u` on an inherited Project value says it is inherited instead of
+  claiming it is already at its default.
+- `bytefly`: the panel's scroll range counts selectable rows, so a clipped
+  Settings list reads its row count, not the entry count including group
+  headings.
+- `bytefly`: the JSON pane keeps the `Saved · reload to apply` marker, reports the
+  correct hidden-line count, and no longer advertises `J hide` on a Pi setting.
+- `bytefly`: clicking below the last body row no longer selects an off-screen row,
+  and a short terminal drops the range, project note, or detail pane instead of
+  overflowing the viewport.
+- `bytefly`: editing a long value scrolls the value to keep the caret visible and
+  leaves the row label in place on a narrow terminal.
 
 - `check`: the failure detail no longer prints the location line twice — the
   pane's first line names the failure, so the header keeps the run's counts —
@@ -422,56 +443,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   split the row again, and a case-only rename on a case-insensitive filesystem
   keeps the file instead of deleting it with the destination.
 
-## [0.15.0] - 2026-10-20
+- `worktree`: a managed path resolves every missing component, so a worktree
+  created under a symlinked directory keeps one registry identity instead of a
+  second spelling of the same checkout.
 
-### Added
+- `job`: output is split on newlines before it is decoded, so a multi-byte
+  character that a pipe read splits no longer shows as U+FFFD in `logs`, in a
+  completion note, or on the `/jobs` screen. A `\r` progress rewrite is now one
+  line whose text after the last carriage return is kept, instead of several
+  partial lines.
 
-- `bytefly`: the Settings screen now has a **Theme** row that lists `system`
-  first, then the two palettes this package ships, `bytefly-dark` and
-  `bytefly-light`. It writes Pi's personal `theme` setting and applies after
-  reload; Pi's built-ins, other packages' themes, and automatic light/dark pairs
-  stay in Pi's `/settings`.
-
-### Changed
-
-- `bytefly`: the update surface now uses Pi's package manager as its only
-  detector. bytefly suppresses Pi's `Package Updates Available` block and posts
-  one themed notice listing every updateable configured package plus
-  `pi update --extensions`; the header marker still shows only this package's new
-  version, and the version arrow and release URL remain. The 24-hour cache now
-  stores a project-scoped snapshot keyed by cwd and package sources, and
-  `/bytefly update` re-runs the check on demand. Unmanaged installs such as
-  `pi -e .` no longer get an update prompt.
-
-- `bytefly`: the footer's group divider is a hardcoded `│` instead of the shared
-  `╎`, so the status line reads as a divider while the transcript rail and
-  `chrome.rail`'s default keep the dashed glyph.
-
-### Fixed
-
-- `bytefly`, `plan`: the plan-mode chip uses `≡` instead of the vertical
-  ellipsis `⋮`, which read as a menu affordance rather than the open planning
-  artifact; the footer, the plan README, and the glyph vocabulary agree.
-
-- `bytefly`: Windows toast notifications select the text node through
-  `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`,
-  which PowerShell 5.1 rejects with `BadEnumeration`. Delivery remains
-  best-effort and silent on failure.
-- `bytefly`: the Settings screen keeps the focused setting when `Tab` switches
-  scope, names a Project default as `Default` instead of `Inherited from Global`,
-  and points an inherited value at the personal file rather than the project one.
-- `bytefly`: `u` on an inherited Project value says it is inherited instead of
-  claiming it is already at its default.
-- `bytefly`: the panel's scroll range counts selectable rows, so a clipped
-  Settings list reads its row count, not the entry count including group
-  headings.
-- `bytefly`: the JSON pane keeps the `Saved · reload to apply` marker, reports the
-  correct hidden-line count, and no longer advertises `J hide` on a Pi setting.
-- `bytefly`: clicking below the last body row no longer selects an off-screen row,
-  and a short terminal drops the range, project note, or detail pane instead of
-  overflowing the viewport.
-- `bytefly`: editing a long value scrolls the value to keep the caret visible and
-  leaves the row label in place on a narrow terminal.
+- `job`: two `wake` jobs finishing in the same tick raise one triggered turn
+  instead of two. The second completion queues and is reported at the start of
+  that turn, which is what `watch` already did.
 
 ## [0.14.0] - 2026-10-19
 
@@ -2676,8 +2660,7 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.16.0...HEAD
-[0.16.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.16.0
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.15.0...HEAD
 [0.15.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.15.0
 [0.14.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.14.0
 [0.13.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.13.1
