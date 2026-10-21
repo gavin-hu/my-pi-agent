@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
 	buildFileIndex,
 	buildTree,
@@ -140,7 +140,9 @@ describe("listDirectory", () => {
 			readdir: async () => names.map((name) => ({ name, isDirectory: () => false, isSymbolicLink: () => false })),
 			lstat: async () => stats,
 			stat: async (path) => {
-				reads.push(path.slice(path.lastIndexOf("/") + 1));
+				// The name from the joiner the listing used, not a `/` slice: on Windows
+				// that path is `\synthetic\file-000`, and slicing it recovers nothing.
+				reads.push(basename(path));
 				inFlight++;
 				peak = Math.max(peak, inFlight);
 				await Promise.resolve();
