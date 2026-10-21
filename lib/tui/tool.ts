@@ -1,6 +1,7 @@
 /**
- * The shared tool-transcript kit: a call title, a width-safe call component,
- * sanitized error lines, the expand hint, and the running timer.
+ * The shared tool-transcript kit: a call title, the call line a renderer draws
+ * with it, the failure line a result shows before its body, the expand hint, and
+ * the running timer.
  *
  * Every extension's `renderCall` / `renderResult` used to repeat the same four
  * idioms — a bold `toolTitle`, a raw `result.content[0]`, a hand-built
@@ -32,6 +33,58 @@ export interface ToolMessageResult {
 /** The bold tool name in Pi's tool-title token, the block's only accent. */
 export function toolCallTitle(theme: Theme, name: string): string {
 	return theme.fg("toolTitle", theme.bold(name));
+}
+
+/**
+ * One call line: the bold tool name, then the subject in the meta role.
+ *
+ * The subject is flattened to one line here, because a call line is a label: a
+ * stored note, a task, or a path carrying a newline cannot wrap it into the body
+ * column, where it would read as a result. Pass the clip the subject deserves —
+ * `middle` for a path or a URL whose tail is the identity, `end` for prose.
+ *
+ * A subject drawn in another role (an argument value in `label`, a suffix in
+ * `faint`) stays hand-built at its call site; this is the plain headline.
+ */
+export function callLine(
+	theme: Theme,
+	last: unknown,
+	name: string,
+	subject: string,
+	clip: CallClip = "end",
+): ToolCallText {
+	const text = reuseCallText(last, "", clip);
+	text.setText(toolCallTitle(theme, `${name} `) + paint(theme, "meta", sanitizeLine(subject)));
+	return text;
+}
+
+/**
+ * A result resolved to its details, or to the one line a failure shows.
+ */
+export type DetailsOrLine<Details> = { line: string } | { details: Details };
+
+/**
+ * Resolve a result to its details, or to the line to show instead.
+ *
+ * The failure is one branch whether the call carried no details at all (Pi's
+ * `{ details: {}, isError: true }` envelope) or the extension reported its own
+ * `details.error`, and it goes through `errorLine`: a multi-line message keeps
+ * its lines and `Error:` is prefixed exactly once, which a hand-built
+ * `paint(theme, "bad", \`Error: ${sanitizeLine(...)}\`)` does not.
+ */
+export function detailsOrLine<Details extends object>(
+	theme: Theme,
+	result: ToolMessageResult,
+	expanded: boolean,
+	details: Details | undefined,
+): DetailsOrLine<Details> {
+	if (!details) return { line: rejectionLine(theme, result, expanded) };
+	// The one property this reads is the extension's own report field; a details
+	// block without it (a plan summary, a check report) simply has no failure.
+	if ("error" in details && typeof details.error === "string" && details.error !== "") {
+		return { line: errorLine(theme, details.error) };
+	}
+	return { details };
 }
 
 /** How a call line gives up columns when the terminal is narrow. */

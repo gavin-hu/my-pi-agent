@@ -11,7 +11,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { sanitizeLine } from "../../lib/format.ts";
 import { errorResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
+import { callLine, detailsOrLine, rejectionLine } from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -182,29 +182,18 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 
 		renderCall(args, theme, context) {
 			const action = typeof args.action === "string" ? args.action : "watch";
-			const text = reuseCallText(context.lastComponent, "", "middle");
-			text.setText(
-				toolCallTitle(theme, `${TOOL_NAME} `) +
-					paint(
-						theme,
-						"meta",
-						sanitizeLine(formatCallText(action, args as Record<string, unknown>, context.argsComplete)),
-					),
-			);
-			return text;
+			const subject = formatCallText(action, args as Record<string, unknown>, context.argsComplete);
+			return callLine(theme, context.lastComponent, TOOL_NAME, subject, "middle");
 		},
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = toolDetails<WatchDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, options.expanded));
+			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<WatchDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
-			if (details.error) {
-				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
-				return text;
-			}
+			const details = outcome.details;
 
 			if (details.action === "list" && details.watches) {
 				if (details.watches.length === 0) {

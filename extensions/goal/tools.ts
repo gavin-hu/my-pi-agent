@@ -9,10 +9,9 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
+import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { formatCallText, formatGoalText } from "./format.ts";
@@ -118,25 +117,22 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseCallText(context.lastComponent);
-			text.setText(
-				toolCallTitle(theme, `${TOOL_NAME} `) +
-					paint(theme, "meta", formatCallText(args.objective, context.argsComplete, args.status)),
+			return callLine(
+				theme,
+				context.lastComponent,
+				TOOL_NAME,
+				formatCallText(args.objective, context.argsComplete, args.status),
 			);
-			return text;
 		},
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = toolDetails<GoalDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, options.expanded));
+			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<GoalDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
-			if (details.error) {
-				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
-				return text;
-			}
+			const details = outcome.details;
 			if (!details.goal) {
 				// A neutral marker, deliberately not the achieved check.
 				text.setText(paint(theme, "faint", `${GLYPHS.stopped} `) + paint(theme, "meta", "Cleared the goal"));

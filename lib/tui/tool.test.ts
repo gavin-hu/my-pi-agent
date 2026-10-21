@@ -9,6 +9,8 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 import { RenderCache } from "./render-cache.ts";
 import {
+	callLine,
+	detailsOrLine,
 	earlierHint,
 	elapsedSuffix,
 	errorLine,
@@ -92,6 +94,34 @@ describe("ToolCallText", () => {
 	});
 });
 
+describe("callLine", () => {
+	test("draws the bold tool name and the subject in the meta role", () => {
+		const line = callLine(fakeTheme, undefined, "memory", "→ add (project): x").render(80)[0] ?? "";
+		expect(line).toContain("memory ");
+		expect(line).toContain("→ add (project): x");
+	});
+
+	test("flattens a multi-line subject to one line", () => {
+		const line = callLine(fakeTheme, undefined, "memory", "first\nsecond").render(80);
+		expect(line).toHaveLength(1);
+		expect(line[0]).toContain("first second");
+	});
+
+	test("stays inside the render width at every sweep value", () => {
+		const subject = "web_fetch https://example.com/docs/guides/retry-policy";
+		for (const width of WIDTHS) {
+			const line = callLine(fakeTheme, undefined, "web_fetch", subject, "middle").render(width)[0] ?? "";
+			expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+	});
+
+	test("reuses the previous call component", () => {
+		const first = callLine(fakeTheme, undefined, "read", "src/a.ts");
+		expect(callLine(fakeTheme, first, "read", "src/b.ts")).toBe(first);
+		expect(callLine(fakeTheme, first, "read", "src/b.ts", "middle")).not.toBe(first);
+	});
+});
+
 describe("errorLine", () => {
 	test("sanitizes control characters before painting the error role", () => {
 		expect(errorLine(fakeTheme, "a\u001b[31mb\u009dc")).toBe("Error: a [31mb c");
@@ -137,6 +167,40 @@ describe("rejectionLine", () => {
 
 	test("messageText ignores non-text blocks", () => {
 		expect(messageText({ content: [{ type: "image" }, { type: "text", text: "hello" }] })).toBe("hello");
+	});
+});
+
+describe("detailsOrLine", () => {
+	const declined = { content: [{ type: "text", text: "Permission denied: memory" }], isError: true };
+
+	test("returns the details when the result is intact", () => {
+		const outcome = detailsOrLine(fakeTheme, { content: [] }, false, { sent: true });
+		expect(outcome).toEqual({ details: { sent: true } });
+	});
+
+	test("returns Pi's rejection line when the call carried no details", () => {
+		const outcome = detailsOrLine(fakeTheme, declined, false, undefined);
+		expect("line" in outcome && outcome.line).toContain("Error: Permission denied: memory");
+	});
+
+	test("returns the extension's error through errorLine", () => {
+		const outcome = detailsOrLine(fakeTheme, { content: [] }, false, { error: "error: rate limited" });
+		expect("line" in outcome && outcome.line).toBe("Error: rate limited");
+	});
+
+	test("keeps a multi-line error readable instead of collapsing it", () => {
+		const outcome = detailsOrLine(fakeTheme, { content: [] }, false, { error: "first\nsecond" });
+		expect("line" in outcome && outcome.line.split("\n")).toEqual(["Error: first", "second"]);
+	});
+
+	test("treats an empty error as no failure", () => {
+		const outcome = detailsOrLine(fakeTheme, { content: [] }, false, { error: "" });
+		expect("details" in outcome).toBe(true);
+	});
+
+	test("accepts a details block with no error field at all", () => {
+		const outcome = detailsOrLine(fakeTheme, { content: [] }, false, { approved: true });
+		expect(outcome).toEqual({ details: { approved: true } });
 	});
 });
 

@@ -17,6 +17,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `goal`, `todo`, `memory`, `watch`, `wechat`: a tool's failure line is drawn by
+  one rule, so a multi-line error keeps its lines and `Error:` is prefixed once;
+  these five used to flatten the message onto a single line. A call line is also
+  flattened to one line wherever its subject was not sanitized before, so a
+  stored note or a task title can no longer wrap the headline into the body
+  column.
+
 - `file-browse`: the live chip names its state instead of counting it — `◉ live`,
   `◉ stale`, `◉ connecting`, `◉ offline` — so the header repaints only when that
   state changes and no label carries an elapsed time. Staleness is still three

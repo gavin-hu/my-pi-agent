@@ -12,7 +12,7 @@ import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../../lib/tui/tool.ts";
+import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
 import { describeUpdates, stepLabel } from "../format.ts";
 import { SET_PLAN_STEPS_TOOL, type PlanRuntime } from "../runtime.ts";
 import { extractPlanSteps } from "../steps.ts";
@@ -103,7 +103,6 @@ export function registerSetPlanStepsTool(pi: ExtensionAPI, runtime: PlanRuntime)
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseCallText(context?.lastComponent);
 			const updates = (args as Partial<SetPlanStepsArgs>).updates;
 			const label =
 				updates && updates.length === 1 && updates[0]?.step !== undefined
@@ -111,17 +110,17 @@ export function registerSetPlanStepsTool(pi: ExtensionAPI, runtime: PlanRuntime)
 					: updates && updates.length > 1
 						? `${updates.length} steps`
 						: "steps";
-			text.setText(toolCallTitle(theme, `${SET_PLAN_STEPS_TOOL} `) + paint(theme, "meta", label));
-			return text;
+			return callLine(theme, context?.lastComponent, SET_PLAN_STEPS_TOOL, label);
 		},
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = toolDetails<SetPlanStepsDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, options.expanded));
+			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<SetPlanStepsDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
+			const details = outcome.details;
 			const completed = details.updates.filter((update) => update.status === "completed").map((u) => u.step);
 			const pending = details.updates.filter((update) => update.status === "pending").map((u) => u.step);
 			const heading =

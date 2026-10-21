@@ -12,12 +12,11 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { normalizeTodos } from "../../lib/todo-state.ts";
+import { callLine, detailsOrLine, rejectionLine } from "../../lib/tui/tool.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
@@ -98,24 +97,21 @@ export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseCallText(context.lastComponent);
-			text.setText(
-				toolCallTitle(theme, `${TOOL_NAME} `) +
-					paint(theme, "meta", formatCallText(args.todos as Todo[] | undefined, context.argsComplete)),
-			);
-			return text;
+			const body = formatCallText(args.todos as Todo[] | undefined, context.argsComplete);
+			return callLine(theme, context.lastComponent, TOOL_NAME, body);
 		},
 
 		renderResult(result, { expanded }, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = toolDetails<TodoDetails>(result.details);
-			if (details?.error) {
-				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
+			const outcome = detailsOrLine(theme, result, expanded, toolDetails<TodoDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
-			// A call rejected before `execute` (argument validation or a permission
-			// block) carries `details: {}` with no list, so fall back to its message.
-			if (!details || !Array.isArray(details.todos)) {
+			const details = outcome.details;
+			// A details block can still arrive without the list: the host rejected the
+			// arguments, so its message is the whole result.
+			if (!Array.isArray(details.todos)) {
 				text.setText(rejectionLine(theme, result, expanded));
 				return text;
 			}

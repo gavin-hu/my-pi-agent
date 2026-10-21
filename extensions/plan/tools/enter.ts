@@ -10,7 +10,7 @@ import { Type } from "typebox";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../../lib/tui/tool.ts";
+import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
 import { PLAN_CONSENT, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
 import { ENTER_TOOL, type PlanRuntime } from "../runtime.ts";
 import type { EnterPlanModeDetails } from "../types.ts";
@@ -72,18 +72,17 @@ export function registerEnterTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 		},
 
 		renderCall(_args, theme, context) {
-			const text = reuseCallText(context?.lastComponent);
-			text.setText(toolCallTitle(theme, `${ENTER_TOOL} `) + paint(theme, "meta", "requested plan mode"));
-			return text;
+			return callLine(theme, context?.lastComponent, ENTER_TOOL, "requested plan mode");
 		},
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = toolDetails<EnterPlanModeDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, options.expanded));
+			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<EnterPlanModeDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
+			const details = outcome.details;
 			if (details.unavailable) text.setText(paint(theme, "warn", "No UI to confirm plan mode"));
 			else if (details.already) text.setText(paint(theme, "meta", "Already in plan mode"));
 			else if (details.entered) text.setText(paint(theme, "ok", `${GLYPHS.check} Plan mode enabled`));

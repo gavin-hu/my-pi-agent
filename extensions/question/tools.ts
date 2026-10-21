@@ -7,7 +7,7 @@ import { askHuman } from "../../lib/interaction.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
+import { detailsOrLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
@@ -94,11 +94,12 @@ export function registerTools(pi: ExtensionAPI): void {
 
 		renderResult(result, options, theme, context) {
 			const component = reuseText(context?.lastComponent);
-			const details = toolDetails<AskResult>(result.details);
-			if (!details) {
-				component.setText(rejectionLine(theme, result, options.expanded));
+			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<AskResult>(result.details));
+			if ("line" in outcome) {
+				component.setText(outcome.line);
 				return component;
 			}
+			const details = outcome.details;
 			if (details.unavailable) {
 				component.setText(paint(theme, "bad", UNAVAILABLE_TEXT));
 				return component;

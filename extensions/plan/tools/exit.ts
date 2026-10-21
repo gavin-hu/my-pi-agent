@@ -17,7 +17,7 @@ import { GOAL_TOOL } from "../../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { moreHint, rejectionLine, reuseCallText, toolCallTitle } from "../../../lib/tui/tool.ts";
+import { callLine, detailsOrLine, moreHint } from "../../../lib/tui/tool.ts";
 import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, verificationNote } from "../format.ts";
 import { sanitizePlanText } from "../plan-text.ts";
@@ -256,18 +256,17 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 		},
 
 		renderCall(_args, theme, context) {
-			const text = reuseCallText(context?.lastComponent);
-			text.setText(toolCallTitle(theme, `${EXIT_TOOL} `) + paint(theme, "meta", "submitted a plan"));
-			return text;
+			return callLine(theme, context?.lastComponent, EXIT_TOOL, "submitted a plan");
 		},
 
 		renderResult(result, { expanded }, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = toolDetails<ExitPlanModeDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, expanded));
+			const outcome = detailsOrLine(theme, result, expanded, toolDetails<ExitPlanModeDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
+			const details = outcome.details;
 			const heading = details.unavailable
 				? paint(theme, "warn", "No UI to approve the plan")
 				: details.approved

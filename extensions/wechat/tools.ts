@@ -10,9 +10,8 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
-import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
+import { callLine, errorLine, rejectionLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge } from "./bridge.ts";
 
@@ -82,11 +81,9 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseCallText(context.lastComponent);
 			const body = (args as { text?: unknown }).text;
-			const label = context.argsComplete && typeof body === "string" ? sanitizeLine(body) : "…";
-			text.setText(toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "meta", label));
-			return text;
+			const label = context.argsComplete && typeof body === "string" ? body : "…";
+			return callLine(theme, context.lastComponent, TOOL_NAME, label);
 		},
 
 		renderResult(result, options, theme, context) {
@@ -97,7 +94,7 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 				return text;
 			}
 			if (details?.error) {
-				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
+				text.setText(errorLine(theme, details.error));
 				return text;
 			}
 			// Pi's rejection result carries `{}`; show its sanitized message.

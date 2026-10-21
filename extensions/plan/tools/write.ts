@@ -11,7 +11,7 @@ import { sanitizeLine } from "../../../lib/format.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../../lib/tui/tool.ts";
+import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
 import { overCap, stepElisionNote } from "../format.ts";
 import { WRITE_PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
 import { MAX_STEPS, PLAN_OUTLINE, planStepSummary } from "../steps.ts";
@@ -106,21 +106,20 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseCallText(context?.lastComponent);
 			const title = (args as Partial<WritePlanArgs>).title;
-			const suffix = title ? paint(theme, "meta", sanitizeLine(title)) : paint(theme, "meta", "plan");
-			text.setText(toolCallTitle(theme, `${WRITE_PLAN_TOOL} `) + suffix);
-			return text;
+			return callLine(theme, context?.lastComponent, WRITE_PLAN_TOOL, title ? sanitizeLine(title) : "plan");
 		},
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context?.lastComponent);
-			const details = toolDetails<WritePlanDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, options.expanded));
+			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<WritePlanDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
-			text.setText(paint(theme, "ok", `${GLYPHS.check} Saved plan `) + paint(theme, "meta", details.relativePath));
+			text.setText(
+				paint(theme, "ok", `${GLYPHS.check} Saved plan `) + paint(theme, "meta", outcome.details.relativePath),
+			);
 			return text;
 		},
 	});

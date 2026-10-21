@@ -16,14 +16,7 @@ import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-codi
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import {
-	elapsedSuffix,
-	errorLine,
-	rejectionLine,
-	reuseCallText,
-	syncElapsedTimer,
-	toolCallTitle,
-} from "../../lib/tui/tool.ts";
+import { callLine, elapsedSuffix, errorLine, rejectionLine, syncElapsedTimer } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { formatCheckReport } from "./format.ts";
 import { CheckResultBlock } from "./render.ts";
@@ -138,9 +131,7 @@ export function registerCheckTool(pi: ExtensionAPI, runtime: CheckRuntime): void
 
 		renderCall(args, theme, context) {
 			const subject = context.argsComplete ? (args.target ?? "all") : "…";
-			const text = reuseCallText(context.lastComponent, "", "middle");
-			text.setText(toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "meta", sanitizeLine(subject)));
-			return text;
+			return callLine(theme, context.lastComponent, TOOL_NAME, subject, "middle");
 		},
 
 		renderResult(result, options, theme, context) {

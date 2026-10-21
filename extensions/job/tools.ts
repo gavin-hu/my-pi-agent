@@ -9,17 +9,9 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
 import { errorResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import {
-	elapsedSuffix,
-	errorLine,
-	rejectionLine,
-	reuseCallText,
-	syncElapsedTimer,
-	toolCallTitle,
-} from "../../lib/tui/tool.ts";
+import { callLine, detailsOrLine, elapsedSuffix, rejectionLine, syncElapsedTimer } from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -229,30 +221,19 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 
 		renderCall(args, theme, context) {
 			const action = typeof args.action === "string" ? args.action : "job";
-			const text = reuseCallText(context.lastComponent, "", "middle");
-			text.setText(
-				toolCallTitle(theme, `${TOOL_NAME} `) +
-					paint(
-						theme,
-						"meta",
-						sanitizeLine(formatCallText(action, args as Record<string, unknown>, context.argsComplete)),
-					),
-			);
-			return text;
+			const subject = formatCallText(action, args as Record<string, unknown>, context.argsComplete);
+			return callLine(theme, context.lastComponent, TOOL_NAME, subject, "middle");
 		},
 
 		renderResult(result, options, theme, context) {
 			const text = reuseText(context.lastComponent);
 			const startedAt = syncElapsedTimer(options.isPartial, context);
-			const details = toolDetails<JobDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, options.expanded));
+			const outcome = detailsOrLine(theme, result, options.expanded, toolDetails<JobDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
-			if (details.error) {
-				text.setText(errorLine(theme, details.error));
-				return text;
-			}
+			const details = outcome.details;
 
 			if (options.isPartial) {
 				const id = details.job?.id;

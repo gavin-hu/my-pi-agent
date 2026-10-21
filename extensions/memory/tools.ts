@@ -10,10 +10,8 @@
 
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
+import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
-import { paint } from "../../lib/tui/tokens.ts";
 import { messageOf } from "./errors.ts";
 import { formatCallText, formatResultText, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";
@@ -139,27 +137,21 @@ export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {
 		},
 
 		renderCall(args, theme, context) {
-			const text = reuseCallText(context.lastComponent);
 			const body = formatCallText(
 				args as { action?: unknown; text?: unknown; to?: unknown; scope?: unknown },
 				context.argsComplete,
 			);
-			text.setText(toolCallTitle(theme, `${TOOL_NAME} `) + paint(theme, "meta", body));
-			return text;
+			return callLine(theme, context.lastComponent, TOOL_NAME, body);
 		},
 
 		renderResult(result, { expanded }, theme, context) {
 			const text = reuseText(context.lastComponent);
-			const details = toolDetails<MemoryDetails>(result.details);
-			if (!details) {
-				text.setText(rejectionLine(theme, result, expanded));
+			const outcome = detailsOrLine(theme, result, expanded, toolDetails<MemoryDetails>(result.details));
+			if ("line" in outcome) {
+				text.setText(outcome.line);
 				return text;
 			}
-			if (details.error) {
-				text.setText(paint(theme, "bad", `Error: ${sanitizeLine(details.error)}`));
-				return text;
-			}
-			text.setText(formatResultText(details, expanded));
+			text.setText(formatResultText(outcome.details, expanded));
 			return text;
 		},
 	});
