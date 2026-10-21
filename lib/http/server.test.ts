@@ -5,7 +5,8 @@ import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { htmlResponse, textResponse } from "./response.ts";
-import { bindLoopback, createCloser, respond } from "./server.ts";
+import { bindLoopback, createCloser, openEventStream, respond } from "./server.ts";
+import { eventHeaders } from "./headers.ts";
 
 let dir: string | undefined;
 
@@ -85,6 +86,31 @@ describe("respond", () => {
 			const reply = await fetch(`http://127.0.0.1:${port}/`);
 			expect(await reply.text()).toBe("streamed bytes");
 		} finally {
+			await close();
+		}
+	});
+});
+
+describe("openEventStream", () => {
+	test("writes the event headers and a retry hint, then streams frames", async () => {
+		const server = createServer((request, response) => {
+			const result = { status: 200, headers: eventHeaders() };
+			openEventStream(response, result, 1500);
+			response.write("event: status\ndata: {}\n\n");
+			request.on("close", () => response.end());
+		});
+		const port = await bindLoopback(server, 0);
+		const close = createCloser(server);
+		const controller = new AbortController();
+		try {
+			const reply = await fetch(`http://127.0.0.1:${port}/events`, { signal: controller.signal });
+			expect(reply.headers.get("content-type")).toBe("text/event-stream; charset=utf-8");
+			const reader = reply.body?.getReader();
+			expect(reader).toBeDefined();
+			const first = await reader?.read();
+			expect(new TextDecoder().decode(first?.value)).toStartWith("retry: 1500\n\nevent: status");
+		} finally {
+			controller.abort();
 			await close();
 		}
 	});

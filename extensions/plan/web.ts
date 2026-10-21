@@ -14,7 +14,14 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
-import { bindLoopback, createCloser, jsonHeaders, respond, type ServeResponse } from "../../lib/http/index.ts";
+import {
+	bindLoopback,
+	createCloser,
+	jsonHeaders,
+	openEventStream,
+	respond,
+	type ServeResponse,
+} from "../../lib/http/index.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
 import {
@@ -282,8 +289,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					};
 				}
 				if (result.stream) {
-					response.writeHead(result.status, result.headers);
-					response.write("retry: 2000\n\n");
+					openEventStream(response, result);
 					hadClient = true;
 					clients.add(response);
 					if (dropTimer) {
