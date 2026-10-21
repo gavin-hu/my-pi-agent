@@ -1,26 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createTimerMap, defaultTimer, type ArmTimer } from "./timer.ts";
-
-describe("defaultTimer", () => {
-	test("runs the callback once after the delay", async () => {
-		let fired = 0;
-		defaultTimer(1, () => {
-			fired += 1;
-		});
-		await Bun.sleep(20);
-		expect(fired).toBe(1);
-	});
-
-	test("never runs a cancelled timer", async () => {
-		let fired = 0;
-		const cancel = defaultTimer(1, () => {
-			fired += 1;
-		});
-		cancel();
-		await Bun.sleep(20);
-		expect(fired).toBe(0);
-	});
-});
+import { createTimerMap, type ArmTimer } from "./timer.ts";
 
 /** A timer seam a test fires by hand, recording what was armed and cancelled. */
 function fakeTimers(): {

@@ -3,20 +3,14 @@
  *
  * The bridge and the channel need a cancellable one-shot timer that a test can
  * drive without waiting (the delayed acknowledgement, the typing keep-alive, the
- * prompt timeout); login needs an abortable sleep between polls. The defaults use
- * a real `setTimeout`, `unref`'d for the one-shot so a pending timer never holds
- * the process open.
+ * prompt timeout); that seam and its production default are in
+ * [`lib/timer.ts`](../../lib/timer.ts), because plan's review page arms the same
+ * kind of timer. Login needs an abortable sleep between polls, which is here.
  */
 
-/** Arm a one-shot timer; the returned function cancels it. */
-export type ArmTimer = (ms: number, fn: () => void) => () => void;
+import type { ArmTimer } from "../../lib/timer.ts";
 
-/** The production timer: `setTimeout`, detached from the event loop. */
-export const defaultTimer: ArmTimer = (ms, fn) => {
-	const timer = setTimeout(fn, ms);
-	(timer as { unref?: () => void }).unref?.();
-	return () => clearTimeout(timer);
-};
+export { type ArmTimer, defaultTimer } from "../../lib/timer.ts";
 
 /**
  * A set of one-shot timers keyed by a caller's id (a peer, a watcher).

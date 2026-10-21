@@ -23,6 +23,7 @@ import {
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
+import { type ArmTimer, defaultTimer } from "../../lib/timer.ts";
 import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
 import {
 	MAX_ANNOTATIONS,
@@ -82,6 +83,14 @@ export interface PlanWebReviewDeps {
 	port?: number;
 	/** Override the closed-tab grace; the default leaves a reload time to reconnect. */
 	dropGraceMs?: number;
+	/**
+	 * Override the timer that arms the closed-tab grace.
+	 *
+	 * The grace is a race against the browser's reload, so a test drives it by
+	 * hand: a few tens of milliseconds of deadline makes the test fail when the
+	 * machine is busy, which is a fact about the runner and not about the code.
+	 */
+	schedule?: ArmTimer;
 	/** Override the accepted body size; a test keeps it small. */
 	maxBodyBytes?: number;
 }
@@ -145,12 +154,15 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const done = new Promise<PlanReviewResult>((resolve) => {
 			resolveDone = resolve;
 		});
-		let dropTimer: NodeJS.Timeout | undefined;
+		let cancelDrop: (() => void) | undefined;
+		const clearDrop = (): void => {
+			cancelDrop?.();
+			cancelDrop = undefined;
+		};
 		const finish = (result: PlanReviewResult): void => {
 			if (settled) return;
 			settled = true;
-			clearTimeout(dropTimer);
-			dropTimer = undefined;
+			clearDrop();
 			resolveDone(result);
 		};
 
@@ -258,13 +270,13 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const clients = new Set<ServerResponse>();
 		let hadClient = false;
 		const dropGrace = deps.dropGraceMs ?? DROP_GRACE_MS;
+		const schedule = deps.schedule ?? defaultTimer;
 		const scheduleDrop = (): void => {
-			if (clients.size > 0 || !hadClient || settled || dropTimer) return;
-			dropTimer = setTimeout(() => {
-				dropTimer = undefined;
+			if (clients.size > 0 || !hadClient || settled || cancelDrop) return;
+			cancelDrop = schedule(dropGrace, () => {
+				cancelDrop = undefined;
 				if (clients.size === 0) finish({ status: "cancelled" });
-			}, dropGrace);
-			(dropTimer as { unref?: () => void }).unref?.();
+			});
 		};
 
 		const server = createServer((request, response) => {
@@ -292,10 +304,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					openEventStream(response, result);
 					hadClient = true;
 					clients.add(response);
-					if (dropTimer) {
-						clearTimeout(dropTimer);
-						dropTimer = undefined;
-					}
+					clearDrop();
 					request.on("close", () => {
 						clients.delete(response);
 						scheduleDrop();

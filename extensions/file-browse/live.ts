@@ -142,7 +142,7 @@ export interface LiveClient {
 export type LiveTimer = (tick: () => void, intervalMs: number) => () => void;
 
 /** The default ticker: a repeating timer that cannot hold the process open. */
-const defaultTimer: LiveTimer = (tick, intervalMs) => {
+const defaultTicker: LiveTimer = (tick, intervalMs) => {
 	const handle = setInterval(tick, intervalMs);
 	(handle as { unref?: () => void }).unref?.();
 	return () => clearInterval(handle);
@@ -170,7 +170,7 @@ export interface LiveChannel {
  * is attached, so an idle server does no status work at all.
  */
 export function createLiveChannel(options: LiveChannelOptions): LiveChannel {
-	const timer = options.timer ?? defaultTimer;
+	const timer = options.timer ?? defaultTicker;
 	const clients = new Set<LiveClient>();
 	let cancel: (() => void) | undefined;
 	let inFlight = false;
