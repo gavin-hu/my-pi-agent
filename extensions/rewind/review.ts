@@ -120,6 +120,28 @@ async function refreshView(runtime: RewindRuntime, root: string, snapshot: Snaps
 	return { kind: "ok", view: { plan: planned.plan, entries: toReviewEntries(planned.plan.paths, stats), headTree } };
 }
 
+/**
+ * Repaint the status chip, then re-read the review. A repaint failure is never
+ * reported as a restore failure, because the restore has already happened.
+ */
+async function refreshAfterMutation(
+	runtime: RewindRuntime,
+	ctx: ExtensionCommandContext,
+	review: LoadedReview,
+): Promise<RefreshResult> {
+	try {
+		await runtime.setStatus(ctx);
+	} catch {
+		// The status chip is best-effort; a failed repaint must not report the
+		// restore itself as failed.
+	}
+	try {
+		return await refreshView(runtime, review.root, review.snapshot);
+	} catch (error) {
+		return { kind: "error", message: `Reverted, but could not refresh the review: ${messageOf(error)}` };
+	}
+}
+
 /** Restore one or more paths, then re-read the review. */
 async function revertPaths(
 	runtime: RewindRuntime,
@@ -133,19 +155,7 @@ async function revertPaths(
 	} catch (error) {
 		return { kind: "error", message: `Revert failed: ${messageOf(error)}` };
 	}
-	try {
-		await runtime.setStatus(ctx);
-	} catch {
-		// The status chip is best-effort; a failed repaint must not report the
-		// restore itself as failed.
-	}
-
-	let refreshed: RefreshResult;
-	try {
-		refreshed = await refreshView(runtime, review.root, review.snapshot);
-	} catch (error) {
-		return { kind: "error", message: `Reverted, but could not refresh the review: ${messageOf(error)}` };
-	}
+	const refreshed = await refreshAfterMutation(runtime, ctx, review);
 	if (refreshed.kind === "error") return { kind: "error", message: refreshed.message };
 	if (refreshed.kind === "empty") return { kind: "empty", summary };
 	return { kind: "ok", summary, next: refreshed.view };
@@ -213,6 +223,26 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 	let index = 0;
 	let selected: string[] = [];
 
+	/** Take a refreshed view: the selection is gone and the focus is re-clamped. */
+	const adopt = (next: ReviewView): void => {
+		view = next;
+		selected = [];
+		index = Math.min(index, view.entries.length - 1);
+	};
+
+	/** Fold one revert into the loop's state; `"done"` means the loop should leave. */
+	const settleRevert = (result: RevertResult): "next" | "done" => {
+		if (result.kind === "error") {
+			ctx.ui.notify(result.message, "error");
+			return "done";
+		}
+		const remaining = result.kind === "ok" ? result.next.entries.length : 0;
+		ctx.ui.notify(formatReviewRevertText(result.summary, remaining), "info");
+		if (result.kind === "empty") return "done";
+		adopt(result.next);
+		return "next";
+	};
+
 	while (true) {
 		const committed = isCommitted(view);
 		const screen = await ctx.ui.custom<ReviewListResult | undefined>(
@@ -236,24 +266,8 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 
 		if (action.kind === "revertAll") {
 			if (!(await confirmRevertAll(ctx, review, view.entries, safety, committed))) continue;
-			const result = await revertPaths(
-				runtime,
-				ctx,
-				review,
-				view.plan.paths.map((entry) => entry.path),
-			);
-			if (result.kind === "error") {
-				ctx.ui.notify(result.message, "error");
-				return;
-			}
-			if (result.kind === "empty") {
-				ctx.ui.notify(formatReviewRevertText(result.summary, 0), "info");
-				return;
-			}
-			ctx.ui.notify(formatReviewRevertText(result.summary, result.next.entries.length), "info");
-			view = result.next;
-			selected = [];
-			index = Math.min(index, view.entries.length - 1);
+			const paths = view.plan.paths.map((entry) => entry.path);
+			if (settleRevert(await revertPaths(runtime, ctx, review, paths)) === "done") return;
 			continue;
 		}
 
@@ -268,19 +282,7 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 					? await confirmRevertOne(ctx, review, entries[0], safety, committed)
 					: await confirmRevertSelected(ctx, review, entries, safety, committed);
 			if (!approved) continue;
-			const result = await revertPaths(runtime, ctx, review, paths);
-			if (result.kind === "error") {
-				ctx.ui.notify(result.message, "error");
-				return;
-			}
-			if (result.kind === "empty") {
-				ctx.ui.notify(formatReviewRevertText(result.summary, 0), "info");
-				return;
-			}
-			ctx.ui.notify(formatReviewRevertText(result.summary, result.next.entries.length), "info");
-			view = result.next;
-			selected = [];
-			index = Math.min(index, view.entries.length - 1);
+			if (settleRevert(await revertPaths(runtime, ctx, review, paths)) === "done") return;
 			continue;
 		}
 
@@ -344,49 +346,20 @@ async function reviewLoop(runtime: RewindRuntime, ctx: ExtensionCommandContext, 
 				ctx.ui.notify(`Revert failed: ${messageOf(error)}`, "error");
 				continue;
 			}
-			try {
-				await runtime.setStatus(ctx);
-			} catch {
-				// The status chip is best-effort; a failed repaint must not report the
-				// revert itself as failed.
-			}
-
-			let refreshed: RefreshResult;
-			try {
-				refreshed = await refreshView(runtime, review.root, review.snapshot);
-			} catch (error) {
-				ctx.ui.notify(`Reverted, but could not refresh the review: ${messageOf(error)}`, "error");
-				return;
-			}
+			const refreshed = await refreshAfterMutation(runtime, ctx, review);
 			if (refreshed.kind === "error") {
 				ctx.ui.notify(refreshed.message, "error");
 				return;
 			}
-			if (refreshed.kind === "empty") {
-				ctx.ui.notify(formatHunkRevertText(entry.path, chosen.length, safetyId, 0), "info");
-				return;
-			}
-			ctx.ui.notify(formatHunkRevertText(entry.path, chosen.length, safetyId, refreshed.view.entries.length), "info");
-			view = refreshed.view;
-			selected = [];
-			index = Math.min(index, view.entries.length - 1);
+			const remaining = refreshed.kind === "ok" ? refreshed.view.entries.length : 0;
+			ctx.ui.notify(formatHunkRevertText(entry.path, chosen.length, safetyId, remaining), "info");
+			if (refreshed.kind === "empty") return;
+			adopt(refreshed.view);
 			continue;
 		}
 		if (decision !== "revert") continue;
 		if (!(await confirmRevertOne(ctx, review, entry, safety, committed))) continue;
-		const result = await revertPaths(runtime, ctx, review, [entry.path]);
-		if (result.kind === "error") {
-			ctx.ui.notify(result.message, "error");
-			return;
-		}
-		if (result.kind === "empty") {
-			ctx.ui.notify(formatReviewRevertText(result.summary, 0), "info");
-			return;
-		}
-		ctx.ui.notify(formatReviewRevertText(result.summary, result.next.entries.length), "info");
-		view = result.next;
-		selected = [];
-		index = Math.min(index, view.entries.length - 1);
+		if (settleRevert(await revertPaths(runtime, ctx, review, [entry.path])) === "done") return;
 	}
 }
 
