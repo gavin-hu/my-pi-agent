@@ -24,13 +24,13 @@ across `/resume` and `/tree`, and honest where a platform cannot deliver.
   three-OS CI, a shared `lib/tui/` design system, budgeted prompt context, and
   package-level guards that hold the docs, the catalog, the release window, and
   this file to the tree.
-- Recent releases through `0.14.0` cover the plan review browser, CNY/USD
-  pricing, inline text editing in `/bytefly settings`, the wider settings
-  catalogue, the config reference, and the re-checkable update cache. `0.13.0`
-  added subset rewind, the `wake` desktop alert, `/plan list`, the worktree
-  handoff block, isolation gaps named in the session, one reviewed publish path
-  with provenance, a Pi-compat job, and a long-session benchmark. An unreleased
-  Theme row adds `system` and the two shipped palettes to Settings.
+- Recent releases through `0.15.1` cover the plan review browser, CNY/USD
+  pricing, inline text editing and the Theme row in `/bytefly settings`, the
+  wider settings catalogue, the config reference, the re-checkable update cache,
+  live status on an open browse page, and faster directory listings and palette
+  search. `0.13.0` added subset rewind, the `wake` desktop alert, `/plan list`,
+  the worktree handoff block, isolation gaps named in the session, one reviewed
+  publish path with provenance, a Pi-compat job, and a long-session benchmark.
 
 ## How items are ordered
 
@@ -328,6 +328,19 @@ provenance-attested path. This section contributes no `Next` item.
   `web-access` pattern.
 - **F2 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
+- **F3 — One path canonicalization.** `realPathOfNearest` runs up to five times
+  per managed worktree — in `status.ts`, twice inside `registry.ts`, and once in
+  `worktree/git.ts` — each a sync ancestor walk to answer a question the layer
+  above already answered. Canonicalize once and carry the path down, which means
+  changing what `listManagedWorktrees` and `statusOf` take. Deferred from the
+  performance pass because the contract change is wider than the saving.
+- **F4 — Split the browse listing out of `files.ts`.** At 564 of the 600-line
+  bar, `extensions/file-browse/files.ts` still holds classification, Markdown
+  detection, text reads, listings, and the sidebar tree. The split is a
+  behaviour-neutral move of the listing half into its own module; it is deferred
+  until the bar is reached, because today it is one file-browse-local module
+  under the limit, and doing it alongside feature work would mix a structural
+  move into an unrelated diff.
 
 ## Deliberately left thin
 
