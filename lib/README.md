@@ -64,9 +64,10 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
   one extension probes on another — live in `tool-names.ts`.
 - **A helper that exists here must be imported, not redefined.**
   `test/shared-helpers.test.ts` fails a top-level extension declaration whose
-  name is also exported by `lib/`, and a body copied from `lib/` or from another
-  extension. A deliberate wrapper goes on that test's reasoned exception list; a
-  copy belongs here with its declared capability suite.
+  name is also exported by `lib/`, and a body copied from `lib/` or from any
+  other file — a second extension, a sibling module, or `lib/` itself. A
+  deliberate wrapper goes on that test's reasoned exception list; a copy belongs
+  here with its declared capability suite.
 - **A color is a role, not a token.** The rules and the primitives are in
   [`tui/README.md`](./tui/README.md#color-is-a-role): draw through
   [`tui/tokens.ts`](./tui/tokens.ts) (`paint(theme, role, text)`) so a theme swap

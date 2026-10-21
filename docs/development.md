@@ -204,7 +204,9 @@ to its size so it can only shrink:
 
 - **One body, one owner** is `test/shared-helpers.test.ts`: an extension may not
   declare a helper `lib/` already exports, and a body identical to one in `lib/`
-  or in another extension is a copy. The two exception maps carry the reason a
+  or in any other file is a copy — two extensions, two modules of one extension,
+  and two `lib/` modules all count, and a copied `lib/` body is reported at the
+  copy rather than at the library. The two exception maps carry the reason a
   same-name wrapper is legitimate (a different shape, an injected seam), and the
   guard reads declarations through the TypeScript AST, so an annotated arrow or a
   nested helper is in scope. Its map sizes are pinned: a new copy is extracted,
