@@ -8,7 +8,15 @@
  * touched: all staging happens in a temporary index.
  */
 
-import { commitTree, currentBranch, revParse, treeFromWorkingTree, updateRef, GitError, type RunGit } from "./git.ts";
+import {
+	commitTree,
+	currentBranch,
+	treeFromWorkingTree,
+	updateRef,
+	GitError,
+	revParseMany,
+	type RunGit,
+} from "./git.ts";
 import { encodeMessage, refFor, META_VERSION, type SnapshotMeta } from "./store.ts";
 import type { Snapshot, SnapshotReason } from "./types.ts";
 
@@ -44,11 +52,12 @@ function defaultId(now: number): string {
 /** Point a ref at the current working tree and return the recorded snapshot. */
 export async function createSnapshot(deps: SnapshotDeps, input: SnapshotInput): Promise<Snapshot> {
 	const { runGit } = deps;
-	const head = await revParse(runGit, input.root, "HEAD");
-	if (!head) throw new GitError("the repository has no commits to snapshot.", 1);
+	// One `rev-parse` for both ids: the snapshot needs HEAD to parent the commit
+	// and HEAD's tree to know whether the working tree is clean.
+	const [head, headTree] = await revParseMany(runGit, input.root, ["HEAD", "HEAD^{tree}"]);
+	if (!head || !headTree) throw new GitError("the repository has no commits to snapshot.", 1);
 
 	const tree = await treeFromWorkingTree(runGit, input.root, input.indexFile, input.includeUntracked);
-	const headTree = await revParse(runGit, input.root, "HEAD^{tree}");
 	const clean = tree === headTree;
 
 	const now = deps.now?.() ?? Date.now();

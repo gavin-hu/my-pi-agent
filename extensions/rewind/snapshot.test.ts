@@ -106,6 +106,30 @@ describe.skipIf(!runSlowSuites)("createSnapshot", () => {
 		expect(tree).not.toBe("4b825dc642cb6eb9a060e54bf8d69288fbee4904");
 	});
 
+	test("reads both ids and writes the snapshot in six git calls", async () => {
+		const fresh = await makeRepo("pi-rw-snap-calls-");
+		cleanups.push(fresh);
+		const calls: string[][] = [];
+		const counting: typeof runGit = (args, options) => {
+			calls.push(args);
+			return runGit(args, options);
+		};
+
+		const snapshot = await createSnapshot(
+			{ runGit: counting, now: () => 7000, idFactory: () => "t-calls" },
+			snapshotInput(fresh),
+		);
+
+		// One `rev-parse` for HEAD and its tree, then stage, tree, branch, commit,
+		// ref. A seventh call means the two ids were asked for separately again.
+		expect(calls).toHaveLength(6);
+		expect(calls.filter((args) => args[0] === "rev-parse")).toHaveLength(2);
+		expect(snapshot.clean).toBe(true);
+		expect(snapshot.branch).toBe("main");
+		const tree = (await runGit(["rev-parse", `${snapshot.commit}^{tree}`], { cwd: fresh })).stdout.trim();
+		expect(tree).toBe((await runGit(["rev-parse", "HEAD^{tree}"], { cwd: fresh })).stdout.trim());
+	});
+
 	test("refuses a repository with no commits", async () => {
 		const empty = await makeRepo("pi-rw-empty-");
 		cleanups.push(empty);

@@ -41,6 +41,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `rewind`: the busy-git check and the snapshot's two revision ids now cost one
+  git call each instead of six and two, so a restore and the snapshot taken
+  before a prompt's first write start sooner. What they report is unchanged. No
+  tool, parameter, or config key changed.
+
 - `file-browse`: a directory listing now reads its entries through a bounded
   pool instead of one `stat` in turn, reads only the rows it shows, and walks the
   current directory once per page instead of twice, so a large directory fills
