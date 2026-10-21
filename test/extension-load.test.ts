@@ -39,9 +39,13 @@ const manifest: string[] = JSON.parse(readFileSync(join(root, "package.json"), "
 
 /** Every directory under `extensions/`, as a manifest entry. */
 function declaredFromDisk(): string[] {
+	return extensionNames().map((name) => `./extensions/${name}/index.ts`);
+}
+
+/** Every directory under `extensions/`, by name. */
+function extensionNames(): string[] {
 	return readdirSync(join(root, "extensions"))
 		.filter((name) => statSync(join(root, "extensions", name)).isDirectory())
-		.map((name) => `./extensions/${name}/index.ts`)
 		.sort();
 }
 
@@ -68,6 +72,14 @@ describe("extension manifest", () => {
 	test("points every entry at a file that exists", () => {
 		const missing = manifest.filter((entry) => !existsSync(join(root, entry)));
 		expect(missing).toEqual([]);
+	});
+
+	test("names every extension directory in the description", () => {
+		const { description = "" } = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as {
+			description?: string;
+		};
+		const missing = extensionNames().filter((name) => !description.includes(name));
+		expect(missing, "package.json description does not name these extensions").toEqual([]);
 	});
 });
 
