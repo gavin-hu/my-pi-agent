@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
-import { settle } from "../../test/helpers/process.ts";
+import type { ArmTimer } from "../../lib/timer.ts";
+import { settle, waitFor } from "../../test/helpers/process.ts";
 import {
 	formatFeedback,
 	MAX_ANNOTATIONS,
@@ -215,7 +216,16 @@ describe("createPlanWebReview", () => {
 
 	test("a reload that reconnects inside the grace does not cancel the review", async () => {
 		const { store } = fakeStore("# Plan\n");
-		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, dropGraceMs: 40 });
+		// The grace is a timer, so the test owns it: a real deadline of a few tens of
+		// milliseconds fails on a loaded runner, which says nothing about the code.
+		let armed: (() => void) | undefined;
+		const schedule: ArmTimer = (_ms, fn) => {
+			armed = fn;
+			return () => {
+				if (armed === fn) armed = undefined;
+			};
+		};
+		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, schedule });
 		const session = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
 		const events = `http://127.0.0.1:${session.port}/events?token=tok`;
 
@@ -225,16 +235,25 @@ describe("createPlanWebReview", () => {
 		expect(page.status).toBe(200);
 		await page.body?.getReader().read();
 		first.abort();
-		await settle(10);
+		await waitFor(() => armed !== undefined);
+
+		// A dropped stream is a question with a deadline, not a decision.
+		const pending = armed;
+		expect(pending).toBeDefined();
 
 		const second = new AbortController();
 		expect((await fetch(events, { signal: second.signal })).status).toBe(200);
+		await waitFor(() => armed === undefined);
 
-		const outcome = await Promise.race([session.done.then(() => "settled"), settle(120).then(() => "pending")]);
+		// The reload got in: the grace that was armed for the first stream is gone.
+		pending?.();
+		const outcome = await Promise.race([session.done.then(() => "settled"), settle(20).then(() => "pending")]);
 		expect(outcome).toBe("pending");
 
 		// Closing the tab for real is a drop nobody answers.
 		second.abort();
+		await waitFor(() => armed !== undefined);
+		armed?.();
 		expect((await session.done).status).toBe("cancelled");
 	});
 
