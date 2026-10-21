@@ -1,0 +1,127 @@
+/**
+ * The `write_plan` tool registration.
+ *
+ * The cap refusal happens before the file is written, so approval never lists a
+ * step it cannot track; the store owns naming, containment, and atomicity.
+ */
+
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type, type Static } from "typebox";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { rejectionLine, reuseCallText, toolCallTitle } from "../../../lib/tui/tool.ts";
+import { overCap, stepElisionNote } from "../format.ts";
+import { WRITE_PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
+import { MAX_STEPS, PLAN_OUTLINE, planStepSummary } from "../steps.ts";
+import type { WritePlanDetails } from "../types.ts";
+
+const WritePlanParams = Type.Object({
+	title: Type.String({
+		description: 'Short title for the plan, used as the file-name slug, e.g. "Add rate limiting".',
+	}),
+	content: Type.String({
+		description: "The complete plan as markdown in the documented outline, including every step.",
+	}),
+	plan_path: Type.Optional(
+		Type.String({
+			description:
+				"Overwrite an existing plan file (one returned by an earlier write_plan) to refine it instead of creating a new file.",
+		}),
+	),
+});
+
+type WritePlanArgs = Static<typeof WritePlanParams>;
+
+export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void {
+	pi.registerTool({
+		name: WRITE_PLAN_TOOL,
+		label: "Write plan",
+		description:
+			"Save the plan you designed as a markdown file under .pi/plans (project root, or the agent directory outside a " +
+			"repository). Write the complete plan, not a summary, in this outline so it is consistent and scannable:\n\n" +
+			`${PLAN_OUTLINE}\n\n` +
+			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining. " +
+			`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it cannot track.`,
+		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
+		promptGuidelines: [
+			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
+		],
+		parameters: WritePlanParams,
+		defaultActive: false,
+		executionMode: "sequential",
+		// destructiveHint is true because plan_path overwrites an existing plan
+		// file; a plain write creates a new one.
+		annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			if (!runtime.isEnabled()) {
+				return {
+					content: [{ type: "text", text: "Not in plan mode; call enter_plan_mode first." }],
+					details: undefined,
+					isError: true,
+				};
+			}
+			const args = params as WritePlanArgs;
+			const summary = planStepSummary(args.content);
+			if (summary.total > MAX_STEPS) {
+				// Refuse before writing: a note after the fact arrives once the file exists and
+				// the review has listed every step, so the overflow is already lost.
+				return {
+					content: [
+						{
+							type: "text",
+							text: `${overCap(summary.total)} Nothing was written; group the steps (one outcome each, sub-bullets for detail) and call write_plan again.`,
+						},
+					],
+					details: undefined,
+					isError: true,
+				};
+			}
+			try {
+				const file = await runtime.plans.write(ctx.cwd, {
+					title: args.title,
+					content: args.content,
+					planPath: args.plan_path,
+				});
+				runtime.setLastPlan(ctx, file.path);
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
+						},
+					],
+					details: { path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
+				};
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return {
+					content: [{ type: "text", text: `Could not write the plan: ${message}` }],
+					details: undefined,
+					isError: true,
+				};
+			}
+		},
+
+		renderCall(args, theme, context) {
+			const text = reuseCallText(context?.lastComponent);
+			const title = (args as Partial<WritePlanArgs>).title;
+			const suffix = title ? paint(theme, "meta", sanitizeLine(title)) : paint(theme, "meta", "plan");
+			text.setText(toolCallTitle(theme, `${WRITE_PLAN_TOOL} `) + suffix);
+			return text;
+		},
+
+		renderResult(result, options, theme, context) {
+			const text = reuseText(context?.lastComponent);
+			const details = toolDetails<WritePlanDetails>(result.details);
+			if (!details) {
+				text.setText(rejectionLine(theme, result, options.expanded));
+				return text;
+			}
+			text.setText(paint(theme, "ok", `${GLYPHS.check} Saved plan `) + paint(theme, "meta", details.relativePath));
+			return text;
+		},
+	});
+}

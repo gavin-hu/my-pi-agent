@@ -615,9 +615,11 @@ file and returns them to the model.
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, and the checkbox edit. |
+| `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
 | `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`. |
 | `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), control-tool identity, footer status. |
-| `tools.ts` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps`: schemas, results, transcripts, and the approval-time todo seed. |
+| `tools.ts` | Registration entry: composes the four tool registrations in the order the session sees them. |
+| `tools/` | One module per tool (`enter.ts`, `write.ts`, `exit.ts`, `steps.ts`), plus `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, approve/refine/browser/keep). |
