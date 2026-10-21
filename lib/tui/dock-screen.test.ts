@@ -202,6 +202,14 @@ function frame(screen: { render(width: number): string[] }, width = 60): string[
 }
 
 describe("DockListScreen", () => {
+	test("does not answer Pi's focus check, so the host never assigns the flag", () => {
+		// `isFocusable` is `"focused" in component`, and TUI then writes
+		// `component.focused = true`: a read-only accessor under that name throws on
+		// the way back to the editor. The screen's own selection is `focusedRow`.
+		const screen = new StubScreen(rows());
+		expect("focused" in screen).toBe(false);
+	});
+
 	test("draws the title rule, the summary, the rows, a focus block, and the hint", () => {
 		const screen = new StubScreen(rows());
 		const lines = frame(screen);

@@ -136,8 +136,16 @@ export abstract class DockListScreen<T> implements Component {
 		return this.options.theme;
 	}
 
-	/** The row under the cursor, if any. */
-	protected get focused(): T | undefined {
+	/**
+	 * The row under the cursor, if any.
+	 *
+	 * Not named `focused`: Pi's `Focusable` check is `"focused" in component`, and a
+	 * component that answers it is handed the focus flag by assignment
+	 * (`component.focused = true`). A read-only accessor under that name throws a
+	 * `TypeError` on the way back to the editor and takes the process with it. This
+	 * screen paints its own selection marker and needs no hardware cursor.
+	 */
+	protected get focusedRow(): T | undefined {
 		const rows = this.rows();
 		return rows[this.cursor.indexOf(rows, (row) => this.idOf(row))];
 	}
@@ -229,7 +237,7 @@ export abstract class DockListScreen<T> implements Component {
 	}
 
 	private openDetail(): void {
-		const row = this.focused;
+		const row = this.focusedRow;
 		if (!row) return;
 		const contents = this.detailFor(row);
 		this.mode = "detail";
@@ -274,7 +282,7 @@ export abstract class DockListScreen<T> implements Component {
 			this.openDetail();
 			return;
 		}
-		this.handleVerb(data, this.focused);
+		this.handleVerb(data, this.focusedRow);
 	}
 
 	private handleConfirmKey(data: string): void {

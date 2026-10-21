@@ -137,7 +137,7 @@ export class PathPickerComponent extends ChecklistScreen<Row> {
 
 	/** What the focused row will do, in words. */
 	protected detailLines(width: number): string[] {
-		const row = this.focused;
+		const row = this.focusedRow;
 		if (!row) return [];
 		const text =
 			row.kind === "group"

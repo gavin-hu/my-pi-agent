@@ -298,6 +298,24 @@ describe("source conventions", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	test("a component that answers Pi's focus check can be assigned the flag", () => {
+		// Pi's `isFocusable` is `"focused" in component`, and TUI then writes
+		// `component.focused = true` when focus moves. A read-only accessor under that
+		// name crashes the process on the way back to the editor, so declaring it means
+		// declaring both halves — or naming the getter for what it actually returns.
+		const offenders: string[] = [];
+		for (const dir of SCANNED_DIRS) {
+			for (const file of sourceFiles(dir)) {
+				const text = readFileSync(file, "utf-8");
+				if (!/\bget focused\s*\(/.test(text) || /\bset focused\s*\(/.test(text)) continue;
+				offenders.push(
+					`${file.slice(repo.length + 1)}: declares a getter-only \`focused\`; Pi assigns that flag, so add a setter or rename the getter`,
+				);
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+
 	test("a module over the line bar states the responsibility that keeps it whole", () => {
 		const offenders: string[] = [];
 		for (const root of [extensionsDir, libDir]) {
