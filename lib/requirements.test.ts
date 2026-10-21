@@ -5,7 +5,6 @@ import {
 	canDeliver,
 	hardRequirementExtensions,
 	missingFindings,
-	pdfGuidance,
 	PROBE_CONCURRENCY,
 	probeAll,
 	probeExtension,
@@ -13,6 +12,7 @@ import {
 	type ProbeSeams,
 } from "./requirements.ts";
 import type { WebSearchProviderEvent } from "./events.ts";
+import { pdfGuidance } from "./pdf.ts";
 
 /** The directories the seams resolve against, and the paths they produce. */
 const AGENT_DIR = "/agent";

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_FETCH_CONFIG } from "./config.ts";
 import type { HttpResponse, HttpRunner } from "../http.ts";
 import { runFetch } from "./page.ts";
-import type { PdfExtractor } from "./pdf.ts";
+import type { PdfExtractor } from "../../../lib/pdf.ts";
 import type { FetchRequest } from "./types.ts";
 
 const config = { ...DEFAULT_FETCH_CONFIG, timeoutMs: 5000 };

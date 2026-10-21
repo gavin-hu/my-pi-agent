@@ -371,7 +371,7 @@ the content type and size.
 | `fetch/page.ts` | Fetch + redirect-following + content-type routing |
 | `fetch/ssrf.ts` | URL/host validation and private-address blocking |
 | `fetch/extract.ts` | HTML → title + readable text |
-| `fetch/pdf.ts` | Optional PDF text extraction via lazy `unpdf` (injected via `FetchDeps`) |
+| `fetch/page.ts` | Fetch + redirect-following + content-type routing; PDF extraction is injected via `FetchDeps` from the shared `lib/pdf.ts` |
 | `fetch/find.ts` | Passage search (exact/insensitive/fuzzy) |
 | `fetch/cache.ts` | Per-registration LRU/TTL page cache (`createPageCache`) |
 | `fetch/format.ts`, `fetch/types.ts` | Result text and data types |

@@ -17,6 +17,7 @@
 import { join } from "node:path";
 import { configSection, configValueAt, type JsonReadResult, SHARED_CONFIG_FILE } from "./config.ts";
 import type { WebSearchProviderEvent } from "./events.ts";
+import { pdfGuidance } from "./pdf.ts";
 import { getPiInvocation, type PiInvocation } from "./pi-invocation.ts";
 
 /** How a check came out. Only `missing` is worth interrupting a session for. */
@@ -165,19 +166,6 @@ export interface ExtensionReport {
 	extension: string;
 	enabled: boolean;
 	findings: Finding[];
-}
-
-// --- Install guidance -------------------------------------------------------
-//
-// Moved here from the extensions that raise it, so `doctor` and the tool error
-// say the same thing. Formatting only: no extension-specific logic.
-
-/** Install command for the optional PDF extractor package. */
-const UNPDF_INSTALL = "npm i unpdf";
-
-/** Model-facing guidance when the optional `unpdf` package is absent. */
-export function pdfGuidance(): string {
-	return `PDF extraction requires the optional 'unpdf' package (${UNPDF_INSTALL}).`;
 }
 
 // --- The table --------------------------------------------------------------
