@@ -19,6 +19,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the entry READMEs state the pack's size in digits, and
+  `test/extension-load.test.ts` checks every count a page states — extensions,
+  tools, skills, themes — against what actually loads and ships, in both entry
+  READMEs and the user guide, instead of only the guide's two numbers.
+
 - `worktree`: `/worktree status` and `list_worktrees` gather the managed
   worktrees' git status a few at a time instead of one after another, roughly
   halving the wait with five of them; the rows, their order, and their marks are

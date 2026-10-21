@@ -73,10 +73,9 @@ Then, from inside Pi:
 - `/bytefly [extension] [refresh]` opens the control center on Extensions, lists
   every loaded extension with its runtime health, enables or disables one, and
   clears a project override with `x`.
-- `/bytefly settings` opens the control center's Settings section: ten groups
-  covering startup, notifications, diagnostics, pricing, transcript, terminal,
-  worktree, snapshots, jobs, and memory, plus a **Theme** row, with
-  `Space`/`Enter` to change a value and `Tab` for Global/Project scope.
+- `/bytefly settings` opens the control center's Settings section: the curated
+  settings, grouped by area, plus a **Theme** row, with `Space`/`Enter` to change
+  a value and `Tab` for Global/Project scope.
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —
   `run_doctor`'s text — and checks that each enabled extension has what it needs
   at runtime.
@@ -94,9 +93,8 @@ Nothing about the session is sent, and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-Seventeen extensions and two packaged skills, grouped by what you are trying to
-do, plus two themes. Each extension's own `README.md` has the full tool and
-command surface.
+17 extensions, 2 packaged skills, and 2 themes, grouped by what you are trying
+to do. Each extension's own `README.md` has the full tool and command surface.
 
 ### Plan and delegate
 
