@@ -10,68 +10,59 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `bytefly`: the Settings screen now has a **Theme** row that lists `system`
-  first, then the two palettes this package ships, `bytefly-dark` and
+- `bytefly`: the Settings screen gains a **Theme** row listing `system` first,
+  then the two palettes this package ships, `bytefly-dark` and
   `bytefly-light`. It writes Pi's personal `theme` setting and applies after
   reload; Pi's built-ins, other packages' themes, and automatic light/dark pairs
   stay in Pi's `/settings`.
 
-- `file-browse`: the sidebar tree gains a `fold all` / `expand all` control and
-  a `-` shortcut, so a deep tree folds down to its top level in one keystroke.
-  A path filter still shows every folder, so a folded branch cannot hide a
-  match, and clearing the filter restores the tree exactly as it was.
+- `file-browse`: the sidebar tree gains a `fold all` / `expand all` control and a
+  `-` shortcut, so a deep tree folds down to its top level in one keystroke. A
+  path filter still shows every folder, and clearing the filter restores the tree
+  exactly as it was.
 
 - `file-browse`: rendered Markdown accepts a sanitized subset of raw HTML, so a
   README's `<details>`/`<summary>`, `<img>`, `<kbd>`, and hand-written tables
-  display instead of showing as source. Only allowlisted elements and
-  attributes are re-emitted (no `script`, `style`, `svg`, event handlers,
-  `style=`, or `class=`), open elements are balanced so a stray tag cannot
-  swallow the page, and `markdownHtml: false` restores escape-only rendering.
-
-- docs: [`docs/user-guide/`](./docs/user-guide/) is an eight-chapter end-user
-  manual with a guide home, getting started, plan and delegate, keep work safe,
-  web and files, WeChat, settings, troubleshooting, and reference. Each chapter
-  carries task-focused walkthroughs, key tables, limits, and cross-links; the
-  single-page `docs/user-guide.md` is removed and every reference is repointed.
+  display instead of showing as source. Only allowlisted elements and attributes
+  are re-emitted (no `script`, `style`, `svg`, event handlers, `style=`, or
+  `class=`), open elements are balanced so a stray tag cannot swallow the page,
+  and `markdownHtml: false` restores escape-only rendering.
 
 - `rewind`: `/review` opens the latest prompt's snapshot diff as a changed-file
-  list with `M`/`A`/`D` marks and line counts, shows a scrollable per-file patch,
-  and reverts selected files or the whole turn through the existing safety
-  snapshot. `Space` selects, `a`/`n` select all or none, `r` reverts the
-  selection (or the focused file), and `R` reverts all; a selected batch is one
-  restore and one safety snapshot. When the working tree matches HEAD, the list
-  and confirmations say the changes are already committed and that a revert
-  leaves the commits in place. The actions are TUI-only; other modes print the
-  changed-path list, and plan mode refuses until the plan is approved.
+  list with `M`/`A`/`D` marks and line counts, a scrollable per-file patch, and a
+  revert of the selection or the whole turn through the existing safety snapshot:
+  `Space` selects, `a`/`n` select all or none, `r` reverts the selection,
+  `R` reverts all, and a selected batch is one restore and one safety snapshot.
+  When the working tree matches HEAD, the list and confirmations say the changes
+  are already committed and that a revert leaves the commits in place. The
+  actions are TUI-only; other modes print the changed-path list, and plan mode
+  refuses until the plan is approved.
 
-- `check`: `/check` detects a project's test, lint, or typecheck command (or
-  takes `check.command`), streams the run, and opens a navigable `file:line`
-  failure list with a per-failure detail view. The `run_check` tool returns the
-  same failures as structured data. Detection covers package.json, Cargo, Go,
-  pytest, just, and Make; any other stack uses the config command. Runs are
-  bounded by a timeout and a log tail, plan mode refuses, and a parser miss falls
-  back to the bounded tail instead of inventing a location. The detail pane reads
-  a five-line source excerpt around a failure when the file is inside the project
-  and not binary or oversized; stack frames from Jest/Vitest, Java, and Python
-  now attach their `path:line` to the failure.
+- `rewind`: `h` in `/review`'s file patch opens a hunk checklist, and the
+  selection is one reverse patch and one pre-restore safety snapshot, so the rest
+  of the file stays as it is. Added, deleted, renamed, and binary files still
+  revert whole, and a file edited after its diff was read fails atomically
+  instead of applying stale context.
 
-- `rewind`: `/review` can revert chosen hunks of a modified text file. `h` in the
-  file's diff opens a hunk checklist; the selection is one reverse patch and one
-  pre-restore safety snapshot, so the rest of the file stays as it is. Added,
-  deleted, renamed, and binary files still revert whole, and a file edited after
-  its diff was read fails atomically instead of applying stale context.
-- `subagent`: a single run can start in the background and keep working after
-  the tool returns. `/agents` lists running and finished runs with status,
-  elapsed time, and usage; `Enter` opens a run, `c` collects a finished result
-  into the conversation, and `x` cancels a running one. Start and finish
-  records live on the session branch, so `/resume` shows finished runs and a
-  start without a finish as interrupted; `backgroundMax` bounds concurrent
-  children.
-- `subagent`: `/agents` follows a bounded live preview while a background run is
-  active, and a finished run no longer keeps the child's full result in memory;
-  collection still uses the bounded output.
-- `subagent`: a running background helper adds a `↳ N` footer chip, and a
-  finished, failed, or timed-out run posts a notice pointing at `/agents`.
+- `check`: `/check` detects a project's test, lint, or typecheck command (or takes
+  `check.command`), streams the run, and opens a navigable `file:line` failure
+  list with a per-failure detail view; the `run_check` tool returns the same
+  failures as structured data. Detection covers package.json, Cargo, Go, pytest,
+  just, and Make, and any other stack uses the config command. Runs are bounded
+  by a timeout and a log tail, plan mode refuses, and a parser miss falls back to
+  the bounded tail instead of inventing a location. The detail pane reads a
+  five-line source excerpt around a failure when the file is inside the project
+  and not binary or oversized, and Jest/Vitest, Java, and Python stack frames
+  attach their `path:line` to the failure.
+
+- `subagent`: a run can start in the background and keep working after the tool
+  returns. `/agents` lists running and finished runs with status, elapsed time,
+  and usage — `Enter` opens a run, `c` collects a finished result, `x` cancels —
+  follows a bounded live preview while a run is active, and a running helper adds
+  a `↳ N` footer chip. Start and finish records live on the session branch, so
+  `/resume` shows finished runs and a start without a finish as interrupted;
+  `backgroundMax` bounds concurrent children, and a finished, failed, or
+  timed-out run posts a notice pointing at `/agents`.
 
 - `goal`: a goal now has a phase. Recording a new one asks once whether to plan
   first; accepting enters plan mode and stores the objective as `planning`, which
@@ -81,11 +72,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   settles to `active` with its own wording, so the phase never gets stuck.
 
 - `plan`: approving a plan finalizes a `planning` session goal from the plan's
-  `## Goal` section (falling back to its title), without an extra dialog; a session
-  with no goal keeps the one confirm, and an `active` or `achieved` goal is never
-  rewritten. The plan-mode consent sentence now lives in `lib/plan-entry.ts` so
-  `goal` asks the same question, and `goal` enters plan mode through a
-  `pi.events` request instead of a duplicated dialog.
+  `## Goal` section (falling back to its title) without an extra dialog; a
+  session with no goal keeps the one confirm, and an `active` or `achieved` goal
+  is never rewritten.
 
 - `skills`: a model-invoked `refactor` skill audits a project or path for
   refactoring opportunities — duplication, oversized modules, coupling, drift,
@@ -95,285 +84,193 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   verified steps, and the full check.
 
 - `plan`: the packaged `init` skill is invoked as `/skill:init`. It reconnoiters
-  the repository, asks one built-in interview of at most
-  four questions (purpose, verification, rules, isolation, completion, sensitive
-  paths, and dependency or network limits, plus state-specific prompts), and turns
-  the answers and evidence into a draft or exact edits. Existing and empty
-  repositories are both supported; an unavailable or cancelled interview falls
-  back to evidence with recorded assumptions. The skill reviews an existing file
-  instead of replacing it, gates the draft through a quality checklist, and writes
-  only after the plan is approved.
+  the repository, asks one built-in interview of at most four questions (purpose,
+  verification, rules, isolation, completion, sensitive paths, and dependency or
+  network limits, plus state-specific prompts), and turns the answers and
+  evidence into a draft or exact edits. Existing and empty repositories are both
+  supported, an unavailable or cancelled interview falls back to evidence with
+  recorded assumptions, and the skill reviews an existing file instead of
+  replacing it — nothing is written until the plan is approved.
+
+- docs: [`docs/user-guide/`](./docs/user-guide/) is an eight-chapter end-user
+  manual — guide home, getting started, plan and delegate, keep work safe, web
+  and files, WeChat, settings, troubleshooting, and reference — with
+  task-focused walkthroughs, key tables, limits, and cross-links. The
+  single-page `docs/user-guide.md` is removed and every reference repointed.
 
 ### Changed
 
-- `bytefly`: the update surface now uses Pi's package manager as its only
-  detector. bytefly suppresses Pi's `Package Updates Available` block and posts
-  one themed notice listing every updateable configured package plus
+- `bytefly`: the update surface uses Pi's package manager as its only detector.
+  bytefly suppresses Pi's `Package Updates Available` block and posts one themed
+  notice listing every updateable configured package plus
   `pi update --extensions`; the header marker still shows only this package's new
-  version, and the version arrow and release URL remain. The 24-hour cache now
-  stores a project-scoped snapshot keyed by cwd and package sources, and
-  `/bytefly update` re-runs the check on demand. Unmanaged installs such as
-  `pi -e .` no longer get an update prompt.
+  version, and the version arrow and release URL remain. The 24-hour cache is a
+  project-scoped snapshot keyed by cwd and package sources, `/bytefly update`
+  re-runs the check on demand, and unmanaged installs such as `pi -e .` no longer
+  get an update prompt.
 
 - `bytefly`: the footer's group divider is a hardcoded `│` instead of the shared
   `╎`, so the status line reads as a divider while the transcript rail and
   `chrome.rail`'s default keep the dashed glyph.
 
-- dev: `bun run screenshots` crops Terminal's title bar off every capture. Its
-  last segment is the foreground process's argv, which no profile title switch
-  covers, so each image repeated the capture command's worktree path (and the
-  hero its proxy environment) and cut off mid-word. The `check-detail` screen is
-  new, and the job fixture prints `/home/u/repo` instead of the checkout that
-  happened to capture it.
+- `bytefly`: the footer prices a growing session in bounded time. The rate table
+  is compiled once per config instead of being re-split for every record, the
+  lookup remembers the model it just matched, the context estimate and session
+  name join the leaf-keyed memo, and a turn separator reuses its line instead of
+  rebuilding the full-width rule each frame. A 3,000-record branch with a 100-key
+  `rates` table cost about 200 ms per new message; it now costs fractions of a
+  millisecond.
+
+- `bytefly`: the proactive doctor check no longer holds the first prompt. Its
+  hard-requirement probes fire after `session_start` returns, and `run_doctor`
+  and the panel's refresh probe a few extensions at a time, so both answer in the
+  slowest probe's time rather than their sum.
 
 - `file-browse`: a rendered Markdown page fills the card instead of being the
   1012px scroll box itself, so the scroll bar sits at the card edge. Headings,
-  prose, and code keep a centred measure of at most 1012px. Tables
-  start at that column and take the free gutter to its right instead of
-  scrolling inside the measure, and a table wider than the pane fades its right
-  edge until scrolled to the end.
-
-- docs: the root README names the user guide as the manual — a positioning line
-  in the intro and a hand-off after the extension catalog, mirrored in
-  `README.zh-CN.md` — so a first-time reader reaches the walkthroughs without
-  scrolling to the documentation table.
-
-- docs: the configuration page absorbs the key reference. It opens with the two
-  scopes and the merge order, the settings screen, and a "what people usually
-  change" table, then carries every section and key the loaders accept with their
-  defaults. `docs/references/bytefly-config.md` is gone, and
-  `test/config-docs.test.ts` reads the one page.
-
-- docs: the user guide teaches the keys that interrupt, clear, expand, and leave
-  (`Esc`, `Ctrl+C`, `Ctrl+O`, `Ctrl+D`), names the `/bytefly settings` rows instead
-  of raw config keys, states that only DeepSeek's rates are built in, and covers an
-  expired WeChat login and a busy browser port in troubleshooting.
-
-- docs: the root `SECURITY.md` is removed. Its supported-version rule, private
-  reporting route, and what a report includes now live in `docs/security.md`, which
-  already owned the trust boundaries.
-
-- docs: the user guide opens with a five-minute tour and a per-feature index, and
-  its contents are grouped into five lines. It gains a glossary (including prompt,
-  turn, and model), a section on cost and what leaves the machine, and screenshots
-  through the guide — the transcript frame included. Two surprises are named
-  where they bite: a deleted memory note has no undo, and a busy browser port is
-  reported rather than re-picked.
-
-- dev: `bun run screenshots` gains a `transcript` screen and `assets/transcript.png`,
-  drawn from `renderTranscript()` so the frame carries no version string.
-
-- docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
-  contributor: five diagrams (the load path, an extension's anatomy, a turn, the
-  process shapes, and where new code belongs), the state stores, the three ways
-  extensions cooperate, and a reading tour. It explains the reasons and links the
-  normative docs instead of restating them.
-
-- docs: `docs/extensions.md` is removed. The grouped catalog in `README.md` is the
-  one surface list, and each `extensions/<name>/README.md` still carries the full
-  tool, command, and design detail. The two tests that read the catalog go with
-  it, so commands and flags are no longer checked against the docs; the tool
-  names stay pinned in `test/naming.test.ts`.
-
-- docs: `docs/getting-started.md` is folded into the user guide and removed. The
-  install routes (including the `@vX.Y.Z` pin), the fit decision, the
-  prerequisites, what an install changes, and removal now live in
-  [`docs/user-guide/`](./docs/user-guide/), which the entry READMEs and the
-  docs index link to; the footprint guard and the install-pin guard read the
-  guide instead.
-
-- `plan`: the injected plan-mode context states each rule once — the shell rule no
-  longer repeats the read-only summary, and the delegation bullet leaves "forced
-  read-only" to the line that already carries it — so a planning turn's always-on
-  context is about 110 characters smaller and its budget ceiling drops from 1100
-  to 960.
-
-- `bytefly`: the footer prices a growing session in bounded time. The rate table
-  is compiled once per config instead of being re-split for every record on every
-  appended entry, the lookup remembers the model it just matched, the context
-  estimate and session name join the pricing scan in the leaf-keyed memo, and a
-  turn separator reuses its line instead of rebuilding the full-width rule each
-  frame. A 3,000-record branch with a 100-key `rates` table cost about 200 ms per
-  new message before; it now costs fractions of a millisecond.
-
-- `bytefly`: the Settings JSON pane no longer reopens when the focus returns to
-  a row after moving to a Global-only row (Theme, startup TUI, output pad,
-  hardware cursor); closing it takes a `J`, as the key's own hint says.
-
-- `bytefly`: the proactive doctor check no longer holds the first prompt. Its
-  hard-requirement probes are fired after `session_start` returns, and
-  `run_doctor` and the panel's refresh probe a few extensions at a time instead
-  of one after another, so both answer in the slowest probe's time rather than
-  their sum.
-
-- dev: `bun run bench:render` also measures one re-price of a branch's usage
-  records — 500, 3,000, and 10,000 records, plus 3,000 against a 100-key rate
-  table — with a determinism gate in the suite.
-
-- docs: `ROADMAP.md` adds the three highest user-value candidates to `Next` —
-  a verification panel (`P1`), background delegation (`P2`), and turn review
-  (`S3`) — each with the gap it closes and a concrete acceptance condition, and
-  updates the promise ledger and the `Next` exit condition to match.
-
-- `goal`: `/goal` on a goal that is still being planned now names the phase's
-  exits — approve the plan to set the final goal, or leave plan mode to keep the
-  draft's wording — instead of showing it like a final objective.
-
-- `bytefly`: the panel's text-editing state machine and its frame/height
-  composition moved into `tui/editing.ts` and `tui/frame.ts`; the screen's keys
-  and output are unchanged. No tool, parameter, or config key changed.
-
-- `job`: `log-writer.ts` owns the per-job write stream, line split, rotation
-  queue, and the output-driven repaint window, leaving `runtime.ts` with the job
-  table, child handles, and status. No tool, parameter, or config key changed.
-
-- `plan`: `tools.ts` is now the registration entry; one module per tool lives
-  under `tools/`, with the approval-time todo seed and the nested-result reader
-  beside them, and the pure result text in `format.ts`. No tool, parameter, or
-  config key changed.
-
-- `lib`: `lib/todo-state.ts` now owns the todo item contract, its parser, and
-  one strict branch replay; a stored write that fails validation is ignored
-  whole instead of partially applied, so `todo`, `plan`, and `goal` read the
-  same list and a stored list is normalized before a merge. No tool, parameter,
-  or config key changed.
-
-- `lib`: one optional-PDF seam (`lib/pdf.ts`) replaces the two lazy `unpdf`
-  loaders in `web-access` and `document`; `web_fetch` and `read_doc` return the
-  same text as before. No tool, parameter, or config key changed.
-
-- `lib` / `job` / `watch`: `TailResult` and `boundedTail` replace the copied
-  transcript tail block and its two hand-built `… more` notes; `check`, `plan`,
-  and `todo` draw their overflow notes through the same hint helpers. No tool,
-  parameter, or config key changed.
-
-- `watch`: a command watcher's process lifecycle — the spawn, the SIGTERM →
-  SIGKILL grace, and the shutdown drain — is one module, `child.ts`, over the
-  injected spawn and tree-kill seams, instead of living inside the runtime's
-  closure. The escalation and the drain have their own tests; the runtime keeps
-  the status transitions, the repaint, and the clock. No tool action, parameter,
-  or config key changed.
-
-- `rewind`: `/review` folds a revert's outcome into its loop in one place
-  instead of three, and repaints and re-reads the tree after a mutation in one
-  helper instead of two. The partial restore, the changed-file list, and the
-  hunk checklist are now one checklist screen over the shared dock frame — the
-  cursor, `Space`/`a`/`n`/`Enter`, and the height math were spelled out in each
-  of the three — and each keeps only its rows, its detail block, and its words.
-  No key, command, or output text changed.
-
-- `check`: one recipe-detector factory replaces the `just` and `make` detectors
-  each spelling out the same manifest lookup, target mapping, and command
-  wording, so a third recipe runner is one registration. The four located
-  failure parsers share one builder for the path/line/column shape, and the two
-  dedupe passes share one key. No detected command, failure, tool, or config key
-  changed.
-
-- `wechat`: each control verb has one implementation and one message, so the
-  control screen's keys and the `/wechat stop|reset|pause|resume` subcommands
-  can no longer disagree — they already had, in the reset refusal and the pause
-  confirmation. The wechat bridge's rejected-response rule and its per-peer
-  timers are likewise one helper each, and a guard the bridge had already made
-  unreachable is gone. No command, parameter, or config key changed.
-
-- `lib`: one loopback HTTP layer (`lib/http`) replaces the copies `file-browse`
-  and `plan` each carried for the response shape, the page/script/JSON headers,
-  the `Host` and request-target helpers, the bind, the response writer, and the
-  idempotent close; and one shortcut sheet (`keysSheet`,
-  `keysDialogScript`) replaces the markup, CSS, and client wiring both pages
-  rendered. No route, command, or config key changed.
-
-- `lib`: `DockListScreen` gained four optional members — width-aware facts above
-  the pane, a live pane that re-reads its source each frame, an optional poll
-  source, and a verb that works inside the pane — plus per-rows and per-row hint
-  hooks. `job` and `watch` are unchanged; `/check`'s failure list and the
-  `/agents` board now subclass the base instead of re-assembling the frame.
+  prose, and code keep a centred measure of at most 1012px; tables start at that
+  column and take the free gutter to its right instead of scrolling inside the
+  measure, and a table wider than the pane fades its right edge until scrolled to
+  the end.
 
 - `file-browse`: the served pages refuse to be framed (`frame-ancestors 'none'`
   and `X-Frame-Options: DENY`, plus `base-uri 'self'` and `form-action 'none'`),
-  matching the review page, and the `?` shortcut sheet's header is now styled —
-  it emitted classes the browse stylesheet never defined.
+  matching the review page.
 
-- `subagent`: the `/agents` detail header names the run as its title with its
-  status and duration beneath, so it reads like the `/jobs` and `/watch` panes.
-
-- `lib`: one shared kit replaces four extensions' private copies — `spawn.ts`
-  (spawn, tree-kill, pid liveness), `lines.ts` (a byte-safe line splitter),
-  `format.ts`'s `sanitizeUntrustedLine`, `report.ts` (pending result → notice →
-  one wake turn), `tui/status-controller.ts`'s context and `notify`,
-  `tui/dock-screen.ts` (the `/jobs` and `/watch` screen body), and
-  `tui/confirm.ts` (the y/N layer). No tool, action, parameter, command, or
-  config key changed.
+- `goal`: `/goal` on a goal that is still being planned names the phase's exits —
+  approve the plan to set the final goal, or leave plan mode to keep the draft's
+  wording — instead of showing it like a final objective.
 
 - `check`: `run_check` draws its own transcript block — a status summary, up to
   five failure rows with an expand hint, and the bounded tail when nothing
   parses — instead of printing the model report, and shows a live elapsed line
   while the command runs. A failed run stays a normal result.
 
-- docs: the user guide gains a per-feature readiness matrix, a recovery choice
-  table, a central list of actions that discard work, an alphabetical command
-  index, and platform and terminal notes. The guide home now states the pack and
-  Pi versions it was checked against, and the release checklist bumps that
-  edition with the install pin.
+- `subagent`: the `/agents` detail header names the run as its title with its
+  status and duration beneath, so it reads like the `/jobs` and `/watch` panes.
 
-- test: `test/shared-helpers.test.ts` fails an extension that reimplements a
-  `lib/` export by name or copies a `lib/` or another extension's function body.
-  The exact copies it found are now shared: `asBoolean`, `optionalString`,
-  `stringList`, `lineOf`, and `clipLabel` in `lib/`, `messageOf` in `lib/errors.ts`,
-  and the rejected-call shape in `lib/tool-result.ts`. Legitimate same-name
-  wrappers are listed with reasons in the test.
+- `lib`: a stored todo write that fails validation is ignored whole instead of
+  partially applied, so `todo`, `plan`, and `goal` read the same list and a
+  stored list is normalized before a merge.
 
-- docs: `AGENTS.md` is rebuilt from the current guides and code as a leaner
-  machine-facing contract: commands, the worktree and commit discipline, the
-  release constraints, the invariants, and the extension-README section order,
-  with the reasoning linked instead of restated.
+- docs: the entry READMEs name the user guide as the manual — a positioning line
+  in the intro and a hand-off after the extension catalog, mirrored in
+  `README.zh-CN.md` — and the configuration page absorbs the key reference: the
+  two scopes and their merge order, the settings screen, and every section and
+  key the loaders accept with its default. `docs/references/bytefly-config.md` is
+  gone, and `test/config-docs.test.ts` reads the one page.
+
+- docs: the docs tree is one page per job. `docs/extensions.md` is removed, so
+  the grouped catalog in `README.md` is the one surface list and commands and
+  flags are no longer checked against the docs (tool names stay pinned in
+  `test/naming.test.ts`); `docs/getting-started.md` is folded into the user guide
+  and the install pin, footprint, and removal checks read it there; and the root
+  `SECURITY.md` moves to `docs/security.md`, which already owned the trust
+  boundaries.
+
+- docs: the user guide opens with a five-minute tour and a per-feature index,
+  teaches the keys that interrupt, clear, expand, and leave (`Esc`, `Ctrl+C`,
+  `Ctrl+O`, `Ctrl+D`), names the `/bytefly settings` rows instead of raw config
+  keys, says that only DeepSeek's rates are built in, and covers an expired WeChat
+  login and a busy browser port in troubleshooting. It gains a glossary, a section
+  on cost and what leaves the machine, a per-feature readiness matrix, a recovery
+  choice table, a central list of actions that discard work, an alphabetical
+  command index, platform and terminal notes, and screenshots through the guide —
+  the transcript frame included. Two surprises are named where they bite: a
+  deleted memory note has no undo, and a busy browser port is reported rather than
+  re-picked.
+
+- docs: [`docs/architecture.md`](./docs/architecture.md) is redesigned for a
+  contributor — five diagrams (the load path, an extension's anatomy, a turn, the
+  process shapes, and where new code belongs), the state stores, the three ways
+  extensions cooperate, and a reading tour — explaining the reasons and linking
+  the normative docs instead of restating them. `AGENTS.md` is rebuilt as a
+  leaner machine-facing contract: commands, the worktree and commit discipline,
+  the release constraints, the invariants, and the extension-README section
+  order.
+
+- dev: `bun run screenshots` crops Terminal's title bar off every capture. Its
+  last segment is the foreground process's argv, which no profile title switch
+  covers, so each image repeated the capture command's worktree path (and the
+  hero its proxy environment) and cut off mid-word. The run gains a `transcript`
+  screen and `assets/transcript.png`, drawn from `renderTranscript()` so that
+  frame carries no version string, and a new `check-detail` screen; the job
+  fixture prints `/home/u/repo` instead of the checkout that happened to capture
+  it.
 
 ### Removed
 
-- `file-browse`: the **On this page** outline is gone. Headings keep their
-  stable anchor ids, so in-document `#anchor` links still work.
+- `file-browse`: the **On this page** outline is gone. Headings keep their stable
+  anchor ids, so in-document `#anchor` links still work.
 
 - `plan`: the `/init` wrapper command is gone. Use `/skill:init` to start the
   packaged `init` skill; the skill enters plan mode itself.
 
 ### Fixed
 
-- `bytefly`, `plan`: the plan-mode chip uses `≡` instead of the vertical
-  ellipsis `⋮`, which read as a menu affordance rather than the open planning
-  artifact; the footer, the plan README, and the glyph vocabulary agree.
+- `bytefly`, `plan`: the plan-mode chip uses `≡` instead of the vertical ellipsis
+  `⋮`, which read as a menu affordance rather than the open planning artifact;
+  the footer, the plan README, and the glyph vocabulary agree.
 
 - `bytefly`: Windows toast notifications select the text node through
-  `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`,
-  which PowerShell 5.1 rejects with `BadEnumeration`. Delivery remains
-  best-effort and silent on failure.
+  `$nodes.Item(0)` instead of indexing the live WinRT node list with `[0]`, which
+  PowerShell 5.1 rejects with `BadEnumeration`. Delivery remains best-effort and
+  silent on failure.
+
 - `bytefly`: the Settings screen keeps the focused setting when `Tab` switches
   scope, names a Project default as `Default` instead of `Inherited from Global`,
-  and points an inherited value at the personal file rather than the project one.
-- `bytefly`: `u` on an inherited Project value says it is inherited instead of
-  claiming it is already at its default.
+  and points an inherited value at the personal file rather than the project one;
+  `u` on an inherited Project value says it is inherited instead of claiming it
+  is already at its default.
+
 - `bytefly`: the panel's scroll range counts selectable rows, so a clipped
-  Settings list reads its row count, not the entry count including group
-  headings.
-- `bytefly`: the JSON pane keeps the `Saved · reload to apply` marker, reports the
-  correct hidden-line count, and no longer advertises `J hide` on a Pi setting.
-- `bytefly`: clicking below the last body row no longer selects an off-screen row,
+  Settings list reads its row count rather than the entry count including group
+  headings; a click below the last body row no longer selects an off-screen row;
   and a short terminal drops the range, project note, or detail pane instead of
   overflowing the viewport.
+
+- `bytefly`: the JSON pane keeps the `Saved · reload to apply` marker, reports the
+  correct hidden-line count, no longer advertises `J hide` on a Pi setting, and
+  no longer reopens when focus returns to a row after a Global-only one (Theme,
+  startup TUI, output pad, hardware cursor).
+
 - `bytefly`: editing a long value scrolls the value to keep the caret visible and
   leaves the row label in place on a narrow terminal.
 
+- `bytefly`: the extension list marks only what needs attention. A clean or
+  unprobed row leaves the glyph column blank and says `ok` in words, so `✓` no
+  longer comes and goes between rows that are both fine.
+
+- `bytefly`: a value pasted into a Settings text row is stored as typed, because
+  the terminal's bracketed-paste markers are stripped first — a pasted
+  notification title no longer lands in `bytefly.json` as `[200~…[201~`.
+
+- `bytefly`: a rate key may name a model id that contains a slash, so an
+  OpenRouter model can be priced exactly by
+  `openrouter/anthropic/claude-fable-5` instead of only through `openrouter/*`. A
+  key splits at its first slash and the model segment keeps the rest.
+
+- `bytefly`: changing the footer currency writes the code and its default
+  precision in one document pass, so a write that cannot finish leaves neither
+  value behind instead of half-applying the row.
+
+- `bytefly`: a background update check that cannot run is no longer cached as
+  "everything is current" for 24 hours. It leaves the previous snapshot and the
+  header marker alone, and `/bytefly update` reports
+  `could not check package updates` instead of `up to date`.
+
 - `check`: the failure detail no longer prints the location line twice — the
-  pane's first line names the failure, so the header keeps the run's counts —
-  and its row budget was one short, which pushed the title rule off the top when
-  the excerpt was clipped.
+  pane's first line names the failure, so the header keeps the run's counts — and
+  its row budget was one short, which pushed the title rule off the top when the
+  excerpt was clipped.
 
 - `lib`: every docked list screen puts a blank line between the list and the
   focused row's footnotes, so `/check`'s failure excerpt no longer reads as a
   fourth failure and `/review`, `/rewind`, `/jobs`, `/watch` and the `/bytefly`
-  panel stop looking like they grew one more row. The frame owns that spacing
+  panel stop looking like they grew one more row; the frame owns that spacing
   through `detailBlockRows`, so a screen cannot size its body without counting
-  it. List rows accent the focused label as well — `/jobs` and `/watch` marked
-  the selection with the `❯` alone.
+  it. List rows accent the focused label as well, which `/jobs` and `/watch`
+  marked with the `❯` alone.
 
 - `lib`: the hint row colors a key by what it does — accent for the screen's
   primary action, warning for one that discards state. `/review`'s `R all`,
@@ -382,35 +279,33 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   dialog's Enter, and the log and match panes' Enter carry the accent.
 
 - `rewind`: `/review`'s change note no longer ends in the key hints the hint row
-  already shows; at 80 and 120 columns it was clipped mid-word and the line
-  below began with the same `r reverts`. `/agents` drops the footnote that
-  repeated the focused run's id, status, and elapsed time.
+  already shows, which at 80 and 120 columns was clipped mid-word with the same
+  `r reverts` on the line below; `/agents` drops the footnote that repeated the
+  focused run's id, status, and elapsed time.
 
-- `bytefly`: the extension list marks only what needs attention. A clean or
-  unprobed row leaves the glyph column blank and says `ok` in words, so `✓` no
-  longer comes and goes between rows that are both fine.
+- `file-browse`: a done task-list item draws the theme's success check instead of
+  the UA's disabled gray, and an open one a bordered empty box, so both states
+  read the same in light and dark.
 
-- `file-browse`: a done task-list item draws the theme's success check instead
-  of the UA's disabled gray, and an open one a bordered empty box, so both
-  states read the same in light and dark.
+- `wechat`: each control verb has one implementation and one message, so the
+  control screen's keys and the `/wechat stop|reset|pause|resume` subcommands can
+  no longer disagree — they already had, in the reset refusal and the pause
+  confirmation.
 
 - `plan`: ticking a step with `set_plan_steps` also ticks the todo item approval
-  seeded from it. Before, only the plan file changed, so the todo widget and the
-  goal's open-item check kept reporting work the plan said was done. The match is
-  on the step's text, so a renamed item is left alone and reported, and the file
-  stays authoritative when the nested write fails.
-
-- `plan`: `set_plan_steps` requires each update's `expected` step text. The
-  stale-step guard was opt-in, so an update that omitted it could tick the step
-  that moved into that number after an edit; a missing `expected` is now refused
-  by the tool's schema instead of silently skipping the check.
+  seeded from it, so the todo widget and the goal's open-item check stop
+  reporting work the plan says is done. The match is on the step's text, so a
+  renamed item is left alone and reported, and the file stays authoritative when
+  the nested write fails. Each update must also carry its `expected` step text:
+  an update that omitted it could tick the step that moved into that number after
+  an edit, and a missing `expected` is now refused by the tool's schema.
 
 - `goal`: `/goal done` names the todo items the list still has open, in the same
-  words the tool's result uses, so completing the *what* from the command cannot
-  silently leave the *how* unfinished.
+  words the tool's result uses, so completing the *what* cannot silently leave
+  the *how* unfinished.
 
-- `goal`: `/goal` argument completions match any case, as the parser already
-  did, so `/goal S` offers `set` instead of nothing.
+- `goal`: `/goal` argument completions match any case, as the parser already did,
+  so `/goal S` offers `set` instead of nothing.
 
 - `goal`: the `/goal <prompt>` confirm step no longer records its answer notes
   into the objective. The `Also: <question> → <answer>` lines sit below a
@@ -418,27 +313,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   records the restatement alone; folding an answer into the sentence above the
   line keeps it.
 
-- `bytefly`: a value pasted into a Settings text row is stored as typed. The
-  terminal's bracketed-paste markers are stripped first, so a pasted
-  notification title no longer lands in `bytefly.json` as `[200~…[201~`.
-
-- `bytefly`: a rate key may name a model id that contains a slash, so an
-  OpenRouter model can be priced exactly by
-  `openrouter/anthropic/claude-fable-5` instead of only through `openrouter/*`.
-  A key splits at its first slash; the model segment keeps the rest.
-
-- `bytefly`: changing the footer currency writes the code and its default
-  precision in one document pass, so a write that cannot finish leaves neither
-  value behind instead of half-applying the row.
-
-- `bytefly`: a background update check that cannot run is no longer cached as
-  "everything is current" for 24 hours. It leaves the previous snapshot and the
-  header marker alone, and `/bytefly update` reports `could not check package
-  updates` instead of `up to date`.
-
 - `rewind`: `/review` and the `/rewind` path checklist show a rename as one `R`
-  row, and reverting it recreates the old path and removes the new one. Before,
-  it was a `D` row and an `A` row, so reverting one left the pair half-applied.
+  row, and reverting it recreates the old path and removes the new one; before, it
+  was a `D` row and an `A` row, so reverting one left the pair half-applied.
   Rename detection is explicit (`-M`), so a `diff.renames=false` config cannot
   split the row again, and a case-only rename on a case-insensitive filesystem
   keeps the file instead of deleting it with the destination.
