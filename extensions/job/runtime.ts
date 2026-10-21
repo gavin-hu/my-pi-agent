@@ -1,10 +1,11 @@
 /**
  * Job runtime: the session-scoped job table and process lifecycle.
  *
- * Owns the in-memory `Job` map, live child handles, log streams, callbacks, and
- * the repaint clock, and composes the smaller pieces: `store.ts` (durable
- * registry), `logs.ts` (log tails), `status.ts` (exit-status recovery),
- * `ui.ts` (status chips), and `waiters.ts`.
+ * Owns the in-memory `Job` map, live child handles, callbacks, and the repaint
+ * clock, and composes the smaller pieces: `store.ts` (durable registry),
+ * `logs.ts` (log tails), `log-writer.ts` (the per-job stream, line split, and
+ * rotation), `status.ts` (exit-status recovery), `ui.ts` (status chips), and
+ * `waiters.ts`.
  *
  * Registry model: each session is the sole writer of its own
  * `registry-<hash>.json`. `load` merges every session's file and adopts the
@@ -18,18 +19,9 @@
  * twice and listeners/waiters are removed on cleanup.
  */
 
-import {
-	createWriteStream,
-	existsSync,
-	mkdirSync,
-	renameSync,
-	unlinkSync,
-	writeFileSync,
-	type WriteStream,
-} from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { LineSplitter } from "../../lib/lines.ts";
 import {
 	defaultKillTree,
 	defaultSpawn,
@@ -40,6 +32,7 @@ import {
 	type StdinSink,
 } from "../../lib/spawn.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
+import { createLogWriter, type LogHandle } from "./log-writer.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";
 import { compareJobs, formatLogs } from "./format.ts";
@@ -69,8 +62,6 @@ import { createWaiters } from "./waiters.ts";
 
 /** Characters of sanitized log sent to the model. */
 const LOG_MODEL_CHARS = 16 * 1024;
-/** Bytes held while a rotation swaps the log stream before writes resume. */
-const MAX_ROTATION_QUEUE_BYTES = 2 * 1024 * 1024;
 /** Default `wait` timeout. */
 const DEFAULT_WAIT_MS = 30_000;
 
@@ -133,24 +124,14 @@ export interface RuntimeOptions {
 }
 
 interface Handle {
-	stream?: WriteStream;
-	lines: LineSplitter;
+	/** The job's log: stream, line split, rotation, and the repaint window. */
+	log: LogHandle;
 	killTimer?: ReturnType<typeof setTimeout>;
 	timeoutTimer?: ReturnType<typeof setTimeout>;
 	/** The child's stdin pipe, present only for a job started with `stdin: true`. */
 	stdin?: StdinSink | null;
 	/** True once stdin was ended, or the child closed its end. */
 	stdinClosed?: boolean;
-	/** Chunks that arrived while the log stream was being swapped. */
-	queue: Buffer[];
-	/** Bytes currently in `queue`. */
-	queuedBytes: number;
-	/** True between ending the old stream and reopening the log. */
-	rotating: boolean;
-	/** Bytes dropped because a rotation could not keep up; reported by `logs`. */
-	droppedBytes: number;
-	/** Bytes written to the live segment, counted exactly as chunks arrive. */
-	logBytes: number;
 }
 
 export interface JobsRuntime {
@@ -213,7 +194,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	let sessionId = "session";
 	let disposed = false;
 	let clock: ReturnType<typeof setInterval> | undefined;
-	let lastPaint = 0;
 
 	/** Jobs this session owns (a dead session's adopted records included). */
 	const ownJobs = (): Job[] => [...jobs.values()].filter((job) => job.sessionId === sessionId);
@@ -414,16 +394,24 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (clean) job.lastLine = clean;
 	};
 
-	/** Clear a handle's timers, optionally close its log stream, and drop it. */
+	/** The per-job log sink: stream, line split, rotation, and the repaint window. */
+	const logWriter = createLogWriter({
+		now,
+		logPath: (job) => store.safeLogPath(job),
+		rotatedPath: (job) => store.safeRotatedLogPath(job),
+		maxBytes: () => config.maxLogBytes,
+		repaintMs: () => config.repaintMs,
+		onLine: recordLine,
+		onPaint: paint,
+	});
+
+	/** Clear a handle's timers, close its log stream, and drop it. */
 	const disposeHandle = (id: string, options: { endStream: boolean }): void => {
 		const handle = handles.get(id);
 		if (!handle) return;
 		if (handle.killTimer) clearTimeout(handle.killTimer);
 		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
-		// A rotation still in flight checks the handle map before reopening, so
-		// dropping the queue here cannot leak a reopened stream for a dead job.
-		handle.queue = [];
-		handle.queuedBytes = 0;
+		logWriter.dispose(handle.log, options);
 		// Release the stdin pipe so a child waiting on input sees EOF instead of a
 		// half-open pipe nobody can write to.
 		if (handle.stdin && !handle.stdinClosed) {
@@ -435,13 +423,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 		handle.stdin = null;
 		handle.stdinClosed = true;
-		if (options.endStream) {
-			try {
-				handle.stream?.end();
-			} catch {
-				// Already closed.
-			}
-		}
 		handles.delete(id);
 	};
 
@@ -449,105 +430,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const handle = handles.get(id);
 		const job = jobs.get(id);
 		if (!handle || !job) return;
-		writeChunk(handle, job, chunk);
-		for (const line of handle.lines.push(chunk)) recordLine(job, line);
-		const time = now();
-		if (time - lastPaint >= config.repaintMs) {
-			lastPaint = time;
-			paint();
-		}
-	};
-
-	const writeLog = (handle: Handle, chunk: Buffer): void => {
-		try {
-			handle.stream?.write(chunk);
-		} catch {
-			// A closed stream must not break output handling.
-		}
-		// Count what we handed the stream: `WriteStream.bytesWritten` only updates on
-		// its completion callback, which can lag a tick behind the file on disk.
-		if (handle.stream) handle.logBytes += chunk.length;
-	};
-
-	/** Buffer a chunk while the log stream is being swapped, dropping the oldest past the cap. */
-	const enqueue = (handle: Handle, chunk: Buffer, front = false): void => {
-		if (front) handle.queue.unshift(chunk);
-		else handle.queue.push(chunk);
-		handle.queuedBytes += chunk.length;
-		while (handle.queuedBytes > MAX_ROTATION_QUEUE_BYTES && handle.queue.length > 1) {
-			const dropped = handle.queue.shift();
-			if (!dropped) break;
-			handle.queuedBytes -= dropped.length;
-			handle.droppedBytes += dropped.length;
-		}
-	};
-
-	/**
-	 * Move the live segment aside, queueing `chunk` ahead of the backlog, and reopen.
-	 *
-	 * Returns false when no rotation can start (no stream, or a record whose log
-	 * paths do not validate), so the caller writes the chunk instead of stranding it
-	 * in a queue nothing will drain.
-	 *
-	 * The old stream is ended and its `close` awaited before the rename, because
-	 * Windows refuses to rename an open file; chunks that arrive in that window
-	 * are queued rather than written, so nothing lands in the renamed inode.
-	 */
-	const rotateLog = (handle: Handle, job: Job, chunk: Buffer): boolean => {
-		const stream = handle.stream;
-		const logPath = store.safeLogPath(job);
-		const rotated = store.safeRotatedLogPath(job);
-		if (!stream || !logPath || !rotated || handle.rotating) return false;
-		// This chunk precedes whatever queued while the previous segment was closing.
-		enqueue(handle, chunk, true);
-		handle.rotating = true;
-		stream.once("close", () => {
-			// A killed or cleared job drops its handle; never reopen for it.
-			if (handles.get(job.id) !== handle) return;
-			try {
-				if (existsSync(rotated)) unlinkSync(rotated);
-				renameSync(logPath, rotated);
-			} catch {
-				// A failed rename leaves the oversized segment in place; keep appending.
-			}
-			const reopened = createWriteStream(logPath, { flags: "a" });
-			reopened.on("error", () => {});
-			handle.stream = reopened;
-			handle.rotating = false;
-			handle.logBytes = 0;
-			drain(handle, job);
-		});
-		try {
-			stream.end();
-		} catch {
-			// Already ended.
-		}
-		return true;
-	};
-
-	/** Write one output chunk, rotating the segment first when it reached the cap. */
-	const writeChunk = (handle: Handle, job: Job, chunk: Buffer): void => {
-		if (handle.rotating) {
-			// Later than everything already queued.
-			enqueue(handle, chunk);
-			return;
-		}
-		const cap = config.maxLogBytes;
-		if (handle.stream && cap > 0 && handle.logBytes >= cap && rotateLog(handle, job, chunk)) return;
-		writeLog(handle, chunk);
-	};
-
-	/**
-	 * Replay the queue through `writeChunk` after a rotation, so a backlog that is
-	 * itself larger than the cap rotates again instead of filling one segment.
-	 */
-	const drain = (handle: Handle, job: Job): void => {
-		while (!handle.rotating && handle.queue.length > 0) {
-			const chunk = handle.queue.shift();
-			if (!chunk) break;
-			handle.queuedBytes -= chunk.length;
-			writeChunk(handle, job, chunk);
-		}
+		logWriter.write(handle.log, job, chunk);
 	};
 
 	const finalize = (id: string, code: number | null, signal: string | null): void => {
@@ -555,9 +438,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const job = jobs.get(id);
 		if (!handle || !job || job.status !== "running") return;
 		// Commit any buffered output, including a final line without a newline.
-		for (const line of handle.lines.flush()) recordLine(job, line);
+		for (const line of logWriter.flush(handle.log)) recordLine(job, line);
 		// A detached job keeps no parent stream; read its last line from the log.
-		if (!handle.stream) {
+		if (!handle.log.stream) {
 			const last = readLogTail(store.safeLogPath(job), 1).lines.at(-1);
 			if (last) job.lastLine = last;
 		}
@@ -636,7 +519,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		stopClock();
 		for (const id of [...handles.keys()]) disposeHandle(id, { endStream: true });
 		waiters.resolveAll();
-		lastPaint = 0;
 
 		// The durable registry is keyed by the session's own cwd, not the active
 		// worktree root: entering or leaving a worktree mid-session must not move it
@@ -767,11 +649,6 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		} catch {
 			// A missing directory was already handled by mkdirSync above.
 		}
-		let stream: WriteStream | undefined;
-		if (!detachOutput) {
-			stream = createWriteStream(logPath, { flags: "a" });
-			stream.on("error", () => {});
-		}
 		const job: Job = {
 			id,
 			label: sanitizeUntrustedLine((startOptions.label ?? "").trim()) || clipLabel(startOptions.command),
@@ -796,13 +673,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		};
 
 		const handle: Handle = {
-			stream,
-			lines: new LineSplitter(),
-			queue: [],
-			queuedBytes: 0,
-			rotating: false,
-			droppedBytes: 0,
-			logBytes: 0,
+			log: logWriter.create(detachOutput ? undefined : logPath),
 		};
 		if (wantsStdin) {
 			const sink = process_.stdin ?? null;
@@ -859,7 +730,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const formatted = formatLogs(job, all, LOG_MODEL_CHARS);
 		// A rotation that outran its drain drops the oldest queued chunks; say so once
 		// rather than letting the gap look like a program that skipped output.
-		const dropped = handles.get(id)?.droppedBytes ?? 0;
+		const dropped = handles.get(id)?.log.droppedBytes ?? 0;
 		const text = dropped > 0 ? `${formatted.text}\n… ${dropped} bytes dropped while the log rotated.` : formatted.text;
 		return {
 			job,
