@@ -1,28 +1,22 @@
 /**
- * Parameter schema and validation for the `todo` tool.
+ * Parameter schema for the `todo` tool.
  *
- * Everything here is pure: no host APIs, no terminal. Invalid input throws a
- * model-readable `Error` before any state changes, so the model can retry with
- * a corrected list instead of silently corrupting the list.
+ * The schema is the host-facing shape; the semantic validation and the branch
+ * replay live together in `lib/todo-state.ts`, so the tool, `plan`, and `goal`
+ * read the same rules. Invalid input still throws a model-readable `Error`
+ * before any state changes.
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
-import { sanitizeLine } from "../../lib/format.ts";
-import { TODO_STATUSES, type Todo, type TodoStatus } from "./types.ts";
-
-/** Maximum number of items in one list. */
-export const MAX_TODOS = 50;
-/** Maximum length of a single item's text. */
-export const MAX_CONTENT = 500;
+import { MAX_TODOS, TODO_STATUSES } from "../../lib/todo-state.ts";
 
 /**
  * One item in the tool's input and output schemas.
  *
  * The input schema (`TodoParams`) enforces `maxItems` and the status enum
- * before `execute` runs. `normalizeTodos` re-enforces both for branch replay
- * and direct unit use, and owns the semantic rules the schema cannot express
- * (one `in_progress`, unique non-empty content, content length).
+ * before `execute` runs; `normalizeTodos` in `lib/todo-state.ts` re-enforces
+ * both and owns the semantic rules the schema cannot express.
  */
 export const TodoItem = Type.Object({
 	content: Type.String({ description: "Imperative description of the task" }),
@@ -53,73 +47,3 @@ export const TodoResult = Type.Object({
 });
 
 export type TodoArgs = Static<typeof TodoParams>;
-
-const STATUS_SET: ReadonlySet<string> = new Set(TODO_STATUSES);
-
-function normalizeStatus(raw: unknown, index: number): TodoStatus {
-	const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-	if (STATUS_SET.has(value)) return value as TodoStatus;
-	throw new Error(`Todo ${index + 1}: status must be one of ${TODO_STATUSES.join(", ")}.`);
-}
-
-/** Options for {@link normalizeTodos}. */
-export interface NormalizeOptions {
-	/**
-	 * Require a non-blank `activeForm` on `in_progress` items. Live tool input
-	 * enforces this (the default); branch replay passes `false` so lists written
-	 * before the rule was added still load.
-	 */
-	requireActiveForm?: boolean;
-}
-
-/**
- * Validate and normalize the model's list.
- *
- * Content and `activeForm` are sanitized to a single safe line (see
- * `sanitizeLine`). Rejects an empty description, an unknown status, duplicate
- * content, an over-long field, more than one `in_progress` item, and — unless
- * `options.requireActiveForm` is `false` — an `in_progress` item without a
- * non-blank `activeForm`. `activeForm` is dropped when blank.
- */
-export function normalizeTodos(raw: unknown, options: NormalizeOptions = {}): Todo[] {
-	const requireActiveForm = options.requireActiveForm ?? true;
-	if (raw === undefined || raw === null) return [];
-	if (!Array.isArray(raw)) throw new Error("todos must be an array.");
-	if (raw.length > MAX_TODOS) throw new Error(`At most ${MAX_TODOS} todos are allowed.`);
-
-	const todos: Todo[] = [];
-	const seen = new Set<string>();
-	let inProgress = 0;
-
-	for (let i = 0; i < raw.length; i++) {
-		const item = (raw[i] ?? {}) as Partial<Todo>;
-		const content = typeof item.content === "string" ? sanitizeLine(item.content) : "";
-		if (!content) throw new Error(`Todo ${i + 1}: content is required.`);
-		if (content.length > MAX_CONTENT) {
-			throw new Error(`Todo ${i + 1}: content is longer than ${MAX_CONTENT} characters.`);
-		}
-
-		const key = content.toLowerCase();
-		if (seen.has(key)) throw new Error(`Todo ${i + 1}: duplicate content "${content}".`);
-		seen.add(key);
-
-		const status = normalizeStatus(item.status, i);
-		if (status === "in_progress") inProgress++;
-
-		const activeForm = typeof item.activeForm === "string" ? sanitizeLine(item.activeForm) : "";
-		if (activeForm.length > MAX_CONTENT) {
-			throw new Error(`Todo ${i + 1}: activeForm is longer than ${MAX_CONTENT} characters.`);
-		}
-		if (status === "in_progress" && requireActiveForm && !activeForm) {
-			throw new Error(
-				`Todo ${i + 1}: activeForm is required for an in_progress item (present-continuous, e.g. "Running tests").`,
-			);
-		}
-		todos.push(activeForm ? { content, status, activeForm } : { content, status });
-	}
-
-	if (inProgress > 1) {
-		throw new Error("At most one todo may be in_progress; mark the rest pending or completed.");
-	}
-	return todos;
-}

@@ -174,13 +174,17 @@ depends on config.
 - **Whole-list replacement, not mutations.** Every call is a snapshot, so
   `todos: []` is the natural clear and there is no "forgot to toggle" failure
   mode. No ids or per-item update actions exist.
-- **State in tool-result `details`.** `reconstructTodos` replays the active
-  branch and takes the last `todo` result, so `/resume` and `/tree` reproduce
-  the list for that point in history. `pi.appendEntry()` was rejected because a
-  side-channel list would not branch; error results are skipped as non-writes.
-- **Validation is pure and fail-safe.** `normalizeTodos` throws a
-  model-readable message, and the tool turns that into an `isError` result that
-  carries the *previous* list. A rejected call never half-applies.
+- **State in tool-result `details`.** `lib/todo-state.ts`'s `lastTodos` replays
+  the active branch and takes the last write that fully validates, so `/resume`
+  and `/tree` reproduce the list for that point in history. The same replay is
+  what `plan` and `goal` read, so there is one rule for which write is a state
+  write. `pi.appendEntry()` was rejected because a side-channel list would not
+  branch; error results are skipped as non-writes.
+- **Validation is pure and fail-safe.** The parser (`normalizeTodos` in
+  `lib/todo-state.ts`) throws a model-readable message, and the tool turns that
+  into an `isError` result that carries the *previous* list. A rejected call
+  never half-applies, and branch replay follows the same rule: a stored write
+  that fails validation is ignored whole rather than partially applied.
 - **One `in_progress` item, with a label.** The rule is validated, not silently
   coerced, so the model learns it from the error. The item must carry a
   non-blank `activeForm`; branch replay passes `{ requireActiveForm: false }`
@@ -210,10 +214,10 @@ depends on config.
   answer and never reopens that path. `nudged` caps it at one per user turn,
   `setTodos` clears the counters, and `context` drops the hidden message on the
   next user turn so it never accumulates.
-- **Content is sanitized at the boundary.** `normalizeTodos` replaces control
-  characters and collapses whitespace before the length and duplicate checks,
-  keeping `format.ts` free of terminal concerns and every surface to one row
-  per item.
+- **Content is sanitized at the boundary.** `normalizeTodos` in
+  `lib/todo-state.ts` replaces control characters and collapses whitespace
+  before the length and duplicate checks, keeping `format.ts` free of terminal
+  concerns and every surface to one row per item.
 - **The widget summarizes; full views keep the model's order.** The persistent
   widget is a single line (`currentTodo` picks the `in_progress` item, else the
   first pending); `/todos` keeps the submitted order, and the transcript result
@@ -234,8 +238,9 @@ depends on config.
 |---|---|
 | `index.ts` | Factory: wire the runtime, tool, command, reminder events, and session events. |
 | `types.ts` | `Todo`, `TodoStatus`, `TodoDetails`. |
-| `schema.ts` | TypeBox parameters and pure validation/normalization. |
-| `state.ts` | Branch reconstruction and status queries (pure). |
+| `types.ts` | `Todo` and `TodoDetails`; re-exports `TodoStatus` / `TODO_STATUSES` from `lib/todo-state.ts`. |
+| `schema.ts` | TypeBox parameters; the parser and limits live in `lib/todo-state.ts`. |
+| `state.ts` | Status queries over the replayed list (pure). |
 | `nudge.ts` | Lag detection: mutating and file-write classification, due check, reminder text (pure). |
 | `format.ts` | Model-facing and transcript text (pure). |
 | `tui.ts` | Widget and scrollable `/todos` components, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |

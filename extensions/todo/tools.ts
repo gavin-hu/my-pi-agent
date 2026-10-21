@@ -15,12 +15,13 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { normalizeTodos } from "../../lib/todo-state.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
-import { normalizeTodos, TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
+import { TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
 import { TodoResult as TodoResultView } from "./tui.ts";
 import type { Todo, TodoDetails } from "./types.ts";
 

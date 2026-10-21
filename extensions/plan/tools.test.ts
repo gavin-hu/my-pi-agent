@@ -550,7 +550,7 @@ describe("exit_plan_mode", () => {
 
 		expect(toolCalls[0].args).toEqual({
 			todos: [
-				{ content: "fix   the FLAKY test", status: "completed" },
+				{ content: "fix the FLAKY test", status: "completed" },
 				{ content: "Add a token bucket", status: "pending" },
 			],
 		});

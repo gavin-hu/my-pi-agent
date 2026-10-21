@@ -27,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: `lib/todo-state.ts` now owns the todo item contract, its parser, and
+  one strict branch replay; a stored write that fails validation is ignored
+  whole instead of partially applied, so `todo`, `plan`, and `goal` read the
+  same list and a stored list is normalized before a merge. No tool, parameter,
+  or config key changed.
+
 - `lib`: one optional-PDF seam (`lib/pdf.ts`) replaces the two lazy `unpdf`
   loaders in `web-access` and `document`; `web_fetch` and `read_doc` return the
   same text as before. No tool, parameter, or config key changed.
