@@ -3,14 +3,18 @@
  *
  * The bridge and the channel need a cancellable one-shot timer that a test can
  * drive without waiting (the delayed acknowledgement, the typing keep-alive, the
- * prompt timeout); that seam and its production default are in
- * [`lib/timer.ts`](../../lib/timer.ts), because plan's review page arms the same
- * kind of timer. Login needs an abortable sleep between polls, which is here.
+ * prompt timeout), and login needs an abortable sleep between polls; both seams
+ * and their production defaults are in [`lib/timer.ts`](../../lib/timer.ts),
+ * because job, watch, file-browse, plan, and web-access arm the same two. This
+ * module adds the per-key map those timers are held in.
  */
 
-import type { ArmTimer } from "../../lib/timer.ts";
+import { abortableSleep, type ArmTimer } from "../../lib/timer.ts";
 
 export { type ArmTimer, defaultTimer } from "../../lib/timer.ts";
+
+/** The shared abortable sleep, under the name the bridge and login already use. */
+export const defaultSleep = abortableSleep;
 
 /**
  * A set of one-shot timers keyed by a caller's id (a peer, a watcher).
@@ -67,23 +71,4 @@ export function createTimerMap(arm: ArmTimer): TimerMap {
 		},
 	};
 	return map;
-}
-
-/** An abortable sleep: resolves after `ms`, rejects when `signal` aborts. */
-export function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
-	return new Promise((resolve, reject) => {
-		if (signal?.aborted) {
-			reject(new Error("aborted"));
-			return;
-		}
-		const timer = setTimeout(() => {
-			signal?.removeEventListener("abort", onAbort);
-			resolve();
-		}, ms);
-		const onAbort = () => {
-			clearTimeout(timer);
-			reject(new Error("aborted"));
-		};
-		signal?.addEventListener("abort", onAbort, { once: true });
-	});
 }

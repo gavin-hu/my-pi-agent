@@ -8,6 +8,7 @@
  */
 
 import { messageOf } from "../../../lib/errors.ts";
+import { abortableSleep } from "../../../lib/timer.ts";
 import { createFetchRunner, type HttpRunner } from "../http.ts";
 import { resolveSearchApiKey, type WebSearchConfig } from "./config.ts";
 import { resolveProvider } from "./registry.ts";
@@ -40,24 +41,14 @@ export interface SearchDeps {
 /** A sleeper, injectable so throttle scheduling is testable without wall time. */
 type ThrottleSleep = (ms: number, signal?: AbortSignal) => Promise<void>;
 
-function delay(ms: number, signal: AbortSignal | undefined): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const finish = () => {
-			clearTimeout(timer);
-			signal?.removeEventListener("abort", onAbort);
-		};
-		const onAbort = () => {
-			finish();
-			reject(new WebSearchError("Search aborted."));
-		};
-		const timer = setTimeout(() => {
-			finish();
-			resolve();
-		}, ms);
-		if (signal?.aborted) return onAbort();
-		signal?.addEventListener("abort", onAbort, { once: true });
-	});
-}
+/** The shared abortable sleep, mapped to the one error this extension throws. */
+const delay: ThrottleSleep = async (ms, signal) => {
+	try {
+		await abortableSleep(ms, signal);
+	} catch {
+		throw new WebSearchError("Search aborted.");
+	}
+};
 
 /**
  * A stateful throttle that spaces requests by `minIntervalMs`. `now` and `sleep`

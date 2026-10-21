@@ -11,6 +11,7 @@
  * pair — so the whole feed is tested without one.
  */
 
+import { defaultInterval, defaultTimer } from "../../lib/timer.ts";
 import { changeDirs } from "./diff.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
 
@@ -145,18 +146,10 @@ export type LiveTimer = (tick: () => void, intervalMs: number) => () => void;
 export type LiveTimeout = (run: () => void, delayMs: number) => () => void;
 
 /** The default ticker: a repeating timer that cannot hold the process open. */
-const defaultTicker: LiveTimer = (tick, intervalMs) => {
-	const handle = setInterval(tick, intervalMs);
-	(handle as { unref?: () => void }).unref?.();
-	return () => clearInterval(handle);
-};
+const defaultTicker: LiveTimer = (tick, intervalMs) => defaultInterval(intervalMs, tick);
 
 /** The default grace timer: one shot, and it cannot hold the process open either. */
-const defaultTimeout: LiveTimeout = (run, delayMs) => {
-	const handle = setTimeout(run, delayMs);
-	(handle as { unref?: () => void }).unref?.();
-	return () => clearTimeout(handle);
-};
+const defaultTimeout: LiveTimeout = (run, delayMs) => defaultTimer(delayMs, run);
 
 export interface LiveChannelOptions {
 	/** What each frame carries. */

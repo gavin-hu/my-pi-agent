@@ -45,6 +45,7 @@ export const LIB_SUITES: readonly string[] = [
 	"process",
 	"state",
 	"requirements",
+	"timer",
 	"git/index",
 	"http/http",
 	"tui/layout",

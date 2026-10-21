@@ -30,6 +30,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { defaultInterval } from "../../../lib/timer.ts";
 import { WORKING_CONFIG } from "./config.ts";
 import { workingCounter } from "./format.ts";
 
@@ -41,17 +42,10 @@ export interface WorkingDeps {
 	schedule?: (tick: () => void, intervalMs: number) => () => void;
 }
 
-/** A repeating timer that never holds the process open on its own. */
-function defaultSchedule(tick: () => void, intervalMs: number): () => void {
-	const timer = setInterval(tick, intervalMs);
-	(timer as { unref?: () => void }).unref?.();
-	return () => clearInterval(timer);
-}
-
 /** Register the timer; it runs only in interactive (`tui`) sessions. */
 export function registerWorkingTimer(pi: ExtensionAPI, deps: WorkingDeps = {}): void {
 	const now = deps.now ?? (() => Date.now());
-	const schedule = deps.schedule ?? defaultSchedule;
+	const schedule = deps.schedule ?? ((tick, intervalMs) => defaultInterval(intervalMs, tick));
 	let cancel: (() => void) | undefined;
 	let startedAt = 0;
 	// A boolean, not `startedAt === 0`: an injected clock is allowed to start at 0.

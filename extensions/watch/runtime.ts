@@ -17,6 +17,7 @@ import type { KillTreeFn, SpawnFn, SpawnedProcess } from "../../lib/spawn.ts";
 import { createChildSupervisor } from "./child.ts";
 import { DEFAULT_CONFIG, loadConfig, type WatchConfig } from "./config.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
+import { defaultInterval } from "../../lib/timer.ts";
 import { compileRegex, sourceLabel } from "./format.ts";
 import { createUiController, type UiController } from "./ui.ts";
 import type { PendingMatch, WatchMatch, WatchRecord, WatchSource } from "./types.ts";
@@ -118,7 +119,7 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	const watches = new Map<string, Internal>();
 	let counter = 0;
 	let disposed = false;
-	let clock: ReturnType<typeof setInterval> | undefined;
+	let clock: (() => void) | undefined;
 	let onMatchHandler: ((matches: PendingMatch[]) => void) | undefined;
 
 	const record = (w: Internal): WatchRecord => ({
@@ -163,16 +164,13 @@ export function createWatchRuntime(options: WatchRuntimeOptions = {}): WatchRunt
 	});
 
 	const stopClock = (): void => {
-		if (clock) {
-			clearInterval(clock);
-			clock = undefined;
-		}
+		clock?.();
+		clock = undefined;
 	};
 
 	const ensureClock = (): void => {
 		if (disposed || !autoClock || clock) return;
-		clock = setInterval(() => tick(), config.pollMs);
-		clock.unref?.();
+		clock = defaultInterval(config.pollMs, () => tick());
 	};
 
 	const pendingMatches = (): PendingMatch[] => {

@@ -34,6 +34,7 @@ import {
 import { loadConfig, type JobsConfig } from "./config.ts";
 import { createLogWriter, type LogHandle } from "./log-writer.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
+import { defaultInterval } from "../../lib/timer.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";
 import { compareJobs, formatLogs } from "./format.ts";
 import { readLogTail } from "./logs.ts";
@@ -193,7 +194,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	let config: JobsConfig = options.config ?? loadConfig(process.cwd());
 	let sessionId = "session";
 	let disposed = false;
-	let clock: ReturnType<typeof setInterval> | undefined;
+	let clock: (() => void) | undefined;
 
 	/** Jobs this session owns (a dead session's adopted records included). */
 	const ownJobs = (): Job[] => [...jobs.values()].filter((job) => job.sessionId === sessionId);
@@ -247,10 +248,8 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		isSessionAlive(readSessionMarker(store.directory(), owner), now(), config.sessionTtlMs, liveness);
 
 	const stopClock = (): void => {
-		if (clock) {
-			clearInterval(clock);
-			clock = undefined;
-		}
+		clock?.();
+		clock = undefined;
 	};
 
 	const ensureClock = (): void => {
@@ -260,7 +259,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			return;
 		}
 		if (clock) return;
-		clock = setInterval(() => {
+		clock = defaultInterval(config.repaintMs, () => {
 			touchMarker();
 			pollExternal();
 			// Re-assert the chip every tick. It is otherwise only set on a job
@@ -268,8 +267,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			// another UI path) would hide a still-running job's chip until the next
 			// transition. The clock is the only periodic hook while jobs run.
 			ui.setStatus();
-		}, config.repaintMs);
-		clock.unref?.();
+		});
 	};
 
 	const paint = (): void => {
