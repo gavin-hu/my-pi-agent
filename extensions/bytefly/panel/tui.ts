@@ -16,8 +16,8 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import type { ViewportRowsSource } from "../../../lib/tui/chrome.ts";
-import { detailBlockRows, dockListFrame } from "../../../lib/tui/chrome.ts";
-import { fitRows, formatRange, isCloseKey, ListCursor, navIntent, wheelDelta } from "../../../lib/tui/cursor.ts";
+import { dockListFrame } from "../../../lib/tui/chrome.ts";
+import { isCloseKey, ListCursor, navIntent, wheelDelta } from "../../../lib/tui/cursor.ts";
 import { emptyState } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
@@ -26,21 +26,11 @@ import { buildPanelModel } from "./join.ts";
 import { SETTING_ROWS, UNTRUSTED_SETTINGS_NOTE } from "./settings.ts";
 import type { SettingsSurface } from "./settings-runtime.ts";
 import type { PanelModel, PanelSection } from "./types.ts";
-import { entriesOf, entryKey, isSelectable, selectableRange, settingEntries, type PanelEntry } from "./tui/entries.ts";
+import { entriesOf, entryKey, isSelectable, settingEntries, type PanelEntry } from "./tui/entries.ts";
+import { applyEditKey, type EditingState } from "./tui/editing.ts";
 import { clampSelection, firstRow, lastRow, moveRows, retainFocus } from "./tui/nav.ts";
 import { extensionDetail, extensionHints, extensionRow, extensionSummary } from "./tui/extensions-view.ts";
-import {
-	BODY_START,
-	DETAIL_ROWS,
-	EXPANDED_DETAIL_FALLBACK,
-	FRAME_ROWS,
-	groupLine,
-	hintLine,
-	MIN_BODY_ROWS,
-	noticeLine,
-	SCREEN_DEFAULT_ROWS,
-	sectionBar,
-} from "./tui/frame.ts";
+import { BODY_START, detailRows, groupLine, hintLine, noticeLine, panelFrame, sectionBar } from "./tui/frame.ts";
 import {
 	editHints,
 	projectNote,
@@ -50,16 +40,6 @@ import {
 	settingsHints,
 	settingsSummary,
 } from "./tui/settings-view.ts";
-
-/** Bracketed-paste markers a terminal wraps around pasted text. */
-const PASTE_START = "\x1b[200~";
-const PASTE_END = "\x1b[201~";
-
-/** Terminal rows, or `undefined` when the height is unknown. */
-function totalRows(source: ViewportRowsSource | undefined): number | undefined {
-	const rows = typeof source === "function" ? source() : source;
-	return rows !== undefined && Number.isFinite(rows) && rows > 0 ? rows : undefined;
-}
 
 /** Host seams for the panel screen, injected by the command runner. */
 export interface PanelComponentOptions {
@@ -107,8 +87,8 @@ export class PanelComponent implements Component {
 	private probed = false;
 	/** Transient feedback (a refusal or a failed write), shown in the hint row. */
 	private notice: string | undefined;
-	/** The text row being edited: its id, the buffer, and the caret offset. */
-	private editing: { id: string; buffer: string; caret: number } | undefined;
+	/** The text row being edited, if any. */
+	private editing: EditingState | undefined;
 	/** True while the Settings detail pane shows the focused row's section as JSON. */
 	private json = false;
 	/** Whether the last Settings render kept the project note; the click mapping needs it. */
@@ -295,60 +275,25 @@ export class PanelComponent implements Component {
 	}
 
 	/**
-	 * Editor keys. `Esc` cancels the edit rather than closing the screen, and
-	 * everything else the screen binds is inert until the editor closes.
+	 * Editor keys. `Esc`/`Ctrl+C` cancel the edit rather than closing the screen,
+	 * and everything else the screen binds is inert until the editor closes.
 	 */
 	private handleEditingInput(data: string): void {
 		const editing = this.editing;
 		if (!editing) return;
-		if (isCloseKey(data)) {
+		const max = SETTING_ROWS.find((row) => row.id === editing.id)?.text?.maxLength;
+		const action = applyEditKey(data, editing, max);
+		if (action.kind === "commit") {
+			void this.commitEdit();
+			return;
+		}
+		if (action.kind === "cancel") {
 			this.editing = undefined;
 			this.options.requestRender();
 			return;
 		}
-		if (matchesKey(data, Key.enter)) {
-			void this.commitEdit();
-			return;
-		}
-		const { buffer, caret } = editing;
-		if (matchesKey(data, Key.backspace)) {
-			if (caret > 0)
-				this.editing = { ...editing, buffer: buffer.slice(0, caret - 1) + buffer.slice(caret), caret: caret - 1 };
-		} else if (matchesKey(data, Key.delete)) {
-			if (caret < buffer.length)
-				this.editing = { ...editing, buffer: buffer.slice(0, caret) + buffer.slice(caret + 1) };
-		} else if (matchesKey(data, Key.left)) {
-			this.editing = { ...editing, caret: Math.max(0, caret - 1) };
-		} else if (matchesKey(data, Key.right)) {
-			this.editing = { ...editing, caret: Math.min(buffer.length, caret + 1) };
-			// `Ctrl+A`/`Ctrl+E` are the emacs spellings of Home/End, which pi-tui's
-			// `Key.home`/`Key.end` do not match; both are offered because a terminal
-			// may send either.
-		} else if (matchesKey(data, Key.home) || matchesKey(data, "ctrl+a")) {
-			this.editing = { ...editing, caret: 0 };
-		} else if (matchesKey(data, Key.end) || matchesKey(data, "ctrl+e")) {
-			this.editing = { ...editing, caret: buffer.length };
-		} else if (matchesKey(data, "ctrl+u")) {
-			this.editing = { ...editing, buffer: "", caret: 0 };
-		} else {
-			// A pasted chunk arrives wrapped in bracketed-paste markers. Its ESC is
-			// dropped by the filter below, which would leave `[200~` in the value, so
-			// strip the markers first, the way Pi's own Input and Editor do.
-			const text = data.replaceAll(PASTE_START, "").replaceAll(PASTE_END, "");
-			// Anything else must be printable; control sequences are not text.
-			const typed = [...text].filter((char) => char >= " " && char !== "\u007f").join("");
-			const max = SETTING_ROWS.find((row) => row.id === editing.id)?.text?.maxLength;
-			if (typed && max !== undefined && buffer.length + typed.length <= max) {
-				this.editing = {
-					...editing,
-					buffer: buffer.slice(0, caret) + typed + buffer.slice(caret),
-					caret: caret + typed.length,
-				};
-			}
-		}
-		// A key that changed nothing (backspace at the start, a refused character)
-		// has no frame to ask for.
-		if (this.editing?.buffer === buffer && this.editing.caret === caret) return;
+		if (!action.changed) return;
+		this.editing = action.state;
 		this.options.requestRender();
 	}
 
@@ -579,50 +524,6 @@ export class PanelComponent implements Component {
 		return this.notice !== undefined ? noticeLine(this.theme, width, this.notice) : this.hint(width, options);
 	}
 
-	/**
-	 * Detail rows the focused row gets: the fixed pane, or the free height when
-	 * expanded. Zero when there is no free row for a pane at all, so a short
-	 * terminal keeps its body; the caller then drops optional rows if needed.
-	 */
-	private detailRows(expanded: boolean): number {
-		const total = totalRows(this.options.viewportRows);
-		if (total === undefined) return expanded ? EXPANDED_DETAIL_FALLBACK : DETAIL_ROWS;
-		// One row pays for the blank line the frame puts above the pane.
-		const available = total - FRAME_ROWS - MIN_BODY_ROWS - 1;
-		if (available < 1) return 0;
-		return expanded ? available : Math.min(DETAIL_ROWS, available);
-	}
-
-	/**
-	 * Drop optional rows until the frame fits the viewport: the range row first,
-	 * then the project note, then the blank above the detail pane, then the pane.
-	 * The header, summary, one body row, and the hint always survive; a terminal
-	 * shorter than those is left to the host.
-	 */
-	private fitOptionalLines(options: {
-		body: string[];
-		note: string | undefined;
-		range: string | undefined;
-		detail: string[];
-	}): { body: string[]; range: string | undefined; detail: string[]; noteShown: boolean; detailBlank: boolean } {
-		const total = totalRows(this.options.viewportRows);
-		let { body, range, detail } = options;
-		let noteShown = options.note !== undefined && body[0] === options.note;
-		if (total === undefined) return { body, range, detail, noteShown, detailBlank: true };
-		const fits = (blank: boolean): boolean =>
-			FRAME_ROWS + body.length + (range === undefined ? 0 : 1) + detailBlockRows(detail, blank) <= total;
-		if (!fits(true)) range = undefined;
-		if (!fits(true) && noteShown) {
-			body = body.slice(1);
-			noteShown = false;
-		}
-		// The separator goes before the pane does: the focused row's findings are
-		// worth more than the blank above them.
-		const detailBlank = fits(true) || !fits(false);
-		if (!fits(false)) detail = [];
-		return { body, range, detail, noteShown, detailBlank };
-	}
-
 	/** Expand or collapse the focused row's findings. */
 	private toggleDetail(): void {
 		const key = entryKey(this.activeEntries()[this.cursor.selected]);
@@ -637,55 +538,6 @@ export class PanelComponent implements Component {
 		this.retainFocus(entries);
 		this.clampSelection(entries);
 		return entries[this.cursor.selected];
-	}
-
-	/**
-	 * The frame both sections share: the cursor window, the visible body rows, the
-	 * range row, the optional rows that give way on a short terminal, and the
-	 * chrome around them. Each section supplies its summary, its detail pane, its
-	 * hint row, and how one entry is drawn.
-	 */
-	private frame(options: {
-		width: number;
-		header: string;
-		summary: string;
-		entries: PanelEntry[];
-		note?: string;
-		detail: string[];
-		hint: string;
-		draw: (entry: PanelEntry, index: number) => string | undefined;
-	}): string[] {
-		const { width, entries, note, detail } = options;
-		this.cursor.visible = fitRows(
-			this.options.viewportRows,
-			entries.length,
-			FRAME_ROWS + detailBlockRows(detail) + (note ? 1 : 0),
-			SCREEN_DEFAULT_ROWS,
-		);
-		this.cursor.sync(entries.length);
-		const { start, end } = this.cursor.window(entries.length);
-
-		const body: string[] = [];
-		if (note) body.push(note);
-		for (let index = start; index < end; index += 1) {
-			const line = options.draw(entries[index], index);
-			if (line !== undefined) body.push(line);
-		}
-
-		const range = this.cursor.clipped(entries.length)
-			? formatRange(this.theme, width, selectableRange(entries, { start, end }))
-			: undefined;
-		const fitted = this.fitOptionalLines({ body, note, range, detail });
-		this.noteShown = fitted.noteShown;
-		return dockListFrame({
-			header: options.header,
-			summary: options.summary,
-			body: fitted.body,
-			range: fitted.range,
-			detail: fitted.detail.length > 0 ? fitted.detail : undefined,
-			detailBlank: fitted.detailBlank,
-			hint: options.hint,
-		});
 	}
 
 	/** The Settings body: scope counts, the project note, rows, and detail. */
@@ -714,7 +566,7 @@ export class PanelComponent implements Component {
 						width,
 						section: jsonConfig.section,
 						document: this.options.settings.sectionDocument(scope, jsonConfig.section),
-						budget: this.detailRows(true),
+						budget: detailRows(true, this.options.viewportRows),
 						dirty: this.dirty,
 						paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
 					})
@@ -722,12 +574,15 @@ export class PanelComponent implements Component {
 						theme: this.theme,
 						width,
 						view: focused,
-						budget: this.detailRows(false),
+						budget: detailRows(false, this.options.viewportRows),
 						dirty: this.dirty,
 						paths: { scope, cwd: this.options.cwd, agentDir: this.options.agentDir },
 					});
 
-		return this.frame({
+		const { lines, noteShown } = panelFrame({
+			theme: this.theme,
+			viewportRows: this.options.viewportRows,
+			cursor: this.cursor,
 			width,
 			header,
 			summary,
@@ -742,6 +597,8 @@ export class PanelComponent implements Component {
 				return settingRow(this.theme, width, entry.setting, index === this.cursor.selected, editing);
 			},
 		});
+		this.noteShown = noteShown;
+		return lines;
 	}
 
 	render(width: number): string[] {
@@ -770,9 +627,19 @@ export class PanelComponent implements Component {
 		const focusedEntry = this.retain(entries);
 		const focused = focusedEntry?.kind === "row" ? focusedEntry.row : undefined;
 		const expanded = focused !== undefined && this.expanded.has(focused.key);
-		const detail = extensionDetail(this.theme, w, focused, this.detailRows(expanded), expanded, this.dirty);
+		const detail = extensionDetail(
+			this.theme,
+			w,
+			focused,
+			detailRows(expanded, this.options.viewportRows),
+			expanded,
+			this.dirty,
+		);
 
-		return this.frame({
+		const { lines, noteShown } = panelFrame({
+			theme: this.theme,
+			viewportRows: this.options.viewportRows,
+			cursor: this.cursor,
 			width: w,
 			header,
 			summary,
@@ -785,5 +652,7 @@ export class PanelComponent implements Component {
 				return extensionRow(this.theme, w, entry.row, index === this.cursor.selected);
 			},
 		});
+		this.noteShown = noteShown;
+		return lines;
 	}
 }

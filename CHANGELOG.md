@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the panel's text-editing state machine and its frame/height
+  composition moved into `tui/editing.ts` and `tui/frame.ts`; the screen's keys
+  and output are unchanged. No tool, parameter, or config key changed.
+
 - `job`: `log-writer.ts` owns the per-job write stream, line split, rotation
   queue, and the output-driven repaint window, leaving `runtime.ts` with the job
   table, child handles, and status. No tool, parameter, or config key changed.
