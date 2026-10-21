@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { CLIENT_JS } from "./client.ts";
+import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { THEME_JS, WEB_THEME_STORAGE_KEY } from "../../lib/web/index.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import { handleRequest } from "./router.ts";
@@ -120,6 +121,29 @@ describe("CLIENT_JS", () => {
 		expect(CLIENT_JS).toContain("var lineTop = 8;");
 		expect(CLIENT_JS).toContain("scroller.scrollTop +=");
 		expect(CLIENT_JS).toContain("paddingTop");
+	});
+
+	test("ships the live status block from its own module", () => {
+		expect(CLIENT_JS).toContain(LIVE_CLIENT_JS);
+		expect(() => new Function(CLIENT_JS)).not.toThrow();
+		expect(LIVE_CLIENT_JS).toContain('new EventSource("/events")');
+		expect(LIVE_CLIENT_JS).toContain('addEventListener("status"');
+		expect(LIVE_CLIENT_JS).toContain("paintLiveChanges");
+		expect(LIVE_CLIENT_JS).toContain("paintLiveMarks");
+		expect(LIVE_CLIENT_JS).toContain("data-interval");
+		expect(LIVE_CLIENT_JS).toContain('"browse-change"');
+		expect(LIVE_CLIENT_JS).toContain("pagehide");
+		expect(LIVE_CLIENT_JS).toContain("function formatSpan");
+	});
+
+	test("paints live status without ever building markup", () => {
+		// A branch name or a file path from a status frame is text, never HTML.
+		expect(LIVE_CLIENT_JS).not.toContain("innerHTML");
+		expect(LIVE_CLIENT_JS).not.toContain("insertAdjacentHTML");
+		expect(LIVE_CLIENT_JS).not.toContain("outerHTML");
+		expect(LIVE_CLIENT_JS).toContain("textContent");
+		// It does nothing unless the server rendered the connection chip.
+		expect(LIVE_CLIENT_JS).toContain('document.getElementById("live-state")');
 	});
 
 	test("is served as a no-store script", async () => {

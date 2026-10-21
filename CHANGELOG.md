@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `file-browse`: a page left open now shows live status. A `◉ live · 2s` chip
+  beside `read-only` reports whether status is flowing (connecting, live, stale,
+  offline), the branch chip, the change chip, and the change markers in the tree
+  and the listing update in place as the working tree changes, and the footer
+  line reports the server's uptime and request count. One Server-Sent Events
+  stream per page carries it, on the same loopback server, so nothing extra is
+  opened and nothing is written. `live` and `liveIntervalMs` in the `file-browse`
+  section control it, and `live: false` leaves the page as it was.
+
 ### Changed
 
 - `worktree`: `/worktree status` and `list_worktrees` gather the managed

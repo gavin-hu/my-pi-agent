@@ -131,6 +131,8 @@ const SECTIONS: readonly SectionCase[] = [
 			gitDiff: "a rendering limit, not a preference",
 			diffContext: "a rendering limit, not a preference",
 			maxDiffLines: "a rendering limit, not a preference",
+			live: "a browser-surface switch, not agent behaviour",
+			liveIntervalMs: "a refresh interval, tuned once",
 		},
 	},
 	{

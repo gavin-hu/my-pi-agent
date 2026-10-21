@@ -2,21 +2,30 @@
  * The HTTP server for the browse extension.
  *
  * Wraps `node:http` around the pure `handleRequest`: it resolves the root once,
- * binds `127.0.0.1`, streams `/raw` responses from disk, and exposes an
- * idempotent `close()`. The request handler is injectable so tests can avoid a
- * socket when they only need routing.
+ * binds `127.0.0.1`, streams `/raw` responses from disk, feeds the live status
+ * channel, and exposes an idempotent `close()`. The request handler is injectable
+ * so tests can avoid a socket when they only need routing.
  *
- * The bind, the response writer, and the close come from `lib/http`, which `plan`
- * shares; what stays here is this server's own request handler and the catch that
- * turns a thrown handler into a plain-text 500.
+ * The bind, the response writer, the event-stream head, and the close come from
+ * `lib/http`, which `plan` shares; what stays here is this server's own request
+ * handler, its request count, and the catch that turns a thrown handler into a
+ * plain-text 500.
  */
 
 import { realpathSync } from "node:fs";
 import { createServer } from "node:http";
-import { bindLoopback, createCloser, respond, textResponse, type ServeResponse } from "../../lib/http/index.ts";
+import {
+	bindLoopback,
+	createCloser,
+	openEventStream,
+	respond,
+	textResponse,
+	type ServeResponse,
+} from "../../lib/http/index.ts";
 import type { ServeConfig } from "./config.ts";
 import { createFileIndex } from "./files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "./git.ts";
+import { createLiveChannel, createLiveStatus } from "./live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 
 export interface FileServer {
@@ -44,16 +53,31 @@ export interface FileServerOptions {
 /** Start a read-only server rooted at `options.root` on 127.0.0.1. */
 export async function createFileServer(options: FileServerOptions): Promise<FileServer> {
 	const root = realpathSync.native(options.root);
+	const { config } = options;
+	// The status feed's two server-owned facts: how long it has been up, and how
+	// many requests it has answered. Both are read per frame, never cached.
+	let requests = 0;
+	const status = config.live
+		? createLiveStatus({
+				git: options.git,
+				diff: config.gitDiff ? options.diff : undefined,
+				startedAt: Date.now(),
+				requests: () => requests,
+			})
+		: undefined;
+	const live = status ? createLiveChannel({ status, intervalMs: config.liveIntervalMs }) : undefined;
 	const context: ServeContext = {
 		root,
-		config: options.config,
+		config,
 		git: options.git,
 		diff: options.diff,
-		index: createFileIndex(root, options.config.maxIndexEntries),
+		index: createFileIndex(root, config.maxIndexEntries),
+		live: status,
 	};
 	const handler = options.handler ?? handleRequest;
 
 	const server = createServer((request, response) => {
+		requests += 1;
 		const answer = async (): Promise<ServeResponse> => {
 			try {
 				return await handler(context, request.method ?? "GET", request.url ?? "/", request.headers);
@@ -61,9 +85,39 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 				return textResponse(500, "Internal error");
 			}
 		};
-		void answer().then((result) => respond(request, response, result));
+		void answer().then((result) => {
+			// A HEAD of the stream is answered as a plain response: there is no body to
+			// hold open, and the client would otherwise wait on frames it asked not to get.
+			if (!result.stream || !live || (request.method ?? "GET").toUpperCase() === "HEAD") {
+				respond(request, response, result);
+				return;
+			}
+			openEventStream(response, result);
+			const detach = live.attach({
+				write: (frame) => {
+					response.write(frame);
+				},
+				end: () => {
+					if (!response.writableEnded) response.end();
+				},
+			});
+			request.on("close", () => {
+				detach();
+				if (!response.writableEnded) response.end();
+			});
+		});
 	});
 
-	const port = await bindLoopback(server, options.config.port);
-	return { url: `http://127.0.0.1:${port}/`, port, root, close: createCloser(server) };
+	const port = await bindLoopback(server, config.port);
+	const closeServer = createCloser(server);
+	return {
+		url: `http://127.0.0.1:${port}/`,
+		port,
+		root,
+		close: async () => {
+			// End the streams first, so a connected page does not hold the close open.
+			live?.close();
+			await closeServer();
+		},
+	};
 }

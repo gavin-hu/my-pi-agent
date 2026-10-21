@@ -4,30 +4,22 @@
  * Pure string building: the router reads the filesystem and hands these
  * renderers plain view models. Everything user-controlled is escaped, links are
  * percent-encoded per segment, and the only script is the same-origin
- * `/app.js`. The shared Bytefly shell and components come from `lib/web`; the
- * `browse-*` rules below are the page-only layer.
+ * `/app.js`. The shared Bytefly shell and components come from `lib/web`, and
+ * the page-only `browse-*` rules from `styles.ts`.
  */
 
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import {
-	brandLockup,
-	docHead,
-	type KeyHint,
-	keysSheet,
-	SIDEBAR_COLLAPSE_MAX,
-	WEB_BASE_CSS,
-	WEB_COMPONENTS_CSS,
-	WEB_LAYOUT_CSS,
-	WEB_THEME_CSS,
-} from "../../lib/web/index.ts";
+import { brandLockup, docHead, type KeyHint, keysSheet } from "../../lib/web/index.ts";
 import { escapeHtml } from "../../lib/escape.ts";
 import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "./files.ts";
 import { DIFF_MODES, statusLetter, type ChangedFile, type DiffLine, type DiffMode } from "./diff.ts";
 import type { DiffFileView, GitStatus } from "./git.ts";
+import type { ChangeIndex } from "./live.ts";
 import { detectLanguage, highlightLines, type HighlightLanguage } from "../../lib/highlight.ts";
 import { FOLDER_ICON, iconHref, languageOf, SPRITE, type IconSpec } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { encodePath } from "./paths.ts";
+import { BROWSE_CSS } from "./styles.ts";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -51,17 +43,15 @@ function renderGit(git: GitStatus | undefined): string {
 	if (!name) return "";
 	const glyph = git.branch ? GLYPHS.branch : GLYPHS.detached;
 	const aria = git.branch ? `git branch ${git.branch}` : `git detached at ${git.head ?? ""}`;
-	return `<span class="bf-chip browse-git" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="browse-git__glyph" aria-hidden="true">${escapeHtml(glyph)}</span>${escapeHtml(name)}</span>`;
+	return `<span class="bf-chip browse-git" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="browse-git__glyph" aria-hidden="true">${escapeHtml(glyph)}</span><span class="browse-git__name">${escapeHtml(name)}</span></span>`;
 }
 
-/** The changed-path index for markers, plus the totals shown in the chip. */
-export interface ChangeSummary {
-	count: number;
-	insertions: number;
-	deletions: number;
-	files: ReadonlySet<string>;
-	dirs: ReadonlySet<string>;
-}
+/**
+ * The changed-path index for markers, plus the totals shown in the chip. It is
+ * the same index the live status feed sends, so the page and its updates agree
+ * on what "changed" means.
+ */
+export type ChangeSummary = ChangeIndex;
 
 /** Whether a path carries a change marker: a changed file, or a directory above one. */
 function isChanged(summary: ChangeSummary | undefined, rel: string, isDir: boolean): boolean {
@@ -76,121 +66,58 @@ function changeMark(summary: ChangeSummary | undefined, rel: string, isDir: bool
 		: "";
 }
 
-/** The header's changes chip, linking to the diff overview when there are changes. */
-function renderChanges(summary: ChangeSummary | undefined): string {
-	if (!summary || summary.count <= 0) return "";
-	const label = `${summary.count} change${summary.count === 1 ? "" : "s"}`;
-	const totals =
-		summary.insertions + summary.deletions > 0
-			? ` <span class="browse-diff-totals"><span class="browse-diff-add">+${summary.insertions}</span> <span class="browse-diff-del">−${summary.deletions}</span></span>`
+/** The live chrome a page renders: how often its stream is sent a frame. */
+export interface LivePage {
+	intervalMs: number;
+}
+
+/**
+ * The header's connection chip. It starts hidden and says "connecting": the
+ * client reveals and paints it from the event stream, so a page with JS off — or
+ * with live status disabled — never shows a state it cannot keep true.
+ *
+ * It is deliberately not a `role="status"` region: the age in the label is
+ * rewritten every second, and a live region would announce each rewrite.
+ */
+function renderLiveChip(live: LivePage | undefined): string {
+	if (!live) return "";
+	return `<span class="bf-chip bf-chip--accent browse-live" id="live-state" title="Live status from the browse server" data-interval="${live.intervalMs}" hidden><span class="browse-live__glyph" aria-hidden="true">${escapeHtml(GLYPHS.browse)}</span><span class="browse-live__text">connecting</span></span>`;
+}
+
+/**
+ * The footer's live line, hidden until the first frame: uptime and requests are
+ * server facts the rendered page does not know at build time.
+ */
+function renderLiveStatus(): string {
+	return `<span class="browse-live-line" id="live-status" hidden></span>`;
+}
+
+/**
+ * The header's changes chip, linking to the diff overview. With live status on,
+ * a hidden shell is always rendered so the chip can appear and disappear as the
+ * working tree changes, without the client inserting elements into the header.
+ */
+function renderChanges(summary: ChangeSummary | undefined, live: LivePage | undefined): string {
+	const count = summary?.count ?? 0;
+	if (count <= 0) {
+		return live
+			? `<a class="bf-chip browse-diff" id="browse-changes" href="/diff" title="View uncommitted changes" hidden></a>`
 			: "";
-	const aria = `${label} against HEAD${summary.insertions + summary.deletions > 0 ? `, ${summary.insertions} insertions and ${summary.deletions} deletions` : ""}`;
-	return `<a class="bf-chip browse-diff" href="/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-diff__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
+	}
+	const label = `${count} change${count === 1 ? "" : "s"}`;
+	const insertions = summary?.insertions ?? 0;
+	const deletions = summary?.deletions ?? 0;
+	const totals =
+		insertions + deletions > 0
+			? ` <span class="browse-diff-totals"><span class="browse-diff-add">+${insertions}</span> <span class="browse-diff-del">−${deletions}</span></span>`
+			: "";
+	const aria = `${label} against HEAD${insertions + deletions > 0 ? `, ${insertions} insertions and ${deletions} deletions` : ""}`;
+	return `<a class="bf-chip browse-diff" id="browse-changes" href="/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-diff__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
 }
 
 function hrefFor(entry: { rel: string; isDir: boolean }): string {
 	return entry.isDir ? `/browse/${encodePath(entry.rel)}` : `/view/${encodePath(entry.rel)}`;
 }
-
-/** The shared shell, components, and the page-only `browse-*` rules. */
-const STYLES = `${WEB_BASE_CSS}
-${WEB_THEME_CSS}
-${WEB_LAYOUT_CSS}
-${WEB_COMPONENTS_CSS}
-.browse-side{padding:var(--space-3)}
-.browse-root{flex:1 1 auto;direction:rtl;text-align:left}
-.browse-git{font-family:var(--font-mono)}
-.browse-quick-open{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;margin-bottom:var(--space-2);padding:6px var(--space-2);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);color:var(--muted);font:var(--fs-sm) var(--font-ui);cursor:pointer}
-.browse-quick-open:hover{border-color:var(--accent);color:var(--accent)}
-.browse-quick-open kbd{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--dim)}
-.browse-side__filters{display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2)}
-.browse-side__filters .bf-field{flex:1 1 auto;min-width:0}
-.browse-side__filters .bf-btn{flex:0 0 auto;white-space:nowrap}
-.browse-cat{width:16px;height:16px;flex:0 0 16px;color:var(--accent)}
-.browse-cat.doc{color:var(--muted)}.browse-cat.img{color:var(--success)}.browse-cat.cfg{color:var(--warn)}.browse-cat.arc{color:var(--warn)}
-.browse-heading{margin:0 0 var(--space-3);font-size:var(--fs-lg)}
-.browse-listing th.bf-table__size,.browse-listing th.bf-table__when{text-align:right}
-.browse-listing th.bf-table__size{width:96px}
-.browse-listing th.bf-table__when{width:140px}
-.browse-dotfile .bf-table__name a{opacity:.72}
-.browse-broken{color:var(--muted);text-decoration:line-through}
-.browse-link-mark{color:var(--muted);font-size:var(--fs-xs)}
-.browse-when{display:none}
-body.palette-open{overflow:hidden}
-.browse-diff{font-family:var(--font-mono);gap:5px}
-.browse-diff:hover{color:var(--accent);text-decoration:none}
-.browse-diff__dot{color:var(--warn);font-size:9px;line-height:1}
-.browse-change{color:var(--warn);font-size:9px;line-height:1;flex:0 0 auto}
-.browse-diff-totals{font-family:var(--font-mono)}
-.browse-diff-add{color:var(--success)}
-.browse-diff-del{color:var(--danger)}
-.browse-diff-scope{color:var(--muted);font-size:var(--fs-sm);font-weight:var(--fw-medium)}
-.browse-diff-toolbar{display:flex;align-items:center;gap:var(--space-3);margin:0 0 var(--space-3);flex-wrap:wrap}
-.browse-diff-stat{margin:0 0 var(--space-3);font:var(--fs-xs)/1.5 var(--font-mono);color:var(--muted);white-space:pre-wrap;overflow-x:auto}
-.browse-diff th.browse-diff-status{width:72px}
-.browse-diff th.browse-diff-word{width:130px}
-.browse-diff-badge{display:inline-block;min-width:16px;text-align:center;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);border-radius:var(--radius-sm);padding:1px 5px;border:1px solid var(--border)}
-.browse-diff-badge--M{color:var(--warn);border-color:currentColor}
-.browse-diff-badge--A,.browse-diff-badge--Q{color:var(--success);border-color:currentColor}
-.browse-diff-badge--D{color:var(--danger);border-color:currentColor}
-.browse-diff-badge--R,.browse-diff-badge--C{color:var(--accent);border-color:currentColor}
-.browse-diff-orig{color:var(--muted);font-size:var(--fs-xs)}
-.browse-diff-word{color:var(--muted);font-size:var(--fs-sm)}
-.browse-diff-no{display:inline-block;width:46px;padding-right:var(--space-2);text-align:right;color:var(--dim);user-select:none}
-.browse-diff-sign{display:inline-block;width:16px;text-align:center;color:var(--muted);user-select:none}
-.bf-diff-line--add{background:var(--success-soft)}
-.bf-diff-line--add .browse-diff-sign{color:var(--success)}
-.bf-diff-line--del{background:var(--danger-soft)}
-.bf-diff-line--del .browse-diff-sign{color:var(--danger)}
-.bf-diff-line--hunk{color:var(--accent);background:var(--canvas)}
-.bf-diff-line--meta{color:var(--muted)}
-.bf-diff-line--note{color:var(--muted);font-style:italic}
-/* A hunk header pins to the top of the diff viewport while its body scrolls.
-   Each hunk is a section so the pinned header is bounded by its own body and
-   cannot stack on the next one. */
-.bf-diff-hunk{display:block}
-.bf-diff .bf-diff-line--hunk{position:sticky;top:0;z-index:1}
-/* Reading progress, pinned to the sticky header's bottom edge. */
-.browse-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
-.browse-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
-/* File and diff pages: a measured reading column inside the card. */
-/* The Markdown body fills the card, so the scroll box is the card's width: its
-   scrollbar sits at the card edge. The measure lives on the blocks themselves:
-   on .bf-md it would be a flex item with auto inline margins, which is
-   shrink-to-fit, so a short document collapsed to its widest line. */
-.browse-measure{--browse-measure:1012px}
-.browse-measure .bf-md{--browse-gutter:max(0px,calc((100% - var(--browse-measure)) / 2));max-width:none;margin-inline:0;padding-inline:var(--space-5);padding-block:var(--space-4) var(--space-6)}
-.browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}
-/* Tables start at the prose column and take only the gutter to its right, so a
-   wide window widens them without a dead band on their left. Code stays inside
-   the measure with the rest of the prose. */
-.browse-measure .bf-md>.md-table-frame{max-width:none;padding-left:var(--browse-gutter)}
-/* A table wider than the pane scrolls, but an overlay scrollbar is invisible
-   until it moves; a gradient on the frame marks the columns still out of view.
-   It has to be the frame: the scroller clips its own content, so a pseudo-element
-   inside it would scroll away with the table. */
-.browse-measure .bf-md>.md-table-frame.browse-table-more::after{content:"";position:absolute;top:0;right:0;bottom:0;width:40px;pointer-events:none;background:linear-gradient(to left,var(--surface) 12%,transparent)}
-.bf-card__meta{font-variant-numeric:tabular-nums}
-.browse-diff-summary{font-family:var(--font-mono);white-space:nowrap}
-.browse-diff-summary .browse-diff-add{color:var(--success)}
-.browse-diff-summary .browse-diff-del{color:var(--danger)}
-.browse-hunks{color:var(--muted)}
-/* Wide screens: pin quick open and the filter, and scroll the tree on its own
-   box. The sidebar is a details element, whose content sits in an anonymous
-   wrapper with no definite height, so the panel fills the sidebar by absolute
-   positioning; below the sidebar breakpoint the disclosure keeps normal page
-   scroll. */
-@media not (max-width:${SIDEBAR_COLLAPSE_MAX}px){
-.browse-sidebar{position:relative;overflow:hidden}
-.browse-side{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden}
-.browse-side .bf-tree{flex:1 1 auto;min-height:0;overflow:auto}
-}
-@media (max-width:820px){
-.browse-root{order:9;flex:1 1 100%;direction:ltr;text-align:left}
-}
-@media (max-width:520px){
-.bf-toolbar .bf-theme-toggle{margin-left:auto}
-}`;
 
 interface Layout {
 	title: string;
@@ -207,6 +134,8 @@ interface Layout {
 	git?: GitStatus;
 	/** Changed-path index for the header chip and the tree markers; omitted when clean. */
 	summary?: ChangeSummary;
+	/** Live status chrome; omitted when the channel is off. */
+	live?: LivePage;
 }
 
 /** A full two-pane page. */
@@ -214,7 +143,7 @@ function renderLayout(layout: Layout): string {
 	return `<!doctype html>
 <html lang="en">
 <head>
-${docHead({ title: layout.title, css: STYLES })}
+${docHead({ title: layout.title, css: BROWSE_CSS })}
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%2358a6ff'/%3E%3C/svg%3E">
 </head>
 <body class="bf-app">
@@ -226,8 +155,9 @@ ${SPRITE}
   ${brandLockup("browse")}
   <span class="bf-context browse-root">${escapeHtml(layout.rootLabel)}</span>
   ${renderGit(layout.git)}
-  ${renderChanges(layout.summary)}
+  ${renderChanges(layout.summary, layout.live)}
   <span class="bf-chip bf-chip--accent">read-only</span>
+  ${renderLiveChip(layout.live)}
   <button type="button" class="bf-btn bf-btn--icon browse-keys-btn" id="keys-open" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
   <button type="button" class="bf-btn bf-btn--icon bf-theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light and dark theme"><span class="theme-glyph" aria-hidden="true">☾</span></button>
 </div><div class="browse-progress" aria-hidden="true"><span class="browse-progress__fill" id="progress-fill"></span></div></header>
@@ -249,7 +179,7 @@ ${SPRITE}
 ${layout.main}
   </main>
 </div>
-<footer class="bf-app__footer">served from ${escapeHtml(layout.rootLabel)} · read-only · ${escapeHtml(layout.footerNote)}</footer>
+<footer class="bf-app__footer">${layout.live ? renderLiveStatus() : ""}served from ${escapeHtml(layout.rootLabel)} · read-only · ${escapeHtml(layout.footerNote)}</footer>
 ${layout.keys && layout.keys.length > 0 ? keysSheet(layout.keys) : ""}
 <script src="/app.js" defer></script>
 </body>
@@ -326,6 +256,8 @@ export interface DirectoryPage {
 	git?: GitStatus;
 	/** Changed-path index for the header chip and markers. */
 	summary?: ChangeSummary;
+	/** Live status chrome; omitted when the channel is off. */
+	live?: LivePage;
 }
 
 /** Render a directory listing page. */
@@ -354,6 +286,7 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		footerNote: `${page.listing.total} entr${page.listing.total === 1 ? "y" : "ies"}`,
 		git: page.git,
 		summary: page.summary,
+		live: page.live,
 	});
 }
 
@@ -372,6 +305,8 @@ export interface FilePage {
 	changed?: boolean;
 	/** Changed-path index for the header chip and the tree markers. */
 	summary?: ChangeSummary;
+	/** Live status chrome; omitted when the channel is off. */
+	live?: LivePage;
 }
 
 /** The root-relative directory of a file, for resolving its Markdown links. */
@@ -490,6 +425,7 @@ export function renderFilePage(page: FilePage): string {
 		footerNote: page.rel,
 		git: page.git,
 		summary: page.summary,
+		live: page.live,
 	});
 }
 
@@ -614,6 +550,8 @@ export interface DiffPage {
 	tree: TreeNode;
 	git?: GitStatus;
 	summary?: ChangeSummary;
+	/** Live status chrome; omitted when the channel is off. */
+	live?: LivePage;
 }
 
 /** The change overview: `git diff --stat` plus every changed path. */
@@ -641,6 +579,7 @@ ${page.files.map((file) => renderChangedRow(file, page.mode)).join("\n")}
 		footerNote: `${page.files.length} changed`,
 		git: page.git,
 		summary: page.summary,
+		live: page.live,
 	});
 }
 
@@ -661,6 +600,8 @@ export interface FileDiffPage {
 	tree: TreeNode;
 	git?: GitStatus;
 	summary?: ChangeSummary;
+	/** Live status chrome; omitted when the channel is off. */
+	live?: LivePage;
 }
 
 /** A single file's unified diff, with the scope control and file actions. */
@@ -710,6 +651,7 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 		footerNote: `diff · ${modeScope(page.mode)}`,
 		git: page.git,
 		summary: page.summary,
+		live: page.live,
 	});
 }
 
@@ -719,6 +661,8 @@ export interface ErrorPage {
 	message: string;
 	tree: TreeNode;
 	git?: GitStatus;
+	/** Live status chrome; omitted when the channel is off. */
+	live?: LivePage;
 }
 
 /** Render a status/error page with the same chrome. */
@@ -732,5 +676,6 @@ export function renderErrorPage(page: ErrorPage): string {
 		main: `    <div class="bf-empty"><div class="bf-empty__code">${page.status}</div><p class="bf-empty__title">${escapeHtml(page.message)}</p><p class="bf-empty__sub"><a href="/browse/">back to the served folder</a></p></div>`,
 		footerNote: "error",
 		git: page.git,
+		live: page.live,
 	});
 }

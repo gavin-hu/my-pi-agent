@@ -10,6 +10,7 @@
 import type { Stats } from "node:fs";
 import { stat } from "node:fs/promises";
 import {
+	eventHeaders,
 	htmlResponse,
 	isLocalHostHeader,
 	jsonError,
@@ -22,8 +23,9 @@ import {
 import { THEME_JS } from "../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
-import { changeDirs, isDiffMode, type DiffMode } from "./diff.ts";
+import { isDiffMode, type DiffMode } from "./diff.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
+import { changeIndexOf, type LiveStatusSource } from "./live.ts";
 import {
 	buildFileIndex,
 	buildTree,
@@ -51,6 +53,8 @@ export interface ServeContext {
 	diff?: GitDiffProvider;
 	/** Cached quick-open file index; built on demand when omitted. */
 	index?: FileIndexProvider;
+	/** Snapshot source for the live status channel; omitted when live status is off. */
+	live?: LiveStatusSource;
 }
 
 /** Most palette rows the client will render for one query. */
@@ -94,13 +98,19 @@ async function diffFor(ctx: ServeContext, mode: DiffMode) {
 
 /** The marker/totals index derived from a change list. */
 function summaryOf(list: DiffList): ChangeSummary {
+	const index = changeIndexOf(list);
 	return {
-		count: list.files.length,
-		insertions: list.insertions,
-		deletions: list.deletions,
-		files: new Set(list.files.map((file) => file.rel)),
-		dirs: changeDirs(list.files),
+		count: index.count,
+		insertions: index.insertions,
+		deletions: index.deletions,
+		files: index.files,
+		dirs: index.dirs,
 	};
+}
+
+/** The live chrome a page renders, or `undefined` when live status is off. */
+function liveOf(ctx: ServeContext): { intervalMs: number } | undefined {
+	return ctx.config.live && ctx.live ? { intervalMs: ctx.config.liveIntervalMs } : undefined;
 }
 
 /** The `head` change summary, for the header chip, tree markers, and file action. */
@@ -136,6 +146,7 @@ async function errorPage(
 		message,
 		tree,
 		git: await gitFor(ctx),
+		live: liveOf(ctx),
 	});
 	return htmlResponse(status, body, extra);
 }
@@ -173,6 +184,7 @@ async function directoryResponse(ctx: ServeContext, rel: string): Promise<ServeR
 			maxThumbBytes: ctx.config.maxThumbBytes,
 			git,
 			summary: changes,
+			live: liveOf(ctx),
 		}),
 	);
 }
@@ -195,6 +207,7 @@ async function fileResponse(ctx: ServeContext, rel: string, raw: boolean): Promi
 			markdownHtml: ctx.config.markdownHtml,
 			changed: changes?.files.has(rel),
 			summary: changes,
+			live: liveOf(ctx),
 		}),
 	);
 }
@@ -215,6 +228,7 @@ async function diffOverview(ctx: ServeContext, mode: DiffMode): Promise<ServeRes
 			tree,
 			git,
 			summary: list ? summaryOf(list) : undefined,
+			live: liveOf(ctx),
 		}),
 	);
 }
@@ -246,6 +260,7 @@ async function diffFile(ctx: ServeContext, rawRel: string, mode: DiffMode): Prom
 			tree,
 			git,
 			summary: changes,
+			live: liveOf(ctx),
 		}),
 	);
 }
@@ -305,6 +320,15 @@ async function filesApi(ctx: ServeContext, query: string): Promise<ServeResponse
 }
 
 /**
+ * The live status stream: a marker response the server in `server.ts` keeps open
+ * and feeds from the same source.
+ */
+function liveEvents(ctx: ServeContext): ServeResponse {
+	if (!ctx.config.live || !ctx.live) throw new HttpError(404, "Live status is not available.");
+	return { status: 200, headers: eventHeaders(), stream: true };
+}
+
+/**
  * Handle one request. `method` and `headers` are the raw HTTP values; `rawUrl`
  * is the request target (path plus optional query).
  */
@@ -332,6 +356,7 @@ export async function handleRequest(
 		if (pathname === "/favicon.ico") return { status: 204, headers: pageHeaders(), body: "" };
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");
+		if (pathname === "/events") return liveEvents(ctx);
 		const rawMode = search.get("mode");
 		if (rawMode !== null && !isDiffMode(rawMode)) return errorPage(ctx, 400, "Unknown diff mode.");
 		const mode: DiffMode = isDiffMode(rawMode) ? rawMode : "head";

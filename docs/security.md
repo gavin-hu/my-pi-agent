@@ -19,15 +19,17 @@ read from outside it. Each one is built around an explicit boundary.
 Two surfaces serve local HTTP:
 
 - [`file-browse`](../extensions/file-browse/) binds `127.0.0.1` only, is
-  read-only, and is rooted at the working directory.
+  read-only, and is rooted at the working directory. Its `/events` stream carries
+  the same status the page already renders — a branch, changed paths, an uptime,
+  a request count — and can only be read.
 - [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
   tokenized, and closes its server on save, cancel, tab close, or session
   shutdown.
 
 Neither ever binds a non-loopback interface, and both answer from one shared
 policy in `lib/http` — the same CSP (which refuses to be framed), the same
-`Host` allowlist shape, and the same bind/close rules — so the two surfaces
-cannot drift into different envelopes. A remote turn (for example over WeChat)
+`Host` allowlist shape, the same event-stream headers, and the same bind/close
+rules — so the two surfaces cannot drift into different envelopes. A remote turn (for example over WeChat)
 cannot reach them; `/plan review` refuses there instead of opening a server
 nobody can use.
 

@@ -201,7 +201,7 @@ either structural or later work. This section contributes no `Next` item.
 - `web-access`: keyless DuckDuckGo, optional SearXNG or Brave, readable fetch,
   paging, `find`, per-hop SSRF checks, optional PDF.
 - `file-browse`: loopback read-only browser with Markdown preview, a diff view,
-  and quick open.
+  quick open, and live status streamed to an open page.
 - `document`: in-process PDF/DOCX/DOC/ODT/RTF/XLSX extraction, paged.
 - `file-open`: native open and reveal on three operating systems.
 - `wechat`: one Pi session per peer, inbound text/images/files, remote dialogs,
