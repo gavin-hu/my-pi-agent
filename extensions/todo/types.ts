@@ -1,26 +1,17 @@
 /**
  * Shared types for the todo extension.
  *
- * The todo list is a whole-list replacement, the way Claude Code's `TodoWrite`
- * works: the model always sends the complete list, so there is no "add" or
- * "toggle" operation and no id bookkeeping.
+ * The item contract itself lives in `lib/todo-state.ts`, which owns the parser
+ * and the branch replay shared with `plan` and `goal`; this module re-exports it
+ * under the name the extension uses and adds the tool-result shape.
  */
 
-export const TODO_STATUSES = ["pending", "in_progress", "completed"] as const;
+import type { ExistingTodo } from "../../lib/todo-state.ts";
 
-export type TodoStatus = (typeof TODO_STATUSES)[number];
+export { TODO_STATUSES, type TodoStatus } from "../../lib/todo-state.ts";
 
 /** One item in the list. */
-export type Todo = {
-	/** Imperative description of the task, e.g. "Write the parser tests". */
-	content: string;
-	status: TodoStatus;
-	/**
-	 * Present-continuous label shown while the item is in progress, e.g.
-	 * "Writing the parser tests". Falls back to `content` when absent.
-	 */
-	activeForm?: string;
-};
+export type Todo = ExistingTodo;
 
 /** Structured result carried in the tool's `details` and used for reconstruction. */
 export interface TodoDetails {

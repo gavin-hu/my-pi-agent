@@ -12,9 +12,10 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { onRailsSuppressed, onUpperRailChanged } from "../../lib/rails.ts";
+import { lastTodos } from "../../lib/todo-state.ts";
 import { DEFAULT_TODO_CONFIG, type TodoConfig } from "./config.ts";
 import { shouldNudge } from "./nudge.ts";
-import { hasOpenTodos, reconstructTodos } from "./state.ts";
+import { hasOpenTodos } from "./state.ts";
 import { TodoWidget, WIDGET_KEY } from "./tui.ts";
 import type { Todo } from "./types.ts";
 
@@ -115,7 +116,7 @@ export function createTodoRuntime(pi?: Pick<ExtensionAPI, "events">): TodoRuntim
 			notify();
 		},
 		reconstruct: (ctx) => {
-			todos = reconstructTodos(ctx.sessionManager.getBranch());
+			todos = lastTodos(ctx.sessionManager.getBranch());
 			mutations = 0;
 			writes = 0;
 			touched = false;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_TODOS } from "./schema.ts";
+import { MAX_TODOS } from "../../lib/todo-state.ts";
 import { createTodoRuntime } from "./runtime.ts";
 import { TOOL_NAME, registerTools } from "./tools.ts";
 import { fakeTheme as theme } from "../../test/helpers/fakes.ts";
