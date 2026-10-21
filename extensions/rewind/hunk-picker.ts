@@ -102,14 +102,6 @@ export class HunkPickerComponent extends ChecklistScreen<HunkRow> {
 		});
 	}
 
-	/**
-	 * One row per preview line, not the block's blank line too: the screen has
-	 * always reserved it that way, and the extraction keeps the same layout.
-	 */
-	protected detailRows(detail: readonly string[]): number {
-		return Math.max(0, detail.length - 1);
-	}
-
 	protected hint(width: number): string {
 		return screenHint(this.theme, width, [
 			"Esc cancel",

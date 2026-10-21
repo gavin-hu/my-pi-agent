@@ -1490,6 +1490,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `rewind`: the hunk checklist reserves the rows its focused preview really
+  draws. It charged one row for two lines and no blank line, so on a short
+  terminal the footer was pushed off by the block it should have made room for.
+
 - Tooling: the tool gallery draws the decorations a terminal does. The page is
   assembled from ANSI in a process without a TTY, where chalk dropped bold,
   italic, underline, strike, and reverse video, so every tool name was unbolded

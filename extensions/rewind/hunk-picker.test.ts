@@ -139,4 +139,25 @@ describe("HunkPickerComponent", () => {
 
 		expect(text(component)).toContain("of 40");
 	});
+
+	test("reserves the focused preview's real height from the visible rows", () => {
+		// 14 rows: the frame spends 6, the preview's two lines and their blank line
+		// cost 3, and the range row costs 1, leaving 4 rows for the list.
+		const many: Hunk[] = Array.from({ length: 40 }, (_, index) => ({
+			header: `@@ -${index * 10},3 +${index * 10},3 @@`,
+			lines: [" keep", "-old", "+new", " keep"],
+			added: 1,
+			removed: 1,
+		}));
+		const component = new HunkPickerComponent({
+			path: "src/a.ts",
+			hunks: many,
+			theme: fakeTheme,
+			onClose: () => {},
+			requestRender: () => {},
+			viewportRows: () => 14,
+		});
+
+		expect(text(component)).toContain("showing 1–4 of 40");
+	});
 });
