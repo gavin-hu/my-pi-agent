@@ -1,20 +1,24 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import subagent, { TOOL_NAME } from "./index.ts";
+import type { BackgroundRun, BackgroundRuntime } from "./background.ts";
+import { registerAgentsCommand } from "./commands.ts";
+import { aggregateUsage, clip, clipPath, formatAgentsList, formatToolCall, formatUsageStats } from "./format.ts";
 import type { RunOptions } from "./run.ts";
 import { emptyUsage } from "./stream.ts";
 import type { SingleResult } from "./types.ts";
-import { assistantMessage, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
-import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
-import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
-import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
-import { settle } from "../../test/helpers/process.ts";
-import { useEnv, tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
+import { createSubagentUi } from "./ui.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
+import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
+import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { fakeCtx } from "../../test/helpers/context.ts";
+import { tempDir, useEnv, withAgentDir, withEnv } from "../../test/helpers/env.ts";
+import { emit, makeFakePi } from "../../test/helpers/fakes.ts";
+import { assistantMessage, fakeTheme, fakeToolCtx } from "../../test/helpers/fixtures/subagent.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+import { settle } from "../../test/helpers/process.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -62,6 +66,15 @@ describe("subagent registration", () => {
 			expect(tools.size).toBe(0);
 		});
 	});
+
+	test("registers a direct, active tool with its safety annotations", () => {
+		const tool = register(async (options) => success(options.agentName, "ok"));
+		expect(tool).toBeDefined();
+		expect(tool.exposure).toBeUndefined();
+		expect(tool.defaultActive).toBeUndefined();
+		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
+	});
+
 	test("paints a running chip and announces a finished background run", async () => {
 		let release: ((result: SingleResult) => void) | undefined;
 		const tool = register(
@@ -116,12 +129,24 @@ describe("subagent registration", () => {
 		expect(tool.pi.entries[1]?.data).toMatchObject({ phase: "finish", runId: "a1", status: "finished" });
 	});
 
-	test("registers a direct, active tool", () => {
-		const tool = register(async (options) => success(options.agentName, "ok"));
-		expect(tool).toBeDefined();
-		expect(tool.exposure).toBeUndefined();
-		expect(tool.defaultActive).toBeUndefined();
-		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
+	test("shutdown aborts a background child and clears the chip", async () => {
+		let signal: AbortSignal | undefined;
+		const tool = register(
+			(options) =>
+				new Promise<SingleResult>(() => {
+					signal = options.signal;
+				}),
+		);
+		const ctx = { ...fakeToolCtx(), ...fakeCtx({ hasUI: true, branch: [] }).ctx };
+		ctx.sessionManager.getBranch = () => tool.pi.entries;
+
+		await emit(tool.pi, "session_start", {}, ctx);
+		await call(tool, { agent: "explorer", task: "explore", background: true }, ctx);
+		await settle();
+		await emit(tool.pi, "session_shutdown", {}, ctx);
+
+		expect(signal?.aborted).toBe(true);
+		expect(ctx.statuses.has(STATUS_KEYS.agents)).toBe(false);
 	});
 });
 
@@ -172,10 +197,11 @@ describe("subagent run settings", () => {
 });
 
 describe("subagent mode validation", () => {
-	test("rejects an empty call without running anything", async () => {
+	test("rejects an empty call without running anything and lists the roster", async () => {
 		const tool = register(async () => success("explorer", "ok"));
 		const result = await call(tool, {});
 		expect(result.content[0].text).toContain("Provide one mode");
+		expect(result.content[0].text).toContain("explorer");
 		expect(result.details.results).toEqual([]);
 	});
 });
@@ -247,11 +273,11 @@ describe("subagent parallel mode", () => {
 describe("subagent project agents", () => {
 	/** A temp repo whose `.pi/agents` holds one project agent. */
 	function projectRepo(): string {
-		const root = mkdtempSync(join(tmpdir(), "pi-subagent-ctx-"));
+		const root = temps.track(tempDir("pi-subagent-ctx-"));
 		const agentsDir = join(root, ".pi", "agents");
 		mkdirSync(agentsDir, { recursive: true });
 		writeFileSync(join(agentsDir, "auditor.md"), "---\nname: auditor\ndescription: Audits\n---\nYou audit.\n", "utf-8");
-		return temps.track(root);
+		return root;
 	}
 
 	function projectCtx(root: string, trusted: boolean, onConfirm: () => void): any {
@@ -444,5 +470,308 @@ describe("subagent accounting", () => {
 
 		expect(result.isError).toBeUndefined();
 		expect(result.details.results[0].exitCode).toBe(0);
+	});
+});
+
+const RUNS: BackgroundRun[] = [
+	{ id: "a2", agent: "explorer", task: "Map auth", cwd: "/repo", startedAt: 1000, status: "running" },
+	{
+		id: "a1",
+		agent: "reviewer",
+		task: "Review",
+		cwd: "/repo",
+		startedAt: 0,
+		finishedAt: 1000,
+		status: "finished",
+		output: "looks good",
+	},
+];
+
+/** A runtime double recording the command's calls. */
+function runtimeFor(runs: BackgroundRun[] = RUNS) {
+	const calls = { collect: [] as string[], cancel: [] as string[] };
+	const runtime = {
+		start: () => ({ ok: false, error: "unused" }),
+		list: () => runs,
+		collect: (id: string) => {
+			calls.collect.push(id);
+			return { ok: true, text: "collected output" } as const;
+		},
+		cancel: (id: string) => {
+			calls.cancel.push(id);
+			return true;
+		},
+		shutdown: () => {},
+		reset: () => {},
+		subscribe: () => () => {},
+	} as unknown as BackgroundRuntime;
+	return { runtime, calls };
+}
+
+/** Register `/agents` over a runtime. */
+function commandFor(runtime: BackgroundRuntime) {
+	const fake = makeFakePi();
+	registerAgentsCommand(fake.pi, runtime);
+	return { fake, command: fake.commands.get("agents") };
+}
+
+describe("/agents", () => {
+	test("prints the list headlessly", async () => {
+		const { runtime } = runtimeFor();
+		const { command } = commandFor(runtime);
+		const ctx = fakeCtx({ mode: "print", hasUI: false, branch: [] }).ctx;
+
+		await command.handler("", ctx);
+
+		expect(ctx.notices.at(-1)?.message).toContain("a2 explorer");
+		expect(ctx.notices.at(-1)?.message).toContain("a1 reviewer");
+	});
+
+	test("reports an empty board", async () => {
+		const { runtime } = runtimeFor([]);
+		const { command } = commandFor(runtime);
+		const ctx = fakeCtx({ mode: "tui", hasUI: true, branch: [] }).ctx;
+
+		await command.handler("", ctx);
+
+		expect(ctx.notices.at(-1)?.message).toContain("No background subagents yet.");
+	});
+
+	test("refuses in plan mode", async () => {
+		const { runtime } = runtimeFor();
+		const { command } = commandFor(runtime);
+		const ctx = fakeCtx({
+			mode: "tui",
+			branch: [{ type: "custom", customType: PLAN_MODE_ENTRY_TYPE, data: { enabled: true } }],
+		}).ctx;
+
+		await command.handler("", ctx);
+
+		expect(ctx.notices.at(-1)?.message).toContain("Plan mode is read-only");
+	});
+
+	test("collects a finished run and sends it as a user message", async () => {
+		const { runtime, calls } = runtimeFor();
+		const { fake, command } = commandFor(runtime);
+		const ctx = fakeCtx({ mode: "tui", hasUI: true, branch: [] }).ctx;
+		ctx.ui.custom = async (factory: any) => {
+			await new Promise((resolve) => {
+				const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, ctx.ui.theme, {}, resolve);
+				component.handleInput("j");
+				component.handleInput("c");
+			});
+		};
+
+		await command.handler("", ctx);
+
+		expect(calls.collect).toEqual(["a1"]);
+		expect(fake.sentMessages.at(-1)?.content).toBe("collected output");
+	});
+
+	test("cancels a running run and keeps the board open until close", async () => {
+		const { runtime, calls } = runtimeFor();
+		const { command } = commandFor(runtime);
+		const ctx = fakeCtx({ mode: "tui", hasUI: true, branch: [] }).ctx;
+		ctx.ui.custom = async (factory: any) => {
+			await new Promise((resolve) => {
+				const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, ctx.ui.theme, {}, resolve);
+				component.handleInput("x");
+				component.handleInput("\u001b");
+			});
+		};
+
+		await command.handler("", ctx);
+
+		expect(calls.cancel).toEqual(["a2"]);
+	});
+});
+
+/** One background run with a stable shape. */
+function backgroundRun(overrides: Partial<BackgroundRun> = {}): BackgroundRun {
+	return {
+		id: "a1",
+		agent: "explorer",
+		task: "Map the auth module",
+		cwd: "/repo",
+		startedAt: 0,
+		status: "running",
+		...overrides,
+	};
+}
+
+function uiHarness(initial: BackgroundRun[] = [backgroundRun()]) {
+	let runs = initial;
+	const ui = createSubagentUi({ runs: () => runs });
+	const { ctx, notices, statuses } = fakeCtx({ mode: "tui", hasUI: true });
+	return {
+		ui,
+		ctx,
+		notices,
+		statuses,
+		setRuns(next: BackgroundRun[]) {
+			runs = next;
+		},
+	};
+}
+
+describe("subagent footer status", () => {
+	test("paints the running count and clears it at zero", () => {
+		const h = uiHarness();
+		h.ui.attach(h.ctx);
+		h.ui.paint();
+		expect(h.statuses.get(STATUS_KEYS.agents)).toBe("↳ 1");
+
+		h.setRuns([backgroundRun({ status: "finished", finishedAt: 1_000 })]);
+		h.ui.paint();
+		expect(h.statuses.has(STATUS_KEYS.agents)).toBe(false);
+	});
+
+	test("notifies a finished run and points at /agents", () => {
+		const h = uiHarness();
+		h.ui.attach(h.ctx);
+		h.ui.notifyFinished(backgroundRun({ status: "finished", finishedAt: 1_000 }));
+
+		const notice = h.notices.at(-1);
+		expect(notice?.kind).toBe("info");
+		expect(notice?.message).toContain("Background subagent a1 (explorer) finished");
+		expect(notice?.message).toContain("Use /agents to collect it.");
+	});
+
+	test("uses an error notice for a failed or timed-out run", () => {
+		const h = uiHarness();
+		h.ui.attach(h.ctx);
+
+		h.ui.notifyFinished(backgroundRun({ status: "failed" }));
+		expect(h.notices.at(-1)?.kind).toBe("error");
+		expect(h.notices.at(-1)?.message).toContain("Use /agents to inspect it.");
+
+		h.ui.notifyFinished(backgroundRun({ status: "timedout" }));
+		expect(h.notices.at(-1)?.message).toContain("timed out");
+	});
+
+	test("stays silent for a cancelled run", () => {
+		const h = uiHarness();
+		h.ui.attach(h.ctx);
+		const before = h.notices.length;
+
+		h.ui.notifyFinished(backgroundRun({ status: "cancelled" }));
+
+		expect(h.notices).toHaveLength(before);
+	});
+
+	test("detach clears the chip and drops the context", () => {
+		const h = uiHarness();
+		h.ui.attach(h.ctx);
+		h.ui.paint();
+		h.ui.detach();
+
+		expect(h.statuses.has(STATUS_KEYS.agents)).toBe(false);
+		h.ui.notifyFinished(backgroundRun({ status: "finished", finishedAt: 1_000 }));
+		expect(h.notices).toHaveLength(0);
+	});
+});
+
+describe("formatUsageStats", () => {
+	test("omits zero fields and appends the model", () => {
+		const text = formatUsageStats(
+			{ turns: 2, input: 1200, output: 300, cacheRead: 800, cacheWrite: 0, cost: 0.0042, contextTokens: 2000 },
+			"claude-sonnet-4-5",
+		);
+		expect(text).toBe("2 turns ↑1.2k ↓300 R800 $0.0042 ctx:2.0k claude-sonnet-4-5");
+	});
+
+	test("returns an empty string when there is nothing to show", () => {
+		expect(formatUsageStats({})).toBe("");
+	});
+
+	test("singularizes one turn", () => {
+		expect(formatUsageStats({ turns: 1, input: 10 })).toBe("1 turn ↑10");
+	});
+});
+
+describe("aggregateUsage", () => {
+	test("sums every counter", () => {
+		const total = aggregateUsage([
+			{ usage: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, cost: 0.5, contextTokens: 0, turns: 1 } },
+			{ usage: { input: 10, output: 20, cacheRead: 30, cacheWrite: 40, cost: 0.25, contextTokens: 0, turns: 2 } },
+		]);
+		expect(total).toMatchObject({ input: 11, output: 22, cacheRead: 33, cacheWrite: 44, turns: 3 });
+		expect(total.cost).toBeCloseTo(0.75);
+	});
+});
+
+describe("clip", () => {
+	test("keeps surrogate pairs intact", () => {
+		const out = clip(`${"a".repeat(59)}😀tail`, 60);
+		expect(out.endsWith("…")).toBe(true);
+		expect(out).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+		expect(out).not.toMatch(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
+	});
+
+	test("accounts for wide characters by display width", () => {
+		const out = clip("界".repeat(40), 20);
+		expect(out.endsWith("…")).toBe(true);
+		expect([...out].length).toBeLessThanOrEqual(12);
+	});
+});
+
+describe("clipPath", () => {
+	test("preserves the basename when eliding the middle", () => {
+		const out = clipPath("/Users/gavin/Repositories/company/project/src/deeply/nested/module/file.ts", 40);
+		expect(out.endsWith("file.ts")).toBe(true);
+		expect(out).toContain("…");
+	});
+
+	test("returns a short path unchanged", () => {
+		expect(clipPath("/tmp/a.ts", 40)).toBe("/tmp/a.ts");
+	});
+});
+
+describe("formatToolCall", () => {
+	const theme = fakeTheme();
+
+	test("formats built-in tools", () => {
+		expect(formatToolCall("bash", { command: "ls -la" }, theme, true)).toBe("$ ls -la");
+		expect(formatToolCall("read", { file_path: "/tmp/a.ts", offset: 10, limit: 5 }, theme, true)).toContain(
+			"/tmp/a.ts:10-14",
+		);
+		expect(formatToolCall("grep", { pattern: "foo", path: "/tmp" }, theme, true)).toContain("/foo/");
+		expect(formatToolCall("find", { pattern: "*.ts", path: "." }, theme, true)).toContain("*.ts");
+		expect(formatToolCall("write", { file_path: "/tmp/a.ts", content: "a\nb" }, theme, true)).toContain("(2 lines)");
+	});
+
+	test("collapses newlines so a tool call stays on one preview line", () => {
+		expect(formatToolCall("bash", { command: "echo a\necho b" }, theme, true)).toBe("$ echo a echo b");
+	});
+
+	test("clips an overlong path in the preview", () => {
+		const out = formatToolCall("read", { file_path: `/tmp/${"a".repeat(200)}` }, theme, true);
+		expect(out.length).toBeLessThan(90);
+		expect(out).toContain("…");
+	});
+
+	test("does not throw on malformed arguments", () => {
+		for (const args of [undefined, null]) {
+			for (const name of ["bash", "read", "grep", "write", "ls", "find", "edit", "custom"]) {
+				expect(() => formatToolCall(name, args as never, theme, true)).not.toThrow();
+			}
+		}
+	});
+
+	test("falls back to a JSON preview for unknown tools", () => {
+		expect(formatToolCall("custom", { a: 1 }, theme, true)).toContain('{"a":1}');
+	});
+});
+
+describe("formatAgentsList", () => {
+	test("counts the runs and lists each with its status and activity", () => {
+		const text = formatAgentsList(RUNS, 2_000);
+		expect(text).toContain("2 background runs · 1 running:");
+		expect(text).toContain("a2 explorer · Map auth · running");
+		expect(text).toContain("a1 reviewer · Review · finished · 1.0s");
+	});
+
+	test("names the empty board", () => {
+		expect(formatAgentsList([])).toBe("No background subagents yet.");
 	});
 });

@@ -124,8 +124,13 @@ function isExported(node: ts.Node): boolean {
 	);
 }
 
+/** Parsed declarations by source object; each real tree is parsed once per test run. */
+const declarationCache = new WeakMap<Source, Declaration[]>();
+
 /** Top-level function declarations and `const name = function/arrow` declarations. */
 function declarationsOf(source: Source): Declaration[] {
+	const cached = declarationCache.get(source);
+	if (cached !== undefined) return cached;
 	const file = ts.createSourceFile(source.path, source.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 	const found: Declaration[] = [];
 
@@ -155,6 +160,7 @@ function declarationsOf(source: Source): Declaration[] {
 			add(declaration.name, declaration.initializer.body, exported);
 		}
 	}
+	declarationCache.set(source, found);
 	return found;
 }
 
@@ -231,14 +237,6 @@ export function findViolations(
  */
 const TEST_HELPER_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 	[
-		"extensions/bytefly/footer/collect/snapshot.test.ts:makeCtx",
-		"builds a footer snapshot context; the fixture makeCtx belongs to the job, watch, and rewind runtimes",
-	],
-	[
-		"extensions/bytefly/working/register.test.ts:fakeCtx",
-		"records setWorkingMessage, which the shared fakeCtx does not expose",
-	],
-	[
 		"extensions/plan/plans.test.ts:tempDir",
 		"canonicalizes with realpathSync.native so Windows 8.3 names compare equal",
 	],
@@ -250,15 +248,6 @@ const TEST_HELPER_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 		"extensions/wechat/client.test.ts:jsonResponse",
 		"returns the wechat client's { status, headers, text } shape, not web-access's body",
 	],
-	[
-		"extensions/wechat/interaction.test.ts:fakeTimers",
-		"arm and fire ids for the interaction scheduler; the fixture models bridge unref timers",
-	],
-	[
-		"extensions/wechat/timer.test.ts:fakeTimers",
-		"records armed and cancelled ids; the fixture models bridge unref timers",
-	],
-	["lib/env.test.ts:tempDir", "registers the directory for per-test cleanup; delegates to env.tempDir"],
 ]);
 
 /**
@@ -301,41 +290,53 @@ function sourceOf(path: string, text: string): Source {
 	return { path, surface: path.startsWith("lib/") ? "lib" : "extension", text };
 }
 
+let repoSourcesCache: Source[] | undefined;
+
 /** Every non-test TypeScript file under `lib/` and `extensions/`. */
 function repoSources(): Source[] {
+	if (repoSourcesCache !== undefined) return repoSourcesCache;
 	const files = [...walkFiles(join(repo, "lib")), ...walkFiles(join(repo, "extensions"))].filter(
 		(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
 	);
-	return files.map((file) => {
+	repoSourcesCache = files.map((file) => {
 		const path = relative(repo, file).replaceAll("\\", "/");
 		return sourceOf(path, readFileSync(file, "utf-8"));
 	});
+	return repoSourcesCache;
 }
+
+let testSourcesCache: Source[] | undefined;
 
 /** Every `*.test.ts` file under `lib/`, `extensions/`, and `test/`. */
 function testSources(): Source[] {
+	if (testSourcesCache !== undefined) return testSourcesCache;
 	const files = [
 		...walkFiles(join(repo, "lib")),
 		...walkFiles(join(repo, "extensions")),
 		...walkFiles(join(repo, "test")),
 	].filter((file) => file.endsWith(".test.ts"));
-	return files.map((file) => ({
+	testSourcesCache = files.map((file) => ({
 		path: relative(repo, file).replaceAll("\\", "/"),
 		surface: "test" as const,
 		text: readFileSync(file, "utf-8"),
 	}));
+	return testSourcesCache;
 }
+
+let helperSourcesCache: Source[] | undefined;
 
 /** Every non-test module under `test/helpers/`, the owners of the doubles. */
 function helperSources(): Source[] {
+	if (helperSourcesCache !== undefined) return helperSourcesCache;
 	const files = walkFiles(join(repo, "test", "helpers")).filter(
 		(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
 	);
-	return files.map((file) => ({
+	helperSourcesCache = files.map((file) => ({
 		path: relative(repo, file).replaceAll("\\", "/"),
 		surface: "test" as const,
 		text: readFileSync(file, "utf-8"),
 	}));
+	return helperSourcesCache;
 }
 
 const libFixture = `
@@ -497,7 +498,7 @@ export const settle = (ms = 0): Promise<void> => new Promise((resolve) => setTim
 	});
 
 	test("the test-helper exception list has no room to grow", () => {
-		expect(TEST_HELPER_EXCEPTIONS.size).toBe(8);
+		expect(TEST_HELPER_EXCEPTIONS.size).toBe(3);
 	});
 
 	test("the suite has no test-helper drift", () => {

@@ -499,7 +499,7 @@ it with its own rates for the models they match:
 For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
 published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
 turn at `¥10.00` at peak and `¥5.00` off-peak. That example is worked end to end
-in [`footer/price/price.test.ts`](./footer/price/price.test.ts), which also prices the built-in
+in [`footer/footer.test.ts`](./footer/footer.test.ts), which also prices the built-in
 table with no config file at all.
 
 ## Content and colors
@@ -720,7 +720,7 @@ shows where the value comes from — `Global · ~/.pi/agent/bytefly.json`, `Proj
 the same reload confirm as an extension toggle.
 
 The list is capped at fourteen rows so the screen keeps fitting a 24-row
-terminal: adding a setting means removing one (`panel/settings.test.ts` holds the
+terminal: adding a setting means removing one (`panel/panel.test.ts` holds the
 ceiling). Everything else stays in `bytefly.json` — the tuning numbers, the
 cosmetic labels, and the Pi preferences Pi's own `/settings` owns — and
 `test/settings-coverage.test.ts` keeps the split honest: every loader key is

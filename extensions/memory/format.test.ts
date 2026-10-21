@@ -13,14 +13,13 @@ function details(over: Partial<MemoryDetails> = {}): MemoryDetails {
 	return { action: "list", scope: "project", project: [], global: [], changed: false, ...over };
 }
 
-describe("buildInjection", () => {
+describe("injection body", () => {
 	test("returns undefined when nothing is stored", () => {
 		expect(buildInjection({ project: [], global: [] }, 8192)).toBeUndefined();
 	});
 
 	test("lists the project then global sections under the marker", () => {
 		const body = buildInjection({ project: ["p1"], global: ["g1"] }, 8192);
-		expect(body).toBeDefined();
 		expect(body?.startsWith(MEMORY_CONTEXT_MARKER)).toBe(true);
 		expect(body).toContain("project:\n- p1");
 		expect(body).toContain("global:\n- g1");
@@ -42,7 +41,7 @@ describe("buildInjection", () => {
 	});
 });
 
-describe("injectionPlan", () => {
+describe("injection plan", () => {
 	test("returns undefined when nothing is stored, so the caller can skip the message", () => {
 		expect(injectionPlan({ project: [], global: [] }, 8192)).toBeUndefined();
 	});
@@ -50,18 +49,16 @@ describe("injectionPlan", () => {
 	test("reports no omitted notes when everything fits", () => {
 		const plan = injectionPlan({ project: ["p1"], global: ["g1"] }, 8192);
 		expect(plan?.omitted).toEqual({ project: 0, global: 0 });
-		expect(plan?.lines.join("\n")).toBe(buildInjection({ project: ["p1"], global: ["g1"] }, 8192));
 	});
 
-	test("names which scope overflowed the cap", () => {
+	test("attributes omissions to the store that overflowed", () => {
 		const entries = Array.from({ length: 200 }, (_, index) => `note ${index} ${"x".repeat(40)}`);
 		const plan = injectionPlan({ project: entries.slice(0, 100), global: entries.slice(100) }, 512);
 		expect(plan?.omitted.project).toBeGreaterThan(0);
 		expect(plan?.omitted.global).toBeGreaterThan(0);
-		// The injected body is unchanged: one tail with the total.
-		expect(plan?.lines.join("\n")).toBe(
-			buildInjection({ project: entries.slice(0, 100), global: entries.slice(100) }, 512),
-		);
+		// One tail names the total, not one line per scope.
+		const missing = (plan?.omitted.project ?? 0) + (plan?.omitted.global ?? 0);
+		expect(plan?.lines.at(-1)).toBe(`- (+${missing} more; use the memory tool)`);
 	});
 });
 
@@ -70,6 +67,14 @@ describe("memory text", () => {
 		expect(formatCallText({ action: "add", scope: "global", text: "x" })).toBe("→ add (global): x");
 		expect(formatCallText({ action: "update", scope: "global", text: "a", to: "b" })).toBe("→ update (global): a → b");
 		expect(formatCallText({ action: "list" })).toBe("→ list");
+	});
+
+	test("formatCallText leaves out a note that has not arrived yet", () => {
+		expect(formatCallText({}, false)).toBe("→ …");
+		expect(formatCallText({ action: "add" }, false)).toBe("→ add (project)");
+		expect(formatCallText({ action: "add" })).toBe("→ add (project)");
+		expect(formatCallText({ action: "update", text: "a" })).toBe("→ update (project): a");
+		expect(formatCallText({})).toBe("");
 	});
 
 	test("formatResultText confirms a write without repeating the note", () => {
@@ -104,11 +109,24 @@ describe("memory text", () => {
 		expect(text).toContain("global (1):");
 	});
 
+	test("formatResultText caps a collapsed list and expands all of it", () => {
+		const many = Array.from({ length: 14 }, (_, index) => `note ${index}`);
+		const collapsed = formatResultText(details({ action: "list", project: many }));
+		expect(collapsed).toContain("- (+2 more)");
+		const expanded = formatResultText(details({ action: "list", project: many }), true);
+		expect(expanded).not.toContain("more)");
+		expect(expanded).toContain("- note 13");
+	});
+
 	test("formatResultText surfaces an error", () => {
 		expect(formatResultText(details({ error: "boom" }))).toBe("Error: boom");
 	});
 
 	test("formatNotice reports an empty store", () => {
 		expect(formatNotice({ project: [], global: [] })).toBe("No durable memory stored yet.");
+	});
+
+	test("formatNotice lists both stores", () => {
+		expect(formatNotice({ project: ["p"], global: ["g"] })).toBe("Memory:\nproject (1):\n- p\nglobal (1):\n- g");
 	});
 });

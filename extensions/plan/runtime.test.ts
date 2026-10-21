@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { createPlanPolicy } from "./policy.ts";
-import { BASELINE_TYPE, createPlanRuntime, ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL, STATE_TYPE } from "./runtime.ts";
-import { changedSections, sectionDigests } from "./plan-text.ts";
-import { baselineEntry, fakeCtx, makeFakePi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { baselineEntry, fakeCtx, makeFakePi, stateEntry } from "../../test/helpers/fixtures/plan.ts";
+import { checkReadOnlyGit } from "./git-bash.ts";
+import { hasPathInput } from "./path-guard.ts";
+import { changedSections, sectionDigests } from "./plan-text.ts";
+import { createPlanPolicy } from "./policy.ts";
+import { BASELINE_TYPE, createPlanRuntime, ENTER_TOOL, EXIT_TOOL, STATE_TYPE, WRITE_PLAN_TOOL } from "./runtime.ts";
 
 function setup(options: { active?: string[]; planFlag?: boolean; branch?: unknown[] } = {}) {
 	const fake = makeFakePi({
@@ -127,17 +129,15 @@ describe("plan runtime — persistence and status", () => {
 		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: undefined });
 	});
 
-	test("restores enabled state from the branch", () => {
-		const { runtime, ctx, activeTools } = setup({ branch: [stateEntry(true)] });
-		runtime.restore(ctx);
-		expect(runtime.isEnabled()).toBe(true);
-		expect(activeTools()).not.toContain("write");
-	});
+	test("restores enabled state from the branch and follows the latest entry", () => {
+		const enabled = setup({ branch: [stateEntry(true)] });
+		enabled.runtime.restore(enabled.ctx);
+		expect(enabled.runtime.isEnabled()).toBe(true);
+		expect(enabled.activeTools()).not.toContain("write");
 
-	test("the latest branch entry wins", () => {
-		const { runtime, ctx } = setup({ branch: [stateEntry(true), stateEntry(false)] });
-		runtime.restore(ctx);
-		expect(runtime.isEnabled()).toBe(false);
+		const disabled = setup({ branch: [stateEntry(true), stateEntry(false)] });
+		disabled.runtime.restore(disabled.ctx);
+		expect(disabled.runtime.isEnabled()).toBe(false);
 	});
 
 	test("the --plan flag forces plan mode on", () => {
@@ -147,18 +147,16 @@ describe("plan runtime — persistence and status", () => {
 		expect(activeTools()).not.toContain("edit");
 	});
 
-	test("a persisted disable wins over the --plan flag", () => {
-		const { runtime, ctx, activeTools } = setup({ planFlag: true, branch: [stateEntry(false)] });
-		runtime.restore(ctx);
-		expect(runtime.isEnabled()).toBe(false);
-		expect(activeTools()).toContain("write");
-		expect(activeTools()).not.toContain(EXIT_TOOL);
-	});
+	test("a persisted choice wins over the --plan flag in both directions", () => {
+		const off = setup({ planFlag: true, branch: [stateEntry(false)] });
+		off.runtime.restore(off.ctx);
+		expect(off.runtime.isEnabled()).toBe(false);
+		expect(off.activeTools()).toContain("write");
+		expect(off.activeTools()).not.toContain(EXIT_TOOL);
 
-	test("a persisted enable wins too", () => {
-		const { runtime, ctx } = setup({ branch: [stateEntry(true)] });
-		runtime.restore(ctx);
-		expect(runtime.isEnabled()).toBe(true);
+		const on = setup({ planFlag: true, branch: [stateEntry(true)] });
+		on.runtime.restore(on.ctx);
+		expect(on.runtime.isEnabled()).toBe(true);
 	});
 
 	test("restore does not append a state entry", () => {
@@ -175,6 +173,15 @@ describe("plan runtime — persistence and status", () => {
 		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan · 2026-10-08-1530-add-rate-li`);
 	});
 
+	test("a bare chip names plan mode with no plan file", () => {
+		const { runtime, ctx, statusCalls } = setup();
+		runtime.enable(ctx);
+		expect(runtime.lastPlanPath()).toBeUndefined();
+		expect(String(statusCalls.at(-1)?.text)).toBe(`${GLYPHS.plan} plan`);
+	});
+});
+
+describe("plan runtime — control-tool identity", () => {
 	test("recognizes only the known control tool names", () => {
 		const { runtime } = setup();
 		expect(runtime.isControlTool(EXIT_TOOL)).toBe(true);
@@ -202,6 +209,13 @@ describe("plan runtime — persistence and status", () => {
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
 		expect(runtime.isControlTool(EXIT_TOOL)).toBe(false);
 		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(false);
+	});
+
+	test("accepts a control tool whose source the host did not record", () => {
+		const fake = makeFakePi({ active: ["read"] });
+		fake.pi.allTools = [{ name: EXIT_TOOL }];
+		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
+		expect(runtime.isControlTool(EXIT_TOOL)).toBe(true);
 	});
 });
 
@@ -327,5 +341,215 @@ describe("plan runtime — branch restore", () => {
 
 		expect(activeTools()).not.toContain("write");
 		expect(activeTools()).toContain("grep");
+	});
+});
+
+describe("read-only git shell guard — allowed shapes", () => {
+	const ok = (command: string): boolean => checkReadOnlyGit(command).ok;
+	const reason = (command: string): string => {
+		const verdict = checkReadOnlyGit(command);
+		return verdict.ok ? "" : verdict.reason;
+	};
+
+	const allowed = [
+		"git status",
+		"git status --short --branch",
+		"git diff --stat",
+		"git diff HEAD -- src/a.ts",
+		"git log --oneline -n 5",
+		"git log --oneline --decorate --all --graph -20",
+		"git show HEAD",
+		"git branch",
+		"git branch -a",
+		"git branch -l 'feature/*'",
+		"git branch --format=refname",
+		"git rev-parse HEAD",
+		"git describe --tags",
+		"git blame src/a.ts",
+		"git grep TODO",
+		"git shortlog -sn",
+		"git ls-files",
+		"git ls-tree HEAD",
+		"git show-ref",
+		"git merge-base main HEAD",
+		"git stash list",
+		"git stash show -p",
+		"git worktree list",
+		"git reflog",
+		"git reflog show",
+		"git remote -v",
+		"git remote show origin",
+		"git config --get user.name",
+		"git config --get-all remote.origin.fetch",
+		"git tag",
+		"git tag -l",
+		"git tag --list 'v*'",
+		"git tag --sort=-creatordate",
+		"git version",
+		"git --version",
+		"git status && git diff --stat",
+		"git status; git log --oneline -n 5",
+		"git branch && git status",
+		"git status&&git status",
+		"git status --short",
+		// A backslash before an ordinary character is a Windows path separator.
+		"git diff -- extensions\\plan",
+		"git ls-files -- extensions\\plan",
+		"git ls-files -- 'extensions\\plan'",
+		'git diff -- "C:\\repo\\src\\a.ts"',
+		"git log --oneline -- C:\\repo",
+		"git log --format='%h\\t%s'",
+	];
+	for (const command of allowed) {
+		test(`allows: ${command}`, () => {
+			expect(ok(command), reason(command)).toBe(true);
+		});
+	}
+});
+
+describe("read-only git shell guard — refused shapes", () => {
+	const ok = (command: string): boolean => checkReadOnlyGit(command).ok;
+	const reason = (command: string): string => {
+		const verdict = checkReadOnlyGit(command);
+		return verdict.ok ? "" : verdict.reason;
+	};
+
+	const blocked = [
+		"",
+		"   ",
+		"rm -rf x",
+		"echo hi",
+		"git commit -m x",
+		"git add .",
+		"git push",
+		"git checkout main",
+		"git reset --hard",
+		"git switch main",
+		"git fetch",
+		// One refused segment refuses the whole chain.
+		"git status; rm -rf x",
+		"git status && rm -rf x",
+		"git status && git push",
+		"git status && git status > out",
+		"git status && git status | sh",
+		"git status && $(git log)",
+		"git status || git status",
+		"git status &&",
+		"&& git status",
+		"git status;; git log",
+		"git status || true",
+		// Pipes, redirection, substitution, and backticks are never a read.
+		"git status | sh",
+		"git status > out",
+		"$(git status)",
+		"git status `whoami`",
+		"git log --grep='a;b'",
+		// Options that write a file or run another program.
+		"git log --output=x",
+		"git log --ext-diff",
+		"git grep -O foo",
+		"git grep -Ocat TODO",
+		"git grep -O=cat TODO",
+		"git cat-file --filters --path=src/a.ts blob",
+		"git -c alias.x=!sh x",
+		"git --git-dir=/tmp/x status",
+		// Dual-use subcommands must be in their listing form.
+		"git branch -D foo",
+		"git branch foo",
+		"git tag -d v1",
+		"git tag v1",
+		"git remote add o url",
+		"git remote set-url o url",
+		"git config user.name x",
+		"git stash",
+		"git worktree add p",
+		"git reflog expire --all",
+		"cd /tmp",
+		"cd /tmp && git status",
+		// An escaped separator or metacharacter is a shell escape, not a path.
+		"git diff -- C:\\repo\\src; rm -rf x",
+		"git status \\; rm -rf x",
+		"git status \\| sh",
+		"git status \\& rm",
+		"git diff -- C:\\repo\\",
+	];
+	for (const command of blocked) {
+		test(`blocks: ${command || "(empty)"}`, () => {
+			expect(ok(command)).toBe(false);
+			expect(reason(command).length).toBeGreaterThan(0);
+		});
+	}
+
+	test("explains that cd is unnecessary", () => {
+		expect(reason("cd /tmp")).toContain("working directory");
+	});
+
+	test("names the git rule for a non-git command", () => {
+		expect(reason("ls")).toContain("read-only git");
+	});
+});
+
+describe("path-argument scan", () => {
+	test("detects common path argument names", () => {
+		for (const input of [
+			{ path: "a.ts" },
+			{ file_path: "a.ts" },
+			{ filePath: "a.ts" },
+			{ files: ["a.ts", "b.ts"] },
+			{ directory: "/tmp" },
+		]) {
+			expect(hasPathInput(input)).toBe(true);
+		}
+	});
+
+	test("ignores path keys without string values", () => {
+		expect(hasPathInput({ path: 123 })).toBe(false);
+		expect(hasPathInput({ paths: [1, 2] })).toBe(false);
+		expect(hasPathInput({ path: null })).toBe(false);
+	});
+
+	test("ignores inputs without path keys", () => {
+		expect(hasPathInput({ query: "x" })).toBe(false);
+		expect(hasPathInput({ command: "ls" })).toBe(false);
+		expect(hasPathInput({})).toBe(false);
+	});
+
+	test("handles non-object input", () => {
+		expect(hasPathInput(undefined)).toBe(false);
+		expect(hasPathInput(null)).toBe(false);
+		expect(hasPathInput("a.ts")).toBe(false);
+		expect(hasPathInput(42)).toBe(false);
+	});
+
+	test("finds path keys nested in objects and arrays", () => {
+		expect(hasPathInput({ options: { cwd: "/repo" } })).toBe(true);
+		expect(hasPathInput({ tasks: [{ task: "x", cwd: "/repo" }] })).toBe(true);
+		expect(hasPathInput({ args: { nested: { file_path: "a.ts" } } })).toBe(true);
+	});
+
+	test("recognizes path-key words in compound names", () => {
+		for (const input of [
+			{ cwd: "/repo" },
+			{ root: "/repo" },
+			{ outputDir: "/repo/out" },
+			{ source_files: ["a.ts"] },
+			{ include: ["**/*.ts"] },
+			{ glob: "**/*.ts" },
+		]) {
+			expect(hasPathInput(input)).toBe(true);
+		}
+	});
+
+	test("flags strongly path-shaped values under neutral keys", () => {
+		for (const value of ["/etc/passwd", "../secrets", "src/index.ts", "C:\\Users\\me", "~/notes.md"]) {
+			expect(hasPathInput({ whatever: value })).toBe(true);
+		}
+	});
+
+	test("does not flag URLs, lone slash tokens, or plain words", () => {
+		expect(hasPathInput({ url: "https://example.com/a/b" })).toBe(false);
+		expect(hasPathInput({ label: "/plan" })).toBe(false);
+		expect(hasPathInput({ query: "rate limiting" })).toBe(false);
+		expect(hasPathInput({ command: "ls" })).toBe(false);
 	});
 });

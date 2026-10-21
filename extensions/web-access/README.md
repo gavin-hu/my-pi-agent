@@ -378,9 +378,9 @@ the content type and size.
 
 ## Testing
 
-`extensions/web-access/` mirrors the halves (`search/`, `fetch/`) plus top-level
-`config.test.ts` and `index.test.ts`. It covers the shared runner (via injected
-`fetch`), the provider registry and resolution, each provider's URL builder and
+`extensions/web-access/` mirrors the halves (`search/`, `fetch/`) plus the
+`http.test.ts` suite for the shared runner, charset, config, and registration.
+It covers the injected `fetch` runner, the provider registry and resolution, each provider's URL builder and
 parser (DuckDuckGo, SearXNG, Brave), the orchestration pipeline and throttle,
 charset decoding (declared, `<meta>`, and BOM precedence), a streamed body over
 the byte cap, redirect re-validation (per-hop SSRF with literal IPs),

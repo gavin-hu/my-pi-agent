@@ -1,43 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { coloringTheme, emit, fakeTheme } from "../../test/helpers/fakes.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
-import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { SUBAGENT_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
-import {
-	bootBytefly,
-	fakeFooterCtx,
-	makeFakePi,
-	OFFLINE_UPDATE,
-	renderFooter,
-} from "../../test/helpers/fixtures/bytefly.ts";
+import { fakeCtx } from "../../test/helpers/context.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { emit, fakeTheme } from "../../test/helpers/fakes.ts";
+import { bootBytefly, fakeFooterCtx, makeFakePi, OFFLINE_UPDATE } from "../../test/helpers/fixtures/bytefly.ts";
 import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
-/** A million-token Opus call, so a configured rate lands on a round number. */
-const millionTokens = (): unknown[] => [
-	{
-		type: "message",
-		timestamp: "2026-01-05T03:00:00.000Z",
-		message: {
-			role: "assistant",
-			provider: "anthropic",
-			model: "opus-4.5",
-			usage: { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
-		},
-	},
-];
-
-/** A price config for the fake session's model, in the given currency. */
-const rateConfig = (code: "CNY" | "USD"): string =>
-	JSON.stringify({
-		price: { currency: { code, decimals: 2 }, rates: { "anthropic/opus-4.5": { input: 2.5 } } },
-	});
-
-describe("bytefly extension", () => {
+describe("bytefly extension registration", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "bytefly" }, () => {
 			const { pi, tools, commands, handlers, markdownTransformers, messageRenderers, toolRenderers } = makeFakePi();
@@ -51,237 +21,7 @@ describe("bytefly extension", () => {
 		});
 	});
 
-	test("registers the /bytefly command", () => {
-		const { pi, commands } = makeFakePi();
-		bootBytefly(pi);
-		expect(commands.has("bytefly")).toBe(true);
-	});
-
-	test("registers the doctor surface", () => {
-		const { pi, tools, commands } = makeFakePi();
-		bootBytefly(pi);
-		const tool = tools.get("run_doctor");
-		expect(tool?.annotations.readOnlyHint).toBe(true);
-		expect(commands.has("bytefly")).toBe(true);
-		expect(commands.has("doctor")).toBe(false);
-	});
-
-	test("registers the notify capability", () => {
-		const { pi, handlers } = makeFakePi();
-		bootBytefly(pi);
-		// `ui_prompt_start` is notify's own hook; the separator shares `agent_settled`.
-		expect(handlers.has("ui_prompt_start")).toBe(true);
-	});
-
-	test("registers the user-message transformer", () => {
-		const { pi, markdownTransformers } = makeFakePi();
-		bootBytefly(pi);
-		expect(markdownTransformers).toHaveLength(1);
-	});
-
-	test("drives the working line while the working row is up", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, workingMessages } = fakeFooterCtx({ mode: "tui" });
-
-		await emit(pi, "turn_start", {}, ctx);
-		expect(workingMessages.at(-1)).toMatch(/^Working… \d+s$/);
-
-		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
-		expect(workingMessages.at(-1)).toMatch(/^read · 1 tool · \d+s$/);
-
-		await emit(pi, "agent_end", {}, ctx);
-		expect(workingMessages.at(-1)).toBeUndefined();
-	});
-
-	test("registers the notice renderer", () => {
-		const { pi, messageRenderers } = makeFakePi();
-		bootBytefly(pi);
-		expect(messageRenderers.has(NOTICE_TYPE)).toBe(true);
-	});
-
-	test("shares one output pad between the notice and the turn separator", () => {
-		const { pi, messageRenderers, renderers } = makeFakePi();
-		bootBytefly(pi);
-
-		// A notice is handed Pi's pad; it insets by it and records it for the rest.
-		const notice = messageRenderers.get(NOTICE_TYPE);
-		const lines = notice(
-			{ details: { source: "job", title: "done", items: [{ label: "j1", severity: "ok" }] } },
-			{ expanded: false, outputPad: 3 },
-			fakeTheme,
-		).render(80);
-		expect(lines[0]?.startsWith("   job")).toBe(true);
-
-		// Pi hands an entry renderer no pad, so the separator follows the observed 3.
-		const separator = renderers.get("bytefly-separator");
-		const rule = separator({ data: { turn: 1 } }, { expanded: false }, fakeTheme).render(60)[0] ?? "";
-		expect(rule.startsWith("   ")).toBe(true);
-		expect(rule.startsWith("    ")).toBe(false);
-	});
-
-	test("registers the tool-block resolver", () => {
-		const { pi, toolRenderers } = makeFakePi();
-		bootBytefly(pi);
-		expect(toolRenderers).toHaveLength(1);
-	});
-
-	test("installs the footer on session start in interactive mode", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
-
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		expect(footers).toHaveLength(1);
-		expect(typeof footers[0]).toBe("function");
-	});
-
-	test("shows a finished child run in the footer's separate roll-up", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footers, footerData } = fakeFooterCtx({
-			mode: "tui",
-			entries: [
-				{
-					type: "message",
-					message: {
-						role: "assistant",
-						usage: { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0 } },
-					},
-				},
-			],
-		});
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		pi.events.emit(SUBAGENT_FINISHED_CHANNEL, {
-			agent: "explorer",
-			provider: "anthropic",
-			model: "opus-4.5",
-			input: 1_000_000,
-			output: 0,
-			cacheRead: 0,
-			cacheWrite: 0,
-			recordedCost: 0,
-			at: null,
-			exitCode: 0,
-		});
-
-		const lines = renderFooter(footers[0], footerData).map(stripTerminalSequences);
-		// The roll-up is its own segment: the session's own figures are unaffected.
-		expect(lines).toHaveLength(2);
-		expect(lines[1]).toContain("↳ 1");
-	});
-
-	test("a new session starts the roll-up from zero", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footers, footerData } = fakeFooterCtx({ mode: "tui" });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		pi.events.emit(SUBAGENT_FINISHED_CHANNEL, {
-			agent: "explorer",
-			provider: "anthropic",
-			model: "opus-4.5",
-			input: 10,
-			output: 0,
-			cacheRead: 0,
-			cacheWrite: 0,
-			recordedCost: 0,
-			at: null,
-			exitCode: 0,
-		});
-		expect(renderFooter(footers[0], footerData).join("\n")).toContain("↳ 1");
-
-		await emit(pi, "session_start", { reason: "new" }, ctx);
-
-		expect(renderFooter(footers.at(-1), footerData).join("\n")).not.toContain("↳");
-	});
-
-	test("does not install the footer outside interactive mode", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footers } = fakeFooterCtx({ mode: "print" });
-
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		expect(footers).toHaveLength(0);
-	});
-
-	test("installs the header on session start in interactive mode", async () => {
-		const { pi } = makeFakePi({ settings: { quietStartup: true } });
-		bootBytefly(pi);
-		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
-
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		expect(headers).toHaveLength(1);
-		expect(typeof headers[0]).toBe("function");
-	});
-
-	test("does not install the header outside interactive mode", async () => {
-		const { pi } = makeFakePi({ settings: { quietStartup: true } });
-		bootBytefly(pi);
-		const { ctx, headers } = fakeFooterCtx({ mode: "print" });
-
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		expect(headers).toHaveLength(0);
-	});
-
-	test("restores the built-in header on shutdown", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
-
-		await emit(pi, "session_shutdown", {}, ctx);
-
-		expect(headers.at(-1)).toBeUndefined();
-	});
-
-	test("renders the nameplate through the installed header factory", async () => {
-		const { pi } = makeFakePi({ settings: { quietStartup: true } });
-		bootBytefly(pi);
-		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
-
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-		const component = headers.at(-1)({ requestRender: () => {} }, fakeTheme);
-		const lines = component.render(80);
-
-		expect(lines).toHaveLength(7);
-		expect(lines[1]).toContain("Pi v");
-		expect(lines[2]).toContain("enhanced by bytefly");
-	});
-
-	test("places the header on Pi's output pad", async () => {
-		for (const [outputPad, margin, help] of [
-			[undefined, 1, 3],
-			[0, 0, 2],
-		] as const) {
-			const { pi } = makeFakePi({ settings: { quietStartup: true, outputPad } });
-			bootBytefly(pi);
-			const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
-			await emit(pi, "session_start", { reason: "startup" }, ctx);
-			const lines = headers
-				.at(-1)({ requestRender: () => {} }, fakeTheme)
-				.render(80);
-
-			expect(lines[1]?.startsWith(`${" ".repeat(margin)}█▀█`)).toBe(true);
-			// The raw `/` hints need no keybinding, so the row is stable in a bare test.
-			expect(lines[6]?.startsWith(`${" ".repeat(help)}/`)).toBe(true);
-		}
-	});
-
-	test("restores the built-in footer on shutdown", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
-
-		await emit(pi, "session_shutdown", {}, ctx);
-
-		expect(footers.at(-1)).toBeUndefined();
-	});
-
-	test("registers one /bytefly command", () => {
+	test("registers one /bytefly command and no retired aliases", () => {
 		const { pi, commands } = makeFakePi();
 		bootBytefly(pi);
 		expect(commands.has("bytefly")).toBe(true);
@@ -303,6 +43,115 @@ describe("bytefly extension", () => {
 		expect(labels).not.toContain("status");
 	});
 
+	test("registers the doctor surface's read-only tool", () => {
+		const { pi, tools, commands } = makeFakePi();
+		bootBytefly(pi);
+		const tool = tools.get("run_doctor");
+		expect(tool?.annotations.readOnlyHint).toBe(true);
+		expect(commands.has("doctor")).toBe(false);
+	});
+
+	test("registers the notify capability's hooks", () => {
+		const { pi, handlers } = makeFakePi();
+		bootBytefly(pi);
+		// `ui_prompt_start` is notify's own hook; the separator shares `agent_settled`.
+		expect(handlers.has("ui_prompt_start")).toBe(true);
+	});
+
+	test("registers the user-message transformer", () => {
+		const { pi, markdownTransformers } = makeFakePi();
+		bootBytefly(pi);
+		expect(markdownTransformers).toHaveLength(1);
+	});
+
+	test("registers the notice renderer", () => {
+		const { pi, messageRenderers } = makeFakePi();
+		bootBytefly(pi);
+		expect(messageRenderers.has(NOTICE_TYPE)).toBe(true);
+	});
+
+	test("registers the tool-block resolver", () => {
+		const { pi, toolRenderers } = makeFakePi();
+		bootBytefly(pi);
+		expect(toolRenderers).toHaveLength(1);
+	});
+});
+
+describe("bytefly interactive surfaces", () => {
+	test("drives the working line while the working row is up", async () => {
+		const { pi } = makeFakePi();
+		bootBytefly(pi);
+		const { ctx, workingMessages } = fakeFooterCtx({ mode: "tui" });
+
+		await emit(pi, "turn_start", {}, ctx);
+		expect(workingMessages.at(-1)).toMatch(/^Working… \d+s$/);
+
+		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
+		expect(workingMessages.at(-1)).toMatch(/^read · 1 tool · \d+s$/);
+
+		await emit(pi, "agent_end", {}, ctx);
+		expect(workingMessages.at(-1)).toBeUndefined();
+	});
+
+	test("shares one output pad between the notice and the turn separator", () => {
+		const { pi, messageRenderers, renderers } = makeFakePi();
+		bootBytefly(pi);
+
+		// A notice is handed Pi's pad; it insets by it and records it for the rest.
+		const notice = messageRenderers.get(NOTICE_TYPE);
+		const lines = notice(
+			{ details: { source: "job", title: "done", items: [{ label: "j1", severity: "ok" }] } },
+			{ expanded: false, outputPad: 3 },
+			fakeTheme,
+		).render(80);
+		expect(lines[0]?.indexOf("job")).toBe(3);
+
+		// Pi hands an entry renderer no pad, so the separator follows the observed 3.
+		const separator = renderers.get("bytefly-separator");
+		const rule = separator({ data: { turn: 1 } }, { expanded: false }, fakeTheme).render(60)[0] ?? "";
+		expect(rule.startsWith(" ".repeat(3))).toBe(true);
+		expect(rule.startsWith(" ".repeat(4))).toBe(false);
+	});
+
+	test("installs the footer on session start and restores it on shutdown", async () => {
+		const { pi } = makeFakePi();
+		bootBytefly(pi);
+		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		expect(footers).toHaveLength(1);
+		expect(typeof footers[0]).toBe("function");
+
+		await emit(pi, "session_shutdown", {}, ctx);
+		expect(footers.at(-1)).toBeUndefined();
+	});
+
+	test("installs the header only with the bytefly startup TUI, and restores it", async () => {
+		const { pi } = makeFakePi({ settings: { quietStartup: true } });
+		bootBytefly(pi);
+		const { ctx, headers } = fakeFooterCtx({ mode: "tui" });
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+		expect(headers).toHaveLength(1);
+		expect(typeof headers[0]).toBe("function");
+
+		await emit(pi, "session_shutdown", {}, ctx);
+		expect(headers.at(-1)).toBeUndefined();
+	});
+
+	test("does not install interactive chrome outside the tui mode", async () => {
+		const { pi } = makeFakePi({ settings: { quietStartup: true } });
+		bootBytefly(pi);
+		const { ctx, footers, headers } = fakeFooterCtx({ mode: "print" });
+
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		expect(footers).toHaveLength(0);
+		expect(headers).toHaveLength(0);
+	});
+});
+
+describe("bytefly command wiring", () => {
 	test("reaches the update check from /bytefly update", async () => {
 		const { pi, commands } = makeFakePi();
 		// The injected list and version are what the command reports, so the wiring
@@ -341,44 +190,5 @@ describe("bytefly extension", () => {
 
 		expect(typeof headers.at(-1)).toBe("function");
 		expect(typeof footers.at(-1)).toBe("function");
-	});
-
-	test("renders two footer lines through the installed factory", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", context: undefined });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		const lines = renderFooter(footers.at(-1), footerData, 100);
-
-		expect(lines).toHaveLength(2);
-		expect(lines[0]).toContain("⎇ main");
-		expect(lines.join("\n")).toContain("opus-4.5");
-	});
-
-	test("reads the live theme on every render", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui" });
-		await emit(pi, "session_start", { reason: "startup" }, ctx);
-
-		const factory = footers.at(-1);
-		ctx.ui.theme = coloringTheme;
-		const lines = renderFooter(factory, footerData, 100);
-
-		expect(lines[0]).toContain("[");
-	});
-
-	test("prices the cost from a bytefly.json rate", async () => {
-		const { pi } = makeFakePi();
-		bootBytefly(pi);
-		const { ctx, footerData, footers } = fakeFooterCtx({ mode: "tui", entries: millionTokens(), context: undefined });
-
-		await withAgentDir(async (agentDir) => {
-			writeFileSync(join(agentDir, "bytefly.json"), rateConfig("CNY"));
-			await emit(pi, "session_start", { reason: "startup" }, ctx);
-		});
-
-		expect(renderFooter(footers.at(-1), footerData, 100)[1]).toContain("¥2.50");
 	});
 });

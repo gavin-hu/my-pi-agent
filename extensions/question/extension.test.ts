@@ -1,96 +1,73 @@
+/**
+ * The question capability's registration and lifecycle: the tool is declared
+ * model-only and inactive, then activated at `session_start` only when the
+ * session can answer it.
+ *
+ * Tool execution lives in `tools.test.ts`; the interactive surfaces live in
+ * `tui.test.ts`.
+ */
+
 import { describe, expect, test } from "bun:test";
-import question from "./index.ts";
-import { TOOL_NAME } from "./tools.ts";
-import { createFakePi, emit } from "../../test/helpers/fakes.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
-import { remoteCtx } from "../../test/helpers/remote-ui.ts";
-import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-
-/** A `pi` double with the requested active tools. */
-function newPi(active: string[] = [TOOL_NAME]) {
-	return createFakePi({ active }).pi;
-}
+import { createFakePi, emit } from "../../test/helpers/fakes.ts";
+import question from "./index.ts";
+import { TOOL_NAME } from "./tools.ts";
 
 /** The shared context double, defaulting the mode from `hasUI`. */
 function uiCtx(hasUI: boolean) {
 	return fakeCtx({ mode: hasUI ? "tui" : "print", hasUI }).ctx;
 }
 
+function registered() {
+	const { pi, tools, handlers } = createFakePi({ active: [] });
+	question(pi);
+	return { pi, tools, handlers };
+}
+
 describe("question extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "question" }, () => {
-			const { pi, tools, handlers } = createFakePi();
-			question(pi);
+			const { tools, handlers } = registered();
+
 			expect(tools.size).toBe(0);
 			expect(handlers.size).toBe(0);
 		});
 	});
 
 	test("registers a model-only tool that starts inactive", () => {
-		const pi = newPi([]);
-		question(pi);
-		const tool = pi.tools.get(TOOL_NAME);
+		const { pi, tools } = registered();
+		const tool = tools.get(TOOL_NAME);
+
 		expect(tool).toBeDefined();
 		expect(tool.exposure).toBe("model-only");
 		expect(tool.defaultActive).toBe(false);
 		expect(tool.executionMode).toBe("sequential");
 		expect(tool.annotations.readOnlyHint).toBe(true);
+		expect(tool.annotations.openWorldHint).toBe(false);
+		expect(pi.getActiveTools()).not.toContain(TOOL_NAME);
 	});
 
 	test("activates the tool when the session has a UI", async () => {
-		const pi = newPi([]);
-		question(pi);
+		const { pi } = registered();
 		await emit(pi, "session_start", { reason: "startup" }, uiCtx(true));
+
 		expect(pi.getActiveTools()).toContain(TOOL_NAME);
 	});
 
 	test("leaves the tool inactive when the session has no UI", async () => {
-		const pi = newPi([]);
-		question(pi);
+		const { pi } = registered();
 		await emit(pi, "session_start", { reason: "startup" }, uiCtx(false));
+
 		expect(pi.getActiveTools()).not.toContain(TOOL_NAME);
 	});
 
-	test("degrades to an error result without a UI", async () => {
-		const pi = newPi();
-		question(pi);
-		const tool = pi.tools.get(TOOL_NAME);
-		const result = await tool.execute(
-			"call-1",
-			{ questions: [{ question: "Which one?", options: [{ label: "A" }, { label: "B" }] }] },
-			undefined,
-			undefined,
-			uiCtx(false),
-		);
-		expect(result.isError).toBe(true);
-		expect(result.details.unavailable).toBe(true);
-		expect(result.content[0].text).toContain("No interactive UI available");
-	});
+	test("keeps a single entry when the session starts again", async () => {
+		const { pi } = registered();
+		await emit(pi, "session_start", { reason: "startup" }, uiCtx(true));
+		await emit(pi, "session_start", { reason: "resume" }, uiCtx(true));
 
-	test("answers through dialogs on a remote turn instead of the TUI component", async () => {
-		const pi = newPi();
-		question(pi);
-		const tool = pi.tools.get(TOOL_NAME);
-		const { ctx, customCalls, selects } = remoteCtx({ select: "A" });
-		const result = await tool.execute(
-			"call-3",
-			{ questions: [{ question: "Which one?", options: [{ label: "A" }, { label: "B" }] }] },
-			undefined,
-			undefined,
-			ctx,
-		);
-		expect(customCalls).toEqual([]);
-		expect(selects).toHaveLength(1);
-		expect(result.details.answers[0].values).toEqual(["A"]);
-	});
-
-	test("rejects invalid input with a thrown error", async () => {
-		const pi = newPi();
-		question(pi);
-		const tool = pi.tools.get(TOOL_NAME);
-		await expect(tool.execute("call-2", { questions: [] }, undefined, undefined, uiCtx(false))).rejects.toThrow(
-			"At least one question",
-		);
+		expect(pi.getActiveTools().filter((name: string) => name === TOOL_NAME)).toHaveLength(1);
 	});
 });

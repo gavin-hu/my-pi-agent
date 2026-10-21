@@ -1,42 +1,65 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createSnapshot } from "./snapshot.ts";
-import { onRailsSuppressed } from "../../lib/rails.ts";
-import { createFakePi, emit } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import rewindExtension from "./index.ts";
+import { onRailsSuppressed } from "../../lib/rails.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import {
 	branchWithUser,
+	cleanup,
+	execP,
 	indexFileFor,
 	makeCtx,
+	makeRepo,
 	rewindMetadata as metadata,
 	rewindRefs as refs,
 	runGit,
 	setupRewind as setup,
 } from "../../test/helpers/fixtures/rewind.ts";
-import { cleanup, execP, makeRepo } from "../../test/helpers/git.ts";
+import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
+import rewindExtension from "./index.ts";
+import { createSnapshot } from "./snapshot.ts";
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));
 
 const NS = "refs/pi/rewind";
 
-describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
+describe("registration", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "rewind" }, () => {
 			const { pi, commands, handlers } = createFakePi();
+
 			rewindExtension(pi);
+
 			expect(commands.size).toBe(0);
 			expect(handlers.size).toBe(0);
 		});
 	});
 
+	test("registers both commands and the lifecycle events", () => {
+		const { pi, commands, handlers } = createFakePi();
+
+		rewindExtension(pi);
+
+		expect(commands.has("rewind")).toBe(true);
+		expect(commands.has("review")).toBe(true);
+		expect(commands.has("checkpoint")).toBe(false);
+		expect([...handlers.keys()].sort()).toEqual([
+			"before_agent_start",
+			"session_shutdown",
+			"session_start",
+			"session_tree",
+			"tool_call",
+		]);
+	});
+});
+
+describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 	test("takes one snapshot per prompt, before the first mutating call", async () => {
-		const repo = await makeRepo("pi-rw-ext-");
+		const repo = await makeRepo("pi-rw-ext-one-");
 		cleanups.push(repo);
 		const fake = setup();
 		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
@@ -53,7 +76,7 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		expect((await refs(repo)).length).toBe(1);
 	});
 
-	test("parallel mutating calls in one prompt take a single snapshot", async () => {
+	test("parallel sibling calls, including a read, take a single snapshot", async () => {
 		const repo = await makeRepo("pi-rw-ext-parallel-");
 		cleanups.push(repo);
 		const fake = setup();
@@ -63,29 +86,12 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
 		writeFileSync(join(repo, "w.txt"), "x\n");
 
-		// Sibling tool calls from one assistant message can run in parallel; the
-		// run's snapshot must still be taken exactly once.
-		await Promise.all([
-			emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx),
-			emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx),
-		]);
-
-		expect((await refs(repo)).length).toBe(1);
-	});
-
-	test("a concurrent read and write still snapshot once", async () => {
-		const repo = await makeRepo("pi-rw-ext-mixed-");
-		cleanups.push(repo);
-		const fake = setup();
-		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
-
-		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
-		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
-		writeFileSync(join(repo, "w.txt"), "x\n");
-
+		// Sibling calls from one assistant message can run in parallel; the run's
+		// snapshot must still be taken exactly once and the reader must not count.
 		await Promise.all([
 			emit(fake.pi, "tool_call", { toolName: "read", input: {} }, ctx),
 			emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx),
+			emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx),
 		]);
 
 		expect((await refs(repo)).length).toBe(1);
@@ -104,69 +110,11 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 
 		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "second" }, ctx);
 		await emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx);
+
 		expect((await refs(repo)).length).toBe(2);
 	});
 
-	test("the status chip equals the /rewind list size, not the snapshot count", async () => {
-		const repo = await makeRepo("pi-rw-ext-chip-");
-		cleanups.push(repo);
-		const fake = setup();
-		const branch = branchWithUser("e1", "do the task");
-		const ctx = makeCtx(fake, { cwd: repo, branch, sessionId: "s1" });
-
-		// One branch prompt and no snapshot yet: the chip already counts the
-		// prompt, matching the one row `/rewind` would list.
-		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
-		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
-
-		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
-		writeFileSync(join(repo, "w.txt"), "x\n");
-		await emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx);
-		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
-
-		// A pre-restore safety snapshot on the same entry is stored, but it is not
-		// a rewind point and adds no list row, so it must not inflate the chip.
-		await createSnapshot(
-			{ runGit },
-			{
-				root: repo,
-				indexFile: indexFileFor(repo),
-				namespace: NS,
-				reason: "pre-restore",
-				includeUntracked: true,
-				sessionId: "s1",
-				entryId: "e1",
-			},
-		);
-		expect((await refs(repo)).length).toBe(2);
-
-		// A second branch prompt raises the chip to two, matching the two rows
-		// `/rewind` would list — not the three stored refs.
-		ctx.sessionManager.getBranch = () => [...branch, ...branchWithUser("e2", "and again")];
-		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "and again" }, ctx);
-		await emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx);
-		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
-		expect((await refs(repo)).length).toBe(3);
-	});
-
-	test("the status chip equals the /rewind list size", async () => {
-		const repo = await makeRepo("pi-rw-ext-parity-");
-		cleanups.push(repo);
-		const fake = setup();
-		const branch = [...branchWithUser("e1", "first"), ...branchWithUser("e2", "second")];
-		const ctx = makeCtx(fake, { cwd: repo, branch, sessionId: "s1" });
-
-		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
-		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
-
-		// Even with no snapshots at all, the headless `/rewind` list reports the
-		// same two conversation-only points the chip counts.
-		await fake.commands.get("rewind").handler("", ctx);
-		const list = ctx.notices.at(-1)?.message ?? "";
-		expect(list.split("\n")[0]).toBe("2 prompts (newest first):");
-	});
-
-	test("does not snapshot read-only calls", async () => {
+	test("does not snapshot a read-only call but still counts the prompt", async () => {
 		const repo = await makeRepo("pi-rw-ext-read-");
 		cleanups.push(repo);
 		const fake = setup();
@@ -175,8 +123,8 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "read only" }, ctx);
 
 		await emit(fake.pi, "tool_call", { toolName: "read", input: {} }, ctx);
+
 		expect((await refs(repo)).length).toBe(0);
-		// No snapshot, but the prompt still appears in `/rewind`, so it is counted.
 		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
 	});
 
@@ -236,6 +184,7 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 
 		writeFileSync(join(repo, "w.txt"), "x\n");
 		await emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx);
+
 		expect((await refs(repo)).length).toBe(0);
 	});
 
@@ -243,7 +192,6 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 		const repo = mkdtempSync(join(tmpdir(), "pi-rw-nocommit-"));
 		cleanups.push(repo);
 		await execP("git", ["init", "-q", "-b", "main"], { cwd: repo });
-		await execP("git", ["config", "core.autocrlf", "false"], { cwd: repo });
 		const fake = setup();
 		const ctx = makeCtx(fake, { cwd: repo, branch: branchWithUser() });
 		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
@@ -251,16 +199,71 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 
 		// Must resolve, not reject, and must notify once.
 		await emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx);
+
 		expect(ctx.notices.some((notice: { kind?: string }) => notice.kind === "warning")).toBe(true);
 	});
+});
 
-	test("registers /rewind and /review", () => {
+describe.skipIf(!runSlowSuites)("status chip", () => {
+	test("counts prompts, not stored refs", async () => {
+		const repo = await makeRepo("pi-rw-chip-refs-");
+		cleanups.push(repo);
 		const fake = setup();
-		expect(fake.commands.has("rewind")).toBe(true);
-		expect(fake.commands.has("review")).toBe(true);
-		expect(fake.commands.has("checkpoint")).toBe(false);
+		const branch = branchWithUser("e1", "do the task");
+		const ctx = makeCtx(fake, { cwd: repo, branch, sessionId: "s1" });
+
+		// One branch prompt and no snapshot yet: the chip already counts the
+		// prompt, matching the one row `/rewind` would list.
+		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
+
+		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "do the task" }, ctx);
+		writeFileSync(join(repo, "w.txt"), "x\n");
+		await emit(fake.pi, "tool_call", { toolName: "write", input: {} }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 1");
+
+		// A pre-restore safety snapshot is stored but is not a rewind point, so it
+		// adds no list row and must not inflate the chip.
+		await createSnapshot(
+			{ runGit },
+			{
+				root: repo,
+				indexFile: indexFileFor(repo),
+				namespace: NS,
+				reason: "pre-restore",
+				includeUntracked: true,
+				sessionId: "s1",
+				entryId: "e1",
+			},
+		);
+		expect((await refs(repo)).length).toBe(2);
+
+		// A second branch prompt raises the chip to two, matching the two rows
+		// `/rewind` would list — not the three stored refs.
+		ctx.sessionManager.getBranch = () => [...branch, ...branchWithUser("e2", "and again")];
+		await emit(fake.pi, "before_agent_start", { type: "before_agent_start", prompt: "and again" }, ctx);
+		await emit(fake.pi, "tool_call", { toolName: "edit", input: {} }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
+		expect((await refs(repo)).length).toBe(3);
 	});
 
+	test("equals the headless /rewind list size with no snapshots", async () => {
+		const repo = await makeRepo("pi-rw-chip-parity-");
+		cleanups.push(repo);
+		const fake = setup();
+		const branch = [...branchWithUser("e1", "first"), ...branchWithUser("e2", "second")];
+		const ctx = makeCtx(fake, { cwd: repo, hasUI: false, branch, sessionId: "s1" });
+
+		await emit(fake.pi, "session_start", { reason: "startup" }, ctx);
+		expect(ctx.statuses.get("rewind")).toBe("↺ 2");
+
+		await fake.commands.get("rewind").handler("", ctx);
+		const list = ctx.notices.at(-1)?.message ?? "";
+		expect(list.split("\n")[0]).toBe("2 prompts (newest first):");
+	});
+});
+
+describe.skipIf(!runSlowSuites)("rails and index lifecycle", () => {
 	test("/rewind hides the rails while the picker is open", async () => {
 		const repo = await makeRepo("pi-rw-rail-");
 		cleanups.push(repo);
@@ -273,9 +276,7 @@ describe.skipIf(!runSlowSuites)("automatic snapshots", () => {
 
 		expect(events).toEqual([true, false]);
 	});
-});
 
-describe.skipIf(!runSlowSuites)("temp index lifecycle", () => {
 	test("session shutdown removes this process's temp index", async () => {
 		const repo = await makeRepo("pi-rw-index-shutdown-");
 		cleanups.push(repo);
@@ -291,6 +292,7 @@ describe.skipIf(!runSlowSuites)("temp index lifecycle", () => {
 		expect(existsSync(index)).toBe(true);
 
 		await emit(fake.pi, "session_shutdown", { reason: "quit" }, ctx);
+
 		expect(existsSync(index)).toBe(false);
 	});
 

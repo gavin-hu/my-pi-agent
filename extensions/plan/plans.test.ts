@@ -13,11 +13,38 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp } from "./plans.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
+import { blockAt, codeBody, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
+import {
+	coerceAnnotations,
+	feedbackSummary,
+	formatFeedback,
+	MAX_ANNOTATIONS,
+	parseFeedback,
+	stripFeedback,
+} from "./feedback.ts";
+import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
+import { changedSections, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
+import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
+import { createPlanPolicy, PLAN_ALLOWED_TOOLS, PLAN_SAFE_TOOLS } from "./policy.ts";
+import {
+	extractPlanSections,
+	extractPlanSteps,
+	goalSection,
+	matchesStepText,
+	MAX_STEP_LENGTH,
+	MAX_STEPS,
+	PLAN_OUTLINE,
+	PLAN_SECTIONS,
+	planStepSummary,
+	setStepStatuses,
+	verificationItem,
+} from "./steps.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
+import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
 import { fixedPlanDate } from "../../test/helpers/fixtures/plan.ts";
+import { settle } from "../../test/helpers/process.ts";
 
 const FIXED = fixedPlanDate(); // 2026-10-08 15:30 local
 
@@ -46,7 +73,12 @@ function noRepoPi() {
 	return createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 128 }) }).pi;
 }
 
-describe("slugify", () => {
+/** A store in a fresh repository rooted at `root`. */
+function repoStore(root: string) {
+	return createPlanStore(repoPi(root), { now: () => FIXED });
+}
+
+describe("plan naming", () => {
 	test("turns a title into a lowercase hyphenated slug", () => {
 		expect(slugify("Add rate limiting!")).toBe("add-rate-limiting");
 	});
@@ -60,24 +92,26 @@ describe("slugify", () => {
 		expect(slugify("")).toBe("plan");
 	});
 
-	test("caps the length and trims a trailing hyphen", () => {
+	test("caps the slug length and trims a trailing hyphen", () => {
 		const slug = slugify("a".repeat(100));
 		expect(slug.length).toBeLessThanOrEqual(60);
 		expect(slug.endsWith("-")).toBe(false);
 	});
-});
 
-describe("stamp", () => {
-	test("formats local YYYY-MM-DD-HHmm", () => {
+	test("stamps a local YYYY-MM-DD-HHmm", () => {
 		expect(stamp(FIXED)).toBe("2026-10-08-1530");
+	});
+
+	test("derives a human title from a file name", () => {
+		expect(planTitle("2026-10-08-1530-add-rate-limiting.md")).toBe("add-rate-limiting");
+		expect(planTitle("custom-name.md")).toBe("custom-name");
 	});
 });
 
-describe("createPlanStore — directory resolution", () => {
+describe("plan store — directory resolution", () => {
 	test("uses <repo>/.pi/plans inside a repository", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
-		expect(await store.dirFor(root)).toBe(join(root, CONFIG_DIR_NAME, "plans"));
+		expect(await repoStore(root).dirFor(root)).toBe(join(root, CONFIG_DIR_NAME, "plans"));
 	});
 
 	test("falls back to the agent directory outside a repository", async () => {
@@ -86,10 +120,10 @@ describe("createPlanStore — directory resolution", () => {
 	});
 });
 
-describe("createPlanStore — write", () => {
+describe("plan store — write", () => {
 	test("names the file by timestamp and slug and self-ignores the directory", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Add rate limiting", content: "# Plan\n1. Do it" });
 
 		expect(file.path).toBe(join(root, CONFIG_DIR_NAME, "plans", "2026-10-08-1530-add-rate-limiting.md"));
@@ -99,9 +133,21 @@ describe("createPlanStore — write", () => {
 		expect(file.bytes).toBeGreaterThan(0);
 	});
 
+	test("leaves an existing .gitignore alone", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const dir = await store.dirFor(root);
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(join(dir, ".gitignore"), "!*.md\n");
+
+		await store.write(root, { title: "Kept", content: "body" });
+
+		expect(readFileSync(join(dir, ".gitignore"), "utf-8")).toBe("!*.md\n");
+	});
+
 	test("suffixes a colliding name instead of overwriting", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const first = await store.write(root, { title: "Same", content: "one" });
 		const second = await store.write(root, { title: "Same", content: "two" });
 		expect(second.path).not.toBe(first.path);
@@ -111,7 +157,7 @@ describe("createPlanStore — write", () => {
 
 	test("overwrites an existing in-directory plan when plan_path is given", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const first = await store.write(root, { title: "First", content: "one" });
 		const refined = await store.write(root, { title: "First", content: "two", planPath: first.path });
 		expect(refined.path).toBe(first.path);
@@ -120,7 +166,7 @@ describe("createPlanStore — write", () => {
 
 	test("rejects a plan_path outside the plans directory", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		await expect(store.write(root, { title: "x", content: "x", planPath: join(root, "escape.md") })).rejects.toThrow(
 			/inside the plans directory/,
 		);
@@ -128,7 +174,7 @@ describe("createPlanStore — write", () => {
 
 	test("rejects an oversized plan and an empty title", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		await expect(store.write(root, { title: "big", content: "x".repeat(MAX_PLAN_BYTES + 1) })).rejects.toThrow(
 			/too large/,
 		);
@@ -136,10 +182,10 @@ describe("createPlanStore — write", () => {
 	});
 });
 
-describe("createPlanStore — read", () => {
+describe("plan store — read", () => {
 	test("reads a written plan back", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Round trip", content: "# Hello" });
 		const read = await store.read(root, file.path);
 		expect(read?.content).toBe("# Hello");
@@ -147,7 +193,7 @@ describe("createPlanStore — read", () => {
 
 	test("returns undefined for a missing or outside path", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		expect(await store.read(root, join(root, "nope.md"))).toBeUndefined();
 		expect(await store.read(root, join(root, "..", "escape.md"))).toBeUndefined();
 		writeFileSync(join(root, "outside.md"), "secret");
@@ -156,7 +202,7 @@ describe("createPlanStore — read", () => {
 
 	test("accepts a path relative to the working directory", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Relative", content: "body" });
 		const relative = join(CONFIG_DIR_NAME, "plans", "2026-10-08-1530-relative.md");
 		expect(existsSync(file.path)).toBe(true);
@@ -164,10 +210,10 @@ describe("createPlanStore — read", () => {
 	});
 });
 
-describe("createPlanStore — latest", () => {
+describe("plan store — latest", () => {
 	test("returns the newest plan by modification time", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const older = await store.write(root, { title: "Older", content: "old" });
 		const newer = await store.write(root, { title: "Newer", content: "new" });
 		utimesSync(older.path, 1_700_000_000, 1_700_000_000);
@@ -177,9 +223,24 @@ describe("createPlanStore — latest", () => {
 		expect((await store.latest(root))?.content).toBe("new");
 	});
 
+	test("breaks a modification-time tie by file name, newest stamp first", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const dir = await store.dirFor(root);
+		mkdirSync(dir, { recursive: true });
+		const older = join(dir, "2026-10-01-0900-older.md");
+		const newer = join(dir, "2026-10-02-0900-newer.md");
+		for (const path of [older, newer]) {
+			writeFileSync(path, `# ${basename(path)}`);
+			utimesSync(path, 1_700_000_000, 1_700_000_000);
+		}
+
+		expect((await store.latest(root))?.path).toBe(newer);
+	});
+
 	test("ignores the plans directory's own files", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Kept", content: "body" });
 		const dir = await store.dirFor(root);
 		const notes = join(dir, "notes.txt");
@@ -191,13 +252,12 @@ describe("createPlanStore — latest", () => {
 
 	test("returns undefined before any plan is written", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
-		expect(await store.latest(root)).toBeUndefined();
+		expect(await repoStore(root).latest(root)).toBeUndefined();
 	});
 
 	symlinkTest("skips a symlinked plan", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Real", content: "body" });
 		const dir = await store.dirFor(root);
 		const outside = join(root, "outside.md");
@@ -211,7 +271,7 @@ describe("createPlanStore — latest", () => {
 	});
 });
 
-describe("createPlanStore — index", () => {
+describe("plan store — index", () => {
 	/** Write a plan file directly, so the test controls the name and mtime. */
 	function seed(root: string, name: string, content: string, mtimeSeconds: number): string {
 		const dir = join(root, CONFIG_DIR_NAME, "plans");
@@ -224,7 +284,7 @@ describe("createPlanStore — index", () => {
 
 	test("lists plans newest first with their title, steps, and bytes", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const old = seed(root, "2026-10-01-0900-old.md", "# Old plan\n\n## Steps\n- [x] one\n- [ ] two", 1_700_000_000);
 		const fresh = seed(root, "2026-10-02-0900-fresh.md", "# Fresh plan\n\n## Steps\n- [x] only", 1_700_000_500);
 
@@ -240,7 +300,7 @@ describe("createPlanStore — index", () => {
 
 	test("falls back to the file-name slug when a plan has no heading", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		seed(root, "2026-10-01-0900-slugged-title.md", "- one\n- two", 1_700_000_000);
 
 		const [row] = await store.index(root);
@@ -249,29 +309,9 @@ describe("createPlanStore — index", () => {
 		expect(row?.steps).toEqual({ done: 0, total: 2 });
 	});
 
-	test("lists a hundred plans from one walk", async () => {
-		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
-		for (let index = 0; index < 100; index++) {
-			seed(
-				root,
-				`2026-09-${String((index % 28) + 1).padStart(2, "0")}-0900-plan-${index}.md`,
-				`# Plan ${index}\n\n## Steps\n- [x] done\n- [ ] open`,
-				1_700_000_000 + index,
-			);
-		}
-
-		const rows = await store.index(root);
-
-		expect(rows).toHaveLength(100);
-		expect(rows[0]?.title).toBe("Plan 99");
-		expect(rows.at(-1)?.title).toBe("Plan 0");
-		for (const row of rows) expect(row.steps).toEqual({ done: 1, total: 2 });
-	});
-
 	test("lists an over-limit file without reading it", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const big = "# Huge\n" + "x".repeat(MAX_PLAN_BYTES);
 		seed(root, "2026-10-01-0900-huge.md", big, 1_700_000_000);
 
@@ -283,7 +323,7 @@ describe("createPlanStore — index", () => {
 
 	test("skips the directory's own files, other extensions, and directories", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const kept = seed(root, "2026-10-01-0900-kept.md", "# Kept", 1_700_000_000);
 		const dir = join(root, CONFIG_DIR_NAME, "plans");
 		writeFileSync(join(dir, ".gitignore"), "*\n");
@@ -295,7 +335,7 @@ describe("createPlanStore — index", () => {
 
 	symlinkTest("skips a symlinked plan", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const kept = seed(root, "2026-10-01-0900-kept.md", "# Kept", 1_700_000_000);
 		const dir = join(root, CONFIG_DIR_NAME, "plans");
 		const outside = join(root, "outside.md");
@@ -311,7 +351,7 @@ describe("createPlanStore — index", () => {
 		seed(main, "2026-10-01-0900-main.md", "# Main checkout plan", 1_700_000_000);
 		const own = seed(worktree, "2026-10-02-0900-worktree.md", "# Worktree plan", 1_700_000_500);
 		// Inside a worktree, `git rev-parse --show-toplevel` reports the worktree.
-		const store = createPlanStore(repoPi(worktree), { now: () => FIXED });
+		const store = repoStore(worktree);
 
 		const rows = await store.index(worktree);
 
@@ -321,15 +361,14 @@ describe("createPlanStore — index", () => {
 
 	test("lists nothing before any plan is written", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
-		expect(await store.index(root)).toEqual([]);
+		expect(await repoStore(root).index(root)).toEqual([]);
 	});
 });
 
-describe("createPlanStore — atomic writes", () => {
+describe("plan store — atomic writes", () => {
 	test("rewrites a plan in place without leaving a temp file", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Refine", content: "v1" });
 
 		await store.write(root, { title: "Refine", content: "v2", planPath: file.path });
@@ -341,7 +380,7 @@ describe("createPlanStore — atomic writes", () => {
 
 	test("a step edit leaves no temp file either", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Steps", content: "- One" });
 
 		await store.setSteps(root, file.path, [{ step: 1, status: "completed", expected: "One" }]);
@@ -351,10 +390,10 @@ describe("createPlanStore — atomic writes", () => {
 	});
 });
 
-describe("createPlanStore — containment", () => {
+describe("plan store — containment", () => {
 	test("refuses to overwrite the directory's .gitignore or a non-markdown file", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const dir = await store.dirFor(root);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(join(dir, ".gitignore"), "*\n");
@@ -373,7 +412,7 @@ describe("createPlanStore — containment", () => {
 
 	symlinkTest("refuses a symlink that points outside the plans directory", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const dir = await store.dirFor(root);
 		mkdirSync(dir, { recursive: true });
 		const outside = join(root, "outside.md");
@@ -390,7 +429,7 @@ describe("createPlanStore — containment", () => {
 
 	symlinkTest("skips a dangling symlink when choosing a new plan name", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const dir = await store.dirFor(root);
 		mkdirSync(dir, { recursive: true });
 		const target = join(root, "created-by-write.md");
@@ -403,7 +442,7 @@ describe("createPlanStore — containment", () => {
 
 	symlinkTest("refuses a symlinked subdirectory that escapes the plans directory", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const dir = await store.dirFor(root);
 		mkdirSync(dir, { recursive: true });
 		const outside = mkdtempSync(join(tmpdir(), "pi-plan-outside-"));
@@ -415,10 +454,10 @@ describe("createPlanStore — containment", () => {
 	});
 });
 
-describe("createPlanStore — setSteps", () => {
+describe("plan store — setSteps", () => {
 	test("refuses a stale expected text and writes nothing", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Steps", content: "## Steps\n- [ ] One\n- [ ] Two" });
 
 		await expect(
@@ -429,7 +468,7 @@ describe("createPlanStore — setSteps", () => {
 
 	test("accepts an expected text that matches after normalization", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Steps", content: "1. Add the cache\n2. Wire it" });
 
 		const updated = await store.setSteps(root, file.path, [
@@ -440,7 +479,7 @@ describe("createPlanStore — setSteps", () => {
 
 	test("ticks off a step and returns the rewritten plan", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Steps", content: "1. One\n2. Two" });
 
 		const updated = await store.setSteps(root, file.path, [{ step: 2, status: "completed", expected: "Two" }]);
@@ -450,7 +489,7 @@ describe("createPlanStore — setSteps", () => {
 
 	test("applies a batch in one write", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Steps", content: "1. One\n2. Two\n3. Three" });
 
 		const updated = await store.setSteps(root, file.path, [
@@ -462,7 +501,7 @@ describe("createPlanStore — setSteps", () => {
 
 	test("rejects an out-of-range step without touching the file", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Steps", content: "- One" });
 
 		await expect(
@@ -474,9 +513,19 @@ describe("createPlanStore — setSteps", () => {
 		expect(readFileSync(file.path, "utf-8")).toBe("- One");
 	});
 
+	test("names the valid range, or that the plan has no steps", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const file = await store.write(root, { title: "Steps", content: "Just prose." });
+
+		await expect(store.setSteps(root, file.path, [{ step: 1, status: "completed", expected: "One" }])).rejects.toThrow(
+			/it has no steps/,
+		);
+	});
+
 	test("rejects a missing or outside plan", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		writeFileSync(join(root, "outside.md"), "- One");
 
 		await expect(
@@ -488,10 +537,10 @@ describe("createPlanStore — setSteps", () => {
 	});
 });
 
-describe("createPlanStore — saveFeedback", () => {
+describe("plan store — saveFeedback", () => {
 	test("writes feedback into the plan and returns the updated content", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Review", content: "# Plan\n- [ ] step" });
 
 		const updated = await store.saveFeedback(root, file.path, [{ anchor: 2, comment: "too vague" }]);
@@ -501,7 +550,7 @@ describe("createPlanStore — saveFeedback", () => {
 
 	test("replaces earlier feedback instead of accumulating", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		const file = await store.write(root, { title: "Review", content: "- [ ] step" });
 
 		await store.saveFeedback(root, file.path, [{ anchor: 0, comment: "first" }]);
@@ -511,7 +560,7 @@ describe("createPlanStore — saveFeedback", () => {
 
 	test("rejects a missing or outside plan", async () => {
 		const root = tempDir();
-		const store = createPlanStore(repoPi(root), { now: () => FIXED });
+		const store = repoStore(root);
 		writeFileSync(join(root, "outside.md"), "- One");
 
 		await expect(store.saveFeedback(root, join(root, ".pi", "plans", "nope.md"), [])).rejects.toThrow(/No plan file/);
@@ -519,9 +568,933 @@ describe("createPlanStore — saveFeedback", () => {
 	});
 });
 
-describe("planTitle", () => {
-	test("drops the extension and the timestamp prefix", () => {
-		expect(planTitle("2026-10-08-1530-add-rate-limiting.md")).toBe("add-rate-limiting");
-		expect(planTitle("custom-name.md")).toBe("custom-name");
+describe("step extraction", () => {
+	const pending = (content: string) => ({ content, status: "pending" as const });
+	const completed = (content: string) => ({ content, status: "completed" as const });
+
+	test("reads a numbered plan", () => {
+		const plan = ["Plan:", "1. Read the parser", "2. Add a tokenizer", "3. Update tests"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([
+			pending("Read the parser"),
+			pending("Add a tokenizer"),
+			pending("Update tests"),
+		]);
+	});
+
+	test("reads `1)` numbering and bullet lists", () => {
+		expect(extractPlanSteps("1) First\n2) Second")).toEqual([pending("First"), pending("Second")]);
+		expect(extractPlanSteps("- Alpha\n* Beta\n+ Gamma")).toEqual([pending("Alpha"), pending("Beta"), pending("Gamma")]);
+	});
+
+	test("strips emphasis, code, and done markers", () => {
+		const plan = "1. **Bold** step with `code` [DONE:1]\n2. _Italic_ one";
+		expect(extractPlanSteps(plan)).toEqual([completed("Bold step with code"), pending("Italic one")]);
+	});
+
+	test("keeps underscores inside identifiers", () => {
+		const plan = "1. Rename user_id to account_id\n2. Read snake_case_file.ts";
+		expect(extractPlanSteps(plan)).toEqual([
+			pending("Rename user_id to account_id"),
+			pending("Read snake_case_file.ts"),
+		]);
+	});
+
+	test("turns checkboxes into status", () => {
+		const plan = ["- [ ] First task", "- [x] Done task", "- [X] Also done"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("First task"), completed("Done task"), completed("Also done")]);
+	});
+
+	test("skips nested sub-bullets but keeps a uniformly indented plan", () => {
+		const nested = ["1. Add the lexer", "   - nested note", "   - another note", "2. Update tests"].join("\n");
+		expect(extractPlanSteps(nested)).toEqual([pending("Add the lexer"), pending("Update tests")]);
+		expect(extractPlanSteps("  - One\n  - Two")).toEqual([pending("One"), pending("Two")]);
+	});
+
+	test("ignores list items inside fenced code blocks", () => {
+		const plan = [
+			"Plan:",
+			"```yaml",
+			"- name: foo",
+			"  1. nested example",
+			"```",
+			"1. Real step one",
+			"2. Real step two",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Real step one"), pending("Real step two")]);
+	});
+
+	test("ignores tilde fences and hides the rest after an unclosed fence", () => {
+		expect(extractPlanSteps(["~~~", "- not a step", "~~~", "- Real step"].join("\n"))).toEqual([pending("Real step")]);
+		expect(extractPlanSteps(["1. Before fence", "```", "- inside"].join("\n"))).toEqual([pending("Before fence")]);
+	});
+
+	test("uses the shallowest list as the top level regardless of order", () => {
+		const plan = ["  - nested first", "- top level", "  - another nested", "- second top"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("top level"), pending("second top")]);
+	});
+
+	test("skips prose, blank lines, and de-duplicates steps", () => {
+		expect(extractPlanSteps(["Here is the plan.", "", "1. Only real step", "Done."].join("\n"))).toEqual([
+			pending("Only real step"),
+		]);
+		expect(extractPlanSteps("1. Same\n2. same\n3. Other")).toEqual([pending("Same"), pending("Other")]);
+	});
+
+	test("elides very long steps and caps the list", () => {
+		const [step] = extractPlanSteps(`1. ${"x".repeat(MAX_STEP_LENGTH + 50)}`);
+		expect(step.content.length).toBe(MAX_STEP_LENGTH);
+		expect(step.content.endsWith("…")).toBe(true);
+
+		const plan = Array.from({ length: MAX_STEPS + 10 }, (_, i) => `${i + 1}. step ${i}`).join("\n");
+		expect(extractPlanSteps(plan)).toHaveLength(MAX_STEPS);
+	});
+
+	test("returns nothing for a plan without steps", () => {
+		expect(extractPlanSteps("Just some prose.")).toEqual([]);
+		expect(extractPlanSteps("")).toEqual([]);
+	});
+});
+
+describe("step extraction — the Steps section", () => {
+	const pending = (content: string) => ({ content, status: "pending" as const });
+
+	test("reads only the Steps section when the plan has one", () => {
+		const plan = [
+			"# Plan",
+			"## Context",
+			"- the repo is large",
+			"- prior art exists",
+			"## Approach",
+			"- use a cache",
+			"## Steps",
+			"- [ ] Add the cache",
+			"- [ ] Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
+	});
+
+	test("keeps nested notes inside the section but not as steps", () => {
+		const plan = [
+			"## Steps",
+			"1. Add the cache",
+			"   - a nested note",
+			"### Check the cache",
+			"2. Wire it",
+			"## Risks",
+			"- stale reads",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Add the cache"), pending("Wire it")]);
+	});
+
+	test("an empty Steps section means no steps", () => {
+		expect(extractPlanSteps(["## Steps", "", "## Risks", "- stale reads"].join("\n"))).toEqual([]);
+	});
+
+	test("ignores a Steps heading inside a fence", () => {
+		const plan = ["```md", "## Steps", "- not a step", "```", "- Real step"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Real step")]);
+	});
+
+	test("falls back to the whole plan without a Steps heading", () => {
+		const plan = ["## Goal", "- first", "## Approach", "- second"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("first"), pending("second")]);
+	});
+
+	test("matches the heading case-insensitively and through emphasis", () => {
+		const plan = ["## **STEPS**", "- One", "## Risks", "- two"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("One")]);
+	});
+
+	test("setStepStatuses edits the section-scoped steps", () => {
+		const plan = ["## Context", "- prose", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
+		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
+			["## Context", "- prose", "## Steps", "- [x] One", "- [ ] Two"].join("\n"),
+		);
+	});
+});
+
+describe("step summary and text match", () => {
+	test("counts past the cap and counts steps whose text will be shortened", () => {
+		const plan = Array.from({ length: MAX_STEPS + 3 }, (_, index) => `${index + 1}. step ${index}`).join("\n");
+		expect(planStepSummary(plan)).toEqual({ total: MAX_STEPS + 3, elided: 0 });
+		expect(planStepSummary(`1. ${"x".repeat(MAX_STEP_LENGTH + 1)}\n2. Short`)).toEqual({ total: 2, elided: 1 });
+	});
+
+	test("scopes the count to the Steps section", () => {
+		const plan = ["## Context", "- prose", "## Steps", "- One", "- Two"].join("\n");
+		expect(planStepSummary(plan)).toEqual({ total: 2, elided: 0 });
+	});
+
+	test("matches step text ignoring case, surrounding space, and collapsed whitespace", () => {
+		expect(matchesStepText("Add  the cache", " add the CACHE ")).toBe(true);
+		expect(matchesStepText("Add the cache", "Wire it")).toBe(false);
+	});
+});
+
+describe("plan outline", () => {
+	test("documents the sections in order and a checkbox step", () => {
+		const headings = PLAN_OUTLINE.split("\n")
+			.filter((line) => line.startsWith("## "))
+			.map((line) => line.slice(3).trim());
+		expect(headings).toEqual([...PLAN_SECTIONS]);
+		expect(PLAN_OUTLINE.startsWith("# <Title>")).toBe(true);
+		expect(PLAN_OUTLINE.split("## Steps")[1].split("\n## ")[0]).toContain("- [ ] ");
+	});
+});
+
+describe("plan sections", () => {
+	test("splits a canonical plan at its headings", () => {
+		const plan = ["# Title", "", "## Goal", "Ship it.", "", "## Steps", "- [ ] One"].join("\n");
+		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["Title", "Goal", "Steps"]);
+		expect(extractPlanSections(plan)[1].text.split("\n")[0]).toBe("## Goal");
+		expect(extractPlanSections(plan)[1].text).toContain("Ship it.");
+	});
+
+	test("keeps content before the first heading as an untitled section", () => {
+		const plan = ["intro line", "", "## Goal", "x"].join("\n");
+		const sections = extractPlanSections(plan);
+		expect(sections[0].title).toBe("");
+		expect(sections[0].text).toContain("intro line");
+	});
+
+	test("drops a blank preamble and strips inline formatting from titles", () => {
+		expect(extractPlanSections("\n\n## **Goal** `x`")[0].title).toBe("Goal x");
+	});
+
+	test("ignores `#` lines inside code fences", () => {
+		const plan = ["## Real", "```sh", "# not a heading", "```", "## Also real"].join("\n");
+		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["Real", "Also real"]);
+	});
+
+	test("reads a tab-indented fence as prose, the same as the block parser", () => {
+		// The fence rule is shared with `blocks.ts`, whose rule is spaces-only: a
+		// tab-indented fence must not be code for one parser and prose for the other.
+		const plan = ["\t```", "## Inside", "\t```", "## After"].join("\n");
+		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["", "Inside", "After"]);
+	});
+
+	test("returns nothing for an empty plan", () => {
+		expect(extractPlanSections("")).toEqual([]);
+		expect(extractPlanSections("\n\n")).toEqual([]);
+	});
+
+	test("reports each heading's source line and level", () => {
+		const plan = ["# Title", "", "## **Goal**", "", "### `Code` step"].join("\n");
+		expect(extractPlanSections(plan).map((s) => ({ line: s.line, level: s.level, title: s.title }))).toEqual([
+			{ line: 0, level: 1, title: "Title" },
+			{ line: 2, level: 2, title: "Goal" },
+			{ line: 4, level: 3, title: "Code step" },
+		]);
+	});
+
+	test("keeps a heading's own trailing hash, not a closing run", () => {
+		expect(extractPlanSections("## C#\nx")[0].title).toBe("C#");
+		expect(extractPlanSections("## Notes ##\nx")[0].title).toBe("Notes");
+	});
+});
+
+describe("step status edits", () => {
+	const pending = (content: string) => ({ content, status: "pending" as const });
+
+	test("marks a numbered step done and leaves its text alone", () => {
+		const plan = ["1. Read the parser", "2. Add a tokenizer"].join("\n");
+		expect(setStepStatuses(plan, [{ step: 2, status: "completed" }])).toBe(
+			"1. Read the parser\n2. [x] Add a tokenizer",
+		);
+	});
+
+	test("adds a checkbox to a plain list item and returns it to pending", () => {
+		expect(setStepStatuses("- Do the thing", [{ step: 1, status: "completed" }])).toBe("- [x] Do the thing");
+		expect(setStepStatuses("- [x] Done", [{ step: 1, status: "pending" }])).toBe("- [ ] Done");
+	});
+
+	test("applies several steps in one pass", () => {
+		const plan = ["1. One", "2. Two", "3. Three"].join("\n");
+		const result = setStepStatuses(plan, [
+			{ step: 1, status: "completed" },
+			{ step: 3, status: "completed" },
+		]);
+		expect(result).toBe("1. [x] One\n2. Two\n3. [x] Three");
+	});
+
+	test("reopening drops a DONE marker; completing keeps it", () => {
+		const reopened = setStepStatuses("- First [DONE:1]\n- Second", [{ step: 1, status: "pending" }]);
+		expect(reopened).toBe("- [ ] First\n- Second");
+		expect(extractPlanSteps(reopened as string)).toEqual([pending("First"), pending("Second")]);
+		expect(setStepStatuses("- First [DONE:1]", [{ step: 1, status: "completed" }])).toBe("- [x] First [DONE:1]");
+	});
+
+	test("a duplicate step takes the last entry", () => {
+		const result = setStepStatuses("- One", [
+			{ step: 1, status: "completed" },
+			{ step: 1, status: "pending" },
+		]);
+		expect(result).toBe("- [ ] One");
+	});
+
+	test("aligns its numbering with extractPlanSteps", () => {
+		const plan = ["1. Same", "2. same", "3. Other"].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([pending("Same"), pending("Other")]);
+		expect(setStepStatuses(plan, [{ step: 2, status: "completed" }])).toBe("1. Same\n2. same\n3. [x] Other");
+	});
+
+	test("ignores steps inside fences", () => {
+		const result = setStepStatuses(["```", "- nope", "```", "- Real"].join("\n"), [{ step: 1, status: "completed" }]);
+		expect(result).toContain("- [x] Real");
+		expect(result).toContain("- nope");
+	});
+
+	test("changes nothing when any step is out of range or non-integer", () => {
+		expect(setStepStatuses("- One", [{ step: 0, status: "completed" }])).toBeUndefined();
+		expect(setStepStatuses("- One", [{ step: 2, status: "completed" }])).toBeUndefined();
+		expect(setStepStatuses("- One", [{ step: 1.5, status: "completed" }])).toBeUndefined();
+		expect(
+			setStepStatuses("- One\n- Two", [
+				{ step: 1, status: "completed" },
+				{ step: 9, status: "completed" },
+			]),
+		).toBeUndefined();
+	});
+});
+
+describe("plan verification item", () => {
+	const plan = (verification: string): string =>
+		["# Plan", "", "## Steps", "- [ ] One", "", "## Verification", verification].join("\n");
+
+	test("collapses the section into one trailing item", () => {
+		expect(verificationItem(plan("- `bun run check` passes\n- approve and merge"))).toEqual({
+			content: "Verify: bun run check passes; approve and merge",
+			status: "pending",
+		});
+	});
+
+	test("finds the heading whatever its case or emphasis", () => {
+		const source = ["# Plan", "## Steps", "- [ ] One", "## **VERIFICATION**", "Run the suite"].join("\n");
+		expect(verificationItem(source)?.content).toBe("Verify: Run the suite");
+	});
+
+	test("strips checkboxes and numbered markers", () => {
+		expect(verificationItem(plan("1. [ ] first check\n2. second check"))?.content).toBe(
+			"Verify: first check; second check",
+		);
+	});
+
+	test("ignores a verification heading inside a fence", () => {
+		expect(
+			verificationItem(["# Plan", "```md", "## Verification", "- not a section", "```"].join("\n")),
+		).toBeUndefined();
+	});
+
+	test("returns undefined without the section, or with an empty one", () => {
+		expect(verificationItem("# Plan\n\n## Steps\n- [ ] One")).toBeUndefined();
+		expect(verificationItem(plan("   "))).toBeUndefined();
+	});
+
+	test("elides a long section like a long step", () => {
+		const item = verificationItem(plan("- " + "x".repeat(400)));
+		expect(item?.content.length).toBe(MAX_STEP_LENGTH);
+		expect(item?.content.endsWith("…")).toBe(true);
+	});
+
+	test("uses the first of two verification headings", () => {
+		const source = ["# Plan", "## Steps", "- [ ] One", "## Verification", "first", "## Verification", "second"].join(
+			"\n",
+		);
+		expect(verificationItem(source)?.content).toBe("Verify: first");
+	});
+
+	test("returns undefined for a plan with no Steps heading, whose list is the plan", () => {
+		expect(verificationItem(["# Plan", "## Verification", "- run the suite"].join("\n"))).toBeUndefined();
+	});
+});
+
+describe("plan goal section", () => {
+	test("reads the first paragraph of the Goal section", () => {
+		const source = [
+			"# Plan",
+			"",
+			"## Goal",
+			"Protect the public API",
+			"without breaking existing clients.",
+			"",
+			"## Steps",
+			"- [ ] One",
+		].join("\n");
+		expect(goalSection(source)).toBe("Protect the public API without breaking existing clients.");
+	});
+
+	test("strips a list marker and inline markdown", () => {
+		expect(goalSection("## Goal\n- **Ship** the `parser`\n")).toBe("Ship the parser");
+	});
+
+	test("skips leading blank lines and reports an empty section as undefined", () => {
+		expect(goalSection("## Goal\n\n  ship it\n")).toBe("ship it");
+		expect(goalSection("## Goal\n\n## Steps\n- [ ] One")).toBeUndefined();
+	});
+
+	test("ignores a Goal heading inside a code fence", () => {
+		expect(goalSection("```md\n## Goal\nnot this\n```\n")).toBeUndefined();
+	});
+
+	test("is undefined without the section, and for a deeper heading", () => {
+		expect(goalSection("# Plan\n\n## Context\nx")).toBeUndefined();
+		expect(goalSection("### Goal\nnot the outline's section")).toBeUndefined();
+	});
+});
+
+describe("plan text — sanitizing and review comparison", () => {
+	test("strips control characters but keeps newlines", () => {
+		// Each control character becomes a printable space, so a plan cannot drive
+		// the terminal; the newlines that split sections are kept.
+		const text = sanitizePlanText("hello\u001b[31mred\u001b[0m\u0007\nworld\u009b");
+		expect(text).not.toMatch(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+		expect(text.split("\n")).toEqual(["hello [31mred [0m ", "world "]);
+	});
+
+	test("expands a tab to four spaces so the terminal width model holds", () => {
+		// Built rather than written out, so the width rule stays the assertion.
+		expect(sanitizePlanText("-\tstep")).toBe(`-${" ".repeat(4)}step`);
+	});
+
+	test("keeps one digest per heading section, in document order", () => {
+		const digests = sectionDigests(["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n"));
+		expect(digests.map((section) => section.title)).toEqual(["Plan", "Goal", "Steps"]);
+		for (const section of digests) expect(section.digest).toMatch(/^[0-9a-f]{64}$/);
+	});
+
+	test("labels a section the way the review screen does", () => {
+		expect(sectionDigests(["## **Goal**", "Ship it."].join("\n")).map((section) => section.title)).toEqual(["Goal"]);
+	});
+
+	test("digests the plan with its stored review comments removed", () => {
+		const plain = ["# Plan", "## Goal", "Ship it."].join("\n");
+		const withComment = ["# Plan", "## Goal", "Ship it.", "> [!REVIEW] make it concrete"].join("\n");
+		expect(sectionDigests(withComment)).toEqual(sectionDigests(plain));
+	});
+
+	test("sameSections reports an identical baseline as unchanged", () => {
+		const plan = ["# Plan", "## Goal", "Ship it."].join("\n");
+		expect(sameSections(sectionDigests(plan), sectionDigests(plan))).toBe(true);
+	});
+
+	test("sameSections reports a changed section, and a different section count", () => {
+		const plan = ["# Plan", "## Goal", "Ship it."].join("\n");
+		expect(sameSections(sectionDigests(plan), sectionDigests(plan.replace("Ship it.", "Ship it now.")))).toBe(false);
+		expect(sameSections(sectionDigests(plan), sectionDigests(`${plan}\n## Risks\n- stale reads`))).toBe(false);
+	});
+});
+
+describe("plan text — changed sections", () => {
+	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
+
+	test("returns nothing for an identical plan", () => {
+		expect(changedSections(sectionDigests(before), before)).toEqual([false, false, false]);
+	});
+
+	test("marks a section whose text changed", () => {
+		expect(changedSections(sectionDigests(before), before.replace("Ship it.", "Ship it well."))).toEqual([
+			false,
+			true,
+			false,
+		]);
+	});
+
+	test("marks a new section but not a removed one", () => {
+		expect(changedSections(sectionDigests(before), `${before}\n## Risks\n- stale reads`)).toEqual([
+			false,
+			false,
+			false,
+			true,
+		]);
+		// The array follows the current plan, so a dropped section only shortens it.
+		expect(changedSections(sectionDigests(before), ["# Plan", "## Goal", "Ship it."].join("\n"))).toEqual([
+			false,
+			false,
+		]);
+	});
+
+	test("flags a duplicate title by occurrence, not by title", () => {
+		const previous = ["## Steps", "- One", "## Steps", "- Two"].join("\n");
+		// Only the second occurrence changed, so only it is flagged.
+		expect(
+			changedSections(sectionDigests(previous), ["## Steps", "- One", "## Steps", "- Two more"].join("\n")),
+		).toEqual([false, true]);
+	});
+
+	test("normalizes an emphasized heading", () => {
+		expect(changedSections(sectionDigests(["## **Goal**", "Old"].join("\n")), ["## Goal", "New"].join("\n"))).toEqual([
+			true,
+		]);
+	});
+
+	test("flags nothing on a first review", () => {
+		// A plan this branch never showed has no baseline; every section is new, and
+		// marking them all would claim the whole plan changed.
+		expect(changedSections(undefined, before)).toEqual([false, false, false]);
+	});
+
+	test("a tab and its four spaces are the same content", () => {
+		const tabbed = ["## Steps", "- [ ] one", "- [ ] two"].join("\n").replace("- [ ] ", "-\t");
+		expect(changedSections(sectionDigests(tabbed), tabbed.replace(/\t/g, "    "))).toEqual([false]);
+	});
+
+	test("a stored review comment is not an edit", () => {
+		const plan = ["# Plan", "## Goal", "Ship it."].join("\n");
+		const commented = ["# Plan", "## Goal", "Ship it.", "> [!REVIEW] make it concrete"].join("\n");
+		expect(changedSections(sectionDigests(commented), plan)).toEqual([false, false]);
+	});
+});
+
+describe("plan feedback codec", () => {
+	const plan = "# Title\n\n## Steps\n- [ ] one\n- [ ] two\n";
+
+	test("strips stored feedback lines and leaves the body", () => {
+		expect(stripFeedback("- one\n> [!REVIEW] a note\n- two")).toBe("- one\n- two");
+		expect(stripFeedback("a\n  > [!REVIEW]\nb")).toBe("a\nb");
+	});
+
+	test("keeps a marker-looking line inside a fenced code block", () => {
+		const fenced = "```md\n> [!REVIEW] documentation\n```";
+		expect(stripFeedback(fenced)).toBe(fenced);
+	});
+
+	test("places a comment after the block it is anchored to", () => {
+		expect(formatFeedback(plan, [{ anchor: 3, comment: "too vague" }])).toBe(
+			"# Title\n\n## Steps\n- [ ] one\n> [!REVIEW] too vague\n- [ ] two\n",
+		);
+	});
+
+	test("groups several comments on one block in order", () => {
+		const saved = formatFeedback(plan, [
+			{ anchor: 3, comment: "first" },
+			{ anchor: 3, comment: "second" },
+		]);
+		expect(saved).toContain("- [ ] one\n> [!REVIEW] first\n> [!REVIEW] second\n- [ ] two");
+	});
+
+	test("never splits a fenced code block", () => {
+		const fenced = "```ts\nconst x = 1;\n```\nafter\n";
+		const saved = formatFeedback(fenced, [{ anchor: 1, comment: "rename x" }]);
+		expect(saved).toBe("```ts\nconst x = 1;\n```\n> [!REVIEW] rename x\nafter\n");
+	});
+
+	test("collapses a multi-line comment to one marker line", () => {
+		expect(formatFeedback("- one", [{ anchor: 0, comment: "line one\nline two" }])).toBe(
+			"- one\n> [!REVIEW] line one line two",
+		);
+	});
+
+	test("drops empty comments and clears stored feedback when none remain", () => {
+		expect(formatFeedback("- one\n> [!REVIEW] old", [])).toBe("- one");
+		expect(formatFeedback("- one", [{ anchor: 0, comment: "   " }])).toBe("- one");
+	});
+
+	test("writes into an empty plan", () => {
+		expect(formatFeedback("", [{ anchor: 0, comment: "start over" }])).toBe("> [!REVIEW] start over");
+	});
+
+	test("is idempotent across repeated saves", () => {
+		const annotations = [
+			{ anchor: 3, comment: "first" },
+			{ anchor: 4, comment: "second" },
+		];
+		const once = formatFeedback(plan, annotations);
+		expect(formatFeedback(once, annotations)).toBe(once);
+	});
+
+	test("recovers the anchor and comment written by formatFeedback", () => {
+		const saved = formatFeedback(plan, [
+			{ anchor: 3, comment: "first" },
+			{ anchor: 4, comment: "second" },
+		]);
+		expect(parseFeedback(saved)).toEqual([
+			{ anchor: 3, comment: "first" },
+			{ anchor: 4, comment: "second" },
+		]);
+	});
+
+	test("returns nothing when there is no feedback", () => {
+		expect(parseFeedback(plan)).toEqual([]);
+	});
+
+	test("anchors a leading comment to the first block", () => {
+		expect(parseFeedback("> [!REVIEW] top\n# Title")).toEqual([{ anchor: 0, comment: "top" }]);
+	});
+
+	test("ignores a marker-looking line inside a fenced code block", () => {
+		expect(parseFeedback("```md\n> [!REVIEW] documentation\n```")).toEqual([]);
+	});
+
+	test("leaves a plan whose code block documents the marker unchanged", () => {
+		const fenced = "# Title\n\n```md\n> [!REVIEW] documentation\n```\n\n- [ ] step\n";
+		const saved = formatFeedback(fenced, [{ anchor: 6, comment: "real" }]);
+		expect(stripFeedback(saved)).toBe(fenced);
+		expect(parseFeedback(saved)).toEqual([{ anchor: 6, comment: "real" }]);
+	});
+
+	test("numbers comments and includes a short quote", () => {
+		const summary = feedbackSummary([
+			{ anchor: 0, quote: "token bucket", comment: "burst case?" },
+			{ anchor: 1, comment: "add a test" },
+		]);
+		expect(summary).toBe('1. On "token bucket": burst case?\n2. add a test');
+	});
+
+	test("truncates a long quote", () => {
+		const summary = feedbackSummary([{ anchor: 0, quote: "x".repeat(200), comment: "note" }]);
+		expect(summary).toContain("…");
+		expect(summary).toContain("note");
+	});
+
+	test("accepts a well-formed annotation payload and drops an empty comment", () => {
+		expect(coerceAnnotations([{ anchor: 2, quote: "q", comment: "c" }])).toEqual([
+			{ anchor: 2, quote: "q", comment: "c" },
+		]);
+		expect(coerceAnnotations([{ anchor: 2, comment: "  " }])).toEqual([]);
+	});
+
+	test("rejects a non-array or a malformed entry", () => {
+		expect(coerceAnnotations("nope")).toBeUndefined();
+		expect(coerceAnnotations([{ anchor: -1, comment: "c" }])).toBeUndefined();
+		expect(coerceAnnotations([{ anchor: 1.5, comment: "c" }])).toBeUndefined();
+		expect(coerceAnnotations([{ anchor: 1 }])).toBeUndefined();
+		expect(coerceAnnotations([{ anchor: 1, comment: "c", quote: 3 }])).toBeUndefined();
+	});
+
+	test("caps the annotation count", () => {
+		const many = Array.from({ length: MAX_ANNOTATIONS + 1 }, () => ({ anchor: 0, comment: "c" }));
+		expect(coerceAnnotations(many)).toBeUndefined();
+	});
+});
+
+describe("plan block model", () => {
+	/** `start:end:kind` for each block, so a whole parse is one comparable list. */
+	function outline(plan: string): string[] {
+		return planBlocks(plan).map((block) => `${block.start}:${block.end}:${block.kind}`);
+	}
+
+	test("returns no blocks for an empty string", () => {
+		expect(planBlocks("")).toEqual([]);
+	});
+
+	test("marks blank lines, headings, and paragraphs", () => {
+		expect(outline("a\n\nb")).toEqual(["0:0:paragraph", "1:1:blank", "2:2:paragraph"]);
+		expect(outline("# Title\n\n## Goal\ntext")).toEqual(["0:0:heading", "1:1:blank", "2:2:heading", "3:3:paragraph"]);
+		expect(outline("one\ntwo\nthree")).toEqual(["0:2:paragraph"]);
+	});
+
+	test("gives each list item its own block and keeps continuations with it", () => {
+		expect(outline("- one\n- two\n1. three")).toEqual(["0:0:list", "1:1:list", "2:2:list"]);
+		expect(outline("- parent\n  - child\n    continuation")).toEqual(["0:0:list", "1:2:list"]);
+		expect(outline("- step\n  a note on the step\nnext paragraph")).toEqual(["0:1:list", "2:2:paragraph"]);
+	});
+
+	test("groups consecutive blockquotes and tables", () => {
+		expect(outline("> one\n> two\n\n> three")).toEqual(["0:1:quote", "2:2:blank", "3:3:quote"]);
+		expect(outline("| risk | fix |\n| --- | --- |\n| slow | cache |\nafter")).toEqual(["0:2:table", "3:3:paragraph"]);
+		expect(outline("a | b\n--- | ---\n1 | 2")).toEqual(["0:2:table"]);
+	});
+
+	test("does not treat a lone pipe row or a bare rule as a table", () => {
+		expect(outline("a | b\ntext")).toEqual(["0:1:paragraph"]);
+		expect(outline("---")).toEqual(["0:0:hr"]);
+	});
+
+	test("keeps a table together when a body row has spaces around pipes", () => {
+		expect(outline("| a |\n| :-: |\n| 1 |\n| 2 |")).toEqual(["0:3:table"]);
+	});
+
+	test("treats fenced code as one opaque block and runs an unterminated fence to the end", () => {
+		const plan = "```ts\n# not a heading\n- not a step\n```\nafter";
+		expect(outline(plan)).toEqual(["0:3:code", "4:4:paragraph"]);
+		expect(planBlocks(plan)[0].kind).toBe<PlanBlockKind>("code");
+		expect(outline("before\n```\nstill code")).toEqual(["0:0:paragraph", "1:2:code"]);
+	});
+
+	test("keeps the fence marker in the block so it can be rewritten verbatim", () => {
+		expect(planBlocks("~~~\nbody\n~~~")[0].lines).toEqual(["~~~", "body", "~~~"]);
+	});
+
+	test("strips carriage returns and keeps line numbers aligned", () => {
+		expect(outline("a\r\n\r\nb")).toEqual(["0:0:paragraph", "1:1:blank", "2:2:paragraph"]);
+		expect(planBlocks("a\r\nb")[0].lines).toEqual(["a", "b"]);
+	});
+
+	test("treats a tab-indented fence as prose, the same as the section parser", () => {
+		// The fence rule is shared with `steps.ts` and allows up to three spaces; a
+		// tab-indented fence must not shift annotation anchors by being code here
+		// and prose in the review screen.
+		expect(planBlocks("\t```\n- [ ] inside\n\t```\n").some((block) => block.kind === "code")).toBe(false);
+	});
+
+	test("blockAt finds the containing block and falls back to the nearest before it", () => {
+		const blocks = planBlocks("# Title\ntext\n- one\n- two");
+		expect(blockAt(blocks, 0)?.kind).toBe("heading");
+		expect(blockAt(blocks, 1)?.kind).toBe("paragraph");
+		expect(blockAt(blocks, 2)).toMatchObject({ kind: "list", start: 2 });
+		expect(blockAt(blocks, 99)?.start).toBe(3);
+	});
+
+	test("codeBody drops the fence lines and keeps a non-code block unchanged", () => {
+		expect(codeBody(planBlocks("```ts\nconst x = 1;\n```")[0])).toEqual(["const x = 1;"]);
+		expect(codeBody(planBlocks("```\nstill code")[0])).toEqual(["still code"]);
+		expect(codeBody(planBlocks("plain text")[0])).toEqual(["plain text"]);
+	});
+
+	test("fenceInfo extracts the info string after a fence", () => {
+		expect(fenceInfo("```ts")).toBe("ts");
+		expect(fenceInfo("~~~ python")).toBe("python");
+		expect(fenceInfo("plain text")).toBe("");
+	});
+});
+
+describe("plan index — age and notice", () => {
+	const NOW = fixedPlanDate().getTime();
+	const DAY = 86_400_000;
+
+	/** A summary for a plan modified `days` before NOW. */
+	function summary(over: Partial<PlanSummary> = {}): PlanSummary {
+		return {
+			path: "/repo/.pi/plans/2026-10-16-1030-add-rate-limiting.md",
+			relativePath: ".pi/plans/2026-10-16-1030-add-rate-limiting.md",
+			title: "Add rate limiting",
+			modified: NOW - 2 * DAY,
+			bytes: 512,
+			steps: { done: 3, total: 7 },
+			...over,
+		};
+	}
+
+	test("relativeAge reports today, days, months, and years", () => {
+		expect(relativeAge(NOW, NOW)).toBe("today");
+		expect(relativeAge(NOW - DAY, NOW)).toBe("1d ago");
+		expect(relativeAge(NOW - 3 * DAY, NOW)).toBe("3d ago");
+		expect(relativeAge(NOW - 45 * DAY, NOW)).toBe("1mo ago");
+		expect(relativeAge(NOW - 400 * DAY, NOW)).toBe("1y ago");
+	});
+
+	test("relativeAge never reports a negative age for a future mtime", () => {
+		expect(relativeAge(NOW + DAY, NOW)).toBe("today");
+	});
+
+	test("names the directory and one line per plan, newest first", () => {
+		const text = formatPlanIndex(
+			[summary(), summary({ title: "Older plan", modified: NOW - 40 * DAY, steps: { done: 0, total: 2 } })],
+			"/repo/.pi/plans",
+		);
+		const lines = text.split("\n");
+		expect(lines[0]).toContain("Plans (2)");
+		expect(lines[0]).toContain("/repo/.pi/plans");
+		expect(lines[1]).toContain("Add rate limiting — 3/7 steps");
+		expect(lines[1]).toContain(".pi/plans/2026-10-16-1030-add-rate-limiting.md");
+		expect(lines[2]).toContain("Older plan — 0/2 steps");
+	});
+
+	test("says where plans go when there are none", () => {
+		expect(formatPlanIndex([], "/repo/.pi/plans")).toBe("No plans in /repo/.pi/plans yet; write_plan saves one there.");
+	});
+
+	test("reports a file it did not read as unknown steps and sanitizes a title", () => {
+		const unknown = formatPlanIndex([summary({ steps: undefined, oversize: true })], "/repo/.pi/plans");
+		expect(unknown).toContain("steps unknown");
+
+		const dirty = formatPlanIndex([summary({ title: "bad\u0001title" })], "/repo/.pi/plans");
+		expect(dirty).toContain("bad title");
+		expect(dirty).not.toContain("\u0001");
+	});
+});
+
+describe("plan index — screen", () => {
+	const NOW = fixedPlanDate().getTime();
+	const DAY = 86_400_000;
+
+	/** A summary for a plan modified `days` before NOW. */
+	function summary(over: Partial<PlanSummary> = {}): PlanSummary {
+		return {
+			path: "/repo/.pi/plans/2026-10-16-1030-add-rate-limiting.md",
+			relativePath: ".pi/plans/2026-10-16-1030-add-rate-limiting.md",
+			title: "Add rate limiting",
+			modified: NOW - 2 * DAY,
+			bytes: 512,
+			steps: { done: 3, total: 7 },
+			...over,
+		};
+	}
+
+	function harness(
+		options: { summaries?: readonly PlanSummary[]; reload?: () => Promise<readonly PlanSummary[]> } = {},
+	) {
+		const selected: PlanSummary[] = [];
+		let closed = 0;
+		const component = new PlanIndexComponent({
+			summaries: options.summaries ?? [summary(), summary({ title: "Older plan", modified: NOW - 40 * DAY })],
+			dir: "/repo/.pi/plans",
+			theme,
+			now: () => NOW,
+			onSelect: (plan) => selected.push(plan),
+			onClose: () => {
+				closed += 1;
+			},
+			reload: options.reload ?? (async () => options.summaries ?? []),
+			requestRender: () => {},
+			viewportRows: () => 24,
+		});
+		return {
+			component,
+			selected,
+			closeCount: () => closed,
+			text: (width = 80): string => component.render(width).join("\n"),
+			input: (data: string): void => component.handleInput(data),
+			mouse: (delta: number): unknown => component.handleMouse({ type: "wheel", wheelDelta: delta } as never),
+		};
+	}
+
+	test("lists plans with step progress and age, newest first", () => {
+		const h = harness();
+		expect(h.text()).toContain("❯ Add rate limiting");
+		expect(h.text()).toContain("3/7 steps · 2d ago");
+		expect(h.text()).toContain("Older plan");
+		expect(h.text()).toContain("1mo ago");
+	});
+
+	test("shows the focused plan's path and modified time", () => {
+		const h = harness();
+		expect(h.text()).toContain(".pi/plans/2026-10-16-1030-add-rate-limiting.md");
+		expect(h.text()).toContain("modified 2026-10-06 15:30");
+	});
+
+	test("shows an empty state", () => {
+		expect(harness({ summaries: [] }).text()).toContain("No plans yet");
+	});
+
+	test("stays within the width", () => {
+		const h = harness();
+		for (const width of [80, 40, 20, 12, 6, 1]) {
+			for (const line of h.component.render(width)) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+	});
+
+	test("scrolls its range row when the plans overflow", () => {
+		const many = Array.from({ length: 30 }, (_, index) => summary({ title: `Plan ${index}` }));
+		expect(harness({ summaries: many }).text()).toMatch(/1–\d+ of 30/);
+	});
+
+	test("moves the selection with j/k and the wheel", () => {
+		const h = harness();
+		h.input("j");
+		expect(h.text()).toContain("❯ Older plan");
+		h.mouse(1);
+		expect(h.text()).toContain("❯ Older plan");
+		h.input("k");
+		expect(h.text()).toContain("❯ Add rate limiting");
+	});
+
+	test("g and G jump to the ends", () => {
+		const many = Array.from({ length: 20 }, (_, index) => summary({ title: `Plan ${index}` }));
+		const h = harness({ summaries: many });
+		h.input("G");
+		expect(h.text()).toContain("❯ Plan 19");
+		h.input("g");
+		expect(h.text()).toContain("❯ Plan 0");
+	});
+
+	test("closes on Escape", () => {
+		const h = harness();
+		h.input("\x1b");
+		expect(h.closeCount()).toBe(1);
+	});
+
+	test("Enter hands the focused plan to the caller", () => {
+		const h = harness();
+		h.input("j");
+		h.input("\r");
+		expect(h.selected.map((plan) => plan.title)).toEqual(["Older plan"]);
+	});
+
+	test("Enter with no plans selects nothing", () => {
+		const h = harness({ summaries: [] });
+		h.input("\r");
+		expect(h.selected).toEqual([]);
+	});
+
+	test("r reloads the rows and reports an empty directory", async () => {
+		const h = harness({ reload: async () => [] });
+		h.input("r");
+		await settle();
+		expect(h.text()).toContain("No plans yet");
+	});
+
+	test("a failed reload reports the reason instead of throwing", async () => {
+		const h = harness({
+			reload: async () => {
+				throw new Error("permission denied");
+			},
+		});
+		h.input("r");
+		await settle();
+		expect(h.text()).toContain("Could not read the plans directory: permission denied");
+	});
+});
+
+describe("plan policy", () => {
+	const piWith = (tools: Array<{ name: string; annotations?: { readOnlyHint?: boolean } }>) =>
+		({ getAllTools: () => tools }) as unknown as ExtensionAPI;
+
+	test("allows the structured readers, the trackers, the known web/ask tools, and the git-only shell", () => {
+		const policy = createPlanPolicy(piWith([]));
+		for (const name of [
+			"read",
+			"grep",
+			"find",
+			"ls",
+			"todo",
+			"goal",
+			"bash",
+			"ask_user_question",
+			"web_search",
+			"web_fetch",
+		]) {
+			expect(policy.classify(name)).toBe("read-only");
+		}
+	});
+
+	test("keeps subagent active but only as a guarded, read-only delegation", () => {
+		const policy = createPlanPolicy(piWith([]));
+		expect(PLAN_ALLOWED_TOOLS).toContain("subagent");
+		expect(PLAN_SAFE_TOOLS).not.toContain("subagent");
+		expect(policy.classify("subagent")).toBe("read-only");
+	});
+
+	test("blocks powershell outright", () => {
+		const policy = createPlanPolicy(piWith([]));
+		expect(PLAN_SAFE_TOOLS).not.toContain("powershell");
+		expect(policy.check("powershell")?.block).toBe(true);
+	});
+
+	test("blocks write, edit, and enter_plan_mode", () => {
+		const policy = createPlanPolicy(piWith([]));
+		for (const name of ["write", "edit", "enter_plan_mode"]) {
+			expect(policy.check(name)?.block).toBe(true);
+		}
+	});
+
+	test("blocks unknown tools, the cross-platform hole", () => {
+		expect(createPlanPolicy(piWith([])).check("mcp__danger")?.block).toBe(true);
+	});
+
+	test("opens a tool that carries the MCP read-only hint", () => {
+		const annotated = createPlanPolicy(piWith([{ name: "web_search", annotations: { readOnlyHint: true } }]));
+		expect(annotated.check("web_search")).toBeUndefined();
+	});
+
+	test("deny wins over a read-only hint on a write tool", () => {
+		const annotated = createPlanPolicy(piWith([{ name: "write", annotations: { readOnlyHint: true } }]));
+		expect(annotated.check("write")?.block).toBe(true);
+	});
+
+	test("names the exit hatch in a refused call", () => {
+		expect(createPlanPolicy(piWith([])).check("write")?.reason).toContain("exit_plan_mode");
 	});
 });

@@ -1,8 +1,19 @@
+/**
+ * The wechat extension's Pi integration: the registration gate, the status chip,
+ * and the bridge lifecycle — one poller per runtime, opened when an account is
+ * stored, answering inbound turns in the peer's own session, and released on
+ * shutdown.
+ *
+ * The transport, the sleep, and the peer session are the extension's own seams,
+ * so the real bridge runs here without a network, a real timer, or a model.
+ */
+
 import { describe, expect, test } from "bun:test";
 import { isRemoteTurn } from "../../lib/interaction.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { withAgentDir } from "../../test/helpers/env.ts";
+import { withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { coloringTheme, createFakePi, emit } from "../../test/helpers/fakes.ts";
 import {
 	ACCOUNT,
@@ -17,40 +28,22 @@ import { settle, waitFor } from "../../test/helpers/process.ts";
 import wechat, { wechatChip } from "./index.ts";
 import type { PeerSession } from "./peer-session.ts";
 
-describe("wechat extension", () => {
-	test("registers the /wechat command", () => {
+describe("wechat registration", () => {
+	test("registers the /wechat command and the send_wechat tool", () => {
 		const fake = createFakePi();
 		wechat(fake.pi);
 		expect(fake.commands.has("wechat")).toBe(true);
-	});
-
-	test("completes the wechat subcommands", () => {
-		const fake = createFakePi();
-		wechat(fake.pi);
-		const complete = (prefix: string): string[] =>
-			(fake.commands.get("wechat").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
-		expect(complete("")).toEqual([
-			"login",
-			"new",
-			"status",
-			"pause",
-			"resume",
-			"doctor",
-			"stop",
-			"reset",
-			"history",
-			"allow",
-			"logout",
-			"help",
-		]);
-		expect(complete("n")).toEqual(["new"]);
-		expect(complete("new ")).toEqual([]);
-	});
-
-	test("registers the send_wechat tool", () => {
-		const fake = createFakePi();
-		wechat(fake.pi);
 		expect(fake.tools.has("send_wechat")).toBe(true);
+	});
+
+	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "wechat" }, () => {
+			const fake = createFakePi();
+			wechat(fake.pi);
+			expect(fake.commands.size).toBe(0);
+			expect(fake.tools.size).toBe(0);
+			expect(fake.handlers.size).toBe(0);
+		});
 	});
 
 	test("does not open the bridge when no account is stored", async () => {
@@ -84,11 +77,6 @@ describe("wechat extension", () => {
 	});
 });
 
-/**
- * The lifecycle contract: one poller per runtime, opened when an account is
- * stored, answering inbound turns, and released on shutdown. Driven through the
- * real bridge with only the transport and the timer injected.
- */
 describe("wechat lifecycle", () => {
 	async function start(dir: string, script = [updates()], answer = "hi from pi") {
 		const fake = createFakePi();
@@ -129,7 +117,7 @@ describe("wechat lifecycle", () => {
 		});
 	});
 
-	test("answers an inbound message after a restart", async () => {
+	test("answers an inbound message in the peer's own session", async () => {
 		await withAgentDir(async (dir) => {
 			writeAccount(dir);
 			const { fake, client, ctx } = await start(dir, [updates([inboundText("hello")])]);

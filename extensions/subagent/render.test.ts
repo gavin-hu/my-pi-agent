@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, getKeybindings, KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
-import { renderSubagentCall, renderSubagentResult, type StreamedSubagentArgs } from "./render.ts";
 import { emptyUsage } from "./stream.ts";
+import { renderSubagentCall, renderSubagentResult, type StreamedSubagentArgs } from "./render.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
-import { assistantMessage } from "../../test/helpers/fixtures/subagent.ts";
-import { fakeTheme } from "../../test/helpers/fixtures/subagent.ts";
+import { assistantMessage, fakeTheme } from "../../test/helpers/fixtures/subagent.ts";
 import { coloringTheme } from "../../test/helpers/fakes.ts";
 
 const theme = fakeTheme();
@@ -44,6 +43,11 @@ describe("renderSubagentCall", () => {
 	test("renders the task with the body colour, not the faintest", () => {
 		const text = render(renderSubagentCall({ agent: "explorer", task: "find the retry logic" }, coloringTheme));
 		expect(text).toContain("[muted]find the retry logic");
+	});
+
+	test("marks a read-only call", () => {
+		const text = render(renderSubagentCall({ agent: "explorer", task: "find", readOnly: true }, theme));
+		expect(text).toContain("read-only");
 	});
 
 	test("strips control characters from a model-supplied agent name", () => {
@@ -85,6 +89,15 @@ describe("renderSubagentCall", () => {
 		expect(lines).toHaveLength(3);
 		expect(lines[1]?.startsWith("1.")).toBe(true);
 		expect(lines[2]?.startsWith("2.")).toBe(true);
+	});
+
+	test("caps a long list at three rows and counts the rest", () => {
+		const tasks = Array.from({ length: 5 }, (_, index) => ({ agent: "explorer", task: `task ${index}` }));
+		const text = render(renderSubagentCall({ tasks }, theme));
+		expect(text).toContain("parallel · 5 tasks");
+		expect(text).toContain("3. explorer");
+		expect(text).toContain("… +2 more");
+		expect(text).not.toContain("4. explorer");
 	});
 
 	test("chain mode numbers steps and strips the placeholder", () => {
@@ -151,6 +164,13 @@ describe("renderSubagentCall", () => {
 		expect(text).toContain("explorer");
 		expect(text).not.toContain("chain ·");
 	});
+
+	test("reuses the slot Text", () => {
+		const first = renderSubagentCall({ agent: "explorer", task: "a" }, theme, { lastComponent: undefined });
+		const second = renderSubagentCall({ agent: "explorer", task: "b" }, theme, { lastComponent: first });
+		expect(second).toBe(first);
+		expect(render(first)).toContain("b");
+	});
 });
 
 describe("renderSubagentResult", () => {
@@ -168,20 +188,9 @@ describe("renderSubagentResult", () => {
 		});
 		const component = renderSubagentResult(result, { expanded: false }, theme);
 
-		const screen = component.render(80).join("\n");
-		expect(screen).toContain("Started explorer as a1");
-		expect(screen).toContain("/agents");
-	});
-
-	test("falls back to the message for a host-rejected call", () => {
-		const text = render(
-			renderSubagentResult(
-				{ content: [{ type: "text", text: 'Validation failed for tool "subagent"' }], details: {}, isError: true },
-				{ expanded: false },
-				theme,
-			),
-		);
-		expect(text).toContain("Validation failed for tool");
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Started explorer as a1");
+		expect(text).toContain("/agents");
 	});
 
 	test("collapsed single success shows output and usage", () => {
@@ -191,6 +200,7 @@ describe("renderSubagentResult", () => {
 		expect(text).toContain("✓");
 		expect(text).toContain("explorer");
 		expect(text).toContain("all done");
+		expect(text).toContain("1 turn");
 	});
 
 	test("paints the agent name with the accent, matching the call line", () => {
@@ -198,6 +208,14 @@ describe("renderSubagentResult", () => {
 			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, coloringTheme),
 		);
 		expect(text).toContain("[accent][bold]explorer");
+	});
+
+	test("names the source of a non-builtin agent", () => {
+		const custom = single({ agent: "auditor", agentSource: "user" });
+		const text = render(
+			renderSubagentResult(toolResult({ mode: "single", results: [custom] }), { expanded: false }, theme),
+		);
+		expect(text).toContain("auditor [user]");
 	});
 
 	test("collapsed single failure shows the error", () => {
@@ -226,18 +244,20 @@ describe("renderSubagentResult", () => {
 		expect(text).toContain("/repo/.pi/subagents/20261015-143012-a1b2c3");
 	});
 
-	test("expanded single reports a truncated or unwritable transcript", () => {
+	test("expanded single marks a truncated transcript", () => {
 		const truncated = single({ artifactPath: "/repo/.pi/subagents/run", artifactTruncated: true });
-		const shown = render(
+		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [truncated] }), { expanded: true }, theme),
 		);
-		expect(shown).toContain("(truncated)");
+		expect(text).toContain("(truncated)");
+	});
 
+	test("expanded single reports an unwritable transcript", () => {
 		const broken = single({ artifactError: "EACCES: permission denied" });
-		const failed = render(
+		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [broken] }), { expanded: true }, theme),
 		);
-		expect(failed).toContain("EACCES: permission denied");
+		expect(text).toContain("EACCES: permission denied");
 	});
 
 	test("a timed-out run reports its deadline in both views", () => {
@@ -320,7 +340,7 @@ describe("renderSubagentResult", () => {
 				],
 			},
 			assistantMessage("final answer"),
-		] as any;
+		] as never;
 		const result = single({ messages });
 		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [result] }), { expanded: true }, theme),
@@ -393,7 +413,7 @@ describe("renderSubagentResult", () => {
 		const messages = [
 			assistantMessage("EARLY ANSWER"),
 			{ role: "assistant", content: [{ type: "toolCall", name: "bash", arguments: { command: "ls" } }] },
-		] as any;
+		] as never;
 		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [single({ messages })] }), { expanded: true }, theme),
 		);
@@ -458,7 +478,7 @@ describe("renderSubagentResult", () => {
 
 	test("expanded blank output falls back to (no output)", () => {
 		const blank = single({
-			messages: [{ role: "assistant", content: [{ type: "text", text: "   " }] }] as any,
+			messages: [{ role: "assistant", content: [{ type: "text", text: "   " }] }] as never,
 		});
 		const text = render(
 			renderSubagentResult(toolResult({ mode: "single", results: [blank] }), { expanded: true }, theme),
@@ -548,18 +568,8 @@ describe("renderSubagentResult", () => {
 	});
 });
 
-describe("spacing, keybinding, and reuse", () => {
+describe("keybinding and reuse", () => {
 	const ctx = () => ({ state: {}, invalidate: () => {}, lastComponent: undefined });
-
-	test("collapsed single leads with a blank and separates the header from the body", () => {
-		const lines = renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, theme)
-			.render(80)
-			.map((line) => line.trimEnd());
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toContain("✓ explorer");
-		expect(lines[2]).toBe("");
-		expect(lines[3]).toContain("all done");
-	});
 
 	test("the expand hint follows the bound app.tools.expand key", () => {
 		const previous = getKeybindings();
@@ -582,13 +592,6 @@ describe("spacing, keybinding, and reuse", () => {
 		} finally {
 			setKeybindings(previous);
 		}
-	});
-
-	test("renderSubagentCall reuses the slot Text", () => {
-		const first = renderSubagentCall({ agent: "explorer", task: "a" }, theme, { lastComponent: undefined });
-		const second = renderSubagentCall({ agent: "explorer", task: "b" }, theme, { lastComponent: first });
-		expect(second).toBe(first);
-		expect(render(first)).toContain("b");
 	});
 
 	test("collapsed result reuses the slot Text", () => {

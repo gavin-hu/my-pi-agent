@@ -1,26 +1,558 @@
+/**
+ * The browser review capability: the comment codec stored in the plan file, the
+ * request router and its guards, the page shell and its JSON island, the shipped
+ * client script, and the loopback review session.
+ *
+ * Routers are driven directly for request shapes; only the session cases open a
+ * real loopback socket. The closed-tab grace runs on an injected timer, so no
+ * test races a real deadline.
+ */
+
 import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
 import type { ArmTimer } from "../../lib/timer.ts";
+import { THEME_JS } from "../../lib/web/index.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import {
+	coerceAnnotations,
+	feedbackSummary,
 	formatFeedback,
 	MAX_ANNOTATIONS,
 	MAX_COMMENT_LENGTH,
 	MAX_QUOTE_LENGTH,
+	parseFeedback,
+	stripFeedback,
 	type PlanAnnotation,
 } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
-import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession } from "./web.ts";
+import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
+import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
+import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, type PlanWebReviewDeps } from "./web.ts";
 
+const PLAN = "# Title\n\n## Steps\n- [ ] one\n- [ ] two\n";
 const PATH = "/repo/.pi/plans/2026-10-14-1600-demo.md";
 const RELATIVE = ".pi/plans/2026-10-14-1600-demo.md";
+
+interface ReviewIsland {
+	title: string;
+	token: string;
+	steps: { done: number; total: number };
+	outline: Array<{ id: string; line: number; level: number; text: string; changed?: boolean }>;
+	code: Record<string, string[]>;
+	limits: { comments: number; comment: number; quote: number };
+	blocks: Array<{ start: number; lines: string[] }>;
+}
+
+/** The page's data island, the one contract the client reads. */
+function islandOf(html: string): ReviewIsland {
+	const match = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
+	if (!match) throw new Error("review data island missing");
+	return JSON.parse(match[1] ?? "") as ReviewIsland;
+}
+
+describe("browser comment codec", () => {
+	test("strips stored markers but leaves a fenced marker as content", () => {
+		expect(stripFeedback("- one\n> [!REVIEW] a note\n- two")).toBe("- one\n- two");
+		expect(stripFeedback("a\n  > [!REVIEW]\nb")).toBe("a\nb");
+
+		const fenced = "```md\n> [!REVIEW] documentation\n```";
+		expect(stripFeedback(fenced)).toBe(fenced);
+	});
+
+	test("writes a comment after the whole block it anchors to", () => {
+		expect(formatFeedback(PLAN, [{ anchor: 3, comment: "too vague" }])).toBe(
+			"# Title\n\n## Steps\n- [ ] one\n> [!REVIEW] too vague\n- [ ] two\n",
+		);
+
+		const fenced = "```ts\nconst x = 1;\n```\nafter\n";
+		expect(formatFeedback(fenced, [{ anchor: 1, comment: "rename x" }])).toBe(
+			"```ts\nconst x = 1;\n```\n> [!REVIEW] rename x\nafter\n",
+		);
+	});
+
+	test("groups several comments on one block in order", () => {
+		const saved = formatFeedback(PLAN, [
+			{ anchor: 3, comment: "first" },
+			{ anchor: 3, comment: "second" },
+		]);
+		expect(saved).toContain("- [ ] one\n> [!REVIEW] first\n> [!REVIEW] second\n- [ ] two");
+	});
+
+	test("collapses a comment to one line and drops empty ones", () => {
+		expect(formatFeedback("- one", [{ anchor: 0, comment: "line one\nline two" }])).toBe(
+			"- one\n> [!REVIEW] line one line two",
+		);
+		expect(formatFeedback("- one\n> [!REVIEW] old", [])).toBe("- one");
+		expect(formatFeedback("- one", [{ anchor: 0, comment: "   " }])).toBe("- one");
+		expect(formatFeedback("", [{ anchor: 0, comment: "start over" }])).toBe("> [!REVIEW] start over");
+	});
+
+	test("replaces rather than appends across repeated saves", () => {
+		const annotations = [
+			{ anchor: 3, comment: "first" },
+			{ anchor: 4, comment: "second" },
+		];
+		const once = formatFeedback(PLAN, annotations);
+		expect(formatFeedback(once, annotations)).toBe(once);
+	});
+
+	test("parses the anchor and comment back from the file", () => {
+		const saved = formatFeedback(PLAN, [
+			{ anchor: 3, comment: "first" },
+			{ anchor: 4, comment: "second" },
+		]);
+		expect(parseFeedback(saved)).toEqual([
+			{ anchor: 3, comment: "first" },
+			{ anchor: 4, comment: "second" },
+		]);
+		expect(parseFeedback(PLAN)).toEqual([]);
+		expect(parseFeedback("> [!REVIEW] top\n# Title")).toEqual([{ anchor: 0, comment: "top" }]);
+	});
+
+	test("ignores a marker-looking line inside a fenced code block", () => {
+		const plan = "# Title\n\n```md\n> [!REVIEW] documentation\n```\n\n- [ ] step\n";
+		const saved = formatFeedback(plan, [{ anchor: 6, comment: "real" }]);
+		expect(stripFeedback(saved)).toBe(plan);
+		expect(parseFeedback(saved)).toEqual([{ anchor: 6, comment: "real" }]);
+	});
+
+	test("summarizes comments for the model", () => {
+		const summary = feedbackSummary([
+			{ anchor: 0, quote: "token bucket", comment: "burst case?" },
+			{ anchor: 1, comment: "add a test" },
+		]);
+		expect(summary).toBe('1. On "token bucket": burst case?\n2. add a test');
+
+		const truncated = feedbackSummary([{ anchor: 0, quote: "x".repeat(200), comment: "note" }]);
+		expect(truncated).toContain("…");
+		expect(truncated).toContain("note");
+	});
+
+	test("accepts well-formed annotations and drops empty comments", () => {
+		expect(coerceAnnotations([{ anchor: 2, quote: "q", comment: "c" }])).toEqual([
+			{ anchor: 2, quote: "q", comment: "c" },
+		]);
+		expect(coerceAnnotations([{ anchor: 2, comment: "  " }])).toEqual([]);
+	});
+
+	test("rejects a malformed annotations payload", () => {
+		expect(coerceAnnotations("nope")).toBeUndefined();
+		for (const entry of [
+			{ anchor: -1, comment: "c" },
+			{ anchor: 1.5, comment: "c" },
+			{ anchor: 1 },
+			{ anchor: 1, comment: "c", quote: 3 },
+			{ anchor: 1, comment: "x".repeat(MAX_COMMENT_LENGTH + 1) },
+		]) {
+			expect(coerceAnnotations([entry])).toBeUndefined();
+		}
+	});
+
+	test("caps the annotation count", () => {
+		const many = Array.from({ length: MAX_ANNOTATIONS + 1 }, () => ({ anchor: 0, comment: "c" }));
+		expect(coerceAnnotations(many)).toBeUndefined();
+	});
+});
+
+const HOST = { host: "127.0.0.1:1234" };
+
+const PAGE_DATA: ReviewPageData = {
+	title: "T",
+	blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
+	annotations: [],
+	outline: [],
+	steps: { done: 0, total: 0 },
+	code: {},
+	limits: { comments: 200, comment: 2000, quote: 500 },
+	canApprove: true,
+	token: "tok",
+};
+
+/** A router context that records its callbacks and can fail a save on demand. */
+function router(overrides: Partial<ReviewContext> = {}) {
+	const saved: PlanAnnotation[][] = [];
+	const approved: PlanAnnotation[][] = [];
+	const cancelled: number[] = [];
+	let nextSave: SaveResult = { ok: true };
+	const ctx: ReviewContext = {
+		token: "tok",
+		canApprove: true,
+		page: async () => PAGE_DATA,
+		save: async (annotations) => {
+			saved.push(annotations);
+			return nextSave;
+		},
+		onSaved: () => {},
+		onApprove: (annotations) => approved.push(annotations),
+		onCancel: () => cancelled.push(1),
+		...overrides,
+	};
+	return {
+		ctx,
+		saved,
+		approved,
+		cancelled,
+		setSave: (result: SaveResult) => {
+			nextSave = result;
+		},
+	};
+}
+
+const get = (url: string) => handleReviewRequest(router().ctx, "GET", url, HOST);
+const post = (ctx: ReviewContext, url: string, body = "") => handleReviewRequest(ctx, "POST", url, HOST, body);
+
+describe("review router", () => {
+	test("serves the review page with the page policy and no framing", async () => {
+		const response = await get("/?token=tok");
+
+		expect(response.status).toBe(200);
+		expect(response.body).toContain('id="review-data"');
+		expect(response.headers["Content-Security-Policy"]).toContain("default-src 'none'");
+		expect(response.headers["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
+		expect(response.headers["X-Frame-Options"]).toBe("DENY");
+	});
+
+	test("rejects the page without the session token", async () => {
+		expect((await get("/")).status).toBe(403);
+		expect((await get("/?token=nope")).status).toBe(403);
+	});
+
+	test("serves the first-party client and the shared theme without a token", async () => {
+		const client = await get("/client.js");
+		expect(client.status).toBe(200);
+		expect(client.body).toBe(REVIEW_CLIENT_JS);
+		expect(client.headers["Content-Type"]).toContain("text/javascript");
+
+		const theme = await get("/theme.js");
+		expect(theme.status).toBe(200);
+		expect(theme.body).toBe(THEME_JS);
+		expect(theme.headers["Content-Type"]).toContain("text/javascript");
+	});
+
+	test("opens the event stream only with the token", async () => {
+		const stream = await get("/events?token=tok");
+		expect(stream.status).toBe(200);
+		expect(stream.stream).toBe(true);
+		expect(stream.headers["Content-Type"]).toContain("text/event-stream");
+		expect((await get("/events")).status).toBe(403);
+	});
+
+	test("answers a favicon without a content type and an unknown route with 404", async () => {
+		const favicon = await get("/favicon.ico");
+		expect(favicon.status).toBe(204);
+		expect(favicon.headers["Content-Type"]).toBeUndefined();
+		expect((await get("/nope?token=tok")).status).toBe(404);
+	});
+
+	test("answers a malformed request target with 400", async () => {
+		const response = await get("http://[");
+		expect(response.status).toBe(400);
+		expect(response.body).toContain("Malformed request URL.");
+	});
+
+	test("serves only GET, HEAD, and POST", async () => {
+		const response = await handleReviewRequest(router().ctx, "PUT", "/?token=tok", HOST);
+		expect(response.status).toBe(405);
+		expect(response.headers.Allow).toBe("GET, HEAD, POST");
+	});
+
+	test("rejects a missing, foreign, or non-string Host header", async () => {
+		for (const headers of [{}, { host: "evil.example" }, { host: ["127.0.0.1"] }]) {
+			expect((await handleReviewRequest(router().ctx, "GET", "/?token=tok", headers)).status).toBe(403);
+		}
+	});
+
+	test("saves valid annotations and signals the save", async () => {
+		let resolved = 0;
+		const { ctx, saved } = router({ onSaved: () => (resolved += 1) });
+		const response = await post(
+			ctx,
+			"/api/feedback?token=tok",
+			JSON.stringify({ annotations: [{ anchor: 1, comment: "note" }] }),
+		);
+
+		expect(response.status).toBe(200);
+		expect(saved).toEqual([[{ anchor: 1, comment: "note" }]]);
+		expect(resolved).toBe(1);
+	});
+
+	test("rejects a bad token before touching the plan", async () => {
+		const { ctx, saved } = router();
+		const response = await post(ctx, "/api/feedback?token=nope", JSON.stringify({ annotations: [] }));
+
+		expect(response.status).toBe(403);
+		expect(saved).toEqual([]);
+	});
+
+	test("rejects a malformed feedback body", async () => {
+		const { ctx } = router();
+		expect((await post(ctx, "/api/feedback?token=tok", "not json")).status).toBe(400);
+		expect((await post(ctx, "/api/feedback?token=tok", JSON.stringify({ annotations: 1 }))).status).toBe(400);
+		expect((await handleReviewRequest(ctx, "GET", "/api/feedback?token=tok", HOST)).status).toBe(405);
+	});
+
+	test("reports a save conflict from the store", async () => {
+		const { ctx, setSave } = router();
+		setSave({ ok: false, status: 409, message: "The plan changed." });
+		const response = await post(ctx, "/api/feedback?token=tok", JSON.stringify({ annotations: [] }));
+
+		expect(response.status).toBe(409);
+		expect(response.body).toContain("The plan changed.");
+	});
+
+	test("cancels on request and refuses a non-POST cancel", async () => {
+		const { ctx, cancelled } = router();
+		expect((await post(ctx, "/api/cancel?token=tok")).status).toBe(200);
+		expect(cancelled).toHaveLength(1);
+		expect((await handleReviewRequest(ctx, "GET", "/api/cancel?token=tok", HOST)).status).toBe(405);
+	});
+
+	test("saves the comments and signals an approve", async () => {
+		const { ctx, saved, approved } = router();
+		const response = await post(
+			ctx,
+			"/api/approve?token=tok",
+			JSON.stringify({ annotations: [{ anchor: 1, comment: "note" }] }),
+		);
+
+		expect(response.status).toBe(200);
+		expect(saved).toEqual([[{ anchor: 1, comment: "note" }]]);
+		expect(approved).toEqual([[{ anchor: 1, comment: "note" }]]);
+	});
+
+	test("refuses approve when the review is comment-only", async () => {
+		const { ctx, approved } = router({ canApprove: false });
+		const response = await post(ctx, "/api/approve?token=tok");
+
+		expect(response.status).toBe(403);
+		expect(approved).toEqual([]);
+	});
+
+	test("rejects a non-POST approve and reports its conflict", async () => {
+		const { ctx, approved, setSave } = router();
+		expect((await handleReviewRequest(ctx, "GET", "/api/approve?token=tok", HOST)).status).toBe(405);
+
+		setSave({ ok: false, status: 409, message: "The plan changed." });
+		const response = await post(ctx, "/api/approve?token=tok", JSON.stringify({ annotations: [] }));
+		expect(response.status).toBe(409);
+		expect(approved).toEqual([]);
+	});
+});
+
+function page(overrides: Partial<ReviewPageData> = {}): string {
+	return renderReviewPage({
+		title: "Add rate limiting",
+		blocks: [{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] }],
+		annotations: [],
+		outline: [{ id: "s-0", line: 0, level: 1, text: "Add rate limiting" }],
+		steps: { done: 0, total: 0 },
+		code: {},
+		limits: { comments: 200, comment: 2000, quote: 500 },
+		canApprove: true,
+		token: "secret-token",
+		...overrides,
+	});
+}
+
+describe("review page", () => {
+	test("loads the first-party client, the shared theme, and the review controls", () => {
+		const html = page();
+		expect(html).toContain('<script src="/client.js" defer>');
+		expect(html).toContain('<script src="/theme.js">');
+		expect(html).toContain('id="theme-toggle"');
+		expect(html).toContain('id="shortcuts"');
+		expect(html).toContain('id="save"');
+		expect(html).toContain('id="cancel"');
+	});
+
+	test("offers Approve & run only when the review may approve", () => {
+		const approvable = page();
+		expect(approvable).toContain('id="approve"');
+		expect(approvable).toContain("Approve &amp; run");
+
+		const commentOnly = page({ canApprove: false });
+		expect(commentOnly).not.toContain('id="approve"');
+		expect(commentOnly).toContain('id="save"');
+	});
+
+	test("frames the plan with a section outline and the document body", () => {
+		const html = page();
+		expect(html).toContain('id="outline-list"');
+		expect(html).toContain('id="plan"');
+		expect(html).toContain('href="#plan"');
+		expect(html).toContain("bf-review");
+	});
+
+	test("drops the outline column when the plan has no headings", () => {
+		const html = page({ outline: [] });
+		expect(html).toContain("bf-app__body--single");
+		expect(html).not.toContain('id="outline-list"');
+	});
+
+	test("carries the review data in one JSON island", () => {
+		const data = islandOf(page({ code: { "2": ['<span class="tok-keyword">const</span>'] } }));
+
+		expect(data.title).toBe("Add rate limiting");
+		expect(data.token).toBe("secret-token");
+		expect(data.steps).toEqual({ done: 0, total: 0 });
+		expect(data.outline[0]).toEqual({ id: "s-0", line: 0, level: 1, text: "Add rate limiting" });
+		expect(data.code["2"]?.[0]).toContain("tok-keyword");
+		expect(data.limits).toEqual({ comments: 200, comment: 2000, quote: 500 });
+	});
+
+	test("escapes a plan line that would close the island", () => {
+		const html = page({
+			blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["</script><script>alert(1)</script>"] }],
+		});
+		expect(html).not.toContain("</script><script>alert(1)");
+		expect(html).toContain("\\u003c/script>");
+	});
+
+	test("keeps plan text out of the markup outside the island", () => {
+		const html = page({ blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["UNIQUE_PLAN_TEXT"] }] });
+		const markup = html.slice(0, html.indexOf('<script type="application/json"'));
+		expect(markup).not.toContain("UNIQUE_PLAN_TEXT");
+	});
+
+	test("shows the review facts, the progress bar, and the keyboard sheet", () => {
+		const html = page();
+		expect(html).toContain('id="review-facts"');
+		expect(html).toContain('id="step-count"');
+		expect(html).toContain('id="progress-fill"');
+		expect(html).toContain('id="keys-dialog"');
+		expect(html).toContain("Approve and run the plan");
+	});
+
+	test("omits the approve hint and shortcut on a comment-only review", () => {
+		const html = page({ canApprove: false });
+		expect(html).not.toContain("to approve");
+		expect(html).not.toContain("Approve and run the plan");
+		expect(html).toContain("for all shortcuts");
+	});
+});
+
+const REVIEW_ORIGIN = "http://127.0.0.1:1234/?token=t";
+
+/**
+ * The `safeHref` the page actually ships, evaluated out of the client source: a
+ * string assertion cannot tell a fixed rule from a broken one.
+ */
+function shippedSafeHref(): (url: string, base: string) => string | null {
+	const start = REVIEW_CLIENT_JS.indexOf("function safeHref(");
+	const end = REVIEW_CLIENT_JS.indexOf("\n  }", start);
+	const source = start >= 0 && end > start ? REVIEW_CLIENT_JS.slice(start, end + 4) : "";
+	return new Function(`${source}\nreturn safeHref;`)() as (url: string, base: string) => string | null;
+}
+
+const linkFor = (url: string): string | null => shippedSafeHref()(url, REVIEW_ORIGIN);
+
+describe("review client", () => {
+	test("parses as JavaScript", () => {
+		expect(() => new Function(REVIEW_CLIENT_JS)).not.toThrow();
+	});
+
+	test("has no external URLs beyond the autolink scheme", () => {
+		const withoutScheme = REVIEW_CLIENT_JS.replace('"http://" + url', "");
+		expect(withoutScheme).not.toContain("http://");
+		expect(REVIEW_CLIENT_JS).not.toContain("https://");
+		expect(REVIEW_CLIENT_JS).not.toContain("//cdn");
+	});
+
+	test("uses only same-origin routes with the session token", () => {
+		expect(REVIEW_CLIENT_JS).toContain('submit("/api/feedback"');
+		expect(REVIEW_CLIENT_JS).toContain('submit("/api/approve"');
+		expect(REVIEW_CLIENT_JS).toContain("/api/cancel?token=");
+		expect(REVIEW_CLIENT_JS).toContain("/events?token=");
+		expect(REVIEW_CLIENT_JS).toContain('"?token=" + encodeURIComponent(token)');
+	});
+
+	test("never assigns plan or comment text as markup", () => {
+		expect(REVIEW_CLIENT_JS).not.toContain("innerHTML");
+		expect(REVIEW_CLIENT_JS).toContain(".textContent =");
+	});
+
+	test("rejects a protocol-relative link", () => {
+		expect(linkFor("//evil.com")).toBeNull();
+	});
+
+	test("refuses a link that is only cross-origin after URL parsing", () => {
+		// trim keeps an interior tab, and the URL parser deletes it: without
+		// resolving first, "/\t/evil.com" reads as a same-origin path.
+		expect(linkFor("/\t/evil.com")).toBeNull();
+		expect(linkFor("/\n/x.com")).toBeNull();
+	});
+
+	test("refuses a non-web scheme and a credentialed URL", () => {
+		for (const target of ["javascript:alert(1)", "data:text/html,x", "https://user:pw@example.com/x"]) {
+			expect(linkFor(target)).toBeNull();
+		}
+	});
+
+	test("keeps web, mail, anchor, and same-origin relative links", () => {
+		expect(linkFor("https://example.com/x")).toBe("https://example.com/x");
+		expect(linkFor("mailto:a@b.example")).toBe("mailto:a@b.example");
+		expect(linkFor("#section")).toBe("http://127.0.0.1:1234/?token=t#section");
+		expect(linkFor("docs/x.md")).toBe("http://127.0.0.1:1234/docs/x.md");
+	});
+
+	test("keeps a stream open so the server sees the tab close", () => {
+		expect(REVIEW_CLIENT_JS).toContain("new EventSource(");
+		// A closed tab is a dropped stream the server times out; a beacon would also
+		// cancel the review on a reload, which the 409 path offers on purpose.
+		expect(REVIEW_CLIENT_JS).not.toContain("sendBeacon");
+		expect(REVIEW_CLIENT_JS).not.toContain("beforeunload");
+	});
+
+	test("closes the stream once the review has settled", () => {
+		expect(REVIEW_CLIENT_JS).toContain("function settleStream()");
+		expect(REVIEW_CLIENT_JS).toContain("stream.close()");
+		expect(REVIEW_CLIENT_JS).toContain('addEventListener("pagehide", settleStream)');
+	});
+
+	test("offers a reload when the plan changed on disk", () => {
+		expect(REVIEW_CLIENT_JS).toContain("response.status === 409");
+		expect(REVIEW_CLIENT_JS).toContain("window.location.reload()");
+	});
+
+	test("takes its caps from the island instead of retyping them", () => {
+		expect(REVIEW_CLIENT_JS).toContain("var limits = data.limits || fallback.limits;");
+		expect(REVIEW_CLIENT_JS).toContain("area.maxLength = limits.comment;");
+		expect(REVIEW_CLIENT_JS).toContain("annotations.length >= limits.comments");
+		expect(REVIEW_CLIENT_JS).toContain("slice(0, limits.quote)");
+		expect(REVIEW_CLIENT_JS).not.toContain(">= 200");
+	});
+
+	test("settles on a terminal state instead of Offline", () => {
+		expect(REVIEW_CLIENT_JS).toContain('label = "Approved"');
+		expect(REVIEW_CLIENT_JS).toContain('label = "Saved"');
+		expect(REVIEW_CLIENT_JS).toContain('label = "Closed"');
+		expect(REVIEW_CLIENT_JS).toContain("} else if (everConnected) {");
+		expect(REVIEW_CLIENT_JS).toContain("everConnected = true");
+	});
+
+	test("shows the server's own reason when a save is rejected", () => {
+		expect(REVIEW_CLIENT_JS).toContain("payload.error");
+		expect(REVIEW_CLIENT_JS).toContain("response.json()");
+	});
+
+	test("ignores Enter while an IME composition is open", () => {
+		expect(REVIEW_CLIENT_JS).toContain("event.isComposing");
+	});
+
+	test("marks a changed outline section with a labelled dot", () => {
+		expect(REVIEW_CLIENT_JS).toContain('"review-changed"');
+		expect(REVIEW_CLIENT_JS).toContain("Changed since your last review");
+		expect(REVIEW_CLIENT_JS).toContain("item.changed");
+	});
+});
 
 function stored(content: string): StoredPlan {
 	return { path: PATH, relativePath: RELATIVE, content, bytes: Buffer.byteLength(content, "utf-8") };
 }
 
-/** An in-memory plan store, so these tests never touch the filesystem. */
+/** An in-memory plan store, so the session tests never touch the filesystem. */
 function fakeStore(initial: string) {
 	let content = initial;
 	const store = {
@@ -33,35 +565,55 @@ function fakeStore(initial: string) {
 	return { store, content: () => content };
 }
 
-let review: ReturnType<typeof createPlanWebReview> | undefined;
+const reviews: ReturnType<typeof createPlanWebReview>[] = [];
 
 afterEach(async () => {
-	await review?.closeAll();
-	review = undefined;
+	await Promise.all(reviews.map((review) => review.closeAll()));
+	reviews.length = 0;
 });
 
 async function start(
 	content = "# Plan\n\n- [ ] step\n",
-	opened: string[] = [],
-	options?: PlanReviewOptions,
+	options: PlanReviewOptions = {},
+	deps: Partial<PlanWebReviewDeps> = {},
 ): Promise<PlanReviewSession> {
 	const { store } = fakeStore(content);
-	review = createPlanWebReview(store, { open: (url) => opened.push(url), token: () => "tok", port: 0 });
+	const opened: string[] = [];
+	const review = createPlanWebReview(store, {
+		open: (url) => opened.push(url),
+		token: () => "tok",
+		port: 0,
+		...deps,
+	});
+	reviews.push(review);
 	const session = await review.start("/repo", stored(content), options);
-	expect(session).toBeDefined();
-	return session as PlanReviewSession;
+	if (!session) throw new Error("the review server did not start");
+	expect(opened).toEqual([session.url]);
+	expect(session.url).toContain("token=tok");
+	return session;
+}
+
+/** A review that shares one remembered port across turns, as the extension does. */
+function sessionSource() {
+	const { store } = fakeStore("# Plan\n");
+	const review = createPlanWebReview(store, { open: () => {}, token: () => "tok" });
+	reviews.push(review);
+	const open = async (): Promise<PlanReviewSession> => {
+		const session = await review.start("/repo", stored("# Plan\n"));
+		if (!session) throw new Error("the review server did not start");
+		return session;
+	};
+	return { open };
 }
 
 const feedbackUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/feedback?token=tok`;
 const approveUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/approve?token=tok`;
 const cancelUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/cancel?token=tok`;
+const eventsUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/events?token=tok`;
 
-describe("createPlanWebReview", () => {
-	test("opens the tokenized URL and serves the review page", async () => {
-		const opened: string[] = [];
-		const session = await start("# Plan\n", opened);
-		expect(opened).toEqual([session.url]);
-		expect(session.url).toContain("token=tok");
+describe("review session", () => {
+	test("serves the review page from the plan", async () => {
+		const session = await start("# Plan\n");
 		const response = await fetch(session.url);
 		expect(response.status).toBe(200);
 		expect(await response.text()).toContain('id="review-data"');
@@ -69,13 +621,11 @@ describe("createPlanWebReview", () => {
 
 	test("highlights a fenced code block and builds the outline", async () => {
 		const session = await start("# Plan\n\n```ts\nconst x = 1;\n```\n");
-		const html = await (await fetch(session.url)).text();
-		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
-		expect(island).not.toBeNull();
-		const data = JSON.parse(island![1]);
-		const keys = Object.keys(data.code);
-		expect(keys).toHaveLength(1);
-		expect(data.code[keys[0]].join("")).toContain("tok-keyword");
+		const data = islandOf(await (await fetch(session.url)).text());
+
+		const [key, lines] = Object.entries(data.code)[0] ?? [];
+		expect(key).toBeDefined();
+		expect(lines?.join("")).toContain("tok-keyword");
 		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan" }]);
 	});
 
@@ -91,41 +641,33 @@ describe("createPlanWebReview", () => {
 			"- [ ] not a step either",
 		].join("\n");
 		const session = await start(plan);
-		const html = await (await fetch(session.url)).text();
-		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
-		const data = JSON.parse(island![1]);
+		const data = islandOf(await (await fetch(session.url)).text());
+
 		expect(data.steps).toEqual({ done: 1, total: 2 });
 	});
 
 	test("marks the outline section that changed since the previous review", async () => {
-		const session = await start("# Plan\n\nNew body\n", [], { baseline: sectionDigests("# Plan\n\nOld body\n") });
-		const html = await (await fetch(session.url)).text();
-		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
-		const data = JSON.parse(island![1]);
+		const session = await start("# Plan\n\nNew body\n", { baseline: sectionDigests("# Plan\n\nOld body\n") });
+		const data = islandOf(await (await fetch(session.url)).text());
+
 		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan", changed: true }]);
 	});
 
 	test("marks only the occurrence of a duplicate heading that changed", async () => {
 		const plan = ["# Plan", "## Notes", "a", "## Notes", "b"].join("\n");
 		const previous = ["# Plan", "## Notes", "a", "## Notes", "B"].join("\n");
-		const session = await start(plan, [], { baseline: sectionDigests(previous) });
-		const html = await (await fetch(session.url)).text();
-		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
-		const data = JSON.parse(island![1]);
-		expect(data.outline.map((item: { changed?: boolean }) => item.changed === true)).toEqual([false, false, true]);
+		const session = await start(plan, { baseline: sectionDigests(previous) });
+		const data = islandOf(await (await fetch(session.url)).text());
+
+		expect(data.outline.map((item) => item.changed === true)).toEqual([false, false, true]);
 	});
 
 	test("uses the plan's H1 as the review title and falls back to the slug", async () => {
 		const titled = await start("# Add rate limiting\n\nBody\n");
-		const titledHtml = await (await fetch(titled.url)).text();
-		const titledIsland = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(titledHtml);
-		expect(JSON.parse(titledIsland![1]).title).toBe("Add rate limiting");
-		await titled.close();
+		expect(islandOf(await (await fetch(titled.url)).text()).title).toBe("Add rate limiting");
 
 		const untitled = await start("Just prose, no heading.\n");
-		const untitledHtml = await (await fetch(untitled.url)).text();
-		const untitledIsland = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(untitledHtml);
-		expect(JSON.parse(untitledIsland![1]).title).toBe("demo");
+		expect(islandOf(await (await fetch(untitled.url)).text()).title).toBe("demo");
 	});
 
 	test("rejects a request without the session token", async () => {
@@ -134,13 +676,14 @@ describe("createPlanWebReview", () => {
 		expect(response.status).toBe(403);
 	});
 
-	test("resolves saved once feedback is posted", async () => {
+	test("resolves saved with the annotations written into the plan", async () => {
 		const session = await start();
 		const response = await fetch(feedbackUrl(session), {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "make it concrete" }] }),
 		});
+
 		expect(response.status).toBe(200);
 		const result = await session.done;
 		expect(result.status).toBe("saved");
@@ -152,18 +695,18 @@ describe("createPlanWebReview", () => {
 
 	test("resolves cancelled when the user cancels", async () => {
 		const session = await start();
-		const response = await fetch(cancelUrl(session), { method: "POST" });
-		expect(response.status).toBe(200);
+		expect((await fetch(cancelUrl(session), { method: "POST" })).status).toBe(200);
 		expect((await session.done).status).toBe("cancelled");
 	});
 
 	test("resolves approved with the saved comments", async () => {
-		const session = await start("# Plan\n\n- [ ] step\n", [], { canApprove: true });
+		const session = await start("# Plan\n\n- [ ] step\n", { canApprove: true });
 		const response = await fetch(approveUrl(session), {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "ship it" }] }),
 		});
+
 		expect(response.status).toBe(200);
 		const result = await session.done;
 		expect(result.status).toBe("approved");
@@ -176,46 +719,60 @@ describe("createPlanWebReview", () => {
 	test("refuses approve when the session is comment-only", async () => {
 		const session = await start();
 		expect((await fetch(approveUrl(session), { method: "POST" })).status).toBe(403);
-		// The session stays live; cancel it so the fixture resolves.
+
 		await fetch(cancelUrl(session), { method: "POST" });
 		expect((await session.done).status).toBe("cancelled");
 	});
 
-	test("delivers the approve response before the session closes", async () => {
-		const session = await start("# Plan\n", [], { canApprove: true });
-		const pending = fetch(approveUrl(session), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ annotations: [{ anchor: 0, comment: "go" }] }),
-		});
-		expect((await session.done).status).toBe("approved");
-		await session.close();
-		expect((await pending).status).toBe(200);
-	});
-
-	test("marks the page approvable only when the session allows it", async () => {
-		const approvable = await start("# Plan\n", [], { canApprove: true });
+	test("offers the approve action only when the session allows it", async () => {
+		const approvable = await start("# Plan\n", { canApprove: true });
 		expect(await (await fetch(approvable.url)).text()).toContain('id="approve"');
-		await approvable.close();
 
 		const commentOnly = await start("# Plan\n");
 		expect(await (await fetch(commentOnly.url)).text()).not.toContain('id="approve"');
 	});
 
+	test("delivers every terminal response before the session closes", async () => {
+		const cases = [
+			{
+				canApprove: false,
+				url: feedbackUrl,
+				body: JSON.stringify({ annotations: [{ anchor: 0, comment: "note" }] }),
+				status: "saved",
+			},
+			{
+				canApprove: true,
+				url: approveUrl,
+				body: JSON.stringify({ annotations: [{ anchor: 0, comment: "go" }] }),
+				status: "approved",
+			},
+			{ canApprove: false, url: cancelUrl, body: undefined, status: "cancelled" },
+		] as const;
+
+		for (const item of cases) {
+			const session = await start("# Plan\n", { canApprove: item.canApprove });
+			const init: RequestInit = { method: "POST" };
+			if (item.body) {
+				init.headers = { "Content-Type": "application/json" };
+				init.body = item.body;
+			}
+			const pending = fetch(item.url(session), init);
+
+			expect((await session.done).status).toBe(item.status);
+			await session.close();
+			expect((await pending).status).toBe(200);
+		}
+	});
+
 	test("resolves cancelled when the turn aborts", async () => {
-		const { store } = fakeStore("# Plan\n");
-		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0 });
 		const controller = new AbortController();
-		const session = (await review.start("/repo", stored("# Plan\n"), {
-			signal: controller.signal,
-		})) as PlanReviewSession;
+		const session = await start("# Plan\n", { signal: controller.signal });
+
 		controller.abort();
 		expect((await session.done).status).toBe("cancelled");
-		await session.close();
 	});
 
 	test("a reload that reconnects inside the grace does not cancel the review", async () => {
-		const { store } = fakeStore("# Plan\n");
 		// The grace is a timer, so the test owns it: a real deadline of a few tens of
 		// milliseconds fails on a loaded runner, which says nothing about the code.
 		let armed: (() => void) | undefined;
@@ -225,9 +782,8 @@ describe("createPlanWebReview", () => {
 				if (armed === fn) armed = undefined;
 			};
 		};
-		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, schedule });
-		const session = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
-		const events = `http://127.0.0.1:${session.port}/events?token=tok`;
+		const session = await start("# Plan\n", {}, { schedule });
+		const events = eventsUrl(session);
 
 		// The page loads, then reloads: its stream drops and a new one arrives.
 		const first = new AbortController();
@@ -258,81 +814,60 @@ describe("createPlanWebReview", () => {
 	});
 
 	test("rejects an oversize body with a JSON 413, not a dropped connection", async () => {
-		const { store } = fakeStore("# Plan\n");
-		review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, maxBodyBytes: 64 });
-		const session = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		const session = await start("# Plan\n", {}, { maxBodyBytes: 64 });
 		const response = await fetch(feedbackUrl(session), {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ annotations: [{ anchor: 0, comment: "x".repeat(200) }] }),
 		});
+
 		expect(response.status).toBe(413);
+		expect(response.headers.get("content-type")).toContain("application/json");
 		expect(response.headers.get("x-content-type-options")).toBe("nosniff");
 		expect(response.headers.get("cache-control")).toBe("no-store");
-		await fetch(cancelUrl(session), { method: "POST" });
-		expect((await session.done).status).toBe("cancelled");
 	});
 
 	test("hands the client the server's own caps", async () => {
 		const session = await start("# Plan\n");
-		const html = await (await fetch(session.url)).text();
-		const island = /<script type="application\/json" id="review-data">([\s\S]*?)<\/script>/.exec(html);
-		expect(JSON.parse(island![1]).limits).toEqual({
+		const data = islandOf(await (await fetch(session.url)).text());
+
+		expect(data.limits).toEqual({
 			comments: MAX_ANNOTATIONS,
 			comment: MAX_COMMENT_LENGTH,
 			quote: MAX_QUOTE_LENGTH,
 		});
 	});
 
-	test("close is idempotent and closeAll stops every session", async () => {
+	test("close is idempotent", async () => {
 		const session = await start();
 		await session.close();
 		await session.close();
 		expect((await session.done).status).toBe("cancelled");
-	});
-
-	test("delivers the save response before the session closes", async () => {
-		const session = await start();
-		const pending = fetch(feedbackUrl(session), {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "note" }] }),
-		});
-		expect((await session.done).status).toBe("saved");
-		await session.close();
-		expect((await pending).status).toBe(200);
-	});
-
-	test("delivers the cancel response before the session closes", async () => {
-		const session = await start();
-		const pending = fetch(cancelUrl(session), { method: "POST" });
-		expect((await session.done).status).toBe("cancelled");
-		await session.close();
-		expect((await pending).status).toBe(200);
 	});
 
 	test("reuses the same port for the same plan across turns", async () => {
-		const { store } = fakeStore("# Plan\n");
-		review = createPlanWebReview(store, { open: () => {}, token: () => "tok" });
-		const first = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		const source = sessionSource();
+		const first = await source.open();
 		const port = first.port;
 		await first.close();
-		const second = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+
+		const second = await source.open();
 		expect(second.port).toBe(port);
-		await second.close();
 	});
 
 	test("falls back to a free port when the remembered one is busy", async () => {
-		const { store } = fakeStore("# Plan\n");
-		review = createPlanWebReview(store, { open: () => {}, token: () => "tok" });
-		const first = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
+		const source = sessionSource();
+		const first = await source.open();
 		const port = first.port;
 		await first.close();
+
 		const blocker = createServer(() => {});
 		await new Promise<void>((resolve) => blocker.listen(port, "127.0.0.1", () => resolve()));
-		const second = (await review.start("/repo", stored("# Plan\n"))) as PlanReviewSession;
-		expect(second.port).not.toBe(port);
-		await second.close();
-		await new Promise<void>((resolve) => blocker.close(() => resolve()));
+		try {
+			const second = await source.open();
+			expect(second.port).not.toBe(port);
+		} finally {
+			await new Promise<void>((resolve) => blocker.close(() => resolve()));
+		}
 	});
 });

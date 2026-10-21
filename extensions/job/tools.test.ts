@@ -1,17 +1,53 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
+import {
+	formatCallText,
+	formatCompletion,
+	formatJobList,
+	formatJobOutcomeLine,
+	formatJobStatus,
+	formatLogs,
+	jobOutcome,
+	pendingFailures,
+	tailLines,
+} from "./format.ts";
 import jobs from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
+import type { JobRecord } from "./types.ts";
 import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
 import { makeCtx, makeHarnessSuite, readLog } from "../../test/helpers/fixtures/job.ts";
 import { waitFor } from "../../test/helpers/process.ts";
-import type { JobRecord } from "./types.ts";
 
 const suite = makeHarnessSuite();
-const makeHarness = suite.makeHarness;
 afterEach(() => suite.cleanup());
 
-function setup(options: Parameters<typeof makeHarness>[0] = {}) {
-	const h = makeHarness(options);
+function record(overrides: Partial<JobRecord> = {}): JobRecord {
+	return {
+		id: "j1",
+		label: "tests",
+		command: "bun test",
+		cwd: "/repo",
+		pid: 1234,
+		status: "running",
+		exitCode: null,
+		signal: null,
+		startedAt: 1000,
+		finishedAt: null,
+		logPath: "/tmp/j1.log",
+		detached: false,
+		wake: false,
+		stdin: false,
+		sessionId: "s1",
+		seen: false,
+		lastLine: "",
+		statusPath: null,
+		startToken: null,
+		...overrides,
+	};
+}
+
+function setup(options: Parameters<typeof suite.makeHarness>[0] = {}) {
+	const h = suite.makeHarness(options);
 	const { pi, tools } = createFakePi();
 	jobs(pi, { runtime: h.runtime });
 	const { ctx } = makeCtx();
@@ -53,17 +89,12 @@ describe("job tool", () => {
 		expect(typeof result.details.sessionId).toBe("string");
 	});
 
-	test("status returns details and errors on an unknown id", async () => {
+	test("status returns the job", async () => {
 		const { call } = setup();
 		await call({ action: "start", command: "sleep 1" });
-		const ok = await call({ action: "status", id: "j1" });
-		expect(ok.content[0].text).toContain("running");
-	});
-
-	test("status errors on an unknown id", async () => {
-		const { call } = setup();
-		const missing = await call({ action: "status", id: "j9" });
-		expect(missing.isError).toBe(true);
+		const result = await call({ action: "status", id: "j1" });
+		expect(result.content[0].text).toContain("running");
+		expect(result.details.job.id).toBe("j1");
 	});
 
 	test("logs returns the sanitized tail", async () => {
@@ -120,6 +151,29 @@ describe("job tool", () => {
 		expect(result.details.cleared).toBe(1);
 	});
 
+	test("id actions report an unknown job as an error result", async () => {
+		const { call } = setup();
+		for (const params of [
+			{ action: "status", id: "j9" },
+			{ action: "logs", id: "j9" },
+			{ action: "kill", id: "j9" },
+			{ action: "wait", id: "j9" },
+			{ action: "clear", id: "j9" },
+		]) {
+			const result = await call(params);
+			expect(result.isError, params.action).toBe(true);
+			expect(result.content[0].text).toContain('no job "j9"');
+		}
+	});
+
+	test("clear refuses a running job as an error result", async () => {
+		const { call } = setup();
+		await call({ action: "start", command: "sleep 1" });
+		const result = await call({ action: "clear", id: "j1" });
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain("still running");
+	});
+
 	test("rejects an unknown action with an error result", async () => {
 		const { call } = setup();
 		const result = await call({ action: "explode" });
@@ -167,88 +221,116 @@ describe("job tool", () => {
 	});
 });
 
-const record = (overrides: Partial<JobRecord> = {}): JobRecord => ({
-	id: "j1",
-	label: "tests",
-	command: "bun test",
-	cwd: "/work",
-	pid: 123,
-	status: "running",
-	exitCode: null,
-	signal: null,
-	startedAt: 0,
-	finishedAt: null,
-	logPath: "/tmp/j1.log",
-	detached: false,
-	wake: false,
-	stdin: false,
-	sessionId: "s1",
-	seen: false,
-	lastLine: "",
-	statusPath: null,
-	startToken: null,
-	...overrides,
+describe("job format", () => {
+	test("formatJobList lists jobs with ids and status", () => {
+		const text = formatJobList([record(), record({ id: "j2", status: "exited", exitCode: 0 })], 5000);
+		expect(text).toContain("j1");
+		expect(text).toContain("j2");
+		expect(text).toMatch(/Jobs \(2\)/);
+	});
+
+	test("formatJobList reports no jobs", () => {
+		expect(formatJobList([])).toBe("No jobs.");
+	});
+
+	test("formatJobList marks a job another session owns", () => {
+		const entries = [record({ id: "j1", sessionId: "me" }), record({ id: "j9", sessionId: "peer" })];
+		const text = formatJobList(entries, 5000, "me");
+		const rows = text.split("\n").slice(1);
+		expect(rows[0]).not.toContain("another session");
+		expect(rows[1]).toContain("(another session)");
+	});
+
+	test("formatJobStatus names the session when another owns the job", () => {
+		expect(formatJobStatus(record({ sessionId: "peer" }), 5000, "me")).toContain("session: another session");
+		expect(formatJobStatus(record({ sessionId: "me" }), 5000, "me")).not.toContain("another session");
+	});
+
+	test("formatCompletion names the status and label", () => {
+		const text = formatCompletion(record({ status: "failed", exitCode: 2, lastLine: "boom" }), 5000);
+		expect(text).toContain("failed (exit 2)");
+		expect(text).toContain("tests");
+		expect(text).toContain("boom");
+	});
+
+	test("tailLines keeps only the last N lines", () => {
+		expect(tailLines(["a", "b", "c"], 2)).toEqual(["b", "c"]);
+		expect(tailLines(["a"], 0)).toEqual([]);
+	});
+
+	test("formatLogs returns a no-output note with the log path", () => {
+		expect(formatLogs(record(), [], 1000).text).toContain("no output yet");
+	});
+
+	test("formatLogs truncates long output and points at the full log", () => {
+		const result = formatLogs(record(), ["y".repeat(50), "z".repeat(50)], 20);
+		expect(result.truncated).toBe(true);
+		expect(result.text).toContain("/tmp/j1.log");
+	});
+
+	test("pendingFailures lists only unseen failures", () => {
+		const entries = [
+			record({ id: "a", status: "failed", seen: false }),
+			record({ id: "b", status: "failed", seen: true }),
+			record({ id: "c", status: "exited", seen: false }),
+		];
+		expect(pendingFailures(entries).map((entry) => entry.id)).toEqual(["a"]);
+	});
+
+	test("jobOutcome names pid, exit code, and signal", () => {
+		expect(jobOutcome(record({ status: "running", pid: 42 }))).toBe("pid 42");
+		expect(jobOutcome(record({ status: "exited", exitCode: 0 }))).toBe("exit 0");
+		expect(jobOutcome(record({ status: "failed", exitCode: 2 }))).toBe("exit 2");
+		expect(jobOutcome(record({ status: "killed", signal: "SIGKILL" }))).toBe("SIGKILL");
+		expect(jobOutcome(record({ status: "unknown" }))).toBe("—");
+	});
+
+	test("formatJobOutcomeLine summarizes each status", () => {
+		expect(formatJobOutcomeLine(record({ status: "running", pid: 1234 }), theme, 4200)).toBe(
+			"▸ j1 tests · pid 1234 · 3.2s",
+		);
+		expect(
+			formatJobOutcomeLine(record({ status: "exited", exitCode: 0, pid: null, finishedAt: 3000 }), theme, 3000),
+		).toBe("✓ j1 tests · exit 0 · 2.0s");
+		expect(
+			formatJobOutcomeLine(record({ status: "failed", exitCode: 1, pid: null, finishedAt: 3000 }), theme, 3000),
+		).toBe("✗ j1 tests · exit 1 · 2.0s");
+		expect(
+			formatJobOutcomeLine(record({ status: "killed", signal: "SIGTERM", pid: null, finishedAt: 3000 }), theme, 3000),
+		).toBe("⊝ j1 tests · SIGTERM · 2.0s");
+	});
+
+	test("formatCallText previews a start command", () => {
+		expect(formatCallText("start", { command: "bun test" })).toBe("start → bun test");
+	});
+
+	test("formatCallText names the target for status/logs/kill/wait", () => {
+		expect(formatCallText("kill", { id: "j3" })).toBe("kill j3");
+		expect(formatCallText("wait", { id: "j3" })).toBe("wait j3");
+	});
+
+	test("formatCallText previews the input a send writes, and its EOF", () => {
+		expect(formatCallText("send", { id: "j3", input: "hello" })).toBe("send j3 → hello");
+		expect(formatCallText("send", { id: "j3", input: "hello", eof: true })).toBe("send j3 → hello + EOF");
+		expect(formatCallText("send", { id: "j3", eof: true })).toBe("send j3 → EOF");
+	});
+
+	test("formatCallText collapses a multi-line send input to one sanitized line", () => {
+		expect(formatCallText("send", { id: "j3", input: "one\ntwo\u001b[31m" })).toBe("send j3 → one two");
+	});
+
+	test("formatCallText clips a wide-character command by display column", () => {
+		const text = formatCallText("start", { command: "界".repeat(40) });
+		expect(text.startsWith("start → ")).toBe(true);
+		expect(visibleWidth(text.slice("start → ".length))).toBeLessThanOrEqual(48);
+	});
 });
 
 describe("job transcript rendering", () => {
-	test("call line reuses the slot Text", () => {
-		const { tool } = setup();
-		const first = tool.renderCall({ action: "start", command: "bun test" }, theme, {
-			argsComplete: true,
-			lastComponent: undefined,
-		});
-		const second = tool.renderCall({ action: "start", command: "bun test --watch" }, theme, {
-			argsComplete: true,
-			lastComponent: first,
-		});
-		expect(second).toBe(first);
-		expect(first.render(80).join("\n")).toContain("job start → bun test --watch");
-	});
-
-	test("sanitizes a model-supplied id in the error line", () => {
-		const { tool } = setup();
-		const result = {
-			content: [{ type: "text", text: "Error: no job" }],
-			details: { action: "status", error: 'no job "j1\u001b[31m".' },
-			isError: true,
-		};
-		const text = tool
-			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
-			.render(80)
-			.join("\n");
-		expect(text).toContain("no job");
-		expect(text).not.toContain("\u001b");
-	});
-
-	test("sanitizes an unknown action in the call line", () => {
-		const { tool } = setup();
-		const text = tool
-			.renderCall({ action: "bogus\u001b[31m" }, theme, { argsComplete: true, lastComponent: undefined })
-			.render(80)
-			.join("\n");
-		expect(text).not.toContain("\u001b");
-	});
-
-	test("list renders a themed rail with a cap note and reuses the view", () => {
-		const { tool } = setup();
-		const jobs = Array.from({ length: 10 }, (_, i) => record({ id: `j${i + 1}`, label: `job ${i + 1}` }));
-		const result = { content: [{ type: "text", text: "model" }], details: { action: "list", jobs } };
-		const lines = tool
-			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
-			.render(80);
-		expect(lines[0]).toBe("");
-		expect(lines.some((line: string) => line.includes("▸ j1"))).toBe(true);
-		expect(lines.at(-1)).toContain("… 2 more");
-
-		const view = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined });
-		const again = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: view });
-		expect(again).toBe(view);
-	});
-
 	test("an expanded list shows every job with no cap hint", () => {
 		const { tool } = setup();
-		const jobs = Array.from({ length: 10 }, (_, i) => record({ id: `j${i + 1}`, label: `job ${i + 1}` }));
-		const result = { content: [{ type: "text", text: "model" }], details: { action: "list", jobs } };
+		const entries = Array.from({ length: 10 }, (_, i) => record({ id: `j${i + 1}`, label: `job ${i + 1}` }));
+		const result = { content: [{ type: "text", text: "model" }], details: { action: "list", jobs: entries } };
 		const text = tool
 			.renderResult(result, { expanded: true, isPartial: false }, theme, { lastComponent: undefined })
 			.render(80)
@@ -257,16 +339,16 @@ describe("job transcript rendering", () => {
 		expect(text).not.toContain("more");
 	});
 
-	test("logs render a blank line, the earlier note, and themed lines", () => {
+	test("collapsed logs cap at the result rows and expanded logs show all", () => {
 		const { tool } = setup();
 		const logs = Array.from({ length: 12 }, (_, i) => `line ${i}`).join("\n");
 		const result = { content: [{ type: "text", text: "model" }], details: { action: "logs", logs, job: record() } };
-		const lines = tool
+		const collapsed = tool
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
 			.render(80);
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toContain("… 4 earlier lines");
-		expect(lines.at(-1)).toContain("line 11");
+		expect(collapsed[0]).toBe("");
+		expect(collapsed[1]).toContain("… 4 earlier lines");
+		expect(collapsed.at(-1)).toContain("line 11");
 
 		const expanded = tool
 			.renderResult(result, { expanded: true, isPartial: false }, theme, { lastComponent: undefined })
@@ -284,7 +366,10 @@ describe("job transcript rendering", () => {
 			.join("\n");
 		expect(emptyText).toContain("No jobs.");
 
-		const cleared = { content: [{ type: "text", text: "Cleared 2 jobs." }], details: { action: "clear", cleared: 2 } };
+		const cleared = {
+			content: [{ type: "text", text: "Cleared 2 jobs." }],
+			details: { action: "clear", cleared: 2 },
+		};
 		const clearedText = tool
 			.renderResult(cleared, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
 			.render(80)
@@ -330,10 +415,24 @@ describe("job transcript rendering", () => {
 		expect(text).toContain("wake");
 	});
 
+	test("send surfaces how much it wrote and whether stdin closed", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: "model" }],
+			details: { action: "send", job: record({ status: "running" }), sent: 5, stdinClosed: true },
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("sent 5");
+		expect(text).toContain("stdin closed");
+	});
+
 	test("status renders a compact outcome line", () => {
 		const { tool } = setup();
-		const job = record({ id: "j1", label: "tests", status: "exited", exitCode: 0, pid: null, finishedAt: 100 });
-		const result = { content: [{ type: "text", text: "model" }], details: { action: "status", job } };
+		const entry = record({ id: "j1", label: "tests", status: "exited", exitCode: 0, pid: null, finishedAt: 100 });
+		const result = { content: [{ type: "text", text: "model" }], details: { action: "status", job: entry } };
 		const text = tool
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
 			.render(80)
@@ -355,9 +454,25 @@ describe("job transcript rendering", () => {
 		expect(text).toContain("still running after the timeout");
 	});
 
+	test("wait notes a cancelled wait", () => {
+		const { tool } = setup();
+		const result = {
+			content: [{ type: "text", text: "model" }],
+			details: { action: "wait", job: record(), cancelled: true },
+		};
+		const text = tool
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("wait cancelled; job still running");
+	});
+
 	test("partial renders the waiting state", () => {
 		const { tool } = setup();
-		const result = { content: [{ type: "text", text: "Waiting on j1…" }], details: { action: "wait", job: record() } };
+		const result = {
+			content: [{ type: "text", text: "Waiting on j1…" }],
+			details: { action: "wait", job: record() },
+		};
 		const text = tool
 			.renderResult(result, { expanded: false, isPartial: true }, theme, { lastComponent: undefined })
 			.render(80)
@@ -365,16 +480,18 @@ describe("job transcript rendering", () => {
 		expect(text).toContain("Waiting on j1…");
 	});
 
-	test("error renders a sanitized error line", () => {
+	test("a job-supplied error detail is sanitized", () => {
 		const { tool } = setup();
 		const result = {
 			content: [{ type: "text", text: "Error: no job" }],
-			details: { action: "status", error: 'no job "j9".' },
+			details: { action: "status", error: 'no job "j1\u001b[31m".' },
+			isError: true,
 		};
 		const text = tool
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
 			.render(80)
 			.join("\n");
-		expect(text).toContain('Error: no job "j9".');
+		expect(text).toContain("no job");
+		expect(text).not.toContain("\u001b");
 	});
 });

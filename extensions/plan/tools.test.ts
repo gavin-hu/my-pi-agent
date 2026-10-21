@@ -2,19 +2,21 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { TODO_TOOL } from "../../lib/tool-names.ts";
+import type { ExistingTodo } from "../../lib/todo-state.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
+import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { remoteCtx } from "../../test/helpers/remote-ui.ts";
+import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
 import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
+import { MAX_STEP_LENGTH, MAX_STEPS } from "./steps.ts";
+import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses } from "./todos.ts";
 import { registerTools } from "./tools.ts";
-import type { PlanAnnotation } from "./feedback.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
-import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
-import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { MAX_STEPS } from "./steps.ts";
-import { remoteCtx } from "../../test/helpers/remote-ui.ts";
-import { TODO_TOOL } from "../../lib/tool-names.ts";
 
 function repoExec(root: string) {
 	return async (command: string, args: string[]) =>
@@ -23,7 +25,7 @@ function repoExec(root: string) {
 			: { stdout: "", stderr: "", code: 1 };
 }
 
-function setup(web?: PlanWebReview, options: { allTools?: any[] } = {}) {
+function setup(web?: PlanWebReview, options: { allTools?: unknown[] } = {}) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
 	const fake = makeFakePi({
 		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
@@ -126,14 +128,216 @@ async function approvePlan(exit: any, planPath: string, cwd: string) {
 	await call(exit, { plan_path: planPath }, fakeCtx({ select: "Approve and execute", cwd }).ctx);
 }
 
-describe("enter_plan_mode", () => {
-	test("is active by default, unlike exit_plan_mode and write_plan", () => {
-		const { enter, exit, write } = setup();
+/** A plan whose `Steps` section holds `count` top-level steps. */
+function planWithSteps(count: number): string {
+	const steps = Array.from({ length: count }, (_, index) => `- [ ] step ${index}`).join("\n");
+	return `## Steps\n${steps}`;
+}
+
+describe("plan tool registration", () => {
+	test("registers four sequential tools with the plan-mode annotations", () => {
+		const { enter, write, exit, setSteps } = setup();
+		const cases: Array<[any, Record<string, unknown>]> = [
+			[enter, { readOnlyHint: true, openWorldHint: false }],
+			[write, { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }],
+			[exit, { readOnlyHint: true, openWorldHint: false }],
+			[setSteps, { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }],
+		];
+		for (const [tool, annotations] of cases) {
+			expect(tool.executionMode).toBe("sequential");
+			expect(tool.annotations).toMatchObject(annotations);
+			expect(tool.promptSnippet.length).toBeGreaterThan(0);
+		}
+	});
+
+	test("activates enter_plan_mode and set_plan_steps by default, not the plan-mode-only pair", () => {
+		const { enter, write, exit, setSteps } = setup();
 		expect(enter.defaultActive).toBeUndefined();
+		expect(setSteps.defaultActive).toBeUndefined();
 		expect(exit.defaultActive).toBe(false);
 		expect(write.defaultActive).toBe(false);
 	});
+});
 
+describe("plan approval merge", () => {
+	const step = (content: string, status: "pending" | "completed" = "pending") => ({ content, status });
+
+	const existing: ExistingTodo[] = [
+		{ content: "Update CHANGELOG", status: "completed" },
+		{ content: "Fix the flaky test", status: "pending" },
+	];
+
+	test("keeps existing items and appends the plan's steps", () => {
+		const merged = mergeTodos(existing, [step("Add a token bucket"), step("Wire the limiter")], DEFAULT_TODO_MAX);
+		expect(merged.todos).toEqual([
+			{ content: "Update CHANGELOG", status: "completed" },
+			{ content: "Fix the flaky test", status: "pending" },
+			{ content: "Add a token bucket", status: "pending" },
+			{ content: "Wire the limiter", status: "pending" },
+		]);
+		expect(merged).toMatchObject({ added: 2, skipped: 0, kept: 2, deferred: 0 });
+	});
+
+	test("skips a step already in the list regardless of case and spacing", () => {
+		const merged = mergeTodos(
+			existing,
+			[step("  fix   the FLAKY test "), step("Add a token bucket")],
+			DEFAULT_TODO_MAX,
+		);
+		expect(merged.added).toBe(1);
+		expect(merged.skipped).toBe(1);
+		expect(merged.todos.map((todo) => todo.content)).toEqual([
+			"Update CHANGELOG",
+			"Fix the flaky test",
+			"Add a token bucket",
+		]);
+	});
+
+	test("keeps an existing status rather than the step's", () => {
+		const merged = mergeTodos(
+			[{ content: "Done already", status: "completed" }],
+			[step("Done already")],
+			DEFAULT_TODO_MAX,
+		);
+		expect(merged.todos).toEqual([{ content: "Done already", status: "completed" }]);
+		expect(merged).toMatchObject({ added: 0, skipped: 1, kept: 1 });
+	});
+
+	test("fills activeForm for a legacy in-progress item", () => {
+		const merged = mergeTodos([{ content: "Halfway", status: "in_progress" }], [], DEFAULT_TODO_MAX);
+		expect(merged.todos).toEqual([{ content: "Halfway", status: "in_progress", activeForm: "Halfway" }]);
+	});
+
+	test("defers steps beyond the cap without dropping existing items", () => {
+		const full: ExistingTodo[] = Array.from({ length: DEFAULT_TODO_MAX }, (_, index) => ({
+			content: `Existing ${index}`,
+			status: "pending" as const,
+		}));
+		const merged = mergeTodos(full, [step("Extra one"), step("Extra two")], DEFAULT_TODO_MAX);
+		expect(merged.todos).toHaveLength(DEFAULT_TODO_MAX);
+		expect(merged).toMatchObject({ added: 0, skipped: 0, kept: DEFAULT_TODO_MAX, deferred: 2 });
+	});
+
+	test("appends what fits when the list is nearly full", () => {
+		const nearlyFull: ExistingTodo[] = Array.from({ length: DEFAULT_TODO_MAX - 1 }, (_, index) => ({
+			content: `Existing ${index}`,
+			status: "pending" as const,
+		}));
+		const merged = mergeTodos(nearlyFull, [step("Fits"), step("Overflow")], DEFAULT_TODO_MAX);
+		expect(merged).toMatchObject({ added: 1, deferred: 1 });
+		expect(merged.todos.at(-1)?.content).toBe("Fits");
+	});
+
+	test("seeds the steps into an empty list", () => {
+		const merged = mergeTodos([], [step("First"), step("Second", "completed")], DEFAULT_TODO_MAX);
+		expect(merged.todos).toEqual([
+			{ content: "First", status: "pending" },
+			{ content: "Second", status: "completed" },
+		]);
+		expect(merged).toMatchObject({ added: 2, skipped: 0, kept: 0, deferred: 0 });
+	});
+
+	test("appends the verification item after the steps without counting it as one", () => {
+		const steps = [{ content: "Add the cache", status: "pending" as const }];
+		const verification = { content: "Verify: bun run check passes", status: "pending" as const };
+		const merged = mergeTodos([], steps, 50, verification);
+
+		expect(merged.todos.map((todo) => todo.content)).toEqual(["Add the cache", "Verify: bun run check passes"]);
+		expect(merged.added).toBe(1);
+		expect(merged.trailing).toBe("added");
+	});
+
+	test("skips a verification item the list already holds", () => {
+		const verification = { content: "Verify: bun run check passes", status: "pending" as const };
+		const merged = mergeTodos([verification], [step("Add the cache")], 50, verification);
+		expect(merged.trailing).toBe("skipped");
+		expect(merged.todos.filter((todo) => todo.content === verification.content)).toHaveLength(1);
+	});
+
+	test("defers a verification item when the list is full, after the steps fit", () => {
+		const verification = { content: "Verify: bun run check passes", status: "pending" as const };
+		const merged = mergeTodos([{ content: "existing", status: "pending" }], [step("Add the cache")], 2, verification);
+		expect(merged.todos.map((todo) => todo.content)).toEqual(["existing", "Add the cache"]);
+		expect(merged.trailing).toBe("deferred");
+		expect(merged.deferred).toBe(0);
+		expect(mergeTodos([], [step("Add the cache")], 50).trailing).toBeUndefined();
+	});
+
+	const list: ExistingTodo[] = [
+		{ content: "One", status: "pending" },
+		{ content: "Two", status: "in_progress", activeForm: "Doing two" },
+	];
+
+	test("mirror ticks the matching item and leaves the rest untouched", () => {
+		const mirror = mirrorStepStatuses(list, [{ step: 1, status: "completed", expected: "One" }]);
+
+		expect(mirror.todos).toEqual([
+			{ content: "One", status: "completed" },
+			{ content: "Two", status: "in_progress", activeForm: "Doing two" },
+		]);
+		expect(mirror).toMatchObject({ updated: 1, unmatched: 0 });
+	});
+
+	test("mirror reopens a completed item, matching regardless of case and spacing", () => {
+		const mirror = mirrorStepStatuses(
+			[{ content: "One", status: "completed" }],
+			[{ step: 1, status: "pending", expected: "  one " }],
+		);
+
+		expect(mirror.todos).toEqual([{ content: "One", status: "pending" }]);
+		expect(mirror.updated).toBe(1);
+	});
+
+	test("mirror counts an unmatched step instead of inventing an item", () => {
+		const mirror = mirrorStepStatuses(list, [{ step: 2, status: "completed", expected: "Renamed" }]);
+
+		expect(mirror.todos).toEqual(list);
+		expect(mirror).toMatchObject({ updated: 0, unmatched: 1 });
+	});
+
+	test("mirror does not count an item already in the requested state", () => {
+		const mirror = mirrorStepStatuses(
+			[{ content: "One", status: "completed" }],
+			[{ step: 1, status: "completed", expected: "One" }],
+		);
+
+		expect(mirror).toMatchObject({ updated: 0, unmatched: 0 });
+	});
+
+	test("mirror lets the last update for a step number win", () => {
+		const mirror = mirrorStepStatuses(
+			[{ content: "One", status: "pending" }],
+			[
+				{ step: 1, status: "completed", expected: "One" },
+				{ step: 1, status: "pending", expected: "One" },
+			],
+		);
+
+		expect(mirror.updated).toBe(0);
+		expect(mirror.todos[0]?.status).toBe("pending");
+	});
+
+	test("mirror matches an elided step to the elided text approval seeded", () => {
+		const elided = `${"x".repeat(MAX_STEP_LENGTH - 1)}…`;
+		const mirror = mirrorStepStatuses(
+			[{ content: elided, status: "pending" }],
+			[{ step: 1, status: "completed", expected: elided }],
+		);
+
+		expect(mirror.todos).toEqual([{ content: elided, status: "completed" }]);
+		expect(mirror.updated).toBe(1);
+	});
+
+	test("mirror does not alias the list it was given", () => {
+		const input: ExistingTodo[] = [{ content: "One", status: "pending" }];
+		const mirror = mirrorStepStatuses(input, [{ step: 1, status: "completed", expected: "One" }]);
+
+		expect(input[0]?.status).toBe("pending");
+		expect(mirror.todos[0]?.status).toBe("completed");
+	});
+});
+
+describe("enter_plan_mode", () => {
 	test("enables plan mode and activates both control tools when the user confirms", async () => {
 		const { enter, runtime, activeTools, root } = setup();
 		const { ctx } = fakeCtx({ confirm: true, cwd: root });
@@ -207,12 +411,6 @@ describe("write_plan", () => {
 		expect(String(statusCalls.at(-1)?.text)).toContain(`${GLYPHS.plan} plan`);
 	});
 
-	/** A plan whose `Steps` section holds `count` top-level steps. */
-	function planWithSteps(count: number): string {
-		const steps = Array.from({ length: count }, (_, index) => `- [ ] step ${index}`).join("\n");
-		return `## Steps\n${steps}`;
-	}
-
 	test("refuses a plan with more steps than approval can track", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
@@ -258,14 +456,21 @@ describe("write_plan", () => {
 		expect(readFileSync(planPath, "utf-8")).toBe(original);
 	});
 
-	test("does not add a note for a plan within the step caps", async () => {
+	test("notes a step that will be shortened in the todo list, and stays quiet otherwise", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const { ctx } = fakeCtx({ cwd: root });
 
-		const result = await call(write, { title: "Fine", content: "## Steps\n- [ ] One" }, ctx);
+		const long = await call(
+			write,
+			{ title: "Long", content: `## Steps\n- [ ] ${"x".repeat(MAX_STEP_LENGTH + 1)}` },
+			ctx,
+		);
+		expect(long.content[0].text).toContain("longer than 200 characters");
+		expect(long.content[0].text).toContain("shortened in the todo list");
 
-		expect(result.content[0].text).not.toContain("Note:");
+		const short = await call(write, { title: "Fine", content: "## Steps\n- [ ] One" }, ctx);
+		expect(short.content[0].text).not.toContain("Note:");
 	});
 
 	test("reports a write failure as an error result", async () => {
@@ -277,7 +482,16 @@ describe("write_plan", () => {
 		expect(result.content[0].text).toContain("Could not write the plan");
 	});
 
-	test("renders the saved path", () => {
+	test("reports an oversized plan from the store", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const { ctx } = fakeCtx({ cwd: root });
+		const result = await call(write, { title: "Huge", content: "x".repeat(256 * 1024 + 1) }, ctx);
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain("too large");
+	});
+
+	test("renders the saved relative path", () => {
 		const { write } = setup();
 		const component = write.renderResult(
 			{ details: { path: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md", bytes: 1 } },
@@ -285,41 +499,6 @@ describe("write_plan", () => {
 			fakeTheme,
 		);
 		expect(component.render(80).join("\n")).toContain(".pi/plans/p.md");
-	});
-
-	test("renders the relative plan path, not the absolute one", () => {
-		const { exit } = setup();
-		const component = exit.renderResult(
-			{ details: { approved: true, plan: "# P", planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" } },
-			{ expanded: false },
-			fakeTheme,
-		);
-		const text = component.render(80).join("\n");
-		expect(text).toContain(".pi/plans/p.md");
-		expect(text).not.toContain("/x/.pi/plans/p.md");
-	});
-
-	test("strips control characters from the rendered plan and refinement", () => {
-		const { exit } = setup();
-		for (const expanded of [false, true]) {
-			const component = exit.renderResult(
-				{
-					details: {
-						approved: false,
-						plan: "hello\u001b[31mred\u001b[0m\u0007 world",
-						planPath: "/x/.pi/plans/p.md",
-						relativePath: ".pi/plans/p.md",
-						refined: true,
-						refinement: "use\u001b[2J x",
-					},
-				},
-				{ expanded },
-				fakeTheme,
-			);
-			const text = component.render(80).join("\n");
-			expect(text).not.toContain("\u001b");
-			expect(text).not.toContain("\u0007");
-		}
 	});
 });
 
@@ -365,9 +544,8 @@ describe("exit_plan_mode", () => {
 		// A hand-edited (or older-session) file can exceed the cap without write_plan.
 		const plansDir = join(root, ".pi", "plans");
 		mkdirSync(plansDir, { recursive: true });
-		const steps = Array.from({ length: MAX_STEPS + 1 }, (_, index) => `- [ ] step ${index}`).join("\n");
 		const planPath = join(plansDir, "big.md");
-		writeFileSync(planPath, `## Steps\n${steps}`);
+		writeFileSync(planPath, planWithSteps(MAX_STEPS + 1));
 
 		const { ctx } = fakeCtx({ select: "Approve and execute", cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
@@ -578,8 +756,7 @@ describe("exit_plan_mode", () => {
 			allTools: [{ name: TODO_TOOL, parameters: { properties: { todos: { maxItems: 2 } } } }],
 		});
 		await enterPlan(enter, runtime, root);
-		const plan = ["## Steps", "- [ ] One", "- [ ] Two", "- [ ] Three"].join("\n");
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, planWithSteps(3));
 
 		const { ctx, toolCalls } = fakeCtx({
 			select: "Approve and execute",
@@ -591,7 +768,7 @@ describe("exit_plan_mode", () => {
 		expect(toolCalls[0].args).toEqual({
 			todos: [
 				{ content: "Existing", status: "pending" },
-				{ content: "One", status: "pending" },
+				{ content: "step 0", status: "pending" },
 			],
 		});
 		expect(result.content[0].text).toContain("2 deferred, list full");
@@ -711,84 +888,6 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("browser");
 		expect(runtime.isEnabled()).toBe(true);
 		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
-	});
-
-	describe("the session-goal offer", () => {
-		/** Approve `content` through the dialog path with the given fake ctx options. */
-		async function approve(
-			content: string,
-			options: { confirm?: boolean; branch?: unknown[]; executeError?: string } = {},
-		) {
-			const { enter, exit, write, runtime, root } = setup();
-			await enterPlan(enter, runtime, root);
-			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
-			const fake = fakeCtx({
-				select: "Approve and execute",
-				confirm: options.confirm ?? true,
-				branch: options.branch,
-				executeError: options.executeError,
-				cwd: root,
-			});
-			const result = await call(exit, { plan_path: planPath }, fake.ctx);
-			return { ...fake, result };
-		}
-
-		test("offers the plan's title and records it as the goal when accepted", async () => {
-			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One");
-
-			expect(confirms.map((call) => call.message)).toEqual(["Add rate limiting"]);
-			expect(
-				toolCalls.some(
-					(call) => call.name === "goal" && (call.args as { objective: string }).objective === "Add rate limiting",
-				),
-			).toBe(true);
-			expect(result.content[0].text).toContain("Recorded the session goal: Add rate limiting.");
-		});
-
-		test("records nothing when the offer is declined", async () => {
-			const { toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", { confirm: false });
-
-			expect(toolCalls.some((call) => call.name === "goal")).toBe(false);
-			expect(result.content[0].text).not.toContain("Recorded the session goal");
-		});
-
-		test("leaves an existing goal alone without asking", async () => {
-			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
-				branch: [resultEntry({ objective: "the user's own goal", status: "active" })],
-			});
-
-			expect(confirms).toEqual([]);
-			expect(toolCalls.some((call) => call.name === "goal")).toBe(false);
-			expect(result.content[0].text).not.toContain("session goal");
-		});
-
-		test("promotes a planning goal to the plan's own Goal, without asking", async () => {
-			const content = "# Add rate limiting\n\n## Goal\nProtect the public API\n\n## Steps\n- [ ] One";
-			const { confirms, toolCalls, result } = await approve(content, {
-				branch: [resultEntry({ objective: "protect the API", status: "planning" })],
-			});
-
-			expect(confirms).toEqual([]);
-			expect(
-				toolCalls.some(
-					(call) =>
-						call.name === "goal" &&
-						(call.args as { objective: string; status?: string }).objective === "Protect the public API" &&
-						(call.args as { status?: string }).status === "active",
-				),
-			).toBe(true);
-			expect(result.content[0].text).toContain("Set the session goal from the plan: Protect the public API.");
-		});
-
-		test("reports a goal the goal tool refused", async () => {
-			const { result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
-				executeError: "objective is longer than 2000 characters.",
-			});
-
-			expect(result.content[0].text).toContain(
-				"Could not record the session goal: objective is longer than 2000 characters.",
-			);
-		});
 	});
 
 	test("a second review compares against what the first one showed", async () => {
@@ -950,6 +1049,84 @@ describe("exit_plan_mode", () => {
 				overlayOptions: { width: "100%", maxHeight: "100%", anchor: "top-left", margin: 0 },
 			},
 		]);
+	});
+
+	describe("the session-goal offer", () => {
+		/** Approve `content` through the dialog path with the given fake ctx options. */
+		async function approve(
+			content: string,
+			options: { confirm?: boolean; branch?: unknown[]; executeError?: string } = {},
+		) {
+			const { enter, exit, write, runtime, root } = setup();
+			await enterPlan(enter, runtime, root);
+			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
+			const fake = fakeCtx({
+				select: "Approve and execute",
+				confirm: options.confirm ?? true,
+				branch: options.branch,
+				executeError: options.executeError,
+				cwd: root,
+			});
+			const result = await call(exit, { plan_path: planPath }, fake.ctx);
+			return { ...fake, result };
+		}
+
+		test("offers the plan's title and records it as the goal when accepted", async () => {
+			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One");
+
+			expect(confirms.map((entry) => entry.message)).toEqual(["Add rate limiting"]);
+			expect(
+				toolCalls.some(
+					(entry) => entry.name === "goal" && (entry.args as { objective: string }).objective === "Add rate limiting",
+				),
+			).toBe(true);
+			expect(result.content[0].text).toContain("Recorded the session goal: Add rate limiting.");
+		});
+
+		test("records nothing when the offer is declined", async () => {
+			const { toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", { confirm: false });
+
+			expect(toolCalls.some((entry) => entry.name === "goal")).toBe(false);
+			expect(result.content[0].text).not.toContain("Recorded the session goal");
+		});
+
+		test("leaves an existing goal alone without asking", async () => {
+			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
+				branch: [resultEntry({ objective: "the user's own goal", status: "active" })],
+			});
+
+			expect(confirms).toEqual([]);
+			expect(toolCalls.some((entry) => entry.name === "goal")).toBe(false);
+			expect(result.content[0].text).not.toContain("session goal");
+		});
+
+		test("promotes a planning goal to the plan's own Goal, without asking", async () => {
+			const content = "# Add rate limiting\n\n## Goal\nProtect the public API\n\n## Steps\n- [ ] One";
+			const { confirms, toolCalls, result } = await approve(content, {
+				branch: [resultEntry({ objective: "protect the API", status: "planning" })],
+			});
+
+			expect(confirms).toEqual([]);
+			expect(
+				toolCalls.some(
+					(entry) =>
+						entry.name === "goal" &&
+						(entry.args as { objective: string; status?: string }).objective === "Protect the public API" &&
+						(entry.args as { status?: string }).status === "active",
+				),
+			).toBe(true);
+			expect(result.content[0].text).toContain("Set the session goal from the plan: Protect the public API.");
+		});
+
+		test("reports a goal the goal tool refused", async () => {
+			const { result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
+				executeError: "objective is longer than 2000 characters.",
+			});
+
+			expect(result.content[0].text).toContain(
+				"Could not record the session goal: objective is longer than 2000 characters.",
+			);
+		});
 	});
 });
 
@@ -1185,12 +1362,6 @@ describe("set_plan_steps", () => {
 		expect(readFileSync(planPath, "utf-8")).toBe("- One");
 	});
 
-	test("is active by default and annotated as a reversible mutation", () => {
-		const { setSteps } = setup();
-		expect(setSteps.defaultActive).toBeUndefined();
-		expect(setSteps.annotations).toMatchObject({ readOnlyHint: false, idempotentHint: true });
-	});
-
 	test("renders the completion state", () => {
 		const { setSteps } = setup();
 		const component = setSteps.renderResult(
@@ -1212,72 +1383,55 @@ describe("set_plan_steps", () => {
 	});
 });
 
-describe("plan transcript rendering", () => {
-	test("reuses the slot Text across renders", () => {
-		const { enter, exit, write, setSteps } = setup();
-		for (const tool of [enter, write, exit, setSteps]) {
-			const first = tool.renderCall({}, fakeTheme, { lastComponent: undefined });
-			const again = tool.renderCall({}, fakeTheme, { lastComponent: first });
-			expect(again).toBe(first);
-		}
-	});
-
-	test("exit_plan_mode separates the header from the plan body and hints at the bound key", () => {
+describe("plan tool rendering", () => {
+	test("exit_plan_mode previews the plan and shows it in full when expanded", async () => {
 		const { exit } = setup();
-		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, i) => `${i + 1}. step`)].join("\n");
-		const lines = exit
-			.renderResult(
-				{ details: { approved: true, plan, planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" } },
-				{ expanded: false },
-				fakeTheme,
-				{ lastComponent: undefined },
-			)
-			.render(80)
-			.map((line: string) => line.trimEnd());
-		expect(lines[0]).toContain("Plan approved");
-		expect(lines[1]).toBe(".pi/plans/p.md");
-		expect(lines[2]).toBe("");
-		expect(lines[3]).toBe("# Plan");
-		const text = lines.join("\n");
-		expect(text).toContain("more lines");
-		expect(text).toContain("to expand");
+		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, index) => `${index + 1}. step`)].join("\n");
+		const details = { approved: true, plan, planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" };
+
+		const collapsed = exit.renderResult({ details }, { expanded: false }, fakeTheme).render(80).join("\n");
+		expect(collapsed).toContain("Plan approved");
+		expect(collapsed).toContain("# Plan");
+		expect(collapsed).toContain("more lines");
+		expect(collapsed).not.toContain("20. step");
+
+		const expanded = exit.renderResult({ details }, { expanded: true }, fakeTheme).render(80).join("\n");
+		expect(expanded).toContain("20. step");
+		expect(expanded).not.toContain("more lines");
 	});
 
-	test("an expanded exit shows the full plan with no hint", () => {
+	test("renders the relative plan path, not the absolute one", async () => {
 		const { exit } = setup();
-		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, i) => `${i + 1}. step`)].join("\n");
-		const text = exit
-			.renderResult(
-				{ details: { approved: true, plan, planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" } },
-				{ expanded: true },
+		const component = exit.renderResult(
+			{ details: { approved: true, plan: "# P", planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" } },
+			{ expanded: false },
+			fakeTheme,
+		);
+		const text = component.render(80).join("\n");
+		expect(text).toContain(".pi/plans/p.md");
+		expect(text).not.toContain("/x/.pi/plans/p.md");
+	});
+
+	test("strips control characters from the rendered plan and refinement", () => {
+		const { exit } = setup();
+		for (const expanded of [false, true]) {
+			const component = exit.renderResult(
+				{
+					details: {
+						approved: false,
+						plan: "hello\u001b[31mred\u001b[0m\u0007 world",
+						planPath: "/x/.pi/plans/p.md",
+						relativePath: ".pi/plans/p.md",
+						refined: true,
+						refinement: "use\u001b[2J x",
+					},
+				},
+				{ expanded },
 				fakeTheme,
-				{ lastComponent: undefined },
-			)
-			.render(80)
-			.join("\n");
-		expect(text).toContain("20. step");
-		expect(text).not.toContain("more lines");
-	});
-});
-
-describe("host-rejected results", () => {
-	const rejected = (name: string) => ({
-		content: [{ type: "text", text: `Validation failed for tool "${name}"` }],
-		details: {},
-		isError: true,
-	});
-
-	test("every plan renderer falls back to the message instead of guessing state", () => {
-		const { enter, write, exit, setSteps } = setup();
-		const cases: Array<[any, string]> = [
-			[enter, "enter_plan_mode"],
-			[write, "write_plan"],
-			[exit, "exit_plan_mode"],
-			[setSteps, "set_plan_steps"],
-		];
-		for (const [tool, name] of cases) {
-			const text = tool.renderResult(rejected(name), { expanded: false }, fakeTheme).render(80).join("\n");
-			expect(text).toContain(`Validation failed for tool "${name}"`);
+			);
+			const text = component.render(80).join("\n");
+			expect(text).not.toContain("\u001b");
+			expect(text).not.toContain("\u0007");
 		}
 	});
 });

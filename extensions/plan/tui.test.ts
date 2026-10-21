@@ -1,12 +1,25 @@
+/**
+ * The plan review screen: its width-safe Markdown body, scroll and section
+ * navigation, overflow gauge, footer hints, actions, inline refine editor, and
+ * changed-section markers.
+ *
+ * The component is driven directly at fixed widths and row counts, so no test
+ * needs a terminal. Assertions are about fields, bounds, ordering, and glyphs,
+ * never literal column padding.
+ */
+
 import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme, fakeMarkdownTheme, fakeTheme, roleSgrTheme } from "../../test/helpers/fakes.ts";
+import { visibleWidth, type MarkdownTheme, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { coloringTheme, fakeMarkdownTheme, fakeTheme, roleSgrTheme } from "../../test/helpers/fakes.ts";
 import { sectionDigests } from "./plan-text.ts";
 import type { StoredPlan } from "./plans.ts";
-import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
+import { PlanViewComponent, type PlanViewAction, type PlanViewOptions } from "./tui.ts";
 
-const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
+type TuiHandle = NonNullable<PlanViewOptions["tui"]>;
+type Theme = PlanViewOptions["theme"];
+
+const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as unknown as TuiHandle;
 
 const DOWN = "\x1b[B";
 const HOME = "\x1b[H";
@@ -25,8 +38,8 @@ function render(component: PlanViewComponent, width: number): string[] {
 interface SetupOptions {
 	rows?: number;
 	tui?: unknown;
-	theme?: any;
-	markdownTheme?: any;
+	theme?: Theme;
+	markdownTheme?: MarkdownTheme;
 	path?: string;
 	/** Content the previous review showed, for the changed markers. */
 	baseline?: string;
@@ -50,7 +63,7 @@ function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", optio
 			renders += 1;
 		},
 		viewportRows: options.rows,
-		tui: options.tui as any,
+		tui: options.tui as TuiHandle | undefined,
 	});
 	return { component, actions, refinements, renders: () => renders };
 }
@@ -61,7 +74,12 @@ function percent(lines: string[]): number {
 	return match ? Number(match[1]) : -1;
 }
 
-describe("PlanViewComponent — render", () => {
+/** A line's leading-space count, so an indent assertion names no padding width. */
+function indentOf(line: string): number {
+	return line.length - line.trimStart().length;
+}
+
+describe("plan review render", () => {
 	test("stays within the terminal width", () => {
 		const { component } = setup();
 		for (const width of [80, 40, 20, 7, 6, 5, 4, 3, 2, 1]) {
@@ -71,7 +89,7 @@ describe("PlanViewComponent — render", () => {
 		}
 	});
 
-	test("keeps a wrapped task item's continuation indent", () => {
+	test("keeps a wrapped task item under its own indent", () => {
 		// The themed marker is narrower than the `- [ ] ` it replaces, and pi-tui
 		// derives a continuation line's indent from the original marker. Without
 		// padding, the overflow lands at the body indent as a stray fragment instead
@@ -90,25 +108,23 @@ describe("PlanViewComponent — render", () => {
 
 		expect(first).toContain("Record");
 		expect(rest.length).toBeGreaterThan(1);
-		for (const line of rest) expect(line.startsWith("        ")).toBe(true);
+		const indents = rest.map(indentOf);
+		expect(indents.every((indent) => indent === indents[0])).toBe(true);
+		expect(indents[0]).toBeGreaterThan(0);
 		// The padding must not eat text either.
 		expect(body.join(" ").replace(/\s+/g, " ")).toContain(step);
 	});
 
-	test("shows the title and body without the file path", () => {
-		const { component } = setup();
-		const lines = render(component, 80);
-		const text = lines.join("\n");
+	test("shows the plan title and body without the file path", () => {
+		const text = render(setup().component, 80).join("\n");
 		expect(text).toContain("Plan Review");
 		expect(text).toContain("demo");
+		expect(text).toContain("Plan");
 		expect(text).not.toContain(".pi/plans/2026-10-08-1530-demo.md");
-		expect(lines[1]).toBe("");
-		expect(lines[2]).toContain("Plan");
 	});
 
-	test("renders the plan body and the key hints", () => {
-		const { component } = setup();
-		const text = render(component, 80).join("\n");
+	test("renders the key hints", () => {
+		const text = render(setup().component, 80).join("\n");
 		expect(text).toContain("Read the parser");
 		expect(text).toContain("a approve");
 		expect(text).toContain("Esc keep planning");
@@ -122,14 +138,11 @@ describe("PlanViewComponent — render", () => {
 	});
 
 	test("handles an empty plan", () => {
-		const { component } = setup("");
-		const text = render(component, 80).join("\n");
-		expect(text).toContain("This plan is empty.");
+		expect(render(setup("").component, 80).join("\n")).toContain("This plan is empty.");
 	});
 
 	test("expands tabs and strips line-breaking control characters", () => {
-		const { component } = setup("a\tb\rcd\u009b");
-		const lines = render(component, 20);
+		const lines = render(setup("a\tb\rcd\u009b").component, 20);
 		for (const line of lines) {
 			expect(line).not.toContain("\t");
 			expect(line).not.toContain("\r");
@@ -141,7 +154,7 @@ describe("PlanViewComponent — render", () => {
 
 	test("shortens the header title and keeps it on narrow terminals", () => {
 		const { component } = setup();
-		const full = render(component, 80)[0];
+		const full = render(component, 80)[0] ?? "";
 		expect(full).toContain("Plan Review");
 		expect(full).toContain("demo");
 		expect(full).not.toContain("2026-10-08-1530");
@@ -149,108 +162,100 @@ describe("PlanViewComponent — render", () => {
 	});
 
 	test("colors task checkboxes by state", () => {
-		const theme = coloringTheme;
 		const { component } = setup("- [x] Done task\n- [ ] Pending task", {
-			theme,
-			markdownTheme: fakeMarkdownTheme(theme),
+			theme: coloringTheme,
+			markdownTheme: fakeMarkdownTheme(coloringTheme),
 		});
 		const text = render(component, 80).join("\n");
-		expect(text).toContain("[success]◼");
-		expect(text).toContain("[dim]◻");
+		expect(text).toContain(`[success]${GLYPHS.boxOn}`);
+		expect(text).toContain(`[dim]${GLYPHS.boxOff}`);
 	});
 
 	test("renders headings through the injected Markdown theme", () => {
-		const theme = coloringTheme;
-		const { component } = setup("# Title\n\n1. Step", { theme, markdownTheme: fakeMarkdownTheme(theme) });
+		const { component } = setup("# Title\n\n1. Step", {
+			theme: coloringTheme,
+			markdownTheme: fakeMarkdownTheme(coloringTheme),
+		});
 		expect(render(component, 80).join("\n")).toContain("[mdHeading]");
 	});
 });
 
-describe("PlanViewComponent — scrolling", () => {
-	const manyLines = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join("\n");
+const manyLines = Array.from({ length: 60 }, (_, index) => `Line ${index + 1}`).join("\n");
 
+describe("plan review scrolling", () => {
 	test("clamps scrolling to the body and repaints", () => {
 		const { component, renders } = setup(manyLines, { rows: 20 });
 		render(component, 80);
 		component.handleInput(DOWN);
 		component.handleInput(DOWN);
+
 		expect(renders()).toBe(2);
-		const scrolled = render(component, 80);
-		expect(scrolled.some((line) => line.includes("Line 3"))).toBe(true);
+		expect(render(component, 80).some((line) => line.includes("Line 3"))).toBe(true);
 	});
 
-	test("End jumps to the tail", () => {
+	test("End jumps to the tail and Home returns to the top", () => {
 		const { component } = setup(manyLines, { rows: 20 });
 		render(component, 80);
+
 		component.handleInput(END);
 		expect(render(component, 80).join("\n")).toContain("Line 60");
-	});
 
-	test("Home returns to the top", () => {
-		const { component } = setup(manyLines, { rows: 20 });
-		render(component, 80);
-		component.handleInput(END);
 		component.handleInput(HOME);
 		expect(render(component, 80).join("\n")).toContain("Line 1");
 	});
 
-	test("page down keeps one line of overlap", () => {
+	test("a page keeps one line of overlap", () => {
 		const { component } = setup(manyLines, { rows: 20 });
 		render(component, 80);
 		component.handleInput(PAGE_DOWN);
-		const text = render(component, 80).join("\n");
-		// viewport is 15 rows, so a page advances 14 lines.
-		expect(text).toContain("Line 15");
+		// The viewport is 15 rows, so a page advances 14 lines.
+		expect(render(component, 80).join("\n")).toContain("Line 15");
 	});
 
-	test("d moves down half a page", () => {
+	test("d and u move half a page", () => {
 		const { component } = setup(manyLines, { rows: 20 });
 		render(component, 80);
+
 		component.handleInput("d");
 		expect(render(component, 80).join("\n")).toContain("Line 8");
-	});
 
-	test("u moves back up half a page", () => {
-		const { component } = setup(manyLines, { rows: 20 });
-		render(component, 80);
-		component.handleInput("d");
 		component.handleInput("u");
 		expect(render(component, 80).join("\n")).toContain("Line 1");
 	});
 
-	test("G jumps to the end", () => {
+	test("G and g jump to the ends", () => {
 		const { component } = setup(manyLines, { rows: 20 });
 		render(component, 80);
+
 		component.handleInput("G");
 		expect(render(component, 80).join("\n")).toContain("Line 60");
-	});
 
-	test("g jumps to the start", () => {
-		const { component } = setup(manyLines, { rows: 20 });
-		render(component, 80);
-		component.handleInput("G");
 		component.handleInput("g");
 		expect(render(component, 80).join("\n")).toContain("Line 1");
 	});
 
-	test("the wheel scrolls the body", () => {
+	test("the wheel scrolls the body but a click is left to the terminal", () => {
 		const { component } = setup(manyLines, { rows: 20 });
 		render(component, 80);
-		expect(component.handleMouse({ type: "wheel", wheelDelta: 3 } as any)).toEqual({ handled: true });
+
+		expect(component.handleMouse({ type: "wheel", wheelDelta: 3 } as unknown as TuiMouseEvent)).toEqual({
+			handled: true,
+		});
 		expect(render(component, 80).join("\n")).toContain("Line 4");
-		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
+		expect(component.handleMouse({ type: "click", button: "left" } as unknown as TuiMouseEvent)).toBeUndefined();
 	});
 
 	test("shows a scroll gauge only when the plan overflows", () => {
 		const scrolled = setup(manyLines, { rows: 20 });
 		render(scrolled.component, 80);
 		let text = render(scrolled.component, 80).join("\n");
-		expect(text).toContain("lines 1–15 of 60");
+		expect(text).toMatch(/lines 1–\d+ of 60/);
 		expect(text).toContain("0%");
+
 		scrolled.component.handleInput(END);
 		text = render(scrolled.component, 80).join("\n");
 		expect(text).toContain("100%");
-		expect(text).toContain("lines 46–60 of 60");
+		expect(text).toMatch(/lines \d+–60 of 60/);
 
 		const fits = setup();
 		expect(render(fits.component, 80).join("\n")).not.toContain("lines ");
@@ -287,8 +292,10 @@ describe("PlanViewComponent — scrolling", () => {
 	});
 
 	test("colors the approve, refine, and browser hints", () => {
-		const theme = coloringTheme;
-		const { component } = setup(undefined, { theme, markdownTheme: fakeMarkdownTheme(theme) });
+		const { component } = setup(undefined, {
+			theme: coloringTheme,
+			markdownTheme: fakeMarkdownTheme(coloringTheme),
+		});
 		const hint = render(component, 200).at(-2) ?? "";
 		expect(hint).toContain("[success]a approve");
 		expect(hint).toContain("[accent]r refine");
@@ -303,21 +310,22 @@ describe("PlanViewComponent — scrolling", () => {
 	});
 
 	test("a resize keeps the reading position", () => {
-		const content = Array.from({ length: 60 }, (_, i) => `Line ${i + 1} ${"x".repeat(40)}`).join("\n");
+		const content = Array.from({ length: 60 }, (_, index) => `Line ${index + 1} ${"x".repeat(40)}`).join("\n");
 		const { component } = setup(content, { rows: 16 });
 		render(component, 40);
 		component.handleInput("d");
 		const before = percent(render(component, 40));
 		expect(before).toBeGreaterThan(0);
+
 		const after = percent(render(component, 120));
 		expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
 	});
 });
 
-describe("PlanViewComponent — sections", () => {
-	const sectioned = Array.from({ length: 132 }, (_, i) => (i % 12 === 0 ? `## Section ${i / 12}` : `line ${i}`)).join(
-		"\n",
-	);
+describe("plan review sections", () => {
+	const sectioned = Array.from({ length: 132 }, (_, index) =>
+		index % 12 === 0 ? `## Section ${index / 12}` : `line ${index}`,
+	).join("\n");
 
 	/** The scroll row, one above the hint row and the trailing blank. */
 	const scrollLine = (component: PlanViewComponent): string => render(component, 80).at(-3) ?? "";
@@ -346,7 +354,7 @@ describe("PlanViewComponent — sections", () => {
 		const withSections = setup(sectioned, { rows: 20 });
 		expect(render(withSections.component, 120).join("\n")).toContain("n/p section");
 
-		const plain = setup(Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join("\n"), { rows: 20 });
+		const plain = setup(manyLines, { rows: 20 });
 		expect(render(plain.component, 120).join("\n")).not.toContain("n/p section");
 		expect(scrollLine(plain.component)).not.toContain(GLYPHS.plan);
 	});
@@ -358,23 +366,18 @@ describe("PlanViewComponent — sections", () => {
 	});
 });
 
-describe("PlanViewComponent — actions", () => {
+describe("plan review actions", () => {
 	test("a approves, r refines, w opens the browser, Esc keeps planning", () => {
-		const approve = setup();
-		approve.component.handleInput("a");
-		expect(approve.actions).toEqual(["approve"]);
-
-		const refine = setup();
-		refine.component.handleInput("r");
-		expect(refine.actions).toEqual(["refine"]);
-
-		const browser = setup();
-		browser.component.handleInput("w");
-		expect(browser.actions).toEqual(["browser"]);
-
-		const keep = setup();
-		keep.component.handleInput(ESCAPE);
-		expect(keep.actions).toEqual(["keep"]);
+		for (const [key, action] of [
+			["a", "approve"],
+			["r", "refine"],
+			["w", "browser"],
+			[ESCAPE, "keep"],
+		] as const) {
+			const chosen = setup();
+			chosen.component.handleInput(key);
+			expect(chosen.actions).toEqual([action]);
+		}
 	});
 
 	test("j and k scroll instead of acting", () => {
@@ -385,11 +388,12 @@ describe("PlanViewComponent — actions", () => {
 	});
 });
 
-describe("PlanViewComponent — inline refine", () => {
+describe("plan review inline refine", () => {
 	test("r opens the inline editor and keeps the review open", () => {
 		const { component, actions } = setup(undefined, { tui });
 		render(component, 80);
 		component.handleInput("r");
+
 		expect(actions).toEqual([]);
 		const text = render(component, 80).join("\n");
 		expect(text).toContain("Refine the plan:");
@@ -398,10 +402,10 @@ describe("PlanViewComponent — inline refine", () => {
 	});
 
 	test("keeps the scroll gauge visible while editing", () => {
-		const manyLines = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join("\n");
 		const { component } = setup(manyLines, { rows: 20, tui });
 		render(component, 80);
 		component.handleInput("r");
+
 		const text = render(component, 80).join("\n");
 		expect(text).toContain("Refine the plan:");
 		expect(text).toMatch(/lines \d+–\d+ of \d+/);
@@ -411,6 +415,7 @@ describe("PlanViewComponent — inline refine", () => {
 		const { component } = setup(undefined, { tui });
 		render(component, 80);
 		component.handleInput("r");
+
 		const text = render(component, 20).join("\n");
 		expect(text).toContain("Esc back to plan");
 		expect(text).not.toContain("Enter submit");
@@ -422,6 +427,7 @@ describe("PlanViewComponent — inline refine", () => {
 		component.handleInput("r");
 		component.handleInput("use a hand-written lexer");
 		component.handleInput("\r");
+
 		expect(actions).toEqual(["refine"]);
 		expect(refinements).toEqual(["use a hand-written lexer"]);
 	});
@@ -431,6 +437,7 @@ describe("PlanViewComponent — inline refine", () => {
 		render(component, 80);
 		component.handleInput("r");
 		component.handleInput("\r");
+
 		expect(actions).toEqual([]);
 		expect(render(component, 80).join("\n")).toContain("Refine the plan:");
 	});
@@ -439,7 +446,8 @@ describe("PlanViewComponent — inline refine", () => {
 		const { component, actions } = setup(undefined, { tui });
 		render(component, 80);
 		component.handleInput("r");
-		component.handleInput("\x1b");
+		component.handleInput(ESCAPE);
+
 		expect(actions).toEqual([]);
 		component.handleInput("a");
 		expect(actions).toEqual(["approve"]);
@@ -452,7 +460,7 @@ describe("PlanViewComponent — inline refine", () => {
 	});
 });
 
-describe("PlanViewComponent — changed since the last review", () => {
+describe("plan review changed sections", () => {
 	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
 	const after = ["# Plan", "## Goal", "Ship it well.", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
 

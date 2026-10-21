@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { fakeTheme as theme } from "../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
 import { settle } from "../../test/helpers/process.ts";
 import type { MemoryEntries } from "./format.ts";
+import { createMemoryRuntime } from "./runtime.ts";
 import { type MemoryPickerCallbacks, MemoryPickerComponent } from "./tui.ts";
+import { registerTools, TOOL_NAME } from "./tools.ts";
 
 const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
 
@@ -96,6 +98,35 @@ function harness(initial: MemoryEntries, trusted = true, overrides: Partial<Memo
 		entries,
 	};
 }
+
+/** The registered tool, with a runtime that never touches disk during rendering. */
+function memoryTool() {
+	const fake = createFakePi();
+	registerTools(fake.pi, createMemoryRuntime(fake.pi));
+	return fake.tools.get(TOOL_NAME);
+}
+
+describe("memory result rendering", () => {
+	test("sanitizes a rejected call's error text", () => {
+		const result = {
+			content: [{ type: "text", text: "" }],
+			details: {
+				action: "list",
+				scope: "project",
+				project: [],
+				global: [],
+				changed: false,
+				error: "bad\u001b[31mtext",
+			},
+		};
+		const text = memoryTool()
+			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(text).toContain("bad");
+		expect(text).not.toContain("\u001b");
+	});
+});
 
 describe("MemoryPickerComponent render", () => {
 	test("shows an empty state", () => {

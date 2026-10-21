@@ -82,7 +82,7 @@ are `peerDependencies` with a `"*"` range: the host provides them, so the packag
 never pins a second copy of the agent loop. Real `dependencies` exist only where
 the package itself does the work — the document parsers behind `read_doc`, and
 the QR encoder behind the WeChat login. `files` ships `extensions/`, `lib/`, and
-`themes/`, minus the co-located tests; `assets/` stays in the repository, and the
+`themes/`, minus the grouped tests; `assets/` stays in the repository, and the
 manifest's header image is a raw URL rather than a packaged file.
 
 ## The load path
@@ -118,9 +118,9 @@ lives in the caller's closure rather than in `lib/`.
 
 ## An extension from the inside
 
-**One wiring point, five code roles, co-located tests.** `index.ts` is the only
-place that touches the host API; every other module is a unit with a single job
-and a test beside it.
+**One wiring point, five code roles, grouped tests.** `index.ts` is the only
+place that touches the host API; every other module is a unit with a single job,
+and the capability suites beside the extension cover their public surface.
 
 ```mermaid
 flowchart LR
@@ -139,7 +139,7 @@ flowchart LR
 | `config.ts` | Load and normalise this extension's section of the shared config document. |
 | `commands.ts` | Slash-command entry points and their argument completions. |
 | `tui.ts`, `render.ts` | Full-screen components, dialogs, and tool renderers, drawn from `lib/tui/`. |
-| `*.test.ts` | The co-located tests for the module beside them. |
+| `*.test.ts` | The declared capability suites for this extension or `lib/` subsystem. |
 
 Two shapes show why the roles exist. `todo` is the smallest complete extension: a
 tool that replaces a list, one command, and a widget derived from tool-result
@@ -322,7 +322,7 @@ flowchart TD
 ```
 
 Then place it in the right extension, or make a new one. A new extension means,
-in this order: the factory, its co-located tests, its `README.md`, the `pi`
+in this order: the factory, its declared suites, its `README.md`, the `pi`
 manifest, the catalog table in both entry READMEs, and
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md) has the checklist. A config key means
 a section in the shared document, a normaliser in the owner's `config.ts`, and a

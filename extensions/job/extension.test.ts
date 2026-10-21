@@ -1,24 +1,111 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+import { afterEach, describe, expect, jest, test } from "bun:test";
+import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "./config.ts";
 import jobs from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
-import { createFakePi, emit, emitFirst, type AnyHandler } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
+import { JobListComponent } from "./tui.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL } from "../../lib/events.ts";
+import { SHARED_CONFIG_FILE } from "../../lib/config.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
+import { onRailsSuppressed } from "../../lib/rails.ts";
+import { tempDir, withAgentDir, withEnv } from "../../test/helpers/env.ts";
+import { createFakePi, emit, emitFirst, fakeTheme, type AnyHandler } from "../../test/helpers/fakes.ts";
 import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/job.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
 
 const suite = makeHarnessSuite();
-const makeHarness = suite.makeHarness;
-afterEach(() => suite.cleanup());
+const temps = makeTempTracker();
+afterEach(() => {
+	suite.cleanup();
+	temps.flush();
+});
 
-function setup() {
-	const h = makeHarness();
+function setup(options: Parameters<typeof suite.makeHarness>[0] = {}) {
+	const h = suite.makeHarness(options);
 	const { pi, tools, commands, handlers } = createFakePi();
 	jobs(pi, { runtime: h.runtime });
-	const { ctx, statuses, widgets } = makeCtx();
-	return { h, pi, tools, commands, handlers, ctx, statuses, widgets };
+	const { ctx, statuses } = makeCtx();
+	return { h, pi, tools, commands, handlers, ctx, statuses, command: commands.get("jobs") };
 }
+
+describe("job config", () => {
+	test("normalizeConfig returns the base for an absent section", () => {
+		expect(normalizeConfig(undefined, DEFAULT_CONFIG)).toBe(DEFAULT_CONFIG);
+	});
+
+	test("takes booleans and ignores wrongly typed ones", () => {
+		const config = normalizeConfig(
+			{ enabled: false, showStatus: "no", wakeOnFinish: true, detachedByDefault: true },
+			DEFAULT_CONFIG,
+		);
+		expect(config.enabled).toBe(false);
+		expect(config.showStatus).toBe(true);
+		expect(config.wakeOnFinish).toBe(true);
+		expect(config.detachedByDefault).toBe(true);
+	});
+
+	test("clamps numeric fields into range", () => {
+		const config = normalizeConfig(
+			{
+				maxJobs: 0,
+				maxLogLines: 10_000,
+				maxLogBytes: -1,
+				killGraceMs: 999_999,
+				repaintMs: 1,
+				sessionTtlMs: 1,
+			},
+			DEFAULT_CONFIG,
+		);
+		expect(config.maxJobs).toBe(1);
+		expect(config.maxLogLines).toBe(5000);
+		expect(config.maxLogBytes).toBe(0);
+		expect(config.killGraceMs).toBe(60_000);
+		expect(config.repaintMs).toBe(100);
+		expect(config.sessionTtlMs).toBe(5000);
+	});
+
+	test("keeps the default for a non-numeric value", () => {
+		const config = normalizeConfig({ maxJobs: null, repaintMs: "fast" }, DEFAULT_CONFIG);
+		expect(config.maxJobs).toBe(DEFAULT_CONFIG.maxJobs);
+		expect(config.repaintMs).toBe(DEFAULT_CONFIG.repaintMs);
+	});
+
+	test("trims registryDir and treats a blank one as unset", () => {
+		expect(normalizeConfig({ registryDir: " /custom/dir " }, DEFAULT_CONFIG).registryDir).toBe("/custom/dir");
+		expect(normalizeConfig({ registryDir: "   " }, DEFAULT_CONFIG).registryDir).toBeUndefined();
+	});
+
+	test("loadConfig returns the defaults when no section is configured", async () => {
+		await withAgentDir(() => {
+			const cwd = temps.track(tempDir("pi-jobs-config-"));
+			expect(loadConfig(cwd)).toEqual(DEFAULT_CONFIG);
+		});
+	});
+
+	test("loadConfig layers the global section, then the project section", async () => {
+		await withAgentDir(async (agentDir) => {
+			const cwd = temps.track(tempDir("pi-jobs-config-"));
+			writeFileSync(
+				join(agentDir, SHARED_CONFIG_FILE),
+				JSON.stringify({ job: { maxJobs: 5, wakeOnFinish: true } }),
+				"utf-8",
+			);
+			mkdirSync(join(cwd, CONFIG_DIR_NAME), { recursive: true });
+			writeFileSync(
+				join(cwd, CONFIG_DIR_NAME, SHARED_CONFIG_FILE),
+				JSON.stringify({ job: { maxJobs: 7, showStatus: false } }),
+				"utf-8",
+			);
+			const config = loadConfig(cwd);
+			expect(config.maxJobs).toBe(7);
+			expect(config.wakeOnFinish).toBe(true);
+			expect(config.showStatus).toBe(false);
+		});
+	});
+});
 
 describe("jobs extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
@@ -80,8 +167,12 @@ describe("jobs extension", () => {
 		const result = await emitFirst(pi, "context", { messages }, ctx);
 		expect(result.messages).toHaveLength(3);
 		// Another source's notice is left alone.
-		expect(result.messages.some((m: any) => m.details?.source === "watch")).toBe(true);
-		expect(result.messages.filter((m: any) => m.details?.source === "job").map((m: any) => m.content)).toEqual(["new"]);
+		expect(result.messages.some((message: any) => message.details?.source === "watch")).toBe(true);
+		expect(
+			result.messages
+				.filter((message: any) => message.details?.source === "job")
+				.map((message: any) => message.content),
+		).toEqual(["new"]);
 	});
 
 	test("wakes the agent when a wake job finishes while idle", async () => {
@@ -96,6 +187,26 @@ describe("jobs extension", () => {
 		expect(sent).toHaveLength(1);
 		expect(sent[0].options.triggerTurn).toBe(true);
 		expect(sent[0].message.customType).toBe(NOTICE_TYPE);
+	});
+
+	test("queues a wake job that finishes during a turn, then reports it before the next", async () => {
+		const { h, pi, ctx } = setup();
+		const sent: unknown[] = [];
+		pi.sendMessage = (...args: unknown[]) => sent.push(args);
+
+		await emit(pi, "session_start", {}, ctx);
+		await emit(pi, "agent_start", {}, ctx);
+		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		h.children[0].close(0);
+		expect(sent).toHaveLength(0);
+
+		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
+		expect(result?.message?.content).toContain("j1");
+
+		await emit(pi, "agent_settled", {}, ctx);
+		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		h.children[1].close(0);
+		expect(sent).toHaveLength(1);
 	});
 
 	test("wake reports other pending completions instead of dropping them", async () => {
@@ -172,14 +283,14 @@ describe("jobs extension", () => {
 		expect(sent).toHaveLength(1);
 	});
 
-	test("does not mount an above-editor widget in a TUI session", () => {
-		const h = makeHarness();
-		const { pi } = createFakePi();
-		jobs(pi, { runtime: h.runtime });
-		const { ctx, widgets } = makeCtx({ mode: "tui" });
-		h.runtime.load(ctx);
+	test("session_tree re-asserts the status chip", async () => {
+		const { h, pi, ctx, statuses } = setup();
+		await emit(pi, "session_start", {}, ctx);
 		h.runtime.start({ command: "sleep 1" }, ctx);
-		expect(widgets.size).toBe(0);
+		expect(statuses.has("jobs")).toBe(true);
+		statuses.delete("jobs");
+		await emit(pi, "session_tree", {}, ctx);
+		expect(statuses.has("jobs")).toBe(true);
 	});
 
 	test("clears the status chips on shutdown", async () => {
@@ -192,5 +303,41 @@ describe("jobs extension", () => {
 		for (const handler of (pi.handlers.get("session_shutdown") ?? []) as AnyHandler[]) await handler({}, ctx);
 		expect(statuses.has("jobs")).toBe(false);
 		expect(statuses.has("jobs-failure")).toBe(false);
+	});
+});
+
+describe("jobs command", () => {
+	test("prints a text summary outside the TUI", async () => {
+		const { h, ctx, command } = setup();
+		h.runtime.load(ctx);
+		h.runtime.start({ command: "sleep 1" }, ctx);
+		await command.handler("", ctx);
+		expect(ctx.notices.at(-1)?.message).toContain("Jobs (1)");
+		expect(ctx.customCalls).toHaveLength(0);
+	});
+
+	test("opens the jobs screen in the TUI and restores the rails", async () => {
+		const { h, pi, ctx, command } = setup();
+		ctx.mode = "tui";
+		h.runtime.load(ctx);
+		h.runtime.start({ command: "sleep 1" }, ctx);
+
+		let component: JobListComponent | undefined;
+		ctx.ui.custom = async (factory: any) => {
+			component = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
+		};
+		const suppressed: boolean[] = [];
+		onRailsSuppressed(pi, (value) => suppressed.push(value));
+
+		jest.useFakeTimers();
+		try {
+			await command.handler("", ctx);
+		} finally {
+			jest.useRealTimers();
+		}
+
+		expect(component).toBeInstanceOf(JobListComponent);
+		expect(component?.render(60).join("\n")).toContain("j1");
+		expect(suppressed).toEqual([true, false]);
 	});
 });

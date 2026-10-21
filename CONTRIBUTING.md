@@ -100,8 +100,8 @@ and [`docs/development.md`](./docs/development.md#extension-conventions):
 
 1. Add the entrypoint to the `extensions` list in
    [`package.json`](./package.json)'s `pi` manifest.
-2. Add the co-located tests the suite requires (see
-   [`test/README.md`](./test/README.md)).
+2. Add the capability suites to [`test/suite-manifest.ts`](./test/suite-manifest.ts)
+   and write them (see [`test/README.md`](./test/README.md)).
 3. Write `extensions/<name>/README.md` in the section order documented in
    [`docs/development.md`](./docs/development.md#one-doc-per-extension).
 4. Add the extension to the catalog table in both entry READMEs — `README.zh-CN.md`

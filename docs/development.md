@@ -82,12 +82,13 @@ full list; each screen is shown in its own extension README.
 The suite is organized by tier; the full contract is in
 [`../test/README.md`](../test/README.md). In short:
 
-1. **Pure-module tests** — one per source module, beside it.
-2. **Extension-surface tests** — registration, lifecycle, and integration
-   through the shared `createFakePi` / `fakeCtx`.
-3. **Surface / TUI tests** — fields, width bounds, ordering, and glyphs, never
-   literal column padding.
-4. **Package-level tests** — cross-cutting contracts (`naming`,
+1. **Capability suites** — grouped by behaviour in `extensions/<name>/`, with
+   registration, lifecycle, fields, width bounds, ordering, and glyphs in the
+   same suite where they share a capability. The declared layout is
+   `test/suite-manifest.ts`.
+2. **Library suites** — the same grouping over a `lib/` subsystem, keeping
+   pure-unit and platform-seam contracts.
+3. **Package-level tests** — cross-cutting contracts (`naming`,
    `extension-load`, `config-docs`, `prompt-budget`, `release`, `structure`,
    `drift`, `theme`).
 

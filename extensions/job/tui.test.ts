@@ -1,31 +1,34 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { compareJobs, elapsedMs, formatJobDetail, jobCounts, shortLabel, statusGlyphChar } from "./format.ts";
 import { JobListComponent, JobResult } from "./tui.ts";
 import type { JobRecord } from "./types.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 
-const job = (overrides: Partial<JobRecord> = {}): JobRecord => ({
-	id: "j1",
-	label: "build",
-	command: "npm run build",
-	cwd: "/repo",
-	pid: 1234,
-	status: "running",
-	exitCode: null,
-	signal: null,
-	startedAt: 0,
-	finishedAt: null,
-	logPath: "/tmp/j1.log",
-	detached: false,
-	wake: false,
-	stdin: false,
-	sessionId: "s1",
-	seen: false,
-	lastLine: "",
-	statusPath: null,
-	startToken: null,
-	...overrides,
-});
+function record(overrides: Partial<JobRecord> = {}): JobRecord {
+	return {
+		id: "j1",
+		label: "build",
+		command: "npm run build",
+		cwd: "/repo",
+		pid: 1234,
+		status: "running",
+		exitCode: null,
+		signal: null,
+		startedAt: 0,
+		finishedAt: null,
+		logPath: "/tmp/j1.log",
+		detached: false,
+		wake: false,
+		stdin: false,
+		sessionId: "s1",
+		seen: false,
+		lastLine: "",
+		statusPath: null,
+		startToken: null,
+		...overrides,
+	};
+}
 
 function makeComponent(
 	jobs: JobRecord[],
@@ -59,43 +62,76 @@ function makeComponent(
 	return { component, killed, clearedCount: () => cleared };
 }
 
+describe("job tui format", () => {
+	test("status glyphs are one terminal column wide", () => {
+		for (const status of ["running", "exited", "killed", "failed", "unknown"] as const) {
+			expect(visibleWidth(statusGlyphChar(status))).toBe(1);
+		}
+	});
+
+	test("elapsed stops at finishedAt", () => {
+		expect(elapsedMs(record({ startedAt: 100, finishedAt: 300 }), 9999)).toBe(200);
+	});
+
+	test("compareJobs sorts running before finished, then newest first", () => {
+		const running = record({ id: "a", status: "running" });
+		const old = record({ id: "b", status: "exited", startedAt: 1 });
+		const recent = record({ id: "c", status: "exited", startedAt: 99 });
+		expect([old, running, recent].sort(compareJobs).map((entry) => entry.id)).toEqual(["a", "c", "b"]);
+	});
+
+	test("shortLabel clips wide characters by display column, not code unit", () => {
+		const label = "界".repeat(40); // 80 columns
+		expect(visibleWidth(shortLabel(record({ label })))).toBeLessThanOrEqual(48);
+	});
+
+	test("jobCounts counts totals, running, and failed in one pass", () => {
+		const jobs = [
+			record({ id: "a", status: "running" }),
+			record({ id: "b", status: "exited", exitCode: 0 }),
+			record({ id: "c", status: "failed", exitCode: 1 }),
+			record({ id: "d", status: "killed", signal: "SIGTERM" }),
+		];
+		expect(jobCounts(jobs)).toEqual({ total: 4, running: 1, failed: 1 });
+	});
+
+	test("formatJobDetail builds command, cwd+outcome+elapsed, and last lines", () => {
+		const detail = formatJobDetail(record({ startedAt: 1000, finishedAt: 3200, lastLine: "compiled" }), 9000);
+		expect(detail[0]).toBe("command: npm run build");
+		expect(detail[1]).toBe("cwd: /repo · pid 1234 · 2.2s");
+		expect(detail[2]).toBe("last: compiled");
+	});
+
+	test("formatJobDetail omits the last line when empty", () => {
+		expect(formatJobDetail(record({ lastLine: "" }), 5000)).toHaveLength(2);
+	});
+
+	test("formatJobDetail strips ANSI from a malicious last line", () => {
+		const detail = formatJobDetail(record({ lastLine: "\u001b[31mowned\u001b[0m" }), 5000);
+		expect(detail[2]).toBe("last: owned");
+		expect(detail[2]).not.toContain("\u001b");
+	});
+
+	test("formatJobDetail names the owner when another session owns the job", () => {
+		expect(formatJobDetail(record({ sessionId: "peer" }), 5000, "me").join("\n")).toContain("owner: another session");
+		expect(formatJobDetail(record({ sessionId: "me" }), 5000, "me").join("\n")).not.toContain("owner:");
+	});
+});
+
 describe("JobResult", () => {
 	test("tags another session's row in the transcript result", () => {
-		const jobs = [job({ id: "j1", sessionId: "s1" }), job({ id: "j9", sessionId: "peer" })];
+		const jobs = [record({ id: "j1", sessionId: "s1" }), record({ id: "j9", sessionId: "peer" })];
 		const lines = new JobResult({ kind: "list", jobs, more: 0, sessionId: "s1" }, fakeTheme).render(70);
 		expect(lines[1]).toContain("j1");
 		expect(lines[1]).not.toContain("peer");
 		expect(lines[2]).toContain("j9");
 		expect(lines[2]).toContain("peer");
 	});
-	test("blank line then the list rail with a cap note", () => {
-		const jobs = [job({ id: "j1" }), job({ id: "j2", status: "failed", exitCode: 1, pid: null })];
-		const lines = new JobResult({ kind: "list", jobs, more: 2 }, fakeTheme).render(60);
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toContain("▸ j1");
-		expect(lines[2]).toContain("✗ j2");
-		expect(lines[3]).toContain("… 2 more");
-	});
-
-	test("blank line then the log tail", () => {
-		const lines = new JobResult({ kind: "logs", lines: ["a", "b"], earlier: 5 }, fakeTheme).render(60);
-		expect(lines[0]).toBe("");
-		expect(lines[1]).toContain("… 5 earlier lines");
-		expect(lines[1]).toContain("to expand");
-		expect(lines[2]).toBe("a");
-		expect(lines[3]).toBe("b");
-	});
-
-	test("updates in place for reuse", () => {
-		const view = new JobResult({ kind: "logs", lines: ["old"], earlier: 0 }, fakeTheme);
-		view.setInput({ kind: "logs", lines: ["new"], earlier: 0 }, fakeTheme);
-		expect(view.render(60)).toEqual(["", "new"]);
-	});
 });
 
 describe("JobListComponent", () => {
 	test("tags another session's job and refuses to kill it", () => {
-		const { component, killed } = makeComponent([job({ id: "j9", sessionId: "peer" })], {});
+		const { component, killed } = makeComponent([record({ id: "j9", sessionId: "peer" })], {});
 		const text = component.render(60).join("\n");
 		expect(text).toContain("peer");
 		expect(text).toContain("1 peer");
@@ -109,8 +145,8 @@ describe("JobListComponent", () => {
 
 	test("x clears only this session's finished jobs", () => {
 		const jobs = [
-			job({ id: "j1", status: "exited", exitCode: 0, pid: null, finishedAt: 5 }),
-			job({ id: "j9", sessionId: "peer", status: "exited", exitCode: 0, pid: null, finishedAt: 5 }),
+			record({ id: "j1", status: "exited", exitCode: 0, pid: null, finishedAt: 5 }),
+			record({ id: "j9", sessionId: "peer", status: "exited", exitCode: 0, pid: null, finishedAt: 5 }),
 		];
 		const { component, clearedCount } = makeComponent(jobs, {});
 		component.handleInput("x");
@@ -121,7 +157,7 @@ describe("JobListComponent", () => {
 
 	test("says so when only another session's jobs are finished", () => {
 		const { component, clearedCount } = makeComponent(
-			[job({ id: "j9", sessionId: "peer", status: "exited", exitCode: 0, pid: null, finishedAt: 5 })],
+			[record({ id: "j9", sessionId: "peer", status: "exited", exitCode: 0, pid: null, finishedAt: 5 })],
 			{},
 		);
 		component.handleInput("x");
@@ -130,7 +166,7 @@ describe("JobListComponent", () => {
 	});
 
 	test("opens another session's log read-only", () => {
-		const { component } = makeComponent([job({ id: "j9", sessionId: "peer" })], {
+		const { component } = makeComponent([record({ id: "j9", sessionId: "peer" })], {
 			logs: () => ({ lines: ["from the peer"] }),
 		});
 		component.handleInput("l");
@@ -139,7 +175,7 @@ describe("JobListComponent", () => {
 	});
 
 	test("d asks for confirmation before killing the selected running job", () => {
-		const { component, killed } = makeComponent([job()], {});
+		const { component, killed } = makeComponent([record()], {});
 		component.handleInput("d");
 		expect(killed).toEqual([]);
 		expect(component.render(60).join("\n")).toContain("Kill j1");
@@ -147,16 +183,8 @@ describe("JobListComponent", () => {
 		expect(killed).toEqual(["j1"]);
 	});
 
-	test("n cancels a pending kill", () => {
-		const { component, killed } = makeComponent([job()], {});
-		component.handleInput("d");
-		component.handleInput("n");
-		expect(killed).toEqual([]);
-		expect(component.render(60).join("\n")).not.toContain("Kill j1");
-	});
-
 	test("d on a finished job reports it and never kills", () => {
-		const { component, killed } = makeComponent([job({ status: "exited" })], {});
+		const { component, killed } = makeComponent([record({ status: "exited" })], {});
 		component.handleInput("d");
 		expect(component.render(60).join("\n")).toContain("j1 already exited");
 		component.handleInput("y");
@@ -164,25 +192,17 @@ describe("JobListComponent", () => {
 	});
 
 	test("x with nothing finished says so", () => {
-		const { component, clearedCount } = makeComponent([job({ status: "running" })], {});
+		const { component, clearedCount } = makeComponent([record({ status: "running" })], {});
 		component.handleInput("x");
 		expect(component.render(60).join("\n")).toContain("No finished jobs to clear.");
 		expect(clearedCount()).toBe(0);
 	});
 
-	test("x asks for confirmation before clearing finished jobs", () => {
-		const { component, clearedCount } = makeComponent([job({ status: "exited" })], {});
-		component.handleInput("x");
-		expect(clearedCount()).toBe(0);
-		component.handleInput("y");
-		expect(clearedCount()).toBe(1);
-	});
-
 	test("x counts only finished jobs and warns about unreported results", () => {
 		const jobs = [
-			job({ id: "j1", status: "failed", exitCode: 1, seen: false }),
-			job({ id: "j2", status: "exited", exitCode: 0, seen: true }),
-			job({ id: "j3", status: "running" }),
+			record({ id: "j1", status: "failed", exitCode: 1, seen: false }),
+			record({ id: "j2", status: "exited", exitCode: 0, seen: true }),
+			record({ id: "j3", status: "running" }),
 		];
 		const { component } = makeComponent(jobs, {});
 		component.handleInput("x");
@@ -191,41 +211,10 @@ describe("JobListComponent", () => {
 		expect(text).toContain("1 unreported result will be discarded.");
 	});
 
-	test("selection follows the job id when the list re-sorts", () => {
-		let jobs = [
-			job({ id: "j1", label: "one", status: "running", startedAt: 0 }),
-			job({ id: "j2", label: "two", status: "running", startedAt: 1 }),
-		];
-		const { component } = makeComponent(jobs, {}, 12);
-		// ordered newest-first: j2 then j1; select the second row (j1).
-		component.handleInput("j");
-		expect(component.render(40).find((line) => line.startsWith("❯"))).toContain("j1");
-		// j2 finishes and sinks below the still-running j1: j1's index changes.
-		jobs = [
-			job({ id: "j1", label: "one", status: "running", startedAt: 0 }),
-			job({ id: "j2", label: "two", status: "exited", exitCode: 0, startedAt: 1, finishedAt: 5, pid: null }),
-		];
-		expect(component.render(40).find((line) => line.startsWith("❯"))).toContain("j1");
-	});
-
-	test("keeps the log pane on its job when the list re-sorts", () => {
-		let jobs = [job({ id: "j1", status: "running", startedAt: 0 }), job({ id: "j2", status: "running", startedAt: 1 })];
-		const { component } = makeComponent(jobs, { logs: () => ({ lines: ["x"] }) });
-		// First row is j2; open its log.
-		component.handleInput("l");
-		expect(component.currentLogId()).toBe("j2");
-		// j2 finishes and sinks, so index 0 now points at j1.
-		jobs = [
-			job({ id: "j1", status: "running", startedAt: 0 }),
-			job({ id: "j2", status: "exited", exitCode: 0, startedAt: 1, finishedAt: 5, pid: null }),
-		];
-		expect(component.currentLogId()).toBe("j2");
-	});
-
 	test("shows a counts summary and a focused detail pane", () => {
 		const jobs = [
-			job({ id: "j1", status: "running", lastLine: "compiled 42 modules" }),
-			job({ id: "j0", status: "failed", exitCode: 1, pid: null, startedAt: -5000 }),
+			record({ id: "j1", status: "running", lastLine: "compiled 42 modules" }),
+			record({ id: "j0", status: "failed", exitCode: 1, pid: null, startedAt: -5000 }),
 		];
 		const { component } = makeComponent(jobs, {});
 		const text = component.render(70).join("\n");
@@ -235,16 +224,9 @@ describe("JobListComponent", () => {
 		expect(text).toContain("last: compiled 42 modules");
 	});
 
-	test("opening logs reads and renders the pane", () => {
-		const { component } = makeComponent([job()], { logs: () => ({ lines: ["line one", "line two"] }) });
-		component.handleInput("l");
-		expect(component.currentLogId()).toBe("j1");
-		expect(component.render(40).join("\n")).toContain("line two");
-	});
-
 	test("shows whether the log pane follows the tail or is paused", () => {
 		const lines = Array.from({ length: 30 }, (_, i) => `line ${i}`);
-		const { component } = makeComponent([job()], { logs: () => ({ lines }) });
+		const { component } = makeComponent([record()], { logs: () => ({ lines }) });
 		component.handleInput("l");
 		expect(component.render(80).join("\n")).toContain("following");
 		component.handleInput("\u001b[A"); // scroll up one line
@@ -252,13 +234,13 @@ describe("JobListComponent", () => {
 	});
 
 	test("the log header names the job", () => {
-		const { component } = makeComponent([job()], { logs: () => ({ lines: [] }) });
+		const { component } = makeComponent([record()], { logs: () => ({ lines: [] }) });
 		component.handleInput("l");
 		expect(component.render(60).join("\n")).toContain("Job Logs · j1 build");
 	});
 
 	test("the log pane names the log file and notes a bounded tail", () => {
-		const { component } = makeComponent([job()], { logs: () => ({ lines: ["a", "b"], more: true }) });
+		const { component } = makeComponent([record()], { logs: () => ({ lines: ["a", "b"], more: true }) });
 		component.handleInput("l");
 		const text = component.render(80).join("\n");
 		expect(text).toContain("/tmp/j1.log");
@@ -266,7 +248,7 @@ describe("JobListComponent", () => {
 	});
 
 	test("omits the tail note when the whole log fits", () => {
-		const { component } = makeComponent([job()], { logs: () => ({ lines: ["a"], more: false }) });
+		const { component } = makeComponent([record()], { logs: () => ({ lines: ["a"], more: false }) });
 		component.handleInput("l");
 		const text = component.render(80).join("\n");
 		expect(text).toContain("/tmp/j1.log");
@@ -276,7 +258,7 @@ describe("JobListComponent", () => {
 	test("does not repaint the log pane when the tail is unchanged", () => {
 		let renders = 0;
 		const component = new JobListComponent(
-			() => [job()],
+			() => [record()],
 			fakeTheme,
 			{ sessionId: () => "s1", logs: () => ({ lines: ["a", "b"] }), kill: () => {}, clear: () => {} },
 			() => {},
@@ -294,97 +276,16 @@ describe("JobListComponent", () => {
 	});
 
 	test("shows the no-output note for an empty log tail", () => {
-		const { component } = makeComponent([job()], { logs: () => ({ lines: [] }) });
+		const { component } = makeComponent([record()], { logs: () => ({ lines: [] }) });
 		component.handleInput("l");
 		expect(component.render(40).join("\n")).toContain("No output yet.");
 	});
 
 	test("log pane shows raw lines, not the model-facing header", () => {
-		const { component } = makeComponent([job()], { logs: () => ({ lines: ["line one", "line two"] }) });
+		const { component } = makeComponent([record()], { logs: () => ({ lines: ["line one", "line two"] }) });
 		component.handleInput("l");
 		const text = component.render(40).join("\n");
 		expect(text).toContain("line two");
 		expect(text).not.toContain("output:");
-	});
-
-	test("clamps scroll when the list shrinks under it", () => {
-		let jobs = Array.from({ length: 20 }, (_, i) => job({ id: `j${i}`, status: "exited", exitCode: 0, startedAt: i }));
-		const component = new JobListComponent(
-			() => jobs,
-			fakeTheme,
-			{ sessionId: () => "s1", logs: () => ({ lines: [] }), kill: () => {}, clear: () => {} },
-			() => {},
-			() => {},
-			12, // visible = 4
-		);
-		for (let i = 0; i < 10; i++) component.handleInput("j");
-		jobs = jobs.slice(18);
-		const rendered = component.render(40).join("\n");
-		expect(rendered).toContain("j19");
-		expect(rendered).toContain("j18");
-		expect(rendered).not.toMatch(/showing \d+–\d+ of 2/);
-	});
-
-	test("pages and jumps the selection", () => {
-		const jobs = Array.from({ length: 20 }, (_, i) =>
-			job({ id: `j${i}`, status: "exited", exitCode: 0, startedAt: i }),
-		);
-		const { component } = makeComponent(jobs, {}, 12);
-		component.render(40);
-		component.handleInput("\u001b[6~"); // page down
-		component.handleInput("\u001b[F"); // end
-		expect(component.render(40).join("\n")).toContain("j0"); // newest finished sorts first
-		component.handleInput("\u001b[H"); // home
-		expect(component.render(40).join("\n")).toContain("j19"); // oldest finished sorts last
-	});
-
-	test("header never exceeds a narrow viewport", () => {
-		const { component } = makeComponent([job()], {});
-		for (const line of component.render(8)) {
-			expect(visibleWidth(line)).toBeLessThanOrEqual(8);
-		}
-	});
-
-	test("the wheel moves the selection", () => {
-		const jobs = Array.from({ length: 10 }, (_, i) =>
-			job({ id: `j${i}`, label: `label${i}`, status: "exited", exitCode: 0, startedAt: i }),
-		);
-		const { component } = makeComponent(jobs, {}, 12);
-		component.render(40);
-		expect(component.handleMouse({ type: "wheel", wheelDelta: 1 } as any)).toEqual({ handled: true });
-		const selected = component.render(40).find((line) => line.startsWith("❯"));
-		expect(selected).toContain("label8");
-		expect(component.handleMouse({ type: "click", button: "left" } as any)).toBeUndefined();
-	});
-
-	test("keeps the close hint on a narrow list screen", () => {
-		const { component } = makeComponent([job()], {});
-		const text = component.render(60).join("\n");
-		expect(text).toContain("Esc close");
-		expect(text).not.toContain("x clear finished");
-	});
-
-	test("keeps the back hint on a narrow log screen", () => {
-		const { component } = makeComponent([job()], { logs: () => ({ lines: ["a"] }) });
-		component.handleInput("l");
-		const text = component.render(30).join("\n");
-		expect(text).toContain("Esc back");
-		expect(text).not.toContain("PgUp/PgDn");
-	});
-
-	test("escape closes the screen from list mode", () => {
-		let closed = 0;
-		const component = new JobListComponent(
-			() => [job()],
-			fakeTheme,
-			{ sessionId: () => "s1", logs: () => ({ lines: [] }), kill: () => {}, clear: () => {} },
-			() => {
-				closed++;
-			},
-			() => {},
-			12,
-		);
-		component.handleInput("\u001b");
-		expect(closed).toBe(1);
 	});
 });
