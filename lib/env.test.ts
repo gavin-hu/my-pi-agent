@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync } from "node:fs";
 import { join } from "node:path";
-import { withEnv } from "../test/helpers/env.ts";
+import { tempDir as makeTempDir, withEnv } from "../test/helpers/env.ts";
 import {
 	ENV_DISABLED_EXTENSIONS,
 	ENV_OFFLINE,
@@ -16,7 +15,7 @@ import {
 const tempDirs: string[] = [];
 
 function tempDir(): string {
-	const dir = mkdtempSync(join(tmpdir(), "pi-worktree-env-"));
+	const dir = makeTempDir("pi-worktree-env-");
 	tempDirs.push(dir);
 	return dir;
 }

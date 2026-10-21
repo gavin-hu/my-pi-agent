@@ -13,10 +13,7 @@ import { describe, expect, test } from "bun:test";
 import { REQUIREMENTS } from "../lib/requirements.ts";
 import { SHARED_CONFIG_FILE } from "../lib/config.ts";
 import { allowsAt } from "./helpers/comments.ts";
-import { walkFiles } from "./helpers/files.ts";
-
-/** Normalise separators so path comparisons work on Windows too. */
-const posix = (p: string): string => p.replaceAll("\\", "/");
+import { posix, walkFiles } from "./helpers/files.ts";
 
 /**
  * A path in posix form, from parts that may arrive with either separator.
