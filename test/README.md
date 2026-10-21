@@ -134,6 +134,11 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
   extend the same idea to timestamps and identifiers.
 - No `setTimeout` / `setInterval` in tests; use `settle()` to drain pending
   work.
+- A deadline is a seam, not a short real timer. A test that gives a reload 40 ms
+  to reconnect fails when the runner is busy, which says nothing about the code;
+  inject the one-shot timer (`lib/timer.ts`), fire it from the test, and assert
+  what the code did with it. `settle()` stays for draining work whose completion
+  point is already known.
 - No `Date.now()` / `new Date()` in tests; inject `makeClock` (`helpers/clock.ts`).
 - No real network. Drive request handlers / routers directly; web-access injects
   its HTTP fetch.

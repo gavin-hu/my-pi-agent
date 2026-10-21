@@ -396,6 +396,13 @@ GitHub marks the release with the newest creation date as "Latest", so after
 creating a release for an older version run `gh release edit vX.Y.Z --latest` on
 the newest tag. Publishing a draft does not change which release is latest.
 
+If the tagged tree turns out to be broken and nothing has been published yet, fix
+it and move the tag onto the fix (`git push --force-with-lease origin vX.Y.Z`,
+then recreate the release notes): the tag is the artifact, and it costs one push.
+After a dispatch the version is public, so the fix is the next version — and read
+that version's window first, because a tag whose window has accumulated feature
+bullets is a mis-numbered minor, not the patch its number claims.
+
 `publishConfig.access` is `public`, so the scoped package is published publicly.
 The workflow names the registry explicitly for the same reason the local flow
 used to: a machine whose default registry is a read-only mirror (for example
