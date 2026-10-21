@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT_TOOL_NAMES } from "./root-tools.ts";
 import { WORKTREE_TOOLS } from "./tools.ts";
-import { makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
+import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
 import {
 	bootWorktree,
 	emitEvent,
@@ -259,5 +259,37 @@ describe.skipIf(!runSlowSuites)("worktree isolation gaps", () => {
 
 		expect(text).toContain("Not in a worktree.");
 		expect(text).not.toContain("Not isolated:");
+	});
+});
+
+describe.skipIf(!runSlowSuites)("managed worktree status", () => {
+	test("keeps every row with its own branch while the rows are gathered together", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-rows-"));
+		const names = ["alpha", "beta", "gamma"];
+		// Created with git directly: a session may sit in one worktree at a time, and
+		// the status reads the managed set from git, not from this session's state.
+		for (const name of names) {
+			await execP("git", ["worktree", "add", "-q", join(repo, ".pi", "worktrees", name), "-b", `worktree-${name}`], {
+				cwd: repo,
+			});
+		}
+		// One checkout is dirty, so the marks prove each row was read for its own
+		// path rather than for whichever row happened to finish first.
+		writeFileSync(join(repo, ".pi", "worktrees", "beta", "dirty.txt"), "x\n");
+
+		const harness = await bootWorktree(repo);
+		const result = await harness.run(WORKTREE_TOOLS.list);
+		const text = String(result.content[0]?.text ?? "");
+		expect(text).toContain("Managed worktrees (3):");
+
+		const rows = text.split("\n").filter((line) => line.includes("worktree-"));
+		expect(rows).toHaveLength(3);
+		for (const name of names) {
+			const row = rows.filter((line) => line.includes(`worktree-${name}`));
+			expect(row).toHaveLength(1);
+			expect(row[0]).toContain(join(repo, ".pi", "worktrees", name));
+		}
+		expect(rows.filter((line) => line.includes("worktree-beta"))[0]).toContain("dirty (");
+		expect(rows.filter((line) => line.includes("worktree-alpha"))[0]).not.toContain("dirty (");
 	});
 });

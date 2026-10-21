@@ -6,9 +6,10 @@
 import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { realPathOfNearest } from "../../lib/path.ts";
+import { mapConcurrent } from "../../lib/pool.ts";
 import { loadConfig } from "./config.ts";
 import { gapLines, isolationGaps } from "./gaps.ts";
-import { type CheckoutCheck, defaultBranch, listManagedWorktrees, repoRoot } from "./git.ts";
+import { type CheckoutCheck, defaultBranch, listManagedWorktrees, type ManagedWorktree, repoRoot } from "./git.ts";
 import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
 import { configFor, getActive, getInactiveOverrides, getUnverifiableCommands } from "./runtime.ts";
 import type { WorktreeState } from "./state.ts";
@@ -115,15 +116,19 @@ export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): P
 		const { registry } = reconcileRegistry(root, config, managed, { persist: false });
 		const baseBranch = await defaultBranch(pi, root);
 		const baseRef = baseBranch ? `origin/${baseBranch}` : undefined;
-		lines.push("", `Managed worktrees (${managed.length}):`);
-		for (const entry of managed) {
-			const record = registry.worktrees.find((candidate) => candidate.path === realPathOfNearest(entry.path));
-			const status = await statusOf(pi, entry, { baseRef, record });
+		// Keyed by the canonical path the registry stores, so a row's record is one
+		// lookup instead of a scan of every record.
+		const records = new Map(registry.worktrees.map((record) => [record.path, record]));
+		const row = async (entry: ManagedWorktree): Promise<string> => {
+			const path = realPathOfNearest(entry.path);
+			const status = await statusOf(pi, entry, { baseRef, record: records.get(path) });
 			const marks = statusMarks(status, current?.path === entry.path);
-			lines.push(
-				`  ${entry.path}  ${entry.branch ?? ""}${marks.length > 0 ? `  [${marks.join(", ")}]` : ""}`.trimEnd(),
-			);
-		}
+			return `  ${entry.path}  ${entry.branch ?? ""}${marks.length > 0 ? `  [${marks.join(", ")}]` : ""}`.trimEnd();
+		};
+		// Each row is up to four git reads; four at a time keeps the list in the order
+		// git reports while overlapping the waits. `statusOf` passes no `env`, which is
+		// what makes concurrent git calls safe here (see `RunGitOptions.env`).
+		lines.push("", `Managed worktrees (${managed.length}):`, ...(await mapConcurrent(managed, 4, row)));
 	}
 	return lines.join("\n");
 }
