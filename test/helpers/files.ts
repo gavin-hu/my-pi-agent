@@ -10,7 +10,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /** Normalise separators so path comparisons work on Windows too. */
-const posix = (path: string): string => path.replaceAll("\\", "/");
+export const posix = (path: string): string => path.replaceAll("\\", "/");
 
 /** Every file under `dir`, recursively, posix-normalized and sorted. */
 export function walkFiles(dir: string, out: string[] = []): string[] {

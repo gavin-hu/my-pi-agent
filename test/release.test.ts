@@ -25,7 +25,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { walkFiles } from "./helpers/files.ts";
+import { posix, walkFiles } from "./helpers/files.ts";
 
 const repo = join(import.meta.dir, "..");
 
@@ -96,9 +96,6 @@ const newestTag = newest(tagVersions() ?? []);
 
 /** A `git:github.com/gavin-hu/my-pi-agent@vX.Y.Z` install pin. */
 const PIN = /github\.com\/gavin-hu\/my-pi-agent@(v\d+\.\d+\.\d+)/g;
-
-/** Normalise separators so a reported path reads the same on Windows. */
-const posix = (path: string): string => path.replaceAll("\\", "/");
 
 /**
  * The docs that offer a copy-paste pin: the two entry READMEs and every page

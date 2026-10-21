@@ -55,12 +55,14 @@ gate is stated in the test.
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
    `test/tool-render.test.ts`, `test/roadmap.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
-   `test/drift.test.ts`, `test/shared-helpers.test.ts`) — cross-cutting
+   `test/drift.test.ts`, `test/shared-helpers.test.ts`,
+   `test/config-docs.test.ts`, `test/settings-coverage.test.ts`) — cross-cutting
    contracts. No extension test may duplicate these. `shared-helpers.test.ts`
    fails an extension that reimplements what `lib/` owns, by name or by body, and
-   pins its two exception maps; `drift.test.ts` keeps every `lib/` module in the
-   `lib/README.md` index and `AGENTS.md` inside its word budget; the module line
-   bar and its `LONG_MODULES` heights live in `structure.test.ts`.
+   a test that re-declares or copies a `test/helpers` export, and pins its
+   exception maps; `drift.test.ts` keeps every `lib/` module in the `lib/README.md`
+   index and `AGENTS.md` inside its word budget; the module line bar and its
+   `LONG_MODULES` heights live in `structure.test.ts`.
    `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
    and that a second render of the same component at the same width returns the
@@ -240,9 +242,14 @@ test/
   drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
-  shared-helpers.test.ts   # no extension reimplements a lib helper or copies another extension's body
+  shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
+  config-docs.test.ts      # the configuration reference against the loaders
+  release.test.ts          # package version, changelog heading, and newest tag
+  roadmap.test.ts          # ROADMAP.md ids, links, and per-horizon caps
+  settings-coverage.test.ts # the settings catalogue against the config loaders
+  tool-render.test.ts      # every tool's call and result through the shared frame
 ```
 
 Rules:

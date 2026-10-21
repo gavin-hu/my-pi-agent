@@ -1,19 +1,24 @@
 /**
- * Shared-helper guard: an extension must not reimplement what `lib/` owns.
+ * Shared-helper guard: an extension must not reimplement what `lib/` owns, and a
+ * test must not re-declare what `test/helpers/` owns.
  *
- * Two rules, both over top-level functions and function-valued constants in
- * non-test TypeScript:
+ * Three rules, over top-level functions and function-valued constants:
  *
  *   1. A local declaration whose name is also exported by `lib/` is a
  *      reimplementation, unless the declaration is a reviewed exception.
  *   2. A local body identical to an exported `lib/` body, or to a body in a
- *      different extension, is a copy. Bodies are compared as normalized token
- *      sequences, comments and whitespace removed, with a small token floor.
+ *      different extension, is a copy.
+ *   3. A `*.test.ts` declaration whose name is exported by `test/helpers/**` is
+ *      a re-declaration, and one whose body matches an exported helper body is a
+ *      copy. Only exported helpers count: a private fixture helper cannot be
+ *      imported.
  *
- * Rule 2 catches a copy in the pull request that introduces it, before the two
- * copies can diverge. A copy that is later renamed *and* changed is review
- * territory; the guard deliberately stays exact to keep legitimate wrappers
- * (`sanitizeInbound`, `buildCommand`, `formatElapsed`) out of the report.
+ * Bodies are compared as normalized token sequences, comments and whitespace
+ * removed, with a small token floor. The guards catch a copy in the pull request
+ * that introduces it, before the two copies can diverge. A copy that is later
+ * renamed *and* changed is review territory; they deliberately stay exact to
+ * keep legitimate wrappers (`sanitizeInbound`, `buildCommand`, `formatElapsed`)
+ * out of the report.
  *
  * The guard is a CI check only: it runs as part of `bun test`, which
  * `bun run check` and the CI workflow already run. There is no runtime hook.
@@ -71,7 +76,7 @@ const SAME_NAME_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
  */
 const SAME_BODY_EXCEPTIONS: ReadonlyMap<string, string> = new Map([]);
 
-type Surface = "lib" | "extension";
+type Surface = "lib" | "extension" | "test";
 
 interface Source {
 	/** Repo-relative, posix-normalized. */
@@ -89,6 +94,8 @@ interface Declaration {
 	/** Normalized token fingerprint. */
 	body: string;
 	tokens: number;
+	/** Whether the declaration is exported, so a test could import it. */
+	exported: boolean;
 }
 
 function extensionOf(path: string): string {
@@ -110,12 +117,19 @@ function fingerprint(body: ts.Node, file: ts.SourceFile): { body: string; tokens
 	return { body: tokens.join("\u0000"), tokens: tokens.length };
 }
 
+/** Whether a top-level declaration is exported, so a test could import it. */
+function isExported(node: ts.Node): boolean {
+	return (
+		ts.canHaveModifiers(node) && (ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false)
+	);
+}
+
 /** Top-level function declarations and `const name = function/arrow` declarations. */
 function declarationsOf(source: Source): Declaration[] {
 	const file = ts.createSourceFile(source.path, source.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 	const found: Declaration[] = [];
 
-	const add = (name: ts.Identifier | undefined, body: ts.ConciseBody | undefined): void => {
+	const add = (name: ts.Identifier | undefined, body: ts.ConciseBody | undefined, exported: boolean): void => {
 		if (name === undefined || body === undefined) return;
 		const print = fingerprint(body, file);
 		found.push({
@@ -123,20 +137,22 @@ function declarationsOf(source: Source): Declaration[] {
 			surface: source.surface,
 			extension: source.surface === "extension" ? extensionOf(source.path) : "",
 			name: name.text,
+			exported,
 			...print,
 		});
 	};
 
 	for (const statement of file.statements) {
 		if (ts.isFunctionDeclaration(statement)) {
-			add(statement.name, statement.body);
+			add(statement.name, statement.body, isExported(statement));
 			continue;
 		}
 		if (!ts.isVariableStatement(statement)) continue;
+		const exported = isExported(statement);
 		for (const declaration of statement.declarationList.declarations) {
 			if (!ts.isIdentifier(declaration.name) || declaration.initializer === undefined) continue;
 			if (!ts.isArrowFunction(declaration.initializer) && !ts.isFunctionExpression(declaration.initializer)) continue;
-			add(declaration.name, declaration.initializer.body);
+			add(declaration.name, declaration.initializer.body, exported);
 		}
 	}
 	return found;
@@ -208,6 +224,79 @@ export function findViolations(
 	return [...new Set(violations)].sort();
 }
 
+/**
+ * Legitimate same-name test doubles: the local shape differs from the helper's,
+ * so sharing would be wrong. Keyed by `<repo-relative path>:<symbol>`; a real
+ * copy is imported instead.
+ */
+const TEST_HELPER_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
+	[
+		"extensions/bytefly/footer/collect/snapshot.test.ts:makeCtx",
+		"builds a footer snapshot context; the fixture makeCtx belongs to the job, watch, and rewind runtimes",
+	],
+	[
+		"extensions/bytefly/working/register.test.ts:fakeCtx",
+		"records setWorkingMessage, which the shared fakeCtx does not expose",
+	],
+	[
+		"extensions/plan/plans.test.ts:tempDir",
+		"canonicalizes with realpathSync.native so Windows 8.3 names compare equal",
+	],
+	[
+		"extensions/subagent/agents.test.ts:tempDir",
+		"registers the directory for per-test cleanup; delegates to env.tempDir",
+	],
+	[
+		"extensions/wechat/client.test.ts:jsonResponse",
+		"returns the wechat client's { status, headers, text } shape, not web-access's body",
+	],
+	[
+		"extensions/wechat/interaction.test.ts:fakeTimers",
+		"arm and fire ids for the interaction scheduler; the fixture models bridge unref timers",
+	],
+	[
+		"extensions/wechat/timer.test.ts:fakeTimers",
+		"records armed and cancelled ids; the fixture models bridge unref timers",
+	],
+	["lib/env.test.ts:tempDir", "registers the directory for per-test cleanup; delegates to env.tempDir"],
+]);
+
+/**
+ * Rule 3: a test file must not re-declare an exported `test/helpers` name, or
+ * copy its body under another name. `helpers` are the owners, `tests` the files
+ * under scrutiny.
+ */
+export function findTestHelperCopies(
+	tests: readonly Source[],
+	helpers: readonly Source[],
+	exceptions: ReadonlyMap<string, string> = TEST_HELPER_EXCEPTIONS,
+): string[] {
+	const exported = helpers.flatMap(declarationsOf).filter((entry) => entry.exported);
+	const byName = new Map(exported.map((entry) => [entry.name, entry]));
+	const byBody = new Map<string, Declaration>();
+	for (const entry of exported) {
+		if (entry.tokens >= MIN_TOKENS && !byBody.has(entry.body)) byBody.set(entry.body, entry);
+	}
+
+	const violations: string[] = [];
+	for (const declaration of tests.flatMap(declarationsOf)) {
+		if (exceptions.has(`${declaration.path}:${declaration.name}`)) continue;
+		const sameName = byName.get(declaration.name);
+		if (sameName !== undefined) {
+			violations.push(
+				`${declaration.path}:${declaration.name} re-declares a test helper; import ${sameName.name} from ${sameName.path}`,
+			);
+			continue;
+		}
+		if (declaration.tokens < MIN_TOKENS) continue;
+		const sameBody = byBody.get(declaration.body);
+		if (sameBody !== undefined) {
+			violations.push(`${declaration.path}:${declaration.name} copies ${sameBody.path}:${sameBody.name}; import it`);
+		}
+	}
+	return [...new Set(violations)].sort();
+}
+
 function sourceOf(path: string, text: string): Source {
 	return { path, surface: path.startsWith("lib/") ? "lib" : "extension", text };
 }
@@ -221,6 +310,32 @@ function repoSources(): Source[] {
 		const path = relative(repo, file).replaceAll("\\", "/");
 		return sourceOf(path, readFileSync(file, "utf-8"));
 	});
+}
+
+/** Every `*.test.ts` file under `lib/`, `extensions/`, and `test/`. */
+function testSources(): Source[] {
+	const files = [
+		...walkFiles(join(repo, "lib")),
+		...walkFiles(join(repo, "extensions")),
+		...walkFiles(join(repo, "test")),
+	].filter((file) => file.endsWith(".test.ts"));
+	return files.map((file) => ({
+		path: relative(repo, file).replaceAll("\\", "/"),
+		surface: "test" as const,
+		text: readFileSync(file, "utf-8"),
+	}));
+}
+
+/** Every non-test module under `test/helpers/`, the owners of the doubles. */
+function helperSources(): Source[] {
+	const files = walkFiles(join(repo, "test", "helpers")).filter(
+		(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
+	);
+	return files.map((file) => ({
+		path: relative(repo, file).replaceAll("\\", "/"),
+		surface: "test" as const,
+		text: readFileSync(file, "utf-8"),
+	}));
 }
 
 const libFixture = `
@@ -312,5 +427,86 @@ describe("shared-helper guard", () => {
 		expect(declarations.filter((entry) => entry.surface === "lib").length).toBeGreaterThan(50);
 		expect(declarations.filter((entry) => entry.surface === "extension").length).toBeGreaterThan(100);
 		expect(findViolations(sources)).toEqual([]);
+	});
+
+	const helperSettleFixture = `
+export const settle = (ms = 0): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+`;
+
+	test("fails a test that re-declares a helper by name", () => {
+		const violations = findTestHelperCopies(
+			[
+				sourceOf(
+					"extensions/a/x.test.ts",
+					"const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));",
+				),
+			],
+			[sourceOf("test/helpers/process.ts", helperSettleFixture)],
+			new Map(),
+		);
+		expect(violations).toHaveLength(1);
+		expect(violations[0]).toContain("re-declares a test helper; import settle from test/helpers/process.ts");
+	});
+
+	test("fails a renamed copy of a helper body", () => {
+		const violations = findTestHelperCopies(
+			[sourceOf("extensions/a/x.test.ts", libFixture.replace("clip", "trim"))],
+			[sourceOf("test/helpers/format.ts", libFixture)],
+			new Map(),
+		);
+		expect(violations).toHaveLength(1);
+		expect(violations[0]).toContain("copies test/helpers/format.ts:clip");
+	});
+
+	test("ignores a private helper declaration", () => {
+		const violations = findTestHelperCopies(
+			[
+				sourceOf(
+					"extensions/a/x.test.ts",
+					"const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));",
+				),
+			],
+			[sourceOf("test/helpers/process.ts", helperSettleFixture.replace("export const", "const"))],
+			new Map(),
+		);
+		expect(violations).toEqual([]);
+	});
+
+	test("honours a reasoned test-helper exception", () => {
+		const violations = findTestHelperCopies(
+			[
+				sourceOf(
+					"extensions/a/x.test.ts",
+					"const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));",
+				),
+			],
+			[sourceOf("test/helpers/process.ts", helperSettleFixture)],
+			new Map([["extensions/a/x.test.ts:settle", "a different timer shape"]]),
+		);
+		expect(violations).toEqual([]);
+	});
+
+	test("every test-helper exception names a declaration that still exists", () => {
+		const known = new Set(
+			testSources()
+				.flatMap(declarationsOf)
+				.map((entry) => `${entry.path}:${entry.name}`),
+		);
+		const missing = [...TEST_HELPER_EXCEPTIONS.keys()].filter((key) => !known.has(key));
+		expect(missing, "delete the exception: the declaration it names is gone").toEqual([]);
+	});
+
+	test("the test-helper exception list has no room to grow", () => {
+		expect(TEST_HELPER_EXCEPTIONS.size).toBe(8);
+	});
+
+	test("the suite has no test-helper drift", () => {
+		const tests = testSources();
+		const helpers = helperSources();
+		const exported = helpers.flatMap(declarationsOf).filter((entry) => entry.exported);
+		// A parser that stopped finding helpers or tests would make the check vacuous.
+		expect(exported.length).toBeGreaterThan(50);
+		expect(tests.flatMap(declarationsOf).length).toBeGreaterThan(200);
+		expect(findTestHelperCopies(tests, helpers)).toEqual([]);
 	});
 });
