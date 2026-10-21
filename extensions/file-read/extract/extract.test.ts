@@ -1,5 +1,5 @@
 /**
- * Document extraction capability suite.
+ * File-read extraction capability suite.
  *
  * Two halves: the pure text builders each parser exposes (`normalizeBodyText`,
  * `odtXmlToText`, `rtfDocumentToText`, `cellToText`, `sheetsToText`) and the
@@ -14,15 +14,15 @@ import { Workbook } from "exceljs";
 import { strToU8, zipSync } from "fflate";
 import { extractDocText } from "./doc.ts";
 import { extractDocxText } from "./docx.ts";
-import { normalizeBodyText, readDocBytes } from "./file.ts";
+import { normalizeBodyText, readFormatBytes } from "./file.ts";
 import { extractOdtText, odtXmlToText } from "./odt.ts";
 import { extractPdfDocument } from "./pdf.ts";
 import { extractRtfText, rtfDocumentToText } from "./rtf.ts";
 import { cellToText, extractXlsxText, sheetsToText } from "./xlsx.ts";
-import { makeDocumentFixture } from "../../../test/helpers/fixtures/document.ts";
+import { makeReadFixture } from "../../../test/helpers/fixtures/file-read.ts";
 import { buildDocx, buildOdt, buildPdf, buildRtf, legacyDocBytes } from "../../../test/helpers/fixtures/documents.ts";
 
-const fixture = makeDocumentFixture();
+const fixture = makeReadFixture();
 afterAll(() => fixture.remove());
 
 /** An ODT `content.xml` wrapping `body` in the office/text namespaces. */
@@ -60,14 +60,14 @@ describe("body normalization", () => {
 describe("file reads", () => {
 	test("reads the file as bytes", async () => {
 		const path = fixture.write("bytes.bin", "hello");
-		expect(await readDocBytes({ path })).toEqual(new TextEncoder().encode("hello"));
+		expect(await readFormatBytes({ path })).toEqual(new TextEncoder().encode("hello"));
 	});
 
 	test("refuses to start when the signal is already aborted", async () => {
 		const path = fixture.write("aborted.bin", "hello");
 		const controller = new AbortController();
 		controller.abort();
-		await expect(readDocBytes({ path, signal: controller.signal })).rejects.toThrow();
+		await expect(readFormatBytes({ path, signal: controller.signal })).rejects.toThrow();
 	});
 });
 

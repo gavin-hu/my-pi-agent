@@ -202,7 +202,7 @@ either structural or later work. This section contributes no `Next` item.
   paging, `find`, per-hop SSRF checks, optional PDF.
 - `file-browse`: loopback read-only browser with Markdown preview, a diff view,
   quick open, and live status streamed to an open page.
-- `document`: in-process PDF/DOCX/DOC/ODT/RTF/XLSX extraction, paged.
+- `file-read`: in-process PDF/DOCX/DOC/ODT/RTF/XLSX extraction, paged.
 - `file-open`: native open and reveal on three operating systems.
 - `wechat`: one Pi session per peer, inbound text/images/files, remote dialogs,
   and streaming replies.
@@ -210,7 +210,7 @@ either structural or later work. This section contributes no `Next` item.
 **Where the promise is thin**
 
 - `read_doc` has no OCR, and its extraction deadline cannot preempt a parser
-  that never yields to the event loop (`document` README).
+  that never yields to the event loop (`file-read` README).
 - Web search quality depends on the provider; the keyless default returns
   answers and related topics, not a result list (`web-access` README).
 - WeChat runs one turn at a time across peers, has no group chat, and cannot
@@ -229,7 +229,7 @@ Nothing here is queued: the search provider's configuration is now reported by
 
 **Later**
 
-- **W1 — PPTX and EPUB.** Add both to the `document` registry using libraries
+- **W1 — PPTX and EPUB.** Add both to the `file-read` registry using libraries
   already present where possible (`fflate`, `fast-xml-parser`), lazily imported.
   This reverses a documented non-goal; approve before building.
 - **W2 — Per-peer WeChat concurrency.** Give each peer its own interaction
@@ -324,7 +324,7 @@ provenance-attested path. This section contributes no `Next` item.
 **Later**
 
 - **F1 — Dependency budget.** A check that a new runtime dependency is
-  lazy-loaded unless it is needed at registration, matching the `document` and
+  lazy-loaded unless it is needed at registration, matching the `file-read` and
   `web-access` pattern.
 - **F2 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
@@ -361,8 +361,8 @@ it.
 | `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |
 | `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. Revisit if a dropped note becomes invisible. |
 | `web-access`: the keyless search returns answers and related topics rather than a result list | That is the provider's shape, not a parsing gap; SearXNG and Brave return a list. Revisit if the keyless default changes. |
-| `document`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
-| `document`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
+| `file-read`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
+| `file-read`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit with `C2`, which would widen the picker. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. `C2` decides the picker's scope, not this. |
 | `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C3`. |

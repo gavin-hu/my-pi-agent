@@ -37,7 +37,7 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
 - **绝不搞乱检出区。** 隔离只需一条命令：任务切到自己分支的 `git worktree` 中，
   每次提示还会生成快照，因此一次糟糕的回合只需一个 `/rewind` 就能回退。
 - **跨会话记忆。** 持久笔记以纯 Markdown 保存，可读、可改、可纳入版本控制。
-- **连通网络与文件。** 在会话内搜索、抓取、浏览、打开和读取文档，还可通过桥接
+- **连通网络与文件。** 在会话内搜索、抓取、浏览、打开和读取文档与表格，还可通过桥接
   在微信里直接回答当前会话。
 
 一切都是可选的，且可独立开关。没有任何东西被分叉，也没有修改已安装的 Pi 文件：
@@ -111,7 +111,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 |---|---|---|
 | [`web-access`](./extensions/web-access/) | `web_search`, `web_fetch` | 搜索网络（默认无密钥的 DuckDuckGo，可选 SearXNG 或 Brave），并把页面抓取为可读文本，支持分页、`find`、逐跳 SSRF 检查以及可选的 PDF 支持。 |
 | [`file-browse`](./extensions/file-browse/) | `/browse` | 启动一个以工作目录为根的本地回环、只读文件浏览器，带 Markdown 预览、模糊快速打开面板，以及为常开页面提供的实时状态。 |
-| [`document`](./extensions/document/) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
+| [`file-read`](./extensions/file-read/) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
 | [`file-open`](./extensions/file-open/) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
 | [`wechat`](./extensions/wechat/) | `/wechat`, `send_wechat` | 通过微信 iLink 机器人 API 把微信聊天桥接到实时会话；入站文本、图片和文件会变成回合。 |
 

@@ -44,7 +44,7 @@ export const PACKAGE_EXTENSIONS = [
 	"job",
 	"web-access",
 	"file-browse",
-	"document",
+	"file-read",
 	"file-open",
 	"memory",
 	"wechat",

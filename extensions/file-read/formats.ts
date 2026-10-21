@@ -1,14 +1,14 @@
 /**
- * The supported document formats, in one table.
+ * The supported formats, in one table.
  *
  * The tool handler, the config defaults, the `formats` merge, and the
- * unsupported-file error all derive from `FORMATS`, so adding a format is a
- * local change: one extractor module plus one entry here. See the README's
- * "Adding a format" section.
+ * unsupported-file error all derive from `FORMATS`, so a format is a local
+ * change: one extractor module plus one entry here. See the README's "Adding a
+ * format" section.
  */
 
 import { extname } from "node:path";
-import type { DocExtractor } from "./extract/file.ts";
+import type { FormatExtractor } from "./extract/file.ts";
 import { extractDocText } from "./extract/doc.ts";
 import { extractDocxText } from "./extract/docx.ts";
 import { extractOdtText } from "./extract/odt.ts";
@@ -16,17 +16,17 @@ import { extractPdfDocument } from "./extract/pdf.ts";
 import { extractRtfText } from "./extract/rtf.ts";
 import { extractXlsxText } from "./extract/xlsx.ts";
 
-export interface DocumentFormat {
-	/** Stable id, also the `document.formats` key in `bytefly.json` and the output `format`. */
+export interface ReadFormat {
+	/** Stable id, also the `file-read.formats` key in `bytefly.json` and the output `format`. */
 	id: "pdf" | "docx" | "doc" | "odt" | "rtf" | "xlsx";
 	/** Human label for messages. */
 	label: string;
 	/** Lower-case extensions, with the dot, that select this format. */
 	extensions: readonly string[];
-	/** Enabled unless `document.formats[id]` in `bytefly.json` says otherwise. */
+	/** Enabled unless `file-read.formats[id]` in `bytefly.json` says otherwise. */
 	defaultEnabled: boolean;
 	/** Extractor; runs the format's parser and throws a readable error when it fails. */
-	extract: DocExtractor;
+	extract: FormatExtractor;
 }
 
 export const FORMATS = [
@@ -36,7 +36,7 @@ export const FORMATS = [
 	{ id: "odt", label: "ODT", extensions: [".odt"], defaultEnabled: true, extract: extractOdtText },
 	{ id: "rtf", label: "RTF", extensions: [".rtf"], defaultEnabled: true, extract: extractRtfText },
 	{ id: "xlsx", label: "XLSX", extensions: [".xlsx"], defaultEnabled: true, extract: extractXlsxText },
-] as const satisfies readonly DocumentFormat[];
+] as const satisfies readonly ReadFormat[];
 
 export type FormatId = (typeof FORMATS)[number]["id"];
 
@@ -46,7 +46,7 @@ export function supportedExtensions(): string[] {
 }
 
 /** The format selected by a path's extension, or undefined when unsupported. */
-export function detectFormat(path: string): DocumentFormat | undefined {
+export function detectFormat(path: string): ReadFormat | undefined {
 	const ext = extname(path).toLowerCase();
 	return FORMATS.find((format) => (format.extensions as readonly string[]).includes(ext));
 }

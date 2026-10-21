@@ -237,7 +237,7 @@ tools so they follow the active root; those are replacements, not additions.
 | `rewind` | — | `/rewind`, `/review` |
 | `memory` | `memory` | `/memory` |
 | `web-access` | `web_search`, `web_fetch` | — |
-| `document` | `read_doc` | — |
+| `file-read` | `read_doc` | — |
 | `file-browse` | — | `/browse` |
 | `file-open` | `open_path` (codemode) | `/open` |
 | `wechat` | `send_wechat` | `/wechat` |

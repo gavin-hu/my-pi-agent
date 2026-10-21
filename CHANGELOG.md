@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `file-read`: the `document` extension is renamed, so its name covers the
+  workbooks it has always read. The directory, the `pi` manifest entry, the
+  `PI_DISABLED_EXTENSIONS` name, and the `bytefly.json` section are now
+  `file-read`; `bun run config:migrate` renames an already-migrated `document`
+  section and moves a legacy `document.json` into it. The `read_doc` tool, its
+  schema, paging, rendering, and the six formats are unchanged.
+
 ## [0.15.1] - 2026-10-21
 
 ### Added

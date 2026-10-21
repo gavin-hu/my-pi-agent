@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-/** A scratch root for `read_doc` tests, with an escape hatch next to it. */
-export interface DocumentFixture {
+/** A scratch root for file-read tests, with an escape hatch next to it. */
+export interface ReadFixture {
 	root: string;
 	outside: string;
 	/** Write a file under the root (creating parents), returning its absolute path. */
@@ -11,7 +11,7 @@ export interface DocumentFixture {
 	remove(): void;
 }
 
-export function makeDocumentFixture(): DocumentFixture {
+export function makeReadFixture(): ReadFixture {
 	const base = mkdtempSync(join(tmpdir(), "pi-doc-"));
 	const root = join(base, "root");
 	const outside = join(base, "outside");

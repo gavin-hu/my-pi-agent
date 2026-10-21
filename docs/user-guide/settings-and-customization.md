@@ -40,10 +40,10 @@ and a health verdict. Under the focused row is that extension's report. Press
 Mouse scrolling works, and clicking a row focuses it. Every action also has a
 keyboard path.
 
-<img src="../../assets/bytefly.png" alt="The /bytefly control centre: the Extensions and Settings sections, one row per extension with its checkbox and health verdict, and the focused extension's report" width="100%">
+<img src="../../assets/bytefly.png" alt="The /bytefly control centre: the Extensions and Settings sections, one row per extension with its checkbox and health verdict, the missing-prerequisite badge on `worktree`, and the focused row's resource path" width="100%">
 
-*The control centre: switch an extension off with `Space`, and read its health
-underneath.*
+*The control centre: switch an extension off with `Space`, and read the selected
+row's report underneath when it has one.*
 
 ### Commands
 

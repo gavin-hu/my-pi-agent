@@ -482,14 +482,19 @@ export const PANEL_ITEMS: ResourceItem[] = [
 	packageExtension("todo", true),
 	packageExtension("job", true),
 	packageExtension("memory", true),
-	packageExtension("document", true),
+	packageExtension("file-read", true),
 	packageExtension("web-access", false),
 	packageExtension("wechat", false),
 ];
-/** Health for two rows: one degraded by a missing extractor, one clean. */
+/** Health for two extensions: one missing a hard prerequisite, one clean. */
 export const PANEL_REPORTS: ExtensionReport[] = [
-	makeReport("document", [
-		makeFinding("pdftotext", "missing", "PDF text extraction is unavailable", "brew install poppler"),
+	makeReport("worktree", [
+		makeFinding(
+			"git",
+			"missing",
+			"not found on PATH — worktree isolation",
+			"install git and make sure it is on PATH (https://git-scm.com/downloads).",
+		),
 	]),
 	makeReport("bytefly", [makeFinding("npm", "ok", "Latest published version 0.13.1")]),
 ];

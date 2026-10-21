@@ -1,5 +1,5 @@
 /**
- * Document tool capability suite.
+ * File-read tool capability suite.
  *
  * One suite over the `read_doc` surface and the modules it composes: config
  * loading and clamping, the format table, paging and the transcript summary, the
@@ -15,16 +15,17 @@ import { dirname, join } from "node:path";
 import { resetCapabilitiesCache, setCapabilities } from "@earendil-works/pi-tui";
 import { DEFAULT_CONFIG, isFormatEnabled, loadConfig, normalizeConfig } from "./config.ts";
 import { withDeadline } from "./deadline.ts";
-import type { DocExtractor } from "./extract/file.ts";
+import type { FormatExtractor } from "./extract/file.ts";
 import { FORMATS, detectFormat, supportedExtensions, unsupportedHint, type FormatId } from "./formats.ts";
-import document from "./index.ts";
-import { formatDoc, summarizeDoc } from "./paging.ts";
-import { formatDocCall, previewText, renderDocPath } from "./render.ts";
-import { registerDocTool, TOOL_NAME } from "./tool.ts";
+import fileRead from "./index.ts";
+import { formatPage, summarizeRead } from "./paging.ts";
+import { formatReadCall, previewText, renderReadPath } from "./render.ts";
+import { registerReadTool } from "./tool.ts";
+import { TOOL_NAME } from "./schema.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
-import { makeDocumentFixture } from "../../test/helpers/fixtures/document.ts";
+import { makeReadFixture } from "../../test/helpers/fixtures/file-read.ts";
 import { buildPdf, legacyDocBytes } from "../../test/helpers/fixtures/documents.ts";
 import { tempDir, useEnv, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
@@ -33,9 +34,9 @@ import { settle } from "../../test/helpers/process.ts";
 type AnyFn = (...args: any[]) => any;
 type Tool = { execute: AnyFn; renderCall: AnyFn; renderResult: AnyFn };
 
-const TIMEOUT = "Extraction did not finish within 20 ms (document.extractTimeoutMs).";
+const TIMEOUT = "Extraction did not finish within 20 ms (file-read.extractTimeoutMs).";
 
-const fixture = makeDocumentFixture();
+const fixture = makeReadFixture();
 const agentDir = tempDir("doc-tool-agent-");
 afterAll(() => fixture.remove());
 
@@ -81,11 +82,11 @@ describe("config", () => {
 		await withAgentDir(async (dir) => {
 			writeFileSync(
 				join(dir, "bytefly.json"),
-				JSON.stringify({ document: { maxChars: 1000, formats: { pdf: false } } }),
+				JSON.stringify({ "file-read": { maxChars: 1000, formats: { pdf: false } } }),
 			);
 			const cwd = tempDir("doc-config-");
 			mkdirSync(join(cwd, ".pi"), { recursive: true });
-			writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ document: { formats: { pdf: true } } }));
+			writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ "file-read": { formats: { pdf: true } } }));
 
 			const config = loadConfig(cwd);
 			expect(config.maxChars).toBe(1000);
@@ -142,10 +143,10 @@ describe("format selection", () => {
 // ---------------------------------------------------------------------------
 
 describe("paging", () => {
-	const base = { path: "a.pdf", format: "pdf" as const, bytes: 100 };
+	const base = { tool: TOOL_NAME, path: "a.pdf", format: "pdf" as const, bytes: 100 };
 
 	test("returns the whole text when it fits", () => {
-		const page = formatDoc({ ...base, text: "hello", startIndex: 0, maxChars: 200 });
+		const page = formatPage({ ...base, text: "hello", startIndex: 0, maxChars: 200 });
 		expect(page.body).toBe("hello");
 		expect(page.truncated).toBe(false);
 		expect(page.nextIndex).toBe(5);
@@ -154,7 +155,7 @@ describe("paging", () => {
 	});
 
 	test("slices by code point and names the next index", () => {
-		const page = formatDoc({ ...base, text: "a😀b😀c", startIndex: 1, maxChars: 3 });
+		const page = formatPage({ ...base, text: "a😀b😀c", startIndex: 1, maxChars: 3 });
 		expect(page.body).toBe("😀b😀");
 		expect(page.nextIndex).toBe(4);
 		expect(page.truncated).toBe(true);
@@ -162,21 +163,21 @@ describe("paging", () => {
 	});
 
 	test("reports an empty document", () => {
-		const page = formatDoc({ ...base, text: "", startIndex: 0, maxChars: 200 });
+		const page = formatPage({ ...base, text: "", startIndex: 0, maxChars: 200 });
 		expect(page.body).toBe("");
 		expect(page.chars).toBe(0);
 		expect(page.text).toContain("no extractable text");
 	});
 
 	test("reports a startIndex past the end", () => {
-		const page = formatDoc({ ...base, text: "abc", startIndex: 10, maxChars: 200 });
+		const page = formatPage({ ...base, text: "abc", startIndex: 10, maxChars: 200 });
 		expect(page.body).toBe("");
 		expect(page.nextIndex).toBe(3);
 		expect(page.text).toContain("no text at startIndex 10");
 	});
 
 	test("names the document rather than assuming a scanned PDF", () => {
-		const page = formatDoc({ ...base, format: "docx", text: "", startIndex: 0, maxChars: 200 });
+		const page = formatPage({ ...base, format: "docx", text: "", startIndex: 0, maxChars: 200 });
 		expect(page.text).toContain("no extractable text");
 		expect(page.text).not.toContain("PDF");
 	});
@@ -186,33 +187,33 @@ describe("transcript summary", () => {
 	const base = { format: "pdf" as const, chars: 42478, startIndex: 0 };
 
 	test("shows the humanized total for a complete first read", () => {
-		const summary = summarizeDoc({ ...base, nextIndex: 42478, truncated: false });
+		const summary = summarizeRead({ ...base, nextIndex: 42478, truncated: false });
 		expect(summary.format).toBe("PDF");
 		expect(summary.detail).toBe("42,478 chars");
 		expect(summary.note).toBeUndefined();
 	});
 
 	test("shows the returned range and where to continue when truncated", () => {
-		const summary = summarizeDoc({ ...base, nextIndex: 40000, truncated: true });
+		const summary = summarizeRead({ ...base, nextIndex: 40000, truncated: true });
 		expect(summary.detail).toBe("chars 1–40,000 of 42,478");
 		expect(summary.note).toBe("next at 40,000");
 		expect(summary.truncated).toBe(true);
 	});
 
 	test("marks a non-first final page complete", () => {
-		const summary = summarizeDoc({ ...base, startIndex: 40000, nextIndex: 42478, truncated: false });
+		const summary = summarizeRead({ ...base, startIndex: 40000, nextIndex: 42478, truncated: false });
 		expect(summary.detail).toBe("chars 40,001–42,478 of 42,478");
 		expect(summary.note).toBe("complete");
 	});
 
 	test("reports an out-of-range startIndex without a bogus range", () => {
-		const summary = summarizeDoc({ format: "pdf", chars: 3, startIndex: 10, nextIndex: 3, truncated: false });
+		const summary = summarizeRead({ format: "pdf", chars: 3, startIndex: 10, nextIndex: 3, truncated: false });
 		expect(summary.detail).toBe("no text at 10 of 3 chars");
 		expect(summary.note).toBeUndefined();
 	});
 
 	test("reports an empty document as having no extractable text", () => {
-		const summary = summarizeDoc({ format: "pdf", chars: 0, startIndex: 0, nextIndex: 0, truncated: false });
+		const summary = summarizeRead({ format: "pdf", chars: 0, startIndex: 0, nextIndex: 0, truncated: false });
 		expect(summary.detail).toBe("no extractable text");
 		expect(summary.note).toBeUndefined();
 	});
@@ -308,25 +309,25 @@ describe("path rendering", () => {
 	});
 
 	test("shortens a home-directory path to ~", () => {
-		expect(renderDocPath(join(homedir(), "docs", "a.pdf"), fakeTheme, "/work")).toBe("~/docs/a.pdf");
+		expect(renderReadPath(join(homedir(), "docs", "a.pdf"), fakeTheme, "/work")).toBe("~/docs/a.pdf");
 	});
 
 	test("leaves a path outside home unchanged", () => {
 		const outside = join(dirname(homedir()), "outside-home", "a.pdf");
-		expect(renderDocPath(outside, fakeTheme, "/work")).toBe(outside);
+		expect(renderReadPath(outside, fakeTheme, "/work")).toBe(outside);
 	});
 
 	test("collapses a path with control characters onto one line", () => {
-		expect(renderDocPath("a\nb.pdf", fakeTheme, "/work")).toBe("a b.pdf");
+		expect(renderReadPath("a\nb.pdf", fakeTheme, "/work")).toBe("a b.pdf");
 	});
 
 	test("reports a missing path argument", () => {
-		expect(renderDocPath(undefined, fakeTheme, "/work")).toBe("[invalid arg]");
+		expect(renderReadPath(undefined, fakeTheme, "/work")).toBe("[invalid arg]");
 	});
 
 	test("links the path when the terminal supports OSC 8", () => {
 		setCapabilities({ images: null, trueColor: false, hyperlinks: true });
-		const rendered = renderDocPath("docs/a.pdf", fakeTheme, "/work");
+		const rendered = renderReadPath("docs/a.pdf", fakeTheme, "/work");
 		expect(rendered).toContain("\u001b]8;;file://");
 		expect(rendered).toContain("docs/a.pdf");
 	});
@@ -348,7 +349,7 @@ describe("preview", () => {
 
 describe("call rendering", () => {
 	test("humanizes the paging options", () => {
-		const rendered = formatDocCall({ path: "spec.pdf", startIndex: 40000, maxChars: 80000 }, fakeTheme, {
+		const rendered = formatReadCall(TOOL_NAME, { path: "spec.pdf", startIndex: 40000, maxChars: 80000 }, fakeTheme, {
 			cwd: "/work",
 		});
 		expect(rendered).toContain("read_doc");
@@ -357,21 +358,21 @@ describe("call rendering", () => {
 	});
 
 	test("omits options that were not set", () => {
-		const rendered = formatDocCall({ path: "spec.pdf" }, fakeTheme, { cwd: "/work" });
+		const rendered = formatReadCall(TOOL_NAME, { path: "spec.pdf" }, fakeTheme, { cwd: "/work" });
 		expect(rendered).not.toContain("(from");
 		expect(rendered).not.toContain("(max");
 	});
 
 	test("omits a zero startIndex", () => {
-		const rendered = formatDocCall({ path: "spec.pdf", startIndex: 0 }, fakeTheme, { cwd: "/work" });
+		const rendered = formatReadCall(TOOL_NAME, { path: "spec.pdf", startIndex: 0 }, fakeTheme, { cwd: "/work" });
 		expect(rendered).not.toContain("(from");
 	});
 
 	test("reads a path that has not streamed yet as pending, not invalid", () => {
-		const pending = formatDocCall({} as never, fakeTheme, { cwd: "/work", argsComplete: false });
+		const pending = formatReadCall(TOOL_NAME, {} as never, fakeTheme, { cwd: "/work", argsComplete: false });
 		expect(pending).toContain("read_doc ...");
 		expect(pending).not.toContain("[invalid arg]");
-		const invalid = formatDocCall({} as never, fakeTheme, { cwd: "/work" });
+		const invalid = formatReadCall(TOOL_NAME, {} as never, fakeTheme, { cwd: "/work" });
 		expect(invalid).toContain("[invalid arg]");
 	});
 });
@@ -382,9 +383,9 @@ describe("call rendering", () => {
 
 describe("extension registration", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "document" }, () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "file-read" }, () => {
 			const { pi, tools, handlers } = createFakePi();
-			document(pi);
+			fileRead(pi);
 			expect(tools.size).toBe(0);
 			expect(handlers.size).toBe(0);
 		});
@@ -392,7 +393,7 @@ describe("extension registration", () => {
 
 	test("registers read_doc as a direct, active, read-only tool", () => {
 		const { pi, tools } = createFakePi();
-		document(pi);
+		fileRead(pi);
 
 		const tool = tools.get(TOOL_NAME);
 		expect(tool).toBeDefined();
@@ -411,7 +412,7 @@ describe("extension registration", () => {
 // ---------------------------------------------------------------------------
 
 /** An extractor stub that returns `text` or throws it. */
-function fakeExtractor(text: string | Error): DocExtractor {
+function fakeExtractor(text: string | Error): FormatExtractor {
 	return async () => {
 		if (text instanceof Error) throw text;
 		return text;
@@ -419,11 +420,11 @@ function fakeExtractor(text: string | Error): DocExtractor {
 }
 
 function installTool(
-	extractors: Partial<Record<FormatId, DocExtractor>> = {},
+	extractors: Partial<Record<FormatId, FormatExtractor>> = {},
 	options: { timeoutMs?: number } = {},
 ): Tool {
 	const { pi, tools } = createFakePi();
-	registerDocTool(pi, { extractors, timeoutMs: options.timeoutMs });
+	registerReadTool(pi, { extractors, timeoutMs: options.timeoutMs });
 	return tools.get(TOOL_NAME) as Tool;
 }
 
@@ -528,7 +529,7 @@ describe("read_doc extraction", () => {
 
 describe("read_doc guards", () => {
 	test("rejects an unsupported extension", async () => {
-		await expect(run(installTool(), { path: "notes.txt" })).rejects.toThrow(/Unsupported document format/);
+		await expect(run(installTool(), { path: "notes.txt" })).rejects.toThrow(/Unsupported file format/);
 	});
 
 	test("gives a targeted hint for a legacy .xls file", async () => {
@@ -542,21 +543,21 @@ describe("read_doc guards", () => {
 		);
 	});
 
-	test("rejects a format disabled in the bytefly.json document section", async () => {
+	test("rejects a format disabled in the bytefly.json file-read section", async () => {
 		const cwd = tempDir("doc-tool-disabled-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ document: { formats: { pdf: false } } }));
+		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ "file-read": { formats: { pdf: false } } }));
 		writeFileSync(join(cwd, "a.pdf"), "x");
 
 		await expect(run(installTool(), { path: "a.pdf" }, cwd)).rejects.toThrow(
-			/disabled in the bytefly\.json document section/,
+			/disabled in the bytefly\.json file-read section/,
 		);
 	});
 
 	test("rejects a file larger than the configured limit", async () => {
 		const cwd = tempDir("doc-tool-big-");
 		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ document: { maxFileBytes: 1024 } }));
+		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ "file-read": { maxFileBytes: 1024 } }));
 		writeFileSync(join(cwd, "big.pdf"), "x".repeat(2048));
 
 		await expect(run(installTool(), { path: "big.pdf" }, cwd)).rejects.toThrow(/larger than the 1024-byte limit/);
@@ -589,7 +590,7 @@ describe("read_doc deadline", () => {
 
 		const pending = run(tool, { path: "slow.pdf" });
 
-		await expect(pending).rejects.toThrow(/did not finish within 20 ms \(document\.extractTimeoutMs\)/);
+		await expect(pending).rejects.toThrow(/did not finish within 20 ms \(file-read\.extractTimeoutMs\)/);
 		await expect(pending).rejects.toThrow(/PDF parser was abandoned/);
 	});
 

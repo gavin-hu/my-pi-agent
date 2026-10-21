@@ -1,7 +1,7 @@
 /**
  * Model-facing text formatting and slicing for `read_doc`.
  *
- * `formatDoc` slices extracted text by code point from `startIndex`, so CJK and
+ * `formatPage` slices extracted text by code point from `startIndex`, so CJK and
  * emoji stay well-formed, and names the offset of the next chunk. The body is
  * the clean slice; the text adds a header and any truncation note.
  */
@@ -9,7 +9,9 @@
 import { formatCount } from "../../lib/format.ts";
 import type { FormatId } from "./formats.ts";
 
-export interface DocPageInput {
+export interface PageInput {
+	/** The tool that produced this page; named in the truncation note. */
+	tool: string;
 	path: string;
 	format: FormatId;
 	bytes: number;
@@ -18,8 +20,8 @@ export interface DocPageInput {
 	maxChars: number;
 }
 
-export interface FormattedDoc {
-	/** The requested slice of the document text. */
+export interface FormattedPage {
+	/** The requested slice of the extracted text. */
 	body: string;
 	/** Header, body, and any truncation note. */
 	text: string;
@@ -30,13 +32,13 @@ export interface FormattedDoc {
 	chars: number;
 }
 
-export function formatDoc(input: DocPageInput): FormattedDoc {
+export function formatPage(input: PageInput): FormattedPage {
 	const points = Array.from(input.text);
 	const total = points.length;
 	const header = `Path: ${input.path}\nFormat: ${input.format.toUpperCase()}\nSize: ${input.bytes} bytes`;
 
 	if (total === 0) {
-		const text = `${header}\n\n(no extractable text; the document may be scanned or image-only)`;
+		const text = `${header}\n\n(no extractable text; the file may be empty or contain no readable text)`;
 		return { body: "", text, truncated: false, nextIndex: input.startIndex, chars: 0 };
 	}
 
@@ -52,14 +54,14 @@ export function formatDoc(input: DocPageInput): FormattedDoc {
 
 	let text = `${header}\n\n${body}`;
 	if (truncated) {
-		text += `\n\n… (truncated at ${nextIndex} of ${total} characters; call read_doc again with startIndex=${nextIndex})`;
+		text += `\n\n… (truncated at ${nextIndex} of ${total} characters; call ${input.tool} again with startIndex=${nextIndex})`;
 	}
 
 	return { body, text, truncated, nextIndex, chars: total };
 }
 
-/** Inputs for `summarizeDoc`, the fields the transcript summary reads. */
-export interface DocSummaryInput {
+/** Inputs for `summarizeRead`, the fields the transcript summary reads. */
+export interface SummaryInput {
 	format: FormatId;
 	/** Total characters in the extracted text. */
 	chars: number;
@@ -69,7 +71,7 @@ export interface DocSummaryInput {
 }
 
 /** Theme-free transcript summary: the format, the range detail, and any note. */
-export interface DocSummary {
+export interface PageSummary {
 	/** Uppercase format id, e.g. `PDF`. */
 	format: string;
 	/** Range detail, e.g. `chars 1–40,000 of 42,478`. */
@@ -81,13 +83,13 @@ export interface DocSummary {
 }
 
 /**
- * Describe a `read_doc` result for the transcript, without theme colours.
+ * Describe a file-read result for the transcript, without theme colours.
  *
  * A complete first read shows the total; a paged read shows the returned range
  * and where to continue, so a truncated result is never mistaken for the whole
- * document.
+ * file.
  */
-export function summarizeDoc(input: DocSummaryInput): DocSummary {
+export function summarizeRead(input: SummaryInput): PageSummary {
 	const format = input.format.toUpperCase();
 	if (input.chars === 0) return { format, detail: "no extractable text", truncated: false };
 	if (input.startIndex >= input.chars) {

@@ -1,11 +1,11 @@
 /**
  * The optional `unpdf` seam: lazy load, module-shape handling, and text
- * extraction, shared by `web-access` and `document`.
+ * extraction, shared by `web-access` and `file-read`.
  *
  * `unpdf` bundles a server-friendly build of PDF.js, so it is imported lazily:
  * an extension registers on every session, and a parser should load only when a
  * read actually needs it. `web-access` treats the package as optional and
- * reports {@link pdfGuidance} when it is absent; `document` ships it as a
+ * reports {@link pdfGuidance} when it is absent; `file-read` ships it as a
  * dependency. Both get the same loader, the same merged-pages call, and the same
  * result unwrapping, so a PDF reads the same way through either surface.
  *

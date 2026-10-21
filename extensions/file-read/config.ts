@@ -1,8 +1,8 @@
 /**
- * Configuration for the `document` extension.
+ * Configuration for the `file-read` extension.
  *
  * `formats` defaults are derived from the format registry, so a new format needs
- * no config edit. The `document` section of the shared `bytefly.json` is read
+ * no config edit. The `file-read` section of the shared `bytefly.json` is read
  * from the global document and the project document (project wins), and every
  * field is clamped.
  */
@@ -10,7 +10,7 @@
 import { clampInteger, loadConfigSection } from "../../lib/config.ts";
 import { FORMATS, type FormatId } from "./formats.ts";
 
-export interface DocConfig {
+export interface ReadConfig {
 	/** Reject files larger than this many bytes. */
 	maxFileBytes: number;
 	/** Default character budget for the returned slice. */
@@ -21,7 +21,7 @@ export interface DocConfig {
 	formats: Record<FormatId, boolean>;
 }
 
-export const DEFAULT_CONFIG: DocConfig = {
+export const DEFAULT_CONFIG: ReadConfig = {
 	maxFileBytes: 20 * 1024 * 1024,
 	maxChars: 40_000,
 	extractTimeoutMs: 30_000,
@@ -41,7 +41,10 @@ function normalizeFormats(raw: unknown, base: Record<FormatId, boolean>): Record
 }
 
 /** Validate and clamp a raw config object over the running base. */
-export function normalizeConfig(raw: Record<string, unknown> | undefined, base: DocConfig = DEFAULT_CONFIG): DocConfig {
+export function normalizeConfig(
+	raw: Record<string, unknown> | undefined,
+	base: ReadConfig = DEFAULT_CONFIG,
+): ReadConfig {
 	if (!raw) return base;
 	return {
 		maxFileBytes: clampInteger(raw.maxFileBytes, base.maxFileBytes, 1_024, 512 * 1024 * 1024),
@@ -51,12 +54,12 @@ export function normalizeConfig(raw: Record<string, unknown> | undefined, base: 
 	};
 }
 
-/** Effective config from the shared `document` section (defaults, global, project, env). */
-export function loadConfig(cwd: string): DocConfig {
-	return loadConfigSection(cwd, "document", DEFAULT_CONFIG, normalizeConfig);
+/** Effective config from the shared `file-read` section (defaults, global, project, env). */
+export function loadConfig(cwd: string): ReadConfig {
+	return loadConfigSection(cwd, "file-read", DEFAULT_CONFIG, normalizeConfig);
 }
 
 /** Whether a format is enabled in the effective config. */
-export function isFormatEnabled(config: DocConfig, id: FormatId): boolean {
+export function isFormatEnabled(config: ReadConfig, id: FormatId): boolean {
 	return config.formats[id] !== false;
 }

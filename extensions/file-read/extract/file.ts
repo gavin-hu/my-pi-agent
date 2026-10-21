@@ -1,9 +1,9 @@
 /**
  * The in-process extractor contract for `read_doc`.
  *
- * Each document format is extracted by a JavaScript library that reads the file
- * itself. This module owns the file read, the abort check, and the
- * {@link DocExtractor} type, so the format modules stay tiny and testable
+ * Each format is extracted by a JavaScript library that reads the file itself.
+ * This module owns the file read, the abort check, and the
+ * {@link FormatExtractor} type, so the format modules stay tiny and testable
  * through real fixtures.
  *
  * Imports of the extraction libraries are lazy (`await import(...)` inside each
@@ -14,7 +14,7 @@
 import { readFile } from "node:fs/promises";
 
 /** What an extractor receives: the real, root-confined absolute path. */
-export interface DocFile {
+export interface ExtractInput {
 	/** Absolute, symlink-resolved path inside the effective working root. */
 	path: string;
 	/** The active turn's abort signal, checked before any work. */
@@ -22,13 +22,13 @@ export interface DocFile {
 }
 
 /** Extract plain text for one file. */
-export type DocExtractor = (file: DocFile) => Promise<string>;
+export type FormatExtractor = (input: ExtractInput) => Promise<string>;
 
 /** Read the whole file, refusing to start once the turn is aborted. */
-export async function readDocBytes(file: DocFile): Promise<Uint8Array> {
-	file.signal?.throwIfAborted();
-	const bytes = await readFile(file.path);
-	file.signal?.throwIfAborted();
+export async function readFormatBytes(input: ExtractInput): Promise<Uint8Array> {
+	input.signal?.throwIfAborted();
+	const bytes = await readFile(input.path);
+	input.signal?.throwIfAborted();
 	return new Uint8Array(bytes);
 }
 

@@ -272,6 +272,31 @@ describe("migrateScope", () => {
 		expect(result.moved).toEqual([]);
 		expect(existsSync(join(dir, "jobs.json"))).toBe(true);
 	});
+
+	test("renames the document section to file-read", () => {
+		const dir = scope();
+		writeFileSync(join(dir, SHARED_CONFIG_FILE), JSON.stringify({ document: { maxChars: 1000 } }));
+
+		const result = migrateScope(dir);
+
+		expect(result.moved).toEqual([`${SHARED_CONFIG_FILE}#document -> #file-read`]);
+		expect(readJson(join(dir, SHARED_CONFIG_FILE))).toMatchObject({ "file-read": { maxChars: 1000 }, version: 1 });
+		expect("document" in (readJson(join(dir, SHARED_CONFIG_FILE)) ?? {})).toBe(false);
+	});
+
+	test("keeps an existing file-read section and reports the old one", () => {
+		const dir = scope();
+		writeFileSync(
+			join(dir, SHARED_CONFIG_FILE),
+			JSON.stringify({ document: { maxChars: 1000 }, "file-read": { maxChars: 2000 } }),
+		);
+
+		const result = migrateScope(dir);
+
+		expect(result.moved).toEqual([]);
+		expect(result.skipped).toHaveLength(1);
+		expect(readJson(join(dir, SHARED_CONFIG_FILE))?.["file-read"]).toEqual({ maxChars: 2000 });
+	});
 });
 
 describe("migrate", () => {

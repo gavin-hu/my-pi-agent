@@ -25,7 +25,7 @@ import { describe, expect, test } from "bun:test";
 import { TODO_TOOL as todo } from "../lib/tool-names.ts";
 import { TOOL_NAME as askUserQuestion } from "../extensions/question/tools.ts";
 import { TOOL_NAME as runCheck } from "../extensions/check/tools.ts";
-import { TOOL_NAME as readDoc } from "../extensions/document/tool.ts";
+import { TOOL_NAME as readDoc } from "../extensions/file-read/schema.ts";
 import { TOOL_NAME as runDoctor } from "../extensions/bytefly/doctor/tools.ts";
 import { TOOL_NAME as openPath } from "../extensions/file-open/schema.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
@@ -68,7 +68,7 @@ const LEADING_VERBS = new Set([
 const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "question", name: askUserQuestion },
 	{ extension: "check", name: runCheck },
-	{ extension: "document", name: readDoc },
+	{ extension: "file-read", name: readDoc },
 	{ extension: "bytefly", name: runDoctor },
 	{ extension: "file-open", name: openPath },
 	{ extension: "goal", name: goal },

@@ -21,7 +21,7 @@ import { DEFAULT_CONFIG as DEFAULT_CHECK_CONFIG } from "../extensions/check/conf
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG } from "../extensions/bytefly/doctor/config.ts";
 import { DEFAULT_BYTEFLY_CONFIG } from "../extensions/bytefly/footer/price/config.ts";
 import { DEFAULT_NOTIFY_CONFIG } from "../extensions/bytefly/notify/config.ts";
-import { DEFAULT_CONFIG as DEFAULT_DOCUMENT_CONFIG } from "../extensions/document/config.ts";
+import { DEFAULT_CONFIG as DEFAULT_FILE_READ_CONFIG } from "../extensions/file-read/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG } from "../extensions/file-browse/config.ts";
 import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
@@ -59,7 +59,7 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	notify: DEFAULT_NOTIFY_CONFIG,
 	doctor: DEFAULT_DOCTOR_CONFIG,
 	chrome: DEFAULT_CHROME_CONFIG,
-	document: DEFAULT_DOCUMENT_CONFIG,
+	"file-read": DEFAULT_FILE_READ_CONFIG,
 	"file-browse": DEFAULT_FILE_BROWSE_CONFIG,
 	goal: DEFAULT_GOAL_CONFIG,
 	job: DEFAULT_JOB_CONFIG,

@@ -29,9 +29,9 @@ import { DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig } from "../extensions/by
 import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../extensions/bytefly/notify/config.ts";
 import { SETTING_ROWS, textError } from "../extensions/bytefly/panel/settings.ts";
 import {
-	DEFAULT_CONFIG as DEFAULT_DOCUMENT_CONFIG,
-	normalizeConfig as normalizeDocumentConfig,
-} from "../extensions/document/config.ts";
+	DEFAULT_CONFIG as DEFAULT_FILE_READ_CONFIG,
+	normalizeConfig as normalizeFileReadConfig,
+} from "../extensions/file-read/config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG,
 	normalizeConfig as normalizeFileBrowseConfig,
@@ -108,9 +108,9 @@ const SECTIONS: readonly SectionCase[] = [
 		jsonOnly: { rail: "a cosmetic glyph, set once" },
 	},
 	{
-		section: "document",
-		defaults: DEFAULT_DOCUMENT_CONFIG,
-		normalize: (raw) => normalizeDocumentConfig(raw, DEFAULT_DOCUMENT_CONFIG),
+		section: "file-read",
+		defaults: DEFAULT_FILE_READ_CONFIG,
+		normalize: (raw) => normalizeFileReadConfig(raw, DEFAULT_FILE_READ_CONFIG),
 		jsonOnly: {
 			maxFileBytes: "an extraction limit, not a preference",
 			maxChars: "an extraction limit, not a preference",

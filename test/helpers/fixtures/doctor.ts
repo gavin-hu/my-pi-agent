@@ -86,8 +86,8 @@ export function makeFinding(
 	hint?: string,
 ): Finding {
 	return hint === undefined
-		? { extension: "document", check, severity, detail }
-		: { extension: "document", check, severity, detail, hint };
+		? { extension: "file-read", check, severity, detail }
+		: { extension: "file-read", check, severity, detail, hint };
 }
 
 /** Build one extension report. */

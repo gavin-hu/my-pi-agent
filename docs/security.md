@@ -51,7 +51,7 @@ created inside the plans directory and never through a symlink.
 
 ### Local file confinement
 
-[`document`](../extensions/document/) confines `read_doc` to the effective
+[`file-read`](../extensions/file-read/) confines `read_doc` to the effective
 working directory (symlink-aware). [`file-browse`](../extensions/file-browse/)
 serves only from its root. Both reuse the containment predicates in
 `lib/path.ts`.

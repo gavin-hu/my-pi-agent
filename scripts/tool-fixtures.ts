@@ -668,7 +668,7 @@ export const FIXTURES: ToolFixture[] = [
 						],
 					},
 					{
-						extension: "document",
+						extension: "file-read",
 						enabled: true,
 						findings: [
 							{

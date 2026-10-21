@@ -3,10 +3,11 @@
  *
  * Every extension used to read its own `<name>.json`; they now read a top-level
  * section of one document. This script moves each legacy file's content into its
- * section, moves bytefly's own top-level `currency`/`rates`/`peak` under `price`,
- * stamps `version`, and (unless `--keep`) deletes the legacy files. It never
- * reads a legacy file that is malformed and never overwrites an existing section,
- * so a partial migration is safe to re-run.
+ * section, renames a section that has since been renamed, moves bytefly's own
+ * top-level `currency`/`rates`/`peak` under `price`, stamps `version`, and
+ * (unless `--keep`) deletes the legacy files. It never reads a legacy file that
+ * is malformed and never overwrites an existing section, so a partial migration
+ * is safe to re-run.
  *
  * Run:  bun run config:migrate [--project <dir>] [--dry-run] [--keep]
  */
@@ -28,10 +29,13 @@ export const LEGACY_FILES: ReadonlyArray<readonly [file: string, section: string
 	["jobs.json", "job"],
 	["web-access.json", "web-access"],
 	["file-browse.json", "file-browse"],
-	["document.json", "document"],
+	["document.json", "file-read"],
 	["memory.json", "memory"],
 	["wechat.json", "wechat"],
 ];
+
+/** A section that has since been renamed, as `[old, new]`. */
+export const LEGACY_SECTIONS: ReadonlyArray<readonly [from: string, to: string]> = [["document", "file-read"]];
 
 export interface MigrateOptions {
 	/** Global scope: the agent directory. */
@@ -105,6 +109,18 @@ export function migrateScope(scopeDir: string, options: { dryRun?: boolean; keep
 	const migrated = migrateDocument(document);
 	document = migrated.document;
 	result.wrote = migrated.changed;
+
+	for (const [from, to] of LEGACY_SECTIONS) {
+		if (!(from in document)) continue;
+		if (document[to] !== undefined) {
+			result.skipped.push(`${SHARED_CONFIG_FILE}#${from} (already present at #${to})`);
+			continue;
+		}
+		document[to] = document[from];
+		delete document[from];
+		result.moved.push(`${SHARED_CONFIG_FILE}#${from} -> #${to}`);
+		result.wrote = true;
+	}
 
 	for (const [file, section] of LEGACY_FILES) {
 		const legacyPath = join(scopeDir, file);

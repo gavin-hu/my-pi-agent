@@ -1,7 +1,7 @@
 /**
- * Transcript rendering for `read_doc`.
+ * Transcript rendering for the `read_doc` tool.
  *
- * Theme-aware formatting only: the tool definition in `tool.ts` wires these to
+ * Theme-aware formatting only: the tool definitions in `tool.ts` wire these to
  * `renderCall` / `renderResult`. The call line carries the path (body colour,
  * `~`-shortened, OSC-8 linked when the terminal supports it); the result line
  * leads with the format and the exact character range, so the path is never
@@ -17,14 +17,14 @@ import { formatTokens, sanitizeLine, shortenPath, stripControlChars } from "../.
 import { expandKey, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { rejectionLine, toolCallTitle } from "../../lib/tui/tool.ts";
-import { summarizeDoc } from "./paging.ts";
-import { TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
+import { summarizeRead } from "./paging.ts";
+import type { ReadArgs, ReadResult } from "./schema.ts";
 
 /** Lines of extracted text shown in the expanded preview. */
 export const PREVIEW_LINES = 20;
 
 /** Render the argument path: body colour, `~`-shortened, OSC-8 linked when supported. */
-export function renderDocPath(rawPath: string | undefined, theme: Theme, cwd: string, argsComplete = true): string {
+export function renderReadPath(rawPath: string | undefined, theme: Theme, cwd: string, argsComplete = true): string {
 	if (rawPath === undefined && !argsComplete) return theme.fg("toolOutput", "...");
 	if (typeof rawPath !== "string") return paint(theme, "bad", "[invalid arg]");
 	const value = sanitizeLine(rawPath);
@@ -47,14 +47,14 @@ export function previewText(text: string, maxLines: number): { body: string; mor
 }
 
 /** A result shape broad enough for both a test double and the host. */
-export interface DocRenderResult {
+export interface ReadRenderResult {
 	content: ReadonlyArray<{ type: string; text?: string }>;
 	details?: unknown;
 	isError?: boolean;
 }
 
 /** Options the host passes to `renderResult`. */
-export interface DocRenderOptions {
+export interface ReadRenderOptions {
 	expanded: boolean;
 	isPartial: boolean;
 	/** Pre-painted elapsed suffix shown while reading. */
@@ -62,10 +62,14 @@ export interface DocRenderOptions {
 }
 
 /** The call line: `read_doc <path> (from N, max M)`. */
-export function formatDocCall(args: DocArgs, theme: Theme, context: { cwd: string; argsComplete?: boolean }): string {
+export function formatReadCall(
+	tool: string,
+	args: ReadArgs,
+	theme: Theme,
+	context: { cwd: string; argsComplete?: boolean },
+): string {
 	const { path, startIndex, maxChars } = args;
-	let text =
-		toolCallTitle(theme, `${TOOL_NAME} `) + renderDocPath(path, theme, context.cwd, context.argsComplete ?? true);
+	let text = toolCallTitle(theme, `${tool} `) + renderReadPath(path, theme, context.cwd, context.argsComplete ?? true);
 	const options: string[] = [];
 	if (typeof startIndex === "number" && startIndex > 0) options.push(`from ${formatTokens(startIndex)}`);
 	if (typeof maxChars === "number") options.push(`max ${formatTokens(maxChars)}`);
@@ -77,17 +81,17 @@ export function formatDocCall(args: DocArgs, theme: Theme, context: { cwd: strin
  * The result: a format + range summary, an expand hint when collapsed, and, when
  * expanded, a sanitized preview of the extracted text.
  */
-export function formatDocResult(result: DocRenderResult, options: DocRenderOptions, theme: Theme): string {
+export function formatReadResult(result: ReadRenderResult, options: ReadRenderOptions, theme: Theme): string {
 	if (options.isPartial) return paint(theme, "warn", "Reading...") + (options.progress ?? "");
 
 	const isError = result.isError ?? false;
-	const details = result.details as DocResult | undefined;
+	const details = result.details as ReadResult | undefined;
 
 	if (!details || isError) {
 		return rejectionLine(theme, { content: result.content, isError }, options.expanded);
 	}
 
-	const summary = summarizeDoc(details);
+	const summary = summarizeRead(details);
 	const sep = paint(theme, "faint", SEPARATORS.item);
 	let text = paint(theme, "meta", summary.format) + sep + theme.fg("toolOutput", summary.detail);
 	if (summary.note) text += paint(theme, summary.truncated ? "accent" : "faint", SEPARATORS.item + summary.note);

@@ -6,7 +6,7 @@
  * within a paragraph, paragraphs separated by newlines. Formatting is dropped.
  */
 
-import { normalizeBodyText, readDocBytes, type DocExtractor } from "./file.ts";
+import { normalizeBodyText, readFormatBytes, type FormatExtractor } from "./file.ts";
 
 interface RtfNode {
 	value?: string;
@@ -39,7 +39,7 @@ async function parseRtf(input: string): Promise<RtfDocument> {
 }
 
 /** Extract the body text from an RTF file. */
-export const extractRtfText: DocExtractor = async (file) => {
-	const bytes = await readDocBytes(file);
+export const extractRtfText: FormatExtractor = async (file) => {
+	const bytes = await readFormatBytes(file);
 	return rtfDocumentToText(await parseRtf(new TextDecoder().decode(bytes)));
 };

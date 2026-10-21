@@ -255,7 +255,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		optional: [gitCheck("the branch chip and the diff view")],
 		notes: ["The default-browser opener (`open` / `xdg-open` / `cmd`) is best-effort; the URL is printed either way."],
 	},
-	document: {},
+	"file-read": {},
 	"file-open": {
 		notes: [
 			"The `/open` command and its notification need an interactive UI; the `open_path` tool works without one.",

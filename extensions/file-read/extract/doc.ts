@@ -6,10 +6,10 @@
  * is only wired to the `.doc` extension.
  */
 
-import { normalizeBodyText, type DocExtractor } from "./file.ts";
+import { normalizeBodyText, type FormatExtractor } from "./file.ts";
 
 /** Extract the body text from a legacy OLE `.doc` file. */
-export const extractDocText: DocExtractor = async (file) => {
+export const extractDocText: FormatExtractor = async (file) => {
 	file.signal?.throwIfAborted();
 	const module = await import("word-extractor");
 	const extractor = new module.default();

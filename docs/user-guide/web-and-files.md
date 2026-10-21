@@ -101,13 +101,14 @@ The pack offers three ways to get at material on your computer:
 
 ### Reading a document
 
-**What it is.** The `read_doc` tool extracts plain text from a local document
-inside the session. Nothing is uploaded, and no external executable is needed;
-the parsers are ordinary package dependencies loaded only when that format is
-read.
+**What it is.** The `read_doc` tool extracts plain text from a local document or
+workbook inside the session. Nothing is uploaded, and no external executable is
+needed; the parsers are ordinary package dependencies loaded only when that
+format is read. The extension is called `file-read`.
 
-Supported formats: PDF, DOCX, DOC, ODT, RTF, and XLSX. Legacy `.xls` is not
-supported; the error names the limitation and points at the supported format.
+Supported formats: PDF, DOCX, DOC, ODT, RTF, and XLSX. A workbook reads as one
+`[Sheet]` heading per worksheet followed by tab-separated rows. Legacy `.xls` is
+not supported; the error names the limitation and points at the supported format.
 
 **Walkthrough.**
 
@@ -117,10 +118,15 @@ supported; the error names the limitation and points at the supported format.
    read docs/requirements.docx and list the open questions
    ```
 
-2. The result opens with the path, format, and size, then the text. Tables,
-   images, and formatting are reduced to plain text.
+   ```text
+   summarise the sheet names in data/q3.xlsx
+   ```
 
-3. A long document comes back in parts. The reply says where to continue; ask to
+2. The result opens with the path, format, and size, then the text. Tables,
+   images, and formatting are reduced to plain text; a workbook keeps its rows
+   and columns as tab-separated text.
+
+3. A long file comes back in parts. The reply says where to continue; ask to
    continue or request a later section.
 
 **Good to know.**
@@ -135,7 +141,7 @@ supported; the error names the limitation and points at the supported format.
 - A scanned PDF with no text layer returns no extractable text. The tool does
   not perform OCR.
 - In a worktree, the effective working directory is the worktree, so documents
-  are read from there.
+  and workbooks are read from there.
 
 ### Browsing a project
 
@@ -261,7 +267,7 @@ detached, so it stays open after Pi closes.
 
 ## Related
 
-- [Settings and customization](./settings-and-customization.md) — the browser port, search provider, and document settings.
+- [Settings and customization](./settings-and-customization.md) — the browser port, search provider, and file-read settings.
 - [Security](../security.md) — the loopback and network boundaries in full.
 - [Reference](./reference.md#commands) — the exact command forms.
 

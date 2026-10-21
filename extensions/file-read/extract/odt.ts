@@ -10,7 +10,7 @@
 
 import { strFromU8, unzipSync } from "fflate";
 import { XMLParser } from "fast-xml-parser";
-import { normalizeBodyText, readDocBytes, type DocExtractor } from "./file.ts";
+import { normalizeBodyText, readFormatBytes, type FormatExtractor } from "./file.ts";
 
 /** Elements that end a line. */
 const BLOCK_ELEMENTS = new Set(["text:p", "text:h", "text:list-item"]);
@@ -93,8 +93,8 @@ export function odtXmlToText(xml: string): string {
 }
 
 /** Extract the body text from an ODT file. */
-export const extractOdtText: DocExtractor = async (file) => {
-	const archive = unzipSync(await readDocBytes(file));
+export const extractOdtText: FormatExtractor = async (file) => {
+	const archive = unzipSync(await readFormatBytes(file));
 	const content = archive["content.xml"];
 	if (!content) throw new Error("ODT archive has no content.xml.");
 	return odtXmlToText(strFromU8(content));

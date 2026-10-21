@@ -32,7 +32,7 @@ session.
 | `worktree`, `rewind` | `git` on `PATH` and a project git tracks | Both report what is missing; the rest of the pack works | The path and hunk checklists, and the rewind timeline |
 | `memory` | A trusted project for project-scope notes | Global notes still work; the project store is refused | The picker; text mode lists the notes |
 | `web-access` | Network access; the optional `unpdf` package for PDF URLs | HTML works; a PDF URL is refused with an explanation | None |
-| `document` | Nothing | Nothing; extraction is local | None |
+| `file-read` | Nothing | Nothing; extraction is local | None |
 | `file-browse` | A browser | The page cannot be opened | A page in your browser |
 | `file-open` | A desktop handler for the file type | A launch failure is reported | The command itself |
 | `wechat` | A WeChat bot account, network access, and a terminal for the QR login | The bridge stays quiet | The QR login and the control screen |

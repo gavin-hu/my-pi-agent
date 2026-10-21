@@ -39,7 +39,7 @@ import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts
 import { nameplate } from "../extensions/bytefly/message/format.ts";
 import bytefly from "../extensions/bytefly/index.ts";
 import check from "../extensions/check/index.ts";
-import document from "../extensions/document/index.ts";
+import fileRead from "../extensions/file-read/index.ts";
 import goal from "../extensions/goal/index.ts";
 import jobs from "../extensions/job/index.ts";
 import memory from "../extensions/memory/index.ts";
@@ -87,7 +87,7 @@ const CWD = "/home/u/repo/project";
 const EXTENSIONS = [
 	bytefly,
 	check,
-	document,
+	fileRead,
 	goal,
 	jobs,
 	memory,

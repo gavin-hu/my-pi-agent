@@ -7,11 +7,11 @@
  */
 
 import { extractPdfText } from "../../../lib/pdf.ts";
-import { readDocBytes, type DocExtractor } from "./file.ts";
+import { readFormatBytes, type FormatExtractor } from "./file.ts";
 
 /** Extract text from every page of a PDF. */
-export const extractPdfDocument: DocExtractor = async (file) => {
-	const bytes = await readDocBytes(file);
+export const extractPdfDocument: FormatExtractor = async (file) => {
+	const bytes = await readFormatBytes(file);
 	const text = await extractPdfText(bytes);
 	return text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
 };

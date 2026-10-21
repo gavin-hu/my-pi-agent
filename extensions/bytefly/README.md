@@ -1323,7 +1323,7 @@ rather than showing a wrong value.
   a third layer.** An extension cannot import another extension's modules, so
   the only legal home for a shared prerequisite table is `lib/requirements.ts`;
   the report itself is a pure function of the probe results.
-- **The install hint has one home.** `document` and `web-access` format their
+- **The install hint has one home.** `file-read` and `web-access` format their
   tool errors from the same `REQUIREMENTS` entries `doctor` prints, so a user
   reads the same command whether a tool failed or the report named it.
 - **Settings are a curated table, not a schema walker.** The rows cover every

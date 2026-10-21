@@ -1,6 +1,6 @@
-# document — read local PDF, DOCX, DOC, ODT, RTF, and XLSX files as text
+# file-read — read local PDF, DOCX, DOC, ODT, RTF, and XLSX files as text
 
-`document` adds a `read_doc` tool that extracts plain text from a local `.pdf`,
+`file-read` adds a `read_doc` tool that extracts plain text from a local `.pdf`,
 `.docx`, `.doc`, `.odt`, `.rtf`, or `.xlsx` file, paged with `startIndex` /
 `maxChars`. Extraction runs in process through JavaScript libraries (`unpdf`,
 `mammoth`, `word-extractor`, `fflate` + `fast-xml-parser`, `rtf-parser`,
@@ -8,34 +8,30 @@
 the effective working directory with the same symlink-aware guard the built-in
 path tools use.
 
-## Tool rendering
-
-How the `read_doc` call and its result look in the transcript — the call line as a headline and the body indented under it:
-
-<img src="../../assets/tools/read_doc.png" alt="The read_doc tool's result: the call line and an indented body with the file path, format, size, and the extracted text preview" width="100%">
-
 ## Quickstart
 
 ```bash
-pi --extension ./extensions/document   # this extension only
+pi --extension ./extensions/file-read   # this extension only
 pi -e .                                # the package from this checkout
 pi install ./                          # install the package for a user
 ```
 
 The extraction libraries are ordinary dependencies, so a normal install brings
-them along. Then ask the model to read a document, or call the tool directly:
+them along. Then ask the model to read a document or a workbook, or call the
+tool directly:
 
 ```jsonc
 { "path": "docs/spec.pdf" }
 { "path": "docs/spec.pdf", "startIndex": 40000, "maxChars": 40000 }
+{ "path": "report.xlsx" }
 ```
 
 ## What it does
 
 - Extracts plain text from `.pdf`, `.docx`, `.doc`, `.odt`, `.rtf`, and `.xlsx`
   files for the model to read.
-- Pages long documents: when output is truncated, call again with the
-  `startIndex` named in the note.
+- Pages long files: when output is truncated, call again with the `startIndex`
+  named in the note.
 - Slices by code point, so CJK and emoji stay well-formed.
 - Reads only inside the effective working directory, resolving symlinks so a
   link cannot escape it.
@@ -46,6 +42,11 @@ them along. Then ask the model to read a document, or call the tool directly:
 
 `read_doc` — direct exposure, active by default, read-only, closed-world
 (no network).
+
+How the call and its result look in the transcript — the call line as a headline
+and the body indented under it:
+
+<img src="../../assets/tools/read_doc.png" alt="The read_doc tool's result: the call line and an indented body with the file path, format, size, and the extracted text preview" width="100%">
 
 | Parameter | Type | Meaning |
 |---|---|---|
@@ -67,7 +68,9 @@ Result (`details` / `structuredContent`):
 | `text` | The clean slice, without the header or truncation note. |
 
 The model-facing `content` is a header (`Path:`, `Format:`, `Size:`), a blank
-line, the slice, and a truncation note when applicable.
+line, the slice, and a truncation note when applicable. A workbook reads as one
+`[Sheet]` heading per worksheet followed by tab-separated rows, so the shape of
+the text says what the file was.
 
 Errors are thrown for: a missing or non-file path, a path outside the root, an
 unsupported extension (with a targeted hint for legacy `.xls`), a disabled
@@ -116,7 +119,7 @@ sanitized error path.
 
 ## Configuration
 
-The `document` section of the shared `bytefly.json`, loaded from
+The `file-read` section of the shared `bytefly.json`, loaded from
 `~/.pi/agent/bytefly.json` then `<cwd>/.pi/bytefly.json` (project wins), each
 merged over the defaults and clamped:
 
@@ -128,12 +131,13 @@ merged over the defaults and clamped:
 | `formats` | `{ "pdf": true, "docx": true, "doc": true, "odt": true, "rtf": true, "xlsx": true }` | — | Per-format on/off, merged over each registry entry's default; unknown keys are ignored. |
 
 ```jsonc
-// bytefly.json → "document"
+// bytefly.json → "file-read"
 { "maxChars": 80000, "extractTimeoutMs": 60000, "formats": { "docx": false } }
 ```
 
-`doc.json` is not read, and neither is the old per-extension `document.json`;
-run `bun run config:migrate` to move a `document.json` into the shared file.
+The section was named `document` before this extension was renamed; the loader
+reads only `file-read`, and `bun run config:migrate` renames an existing
+`document` section and moves a legacy `document.json` into it.
 
 ## Security
 
@@ -145,14 +149,14 @@ run `bun run config:migrate` to move a `document.json` into the shared file.
   parser receives.
 - **Size-capped and time-bounded.** Files larger than `maxFileBytes` are rejected
   before any parser runs, and a parser that outlasts `extractTimeoutMs` is
-  abandoned so the turn is not held open by one document.
+  abandoned so the turn is not held open by one file.
 - **No subprocesses.** Extraction never spawns a process, so it grants no
   privileges beyond the current process.
-- **Untrusted text.** Extracted document text is treated as untrusted: it is
-  returned as model-facing `content` and data. The collapsed transcript draws
-  only a sanitized summary; the expanded transcript draws a sanitized,
-  line-capped preview (`PREVIEW_LINES`). Control characters are stripped before
-  a theme colour is applied, so raw document bytes never reach the terminal.
+- **Untrusted text.** Extracted text is treated as untrusted: it is returned as
+  model-facing `content` and data. The collapsed transcript draws only a
+  sanitized summary; the expanded transcript draws a sanitized, line-capped
+  preview (`PREVIEW_LINES`). Control characters are stripped before a theme
+  colour is applied, so raw file bytes never reach the terminal.
 - **Worktree guard.** Under the `worktree` extension, `read_doc` is in the
   worktree guard's path-tool map, so `blockReadEscapes` / `blockSymlinkEscapes`
   apply to it exactly as to the built-in `read`.
@@ -171,11 +175,11 @@ Each extractor builds a plain-text document from the format's bytes:
 | XLSX | `exceljs` | One `[Sheet]` heading per non-empty worksheet, then tab-separated rows. Dates and numbers use the workbook's displayed text; formulas show their computed value. Cell formatting is dropped. |
 
 The tool is pageable across the whole extracted text, so a word-processing
-document or workbook is read in the same `startIndex` / `maxChars` way as a PDF.
+document or a workbook is read in the same `startIndex` / `maxChars` way as a PDF.
 
 Each call is bounded by `extractTimeoutMs` (30 s by default). A parser that
 outlasts the deadline is abandoned — the read fails with the limit named, and a
-late result is discarded — so a pathological document cannot park the turn.
+late result is discarded — so a pathological file cannot park the turn.
 
 ## Supported formats
 
@@ -194,11 +198,11 @@ The format table in `formats.ts` is the single source of truth; the handler,
 config defaults, and error listing all derive from it.
 
 1. Add the extraction library to `dependencies` in `package.json`.
-2. Add `extensions/document/extract/<fmt>.ts` exporting a `DocExtractor` that
-   `await import(...)`s its library, reads the bytes with `readDocBytes`, and
+2. Add `extensions/file-read/extract/<fmt>.ts` exporting a `FormatExtractor` that
+   `await import(...)`s its library, reads the bytes with `readFormatBytes`, and
    normalizes the output. Keep the parsing in a pure, exported helper so it is
    testable without a real file.
-3. Add a `DocumentFormat` entry to `FORMATS` and widen the `id` union.
+3. Add a `ReadFormat` entry to `FORMATS` and widen the `id` union.
 4. Add the new extractor to `extract/extract.test.ts` with a real minimal
    fixture, and extend `tool.test.ts` for format selection and config.
 5. Add a row to the tables above.
@@ -235,51 +239,63 @@ config defaults, and error listing all derive from it.
 
 | Aspect | Contract |
 |---|---|
-| Registration | `document(pi)` in `index.ts` calls `registerDocTool(pi)`, which registers `read_doc`. The factory only registers; no parser loads until a read needs it. |
+| Registration | `fileRead(pi)` in `index.ts` calls `registerReadTool(pi)`, which registers `read_doc`. The factory only registers; no parser loads until a read needs it. |
 | Tool | `read_doc`, direct exposure and active on registration (the defaults), default (`parallel`) execution, `annotations: { readOnlyHint: true, openWorldHint: false }`, TypeBox `parameters` and `outputSchema`, and `renderCall`/`renderResult` (reuse `context.lastComponent`; read `context.cwd` and `context.isError`). |
 | State | None persisted. Per-result state lives in the tool-result `details` / `structuredContent`; the renderer reads only that. |
 | Lifecycle | No `session_start` / `session_shutdown` hooks: each read imports a parser, runs it, and holds no long-lived resources. |
 | Host seams | `resolveEffectiveCwd` (`lib/env.ts`), `isInsideReal` / `realPathOfNearest` (`lib/path.ts`), `loadConfigSection` (`lib/config.ts`), `stripControlChars` / `sanitize` / `formatTokens` (`lib/format.ts`), `SEPARATORS` (`lib/tui/glyphs.ts`). |
-| Config | The `document` section of the shared `bytefly.json` via `loadConfigSection` (`~/.pi/agent`, `<cwd>/.pi`). |
+| Config | The `file-read` section of the shared `bytefly.json` via `loadConfigSection` (`~/.pi/agent`, `<cwd>/.pi`). |
 
 ## Design notes
 
-A separate tool rather than an overload of the built-in `read`: the worktree
+**A separate tool rather than an overload of the built-in `read`.** The worktree
 extension owns the built-in path tools and re-registers them, so overloading
-`read` would fight that machinery. A table-driven registry keeps future formats
-additive, and extracting in process means the tool works on any host without a
-per-format install step and without spawning a child process per read.
+`read` would fight that machinery. The tool also stays one tool for all six
+formats, the way Pi's `read` covers text and images: the split would be a choice
+the model can get wrong (and an extra entry in the worktree guard's path map) in
+exchange for prompt copy, while the workbook-specific guidance fits in one
+`promptGuidelines` bullet. A second tool becomes worth it only when it carries
+behaviour a document read must not have, such as reading named worksheets.
+
+**The name.** `document` stopped describing the job once XLSX joined the table:
+the extension reads any local file whose bytes the built-in `read` cannot decode,
+and `file-read` sits beside `file-browse` and `file-open`.
+
+**A table-driven registry** keeps future formats additive, and extracting in
+process means the tool works on any host without a per-format install step and
+without spawning a child process per read.
 
 **Parsers load lazily.** The extension registers on every session, so a static
 top-level import of `exceljs`, `mammoth`, and `unpdf` would tax every startup,
-whether or not a document is ever read. Each extractor therefore imports its
+whether or not a file is ever read. Each extractor therefore imports its
 library inside the call (`await import(...)`), matching `web-access`'s lazy
 `unpdf` import.
 
-**The XLSX format is rebuilt, not passed through.** `exceljs` exposes worksheets
-as objects; the extractor walks every worksheet and reassembles `[Sheet]` + tab
-rows so `read_doc`'s model-facing format is stable across extractor changes and
-every worksheet is included, not just the first.
+**The XLSX text is rebuilt, not passed through.** `exceljs` exposes worksheets as
+objects; the extractor walks every worksheet and reassembles `[Sheet]` + tab rows
+so the model-facing format is stable across extractor changes and every worksheet
+is included, not just the first.
 
-The renderer is unchanged and reuses `context.lastComponent` (`Text.setText`),
-binding the expand hint to `app.tools.expand`. Path shortening lives in
-`render.ts` (not `lib/`): `lib/` helpers are for two or more extensions, and the
-built-in-style `~`/boundary rule here is document-only. The result line
-deliberately omits the path: Pi stacks the call and result lines in one row, so
-repeating it would be pure duplication.
+The renderer reuses `context.lastComponent` (`Text.setText`), binding the expand
+hint to `app.tools.expand`. Path shortening lives in `render.ts` (not `lib/`):
+`lib/` helpers are for two or more extensions, and the built-in-style
+`~`/boundary rule here is this extension's only. The result line deliberately
+omits the path: Pi stacks the call and result lines in one row, so repeating it
+would be pure duplication.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory; registers the tool. |
-| `formats.ts` | `DocumentFormat`, the `FORMATS` registry, `FormatId`, `detectFormat`, `supportedExtensions`, `unsupportedHint`. |
-| `tool.ts` | The tool definition, handler, path guard, extractor override seam, and renderer wiring. Re-exports `TOOL_NAME`. |
+| `formats.ts` | `ReadFormat`, the `FORMATS` registry, `FormatId`, `detectFormat`, `supportedExtensions`, `unsupportedHint`. |
+| `tool.ts` | The tool definition, handler, path guard, extractor override seam, and renderer wiring. |
 | `render.ts` | Theme-aware transcript formatting: call/result lines, `~` + OSC-8 path, expand hint, sanitized preview, and the shared rejection/error path. The call reuses `ToolCallText` (one line, middle clip); the result reuses `Text`. |
-| `schema.ts` | `TOOL_NAME`, `DocParams`, `DocOutput`, limits, result type. |
-| `config.ts` | `DocConfig`, registry-derived defaults, `normalizeConfig`, `loadConfig`, `isFormatEnabled`. |
-| `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript summary. |
-| `extract/file.ts` | `DocFile` / `DocExtractor`, `readDocBytes` (abort-aware read), `normalizeBodyText`. |
+| `schema.ts` | `TOOL_NAME`, `ReadParams`, `ReadOutput`, limits, result type. |
+| `config.ts` | `ReadConfig`, registry-derived defaults, `normalizeConfig`, `loadConfig`, `isFormatEnabled`. |
+| `paging.ts` | `formatPage`: code-point slicing and header/truncation formatting; `summarizeRead`: the theme-free transcript summary. |
+| `deadline.ts` | `withDeadline`: abandons a parser that outlasts `extractTimeoutMs` and discards its late result. |
+| `extract/file.ts` | `ExtractInput` / `FormatExtractor`, `readFormatBytes` (abort-aware read), `normalizeBodyText`. |
 | `extract/vendor.d.ts` | Ambient types for `word-extractor` and `rtf-parser` (no bundled declarations). |
 | `extract/pdf.ts` | Adapter over the shared `lib/pdf.ts` seam, plus the PDF body normalization. |
 | `extract/docx.ts` | `mammoth` extractor. |
@@ -291,12 +307,12 @@ repeating it would be pure duplication.
 ## Testing
 
 ```bash
-bun test extensions/document
+bun test extensions/file-read
 ```
 
 Extractor tests run against real minimal files (`test/helpers/fixtures/documents.ts`
 builds a genuine PDF, DOCX, and ODT; XLSX is written with `exceljs`; legacy `.doc`
 reads the committed `files/legacy.doc`), so the libraries are exercised, not
 stubbed. `tool.test.ts` injects fake extractors for behavioural cases and reads a
-real PDF and a real `.doc` end to end; `test/helpers/fixtures/document.ts`
+real PDF and a real `.doc` end to end; `test/helpers/fixtures/file-read.ts`
 provides the scratch root and an escape symlink.

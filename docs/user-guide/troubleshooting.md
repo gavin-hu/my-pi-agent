@@ -121,7 +121,7 @@ with `PI_DISABLED_EXTENSIONS`.
 **Will it work in a monorepo or from a subdirectory?**
 Yes. Paths resolve against the effective working directory. The project memory
 store is anchored at the repository root, so it stays stable from a
-subdirectory; the file browser and document reader use the effective root.
+subdirectory; the file browser and the file reader use the effective root.
 
 **Can several sessions run at once?**
 Yes, with two exceptions: two WeChat bridges cannot poll one account at the same

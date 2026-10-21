@@ -15,7 +15,7 @@ import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ToolCallText } from "../lib/tui/tool.ts";
 import bytefly from "../extensions/bytefly/index.ts";
 import check from "../extensions/check/index.ts";
-import document from "../extensions/document/index.ts";
+import fileRead from "../extensions/file-read/index.ts";
 import goal from "../extensions/goal/index.ts";
 import jobs from "../extensions/job/index.ts";
 import memory from "../extensions/memory/index.ts";
@@ -32,7 +32,7 @@ import { createFakePi, fakeTheme } from "./helpers/fakes.ts";
 const EXTENSIONS: Array<(pi: any) => void> = [
 	bytefly,
 	check,
-	document,
+	fileRead,
 	goal,
 	jobs,
 	memory,

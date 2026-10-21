@@ -123,7 +123,7 @@ input box is empty.
 | Feature | What it does | Walkthrough |
 |---|---|---|
 | `web-access` | Web search and page reading | [Searching and reading the web](./web-and-files.md#searching-and-reading-the-web) |
-| `document` | Reads PDF, Word, and Excel files as text | [Documents and files](./web-and-files.md#documents-and-files) |
+| `file-read` | Reads PDF, Word, and Excel files as text | [Documents and files](./web-and-files.md#documents-and-files) |
 | `file-browse` | A read-only browser for the project | [Browsing a project](./web-and-files.md#browsing-a-project) |
 | `file-open` | Opens a file in its normal application | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |
 | `wechat` | Answers WeChat messages from the live session | [Using it from WeChat](./wechat.md) |

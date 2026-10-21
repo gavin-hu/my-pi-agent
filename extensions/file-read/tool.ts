@@ -19,16 +19,14 @@ import { reuseText } from "../../lib/tui/chrome.ts";
 import { elapsedSuffix, reuseCallText, startToolProgress, syncElapsedTimer } from "../../lib/tui/tool.ts";
 import { isFormatEnabled, loadConfig } from "./config.ts";
 import { withDeadline } from "./deadline.ts";
-import type { DocExtractor } from "./extract/file.ts";
+import type { FormatExtractor } from "./extract/file.ts";
 import { detectFormat, supportedExtensions, unsupportedHint, type FormatId } from "./formats.ts";
-import { formatDoc } from "./paging.ts";
-import { formatDocCall, formatDocResult } from "./render.ts";
-import { DocOutput, DocParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type DocArgs, type DocResult } from "./schema.ts";
-
-export { TOOL_NAME } from "./schema.ts";
+import { formatPage } from "./paging.ts";
+import { formatReadCall, formatReadResult } from "./render.ts";
+import { ReadOutput, ReadParams, MAX_CHARS, MIN_CHARS, TOOL_NAME, type ReadArgs, type ReadResult } from "./schema.ts";
 
 /** Resolve a request path under `root`, refusing anything that escapes it. */
-function resolveDocument(root: string, rawPath: string): { display: string; abs: string } {
+function resolveReadPath(root: string, rawPath: string): { display: string; abs: string } {
 	// Resolve on the raw path; sanitize only the displayed/error strings, so a
 	// pathological control character cannot hide a path or forge a transcript line.
 	const trimmed = rawPath.trim();
@@ -44,7 +42,7 @@ function resolveDocument(root: string, rawPath: string): { display: string; abs:
 }
 
 /** Stat the file and raise a model-readable error for a missing/unreadable target. */
-async function statFile(abs: string, display: string, maxFileBytes: number): Promise<number> {
+async function statFile(abs: string, display: string, maxFileBytes: number, tool: string): Promise<number> {
 	let info: Awaited<ReturnType<typeof stat>>;
 	try {
 		info = await stat(abs);
@@ -56,54 +54,57 @@ async function statFile(abs: string, display: string, maxFileBytes: number): Pro
 	}
 	if (!info.isFile()) throw new Error(`Not a file: ${display}`);
 	if (info.size > maxFileBytes) {
-		throw new Error(`File is ${info.size} bytes, larger than the ${maxFileBytes}-byte limit for read_doc.`);
+		throw new Error(`File is ${info.size} bytes, larger than the ${maxFileBytes}-byte limit for ${tool}.`);
 	}
 	return info.size;
 }
 
 /** Per-format extractor overrides, for tests; the format table supplies the rest. */
-export interface DocToolDeps {
-	extractors?: Partial<Record<FormatId, DocExtractor>>;
-	/** Test seam: replace the configured `document.extractTimeoutMs`. */
+export interface ReadToolDeps {
+	extractors?: Partial<Record<FormatId, FormatExtractor>>;
+	/** Test seam: replace the configured `file-read.extractTimeoutMs`. */
 	timeoutMs?: number;
 }
 
-export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void {
+export function registerReadTool(pi: ExtensionAPI, deps: ReadToolDeps = {}): void {
 	pi.registerTool({
 		name: TOOL_NAME,
 		label: "Read document",
 		description:
 			"Read a local PDF, DOCX, DOC, ODT, RTF, or XLSX file and return its extracted text, pageable with " +
 			"startIndex/maxChars. Extraction runs in process, so no external tools are needed; a read that outlasts " +
-			"document.extractTimeoutMs fails with the limit named.",
+			"file-read.extractTimeoutMs fails with the limit named.",
 		promptSnippet: "Read a PDF, DOCX, DOC, ODT, RTF, or XLSX as text, paged with startIndex/maxChars.",
 		promptGuidelines: [
-			"Use read_doc for .pdf/.docx/.doc/.odt/.rtf/.xlsx; the built-in read tool is for text and images.",
-			"Extraction returns plain text only; tables, images, and formatting are dropped.",
+			"Use read_doc for .pdf, .docx, .doc, .odt, .rtf, and .xlsx; the built-in read tool is for text and images.",
+			"Only text survives: tables, images, and formatting are dropped, and an .xlsx read returns one [Sheet] heading per worksheet followed by tab-separated rows of the workbook's displayed values.",
+			"A scanned or image-only PDF has no text layer, so it returns little or nothing; there is no OCR.",
 		],
-		parameters: DocParams,
-		outputSchema: DocOutput,
+		parameters: ReadParams,
+		outputSchema: ReadOutput,
 		annotations: { readOnlyHint: true, openWorldHint: false },
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			const args = params as DocArgs;
+			const args = params as ReadArgs;
 			const config = loadConfig(ctx.cwd);
 			const root = resolveEffectiveCwd(ctx.cwd);
-			const { display, abs } = resolveDocument(root, args.path);
+			const { display, abs } = resolveReadPath(root, args.path);
 
 			const format = detectFormat(display);
 			if (!format) {
 				const hint = unsupportedHint(display);
 				if (hint) throw new Error(hint);
-				throw new Error(`Unsupported document format. Supported extensions: ${supportedExtensions().join(", ")}.`);
+				throw new Error(
+					`Unsupported file format for ${TOOL_NAME}. Supported extensions: ${supportedExtensions().join(", ")}.`,
+				);
 			}
 			if (!isFormatEnabled(config, format.id)) {
 				throw new Error(
-					`${format.label} extraction is disabled in the bytefly.json document section (document.formats.${format.id} = false).`,
+					`${format.label} extraction is disabled in the bytefly.json file-read section (file-read.formats.${format.id} = false).`,
 				);
 			}
 
-			const size = await statFile(abs, display, config.maxFileBytes);
+			const size = await statFile(abs, display, config.maxFileBytes, TOOL_NAME);
 			const extractor = deps.extractors?.[format.id] ?? format.extract;
 			const timeoutMs = deps.timeoutMs ?? config.extractTimeoutMs;
 			startToolProgress(onUpdate);
@@ -111,7 +112,7 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 				timeoutMs,
 				signal,
 				timeoutMessage:
-					`Extraction of ${display} did not finish within ${timeoutMs} ms (document.extractTimeoutMs). ` +
+					`Extraction of ${display} did not finish within ${timeoutMs} ms (file-read.extractTimeoutMs). ` +
 					`The ${format.label} parser was abandoned; raise the limit or read a smaller file.`,
 			});
 
@@ -119,7 +120,8 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 			const requested = typeof args.maxChars === "number" ? args.maxChars : config.maxChars;
 			const maxChars = Math.min(config.maxChars, MAX_CHARS, Math.max(MIN_CHARS, Math.round(requested)));
 
-			const formatted = formatDoc({
+			const formatted = formatPage({
+				tool: TOOL_NAME,
 				path: display,
 				format: format.id,
 				bytes: size,
@@ -128,7 +130,7 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 				maxChars,
 			});
 
-			const result: DocResult = {
+			const result: ReadResult = {
 				path: display,
 				format: format.id,
 				bytes: size,
@@ -149,7 +151,9 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 		renderCall(args, theme, context) {
 			const cwd = context?.cwd ?? process.cwd();
 			const text = reuseCallText(context?.lastComponent, "", "middle");
-			text.setText(formatDocCall(args as DocArgs, theme, { cwd, argsComplete: context?.argsComplete ?? true }));
+			text.setText(
+				formatReadCall(TOOL_NAME, args as ReadArgs, theme, { cwd, argsComplete: context?.argsComplete ?? true }),
+			);
 			return text;
 		},
 
@@ -159,7 +163,11 @@ export function registerDocTool(pi: ExtensionAPI, deps: DocToolDeps = {}): void 
 			const isError = context?.isError ?? result.isError ?? false;
 			const text = reuseText(context?.lastComponent);
 			text.setText(
-				formatDocResult({ content: result.content, details: result.details, isError }, { ...options, progress }, theme),
+				formatReadResult(
+					{ content: result.content, details: result.details, isError },
+					{ ...options, progress },
+					theme,
+				),
 			);
 			return text;
 		},

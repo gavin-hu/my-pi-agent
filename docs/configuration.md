@@ -21,7 +21,7 @@ section and every key with its type, default, and bounds.
 - [`notify` — OS notifications](#notify--os-notifications)
 - [`doctor` — diagnostics](#doctor--diagnostics)
 - [`chrome` — transcript chrome](#chrome--transcript-chrome)
-- [`document` — document extraction](#document--document-extraction)
+- [`file-read` — document and spreadsheet extraction](#file-read--document-and-spreadsheet-extraction)
 - [`file-browse` — the local file server](#file-browse--the-local-file-server)
 - [`goal` — the goal widget](#goal--the-goal-widget)
 - [`job` — background jobs](#job--background-jobs)
@@ -148,7 +148,7 @@ the file for the scope you want, and the next session reads it.
 | choose the worktree base, branch prefix, fetch, or prune age | `worktree` below |
 | pin the browser's port | [`file-browse`](#file-browse--the-local-file-server) |
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
-| change document read limits | [`document`](#document--document-extraction) |
+| change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
 `/bytefly settings` is a shortlist of the preferences a session changes — fourteen
 flat rows, named in bold above. Everything else — the tuning numbers, the
@@ -169,7 +169,7 @@ The sections, by what they are for:
 |---|---|
 | Plan and delegate | [`check`](#check--verification-runs), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
 | Keep your work safe | [`worktree`](#worktree--isolated-worktrees), [`rewind`](#rewind--snapshots), [`memory`](#memory--durable-notes) |
-| Reach the world | [`web-access`](#web-access--search-and-fetch), [`file-browse`](#file-browse--the-local-file-server), [`document`](#document--document-extraction), [`wechat`](#wechat--the-wechat-bridge) |
+| Reach the world | [`web-access`](#web-access--search-and-fetch), [`file-browse`](#file-browse--the-local-file-server), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
 | Chrome and upkeep | [`price`](#price--cost-calculation), [`notify`](#notify--os-notifications), [`doctor`](#doctor--diagnostics), [`chrome`](#chrome--transcript-chrome) |
 
 Every table is checked against the defaults its loader exports by
@@ -186,7 +186,7 @@ repository root rather than the active working directory.
 |---|---|---|
 | [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
 | [`check`](../extensions/check/) | `check` | Detection override, run timeout, and log tail. |
-| [`document`](../extensions/document/) | `document` | Read limits, enabled formats. |
+| [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
 | [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
@@ -277,7 +277,7 @@ settings screen; `rail` is a `bytefly.json` edit.
 |---|---|---|---|---|
 | `rail` | string | `"╎"` | Exactly one visible column | Glyph that leads a tool result and a notice body. |
 
-## `document` — document extraction
+## `file-read` — document and spreadsheet extraction
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -504,7 +504,8 @@ machine and per repository:
 bun run config:migrate --project <repo-root>   # add --dry-run to preview, --keep to keep the old files
 ```
 
-It moves each legacy file into its section, moves bytefly's former top-level
+It moves each legacy file into its section, renames an already-migrated
+`document` section to `file-read`, moves bytefly's former top-level
 `currency`/`rates`/`peak` under `price`, stamps `version`, and deletes the legacy
 files. It skips an existing section and refuses to touch a malformed document,
 so it is safe to re-run.

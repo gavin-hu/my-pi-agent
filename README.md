@@ -43,8 +43,8 @@ want the agent to *think first and work safely*:
 - **Remember across sessions.** Durable notes live in plain markdown that you
   can read, edit, and version.
 - **Reach the web and your files.** Search, fetch, browse, open, and read
-  documents from inside the session, and answer a WeChat chat through a bridge to
-  the live session.
+  documents and spreadsheets from inside the session, and answer a WeChat chat
+  through a bridge to the live session.
 
 Everything is optional and independently toggleable. Nothing is forked, and no
 installed Pi file is modified: Pi discovers the resources through the `pi`
@@ -124,7 +124,7 @@ to do. Each extension's own `README.md` has the full tool and command surface.
 |---|---|---|
 | [`web-access`](./extensions/web-access/) | `web_search`, `web_fetch` | Search the web (keyless DuckDuckGo by default, optional SearXNG or Brave) and fetch a page as readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support. |
 | [`file-browse`](./extensions/file-browse/) | `/browse` | Start a loopback, read-only file browser rooted at the working directory, with Markdown preview, a fuzzy quick-open palette, and live status for a page left open. |
-| [`document`](./extensions/document/) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
+| [`file-read`](./extensions/file-read/) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
 | [`file-open`](./extensions/file-open/) | `/open`, `open_path` | Open or reveal a file or directory in the OS-native application. |
 | [`wechat`](./extensions/wechat/) | `/wechat`, `send_wechat` | Bridge a WeChat chat to the live session over the Weixin iLink bot API; inbound text, images, and files become turns. |
 

@@ -9,7 +9,7 @@
  */
 
 import { stripControlChars } from "../../../lib/format.ts";
-import { readDocBytes, type DocExtractor } from "./file.ts";
+import { readFormatBytes, type FormatExtractor } from "./file.ts";
 
 /** One sheet as the text builder consumes it. */
 interface Sheet {
@@ -60,11 +60,11 @@ export function sheetsToText(value: unknown): string {
 }
 
 /** Extract text from a workbook, one `[Sheet]` section per non-empty worksheet. */
-export const extractXlsxText: DocExtractor = async (file) => {
-	const bytes = await readDocBytes(file);
+export const extractXlsxText: FormatExtractor = async (file) => {
+	const bytes = await readFormatBytes(file);
 	const { Workbook } = await import("exceljs");
 	const workbook = new Workbook();
-	// `readDocBytes` copies into a fresh `Uint8Array`, so its buffer is exactly
+	// `readFormatBytes` copies into a fresh `Uint8Array`, so its buffer is exactly
 	// the file bytes; narrow it for exceljs, which types `load` as ArrayBuffer.
 	const { buffer } = bytes;
 	if (!(buffer instanceof ArrayBuffer)) {

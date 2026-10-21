@@ -3026,7 +3026,8 @@ describe("bytefly panel command", () => {
 		expect(first).not.toContain("footer");
 		expect(first).not.toContain("status");
 
-		expect(labels("do")).toEqual(["doctor", "document"]);
+		expect(labels("do")).toEqual(["doctor"]);
+		expect(labels("file-")).toEqual(["file-browse", "file-read", "file-open"]);
 		expect(commands.get("bytefly").getArgumentCompletions("do")?.[0]?.value).toBe("doctor ");
 		expect(labels("doctor ")).toEqual(expect.arrayContaining(["plan", "refresh"]));
 		expect(labels("doctor w")).toEqual(expect.arrayContaining(["web-access", "worktree"]));

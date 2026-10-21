@@ -75,7 +75,7 @@ describe("binary checks", () => {
 	});
 
 	test("declares no git check for an extension that never runs git", async () => {
-		const report = await probeExtension("document", seams());
+		const report = await probeExtension("file-read", seams());
 		expect(find(report, "git")).toBeUndefined();
 	});
 
@@ -195,7 +195,7 @@ describe("the report shape", () => {
 	test("reports a disabled extension without probing it", async () => {
 		let spawned = 0;
 		const report = await probeExtension(
-			"document",
+			"file-read",
 			seams({
 				isEnabled: () => false,
 				exec: async () => {
