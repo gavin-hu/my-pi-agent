@@ -278,9 +278,10 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
 | `restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths, recreating a rename's source and removing its destination. |
 | `paths.ts` | Pure: the changed-path list from `git diff --name-status` (a rename is one paired entry), its directory grouping, the change marks, the `--numstat` counts, and the restore counts. |
-| `path-picker.ts` | The checklist screen a partial restore opens: grouped paths, toggles, and the selection it returns. |
+| `checklist.ts` | The shared multi-select checklist screen: the cursor, `Space`/`a`/`n`/`Enter`, the height math, and the dock frame. The three checklists below supply only their rows and their words. |
+| `path-picker.ts` | The partial restore's checklist, a `ChecklistScreen` over grouped paths: directory toggles, the change marks, and the selection it returns. |
 | `patch.ts` | Pure: split a single-file unified diff into its header and hunks, and rebuild a patch from chosen hunks. |
-| `hunk-picker.ts` | The hunk checklist a modified file's diff opens: toggles, selection, and the indices it returns. |
+| `hunk-picker.ts` | The hunk checklist a modified file's diff opens, a `ChecklistScreen` over the hunks: previews, the indices it returns, and its own row budget. |
 | `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `policy.ts` | Which tool calls are worth a snapshot. |
 | `temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
@@ -290,7 +291,7 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
 | `rewind.ts` | Scope choice, the path step, confirmation, and applying code + conversation rewind. |
 | `review.ts` | The `/review` orchestration: the latest snapshot, the list/diff loop, the hunk step, confirmations, and the reverts. |
-| `review-tui.ts` | The changed-file list and the scrollable per-file diff, which offers the hunk checklist. |
+| `review-tui.ts` | The changed-file list (a `ChecklistScreen`) and the scrollable per-file diff, which offers the hunk checklist. |
 | `rewind-tui.ts` | The selectable, width-safe timeline component, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `commands.ts` | The `/rewind` and `/review` commands. |
 | `format.ts` | Pure rewind and review text, including diff bounding and the hunk prompt. |

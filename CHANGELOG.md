@@ -47,6 +47,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `todo` draw their overflow notes through the same hint helpers. No tool,
   parameter, or config key changed.
 
+- `rewind`: `/review` folds a revert's outcome into its loop in one place
+  instead of three, and repaints and re-reads the tree after a mutation in one
+  helper instead of two. The partial restore, the changed-file list, and the
+  hunk checklist are now one checklist screen over the shared dock frame — the
+  cursor, `Space`/`a`/`n`/`Enter`, and the height math were spelled out in each
+  of the three — and each keeps only its rows, its detail block, and its words.
+  No key, command, or output text changed.
+
 - `check`: one recipe-detector factory replaces the `just` and `make` detectors
   each spelling out the same manifest lookup, target mapping, and command
   wording, so a third recipe runner is one registration. The four located

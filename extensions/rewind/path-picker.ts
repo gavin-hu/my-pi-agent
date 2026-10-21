@@ -5,22 +5,21 @@
  * The screen is the timeline's sibling — same dock frame, same cursor, same
  * width-safe row grammar — so a partial restore reads as one more step in
  * `/rewind` rather than a second product. Rows are selected by default, which
- * makes `Enter` here reproduce the whole-tree restore exactly.
+ * makes `Enter` here reproduce the whole-tree restore exactly. The frame, the
+ * cursor, and the toggle keys come from {@link ChecklistScreen}.
  *
  * The component owns only the selection: paths in, a chosen subset out through
  * `onClose`, and the restore itself stays behind the confirmation that follows.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
 import { sanitizeLine } from "../../lib/format.ts";
+import { screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { clip } from "../../lib/tui/columns.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { checkbox, listRow } from "../../lib/tui/rows.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
+import { ChecklistScreen } from "./checklist.ts";
 import { baseName, expandGroup, groupPaths, SELECTION_MARKS, type ChangedPath, type PathGroup } from "./paths.ts";
 
 export interface PathPickerOptions {
@@ -33,31 +32,70 @@ export interface PathPickerOptions {
 	viewportRows?: ViewportRowsSource;
 }
 
-/** Rows the screen shows when the terminal height is unknown. */
-const SCREEN_DEFAULT_ITEMS = 12;
-/** Header, summary, blanks, and footer rows around the list. */
-const SCREEN_CHROME_ROWS = 6;
-
 /** One rendered row: a directory header or a file under one. */
 type Row = { kind: "group"; group: PathGroup } | { kind: "file"; path: ChangedPath; dir: string };
 
 /** The checklist of changed paths. */
-export class PathPickerComponent implements Component {
-	private readonly cursor: ListCursor;
+export class PathPickerComponent extends ChecklistScreen<Row> {
+	private readonly view: PathPickerOptions;
 	private readonly groups: PathGroup[];
-	private readonly rows: Row[];
-	private readonly chosen = new Set<string>();
+	private readonly flat: readonly Row[];
 
-	constructor(private readonly options: PathPickerOptions) {
-		this.cursor = new ListCursor(options.requestRender);
-		this.groups = groupPaths(options.paths);
-		// Every path starts selected, so confirming without touching anything means
-		// "restore it all" — the behavior `/rewind` had before the checklist existed.
-		for (const group of this.groups) for (const path of expandGroup(group)) this.chosen.add(path);
-		this.rows = this.groups.flatMap((group): Row[] => [
+	constructor(view: PathPickerOptions) {
+		super({
+			title: "Restore paths",
+			theme: view.theme,
+			requestRender: view.requestRender,
+			viewportRows: view.viewportRows,
+		});
+		this.view = view;
+		this.groups = groupPaths(view.paths);
+		this.flat = this.groups.flatMap((group): Row[] => [
 			{ kind: "group", group },
 			...group.paths.map((path): Row => ({ kind: "file", path, dir: group.dir })),
 		]);
+	}
+
+	protected rows(): readonly Row[] {
+		return this.flat;
+	}
+
+	/** A group header's key is never selected: it toggles its files instead. */
+	protected keyOf(row: Row): string {
+		return row.kind === "group" ? row.group.dir : row.path.path;
+	}
+
+	/**
+	 * Every path starts selected, so confirming without touching anything means
+	 * "restore it all" — the behavior `/rewind` had before the checklist existed.
+	 */
+	protected initialSelection(): readonly string[] {
+		return this.groups.flatMap(expandGroup);
+	}
+
+	protected selectableKeys(): readonly string[] {
+		return this.view.paths.map((path) => path.path);
+	}
+
+	protected onEnter(selection: string[]): void {
+		this.view.onClose(selection);
+	}
+
+	protected onCancel(): void {
+		this.view.onClose(undefined);
+	}
+
+	/** Space on a directory header toggles every file under it. */
+	protected override toggle(row: Row): void {
+		if (row.kind === "file") {
+			super.toggle(row);
+			return;
+		}
+		const on = !this.groupOn(row.group);
+		for (const path of expandGroup(row.group)) {
+			if (on) this.chosen.add(path);
+			else this.chosen.delete(path);
+		}
 	}
 
 	/** Whether every file under `group` is selected. */
@@ -65,87 +103,8 @@ export class PathPickerComponent implements Component {
 		return group.paths.every((path) => this.chosen.has(path.path));
 	}
 
-	/** Toggle every file under `group` to `on`. */
-	private setGroup(group: PathGroup, on: boolean): void {
-		for (const path of expandGroup(group)) {
-			if (on) this.chosen.add(path);
-			else this.chosen.delete(path);
-		}
-	}
-
-	/** Apply a key press. Exposed for the tests that drive the screen directly. */
-	handleInput(data: string): void {
-		if (isCloseKey(data)) {
-			this.options.onClose(undefined);
-			return;
-		}
-		if (navigateList(data, this.cursor, this.rows.length)) return;
-		if (data === " ") {
-			const row = this.rows[this.cursor.selected];
-			if (row?.kind === "group") this.setGroup(row.group, !this.groupOn(row.group));
-			else if (row) {
-				if (this.chosen.has(row.path.path)) this.chosen.delete(row.path.path);
-				else this.chosen.add(row.path.path);
-			}
-			this.options.requestRender();
-			return;
-		}
-		if (data === "a") {
-			for (const path of this.options.paths) this.chosen.add(path.path);
-			this.options.requestRender();
-			return;
-		}
-		if (data === "n") {
-			this.chosen.clear();
-			this.options.requestRender();
-			return;
-		}
-		if (matchesKey(data, Key.enter)) this.options.onClose([...this.chosen]);
-	}
-
-	/** Wheel scrolling in fullscreen moves the cursor; regular mode leaves the wheel to the terminal. */
-	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		return scrollList(event, this.cursor, this.rows.length);
-	}
-
-	dispose(): void {}
-
-	invalidate(): void {}
-
-	// The shared dock frame, like every other list screen.
-	render(width: number): string[] {
-		const w = Math.max(1, width);
-		const header = titleRule(this.theme, w, "Restore paths");
-		const cursor = this.cursor;
-		cursor.visible = fitRows(this.options.viewportRows, this.rows.length, SCREEN_CHROME_ROWS, SCREEN_DEFAULT_ITEMS);
-		const { start, end } = cursor.window(this.rows.length);
-
-		const body: string[] = [];
-		for (let i = start; i < end; i++) body.push(this.rowLine(w, this.rows[i], i === cursor.selected));
-
-		const total = this.options.paths.length;
-		const selected = this.chosen.size;
-		return dockListFrame({
-			header,
-			summary: clip(
-				`  ${paint(this.theme, "meta", `${selected} of ${total} selected${SEPARATORS.item}Space toggles a file or a directory`)}`,
-				w,
-			),
-			body,
-			range: cursor.clipped(this.rows.length)
-				? formatRange(this.theme, w, { start, end, total: this.rows.length })
-				: undefined,
-			detail: this.detail(w),
-			hint: this.hint(w),
-		});
-	}
-
-	private get theme(): Theme {
-		return this.options.theme;
-	}
-
 	/** One row: a directory header with its count, or a file with its change mark. */
-	private rowLine(width: number, row: Row, selected: boolean): string {
+	protected rowLine(row: Row, width: number, selected: boolean): string {
 		const tone = selected ? "accent" : row.kind === "group" ? "meta" : "label";
 		if (row.kind === "group") {
 			const count = row.group.paths.length;
@@ -171,10 +130,15 @@ export class PathPickerComponent implements Component {
 		});
 	}
 
+	protected summaryText(): string {
+		const total = this.view.paths.length;
+		return `${this.chosen.size} of ${total} selected${SEPARATORS.item}Space toggles a file or a directory`;
+	}
+
 	/** What the focused row will do, in words. */
-	private detail(width: number): string[] | undefined {
-		const row = this.rows[this.cursor.selected];
-		if (!row) return undefined;
+	protected detailLines(width: number): string[] {
+		const row = this.focused;
+		if (!row) return [];
 		const text =
 			row.kind === "group"
 				? `Space selects or clears all ${row.group.paths.length} file${row.group.paths.length === 1 ? "" : "s"} in this directory.`
@@ -189,7 +153,7 @@ export class PathPickerComponent implements Component {
 	}
 
 	/** The key-hint row, with the primary action in the accent role. */
-	private hint(width: number): string {
+	protected hint(width: number): string {
 		return screenHint(this.theme, width, [
 			"Esc cancel",
 			{ text: "Enter restore", color: "accent" },

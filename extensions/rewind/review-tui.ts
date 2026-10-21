@@ -12,31 +12,19 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import type { Component, TuiMouseEvent, TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { clip } from "../../lib/tui/columns.ts";
 import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import {
-	fitRows,
-	formatRange,
-	isCloseKey,
-	ListCursor,
-	navigateList,
-	scrollList,
-	wheelDelta,
-} from "../../lib/tui/cursor.ts";
+import { fitRows, formatRange, isCloseKey, wheelDelta } from "../../lib/tui/cursor.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { LinePane } from "../../lib/tui/line-pane.ts";
 import { checkbox, emptyState, listRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
+import { ChecklistScreen } from "./checklist.ts";
 import { formatReviewDetail, formatReviewEntryCounts, formatReviewSummary } from "./format.ts";
 import { SELECTION_MARKS, type PathChange, type ReviewEntry } from "./paths.ts";
-
-/** Rows a list screen shows when the terminal height is unknown. */
-const LIST_DEFAULT_ITEMS = 12;
-/** Header, summary, blank, blank, hint, and blank rows around the list. */
-const LIST_CHROME_ROWS = 6;
 
 /** Rows a diff screen shows when the terminal height is unknown. */
 const DIFF_DEFAULT_ITEMS = 20;
@@ -108,53 +96,54 @@ export interface ReviewListOptions {
 }
 
 /** The changed-file list `/review` opens. */
-export class ReviewListComponent implements Component {
-	private readonly cursor: ListCursor;
-	private readonly chosen = new Set<string>();
+export class ReviewListComponent extends ChecklistScreen<ReviewEntry> {
+	private readonly view: ReviewListOptions;
 
-	constructor(private readonly options: ReviewListOptions) {
-		this.cursor = new ListCursor(options.requestRender);
-		this.cursor.selected = Math.min(Math.max(0, options.initialIndex ?? 0), Math.max(0, options.entries.length - 1));
+	constructor(view: ReviewListOptions) {
+		super({
+			title: "Review",
+			theme: view.theme,
+			requestRender: view.requestRender,
+			viewportRows: view.viewportRows,
+			emptyLabel: "No changes to review.",
+		});
+		this.view = view;
+		this.cursor.selected = Math.min(Math.max(0, view.initialIndex ?? 0), Math.max(0, view.entries.length - 1));
 		// Returning from a diff can land deep in the list; put the focused row in
 		// view before the first render finds a window that omits it.
 		this.cursor.scrollTop = this.cursor.selected;
-		const present = new Set(options.entries.map((entry) => entry.path));
-		for (const path of options.initialSelected ?? []) if (present.has(path)) this.chosen.add(path);
+	}
+
+	protected rows(): readonly ReviewEntry[] {
+		return this.view.entries;
+	}
+
+	protected keyOf(entry: ReviewEntry): string {
+		return entry.path;
+	}
+
+	protected initialSelection(): readonly string[] {
+		const present = new Set(this.view.entries.map((entry) => entry.path));
+		return (this.view.initialSelected ?? []).filter((path) => present.has(path));
 	}
 
 	/** Close with an action and the current selection. */
 	private close(action?: ReviewListAction): void {
-		this.options.onClose({ action, selected: [...this.chosen] });
+		this.view.onClose({ action, selected: [...this.chosen] });
 	}
 
-	handleInput(data: string): void {
-		if (isCloseKey(data)) {
-			this.close();
-			return;
-		}
-		if (navigateList(data, this.cursor, this.options.entries.length)) return;
-		const entry = this.options.entries[this.cursor.selected];
+	protected onEnter(): void {
+		const entry = this.focused;
+		if (entry) this.close({ kind: "diff", path: entry.path });
+	}
+
+	protected onCancel(): void {
+		this.close();
+	}
+
+	protected verb(data: string): void {
+		const entry = this.focused;
 		if (!entry) return;
-		if (data === " ") {
-			if (this.chosen.has(entry.path)) this.chosen.delete(entry.path);
-			else this.chosen.add(entry.path);
-			this.options.requestRender();
-			return;
-		}
-		if (data === "a") {
-			for (const candidate of this.options.entries) this.chosen.add(candidate.path);
-			this.options.requestRender();
-			return;
-		}
-		if (data === "n") {
-			this.chosen.clear();
-			this.options.requestRender();
-			return;
-		}
-		if (matchesKey(data, Key.enter)) {
-			this.close({ kind: "diff", path: entry.path });
-			return;
-		}
 		if (data === "r") {
 			const paths = this.chosen.size > 0 ? [...this.chosen] : [entry.path];
 			this.close({ kind: "revert", paths });
@@ -163,90 +152,45 @@ export class ReviewListComponent implements Component {
 		if (data === "R") this.close({ kind: "revertAll" });
 	}
 
-	/** Wheel scrolling in fullscreen moves the cursor; regular mode leaves the wheel to the terminal. */
-	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		return scrollList(event, this.cursor, this.options.entries.length);
+	protected rowLine(entry: ReviewEntry, width: number, selected: boolean): string {
+		return listRow(this.theme, width, {
+			selected,
+			leading: checkbox(this.theme, this.chosen.has(entry.path)),
+			glyph: SELECTION_MARKS[entry.change],
+			glyphRole: markRole(entry.change),
+			label: sanitizeLine(entry.path),
+			labelRole: selected ? "accent" : "label",
+			trailing: formatReviewEntryCounts(entry),
+			trailingRole: "meta",
+		});
 	}
 
-	dispose(): void {}
+	protected summaryText(): string {
+		const label = sanitizeLine(this.view.prompt || "the last prompt");
+		const parts = [formatReviewSummary(this.view.entries, this.chosen.size)];
+		if (this.view.committed) parts.push("committed");
+		return `after "${label}"${SEPARATORS.item}${parts.join(SEPARATORS.item)}`;
+	}
 
-	invalidate(): void {}
-
-	render(width: number): string[] {
-		const w = Math.max(1, width);
-		const header = titleRule(this.theme, w, "Review");
-		if (this.options.entries.length === 0) {
-			return dockListFrame({
-				header,
-				body: emptyState(this.theme, w, { label: "No changes to review." }),
-				hint: this.hint(w),
-			});
-		}
-
-		const cursor = this.cursor;
-		const focused = this.options.entries[cursor.selected];
-		const label = sanitizeLine(this.options.prompt || "the last prompt");
-		const summaryParts = [formatReviewSummary(this.options.entries, this.chosen.size)];
-		if (this.options.committed) summaryParts.push("committed");
-		const summary = clip(
-			`  ${paint(this.theme, "meta", `after "${label}"${SEPARATORS.item}${summaryParts.join(SEPARATORS.item)}`)}`,
-			w,
-		);
+	protected detailLines(width: number): string[] {
+		const detail: string[] = [];
+		const focused = this.focused;
+		if (focused) detail.push(clip(`  ${paint(this.theme, "meta", formatReviewDetail(focused))}`, width));
 		const selectionLine =
 			this.chosen.size > 0
 				? `r reverts ${this.chosen.size} selected file${this.chosen.size === 1 ? "" : "s"}; R reverts all.`
 				: undefined;
-		const committedLine = this.options.committed
+		const committedLine = this.view.committed
 			? "These changes are already committed; reverting rewrites the working tree only."
 			: undefined;
-		const detail: string[] = [];
-		if (focused) detail.push(clip(`  ${paint(this.theme, "meta", formatReviewDetail(focused))}`, w));
 		for (const line of [selectionLine, committedLine]) {
-			if (line) detail.push(clip(`  ${paint(this.theme, "meta", line)}`, w));
+			if (line) detail.push(clip(`  ${paint(this.theme, "meta", line)}`, width));
 		}
-		cursor.visible = fitRows(
-			this.options.viewportRows,
-			this.options.entries.length,
-			LIST_CHROME_ROWS + detailBlockRows(detail),
-			LIST_DEFAULT_ITEMS,
-		);
-		const { start, end } = cursor.window(this.options.entries.length);
-		const body: string[] = [];
-		for (let index = start; index < end; index++) {
-			const entry = this.options.entries[index];
-			const selected = index === cursor.selected;
-			body.push(
-				listRow(this.theme, w, {
-					selected,
-					leading: checkbox(this.theme, this.chosen.has(entry.path)),
-					glyph: SELECTION_MARKS[entry.change],
-					glyphRole: markRole(entry.change),
-					label: sanitizeLine(entry.path),
-					labelRole: selected ? "accent" : "label",
-					trailing: formatReviewEntryCounts(entry),
-					trailingRole: "meta",
-				}),
-			);
-		}
-
-		return dockListFrame({
-			header,
-			summary,
-			body,
-			range: cursor.clipped(this.options.entries.length)
-				? formatRange(this.theme, w, { start, end, total: this.options.entries.length })
-				: undefined,
-			detail,
-			hint: this.hint(w),
-		});
-	}
-
-	private get theme(): Theme {
-		return this.options.theme;
+		return detail;
 	}
 
 	/** The key-hint row, with the primary action in the accent role. */
-	private hint(width: number): string {
+	protected hint(width: number): string {
 		return screenHint(this.theme, width, [
 			"Esc close",
 			{ text: "Enter diff", color: "accent" },
