@@ -596,12 +596,11 @@ describe("PanelComponent sections", () => {
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("29 settings");
+		expect(text).toContain("14 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Delivery method");
-		// The pane scrolls, so the assertion names a row the first screen shows rather
-		// than one further down the catalogue.
+		// The list is flat and short: every curated row is on the first screen.
 		expect(text).toContain("Watcher matched");
 		expect(text).not.toContain("No settings yet.");
 		expect(text).not.toContain("plan/index.ts");
@@ -616,7 +615,7 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine()).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 29 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 14 settings");
 
 		component.handleInput("\u001b[D");
 		expect(selectedLine()).toContain("beta/index.ts");
@@ -628,7 +627,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 25 settings");
+		expect(text).toContain("Project · 12 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -638,15 +637,13 @@ describe("PanelComponent sections", () => {
 		const selected = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
 
 		component.render(80);
-		// Five group jumps land on the Terminal row, which is an app row: Project
-		// drops it, and the cursor must land nearby rather than back at the top.
-		component.handleInput("g");
-		for (let index = 0; index < 5; index += 1) component.handleInput("]");
-		expect(selected()).toContain("Theme");
+		// Theme is the second row and an app row: Project drops it, and the cursor
+		// keeps its ordinal instead of jumping back to the top.
+		focus(component, "Theme");
 
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 25 settings");
-		expect(selected()).toContain("Prune after (days)");
+		expect(component.render(80).join("\n")).toContain("Project · 12 settings");
+		expect(selected()).toContain("Turn finished");
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
@@ -656,7 +653,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 29 settings");
+		expect(refused).toContain("Global · 14 settings");
 		// The notice takes the hint row, so the key hints step aside while it shows.
 		expect(refused).not.toContain("Esc close");
 
@@ -740,7 +737,7 @@ describe("PanelComponent sections", () => {
 		const settings = makeSettings();
 		const { component } = build({ items: [packageItem("plan")], section: "settings", settings: settings.surface });
 
-		component.handleInput("j");
+		focus(component, "Desktop notifications");
 		component.handleInput("\r");
 		await settle();
 		await settle();
@@ -893,143 +890,141 @@ describe("PanelComponent probing", () => {
 });
 
 describe("PanelComponent text editing", () => {
-	/** Walk the focus down to the row whose label matches. */
-	test("opens the editor on the rail glyph and the probe timeout", () => {
-		const rail = build({ items: [], section: "settings", globalDoc: { chrome: { rail: "┃" } } });
-		focus(rail.component, "Rail glyph");
-		rail.component.handleInput(" ");
+	test("opens the editor on the only text row", () => {
+		const { component } = build({ items: [], section: "settings", globalDoc: { price: { budget: 5 } } });
 
-		// A text row never cycles: Space opens the editor on the current glyph.
-		const railText = rail.component.render(80).join("\n");
-		expect(railText).toContain("┃▏");
-		expect(railText).toContain("Esc cancel");
+		focus(component, "Session budget");
+		component.handleInput(" ");
 
-		const timeout = build({ items: [], section: "settings", globalDoc: { doctor: { timeoutMs: 3000 } } });
-		focus(timeout.component, "Probe timeout");
-		timeout.component.handleInput("\r");
-
-		expect(timeout.component.render(80).join("\n")).toContain("3000▏");
+		// A text row never cycles: Space opens the editor on the current amount.
+		const text = component.render(80).join("\n");
+		expect(text).toContain("5▏");
+		expect(text).toContain("Esc cancel");
 	});
 
 	test("Enter opens the editor on the stored value and shows the editor keys", () => {
-		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });
+		const { component } = build({ items: [], section: "settings", globalDoc: { price: { budget: 5 } } });
 
-		focus(component, "Notification title");
+		focus(component, "Session budget");
 		component.handleInput("\r");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Pi▏");
+		expect(text).toContain("5▏");
 		expect(text).toContain("Esc cancel");
 		expect(text).not.toContain("Esc close");
 	});
 
 	test("typing and Enter store the value", async () => {
-		const settings = makeSettings({ global: { notify: { title: "Pi" } } });
+		const settings = makeSettings({ global: { price: { budget: 0 } } });
 		const { component } = build({ items: [], section: "settings", settings: settings.surface });
 
-		focus(component, "Notification title");
+		focus(component, "Session budget");
 		component.handleInput("\r");
-		for (const char of "lot") component.handleInput(char);
+		component.handleInput("\u0015");
+		component.handleInput("5");
 		component.handleInput("\r");
 		await settle();
 		await settle();
 
-		expect(settings.changes).toContain("global:notify.title=Pilot");
+		expect(settings.changes).toContain("global:price.budget=5");
 		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
 	});
 
 	test("Esc cancels without writing", async () => {
-		const settings = makeSettings({ global: { notify: { title: "Pi" } } });
+		const settings = makeSettings({ global: { price: { budget: 0 } } });
 		const { component } = build({ items: [], section: "settings", settings: settings.surface });
 
-		focus(component, "Notification title");
+		focus(component, "Session budget");
 		component.handleInput("\r");
-		component.handleInput("x");
+		component.handleInput("9");
 		component.handleInput("\u001b");
 		await settle();
 
-		expect(settings.changes.filter((change) => change.includes("notify.title"))).toEqual([]);
-		expect(component.render(80).join("\n")).not.toContain("Pi▏");
+		expect(settings.changes.filter((change) => change.includes("price.budget"))).toEqual([]);
+		expect(component.render(80).join("\n")).not.toContain("9▏");
 	});
 
 	test("keeps the editor open when the runtime refuses the value", async () => {
-		const base = makeSettings({ global: { notify: { title: "Pi" } } });
+		const base = makeSettings({ global: { price: { budget: 0 } } });
 		const refusing: SettingsSurface = { ...base.surface, setValue: async () => false };
 		const { component } = build({ items: [], section: "settings", settings: refusing });
 
-		focus(component, "Notification title");
+		focus(component, "Session budget");
 		component.handleInput("\r");
-		component.handleInput("!");
+		component.handleInput("9");
 		component.handleInput("\r");
 		await settle();
 		await settle();
 
-		expect(component.render(80).join("\n")).toContain("Pi!▏");
+		expect(component.render(80).join("\n")).toContain("9▏");
 	});
 
 	test("inserts at the caret and refuses characters past the limit", () => {
-		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });
+		const { component } = build({ items: [], section: "settings", globalDoc: { price: { budget: 12 } } });
 
-		focus(component, "Notification title");
+		focus(component, "Session budget");
 		component.handleInput("\r");
 		component.handleInput("\u001b[D"); // left
-		component.handleInput("o");
-		expect(component.render(80).join("\n")).toContain("Po▏i");
+		component.handleInput("3");
+		expect(component.render(80).join("\n")).toContain("13▏2");
 
-		// Move to the end and overrun the 40-character rule.
+		// Move to the end and overrun the sixteen-character rule.
 		component.handleInput("\u0005");
-		for (let step = 0; step < 45; step += 1) component.handleInput("x");
+		for (let step = 0; step < 20; step += 1) component.handleInput("9");
 		const text = component.render(80).join("\n");
-		expect(text).toContain(`${"Poi"}${"x".repeat(37)}`);
-		expect(text).not.toContain("x".repeat(38));
+		expect(text).toContain("132");
+		expect(text).not.toContain("9".repeat(14));
 	});
+
 	test("strips bracketed-paste markers from a pasted value", async () => {
-		const settings = makeSettings({ global: { notify: { title: "Pi" } } });
+		const settings = makeSettings({ global: { price: { budget: 0 } } });
 		const { component } = build({ items: [], section: "settings", settings: settings.surface });
 
-		focus(component, "Notification title");
+		focus(component, "Session budget");
 		component.handleInput("\r");
+		component.handleInput("\u0015");
 		// A terminal wraps a paste in `\x1b[200~` … `\x1b[201~` before the component
 		// sees it; their ESC is dropped as a control character, so the marker text
 		// itself has to be stripped or it lands in the stored value.
-		component.handleInput("\x1b[200~Build finished\x1b[201~");
+		component.handleInput("\x1b[200~4.5\x1b[201~");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("PiBuild finished▏");
+		expect(text).toContain("4.5▏");
 		expect(text).not.toContain("[200~");
 
 		component.handleInput("\r");
 		await settle();
 		await settle();
-		expect(settings.changes).toContain("global:notify.title=PiBuild finished");
+		expect(settings.changes).toContain("global:price.budget=4.5");
 	});
 });
 
 describe("PanelComponent settings actions", () => {
-	test("names the reset, JSON, and group keys in the hint row", () => {
+	test("names the reset and JSON keys, and offers no group key on the flat list", () => {
 		const { component } = build({ items: [], section: "settings" });
 
 		const text = component.render(120).join("\n");
 		expect(text).toContain("u reset");
 		expect(text).toContain("J JSON");
-		expect(text).toContain("[ ] group");
+		expect(text).toContain("↑/↓ select");
+		expect(text).not.toContain("[ ]");
 	});
 
 	test("resets the focused row and marks the screen saved", async () => {
 		const { component } = build({
 			items: [],
 			section: "settings",
-			globalDoc: { rewind: { max: 50, autoSnapshots: false } },
+			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		focus(component, "Snapshots kept");
+		focus(component, "Wake when a job finishes");
 		component.handleInput("u");
 		await settle();
 
 		const text = component.render(80).join("\n");
-		const row = text.split("\n").find((line) => line.includes("Snapshots kept"));
-		// The stored 50 is gone, so the row falls back to the loader's 20.
-		expect(row?.trimEnd().endsWith("20")).toBe(true);
+		const row = text.split("\n").find((line) => line.includes("Wake when a job finishes"));
+		// The stored true is gone, so the row falls back to the loader's default.
+		expect(row?.trimEnd().endsWith("Off")).toBe(true);
 		expect(text).toContain("Saved");
 	});
 
@@ -1057,38 +1052,38 @@ describe("PanelComponent settings actions", () => {
 		const { component } = build({
 			items: [],
 			section: "settings",
-			globalDoc: { worktree: { baseRef: "head" } },
+			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		focus(component, "Base ref");
+		focus(component, "Wake when a job finishes");
 		component.handleInput("J");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("worktree");
-		expect(text).toContain('"baseRef": "head"');
+		expect(text).toContain("job — ");
+		expect(text).toContain('"wakeOnFinish": true');
 		expect(text).toContain("J hide");
 
 		component.handleInput("\t");
 		const afterScope = component.render(80).join("\n");
-		expect(afterScope).not.toContain('"baseRef": "head"');
+		expect(afterScope).not.toContain('"wakeOnFinish": true');
 	});
 
 	test("does not reopen the JSON pane after the focus visits a Global-only row", () => {
 		const { component } = build({
 			items: [],
 			section: "settings",
-			globalDoc: { worktree: { baseRef: "head" } },
+			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		focus(component, "Base ref");
+		focus(component, "Wake when a job finishes");
 		component.handleInput("J");
-		expect(component.render(80).join("\n")).toContain('"baseRef": "head"');
+		expect(component.render(80).join("\n")).toContain('"wakeOnFinish": true');
 
 		// Land on an app row (no section), then walk back to the same config row.
 		component.handleInput("g");
-		expect(component.render(80).join("\n")).not.toContain('"baseRef": "head"');
-		focus(component, "Base ref");
-		expect(component.render(80).join("\n")).not.toContain('"baseRef": "head"');
+		expect(component.render(80).join("\n")).not.toContain('"wakeOnFinish": true');
+		focus(component, "Wake when a job finishes");
+		expect(component.render(80).join("\n")).not.toContain('"wakeOnFinish": true');
 	});
 
 	test("explains that a Pi setting has no section to show", () => {
@@ -1102,25 +1097,21 @@ describe("PanelComponent settings actions", () => {
 		expect(text).not.toContain("J hide");
 	});
 
-	test("jumps to the next and previous group and stops at the ends", () => {
+	test("leaves the group keys inert on the flat Settings list", () => {
 		const { component } = build({ items: [], section: "settings" });
 		const selected = (): string | undefined => component.render(80).find((line) => line.startsWith("❯"));
 
 		component.render(80);
 		expect(selected()).toContain("Bytefly startup TUI");
 
+		// `[` / `]` jump source groups in Extensions; the Settings list is flat.
 		component.handleInput("]");
-		expect(selected()).toContain("Desktop notifications");
-		component.handleInput("[");
 		expect(selected()).toContain("Bytefly startup TUI");
-		// The first group has no predecessor: the key stays put instead of wrapping.
 		component.handleInput("[");
 		expect(selected()).toContain("Bytefly startup TUI");
 
 		component.handleInput("G");
-		expect(selected()).toContain("Inject notes");
-		component.handleInput("]");
-		expect(selected()).toContain("Inject notes");
+		expect(selected()).toContain("Session budget");
 	});
 });
 
@@ -1129,15 +1120,15 @@ describe("PanelComponent settings review fixes", () => {
 		const { component } = build({
 			items: [packageItem("plan")],
 			section: "settings",
-			globalDoc: { notify: { title: "Pi" } },
+			globalDoc: { notify: { enabled: true } },
 		});
 		const selected = (): string => component.render(80).find((line) => line.startsWith("❯")) ?? "";
 
-		focus(component, "Notification title");
+		focus(component, "Desktop notifications");
 		component.handleInput("\t");
-		expect(selected()).toContain("Notification title");
+		expect(selected()).toContain("Desktop notifications");
 		component.handleInput("\t");
-		expect(selected()).toContain("Notification title");
+		expect(selected()).toContain("Desktop notifications");
 	});
 
 	test("names the global file for an inherited row and calls a default a default", () => {
@@ -1145,15 +1136,15 @@ describe("PanelComponent settings review fixes", () => {
 			items: [packageItem("plan")],
 			section: "settings",
 			rows: 40,
-			globalDoc: { worktree: { baseRef: "head" } },
+			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
 		component.handleInput("\t");
-		focus(component, "Base ref");
+		focus(component, "Wake when a job finishes");
 		let text = component.render(80).join("\n");
 		expect(text).toContain(`Inherited from Global · ${join("/agent", "bytefly.json")}`);
 
-		focus(component, "Fetch remote");
+		focus(component, "Wake on a match");
 		text = component.render(80).join("\n");
 		expect(text).toContain(`Default · ${join("/proj", ".pi", "bytefly.json")}`);
 		expect(text).not.toContain("Inherited from Global");
@@ -1163,32 +1154,31 @@ describe("PanelComponent settings review fixes", () => {
 		const { component } = build({
 			items: [packageItem("plan")],
 			section: "settings",
-			globalDoc: { worktree: { baseRef: "head" } },
+			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
 		component.handleInput("\t");
-		focus(component, "Base ref");
+		focus(component, "Wake when a job finishes");
 		component.handleInput("J");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain(`worktree — Project · ${join("/proj", ".pi", "bytefly.json")}`);
+		expect(text).toContain(`job — Project · ${join("/proj", ".pi", "bytefly.json")}`);
 		expect(text).toContain("Not set in this scope.");
 	});
 
-	test("counts settings, not group headings, in the range row", () => {
+	test("counts the settings it shows in the range row", () => {
 		const { component } = build({ items: [packageItem("plan")], section: "settings", rows: 12 });
 
 		const global = component.render(80).join("\n");
 		expect(global).toContain("showing");
-		expect(global).toContain("of 29");
-		expect(global).not.toContain("of 39");
+		expect(global).toContain("of 14");
 
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("of 25");
+		expect(component.render(80).join("\n")).toContain("of 12");
 	});
 
 	test("ignores a click below the last body row", () => {
-		const { component } = build({ items: [packageItem("plan")], section: "settings", rows: 24 });
+		const { component } = build({ items: [packageItem("plan")], section: "settings", rows: 12 });
 		const selected = (): string => component.render(80).find((line) => line.startsWith("❯")) ?? "";
 
 		const lines = component.render(80);
@@ -1239,14 +1229,14 @@ describe("PanelComponent settings review fixes", () => {
 	});
 
 	test("keeps the label and the caret while editing a long value on a narrow terminal", () => {
-		const { component } = build({ items: [], section: "settings", globalDoc: { notify: { title: "Pi" } } });
+		const { component } = build({ items: [], section: "settings", globalDoc: { price: { budget: 0 } } });
 
-		focus(component, "Notification title");
+		focus(component, "Session budget");
 		component.handleInput(" ");
-		component.handleInput("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+		component.handleInput("1234567890");
 
 		const line = component.render(30).find((candidate) => candidate.startsWith("❯")) ?? "";
-		expect(line).toContain("Notification");
+		expect(line).toContain("Session");
 		expect(line).toContain("▏");
 		expect(line).toContain("…");
 	});
@@ -1276,8 +1266,55 @@ describe("PanelComponent settings review fixes", () => {
 	});
 });
 
+describe("PanelComponent settings frame", () => {
+	test("shows every curated setting and nothing that left the catalogue", () => {
+		const { component } = build({ items: [], section: "settings" });
+		const text = component.render(80).join("\n");
+
+		// A pruned row has no line of its own; its key lives in `bytefly.json`.
+		for (const gone of ["Notification title", "Probe timeout", "Rail glyph", "Base ref", "Snapshots kept"]) {
+			expect(text, gone).not.toContain(gone);
+		}
+		expect(text).toContain("Session budget");
+	});
+
+	test("fits all fourteen settings on a 24-row terminal with no range row", () => {
+		const { component } = build({ items: [], section: "settings", rows: 24 });
+		const lines = component.render(80);
+
+		expect(lines).toHaveLength(24);
+		expect(lines.join("\n")).not.toContain("showing");
+		expect(lines.join("\n")).toContain("Session budget");
+	});
+
+	test("stays content-sized on a tall terminal", () => {
+		const { component } = build({ items: [], section: "settings", rows: 40 });
+
+		// The extra rows stay with the transcript instead of stretching the panel.
+		expect(component.render(80)).toHaveLength(24);
+	});
+
+	test("keeps a value beside its label on a wide terminal", () => {
+		const { component } = build({ items: [], section: "settings" });
+		const line = component.render(120).find((candidate) => candidate.includes("Turn finished")) ?? "";
+
+		expect(line.trimEnd()).toBe("  ◼ Turn finished  On");
+	});
+
+	test("spends three rows on the focused row's detail", () => {
+		const { component } = build({ items: [], section: "settings", rows: 24 });
+		const lines = component.render(80);
+		const head = lines.findIndex((line) => line.includes("Bytefly startup TUI — Pi setting"));
+
+		expect(head).toBeGreaterThan(0);
+		expect(lines[head + 1]).toContain("Use bytefly's startup header");
+		expect(lines[head + 2]).toContain("Default · ");
+		expect(lines[head + 3]).toBe("");
+	});
+});
+
 describe("PanelComponent theme setting", () => {
-	test("renders Theme under Terminal and cycles the resolved names", async () => {
+	test("renders the Theme row and cycles the resolved names", async () => {
 		const { component } = build({
 			items: [],
 			section: "settings",
@@ -1287,7 +1324,6 @@ describe("PanelComponent theme setting", () => {
 
 		focus(component, "Theme");
 		const before = component.render(80).join("\n");
-		expect(before).toContain("Terminal (2)");
 		expect(before).toContain("Theme");
 
 		component.handleInput(" ");

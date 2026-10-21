@@ -41,11 +41,30 @@ describe("listRow", () => {
 		expect(listRow(coloringTheme, 12, { label: "x", labelRole: "title" })).toBe("  [accent]x");
 	});
 
+	test("keeps the trailing meta beside the label when the row asks for inline", () => {
+		const line = stripTerminalSequences(listRow(fakeTheme, 40, { label: "alpha", trailing: "12", align: "inline" }));
+		expect(line).toBe("  alpha  12");
+		expect(visibleWidth(line)).toBeLessThan(40);
+	});
+
+	test("an inline row clips its label before its value", () => {
+		const line = stripTerminalSequences(
+			listRow(fakeTheme, 14, { label: "a-very-long-label", trailing: "12", align: "inline" }),
+		);
+		expect(line.endsWith("12")).toBe(true);
+		expect(visibleWidth(line)).toBeLessThanOrEqual(14);
+	});
+
 	test("every result fits the width", () => {
 		for (const width of WIDTHS) {
 			expect(
 				visibleWidth(listRow(fakeTheme, width, { label: "a-very-long-label", trailing: "meta" })),
 			).toBeLessThanOrEqual(width);
+			for (const align of ["end", "inline"] as const) {
+				expect(
+					visibleWidth(listRow(fakeTheme, width, { label: "a-very-long-label", trailing: "meta", align })),
+				).toBeLessThanOrEqual(width);
+			}
 		}
 	});
 });

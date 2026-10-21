@@ -174,32 +174,33 @@ describe("sections", () => {
 		expect(formatSettingsHeadline(28)).toBe("bytefly: Settings · Global · 28 settings");
 	});
 
-	test("lists settings in groups with their values", () => {
+	test("lists settings flat, in screen order, with their values", () => {
 		const views = settingViews({ app: {}, global: {}, project: {}, themes: [] }, "global");
 		const text = formatSettingsListing(views);
+		const lines = text.split("\n");
 
-		expect(text.split("\n")[0]).toBe("bytefly: Settings · Global · 29 settings");
-		expect(text).toContain("Startup (1)");
-		expect(text).toContain("Notifications (7)");
-		expect(text).toContain("Diagnostics (2)");
-		expect(text).toContain("Pricing (3)");
-		expect(text).toContain("Transcript (3)");
-		expect(text).toContain("Terminal (2)");
-		expect(text).toContain("Worktree (4)");
-		expect(text).toContain("Snapshots (3)");
-		expect(text).toContain("Jobs and watchers (3)");
-		expect(text).toContain("Memory (1)");
-		expect(text).toContain("Bytefly startup TUI: Off");
-		expect(text).toContain("Desktop notifications: Off");
-		expect(text).toContain("Turn finished: On");
-		expect(text).toContain("Needs input: On");
-		expect(text).toContain("Job finished: On");
-		expect(text).toContain("Delivery method: Auto");
-		expect(text).toContain("Notification title: Pi");
-		expect(text).toContain("Proactive health check: On");
-		expect(text).toContain("Probe timeout: 2000");
-		expect(text).toContain("Currency: CNY (¥)");
-		expect(text).toContain("Cost decimals: 2");
-		expect(text).toContain("Theme: system");
+		expect(lines[0]).toBe("bytefly: Settings · Global · 14 settings");
+		// One row per line, no headings: the second line is the first setting.
+		expect(lines[1]).toBe("  Bytefly startup TUI: Off");
+		expect(lines).toHaveLength(15);
+		expect(text).not.toContain("Notifications (");
+		for (const row of [
+			"Bytefly startup TUI: Off",
+			"Theme: system",
+			"Desktop notifications: Off",
+			"Turn finished: On",
+			"Needs input: On",
+			"Job finished: On",
+			"Watcher matched: On",
+			"Delivery method: Auto",
+			"Wake when a job finishes: Off",
+			"Wake on a match: Off",
+			"Automatic snapshots: On",
+			"Proactive health check: On",
+			"Currency: CNY (¥)",
+			"Session budget: 0",
+		]) {
+			expect(text, row).toContain(row);
+		}
 	});
 });

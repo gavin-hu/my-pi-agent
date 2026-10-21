@@ -33,7 +33,7 @@ and a health verdict. Under the focused row is that extension's report. Press
 | `x` | Clear a project-level override for the focused extension |
 | `u` | Reset the focused setting to its default |
 | `J` | Show or hide the focused row's whole config section |
-| `[` / `]` | Jump to the previous or next settings group |
+| `[` / `]` | Jump to the previous or next extension group (Extensions only) |
 | `r` | Re-run the health checks |
 | `Esc` or `Ctrl+C` | Close |
 
@@ -62,28 +62,39 @@ prints the grouped listing or report instead of mounting the screen.
 
 ## Settings
 
-`/bytefly settings` groups the curated settings into ten sections. Choose a row
-and press `Space` or `Enter`: a switch toggles, a choice cycles to the next
-option, and a text field opens an editor whose value you save with `Enter` or
-discard with `Esc`.
+<img src="../../assets/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of fourteen preferences with each value beside its label, and a three-row detail pane" width="100%">
 
-| Group | What it controls |
+`/bytefly settings` is a shortlist: fourteen preferences on one flat list, each
+with its value beside the label. Choose a row and press `Space` or `Enter`: a
+switch toggles, a choice cycles to the next option, and **Session budget** opens
+an editor whose value you save with `Enter` or discard with `Esc`.
+
+| Row | What it controls |
 |---|---|
-| **Startup** | Whether the bytefly startup header replaces Pi's compact startup detail |
-| **Notifications** | Desktop notifications, the four triggers, the delivery method, and the title |
-| **Diagnostics** | The proactive health check and its per-probe timeout |
-| **Pricing** | Currency, cost decimals, and the optional session budget |
-| **Transcript** | The rail glyph, how an achieved goal renders, and output padding |
-| **Terminal** | The theme and the hardware cursor |
-| **Worktree** | Base ref, branch prefix, fetch-before-branch, and prune age |
-| **Snapshots** | Automatic snapshots, how many to keep, and the pre-restore safety snapshot |
-| **Jobs and watchers** | Wake when a job finishes, keep jobs after exit, wake on a watcher match |
-| **Memory** | Whether stored notes are injected before a run |
+| **Bytefly startup TUI** | Whether the bytefly startup header replaces Pi's compact startup detail |
+| **Theme** | One of this pack's two palettes, or `system` to follow Pi's |
+| **Desktop notifications** | The master switch for OS notifications |
+| **Turn finished** | Announce a run that has settled |
+| **Needs input** | Announce a prompt the assistant opens during a run |
+| **Job finished** | Announce a finished background job or watcher |
+| **Watcher matched** | Announce a match while the assistant is idle |
+| **Delivery method** | Auto, OSC 777, OSC 99, Windows toast, macOS, or Linux |
+| **Wake when a job finishes** | Start one turn when any background job ends |
+| **Wake on a match** | Start one turn when a watcher matches |
+| **Automatic snapshots** | Take one rewind snapshot per prompt |
+| **Proactive health check** | Probe at session start and warn about a missing requirement |
+| **Currency** | CNY or USD pricing for the footer's cost total |
+| **Session budget** | One warning when the session's cost reaches an amount; `0` is off |
+
+Everything else — the probe timeout, the rail glyph, the worktree numbers, the
+snapshot limits, and the notification title — is a `bytefly.json` edit.
+[Configuration](../configuration.md) lists every key with its default and bounds.
+The list stays short on purpose so the screen fits a normal terminal.
 
 The screen shows the effective value and where it comes from: project, global,
-or default. A project value overrides a global one. App-level preferences such as
-the theme, startup header, and cursor are global only; the screen says so when
-you try to set them at project scope. Two scopes write different files:
+or default. A project value overrides a global one. The two app-level rows — the
+theme and the startup header — are global only; the screen says so when you try
+to set them at project scope. Two scopes write different files:
 
 | Scope | File | Applies to |
 |---|---|---|
@@ -93,8 +104,8 @@ you try to set them at project scope. Two scopes write different files:
 `u` removes the focused key so its default applies again. `J` reveals the whole
 section as stored, which is useful when a value came from a hand-edited file.
 Every key and its bounds are listed in
-[Configuration](../configuration.md); the screen is a curated subset, not a
-separate configuration system.
+[Configuration](../configuration.md); the screen is a shortlist of that document,
+not a separate configuration system.
 
 ## Themes
 
@@ -105,7 +116,7 @@ The pack ships two palettes:
 - `bytefly-light`, its light companion.
 
 Installing the pack does **not** change your theme. Pick one through `/settings`
-→ **Theme**, or through **Terminal → Theme** in `/bytefly settings`. The choice is
+→ **Theme**, or through the **Theme** row in `/bytefly settings`. The choice is
 global. To follow the system's light and dark preference, set the theme to
 `bytefly-light/bytefly-dark` in Pi's settings; the combined value switches
 automatically.
@@ -159,8 +170,8 @@ warn.
 
 The same checks run proactively at session start when **Proactive health check**
 is on and the bytefly startup surface is active. A missing requirement produces a
-warning instead of a failed command. The **Probe timeout** bounds each check;
-raise it on a slow machine if a probe reports a timeout.
+warning instead of a failed command. `doctor.timeoutMs` bounds each check; raise
+it in `bytefly.json` on a slow machine if a probe reports a timeout.
 
 ## Update checks
 

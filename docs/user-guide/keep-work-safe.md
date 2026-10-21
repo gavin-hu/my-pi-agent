@@ -177,8 +177,9 @@ keep most of a turn and discard only some files or hunks.
 
 - Twenty snapshot refs are kept per root by default, including the pre-restore
   safety snapshots that make an undo possible. The oldest are pruned; a pruned ref
-  is gone rather than hidden. **Snapshots kept** in `/bytefly settings` changes
-  the number.
+  is gone rather than hidden. `rewind.max` in `bytefly.json` changes the number;
+  [Configuration](../configuration.md#rewind--snapshots) lists it with the
+  pre-restore switch.
 - A read-only prompt captures nothing. A prompt that changes files captures one
   snapshot before its first mutating call.
 - Snapshots include tracked files plus untracked, non-ignored files by default.

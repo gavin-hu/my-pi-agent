@@ -3,40 +3,38 @@
  *
  * A row is one preference: an app setting from Pi's `settings.json`, or a leaf
  * of a `bytefly.json` section. This module is pure — descriptors, a snapshot to
- * views, cycling, validation, and grouping — so the screen and the runtime share
- * one definition and the tests need no host.
+ * views, cycling, and validation — so the screen, the text listing, and the
+ * runtime share one definition and the tests need no host.
  *
- * The catalogue is curated rather than exhaustive: it holds the preferences a
- * person changes, across every extension of the package, and each row states its
- * own rule so a value the screen accepts is a value the loader keeps. The rest of
- * the document stays JSON, reachable from the screen's JSON pane: a list
- * (`doctor.skip`), a table (`price.rates`), and a schedule (`price.peak`) are not
- * one row.
+ * The catalogue is the shortlist a session changes, not the whole document: every
+ * row is one a workflow differs on, and each states its own rule so a value the
+ * screen accepts is a value the loader keeps. The catalogue order is the screen's
+ * order, and it is capped so the section fits a 24-row terminal (`settings.test.ts`
+ * holds the ceiling); a new row has to displace one. Everything else stays
+ * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
+ * (`price.peak`), and the tuning numbers and labels this screen deliberately does
+ * not carry — documented in `docs/configuration.md` and reachable from the JSON
+ * pane of any row whose section is still on the list.
  *
- * Four sections have a normalizer here, so the screen shows what the footer, the
- * notifier, and the doctor keep. The six owned by other extensions are read as the
- * file states them, because importing their normalizer would be one extension
- * importing another's module; each such row declares the loader's default, and
- * `test/settings-coverage.test.ts` holds the pair together.
+ * Three sections have a normalizer here, so the screen shows what the notifier,
+ * the doctor, and the footer keep. The three owned by other extensions (`rewind`,
+ * `job`, `watch`) are read as the file states them, because importing their
+ * normalizer would be one extension importing another's module; each such row
+ * declares the loader's default, and `test/settings-coverage.test.ts` holds the
+ * pair together.
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import { DEFAULT_CHROME_CONFIG, isRailGlyph, normalizeChromeConfig } from "../chrome.ts";
-import {
-	DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG,
-	normalizeConfig as normalizeDoctorConfig,
-	TIMEOUT_MS_RANGE,
-} from "../doctor/config.ts";
+import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
 	DEFAULT_BYTEFLY_CONFIG,
 	DEFAULT_CURRENCY,
 	MAX_BUDGET,
-	MAX_DECIMALS,
 	normalizeByteflyConfig,
 } from "../footer/price/config.ts";
 import type { CurrencyCode } from "../footer/price/types.ts";
-import { DEFAULT_NOTIFY_CONFIG, MAX_TITLE_LENGTH, normalizeNotifyConfig } from "../notify/config.ts";
+import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 
 /** Where a preference is stored. */
@@ -62,24 +60,8 @@ interface TextRule {
 	validate?: (raw: string) => string | undefined;
 }
 
-/** One heading in the Settings list. */
-interface SettingGroup {
-	key: string;
-	label: string;
-}
-
-/** The `bytefly.json` sections the Settings section can read and write. */
-export type ConfigSectionName =
-	| "notify"
-	| "chrome"
-	| "doctor"
-	| "price"
-	| "worktree"
-	| "rewind"
-	| "job"
-	| "watch"
-	| "memory"
-	| "goal";
+/** The `bytefly.json` sections a row still reaches. */
+export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "watch";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -98,8 +80,6 @@ interface SettingLeaf {
 export interface SettingDescriptor {
 	/** Stable identity, also the focus key. */
 	id: string;
-	/** Group key from {@link SETTING_GROUPS}. */
-	group: string;
 	label: string;
 	description: string;
 	source: SettingSource;
@@ -139,27 +119,6 @@ export interface SettingsSnapshot {
 	themes: readonly string[];
 }
 
-/** One rendered group: its heading and the rows under it. */
-interface GroupedSettings {
-	key: string;
-	label: string;
-	views: SettingView[];
-}
-
-/** Group order on screen. */
-export const SETTING_GROUPS: readonly SettingGroup[] = [
-	{ key: "startup", label: "Startup" },
-	{ key: "notifications", label: "Notifications" },
-	{ key: "diagnostics", label: "Diagnostics" },
-	{ key: "pricing", label: "Pricing" },
-	{ key: "transcript", label: "Transcript" },
-	{ key: "terminal", label: "Terminal" },
-	{ key: "worktree", label: "Worktree" },
-	{ key: "snapshots", label: "Snapshots" },
-	{ key: "jobs", label: "Jobs and watchers" },
-	{ key: "memory", label: "Memory" },
-];
-
 const ON_OFF: readonly SettingOption[] = [
 	{ value: "false", label: "Off" },
 	{ value: "true", label: "On" },
@@ -174,32 +133,6 @@ const METHOD_OPTIONS: readonly SettingOption[] = [
 	{ value: "osascript", label: "macOS" },
 	{ value: "notify-send", label: "Linux" },
 ];
-
-/** Cost precision 0 through the loader's ceiling, the range `price` clamps `decimals` to. */
-const DECIMALS_OPTIONS: readonly SettingOption[] = Array.from({ length: MAX_DECIMALS + 1 }, (_, value) => ({
-	value: String(value),
-	label: String(value),
-}));
-
-/**
- * A text rule for a whole number inside an inclusive range.
- *
- * The bounds are the loader's own (`doctor.timeoutMs` is clamped to 100-30000),
- * so an accepted value is never silently clamped on the next read. `maxLength`
- * only stops a runaway buffer; `validate` is the rule.
- */
-function integerRule(min: number, max: number): TextRule {
-	return {
-		maxLength: String(max).length + 2,
-		validate(raw) {
-			const text = raw.trim();
-			if (!/^\d+$/.test(text)) return `Use a whole number, ${min} to ${max}.`;
-			const value = Number(text);
-			if (value < min || value > max) return `Out of range: ${min} to ${max}.`;
-			return undefined;
-		},
-	};
-}
 
 /**
  * A text rule for a money amount inside an inclusive range: a whole number or a
@@ -219,18 +152,15 @@ function amountRule(min: number, max: number): TextRule {
 	};
 }
 
-/** The rail's rule: the loader drops anything that is not one column. */
-const RAIL_RULE: TextRule = {
-	maxLength: 4,
-	validate: (raw) =>
-		isRailGlyph(raw) ? undefined : "Use exactly one column: a single glyph, with no spaces or control characters.",
-};
-
-/** The v1 catalogue, in screen order. */
+/**
+ * The catalogue, in screen order.
+ *
+ * Global scope lists all fourteen; Project lists the twelve `bytefly.json` rows,
+ * because Pi's setters write the personal `settings.json` only.
+ */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
 		id: "byteflyUi",
-		group: "startup",
 		label: "Bytefly startup TUI",
 		description: "Use bytefly's startup header in place of Pi's startup TUI.",
 		source: "app",
@@ -240,8 +170,18 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		options: ON_OFF,
 	},
 	{
+		id: "theme",
+		label: "Theme",
+		description:
+			"Pi's color theme, chosen from the palettes this package ships; `system` follows the terminal's colors. Takes effect after reload.",
+		source: "app",
+		kind: "enum",
+		fallback: "system",
+		// The host supplies this package's theme names in the snapshot; the static list stays empty.
+		options: [],
+	},
+	{
 		id: "notify.enabled",
-		group: "notifications",
 		label: "Desktop notifications",
 		description: "Raise an OS notification when a run or job finishes, or the agent asks for input.",
 		source: "bytefly",
@@ -253,7 +193,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.turnFinished",
-		group: "notifications",
 		label: "Turn finished",
 		description: "Announce it when a full agent run settles.",
 		source: "bytefly",
@@ -265,7 +204,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.needsInput",
-		group: "notifications",
 		label: "Needs input",
 		description: "Announce it when the agent opens a prompt and waits for an answer.",
 		source: "bytefly",
@@ -277,7 +215,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.jobFinished",
-		group: "notifications",
 		label: "Job finished",
 		description: "Announce it when a background job or watcher settles.",
 		source: "bytefly",
@@ -289,7 +226,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.matchFound",
-		group: "notifications",
 		label: "Watcher matched",
 		description: "Announce it when a `watch` whose `wake` is on matches while the agent is idle.",
 		source: "bytefly",
@@ -301,7 +237,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.method",
-		group: "notifications",
 		label: "Delivery method",
 		description: "How a notification is delivered; Auto picks from the terminal, then the platform.",
 		source: "bytefly",
@@ -311,23 +246,40 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "notify", path: ["method"] },
 	},
 	{
-		id: "notify.title",
-		group: "notifications",
-		label: "Notification title",
-		description: "Shown as the title of every OS notification; up to 40 characters.",
+		id: "job.wakeOnFinish",
+		label: "Wake when a job finishes",
+		description: "Start one agent turn when any background job finishes.",
 		source: "bytefly",
-		kind: "text",
-		fallback: "Pi",
-		options: [],
-		text: {
-			maxLength: MAX_TITLE_LENGTH,
-			validate: (raw) => (raw.trim() === "" ? "A title is required." : undefined),
-		},
-		config: { section: "notify", path: ["title"] },
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "job", path: ["wakeOnFinish"] },
+	},
+	{
+		id: "watch.wakeOnMatch",
+		label: "Wake on a match",
+		description: "Start one agent turn when a watcher matches while the agent is idle.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "watch", path: ["wakeOnMatch"] },
+	},
+	{
+		id: "rewind.autoSnapshots",
+		label: "Automatic snapshots",
+		description: "Take one rewind snapshot per prompt, before the first mutating tool call.",
+		source: "bytefly",
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "rewind", path: ["autoSnapshots"] },
 	},
 	{
 		id: "doctor.proactive",
-		group: "diagnostics",
 		label: "Proactive health check",
 		description: "Probe enabled extensions at session start and warn about a missing requirement.",
 		source: "bytefly",
@@ -338,21 +290,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "doctor", path: ["proactive"] },
 	},
 	{
-		id: "doctor.timeoutMs",
-		group: "diagnostics",
-		label: "Probe timeout",
-		description: `How long one doctor probe may take, in milliseconds; ${TIMEOUT_MS_RANGE.min} to ${TIMEOUT_MS_RANGE.max}.`,
-		source: "bytefly",
-		kind: "text",
-		fallback: String(DEFAULT_DOCTOR_CONFIG.timeoutMs),
-		json: "number",
-		options: [],
-		text: integerRule(TIMEOUT_MS_RANGE.min, TIMEOUT_MS_RANGE.max),
-		config: { section: "doctor", path: ["timeoutMs"] },
-	},
-	{
 		id: "price.currency.code",
-		group: "pricing",
 		label: "Currency",
 		description:
 			"CNY prices DeepSeek from its yuan rates; USD from its published dollars, falling back to Pi's recorded cost.",
@@ -365,7 +303,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		],
 		config: { section: "price", path: ["currency", "code"] },
 		// Choosing a currency also sets its default precision, so the screen and the
-		// footer agree; the precision stays overridable afterwards.
+		// footer agree; the precision stays overridable in `bytefly.json` afterwards.
 		also: (raw) => {
 			const currency = CURRENCY_DEFAULTS[raw as CurrencyCode];
 			return currency === undefined
@@ -374,20 +312,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		},
 	},
 	{
-		id: "price.currency.decimals",
-		group: "pricing",
-		label: "Cost decimals",
-		description: "Digits shown after the decimal point in the footer's cost total.",
-		source: "bytefly",
-		kind: "enum",
-		fallback: "2",
-		json: "number",
-		options: DECIMALS_OPTIONS,
-		config: { section: "price", path: ["currency", "decimals"] },
-	},
-	{
 		id: "price.budget",
-		group: "pricing",
 		label: "Session budget",
 		description: "Warn once when the session's cost reaches this amount; 0 is off. It never stops a turn.",
 		source: "bytefly",
@@ -397,210 +322,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		options: [],
 		text: amountRule(0, MAX_BUDGET),
 		config: { section: "price", path: ["budget"] },
-	},
-	{
-		id: "chrome.rail",
-		group: "transcript",
-		label: "Rail glyph",
-		description: "The single-column glyph that leads a tool result or notice body, e.g. ╎ │ ┃ ▏.",
-		source: "bytefly",
-		kind: "text",
-		fallback: DEFAULT_CHROME_CONFIG.rail,
-		options: [],
-		text: RAIL_RULE,
-		config: { section: "chrome", path: ["rail"] },
-	},
-	{
-		id: "goal.achieved",
-		group: "transcript",
-		label: "Achieved goal",
-		description: "How a completed goal renders: the dimmed rail line, or nothing.",
-		source: "bytefly",
-		kind: "enum",
-		fallback: "hide",
-		options: [
-			{ value: "show", label: "Show" },
-			{ value: "hide", label: "Hide" },
-		],
-		config: { section: "goal", path: ["achieved"] },
-	},
-	{
-		id: "outputPad",
-		group: "transcript",
-		label: "Output padding",
-		description: "Pi's transcript padding; bytefly's header and blocks follow it.",
-		source: "app",
-		kind: "enum",
-		fallback: "1",
-		json: "number",
-		options: [
-			{ value: "0", label: "0" },
-			{ value: "1", label: "1" },
-		],
-	},
-	{
-		id: "theme",
-		group: "terminal",
-		label: "Theme",
-		description:
-			"Pi's color theme, chosen from the palettes this package ships; `system` follows the terminal's colors. Takes effect after reload.",
-		source: "app",
-		kind: "enum",
-		fallback: "system",
-		// The host supplies this package's theme names in the snapshot; the static list stays empty.
-		options: [],
-	},
-	{
-		id: "showHardwareCursor",
-		group: "terminal",
-		label: "Hardware cursor",
-		description: "Use the terminal cursor instead of Pi's drawn cursor.",
-		source: "app",
-		kind: "boolean",
-		fallback: "false",
-		json: "boolean",
-		options: ON_OFF,
-	},
-	{
-		id: "worktree.baseRef",
-		group: "worktree",
-		label: "Base ref",
-		description: "Where a new worktree branches from: the remote default branch, or the current local HEAD.",
-		source: "bytefly",
-		kind: "enum",
-		fallback: "fresh",
-		options: [
-			{ value: "fresh", label: "Fresh" },
-			{ value: "head", label: "Head" },
-		],
-		config: { section: "worktree", path: ["baseRef"] },
-	},
-	{
-		id: "worktree.branchPrefix",
-		group: "worktree",
-		label: "Branch prefix",
-		description: "Prepended to every branch a managed worktree creates.",
-		source: "bytefly",
-		kind: "text",
-		fallback: "worktree-",
-		options: [],
-		text: {
-			// The loader trims and rejects an empty prefix but sets no ceiling; this
-			// only stops a runaway buffer.
-			maxLength: 80,
-			validate: (raw) => (raw.trim() === "" ? "A prefix is required." : undefined),
-		},
-		config: { section: "worktree", path: ["branchPrefix"] },
-	},
-	{
-		id: "worktree.fetchRemote",
-		group: "worktree",
-		label: "Fetch remote",
-		description: "Fetch the remote before branching, so a new worktree starts from its latest commit.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "true",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "worktree", path: ["fetchRemote"] },
-	},
-	{
-		id: "worktree.pruneAfterDays",
-		group: "worktree",
-		label: "Prune after (days)",
-		description: "Age at which `/worktree prune` removes a clean worktree nobody is using.",
-		source: "bytefly",
-		kind: "text",
-		fallback: "7",
-		json: "number",
-		options: [],
-		text: integerRule(0, 3650),
-		config: { section: "worktree", path: ["pruneAfterDays"] },
-	},
-	{
-		id: "rewind.autoSnapshots",
-		group: "snapshots",
-		label: "Automatic snapshots",
-		description: "Take one rewind snapshot per prompt, before the first mutating tool call.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "true",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "rewind", path: ["autoSnapshots"] },
-	},
-	{
-		id: "rewind.max",
-		group: "snapshots",
-		label: "Snapshots kept",
-		description: "Snapshot refs kept per repository, including pre-restore safety snapshots; 0 keeps none.",
-		source: "bytefly",
-		kind: "text",
-		fallback: "20",
-		json: "number",
-		options: [],
-		text: integerRule(0, 1000),
-		config: { section: "rewind", path: ["max"] },
-	},
-	{
-		id: "rewind.safetySnapshot",
-		group: "snapshots",
-		label: "Safety snapshot",
-		description: "Snapshot the current state before a restore, so a rewind can itself be undone.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "true",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "rewind", path: ["safetySnapshot"] },
-	},
-	{
-		id: "job.wakeOnFinish",
-		group: "jobs",
-		label: "Wake when a job finishes",
-		description: "Start one agent turn when any background job finishes.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "false",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "job", path: ["wakeOnFinish"] },
-	},
-	{
-		id: "job.detachedByDefault",
-		group: "jobs",
-		label: "Keep jobs after exit",
-		description: "Leave jobs running when the session ends, unless the job opts out.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "false",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "job", path: ["detachedByDefault"] },
-	},
-	{
-		id: "watch.wakeOnMatch",
-		group: "jobs",
-		label: "Wake on a match",
-		description: "Start one agent turn when a watcher matches while the agent is idle.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "false",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "watch", path: ["wakeOnMatch"] },
-	},
-	{
-		id: "memory.inject",
-		group: "memory",
-		label: "Inject notes",
-		description: "Put stored memory notes in context before each run.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "true",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "memory", path: ["inject"] },
 	},
 ];
 
@@ -615,10 +336,10 @@ export function rowsForScope(scope: WriteScope): readonly SettingDescriptor[] {
 /**
  * Why a text row cannot store `raw`, or `undefined` when it can.
  *
- * The limits are the loaders' own (`notify.title` is sliced to `MAX_TITLE_LENGTH`,
- * the rail to one column) so the editor cannot save a value the next read shortens.
- * A row that is not text is refused here rather than in the caller, so a programmatic
- * `setValue` gets the same reason the screen would show.
+ * The limits are the loaders' own (the budget is clamped to `MAX_BUDGET`) so the
+ * editor cannot save a value the next read shortens. A row that is not text is
+ * refused here rather than in the caller, so a programmatic `setValue` gets the
+ * same reason the screen would show.
  */
 export function textError(row: SettingDescriptor, raw: string): string | undefined {
 	const rule = row.text;
@@ -650,16 +371,6 @@ function appValue(snapshot: SettingsSnapshot, row: SettingDescriptor): { value: 
 			const quiet = snapshot.app.quietStartup;
 			return { value: quiet === true ? "true" : row.fallback, origin: quiet === undefined ? "default" : "global" };
 		}
-		case "outputPad":
-			return {
-				value: snapshot.app.outputPad === 0 ? "0" : row.fallback,
-				origin: snapshot.app.outputPad === undefined ? "default" : "global",
-			};
-		case "showHardwareCursor":
-			return {
-				value: snapshot.app.showHardwareCursor === true ? "true" : row.fallback,
-				origin: snapshot.app.showHardwareCursor === undefined ? "default" : "global",
-			};
 		case "theme": {
 			const theme = snapshot.app.theme;
 			const set = typeof theme === "string" && theme !== "";
@@ -692,15 +403,10 @@ type SectionReader = (
 	path: readonly string[],
 ) => unknown;
 
-/**
- * The four sections bytefly owns, each read through its own normalizer so the
- * screen shows the value the loader keeps.
- */
+/** The sections bytefly owns, each read through its own normalizer so the screen shows what the loader keeps. */
 const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
 	notify: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeNotifyConfig(projectRaw, normalizeNotifyConfig(globalRaw, DEFAULT_NOTIFY_CONFIG)), path),
-	chrome: (globalRaw, projectRaw, path) =>
-		configValueAt(normalizeChromeConfig(projectRaw, normalizeChromeConfig(globalRaw, DEFAULT_CHROME_CONFIG)), path),
 	doctor: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeDoctorConfig(projectRaw, normalizeDoctorConfig(globalRaw, DEFAULT_DOCTOR_CONFIG)), path),
 	price: (globalRaw, projectRaw, path) =>
@@ -771,13 +477,4 @@ export function storedValue(row: SettingDescriptor, raw: string): unknown {
 		default:
 			return raw;
 	}
-}
-
-/** Group views in screen order, dropping empty groups. */
-export function groupViews(views: readonly SettingView[]): GroupedSettings[] {
-	return SETTING_GROUPS.map((group) => ({
-		key: group.key,
-		label: group.label,
-		views: views.filter((view) => view.group === group.key),
-	})).filter((group) => group.views.length > 0);
 }

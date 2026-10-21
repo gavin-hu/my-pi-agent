@@ -34,7 +34,7 @@ for administration and lookup.
 | [3. Keep your work safe](./keep-work-safe.md) | Worktrees, rewind, review, memory | A task could change files, or you want notes to persist |
 | [4. Web and files](./web-and-files.md) | Web search and fetch, documents, the file browser, native file opening | You need material from outside the conversation |
 | [5. Using it from WeChat](./wechat.md) | Login, conversations, the control screen, files, limits | You want to reach the session from your phone |
-| [6. Settings and customization](./settings-and-customization.md) | The control centre, every settings group, themes, notifications, disabling and removal | You want to change how the pack behaves |
+| [6. Settings and customization](./settings-and-customization.md) | The control centre, the settings shortlist, themes, notifications, disabling and removal | You want to change how the pack behaves |
 | [7. Troubleshooting](./troubleshooting.md) | Triage, symptoms and causes, FAQ, how to get help | Something looks wrong |
 | [8. Reference](./reference.md) | All commands and an alphabetical index, shared keys, platform notes, files on disk, actions that discard work, extension and tool matrix | You know what you want and need the exact name |
 

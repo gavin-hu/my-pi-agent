@@ -94,6 +94,28 @@ export function splitRow(left: string, right: string, width: number, minGap = 1)
 }
 
 /**
+ * Left cell, then a gap, then the right cell, with the result ending after the
+ * right cell instead of filling the width.
+ *
+ * The sibling of {@link splitRow}: a label and its value read as one pair on a
+ * wide terminal instead of sitting at opposite edges, while a tight line still
+ * keeps the value — the left cell is clipped to make room, and the gap shrinks
+ * in whole columns before the right cell loses anything.
+ */
+export function inlineRow(left: string, right: string, width: number, gap = 2): string {
+	const w = columns(width);
+	if (!right) return clip(left, w);
+	const space = Math.max(0, Math.floor(gap));
+	const rightCell = clip(right, w);
+	const rightWidth = visibleWidth(rightCell);
+	const leftBudget = w - rightWidth - space;
+	if (leftBudget <= 0) return rightCell;
+	const leftCell = clip(left, leftBudget);
+	const separator = " ".repeat(Math.max(0, Math.min(space, w - visibleWidth(leftCell) - rightWidth)));
+	return `${leftCell}${separator}${rightCell}`;
+}
+
+/**
  * Join as many whole cells as fit, dropping trailing cells rather than
  * clipping one in half. The first cell is always kept, so an over-wide line
  * degrades to a clipped first cell instead of an empty one.

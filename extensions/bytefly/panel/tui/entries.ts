@@ -1,12 +1,16 @@
 /**
- * The panel's entry model: a flat list where group headers and selectable rows
- * interleave, shared by both sections.
+ * The panel's entry model: one flat list of selectable rows per section.
+ *
+ * Extensions interleaves group headings with rows — a source group says where a
+ * resource came from, which the row cannot — while Settings is flat, in catalogue
+ * order. Both are built from a model or a set of views, so the component only has
+ * to keep one cursor per section.
  *
  * Pure: the list is rebuilt from a model or a set of views, and navigation is
- * index arithmetic, so the component only has to keep one cursor per section.
+ * index arithmetic.
  */
 
-import { groupViews, type SettingView } from "../settings.ts";
+import type { SettingView } from "../settings.ts";
 import type { PanelModel, PanelRow } from "../types.ts";
 
 /** A flat display entry: a group header or a selectable row. */
@@ -30,9 +34,9 @@ export function isSelectable(entry: PanelEntry | undefined): boolean {
 /**
  * One display window as ordinals over the selectable rows it contains.
  *
- * The range row counts rows, not entries: a list of twenty-nine settings in ten
- * groups spans thirty-nine entries, but `showing 3–5 of 29` is what the user can
- * focus. `formatRange` prints `start + 1` through `end`, so the ordinals here are
+ * The range row counts rows, not entries: an extension list's group headings are
+ * not focusable, so `showing 3–5 of 12` is what the user can land on.
+ * `formatRange` prints `start + 1` through `end`, so the ordinals here are
  * zero-based and `end` is exclusive.
  */
 export function selectableRange(
@@ -71,12 +75,10 @@ export function entriesOf(model: PanelModel): PanelEntry[] {
 	return entries;
 }
 
-/** Interleave the settings views into the same group/row display list. */
+/**
+ * The Settings entries: one row per view, in catalogue order, with no group
+ * headings — the list is short enough to read whole.
+ */
 export function settingEntries(views: readonly SettingView[]): PanelEntry[] {
-	const entries: PanelEntry[] = [];
-	for (const group of groupViews(views)) {
-		entries.push({ kind: "group", key: group.key, label: group.label, count: group.views.length });
-		for (const view of group.views) entries.push({ kind: "setting", setting: view });
-	}
-	return entries;
+	return views.map((setting) => ({ kind: "setting", setting }));
 }

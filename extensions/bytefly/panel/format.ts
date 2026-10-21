@@ -18,7 +18,7 @@ import { sanitizeLine } from "../../../lib/format.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { TuiRole } from "../../../lib/tui/tokens.ts";
 import { reportSeverity, reportSummary, severityGlyphChar, severityRole } from "../doctor/format.ts";
-import { groupViews, type SettingView } from "./settings.ts";
+import type { SettingView } from "./settings.ts";
 import type { PanelModel, PanelRow, PanelSection } from "./types.ts";
 
 /** The settings scope the screen shows. */
@@ -125,15 +125,10 @@ export function formatSettingsHeadline(count: number): string {
 	return `bytefly: Settings · Global · ${count} settings`;
 }
 
-/** The grouped Settings listing for non-TUI modes. */
+/** The Settings listing for non-TUI modes, one row per line, in screen order. */
 export function formatSettingsListing(views: readonly SettingView[]): string {
 	const lines = [formatSettingsHeadline(views.length)];
-	for (const group of groupViews(views)) {
-		lines.push("", `${group.label} (${group.views.length})`);
-		for (const view of group.views) {
-			lines.push(`  ${sanitizeLine(view.label)}: ${sanitizeLine(view.valueLabel)}`);
-		}
-	}
+	for (const view of views) lines.push(`  ${sanitizeLine(view.label)}: ${sanitizeLine(view.valueLabel)}`);
 	return lines.join("\n");
 }
 

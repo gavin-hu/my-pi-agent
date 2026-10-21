@@ -21,14 +21,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the control center's Settings section is one flat list of fourteen
+  preferences with each value beside its label, and a three-row detail pane, so
+  the whole screen fits a 24-row terminal instead of needing three pages. The
+  list is capped at fourteen rows, and a new setting has to displace one.
+
+- `bytefly`: fifteen settings leave the control center for `bytefly.json` — Pi's
+  own output padding and hardware cursor (both in `/settings`), and the
+  notification title, probe timeout, cost decimals, rail glyph, achieved-goal
+  rendering, the four worktree keys, the snapshot count and safety snapshot, the
+  keep-jobs-after-exit switch, and note injection. Every key is unchanged, still
+  documented in `docs/configuration.md`, and still reachable through the detail
+  pane's `J` view where its section keeps a row.
+
 - `docs`: the entry READMEs state the pack's size in digits, and
   `test/extension-load.test.ts` checks every count a page states — extensions,
   tools, skills, themes — against what actually loads and ships, in both entry
   READMEs and the user guide, instead of only the guide's two numbers.
-
-- `docs`: the README settings bullet names the curated settings by area instead
-  of listing the screen's ten groups, which the user guide's settings chapter
-  already documents. The screen itself is unchanged.
 
 - `docs`: `docs/README.md` and the user guide's "Other documentation" now link
   the entry README's Documentation table instead of restating its one-line

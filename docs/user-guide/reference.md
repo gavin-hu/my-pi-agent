@@ -160,7 +160,7 @@ some keys mean different things in an editor or a diff.
 | `q` | Close a screen that has no unsaved action |
 | `y` / `N` | Answer a yes/no confirmation |
 | `Tab` | Switch scope or filter |
-| `[` / `]` | Jump to the previous or next settings group |
+| `[` / `]` | Jump to the previous or next extension group (Extensions only) |
 | `r` | Refresh, rerun, or revert, depending on the screen |
 | `x` | Clear, stop, or cancel, depending on the screen |
 | `Ctrl+O` | Expand or collapse a long tool block |

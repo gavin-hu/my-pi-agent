@@ -150,28 +150,17 @@ describe("bytefly writes", () => {
 		expect(valueOf(runtime, "project", "notify.enabled")).toBe("false");
 	});
 
-	test("stores a typed rail glyph and refuses a two-column one", async () => {
+	test("stores the budget as a number and refuses a value its rule rejects", async () => {
 		const { runtime, globalPath, notices } = boot();
 
-		expect(await runtime.setValue("global", "chrome.rail", "┃")).toBe(true);
-		expect(readJson(globalPath)).toEqual({ chrome: { rail: "┃" } });
+		expect(await runtime.setValue("global", "price.budget", "2.50")).toBe(true);
+		expect(readJson(globalPath)).toEqual({ price: { budget: 2.5 } });
 
-		// The loader would replace a two-column glyph on the next read, so the rule
-		// refuses it before the file can hold it.
-		expect(await runtime.setValue("global", "chrome.rail", "あ")).toBe(false);
-		expect(notices.at(-1)).toContain("one column");
-		expect(readJson(globalPath)).toEqual({ chrome: { rail: "┃" } });
-	});
-
-	test("stores the probe timeout as a number and refuses a non-number", async () => {
-		const { runtime, globalPath, notices } = boot();
-
-		expect(await runtime.setValue("global", "doctor.timeoutMs", "3000")).toBe(true);
-		expect(readJson(globalPath)).toEqual({ doctor: { timeoutMs: 3000 } });
-
-		expect(await runtime.setValue("global", "doctor.timeoutMs", "soon")).toBe(false);
-		expect(notices.at(-1)).toContain("whole number");
-		expect(readJson(globalPath)).toEqual({ doctor: { timeoutMs: 3000 } });
+		// The loader would clamp the amount on the next read, so the rule refuses it
+		// before the file can hold it.
+		expect(await runtime.setValue("global", "price.budget", "10000001")).toBe(false);
+		expect(notices.at(-1)).toContain("Out of range");
+		expect(readJson(globalPath)).toEqual({ price: { budget: 2.5 } });
 	});
 
 	test("cycles the currency algorithm", async () => {
@@ -208,27 +197,27 @@ describe("bytefly writes", () => {
 			},
 		});
 
-		await runtime.change("global", "price.currency.decimals");
+		await runtime.change("global", "price.currency.code");
 
 		expect(readJson(globalPath)).toEqual({
 			$schema: "https://example.test/meta.json",
 			version: 1,
-			price: { currency: { symbol: "$", decimals: 3 } },
+			price: { currency: { symbol: "$", code: "USD", decimals: 3 } },
 			notify: { enabled: true },
 		});
-		expect(valueOf(runtime, "global", "price.currency.decimals")).toBe("3");
+		expect(valueOf(runtime, "global", "price.currency.code")).toBe("USD");
 	});
 
 	test("writes a nested project override without touching the global document", async () => {
-		const { runtime, globalPath, projectPath } = boot({ globalDoc: { price: { currency: { decimals: 4 } } } });
+		const { runtime, globalPath, projectPath } = boot({ globalDoc: { price: { currency: { code: "CNY" } } } });
 
-		expect(valueOf(runtime, "project", "price.currency.decimals")).toBe("4");
+		expect(valueOf(runtime, "project", "price.currency.code")).toBe("CNY");
 
-		await runtime.change("project", "price.currency.decimals");
+		await runtime.change("project", "price.currency.code");
 
-		expect(readJson(globalPath)).toEqual({ price: { currency: { decimals: 4 } } });
-		expect(readJson(projectPath)).toEqual({ price: { currency: { decimals: 0 } } });
-		expect(valueOf(runtime, "project", "price.currency.decimals")).toBe("0");
+		expect(readJson(globalPath)).toEqual({ price: { currency: { code: "CNY" } } });
+		expect(readJson(projectPath)).toEqual({ price: { currency: { code: "USD", decimals: 3 } } });
+		expect(valueOf(runtime, "project", "price.currency.code")).toBe("USD");
 	});
 
 	test("writes the delivery method as a string", async () => {
@@ -270,25 +259,25 @@ describe("change notifications", () => {
 describe("text writes", () => {
 	test("stores the value the user typed at its leaf", async () => {
 		const { runtime, globalPath } = boot({
-			globalDoc: { notify: { enabled: true, title: "Pi" } },
+			globalDoc: { notify: { enabled: true }, price: { budget: 0 } },
 		});
 
-		expect(await runtime.setValue("global", "notify.title", "Build finished")).toBe(true);
+		expect(await runtime.setValue("global", "price.budget", "5")).toBe(true);
 
-		expect(readJson(globalPath)).toEqual({ notify: { enabled: true, title: "Build finished" } });
-		expect(valueOf(runtime, "global", "notify.title")).toBe("Build finished");
+		expect(readJson(globalPath)).toEqual({ notify: { enabled: true }, price: { budget: 5 } });
+		expect(valueOf(runtime, "global", "price.budget")).toBe("5");
 		expect(runtime.isDirty()).toBe(true);
 	});
 
 	test("refuses a value its rule rejects and writes nothing", async () => {
-		const { runtime, notices, globalPath } = boot({ globalDoc: { notify: { title: "Pi" } } });
+		const { runtime, notices, globalPath } = boot({ globalDoc: { price: { budget: 3 } } });
 
-		expect(await runtime.setValue("global", "notify.title", "x".repeat(41))).toBe(false);
+		expect(await runtime.setValue("global", "price.budget", "10000001")).toBe(false);
 
-		expect(notices.at(-1)).toContain("the limit is 40");
-		expect(readJson(globalPath)).toEqual({ notify: { title: "Pi" } });
+		expect(notices.at(-1)).toContain("Out of range");
+		expect(readJson(globalPath)).toEqual({ price: { budget: 3 } });
 		expect(runtime.isDirty()).toBe(false);
-		expect(valueOf(runtime, "global", "notify.title")).toBe("Pi");
+		expect(valueOf(runtime, "global", "price.budget")).toBe("3");
 	});
 
 	test("refuses a row that is not a text row", async () => {
@@ -301,12 +290,12 @@ describe("text writes", () => {
 
 describe("one guard for both write paths", () => {
 	test("setValue refuses in Project scope for the same reason change does", async () => {
-		const { runtime, notices, globalPath } = boot({ trusted: false, globalDoc: { notify: { title: "Pi" } } });
+		const { runtime, notices, globalPath } = boot({ trusted: false, globalDoc: { price: { budget: 3 } } });
 
-		expect(await runtime.setValue("project", "notify.title", "Pinned")).toBe(false);
+		expect(await runtime.setValue("project", "price.budget", "4")).toBe(false);
 
 		expect(notices.at(-1)).toBe("Project is not trusted; settings can only be changed in Global scope.");
-		expect(readJson(globalPath)).toEqual({ notify: { title: "Pi" } });
+		expect(readJson(globalPath)).toEqual({ price: { budget: 3 } });
 		expect(runtime.isDirty()).toBe(false);
 	});
 });
@@ -314,22 +303,22 @@ describe("one guard for both write paths", () => {
 describe("reset", () => {
 	test("deletes the row's leaf, keeps its siblings, and marks the screen dirty", async () => {
 		const { runtime, globalPath } = boot({
-			globalDoc: { rewind: { max: 50, autoSnapshots: false }, notify: { title: "Pi" } },
+			globalDoc: { job: { wakeOnFinish: true, showStatus: false }, notify: { enabled: true } },
 		});
 
-		expect(await runtime.reset("global", "rewind.max")).toBe(true);
+		expect(await runtime.reset("global", "job.wakeOnFinish")).toBe(true);
 
-		expect(readJson(globalPath)).toEqual({ rewind: { autoSnapshots: false }, notify: { title: "Pi" } });
-		expect(valueOf(runtime, "global", "rewind.max")).toBe("20");
+		expect(readJson(globalPath)).toEqual({ job: { showStatus: false }, notify: { enabled: true } });
+		expect(valueOf(runtime, "global", "job.wakeOnFinish")).toBe("false");
 		expect(runtime.isDirty()).toBe(true);
 	});
 
 	test("reports a row that is already at its default without writing", async () => {
 		const { runtime, notices, globalPath } = boot({ globalDoc: { rewind: { autoSnapshots: false } } });
 
-		expect(await runtime.reset("global", "rewind.max")).toBe(false);
+		expect(await runtime.reset("global", "job.wakeOnFinish")).toBe(false);
 
-		expect(notices.at(-1)).toBe("Snapshots kept is already at its default.");
+		expect(notices.at(-1)).toBe("Wake when a job finishes is already at its default.");
 		expect(readJson(globalPath)).toEqual({ rewind: { autoSnapshots: false } });
 		expect(runtime.isDirty()).toBe(false);
 	});
@@ -356,22 +345,22 @@ describe("reset", () => {
 	});
 
 	test("refuses Project scope when the project is untrusted", async () => {
-		const { runtime, notices, globalPath } = boot({ trusted: false, globalDoc: { rewind: { max: 50 } } });
+		const { runtime, notices, globalPath } = boot({ trusted: false, globalDoc: { job: { wakeOnFinish: true } } });
 
-		expect(await runtime.reset("project", "rewind.max")).toBe(false);
+		expect(await runtime.reset("project", "job.wakeOnFinish")).toBe(false);
 
 		expect(notices.at(-1)).toBe("Project is not trusted; settings can only be changed in Global scope.");
-		expect(readJson(globalPath)).toEqual({ rewind: { max: 50 } });
+		expect(readJson(globalPath)).toEqual({ job: { wakeOnFinish: true } });
 	});
 
 	test("reads the section from the scope the pane names", () => {
 		const { runtime } = boot({
-			globalDoc: { worktree: { baseRef: "head" } },
-			projectDoc: { worktree: { branchPrefix: "wt-" } },
+			globalDoc: { rewind: { autoSnapshots: false } },
+			projectDoc: { job: { wakeOnFinish: true } },
 		});
 
-		expect(runtime.sectionDocument("global", "worktree")).toEqual({ baseRef: "head" });
-		expect(runtime.sectionDocument("project", "worktree")).toEqual({ branchPrefix: "wt-" });
-		expect(runtime.sectionDocument("global", "memory")).toBeUndefined();
+		expect(runtime.sectionDocument("global", "rewind")).toEqual({ autoSnapshots: false });
+		expect(runtime.sectionDocument("project", "job")).toEqual({ wakeOnFinish: true });
+		expect(runtime.sectionDocument("global", "watch")).toBeUndefined();
 	});
 });

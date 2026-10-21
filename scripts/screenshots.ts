@@ -64,6 +64,7 @@ import {
 	PANEL_CWD,
 	PANEL_ITEMS,
 	PANEL_REPORTS,
+	PANEL_SETTING_VIEWS,
 	PANEL_SETTINGS,
 	PLAN,
 	PLAN_BASELINE,
@@ -294,6 +295,32 @@ export const SCREENS: Record<string, Screen> = {
 				runtime,
 				reports: () => PANEL_REPORTS,
 				settings: PANEL_SETTINGS,
+				theme,
+				agentDir: PANEL_AGENT_DIR,
+				cwd: PANEL_CWD,
+				viewportRows: () => rows,
+				requestRender: noop,
+				refresh: noop,
+				onClose: noop,
+			}).render(width);
+		},
+	},
+	"bytefly-settings": {
+		asset: "bytefly-settings",
+		title: "π - my-pi-agent · /bytefly settings",
+		// A 24-row frame needs the window to be tall enough that printing it does
+		// not scroll the header rule off the top.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 560 },
+		size: { width: 120, rows: 24 },
+		render: (width, rows) => {
+			// The Settings section over the real catalogue: no probe, no write.
+			const { discovery } = makeDiscovery({ global: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
+			const runtime = createExtensionsPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
+			return new PanelComponent({
+				runtime,
+				reports: () => PANEL_REPORTS,
+				settings: PANEL_SETTING_VIEWS,
+				section: "settings",
 				theme,
 				agentDir: PANEL_AGENT_DIR,
 				cwd: PANEL_CWD,

@@ -352,12 +352,10 @@ export class PanelComponent implements Component {
 			this.select(lastRow(this.activeEntries()));
 			return;
 		}
-		if (data === "[") {
-			this.jumpGroup(-1);
-			return;
-		}
-		if (data === "]") {
-			this.jumpGroup(1);
+		// Only Extensions carries group headings; the Settings list is flat, so the
+		// keys would move the cursor nowhere there.
+		if (this.section === "extensions" && (data === "[" || data === "]")) {
+			this.jumpGroup(data === "[" ? -1 : 1);
 			return;
 		}
 		switch (navIntent(data)) {

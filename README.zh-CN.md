@@ -64,8 +64,9 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 - `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
   及其运行时健康状况，启用或禁用一个扩展，并用 `x` 清除项目级覆盖。
-- `/bytefly settings` 打开控制中心的 Settings 区：精选设置按类别分组，并提供
-  **Theme** 行；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project 作用域。
+- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十四项设置排成
+  一列，值紧跟在名称之后；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project
+  作用域。其余键都是 `bytefly.json` 编辑，见配置参考。
 - `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
   检查每个已启用扩展在运行时是否具备所需条件。
 - `/bytefly update` 立即重跑包更新检查，报告可更新的包、本包版本与 release URL，

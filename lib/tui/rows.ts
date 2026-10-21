@@ -13,7 +13,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { clip, padTo, splitRow } from "./columns.ts";
+import { clip, inlineRow, padTo, splitRow } from "./columns.ts";
 import { selectionMarker } from "./cursor.ts";
 import { GLYPHS } from "./glyphs.ts";
 import { BODY_INDENT } from "./indent.ts";
@@ -41,21 +41,29 @@ export interface ListRow {
 	/** The row's text. */
 	label: string;
 	labelRole?: TuiRole;
-	/** Right-aligned meta (a count, a time, a state). */
+	/** Meta that closes the row: right-aligned, or beside the label when `align` is `inline`. */
 	trailing?: string;
 	trailingRole?: TuiRole;
+	/**
+	 * Where the trailing cell sits. `end` (the default) pushes it to the right
+	 * edge, which suits a column of counts. `inline` keeps it beside the label
+	 * with a two-column gap, so a label and its value read as one pair on a wide
+	 * terminal instead of sitting at opposite ends of the line.
+	 */
+	align?: "end" | "inline";
 	/** Extra columns before the marker, for a nested row. */
 	indent?: number;
 }
 
 /**
  * One list row: an optional indent, the selection marker, an optional glyph,
- * the label, and right-aligned trailing meta.
+ * the label, and the trailing meta.
  *
  * The marker column is reserved by default, so selected and unselected rows
  * align; `marker: false` drops it for a non-interactive row. The trailing meta
- * is the anchor when the terminal is narrow (see `splitRow`), so a value at the
- * end of the row survives.
+ * is the anchor when the terminal is narrow (see `splitRow` and `inlineRow`),
+ * so a value at the end of the row survives either way; `align` decides whether
+ * it sits at the right edge or right after the label.
  */
 export function listRow(theme: Theme, width: number, row: ListRow): string {
 	const indent = " ".repeat(Math.max(0, Math.floor(row.indent ?? 0)));
@@ -64,7 +72,8 @@ export function listRow(theme: Theme, width: number, row: ListRow): string {
 	const glyph = row.glyph ? `${paint(theme, row.glyphRole ?? "info", row.glyph)} ` : "";
 	const label = paint(theme, row.labelRole ?? "label", row.label);
 	const trailing = row.trailing ? paint(theme, row.trailingRole ?? "meta", row.trailing) : "";
-	return splitRow(`${indent}${marker}${leading}${glyph}${label}`, trailing, width);
+	const head = `${indent}${marker}${leading}${glyph}${label}`;
+	return row.align === "inline" ? inlineRow(head, trailing, width) : splitRow(head, trailing, width);
 }
 
 /** A status row (a job, a watcher): the marker, a status glyph, a label, and right-aligned meta. */

@@ -336,7 +336,7 @@ failed read is silent and not cached, so the next session tries again; see
 | Command | What it does |
 |---|---|
 | `/bytefly [extension] [refresh]` | Open the control center on Extensions. In `tui` it mounts a docked list; every other mode prints the grouped listing, or one extension's full findings when named. |
-| `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints the grouped settings listing with each row's value. |
+| `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints one `Label: Value` line per setting. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
 | `/bytefly update` | Re-run the package update check now, ignoring the cache window, and report what it found — the updateable packages, this package's version and release URL when known, `PI_OFFLINE`, or an unreadable list. It resolves no packages and probes no extension. |
 
@@ -355,7 +355,7 @@ print the grouped listing with a per-row health suffix and the headline, or that
 extension's full findings when one is named. In `tui` the screen opens on the
 session's cached report and probes on the first Extensions view; the text modes
 probe before they print. `/bytefly settings` prints the
-grouped settings listing with each row's value outside `tui`; it does not
+flat settings listing with each row's value outside `tui`; it does not
 resolve packages or probe the doctor. The
 proactive session-start check posts a transcript notice through the shared
 `my-pi-agent/notice` renderer rather than a transient notification, and is
@@ -642,92 +642,59 @@ installs or fetches a package.
   without leaving the session.
 
 **Settings.** The second section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It lists twenty-nine preferences in ten groups:
+switch, with its own cursor. It is the shortlist a session changes: fourteen
+preferences on one flat line each, the value beside its label, and no group
+headings. The whole list fits a 24-row terminal, and the frame stops growing
+there however tall the terminal is.
 
 ```
 bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 29 settings
+  Extensions · Settings                           Global · 14 settings
 
-  Startup (1)
-❯ ◻ Bytefly startup TUI                                            Off
-  Notifications (7)
-  ◻ Desktop notifications                                          Off
-  ◼ Turn finished                                                   On
-  ◼ Needs input                                                     On
-  ◼ Job finished                                                    On
-  ◼ Watcher matched                                                 On
-    Delivery method                                               Auto
-    Notification title                                              Pi
-  Diagnostics (2)
-  ◼ Proactive health check                                          On
-    Probe timeout                                                 2000
-  Pricing (3)
-    Currency                                                    CNY (¥)
-    Cost decimals                                                    2
-    Session budget                                                   0
-  Transcript (3)
-    Rail glyph                                                       ╎
-    Achieved goal                                                  Hide
-    Output padding                                                   1
-  Terminal (2)
-    Theme                                                       system
-  ◻ Hardware cursor                                                Off
-  Worktree (4)
-    ◼ Fetch remote                                                 On
-    Base ref                                                    Fresh
-    Branch prefix                                          worktree-
-    Prune after (days)                                             7
-  Snapshots (3)
-    ◼ Automatic snapshots                                          On
-    Snapshots kept                                               20
-    ◼ Safety snapshot                                               On
-  Jobs and watchers (3)
-    ◻ Wake when a job finishes                                     Off
-    ◻ Keep jobs after exit                                         Off
-    ◻ Wake on a match                                              Off
-  Memory (1)
-    ◼ Inject notes                                                  On
+❯ ◻ Bytefly startup TUI  Off
+  ◼ Theme  system
+  ◻ Desktop notifications  Off
+  ◼ Turn finished  On
+  ◼ Needs input  On
+  ◼ Job finished  On
+  ◼ Watcher matched  On
+    Delivery method  Auto
+  ◻ Wake when a job finishes  Off
+  ◻ Wake on a match  Off
+  ◼ Automatic snapshots  On
+  ◼ Proactive health check  On
+    Currency  CNY (¥)
+    Session budget  0
+
   Bytefly startup TUI — Pi setting
   Use bytefly's startup header in place of Pi's startup TUI.
   Default · ~/.pi/agent/settings.json
 
-  Esc close · ←/→ · Space change · Tab scope · u reset · J JSON · [ ] group
+  Esc close · ←/→ · Space change · Tab scope · u reset · J JSON · ↑/↓ select
 ```
 
-| Group | Row | Source | Values |
-|---|---|---|---|
-| Startup | Bytefly startup TUI | Pi `settings.json` (`quietStartup`) | Off, On |
-| Notifications | Desktop notifications | `notify.enabled` | Off, On |
-| Notifications | Turn finished | `notify.turnFinished` | Off, On |
-| Notifications | Needs input | `notify.needsInput` | Off, On |
-| Notifications | Job finished | `notify.jobFinished` | Off, On |
-| Notifications | Watcher matched | `notify.matchFound` | Off, On |
-| Notifications | Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
-| Notifications | Notification title | `notify.title` | Text, up to 40 characters |
-| Diagnostics | Proactive health check | `doctor.proactive` | Off, On |
-| Diagnostics | Probe timeout | `doctor.timeoutMs` | Number, 100–30000 ms |
-| Pricing | Currency | `price.currency.code` | CNY, USD |
-| Pricing | Cost decimals | `price.currency.decimals` | 0, 1, 2, 3, 4 |
-| Pricing | Session budget | `price.budget` | Number, `0` = off |
-| Transcript | Rail glyph | `chrome.rail` | Text, exactly one column |
-| Transcript | Achieved goal | `goal.achieved` | Show, Hide |
-| Transcript | Output padding | Pi `settings.json` | 0, 1 |
-| Terminal | Theme | Pi `settings.json` (`theme`) | `system`, `bytefly-dark`, `bytefly-light` |
-| Terminal | Hardware cursor | Pi `settings.json` | Off, On |
-| Worktree | Base ref | `worktree.baseRef` | Fresh, Head |
-| Worktree | Branch prefix | `worktree.branchPrefix` | Text, trimmed, required |
-| Worktree | Fetch remote | `worktree.fetchRemote` | Off, On |
-| Worktree | Prune after (days) | `worktree.pruneAfterDays` | Number, 0–3650 |
-| Snapshots | Automatic snapshots | `rewind.autoSnapshots` | Off, On |
-| Snapshots | Snapshots kept | `rewind.max` | Number, 0–1000 |
-| Snapshots | Safety snapshot | `rewind.safetySnapshot` | Off, On |
-| Jobs and watchers | Wake when a job finishes | `job.wakeOnFinish` | Off, On |
-| Jobs and watchers | Keep jobs after exit | `job.detachedByDefault` | Off, On |
-| Jobs and watchers | Wake on a match | `watch.wakeOnMatch` | Off, On |
-| Memory | Inject notes | `memory.inject` | Off, On |
+<img src="../../assets/bytefly-settings.png" alt="The /bytefly Settings section: one flat list of fourteen preferences with each value beside its label, the `Global · 14 settings` counts, and a three-row detail pane naming the focused row's source, description, and file" width="100%">
 
-Choosing **Currency** also writes that currency's default precision. Both rows
-stay editable afterwards, so the footer follows the explicit values.
+| Row | Source | Values |
+|---|---|---|
+| Bytefly startup TUI | Pi `settings.json` (`quietStartup`) | Off, On |
+| Theme | Pi `settings.json` (`theme`) | `system`, `bytefly-dark`, `bytefly-light` |
+| Desktop notifications | `notify.enabled` | Off, On |
+| Turn finished | `notify.turnFinished` | Off, On |
+| Needs input | `notify.needsInput` | Off, On |
+| Job finished | `notify.jobFinished` | Off, On |
+| Watcher matched | `notify.matchFound` | Off, On |
+| Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
+| Wake when a job finishes | `job.wakeOnFinish` | Off, On |
+| Wake on a match | `watch.wakeOnMatch` | Off, On |
+| Automatic snapshots | `rewind.autoSnapshots` | Off, On |
+| Proactive health check | `doctor.proactive` | Off, On |
+| Currency | `price.currency.code` | CNY, USD |
+| Session budget | `price.budget` | Number, `0` = off |
+
+Choosing **Currency** also writes that currency's default precision
+(`price.currency.decimals`). Both stay editable in `bytefly.json` afterwards, so
+the footer follows the explicit values.
 
 The **Theme** row lists `system` first, then the palettes this package ships,
 `bytefly-dark` and `bytefly-light`; it cycles no further, so a bytefly screen
@@ -739,24 +706,34 @@ and is replaced by the next choice here, so manage those in Pi's `/settings` →
 **Theme**.
 
 `Space` (or `Enter`) changes the focused row: a boolean toggles, an enum cycles
-forward, and a text row opens an inline editor on its value — the notification
-title, the probe timeout, the branch prefix, and the rail glyph. `u` deletes the
-focused row's key so its default applies again (`Already at its default.` when
-nothing is stored in that scope; an inherited Project value says so instead),
-`J` swaps the detail pane for the focused row's whole section as the active
-scope stores it — the only view of the keys this screen leaves to JSON — and
-`[` / `]` jump to the previous or next group. The detail pane names
-the source, describes the preference, and shows
-where the value comes from — `Global · ~/.pi/agent/bytefly.json`, `Project ·
+forward, and the one text row — **Session budget** — opens an inline editor on its
+amount. `u` deletes the focused row's key so its default applies again (`Already
+at its default.` when nothing is stored in that scope; an inherited Project value
+says so instead), and `J` swaps the detail pane for the focused row's whole
+section as the active scope stores it — the only view of the keys this screen
+leaves to JSON. The detail pane names the source, describes the preference, and
+shows where the value comes from — `Global · ~/.pi/agent/bytefly.json`, `Project ·
 .pi/bytefly.json`, `Inherited from Global · ~/.pi/agent/bytefly.json`, or
 `Default · <the active scope's file>`; an app row names the personal
 `settings.json`. A successful change marks the screen `Saved · reload to apply`
 — even when the terminal is too short for the detail body — and closing offers
 the same reload confirm as an extension toggle.
 
-Six of the ten `bytefly.json` sections belong to other extensions. The screen
-cannot import their normalizers, so it reports the leaf as the file states it and
-declares the loader's default; `test/settings-coverage.test.ts` holds the
+The list is capped at fourteen rows so the screen keeps fitting a 24-row
+terminal: adding a setting means removing one (`panel/settings.test.ts` holds the
+ceiling). Everything else stays in `bytefly.json` — the tuning numbers, the
+cosmetic labels, and the Pi preferences Pi's own `/settings` owns — and
+`test/settings-coverage.test.ts` keeps the split honest: every loader key is
+either a row or a declared JSON-only edit with the reason it left. Four
+`bytefly.json` sections therefore have no row at all (`chrome`, `goal`,
+`worktree`, `memory`), as do `notify.title`, `doctor.timeoutMs`,
+`price.currency.decimals`, `rewind.max`, `rewind.safetySnapshot`, and
+`job.detachedByDefault` inside sections that do. Each is documented in
+[`docs/configuration.md`](../../docs/configuration.md).
+
+Three of the six sections belong to other extensions (`rewind`, `job`, and
+`watch`). The screen cannot import their normalizers, so it reports the leaf as
+the file states it and declares the loader's default; the same test holds the
 catalogue to every loader's defaults and bounds in both directions.
 
 **Bytefly startup TUI** is the one row whose label differs from the Pi key it
@@ -767,31 +744,28 @@ with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
-scope therefore lists the twenty-five `bytefly.json` rows and a
+scope therefore lists the twelve `bytefly.json` rows and a
 `App settings are Global only.` note rather than promising a write that cannot
 happen. A `bytefly.json` row writes one leaf in the selected scope (a depth-1
-key, or a nested one such as `price.currency.decimals`) through a per-key
-writer, so every sibling key, section, `$schema`, and `version` is preserved. A
-malformed document is refused with a notice instead of overwritten, and `u`
-removes that one leaf through the same writer's `unsetConfigValueAt`.
+key, or a nested one such as `price.currency.code`) through a per-key writer, so
+every sibling key, section, `$schema`, and `version` is preserved. A malformed
+document is refused with a notice instead of overwritten, and `u` removes that
+one leaf through the same writer's `unsetConfigValueAt`.
 
-The non-`tui` form prints the headline, the groups, and `Label: Value` rows:
+The non-`tui` form prints the headline and one `Label: Value` row per line, in
+screen order:
 
 ```
-bytefly: Settings · Global · 29 settings
-
-Startup (1)
+bytefly: Settings · Global · 14 settings
   Bytefly startup TUI: Off
-
-Notifications (7)
+  Theme: system
   Desktop notifications: Off
   Turn finished: On
   Needs input: On
   Job finished: On
   Watcher matched: On
   Delivery method: Auto
-  Notification title: Pi
-...
+  ...
 ```
 
 The doctor side probes every declared extension and reports each check as `ok`,
@@ -1004,12 +978,17 @@ command.
 - **Project overrides of app settings are not shown.** App rows read the
   personal file; a `.pi/settings.json` override still wins at runtime, and
   `pi config` is the place to manage it.
-- **Arrays and tables stay JSON.** A row is one boolean, enum, string, or number.
-  `doctor.skip` (an array), the `rates` table, and `price.peak` (a nested object)
-  are still `bytefly.json` edits; every scalar preference has a row.
-- **A custom rail glyph must be one column.** The editor refuses anything else,
+- **The list is a shortlist, not the whole document.** A row is one boolean,
+  enum, string, or number; the tuning numbers, the labels, and the Pi
+  preferences `/settings` owns stay in their files, and the catalogue is capped
+  at fourteen rows so the screen fits a 24-row terminal. `doctor.skip` (an
+  array), the `rates` table, and `price.peak` (a nested object) could never be a
+  row; the rest are declared JSON-only with their reason in
+  `test/settings-coverage.test.ts`.
+- **The rail glyph is typed in `bytefly.json`.** It must be exactly one column,
   because a two-column glyph would push every railed body one cell right; the
-  former four-glyph menu is now the description's example list.
+  loader drops anything else, and the former four-glyph menu is the
+  configuration reference's example list.
 - **`doctor`, `settings`, and `update` are reserved first arguments.**
   `/bytefly doctor` always selects the report, so an extension literally named
   `doctor` cannot be narrowed to by name; `settings` and `update` are reserved
@@ -1136,7 +1115,7 @@ rather than showing a wrong value.
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
-| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the grouped settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
+| Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the flat settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each stored receipt; `agent_start` opens it, top-level `tool_execution_start`/`tool_execution_end` count tools and failures, and `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn, durationMs, tools, failures, aborted })` in `tui` mode only. The receipt fields are omitted when no `agent_start` was seen, so an older or partially observed entry stays `{ turn }`. |
 | Working line | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage` in `tui` mode; before a tool runs the message is `Working… Ns`, and each top-level `tool_execution_start` repaints it as `tool · N tools · Ns` (nested calls carrying `parentToolCallId` are skipped). `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no persisted state; the count lives in the register's closure. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
@@ -1456,8 +1435,8 @@ columns, gauge), so the look follows the active theme.
 | `working/register.ts` | Starts the tick on `turn_start`, tracks top-level tools on `tool_execution_start`, and cancels on `agent_end`/`session_shutdown`. |
 | `panel/types.ts` | `PanelSection` (`extensions` | `settings`), `PanelRow`, and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
-| `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the Settings counts/headline, and the grouped Settings listing. |
-| `panel/settings.ts` | The curated Settings catalogue: descriptors, snapshot views and origins, value cycling, stored-value mapping, validation, and grouping, plus the per-section readers that resolve a row's leaf over the global and project documents. |
+| `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the Settings counts/headline, and the flat Settings listing. |
+| `panel/settings.ts` | The curated Settings catalogue: the fourteen descriptors in screen order, snapshot views and origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |
 | `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-leaf `bytefly.json` writes, dirty state, and change listeners. |
 | `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
 | `panel/tui.ts` | `PanelComponent`, the two-section dock screen (Extensions list and Settings list) and its section composition; the editing key map is `tui/editing.ts` and the shared frame is `tui/frame.ts`. |

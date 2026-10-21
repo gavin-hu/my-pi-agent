@@ -28,8 +28,8 @@ import { selectableRange, type PanelEntry } from "./entries.ts";
 export const SCREEN_DEFAULT_ROWS = 16;
 /** Fixed rows around the body: header, summary, blank, blank, hint, blank. */
 export const FRAME_ROWS = 6;
-/** Detail rows reserved for the focused row. */
-export const DETAIL_ROWS = 4;
+/** Detail rows reserved for the focused row: its head, one description line, and its origin. */
+export const DETAIL_ROWS = 3;
 /** Body rows that must survive before the detail pane collapses to its title. */
 export const MIN_BODY_ROWS = 3;
 /** Detail rows when the terminal height is unknown and the focused row is expanded. */

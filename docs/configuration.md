@@ -136,33 +136,24 @@ the file for the scope you want, and the next session reads it.
 
 | I want to… | Where |
 |---|---|
-| get a desktop alert when a turn, a job, or a question needs me | **Notifications** in `/bytefly settings` |
-| see costs in another currency, set precision, or set a budget | **Pricing** |
-| change the rail glyph beside tool results | **Transcript → Rail glyph** |
-| keep an achieved goal visible | **Transcript → Achieved goal** |
-| keep more snapshots | **Snapshots → Snapshots kept** |
-| wake the agent when a job finishes, or keep jobs after exit | **Jobs and watchers** |
-| wake the agent on a watcher match | **Jobs and watchers → Wake on a match** |
-| stop injecting memory notes | **Memory → Inject notes** |
-| choose the worktree base, branch prefix, fetch, or prune age | **Worktree** |
+| get a desktop alert when a turn, a job, or a question needs me | **Desktop notifications** in `/bytefly settings` |
+| see costs in another currency, or set a budget | **Currency**, **Session budget** |
+| set the cost precision after choosing a currency | `price.currency.decimals` below |
+| change the rail glyph beside tool results | `chrome.rail` below |
+| keep an achieved goal visible | `goal.achieved` below |
+| keep more snapshots, or turn off the pre-restore one | `rewind.max`, `rewind.safetySnapshot` below |
+| wake the agent when a job finishes, or keep jobs after exit | **Wake when a job finishes**, `job.detachedByDefault` |
+| wake the agent on a watcher match | **Wake on a match** |
+| stop injecting memory notes | `memory.inject` below |
+| choose the worktree base, branch prefix, fetch, or prune age | `worktree` below |
 | pin the browser's port | [`file-browse`](#file-browse--the-local-file-server) |
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`document`](#document--document-extraction) |
 
-The ten settings groups, and what each holds:
-
-| Group | Holds |
-|---|---|
-| Startup | The bytefly startup header in place of Pi's |
-| Notifications | The master switch, four triggers, delivery method, and title |
-| Diagnostics | The proactive health check and its probe timeout |
-| Pricing | Currency, cost precision, and the session budget |
-| Transcript | Rail glyph, achieved-goal visibility, output padding |
-| Terminal | Theme and hardware cursor |
-| Worktree | Base ref, branch prefix, fetch, and prune age |
-| Snapshots | Automatic snapshots, how many are kept, safety snapshot |
-| Jobs and watchers | Wake on finish, keep after exit, wake on match |
-| Memory | Note injection |
+`/bytefly settings` is a shortlist of the preferences a session changes — fourteen
+flat rows, named in bold above. Everything else — the tuning numbers, the
+cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
+screen; the rest of this page is the full list.
 
 ## Look up a key
 
@@ -220,7 +211,9 @@ repository root rather than the active working directory.
 ## `price` — cost calculation
 
 The footer's cost total. Read once per footer install, so a change needs a
-reload. `/bytefly settings` edits `currency.code`, `currency.decimals`, and `budget`.
+reload. `/bytefly settings` edits `currency.code` and `budget`; choosing a currency
+also writes its default `currency.decimals`, which is a `bytefly.json` edit after
+that.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -247,8 +240,8 @@ inclusive, `to` exclusive, and a `to` at or before `from` wraps past midnight.
 
 ## `notify` — OS notifications
 
-Read at `session_start`; `/bytefly settings` edits `enabled`, `method`, and
-`title`.
+Read at `session_start`; `/bytefly settings` edits `enabled`, the four triggers,
+and `method`. `title` has no row; it is a `bytefly.json` edit.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -277,8 +270,8 @@ Read at `session_start`; `/bytefly settings` edits `proactive`.
 
 ## `chrome` — transcript chrome
 
-The part of bytefly's look that a config file controls; `/bytefly settings` edits
-`rail`.
+The part of bytefly's look that a config file controls. It has no row on the
+settings screen; `rail` is a `bytefly.json` edit.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -323,7 +316,7 @@ ignored, and an absent id keeps its registry default.
 
 ## `goal` — the goal widget
 
-`/bytefly settings` edits `achieved`.
+The settings screen has no row for it; `achieved` is a `bytefly.json` edit.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -331,7 +324,8 @@ ignored, and an absent id keeps its registry default.
 
 ## `job` — background jobs
 
-`/bytefly settings` edits `wakeOnFinish` and `detachedByDefault`.
+`/bytefly settings` edits `wakeOnFinish`; `detachedByDefault` is a `bytefly.json`
+edit.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -364,7 +358,7 @@ ignored, and an absent id keeps its registry default.
 
 ## `memory` — durable notes
 
-`/bytefly settings` edits `inject`.
+The settings screen has no row for it; `inject` is a `bytefly.json` edit.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -373,7 +367,8 @@ ignored, and an absent id keeps its registry default.
 
 ## `rewind` — snapshots
 
-`/bytefly settings` edits `autoSnapshots`, `max`, and `safetySnapshot`.
+`/bytefly settings` edits `autoSnapshots`; `max` and `safetySnapshot` are
+`bytefly.json` edits.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -478,8 +473,8 @@ empty list disables tools, and the list is capped at 200 entries.
 ## `worktree` — isolated worktrees
 
 `worktree` reads the project document from the repository root rather than the
-active working directory. `/bytefly settings` edits `baseRef`, `branchPrefix`,
-`fetchRemote`, and `pruneAfterDays`.
+active working directory. The settings screen has no rows for it; every key below
+is a `bytefly.json` edit.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|

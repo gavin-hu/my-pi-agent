@@ -27,6 +27,8 @@ const PI_SETTINGS_FILE = "settings.json";
 const ROW_PREFIX_WIDTH = 4;
 /** Columns a value keeps when the row has to choose between the label and the value. */
 const MIN_VALUE_WIDTH = 8;
+/** Columns between the label and its value. */
+const VALUE_GAP = 2;
 
 /**
  * The editing cell: the buffer around the caret, scrolled so the caret is always
@@ -56,7 +58,7 @@ export function settingsSummary(theme: Theme, width: number, scope: PanelScope, 
 	return countsLine(theme, width, settingsSummarySegments(scope, count));
 }
 
-/** One setting row: a checkbox for booleans, the value right-aligned. */
+/** One setting row: a checkbox for booleans, and the value beside the label. */
 export function settingRow(
 	theme: Theme,
 	width: number,
@@ -67,7 +69,7 @@ export function settingRow(
 	const label = sanitizeLine(view.label);
 	// Keep the whole label when it fits, and never let a long value or an editing
 	// buffer erase it: the value gets what is left, with a floor of eight columns.
-	const available = Math.max(1, width - ROW_PREFIX_WIDTH - 1);
+	const available = Math.max(1, width - ROW_PREFIX_WIDTH - VALUE_GAP);
 	const labelReserve = Math.min(visibleWidth(label), Math.max(0, available - MIN_VALUE_WIDTH));
 	const valueBudget = Math.max(1, available - labelReserve);
 	const rawValue = editing ? editingCell(editing.buffer, editing.caret, valueBudget) : view.valueLabel;
@@ -78,6 +80,9 @@ export function settingRow(
 		labelRole: selected ? "accent" : "label",
 		trailing: clip(sanitizeLine(rawValue), valueBudget),
 		trailingRole: editing ? "accent" : "meta",
+		// The value sits beside the label, so a wide terminal never strands it at
+		// the far edge where the eye has to travel to read it.
+		align: "inline",
 	});
 }
 
@@ -137,16 +142,7 @@ export function settingDetail(options: {
 
 /** The section's key hints, in the order they drop as the width runs out. */
 export function settingsHints(json = false): string[] {
-	return [
-		"Esc close",
-		"←/→",
-		"Space change",
-		"Tab scope",
-		"u reset",
-		json ? "J hide" : "J JSON",
-		"[ ] group",
-		"↑/↓ select",
-	];
+	return ["Esc close", "←/→", "Space change", "Tab scope", "u reset", json ? "J hide" : "J JSON", "↑/↓ select"];
 }
 
 /**

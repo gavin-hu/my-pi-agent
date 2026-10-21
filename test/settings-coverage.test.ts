@@ -8,9 +8,10 @@
  * declaration names a key the loader does not have, or when a row's default or
  * numeric rule disagrees with the loader's clamp.
  *
- * A section the screen does not model is declared here in full, with a reason, so
- * leaving a key out is a reviewed decision rather than an oversight. A new
- * section means a new entry in `SECTIONS`.
+ * A key the screen leaves out is declared here with a reason — a tuning number,
+ * a label, or a whole section with no row — so leaving one out is a reviewed
+ * decision rather than an oversight. A new section means a new entry in
+ * `SECTIONS`, and adding a row means removing its declaration.
  *
  * The loaders stay the source of truth: bounds are derived by probing each
  * normalizer with an extreme value, not by exporting the limits for the test.
@@ -82,25 +83,29 @@ const SECTIONS: readonly SectionCase[] = [
 		jsonOnly: {
 			rates: "a per-model table, not one row",
 			peak: "a schedule of windows, not one row",
+			"currency.decimals": "written with Currency, then a bytefly.json edit",
 		},
 	},
 	{
 		section: "notify",
 		defaults: DEFAULT_NOTIFY_CONFIG,
 		normalize: (raw) => normalizeNotifyConfig(raw, DEFAULT_NOTIFY_CONFIG),
-		jsonOnly: {},
+		jsonOnly: { title: "a cosmetic label, set once" },
 	},
 	{
 		section: "doctor",
 		defaults: DEFAULT_DOCTOR_CONFIG,
 		normalize: (raw) => normalizeDoctorConfig(raw, DEFAULT_DOCTOR_CONFIG),
-		jsonOnly: { skip: "a list of extension names" },
+		jsonOnly: {
+			skip: "a list of extension names",
+			timeoutMs: "one probe's timing, tuned once on a slow machine",
+		},
 	},
 	{
 		section: "chrome",
 		defaults: DEFAULT_CHROME_CONFIG,
 		normalize: (raw) => normalizeChromeConfig(raw, DEFAULT_CHROME_CONFIG),
-		jsonOnly: {},
+		jsonOnly: { rail: "a cosmetic glyph, set once" },
 	},
 	{
 		section: "document",
@@ -139,7 +144,7 @@ const SECTIONS: readonly SectionCase[] = [
 		section: "goal",
 		defaults: DEFAULT_GOAL_CONFIG,
 		normalize: (raw) => normalizeGoalConfig(raw, DEFAULT_GOAL_CONFIG),
-		jsonOnly: {},
+		jsonOnly: { achieved: "how a finished goal looks, set once" },
 	},
 	{
 		section: "job",
@@ -152,6 +157,7 @@ const SECTIONS: readonly SectionCase[] = [
 			maxLogLines: "a model-facing limit",
 			maxLogBytes: "a registry limit",
 			killGraceMs: "a shutdown timing, tuned once",
+			detachedByDefault: "an exit behaviour, set once per machine",
 			repaintMs: "a refresh interval, tuned once",
 			sessionTtlMs: "a reaping interval, tuned once",
 			registryDir: "a path override",
@@ -175,7 +181,10 @@ const SECTIONS: readonly SectionCase[] = [
 		section: "memory",
 		defaults: DEFAULT_MEMORY_CONFIG,
 		normalize: (raw) => normalizeMemoryConfig(raw, DEFAULT_MEMORY_CONFIG),
-		jsonOnly: { maxInjectBytes: "an injection budget, tuned once" },
+		jsonOnly: {
+			inject: "on by default; a bytefly.json edit",
+			maxInjectBytes: "an injection budget, tuned once",
+		},
 	},
 	{
 		section: "rewind",
@@ -185,6 +194,8 @@ const SECTIONS: readonly SectionCase[] = [
 			includeUntracked: "a snapshot detail, not a preference",
 			autoPrune: "a snapshot detail, not a preference",
 			showStatus: "chip placement, not behaviour",
+			max: "a registry limit, tuned once",
+			safetySnapshot: "on by default; a bytefly.json edit",
 			watch: "a list of tool names",
 			ignore: "a list of tool names",
 			refNamespace: "a git ref namespace",
@@ -228,6 +239,10 @@ const SECTIONS: readonly SectionCase[] = [
 		defaults: DEFAULT_WORKTREE_CONFIG,
 		normalize: (raw) => normalizeWorktreeConfig(raw, DEFAULT_WORKTREE_CONFIG),
 		jsonOnly: {
+			baseRef: "a per-repository choice, set once",
+			branchPrefix: "a per-repository label, set once",
+			fetchRemote: "a per-repository choice, set once",
+			pruneAfterDays: "an age in days, tuned once",
 			dir: "a path inside the repository",
 			fetchTimeoutMs: "a network timeout, tuned once",
 			onExit: "chosen per exit at the prompt",
@@ -296,7 +311,10 @@ describe("the settings catalogue against the loaders", () => {
 	test("declares no key the loader does not have", () => {
 		for (const section of SECTIONS) {
 			for (const key of Object.keys(section.jsonOnly)) {
-				const exists = statesPath(section.defaults, [key]);
+				// A declaration is a dotted path, the same shape `uncoveredLeaves`
+				// reports, so a nested leaf such as `currency.decimals` can be named
+				// without declaring the whole subtree that holds a row.
+				const exists = statesPath(section.defaults, key.split("."));
 				expect({ section: section.section, key, exists }).toEqual({ section: section.section, key, exists: true });
 			}
 			for (const key of coveredLeaves(section.section)) {

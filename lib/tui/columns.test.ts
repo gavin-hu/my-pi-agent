@@ -6,6 +6,7 @@ import {
 	clipMiddle,
 	fitCells,
 	flowCells,
+	inlineRow,
 	LABEL_WIDTH,
 	labelLine,
 	padTo,
@@ -125,6 +126,40 @@ describe("splitRow", () => {
 		for (const width of WIDTHS) {
 			for (const sample of SAMPLES) {
 				expect(visibleWidth(splitRow(sample, "yz", width))).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+});
+
+describe("inlineRow", () => {
+	test("keeps the two cells together with the gap between", () => {
+		expect(inlineRow("ab", "yz", 10)).toBe("ab  yz");
+	});
+
+	test("clips the left cell before the right cell loses anything", () => {
+		const line = inlineRow("a-very-long-left-cell", "right", 12);
+		expect(stripTerminalSequences(line).endsWith("right")).toBe(true);
+		expect(stripTerminalSequences(line)).toContain("…");
+		expect(visibleWidth(line)).toBeLessThanOrEqual(12);
+	});
+
+	test("keeps the value when only it fits", () => {
+		expect(stripTerminalSequences(inlineRow("label", "value", 4))).toBe("val…");
+		expect(stripTerminalSequences(inlineRow("label", "yz", 2))).toBe("yz");
+	});
+
+	test("an empty right cell means no gap and no padding", () => {
+		expect(inlineRow("left", "", 10)).toBe("left");
+	});
+
+	test("does not pad the line to the width", () => {
+		expect(inlineRow("ab", "yz", 40)).toBe("ab  yz");
+	});
+
+	test("every result fits the width", () => {
+		for (const width of WIDTHS) {
+			for (const sample of SAMPLES) {
+				expect(visibleWidth(inlineRow(sample, "yz", width))).toBeLessThanOrEqual(width);
 			}
 		}
 	});

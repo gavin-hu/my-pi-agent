@@ -44,6 +44,9 @@ export function extensionRow(theme: Theme, width: number, row: PanelRow, selecte
 		// The glyph carries the status colour; the word stays quiet unless it is a
 		// problem, so a clean row does not shout.
 		trailingRole: badge.role === "bad" || badge.role === "warn" ? badge.role : "faint",
+		// The verdict sits beside the name instead of at the far edge of a wide
+		// terminal, where a two-word verdict would be unreadable.
+		align: "inline",
 	});
 }
 
