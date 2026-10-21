@@ -10,7 +10,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../../lib/rails.ts";
+import { withPolledScreen } from "../../lib/screen-session.ts";
 import { messageOf } from "./errors.ts";
 import { formatHealth, memoryHealth } from "./doctor.ts";
 import { formatNotice, scopeLabel } from "./format.ts";
@@ -55,49 +55,35 @@ async function openPicker(pi: ExtensionAPI, runtime: MemoryRuntime, ctx: Extensi
 		return;
 	}
 
-	let timer: ReturnType<typeof setInterval> | undefined;
-	const stopTimer = (): void => {
-		if (timer) clearInterval(timer);
-		timer = undefined;
-	};
-
-	// The dock screen owns the editor slot; hide the rails for its lifetime.
-	try {
-		await withRailsSuppressed(pi, () =>
-			ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-				const component = new MemoryPickerComponent(
-					tui,
-					theme,
-					{
-						entries: () => runtime.entries(),
-						trusted: () => runtime.trusted(),
-						refresh: () => runtime.refresh().changed.length > 0,
-						add: (scope, text) => runtime.add(scope, text),
-						update: (scope, from, to) => runtime.update(scope, from, to),
-						forget: (scope, entry) => runtime.forget(scope, entry),
-						merge: (scope, first, second, merged) => runtime.merge(scope, first, second, merged),
-						move: (from, to, text) => runtime.move(from, to, text),
-					},
-					() => {
-						stopTimer();
-						done();
-					},
-					() => tui.requestRender(),
-					() => tui.terminal?.rows,
-				);
-
-				// Pick up an external edit while the screen is open, repainting only on a change.
-				timer = setInterval(() => {
-					if (runtime.refresh().changed.length > 0) tui.requestRender();
-				}, PICKER_POLL_MS);
-				timer.unref?.();
-
-				return component;
-			}),
-		);
-	} finally {
-		stopTimer();
-	}
+	await withPolledScreen(
+		pi,
+		ctx,
+		(screen) =>
+			new MemoryPickerComponent(
+				screen.tui,
+				screen.theme,
+				{
+					entries: () => runtime.entries(),
+					trusted: () => runtime.trusted(),
+					refresh: () => runtime.refresh().changed.length > 0,
+					add: (scope, text) => runtime.add(scope, text),
+					update: (scope, from, to) => runtime.update(scope, from, to),
+					forget: (scope, entry) => runtime.forget(scope, entry),
+					merge: (scope, first, second, merged) => runtime.merge(scope, first, second, merged),
+					move: (from, to, text) => runtime.move(from, to, text),
+				},
+				screen.close,
+				screen.requestRender,
+				screen.viewportRows,
+			),
+		{
+			pollMs: PICKER_POLL_MS,
+			// Pick up an external edit while the screen is open, repainting only on a change.
+			poll: (_component, handles) => {
+				if (runtime.refresh().changed.length > 0) handles.requestRender();
+			},
+		},
+	);
 }
 
 export function registerCommands(pi: ExtensionAPI, runtime: MemoryRuntime): void {

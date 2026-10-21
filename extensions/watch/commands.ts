@@ -8,7 +8,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../../lib/rails.ts";
+import { withPolledScreen } from "../../lib/screen-session.ts";
 import { formatWatchList, shortLabel } from "./format.ts";
 import type { WatchRuntime } from "./runtime.ts";
 import { WatchListComponent } from "./tui.ts";
@@ -92,54 +92,40 @@ export function registerCommands(pi: ExtensionAPI, runtime: WatchRuntime): void 
 				return;
 			}
 
-			let timer: ReturnType<typeof setInterval> | undefined;
-			const stopTimer = (): void => {
-				if (timer) clearInterval(timer);
-				timer = undefined;
-			};
-
-			// The dock screen owns the editor slot; hide the rails for its lifetime.
-			try {
-				await withRailsSuppressed(pi, () =>
-					ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-						const component = new WatchListComponent(
-							() => runtime.list(),
-							theme,
-							{
-								lines: (watchId) => runtime.matches(watchId, 500),
-								stop: (watchId) => {
-									runtime.stop(watchId);
-								},
-								clear: () => {
-									const result = runtime.clear(undefined, false);
-									if (result.cleared > 0) {
-										ctx.ui.notify(`Cleared ${result.cleared} watcher${result.cleared === 1 ? "" : "s"}.`, "info");
-									}
-								},
+			await withPolledScreen(
+				pi,
+				ctx,
+				(screen) =>
+					new WatchListComponent(
+						() => runtime.list(),
+						screen.theme,
+						{
+							lines: (watchId) => runtime.matches(watchId, 500),
+							stop: (watchId) => {
+								runtime.stop(watchId);
 							},
-							() => {
-								stopTimer();
-								done();
+							clear: () => {
+								const result = runtime.clear(undefined, false);
+								if (result.cleared > 0) {
+									ctx.ui.notify(`Cleared ${result.cleared} watcher${result.cleared === 1 ? "" : "s"}.`, "info");
+								}
 							},
-							() => tui.requestRender(),
-							() => tui.terminal?.rows,
-						);
-
-						// The runtime's own clock owns file polling; this only refreshes
-						// what the screen shows, so opening it cannot change the poll cadence.
-						timer = setInterval(() => {
-							const open = component.currentLineId();
-							if (open) component.refreshLines(open);
-							tui.requestRender();
-						}, REFRESH_MS);
-						timer.unref?.();
-
-						return component;
-					}),
-				);
-			} finally {
-				stopTimer();
-			}
+						},
+						screen.close,
+						screen.requestRender,
+						screen.viewportRows,
+					),
+				{
+					pollMs: REFRESH_MS,
+					// The runtime's own clock owns file polling; this only refreshes what
+					// the screen shows, so opening it cannot change the poll cadence.
+					poll: (component, handles) => {
+						const open = component.currentLineId();
+						if (open) component.refreshLines(open);
+						handles.requestRender();
+					},
+				},
+			);
 		},
 	});
 }
