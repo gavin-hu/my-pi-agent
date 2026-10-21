@@ -13,6 +13,7 @@ import {
 	isProbablyText,
 	listDirectory,
 	readFileView,
+	type DirectoryFs,
 	type TreeNode,
 } from "./files.ts";
 import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
@@ -106,6 +107,67 @@ describe("listDirectory", () => {
 		expect(listing.entries).toHaveLength(2);
 		expect(listing.truncated).toBe(true);
 		expect(listing.total).toBeGreaterThan(2);
+	});
+
+	test("sorts a symlink to a directory with the directories", async () => {
+		fixture = makeFixture();
+		mkdirSync(join(fixture.root, "zdir"));
+		try {
+			symlinkSync(join(fixture.root, "zdir"), join(fixture.root, "alink"));
+		} catch {
+			// Symlinks may be unavailable (e.g. unprivileged Windows); the case skips.
+			return;
+		}
+		const listing = await listDirectory(fixture.root, "", 100);
+		const link = listing.entries.find((entry) => entry.name === "alink");
+		expect(link?.isDir).toBe(true);
+		expect(link?.kind).toBe("directory");
+		// Directory-first ordering is decided before the cap, and a symlinked
+		// directory is a directory: it must precede every regular file.
+		const firstFile = listing.entries.findIndex((entry) => !entry.isDir);
+		const lastDir = listing.entries.reduce((last, entry, index) => (entry.isDir ? index : last), -1);
+		expect(lastDir).toBeLessThan(firstFile);
+	});
+
+	test("reads only the rows it keeps, through a bounded pool", async () => {
+		const names = Array.from({ length: 100 }, (_, index) => `file-${String(index).padStart(3, "0")}`);
+		const reads: string[] = [];
+		let inFlight = 0;
+		let peak = 0;
+		const stats = { size: 7, mtimeMs: 11, isDirectory: () => false };
+		const fs: DirectoryFs = {
+			readdir: async () => names.map((name) => ({ name, isDirectory: () => false, isSymbolicLink: () => false })),
+			lstat: async () => stats,
+			stat: async (path) => {
+				reads.push(path.slice(path.lastIndexOf("/") + 1));
+				inFlight++;
+				peak = Math.max(peak, inFlight);
+				await Promise.resolve();
+				inFlight--;
+				return stats;
+			},
+		};
+
+		const listing = await listDirectory("/synthetic", "", 10, fs);
+
+		expect(listing.total).toBe(100);
+		expect(listing.truncated).toBe(true);
+		expect(listing.entries.map((entry) => entry.name)).toEqual(names.slice(0, 10));
+		expect(listing.entries.every((entry) => entry.size === 7 && entry.mtimeMs === 11)).toBe(true);
+		// The claim: the cap bounds the reads, and they overlap.
+		expect(reads).toEqual(names.slice(0, 10));
+		expect(peak).toBe(10);
+	});
+
+	test("rejects a directory it cannot read", async () => {
+		const fs: DirectoryFs = {
+			readdir: async () => {
+				throw new Error("EACCES");
+			},
+			lstat: async () => ({ size: 0, mtimeMs: 0, isDirectory: () => false }),
+			stat: async () => ({ size: 0, mtimeMs: 0, isDirectory: () => false }),
+		};
+		await expect(listDirectory("/synthetic", "", 10, fs)).rejects.toThrow("That folder could not be read.");
 	});
 });
 

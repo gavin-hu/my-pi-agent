@@ -8,6 +8,7 @@
 import type { Dirent, Stats } from "node:fs";
 import { readFile, readdir, stat, lstat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
+import { mapConcurrent } from "../../lib/pool.ts";
 import { HttpError } from "./paths.ts";
 
 export type EntryKind = "directory" | "text" | "image" | "binary";
@@ -188,63 +189,168 @@ function toAbs(root: string, rel: string): string {
 	return rel ? join(root, ...rel.split("/")) : root;
 }
 
-/** List a directory, sorted (directories first, then case-insensitive name). */
-export async function listDirectory(root: string, relDir: string, limit: number): Promise<Listing> {
-	const absDir = toAbs(root, relDir);
-	let dirents: Dirent[];
+/** The `Dirent` fields a listing reads; a test's fake need not be a real `Dirent`. */
+export interface DirectoryEntryInfo {
+	name: string;
+	isDirectory(): boolean;
+	isSymbolicLink(): boolean;
+}
+
+/** The `Stats` fields a listing reads. */
+export interface DirectoryStats {
+	size: number;
+	mtimeMs: number;
+	isDirectory(): boolean;
+}
+
+/**
+ * The three filesystem reads a listing makes.
+ *
+ * Injected so a test can observe them: the interesting property — a directory is
+ * read once per entry, not once per entry *and* once per row drawn — is a count,
+ * not a value, and a wall-clock assertion would be flaky on a loaded machine.
+ */
+export interface DirectoryFs {
+	readdir(path: string): Promise<DirectoryEntryInfo[]>;
+	lstat(path: string): Promise<DirectoryStats>;
+	stat(path: string): Promise<DirectoryStats>;
+}
+
+/** Production reads; a symlink's size and kind come from the target. */
+const NODE_DIRECTORY_FS: DirectoryFs = {
+	readdir: (path) => readdir(path, { withFileTypes: true }),
+	lstat: (path) => lstat(path),
+	stat: (path) => stat(path),
+};
+
+/** Reads in flight per listing: enough to hide latency, bounded against a burst. */
+const LISTING_CONCURRENCY = 32;
+
+/** A row while it is still missing its metadata. */
+interface Row {
+	name: string;
+	rel: string;
+	isDir: boolean;
+	isSymlink: boolean;
+	broken: boolean;
+	size: number;
+	mtimeMs: number;
+}
+
+/**
+ * Resolve one symlink: the link's own stat, then the target's.
+ *
+ * A symlink's directory-ness is the target's, so this cannot wait until after
+ * the sort; it is also the only entry whose classification needs a read.
+ */
+async function resolveSymlink(fs: DirectoryFs, absDir: string, row: Row): Promise<void> {
+	const abs = join(absDir, row.name);
 	try {
-		dirents = await readdir(absDir, { withFileTypes: true });
+		const info = await fs.lstat(abs);
+		row.size = info.size;
+		row.mtimeMs = info.mtimeMs;
+	} catch {
+		// Vanished between readdir and lstat: the target read decides below.
+	}
+	try {
+		const target = await fs.stat(abs);
+		row.isDir = target.isDirectory();
+		row.size = target.size;
+		row.mtimeMs = target.mtimeMs;
+	} catch {
+		row.broken = true;
+	}
+}
+
+/**
+ * List a directory, sorted (directories first, then case-insensitive name).
+ *
+ * A listing is latency per entry, not work per entry, so it is read in three
+ * passes instead of one entry at a time:
+ *
+ * 1. `readdir`, whose dirents already say whether each name is a directory;
+ * 2. the symlinks only, resolved through the pool, because their kind is the
+ *    target's and the sort needs it;
+ * 3. the kept rows only, `stat`ed through the pool — so a directory of three
+ *    thousand names pays for the two thousand it draws, not for every name, and
+ *    pays them concurrently instead of in turn.
+ *
+ * `total` is still the directory's full entry count and `truncated` its `> limit`
+ * flip, so the page can say how many were dropped. Ties keep `readdir` order:
+ * `sort` is stable and the rows arrive unsorted.
+ */
+export async function listDirectory(
+	root: string,
+	relDir: string,
+	limit: number,
+	fs: DirectoryFs = NODE_DIRECTORY_FS,
+): Promise<Listing> {
+	const absDir = toAbs(root, relDir);
+	let dirents: DirectoryEntryInfo[];
+	try {
+		dirents = await fs.readdir(absDir);
 	} catch {
 		throw new HttpError(404, "That folder could not be read.");
 	}
 
-	const entries: DirEntry[] = [];
-	for (const dirent of dirents) {
-		const abs = join(absDir, dirent.name);
-		const isSymlink = dirent.isSymbolicLink();
-		let isDir = dirent.isDirectory();
-		let broken = false;
-		let size = 0;
-		let mtimeMs = 0;
-		try {
-			const info = isSymlink ? await lstat(abs) : await stat(abs);
-			size = info.size;
-			mtimeMs = info.mtimeMs;
-		} catch {
-			// Directory entry vanished between readdir and stat.
-		}
-		if (isSymlink) {
-			try {
-				const target = await stat(abs);
-				isDir = target.isDirectory();
-				size = target.size;
-				mtimeMs = target.mtimeMs;
-			} catch {
-				broken = true;
-			}
-		}
-		const kind: EntryKind = isDir ? "directory" : classifyByName(dirent.name);
-		entries.push({
+	const links: Row[] = [];
+	const rows: Row[] = dirents.map((dirent) => {
+		const row: Row = {
 			name: dirent.name,
 			rel: relDir ? `${relDir}/${dirent.name}` : dirent.name,
-			isDir,
-			isSymlink,
-			broken,
-			size,
-			mtimeMs,
-			kind,
-			isImage: !isDir && kind === "image",
-		});
-	}
+			isDir: dirent.isDirectory(),
+			isSymlink: dirent.isSymbolicLink(),
+			broken: false,
+			size: 0,
+			mtimeMs: 0,
+		};
+		if (row.isSymlink) links.push(row);
+		return row;
+	});
 
-	entries.sort((a, b) => {
+	await mapConcurrent(links, LISTING_CONCURRENCY, (row) => resolveSymlink(fs, absDir, row));
+
+	// Directories first, then case-insensitive name. The sort runs before the cap,
+	// so the rows that survive it are the rows that would have been drawn.
+	rows.sort((a, b) => {
 		if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
 		return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
 	});
 
-	const total = entries.length;
+	const total = rows.length;
 	const truncated = total > limit;
-	return { entries: truncated ? entries.slice(0, limit) : entries, total, truncated };
+	const kept = truncated ? rows.slice(0, limit) : rows;
+
+	await mapConcurrent(
+		kept.filter((row) => !row.isSymlink),
+		LISTING_CONCURRENCY,
+		async (row) => {
+			try {
+				const info = await fs.stat(join(absDir, row.name));
+				row.size = info.size;
+				row.mtimeMs = info.mtimeMs;
+			} catch {
+				// Directory entry vanished between readdir and stat.
+			}
+		},
+	);
+
+	const entries: DirEntry[] = kept.map((row) => {
+		const kind: EntryKind = row.isDir ? "directory" : classifyByName(row.name);
+		return {
+			name: row.name,
+			rel: row.rel,
+			isDir: row.isDir,
+			isSymlink: row.isSymlink,
+			broken: row.broken,
+			size: row.size,
+			mtimeMs: row.mtimeMs,
+			kind,
+			isImage: !row.isDir && kind === "image",
+		};
+	});
+
+	return { entries, total, truncated };
 }
 
 /** Read a file into a renderable view, honouring the size and line caps. */
