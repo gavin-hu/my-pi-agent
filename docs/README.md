@@ -6,14 +6,15 @@ technical contracts live outside this directory and are linked below.
 
 ## Guides
 
-| Guide | What it covers |
-|---|---|
-| [User guide](./user-guide/) | An eight-chapter manual for people who use Pi rather than work on it: install, each feature, settings, troubleshooting, and reference. |
-| [Configuration](./configuration.md) | Resolution rules, the settings screen, every section and key, and the environment variables. |
-| [Architecture](./architecture.md) | The load path, runtime model, state, process shapes, and where new code belongs. |
-| [Development](./development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
-| [Security](./security.md) | Trust boundaries for the loopback and remote surfaces. |
-| [Roadmap](../ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |
+The [entry README's Documentation table](../README.md#documentation) summarises
+each of these; this is the same set, by name.
+
+- [User guide](./user-guide/)
+- [Configuration](./configuration.md)
+- [Architecture](./architecture.md)
+- [Development](./development.md)
+- [Security](./security.md)
+- [Roadmap](../ROADMAP.md)
 
 Exhaustive listings that a hand edit is checked against live beside the guide
 that explains them; [Configuration](./configuration.md) carries the key list the

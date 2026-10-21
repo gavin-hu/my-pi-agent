@@ -28,6 +28,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of listing the screen's ten groups, which the user guide's settings chapter
   already documents. The screen itself is unchanged.
 
+- `docs`: `docs/README.md` and the user guide's "Other documentation" now link
+  the entry README's Documentation table instead of restating its one-line
+  summaries, so a guide's description is written once.
+
 - `worktree`: `/worktree status` and `list_worktrees` gather the managed
   worktrees' git status a few at a time instead of one after another, roughly
   halving the wait with five of them; the rows, their order, and their marks are
