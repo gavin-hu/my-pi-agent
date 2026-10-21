@@ -231,7 +231,7 @@ lib/tui/<module>.test.ts
 test/
   README.md
   helpers/                 # ALL shared doubles and fixtures
-    fakes.ts  context.ts  process.ts  env.ts  entries.ts
+    fakes.ts  context.ts  process.ts  env.ts  entries.ts  config.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
     fixtures/<name>.ts     # extension-specific fixtures
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)

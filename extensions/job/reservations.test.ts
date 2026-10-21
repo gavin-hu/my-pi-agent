@@ -1,16 +1,11 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { rmSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
+import { tempDir } from "../../test/helpers/env.ts";
 import { listReservedIds, pruneReservations, releaseReservation, reserveId } from "./reservations.ts";
-
-function tempDir(): string {
-	return mkdtempSync(join(tmpdir(), "pi-jobs-reserve-"));
-}
 
 describe("reserveId", () => {
 	test("starts above the taken ids and reserves the result", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-reserve-");
 		try {
 			expect(reserveId(dir, ["j1", "j4"])).toBe("j5");
 			expect(listReservedIds(dir)).toContain("j5");
@@ -20,7 +15,7 @@ describe("reserveId", () => {
 	});
 
 	test("hands out distinct ids on repeated calls without a registry update", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-reserve-");
 		try {
 			const a = reserveId(dir, []);
 			const b = reserveId(dir, []);
@@ -33,7 +28,7 @@ describe("reserveId", () => {
 	});
 
 	test("honours a floor from a stored counter", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-reserve-");
 		try {
 			expect(reserveId(dir, ["j1"], 10)).toBe("j10");
 		} finally {
@@ -44,7 +39,7 @@ describe("reserveId", () => {
 
 describe("release / prune", () => {
 	test("releaseReservation removes the file and tolerates a missing one", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-reserve-");
 		try {
 			const id = reserveId(dir, []);
 			releaseReservation(dir, id);
@@ -56,7 +51,7 @@ describe("release / prune", () => {
 	});
 
 	test("pruneReservations drops committed ids and keeps the rest", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-reserve-");
 		try {
 			const committed = reserveId(dir, []);
 			const pending = reserveId(dir, []);
