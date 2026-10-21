@@ -1460,7 +1460,7 @@ columns, gauge), so the look follows the active theme.
 | `panel/settings.ts` | The curated Settings catalogue: descriptors, snapshot views and origins, value cycling, stored-value mapping, validation, and grouping, plus the per-section readers that resolve a row's leaf over the global and project documents. |
 | `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-leaf `bytefly.json` writes, dirty state, and change listeners. |
 | `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
-| `panel/tui.ts` | `PanelComponent`, the two-section dock screen (Extensions list and Settings list), drawn from the `lib/tui/` kit. |
+| `panel/tui.ts` | `PanelComponent`, the two-section dock screen (Extensions list and Settings list) and its section composition; the editing key map is `tui/editing.ts` and the shared frame is `tui/frame.ts`. |
 | `panel/commands.ts` | `/bytefly`: one command for the screen sections, the `doctor` report, the settings listing, and their text modes. |
 | `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`), the app-settings setters, and row types. |
 | `picker/resources.ts` | Pure grouping, labels, display names, and pattern helpers. |
@@ -1518,7 +1518,8 @@ unified screen is covered by its pure model merge (`panel/join`), its text
 formatter (`panel/format`), the settings catalogue and its cycling
 (`panel/settings`), the scope-aware settings runtime (`panel/settings-runtime`,
 including a nested leaf write that keeps its siblings),
-the screen's rendering and key handling (`panel/tui`), and the command through
+the screen's rendering (`panel/tui`), its editing key map (`tui/editing`),
+the shared frame (`tui/frame`), and the command through
 the bytefly factory (`panel/commands`).
 The doctor surface is covered by its pure report
 formatting (`doctor/format`), its config loader (`doctor/config`), and

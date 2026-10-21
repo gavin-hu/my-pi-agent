@@ -230,8 +230,8 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 		why: "the curated settings catalogue and the value arithmetic over it",
 	},
 	"extensions/bytefly/panel/tui.ts": {
-		lines: 789,
-		why: "the panel's key state machine and its two section renderers",
+		lines: 658,
+		why: "the panel's key state machine and screen composition",
 	},
 	"extensions/file-browse/client.ts": {
 		lines: 720,
@@ -275,7 +275,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 8810;
+const LONG_MODULE_TOTAL = 8679;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {
