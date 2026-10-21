@@ -27,6 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `job`: `log-writer.ts` owns the per-job write stream, line split, rotation
+  queue, and the output-driven repaint window, leaving `runtime.ts` with the job
+  table, child handles, and status. No tool, parameter, or config key changed.
+
 - `plan`: `tools.ts` is now the registration entry; one module per tool lives
   under `tools/`, with the approval-time todo seed and the nested-result reader
   beside them, and the pure result text in `format.ts`. No tool, parameter, or
