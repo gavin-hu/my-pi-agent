@@ -332,10 +332,11 @@ authenticates with npm trusted publishing (OIDC). See
 2. Read `[Unreleased]` against `git log <last-tag>..main`: every user-visible
    change needs exactly one scoped bullet, and no bullet may describe a state
    reverted earlier in the same window. Each version — including `[Unreleased]`
-   — holds **one** `Added`/`Changed`/`Fixed` set, in that order: two sessions
-   merging in the same cycle join the section that already exists rather than open
-   a second one, and `test/release.test.ts` fails on a repeated, out-of-order,
-   unknown, or empty subsection. Then bump `version` in
+   — holds **one** subsection set in Keep a Changelog's order — `Added`,
+   `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security` — with nothing empty:
+   two sessions merging in the same cycle join the section that already exists
+   rather than open a second one, and `test/release.test.ts` fails on a repeated,
+   out-of-order, unknown, or empty subsection. Then bump `version` in
    [`../package.json`](../package.json), move the `Unreleased`
    entries in [`../CHANGELOG.md`](../CHANGELOG.md) under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
