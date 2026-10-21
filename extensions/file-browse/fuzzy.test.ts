@@ -1,5 +1,42 @@
 import { describe, expect, test } from "bun:test";
-import { fuzzyMatch, fuzzySearch } from "./fuzzy.ts";
+import { fuzzyMatch, fuzzySearch, type FuzzyResult } from "./fuzzy.ts";
+
+/**
+ * Today's ranking, restated independently: rank every path, sort them all, keep
+ * the first `limit`. The bounded window in `fuzzySearch` must agree with this
+ * exactly — the tie-breaks (length, then the path) are what a shortcut usually
+ * gets wrong, so they are spelled out here rather than imported.
+ */
+function referenceSearch(query: string, paths: readonly string[], limit: number): FuzzyResult[] {
+	if (query.trim() === "" || limit <= 0) return [];
+	const scored = paths
+		.map((path) => ({ path, match: fuzzyMatch(query.trim(), path) }))
+		.filter(
+			(entry): entry is { path: string; match: NonNullable<ReturnType<typeof fuzzyMatch>> } =>
+				entry.match !== undefined,
+		)
+		.map(({ path, match }) => ({ path, positions: match.positions, score: match.score }));
+	scored.sort((a, b) => b.score - a.score || a.path.length - b.path.length || a.path.localeCompare(b.path));
+	return scored.slice(0, limit).map(({ path, positions }) => ({ path, positions }));
+}
+
+/** A fixed-seed generator, so the corpus is the same on every run and platform. */
+function corpus(count: number): string[] {
+	let seed = 0x5f3759df;
+	const next = (): number => {
+		seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+		return seed / 0x7fffffff;
+	};
+	const dirs = ["src", "lib", "test", "docs", "core/api", "a", "components/forms"];
+	const names = ["readme", "index", "file", "panel", "bridge", "model", "render", "a"];
+	const exts = [".ts", ".md", ".json", ""];
+	return Array.from({ length: count }, (_, index) => {
+		const dir = dirs[Math.floor(next() * dirs.length)];
+		const name = names[Math.floor(next() * names.length)];
+		const ext = exts[Math.floor(next() * exts.length)];
+		return `${dir}/n${index % 13}/${name}${index}${ext}`;
+	});
+}
 
 describe("fuzzyMatch", () => {
 	test("matches a subsequence and returns its positions", () => {
@@ -43,5 +80,34 @@ describe("fuzzySearch", () => {
 		const results = fuzzySearch("file", paths, 3);
 		expect(results).toHaveLength(3);
 		expect(results[0]?.positions).toEqual([0, 1, 2, 3]);
+	});
+
+	test("agrees with a full sort on a fixed corpus, at every cap", () => {
+		const paths = corpus(500);
+		for (const query of ["a", "re", "render", "n1", "forms", "zz", "."]) {
+			for (const limit of [1, 2, 7, 50, 600]) {
+				expect(fuzzySearch(query, paths, limit)).toEqual(referenceSearch(query, paths, limit));
+			}
+		}
+	});
+
+	test("breaks an equal score by length, then by the path itself", () => {
+		// Three paths the same length with the same score: only the final tie-break
+		// separates them, and it must not depend on the input order.
+		const paths = ["ab/c.ts", "ac/b.ts", "aa/d.ts"];
+		const forward = fuzzySearch("a", paths, 3);
+		const reversed = fuzzySearch("a", [...paths].reverse(), 3);
+		expect(forward).toEqual(referenceSearch("a", paths, 3));
+		expect(reversed).toEqual(forward);
+
+		// Same score and same length, differing only in case of the matched column.
+		const tied = ["Ab.ts", "ab.ts"];
+		expect(fuzzySearch("a", tied, 2)).toEqual(referenceSearch("a", tied, 2));
+	});
+
+	test("does not reorder the array it was given", () => {
+		const paths = ["c.ts", "a.ts", "b.ts"];
+		fuzzySearch("ts", paths, 2);
+		expect(paths).toEqual(["c.ts", "a.ts", "b.ts"]);
 	});
 });
