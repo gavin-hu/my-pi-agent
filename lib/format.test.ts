@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
+	boundedTail,
 	formatCount,
 	formatDuration,
 	formatToolCount,
@@ -169,5 +170,19 @@ describe("formatToolCount", () => {
 	test("treats an invalid or negative count as zero", () => {
 		expect(formatToolCount(Number.NaN)).toBe("0 tools");
 		expect(formatToolCount(-2)).toBe("0 tools");
+	});
+});
+
+describe("boundedTail", () => {
+	test("keeps a short tail whole", () => {
+		expect(boundedTail(["a", "b"], 10)).toEqual({ text: "a\nb", truncated: false });
+	});
+
+	test("keeps the end once the tail is over the limit", () => {
+		expect(boundedTail(["aaaa", "bbbb"], 5)).toEqual({ text: "\nbbbb", truncated: true });
+	});
+
+	test("a tail exactly at the limit is not truncated", () => {
+		expect(boundedTail(["aaa", "bbb"], 7)).toEqual({ text: "aaa\nbbb", truncated: false });
 	});
 });

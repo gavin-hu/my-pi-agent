@@ -18,6 +18,7 @@ import { clip } from "../../lib/tui/columns.ts";
 import { expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
+import { earlierHint } from "../../lib/tui/tool.ts";
 import { MODEL_FAILURES, formatFailureLine, formatResultSummary, hasFailureLocation } from "./format.ts";
 import type { Failure, RunCheckDetails } from "./types.ts";
 
@@ -113,9 +114,7 @@ function tailLines(tail: string, theme: Theme, width: number, expanded: boolean)
 	const shown = expanded ? all : all.slice(Math.max(0, all.length - COLLAPSED_TAIL_ROWS));
 	const lines: string[] = [];
 	if (shown.length < all.length) {
-		lines.push(
-			clip(`${paint(theme, "faint", `… ${all.length - shown.length} earlier lines`)} ${expandHint(theme)}`, width),
-		);
+		lines.push(clip(earlierHint(theme, all.length - shown.length, "lines"), width));
 	}
 	for (const line of shown) lines.push(clip(paint(theme, "label", line), width));
 	return lines;

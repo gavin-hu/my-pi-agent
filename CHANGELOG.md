@@ -31,6 +31,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   loaders in `web-access` and `document`; `web_fetch` and `read_doc` return the
   same text as before. No tool, parameter, or config key changed.
 
+- `lib` / `job` / `watch`: `TailResult` and `boundedTail` replace the copied
+  transcript tail block and its two hand-built `… more` notes; `check`, `plan`,
+  and `todo` draw their overflow notes through the same hint helpers. No tool,
+  parameter, or config key changed.
+
 - `wechat`: each control verb has one implementation and one message, so the
   control screen's keys and the `/wechat stop|reset|pause|resume` subcommands
   can no longer disagree — they already had, in the reset refusal and the pause

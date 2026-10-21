@@ -3,13 +3,16 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 import {
 	elapsedSuffix,
+	earlierHint,
 	errorLine,
 	messageText,
 	moreHint,
+	overflowHint,
 	rejectionLine,
 	reuseCallText,
 	startToolProgress,
 	syncElapsedTimer,
+	TailResult,
 	ToolCallText,
 	toolCallTitle,
 } from "./tool.ts";
@@ -132,6 +135,64 @@ describe("moreHint", () => {
 		const hint = moreHint(fakeTheme, 3);
 		expect(hint).toContain("… 3 more lines");
 		expect(hint.toLowerCase()).toContain("expand");
+	});
+});
+
+describe("overflowHint", () => {
+	test("names the hidden count without a noun", () => {
+		const hint = overflowHint(fakeTheme, 2);
+		expect(hint).toContain("… 2 more");
+		expect(hint.toLowerCase()).toContain("expand");
+	});
+});
+
+describe("earlierHint", () => {
+	test("names the hidden count and the label", () => {
+		const hint = earlierHint(fakeTheme, 3, "matches");
+		expect(hint).toContain("… 3 earlier matches");
+		expect(hint.toLowerCase()).toContain("expand");
+	});
+});
+
+describe("TailResult", () => {
+	const rowLine = (row: string, width: number): string => `${row}:${width}`;
+
+	test("draws a leading blank line, the rows, and the overflow note", () => {
+		const view = new TailResult<string>({ kind: "list", rows: ["a", "b"], more: 2, rowLine }, fakeTheme);
+		const lines = view.render(40);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toBe("a:40");
+		expect(lines[2]).toBe("b:40");
+		expect(lines[3]).toContain("… 2 more");
+	});
+
+	test("draws the earlier note and the themed tail", () => {
+		const view = new TailResult<string>(
+			{ kind: "lines", lines: ["one", "two"], earlier: 5, earlierLabel: "lines" },
+			fakeTheme,
+		);
+		const lines = view.render(40);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toContain("… 5 earlier lines");
+		expect(lines[2]).toBe("one");
+		expect(lines[3]).toBe("two");
+	});
+
+	test("clips every line to the render width", () => {
+		const view = new TailResult<string>(
+			{ kind: "lines", lines: ["x".repeat(20)], earlier: 0, earlierLabel: "lines" },
+			fakeTheme,
+		);
+		expect(visibleWidth(view.render(10)[1] ?? "")).toBeLessThanOrEqual(10);
+	});
+
+	test("updates in place for reuse", () => {
+		const view = new TailResult<string>(
+			{ kind: "lines", lines: ["old"], earlier: 0, earlierLabel: "lines" },
+			fakeTheme,
+		);
+		view.setInput({ kind: "lines", lines: ["new"], earlier: 0, earlierLabel: "lines" }, fakeTheme);
+		expect(view.render(40)).toEqual(["", "new"]);
 	});
 });
 

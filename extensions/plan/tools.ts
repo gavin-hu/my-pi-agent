@@ -24,9 +24,9 @@ import { lastGoal } from "../../lib/goal-state.ts";
 import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { lastTodos } from "../../lib/todo-state.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
+import { moreHint, rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { expandHint, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL, type PlanRuntime } from "./runtime.ts";
@@ -654,7 +654,7 @@ export function registerTools(
 				const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
 				// A blank line separates the header block from the plan body.
 				out += `\n\n${theme.fg("toolOutput", body)}`;
-				if (more > 0) out += `\n${paint(theme, "faint", `… ${more} more lines`)} ${expandHint(theme)}`;
+				if (more > 0) out += `\n${moreHint(theme, more)}`;
 			}
 			text.setText(out);
 			return text;

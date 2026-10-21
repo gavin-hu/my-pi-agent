@@ -4,7 +4,8 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { expandHint, GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { overflowHint } from "../../lib/tui/tool.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
@@ -149,7 +150,7 @@ export function todoRailLines(input: TodoRailInput, theme: Theme, width: number)
 		});
 	}
 	if (input.more && input.more > 0) {
-		lines.push(`${continuation}${paint(theme, "faint", `… ${input.more} more`)} ${expandHint(theme)}`);
+		lines.push(`${continuation}${overflowHint(theme, input.more)}`);
 	}
 	return lines.map((line) => truncateToWidth(line, w, "…"));
 }

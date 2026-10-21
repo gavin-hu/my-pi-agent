@@ -11,7 +11,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
+import { boundedTail, sanitizeLine } from "../../lib/format.ts";
 import { clip, clipLabel, labelLine } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { byRunningFirst } from "../../lib/tui/rows.ts";
@@ -120,12 +120,7 @@ export function formatTail(
 			truncated: false,
 		};
 	}
-	let body = lines.join("\n");
-	let truncated = false;
-	if (body.length > maxChars) {
-		body = body.slice(body.length - maxChars);
-		truncated = true;
-	}
+	const { text: body, truncated } = boundedTail(lines, maxChars);
 	const suffix = truncated ? `\n… truncated (${lines.length} lines total)` : "";
 	return { text: `${watch.id} (${statusWord(watch)}) ${label}:\n${body}${suffix}`, truncated };
 }
