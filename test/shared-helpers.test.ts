@@ -6,8 +6,9 @@
  *
  *   1. A local declaration whose name is also exported by `lib/` is a
  *      reimplementation, unless the declaration is a reviewed exception.
- *   2. A local body identical to an exported `lib/` body, or to a body in a
- *      different extension, is a copy.
+ *   2. A local body identical to an exported `lib/` body, or to a body in any
+ *      other file, is a copy — two extensions, two modules of one extension, or
+ *      two `lib/` modules all count.
  *   3. A `*.test.ts` declaration whose name is exported by `test/helpers/**` is
  *      a re-declaration, and one whose body matches an exported helper body is a
  *      copy. Only exported helpers count: a private fixture helper cannot be
@@ -205,23 +206,30 @@ export function findViolations(
 	}
 
 	for (const group of byBody.values()) {
+		// One file holding one body is fine. The same body in two files is a copy,
+		// whether they sit in two extensions, in two modules of one extension, or
+		// both in `lib/`: a body identical to an existing one is a duplicate, not a
+		// variation, and `extensions/` is read far more often than it is written.
+		if (new Set(group.map((entry) => entry.path)).size < 2) continue;
 		const libMatches = group.filter((entry) => entry.surface === "lib");
 		const extensionMatches = group.filter((entry) => entry.surface === "extension");
-		if (extensionMatches.length === 0) continue;
-		const extensionDirs = new Set(extensionMatches.map((entry) => entry.extension));
-		const copiesAcrossExtensions = extensionDirs.size > 1;
-		if (libMatches.length === 0 && !copiesAcrossExtensions) continue;
 
-		for (const declaration of extensionMatches) {
+		for (const declaration of group) {
+			// A `lib/` body copied into an extension is reported at the copy: the
+			// library is the owner the fix imports from, not an offender.
+			if (declaration.surface === "lib" && extensionMatches.length > 0) continue;
 			if (alreadyReported.has(`${declaration.path}:${declaration.name}`)) continue;
 			if (SAME_BODY_EXCEPTIONS.has(`${declaration.path}:${declaration.name}`)) continue;
 			const others = group
 				.filter((entry) => entry !== declaration)
 				.map((entry) => `${entry.path}:${entry.name}`)
 				.sort();
-			const verb = libMatches.length > 0 ? "copies" : "duplicates";
+			// A copy of a `lib/` helper is imported instead; anything else needs one
+			// owner, which is `lib/` only when the two sides are separate extensions.
+			const verb = declaration.surface === "extension" && libMatches.length > 0 ? "copies" : "duplicates";
+			const fix = extensionMatches.length > 1 ? "share one helper in lib/" : "share one helper";
 			violations.push(
-				`${declaration.path}:${declaration.name} ${verb} ${others.join(", ")} (${declaration.tokens} tokens); share one helper in lib/`,
+				`${declaration.path}:${declaration.name} ${verb} ${others.join(", ")} (${declaration.tokens} tokens); ${fix}`,
 			);
 			flag(declaration);
 		}
@@ -392,17 +400,25 @@ describe("shared-helper guard", () => {
 		expect(violations).toEqual([]);
 	});
 
-	test("ignores short bodies and duplicates inside one extension", () => {
+	test("ignores short bodies", () => {
 		const short = "function noop(): void { return; }";
-		const sameExtension =
-			"function pair(text: string): string { const clean = text.trim(); return clean.toUpperCase(); }";
-		const violations = findViolations([
-			sourceOf("extensions/a/x.ts", short),
-			sourceOf("extensions/a/y.ts", short),
-			sourceOf("extensions/a/one.ts", sameExtension),
-			sourceOf("extensions/a/two.ts", sameExtension),
-		]);
+		const violations = findViolations([sourceOf("extensions/a/x.ts", short), sourceOf("extensions/a/y.ts", short)]);
 		expect(violations).toEqual([]);
+	});
+
+	test("fails the same body in two modules of one extension", () => {
+		const body = "function pair(text: string): string { const clean = text.trim(); return clean.toUpperCase(); }";
+		const violations = findViolations([sourceOf("extensions/a/one.ts", body), sourceOf("extensions/a/two.ts", body)]);
+		expect(violations).toHaveLength(2);
+		expect(violations.every((line) => line.includes("duplicates"))).toBe(true);
+		expect(violations.every((line) => line.includes("share one helper"))).toBe(true);
+	});
+
+	test("fails the same body in two lib modules", () => {
+		const body = "function pair(text: string): string { const clean = text.trim(); return clean.toUpperCase(); }";
+		const violations = findViolations([sourceOf("lib/a.ts", body), sourceOf("lib/b.ts", body)]);
+		expect(violations).toHaveLength(2);
+		expect(violations.every((line) => line.includes("duplicates"))).toBe(true);
 	});
 
 	test("every exception names a declaration that still exists", () => {

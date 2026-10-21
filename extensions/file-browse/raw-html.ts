@@ -25,7 +25,7 @@
  * how `<details>` wraps Markdown.
  */
 
-import { escapeHtml } from "../../lib/escape.ts";
+import { decodeCodePoint, escapeHtml } from "../../lib/escape.ts";
 import { resolveImage, resolveLink } from "./urls.ts";
 
 /** Elements re-emitted with sanitized attributes. */
@@ -353,19 +353,12 @@ function decodeAttribute(value: string): string {
 	return value.replace(
 		ATTRIBUTE_ENTITY,
 		(match, decimal: string | undefined, hex: string | undefined, named: string | undefined) => {
-			if (decimal !== undefined) return codePoint(Number(decimal));
-			if (hex !== undefined) return codePoint(Number.parseInt(hex, 16));
+			if (decimal !== undefined) return decodeCodePoint(Number(decimal));
+			if (hex !== undefined) return decodeCodePoint(Number.parseInt(hex, 16));
 			if (named !== undefined && Object.hasOwn(ATTRIBUTE_ENTITIES, named)) return ATTRIBUTE_ENTITIES[named];
 			return match;
 		},
 	);
-}
-
-/** A code point, or U+FFFD when the reference is a surrogate or out of range. */
-function codePoint(value: number): string {
-	if (!Number.isFinite(value) || value <= 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff))
-		return "\uFFFD";
-	return String.fromCodePoint(value);
 }
 
 /** The first value for `name`, decoded, so a duplicate attribute cannot override it. */

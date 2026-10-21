@@ -25,7 +25,7 @@
  * policy and raw HTML do not.
  */
 
-import { escapeHtml } from "../../lib/escape.ts";
+import { decodeCodePoint, escapeHtml } from "../../lib/escape.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import {
 	closesSuppressed,
@@ -739,13 +739,6 @@ interface Entity {
 	length: number;
 }
 
-/** A code point, or U+FFFD when the reference is a surrogate or out of range. */
-function codePoint(value: number): string {
-	if (!Number.isFinite(value) || value <= 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff))
-		return "\uFFFD";
-	return String.fromCodePoint(value);
-}
-
 /**
  * Match a numeric or named character reference at `start`. Decoding happens in
  * the inline scanner rather than a pre-pass so an entity cannot become Markdown
@@ -755,8 +748,8 @@ function matchEntity(text: string, start: number): Entity | undefined {
 	const match = /^&(?:#([0-9]{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z][a-zA-Z0-9]{1,31}));/.exec(text.slice(start));
 	if (!match) return undefined;
 	let value: string | undefined;
-	if (match[1] !== undefined) value = codePoint(Number(match[1]));
-	else if (match[2] !== undefined) value = codePoint(Number.parseInt(match[2], 16));
+	if (match[1] !== undefined) value = decodeCodePoint(Number(match[1]));
+	else if (match[2] !== undefined) value = decodeCodePoint(Number.parseInt(match[2], 16));
 	else if (match[3] !== undefined && Object.hasOwn(NAMED_ENTITIES, match[3])) value = NAMED_ENTITIES[match[3]];
 	if (value === undefined) return undefined;
 	return { value, length: match[0].length };

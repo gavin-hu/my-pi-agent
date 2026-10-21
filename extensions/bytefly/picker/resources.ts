@@ -141,8 +141,12 @@ export function getDisplayName(item: ResourceItem): string {
 	return parentFolder === "extensions" ? fileName : `${parentFolder}/${fileName}`;
 }
 
-/** Stable identity for a resource row, used to keep the cursor across renders. */
-function itemKey(item: ResourceItem): string {
+/**
+ * Stable identity for one resource, independent of the directory it sits in: a
+ * row key for the cursor, a merge key for the panel, and `report:<name>` for a
+ * report with no resolved item.
+ */
+export function resourceKey(item: ResourceItem): string {
 	return `${item.metadata.source}:${item.path}`;
 }
 
@@ -190,7 +194,7 @@ export function buildEntries(items: ResourceItem[], agentDir: string): Entry[] {
 	for (const group of sorted) {
 		const items = [...group.items].sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)));
 		entries.push({ kind: "group", key: group.key, label: group.label, count: items.length });
-		for (const item of items) entries.push({ kind: "item", key: itemKey(item), item, label: getDisplayName(item) });
+		for (const item of items) entries.push({ kind: "item", key: resourceKey(item), item, label: getDisplayName(item) });
 	}
 	return entries;
 }

@@ -31,6 +31,7 @@ import { settle } from "../../../test/helpers/process.ts";
 import { tempDir } from "../../../test/helpers/env.ts";
 import { ListCursor } from "../../../lib/tui/cursor.ts";
 import type { ResourceItem, Settings, WriteScope } from "../picker/types.ts";
+import { resourceKey } from "../picker/resources.ts";
 import { createExtensionsPickerRuntime } from "../picker/runtime.ts";
 import { registerPanel } from "./commands.ts";
 import {
@@ -44,7 +45,7 @@ import {
 	settingsSummarySegments,
 	summarySegments,
 } from "./format.ts";
-import { buildPanelModel, extensionName, REPORT_ONLY_LABEL, resourceKey } from "./join.ts";
+import { buildPanelModel, extensionName, REPORT_ONLY_LABEL } from "./join.ts";
 import {
 	nextValue,
 	rowsForScope,

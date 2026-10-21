@@ -15,6 +15,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import { usableWidth } from "./columns.ts";
 import { paint, type TuiRole } from "./tokens.ts";
 
 /** The glyph and colors a rule is drawn with. */
@@ -39,14 +40,9 @@ export interface CenteredRuleStyle extends RuleStyle {
  */
 export const RULE_GLYPH = "─";
 
-/** A usable origin: terminal arithmetic starts from one column, never zero. */
-function widthOf(width: number): number {
-	return Math.max(1, Math.floor(width));
-}
-
 /** A full-width divider in one color. */
 export function plainRule(theme: Theme, width: number, style: RuleStyle = {}): string {
-	const w = widthOf(width);
+	const w = usableWidth(width);
 	return paint(theme, style.fillRole ?? "rule", (style.glyph ?? RULE_GLYPH).repeat(w));
 }
 
@@ -64,7 +60,7 @@ function labelRule(
 	fillRole: TuiRole,
 	style: RuleStyle,
 ): string {
-	const w = widthOf(width);
+	const w = usableWidth(width);
 	const text = label.trim();
 	if (!text) return plainRule(theme, w, style);
 	const labelWidth = visibleWidth(text);
@@ -75,7 +71,7 @@ function labelRule(
 
 /** A centered rule: fill, label, and the rest of the fill. */
 export function centeredRule(theme: Theme, width: number, label: string, style: CenteredRuleStyle = {}): string {
-	const w = widthOf(width);
+	const w = usableWidth(width);
 	const glyph = style.glyph ?? RULE_GLYPH;
 	const fillRole = style.fillRole ?? "ruleStrong";
 	if (!label.trim()) return paint(theme, fillRole, glyph.repeat(w));

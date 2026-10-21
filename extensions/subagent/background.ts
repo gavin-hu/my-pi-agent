@@ -9,7 +9,7 @@
  */
 
 import { resolve } from "node:path";
-import { formatDuration, sanitizeLine, stripControlChars } from "../../lib/format.ts";
+import { sanitizeLine, stripControlChars } from "../../lib/format.ts";
 import type { AgentConfig } from "./agents.ts";
 import { formatUsageStats } from "./format.ts";
 import type { RunOptions } from "./run.ts";
@@ -456,12 +456,6 @@ export function createBackgroundRuntime(deps: BackgroundDeps): BackgroundRuntime
 	};
 
 	return { start, list, collect, cancel, shutdown, reset, subscribe };
-}
-
-/** A human duration for a run; kept here so the board and collect agree. */
-export function backgroundDuration(run: BackgroundRun, now = Date.now()): string {
-	const end = run.finishedAt ?? now;
-	return formatDuration(Math.max(0, end - run.startedAt));
 }
 
 /** Whether a run can be collected. */

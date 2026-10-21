@@ -6,13 +6,13 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { BUILTIN_AGENTS } from "./agents.ts";
 import {
 	BACKGROUND_ENTRY,
-	backgroundDuration,
 	canCollect,
 	createBackgroundRuntime,
 	type BackgroundRun,
 	type BackgroundStartInput,
 } from "./background.ts";
 import { AgentsBoardComponent } from "./background-tui.ts";
+import { formatBackgroundDuration } from "./format.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
 import {
 	applyEvent,
@@ -975,7 +975,7 @@ describe("background runtime", () => {
 			startedAt: 1000,
 			status: "finished" as const,
 		};
-		expect(backgroundDuration(run, 2500)).toBe("1.5s");
+		expect(formatBackgroundDuration(run, 2500)).toBe("1.5s");
 		expect(canCollect(run)).toBe(true);
 		expect(canCollect({ ...run, status: "running" })).toBe(false);
 		expect(canCollect({ ...run, status: "interrupted" })).toBe(false);

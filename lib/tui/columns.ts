@@ -15,14 +15,17 @@ import { sanitizeLine, sanitizeUntrustedLine } from "../format.ts";
 /** The columns a label gets before it stops reading as a label. */
 export const LABEL_WIDTH = 48;
 
-/** A usable origin: terminal arithmetic starts from one column, never zero. */
-function columns(width: number): number {
+/**
+ * A usable drawing width in columns: terminal arithmetic starts from one column,
+ * never zero, so a narrow or unknown width never produces an empty frame.
+ */
+export function usableWidth(width: number): number {
 	return Math.max(1, Math.floor(width));
 }
 
 /** Clip a possibly-themed string to `width` columns, marking a cut with `ellipsis`. */
 export function clip(text: string, width: number, ellipsis = "…"): string {
-	return truncateToWidth(text, columns(width), ellipsis);
+	return truncateToWidth(text, usableWidth(width), ellipsis);
 }
 
 /**
@@ -34,7 +37,7 @@ export function clip(text: string, width: number, ellipsis = "…"): string {
  * A themed string keeps its colours on both the head and the tail.
  */
 export function clipMiddle(text: string, width: number, ellipsis = "…"): string {
-	const w = columns(width);
+	const w = usableWidth(width);
 	if (visibleWidth(text) <= w) return text;
 	const ellipsisWidth = visibleWidth(ellipsis);
 	const budget = w - ellipsisWidth;
@@ -69,7 +72,7 @@ export function clipLabel(text: string): string {
 
 /** Pad `text` on the right to exactly `width` columns. Never truncates. */
 export function padTo(text: string, width: number): string {
-	const missing = columns(width) - visibleWidth(text);
+	const missing = usableWidth(width) - visibleWidth(text);
 	return missing > 0 ? text + " ".repeat(missing) : text;
 }
 
@@ -83,7 +86,7 @@ export function padTo(text: string, width: number): string {
  * plain left-aligned line with no trailing spaces.
  */
 export function splitRow(left: string, right: string, width: number, minGap = 1): string {
-	const w = columns(width);
+	const w = usableWidth(width);
 	if (!right) return clip(left, w);
 	const gap = Math.max(0, Math.floor(minGap));
 	const rightCell = clip(right, w);
@@ -103,7 +106,7 @@ export function splitRow(left: string, right: string, width: number, minGap = 1)
  * in whole columns before the right cell loses anything.
  */
 export function inlineRow(left: string, right: string, width: number, gap = 2): string {
-	const w = columns(width);
+	const w = usableWidth(width);
 	if (!right) return clip(left, w);
 	const space = Math.max(0, Math.floor(gap));
 	const rightCell = clip(right, w);
@@ -121,7 +124,7 @@ export function inlineRow(left: string, right: string, width: number, gap = 2): 
  * degrades to a clipped first cell instead of an empty one.
  */
 export function fitCells(cells: readonly string[], width: number, separator = " "): string {
-	const w = columns(width);
+	const w = usableWidth(width);
 	const kept: string[] = [];
 	for (const cell of cells) {
 		const candidate = [...kept, cell].join(separator);
@@ -140,7 +143,7 @@ export function fitCells(cells: readonly string[], width: number, separator = " 
  * {@link fitCells} it may return several lines, and always returns one.
  */
 export function flowCells(cells: readonly string[], width: number): string[] {
-	const w = columns(width);
+	const w = usableWidth(width);
 	const lines: string[] = [];
 	let current = "";
 	let currentWidth = 0;

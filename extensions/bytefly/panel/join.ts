@@ -20,18 +20,13 @@
 
 import { basename, dirname } from "node:path";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
-import { buildEntries } from "../picker/resources.ts";
+import { buildEntries, resourceKey } from "../picker/resources.ts";
 import type { ResourceItem } from "../picker/types.ts";
 import type { PanelGroup, PanelModel, PanelRow } from "./types.ts";
 
 /** The extension directory name that joins a resolved item to its report. */
 export function extensionName(path: string): string {
 	return basename(dirname(path));
-}
-
-/** Unique identity of a resolved resource, independent of the directory name. */
-export function resourceKey(item: ResourceItem): string {
-	return `${item.metadata.source}:${item.path}`;
 }
 
 /** Row key for a report that has no resolved extension item. */
