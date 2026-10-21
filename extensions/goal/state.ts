@@ -5,7 +5,7 @@
  * types, the objective limit, and the re-validation of stored values — the same
  * contract `plan` reads, so a corrupt or tampered branch cannot inject escapes
  * or wipe the goal on one side only. This module adds the two facts goal needs
- * on top of that replay: whether the goal is still being pursued, and how many
+ * on top of that replay: whether a planning goal's phase has ended, and how many
  * todo items the branch's list still has open.
  */
 
@@ -24,9 +24,18 @@ export function reconstructGoal(entries: Iterable<unknown>): Goal | null {
 	return lastGoal(entries);
 }
 
-/** True when the goal exists and is still being pursued. */
-export function isActiveGoal(goal: Goal | null): goal is Goal {
-	return goal?.status === "active";
+/**
+ * A goal whose plan phase ended without an approved plan.
+ *
+ * `planning` is left behind by plan's approval, which sets the plan's own goal,
+ * or by leaving plan mode some other way — a toggle, the shortcut, a resumed
+ * branch. That second exit has no tool call to write it, so `goal` settles it when
+ * it next observes the branch: the draft becomes the objective, because the user
+ * chose to act on it. Returns `null` when there is nothing to promote.
+ */
+export function settledGoal(goal: Goal | null, planModeOn: boolean): Goal | null {
+	if (goal?.status !== "planning" || planModeOn) return null;
+	return { objective: goal.objective, status: "active" };
 }
 
 /**

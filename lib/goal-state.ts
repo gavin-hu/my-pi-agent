@@ -6,8 +6,13 @@
  * `error`, which is not a write — and the `/goal` command appends a `goal` custom
  * entry whose `data.goal` is `null` when the goal is cleared. Replaying the branch
  * in order is how another extension reads the goal without importing goal's
- * modules: `plan` restates an active goal in its planning context and offers to
- * record one when a plan is approved with none.
+ * modules: `plan` restates a pursued goal in its planning context, promotes a
+ * `planning` goal at plan exit, and offers to record one when a plan is approved
+ * with none.
+ *
+ * The status is the goal's phase: `planning` while a plan is being designed,
+ * `active` once the objective is final, `achieved` when it is done. Only `goal`
+ * writes it; the promotion out of `planning` runs through the `goal` tool.
  *
  * Stored values are re-validated and re-sanitized here. Branch data can be
  * tampered with, migrated, or written by an older version, and a reader must not
@@ -30,8 +35,8 @@ export const GOAL_ENTRY_TYPE = "goal";
 /** Longest objective the goal tool accepts, and the most a reader will replay. */
 export const MAX_GOAL_OBJECTIVE = 2000;
 
-/** Whether the goal is still being pursued, or already done. */
-export type PublishedGoalStatus = "active" | "achieved";
+/** The goal's phase: being designed, final and pursued, or done. */
+export type PublishedGoalStatus = "planning" | "active" | "achieved";
 
 /** The goal as another extension may read it. */
 export interface PublishedGoal {
@@ -61,10 +66,19 @@ function readGoal(value: unknown): PublishedGoal | null | undefined {
 	if (!value || typeof value !== "object") return undefined;
 	const goal = value as { objective?: unknown; status?: unknown };
 	if (typeof goal.objective !== "string") return undefined;
-	if (goal.status !== "active" && goal.status !== "achieved") return undefined;
+	if (goal.status !== "planning" && goal.status !== "active" && goal.status !== "achieved") return undefined;
 	const objective = sanitizeLine(goal.objective);
 	if (!objective || objective.length > MAX_GOAL_OBJECTIVE) return undefined;
 	return { objective, status: goal.status };
+}
+
+/**
+ * True while the goal steers the session: `planning` or `active`, never
+ * `achieved`. Both the reminder and the plan-mode context read this, so a goal
+ * being designed is restated like one being executed.
+ */
+export function isPursuedGoal(goal: PublishedGoal | null): goal is PublishedGoal {
+	return goal?.status === "planning" || goal?.status === "active";
 }
 
 /** The last goal written on the branch, or `null` when the session has none. */

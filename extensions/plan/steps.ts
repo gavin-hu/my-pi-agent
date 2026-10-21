@@ -368,3 +368,28 @@ export function extractPlanSections(plan: string): PlanSection[] {
 	flush();
 	return sections;
 }
+
+/**
+ * The plan's own objective: the first paragraph of its `## Goal` section, with
+ * inline markdown and a leading list marker removed.
+ *
+ * Approval records this as the session goal, so the goal is what the plan says it
+ * achieves rather than the file-name slug. `undefined` when the plan has no
+ * `## Goal` section, so the caller can fall back to the title.
+ */
+export function goalSection(plan: string): string | undefined {
+	const section = extractPlanSections(plan).find(
+		(candidate) => candidate.level === 2 && normalizeHeadingText(candidate.title).toLowerCase() === "goal",
+	);
+	if (section === undefined) return undefined;
+	const paragraph: string[] = [];
+	for (const line of section.text.split("\n").slice(1)) {
+		if (!line.trim()) {
+			if (paragraph.length > 0) break;
+			continue;
+		}
+		paragraph.push(line);
+	}
+	const text = normalizeHeadingText(paragraph.join(" ").replace(/^\s*(?:[-*+]\s+|\d+[.)]\s+)/, ""));
+	return text || undefined;
+}

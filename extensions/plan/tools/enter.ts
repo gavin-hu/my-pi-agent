@@ -11,13 +11,9 @@ import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { rejectionLine, reuseCallText, toolCallTitle } from "../../../lib/tui/tool.ts";
-import { READ_ONLY_SUMMARY } from "../policy.ts";
+import { PLAN_CONSENT, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
 import { ENTER_TOOL, type PlanRuntime } from "../runtime.ts";
 import type { EnterPlanModeDetails } from "../types.ts";
-
-const ENTER_CONFIRM =
-	`Plan mode is read-only exploration: ${READ_ONLY_SUMMARY}. ` +
-	"Enter plan mode to investigate and propose an approach before making changes?";
 
 const ENTERED_TEXT =
 	"You are now in plan mode. Explore read-only, then save the full plan with write_plan (a short title and the markdown) " +
@@ -61,7 +57,7 @@ export function registerEnterTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 				};
 			}
 
-			const approved = await ctx.ui.confirm("Enter plan mode?", ENTER_CONFIRM);
+			const approved = await ctx.ui.confirm("Enter plan mode?", PLAN_CONSENT);
 			if (!approved) {
 				return {
 					content: [{ type: "text", text: "Stayed in normal mode. Proceed, or ask the user how to continue." }],

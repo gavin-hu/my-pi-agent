@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import planMode, { PLAN_MODE_MARKER } from "./index.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { SUBAGENT_READ_ONLY_PARAM } from "../../lib/tool-names.ts";
+import { requestPlanMode } from "../../lib/plan-entry.ts";
 import { emitCollect as emit } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -41,6 +42,45 @@ describe("plan-mode wire-up", () => {
 		expect(commands.has("plan")).toBe(true);
 		expect(shortcuts.size).toBe(1);
 		expect(flags.has("plan")).toBe(true);
+	});
+});
+
+describe("plan-mode entry requests", () => {
+	async function listening() {
+		const fakePi = makeFakePi({ active: ["read", "bash", "write", "todo", ENTER_TOOL] });
+		planMode(fakePi.pi);
+		const start = fakeCtx({ branch: [] });
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, start.ctx);
+		return fakePi;
+	}
+
+	test("enables plan mode for a caller that already has the user's consent", async () => {
+		const fakePi = await listening();
+		const caller = fakeCtx({ mode: "rpc", hasUI: true });
+
+		expect(await requestPlanMode(fakePi.pi, caller.ctx)).toBe(true);
+
+		const entry = fakePi.entries.at(-1)?.data as { enabled: boolean; removed: string[] };
+		expect(entry.enabled).toBe(true);
+		expect(entry.removed).toContain("write");
+		expect(fakePi.activeTools()).not.toContain("write");
+		// The caller's context paints the footer, so goal keeps the chip in sync.
+		expect(caller.statusCalls.at(-1)?.key).toBe("plan-mode");
+	});
+
+	test("reports an already-enabled mode without a second entry", async () => {
+		const fakePi = makeFakePi({ active: ["read", "write"] });
+		planMode(fakePi.pi);
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, fakeCtx({ branch: [stateEntry(true)] }).ctx);
+		const before = fakePi.entries.length;
+
+		expect(await requestPlanMode(fakePi.pi, fakeCtx().ctx)).toBe(true);
+		expect(fakePi.entries.length).toBe(before);
+	});
+
+	test("reports false when the plan extension is not loaded", async () => {
+		const bare = makeFakePi();
+		expect(await requestPlanMode(bare.pi, fakeCtx().ctx)).toBe(false);
 	});
 });
 
@@ -236,6 +276,19 @@ describe("plan-mode context", () => {
 		planMode(fakePi.pi);
 		const { ctx } = fakeCtx({
 			branch: [stateEntry(true), resultEntry({ objective: "Add rate limiting", status: "active" })],
+		});
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
+
+		const [result] = await emit(fakePi.pi, "before_agent_start", {}, ctx);
+
+		expect(result.message.content).toContain("- Current session goal: Add rate limiting");
+	});
+
+	test("restates a draft goal the plan is being designed against", async () => {
+		const fakePi = makeFakePi({ active: ["read", "bash", ENTER_TOOL] });
+		planMode(fakePi.pi);
+		const { ctx } = fakeCtx({
+			branch: [stateEntry(true), resultEntry({ objective: "Add rate limiting", status: "planning" })],
 		});
 		await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
 

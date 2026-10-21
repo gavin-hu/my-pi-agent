@@ -6,9 +6,19 @@
  * empty objective clears the goal. There is no id and no per-field mutation.
  */
 
-export const GOAL_STATUSES = ["active", "achieved"] as const;
+/**
+ * Every phase a goal can hold: being designed, final and pursued, or done.
+ *
+ * `planning` is the goal workflow's to set — it means a plan is being designed and
+ * the objective is still a draft. A model-issued call may only send `active` or
+ * `achieved`, so a single call can never claim a plan that does not exist.
+ */
+export const GOAL_STATUSES = ["planning", "active", "achieved"] as const;
 
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
+
+/** Statuses a `goal` tool call may send; `planning` belongs to the workflow. */
+export const GOAL_MODEL_STATUSES = ["active", "achieved"] as const;
 
 /** What a call did, used by the result schema, details, and transcript renderer. */
 export const GOAL_ACTIONS = ["set", "achieve", "clear"] as const;

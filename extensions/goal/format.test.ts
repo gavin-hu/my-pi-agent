@@ -17,6 +17,7 @@ import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
 const theme = fakeTheme;
 
 const active: Goal = { objective: "Ship the parser", status: "active" };
+const planning: Goal = { objective: "Ship the parser", status: "planning" };
 const achieved: Goal = { objective: "Ship the parser", status: "achieved" };
 
 describe("headers", () => {
@@ -28,7 +29,13 @@ describe("headers", () => {
 		expect(goalHeader(achieved, theme)).toBe("Goal · achieved");
 	});
 
+	test("a draft header names the planning phase", () => {
+		expect(goalHeader(planning, theme)).toBe("Goal · planning");
+		expect(goalLine(planning, theme)).toBe("Goal · planning · Ship the parser");
+	});
+
 	test("status labels are human words", () => {
+		expect(goalStatusLabel("planning")).toBe("planning");
 		expect(goalStatusLabel("active")).toBe("active");
 		expect(goalStatusLabel("achieved")).toBe("achieved");
 	});
@@ -40,6 +47,7 @@ describe("headers", () => {
 
 	test("objective is dimmed once achieved", () => {
 		expect(goalObjective(active, coloringTheme)).toBe("[text]Ship the parser");
+		expect(goalObjective(planning, coloringTheme)).toBe("[text]Ship the parser");
 		expect(goalObjective(achieved, coloringTheme)).toBe("[dim]Ship the parser");
 	});
 });
@@ -49,6 +57,12 @@ describe("model-facing text", () => {
 		const text = formatGoalText(active);
 		expect(text).toContain("Ship the parser");
 		expect(text).toContain("mark it achieved");
+	});
+
+	test("draft text says the plan finalizes it", () => {
+		const text = formatGoalText(planning);
+		expect(text).toContain("Goal (planning): Ship the parser");
+		expect(text).toContain("set from the plan when it is approved");
 	});
 
 	test("achieved text confirms completion", () => {
@@ -71,6 +85,7 @@ describe("model-facing text", () => {
 	});
 
 	test("notices describe both states", () => {
+		expect(formatGoalNotice(planning)).toBe("Goal (planning): Ship the parser");
 		expect(formatGoalNotice(active)).toBe("Goal (active): Ship the parser");
 		expect(formatGoalNotice(achieved)).toBe("Goal achieved: Ship the parser");
 	});

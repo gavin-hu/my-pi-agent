@@ -18,7 +18,14 @@ const CALL_PREVIEW_WIDTH = 48;
 
 /** Human label for a status, e.g. `active`. */
 export function goalStatusLabel(status: GoalStatus): string {
-	return status === "achieved" ? "achieved" : "active";
+	if (status === "achieved") return "achieved";
+	return status === "planning" ? "planning" : "active";
+}
+
+/** Status word styling: success once done, warn while planning, dim while active. */
+function statusPaint(status: GoalStatus): "ok" | "warn" | "faint" {
+	if (status === "achieved") return "ok";
+	return status === "planning" ? "warn" : "faint";
 }
 
 /**
@@ -29,8 +36,7 @@ export function goalHeader(goal: Goal, theme: Theme): string {
 	const label = paint(theme, "accent", "Goal");
 	const separator = paint(theme, "faint", SEPARATORS.item);
 	const word = goalStatusLabel(goal.status);
-	const status = goal.status === "achieved" ? paint(theme, "ok", word) : paint(theme, "faint", word);
-	return `${label}${separator}${status}`;
+	return `${label}${separator}${paint(theme, statusPaint(goal.status), word)}`;
 }
 
 /**
@@ -42,8 +48,7 @@ export function goalHeader(goal: Goal, theme: Theme): string {
 export function goalLine(goal: Goal, theme: Theme): string {
 	const separator = paint(theme, "faint", SEPARATORS.item);
 	const word = goalStatusLabel(goal.status);
-	const status = goal.status === "achieved" ? paint(theme, "ok", word) : paint(theme, "faint", word);
-	return `${paint(theme, "accent", "Goal")}${separator}${status}${separator}${goalObjective(goal, theme)}`;
+	return `${paint(theme, "accent", "Goal")}${separator}${paint(theme, statusPaint(goal.status), word)}${separator}${goalObjective(goal, theme)}`;
 }
 
 /** Themed objective text: dim once achieved, normal while active. */
@@ -75,12 +80,16 @@ export function formatGoalText(goal: Goal | null, openTodos = 0): string {
 		const note = openTodoNote(openTodos);
 		return note === undefined ? text : `${text}\n${note}`;
 	}
+	if (goal.status === "planning") {
+		return `Goal (planning): ${goal.objective}\nDesign the plan before changing anything; the goal is set from the plan when it is approved.`;
+	}
 	return `Goal: ${goal.objective}\nKeep this objective in mind as you work, and mark it achieved with the goal tool when it is done.`;
 }
 
 /** One-line notification text for the `/goal` command. */
 export function formatGoalNotice(goal: Goal): string {
-	return goal.status === "achieved" ? `Goal achieved: ${goal.objective}` : `Goal (active): ${goal.objective}`;
+	if (goal.status === "achieved") return `Goal achieved: ${goal.objective}`;
+	return `Goal (${goalStatusLabel(goal.status)}): ${goal.objective}`;
 }
 
 /**
@@ -90,6 +99,7 @@ export function formatGoalNotice(goal: Goal): string {
  */
 export const GOAL_HELP = [
 	"Set a goal with /goal <what you want to accomplish> and start working on it.",
+	"It asks once whether to plan first; planning keeps the goal as a draft until the plan is approved.",
 	"/goal raw <prompt> records your words verbatim, without confirming them first.",
 	"/goal set <prompt> records the goal without starting work; /goal edit [<prompt>] changes it.",
 	"/goal done (or achieved)  ·  /goal clear  ·  /goal help (or -h / --help)",

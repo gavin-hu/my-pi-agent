@@ -20,12 +20,27 @@ How the `goal` call and its result look in the transcript — the call line as a
 - Registers one model-callable tool, `goal`, that records the session
   objective. Send the complete objective every call; an empty objective clears
   it.
-- Tracks `status`: `active` while the goal is being pursued, `achieved` when it
-  is done. Achieving it while the branch's todo list still has open items names
-  the count in the result (`1 todo item is still open…`), so the model closes the
-  *how* instead of declaring the *what* done over an unfinished list; `/goal done`
-  appends the same sentence to its notice. The count is read from the branch
-  through `lib/todo-state.ts`; the structured result is unchanged.
+- Tracks the goal's **phase**, not a flag: `planning` while a plan is being
+  designed, `active` once the objective is final, `achieved` when it is done.
+  A model-issued call may only send `active` or `achieved`, so one call can never
+  claim a plan that does not exist.
+- **Asks once whether to plan first** when a new goal is recorded: accepting
+  enters plan mode and stores the objective as `planning`, declining stores it
+  `active`. The `plan` extension owns the mode; the question and its consent
+  sentence come from `lib/plan-entry.ts`, the same ones `enter_plan_mode` shows,
+  so the user answers once. The question is skipped for an update to a goal that
+  is already pursued, without a dialog UI, or when `plan` is not loaded.
+- **Settles a draft whose plan never arrived.** If plan mode is left without an
+  approved plan — the toggle, the shortcut, a resumed branch — the `planning`
+  goal becomes `active` with its own wording on the next observation, so the
+  phase can never get stuck. Approval is different: `plan` sets the goal from the
+  plan's own `## Goal` section (see the [`plan`](../plan/) docs).
+- Achieves a goal over an open list knowingly: completing it while the branch's
+  todo list still has open items names the count in the result (`1 todo item is
+  still open…`), so the model closes the *how* instead of declaring the *what*
+  done over an unfinished list; `/goal done` appends the same sentence to its
+  notice. The count is read from the branch through `lib/todo-state.ts`; the
+  structured result is unchanged.
 - Shows a persistent one-line rail above the editor whenever a goal exists,
   label-first to match the [`todo`](../todo/) widget, pinned at the top of the
   `Goal / Todos` stack when both are loaded:
@@ -39,8 +54,9 @@ How the `goal` call and its result look in the transcript — the call line as a
   in the `goal` section of `bytefly.json` to keep drawing the dimmed line
   instead.
 
-- Restates an **active** goal to the model before each turn (an invisible
-  `[SESSION GOAL]` message), so it stays on task across long tool sequences.
+- Restates a **pursued** goal to the model before each turn (an invisible
+  `[SESSION GOAL]` message) — `planning` and `active` alike, so a plan is designed
+  against the objective — and stops once it is achieved.
 - Stores tool-set goals in tool-result `details` and command-set goals as a
   `goal` session entry, so either way the goal follows the active session branch
   and survives `/resume` and `/tree` — abandoned branches never leak into the
@@ -67,7 +83,7 @@ returns matching `structuredContent` (`{ goal, action, error? }`, with
 |---|---|
 | `name` | `goal` |
 | `objective` | The complete objective, one line. Pass `""` to clear. |
-| `status` | `active` (default) or `achieved`. |
+| `status` | `achieved` completes the goal; `active` records a final objective; omit it to let the workflow ask whether to plan first. `planning` is the workflow's to set; a call cannot. |
 | `exposure` | `direct` (default). |
 | `executionMode` | `sequential` — calls share the in-memory goal. |
 | `annotations` | `idempotentHint: true` (a snapshot write), not read-only. |
@@ -95,10 +111,11 @@ are unaffected.
 
 `goal` is allowlisted in `plan-mode` (alongside `todo`), so the model can record
 or update the objective during read-only exploration without leaving plan mode.
-Plan mode also reads the goal: it restates an active one in its injected context,
-and when a plan is approved with no goal at all it offers to record the plan's
-title as the goal (`lib/goal-state.ts` is the reader). An existing goal — active
-or achieved — is never replaced by that offer.
+Plan mode also reads the goal: it restates a pursued one in its injected context,
+it promotes a `planning` goal when a plan is approved, and it offers to record the
+plan's `## Goal` when the session has none (`lib/goal-state.ts` is the reader). An
+`active` or `achieved` goal — a final objective — is never rewritten by an
+approval.
 
 ### `/goal` command
 
@@ -109,9 +126,9 @@ entry; `reconstructGoal` replays both entry kinds in branch order through
 | Command | What it does |
 |---|---|
 | `/goal` | Show the current goal, or the command usage when none is set. |
-| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, whose answer notes are dropped on save — and start the run. Replacing a live goal is confirmed first. |
-| `/goal raw <prompt>` | Skip the loop: record the typed words verbatim and start the run. |
-| `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run. An explicit `set`/`edit <text>` replaces an active goal without asking, since the command already says so. |
+| `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, whose answer notes are dropped on save — ask once whether to plan first, then start the run. Replacing a live goal is confirmed first. |
+| `/goal raw <prompt>` | Skip the loop: record the typed words verbatim, ask whether to plan first, and start the run. |
+| `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run, so the plan question is not asked. An explicit `set`/`edit <text>` replaces a pursued goal without asking, since the command already says so. |
 | `/goal set` (or `/goal edit`) | Open the editor prefilled with the current goal and save it as the active goal, without starting a run. |
 | `/goal done` (or `/goal achieved`) | Mark the current goal achieved (idempotent), naming the todo items the list still has open. |
 | `/goal clear` | Clear the goal. |
@@ -126,7 +143,11 @@ question or editor cancels the command, changing nothing. The questions are aske
 one at a time with `ctx.ui.select` (for a question with options) and
 `ctx.ui.input` (for a free-form one); the command never calls
 `ask_user_question`. A bare `/goal set` and `/goal edit` need a dialog UI —
-without one they show the usage instead. `/goal raw` never needs one.
+without one they show the usage instead. `/goal raw` never needs one for the
+words, but the plan question does need a dialog: both run variants ask it only
+where a dialog UI exists, and record `active` otherwise. The record-only paths
+never ask; a goal recorded while plan mode is already on is still a draft
+(`planning`), because that is what it is.
 
 ## Behaviour by mode
 
@@ -135,9 +156,10 @@ The tool works in every mode. The persistent widget requires interactive
 `/goal <prompt>` runs the loop: its model call uses a cancellable `tui` spinner
 in interactive mode and runs directly in RPC; the questions and the confirm step
 are host dialogs, forwarded by RPC. In print and JSON mode the loop is skipped
-and the typed text is sent. The widget is always a single line; the transcript
-result is the status header alone, directly under the call line that names the
-objective:
+and the typed text is sent. The plan question is a host dialog too, so it is
+asked only in TUI and RPC, and skipped when the `plan` extension is not loaded.
+The widget is always a single line; the transcript result is the status header
+alone, directly under the call line that names the objective:
 
 ```
 goal → set: Refactor the parser to support streaming input
@@ -145,9 +167,10 @@ goal → set: Refactor the parser to support streaming input
 ```
 
 The renderer reuses the slot's component (`context.lastComponent`) rather than
-rebuilding it each render. Achieved goals are hidden from the widget by default
-(restore the dimmed line with `achieved: "show"`), and they are no longer
-restated to the model. While a dock screen is open (`/todos`, `/jobs`,
+rebuilding it each render. A `planning` goal shows the same rail with a warning
+status word and is restated; achieved goals are hidden from the widget by
+default (restore the dimmed line with `achieved: "show"`), and they are no
+longer restated to the model. While a dock screen is open (`/todos`, `/jobs`,
 `/rewind`, or the `question` questionnaire), the rail is hidden and
 returns on close.
 
@@ -182,14 +205,39 @@ depends on config.
 | Execution mode | `sequential` — calls share the in-memory goal |
 | Annotations | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` |
 | Output schema | `GoalResult` — `{ goal, action, error? }`, returned as `details` and `structuredContent` |
-| State storage | tool-result `details` plus a `pi.appendEntry("goal", { goal })` custom entry for command-set goals |
-| Lifecycle hooks | `session_start` (load config, reconstruct), `session_tree` (reconstruct), `session_shutdown` (clear widget); `before_agent_start` (inject `goal-context`), `context` (filter stale/duplicate reminders) |
-| UI | `ctx.ui.setWidget` one-line rail in `tui` mode; coordinated through `pi.events` so it stays the top rail |
+| State storage | tool-result `details` plus a `pi.appendEntry("goal", { goal })` custom entry for command-set goals and for a phase settled after plan mode ends |
+| Lifecycle hooks | `session_start` (load config, reconstruct, settle a draft), `session_tree` (reconstruct, settle), `session_shutdown` (clear widget); `before_agent_start` (settle, then inject `goal-context`), `context` (filter stale/duplicate reminders) |
+| UI | `ctx.ui.setWidget` one-line rail in `tui` mode; coordinated through `pi.events` so it stays the top rail; one `ctx.ui.confirm` decides the phase |
+| Plan entry | `lib/plan-entry.ts`'s `requestPlanMode` sends a `pi.events` request; `plan` enables the mode with the caller's context, so goal's question is the only dialog |
 | Model calls | One `ctx.modelRegistry.complete` call on the session model with a 30 s timeout and `cacheRetention: "none"`; skipped without a dialog UI or a model; its usage is not counted in session totals |
 | Questions | When the goal is not yet understood, the command asks the model's questions through `ctx.ui.select` / `ctx.ui.input` and carries the answers into the editor prefill. No cross-extension tool is used. |
 
 ## Design notes
 
+- **A goal has a phase, and the phase is decided in one place.** `planning` is a
+  draft being designed, `active` is the final objective, `achieved` is done.
+  `plan-route.ts` is the only decision: a pursued goal keeps its phase, plan mode
+  already on means a draft, and otherwise one confirm decides it. Both entry
+  points call it, so the tool, the command, and plan's promotion cannot disagree
+  about what phase a goal is in.
+- **One dialog per decision.** Entering planning needs the user's consent, and
+  the extension that asks also has to act on the answer — which a command context
+  cannot do, since `ExtensionCommandContext` has no `executeTool`. So the consent
+  sentence and the request channel live in `lib/plan-entry.ts`: `goal` asks, and
+  `plan` enables silently over `pi.events`. `enter_plan_mode` keeps its own
+  confirm for the model-initiated path, using the same sentence, so the user is
+  never asked twice and the two texts cannot drift.
+- **The draft is settled, not stranded.** A `planning` goal is normalised by the
+  next observation when plan mode is off: `settledGoal` (pure, in `state.ts`)
+  turns it `active` with its own wording, because leaving plan mode is a decision
+  to act. Approval never goes through that path — `plan` writes the plan's own
+  goal, and only a `planning` goal is eligible, so a final objective is the
+  user's.
+- **The model cannot claim a phase.** `status` accepts only `active` and
+  `achieved` from a call; `planning` is written by the workflow, so a single call
+  can never assert a plan that was never designed. `GOAL_STATUSES` (every phase,
+  used by the output schema) and `GOAL_MODEL_STATUSES` (the parameter) are
+  separate lists for that reason.
 - **One goal, whole-value replacement.** `todo` replaces its list each call; the
   goal does the same with one value. There is no id or append. An empty
   objective on an active/default goal clears; a blank objective with
@@ -210,7 +258,7 @@ depends on config.
   entirely. The loop is best-effort (a failure keeps the typed text) and a
   dismissed dialog cancels the command, so nothing is half-applied. No
   conversation history is sent: the model must not invent scope the user did not
-  state. The `goal` tool remains the model's silent setter.
+  state. The `goal` tool remains the model's setter, with no comprehension loop.
 - **State in `details` and a custom entry.** A `goal` tool call stores the goal
   in its result's `details`; the `/goal` command appends a `goal` custom entry
   (`pi.appendEntry`). `reconstructGoal` reads the branch through
@@ -219,10 +267,10 @@ depends on config.
   that point and stale branches never leak. An appendEntry-only design was
   rejected because a durable side-channel would not branch with the
   conversation.
-- **The reminder is an injected, filtered message.** While the goal is active,
+- **The reminder is an injected, filtered message.** While the goal is pursued,
   `before_agent_start` returns a `goal-context` message (`[SESSION GOAL]`,
   `display: false`). The `context` hook keeps only the newest injection while
-  the goal is active and removes all of them once it is cleared or achieved, so
+  the goal is pursued and removes all of them once it is cleared or achieved, so
   repeated instructions never accumulate and stale ones never survive a
   `/resume`.
 - **Visibility is derived; the goal is the top rail.** `runtime.setGoal` mirrors
@@ -267,7 +315,8 @@ depends on config.
 | `clarify-prompt.ts` | The comprehension prompt and its message builder (pure). |
 | `clarify-parse.ts` | Parse the `{ understood, goal, questions }` reply (and the plain-text fallback), normalize questions, and expose the limits (pure). |
 | `clarify.ts` | The model call, its cancellable loader, the in-command questionnaire, and the confirm/edit dialog (host). |
-| `state.ts` | Branch-derived facts (pure): the published replay from `lib/goal-state.ts`, the open-todo count, and `isActiveGoal`. |
+| `state.ts` | Branch-derived facts (pure): the published replay from `lib/goal-state.ts`, the open-todo count, and `settledGoal`. |
+| `plan-route.ts` | The one phase decision (host): the plan question, its shared consent sentence, and the request that turns plan mode on. |
 | `format.ts` | Model-facing and terminal text plus the header and rail vocabulary (pure). |
 | `config.ts` | Widget config load/validation (the `goal` section of `bytefly.json`). |
 | `tui.ts` | The persistent goal widget and the transcript status header. |

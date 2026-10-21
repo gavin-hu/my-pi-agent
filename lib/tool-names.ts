@@ -15,6 +15,13 @@ export const TODO_TOOL = "todo";
 /** The `goal` tool, allowlisted as a reader by plan and rewind. */
 export const GOAL_TOOL = "goal";
 
+/**
+ * The `enter_plan_mode` tool. `plan` registers it, and `goal` offers the same
+ * phase to the user, so the name is shared: the request channel and the
+ * registration probe both look it up.
+ */
+export const PLAN_ENTER_TOOL = "enter_plan_mode";
+
 /** The `subagent` tool, which plan mode pins to read-only delegation. */
 export const SUBAGENT_TOOL = "subagent";
 

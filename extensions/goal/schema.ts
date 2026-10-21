@@ -10,7 +10,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../lib/format.ts";
 import { MAX_GOAL_OBJECTIVE } from "../../lib/goal-state.ts";
-import { GOAL_ACTIONS, GOAL_STATUSES, type Goal, type GoalStatus } from "./types.ts";
+import { GOAL_ACTIONS, GOAL_MODEL_STATUSES, GOAL_STATUSES, type Goal, type GoalStatus } from "./types.ts";
 
 /**
  * Maximum length of the objective. Owned by `lib/goal-state.ts`, so a reader of
@@ -18,8 +18,9 @@ import { GOAL_ACTIONS, GOAL_STATUSES, type Goal, type GoalStatus } from "./types
  */
 export const MAX_OBJECTIVE = MAX_GOAL_OBJECTIVE;
 
-const GoalStatusEnum = StringEnum(GOAL_STATUSES, {
-	description: 'Whether the goal is still being pursued. Defaults to "active".',
+const GoalStatusEnum = StringEnum(GOAL_MODEL_STATUSES, {
+	description:
+		'"achieved" completes the goal; an explicit "active" records a final objective. Omit it to let the goal workflow decide the phase, which asks once whether to plan first.',
 });
 
 export const GoalParams = Type.Object({
@@ -51,8 +52,8 @@ export type GoalArgs = Static<typeof GoalParams>;
 function normalizeStatus(raw: unknown): GoalStatus {
 	if (raw === undefined) return "active";
 	const value = typeof raw === "string" ? raw.trim().toLowerCase() : undefined;
-	if (value && (GOAL_STATUSES as readonly string[]).includes(value)) return value as GoalStatus;
-	throw new Error(`status must be one of ${GOAL_STATUSES.join(", ")}.`);
+	if (value && (GOAL_MODEL_STATUSES as readonly string[]).includes(value)) return value as GoalStatus;
+	throw new Error(`status must be one of ${GOAL_MODEL_STATUSES.join(", ")}.`);
 }
 
 /**

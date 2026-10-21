@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { PLAN_CONSENT, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
 import { createGoalRuntime } from "./runtime.ts";
 import { TOOL_NAME, registerTools } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
@@ -6,8 +7,10 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";
 import { fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
 
-function setup() {
-	const { pi, tools } = makeFakePi();
+function setup(options: { plan?: boolean } = {}) {
+	// `allTools` stands in for the plan extension's registration, which is what the
+	// phase decision probes before asking the user anything.
+	const { pi, tools } = makeFakePi(options.plan ? { allTools: [{ name: "enter_plan_mode" }] } : {});
 	const runtime = createGoalRuntime();
 	registerTools(pi, runtime);
 	const tool = tools.get(TOOL_NAME);
@@ -94,6 +97,64 @@ describe("goal tool", () => {
 		expect(result.details.action).toBe("achieve");
 		expect(result.details.goal.status).toBe("achieved");
 		expect(runtime.getGoal()).toEqual({ objective: "Ship the parser", status: "achieved" });
+	});
+
+	test("records a draft when the user accepts the plan offer", async () => {
+		const { tool, pi } = setup({ plan: true });
+		const { ctx, confirms } = fakeCtx({ confirm: true });
+		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanEnterRequest).respond(true));
+
+		const result = await call(tool, { objective: "Ship the parser" }, ctx);
+
+		expect(confirms).toEqual([{ title: "Plan first?", message: PLAN_CONSENT }]);
+		expect(result.details.goal).toEqual({ objective: "Ship the parser", status: "planning" });
+		expect(result.content[0].text).toContain("Goal (planning): Ship the parser");
+		expect(result.structuredContent).toEqual({
+			goal: { objective: "Ship the parser", status: "planning" },
+			action: "set",
+		});
+	});
+
+	test("records an active goal when the plan offer is declined", async () => {
+		const { tool } = setup({ plan: true });
+		const { ctx } = fakeCtx({ confirm: false });
+
+		const result = await call(tool, { objective: "Ship the parser" }, ctx);
+		expect(result.details.goal).toEqual({ objective: "Ship the parser", status: "active" });
+	});
+
+	test("an explicit active status finalizes a draft without asking", async () => {
+		const { tool, pi } = setup({ plan: true });
+		const { ctx, confirms } = fakeCtx({ confirm: true });
+		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanEnterRequest).respond(true));
+
+		const draft = await call(tool, { objective: "Ship the parser" }, ctx);
+		expect(draft.details.goal.status).toBe("planning");
+
+		const result = await call(tool, { objective: "Ship it well", status: "active" }, ctx);
+		expect(confirms).toHaveLength(1);
+		expect(result.details.goal).toEqual({ objective: "Ship it well", status: "active" });
+	});
+
+	test("does not ask again when an active goal is refined", async () => {
+		const { tool } = setup({ plan: true });
+		const { ctx, confirms } = fakeCtx({ confirm: true });
+		await call(tool, { objective: "Ship the parser" }, ctx);
+		confirms.length = 0;
+
+		const result = await call(tool, { objective: "Ship it well" }, ctx);
+		expect(confirms).toEqual([]);
+		expect(result.details.goal).toEqual({ objective: "Ship it well", status: "active" });
+	});
+
+	test("does not ask before marking an achieved goal", async () => {
+		const { tool } = setup({ plan: true });
+		const { ctx, confirms } = fakeCtx();
+		await call(tool, { objective: "Ship the parser" }, ctx);
+		confirms.length = 0;
+
+		await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		expect(confirms).toEqual([]);
 	});
 
 	test("names the todo items still open when the goal is achieved", async () => {

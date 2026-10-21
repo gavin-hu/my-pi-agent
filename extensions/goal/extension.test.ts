@@ -11,6 +11,7 @@ import { join } from "node:path";
 import goal, { GOAL_CONTEXT_MARKER } from "./index.ts";
 import { NOTES_FENCE } from "./clarify.ts";
 import { GOAL_HELP } from "./format.ts";
+import { PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
 import { TOOL_NAME } from "./tools.ts";
 import { WIDGET_KEY } from "./tui.ts";
 import type { Goal } from "./types.ts";
@@ -23,6 +24,10 @@ import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 
 const active = (objective: string): Goal => ({ objective, status: "active" });
 const achieved = (objective: string): Goal => ({ objective, status: "achieved" });
+const planning = (objective: string): Goal => ({ objective, status: "planning" });
+
+/** A branch that plan mode has turned on. */
+const PLAN_MODE_ON = { type: "custom", customType: "plan-mode", data: { enabled: true } };
 
 describe("goal extension", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
@@ -164,6 +169,34 @@ describe("goal reminder", () => {
 		expect(result).toBeUndefined();
 	});
 
+	test("restates a goal that is still being planned", async () => {
+		const { pi } = makeFakePi();
+		goal(pi);
+		const { ctx } = fakeCtx({ branch: [resultEntry(planning("design it")), PLAN_MODE_ON] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		const [result] = await emit(pi, "before_agent_start", {}, ctx);
+		expect(result.message.content).toContain("design it");
+	});
+
+	test("settles a planning goal once plan mode is left without a plan", async () => {
+		const { pi, entries } = makeFakePi();
+		goal(pi);
+		const { ctx } = fakeCtx({ branch: [resultEntry(planning("design it"))] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "design it", status: "active" } });
+	});
+
+	test("leaves a planning goal alone while plan mode is on", async () => {
+		const { pi, entries } = makeFakePi();
+		goal(pi);
+		const { ctx } = fakeCtx({ branch: [resultEntry(planning("design it")), PLAN_MODE_ON] });
+		await emit(pi, "session_start", { reason: "startup" }, ctx);
+
+		expect(entries).toEqual([]);
+	});
+
 	test("filters stale goal context when the goal is cleared", async () => {
 		const { pi } = makeFakePi();
 		goal(pi);
@@ -218,18 +251,55 @@ describe("goal reminder", () => {
 });
 
 describe("/goal command", () => {
-	async function started(branch: unknown[] = [], ctxOptions: Partial<FakeCtxOptions> = {}) {
-		const fakePi = makeFakePi();
+	async function started(branch: unknown[] = [], ctxOptions: Partial<FakeCtxOptions> = {}, plan = false) {
+		const fakePi = makeFakePi(plan ? { allTools: [{ name: "enter_plan_mode" }] } : {});
 		goal(fakePi.pi);
 		const fake = fakeCtx({ mode: "print", branch, ...ctxOptions });
 		await emit(fakePi.pi, "session_start", { reason: "startup" }, fake.ctx);
 		return {
+			pi: fakePi.pi,
 			command: fakePi.commands.get("goal"),
 			entries: fakePi.entries,
 			sentMessages: fakePi.sentMessages,
 			...fake,
 		};
 	}
+
+	test("records a draft when the user accepts planning before the run", async () => {
+		const { pi, command, ctx, notifications, entries, sentMessages } = await started(
+			[],
+			{ mode: "rpc", hasUI: true, confirm: true },
+			true,
+		);
+		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanEnterRequest).respond(true));
+
+		await command.handler("raw ship the parser", ctx);
+
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "planning" } });
+		expect(notifications.at(-1)).toBe("Goal (planning): ship the parser");
+		expect(sentMessages.at(-1)).toEqual({ content: "ship the parser", options: undefined });
+	});
+
+	test("records the objective when the user declines planning", async () => {
+		const { command, ctx, entries, sentMessages } = await started(
+			[],
+			{ mode: "rpc", hasUI: true, confirm: false },
+			true,
+		);
+
+		await command.handler("raw ship the parser", ctx);
+
+		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "active" } });
+		expect(sentMessages.at(-1)?.content).toBe("ship the parser");
+	});
+
+	test("does not ask about planning when the plan extension is not loaded", async () => {
+		const { command, ctx, confirms } = await started([], { mode: "rpc", hasUI: true, confirm: true });
+
+		await command.handler("raw ship the parser", ctx);
+
+		expect(confirms).toEqual([]);
+	});
 
 	test("shows usage when no goal is set", async () => {
 		const { command, ctx, notifications } = await started();
@@ -263,7 +333,7 @@ describe("/goal command", () => {
 	test("sets a goal, persists it, and starts the run", async () => {
 		const { command, ctx, notifications, entries, sentMessages } = await started();
 		await command.handler("  ship the parser  ", ctx);
-		expect(notifications.at(-1)).toBe("Goal set (active): ship the parser");
+		expect(notifications.at(-1)).toBe("Goal (active): ship the parser");
 		expect(entries.at(-1)).toEqual({
 			type: "custom",
 			customType: "goal",
@@ -321,13 +391,13 @@ describe("/goal command", () => {
 		await command.handler("set ship the parser", ctx);
 
 		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "active" } });
-		expect(notifications.at(-1)).toBe("Goal set (active): ship the parser");
+		expect(notifications.at(-1)).toBe("Goal (active): ship the parser");
 	});
 
 	test("records a goal without starting a run with /goal set", async () => {
 		const { command, ctx, notifications, entries, sentMessages } = await started();
 		await command.handler("set ship the parser", ctx);
-		expect(notifications.at(-1)).toBe("Goal set (active): ship the parser");
+		expect(notifications.at(-1)).toBe("Goal (active): ship the parser");
 		expect(entries.at(-1)).toEqual({
 			type: "custom",
 			customType: "goal",

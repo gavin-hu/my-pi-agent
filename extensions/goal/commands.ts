@@ -15,8 +15,10 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { isPursuedGoal } from "../../lib/goal-state.ts";
 import { prepareGoalPrompt } from "./clarify.ts";
 import { formatGoalNotice, formatGoalText, GOAL_HELP } from "./format.ts";
+import { goalPhase } from "./plan-route.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { normalizeGoal } from "./schema.ts";
 import { openTodoCount } from "./state.ts";
@@ -155,9 +157,13 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 			}
 
 			const setGoal = async (goal: Goal, run: boolean): Promise<void> => {
-				runtime.setGoal(goal, ctx);
-				persist(goal);
-				ctx.ui.notify(`Goal set (active): ${goal.objective}`, "info");
+				// The phase is decided before the write, so the recorded status is the one
+				// the user just chose (and never claims a plan mode that was declined).
+				const status = await goalPhase(pi, ctx, runtime.getGoal(), { ask: run });
+				const recorded: Goal = { objective: goal.objective, status };
+				runtime.setGoal(recorded, ctx);
+				persist(recorded);
+				ctx.ui.notify(formatGoalNotice(recorded), "info");
 				if (!run) return;
 				// Set the goal before the turn so the reminder it injects carries it.
 				// `expandPromptTemplates` stays off: the goal is literal text.
@@ -190,7 +196,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: GoalRuntime): void {
 				// replace. The `goal` tool keeps its silent replacement so the model can
 				// refine.
 				const current = runtime.getGoal();
-				if (command.kind !== "record" && current?.status === "active" && ctx.hasUI) {
+				if (command.kind !== "record" && current && isPursuedGoal(current) && ctx.hasUI) {
 					const replace = await ctx.ui.confirm("Replace the active goal?", current.objective);
 					if (!replace) {
 						ctx.ui.notify("Goal unchanged.", "info");

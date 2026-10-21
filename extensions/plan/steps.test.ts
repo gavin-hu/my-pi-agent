@@ -9,6 +9,7 @@ import {
 	matchesStepText,
 	planStepSummary,
 	setStepStatuses,
+	goalSection,
 	verificationItem,
 } from "./steps.ts";
 
@@ -377,5 +378,39 @@ describe("verificationItem", () => {
 	test("returns undefined for a plan with no Steps heading, whose list is the plan", () => {
 		const source = ["# Plan", "## Verification", "- run the suite"].join("\n");
 		expect(verificationItem(source)).toBeUndefined();
+	});
+});
+
+describe("goalSection", () => {
+	test("reads the first paragraph of the Goal section", () => {
+		const source = [
+			"# Plan",
+			"",
+			"## Goal",
+			"Protect the public API",
+			"without breaking existing clients.",
+			"",
+			"## Steps",
+			"- [ ] One",
+		].join("\n");
+		expect(goalSection(source)).toBe("Protect the public API without breaking existing clients.");
+	});
+
+	test("strips a list marker and inline markdown", () => {
+		expect(goalSection("## Goal\n- **Ship** the `parser`\n")).toBe("Ship the parser");
+	});
+
+	test("skips leading blank lines and reports an empty section as undefined", () => {
+		expect(goalSection("## Goal\n\n  ship it\n")).toBe("ship it");
+		expect(goalSection("## Goal\n\n## Steps\n- [ ] One")).toBeUndefined();
+	});
+
+	test("ignores a Goal heading inside a code fence", () => {
+		expect(goalSection("```md\n## Goal\nnot this\n```\n")).toBeUndefined();
+	});
+
+	test("is undefined without the section, and for a deeper heading", () => {
+		expect(goalSection("# Plan\n\n## Context\nx")).toBeUndefined();
+		expect(goalSection("### Goal\nnot the outline's section")).toBeUndefined();
 	});
 });

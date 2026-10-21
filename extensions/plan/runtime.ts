@@ -23,6 +23,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { sanitizeLine } from "../../lib/format.ts";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
+import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
@@ -32,7 +33,7 @@ import type { PlanModeEntry, ReviewBaselineEntry } from "./types.ts";
 /** Tool the model calls to leave plan mode after approval. */
 export const EXIT_TOOL = "exit_plan_mode";
 /** Tool the model calls to ask to enter plan mode. */
-export const ENTER_TOOL = "enter_plan_mode";
+export const ENTER_TOOL = PLAN_ENTER_TOOL;
 /** Tool the model calls to save the plan artifact. */
 export const WRITE_PLAN_TOOL = "write_plan";
 /** Tool the model calls to keep an approved plan's steps current. */

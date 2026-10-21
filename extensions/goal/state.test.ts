@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { isActiveGoal, openTodoCount, reconstructGoal } from "./state.ts";
+import { openTodoCount, reconstructGoal, settledGoal } from "./state.ts";
 import type { Goal } from "./types.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 
+const planning = (objective: string): Goal => ({ objective, status: "planning" });
 const active = (objective: string): Goal => ({ objective, status: "active" });
 const achieved = (objective: string): Goal => ({ objective, status: "achieved" });
 
@@ -29,6 +30,12 @@ describe("reconstructGoal", () => {
 	test("returns null for an empty branch", () => {
 		expect(reconstructGoal([])).toBeNull();
 	});
+
+	test("reads the planning phase off the branch", () => {
+		expect(reconstructGoal([resultEntry(planning("design it"))])).toEqual(planning("design it"));
+		const command = { type: "custom", customType: "goal", data: { goal: planning("from command") } };
+		expect(reconstructGoal([command])).toEqual(planning("from command"));
+	});
 });
 
 describe("openTodoCount", () => {
@@ -48,10 +55,18 @@ describe("openTodoCount", () => {
 	});
 });
 
-describe("isActiveGoal", () => {
-	test("is true only for an active goal", () => {
-		expect(isActiveGoal(active("go"))).toBe(true);
-		expect(isActiveGoal(achieved("go"))).toBe(false);
-		expect(isActiveGoal(null)).toBe(false);
+describe("settledGoal", () => {
+	test("promotes a planning goal once plan mode is off", () => {
+		expect(settledGoal(planning("ship it"), false)).toEqual(active("ship it"));
+	});
+
+	test("leaves a planning goal alone while plan mode is on", () => {
+		expect(settledGoal(planning("ship it"), true)).toBeNull();
+	});
+
+	test("never rewrites a final goal", () => {
+		expect(settledGoal(active("ship it"), false)).toBeNull();
+		expect(settledGoal(achieved("ship it"), false)).toBeNull();
+		expect(settledGoal(null, false)).toBeNull();
 	});
 });

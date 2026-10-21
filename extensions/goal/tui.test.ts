@@ -7,6 +7,7 @@ import { fakeTheme } from "../../test/helpers/fakes.ts";
 const theme = fakeTheme;
 
 const active: Goal = { objective: "Ship the parser", status: "active" };
+const planning: Goal = { objective: "Ship the parser", status: "planning" };
 const achieved: Goal = { objective: "Ship the parser", status: "achieved" };
 const longGoal: Goal = { objective: "rework ".repeat(80).trim(), status: "active" };
 
@@ -17,6 +18,10 @@ describe("goalWidgetLines", () => {
 
 	test("renders a single line once achieved", () => {
 		expect(goalWidgetLines(achieved, theme, 40)).toEqual(["Goal · achieved · Ship the parser"]);
+	});
+
+	test("a draft is visible even when achieved goals are hidden", () => {
+		expect(goalWidgetLines(planning, theme, 40, { achieved: "hide" })).toEqual(["Goal · planning · Ship the parser"]);
 	});
 
 	test("renders one line when the achieved goal is shown", () => {

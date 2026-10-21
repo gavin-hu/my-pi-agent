@@ -2,8 +2,9 @@
  * The `exit_plan_mode` tool registration.
  *
  * It presents the saved plan for approval, then seeds the approved steps into
- * the todo list and offers to record the plan as the session goal. The review
- * loop and the browser lifecycle belong to `review.ts`; the nested writes
+ * the todo list and finalizes the session goal: a `planning` goal becomes the
+ * plan's own `## Goal`, and a session with no goal is offered the same. The
+ * review loop and the browser lifecycle belong to `review.ts`; the nested writes
  * belong to `todo-seed.ts` and the goal tool.
  */
 
@@ -23,7 +24,7 @@ import { sanitizePlanText } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { reviewPlan } from "../review.ts";
 import { EXIT_TOOL, SET_PLAN_STEPS_TOOL, type PlanRuntime } from "../runtime.ts";
-import { MAX_STEPS, planStepSummary } from "../steps.ts";
+import { goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
 import type { ExitPlanModeDetails } from "../types.ts";
 import type { PlanWebReview } from "../web.ts";
 import { firstTextLine } from "./nested.ts";
@@ -38,34 +39,41 @@ const ExitPlanModeParams = Type.Object({
 
 type ExitPlanModeArgs = Static<typeof ExitPlanModeParams>;
 
-/** What the goal offer did: `recorded` undefined when there was nothing to offer. */
-interface GoalOffer {
+/** How the goal ended up: no action when it was already final. */
+interface GoalOutcome {
 	objective: string;
-	recorded?: boolean;
+	/** `recorded` for a session with no goal, `promoted` for one that was planning. */
+	action?: "recorded" | "promoted";
 	error?: string;
 }
 
 /**
- * Offer to record the approved plan as the session goal — only when the session
- * has no goal at all (an active or achieved one is the user's, never replaced) and
- * the session can ask. The objective is the plan's own `# title`, or the file-name
- * slug; recording runs through the goal tool, so validation and the widget stay
- * goal's, and no model turn is spent.
+ * Finalise the session goal from the approved plan.
+ *
+ * A `planning` goal needs no dialog — approving the plan *is* the decision — and a
+ * session with no goal at all gets one confirm. A final goal (`active` or
+ * `achieved`) is the user's own: approving ordinary work never rewrites it.
+ * Recording runs through the goal tool, so validation and the widget stay goal's,
+ * and no model turn is spent.
  */
-async function offerSessionGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOffer> {
+async function finalizeGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOutcome> {
 	const objective = planObjective(plan);
-	if (!ctx.hasUI) return { objective };
-	// The branch already carries a goal: leave it alone, and say nothing.
-	if (lastGoal(ctx.sessionManager.getBranch()) !== null) return { objective };
-	const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);
-	if (!approved) return { objective };
-	const outcome = await ctx.executeTool(GOAL_TOOL, { objective });
-	if (!outcome.isError) return { objective, recorded: true };
-	return { objective, recorded: false, error: firstTextLine(outcome) };
+	const current = lastGoal(ctx.sessionManager.getBranch());
+	if (current !== null && current.status !== "planning") return { objective };
+	if (current === null) {
+		if (!ctx.hasUI) return { objective };
+		const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);
+		if (!approved) return { objective };
+	}
+	const outcome = await ctx.executeTool(GOAL_TOOL, { objective, status: "active" });
+	const action = current === null ? "recorded" : "promoted";
+	return outcome.isError ? { objective, action, error: firstTextLine(outcome) } : { objective, action };
 }
 
-/** The plan's own title: its first `# heading`, else the file-name slug. */
+/** The plan's own objective: its `## Goal` section, else the `# heading`, else the slug. */
 function planObjective(plan: StoredPlan): string {
+	const stated = goalSection(plan.content);
+	if (stated) return sanitizeLine(stated);
 	const heading = /^ {0,3}#\s+(.+)$/m.exec(plan.content)?.[1];
 	const title = heading === undefined ? "" : sanitizeLine(heading).trim();
 	return title || planTitle(basename(plan.path));
@@ -203,7 +211,7 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 
 			runtime.disable(ctx);
 			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
-			const goal = await offerSessionGoal(ctx, decision.plan);
+			const goal = await finalizeGoal(ctx, decision.plan);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps
@@ -220,11 +228,13 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 							: ` Could not read the todo list. Record these steps with the todo tool before you start, and tick them off with ${SET_PLAN_STEPS_TOOL}.`;
 			const verification = verificationNote(merged);
 			const goalNote =
-				goal.recorded === undefined
+				goal.action === undefined
 					? ""
-					: goal.recorded
-						? ` Recorded the session goal: ${goal.objective}.`
-						: ` Could not record the session goal: ${goal.error ?? "unknown error"}. Use the goal tool to set it.`;
+					: goal.error !== undefined
+						? ` Could not ${goal.action === "recorded" ? "record" : "update"} the session goal: ${goal.error}. Use the goal tool to set it.`
+						: goal.action === "recorded"
+							? ` Recorded the session goal: ${goal.objective}.`
+							: ` Set the session goal from the plan: ${goal.objective}.`;
 			const browserNote = decision.comments.length
 				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(decision.comments)}`
 				: "";

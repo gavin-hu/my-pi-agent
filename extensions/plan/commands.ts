@@ -10,9 +10,9 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../lib/interaction.ts";
+import { READ_ONLY_SUMMARY } from "../../lib/plan-entry.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { PlanIndexComponent, formatPlanIndex } from "./plan-index.ts";
-import { READ_ONLY_SUMMARY } from "./policy.ts";
 import { runBrowserReview } from "./review.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import type { PlanSummary } from "./plans.ts";

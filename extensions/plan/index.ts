@@ -22,19 +22,14 @@ import { fileURLToPath } from "node:url";
 import { hasPathInput } from "./path-guard.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import { lastGoal, type PublishedGoal } from "../../lib/goal-state.ts";
+import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
+import { READ_ONLY_SUMMARY, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
 import { ASK_USER_QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
 import { checkReadOnlyGit } from "./git-bash.ts";
-import {
-	createPlanPolicy,
-	BASH_BLOCKED_GUIDANCE,
-	BLOCKED_GUIDANCE,
-	PLAN_SAFE_TOOLS,
-	READ_ONLY_SUMMARY,
-} from "./policy.ts";
+import { createPlanPolicy, BASH_BLOCKED_GUIDANCE, BLOCKED_GUIDANCE, PLAN_SAFE_TOOLS } from "./policy.ts";
 import { createPlanRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import { createPlanWebReview } from "./web.ts";
@@ -51,8 +46,8 @@ const GOAL_CONTEXT_CHARS = 64;
 
 /**
  * Injected each turn while planning: the facts and the next action, not the tool
- * contracts. An active session goal becomes one extra bullet, so a plan is
- * designed against the objective instead of beside it.
+ * contracts. A pursued session goal — being planned or already final — becomes one
+ * extra bullet, so a plan is designed against the objective instead of beside it.
  */
 export function planModeContext(goal?: PublishedGoal | null): string {
 	const lines = [
@@ -64,7 +59,7 @@ export function planModeContext(goal?: PublishedGoal | null): string {
 		"- Delegate broad exploration with subagent.",
 		`- To choose between approaches, ask with ${ASK_USER_QUESTION_TOOL} before finalizing.`,
 	];
-	if (goal?.status === "active") {
+	if (goal && isPursuedGoal(goal)) {
 		lines.push(`- Current session goal: ${clip(sanitizeLine(goal.objective), GOAL_CONTEXT_CHARS)}`);
 	}
 	return lines.join("\n");
@@ -108,10 +103,32 @@ export default function planMode(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.on("session_start", (_event, ctx) => runtime.restore(ctx));
+	// Another extension that offers plan mode (the goal workflow) asks on this
+	// channel instead of calling a tool it cannot reach from a command context. It
+	// owns the user's answer; enabling here must therefore not ask again.
+	const unsubscribes: Array<() => void> = [];
+	const listenForEntryRequests = (): void => {
+		for (const unsubscribe of unsubscribes) unsubscribe();
+		unsubscribes.length = 0;
+		unsubscribes.push(
+			pi.events.on(PLAN_ENTER_REQUEST, (data) => {
+				const request = data as Partial<PlanEnterRequest> | undefined;
+				if (!request?.ctx || typeof request.respond !== "function") return;
+				if (!runtime.isEnabled()) runtime.enable(request.ctx);
+				request.respond(true);
+			}),
+		);
+	};
+
+	pi.on("session_start", (_event, ctx) => {
+		listenForEntryRequests();
+		runtime.restore(ctx);
+	});
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));
 	pi.on("session_shutdown", async (_event, ctx) => {
 		await web.closeAll();
+		for (const unsubscribe of unsubscribes) unsubscribe();
+		unsubscribes.length = 0;
 		ctx.ui.setStatus(STATUS_KEYS.planMode, undefined);
 	});
 

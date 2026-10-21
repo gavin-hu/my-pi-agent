@@ -8,6 +8,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `goal`: a goal now has a phase. Recording a new one asks once whether to plan
+  first; accepting enters plan mode and stores the objective as `planning`, which
+  the rail shows and every turn restates. Declining — or having no `plan`
+  extension, no dialog UI, or a goal that is already pursued — stores it `active`
+  as before. A `planning` goal that leaves plan mode without an approved plan
+  settles to `active` with its own wording, so the phase never gets stuck.
+
+- `plan`: approving a plan finalizes a `planning` session goal from the plan's
+  `## Goal` section (falling back to its title), without an extra dialog; a session
+  with no goal keeps the one confirm, and an `active` or `achieved` goal is never
+  rewritten. The plan-mode consent sentence now lives in `lib/plan-entry.ts` so
+  `goal` asks the same question, and `goal` enters plan mode through a
+  `pi.events` request instead of a duplicated dialog.
+
 - `skills`: a model-invoked `refactor` skill audits a project or path for
   refactoring opportunities — duplication, oversized modules, coupling, drift,
   and high-churn code with weak tests — and returns a ranked shortlist with

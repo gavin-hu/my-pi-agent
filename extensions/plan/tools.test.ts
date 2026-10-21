@@ -762,6 +762,24 @@ describe("exit_plan_mode", () => {
 			expect(result.content[0].text).not.toContain("session goal");
 		});
 
+		test("promotes a planning goal to the plan's own Goal, without asking", async () => {
+			const content = "# Add rate limiting\n\n## Goal\nProtect the public API\n\n## Steps\n- [ ] One";
+			const { confirms, toolCalls, result } = await approve(content, {
+				branch: [resultEntry({ objective: "protect the API", status: "planning" })],
+			});
+
+			expect(confirms).toEqual([]);
+			expect(
+				toolCalls.some(
+					(call) =>
+						call.name === "goal" &&
+						(call.args as { objective: string; status?: string }).objective === "Protect the public API" &&
+						(call.args as { status?: string }).status === "active",
+				),
+			).toBe(true);
+			expect(result.content[0].text).toContain("Set the session goal from the plan: Protect the public API.");
+		});
+
 		test("reports a goal the goal tool refused", async () => {
 			const { result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
 				executeError: "objective is longer than 2000 characters.",

@@ -107,11 +107,14 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   outline never become todos, and its verification bullets are already covered.
   Each seeded item is matched back to its step by text, so ticking a step with
   `set_plan_steps` completes the item too.
-- **Goal-aware.** While planning, the injected context restates an active
+- **Goal-aware.** While planning, the injected context restates a pursued
   session goal as one bullet, so the plan is designed against the objective
-  instead of beside it. On approval, when the session has no goal at all, the user
-  is offered one confirm to record the plan's title as the goal — never replacing
-  an existing goal, and with no extra model call.
+  instead of beside it. On approval, a goal the goal workflow left as a draft
+  (`planning`) is finalized from the plan's own `## Goal` section — falling back
+  to the title — through the `goal` tool, with no extra dialog, because approving
+  the plan *is* the decision. A session with no goal at all gets one confirm to
+  record the same objective, and an `active` or `achieved` goal is never
+  rewritten: a final objective is the user's. No path spends a model turn.
 - **Branch-aware.** The enabled flag and the review baseline are custom session
   entries, so `/resume` and `/tree` restore the right mode and keep the
   changed-section markers.
@@ -500,12 +503,22 @@ file and returns them to the model.
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
-| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan never writes a goal itself: an approval offer records one through `ctx.executeTool("goal", { objective })`. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
-| Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with an active session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })`: a `planning` goal is promoted to the plan's `## Goal`, a session with none is offered one, and an `active`/`achieved` goal is left alone. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
+| Entry requests | `pi.events` channel `PLAN_ENTER_REQUEST` from `lib/plan-entry.ts`: the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog. Subscribed on `session_start`, released on `session_shutdown`. |
+| Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with a pursued session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
 
 ## Design notes
 
+- **Consent is one dialog, whichever extension asks.** The goal workflow offers
+  plan mode as a phase of the goal, but a command context cannot call
+  `enter_plan_mode` (`ExtensionCommandContext` has no `executeTool`). So the
+  consent sentence left `policy.ts` for `lib/plan-entry.ts`, and the entry itself
+  is a `pi.events` request: the asker shows the question, plan enables silently
+  with the asker's context. `enter_plan_mode` keeps its own confirm, using the
+  same sentence, so the model-initiated path is unchanged and the two texts
+  cannot drift. A request that nobody answers resolves `false` rather than
+  hanging, so `goal` loaded alone still works.
 - **One review loop owns the human gate.** `review.ts` asks however the session
   is attached — TUI screen, dialog plus editor, remote file plus digest, or
   browser — and returns one `ReviewDecision`, so `exit_plan_mode` and
@@ -614,7 +627,7 @@ file and returns them to the model.
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
-| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, and the checkbox edit. |
+| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the plan's own goal (`goalSection`), and the checkbox edit. |
 | `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
 | `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`. |
 | `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), control-tool identity, footer status. |
@@ -632,6 +645,7 @@ file and returns them to the model.
 | `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/approve/back). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
+| [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |
 | [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, the shortcut sheet (`keysSheet`, `keysDialogScript`), and shared markup. |

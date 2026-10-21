@@ -16,11 +16,12 @@ import { rejectionLine, reuseCallText, toolCallTitle } from "../../lib/tui/tool.
 import { paint } from "../../lib/tui/tokens.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { formatCallText, formatGoalText } from "./format.ts";
+import { goalPhase } from "./plan-route.ts";
 import type { GoalRuntime } from "./runtime.ts";
 import { GoalParams, GoalResult, normalizeGoal, type GoalArgs } from "./schema.ts";
 import { openTodoCount } from "./state.ts";
 import { GoalHeader } from "./tui.ts";
-import type { GoalAction, GoalDetails } from "./types.ts";
+import type { Goal, GoalAction, GoalDetails } from "./types.ts";
 
 export const TOOL_NAME = GOAL_TOOL;
 
@@ -85,18 +86,34 @@ export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const args = params as GoalArgs;
+			const previous = runtime.getGoal();
 			try {
-				const goal = normalizeGoal(args);
-				const action = goal === null ? "clear" : goal.status === "achieved" ? "achieve" : "set";
+				const parsed = normalizeGoal(args);
+				if (parsed === null) {
+					runtime.setGoal(null, ctx);
+					return goalResult({ goal: null, action: "clear" });
+				}
+				// A `set` may start the planning phase: the phase is asked about and
+				// recorded in one place (`plan-route.ts`). An explicit status is the
+				// caller's decision — it finalizes a draft and is never asked about — while
+				// omitting it lets the workflow decide; `achieved` skips the question either
+				// way. A tool run without a context (a wrapped definition outside a session)
+				// records the objective without a dialog.
+				const explicit = args.status !== undefined;
+				const goal: Goal =
+					parsed.status === "achieved" || explicit
+						? parsed
+						: {
+								objective: parsed.objective,
+								status: ctx ? await goalPhase(pi, ctx, previous, { ask: true }) : "active",
+							};
 				runtime.setGoal(goal, ctx);
-				const openTodos = action === "achieve" ? openTodoCount(ctx.sessionManager.getBranch()) : 0;
+				const action = goal.status === "achieved" ? "achieve" : "set";
+				const openTodos = action === "achieve" && ctx ? openTodoCount(ctx.sessionManager.getBranch()) : 0;
 				return goalResult({ goal, action }, { openTodos });
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				return goalResult(
-					{ goal: runtime.getGoal(), action: attemptedAction(args), error: message },
-					{ error: message },
-				);
+				return goalResult({ goal: previous, action: attemptedAction(args), error: message }, { error: message });
 			}
 		},
 
