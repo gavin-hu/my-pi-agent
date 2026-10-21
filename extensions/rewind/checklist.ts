@@ -82,8 +82,15 @@ export abstract class ChecklistScreen<T> implements Component {
 	/** A verb other than navigation, toggle, all, none, and enter. */
 	protected verb?(data: string): void;
 
-	/** The row under the cursor. */
-	protected get focused(): T | undefined {
+	/**
+	 * The row under the cursor.
+	 *
+	 * Not named `focused`: Pi's `Focusable` check is `"focused" in component`, and a
+	 * component that answers it is handed the focus flag by assignment, which a
+	 * read-only accessor turns into a process-ending `TypeError`. The checklist
+	 * tracks its own cursor and needs no hardware cursor.
+	 */
+	protected get focusedRow(): T | undefined {
 		return this.rows()[this.cursor.selected];
 	}
 
@@ -107,7 +114,7 @@ export abstract class ChecklistScreen<T> implements Component {
 		}
 		if (navigateList(data, this.cursor, this.rows().length)) return;
 		if (data === " ") {
-			const row = this.focused;
+			const row = this.focusedRow;
 			if (row !== undefined) this.toggle(row);
 			this.options.requestRender();
 			return;

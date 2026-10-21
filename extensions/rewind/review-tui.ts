@@ -133,7 +133,7 @@ export class ReviewListComponent extends ChecklistScreen<ReviewEntry> {
 	}
 
 	protected onEnter(): void {
-		const entry = this.focused;
+		const entry = this.focusedRow;
 		if (entry) this.close({ kind: "diff", path: entry.path });
 	}
 
@@ -142,7 +142,7 @@ export class ReviewListComponent extends ChecklistScreen<ReviewEntry> {
 	}
 
 	protected verb(data: string): void {
-		const entry = this.focused;
+		const entry = this.focusedRow;
 		if (!entry) return;
 		if (data === "r") {
 			const paths = this.chosen.size > 0 ? [...this.chosen] : [entry.path];
@@ -174,7 +174,7 @@ export class ReviewListComponent extends ChecklistScreen<ReviewEntry> {
 
 	protected detailLines(width: number): string[] {
 		const detail: string[] = [];
-		const focused = this.focused;
+		const focused = this.focusedRow;
 		if (focused) detail.push(clip(`  ${paint(this.theme, "meta", formatReviewDetail(focused))}`, width));
 		const selectionLine =
 			this.chosen.size > 0

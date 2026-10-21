@@ -161,7 +161,7 @@ export class AgentsBoardComponent extends DockListScreen<BackgroundRun> {
 	}
 
 	protected listHints(): ScreenHint[] {
-		const focused = this.focused;
+		const focused = this.focusedRow;
 		const hints: ScreenHint[] = ["Esc close", { text: "Enter detail", color: "accent" }];
 		if (focused && canCollect(focused)) hints.push({ text: "c collect", color: "accent" });
 		if (focused?.status === "running") hints.push({ text: "x cancel", color: "warning" });

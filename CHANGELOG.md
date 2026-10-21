@@ -54,6 +54,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   20 000-path index, with the same order and the same marks. No tool, parameter,
   or config key changed.
 
+### Fixed
+
+- `lib`: closing a docked screen — `/jobs`, `/watch`, `/check`, `/agents`, and the
+  `/rewind` checklists — no longer crashes Pi on the way back to the editor. Pi's
+  focus check is `"focused" in component`, and it then assigns that flag; a
+  read-only `focused` accessor on those screens made that assignment a
+  `TypeError` that ended the process. The row accessor is `focusedRow` now, and a
+  source guard refuses a getter-only `focused`.
+
 ## [0.15.0] - 2026-10-21
 
 ### Added

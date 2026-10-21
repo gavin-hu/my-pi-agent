@@ -94,7 +94,7 @@ export class HunkPickerComponent extends ChecklistScreen<HunkRow> {
 
 	/** The focused hunk's first removed and added line. */
 	protected detailLines(width: number): string[] {
-		const focused = this.focused;
+		const focused = this.focusedRow;
 		if (!focused) return [];
 		return previewOf(focused.hunk).map((line) => {
 			const role = line.startsWith("+") ? "ok" : line.startsWith("-") ? "bad" : "meta";
