@@ -312,9 +312,10 @@ describe("path rendering", () => {
 		expect(renderReadPath(join(homedir(), "docs", "a.pdf"), fakeTheme, "/work")).toBe("~/docs/a.pdf");
 	});
 
-	test("leaves a path outside home unchanged", () => {
+	test("normalizes separators in a path outside home", () => {
 		const outside = join(dirname(homedir()), "outside-home", "a.pdf");
-		expect(renderReadPath(outside, fakeTheme, "/work")).toBe(outside);
+		// `shortenPath` renders separators as `/` on every platform (see lib/format.ts).
+		expect(renderReadPath(outside, fakeTheme, "/work")).toBe(outside.replace(/\\/g, "/"));
 	});
 
 	test("collapses a path with control characters onto one line", () => {
