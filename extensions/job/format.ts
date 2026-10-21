@@ -13,7 +13,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatDuration, sanitizeUntrustedLine } from "../../lib/format.ts";
+import { boundedTail, formatDuration, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { clip, clipLabel, LABEL_WIDTH } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { byRunningFirst } from "../../lib/tui/rows.ts";
@@ -112,12 +112,7 @@ export function formatLogs(job: JobRecord, lines: string[], maxChars: number): {
 	if (lines.length === 0) {
 		return { text: `${job.id}: no output yet${job.logPath ? ` (log: ${job.logPath})` : ""}.`, truncated: false };
 	}
-	let body = lines.join("\n");
-	let truncated = false;
-	if (body.length > maxChars) {
-		body = body.slice(body.length - maxChars);
-		truncated = true;
-	}
+	const { text: body, truncated } = boundedTail(lines, maxChars);
 	const suffix = truncated ? `\n… truncated; full log: ${job.logPath}` : "";
 	return { text: `${job.id} (${statusWord(job)}) output:\n${body}${suffix}`, truncated };
 }

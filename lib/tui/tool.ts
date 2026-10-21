@@ -19,7 +19,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, truncateToWidth } from "@earendil-works/pi-tui";
 import { formatDuration, sanitizeLine, stripControlChars } from "../format.ts";
-import { clipMiddle } from "./columns.ts";
+import { clip, clipMiddle } from "./columns.ts";
 import { expandHint, SEPARATORS } from "./glyphs.ts";
 import { paint } from "./tokens.ts";
 
@@ -132,6 +132,64 @@ export function messageText(result: ToolMessageResult): string {
 /** `… N more lines (ctrl+o to expand)`, the collapsed overflow note. */
 export function moreHint(theme: Theme, hidden: number, noun = "lines"): string {
 	return `${paint(theme, "faint", `… ${hidden} more ${noun}`)} ${expandHint(theme)}`;
+}
+
+/** `… N more` and the expand affordance, for a list whose rows are items. */
+export function overflowHint(theme: Theme, hidden: number): string {
+	return `${paint(theme, "faint", `… ${hidden} more`)} ${expandHint(theme)}`;
+}
+
+/** `… N earlier <label>` and the expand affordance, for a bounded tail. */
+export function earlierHint(theme: Theme, hidden: number, label: string): string {
+	return `${paint(theme, "faint", `… ${hidden} earlier ${label}`)} ${expandHint(theme)}`;
+}
+
+/** The row renderer a {@link TailResult} list uses: the extension's row grammar at a width. */
+export type TailRowLine<Row> = (row: Row, width: number, theme: Theme) => string;
+
+/** What a {@link TailResult} draws: the caller's rows plus a hidden count, or a bounded tail. */
+export type TailResultInput<Row> =
+	| { kind: "list"; rows: readonly Row[]; more: number; rowLine: TailRowLine<Row> }
+	| { kind: "lines"; lines: readonly string[]; earlier: number; earlierLabel: string };
+
+/**
+ * The transcript result block a tool that lists rows or tails output shares.
+ *
+ * One leading blank line per the block grammar, then either the caller's rows
+ * (already ordered and capped) with a "more" note, or the themed tail with an
+ * "earlier" note. The caller owns the row renderer, so the extension's own row
+ * grammar — a peer-session tag, a status glyph — stays with its vocabulary.
+ */
+export class TailResult<Row> implements Component {
+	private input: TailResultInput<Row>;
+	private theme: Theme;
+
+	constructor(input: TailResultInput<Row>, theme: Theme) {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	/** Update in place so the transcript can reuse this component across renders. */
+	setInput(input: TailResultInput<Row>, theme: Theme): void {
+		this.input = input;
+		this.theme = theme;
+	}
+
+	invalidate(): void {}
+
+	render(width: number): string[] {
+		const w = Math.max(1, width);
+		const lines: string[] = [""];
+		const input = this.input;
+		if (input.kind === "list") {
+			for (const row of input.rows) lines.push(input.rowLine(row, w, this.theme));
+			if (input.more > 0) lines.push(clip(`  ${overflowHint(this.theme, input.more)}`, w));
+			return lines;
+		}
+		if (input.earlier > 0) lines.push(clip(earlierHint(this.theme, input.earlier, input.earlierLabel), w));
+		for (const line of input.lines) lines.push(this.theme.fg("toolOutput", clip(line, w)));
+		return lines;
+	}
 }
 
 /** The render context fields the elapsed timer needs. */

@@ -34,8 +34,8 @@ Reach for a `lib/tui/` primitive before composing your own: `plainRule` /
 `gaugeBar` for a meter, `emptyState` for an empty screen, `splitRow` /
 `fitCells` for two columns, `LinePane` for a scrollable log, `ListCursor` /
 `IdCursor` for selection, `byRunningFirst` for a live list's order,
-`DockListScreen` for a list that opens a pane, and `ConfirmState` before a
-destructive action.
+`DockListScreen` for a list that opens a pane, `TailResult` for a tool result
+that lists rows or tails output, and `ConfirmState` before a destructive action.
 
 ## Docked list screens
 

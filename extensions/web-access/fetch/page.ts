@@ -11,7 +11,7 @@
 
 import type { WebFetchConfig } from "./config.ts";
 import { extractReadable } from "./extract.ts";
-import { extractPdfText, type PdfExtractor } from "./pdf.ts";
+import { extractPdfText, type PdfExtractor } from "../../../lib/pdf.ts";
 import { createFetchRunner, type HttpRunner, type HttpResponse } from "../http.ts";
 import { decodeHtml } from "../charset.ts";
 import { assertAllowedUrl } from "./ssrf.ts";

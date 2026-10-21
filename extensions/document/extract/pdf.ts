@@ -1,25 +1,17 @@
 /**
- * PDF text extraction via the `unpdf` package.
+ * PDF text extraction, over the shared `unpdf` seam.
  *
- * `unpdf` bundles a server-friendly build of PDF.js. `extractText` with
- * `mergePages: true` returns every page's reading-order text joined with a blank
- * line, so a page break reads as a paragraph break. No OCR: a scanned or
- * image-only PDF yields little or no text.
+ * `lib/pdf.ts` owns the lazy import, the module-shape handling, and the
+ * guidance when the package is absent; this adapter reads the file and applies
+ * the body normalization `read_doc` returns for a PDF.
  */
 
+import { extractPdfText } from "../../../lib/pdf.ts";
 import { readDocBytes, type DocExtractor } from "./file.ts";
 
-/** Pull the merged text out of `unpdf`'s `{ totalPages, text }` result. Pure. */
-export function pdfTextFromResult(result: unknown): string {
-	if (typeof result === "string") return result;
-	const text = (result as { text?: unknown } | undefined)?.text;
-	return typeof text === "string" ? text : "";
-}
-
 /** Extract text from every page of a PDF. */
-export const extractPdfText: DocExtractor = async (file) => {
+export const extractPdfDocument: DocExtractor = async (file) => {
 	const bytes = await readDocBytes(file);
-	const module = await import("unpdf");
-	const result: unknown = await module.extractText(bytes, { mergePages: true });
-	return pdfTextFromResult(result).replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+	const text = await extractPdfText(bytes);
+	return text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
 };

@@ -12,7 +12,7 @@ import type { DocExtractor } from "./extract/file.ts";
 import { extractDocText } from "./extract/doc.ts";
 import { extractDocxText } from "./extract/docx.ts";
 import { extractOdtText } from "./extract/odt.ts";
-import { extractPdfText } from "./extract/pdf.ts";
+import { extractPdfDocument } from "./extract/pdf.ts";
 import { extractRtfText } from "./extract/rtf.ts";
 import { extractXlsxText } from "./extract/xlsx.ts";
 
@@ -30,7 +30,7 @@ export interface DocumentFormat {
 }
 
 export const FORMATS = [
-	{ id: "pdf", label: "PDF", extensions: [".pdf"], defaultEnabled: true, extract: extractPdfText },
+	{ id: "pdf", label: "PDF", extensions: [".pdf"], defaultEnabled: true, extract: extractPdfDocument },
 	{ id: "docx", label: "DOCX", extensions: [".docx"], defaultEnabled: true, extract: extractDocxText },
 	{ id: "doc", label: "DOC", extensions: [".doc"], defaultEnabled: true, extract: extractDocText },
 	{ id: "odt", label: "ODT", extensions: [".odt"], defaultEnabled: true, extract: extractOdtText },

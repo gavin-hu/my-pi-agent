@@ -56,6 +56,17 @@ export function formatToolCount(count: number): string {
 }
 
 /**
+ * A tail bounded to `maxChars`: the end of the joined lines, with the truncation
+ * flag. The header and the truncation suffix belong to the caller, because each
+ * surface says something different about where the rest of the output lives.
+ */
+export function boundedTail(lines: readonly string[], maxChars: number): { text: string; truncated: boolean } {
+	const body = lines.join("\n");
+	if (body.length <= maxChars) return { text: body, truncated: false };
+	return { text: body.slice(body.length - maxChars), truncated: true };
+}
+
+/**
  * Replace terminal control characters (including ESC and the C1 block) with
  * spaces, keeping `\n` and `\t` for callers that render multi-line text.
  *

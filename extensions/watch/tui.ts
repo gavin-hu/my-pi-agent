@@ -16,10 +16,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
 import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
-import { expandHint } from "../../lib/tui/glyphs.ts";
 import { statusRow, type StatusRow } from "../../lib/tui/rows.ts";
+import { TailResult, type TailResultInput } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { compareWatches, formatWatchDetail, shortLabel, statusGlyphChar, statusRole } from "./format.ts";
 import type { WatchRecord } from "./types.ts";
@@ -46,48 +45,41 @@ export type WatchResultInput =
 	| { kind: "list"; watches: WatchRecord[]; more: number }
 	| { kind: "lines"; label: string; lines: string[]; earlier: number };
 
+/** Map the watch vocabulary onto the shared transcript tail block. */
+function watchTail(input: WatchResultInput): TailResultInput<WatchRecord> {
+	if (input.kind === "lines") {
+		return { kind: "lines", lines: input.lines, earlier: input.earlier, earlierLabel: input.label };
+	}
+	return {
+		kind: "list",
+		rows: input.watches,
+		more: input.more,
+		rowLine: (watch, width, theme) => watchRow(watch, theme, width, { marker: false }),
+	};
+}
+
 /**
- * Transcript result block for the `watch` tool: a blank line, then either the
- * `/watch`-style row rail (already ordered and capped by the caller) or the
- * themed matched-line tail. Reused across renders via `setInput`.
+ * Transcript result block for the `watch` tool: the shared tail block over the
+ * `/watch`-style row rail or the themed matched-line tail. Reused across renders.
  */
 export class WatchResult implements Component {
-	private input: WatchResultInput;
-	private theme: Theme;
+	private readonly view: TailResult<WatchRecord>;
 
 	constructor(input: WatchResultInput, theme: Theme) {
-		this.input = input;
-		this.theme = theme;
+		this.view = new TailResult(watchTail(input), theme);
 	}
 
 	/** Update in place so the transcript can reuse this component across renders. */
 	setInput(input: WatchResultInput, theme: Theme): void {
-		this.input = input;
-		this.theme = theme;
+		this.view.setInput(watchTail(input), theme);
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.view.invalidate();
+	}
 
 	render(width: number): string[] {
-		const w = Math.max(1, width);
-		// A leading blank line separates the result from the call header.
-		const lines: string[] = [""];
-		if (this.input.kind === "list") {
-			for (const watch of this.input.watches) lines.push(watchRow(watch, this.theme, w, { marker: false }));
-			if (this.input.more > 0) {
-				const note = `${paint(this.theme, "faint", `… ${this.input.more} more`)} ${expandHint(this.theme)}`;
-				lines.push(clip(`  ${note}`, w));
-			}
-		} else {
-			if (this.input.earlier > 0) {
-				const note = `${paint(this.theme, "faint", `… ${this.input.earlier} earlier ${this.input.label}`)} ${expandHint(this.theme)}`;
-				lines.push(clip(note, w));
-			}
-			for (const line of this.input.lines) {
-				lines.push(this.theme.fg("toolOutput", clip(line, w)));
-			}
-		}
-		return lines;
+		return this.view.render(width);
 	}
 }
 

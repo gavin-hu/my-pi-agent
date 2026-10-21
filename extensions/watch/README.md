@@ -230,7 +230,7 @@ outlive the session.
 
 | `format.ts` | Pure text formatting; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
 | `ui.ts` | Status chips and the match alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
-| `tui.ts` | `WatchResult` transcript block, and the `/watch` screen as a `DockListScreen` subclass: watcher rows, focus block, counts, verbs. |
+| `tui.ts` | The `WatchResult` transcript block over the shared `TailResult`, and the `/watch` screen as a `DockListScreen` subclass: watcher rows, focus block, counts, verbs. |
 | `commands.ts` | The `/watch` command and its completions. |
 | `config.ts` | The `watch` config section load and normalization. |
 

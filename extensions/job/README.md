@@ -386,7 +386,7 @@ rewritten.
 | `ui.ts` | Footer status chips and the failure alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `runtime.ts` | Composition: job table, handles, process events, repaint clock. |
-| `tui.ts` | The `/jobs` screen (a `DockListScreen` subclass: job rows, focus block, counts, verbs) and the transcript `JobResult` rows. |
+| `tui.ts` | The `/jobs` screen (a `DockListScreen` subclass: job rows, focus block, counts, verbs) and the `JobResult` transcript block over the shared `TailResult`. |
 | `tools.ts` | The `job` tool and its transcript rendering. |
 | `commands.ts` | The `/jobs` command. |
 | `types.ts` | Shared types. |

@@ -281,7 +281,7 @@ repeating it would be pure duplication.
 | `paging.ts` | `formatDoc`: code-point slicing and header/truncation formatting; `summarizeDoc`: the theme-free transcript summary. |
 | `extract/file.ts` | `DocFile` / `DocExtractor`, `readDocBytes` (abort-aware read), `normalizeBodyText`. |
 | `extract/vendor.d.ts` | Ambient types for `word-extractor` and `rtf-parser` (no bundled declarations). |
-| `extract/pdf.ts` | `unpdf` extractor and `pdfTextFromResult`. |
+| `extract/pdf.ts` | Adapter over the shared `lib/pdf.ts` seam, plus the PDF body normalization. |
 | `extract/docx.ts` | `mammoth` extractor. |
 | `extract/doc.ts` | `word-extractor` extractor for legacy `.doc`. |
 | `extract/odt.ts` | `fflate` + `fast-xml-parser` extractor and `odtXmlToText`. |
