@@ -14,7 +14,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { sleep } from "./poll.ts";
+import { pollUntil, sleep } from "./poll.ts";
 
 /** Where Chrome usually lives, plus the `PI_CHROME` override. */
 const CHROME_CANDIDATES = [
@@ -90,32 +90,39 @@ async function launchChrome(
 		{ stdio: "ignore" },
 	);
 	const portFile = `${profile}/DevToolsActivePort`;
-	const deadline = Date.now() + 15_000;
-	while (Date.now() < deadline) {
-		if (existsSync(portFile)) {
-			const port = Number(readFileSync(portFile, "utf-8").split("\n")[0]?.trim());
-			if (port) return { child, port };
-		}
-		await sleep(50);
+	const port = await pollUntil(
+		() => {
+			if (!existsSync(portFile)) return undefined;
+			return Number(readFileSync(portFile, "utf-8").split("\n")[0]?.trim()) || undefined;
+		},
+		{ timeoutMs: 15_000, intervalMs: 50 },
+	);
+	if (port === undefined) {
+		child.kill("SIGKILL");
+		throw new Error("Chrome did not open a DevTools port.");
 	}
-	child.kill("SIGKILL");
-	throw new Error("Chrome did not open a DevTools port.");
+	return { child, port };
 }
 
 /** Find the page target once Chrome has opened it. */
 async function pageTarget(port: number, origin: string, deadline: number): Promise<CdpTarget> {
-	for (;;) {
-		try {
-			const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-			const list = (await response.json()) as CdpTarget[];
-			const page = list.find((target) => target.type === "page" && target.url.startsWith(origin));
-			if (page?.webSocketDebuggerUrl) return page;
-		} catch {
-			// The endpoint is not up yet; keep polling until the deadline.
-		}
-		if (Date.now() > deadline) throw new Error("Chrome opened no page target.");
-		await sleep(100);
-	}
+	const page = await pollUntil(
+		async () => {
+			try {
+				const response = await fetch(`http://127.0.0.1:${port}/json/list`);
+				const list = (await response.json()) as CdpTarget[];
+				return list.find(
+					(target) => target.type === "page" && target.url.startsWith(origin) && target.webSocketDebuggerUrl,
+				);
+			} catch {
+				// The endpoint is not up yet; keep polling until the deadline.
+				return undefined;
+			}
+		},
+		{ timeoutMs: Math.max(0, deadline - Date.now()), intervalMs: 100 },
+	);
+	if (page === undefined) throw new Error("Chrome opened no page target.");
+	return page;
 }
 
 /** A tiny CDP client over the page's DevTools WebSocket. */
@@ -187,20 +194,36 @@ async function evaluate<T>(cdp: Cdp, expression: string, awaitPromise = false): 
 }
 
 /**
+ * A page-side promise that resolves `true` once `condition` holds and `false` at
+ * the timeout. It polls at 50 ms, and resolving rather than rejecting means a
+ * slow page still photographs instead of failing the capture; `condition` is an
+ * expression, so a check needing a local can be an IIFE.
+ *
+ * Every capture waits this way: the requested document has loaded, the article
+ * and its filter are drawn, the review page has its blocks and its state chip.
+ */
+export function readyWhen(condition: string, timeoutMs: number): string {
+	return `new Promise(function (resolve) {
+	var done = function () {
+		return ${condition};
+	};
+	if (done()) { resolve(true); return; }
+	var timer = setInterval(function () { if (done()) { clearInterval(timer); resolve(true); } }, 50);
+	setTimeout(function () { clearInterval(timer); resolve(false); }, ${timeoutMs});
+})`;
+}
+
+/**
  * Resolve once the requested document has loaded. Chrome lists the page target
  * before its first document commits, so an immediate evaluate can land in the
  * tab's `about:blank`, where a step silently does nothing; polling for the
  * origin and `complete` waits for the real page.
  */
 function loadExpression(origin: string): string {
-	return `new Promise(function (resolve) {
-	var done = function () {
-		return location.href.indexOf(${JSON.stringify(origin)}) === 0 && document.readyState === "complete";
-	};
-	if (done()) { resolve(true); return; }
-	var timer = setInterval(function () { if (done()) { clearInterval(timer); resolve(true); } }, 50);
-	setTimeout(function () { clearInterval(timer); resolve(false); }, 15000);
-})`;
+	return readyWhen(
+		`location.href.indexOf(${JSON.stringify(origin)}) === 0 && document.readyState === "complete"`,
+		15_000,
+	);
 }
 
 /**

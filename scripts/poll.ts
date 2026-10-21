@@ -21,12 +21,16 @@ export interface PollOptions {
 
 /**
  * Poll `probe` until it returns a defined value or the timeout elapses. Returns
- * the first value, or `undefined` on timeout, so the caller owns the error.
+ * the first value, or `undefined` on timeout, so the caller owns the error. An
+ * async probe is awaited, so a readiness check that fetches can use it too.
  */
-export async function pollUntil<T>(probe: () => T | undefined, options: PollOptions): Promise<T | undefined> {
+export async function pollUntil<T>(
+	probe: () => T | Promise<T> | undefined,
+	options: PollOptions,
+): Promise<T | undefined> {
 	const deadline = Date.now() + options.timeoutMs;
 	for (;;) {
-		const value = probe();
+		const value = await probe();
 		if (value !== undefined) return value;
 		if (Date.now() >= deadline) return undefined;
 		await sleep(options.intervalMs);
