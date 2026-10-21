@@ -42,10 +42,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - `file-browse`: a directory listing now reads its entries through a bounded
-  pool instead of one `stat` in turn, and reads only the rows it shows, so a
-  large directory fills the page in a fraction of the time. The order, the caps,
-  and the symlink marks are unchanged. No tool, parameter, or config key
-  changed.
+  pool instead of one `stat` in turn, reads only the rows it shows, and walks the
+  current directory once per page instead of twice, so a large directory fills
+  the page in a fraction of the time. The order, the caps, and the symlink marks
+  are unchanged. No tool, parameter, or config key changed.
 
 - `goal`: `/goal` on a goal that is still being planned now names the phase's
   exits — approve the plan to set the final goal, or leave plan mode to keep the

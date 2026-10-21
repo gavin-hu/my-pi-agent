@@ -7,6 +7,7 @@ import {
 	classifyByName,
 	contentTypeFor,
 	createFileIndex,
+	directoryView,
 	formatSize,
 	isImageName,
 	isMarkdownName,
@@ -168,6 +169,19 @@ describe("listDirectory", () => {
 			stat: async () => ({ size: 0, mtimeMs: 0, isDirectory: () => false }),
 		};
 		await expect(listDirectory("/synthetic", "", 10, fs)).rejects.toThrow("That folder could not be read.");
+	});
+});
+
+describe("directoryView", () => {
+	test("returns the listing and the tree the two single-purpose readers give", async () => {
+		fixture = makeFixture();
+		const view = await directoryView(fixture.root, "sub", 100);
+		expect(view.listing.entries).toEqual((await listDirectory(fixture.root, "sub", 100)).entries);
+		expect(view.tree).toEqual(await buildTree(fixture.root, "sub", 100));
+	});
+
+	test("surfaces an unreadable directory as the listing's 404", async () => {
+		await expect(directoryView("/missing-in-a-test", "", 100)).rejects.toThrow("That folder could not be read.");
 	});
 });
 

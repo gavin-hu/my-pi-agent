@@ -411,12 +411,37 @@ export async function buildTree(root: string, currentRel: string, limit: number)
 	return buildNode(root, "", currentRel, basename(root) || root, limit);
 }
 
+/** A directory page's two views of one directory. */
+export interface DirectoryView {
+	/** The current directory's own rows, for the page's listing. */
+	listing: Listing;
+	/** The sidebar tree, with the current path expanded. */
+	tree: TreeNode;
+}
+
+/**
+ * One walk for a directory page: the listing it draws, and the tree that shows
+ * where it sits.
+ *
+ * `listDirectory` is what decides whether the directory can be read at all, so it
+ * runs first and its 404 is the page's error. The walk then reuses that listing
+ * for the same directory instead of reading it a second time; the ancestors are
+ * still read once each, which is what the tree needs.
+ */
+export async function directoryView(root: string, currentRel: string, limit: number): Promise<DirectoryView> {
+	const listing = await listDirectory(root, currentRel, limit);
+	const tree = await buildNode(root, "", currentRel, basename(root) || root, limit, { rel: currentRel, listing });
+	return { listing, tree };
+}
+
 async function buildNode(
 	root: string,
 	relDir: string,
 	currentRel: string,
 	label: string,
 	limit: number,
+	/** A listing the caller already read for this directory, so it is not re-read. */
+	known?: { rel: string; listing: Listing },
 ): Promise<TreeNode> {
 	const node: TreeNode = {
 		name: label,
@@ -428,10 +453,14 @@ async function buildNode(
 		children: [],
 	};
 	let listing: Listing;
-	try {
-		listing = await listDirectory(root, relDir, limit);
-	} catch {
-		return node;
+	if (known && known.rel === relDir) {
+		listing = known.listing;
+	} else {
+		try {
+			listing = await listDirectory(root, relDir, limit);
+		} catch {
+			return node;
+		}
 	}
 	for (const entry of listing.entries) {
 		const child: TreeNode = {
@@ -446,7 +475,7 @@ async function buildNode(
 		if (entry.isDir) {
 			const onPath = currentRel === entry.rel || currentRel.startsWith(`${entry.rel}/`);
 			if (onPath) {
-				child.children = (await buildNode(root, entry.rel, currentRel, entry.name, limit)).children;
+				child.children = (await buildNode(root, entry.rel, currentRel, entry.name, limit, known)).children;
 			}
 		}
 		node.children.push(child);

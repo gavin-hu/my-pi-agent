@@ -56,6 +56,9 @@ describe("routing", () => {
 		const dir = await handleRequest(context(), "GET", "/browse/sub", {});
 		expect(dir.status).toBe(200);
 		expect(text(dir)).toContain("b.md");
+		// The sidebar tree comes from the same walk as the listing: a root sibling
+		// is reachable only through the tree, so its label proves the tree is there.
+		expect(text(dir)).toContain("a.txt");
 
 		const file = await handleRequest(context(), "GET", "/view/a.txt", {});
 		expect(file.status).toBe(200);
