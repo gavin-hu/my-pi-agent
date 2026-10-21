@@ -24,6 +24,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   tools, skills, themes — against what actually loads and ships, in both entry
   READMEs and the user guide, instead of only the guide's two numbers.
 
+- `docs`: the README settings bullet names the curated settings by area instead
+  of listing the screen's ten groups, which the user guide's settings chapter
+  already documents. The screen itself is unchanged.
+
 - `worktree`: `/worktree status` and `list_worktrees` gather the managed
   worktrees' git status a few at a time instead of one after another, roughly
   halving the wait with five of them; the rows, their order, and their marks are
