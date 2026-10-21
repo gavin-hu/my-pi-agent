@@ -3,7 +3,7 @@ import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { canonicalize } from "./git.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 import { loadRegistry } from "./registry.ts";
 import { WORKTREE_TOOLS } from "./tools.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
@@ -13,7 +13,7 @@ const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 function worktreePath(repo: string, name: string): string {
-	return canonicalize(join(repo, ".pi", "worktrees", name));
+	return realPathOfNearest(join(repo, ".pi", "worktrees", name));
 }
 
 describe.skipIf(!runSlowSuites)("enterWorktree", () => {
@@ -28,7 +28,7 @@ describe.skipIf(!runSlowSuites)("enterWorktree", () => {
 		expect(
 			harness.pi.entries.some((entry: any) => entry.customType === "worktree" && entry.data?.active === true),
 		).toBe(true);
-		expect(loadRegistry(repo, testConfig()).worktrees.map((record) => record.path)).toContain(canonicalize(dir));
+		expect(loadRegistry(repo, testConfig()).worktrees.map((record) => record.path)).toContain(realPathOfNearest(dir));
 	});
 
 	test("refuses a name whose path escapes the managed directory", async () => {
@@ -123,7 +123,7 @@ describe.skipIf(!runSlowSuites)("borrowed worktree (subagent)", () => {
 		expect(child.ctx.statuses.get("worktree")).toContain("borrow");
 
 		const status = await child.run(WORKTREE_TOOLS.list, {});
-		expect(status.content[0].text).toContain(canonicalize(repo));
+		expect(status.content[0].text).toContain(realPathOfNearest(repo));
 
 		await expect(child.run(WORKTREE_TOOLS.enter, { name: "x" })).rejects.toThrow(/inherited/i);
 		await expect(child.run(WORKTREE_TOOLS.exit, {})).rejects.toThrow(/inherited|parent/i);

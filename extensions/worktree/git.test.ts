@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { realPathOfNearest } from "../../lib/path.ts";
 import {
 	branchExists,
-	canonicalize,
 	checkCheckout,
 	commitsAhead,
 	currentBranch,
@@ -22,17 +22,21 @@ import {
 	statusEntries,
 	submoduleChanges,
 	unlockWorktree,
-	withGitNoPrompt,
 	worktreeAdd,
 	worktreeExists,
+	worktreePath,
 	worktreeRemove,
 } from "./git.ts";
 import { cleanup, execP, makeRepo, makeRepoWithRemote } from "../../test/helpers/git.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { makeFakePi, testConfig } from "../../test/helpers/fixtures/worktree.ts";
+import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 
 const pi = makeFakePi();
 const cleanups: string[] = [];
+
+// Windows requires Developer Mode/admin to create symlinks; skip rather than fail.
+const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
 
 /** A `pi` whose `exec` answers from a route table, for metadata-failure paths. */
 function stubPi(route: (args: string[]) => { stdout?: string; stderr?: string; code?: number } | undefined): any {
@@ -46,6 +50,21 @@ function stubPi(route: (args: string[]) => { stdout?: string; stderr?: string; c
 
 afterAll(() => cleanup(...cleanups));
 
+describe("worktree paths", () => {
+	// The missing levels are below the link, which is the shape a one-level
+	// realpath fallback leaves unresolved.
+	symlinkTest("resolves a managed directory that does not exist yet", () => {
+		const base = mkdtempSync(join(tmpdir(), "pi-wt-path-"));
+		cleanups.push(base);
+		const real = join(base, "real");
+		mkdirSync(real);
+		symlinkSync(real, join(base, "link"));
+
+		const viaLink = worktreePath(join(base, "link"), testConfig(), "fresh");
+		expect(viaLink).toBe(join(realpathSync.native(real), ".pi", "worktrees", "fresh"));
+	});
+});
+
 describe.skipIf(!runSlowSuites)("git helpers", () => {
 	let repo: string;
 
@@ -55,7 +74,7 @@ describe.skipIf(!runSlowSuites)("git helpers", () => {
 	});
 
 	test("repoRoot and hasCommits", async () => {
-		expect(await repoRoot(pi, repo)).toBe(canonicalize(repo));
+		expect(await repoRoot(pi, repo)).toBe(realPathOfNearest(repo));
 		expect(await hasCommits(pi, repo)).toBe(true);
 	});
 
@@ -114,12 +133,12 @@ describe.skipIf(!runSlowSuites)("git helpers", () => {
 		expect(await lockWorktree(pi, repo, dir, "pi:1:test")).toBe(true);
 
 		let managed = await listManagedWorktrees(pi, repo, testConfig());
-		const locked = managed.find((entry) => entry.path === canonicalize(dir));
+		const locked = managed.find((entry) => entry.path === realPathOfNearest(dir));
 		expect(locked?.locked).toBe("pi:1:test");
 
 		await unlockWorktree(pi, repo, dir);
 		managed = await listManagedWorktrees(pi, repo, testConfig());
-		expect(managed.find((entry) => entry.path === canonicalize(dir))?.locked).toBeUndefined();
+		expect(managed.find((entry) => entry.path === realPathOfNearest(dir))?.locked).toBeUndefined();
 
 		await worktreeRemove(pi, repo, dir, false);
 	});
@@ -175,21 +194,21 @@ describe.skipIf(!runSlowSuites)("git helpers", () => {
 		});
 		expect(await submoduleChanges(stub, "/repo")).toEqual({ known: false, count: 0 });
 	});
+});
 
-	test("withGitNoPrompt sets and restores GIT_TERMINAL_PROMPT", async () => {
-		await withEnv({ GIT_TERMINAL_PROMPT: undefined }, async () => {
-			let during: string | undefined;
-			await withGitNoPrompt(async () => {
-				during = process.env.GIT_TERMINAL_PROMPT;
-			});
-			expect(during).toBe("0");
-			expect(process.env.GIT_TERMINAL_PROMPT).toBeUndefined();
+describe("git fetch environment", () => {
+	test("disables terminal prompting for a fetch and restores the value", async () => {
+		let during: string | undefined;
+		const stub = stubPi(() => {
+			during = process.env.GIT_TERMINAL_PROMPT;
+			return { code: 0 };
 		});
 
 		await withEnv({ GIT_TERMINAL_PROMPT: "keepme" }, async () => {
-			await withGitNoPrompt(async () => {});
+			expect((await fetchPrRef(stub, "/repo", { number: 1, host: "github" }, 1000)).ok).toBe(true);
 			expect(process.env.GIT_TERMINAL_PROMPT).toBe("keepme");
 		});
+		expect(during).toBe("0");
 	});
 });
 

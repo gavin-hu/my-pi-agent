@@ -5,20 +5,26 @@
  * configuration (and abort/timeout handling) as the rest of Pi.
  */
 
-import { existsSync, realpathSync, statSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	createExecRunner,
 	currentBranch as sharedCurrentBranch,
+	gitCommonDir,
 	hasCommits as sharedHasCommits,
 	repoRootFor,
+	revParse,
+	type RunGitOptions,
 } from "../../lib/git/index.ts";
+import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import { isPidAlive } from "../../lib/spawn.ts";
 import type { WorktreeConfig } from "./config.ts";
 
-async function git(pi: ExtensionAPI, args: string[], cwd: string, timeout?: number) {
-	return createExecRunner(pi)(args, { cwd, ...(timeout ? { timeoutMs: timeout } : {}) });
+type GitCallOptions = Omit<RunGitOptions, "cwd">;
+
+async function git(pi: ExtensionAPI, args: string[], cwd: string, options: GitCallOptions = {}) {
+	return createExecRunner(pi)(args, { cwd, ...options });
 }
 
 type GitOutcome = { ok: true; stdout: string } | { ok: false; code: number; error: string };
@@ -31,46 +37,15 @@ async function gitOutcome(pi: ExtensionAPI, args: string[], cwd: string): Promis
 }
 
 /**
- * Run a network git operation with terminal prompting disabled, so a fetch that
- * would ask for credentials fails fast instead of hanging until its timeout.
- * The environment is restored afterwards.
+ * A network fetch: terminal prompting is disabled through the runner's env seam,
+ * so a credentials prompt fails fast instead of hanging until its timeout.
  */
-export async function withGitNoPrompt<T>(fn: () => Promise<T>): Promise<T> {
-	const previous = process.env.GIT_TERMINAL_PROMPT;
-	process.env.GIT_TERMINAL_PROMPT = "0";
-	try {
-		return await fn();
-	} finally {
-		if (previous === undefined) delete process.env.GIT_TERMINAL_PROMPT;
-		else process.env.GIT_TERMINAL_PROMPT = previous;
-	}
-}
-
-/**
- * Canonicalize a path, resolving symlinks. Handles paths that do not exist yet
- * by canonicalizing the nearest existing ancestor, so `/tmp/x` and
- * `/private/tmp/x` compare equal on macOS.
- */
-export function canonicalize(path: string): string {
-	const absolute = resolve(path);
-	try {
-		// `.native` resolves Windows 8.3 short names (e.g. HSPCAD~1) to their
-		// long form, so a temp path from os.tmpdir() compares equal to git's
-		// expanded output. It is equivalent to realpathSync on other platforms.
-		return realpathSync.native(absolute);
-	} catch {
-		try {
-			return join(realpathSync.native(dirname(absolute)), basename(absolute));
-		} catch {
-			return absolute;
-		}
-	}
-}
+const NO_TERMINAL_PROMPT: GitCallOptions = { env: { GIT_TERMINAL_PROMPT: "0" } };
 
 /** Absolute path of the repository root containing `cwd`, or undefined when not a git repo. */
 export async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
 	const root = await repoRootFor(pi, cwd);
-	return root ? canonicalize(root) : undefined;
+	return root ? realPathOfNearest(root) : undefined;
 }
 
 /** Whether the repository has at least one commit (a worktree needs a commit to branch from). */
@@ -102,11 +77,13 @@ export async function resolveBaseRef(
 	if (branch) {
 		if (config.fetchRemote && (await fetchStale(pi, repoRoot))) {
 			// Never block on credentials: treat an error or timeout as "keep using the cache".
-			await withGitNoPrompt(() => git(pi, ["fetch", "--no-tags", "origin", branch], repoRoot, config.fetchTimeoutMs));
+			await git(pi, ["fetch", "--no-tags", "origin", branch], repoRoot, {
+				...NO_TERMINAL_PROMPT,
+				timeoutMs: config.fetchTimeoutMs,
+			});
 		}
 		const remoteRef = `origin/${branch}`;
-		const exists = await git(pi, ["rev-parse", "--verify", "--quiet", remoteRef], repoRoot);
-		if (exists.code === 0 && exists.stdout.trim()) return { ref: remoteRef, mode: "fresh" };
+		if (await refExists(pi, repoRoot, remoteRef)) return { ref: remoteRef, mode: "fresh" };
 	}
 	return { ref: "HEAD", mode: "head" };
 }
@@ -122,9 +99,9 @@ const FETCH_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 /** Whether the repository has not been fetched in the last 24 hours. */
 export async function fetchStale(pi: ExtensionAPI, repoRoot: string, maxAgeMs = FETCH_MAX_AGE_MS): Promise<boolean> {
-	const common = await git(pi, ["rev-parse", "--path-format=absolute", "--git-common-dir"], repoRoot);
-	if (common.code !== 0) return true;
-	const fetchHead = resolve(common.stdout.trim(), "FETCH_HEAD");
+	const common = await gitCommonDir(createExecRunner(pi), repoRoot);
+	if (common === undefined) return true;
+	const fetchHead = resolve(common, "FETCH_HEAD");
 	try {
 		return Date.now() - statSync(fetchHead).mtimeMs > maxAgeMs;
 	} catch {
@@ -171,7 +148,10 @@ export async function fetchPrRef(
 			? [`merge-requests/${pr.number}/head`]
 			: [`pull/${pr.number}/head`, `merge-requests/${pr.number}/head`];
 	for (const spec of specs) {
-		const result = await withGitNoPrompt(() => git(pi, ["fetch", "--no-tags", "origin", spec], repoRoot, timeoutMs));
+		const result = await git(pi, ["fetch", "--no-tags", "origin", spec], repoRoot, {
+			...NO_TERMINAL_PROMPT,
+			timeoutMs,
+		});
 		if (result.code === 0) return { ok: true };
 	}
 	return { ok: false, error: `Failed to fetch PR/MR #${pr.number}` };
@@ -179,16 +159,16 @@ export async function fetchPrRef(
 
 /** Path of a managed worktree directory from its name. */
 export function worktreePath(repoRoot: string, config: WorktreeConfig, name: string): string {
-	return canonicalize(resolve(repoRoot, config.dir, name));
+	return realPathOfNearest(resolve(repoRoot, config.dir, name));
 }
 
 export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boolean> {
-	const want = canonicalize(dir);
+	const want = realPathOfNearest(dir);
 	const result = await git(pi, ["worktree", "list", "--porcelain"], dir);
 	if (result.code !== 0) return false;
 	return result.stdout
 		.split("\n")
-		.some((line) => line.startsWith("worktree ") && canonicalize(line.slice("worktree ".length).trim()) === want);
+		.some((line) => line.startsWith("worktree ") && realPathOfNearest(line.slice("worktree ".length).trim()) === want);
 }
 
 /** Whether a local branch exists. */
@@ -207,8 +187,7 @@ export async function commitsAheadOf(pi: ExtensionAPI, dir: string, branch: stri
 
 /** Whether `ref` resolves here: a branch, a remote-tracking ref, or a tag. */
 export async function refExists(pi: ExtensionAPI, dir: string, ref: string): Promise<boolean> {
-	const result = await git(pi, ["rev-parse", "--verify", "--quiet", ref], dir);
-	return result.code === 0 && result.stdout.trim() !== "";
+	return (await revParse(createExecRunner(pi), dir, ref)) !== undefined;
 }
 
 export async function branchExists(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<boolean> {
@@ -318,15 +297,15 @@ export async function checkCheckout(pi: ExtensionAPI, dir: string, mainRoot: str
 	if (!top) {
 		return { ok: false, reason: "unsafe", detail: `${dir} is not a git worktree.` };
 	}
-	if (canonicalize(top) === canonicalize(mainRoot)) {
+	if (realPathOfNearest(top) === realPathOfNearest(mainRoot)) {
 		return {
 			ok: false,
 			reason: "unsafe",
 			detail: `${dir} resolves its working tree to the main checkout ${mainRoot}.`,
 		};
 	}
-	const commonDir = await git(pi, ["rev-parse", "--path-format=absolute", "--git-common-dir"], dir);
-	if (commonDir.code !== 0) {
+	const commonDir = await gitCommonDir(createExecRunner(pi), dir);
+	if (commonDir === undefined) {
 		return { ok: false, reason: "unverified", detail: `Could not read git metadata for ${dir}.` };
 	}
 	return { ok: true };
@@ -391,13 +370,13 @@ export async function listManagedWorktrees(
 ): Promise<ManagedWorktree[]> {
 	const result = await git(pi, ["worktree", "list", "--porcelain"], repoRoot);
 	if (result.code !== 0) return [];
-	const managedRoot = canonicalize(resolve(repoRoot, config.dir));
+	const managedRoot = realPathOfNearest(resolve(repoRoot, config.dir));
 	const entries: ManagedWorktree[] = [];
 	let current: ManagedWorktree = { path: "" };
 	const flush = () => {
 		if (!current.path) return;
-		const path = canonicalize(current.path);
-		if (path === managedRoot || path.startsWith(`${managedRoot}/`) || path.startsWith(`${managedRoot}\\`)) {
+		const path = realPathOfNearest(current.path);
+		if (isInside(managedRoot, path)) {
 			entries.push({ ...current, path });
 		}
 		current = { path: "" };

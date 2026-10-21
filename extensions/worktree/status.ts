@@ -5,9 +5,10 @@
 
 import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { realPathOfNearest } from "../../lib/path.ts";
 import { loadConfig } from "./config.ts";
 import { gapLines, isolationGaps } from "./gaps.ts";
-import { canonicalize, type CheckoutCheck, defaultBranch, listManagedWorktrees, repoRoot } from "./git.ts";
+import { type CheckoutCheck, defaultBranch, listManagedWorktrees, repoRoot } from "./git.ts";
 import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
 import { configFor, getActive, getInactiveOverrides, getUnverifiableCommands } from "./runtime.ts";
 import type { WorktreeState } from "./state.ts";
@@ -116,7 +117,7 @@ export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): P
 		const baseRef = baseBranch ? `origin/${baseBranch}` : undefined;
 		lines.push("", `Managed worktrees (${managed.length}):`);
 		for (const entry of managed) {
-			const record = registry.worktrees.find((candidate) => candidate.path === canonicalize(entry.path));
+			const record = registry.worktrees.find((candidate) => candidate.path === realPathOfNearest(entry.path));
 			const status = await statusOf(pi, entry, { baseRef, record });
 			const marks = statusMarks(status, current?.path === entry.path);
 			lines.push(

@@ -93,6 +93,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `worktree`: a managed path resolves every missing component, so a worktree
+  created under a symlinked directory keeps one registry identity instead of a
+  second spelling of the same checkout.
+
 - `job`: output is split on newlines before it is decoded, so a multi-byte
   character that a pipe read splits no longer shows as U+FFFD in `logs`, in a
   completion note, or on the `/jobs` screen. A `\r` progress rewrite is now one

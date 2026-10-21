@@ -13,9 +13,9 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { realPathOfNearest } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
 import {
-	canonicalize,
 	commitsAhead,
 	commitsBehind,
 	isBranchMerged,
@@ -102,7 +102,7 @@ function saveRegistry(repoRoot: string, config: WorktreeConfig, registry: Worktr
 /** Insert or replace a record, preserving an existing `createdAt`. */
 export function upsertRecord(repoRoot: string, config: WorktreeConfig, record: WorktreeRecord): void {
 	const registry = loadRegistry(repoRoot, config);
-	const path = canonicalize(record.path);
+	const path = realPathOfNearest(record.path);
 	const existing = registry.worktrees.find((candidate) => candidate.path === path);
 	const next: WorktreeRecord = existing
 		? { ...record, path, createdAt: existing.createdAt || record.createdAt }
@@ -116,7 +116,7 @@ export function upsertRecord(repoRoot: string, config: WorktreeConfig, record: W
 /** Mark a worktree as just used. No-op when it is not registered. */
 export function touchRecord(repoRoot: string, config: WorktreeConfig, path: string, at = Date.now()): void {
 	const registry = loadRegistry(repoRoot, config);
-	const wanted = canonicalize(path);
+	const wanted = realPathOfNearest(path);
 	const record = registry.worktrees.find((candidate) => candidate.path === wanted);
 	if (!record) return;
 	record.lastUsedAt = at;
@@ -125,7 +125,7 @@ export function touchRecord(repoRoot: string, config: WorktreeConfig, path: stri
 
 export function removeRecord(repoRoot: string, config: WorktreeConfig, path: string): void {
 	const registry = loadRegistry(repoRoot, config);
-	const wanted = canonicalize(path);
+	const wanted = realPathOfNearest(path);
 	const next = registry.worktrees.filter((candidate) => candidate.path !== wanted);
 	if (next.length === registry.worktrees.length) return;
 	registry.worktrees = next;
@@ -145,7 +145,7 @@ export function reconcileRegistry(
 	options: { persist?: boolean } = {},
 ): { registry: WorktreeRegistry; changed: boolean } {
 	const registry = loadRegistry(repoRoot, config);
-	const live = new Set(managed.map((entry) => canonicalize(entry.path)));
+	const live = new Set(managed.map((entry) => realPathOfNearest(entry.path)));
 	const byPath = new Map(registry.worktrees.map((record) => [record.path, record] as const));
 
 	let changed = false;
@@ -158,7 +158,7 @@ export function reconcileRegistry(
 		}
 	}
 	for (const entry of managed) {
-		const path = canonicalize(entry.path);
+		const path = realPathOfNearest(entry.path);
 		if (byPath.has(path)) continue;
 		next.push({
 			path,
@@ -189,7 +189,7 @@ export async function statusOf(
 	entry: ManagedWorktree,
 	options: StatusOptions = {},
 ): Promise<CheckoutStatus> {
-	const path = canonicalize(entry.path);
+	const path = realPathOfNearest(entry.path);
 	const locked = entry.locked !== undefined;
 	const staleLock = locked && entry.locked ? isStaleLock(entry.locked) : false;
 	const base: CheckoutStatus = {

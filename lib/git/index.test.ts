@@ -3,6 +3,7 @@ import {
 	GitError,
 	createExecRunner,
 	currentBranch,
+	gitCommonDir,
 	gitDir,
 	hasCommits,
 	repoRoot,
@@ -125,6 +126,15 @@ describe("read helpers", () => {
 
 		const missing = recordingRunner(new Map([["rev-parse --absolute-git-dir", { code: 1 }]]));
 		expect(await gitDir(missing.run, "/repo")).toBeUndefined();
+	});
+
+	test("gitCommonDir follows the shared directory or reports absence", async () => {
+		const key = "rev-parse --path-format=absolute --git-common-dir";
+		const found = recordingRunner(new Map([[key, { stdout: "/repo/.git\n" }]]));
+		expect(await gitCommonDir(found.run, "/repo/.git/worktrees/one")).toBe("/repo/.git");
+
+		const missing = recordingRunner(new Map([[key, { code: 128 }]]));
+		expect(await gitCommonDir(missing.run, "/repo")).toBeUndefined();
 	});
 
 	test("revParse resolves an id or reports absence", async () => {

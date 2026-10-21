@@ -54,6 +54,14 @@ export async function gitDir(runGit: RunGit, cwd: string): Promise<string | unde
 	return dir || undefined;
 }
 
+/** Absolute path of the repository's common git directory, shared by its worktrees. */
+export async function gitCommonDir(runGit: RunGit, cwd: string): Promise<string | undefined> {
+	const result = await runGit(["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd });
+	if (result.code !== 0) return undefined;
+	const dir = result.stdout.trim();
+	return dir || undefined;
+}
+
 /** Resolve a revision to a full object id, or undefined when it does not exist. */
 export async function revParse(runGit: RunGit, cwd: string, rev: string): Promise<string | undefined> {
 	const result = await runGit(["rev-parse", "--verify", "--quiet", rev], { cwd });

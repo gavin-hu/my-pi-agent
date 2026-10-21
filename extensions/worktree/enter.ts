@@ -6,13 +6,13 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { isInside } from "../../lib/path.ts";
+import { createExecRunner, revParse } from "../../lib/git/index.ts";
+import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { loadConfig, type WorktreeConfig } from "./config.ts";
 import { WorktreeCancelledError } from "./errors.ts";
 import {
 	branchExists,
-	canonicalize,
 	commitsAhead,
 	currentBranch,
 	fetchPrRef,
@@ -95,12 +95,7 @@ export interface EnterOptions {
 }
 
 async function resolveCommit(pi: ExtensionAPI, dir: string, ref: string): Promise<string | undefined> {
-	try {
-		const result = await pi.exec("git", ["rev-parse", ref], { cwd: dir });
-		return result.code === 0 ? result.stdout.trim() : undefined;
-	} catch {
-		return undefined;
-	}
+	return revParse(createExecRunner(pi), dir, ref);
 }
 
 /** Create or enter a worktree and rebind the session's effective root. */
@@ -139,11 +134,11 @@ export async function enterWorktree(
 	let createdByUs = true;
 
 	if (pathArg) {
-		target = canonicalize(resolve(ctx.cwd, pathArg));
-		if (target === canonicalize(root)) {
+		target = realPathOfNearest(resolve(ctx.cwd, pathArg));
+		if (target === realPathOfNearest(root)) {
 			throw new Error("The main checkout is not a worktree; enter a separate worktree path.");
 		}
-		const managedRoot = canonicalize(resolve(root, config.dir));
+		const managedRoot = realPathOfNearest(resolve(root, config.dir));
 		if (!isInside(managedRoot, target)) {
 			if (!ctx.hasUI) throw new Error(`Refusing to enter ${target} outside ${managedRoot} without confirmation.`);
 			const ok = await ctx.ui.confirm(
@@ -163,7 +158,7 @@ export async function enterWorktree(
 		target = worktreePath(root, config, name);
 		// `name` becomes both a directory and a branch, so an absolute name or one
 		// with `..` can otherwise place the worktree outside the managed root.
-		const managedRoot = canonicalize(resolve(root, config.dir));
+		const managedRoot = realPathOfNearest(resolve(root, config.dir));
 		if (!isInside(managedRoot, target)) {
 			throw new Error(
 				`Refusing to create a worktree outside ${managedRoot}: ${target}. ` +

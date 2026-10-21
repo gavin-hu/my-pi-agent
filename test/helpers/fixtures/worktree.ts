@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG, type WorktreeConfig } from "../../../extensions/worktree/config.ts";
-import { canonicalize } from "../../../extensions/worktree/git.ts";
+import { realPathOfNearest } from "../../../lib/path.ts";
 import { ENV_BRANCH, ENV_MAIN, ENV_ROOT } from "../../../extensions/worktree/runtime.ts";
 import {
 	ROOT_TOOL_NAMES,
@@ -39,7 +39,7 @@ export function testConfig(overrides: TestConfigOverrides = {}): WorktreeConfig 
 }
 
 /** The file Pi records as the extension entry, for inactive-override checks. */
-export const WORKTREE_ENTRY = canonicalize(
+export const WORKTREE_ENTRY = realPathOfNearest(
 	fileURLToPath(new URL("../../../extensions/worktree/index.ts", import.meta.url)),
 );
 
