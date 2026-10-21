@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `skills`: a model-invoked `changelog` skill records one user-visible bullet in
+  the same commit, audits commits since the last tag for missing or weak
+  entries, and curates a release section from the project's own rules. Its audit
+  is read-only; release actions still need the project's approval.
 - `context`: a `/context` report of where the context window goes — system
   prompt, active tool definitions, the conversation by role, injected context by
   type, and the largest blocks — plus the auto-compaction threshold, the headroom

@@ -94,7 +94,7 @@ Nothing about the session is sent, and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-18 extensions, 2 packaged skills, and 2 themes, grouped by what you are trying
+18 extensions, 3 packaged skills, and 2 themes, grouped by what you are trying
 to do. Each extension's own `README.md` has the full tool and command surface.
 
 ### Plan and delegate
@@ -145,6 +145,7 @@ advertised to the model, and its instructions load only when the task matches
 |---|---|
 | [`init`](./skills/init/SKILL.md) | Creates or updates a project's `AGENTS.md` through a built-in interactive interview and plan review, from repository evidence. |
 | [`refactor`](./skills/refactor/SKILL.md) | Audits a project or path for refactoring opportunities: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Returns a ranked shortlist with evidence and verification commands; discovery is read-only. |
+| [`changelog`](./skills/changelog/SKILL.md) | Records one user-visible bullet in the same commit, audits commits since the last tag for missing or weak entries, and curates a release section from the project's own rules. |
 
 ### Themes
 
