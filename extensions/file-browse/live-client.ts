@@ -20,7 +20,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		var liveGit = document.querySelector(".browse-git");
 		var liveChanges = document.getElementById("browse-changes");
 		var liveInterval = Number(liveChip.getAttribute("data-interval")) || 3000;
-		var liveReceived = 0;
+		var liveStale = 0;
 		var liveTone = "";
 
 		function formatSpan(ms) {
@@ -38,14 +38,15 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			if (liveText) liveText.textContent = label;
 		}
 
-		// The age is the local elapsed time since the last frame, so it stays right
-		// even when the loopback server's clock and this browser's disagree. Three
-		// missed frames on an open connection is a stalled feed, not a live one.
-		function paintLiveAge() {
-			if (!liveText || (liveTone !== "success" && liveTone !== "warn")) return;
-			var idle = Date.now() - liveReceived;
-			if (idle > liveInterval * 3) setLiveTone("warn", "stale \\u00B7 " + formatSpan(idle));
-			else liveText.textContent = "live \\u00B7 " + formatSpan(idle);
+		// The chip names its state and never counts: nothing is repainted between
+		// frames, and the age of the last one is the footer's uptime to report. Three
+		// missed frames on an open connection is a stalled feed, not a live one, so
+		// one timeout is armed per frame instead of a second-by-second tick.
+		function armLiveStale() {
+			window.clearTimeout(liveStale);
+			liveStale = window.setTimeout(function () {
+				if (liveTone === "success") setLiveTone("warn", "stale");
+			}, liveInterval * 3);
 		}
 
 		function paintLiveGit(git) {
@@ -124,8 +125,8 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		}
 
 		function paintLiveSnapshot(snapshot) {
-			liveReceived = Date.now();
-			setLiveTone("success", "live \\u00B7 0s");
+			setLiveTone("success", "live");
+			armLiveStale();
 			if (liveLine) {
 				liveLine.hidden = false;
 				var requests = Number(snapshot.requests) || 0;
@@ -137,7 +138,6 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 
 		if (window.EventSource) {
 			var liveStream = new EventSource("/events");
-			var liveTicker = window.setInterval(paintLiveAge, 1000);
 			liveStream.addEventListener("open", function () {
 				if (liveTone !== "success") setLiveTone("accent", "connecting");
 			});
@@ -151,7 +151,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			});
 			window.addEventListener("pagehide", function () {
 				liveStream.close();
-				window.clearInterval(liveTicker);
+				window.clearTimeout(liveStale);
 			});
 		}
 	}

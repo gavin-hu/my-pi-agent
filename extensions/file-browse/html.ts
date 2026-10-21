@@ -76,8 +76,8 @@ export interface LivePage {
  * client reveals and paints it from the event stream, so a page with JS off — or
  * with live status disabled — never shows a state it cannot keep true.
  *
- * It is deliberately not a `role="status"` region: the age in the label is
- * rewritten every second, and a live region would announce each rewrite.
+ * It is deliberately not a `role="status"` region: the header is where a reader
+ * looks for the page's state, not a place to announce every change to it.
  */
 function renderLiveChip(live: LivePage | undefined): string {
 	if (!live) return "";

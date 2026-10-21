@@ -83,13 +83,14 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   `worktree`; untracked files show as all-add, an unborn `HEAD` falls back to the
   index, and a non-repository is a plain empty state. Read-only, capped, and
   rendered with the shared diff colors.
-- **Live status.** A page left open keeps up with the session: a `◉ live · 2s`
-  chip beside `read-only` says whether status is flowing (green, with the age of
-  the last frame), still connecting (accent), stalled (amber), or offline (red);
-  the branch chip, the `● N changes +A −D` chip, and the change markers in the
-  tree and the listing update in place; and the footer line reports `up 2m 14s ·
-  37 requests`. One Server-Sent Events stream per page carries it, on the same
-  loopback server, so nothing extra is opened and nothing is written.
+- **Live status.** A page left open keeps up with the session: a `◉ live`
+  chip beside `read-only` says whether status is flowing (green), still
+  connecting (accent), stalled (amber, after three missed frames), or offline
+  (red); the branch chip, the `● N changes +A −D` chip, and the change markers in
+  the tree and the listing update in place; and the footer line reports `up 2m
+  14s · 37 requests`. The chip names its state and never counts, so nothing is
+  repainted between frames. One Server-Sent Events stream per page carries it, on
+  the same loopback server, so nothing extra is opened and nothing is written.
 - **No dependencies.** `node:http` plus the inline sprite, CSS, and client
   script.
 
@@ -122,11 +123,12 @@ is cleared on stop and on `session_shutdown`. The chip is session-local: it
 reflects only this session's server, with no cross-session sharing.
 
 The page has its own live status, which is what a left-open tab reads. The
-header chip starts hidden and is painted by the client from `/events`: `◉ live ·
-2s` in the success colour while frames arrive, `◉ connecting` before the first
-one, `◉ stale · 9s` in the warning colour when three intervals pass without a
-frame on an open connection, and `◉ offline` in the danger colour once the
-stream errors. The same frame carries the branch (or detached head), the
+header chip starts hidden and is painted by the client from `/events`: `◉ live`
+in the success colour while frames arrive, `◉ connecting` before the first
+one, `◉ stale` in the warning colour when three intervals pass without a frame
+on an open connection, and `◉ offline` in the danger colour once the stream
+errors. The chip names its state rather than counting, so it is repainted only
+when that state changes. The same frame carries the branch (or detached head), the
 uncommitted-change totals and paths, the server's uptime, and the requests it
 has answered, so the branch chip, the changes chip, the markers, and the footer
 line are painted from one snapshot rather than four requests. Losing the stream
@@ -356,7 +358,7 @@ document and the project document (project wins):
   headers and the `retry:` preamble live in `lib/http` with the rest of the
   loopback policy, shared with plan's review page. The client half is
   `live-client.ts`: one `EventSource`, one snapshot paint (`textContent` only,
-  never markup), a one-second age ticker, and a `pagehide` cleanup.
+  never markup), one staleness timeout armed per frame, and a `pagehide` cleanup.
 - **Streaming responses.** The server streams `filePath` responses and
   suppresses bodies for `HEAD`, so large `/raw` files are not buffered.
 - **Root confinement over feature breadth.** The root is deliberately confined

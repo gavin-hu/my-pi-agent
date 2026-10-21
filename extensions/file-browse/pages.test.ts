@@ -1205,6 +1205,15 @@ describe("browser script", () => {
 		expect(LIVE_CLIENT_JS).toContain("textContent");
 	});
 
+	test("names the live state instead of counting it", () => {
+		// The chip is a state, not a stopwatch: no label carries an elapsed time, and
+		// nothing repaints it between frames. Staleness is one timeout armed per
+		// frame, so a page sitting open is not re-rendered every second.
+		expect(LIVE_CLIENT_JS).toContain('setLiveTone("success", "live")');
+		expect(LIVE_CLIENT_JS).toContain('setLiveTone("warn", "stale")');
+		expect(LIVE_CLIENT_JS).not.toContain("setInterval");
+	});
+
 	test("serves the client as a no-store script and the theme bootstrap before paint", async () => {
 		const root = "/srv/aurora";
 		const script = await handleRequest({ root, config: DEFAULT_CONFIG }, "GET", "/app.js", {});

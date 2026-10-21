@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `file-browse`: the live chip names its state instead of counting it — `◉ live`,
+  `◉ stale`, `◉ connecting`, `◉ offline` — so the header repaints only when that
+  state changes and no label carries an elapsed time. Staleness is still three
+  missed frames, now one timeout armed per frame instead of a one-second ticker;
+  the footer still reports the server's uptime and request count.
+
 - `bytefly`: a transcript notice's headline is painted by the notice's own
   severity, so a warning reads yellow and a failure red where its sentence is;
   `info` and `ok` notices stay body text, and a row's label is body text under
