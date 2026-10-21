@@ -1,14 +1,11 @@
-import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { describe, expect, test } from "bun:test";
+import { tempDir } from "../../test/helpers/env.ts";
 import { DEFAULT_CONFIG, loadConfig } from "./config.ts";
 
 // Pass the agent dir explicitly so these tests never read the developer's
 // real config through `getAgentDir()`.
-function tempDir(prefix: string): string {
-	return mkdtempSync(join(tmpdir(), prefix));
-}
 
 describe("loadConfig", () => {
 	test("returns the defaults when no files exist", () => {

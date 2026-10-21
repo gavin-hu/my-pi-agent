@@ -1,7 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { tempDir } from "../../test/helpers/env.ts";
 import {
 	isSessionAlive,
 	listSessionMarkers,
@@ -11,10 +11,6 @@ import {
 	sessionMarkerPath,
 	touchSessionMarker,
 } from "./session.ts";
-
-function tempDir(): string {
-	return mkdtempSync(join(tmpdir(), "pi-jobs-session-"));
-}
 
 describe("sessionMarkerPath", () => {
 	test("is stable per session and differs across sessions", () => {
@@ -31,7 +27,7 @@ describe("sessionMarkerPath", () => {
 
 describe("touch / read / remove", () => {
 	test("round-trips through disk", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-session-");
 		try {
 			touchSessionMarker(dir, "s1", 1234, 500);
 			expect(readSessionMarker(dir, "s1")).toEqual({ sessionId: "s1", pid: 1234, updatedAt: 500 });
@@ -41,7 +37,7 @@ describe("touch / read / remove", () => {
 	});
 
 	test("a missing marker is undefined", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-session-");
 		try {
 			expect(readSessionMarker(dir, "s1")).toBeUndefined();
 		} finally {
@@ -50,7 +46,7 @@ describe("touch / read / remove", () => {
 	});
 
 	test("a malformed marker is undefined", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-session-");
 		try {
 			writeFileSync(sessionMarkerPath(dir, "s1"), JSON.stringify({ sessionId: "s1", pid: "x" }), "utf-8");
 			expect(readSessionMarker(dir, "s1")).toBeUndefined();
@@ -60,7 +56,7 @@ describe("touch / read / remove", () => {
 	});
 
 	test("remove deletes the marker and tolerates a missing one", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-session-");
 		try {
 			touchSessionMarker(dir, "s1", 1, 1);
 			removeSessionMarker(dir, "s1");
@@ -98,7 +94,7 @@ describe("isSessionAlive", () => {
 
 describe("list / prune", () => {
 	test("lists every valid marker", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-session-");
 		try {
 			touchSessionMarker(dir, "s1", 1, 100);
 			touchSessionMarker(dir, "s2", 2, 100);
@@ -113,7 +109,7 @@ describe("list / prune", () => {
 	});
 
 	test("prunes dead and stale markers, keeping live ones", () => {
-		const dir = tempDir();
+		const dir = tempDir("pi-jobs-session-");
 		try {
 			touchSessionMarker(dir, "live", 10, 1000);
 			touchSessionMarker(dir, "deadpid", 20, 1000);

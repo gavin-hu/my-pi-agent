@@ -1,5 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import {
@@ -10,7 +9,7 @@ import {
 	formatAgentNames,
 	loadAgentsFromDir,
 } from "./agents.ts";
-import { useEnv } from "../../test/helpers/env.ts";
+import { tempDir as makeTempDir, useEnv } from "../../test/helpers/env.ts";
 
 /** Look up a built-in agent by name for the assertions below. */
 const builtin = (name: string) => BUILTIN_AGENTS.find((agent) => agent.name === name);
@@ -19,7 +18,7 @@ const tempDirs: string[] = [];
 
 /** A unique temp directory, removed after each test. */
 function tempDir(): string {
-	const dir = mkdtempSync(join(tmpdir(), "pi-agents-test-"));
+	const dir = makeTempDir("pi-agents-test-");
 	tempDirs.push(dir);
 	return dir;
 }

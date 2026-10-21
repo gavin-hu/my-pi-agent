@@ -18,6 +18,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
+import { withLeaf } from "./helpers/config.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../extensions/bytefly/chrome.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG,
@@ -234,14 +235,6 @@ const SECTIONS: readonly SectionCase[] = [
 		},
 	},
 ];
-
-/** A copy of `source` with the leaf at `path` set, for probing a normalizer. */
-function withLeaf(source: Record<string, unknown>, path: readonly string[], value: unknown): Record<string, unknown> {
-	const [head, ...rest] = path;
-	if (head === undefined) return source;
-	if (rest.length === 0) return { ...source, [head]: value };
-	return { ...source, [head]: withLeaf((source[head] as Record<string, unknown> | undefined) ?? {}, rest, value) };
-}
 
 /** Read a default leaf, tolerating a path whose parents are not objects. */
 function defaultAt(defaults: object, path: readonly string[]): unknown {

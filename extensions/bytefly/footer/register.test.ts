@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { withAgentDir } from "../../../test/helpers/env.ts";
-import { createFakePi } from "../../../test/helpers/fakes.ts";
+import { createFakePi, emit } from "../../../test/helpers/fakes.ts";
 import { fakeFooterCtx, renderFooter } from "../../../test/helpers/fixtures/bytefly.ts";
 import { registerFooter } from "./register.ts";
 
@@ -33,10 +33,6 @@ interface Harness {
 	/** Render the installed footer, which is what prices the session. */
 	render(): void;
 }
-
-const emit = async (pi: any, event: string, payload: unknown, ctx: any): Promise<void> => {
-	for (const handler of pi.handlers.get(event) ?? []) await handler(payload, ctx);
-};
 
 /**
  * Register the footer in `tui` mode over `bytefly.json` with a USD budget, so the

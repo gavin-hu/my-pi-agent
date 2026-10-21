@@ -8,15 +8,13 @@ import { withEnv } from "../../../test/helpers/env.ts";
 import { fakeTheme, makeFakePi } from "../../../test/helpers/fakes.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeDiscovery, makeItem, makeStore } from "../../../test/helpers/fixtures/picker.ts";
+import { settle } from "../../../test/helpers/process.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
 import type { UpdateOutcome } from "../update/state.ts";
 import { registerPanel } from "./commands.ts";
 import { type SettingsSnapshot, settingViews } from "./settings.ts";
 import type { SettingsRuntime, SettingsRuntimeDeps } from "./settings-runtime.ts";
 import { SHIPPED_THEMES_DIR } from "./themes.ts";
-
-/** Let a fire-and-forget toggle settle. */
-const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 const item = (path: string) => makeItem({ path });
 

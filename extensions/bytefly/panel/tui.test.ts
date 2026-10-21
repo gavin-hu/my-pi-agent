@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
+import { withLeaf } from "../../../test/helpers/config.ts";
 import { coloringTheme, fakeTheme, roleSgrTheme, ROLE_SGR } from "../../../test/helpers/fakes.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import {
@@ -12,24 +13,14 @@ import {
 	packageExtension,
 	type FakeStore,
 } from "../../../test/helpers/fixtures/picker.ts";
+import { settle } from "../../../test/helpers/process.ts";
 import type { ResourceItem, Settings } from "../picker/types.ts";
 import { createExtensionsPickerRuntime } from "../picker/runtime.ts";
 import { nextValue, type SettingsSnapshot, settingViews, storedValue } from "./settings.ts";
 import type { SettingsSurface } from "./settings-runtime.ts";
 import { PanelComponent } from "./tui.ts";
 
-/** Let a fire-and-forget toggle or refresh settle. */
-const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
-
 const packageItem = (name: string, enabled = true): ResourceItem => packageExtension(name, enabled) as ResourceItem;
-
-/** A copy of `source` with the leaf at `path` set; the writer's shape, in memory. */
-function withLeaf(source: Record<string, unknown>, path: readonly string[], value: unknown): Record<string, unknown> {
-	const [head, ...rest] = path;
-	if (head === undefined) return source;
-	if (rest.length === 0) return { ...source, [head]: value };
-	return { ...source, [head]: withLeaf((source[head] as Record<string, unknown> | undefined) ?? {}, rest, value) };
-}
 
 /** A copy of `source` without the leaf at `path`; the unset writer's inverse, in memory. */
 function withoutLeaf(source: Record<string, unknown>, path: readonly string[]): Record<string, unknown> | undefined {
