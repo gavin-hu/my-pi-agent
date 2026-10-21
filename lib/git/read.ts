@@ -70,6 +70,26 @@ export async function revParse(runGit: RunGit, cwd: string, rev: string): Promis
 	return id || undefined;
 }
 
+/**
+ * Resolve several revisions in one `git rev-parse`, in the order given.
+ *
+ * A snapshot needs `HEAD` and its tree, and two calls pay two spawns for one
+ * answer; `rev-parse` prints one line per argument, so one call is enough. A
+ * revision that does not resolve is not a shorter list — it is no answer, since
+ * the caller's indices would shift — so the result is `[]` unless every one
+ * resolved.
+ */
+export async function revParseMany(runGit: RunGit, cwd: string, revs: readonly string[]): Promise<string[]> {
+	if (revs.length === 0) return [];
+	const result = await runGit(["rev-parse", ...revs], { cwd });
+	if (result.code !== 0) return [];
+	const ids = result.stdout
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line !== "");
+	return ids.length === revs.length ? ids : [];
+}
+
 /** Whether the repository has at least one commit. */
 export async function hasCommits(runGit: RunGit, cwd: string): Promise<boolean> {
 	return (await revParse(runGit, cwd, "HEAD")) !== undefined;
