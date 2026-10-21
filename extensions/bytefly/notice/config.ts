@@ -6,6 +6,10 @@
  * glyph. The glyphs come from the shared vocabulary, the roles from the shared
  * rail map, and the rail glyph from the `chrome` config, so a notice reads like
  * the tool results around it.
+ *
+ * Severity reaches two surfaces: the rail (the block's worst severity) and the
+ * headline's title (the notice's own). A row carries no colour of its own, so a
+ * notice reporting one success and one failure stays readable as a list.
  */
 
 import type { NoticeSeverity } from "../../../lib/notice.ts";
@@ -16,8 +20,18 @@ import { RAIL_ROLES } from "../chrome.ts";
 export const NOTICE_CONFIG = {
 	/** Role for the source name at the head of the block. */
 	sourceRole: "accent" as TuiRole,
-	/** Role for the headline's title text and each row's label. */
-	titleRole: "label" as TuiRole,
+	/**
+	 * Role for the headline's title, keyed by the notice's own severity: an alert
+	 * reads in colour where the sentence is, a routine notice stays body text.
+	 */
+	titleRoles: {
+		info: "label",
+		ok: "label",
+		warn: "warn",
+		bad: "bad",
+	} as Record<NoticeSeverity, TuiRole>,
+	/** Role for each row's label; a row states its severity with its glyph. */
+	rowRole: "label" as TuiRole,
 	/** Role for the `·` separators and each row's trailing detail. */
 	detailRole: "faint" as TuiRole,
 	/** Width-1 glyph per severity, from the shared vocabulary. */

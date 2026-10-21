@@ -697,6 +697,26 @@ describe("noticeLines", () => {
 		expect(noticeLines(clean, coloringTheme, 80)[1]).toContain("[dim]╎");
 	});
 
+	test("paints the headline's title by the notice's own severity", () => {
+		const budget: NoticeDetails = { source: "bytefly", title: "Session budget reached", severity: "warn" };
+		expect(noticeLines(budget, coloringTheme, 80)[0]).toContain("[warning]Session budget reached");
+
+		const failed: NoticeDetails = { source: "job", title: "the build failed", severity: "bad" };
+		expect(noticeLines(failed, coloringTheme, 80)[0]).toContain("[error]the build failed");
+
+		const routine: NoticeDetails = { source: "job", title: "2 background jobs finished", severity: "info" };
+		expect(noticeLines(routine, coloringTheme, 80)[0]).toContain("[text]2 background jobs finished");
+	});
+
+	test("keeps a row's label at body text however severe the row is", () => {
+		// `details` carries one `ok` row and one `bad` one; the rail goes red for the
+		// failure, and only the glyphs state each row's verdict.
+		const text = noticeLines(details, coloringTheme, 80).join("\n");
+		expect(text).toContain("[text]2 background jobs finished");
+		expect(text).toContain("[text]j2 test");
+		expect(text).not.toContain("[error]j2 test");
+	});
+
 	test("insets the whole block by Pi's output pad", () => {
 		const lines = noticeLines(details, fakeTheme, 80, 1);
 		expect(lines[0]?.startsWith(" job")).toBe(true);

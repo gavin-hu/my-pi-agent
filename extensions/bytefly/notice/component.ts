@@ -7,7 +7,9 @@
  * — so it goes through `sanitizeLine` before it reaches the terminal, and every
  * line is clipped to the width it is given. The rail is painted by the notice's
  * worst severity, so a failure reads red at the edge like an errored tool
- * result; the `source · title` headline stays at the margin.
+ * result, and the headline's title is painted by the notice's own severity, so a
+ * warning reads yellow where its sentence is; the source name stays at the
+ * margin and a row's label stays body text behind its glyph.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -65,16 +67,16 @@ export function noticeLines(
 	glyph = DEFAULT_RAIL_GLYPH,
 ): string[] {
 	const w = Math.max(1, width);
+	const fallback = knownSeverity(details.severity, "info");
 	const sep = paint(theme, NOTICE_CONFIG.detailRole, SEPARATORS.item);
 	const source = paint(theme, NOTICE_CONFIG.sourceRole, sanitizeLine(details.source));
-	const title = paint(theme, NOTICE_CONFIG.titleRole, sanitizeLine(details.title));
+	const title = paint(theme, NOTICE_CONFIG.titleRoles[fallback], sanitizeLine(details.title));
 	const items = details.items ?? [];
 	const shown = items.slice(0, NOTICE_CONFIG.maxItems);
-	const fallback = knownSeverity(details.severity, "info");
 	const gap = " ".repeat(GLYPH_GAP);
 
 	const rows = shown.map((item) => {
-		const label = paint(theme, NOTICE_CONFIG.titleRole, sanitizeLine(item.label));
+		const label = paint(theme, NOTICE_CONFIG.rowRole, sanitizeLine(item.label));
 		const detail = item.detail ? `${sep}${paint(theme, NOTICE_CONFIG.detailRole, sanitizeLine(item.detail))}` : "";
 		return `${severityGlyph(theme, severityOf(item, fallback))}${gap}${label}${detail}`;
 	});

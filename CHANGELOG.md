@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: a transcript notice's headline is painted by the notice's own
+  severity, so a warning reads yellow and a failure red where its sentence is;
+  `info` and `ok` notices stay body text, and a row's label is body text under
+  its own severity glyph, so one failing row does not tint the list.
+
 - `file-read`: the `document` extension is renamed, so its name covers the
   workbooks it has always read. The directory, the `pi` manifest entry, the
   `PI_DISABLED_EXTENSIONS` name, and the `bytefly.json` section are now
