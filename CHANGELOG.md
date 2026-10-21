@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-21
+
 ### Added
 
 - `skills`: a model-invoked `changelog` skill drafts the candidate bullet before
@@ -2652,7 +2654,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.16.0
 [0.15.1]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.15.1
 [0.15.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.15.0
 [0.14.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.14.0
