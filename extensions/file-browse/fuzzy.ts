@@ -8,6 +8,10 @@
  * parent directory. The matched character positions are returned so the client
  * can highlight them; the palette never sees HTML.
  *
+ * The palette runs this on every keystroke over an index of thousands of paths,
+ * so ranking keeps only the best `limit` candidates instead of sorting them all:
+ * the highlighted columns are computed for those winners and no others.
+ *
  * Pure and dependency-free so it can be unit-tested without a DOM.
  */
 
@@ -24,15 +28,30 @@ export interface FuzzyResult {
 /** Queries longer than this are treated as no match. */
 const MAX_QUERY_LENGTH = 256;
 
-/** Score one path against a query; `undefined` when it is not a subsequence. */
-export function fuzzyMatch(query: string, text: string): FuzzyMatch | undefined {
-	if (query === "") return { score: 0, positions: [] };
+/** A candidate while it is still unranked: a path and its score. */
+interface Candidate {
+	path: string;
+	score: number;
+}
+
+/** A scan's result; `positions` is collected only when the caller asked for it. */
+interface Scan {
+	score: number;
+	positions?: number[];
+}
+
+/**
+ * The one subsequence scan. `collect` fills the matched columns, which the
+ * ranking pass does not need and allocates an array for on every candidate.
+ */
+function scan(query: string, text: string, collect: boolean): Scan | undefined {
+	if (query === "") return collect ? { score: 0, positions: [] } : { score: 0 };
 	if (query.length > MAX_QUERY_LENGTH) return undefined;
 
 	const lowerQuery = query.toLowerCase();
 	const lowerText = text.toLowerCase();
 	const baseStart = text.lastIndexOf("/") + 1;
-	const positions: number[] = [];
+	const positions: number[] | undefined = collect ? [] : undefined;
 	let score = 0;
 	let cursor = 0;
 	let previous = -2;
@@ -40,7 +59,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch | undefined 
 	for (let index = 0; index < lowerQuery.length; index++) {
 		const found = lowerText.indexOf(lowerQuery[index], cursor);
 		if (found === -1) return undefined;
-		positions.push(found);
+		positions?.push(found);
 
 		let bonus = 1;
 		if (text[found] === query[index]) bonus += 1;
@@ -55,21 +74,56 @@ export function fuzzyMatch(query: string, text: string): FuzzyMatch | undefined 
 		previous = found;
 		cursor = found + 1;
 	}
-	return { score, positions };
+	return positions ? { score, positions } : { score };
+}
+
+/** Score one path against a query; `undefined` when it is not a subsequence. */
+export function fuzzyMatch(query: string, text: string): FuzzyMatch | undefined {
+	const scanned = scan(query, text, true);
+	return scanned ? { score: scanned.score, positions: scanned.positions ?? [] } : undefined;
+}
+
+/**
+ * The palette's one total order: the higher score first, then the shorter path
+ * (a basename match beats a name buried in a directory), then the path itself so
+ * two candidates never compare equal.
+ */
+function compare(a: Candidate, b: Candidate): number {
+	if (a.score !== b.score) return b.score - a.score;
+	if (a.path.length !== b.path.length) return a.path.length - b.path.length;
+	return a.path.localeCompare(b.path);
+}
+
+/** Keep `candidate` in `window` — sorted by {@link compare}, never longer than `limit`. */
+function keepBest(window: Candidate[], candidate: Candidate, limit: number): void {
+	let low = 0;
+	let high = window.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if (compare(window[middle], candidate) <= 0) low = middle + 1;
+		else high = middle;
+	}
+	if (low >= limit) return;
+	window.splice(low, 0, candidate);
+	if (window.length > limit) window.pop();
 }
 
 /**
  * Rank `paths` against `query` and return the best `limit` matches. An empty
  * query returns nothing: the palette shows the index size instead.
+ *
+ * The result is the same list a full sort would produce — `keepBest` inserts on
+ * the same order — but the work is bounded by `limit` rather than by the index,
+ * and the matched columns are computed for the winners only.
  */
 export function fuzzySearch(query: string, paths: readonly string[], limit: number): FuzzyResult[] {
 	const trimmed = query.trim();
 	if (trimmed === "" || limit <= 0) return [];
-	const scored: Array<FuzzyResult & { score: number }> = [];
+	const window: Candidate[] = [];
 	for (const path of paths) {
-		const match = fuzzyMatch(trimmed, path);
-		if (match) scored.push({ path, positions: match.positions, score: match.score });
+		const scored = scan(trimmed, path, false);
+		if (scored === undefined) continue;
+		keepBest(window, { path, score: scored.score }, limit);
 	}
-	scored.sort((a, b) => b.score - a.score || a.path.length - b.path.length || a.path.localeCompare(b.path));
-	return scored.slice(0, limit).map(({ path, positions }) => ({ path, positions }));
+	return window.map(({ path }) => ({ path, positions: fuzzyMatch(trimmed, path)?.positions ?? [] }));
 }

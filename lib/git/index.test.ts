@@ -8,6 +8,7 @@ import {
 	hasCommits,
 	repoRoot,
 	revParse,
+	revParseMany,
 	runGitOrThrow,
 	type GitResult,
 	type RunGit,
@@ -143,6 +144,26 @@ describe("read helpers", () => {
 
 		const missing = recordingRunner(new Map([["rev-parse --verify --quiet HEAD", { code: 1 }]]));
 		expect(await revParse(missing.run, "/repo", "HEAD")).toBeUndefined();
+	});
+
+	test("revParseMany resolves every revision in one call, in order", async () => {
+		const { run, calls } = recordingRunner(new Map([["rev-parse HEAD HEAD^{tree}", { stdout: "abc123\ndef456\n" }]]));
+		expect(await revParseMany(run, "/repo", ["HEAD", "HEAD^{tree}"])).toEqual(["abc123", "def456"]);
+		expect(calls.map((call) => call.args)).toEqual([["rev-parse", "HEAD", "HEAD^{tree}"]]);
+	});
+
+	test("revParseMany answers nothing rather than a short list", async () => {
+		const failed = recordingRunner(new Map([["rev-parse HEAD nope", { code: 128 }]]));
+		expect(await revParseMany(failed.run, "/repo", ["HEAD", "nope"])).toEqual([]);
+
+		const short = recordingRunner(new Map([["rev-parse HEAD HEAD^{tree}", { stdout: "abc123\n" }]]));
+		expect(await revParseMany(short.run, "/repo", ["HEAD", "HEAD^{tree}"])).toEqual([]);
+	});
+
+	test("revParseMany with no revisions asks git nothing", async () => {
+		const { run, calls } = recordingRunner(new Map());
+		expect(await revParseMany(run, "/repo", [])).toEqual([]);
+		expect(calls).toEqual([]);
 	});
 
 	test("hasCommits follows revParse HEAD", async () => {

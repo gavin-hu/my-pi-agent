@@ -28,6 +28,7 @@ import {
 	buildFileIndex,
 	buildTree,
 	contentTypeFor,
+	directoryView,
 	isImageName,
 	listDirectory,
 	readFileView,
@@ -158,8 +159,7 @@ async function view(ctx: ServeContext, rawRel: string, raw: boolean): Promise<Se
 }
 
 async function directoryResponse(ctx: ServeContext, rel: string): Promise<ServeResponse> {
-	const listing = await listDirectory(ctx.root, rel, ctx.config.maxDirEntries);
-	const tree = await treeFor(ctx, rel);
+	const { listing, tree } = await directoryView(ctx.root, rel, ctx.config.maxDirEntries);
 	const git = await gitFor(ctx);
 	const changes = await changed(ctx);
 	return htmlResponse(

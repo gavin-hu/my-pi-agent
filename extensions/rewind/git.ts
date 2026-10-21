@@ -20,6 +20,7 @@ import {
 	gitDir,
 	repoRoot,
 	revParse,
+	revParseMany,
 	runGitOrThrow as run,
 	type RunGit,
 } from "../../lib/git/index.ts";
@@ -27,7 +28,7 @@ import { parseNameStatus, parseNumStat, type ChangedPath, type PathStat } from "
 
 // Re-export exactly the shared helpers this extension consumes, so rewind code
 // has one git import surface instead of reaching into `lib/git` directly.
-export { GitError, currentBranch, gitDir, repoRoot, revParse, type RunGit };
+export { GitError, currentBranch, gitDir, repoRoot, revParse, revParseMany, type RunGit };
 
 /** Timeout budget for one git command issued by this extension. */
 const SNAPSHOT_TIMEOUT_MS = 30_000;
@@ -262,20 +263,32 @@ export async function applyPatchReverse(runGit: RunGit, cwd: string, patch: stri
 	}
 }
 
-/** Label of an in-progress git operation that a rewind must not clobber, if any. */
+/**
+ * The markers an interrupted git operation leaves, in precedence order: the
+ * first one present names the operation a rewind would clobber.
+ */
+const BUSY_MARKERS: ReadonlyArray<readonly [string, string]> = [
+	["MERGE_HEAD", "merge"],
+	["rebase-merge", "rebase"],
+	["rebase-apply", "rebase"],
+	["CHERRY_PICK_HEAD", "cherry-pick"],
+	["REVERT_HEAD", "revert"],
+	["BISECT_LOG", "bisect"],
+];
+
+/**
+ * Label of an in-progress git operation that a rewind must not clobber, if any.
+ *
+ * `rev-parse --git-path` prints one path per argument, so all six markers are one
+ * git call: a clean repository — the common case, where every one of them is
+ * missing — would otherwise pay six spawns to learn nothing is in progress.
+ */
 export async function busyGitState(runGit: RunGit, cwd: string): Promise<string | undefined> {
-	const markers: Array<[string, string]> = [
-		["MERGE_HEAD", "merge"],
-		["rebase-merge", "rebase"],
-		["rebase-apply", "rebase"],
-		["CHERRY_PICK_HEAD", "cherry-pick"],
-		["REVERT_HEAD", "revert"],
-		["BISECT_LOG", "bisect"],
-	];
-	for (const [name, label] of markers) {
-		const result = await runGit(["rev-parse", "--git-path", name], { cwd });
-		if (result.code !== 0) continue;
-		const path = result.stdout.trim();
+	const result = await runGit(["rev-parse", ...BUSY_MARKERS.flatMap(([name]) => ["--git-path", name])], { cwd });
+	if (result.code !== 0) return undefined;
+	const paths = result.stdout.split("\n");
+	for (const [index, [, label]] of BUSY_MARKERS.entries()) {
+		const path = paths[index]?.trim();
 		if (path && existsSync(resolve(cwd, path))) return label;
 	}
 	return undefined;

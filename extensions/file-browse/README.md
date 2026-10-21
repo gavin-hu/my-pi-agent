@@ -325,7 +325,7 @@ document and the project document (project wins):
 | [`../../lib/escape.ts`](../../lib/escape.ts) | `escapeHtml`, the shared HTML escaping used by every renderer |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer for the code view (shared with `plan`) |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | The shared Bytefly web brand system: tokens, base, components, layout, runtime, and markup |
-| `files.ts` | Classification (incl. Markdown), listings, text reads, sidebar tree |
+| `files.ts` | Classification (incl. Markdown), text reads, and one page-level walk (`directoryView`) that returns a directory's listing and its sidebar tree |
 | `diff.ts` | Pure unified-diff and porcelain-status parsing for the diff view |
 | `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
 | `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted; raw HTML through `raw-html.ts`) |

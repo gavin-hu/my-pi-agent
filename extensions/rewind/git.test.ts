@@ -188,4 +188,16 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 			rmSync(join(repo, mergeHead), { force: true });
 		}
 	});
+
+	test("busyGitState reads every marker from the one path query, in order", async () => {
+		const marker = (await runGit(["rev-parse", "--git-path", "CHERRY_PICK_HEAD"], { cwd: repo })).stdout.trim();
+		writeFileSync(join(repo, marker), "x\n");
+		try {
+			// The batched `rev-parse` maps one output line per marker by position; a
+			// misalignment would name a marker whose file does not exist.
+			expect(await busyGitState(runGit, repo)).toBe("cherry-pick");
+		} finally {
+			rmSync(join(repo, marker), { force: true });
+		}
+	});
 });
