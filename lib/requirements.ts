@@ -266,6 +266,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	memory: {
 		optional: [gitCheck("project-scope memory under the repository root")],
 	},
+	context: {},
 	wechat: {
 		optional: [
 			{
@@ -301,7 +302,6 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		],
 	},
 };
-
 // --- Probing ----------------------------------------------------------------
 
 /** Run a command and report its exit code; production backs this with `pi.exec`. */

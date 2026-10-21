@@ -363,6 +363,75 @@ debugging hunt. Neither is a project-management tool; they are session memory.
 - The list and the goal are written by tools the assistant calls, so you do not
   have to manage them by hand. Use the commands to inspect, not to micro-edit.
 
+## Seeing where the context goes
+
+### What it is
+
+Every model has a context window, and a long session eventually fills it. Pi
+compacts the conversation before it overflows: an older stretch is replaced by a
+summary and the newest messages are kept. `/context` shows what is in the window
+now, how much room is left, and when Pi would compact, so a surprise compaction
+is something you can see coming.
+
+The report separates the parts that are easy to confuse:
+
+- the **system prompt** — Pi's instructions, `AGENTS.md`, and project context;
+- the **tool definitions** declared to the model;
+- the **conversation** by role: your messages, the assistant's, and tool results;
+- **injected context** from this pack (`memory`, `goal`, `plan`, and the like);
+- **summaries** left by an earlier compaction;
+- and the **drift** between Pi's total and the estimate, when the two differ.
+
+### When to use it
+
+- A turn was compacted and you want to know what survived.
+- The window feels full but the conversation looks short, which usually means a
+  few large tool results.
+- You are about to read a big file or run a long build and want to know how much
+  room is left.
+
+### Walkthrough
+
+1. Run `/context`. The screen opens with Pi's own number:
+
+   ```text
+   Context ──────────────────────────────────────────────
+    124k / 200k  ▰▰▰▰▰▰▱▱▱▱  62%
+    76k free · auto-compact at 184k · 60k headroom · keeps newest 20k
+   ```
+
+2. Read the rows. A row's percentage is its share of the composition estimate,
+   and **Largest blocks** names the single items taking the most room.
+
+3. Press `c` to compact from here. The screen asks first, then reports the
+   before and after numbers. Right after a compaction the token count is unknown
+   until the model's next reply; the screen says so instead of showing a guess.
+
+| Key | What it does |
+|---|---|
+| `↑` / `↓`, `j` / `k`, `PgUp` / `PgDn`, `Home` / `End`, `g` / `G` | Scroll the report |
+| `c` | Compact the conversation, after a confirmation |
+| `r` | Re-read the session and repaint |
+| `Esc` / `q` | Close the screen |
+
+Outside the terminal — `rpc`, `json`, and `print` — `/context` prints the same
+report as text, and `/context compact [instructions]` is still available.
+
+### Good to know
+
+- The headline is Pi's estimate, built from the last provider reply plus the
+  messages after it. The rows use a characters/4 estimate, so they can differ by
+  a little; the report names the difference instead of hiding it.
+- The threshold is the one Pi uses: the model's `reserveTokens` override, then
+  the shared setting, then Pi's default. The footer's gauge shows the same
+  pressure in one glyph.
+- Before the session's first reply, Pi's total counts the projected messages only
+  and leaves out the system prompt and tool definitions, so the rows can sit
+  above it. The drift row says which way the difference runs.
+- `/context compact` refuses while the agent is busy — a streaming turn or a
+  running compaction — because compaction starts by aborting the turn. Pi's own
+  `/compact` does abort it when that is what you want.
+
 ## Answering the assistant's questions
 
 ### What it is

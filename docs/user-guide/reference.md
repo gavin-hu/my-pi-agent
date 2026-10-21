@@ -42,6 +42,8 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/watch logs <id>` | Print the raw output tail |
 | `/watch stop <id>` | Stop one watcher |
 | `/watch clear [all]` | Remove stopped watchers, or all with `all` |
+| `/context` | Show where the context window goes; `c` compacts from the report |
+| `/context compact [instructions]` | Compact from the report; refused while a turn is running |
 
 ### Worktrees, rewind, and memory
 
@@ -119,6 +121,7 @@ Alphabetical, for lookup. Each subcommand is explained in its parent section.
 | `/browse` | [Browsing a project](./web-and-files.md#browsing-a-project) |
 | `/bytefly` | [The control centre](./settings-and-customization.md#the-control-centre) |
 | `/check` | [Checking your work](./plan-and-delegate.md#checking-your-work) |
+| `/context` | [Seeing where the context goes](./plan-and-delegate.md#seeing-where-the-context-goes) |
 | `/goal` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
 | `/skill:init` | [Plan first, then write](./plan-and-delegate.md#plan-first-then-write) |
 | `/jobs` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
@@ -220,7 +223,7 @@ Snapshots and their limits are configured in
 
 ## Extensions and tools
 
-The pack adds 17 extensions and 22 tools. `worktree` also re-registers Pi's path
+The pack adds 18 extensions and 22 tools. `worktree` also re-registers Pi's path
 tools so they follow the active root; those are replacements, not additions.
 
 | Extension | Tools | Commands and flags |
@@ -236,6 +239,7 @@ tools so they follow the active root; those are replacements, not additions.
 | `worktree` | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` | `/worktree`, `--worktree` |
 | `rewind` | — | `/rewind`, `/review` |
 | `memory` | `memory` | `/memory` |
+| `context` | — | `/context` |
 | `web-access` | `web_search`, `web_fetch` | — |
 | `file-read` | `read_doc` | — |
 | `file-browse` | — | `/browse` |

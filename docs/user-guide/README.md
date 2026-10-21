@@ -1,7 +1,7 @@
 # my-pi-agent user guide
 
 `my-pi-agent` is an add-on for [Pi](https://pi.dev), the assistant you talk to in
-a terminal. It adds 17 extensions, all optional, and two colour themes to the Pi
+a terminal. It adds 18 extensions, all optional, and two colour themes to the Pi
 you already use: planning, verification, background work, isolation, memory, web
 access, a WeChat bridge, and a themed control centre. Nothing in Pi is forked or
 modified, and every extension can be switched off.

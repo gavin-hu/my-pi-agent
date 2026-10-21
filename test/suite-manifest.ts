@@ -21,6 +21,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"extension",
 	],
 	check: ["check", "surface", "extension"],
+	context: ["report", "tui", "extension"],
 	"file-read": ["extract/extract", "tool"],
 	"file-browse": ["pages", "router", "files", "config"],
 	"file-open": ["extension"],

@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `context`: a `/context` report of where the context window goes — system
+  prompt, active tool definitions, the conversation by role, injected context by
+  type, and the largest blocks — plus the auto-compaction threshold, the headroom
+  before it, and the branch's compaction history. `c` on the screen and
+  `/context compact [instructions]` compact from the report and refuse while a
+  turn is streaming, so a one-key compaction cannot abort a running answer.
 - `file-browse`: the server stops when its last page is closed. Ten seconds after
   the final tab's status stream detaches — the `IDLE_STOP_MS` grace in `config.ts`
   — the port is released and the footer chip is cleared, and a reload or a new tab

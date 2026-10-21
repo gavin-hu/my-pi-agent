@@ -11,13 +11,13 @@ The README makes one promise: **plan before you act, delegate the work, keep the
 main checkout clean, and carry context across sessions** — without forking Pi.
 The roadmap is ordered by how directly an item makes that sentence true.
 
-The pack already has breadth: seventeen extensions and two themes. The next stage
+The pack already has breadth: eighteen extensions and two themes. The next stage
 is not more surface area. It is making the existing promises exact, continuous
 across `/resume` and `/tree`, and honest where a platform cannot deliver.
 
 ## Where we are
 
-- Seventeen extensions, two themes, one shared `bytefly.json`.
+- Eighteen extensions, two themes, one shared `bytefly.json`.
 - Four product groups in the README: plan and delegate, keep work safe, reach
   the world, chrome and upkeep.
 - Foundations that hold: no build step, no fork, every extension optional,
