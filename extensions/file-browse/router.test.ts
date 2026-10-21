@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { realpathSync } from "node:fs";
 import { DEFAULT_CONFIG, type ServeConfig } from "./config.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
+import type { LiveStatusSource } from "./live.ts";
 import type { ServeResponse } from "../../lib/http/index.ts";
 import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
 
@@ -15,6 +16,11 @@ afterEach(() => {
 function context(overrides: Partial<ServeConfig> = {}): ServeContext {
 	if (!fixture) fixture = makeFixture();
 	return { root: realpathSync(fixture.root), config: { ...DEFAULT_CONFIG, ...overrides } };
+}
+
+/** A live status source that answers one idle snapshot. */
+function idleStatus(): LiveStatusSource {
+	return { snapshot: async () => ({ at: 0, uptimeMs: 0, requests: 0, git: null, changes: null }) };
 }
 
 function text(response: ServeResponse): string {
@@ -50,6 +56,32 @@ describe("routing", () => {
 		);
 		expect(response.status).toBe(200);
 		expect(text(response)).not.toContain('class="bf-chip browse-git');
+	});
+
+	test("marks the live status stream for the server to hold open", async () => {
+		const response = await handleRequest({ ...context(), live: idleStatus() }, "GET", "/events", {});
+		expect(response.status).toBe(200);
+		expect(response.stream).toBe(true);
+		expect(response.headers["Content-Type"]).toContain("text/event-stream");
+		expect(response.headers["Cache-Control"]).toBe("no-store");
+	});
+
+	test("refuses the stream when live status is off or unconfigured", async () => {
+		const off = await handleRequest({ ...context({ live: false }), live: idleStatus() }, "GET", "/events", {});
+		expect(off.status).toBe(404);
+		const absent = await handleRequest(context(), "GET", "/events", {});
+		expect(absent.status).toBe(404);
+	});
+
+	test("renders the live chrome only when the channel is available", async () => {
+		const page = await handleRequest({ ...context(), live: idleStatus() }, "GET", "/", {});
+		const html = text(page);
+		expect(html).toContain('id="live-state"');
+		expect(html).toContain(`data-interval="${DEFAULT_CONFIG.liveIntervalMs}"`);
+		expect(html).toContain('id="live-status"');
+
+		const off = text(await handleRequest({ ...context({ live: false }), live: idleStatus() }, "GET", "/", {}));
+		expect(off).not.toContain('id="live-status"');
 	});
 
 	test("serves a nested directory and a file view", async () => {

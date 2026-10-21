@@ -234,12 +234,12 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 		why: "the panel's key state machine and screen composition",
 	},
 	"extensions/file-browse/client.ts": {
-		lines: 720,
+		lines: 722,
 		why: "the browse page's dependency-free client script, shipped as one asset",
 	},
 	"extensions/file-browse/html.ts": {
-		lines: 736,
-		why: "the browse pages' renderers and their page-only stylesheet",
+		lines: 681,
+		why: "the browse pages' renderers, from the shared shell through the diff body",
 	},
 	"extensions/file-browse/markdown.ts": {
 		lines: 885,
@@ -275,7 +275,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 8679;
+const LONG_MODULE_TOTAL = 8626;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {

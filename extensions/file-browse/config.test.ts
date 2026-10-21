@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_CONFIG, normalizeConfig, PORT_BASE, PORT_RANGE, randomPort } from "./config.ts";
+import {
+	DEFAULT_CONFIG,
+	LIVE_INTERVAL_MAX,
+	LIVE_INTERVAL_MIN,
+	normalizeConfig,
+	PORT_BASE,
+	PORT_RANGE,
+	randomPort,
+} from "./config.ts";
 
 describe("randomPort", () => {
 	test("stays inside the per-session range", () => {
@@ -59,5 +67,21 @@ describe("normalizeConfig git diff", () => {
 		expect(normalizeConfig({ diffContext: -2 }).diffContext).toBe(0);
 		expect(normalizeConfig({ diffContext: 500 }).diffContext).toBe(100);
 		expect(normalizeConfig({ maxDiffLines: 0 }).maxDiffLines).toBe(1);
+	});
+});
+
+describe("normalizeConfig live status", () => {
+	test("defaults the status channel on, three seconds apart", () => {
+		expect(DEFAULT_CONFIG.live).toBe(true);
+		expect(DEFAULT_CONFIG.liveIntervalMs).toBe(3000);
+		expect(normalizeConfig(undefined).live).toBe(true);
+	});
+
+	test("accepts a boolean toggle and clamps the cadence to its band", () => {
+		expect(normalizeConfig({ live: false }).live).toBe(false);
+		expect(normalizeConfig({ live: "no" }).live).toBe(true);
+		expect(normalizeConfig({ liveIntervalMs: 1000 }).liveIntervalMs).toBe(1000);
+		expect(normalizeConfig({ liveIntervalMs: 1 }).liveIntervalMs).toBe(LIVE_INTERVAL_MIN);
+		expect(normalizeConfig({ liveIntervalMs: LIVE_INTERVAL_MAX * 10 }).liveIntervalMs).toBe(LIVE_INTERVAL_MAX);
 	});
 });

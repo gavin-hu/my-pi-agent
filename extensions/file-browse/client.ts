@@ -12,6 +12,7 @@
  */
 
 import { keysDialogScript, SIDEBAR_COLLAPSE_MAX, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { LIVE_CLIENT_JS } from "./live-client.ts";
 
 export const CLIENT_JS = `(function () {
 	"use strict";
@@ -716,5 +717,6 @@ export const CLIENT_JS = `(function () {
 
 	// The control starts in the state the rendered tree implies.
 	syncFoldButton();
-})();
+
+${LIVE_CLIENT_JS}})();
 `;

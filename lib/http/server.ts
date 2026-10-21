@@ -5,9 +5,10 @@
  * Everything here is behavior a caller cannot get right by accident: a bind on
  * `127.0.0.1` only, an accept-level `error` listener so a transient failure
  * cannot take the host down, a `HEAD` that sends headers and no body, a `filePath`
- * response streamed instead of buffered, and a close that is safe to call twice
- * and drops keep-alive connections. What each server does *around* this — SSE
- * streams, request bodies, session settling — stays with that server.
+ * response streamed instead of buffered, a `stream` response opened as an event
+ * stream, and a close that is safe to call twice and drops keep-alive
+ * connections. What each server does *around* this — which frames an event
+ * stream carries, request bodies, session settling — stays with that server.
  */
 
 import { createReadStream } from "node:fs";
@@ -42,7 +43,7 @@ export async function bindLoopback(server: Server, port: number): Promise<number
  *
  * A `stream` response is deliberately not handled here: keeping a connection
  * open is the owning server's lifecycle, so it must check `stream` before
- * calling this.
+ * calling this and open the stream itself through {@link openEventStream}.
  *
  * `afterFlush` runs once a buffered body is on the wire, which is the point a
  * server may resolve a session without the client seeing a dropped connection.
@@ -66,6 +67,23 @@ export function respond(
 		return;
 	}
 	response.end(result.body ?? "", afterFlush);
+}
+
+/**
+ * Write the head of a Server-Sent Events response and start its stream: the
+ * status and headers, then a `retry:` hint for the browser's own reconnect.
+ *
+ * The connection itself stays the calling server's lifecycle — `respond` must
+ * not be called after this, and the caller owns ending the response and any
+ * periodic frames.
+ */
+export function openEventStream(
+	response: ServerResponse,
+	result: Pick<ServeResponse, "status" | "headers">,
+	retryMs = 2000,
+): void {
+	response.writeHead(result.status, result.headers);
+	response.write(`retry: ${retryMs}\n\n`);
 }
 
 /**

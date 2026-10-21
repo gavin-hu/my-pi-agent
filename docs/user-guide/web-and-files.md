@@ -185,7 +185,9 @@ fuzzy quick-open palette, and a read-only git diff view.
 
 4. The header's theme button switches the page between light and dark and
    remembers your choice. Until you use it, the page follows the system
-   preference.
+   preference. Beside it, a `◉ live` chip says whether the page is still in
+   touch with the server, and the footer reports how long it has been up and how
+   many requests it has answered.
 
 5. If the project is a git repository, a change chip links to a change overview
    and per-file diffs. The comparison scope can be the last commit, the staged
@@ -213,6 +215,11 @@ subcommands:
 - Read caps bound large files, long rendered documents, large images, and long
   directory listings. Over-size content becomes a download card rather than a
   frozen page.
+- A tab left open keeps up: the branch chip, the change chip, and the change
+  markers refresh as the working tree changes, so you can edit in Pi and watch
+  the browser follow. It updates what is already on the page — a new file needs a
+  reload to appear in the listing — and `"live": false` in the `file-browse`
+  section turns it off.
 - The server stops when the session shuts down.
 
 ### Opening a file in its usual application

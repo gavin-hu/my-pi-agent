@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { jsonHeaders, PAGE_CSP, pageHeaders, scriptHeaders } from "./headers.ts";
+import { eventHeaders, jsonHeaders, PAGE_CSP, pageHeaders, scriptHeaders } from "./headers.ts";
 
 /** Every header set a loopback server sends, by name. */
 const SETS = [
@@ -46,5 +46,25 @@ describe("header sets", () => {
 		first.Allow = "GET, HEAD";
 		expect(pageHeaders().Allow).toBeUndefined();
 		expect(jsonHeaders().Allow).toBeUndefined();
+	});
+});
+
+describe("eventHeaders", () => {
+	test("is an event stream, not a document", () => {
+		const headers = eventHeaders();
+		expect(headers["Content-Type"]).toBe("text/event-stream; charset=utf-8");
+		expect(headers["Cache-Control"]).toBe("no-store");
+		expect(headers.Connection).toBe("keep-alive");
+		expect(headers["X-Accel-Buffering"]).toBe("no");
+	});
+
+	test("claims no page policy, because the page that opens it carries one", () => {
+		expect(eventHeaders()["Content-Security-Policy"]).toBeUndefined();
+	});
+
+	test("is fresh per call", () => {
+		const first = eventHeaders();
+		first.Connection = "close";
+		expect(eventHeaders().Connection).toBe("keep-alive");
 	});
 });

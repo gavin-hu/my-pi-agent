@@ -535,13 +535,50 @@ describe("diff view", () => {
 			...base,
 			summary: summary([changed({ rel: "a.ts" }), changed({ rel: "b.ts" })], 12, 4),
 		});
-		expect(two).toContain('class="bf-chip browse-diff" href="/diff"');
+		expect(two).toContain('class="bf-chip browse-diff" id="browse-changes" href="/diff"');
 		expect(two).toContain("2 changes");
 		expect(two).toContain("+12");
 		expect(two).toContain("−4");
 		expect(renderDirectoryPage({ ...base, summary: summary([changed({ rel: "a.ts" })]) })).toContain("1 change");
-		expect(renderDirectoryPage({ ...base, summary: summary([]) })).not.toContain('browse-diff" href');
+		expect(renderDirectoryPage({ ...base, summary: summary([]) })).not.toContain('class="bf-chip browse-diff"');
 		expect(renderDirectoryPage(base)).not.toContain('class="bf-chip browse-diff"');
+	});
+
+	test("renders a hidden changes shell only when live status is on", () => {
+		fixture = makeFixture();
+		const base = {
+			rootLabel: fixture.root,
+			rel: "",
+			listing: { entries: [], total: 0, truncated: false },
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		};
+		const live = renderDirectoryPage({ ...base, live: { intervalMs: 3000 } });
+		expect(live).toContain('id="browse-changes" href="/diff"');
+		expect(live).toContain('title="View uncommitted changes" hidden');
+		expect(live).toContain('id="live-state"');
+		expect(live).toContain('data-interval="3000"');
+		expect(live).toContain('class="browse-live-line" id="live-status" hidden');
+		// With changes present the shell is the real chip, not an empty hidden one.
+		expect(
+			renderDirectoryPage({ ...base, live: { intervalMs: 3000 }, summary: summary([changed({ rel: "a.ts" })]) }),
+		).not.toContain('title="View uncommitted changes" hidden');
+	});
+
+	test("renders no live chrome when the channel is off", () => {
+		fixture = makeFixture();
+		const html = renderDirectoryPage({
+			rootLabel: fixture.root,
+			rel: "",
+			listing: { entries: [], total: 0, truncated: false },
+			tree,
+			thumbnails: false,
+			maxThumbBytes: 0,
+		});
+		expect(html).not.toContain("live-state");
+		expect(html).not.toContain("live-status");
+		expect(html).toContain('<footer class="bf-app__footer">served from ');
 	});
 
 	test("marks changed files and their directories in the listing and tree", () => {

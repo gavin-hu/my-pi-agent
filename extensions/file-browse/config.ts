@@ -36,6 +36,10 @@ export interface ServeConfig {
 	diffContext: number;
 	/** Diff lines rendered before the view is truncated. */
 	maxDiffLines: number;
+	/** Push live status to open pages over `/events`. */
+	live: boolean;
+	/** How often a connected page is sent a status frame, in ms. */
+	liveIntervalMs: number;
 }
 
 export const DEFAULT_CONFIG: ServeConfig = {
@@ -52,6 +56,8 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	gitDiff: true,
 	diffContext: 3,
 	maxDiffLines: 4000,
+	live: true,
+	liveIntervalMs: 3000,
 };
 
 /** Base of the per-session port range. */
@@ -59,6 +65,13 @@ export const PORT_BASE = 4780;
 
 /** Number of ports in the per-session range. */
 export const PORT_RANGE = 1000;
+
+/** Fastest live-status cadence a page may be given, short enough to watch and
+ * long enough that the 2 s provider caches absorb most ticks. */
+export const LIVE_INTERVAL_MIN = 250;
+
+/** Slowest live-status cadence, so a page cannot look abandoned. */
+export const LIVE_INTERVAL_MAX = 60_000;
 
 /** A random port in the per-session range `PORT_BASE`–`PORT_BASE + PORT_RANGE - 1`. */
 export function randomPort(): number {
@@ -85,6 +98,8 @@ export function normalizeConfig(
 		gitDiff: asBoolean(raw.gitDiff, base.gitDiff),
 		diffContext: clampInteger(raw.diffContext, base.diffContext, 0, 100),
 		maxDiffLines: clampInteger(raw.maxDiffLines, base.maxDiffLines, 1, 1_000_000),
+		live: asBoolean(raw.live, base.live),
+		liveIntervalMs: clampInteger(raw.liveIntervalMs, base.liveIntervalMs, LIVE_INTERVAL_MIN, LIVE_INTERVAL_MAX),
 	};
 }
 

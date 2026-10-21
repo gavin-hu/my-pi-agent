@@ -83,6 +83,13 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   `worktree`; untracked files show as all-add, an unborn `HEAD` falls back to the
   index, and a non-repository is a plain empty state. Read-only, capped, and
   rendered with the shared diff colors.
+- **Live status.** A page left open keeps up with the session: a `◉ live · 2s`
+  chip beside `read-only` says whether status is flowing (green, with the age of
+  the last frame), still connecting (accent), stalled (amber), or offline (red);
+  the branch chip, the `● N changes +A −D` chip, and the change markers in the
+  tree and the listing update in place; and the footer line reports `up 2m 14s ·
+  37 requests`. One Server-Sent Events stream per page carries it, on the same
+  loopback server, so nothing extra is opened and nothing is written.
 - **No dependencies.** `node:http` plus the inline sprite, CSS, and client
   script.
 
@@ -114,6 +121,19 @@ beside `⎇ branch` and `⑂ worktree`; it
 is cleared on stop and on `session_shutdown`. The chip is session-local: it
 reflects only this session's server, with no cross-session sharing.
 
+The page has its own live status, which is what a left-open tab reads. The
+header chip starts hidden and is painted by the client from `/events`: `◉ live ·
+2s` in the success colour while frames arrive, `◉ connecting` before the first
+one, `◉ stale · 9s` in the warning colour when three intervals pass without a
+frame on an open connection, and `◉ offline` in the danger colour once the
+stream errors. The same frame carries the branch (or detached head), the
+uncommitted-change totals and paths, the server's uptime, and the requests it
+has answered, so the branch chip, the changes chip, the markers, and the footer
+line are painted from one snapshot rather than four requests. Losing the stream
+leaves everything the page last showed in place: it is read-only, so a stale
+label is never a stale action. `"live": false` turns the whole surface off — no
+chip, no stream, no `/events` route — and so does JavaScript off.
+
 ## Routes
 
 | Route | Result |
@@ -126,6 +146,7 @@ reflects only this session's server, with no cross-session sharing.
 | `/diff/<rel>[?mode=…]` | one file's unified diff |
 | `/api/tree?path=<rel>` | JSON children for lazy tree expansion |
 | `/api/files?q=<query>` | JSON fuzzy path matches for the quick-open palette |
+| `/events` | Server-Sent Events stream of `status` frames for the open page |
 | `/app.js` | the first-party client script |
 | `/theme.js` | the pre-paint theme bootstrap |
 | `/favicon.ico` | `204` (the icon is a data URI) |
@@ -150,7 +171,9 @@ document and the project document (project wins):
   "maxIndexEntries": 20000,  // files collected for quick open before truncation
   "gitDiff": true,           // offer the read-only diff view
   "diffContext": 3,          // unified diff context lines
-  "maxDiffLines": 4000       // diff lines rendered before truncation
+  "maxDiffLines": 4000,      // diff lines rendered before truncation
+  "live": true,              // stream live status to open pages
+  "liveIntervalMs": 3000     // ms between status frames while a page is connected
 }
 ```
 
@@ -185,6 +208,13 @@ document and the project document (project wins):
 - **Highlighting safety.** The highlighter escapes every literal before it
   wraps it in a token span, so a code file's content cannot inject markup or
   attributes; only the fixed `tok-*` class names reach the page.
+- **Event stream.** `/events` is a `GET` on the same loopback server, behind
+  the same method and `Host` checks, and it only reads: the frame is the branch,
+  the change paths, an uptime, and a request count, all of which the page it
+  feeds already renders. It carries no page policy (`text/event-stream` is not a
+  document), sends `Cache-Control: no-store`, and cannot be cached or replayed.
+  A tick runs only while a page is attached, and the timer is `unref`ed, so an
+  idle server does no work and a forgotten tab cannot hold the process open.
 - **Caps.** `maxFileBytes` (inline rendering), `maxTextLines` (rendered lines),
   `maxThumbBytes` (thumbnails), and `maxDirEntries` (listings) bound every read.
 - **Git reads.** The header chip and the diff view run read-only git
@@ -200,6 +230,11 @@ document and the project document (project wins):
   type renders exactly as before. State that the tokenizer does not carry
   across lines (shell heredocs, interpolation inside a template literal) is
   approximated rather than parsed.
+- Live status updates what the page already contains: the header chips, the
+  markers on the rows it rendered, and the footer line. A file that appears on
+  disk joins the listing on the next reload, the `/diff` table and a file page's
+  `changes` action stay page-load snapshots, and the branch chip is only patched
+  when the page was served inside a repository.
 - `/browse` has no auth; a malicious local page could probe the port. The `Host`
   allowlist and the absence of CORS headers mitigate reads, and the server is
   read-only.
@@ -221,7 +256,7 @@ document and the project document (project wins):
 |---|---|
 | Command | `/browse` registers a single command from the factory; no tools are exposed. |
 | State | The running server, its root, and the session port live in a module-local closure; nothing is persisted and no session entries are written. |
-| Lifecycle | The factory opens no socket; the server is created on `/browse` and closed idempotently by `/browse stop` and `session_shutdown`. |
+| Lifecycle | The factory opens no socket; the server is created on `/browse` and closed idempotently by `/browse stop` and `session_shutdown`, which also ends every attached status stream. |
 
 ## Design notes
 
@@ -309,6 +344,19 @@ document and the project document (project wins):
   with the file view. `git diff --stat` supplies the chip totals and
   `changeDirs` derives the directory markers; the changed lines are highlighted
   per hunk by rebuilding the old and new sides for `lib/highlight`.
+- **Live status.** `live.ts` builds one snapshot per tick — the git status,
+  the `head` change index, the server's uptime, and its request count — and
+  `frameOf` serializes it as one `status` event. `createLiveChannel` holds the
+  attached pages and starts the ticker on the first attach, so an idle server
+  does no work; it shares a single in-flight snapshot between pages, drops a
+  page whose write fails, and stops on the last detach and on `close()`, which
+  `server.ts` calls before closing the socket. Both providers are already
+  TTL-cached, so a tick re-reads at most one `git status`, and every read
+  failure degrades to `null` rather than a failed frame. The event-stream
+  headers and the `retry:` preamble live in `lib/http` with the rest of the
+  loopback policy, shared with plan's review page. The client half is
+  `live-client.ts`: one `EventSource`, one snapshot paint (`textContent` only,
+  never markup), a one-second age ticker, and a `pagehide` cleanup.
 - **Streaming responses.** The server streams `filePath` responses and
   suppresses bodies for `HEAD`, so large `/raw` files are not buffered.
 - **Root confinement over feature breadth.** The root is deliberately confined
@@ -334,10 +382,13 @@ document and the project document (project wins):
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
 | `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
-| `html.ts` | Page renderers, sortable headers, and the page-only `browse-*` CSS (the `bf-*` kit comes from `lib/web`) |
+| `live-client.ts` | The client's live status block: the event stream, the chips, the markers, and the footer line (interpolated into `client.ts`) |
+| `live.ts` | The live status snapshot, its frame, and the fan-out channel that ticks it |
+| `styles.ts` | The page-only `browse-*` stylesheet (the `bf-*` kit comes from `lib/web`) |
+| `html.ts` | Page renderers: the shared shell, the two-pane layout, the listing, the cards, and the diff body |
 | `router.ts` | Pure request handler: routes, the `/raw` sandbox policy, and the error page |
 | `server.ts` | `node:http` server: this extension's handler over the shared bind, writer, and close |
-| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: page/script/JSON headers, `ServeResponse`, the request-envelope helpers, bind/respond/close |
+| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, bind/respond/close, and `openEventStream` |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |
 
 ## Testing
@@ -360,5 +411,9 @@ on first start, reused, and re-rolled after a conflict), the git status provider
 and provider (line kinds, line numbers, status and rename parsing, mode
 filtering, untracked all-add, unborn-HEAD fallback, literal pathspec, and TTL
 cache), the diff renderers (highlighted changed lines, marker sets, and chip
-totals), and the command
+totals), the live status feed (snapshot fields, degraded providers, the frame,
+and the channel's ticker driven by an injected timer), the `/events` route and
+its 404 when the channel is off, a real socket that reads a page's first frame
+and the ticker's next one and sees the stream end when the server closes, the
+live chrome a page renders when on and not when off, and the command
 lifecycle with injected seams.

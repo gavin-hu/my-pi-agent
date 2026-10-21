@@ -13,6 +13,7 @@
  */
 
 import {
+	eventHeaders,
 	isLocalHostHeader,
 	jsonError,
 	jsonHeaders,
@@ -47,17 +48,6 @@ export interface ReviewContext {
 	/** Called when the user cancels; the server resolves the session once the response has flushed. */
 	onCancel: () => void;
 }
-
-/**
- * The event stream's headers: the one response that is not the page policy, because
- * it is a long-lived `text/event-stream` rather than a document.
- */
-const EVENT_HEADERS: Record<string, string> = {
-	"Content-Type": "text/event-stream; charset=utf-8",
-	"Cache-Control": "no-store",
-	Connection: "keep-alive",
-	"X-Accel-Buffering": "no",
-};
 
 /**
  * Parse and validate an `{ annotations }` request body. Returns the annotations,
@@ -127,7 +117,7 @@ export async function handleReviewRequest(
 	if (pathname === "/" || pathname === "/index.html") {
 		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page()) };
 	}
-	if (pathname === "/events") return { status: 200, headers: { ...EVENT_HEADERS }, stream: true };
+	if (pathname === "/events") return { status: 200, headers: eventHeaders(), stream: true };
 	if (pathname === "/api/cancel") {
 		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to cancel.");
 		ctx.onCancel();

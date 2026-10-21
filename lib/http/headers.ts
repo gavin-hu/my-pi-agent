@@ -52,3 +52,23 @@ export function scriptHeaders(): Record<string, string> {
 export function jsonHeaders(): Record<string, string> {
 	return secured("application/json; charset=utf-8");
 }
+
+/**
+ * Headers for a Server-Sent Events stream: the one response that is not the page
+ * policy, because it is a long-lived event stream rather than a document. It
+ * carries no policy of its own to relax — the page that opens it is the one
+ * governed by `PAGE_CSP` — but it is declared here so both loopback servers
+ * answer a stream the same way.
+ *
+ * `no-store` stops a cached stream from replaying stale status, `keep-alive`
+ * names the connection's intent, and `X-Accel-Buffering: no` is for any
+ * buffering reverse proxy in front of it, which would otherwise hold the frames.
+ */
+export function eventHeaders(): Record<string, string> {
+	return {
+		"Content-Type": "text/event-stream; charset=utf-8",
+		"Cache-Control": "no-store",
+		Connection: "keep-alive",
+		"X-Accel-Buffering": "no",
+	};
+}
