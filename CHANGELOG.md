@@ -41,6 +41,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `goal`: `/goal` on a goal that is still being planned now names the phase's
+  exits — approve the plan to set the final goal, or leave plan mode to keep the
+  draft's wording — instead of showing it like a final objective.
+
 - `bytefly`: the panel's text-editing state machine and its frame/height
   composition moved into `tui/editing.ts` and `tui/frame.ts`; the screen's keys
   and output are unchanged. No tool, parameter, or config key changed.

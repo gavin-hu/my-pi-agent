@@ -85,7 +85,9 @@ describe("model-facing text", () => {
 	});
 
 	test("notices describe both states", () => {
-		expect(formatGoalNotice(planning)).toBe("Goal (planning): Ship the parser");
+		expect(formatGoalNotice(planning)).toBe(
+			"Goal (planning): Ship the parser\nApprove the plan to set the final goal; leaving plan mode keeps this wording.",
+		);
 		expect(formatGoalNotice(active)).toBe("Goal (active): Ship the parser");
 		expect(formatGoalNotice(achieved)).toBe("Goal achieved: Ship the parser");
 	});

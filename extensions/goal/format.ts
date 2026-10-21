@@ -86,11 +86,20 @@ export function formatGoalText(goal: Goal | null, openTodos = 0): string {
 	return `Goal: ${goal.objective}\nKeep this objective in mind as you work, and mark it achieved with the goal tool when it is done.`;
 }
 
-/** One-line notification text for the `/goal` command. */
+/**
+ * One-line notification text for the `/goal` command.
+ *
+ * A draft adds its exits: `Goal (planning): …` alone says what the state is, not
+ * how to leave it, and the two ways out are not guessable from the widget.
+ */
 export function formatGoalNotice(goal: Goal): string {
 	if (goal.status === "achieved") return `Goal achieved: ${goal.objective}`;
-	return `Goal (${goalStatusLabel(goal.status)}): ${goal.objective}`;
+	const line = `Goal (${goalStatusLabel(goal.status)}): ${goal.objective}`;
+	return goal.status === "planning" ? `${line}\n${PLANNING_HINT}` : line;
 }
+
+/** How a planning phase ends, in one line: the two exits a user can take. */
+const PLANNING_HINT = "Approve the plan to set the final goal; leaving plan mode keeps this wording.";
 
 /**
  * First-run usage shown by a bare `/goal` with no goal set, and by

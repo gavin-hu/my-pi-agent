@@ -59,8 +59,8 @@ How the `goal` call and its result look in the transcript — the call line as a
   against the objective — and stops once it is achieved.
 - Stores tool-set goals in tool-result `details` and command-set goals as a
   `goal` session entry, so either way the goal follows the active session branch
-  and survives `/resume` and `/tree` — abandoned branches never leak into the
-  current goal.
+  and survives `/resume` and `/tree` — a `planning` draft included, since it is
+  written the same way. Abandoned branches never leak into the current goal.
 - Understands the goal before recording it: `/goal <prompt>` asks the session
   model to restate the goal as it understands it and, when it cannot yet, to ask
   up to three questions — which the command asks directly through host dialogs
@@ -125,7 +125,7 @@ entry; `reconstructGoal` replays both entry kinds in branch order through
 
 | Command | What it does |
 |---|---|
-| `/goal` | Show the current goal, or the command usage when none is set. |
+| `/goal` | Show the current goal, or the command usage when none is set. A draft also names its exits: approve the plan to set the final goal, or leave plan mode to keep its wording. |
 | `/goal <prompt>` | Run the understanding loop — restate, ask any questions the model needs, then confirm/edit in the editor, whose answer notes are dropped on save — ask once whether to plan first, then start the run. Replacing a live goal is confirmed first. |
 | `/goal raw <prompt>` | Skip the loop: record the typed words verbatim, ask whether to plan first, and start the run. |
 | `/goal set <prompt>` (or `/goal edit <prompt>`) | The same loop, but record the goal without starting a run, so the plan question is not asked. An explicit `set`/`edit <text>` replaces a pursued goal without asking, since the command already says so. |

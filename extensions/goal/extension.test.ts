@@ -276,7 +276,8 @@ describe("/goal command", () => {
 		await command.handler("raw ship the parser", ctx);
 
 		expect(entries.at(-1)?.data).toEqual({ goal: { objective: "ship the parser", status: "planning" } });
-		expect(notifications.at(-1)).toBe("Goal (planning): ship the parser");
+		expect(notifications.at(-1)).toStartWith("Goal (planning): ship the parser");
+		expect(notifications.at(-1)).toContain("Approve the plan to set the final goal");
 		expect(sentMessages.at(-1)).toEqual({ content: "ship the parser", options: undefined });
 	});
 
@@ -311,6 +312,14 @@ describe("/goal command", () => {
 		const { command, ctx, notifications } = await started([resultEntry(active("ship it"))]);
 		await command.handler("", ctx);
 		expect(notifications.at(-1)).toBe("Goal (active): ship it");
+	});
+
+	test("names the exits when the goal is still being planned", async () => {
+		const { command, ctx, notifications } = await started([resultEntry(planning("ship it")), PLAN_MODE_ON], {}, true);
+		await command.handler("", ctx);
+
+		expect(notifications.at(-1)).toContain("Goal (planning): ship it");
+		expect(notifications.at(-1)).toContain("leaving plan mode keeps this wording");
 	});
 
 	test("shows usage for /goal help with or without a goal", async () => {
