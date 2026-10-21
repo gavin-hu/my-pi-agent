@@ -16,7 +16,7 @@ bun run check                     # format:check + typecheck + test
 bun run format                    # biome format --write .
 bun test <path>                   # one test file or directory
 PI_SLOW_TESTS=1 bun run test      # include the gated rewind and worktree suites
-bun run check:serial              # macOS fallback when a parallel run hangs
+bun run check:serial              # what macOS CI runs: --parallel can hang
 bun run bench:render              # render benchmark, budgeted in docs/development.md
 ```
 
@@ -89,27 +89,25 @@ Not caught by types, and easy to get wrong.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range.
 - Adding an extension also touches the `pi` manifest, the `package.json`
-  description, `REQUIREMENTS` in `lib/requirements.ts`, the catalog table in
-  `README.md` and its `README.zh-CN.md` mirror, and `test/naming.test.ts` when it
-  adds a tool name.
+  description, co-located tests, `REQUIREMENTS` in `lib/requirements.ts`, the
+  catalog table and the stated size in `README.md` and `README.zh-CN.md`, and
+  `test/naming.test.ts` when it adds a tool name.
 - Adding a packaged skill is a `skills/<name>/SKILL.md` whose frontmatter carries
   `name` and `description`, plus its row in both entry READMEs' skill tables;
   `test/extension-load.test.ts` holds the manifest and the frontmatter.
 
 ## Tool and prompt surface
 
-- Every tool declares `annotations.readOnlyHint` and `openWorldHint`; a mutating
-  tool also declares `destructiveHint`. Missing hints default to the restrictive
-  values, so leaving one out is never a safe shortcut.
-- `executionMode: "sequential"` on a tool that mutates session, UI, or runtime
-  state, or whose calls are order-dependent.
-- Every registered tool has a `promptSnippet`. Each channel — `description`,
-  `promptSnippet`, `promptGuidelines`, parameter docs, injected context — keeps
-  its one job and does not restate another.
-- Always-on prompt text is budgeted; `test/prompt-budget.test.ts` holds the
-  ceilings.
-- A tool or command rename also updates `test/naming.test.ts` and the catalog
-  table in both entry READMEs.
+Every tool declares `annotations.readOnlyHint` and `openWorldHint`, plus
+`destructiveHint` when it mutates; a missing hint defaults to the restrictive
+value. `executionMode: "sequential"` on a tool that mutates session, UI, or
+runtime state. Every registered tool has a `promptSnippet`, and each channel
+keeps its one job instead of restating another. `test/prompt-budget.test.ts`
+holds the always-on ceilings; the rules in full are in
+[`docs/development.md#tool-and-prompt-surface`](./docs/development.md#tool-and-prompt-surface).
+
+A tool rename updates `test/naming.test.ts` and the catalog table in both entry
+READMEs; a command rename updates `docs/user-guide/reference.md`.
 
 ## Code quality
 
