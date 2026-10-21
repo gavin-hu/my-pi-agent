@@ -252,10 +252,6 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 		lines: 1088,
 		why: "the session's job table, child handles, and repaint clock",
 	},
-	"extensions/plan/tools.ts": {
-		lines: 750,
-		why: "the four plan tools' schemas, results, and transcripts",
-	},
 	"extensions/plan/web-client.ts": {
 		lines: 794,
 		why: "the review page's dependency-free client script, shipped as one asset",
@@ -282,7 +278,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 9689;
+const LONG_MODULE_TOTAL = 8939;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {

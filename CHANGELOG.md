@@ -27,6 +27,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: `tools.ts` is now the registration entry; one module per tool lives
+  under `tools/`, with the approval-time todo seed and the nested-result reader
+  beside them, and the pure result text in `format.ts`. No tool, parameter, or
+  config key changed.
+
 - `lib`: `lib/todo-state.ts` now owns the todo item contract, its parser, and
   one strict branch replay; a stored write that fails validation is ignored
   whole instead of partially applied, so `todo`, `plan`, and `goal` read the
