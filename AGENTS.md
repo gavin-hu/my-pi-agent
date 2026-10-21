@@ -88,10 +88,10 @@ Not caught by types, and easy to get wrong.
   `Host` rule, or an allowlist drifts apart. `lib/http/` is that module here.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range.
-- Adding an extension also touches the `pi` manifest, the `package.json`
-  description, co-located tests, `REQUIREMENTS` in `lib/requirements.ts`, the
-  catalog table and the stated size in `README.md` and `README.zh-CN.md`, and
-  `test/naming.test.ts` when it adds a tool name.
+- Adding an extension also touches the `pi` manifest, `package.json`,
+  `REQUIREMENTS` in `lib/requirements.ts`, its capability suites in
+  `test/suite-manifest.ts`, the catalog table and stated size in both READMEs, and
+  `test/naming.test.ts` for a tool name.
 - Adding a packaged skill is a `skills/<name>/SKILL.md` whose frontmatter carries
   `name` and `description`, plus its row in both entry READMEs' skill tables;
   `test/extension-load.test.ts` holds the manifest and the frontmatter.

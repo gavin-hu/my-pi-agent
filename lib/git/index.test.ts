@@ -1,21 +1,43 @@
-import { describe, expect, test } from "bun:test";
+/**
+ * The shared git plumbing, driven through the `RunGit` seam: the execution
+ * runner (timeout and temporary-environment handling), the read-only queries,
+ * and the path canonicalization `repoRoot` applies to git's own output.
+ *
+ * No git process is started: the runner double answers by argument, and the
+ * paths that must exist are temp directories from this suite.
+ */
+
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, realpathSync, symlinkSync } from "node:fs";
+import { join } from "node:path";
+import { tempDir, withEnv } from "../../test/helpers/env.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
+import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import {
-	GitError,
 	createExecRunner,
 	currentBranch,
 	gitCommonDir,
 	gitDir,
+	GitError,
+	type GitResult,
 	hasCommits,
 	repoRoot,
+	repoRootFor,
 	revParse,
 	revParseMany,
 	runGitOrThrow,
-	type GitResult,
 	type RunGit,
 } from "./index.ts";
-import { withEnv } from "../../test/helpers/env.ts";
 
-/** A runner that answers from a map and records every call. */
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
+
+/** A temp directory, removed at teardown. */
+function scratch(prefix: string): string {
+	return temps.track(tempDir(prefix));
+}
+
+/** A runner that answers from a map or a function, and records every call. */
 function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: string[]) => Partial<GitResult>)) {
 	const calls: Array<{ args: string[]; options: { cwd: string; timeoutMs?: number; env?: Record<string, string> } }> =
 		[];
@@ -27,6 +49,8 @@ function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: st
 	return { run, calls };
 }
 
+// --- The execution runner ---------------------------------------------------
+
 describe("runGitOrThrow", () => {
 	test("returns stdout on a clean exit", async () => {
 		const { run } = recordingRunner(new Map([["status", { stdout: "clean\n" }]]));
@@ -35,7 +59,7 @@ describe("runGitOrThrow", () => {
 
 	test("throws GitError with stderr detail on failure", async () => {
 		const { run } = recordingRunner(new Map([["log", { code: 128, stderr: "not a git repository\n" }]]));
-		const error = await runGitOrThrow(run, ["log"], { cwd: "/repo" }).catch((e) => e);
+		const error = await runGitOrThrow(run, ["log"], { cwd: "/repo" }).catch((caught) => caught);
 		expect(error).toBeInstanceOf(GitError);
 		expect(error.message).toBe("not a git repository");
 		expect(error.code).toBe(128);
@@ -43,10 +67,10 @@ describe("runGitOrThrow", () => {
 
 	test("falls back to stdout, then to a generic message", async () => {
 		const stdoutOnly = recordingRunner(new Map([["a", { code: 1, stdout: "boom" }]]));
-		expect(await runGitOrThrow(stdoutOnly.run, ["a"], { cwd: "/r" }).catch((e) => e.message)).toBe("boom");
+		expect(await runGitOrThrow(stdoutOnly.run, ["a"], { cwd: "/r" }).catch((caught) => caught.message)).toBe("boom");
 
 		const empty = recordingRunner(new Map([["b", { code: 7 }]]));
-		expect(await runGitOrThrow(empty.run, ["b"], { cwd: "/r" }).catch((e) => e.message)).toBe(
+		expect(await runGitOrThrow(empty.run, ["b"], { cwd: "/r" }).catch((caught) => caught.message)).toBe(
 			"git b exited with code 7",
 		);
 	});
@@ -109,11 +133,49 @@ describe("createExecRunner", () => {
 	});
 });
 
-describe("read helpers", () => {
-	test("repoRoot trims and returns undefined for a non-repo or empty result", async () => {
-		const found = recordingRunner(new Map([["rev-parse --show-toplevel", { stdout: "/repo\n" }]]));
-		expect(await repoRoot(found.run, "/repo")).toBe("/repo");
+describe("repoRootFor", () => {
+	test("caps each git call with the timeout it is given", async () => {
+		const seen: unknown[] = [];
+		const pi = {
+			exec: async (_command: string, _args: string[], options: unknown) => {
+				seen.push(options);
+				return { stdout: "/repo\n", stderr: "", code: 0, killed: false };
+			},
+		};
+		expect(await repoRootFor(pi, "/repo", 5000)).toBe("/repo");
+		expect(seen).toEqual([{ cwd: "/repo", timeout: 5000 }]);
+	});
 
+	test("never throws: a failed or stuck git call is no repository", async () => {
+		const failing = {
+			exec: async () => {
+				throw new Error("timed out");
+			},
+		};
+		expect(await repoRootFor(failing, "/repo")).toBeUndefined();
+
+		const absent = {
+			exec: async () => ({ stdout: "", stderr: "", code: 128, killed: false }),
+		};
+		expect(await repoRootFor(absent, "/repo", 100)).toBeUndefined();
+	});
+});
+
+// --- The read helpers -------------------------------------------------------
+
+describe("repoRoot", () => {
+	test("returns the repository root, trimmed", async () => {
+		const base = scratch("pi-git-root-");
+		const { run } = recordingRunner(
+			() =>
+				({
+					stdout: `${base}\n`,
+				}) as Partial<GitResult>,
+		);
+		expect(await repoRoot(run, base)).toBe(realpathSync.native(base));
+	});
+
+	test("is undefined for a non-repository or a blank answer", async () => {
 		const missing = recordingRunner(new Map([["rev-parse --show-toplevel", { code: 128 }]]));
 		expect(await repoRoot(missing.run, "/repo")).toBeUndefined();
 
@@ -121,6 +183,29 @@ describe("read helpers", () => {
 		expect(await repoRoot(blank.run, "/repo")).toBeUndefined();
 	});
 
+	test("falls back to git's own string when the path cannot be resolved", async () => {
+		const gone = join(scratch("pi-git-root-"), "gone");
+		const { run } = recordingRunner(() => ({ stdout: gone }) as Partial<GitResult>);
+		expect(await repoRoot(run, "/repo")).toBe(gone);
+	});
+
+	// Windows requires Developer Mode/admin to create symlinks; skip rather than
+	// fail when the privilege is unavailable.
+	const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
+
+	symlinkTest("canonicalizes a path that reaches the repository through a symlink", async () => {
+		const base = scratch("pi-git-link-");
+		const target = join(base, "repo");
+		mkdirSync(target);
+		const link = join(base, "link");
+		symlinkSync(target, link);
+
+		const { run } = recordingRunner(() => ({ stdout: link }) as Partial<GitResult>);
+		expect(await repoRoot(run, link)).toBe(realpathSync.native(target));
+	});
+});
+
+describe("gitDir and gitCommonDir", () => {
 	test("gitDir returns the git directory or undefined", async () => {
 		const found = recordingRunner(new Map([["rev-parse --absolute-git-dir", { stdout: "/repo/.git\n" }]]));
 		expect(await gitDir(found.run, "/repo")).toBe("/repo/.git");
@@ -137,22 +222,26 @@ describe("read helpers", () => {
 		const missing = recordingRunner(new Map([[key, { code: 128 }]]));
 		expect(await gitCommonDir(missing.run, "/repo")).toBeUndefined();
 	});
+});
 
-	test("revParse resolves an id or reports absence", async () => {
+describe("revParse", () => {
+	test("resolves an id or reports absence", async () => {
 		const found = recordingRunner((args) => (args.at(-1) === "HEAD" ? { stdout: "abc123\n" } : {}));
 		expect(await revParse(found.run, "/repo", "HEAD")).toBe("abc123");
 
 		const missing = recordingRunner(new Map([["rev-parse --verify --quiet HEAD", { code: 1 }]]));
 		expect(await revParse(missing.run, "/repo", "HEAD")).toBeUndefined();
 	});
+});
 
-	test("revParseMany resolves every revision in one call, in order", async () => {
+describe("revParseMany", () => {
+	test("resolves every revision in one call, in order", async () => {
 		const { run, calls } = recordingRunner(new Map([["rev-parse HEAD HEAD^{tree}", { stdout: "abc123\ndef456\n" }]]));
 		expect(await revParseMany(run, "/repo", ["HEAD", "HEAD^{tree}"])).toEqual(["abc123", "def456"]);
 		expect(calls.map((call) => call.args)).toEqual([["rev-parse", "HEAD", "HEAD^{tree}"]]);
 	});
 
-	test("revParseMany answers nothing rather than a short list", async () => {
+	test("answers nothing rather than a short list", async () => {
 		const failed = recordingRunner(new Map([["rev-parse HEAD nope", { code: 128 }]]));
 		expect(await revParseMany(failed.run, "/repo", ["HEAD", "nope"])).toEqual([]);
 
@@ -160,27 +249,33 @@ describe("read helpers", () => {
 		expect(await revParseMany(short.run, "/repo", ["HEAD", "HEAD^{tree}"])).toEqual([]);
 	});
 
-	test("revParseMany with no revisions asks git nothing", async () => {
+	test("asks git nothing when there is nothing to resolve", async () => {
 		const { run, calls } = recordingRunner(new Map());
 		expect(await revParseMany(run, "/repo", [])).toEqual([]);
 		expect(calls).toEqual([]);
 	});
+});
 
-	test("hasCommits follows revParse HEAD", async () => {
+describe("hasCommits", () => {
+	test("follows whether HEAD resolves", async () => {
 		const withCommit = recordingRunner(new Map([["rev-parse --verify --quiet HEAD", { stdout: "abc\n" }]]));
 		expect(await hasCommits(withCommit.run, "/repo")).toBe(true);
 
 		const empty = recordingRunner(new Map([["rev-parse --verify --quiet HEAD", { code: 128 }]]));
 		expect(await hasCommits(empty.run, "/repo")).toBe(false);
 	});
+});
 
-	test("currentBranch hides a detached HEAD", async () => {
+describe("currentBranch", () => {
+	test("returns the branch, and hides a detached HEAD", async () => {
 		const attached = recordingRunner(new Map([["rev-parse --abbrev-ref HEAD", { stdout: "main\n" }]]));
 		expect(await currentBranch(attached.run, "/repo")).toBe("main");
 
 		const detached = recordingRunner(new Map([["rev-parse --abbrev-ref HEAD", { stdout: "HEAD\n" }]]));
 		expect(await currentBranch(detached.run, "/repo")).toBeUndefined();
+	});
 
+	test("is undefined when the query fails", async () => {
 		const failed = recordingRunner(new Map([["rev-parse --abbrev-ref HEAD", { code: 128 }]]));
 		expect(await currentBranch(failed.run, "/repo")).toBeUndefined();
 	});

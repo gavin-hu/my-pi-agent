@@ -1,5 +1,18 @@
+/**
+ * The runtime-prerequisite table and the optional-integration seams: the pure
+ * probe over injected seams, the default-browser opener, the lazy `unpdf`
+ * extractor, and the nested-`pi` invocation rule.
+ *
+ * No process, package, or network is touched: every probe runs through a seam,
+ * and the one path that exists is a file in this directory.
+ */
+
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { browserCommand, openInBrowser } from "./browser.ts";
+import type { WebSearchProviderEvent } from "./events.ts";
+import { PdfUnavailableError, extractPdfText, pdfExtractorFromModule, pdfGuidance, pdfTextFromResult } from "./pdf.ts";
+import { getPiInvocation, type PiRuntime } from "./pi-invocation.ts";
 import {
 	ageInDays,
 	canDeliver,
@@ -8,11 +21,12 @@ import {
 	PROBE_CONCURRENCY,
 	probeAll,
 	probeExtension,
-	REQUIREMENTS,
 	type ProbeSeams,
+	REQUIREMENTS,
+	type ExtensionReport,
 } from "./requirements.ts";
-import type { WebSearchProviderEvent } from "./events.ts";
-import { pdfGuidance } from "./pdf.ts";
+
+// --- The prerequisite probe -------------------------------------------------
 
 /** The directories the seams resolve against, and the paths they produce. */
 const AGENT_DIR = "/agent";
@@ -36,7 +50,7 @@ function seams(overrides: Partial<ProbeSeams> = {}): ProbeSeams {
 }
 
 /** The finding for one check label, or undefined. */
-function find(report: Awaited<ReturnType<typeof probeExtension>>, check: string) {
+function find(report: ExtensionReport, check: string) {
 	return report.findings.find((finding) => finding.check === check);
 }
 
@@ -118,7 +132,7 @@ describe("state checks", () => {
 	});
 });
 
-describe("config checks", () => {
+describe("config file checks", () => {
 	test("says nothing when no config file exists", async () => {
 		const report = await probeExtension("bytefly", seams());
 		expect(report.findings.some((finding) => finding.check.endsWith(".json"))).toBe(false);
@@ -148,8 +162,7 @@ describe("config checks", () => {
 					path === agentPath("bytefly.json") ? { state: "error", error: "bad json" } : { state: "absent" },
 			}),
 		);
-		const finding = find(report, agentPath("bytefly.json"));
-		expect(finding?.detail).toContain("the global config is ignored");
+		expect(find(report, agentPath("bytefly.json"))?.detail).toContain("the global config is ignored");
 	});
 });
 
@@ -178,7 +191,7 @@ describe("invocation checks", () => {
 	});
 });
 
-describe("report shape", () => {
+describe("the report shape", () => {
 	test("reports a disabled extension without probing it", async () => {
 		let spawned = 0;
 		const report = await probeExtension(
@@ -254,16 +267,8 @@ describe("report shape", () => {
 		// `plan` needs git only for project-local plans, so it stays out of the warning set.
 		expect(names.has("plan")).toBe(false);
 	});
-});
 
-describe("install guidance", () => {
-	test("names the package install for the optional peer", () => {
-		expect(pdfGuidance()).toContain("npm i unpdf");
-	});
-});
-
-describe("hard requirement extensions", () => {
-	test("lists exactly the extensions that can warn at session start", () => {
+	test("hardRequirementExtensions lists exactly the extensions that can warn at session start", () => {
 		expect(hardRequirementExtensions().sort()).toEqual(["rewind", "subagent", "worktree"]);
 	});
 });
@@ -298,6 +303,7 @@ describe("canDeliver", () => {
 });
 
 describe("the notify check", () => {
+	/** A notify seam answering the given configuration. */
 	const notify = (config: { enabled: boolean; method: string }) => () => config;
 
 	test("is ok while notifications are off, whatever the method", async () => {
@@ -340,7 +346,7 @@ describe("the notify check", () => {
 	});
 });
 
-describe("provider check", () => {
+describe("the provider check", () => {
 	/** The facts `web-access` publishes for one session. */
 	function facts(over: Partial<WebSearchProviderEvent> = {}): WebSearchProviderEvent {
 		return {
@@ -604,5 +610,152 @@ describe("age checks", () => {
 			expect(finding?.severity).toBe("info");
 			expect(finding?.detail).toContain("no verification date");
 		}
+	});
+});
+
+// --- The default browser ----------------------------------------------------
+
+describe("browserCommand", () => {
+	test("uses start on Windows, open on macOS, and xdg-open elsewhere", () => {
+		expect(browserCommand("http://x/", "win32")).toEqual({ command: "cmd", args: ["/c", "start", "", "http://x/"] });
+		expect(browserCommand("http://x/", "darwin")).toEqual({ command: "open", args: ["http://x/"] });
+		expect(browserCommand("http://x/", "linux")).toEqual({ command: "xdg-open", args: ["http://x/"] });
+	});
+});
+
+describe("openInBrowser", () => {
+	test("spawns the platform command with the URL", () => {
+		const calls: Array<[string, string[]]> = [];
+		openInBrowser("http://x/", {
+			platform: "linux",
+			spawn: (command, args) => calls.push([command, args]),
+		});
+		expect(calls).toEqual([["xdg-open", ["http://x/"]]]);
+	});
+
+	test("ignores spawn failures, because the URL is printed too", () => {
+		expect(() =>
+			openInBrowser("http://x/", {
+				platform: "win32",
+				spawn: () => {
+					throw new Error("no browser");
+				},
+			}),
+		).not.toThrow();
+	});
+});
+
+// --- The PDF seam -----------------------------------------------------------
+
+describe("pdfTextFromResult", () => {
+	test("reads the text field of a merged result", () => {
+		expect(pdfTextFromResult({ totalPages: 2, text: "body" })).toBe("body");
+	});
+
+	test("accepts a bare string", () => {
+		expect(pdfTextFromResult("body")).toBe("body");
+	});
+
+	test("returns an empty string for anything else", () => {
+		expect(pdfTextFromResult(undefined)).toBe("");
+		expect(pdfTextFromResult({})).toBe("");
+		expect(pdfTextFromResult({ text: 42 })).toBe("");
+	});
+});
+
+describe("pdfExtractorFromModule", () => {
+	test("calls a named extractText with merged pages", async () => {
+		let seen: { size: number; options: unknown } | undefined;
+		const extractor = pdfExtractorFromModule({
+			extractText: async (bytes: Uint8Array, options: unknown) => {
+				seen = { size: bytes.length, options };
+				return { totalPages: 1, text: "body" };
+			},
+		});
+
+		expect(await extractor(new Uint8Array([1, 2]))).toBe("body");
+		expect(seen).toEqual({ size: 2, options: { mergePages: true } });
+	});
+
+	test("falls back to the default export's extractText", async () => {
+		const extractor = pdfExtractorFromModule({
+			default: { extractText: async () => "wrapped" },
+		});
+		expect(await extractor(new Uint8Array())).toBe("wrapped");
+	});
+
+	test("rejects a module without extractText", () => {
+		for (const module of [{}, { extractText: "not a function" }, null, { default: {} }]) {
+			expect(() => pdfExtractorFromModule(module), JSON.stringify(module)).toThrow(PdfUnavailableError);
+		}
+	});
+
+	test("names the install command when the package is missing", () => {
+		expect(pdfGuidance()).toContain("npm i unpdf");
+	});
+});
+
+describe("extractPdfText", () => {
+	test("uses an injected extractor instead of loading unpdf", async () => {
+		const text = await extractPdfText(new Uint8Array([1]), async (bytes) => `injected ${bytes.length}`);
+		expect(text).toBe("injected 1");
+	});
+});
+
+// --- The nested pi invocation -----------------------------------------------
+
+describe("getPiInvocation", () => {
+	/** A path that exists, standing in for Pi's own entry script. */
+	const SCRIPT = join(import.meta.dir, "requirements.test.ts");
+
+	/** Process facts, defaulting to a plain Node run of the entry script. */
+	function runtime(overrides: Partial<PiRuntime> = {}): PiRuntime {
+		return { execPath: "/usr/local/bin/node", entryScript: SCRIPT, ...overrides };
+	}
+
+	test("reuses the interpreter and the entry script it was started with", () => {
+		expect(getPiInvocation(["--version"], runtime())).toEqual({
+			command: "/usr/local/bin/node",
+			args: [SCRIPT, "--version"],
+		});
+	});
+
+	test("falls back to pi on PATH when the runtime was given no script", () => {
+		expect(getPiInvocation(["--version"], runtime({ entryScript: undefined }))).toEqual({
+			command: "pi",
+			args: ["--version"],
+		});
+	});
+
+	test("skips a script path that does not exist", () => {
+		expect(getPiInvocation([], runtime({ entryScript: join(import.meta.dir, "no-such-file.ts") }))).toEqual({
+			command: "pi",
+			args: [],
+		});
+	});
+
+	test("skips a bundled Bun script, which no other process can run", () => {
+		const bundled = runtime({ execPath: "/usr/local/bin/bun", entryScript: "/$bunfs/root/pi" });
+		expect(getPiInvocation([], bundled)).toEqual({ command: "pi", args: [] });
+	});
+
+	test("re-executes a standalone pi instead of reading a user argument as a script", () => {
+		const standalone = runtime({ execPath: "/usr/local/bin/pi", entryScript: "notes.md" });
+		expect(getPiInvocation(["notes.md"], standalone)).toEqual({
+			command: "/usr/local/bin/pi",
+			args: ["notes.md"],
+		});
+	});
+
+	test("treats a compiled Bun build as standalone whatever the binary is called", () => {
+		const compiled = runtime({ execPath: "/opt/homebrew/bin/my-pi", entryScript: undefined, bunVersion: "1.4.3" });
+		expect(getPiInvocation([], compiled)).toEqual({ command: "/opt/homebrew/bin/my-pi", args: [] });
+	});
+
+	test("still reuses the script for an interpreter under another name", () => {
+		expect(getPiInvocation([], runtime({ execPath: "/usr/bin/nodejs" }))).toEqual({
+			command: "/usr/bin/nodejs",
+			args: [SCRIPT],
+		});
 	});
 });

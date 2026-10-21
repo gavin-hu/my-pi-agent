@@ -152,5 +152,4 @@ of the model's active tool set unless a script explicitly reaches for it.
 | `index.ts` | The extension factory: registers `open_path` and the `/open` command, resolves the target, and routes a launch failure to `ctx.ui.notify`. |
 | `open.ts` | `normalizeTarget` and `buildCommand` (pure), `resolveTarget` (existence check), and `openTarget` with the injectable launcher, which reports a start failure and a meaningful non-zero exit. |
 | `schema.ts` | `TOOL_NAME`, the TypeBox `parameters` / `outputSchema`, and the `OpenPathArgs` / `OpenPathResult` types. |
-| `open.test.ts` | Pure-module tests for normalization, resolution, per-platform commands, and the launcher seam. |
-| `extension.test.ts` | Extension-surface tests: registration, disabling, the tool call, and the command. |
+| `extension.test.ts` | The capability suite: normalization, resolution, per-platform commands, the launcher seam, registration, disabling, the tool call, and the command. |

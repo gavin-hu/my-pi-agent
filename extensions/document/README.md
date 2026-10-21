@@ -199,8 +199,8 @@ config defaults, and error listing all derive from it.
    normalizes the output. Keep the parsing in a pure, exported helper so it is
    testable without a real file.
 3. Add a `DocumentFormat` entry to `FORMATS` and widen the `id` union.
-4. Add `extract/<fmt>.test.ts` with a real minimal fixture, and extend
-   `formats.test.ts` / `config.test.ts`.
+4. Add the new extractor to `extract/extract.test.ts` with a real minimal
+   fixture, and extend `tool.test.ts` for format selection and config.
 5. Add a row to the tables above.
 
 `tool.ts`, `paging.ts`, and the config normalizer need no changes.

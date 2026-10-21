@@ -41,23 +41,21 @@ gate is stated in the test.
 
 ## Test tiers
 
-1. **Pure-module tests** (`<module>.test.ts`) — one per source module, beside
-   it, importing `./module.ts`. Exercise the module's public contract only.
-   Behaviour-named tests, Arrange–Act–Assert, table-driven where cases share a
-   shape.
-2. **Extension-surface tests** (`extension.test.ts`) — registration, lifecycle,
-   and integration points driven through the shared `createFakePi` + `fakeCtx`.
-   Split by capability so each test proves one thing.
-3. **Surface / TUI tests** — assert fields, width bounds, ordering, and glyphs,
-   never literal column padding. Use the shared `fakeTheme` and an injected
-   clock for relative timestamps.
-4. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
+1. **Capability suites** (`extensions/<name>/<capability>.test.ts`) — grouped by
+   behaviour, not by module. A suite may cover several source modules, and a
+   module may be covered by more than one suite. Exercise the public contract,
+   use one setup per capability, and table-drive cases that share a shape. The
+   declared suite list is `test/suite-manifest.ts`.
+2. **Library suites** (`lib/<area>.test.ts`, `lib/tui/<area>.test.ts`) — the
+   same grouping over a `lib/` subsystem, keeping pure-unit and platform-seam
+   contracts.
+3. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
    `test/tool-render.test.ts`, `test/roadmap.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
    `test/config-docs.test.ts`, `test/settings-coverage.test.ts`) — cross-cutting
-   contracts. No extension test may duplicate these. `shared-helpers.test.ts`
+   contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
    fails an extension that reimplements what `lib/` owns, by name or by body, and
    a test that re-declares or copies a `test/helpers` export, and pins its
    exception maps; `drift.test.ts` keeps every `lib/` module in the `lib/README.md`
@@ -86,9 +84,9 @@ the code under test is missing a seam. Add the seam instead of the mock.
 
 ## Principles
 
-1. **Test the contract, not the internals.** Exercise each extension through its
-   `index.ts` / exported module surface. Reach into a private helper only when
-   that module is itself a pure unit with its own public export.
+1. **Test the contract, not the internals.** Exercise each capability through
+   the public surface of the modules it covers. Reach into a private helper only
+   when that module is itself a pure unit with its own public export.
 2. **One behaviour per test; Arrange–Act–Assert.** Name `test("...")` as a
    sentence about behaviour, not a method name. No multi-phase mega-tests.
 3. **Deterministic by construction.** No real clock, network, process, or
@@ -108,8 +106,9 @@ the code under test is missing a seam. Add the seam instead of the mock.
    sets) to keep the case list obvious and small.
 8. **Skips are explicit and reasoned.** A guarded skip states why, and the gate
    is documented. Never `.only`; never silently delete coverage.
-9. **A test lives next to the code it covers.** The module under test is a
-   sibling import (`./module.ts`), so coverage and edits stay local.
+9. **A suite lives beside the extension or `lib/` subsystem it covers.** Its
+   imports name the module under test (`./module.ts`), not a copy, so coverage
+   and edits stay local.
 
 ## Fixtures
 
@@ -226,17 +225,30 @@ inside a function is the closure and stays.
 
 ## Layout
 
-Tests are co-located with the source they cover. `test/` holds only shared
-infrastructure and package-level contracts.
+Tests are grouped into capability suites beside the extension or `lib/`
+subsystem they cover. `test/` holds only shared infrastructure, the suite
+manifest, and package-level contracts.
+
+```text
+BEFORE  (~300 files, one per module)        AFTER  (~100 declared suites)
+  extensions/bytefly/block/component.test.ts    extensions/bytefly/block/block.test.ts
+  extensions/bytefly/block/fallback.test.ts     extensions/bytefly/chrome.test.ts
+  extensions/bytefly/block/register.test.ts     extensions/bytefly/panel/panel.test.ts
+  extensions/bytefly/header/component.test.ts   ...
+  extensions/bytefly/header/register.test.ts
+  ...
+```
 
 ```
-extensions/<name>/<module>.test.ts     # one per source module
-extensions/<name>/<sub>/<module>.test.ts
-lib/<module>.test.ts
-lib/git/<module>.test.ts
-lib/tui/<module>.test.ts
+extensions/<name>/<capability>.test.ts
+extensions/<name>/<sub>/<capability>.test.ts
+lib/<area>.test.ts
+lib/git/<area>.test.ts
+lib/tui/<area>.test.ts
+scripts/<area>.test.ts
 test/
   README.md
+  suite-manifest.ts        # the declared suite layout for extensions, lib, and scripts
   helpers/                 # ALL shared doubles and fixtures
     fakes.ts  context.ts  process.ts  env.ts  entries.ts  config.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
@@ -259,14 +271,18 @@ test/
 
 Rules:
 
-- Every directory under `extensions/` contains at least one co-located test.
+- Every directory under `extensions/` declares at least one capability suite.
+- Every `*.test.ts` file under `extensions/`, `lib/`, and `scripts/` is declared
+  in `test/suite-manifest.ts`; `test/structure.test.ts` fails an undeclared one
+  and a declared suite that does not exist.
+- A suite groups a capability, not a module: it may cover several modules, and a
+  large module may be covered by more than one suite. Keep a suite under roughly
+  400 lines or 40 tests; split it by capability when it grows past that.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
   `structure.test.ts`, `docs-parity.test.ts`,
   `extension-load.test.ts`, `shared-helpers.test.ts`, `prompt-budget.test.ts`,
   `theme.test.ts`, and the other package-level contracts listed above.
-- A co-located test's file stem matches the source module it covers. The only
-  exceptions are the documented aggregates in `structure.test.ts`.
 - A test that asserts platform behaviour pins it through the injectable seam
   (`isWindows: () => false`) rather than the ambient `process.platform`: the
   suite runs on all three OSes and the seam is how the other two are simulated.
@@ -277,5 +293,6 @@ Rules:
 
 | From | Source under test | Shared helper | Fixture |
 | --- | --- | --- | --- |
-| `extensions/<name>/x.test.ts` | `./x.ts` | `../../test/helpers/<module>.ts` | `../../test/helpers/fixtures/<name>.ts` |
-| `lib/x.test.ts` | `./x.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<name>.ts` |
+| `extensions/<name>/<capability>.test.ts` | `./<module>.ts` or `./<sub>/<module>.ts` | `../../test/helpers/<module>.ts` | `../../test/helpers/fixtures/<name>.ts` |
+| `lib/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<name>.ts` |
+| `scripts/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<name>.ts` |

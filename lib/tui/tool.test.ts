@@ -1,9 +1,16 @@
+/**
+ * The tool-transcript kit and the per-instance render memo: the call line, the
+ * sanitized error and rejection, the overflow hints, the tail block, the
+ * running timer, and the cache that keeps a repeat frame cheap.
+ */
+
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
+import { RenderCache } from "./render-cache.ts";
 import {
-	elapsedSuffix,
 	earlierHint,
+	elapsedSuffix,
 	errorLine,
 	messageText,
 	moreHint,
@@ -17,7 +24,7 @@ import {
 	toolCallTitle,
 } from "./tool.ts";
 
-/** Column counts exercised by the width sweep. */
+/** Column counts exercised by the width sweeps. */
 const WIDTHS = [80, 48, 40, 20];
 
 describe("toolCallTitle", () => {
@@ -57,7 +64,6 @@ describe("ToolCallText", () => {
 
 	test("returns the same lines on a repeat render at the same width", () => {
 		const component = new ToolCallText("read src/a.ts", "end");
-
 		expect(component.render(40)).toBe(component.render(40));
 	});
 
@@ -125,6 +131,10 @@ describe("rejectionLine", () => {
 		expect(expanded).not.toContain("more lines");
 	});
 
+	test("names the rejection when there is no text at all", () => {
+		expect(rejectionLine(fakeTheme, { content: [], isError: true })).toContain("rejected");
+	});
+
 	test("messageText ignores non-text blocks", () => {
 		expect(messageText({ content: [{ type: "image" }, { type: "text", text: "hello" }] })).toBe("hello");
 	});
@@ -135,6 +145,10 @@ describe("moreHint", () => {
 		const hint = moreHint(fakeTheme, 3);
 		expect(hint).toContain("… 3 more lines");
 		expect(hint.toLowerCase()).toContain("expand");
+	});
+
+	test("honours a custom noun", () => {
+		expect(moreHint(fakeTheme, 2, "rows")).toContain("… 2 more rows");
 	});
 });
 
@@ -227,5 +241,88 @@ describe("elapsedSuffix", () => {
 		expect(elapsedSuffix(fakeTheme, 1500)).toContain("1.5s");
 		expect(elapsedSuffix(fakeTheme, 500)).toBe("");
 		expect(elapsedSuffix(fakeTheme, undefined)).toBe("");
+	});
+});
+
+/** A build that counts, so a cache hit is proved by the count rather than the output. */
+function counting(lines: string[] = ["a"]) {
+	let builds = 0;
+	return {
+		build: () => {
+			builds++;
+			return lines;
+		},
+		builds: () => builds,
+	};
+}
+
+describe("RenderCache", () => {
+	test("returns the same lines while the width and the source are unchanged", () => {
+		const cache = new RenderCache();
+		const source = ["a"];
+		const built = counting(["x"]);
+
+		expect(cache.lines(40, source, built.build)).toBe(cache.lines(40, source, built.build));
+	});
+
+	test("does not rebuild on a hit", () => {
+		const cache = new RenderCache();
+		const source = ["a"];
+		const built = counting();
+
+		cache.lines(40, source, built.build);
+		cache.lines(40, source, built.build);
+
+		expect(built.builds()).toBe(1);
+	});
+
+	test("rebuilds when the width changes", () => {
+		const cache = new RenderCache();
+		const source = ["a"];
+		const built = counting();
+
+		cache.lines(40, source, built.build);
+		cache.lines(41, source, built.build);
+
+		expect(built.builds()).toBe(2);
+	});
+
+	test("rebuilds when the source array changes, even with the same content", () => {
+		const cache = new RenderCache();
+		const built = counting();
+
+		cache.lines(40, ["a"], built.build);
+		cache.lines(40, ["a"], built.build);
+
+		expect(built.builds()).toBe(2);
+	});
+
+	test("rebuilds after invalidate even when nothing else changed", () => {
+		const cache = new RenderCache();
+		const source = ["a"];
+		const built = counting();
+
+		cache.lines(40, source, built.build);
+		cache.invalidate();
+		cache.lines(40, source, built.build);
+
+		expect(built.builds()).toBe(2);
+	});
+
+	test("caches a component with no source on its width alone", () => {
+		const cache = new RenderCache();
+		const built = counting();
+
+		expect(cache.lines(40, undefined, built.build)).toBe(cache.lines(40, undefined, built.build));
+		expect(built.builds()).toBe(1);
+	});
+
+	test("drops the cached lines on invalidate", () => {
+		const cache = new RenderCache();
+
+		const first = cache.lines(40, undefined, () => ["x"]);
+		cache.invalidate();
+
+		expect(cache.lines(40, undefined, () => ["x"])).not.toBe(first);
 	});
 });

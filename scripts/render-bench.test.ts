@@ -1,3 +1,13 @@
+/**
+ * Render and pricing gates for a long transcript.
+ *
+ * The benchmark's wall-clock and heap readings depend on the machine and are
+ * read by a person, so this suite pins only the properties that are wrong on any
+ * machine: a repeat frame must be the same lines, every line must fit its width,
+ * most blocks must come back from their render memo, and a re-price of the same
+ * records must produce the same totals.
+ */
+
 import { describe, expect, test } from "bun:test";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
 import { createPricer } from "../extensions/bytefly/footer/price/price.ts";

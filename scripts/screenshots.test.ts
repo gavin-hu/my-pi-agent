@@ -1,15 +1,23 @@
 /**
- * Render checks for the docs screenshots.
+ * Docs screenshots and the render plumbing behind them.
  *
- * Every capture is drawn by a real component around a hand-written fixture, so a
- * renamed field or a changed constructor breaks an image silently: the script
- * still runs, the PNG just stops matching the product. These tests render every
- * frame at a few widths and assert it stays inside the terminal.
+ * Covers the capturable frames, the two shot CLIs' argument contract, the tool
+ * gallery's fixtures and renderings, and the ANSI-to-HTML bridge the headless
+ * Chrome capture uses. Width and title gates matter here: a renamed field or a
+ * changed constructor still produces a PNG, just one that no longer matches the
+ * product.
  */
 
 import { describe, expect, test } from "bun:test";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { homedir } from "node:os";
+import { basename, resolve } from "node:path";
+import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { ansiLinesToHtml, ansiToHtml, cssFor, parseAnsi } from "./ansi-html.ts";
+import { parseArgs as parseFileBrowseArgs } from "./file-browse-shot.ts";
+import { parseArgs as parsePlanReviewArgs } from "./plan-review-shot.ts";
 import { CHROME_SCREEN, SCREENS } from "./screenshots.ts";
+import { FIXTURES } from "./tool-fixtures.ts";
+import { galleryHtml, registeredToolNames, renderings } from "./tool-renderings.ts";
 
 /** Every capturable frame: the named screens plus the whole-chrome preview. */
 const FRAMES = { ...SCREENS, chrome: CHROME_SCREEN };
@@ -17,23 +25,23 @@ const FRAMES = { ...SCREENS, chrome: CHROME_SCREEN };
 /** Widths a capture has to survive: a narrow terminal, the default, a wide one. */
 const WIDTHS = [46, 80, 120];
 
-describe("screenshots", () => {
+describe("docs screenshots", () => {
 	test("asset stems and window titles are unique", () => {
 		const frames = Object.entries(FRAMES);
 		expect(new Set(frames.map(([, screen]) => screen.asset)).size).toBe(frames.length);
 		// The capture finds its window by a title substring, so two screens sharing
 		// one would race for the wrong window.
 		expect(new Set(frames.map(([, screen]) => screen.title)).size).toBe(frames.length);
-		for (const [, screen] of frames) expect(screen.title.trim()).not.toBe("");
+		for (const [name, screen] of frames) expect(screen.title.trim(), name).not.toBe("");
 	});
 
 	test("every frame renders non-empty and inside the width", () => {
 		for (const [name, screen] of Object.entries(FRAMES)) {
 			for (const width of WIDTHS) {
 				const lines = screen.render(width, 30);
-				expect({ name, width, rendered: lines.length > 0 }).toEqual({ name, width, rendered: true });
+				expect(lines.length, `${name} @ ${width}`).toBeGreaterThan(0);
 				const overflow = lines.filter((line) => visibleWidth(line) > width);
-				expect({ name, width, overflow: overflow.length }).toEqual({ name, width, overflow: 0 });
+				expect(overflow, `${name} @ ${width}`).toEqual([]);
 			}
 		}
 	});
@@ -44,11 +52,283 @@ describe("screenshots", () => {
 		for (const [name, screen] of Object.entries(FRAMES)) {
 			if (!screen.size) continue;
 			const lines = screen.render(screen.size.width, screen.size.rows);
-			expect({ name, rows: screen.size.rows, fits: lines.length <= screen.size.rows }).toEqual({
-				name,
-				rows: screen.size.rows,
-				fits: true,
-			});
+			expect(lines.length, `${name} (${screen.size.width}x${screen.size.rows})`).toBeLessThanOrEqual(screen.size.rows);
 		}
+	});
+});
+
+describe("file-browse shot arguments", () => {
+	test("defaults to the fixture root, README.md, and file-browse.png", () => {
+		const options = parseFileBrowseArgs([]);
+		expect(options.root).toBeUndefined();
+		expect(options.file).toBe("README.md");
+		expect(basename(options.out)).toBe("file-browse.png");
+		expect(options.width).toBe(1280);
+		expect(options.scale).toBe(1);
+		expect(options.theme).toBeUndefined();
+		expect(options.waitMs).toBe(8000);
+	});
+
+	test("flags override the defaults", () => {
+		const options = parseFileBrowseArgs([
+			"--root",
+			"docs",
+			"--file",
+			"guide.md",
+			"-o",
+			"shot.png",
+			"--width",
+			"900",
+			"--scale",
+			"2",
+			"--theme",
+			"light",
+			"--wait",
+			"100",
+		]);
+		expect(options.root).toBe(resolve("docs"));
+		expect(options.file).toBe("guide.md");
+		expect(basename(options.out)).toBe("shot.png");
+		expect(options.width).toBe(900);
+		expect(options.scale).toBe(2);
+		expect(options.theme).toBe("light");
+		expect(options.waitMs).toBe(100);
+	});
+
+	test("rejects a file outside the served root and unusable flags", () => {
+		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
+			[["--file", "/etc/passwd"], "--file must be root-relative"],
+			[["--theme", "sepia"], "--theme must be light or dark"],
+			[["--width", "10"], "--width must be at least 320"],
+			[["--scale", "0"], "--scale must be positive"],
+			[["--wait", "-1"], "--wait must not be negative"],
+			[["--root"], "--root needs a value"],
+			[["--nope"], "unknown option --nope"],
+			[["extra"], "unexpected argument extra"],
+		];
+		for (const [argv, message] of invalid) {
+			expect(() => parseFileBrowseArgs(argv), argv.join(" ")).toThrow(message);
+		}
+	});
+});
+
+describe("plan review shot arguments", () => {
+	test("a plan path defaults the output to its stem", () => {
+		const options = parsePlanReviewArgs(["docs/some-plan.md"]);
+		expect(basename(options.plan)).toBe("some-plan.md");
+		expect(basename(options.out)).toBe("some-plan.png");
+		expect(options.width).toBe(1280);
+		expect(options.scale).toBe(2);
+		expect(options.theme).toBeUndefined();
+		expect(options.waitMs).toBe(8000);
+	});
+
+	test("flags override the defaults", () => {
+		const options = parsePlanReviewArgs([
+			"plan.md",
+			"-o",
+			"shot.png",
+			"--width",
+			"900",
+			"--scale",
+			"1",
+			"--theme",
+			"dark",
+			"--wait",
+			"100",
+		]);
+		expect(basename(options.out)).toBe("shot.png");
+		expect(options.width).toBe(900);
+		expect(options.scale).toBe(1);
+		expect(options.theme).toBe("dark");
+		expect(options.waitMs).toBe(100);
+	});
+
+	test("rejects a missing plan, an unknown flag, and bad values", () => {
+		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
+			[[], "a plan path is required"],
+			[["plan.md", "--nope"], "unknown option"],
+			[["plan.md", "--theme", "sepia"], "--theme must be light or dark"],
+			[["plan.md", "--width", "10"], "--width must be at least 320"],
+			[["plan.md", "--scale", "0"], "--scale must be positive"],
+			[["plan.md", "--wait", "-1"], "--wait must not be negative"],
+			[["plan.md", "--width"], "--width needs a value"],
+		];
+		for (const [argv, message] of invalid) {
+			expect(() => parsePlanReviewArgs(argv), argv.join(" ")).toThrow(message);
+		}
+	});
+});
+
+describe("tool fixtures", () => {
+	test("every fixture is unique and named", () => {
+		const names = FIXTURES.map((fixture) => fixture.name);
+		expect(new Set(names).size).toBe(names.length);
+		for (const fixture of FIXTURES) {
+			expect(fixture.name.length, fixture.name).toBeGreaterThan(0);
+			expect(fixture.label.length, fixture.name).toBeGreaterThan(0);
+		}
+	});
+
+	test("every tool the package registers has a fixture", () => {
+		const covered = new Set(FIXTURES.filter((fixture) => fixture.group === "package").map((fixture) => fixture.name));
+		const missing = registeredToolNames().filter((name) => !covered.has(name));
+		expect(missing).toEqual([]);
+	});
+
+	test("no fixture names the real workspace or home", () => {
+		const json = JSON.stringify(FIXTURES);
+		expect(json).not.toContain("my-pi-agent");
+		expect(json).not.toContain(homedir());
+	});
+
+	test("a fixture never references itself through an absolute real path", () => {
+		for (const fixture of FIXTURES) {
+			const args = JSON.stringify(fixture.args ?? {});
+			expect(args.startsWith("/Users/"), fixture.name).toBe(false);
+		}
+	});
+});
+
+describe("tool renderings", () => {
+	test("every rendering renders something at the gallery width", () => {
+		for (const rendering of renderings()) {
+			expect(rendering.lines(80).length, rendering.name).toBeGreaterThan(0);
+		}
+	});
+
+	test("every line fits the width it was given", () => {
+		for (const rendering of renderings()) {
+			for (const width of WIDTHS) {
+				for (const line of rendering.lines(width)) {
+					expect(visibleWidth(line), `${rendering.name} @ ${width}`).toBeLessThanOrEqual(width);
+				}
+			}
+		}
+	});
+
+	test("a tool block leads with its call and rails the result", () => {
+		const read = renderings().find((rendering) => rendering.name === "read");
+		const lines = (read?.lines(80) ?? []).map(stripTerminalSequences);
+		expect(lines[0]?.startsWith("read ")).toBe(true);
+		expect(lines[1]?.startsWith("╎ ")).toBe(true);
+		expect(lines[1]?.startsWith("╎  ")).toBe(false);
+
+		// A multi-line call keeps its two-space continuation, with no rail.
+		const subagent = renderings().find((rendering) => rendering.name === "subagent");
+		const call = (subagent?.lines(80) ?? []).map(stripTerminalSequences);
+		expect(call[1]?.startsWith("  1. ")).toBe(true);
+
+		// The file-mutating tools carry their result on the call body: that body is
+		// railed, and there is no status band behind it.
+		for (const name of ["edit", "write"]) {
+			const rendering = renderings().find((item) => item.name === name);
+			const raw = (rendering?.lines(80) ?? []).join("\n");
+			expect(raw, name).not.toContain("\u001b[48;");
+			const body = (rendering?.lines(80) ?? []).map(stripTerminalSequences);
+			expect(body[1]?.startsWith("╎ "), name).toBe(true);
+		}
+	});
+
+	test("the capture keeps the decorations a terminal draws", () => {
+		// The gallery is built from ANSI in a process without a TTY, so the capture
+		// decorates the theme itself; otherwise a name loses its bold and the diff's
+		// changed words lose their reverse video.
+		const edit = renderings().find((rendering) => rendering.name === "edit");
+		const raw = (edit?.lines(80) ?? []).join("\n");
+		expect(raw).toContain("\u001b[1medit");
+		expect(raw).toContain("\u001b[7m");
+		expect(raw).toContain("\u001b[27m");
+	});
+
+	test("the gallery page includes every rendering in its group", () => {
+		const all = renderings();
+		const html = galleryHtml(80);
+		expect(html.match(/<figure class="block">/g)).toHaveLength(all.length);
+		for (const rendering of all) expect(html, rendering.name).toContain(rendering.name);
+		for (const heading of ["Transcript", "Pi built-ins", "Package tools"]) expect(html).toContain(heading);
+	});
+});
+
+describe("ANSI to HTML", () => {
+	test("escapes markup and leaves plain text alone", () => {
+		expect(ansiToHtml("<b> & </b>")).toBe("&lt;b&gt; &amp; &lt;/b&gt;");
+	});
+
+	test("converts truecolor foreground and background", () => {
+		const cases: ReadonlyArray<readonly [input: string, html: string]> = [
+			["\u001b[38;2;88;166;255mhi\u001b[39m", '<span style="color:#58a6ff">hi</span>'],
+			["\u001b[48;2;1;2;3mx", '<span style="background-color:#010203">x</span>'],
+		];
+		for (const [input, html] of cases) expect(ansiToHtml(input)).toBe(html);
+	});
+
+	test("maps the basic colours and the 256-colour palette", () => {
+		const cases: ReadonlyArray<readonly [input: string, html: string]> = [
+			["\u001b[31mx\u001b[39m", '<span style="color:#cd0000">x</span>'],
+			["\u001b[42mx\u001b[49m", '<span style="background-color:#00cd00">x</span>'],
+			["\u001b[91mx\u001b[39m", '<span style="color:#ff0000">x</span>'],
+			["\u001b[103mx\u001b[49m", '<span style="background-color:#ffff00">x</span>'],
+			["\u001b[38;5;196mx", '<span style="color:#ff0000">x</span>'],
+			["\u001b[38;5;232mx", '<span style="color:#080808">x</span>'],
+		];
+		for (const [input, html] of cases) expect(ansiToHtml(input)).toBe(html);
+	});
+
+	test("handles bold, dim, italic, underline, and strike", () => {
+		expect(ansiToHtml("\u001b[1mB\u001b[22m")).toBe('<span style="font-weight:600">B</span>');
+		expect(ansiToHtml("\u001b[2m\u001b[3mx")).toBe('<span style="opacity:.6;font-style:italic">x</span>');
+		expect(ansiToHtml("\u001b[4m\u001b[9mx")).toBe('<span style="text-decoration:underline line-through">x</span>');
+	});
+
+	test("a reset clears everything after it", () => {
+		expect(ansiToHtml("\u001b[1mA\u001b[0mB")).toBe('<span style="font-weight:600">A</span>B');
+	});
+
+	test("drops an OSC sequence and a non-SGR CSI", () => {
+		expect(ansiToHtml("\u001b]0;a title\u0007hi")).toBe("hi");
+		expect(ansiToHtml("a\u001b[2Kb")).toBe("ab");
+	});
+
+	test("draws reverse video as a swapped background", () => {
+		expect(ansiToHtml("\u001b[38;2;63;185;80m+a \u001b[7mb\u001b[27m c")).toBe(
+			'<span style="color:#3fb950">+a </span><span style="color:#0d1117;background-color:#3fb950">b</span><span style="color:#3fb950"> c</span>',
+		);
+	});
+});
+
+describe("parseAnsi", () => {
+	test("splits runs and carries the style in effect", () => {
+		expect(parseAnsi("a\u001b[31mb\u001b[39mc")).toEqual([
+			{ text: "a", style: {} },
+			{ text: "b", style: { fg: "#cd0000" } },
+			{ text: "c", style: {} },
+		]);
+	});
+
+	test("drops empty runs around adjacent sequences", () => {
+		expect(parseAnsi("\u001b[1m\u001b[2mx")).toEqual([{ text: "x", style: { bold: true, dim: true } }]);
+	});
+
+	test("leaves plain text as one run", () => {
+		expect(parseAnsi("plain")).toEqual([{ text: "plain", style: {} }]);
+	});
+});
+
+describe("cssFor", () => {
+	test("is empty for an unstyled run", () => {
+		expect(cssFor({})).toBe("");
+	});
+
+	test("inverse swaps the cell's colours against the page", () => {
+		expect(cssFor({ inverse: true })).toBe("color:#0d1117;background-color:#c9d1d9");
+		expect(cssFor({ inverse: true, fg: "#f85149" })).toBe("color:#0d1117;background-color:#f85149");
+		expect(cssFor({ inverse: true, bg: "#cd0000", fg: "#58a6ff" })).toBe("color:#cd0000;background-color:#58a6ff");
+	});
+});
+
+describe("ansiLinesToHtml", () => {
+	test("joins lines with a newline", () => {
+		expect(ansiLinesToHtml(["a", "\u001b[31mb"])).toBe('a\n<span style="color:#cd0000">b</span>');
 	});
 });

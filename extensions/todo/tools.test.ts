@@ -1,11 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { MAX_TODOS } from "../../lib/todo-state.ts";
+import {
+	EMPTY_LIST_MUTATIONS,
+	formatNudge,
+	isFileWrite,
+	isMutatingTool,
+	MUTATING_TOOL_NAMES,
+	type NudgeState,
+	shouldNudge,
+	TODO_NUDGE_MARKER,
+} from "./nudge.ts";
 import { createTodoRuntime } from "./runtime.ts";
 import { TOOL_NAME, registerTools } from "./tools.ts";
 import { fakeTheme as theme } from "../../test/helpers/fakes.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";
 import { makeFakePi } from "../../test/helpers/fakes.ts";
+import type { Todo } from "./types.ts";
 
 function setup() {
 	const { pi, tools } = makeFakePi();
@@ -16,6 +27,10 @@ function setup() {
 }
 
 const call = (tool: any, params: unknown, ctx: any) => tool.execute("call-1", params, undefined, undefined, ctx);
+
+const pending = (content: string): Todo => ({ content, status: "pending" });
+const completed = (content: string): Todo => ({ content, status: "completed" });
+const inProgress = (content: string, activeForm: string): Todo => ({ content, status: "in_progress", activeForm });
 
 describe("todo tool", () => {
 	test("registers a sequential, non-read-only tool", () => {
@@ -160,51 +175,6 @@ describe("todo tool", () => {
 		expect(text).not.toContain("todo todo");
 	});
 
-	test("reuses the call Text and the result view across renders", async () => {
-		const { tool } = setup();
-		const { ctx } = fakeCtx();
-		const callComponent = tool.renderCall({ todos: [{ content: "A", status: "pending" }] }, theme, {
-			argsComplete: true,
-			lastComponent: undefined,
-		});
-		const callAgain = tool.renderCall({ todos: [{ content: "B", status: "pending" }] }, theme, {
-			argsComplete: true,
-			lastComponent: callComponent,
-		});
-		expect(callAgain).toBe(callComponent);
-
-		const result = await call(tool, { todos: [{ content: "A", status: "pending" }] }, ctx);
-		const view = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined });
-		const viewAgain = tool.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: view });
-		expect(viewAgain).toBe(view);
-	});
-
-	test("renderResult sanitizes a rejected call's error text", () => {
-		const { tool } = setup();
-		const result = { content: [{ type: "text", text: "" }], details: { action: "set", error: "bad\u001b[31mtext" } };
-		const text = tool
-			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
-			.render(80)
-			.join("\n");
-		expect(text).toContain("bad");
-		expect(text).not.toContain("\u001b");
-	});
-
-	test("renderResult falls back to the message for a host-rejected call", () => {
-		const { tool } = setup();
-		// The host rejects arguments before `execute` and returns `details: {}`.
-		const result = {
-			content: [{ type: "text", text: 'Validation failed for tool "todo":\n  - todos.0.status: unknown status' }],
-			details: {},
-			isError: true,
-		};
-		const text = tool
-			.renderResult(result, { expanded: false, isPartial: false }, theme, { lastComponent: undefined })
-			.render(80)
-			.join("\n");
-		expect(text).toContain("Validation failed for tool");
-	});
-
 	test("collapsed result leads with active work", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
@@ -225,5 +195,76 @@ describe("todo tool", () => {
 		const result = await call(tool, { todos: [{ content: "Headless", status: "pending" }] }, undefined);
 		expect(result.isError).toBeUndefined();
 		expect(runtime.getTodos()).toEqual([{ content: "Headless", status: "pending" }]);
+	});
+});
+
+describe("nudge rules", () => {
+	test("the mutating set is the built-in writers and shells, and the todo call is never work", () => {
+		expect([...MUTATING_TOOL_NAMES].sort()).toEqual(["bash", "edit", "powershell", "write"]);
+		expect(isMutatingTool("todo", { readOnlyHint: false })).toBe(false);
+		for (const name of MUTATING_TOOL_NAMES) expect(isMutatingTool(name)).toBe(true);
+	});
+
+	test("a known reader is not work, and an unknown tool needs an explicit mutation hint", () => {
+		expect(isMutatingTool("read")).toBe(false);
+		expect(isMutatingTool("grep", {})).toBe(false);
+		expect(isMutatingTool("some_mcp_tool")).toBe(false);
+		expect(isMutatingTool("some_mcp_tool", { readOnlyHint: true })).toBe(false);
+		expect(isMutatingTool("some_mcp_tool", { readOnlyHint: false })).toBe(true);
+	});
+
+	test("only a non-shell mutator can be a file write", () => {
+		expect(isFileWrite("write")).toBe(true);
+		expect(isFileWrite("edit")).toBe(true);
+		expect(isFileWrite("bash")).toBe(false);
+		expect(isFileWrite("powershell")).toBe(false);
+		expect(isFileWrite("todo", { readOnlyHint: false })).toBe(false);
+		expect(isFileWrite("read")).toBe(false);
+		expect(isFileWrite("some_mcp_tool")).toBe(false);
+		expect(isFileWrite("some_mcp_tool", { readOnlyHint: false })).toBe(true);
+	});
+
+	const state = (overrides: Partial<NudgeState> = {}): NudgeState => ({
+		mutations: 1,
+		writes: 1,
+		touched: false,
+		nudged: false,
+		todos: [pending("one")],
+		...overrides,
+	});
+
+	test("an open item is due after one mutation until a reminder is sent", () => {
+		expect(shouldNudge(state())).toBe(true);
+		expect(shouldNudge(state({ mutations: 0 }))).toBe(false);
+		expect(shouldNudge(state({ nudged: true }))).toBe(false);
+	});
+
+	test("no list is due only after repeated work that wrote something", () => {
+		expect(shouldNudge(state({ todos: [], mutations: EMPTY_LIST_MUTATIONS - 1 }))).toBe(false);
+		expect(shouldNudge(state({ todos: [], mutations: EMPTY_LIST_MUTATIONS }))).toBe(true);
+		expect(shouldNudge(state({ todos: [], writes: 0, mutations: EMPTY_LIST_MUTATIONS }))).toBe(false);
+	});
+
+	test("a list the model wrote or cleared this turn is left alone", () => {
+		expect(shouldNudge(state({ todos: [], touched: true }))).toBe(false);
+		expect(shouldNudge(state({ todos: [], touched: true, mutations: EMPTY_LIST_MUTATIONS }))).toBe(false);
+	});
+
+	test("never due when every item is completed", () => {
+		expect(shouldNudge(state({ todos: [completed("done")], mutations: EMPTY_LIST_MUTATIONS }))).toBe(false);
+	});
+
+	test("the reminder carries the marker and points at the active item", () => {
+		expect(formatNudge([inProgress("Write tests", "Writing tests"), pending("Ship")])).toContain(TODO_NUDGE_MARKER);
+		expect(formatNudge([inProgress("Write tests", "Writing tests"), pending("Ship")])).toContain("Writing tests");
+		expect(formatNudge([completed("done"), completed("also done")])).not.toContain("still points at");
+	});
+
+	test("the no-list reminder asks for a list and nothing else", () => {
+		const text = formatNudge([]);
+		expect(text).toContain(TODO_NUDGE_MARKER);
+		expect(text).toContain("no todo list was recorded");
+		expect(text).not.toContain("still points at");
+		expect(text).not.toContain("unfinished items");
 	});
 });

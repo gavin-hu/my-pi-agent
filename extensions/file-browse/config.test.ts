@@ -1,3 +1,8 @@
+/**
+ * The browse config contract: defaults, booleans, integer clamps, and the
+ * per-session port range. Every case is a raw object a typo could produce.
+ */
+
 import { describe, expect, test } from "bun:test";
 import {
 	DEFAULT_CONFIG,
@@ -7,7 +12,14 @@ import {
 	PORT_BASE,
 	PORT_RANGE,
 	randomPort,
+	type ServeConfig,
 } from "./config.ts";
+
+interface NumericCase {
+	key: keyof ServeConfig;
+	raw: number;
+	expected: number;
+}
 
 describe("randomPort", () => {
 	test("stays inside the per-session range", () => {
@@ -19,69 +31,93 @@ describe("randomPort", () => {
 	});
 });
 
-describe("normalizeConfig port", () => {
-	test("keeps the zero default that picks a per-session port", () => {
-		expect(normalizeConfig(undefined).port).toBe(DEFAULT_CONFIG.port);
-		expect(DEFAULT_CONFIG.port).toBe(0);
+describe("normalizeConfig defaults", () => {
+	test("keeps every default when the section is absent", () => {
+		expect(normalizeConfig(undefined)).toEqual(DEFAULT_CONFIG);
 	});
 
-	test("keeps and clamps an explicit port", () => {
-		expect(normalizeConfig({ port: 8080 }).port).toBe(8080);
-		expect(normalizeConfig({ port: 70000 }).port).toBe(65535);
-	});
-});
-
-describe("normalizeConfig markdown", () => {
-	test("defaults to rendering and accepts a boolean", () => {
-		expect(DEFAULT_CONFIG.markdown).toBe(true);
-		expect(normalizeConfig({ markdown: false }).markdown).toBe(false);
-		expect(normalizeConfig({ markdown: "no" }).markdown).toBe(true);
-	});
-
-	test("defaults to sanitized raw HTML and accepts a boolean", () => {
-		expect(DEFAULT_CONFIG.markdownHtml).toBe(true);
-		expect(normalizeConfig({ markdownHtml: false }).markdownHtml).toBe(false);
-		expect(normalizeConfig({ markdownHtml: "no" }).markdownHtml).toBe(true);
-	});
-});
-
-describe("normalizeConfig maxIndexEntries", () => {
-	test("defaults and clamps to at least one", () => {
-		expect(DEFAULT_CONFIG.maxIndexEntries).toBe(20000);
-		expect(normalizeConfig({ maxIndexEntries: 5 }).maxIndexEntries).toBe(5);
-		expect(normalizeConfig({ maxIndexEntries: 0 }).maxIndexEntries).toBe(1);
+	test("defaults the server, the caps, the diff view, and live status", () => {
+		expect(DEFAULT_CONFIG).toMatchObject({
+			port: 0,
+			autoOpen: true,
+			maxFileBytes: 1024 * 1024,
+			maxThumbBytes: 5 * 1024 * 1024,
+			maxTextLines: 5000,
+			maxDirEntries: 2000,
+			thumbnails: true,
+			markdown: true,
+			markdownHtml: true,
+			maxIndexEntries: 20000,
+			gitDiff: true,
+			diffContext: 3,
+			maxDiffLines: 4000,
+			live: true,
+			liveIntervalMs: 3000,
+		});
 	});
 });
 
-describe("normalizeConfig git diff", () => {
-	test("defaults the diff view on with three context lines", () => {
-		expect(DEFAULT_CONFIG.gitDiff).toBe(true);
-		expect(DEFAULT_CONFIG.diffContext).toBe(3);
-		expect(DEFAULT_CONFIG.maxDiffLines).toBe(4000);
-		expect(normalizeConfig(undefined).gitDiff).toBe(true);
-	});
+describe("normalizeConfig booleans", () => {
+	const cases: Array<[keyof ServeConfig, string]> = [
+		["autoOpen", "open the browser"],
+		["thumbnails", "inline thumbnails"],
+		["markdown", "rendered Markdown"],
+		["markdownHtml", "sanitized raw HTML"],
+		["gitDiff", "the diff view"],
+		["live", "the live status channel"],
+	];
 
-	test("accepts a boolean toggle and clamps the numeric keys", () => {
-		expect(normalizeConfig({ gitDiff: false }).gitDiff).toBe(false);
-		expect(normalizeConfig({ gitDiff: "no" }).gitDiff).toBe(true);
-		expect(normalizeConfig({ diffContext: -2 }).diffContext).toBe(0);
-		expect(normalizeConfig({ diffContext: 500 }).diffContext).toBe(100);
-		expect(normalizeConfig({ maxDiffLines: 0 }).maxDiffLines).toBe(1);
+	for (const [key, label] of cases) {
+		test(`toggles ${label} only on a real boolean`, () => {
+			expect(normalizeConfig({ [key]: false })[key]).toBe(false);
+			expect(normalizeConfig({ [key]: true })[key]).toBe(true);
+			expect(normalizeConfig({ [key]: "no" })[key]).toBe(DEFAULT_CONFIG[key]);
+		});
+	}
+});
+
+describe("normalizeConfig numeric clamps", () => {
+	const cases: NumericCase[] = [
+		{ key: "port", raw: 8080, expected: 8080 },
+		{ key: "port", raw: 70_000, expected: 65_535 },
+		{ key: "port", raw: -1, expected: 0 },
+		{ key: "maxFileBytes", raw: 4096, expected: 4096 },
+		{ key: "maxFileBytes", raw: -1, expected: 0 },
+		{ key: "maxThumbBytes", raw: 2048, expected: 2048 },
+		{ key: "maxThumbBytes", raw: -1, expected: 0 },
+		{ key: "maxTextLines", raw: 50, expected: 50 },
+		{ key: "maxTextLines", raw: 0, expected: 1 },
+		{ key: "maxDirEntries", raw: 10, expected: 10 },
+		{ key: "maxDirEntries", raw: 0, expected: 1 },
+		{ key: "maxIndexEntries", raw: 5, expected: 5 },
+		{ key: "maxIndexEntries", raw: 0, expected: 1 },
+		{ key: "diffContext", raw: 1, expected: 1 },
+		{ key: "diffContext", raw: -2, expected: 0 },
+		{ key: "diffContext", raw: 500, expected: 100 },
+		{ key: "maxDiffLines", raw: 10, expected: 10 },
+		{ key: "maxDiffLines", raw: 0, expected: 1 },
+		{ key: "liveIntervalMs", raw: 1000, expected: 1000 },
+		{ key: "liveIntervalMs", raw: 1, expected: LIVE_INTERVAL_MIN },
+		{ key: "liveIntervalMs", raw: LIVE_INTERVAL_MAX * 10, expected: LIVE_INTERVAL_MAX },
+	];
+
+	for (const { key, raw, expected } of cases) {
+		test(`clamps ${key}=${raw} to ${expected}`, () => {
+			expect(normalizeConfig({ [key]: raw })[key]).toBe(expected);
+		});
+	}
+
+	test("keeps the zero port that asks for a per-session port", () => {
+		expect(normalizeConfig({ port: 0 }).port).toBe(0);
 	});
 });
 
-describe("normalizeConfig live status", () => {
-	test("defaults the status channel on, three seconds apart", () => {
-		expect(DEFAULT_CONFIG.live).toBe(true);
-		expect(DEFAULT_CONFIG.liveIntervalMs).toBe(3000);
-		expect(normalizeConfig(undefined).live).toBe(true);
-	});
-
-	test("accepts a boolean toggle and clamps the cadence to its band", () => {
-		expect(normalizeConfig({ live: false }).live).toBe(false);
-		expect(normalizeConfig({ live: "no" }).live).toBe(true);
-		expect(normalizeConfig({ liveIntervalMs: 1000 }).liveIntervalMs).toBe(1000);
-		expect(normalizeConfig({ liveIntervalMs: 1 }).liveIntervalMs).toBe(LIVE_INTERVAL_MIN);
-		expect(normalizeConfig({ liveIntervalMs: LIVE_INTERVAL_MAX * 10 }).liveIntervalMs).toBe(LIVE_INTERVAL_MAX);
+describe("normalizeConfig layering", () => {
+	test("applies a raw section over an explicit base", () => {
+		const base: ServeConfig = { ...DEFAULT_CONFIG, port: 5000, markdown: false, maxTextLines: 10 };
+		const normalized = normalizeConfig({ port: 6000, maxTextLines: 4 }, base);
+		expect(normalized.port).toBe(6000);
+		expect(normalized.maxTextLines).toBe(4);
+		expect(normalized.markdown).toBe(false);
 	});
 });

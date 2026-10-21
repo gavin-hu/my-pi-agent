@@ -130,22 +130,28 @@ describe("every extension loads through the fake runtime", () => {
 	}
 });
 
+/** The factories run once per file; both consumers need the same registration result. */
+let surfacePromise: Promise<{ tools: Set<string>; commands: Set<string> }> | undefined;
+
 /** Load every manifest extension and collect the tools and commands it registers. */
-async function registeredSurface(): Promise<{ tools: Set<string>; commands: Set<string> }> {
-	const tools = new Set<string>();
-	const commands = new Set<string>();
-	for (const entry of manifest) {
-		const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
-		await withAgentDir(async () => {
-			await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
-				const fake = createFakePi();
-				module.default?.(fake.pi);
-				for (const name of fake.tools.keys()) tools.add(name);
-				for (const name of fake.commands.keys()) commands.add(name);
+function registeredSurface(): Promise<{ tools: Set<string>; commands: Set<string> }> {
+	surfacePromise ??= (async () => {
+		const tools = new Set<string>();
+		const commands = new Set<string>();
+		for (const entry of manifest) {
+			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
+			await withAgentDir(async () => {
+				await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
+					const fake = createFakePi();
+					module.default?.(fake.pi);
+					for (const name of fake.tools.keys()) tools.add(name);
+					for (const name of fake.commands.keys()) commands.add(name);
+				});
 			});
-		});
-	}
-	return { tools, commands };
+		}
+		return { tools, commands };
+	})();
+	return surfacePromise;
 }
 
 /** The kinds of thing a page can say the pack has. */

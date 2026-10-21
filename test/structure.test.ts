@@ -1,7 +1,8 @@
 /**
  * Structure and convention guard for the suite.
  *
- * Tests live next to the source they cover; `test/` holds only shared helpers
+ * Tests are grouped into capability suites beside the extension or `lib/`
+ * subsystem they cover; `test/` holds only shared helpers, the suite manifest,
  * and the package-level contract tests. Besides test-file bans, the scan
  * enforces the TUI renderer conventions on extension/lib source. See
  * `test/README.md`.
@@ -14,6 +15,7 @@ import { REQUIREMENTS } from "../lib/requirements.ts";
 import { SHARED_CONFIG_FILE } from "../lib/config.ts";
 import { allowsAt } from "./helpers/comments.ts";
 import { posix, walkFiles } from "./helpers/files.ts";
+import { EXTENSION_SUITES, LIB_SUITES, SCRIPT_SUITES } from "./suite-manifest.ts";
 
 /**
  * A path in posix form, from parts that may arrive with either separator.
@@ -28,8 +30,25 @@ const testDir = posix(join(import.meta.dir, "..", "test"));
 const extensionsDir = posix(join(import.meta.dir, "..", "extensions"));
 const libDir = posix(join(import.meta.dir, "..", "lib"));
 
-/** Aggregate test names that do not map to a single source module. */
-const AGGREGATE_STEMS = new Set(["bridge.delivery", "bridge.inbound", "bridge.slash", "check", "extension", "render"]);
+/** A file's text, read once per test run; tests write only under OS temp dirs. */
+const textCache = new Map<string, string>();
+function textOf(file: string): string {
+	const cached = textCache.get(file);
+	if (cached !== undefined) return cached;
+	const text = readFileSync(file, "utf-8");
+	textCache.set(file, text);
+	return text;
+}
+
+/** A tree walk, run once per root; `existsSync`/`statSync` stay uncached. */
+const walkCache = new Map<string, string[]>();
+function filesIn(root: string): string[] {
+	const cached = walkCache.get(root);
+	if (cached !== undefined) return cached;
+	const files = walkFiles(root);
+	walkCache.set(root, files);
+	return files;
+}
 
 function dirsOf(dir: string): string[] {
 	return readdirSync(dir)
@@ -54,7 +73,7 @@ const ROOT_TEST_FILES = new Set([
 ]);
 
 /**
- * Every directory whose co-located tests the banned-pattern scan covers.
+ * Every directory whose capability suites the banned-pattern scan covers.
  * `extensions/` is enumerated so a new extension is covered automatically;
  * `lib/` is included explicitly.
  */
@@ -149,7 +168,7 @@ function scanBans(file: string, bans: Ban[] = BANS, exempt: Set<string> = EXEMPT
 	if (exempt.has(file)) return [];
 	const relative = file.slice(repo.length + 1);
 	const violations: string[] = [];
-	const lines = readFileSync(file, "utf-8").split("\n");
+	const lines = textOf(file).split("\n");
 	lines.forEach((line, index) => {
 		for (const ban of bans) {
 			if (allowsAt(lines, index, `allow:${ban.name}`)) continue;
@@ -159,6 +178,26 @@ function scanBans(file: string, bans: Ban[] = BANS, exempt: Set<string> = EXEMPT
 	return violations;
 }
 
+/** Every suite path declared by the manifest, relative to the repository root. */
+function declaredSuiteFiles(): string[] {
+	return [
+		...Object.entries(EXTENSION_SUITES).flatMap(([name, suites]) =>
+			suites.map((suite) => `extensions/${name}/${suite}.test.ts`),
+		),
+		...LIB_SUITES.map((suite) => `lib/${suite}.test.ts`),
+		...SCRIPT_SUITES.map((suite) => `scripts/${suite}.test.ts`),
+	].sort();
+}
+
+/** Every test file the layout governs, relative to the repository root. */
+function layoutTestFiles(): string[] {
+	return [extensionsDir, libDir, posix(join(repo, "scripts"))]
+		.flatMap((root) => filesIn(root))
+		.filter((file) => file.endsWith(".test.ts"))
+		.map((file) => file.slice(repo.length + 1))
+		.sort();
+}
+
 describe("test layout", () => {
 	test("test/ holds only helpers and package-level tests", () => {
 		expect(dirsOf(testDir)).toEqual(["helpers"]);
@@ -166,33 +205,27 @@ describe("test layout", () => {
 		expect(new Set(rootTests)).toEqual(ROOT_TEST_FILES);
 	});
 
-	test("every extension has co-located tests", () => {
-		for (const name of dirsOf(extensionsDir)) {
-			const files = walkFiles(join(extensionsDir, name));
-			const hasTest = files.some((file) => file.endsWith(".test.ts"));
-			expect(hasTest, `extensions/${name} has no co-located test`).toBe(true);
-		}
+	test("every extension has a declared suite", () => {
+		const missing = dirsOf(extensionsDir).filter((name) => (EXTENSION_SUITES[name] ?? []).length === 0);
+		expect(missing, "declare a capability suite in test/suite-manifest.ts").toEqual([]);
 	});
 
 	test("helper files live only under test/helpers", () => {
 		const helperFiles = [extensionsDir, libDir, testDir]
-			.flatMap((root) => walkFiles(root))
+			.flatMap((root) => filesIn(root))
 			.filter((file) => file.endsWith("/helpers.ts") && !file.startsWith(`${testDir}/helpers`));
 		expect(helperFiles).toEqual([]);
 	});
 
-	test("each co-located test sits beside a source module of the same stem", () => {
-		const offenders: string[] = [];
-		for (const root of [extensionsDir, libDir]) {
-			for (const file of walkFiles(root)) {
-				if (!file.endsWith(".test.ts")) continue;
-				const stem = file.slice(file.lastIndexOf("/") + 1).replace(/\.test\.ts$/, "");
-				if (AGGREGATE_STEMS.has(stem)) continue;
-				const sibling = file.replace(/\.test\.ts$/, ".ts");
-				if (!existsSync(sibling)) offenders.push(file.slice(repo.length + 1));
-			}
-		}
-		expect(offenders).toEqual([]);
+	test("every test file is a declared suite", () => {
+		const declared = new Set(declaredSuiteFiles());
+		const offenders = layoutTestFiles().filter((file) => !declared.has(file));
+		expect(offenders, "declare the suite in test/suite-manifest.ts").toEqual([]);
+	});
+
+	test("every declared suite exists", () => {
+		const missing = declaredSuiteFiles().filter((file) => !existsSync(join(repo, file)));
+		expect(missing, "create the declared suite, or remove it from the manifest").toEqual([]);
 	});
 });
 
@@ -200,7 +233,7 @@ describe("test conventions", () => {
 	test("test files avoid the banned test patterns", () => {
 		const offenders: string[] = [];
 		for (const dir of SCANNED_DIRS) {
-			for (const file of walkFiles(dir)) {
+			for (const file of filesIn(dir)) {
 				if (file.endsWith(".test.ts")) offenders.push(...scanBans(file));
 			}
 		}
@@ -210,7 +243,7 @@ describe("test conventions", () => {
 
 /** Extension/lib source files (not `.test.ts`). */
 function sourceFiles(root: string): string[] {
-	return walkFiles(root).filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
+	return filesIn(root).filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
 }
 
 /** The line bar from AGENTS.md "Code quality". */
@@ -275,7 +308,7 @@ const LONG_MODULE_TOTAL = 7841;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {
-	return readFileSync(file, "utf-8").replace(/\n$/, "").split("\n").length;
+	return textOf(file).replace(/\n$/, "").split("\n").length;
 }
 
 /** A `renderCall(` / `renderResult(` definition at the start of a line. */
@@ -302,7 +335,7 @@ describe("source conventions", () => {
 		const offenders: string[] = [];
 		for (const dir of SCANNED_DIRS) {
 			for (const file of sourceFiles(dir)) {
-				const text = readFileSync(file, "utf-8");
+				const text = textOf(file);
 				if (!/\bget focused\s*\(/.test(text) || /\bset focused\s*\(/.test(text)) continue;
 				offenders.push(
 					`${file.slice(repo.length + 1)}: declares a getter-only \`focused\`; Pi assigns that flag, so add a setter or rename the getter`,
@@ -356,7 +389,7 @@ describe("source conventions", () => {
 		const offenders: string[] = [];
 		for (const dir of SCANNED_DIRS) {
 			for (const file of sourceFiles(dir)) {
-				const text = readFileSync(file, "utf-8");
+				const text = textOf(file);
 				if (RENDERER_DEF.test(text) && !text.includes("lastComponent")) {
 					offenders.push(`${file.slice(repo.length + 1)}: renderer does not reuse context.lastComponent`);
 				}
@@ -370,7 +403,7 @@ describe("source conventions", () => {
 		for (const name of dirsOf(extensionsDir)) {
 			for (const file of sourceFiles(join(extensionsDir, name))) {
 				const relative = file.slice(repo.length + 1);
-				readFileSync(file, "utf-8")
+				textOf(file)
 					.split("\n")
 					.forEach((line, index) => {
 						if (RAW_EXPAND_KEY.test(line)) {
@@ -394,11 +427,11 @@ describe("extension boundaries", () => {
 		const names = dirsOf(extensionsDir);
 		const offenders: string[] = [];
 		for (const name of names) {
-			for (const file of walkFiles(join(extensionsDir, name))) {
+			for (const file of filesIn(join(extensionsDir, name))) {
 				if (!file.endsWith(".ts")) continue;
 				const relative = file.slice(repo.length + 1);
 				const dir = file.slice(0, file.lastIndexOf("/"));
-				readFileSync(file, "utf-8")
+				textOf(file)
 					.split("\n")
 					.forEach((line, index) => {
 						const spec = MODULE_SPEC.exec(line)?.[1];
@@ -433,7 +466,7 @@ describe("lib value-only", () => {
 		// is one copy per extension, not one shared value. lib/README.md states it.
 		const offenders: string[] = [];
 		for (const file of sourceFiles(libDir)) {
-			readFileSync(file, "utf-8")
+			textOf(file)
 				.split("\n")
 				.forEach((line, index) => {
 					if (MODULE_BINDING.test(line) || MODULE_CONTAINER.test(line)) {
@@ -458,18 +491,17 @@ describe("prerequisite declarations", () => {
 		for (const [name, spec] of Object.entries(REQUIREMENTS)) {
 			const declared = spec.configFiles ?? [];
 			if (declared.length === 0) continue;
-			const sources = walkFiles(join(extensionsDir, name)).filter((file) => file.endsWith("/config.ts"));
+			const sources = filesIn(join(extensionsDir, name)).filter((file) => file.endsWith("/config.ts"));
 			for (const file of declared) {
 				if (sources.length === 0) {
 					offenders.push(`${name}: declares ${file} but has no config.ts`);
 					continue;
 				}
-				const literal = sources.some((source) => readFileSync(source, "utf-8").includes(`"${file}"`));
+				const literal = sources.some((source) => textOf(source).includes(`"${file}"`));
 				// The shared document is read through `loadConfigSection`, so a section
 				// loader is the evidence, not the bare filename.
 				const shared =
-					file === SHARED_CONFIG_FILE &&
-					sources.some((source) => readFileSync(source, "utf-8").includes("loadConfigSection("));
+					file === SHARED_CONFIG_FILE && sources.some((source) => textOf(source).includes("loadConfigSection("));
 				if (!literal && !shared) offenders.push(`${name}: no config.ts reads ${file}`);
 			}
 		}
@@ -484,7 +516,7 @@ describe("doc links", () => {
 		const rootDocs = readdirSync(repo)
 			.filter((name) => name.endsWith(".md"))
 			.map((name) => docPath(repo, name));
-		return [...rootDocs, ...trees.flatMap((tree) => walkFiles(tree))].filter((file) => file.endsWith(".md")).sort();
+		return [...rootDocs, ...trees.flatMap((tree) => filesIn(tree))].filter((file) => file.endsWith(".md")).sort();
 	}
 
 	const MARKDOWN_LINK = /\]\(([^)\s]+)\)/g;
@@ -536,7 +568,7 @@ describe("doc links", () => {
 		for (const file of docFiles()) {
 			const relative = file.slice(repo.length + 1);
 			const dir = file.slice(0, file.lastIndexOf("/"));
-			for (const [, link] of readFileSync(file, "utf-8").matchAll(MARKDOWN_LINK)) {
+			for (const [, link] of textOf(file).matchAll(MARKDOWN_LINK)) {
 				if (!link.startsWith("./") && !link.startsWith("../") && !link.startsWith("#")) continue;
 				const hash = link.indexOf("#");
 				const target = hash === -1 ? link : link.slice(0, hash);
@@ -546,7 +578,7 @@ describe("doc links", () => {
 					offenders.push(`${relative}: ${link} (no such path)`);
 					continue;
 				}
-				if (anchor !== "" && (!statSync(path).isFile() || !anchorsOf(readFileSync(path, "utf-8")).has(anchor))) {
+				if (anchor !== "" && (!statSync(path).isFile() || !anchorsOf(textOf(path)).has(anchor))) {
 					offenders.push(`${relative}: ${link} (no such anchor)`);
 				}
 			}

@@ -236,8 +236,8 @@ outlive the session.
 
 ## Testing
 
-Pure-module tests cover `config`, `schema`, `format`, and `tui`; `runtime.test.ts`
-drives the tailer with a fake clock and fake children; `tools.test.ts`,
-`commands.test.ts`, and `extension.test.ts` exercise the tool, command, and
-lifecycle through the shared `createFakePi`/`fakeCtx` doubles. The test harness
-is `test/helpers/fixtures/watch.ts`.
+`runtime.test.ts` covers config, schema, the child supervisor, and the tailer
+with a fake clock and fake children; `tools.test.ts` covers the tool and command;
+`ui.test.ts` covers registration, formatting, the status chips, and the screen
+through the shared `createFakePi`/`fakeCtx` doubles. The test harness is
+`test/helpers/fixtures/watch.ts`.

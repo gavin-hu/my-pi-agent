@@ -1,16 +1,298 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { makeCtx, makeHarnessSuite, settle } from "../../test/helpers/fixtures/watch.ts";
+import type { KillTreeFn } from "../../lib/spawn.ts";
+import { makeCtx, makeFakeSpawn, makeHarnessSuite, settle } from "../../test/helpers/fixtures/watch.ts";
+import { createChildSupervisor, type ChildSink, type ChildSlot } from "./child.ts";
+import { DEFAULT_CONFIG, normalizeConfig } from "./config.ts";
+import type { WatchConfig } from "./config.ts";
+import { MAX_LABEL, normalizeCall } from "./schema.ts";
 
 const suite = makeHarnessSuite();
 afterEach(() => suite.cleanup());
 
-describe("file sources", () => {
-	test("follows appended lines and matches only the pattern", () => {
-		const h = suite.makeHarness();
+describe("watch config", () => {
+	test("returns the base for an absent section", () => {
+		expect(normalizeConfig(undefined, DEFAULT_CONFIG)).toBe(DEFAULT_CONFIG);
+	});
+
+	test("takes booleans and ignores wrongly typed ones", () => {
+		const config = normalizeConfig({ enabled: false, showStatus: "no", wakeOnMatch: true }, DEFAULT_CONFIG);
+		expect(config.enabled).toBe(false);
+		expect(config.showStatus).toBe(true);
+		expect(config.wakeOnMatch).toBe(true);
+	});
+
+	test("clamps numeric fields into range", () => {
+		const config = normalizeConfig(
+			{ maxWatchers: 0, maxMatches: 10_000, maxLogLines: -3, matchLines: 5, pollMs: 1 },
+			DEFAULT_CONFIG,
+		);
+		expect(config.maxWatchers).toBe(1);
+		expect(config.maxMatches).toBe(5000);
+		expect(config.maxLogLines).toBe(1);
+		expect(config.matchLines).toBe(5);
+		expect(config.pollMs).toBe(100);
+	});
+
+	test("keeps the default for a non-numeric value", () => {
+		const config = normalizeConfig({ matchLines: null, pollMs: "fast" }, DEFAULT_CONFIG);
+		expect(config.matchLines).toBe(DEFAULT_CONFIG.matchLines);
+		expect(config.pollMs).toBe(DEFAULT_CONFIG.pollMs);
+	});
+});
+
+describe("watch call schema", () => {
+	test("rejects an unknown action", () => {
+		expect(() => normalizeCall({ action: "bogus" })).toThrow(/action must be one of/);
+	});
+
+	test("add takes a file path and trims it", () => {
+		expect(normalizeCall({ action: "add", path: "  app.log  ", pattern: " error " })).toEqual({
+			action: "add",
+			path: "app.log",
+			pattern: "error",
+		});
+	});
+
+	test("add takes a command", () => {
+		expect(normalizeCall({ action: "add", command: "tail -f x", pattern: "x", exclude: ["a", "b"] })).toEqual({
+			action: "add",
+			command: "tail -f x",
+			pattern: "x",
+			exclude: ["a", "b"],
+		});
+	});
+
+	test("add requires exactly one source", () => {
+		expect(() => normalizeCall({ action: "add", pattern: "x" })).toThrow(/requires a path or a command/);
+		expect(() => normalizeCall({ action: "add", path: "a", command: "b", pattern: "x" })).toThrow(
+			/either a path or a command/,
+		);
+	});
+
+	test("add requires a compilable pattern", () => {
+		expect(() => normalizeCall({ action: "add", path: "a" })).toThrow(/requires a pattern/);
+		expect(() => normalizeCall({ action: "add", path: "a", pattern: "(" })).toThrow(/not a valid regular expression/);
+	});
+
+	test("add rejects an invalid exclude pattern", () => {
+		expect(() => normalizeCall({ action: "add", path: "a", pattern: "x", exclude: ["["] })).toThrow(
+			/exclude is not a valid regular expression/,
+		);
+	});
+
+	test("add rejects an oversized label", () => {
+		expect(() => normalizeCall({ action: "add", path: "a", pattern: "x", label: "z".repeat(MAX_LABEL + 1) })).toThrow(
+			/label is longer/,
+		);
+	});
+
+	test("id actions require an id", () => {
+		for (const action of ["status", "matches", "logs", "stop"]) {
+			expect(() => normalizeCall({ action })).toThrow(/requires an id/);
+		}
+	});
+
+	test("matches and logs bound their line count", () => {
+		expect(() => normalizeCall({ action: "matches", id: "w1", lines: 0 })).toThrow(/lines must be between/);
+		expect(normalizeCall({ action: "logs", id: "w1", lines: 10 })).toEqual({ action: "logs", id: "w1", lines: 10 });
+	});
+
+	test("clear accepts an optional id and all flag", () => {
+		expect(normalizeCall({ action: "clear" })).toEqual({ action: "clear" });
+		expect(normalizeCall({ action: "clear", all: true })).toEqual({ action: "clear", all: true });
+	});
+});
+
+describe("child supervisor", () => {
+	/** A supervisor over fake children, with every tree-kill recorded. */
+	function harness(graceMs = 0) {
+		const { spawn, children } = makeFakeSpawn();
+		const kills: Array<{ pid: number; signal: NodeJS.Signals; force?: boolean }> = [];
+		const killTree: KillTreeFn = (pid, signal, force) => {
+			kills.push({ pid, signal, force });
+		};
+		const supervisor = createChildSupervisor({ spawn, killTree, graceMs });
+		return { supervisor, children, kills };
+	}
+
+	/** A sink that records what the runtime would act on, without a status. */
+	function sink() {
+		const chunks: string[] = [];
+		const settled: Array<{ kind: string; code?: number | null; signal?: string | null; message?: string }> = [];
+		const record: ChildSink = {
+			onData: (chunk) => chunks.push(chunk.toString()),
+			onSettled: (outcome) => settled.push(outcome),
+		};
+		return { record, chunks, settled };
+	}
+
+	test("feeds both output streams through one sink", () => {
+		const { supervisor, children } = harness();
+		const { record, chunks } = sink();
+		const slot: ChildSlot = {};
+
+		expect(supervisor.start(slot, "build", "/tmp", record)).toBeUndefined();
+		children[0].write("out\n");
+		children[0].emitStderr("err\n");
+
+		expect(chunks).toEqual(["out\n", "err\n"]);
+		expect(slot.child).toBe(children[0]);
+		expect(slot.pid).toBe(children[0].pid);
+	});
+
+	test("returns the spawn error and leaves the slot empty", () => {
+		const supervisor = createChildSupervisor({
+			spawn: () => {
+				throw new Error("no such command");
+			},
+		});
+		const slot: ChildSlot = {};
+
+		expect(supervisor.start(slot, "nope", "/tmp", sink().record)).toBe("no such command");
+		expect(slot.child).toBeUndefined();
+		expect(slot.pid).toBeUndefined();
+	});
+
+	test("reports a close with its code and signal", () => {
+		const { supervisor, children } = harness();
+		const { record, settled } = sink();
+		const slot: ChildSlot = {};
+		supervisor.start(slot, "build", "/tmp", record);
+
+		children[0].close(2, "SIGTERM");
+
+		expect(settled).toEqual([{ kind: "closed", code: 2, signal: "SIGTERM" }]);
+		expect(slot.child).toBeUndefined();
+	});
+
+	test("reports an error event as a failure", () => {
+		const { supervisor, children } = harness();
+		const { record, settled } = sink();
+		const slot: ChildSlot = {};
+		supervisor.start(slot, "build", "/tmp", record);
+
+		children[0].emit("error", new Error("EACCES"));
+
+		expect(settled).toEqual([{ kind: "failed", message: "EACCES" }]);
+	});
+
+	test("terminate sends SIGTERM and escalates to SIGKILL after the grace", async () => {
+		const { supervisor, children, kills } = harness();
+		const slot: ChildSlot = {};
+		supervisor.start(slot, "build", "/tmp", sink().record);
+
+		supervisor.terminate(slot);
+		expect(kills).toEqual([{ pid: children[0].pid, signal: "SIGTERM", force: false }]);
+
+		await settle();
+		expect(kills).toEqual([
+			{ pid: children[0].pid, signal: "SIGTERM", force: false },
+			{ pid: children[0].pid, signal: "SIGKILL", force: true },
+		]);
+	});
+
+	test("a child that closes in time is not force-killed", async () => {
+		const { supervisor, children, kills } = harness();
+		const slot: ChildSlot = {};
+		supervisor.start(slot, "build", "/tmp", sink().record);
+
+		supervisor.terminate(slot);
+		children[0].close(null, "SIGTERM");
+		await settle();
+
+		expect(kills).toEqual([{ pid: children[0].pid, signal: "SIGTERM", force: false }]);
+		expect(slot.killTimer).toBeUndefined();
+	});
+
+	test("terminate arms nothing when there is no child", () => {
+		const { supervisor, kills } = harness();
+		const slot: ChildSlot = {};
+
+		supervisor.terminate(slot);
+
+		expect(kills).toEqual([]);
+		expect(slot.killTimer).toBeUndefined();
+	});
+
+	test("kill falls back to the child when it has no pid", () => {
+		const { supervisor, children } = harness();
+		const slot: ChildSlot = {};
+		supervisor.start(slot, "build", "/tmp", sink().record);
+		slot.pid = undefined;
+
+		supervisor.kill(slot, "SIGKILL");
+
+		expect(children[0].signals).toEqual(["SIGKILL"]);
+	});
+
+	test("clearTimer cancels the escalation", async () => {
+		const { supervisor, children, kills } = harness();
+		const slot: ChildSlot = {};
+		supervisor.start(slot, "build", "/tmp", sink().record);
+
+		supervisor.terminate(slot);
+		supervisor.clearTimer(slot);
+		await settle();
+
+		expect(kills).toHaveLength(1);
+		expect(children[0].signals).toEqual([]);
+	});
+
+	test("wait resolves once every child has closed", async () => {
+		const { supervisor, children } = harness();
+		const first: ChildSlot = {};
+		const second: ChildSlot = {};
+		supervisor.start(first, "a", "/tmp", sink().record);
+		supervisor.start(second, "b", "/tmp", sink().record);
+
+		let done = false;
+		const waiting = supervisor.wait([first, second], 60_000).then(() => {
+			done = true;
+		});
+		children[0].close();
+		await settle();
+		expect(done).toBe(false);
+
+		children[1].close();
+		await waiting;
+		expect(done).toBe(true);
+	});
+
+	test("wait resolves after the timeout with a child that never closes", async () => {
+		const { supervisor } = harness();
+		const slot: ChildSlot = {};
+		supervisor.start(slot, "build", "/tmp", sink().record);
+
+		let done = false;
+		await supervisor.wait([slot], 0).then(() => {
+			done = true;
+		});
+		expect(done).toBe(true);
+	});
+
+	test("wait resolves immediately when nothing is alive", async () => {
+		const { supervisor } = harness();
+
+		let done = false;
+		await supervisor.wait([{}], 60_000).then(() => {
+			done = true;
+		});
+		expect(done).toBe(true);
+	});
+});
+
+describe("watch runtime", () => {
+	function runtimeHarness(options: { config?: Partial<WatchConfig> } = {}) {
+		const h = suite.makeHarness(options);
 		const { ctx } = makeCtx({ cwd: h.dir });
 		h.runtime.load(ctx);
+		return { h, ctx };
+	}
+
+	test("follows appended lines and matches only the pattern", () => {
+		const { h, ctx } = runtimeHarness();
 		const path = join(h.dir, "app.log");
 		writeFileSync(path, "start\n");
 		const watch = h.runtime.add({ path, pattern: "error" }, ctx);
@@ -24,8 +306,7 @@ describe("file sources", () => {
 	});
 
 	test("an exclude pattern suppresses a match", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx({ cwd: h.dir });
+		const { h, ctx } = runtimeHarness();
 		const path = join(h.dir, "app.log");
 		writeFileSync(path, "");
 		const watch = h.runtime.add({ path, pattern: "error", exclude: ["ignore"] }, ctx);
@@ -37,8 +318,7 @@ describe("file sources", () => {
 	});
 
 	test("fromStart scans existing content", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx({ cwd: h.dir });
+		const { h, ctx } = runtimeHarness();
 		const path = join(h.dir, "app.log");
 		writeFileSync(path, "error old\n");
 		const watch = h.runtime.add({ path, pattern: "error", fromStart: true }, ctx);
@@ -49,8 +329,7 @@ describe("file sources", () => {
 	});
 
 	test("a shrinking file is re-read from the start", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx({ cwd: h.dir });
+		const { h, ctx } = runtimeHarness();
 		const path = join(h.dir, "app.log");
 		writeFileSync(path, "error aaaaaaaa\n");
 		const watch = h.runtime.add({ path, pattern: "error" }, ctx);
@@ -63,21 +342,17 @@ describe("file sources", () => {
 	});
 
 	test("refuses to watch a missing file", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx({ cwd: h.dir });
+		const { h, ctx } = runtimeHarness();
 		expect(() => h.runtime.add({ path: "missing.log", pattern: "x" }, ctx)).toThrow(/file not found/);
 	});
 
 	test("refuses a path that is not a regular file", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx({ cwd: h.dir });
+		const { h, ctx } = runtimeHarness();
 		expect(() => h.runtime.add({ path: h.dir, pattern: "x" }, ctx)).toThrow(/not a regular file/);
 	});
 
 	test("a path replaced by a directory is skipped, not thrown", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx({ cwd: h.dir });
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const path = join(h.dir, "app.log");
 		writeFileSync(path, "error one\n");
 		const watch = h.runtime.add({ path, pattern: "error", fromStart: true }, ctx);
@@ -89,22 +364,21 @@ describe("file sources", () => {
 		expect(() => h.runtime.tick()).not.toThrow();
 		expect(h.runtime.get(watch.id)?.status).toBe("running");
 	});
-});
 
-describe("configuration", () => {
 	test("refuses add when watch is disabled", () => {
-		const h = suite.makeHarness({ config: { enabled: false } });
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness({ config: { enabled: false } });
 		expect(() => h.runtime.add({ command: "build", pattern: "x" }, ctx)).toThrow(/watch is disabled/);
 	});
-});
 
-describe("command sources", () => {
+	test("refuses add when the live watcher limit is reached", () => {
+		const { h, ctx } = runtimeHarness({ config: { maxWatchers: 1 } });
+		h.runtime.add({ command: "build", pattern: "x" }, ctx);
+
+		expect(() => h.runtime.add({ command: "build", pattern: "y" }, ctx)).toThrow(/at most 1 watchers/);
+	});
+
 	test("tails merged stdout and stderr", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
 
 		h.children[0].write("ok\n");
@@ -113,10 +387,18 @@ describe("command sources", () => {
 		expect(h.runtime.matches(watch.id)?.lines).toEqual(["FAIL: stderr line"]);
 	});
 
+	test("logs returns the raw sanitized tail, not only matches", () => {
+		const { h, ctx } = runtimeHarness();
+		const watch = h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
+
+		h.children[0].write("ok\n\u001b[31mFAIL\u001b[0m\n");
+
+		expect(h.runtime.matches(watch.id)?.lines).toEqual(["FAIL"]);
+		expect(h.runtime.logs(watch.id)?.lines).toEqual(["ok", "FAIL"]);
+	});
+
 	test("marks a watcher exited when its command closes", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		h.children[0].close(0);
@@ -126,9 +408,7 @@ describe("command sources", () => {
 	});
 
 	test("stop signals the process tree and flushes a partial line", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
 		h.children[0].write("FAIL partial");
 
@@ -139,9 +419,7 @@ describe("command sources", () => {
 	});
 
 	test("a stopped command that never closes is escalated to SIGKILL", async () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		h.runtime.stop(watch.id);
@@ -151,9 +429,7 @@ describe("command sources", () => {
 	});
 
 	test("a command that closes after SIGTERM is not force-killed", async () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		h.runtime.stop(watch.id);
@@ -164,9 +440,7 @@ describe("command sources", () => {
 	});
 
 	test("clear refuses a running watcher unless all is set", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		expect(h.runtime.clear(watch.id, false).refused).toBeDefined();
@@ -174,10 +448,13 @@ describe("command sources", () => {
 		expect(h.runtime.list()).toHaveLength(0);
 	});
 
+	test("clear of an unknown id is a no-op", () => {
+		const { h } = runtimeHarness();
+		expect(h.runtime.clear("w9")).toEqual({ cleared: 0 });
+	});
+
 	test("shutdown is idempotent and leaves nothing running", async () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		h.runtime.add({ command: "build", pattern: "x" }, ctx);
 
 		await h.runtime.shutdown();
@@ -187,13 +464,9 @@ describe("command sources", () => {
 		expect(h.kills.some((kill) => kill.signal === "SIGTERM")).toBe(true);
 		expect(h.kills.some((kill) => kill.signal === "SIGKILL" && kill.force === true)).toBe(true);
 	});
-});
 
-describe("match reporting", () => {
 	test("pending matches survive until marked reported", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL", label: "ci" }, ctx);
 		h.children[0].write("FAIL\n");
 
@@ -208,9 +481,7 @@ describe("match reporting", () => {
 	});
 
 	test("a wake watcher fires onMatch once per batch with all pending", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		const batches: number[] = [];
 		h.runtime.onMatch = (matches) => batches.push(matches.length);
 		h.runtime.add({ command: "build", pattern: "FAIL", wake: true }, ctx);
@@ -221,9 +492,7 @@ describe("match reporting", () => {
 	});
 
 	test("wakeOnMatch is the default for a new watcher", () => {
-		const h = suite.makeHarness({ config: { wakeOnMatch: true } });
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness({ config: { wakeOnMatch: true } });
 		const seen: number[] = [];
 		h.runtime.onMatch = (matches) => seen.push(matches.length);
 		h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
@@ -232,9 +501,7 @@ describe("match reporting", () => {
 	});
 
 	test("an explicit wake overrides the config default", () => {
-		const h = suite.makeHarness({ config: { wakeOnMatch: true } });
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness({ config: { wakeOnMatch: true } });
 		const seen: number[] = [];
 		h.runtime.onMatch = (matches) => seen.push(matches.length);
 		const watch = h.runtime.add({ command: "build", pattern: "FAIL", wake: false }, ctx);
@@ -244,9 +511,7 @@ describe("match reporting", () => {
 	});
 
 	test("unseenCount counts every unreported match", () => {
-		const h = suite.makeHarness();
-		const { ctx } = makeCtx();
-		h.runtime.load(ctx);
+		const { h, ctx } = runtimeHarness();
 		h.runtime.add({ command: "build", pattern: "FAIL" }, ctx);
 		h.children[0].write("FAIL one\nFAIL two\n");
 		expect(h.runtime.unseenCount()).toBe(2);

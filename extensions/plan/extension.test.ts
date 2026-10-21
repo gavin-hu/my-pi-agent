@@ -1,15 +1,24 @@
+/**
+ * The plan extension's Pi integration: registration and disablement, the entry
+ * request from another extension, session restore and shutdown, the tool-call
+ * guard, injected context, the command, and the shortcut.
+ *
+ * Every hook is driven through the shared fake runtime and context doubles, so
+ * the suite proves the wiring rather than the runtime's own state machine.
+ */
+
 import { describe, expect, test } from "bun:test";
 import planMode, { PLAN_MODE_MARKER } from "./index.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
-import { SUBAGENT_READ_ONLY_PARAM } from "../../lib/tool-names.ts";
-import { requestPlanMode } from "../../lib/plan-entry.ts";
-import { emitCollect as emit } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
+import { requestPlanMode } from "../../lib/plan-entry.ts";
+import { SUBAGENT_READ_ONLY_PARAM } from "../../lib/tool-names.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { fakeCtx, makeFakePi, planModeMessage, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 import { otherMessage } from "../../test/helpers/entries.ts";
+import { withEnv } from "../../test/helpers/env.ts";
+import { emitCollect as emit } from "../../test/helpers/fakes.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
+import { fakeCtx, makeFakePi, planModeMessage, stateEntry } from "../../test/helpers/fixtures/plan.ts";
 
 /** A pi instance that has been started with plan mode restored as enabled. */
 async function enabledPi() {
@@ -20,7 +29,7 @@ async function enabledPi() {
 	return { fakePi, ctx, statusCalls };
 }
 
-describe("plan-mode wire-up", () => {
+describe("plan-mode registration", () => {
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "plan" }, () => {
 			const { pi, tools, commands, shortcuts, flags, handlers } = makeFakePi();
@@ -33,9 +42,10 @@ describe("plan-mode wire-up", () => {
 		});
 	});
 
-	test("registers both tools, the command, the shortcut, and the flag", () => {
+	test("registers the tools, the command, the shortcut, and the flag", () => {
 		const { pi, tools, commands, shortcuts, flags } = makeFakePi();
 		planMode(pi);
+
 		expect(tools.has(ENTER_TOOL)).toBe(true);
 		expect(tools.has(EXIT_TOOL)).toBe(true);
 		expect(tools.has(WRITE_PLAN_TOOL)).toBe(true);
@@ -82,11 +92,19 @@ describe("plan-mode entry requests", () => {
 		const bare = makeFakePi();
 		expect(await requestPlanMode(bare.pi, fakeCtx().ctx)).toBe(false);
 	});
+
+	test("stops answering entry requests after shutdown", async () => {
+		const fakePi = await listening();
+		await emit(fakePi.pi, "session_shutdown", {}, fakeCtx().ctx);
+
+		expect(await requestPlanMode(fakePi.pi, fakeCtx().ctx)).toBe(false);
+	});
 });
 
-describe("plan-mode session state", () => {
+describe("plan-mode session lifecycle", () => {
 	test("restores enabled state and applies gating on session start", async () => {
 		const { fakePi, statusCalls } = await enabledPi();
+
 		expect(fakePi.activeTools()).not.toContain("write");
 		expect(fakePi.activeTools()).toContain(EXIT_TOOL);
 		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: `${GLYPHS.plan} plan` });
@@ -95,8 +113,8 @@ describe("plan-mode session state", () => {
 	test("starts in plan mode with the --plan flag", async () => {
 		const fakePi = makeFakePi({ planFlag: true, active: ["read", "bash", "write", "edit", ENTER_TOOL] });
 		planMode(fakePi.pi);
-		const { ctx } = fakeCtx();
-		await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, fakeCtx().ctx);
+
 		expect(fakePi.activeTools()).not.toContain("edit");
 		expect(fakePi.activeTools()).toContain(EXIT_TOOL);
 	});
@@ -105,17 +123,21 @@ describe("plan-mode session state", () => {
 		const fakePi = makeFakePi();
 		planMode(fakePi.pi);
 		const { ctx, statusCalls } = fakeCtx();
+
 		await emit(fakePi.pi, "session_shutdown", {}, ctx);
+
 		expect(statusCalls.at(-1)).toEqual({ key: "plan-mode", text: undefined });
 	});
 });
 
-describe("plan-mode bash and write guard", () => {
+describe("plan-mode tool guard", () => {
 	test("blocks write and edit while enabled", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
+
 		const [write] = await emit(fakePi.pi, "tool_call", { toolName: "write", input: { path: "a" } }, ctx);
 		const [edit] = await emit(fakePi.pi, "tool_call", { toolName: "edit", input: {} }, ctx);
+
 		expect(write.block).toBe(true);
 		expect(edit.block).toBe(true);
 	});
@@ -123,8 +145,10 @@ describe("plan-mode bash and write guard", () => {
 	test("allows only read-only git through the shell while enabled", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
+
 		const [allowed] = await emit(fakePi.pi, "tool_call", { toolName: "bash", input: { command: "git status" } }, ctx);
 		expect(allowed).toBeUndefined();
+
 		const [chained] = await emit(
 			fakePi.pi,
 			"tool_call",
@@ -132,11 +156,13 @@ describe("plan-mode bash and write guard", () => {
 			ctx,
 		);
 		expect(chained).toBeUndefined();
+
 		for (const command of ["rm -rf x", "git commit -m x", "git status; rm -rf x"]) {
 			const [result] = await emit(fakePi.pi, "tool_call", { toolName: "bash", input: { command } }, ctx);
 			expect(result.block).toBe(true);
 			expect(result.reason).toContain("Plan mode");
 		}
+
 		const [cd] = await emit(fakePi.pi, "tool_call", { toolName: "bash", input: { command: "cd /tmp && ls" } }, ctx);
 		expect(cd.block).toBe(true);
 		expect(cd.reason).toContain("working directory");
@@ -146,12 +172,14 @@ describe("plan-mode bash and write guard", () => {
 	test("accepts a Windows path separator in a read-only git command", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
+
 		const [allowed] = await emit(
 			fakePi.pi,
 			"tool_call",
 			{ toolName: "bash", input: { command: "git diff -- extensions\\plan" } },
 			ctx,
 		);
+
 		expect(allowed).toBeUndefined();
 	});
 
@@ -206,6 +234,7 @@ describe("plan-mode bash and write guard", () => {
 	test("allows structured readers and the plan tracker", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
+
 		for (const toolName of ["read", "grep", "find", "ls", "todo", "goal"]) {
 			const [result] = await emit(fakePi.pi, "tool_call", { toolName, input: {} }, ctx);
 			expect(result).toBeUndefined();
@@ -215,6 +244,7 @@ describe("plan-mode bash and write guard", () => {
 	test("allows the plan control tools but not a same-named write from elsewhere", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
+
 		for (const toolName of [WRITE_PLAN_TOOL, EXIT_TOOL]) {
 			const [result] = await emit(fakePi.pi, "tool_call", { toolName, input: {} }, ctx);
 			expect(result).toBeUndefined();
@@ -229,7 +259,9 @@ describe("plan-mode bash and write guard", () => {
 		const { fakePi } = await enabledPi();
 		fakePi.pi.allTools = [{ name: "web_search", annotations: { readOnlyHint: true } }];
 		const { ctx } = fakeCtx();
+
 		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "web_search", input: { query: "x" } }, ctx);
+
 		expect(result).toBeUndefined();
 	});
 
@@ -237,7 +269,9 @@ describe("plan-mode bash and write guard", () => {
 		const { fakePi } = await enabledPi();
 		fakePi.pi.allTools = [{ name: "mcp_fs", annotations: { readOnlyHint: true } }];
 		const { ctx } = fakeCtx();
+
 		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "mcp_fs", input: { path: "secrets.txt" } }, ctx);
+
 		expect(result.block).toBe(true);
 		expect(result.reason).toContain("takes a file path");
 	});
@@ -245,7 +279,9 @@ describe("plan-mode bash and write guard", () => {
 	test("allows a known reader that takes a file path", async () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
+
 		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "read", input: { path: "src/index.ts" } }, ctx);
+
 		expect(result).toBeUndefined();
 	});
 
@@ -254,17 +290,20 @@ describe("plan-mode bash and write guard", () => {
 		planMode(fakePi.pi);
 		const { ctx } = fakeCtx();
 		await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
+
 		const [write] = await emit(fakePi.pi, "tool_call", { toolName: "write", input: {} }, ctx);
 		const [bash] = await emit(fakePi.pi, "tool_call", { toolName: "bash", input: { command: "rm -rf x" } }, ctx);
+
 		expect(write).toBeUndefined();
 		expect(bash).toBeUndefined();
 	});
 });
 
-describe("plan-mode context", () => {
+describe("plan-mode context injection", () => {
 	test("injects the marker before the agent starts while enabled", async () => {
 		const { fakePi, ctx } = await enabledPi();
 		const [result] = await emit(fakePi.pi, "before_agent_start", {}, ctx);
+
 		expect(result.message.customType).toBe("plan-mode-context");
 		expect(result.message.content).toContain(PLAN_MODE_MARKER);
 		expect(result.message.content).toContain("write_plan");
@@ -314,7 +353,9 @@ describe("plan-mode context", () => {
 		const fakePi = makeFakePi();
 		planMode(fakePi.pi);
 		const { ctx } = fakeCtx();
+
 		const [result] = await emit(fakePi.pi, "before_agent_start", {}, ctx);
+
 		expect(result).toBeUndefined();
 	});
 
@@ -322,7 +363,9 @@ describe("plan-mode context", () => {
 		const fakePi = makeFakePi();
 		planMode(fakePi.pi);
 		const { ctx } = fakeCtx();
+
 		const [result] = await emit(fakePi.pi, "context", { messages: [planModeMessage(), otherMessage()] }, ctx);
+
 		expect(result.messages).toEqual([otherMessage()]);
 	});
 
@@ -335,7 +378,9 @@ describe("plan-mode context", () => {
 	test("keeps only the newest injection while enabled", async () => {
 		const { fakePi, ctx } = await enabledPi();
 		const newest = planModeMessage();
+
 		const [result] = await emit(fakePi.pi, "context", { messages: [planModeMessage(), otherMessage(), newest] }, ctx);
+
 		expect(result.messages).toEqual([otherMessage(), newest]);
 	});
 
@@ -344,7 +389,9 @@ describe("plan-mode context", () => {
 		planMode(fakePi.pi);
 		const { ctx } = fakeCtx();
 		const quoted = { role: "user", content: "why does [PLAN MODE ACTIVE] show up?" };
+
 		const [result] = await emit(fakePi.pi, "context", { messages: [planModeMessage(), quoted] }, ctx);
+
 		expect(result.messages).toEqual([quoted]);
 	});
 });
@@ -399,11 +446,11 @@ describe("Ctrl+Alt+P shortcut", () => {
 		const { ctx, notifications } = fakeCtx();
 		const shortcut = [...fakePi.shortcuts.values()][0];
 
-		shortcut.handler(ctx);
+		shortcut?.handler(ctx);
 		expect(fakePi.activeTools()).not.toContain("write");
 		expect(notifications.at(-1)).toContain("Plan mode enabled");
 
-		shortcut.handler(ctx);
+		shortcut?.handler(ctx);
 		expect(fakePi.activeTools()).toContain("write");
 		expect(notifications.at(-1)).toContain("Plan mode disabled");
 	});
