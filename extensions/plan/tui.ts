@@ -45,7 +45,7 @@ import { changedSections, sanitizePlanText, type SectionDigest } from "./plan-te
 import { extractPlanSections } from "./steps.ts";
 
 /** What the user chose from the read/review screen. */
-export type PlanViewAction = "approve" | "refine" | "keep" | "browser";
+export type PlanViewAction = "approve" | "refine" | "keep" | "browser" | "cancel";
 
 /** A plan section's rendered start line, for navigation and the current-section label. */
 interface SectionOffset {
@@ -97,13 +97,14 @@ const BODY_PADDING = 2;
 const GAUGE_SEGMENTS = 10;
 /** Footer hints shared by the review and the inline editor's primary actions. */
 const PRIMARY_HINTS: ScreenHint[] = [
-	"Esc keep planning",
-	{ text: "a approve & run", color: "success" },
+	"Esc keep plan",
+	{ text: "a approve", color: "success" },
 	{ text: "r refine", color: "accent" },
 	{ text: "w browser", color: "accent" },
+	{ text: "x exit plan", color: "warning" },
 ];
 /** Scroll keys appended to the review footer while the plan overflows. */
-const SCROLL_HINTS: ScreenHint[] = ["↑/↓ or k/j scroll", "space/b page", "g/G ends"];
+const SCROLL_HINTS: ScreenHint[] = ["j/k scroll", "space page", "g/G ends"];
 /** Section-jump hint, shown when the plan has more than one heading section. */
 const SECTION_HINTS: ScreenHint[] = ["n/p section"];
 
@@ -332,6 +333,7 @@ export class PlanViewComponent implements Component {
 		else if (data === "a") this.options.onClose("approve");
 		else if (data === "r") this.startRefine();
 		else if (data === "w") this.options.onClose("browser");
+		else if (data === "x") this.options.onClose("cancel");
 	}
 
 	/** Wheel scrolling in fullscreen; regular mode leaves the wheel to the terminal. */

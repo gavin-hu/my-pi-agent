@@ -76,7 +76,9 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   widget and the plan do not drift apart. Pass the step's text as `expected` and
   an update whose step number moved is refused instead of ticking the wrong line.
 - **Reviewable plan.** `exit_plan_mode` reads the plan file back and presents
-  it for approval. The user approves, keeps planning, or asks for a refinement.
+  it for approval. The user approves, keeps planning, asks for a refinement, or
+  exits plan mode without approving; the last keeps the plan file for a later
+  review and records no todo items or goal.
   On a remote turn (WeChat) the plan file is sent first, then a digest of its
   title, step count, and first steps, then the choices, so the review is still
   answerable when the attachment is not opened. The choices include **Send the
@@ -125,7 +127,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 |---|---|---|
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. A plan with more than 50 top-level steps in its `Steps` section is refused, with the cap and the fix named, and nothing is written. |
-| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Refuses a file whose step list is over the cap, before the review screen. |
+| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. The review also offers **Exit plan mode (discard)**, which leaves plan mode without approving. Refuses a file whose step list is over the cap, before the review screen. |
+| `cancel_plan_mode` | plan mode | Leave plan mode without a plan file or a review. Restores write access; records no todo items or goal; keeps any saved plan. Empty schema. |
 | `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. The todo item approval seeded from a step is ticked with it: the file is written first and is authoritative, a renamed item is left alone, and a failed todo write is reported in the result. |
 
 ### Commands and flags
@@ -137,6 +140,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 | `/plan <prompt>` | the user, with the task | immediate |
 | `/plan list` | the user, browsing the plans directory | immediate |
 | `/plan review [path]` | the user, reviewing a plan in the browser | immediate |
+| `/plan cancel` | the user, leaving plan mode without approving | immediate |
 | `/skill:init` | the user, creating or updating `AGENTS.md` | enters plan mode; write waits for plan approval |
 | `Ctrl+Alt+P` | the user | immediate |
 | `--plan` | the user, at launch | immediate |
@@ -204,7 +208,7 @@ package, so load the whole package (`pi -e .`) or install it; loading only
 ## Behaviour by mode
 
 The review screen is TUI-only. `exit_plan_mode` opens `PlanViewComponent`: a
-scrollable, width-safe view of the plan with approve/refine/keep in the footer.
+scrollable, width-safe view of the plan with approve/refine/keep/exit in the footer.
 The body is rendered with Pi's own `Markdown` component and `getMarkdownTheme()`,
 so headings, lists, inline code, code blocks, links, and quotes carry the active
 theme's colors; task items get the shared `◼` (done) or `◻` (pending) marker,
@@ -213,7 +217,11 @@ actions (`a approve & run` in `success`, `r refine` in `accent`).
 `a` ends plan mode, restores write access, and seeds `todo`; `r` keeps the plan
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
-model the plan was not approved. When the plan changed since the previous review
+model the plan was not approved; `x` leaves plan mode without approving and
+keeps the plan file. The dialog path offers the same five outcomes, including
+**Exit plan mode (discard)**. Dismissing the dialog (or a timeout) is also an
+exit, not a silent `keep`; only the explicit **Keep planning** option stays in
+plan mode. When the plan changed since the previous review
 on this branch, a summary line under the title names how many sections changed
 and the scroll row appends `· changed` to the current section. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
 `PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. Press `n`/`p` to jump to
@@ -225,12 +233,12 @@ from the design system's `gaugeBar` and stays
 visible while the refine editor is open, since the body above is still clipped.
 Hints are
 dropped whole as the terminal narrows, and each footer leads with its safe exit
-(`Esc keep planning` in the review, `Esc back to plan` in the inline editor) so
+(`Esc keep plan` in the review, `Esc back to plan` in the inline editor) so
 the exit survives even when only one hint fits.
 
-Dialog-capable non-TUI modes (RPC) show the same three choices as a select menu
+Dialog-capable non-TUI modes (RPC) show the same five choices as a select menu
 plus the refine editor; cancelling the editor returns to the select instead of
-being reported as "not approved". A WeChat turn takes the same dialog path and
+being reported as "not approved". Dismissing the plan select is an exit. A WeChat turn takes the same dialog path and
 is answered over WeChat, even though the session is in TUI mode: the choice
 comes from `askHuman(ctx, { custom, dialogs, file, body })` in
 `lib/interaction.ts`, not from `ctx.mode`. A remote turn also receives the plan

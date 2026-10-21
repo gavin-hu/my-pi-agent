@@ -59,7 +59,13 @@ describe precisely.
    | `a` | **Approve and run**: leave plan mode and start the work |
    | `r` | Refine: type feedback, `Enter` to send it, `Esc` to go back |
    | `w` | Open the plan in the browser for review |
+   | `x` | Exit plan mode without approving; the plan file stays |
    | `Esc` | Keep planning without approving |
+
+   On a phone or RPC, the same review is a numbered select: **Approve and
+   execute**, **Send the full plan**, **Refine the plan**, **Keep planning (stay
+   in plan mode)**, and **Exit plan mode (discard)**. Dismissing the select, or
+   replying `取消`, `退出`, or `exit plan mode`, also exits without approving.
 
    If the plan changed since your last review, a line under the title says how
    many sections changed. A scroll gauge names the section and line range you are
@@ -110,6 +116,10 @@ describe precisely.
 - `/plan review [path]` opens the browser page for the newest plan, or for the
   path you give it. It is for comments only; approve from the terminal review or
   from the page opened with `w`.
+- `/plan cancel` leaves plan mode without approving. The plan file stays, no todo
+  items or goal are recorded, and write access returns immediately. The phone
+  review reaches the same outcome through **Exit plan mode** or a cancel phrase;
+  outside a review, the model can call `cancel_plan_mode`.
 - The model is asked to follow a fixed outline — goal, context, approach, steps,
   risks, verification — but any Markdown is accepted. Steps are the `- [ ]` items
   in the `## Steps` section. A plan with more than 50 top-level steps is refused

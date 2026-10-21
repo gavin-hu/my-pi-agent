@@ -20,9 +20,12 @@ export type PromptParse =
 	| { kind: "cancelled" }
 	| { kind: "retry" };
 
-const SELECT_HINT =
+const SELECT_OTHER_HINT =
 	"回复编号或选项文字；其它内容作为自定义回答；回复「取消」或 cancel 跳过。\n" +
 	"Reply with a number or the option text; anything else becomes your own answer; reply cancel to dismiss.";
+const SELECT_CHOICE_HINT =
+	"回复编号或选项文字；回复「取消」或 cancel 跳过。\n" +
+	"Reply with a number or the option text; reply cancel to dismiss.";
 const CONFIRM_HINT = "回复「是」或「否」。\nReply yes or no.";
 const INPUT_HINT = "直接回复内容；回复「取消」或 cancel 跳过。\nReply with the text; reply cancel to skip.";
 const EDITOR_HINT =
@@ -32,7 +35,7 @@ const EDITOR_HINT =
 export const RETRY_NOTICE =
 	"没有识别到有效回复，请重新回答。\nSorry, I didn't recognize that reply — please answer again.";
 
-const CANCEL_WORDS = new Set(["取消", "cancel", "quit", "exit"]);
+const CANCEL_WORDS = new Set(["取消", "退出", "cancel", "quit", "exit"]);
 const YES_WORDS = new Set(["是", "y", "yes", "1", "确认", "确定", "行", "ok", "好", "对"]);
 const NO_WORDS = new Set(["否", "n", "no", "0", "不", "不是", "不行"]);
 
@@ -50,7 +53,8 @@ function promptBody(request: InteractionRequest): string {
 	switch (request.kind) {
 		case "select": {
 			const options = (request.options ?? []).map((label, index) => `${index + 1}. ${label}`);
-			return lines([request.title, ...options, SELECT_HINT]);
+			const hasOther = (request.options ?? []).includes(INTERACTION_OTHER_LABEL);
+			return lines([request.title, ...options, hasOther ? SELECT_OTHER_HINT : SELECT_CHOICE_HINT]);
 		}
 		case "confirm":
 			return lines([request.title, request.message, CONFIRM_HINT]);
@@ -61,12 +65,23 @@ function promptBody(request: InteractionRequest): string {
 	}
 }
 
+/**
+ * Cancel intent, including the phrases a phone user naturally types.
+ * Exact words keep the old meaning; the two patterns cover “退出 plan 模式” and
+ * “exit plan mode” without treating a sentence such as “exit code” as a cancel.
+ */
+function isCancelIntent(text: string, lower: string): boolean {
+	if (CANCEL_WORDS.has(lower)) return true;
+	if (/^(退出|离开)\s*(计划|plan)/i.test(text)) return true;
+	return /^(exit|leave)\s+(the\s+)?plan\b/i.test(text);
+}
+
 /** Interpret a WeChat reply to `request`. */
 export function parsePromptAnswer(request: InteractionRequest, raw: string): PromptParse {
 	const text = sanitizeInbound(raw);
 	const lower = text.toLowerCase();
 
-	if (lower !== "" && CANCEL_WORDS.has(lower)) {
+	if (isCancelIntent(text, lower)) {
 		return request.kind === "confirm" ? { kind: "confirmed", confirmed: false } : { kind: "cancelled" };
 	}
 

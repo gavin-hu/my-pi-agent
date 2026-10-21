@@ -31,7 +31,13 @@ import { TOOL_NAME as openPath } from "../extensions/file-open/schema.ts";
 import { TOOL_NAME as goal } from "../extensions/goal/tools.ts";
 import { TOOL_NAME as job } from "../extensions/job/tools.ts";
 import { TOOL_NAME as memory } from "../extensions/memory/tools.ts";
-import { ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL } from "../extensions/plan/runtime.ts";
+import {
+	CANCEL_TOOL,
+	ENTER_TOOL,
+	EXIT_TOOL,
+	SET_PLAN_STEPS_TOOL,
+	WRITE_PLAN_TOOL,
+} from "../extensions/plan/runtime.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as watch } from "../extensions/watch/tools.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
@@ -46,6 +52,7 @@ const NOUN_FIRST_CARVE_OUTS = new Set(["web_search", "web_fetch"]);
 
 const LEADING_VERBS = new Set([
 	"ask",
+	"cancel",
 	"enter",
 	"exit",
 	"open",
@@ -77,6 +84,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "plan", name: ENTER_TOOL },
 	{ extension: "plan", name: WRITE_PLAN_TOOL },
 	{ extension: "plan", name: EXIT_TOOL },
+	{ extension: "plan", name: CANCEL_TOOL },
 	{ extension: "plan", name: SET_PLAN_STEPS_TOOL },
 	{ extension: "subagent", name: subagent },
 	{ extension: "todo", name: todo },
@@ -148,6 +156,7 @@ describe("extension tool naming", () => {
 	test("the full registered set matches the reviewed snapshot", () => {
 		expect([...names].sort()).toEqual([
 			"ask_user_question",
+			"cancel_plan_mode",
 			"enter_plan_mode",
 			"enter_worktree",
 			"exit_plan_mode",

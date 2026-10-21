@@ -996,6 +996,13 @@ describe("formatPrompt", () => {
 		expect(text).toContain("cancel");
 	});
 
+	test("does not promise free text when the select has no Other option", () => {
+		const text = formatPrompt(request({ kind: "select", title: "Plan mode", options: ["Approve", "Exit"] }));
+		expect(text).not.toContain("anything else becomes");
+		expect(text).toContain("回复编号或选项文字");
+		expect(text).toContain("cancel");
+	});
+
 	test("prepends the retry notice only when asked", () => {
 		const confirm = request({ kind: "confirm", title: "Sure?" });
 		expect(formatPrompt(confirm)).not.toContain("didn't recognize");
@@ -1027,6 +1034,14 @@ describe("parsePromptAnswer select", () => {
 
 	test("cancels on a cancel word", () => {
 		expect(parsePromptAnswer(base, "取消")).toEqual({ kind: "cancelled" });
+		expect(parsePromptAnswer(base, "退出")).toEqual({ kind: "cancelled" });
+	});
+
+	test("recognizes an exit-plan phrase as a cancel", () => {
+		expect(parsePromptAnswer(base, "退出 plan 模式")).toEqual({ kind: "cancelled" });
+		expect(parsePromptAnswer(base, "exit plan mode")).toEqual({ kind: "cancelled" });
+		expect(parsePromptAnswer(base, "leave plan")).toEqual({ kind: "cancelled" });
+		expect(parsePromptAnswer(base, "exit code")).toEqual({ kind: "other", text: "exit code" });
 	});
 
 	test("retries an out-of-range number", () => {

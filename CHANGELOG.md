@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plan`: plan mode now has an explicit exit on the phone. The review offers
+  **Exit plan mode (discard)** and treats a dismissed select as an exit; the new
+  `cancel_plan_mode` tool and `/plan cancel` leave without a plan file, record no
+  todo items or goal, and keep the plan for later. The review digest names plan
+  mode and the off write access, and WeChat recognizes “退出 plan 模式” and
+  “exit plan mode” instead of silently retrying them. A select without an Other
+  option no longer claims free text is a choice.
+
 ## [0.16.0] - 2026-10-21
 
 ### Added

@@ -11,6 +11,7 @@ import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
+import { isRemoteTurn } from "../../../lib/interaction.ts";
 import { PLAN_CONSENT, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
 import { ENTER_TOOL, type PlanRuntime } from "../runtime.ts";
 import type { EnterPlanModeDetails } from "../types.ts";
@@ -65,6 +66,10 @@ export function registerEnterTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 				};
 			}
 			runtime.enable(ctx);
+			if (isRemoteTurn(ctx)) {
+				// The peer UI has no footer chip; say the mode and its exit in the chat.
+				ctx.ui.notify("Plan mode on — write access is off. Say “exit plan mode” to leave without approving.", "info");
+			}
 			return {
 				content: [{ type: "text", text: ENTERED_TEXT }],
 				details: { entered: true } satisfies EnterPlanModeDetails,

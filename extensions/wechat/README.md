@@ -217,17 +217,21 @@ starts, and a reply is delivered when the run settles, not token by token.
 
 A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 
-- `select` — a numbered list; reply with a number, the option text, or any other
-  text for the free-form “Other” entry.
+- `select` — a numbered list; reply with a number or the option text. Free text
+  becomes the “Other” answer only when the list carries that entry; the hint says
+  so, so a plan review without it does not pretend free text is a choice.
 - `confirm` — reply 是/否, 确定/不是, or yes/no.
 - `input` / `editor` — reply with the text.
-- Reply 取消 (or cancel) to dismiss.
+- Reply 取消 (or cancel) to dismiss; `退出`, `退出 plan 模式`, and
+  `exit plan mode` are recognized as cancel intent. In a plan review a dismissal
+  leaves plan mode without approving.
 - Hints are bilingual (Chinese and English). A reply that cannot be read
   re-sends the prompt with a short “didn’t recognize that” notice instead of
   repeating it silently.
 - An unanswered prompt is bounded: a reminder goes out halfway and the question
   is cancelled after three minutes with a one-line notice, so an ignored dialog
-  cannot freeze the session.
+  cannot freeze the session. A timed-out plan review is treated like a dismissal:
+  plan mode ends without approval, and the plan file remains.
 
 Each peer session is created with its own UI context (`bindExtensions` with
 `mode: "rpc"`), so its dialogs go to that peer by construction rather than by
@@ -240,15 +244,19 @@ to WeChat. See [Design notes](#design-notes).
 ## Outbound files
 
 A remote prompt can deliver a local file first. `exit_plan_mode` uses this to
-send the plan file itself before the three choices, so WeChat sees the whole plan
+send the plan file itself before the five choices, so WeChat sees the whole plan
 (a long one falls back to chunked text if the upload fails). The peer session's
 UI context carries the bridge channel, so `askHuman` finds it and posts the file
 then the text before the dialogs. Before the choices it also posts a short
 digest — the title, the step count, and the first steps — so the review is
 answerable from the chat even if the file bubble is never opened, and a file or
 digest the bridge cannot deliver is reported on the terminal instead of vanishing.
-The choices also include **Send the full plan**, which posts the plan text and
-asks again, so the whole plan is reachable without the attachment.
+The digest says plan mode is on and that write access is off. The choices also
+include **Send the full plan**, which posts the plan text and asks again, so the
+whole plan is reachable without the attachment, and **Exit plan mode (discard)**,
+which leaves without approving. After a Keep decision the user can say “exit plan
+mode”; the model calls `cancel_plan_mode`, which needs no plan path and records
+no todo or goal.
 The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
 (`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a

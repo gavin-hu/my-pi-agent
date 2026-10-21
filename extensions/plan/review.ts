@@ -44,7 +44,9 @@ export type ReviewDecision =
 			/** True when the request came from the browser, which is reported differently. */
 			fromBrowser: boolean;
 	  }
-	| { action: "keep"; plan: StoredPlan };
+	| { action: "keep"; plan: StoredPlan }
+	/** Leave plan mode without approving; the plan file stays for a later review. */
+	| { action: "cancel"; plan: StoredPlan };
 
 /** What the previous review showed, so this one can mark what changed. */
 export interface ReviewBaselines {
@@ -94,7 +96,13 @@ function planReviewDigest(content: string): string {
 		return `${index + 1}. ${shown}`;
 	});
 	const more = count > preview.length ? `… (${count - preview.length} more)` : "";
-	return [head, ...preview, more, "The full plan is attached above, or sent as text if the file failed."]
+	return [
+		head,
+		...preview,
+		more,
+		"Plan mode is on — write access is off. Choose “Exit plan mode” to leave without approving.",
+		"The full plan is attached above, or sent as text if the file failed.",
+	]
 		.filter((line) => line !== "")
 		.join("\n");
 }
@@ -135,12 +143,16 @@ async function askPlanReview(
 					"Approve and execute",
 					"Send the full plan",
 					"Refine the plan",
-					"Keep planning",
+					"Keep planning (stay in plan mode)",
+					"Exit plan mode (discard)",
 				]);
 				if (choice === "Approve and execute") return { action: "approve" };
 				if (choice === "Send the full plan") return { action: "send" };
 				if (choice === "Refine the plan") return { action: "refine" };
-				return { action: "keep" };
+				if (choice === "Keep planning (stay in plan mode)") return { action: "keep" };
+				// Dismissing the plan gate means leaving plan mode, not silently staying
+				// in it. The explicit Keep choice above is the only way to stay.
+				return { action: "cancel" };
 			},
 			// A remote turn gets the plan file up front, falling back to the full text;
 			// a local TUI turn ignores both and renders the component. The digest goes
@@ -209,6 +221,7 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 
 		if (choice.action === "approve") return { action: "approve", plan, comments: [] };
 		if (choice.action === "keep") return { action: "keep", plan };
+		if (choice.action === "cancel") return { action: "cancel", plan };
 		if (choice.action === "refine") {
 			const refinement = choice.refinement ?? (await ctx.ui.editor(REFINE_PROMPT, ""))?.trim();
 			// An empty or cancelled editor returns to the review screen instead of

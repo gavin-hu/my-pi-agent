@@ -102,7 +102,7 @@ describe("plan review render", () => {
 		const strip = (line: string): string => line.replace(/\u001b\[[0-9;]*m/g, "");
 		const lines = render(component, 40).map(strip);
 		const start = lines.findIndex((line) => line.includes("◻"));
-		const end = lines.findIndex((line) => line.includes("Esc keep planning"));
+		const end = lines.findIndex((line) => line.includes("Esc keep plan"));
 		const body = lines.slice(start, end).filter((line) => line !== "");
 		const [first, ...rest] = body;
 
@@ -127,7 +127,13 @@ describe("plan review render", () => {
 		const text = render(setup().component, 80).join("\n");
 		expect(text).toContain("Read the parser");
 		expect(text).toContain("a approve");
-		expect(text).toContain("Esc keep planning");
+		expect(text).toContain("Esc keep plan");
+	});
+
+	test("x exits plan mode without approving", () => {
+		const { component, actions } = setup();
+		component.handleInput("x");
+		expect(actions).toEqual(["cancel"]);
 	});
 
 	test("strips terminal control characters", () => {
@@ -274,20 +280,20 @@ describe("plan review scrolling", () => {
 		const short = render(narrow.component, 60).at(-2) ?? "";
 		expect(short).toContain("a approve");
 		expect(short).toContain("r refine");
-		expect(short).toContain("Esc keep planning");
+		expect(short).toContain("Esc keep plan");
 		expect(short).not.toContain("space");
 		expect(short).not.toContain("…");
 
 		const wide = setup(manyLines, { rows: 24 });
 		const full = render(wide.component, 120).at(-2) ?? "";
-		expect(full).toContain("space/b page");
+		expect(full).toContain("space page");
 		expect(full).toContain("g/G ends");
 	});
 
 	test("leads with the safe exit when only one hint fits", () => {
 		const narrow = setup(manyLines, { rows: 20 });
 		const hint = render(narrow.component, 20).at(-2) ?? "";
-		expect(hint).toContain("Esc keep planning");
+		expect(hint).toContain("Esc keep plan");
 		expect(hint).not.toContain("a approve");
 	});
 

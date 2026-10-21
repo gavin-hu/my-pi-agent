@@ -32,6 +32,8 @@ import type { PlanModeEntry, ReviewBaselineEntry } from "./types.ts";
 
 /** Tool the model calls to leave plan mode after approval. */
 export const EXIT_TOOL = "exit_plan_mode";
+/** Tool the model calls to leave plan mode without approving. */
+export const CANCEL_TOOL = "cancel_plan_mode";
 /** Tool the model calls to ask to enter plan mode. */
 export const ENTER_TOOL = PLAN_ENTER_TOOL;
 /** Tool the model calls to save the plan artifact. */
@@ -47,7 +49,7 @@ export const BASELINE_TYPE = "plan-baseline";
 const STATUS_NAME_LENGTH = 28;
 
 /** Tools plan mode activates itself; the guard permits only this extension's own. */
-const CONTROL_TOOLS = [EXIT_TOOL, WRITE_PLAN_TOOL];
+const CONTROL_TOOLS = [EXIT_TOOL, CANCEL_TOOL, WRITE_PLAN_TOOL];
 
 export interface PlanRuntime {
 	/** Whether plan mode is currently on. */

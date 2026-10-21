@@ -208,6 +208,28 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 					} satisfies ExitPlanModeDetails,
 				};
 			}
+			if (decision.action === "cancel") {
+				runtime.disable(ctx);
+				const shown = decision.plan.relativePath;
+				ctx.ui.notify("Plan mode off — full access restored. The plan was not approved.", "info");
+				return {
+					content: [
+						{
+							type: "text",
+							text:
+								"Plan mode is off and write access is restored. The plan was not approved and no steps were recorded. " +
+								`The plan file ${shown} remains if the user wants to review it later.`,
+						},
+					],
+					details: {
+						approved: false,
+						cancelled: true,
+						plan: decision.plan.content,
+						planPath: decision.plan.path,
+						relativePath: decision.plan.relativePath,
+					} satisfies ExitPlanModeDetails,
+				};
+			}
 
 			runtime.disable(ctx);
 			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
@@ -269,11 +291,13 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 			const details = outcome.details;
 			const heading = details.unavailable
 				? paint(theme, "warn", "No UI to approve the plan")
-				: details.approved
-					? paint(theme, "ok", `${GLYPHS.check} Plan approved`)
-					: details.refined
-						? paint(theme, "accent", "Refining the plan")
-						: paint(theme, "warn", "Plan not approved");
+				: details.cancelled
+					? paint(theme, "warn", "Plan mode off — plan not approved")
+					: details.approved
+						? paint(theme, "ok", `${GLYPHS.check} Plan approved`)
+						: details.refined
+							? paint(theme, "accent", "Refining the plan")
+							: paint(theme, "warn", "Plan not approved");
 			const extra =
 				details.refined && details.refinement
 					? `\n${paint(theme, "meta", `↳ ${sanitizePlanText(details.refinement)}`)}`

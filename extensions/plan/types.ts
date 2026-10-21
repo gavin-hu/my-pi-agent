@@ -74,6 +74,14 @@ export interface ExitPlanModeDetails {
 	refinement?: string;
 	/** Comments the review carried when it approved or requested a refinement. */
 	annotations?: PlanAnnotation[];
+	/** True when the user left plan mode without approving the plan. */
+	cancelled?: boolean;
 	/** True when no interactive UI was available to ask for approval. */
 	unavailable?: boolean;
+}
+
+/** Structured result carried in `cancel_plan_mode`'s `details`. */
+export interface CancelPlanModeDetails {
+	/** True when plan mode was on and has now been turned off. */
+	cancelled: boolean;
 }

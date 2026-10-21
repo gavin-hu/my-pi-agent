@@ -12,7 +12,14 @@ import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
-import { createPlanRuntime, ENTER_TOOL, EXIT_TOOL, SET_PLAN_STEPS_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
+import {
+	CANCEL_TOOL,
+	createPlanRuntime,
+	ENTER_TOOL,
+	EXIT_TOOL,
+	SET_PLAN_STEPS_TOOL,
+	WRITE_PLAN_TOOL,
+} from "./runtime.ts";
 import { MAX_STEP_LENGTH, MAX_STEPS } from "./steps.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses } from "./todos.ts";
 import { registerTools } from "./tools.ts";
@@ -40,6 +47,7 @@ function setup(web?: PlanWebReview, options: { allTools?: unknown[] } = {}) {
 		root,
 		enter: fake.tools.get(ENTER_TOOL),
 		exit: fake.tools.get(EXIT_TOOL),
+		cancel: fake.tools.get(CANCEL_TOOL),
 		write: fake.tools.get(WRITE_PLAN_TOOL),
 		setSteps: fake.tools.get(SET_PLAN_STEPS_TOOL),
 	};
@@ -558,18 +566,72 @@ describe("exit_plan_mode", () => {
 		expect(runtime.isEnabled()).toBe(true);
 	});
 
-	test("keeps planning when the user chooses that or cancels", async () => {
+	test("keeps planning only when the user chooses that explicit option", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		for (const selection of ["Keep planning", undefined]) {
-			const { ctx } = fakeCtx({ select: selection, cwd: root });
-			const result = await call(exit, { plan_path: planPath }, ctx);
-			expect(result.details.approved).toBe(false);
-			expect(result.isError).toBeUndefined();
-			expect(runtime.isEnabled()).toBe(true);
-		}
+		const { ctx } = fakeCtx({ select: "Keep planning (stay in plan mode)", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details.approved).toBe(false);
+		expect(result.isError).toBeUndefined();
+		expect(runtime.isEnabled()).toBe(true);
+	});
+
+	test("leaves plan mode when the plan review is dismissed", async () => {
+		const { enter, exit, write, runtime, activeTools, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+
+		const { ctx, toolCalls } = fakeCtx({ select: undefined, cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details).toMatchObject({ approved: false, cancelled: true });
+		expect(result.content[0].text).toContain("Plan mode is off");
+		expect(runtime.isEnabled()).toBe(false);
+		expect(activeTools()).toContain("write");
+		expect(toolCalls).toEqual([]);
+	});
+
+	test("leaves plan mode through the Exit review option", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+
+		const { ctx } = fakeCtx({ select: "Exit plan mode (discard)", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+		expect(result.details.cancelled).toBe(true);
+		expect(runtime.isEnabled()).toBe(false);
+		expect(existsSync(planPath)).toBe(true);
+	});
+
+	test("cancel_plan_mode restores write access without touching todos or goals", async () => {
+		const { enter, cancel, runtime, activeTools, root } = setup();
+		await enterPlan(enter, runtime, root);
+
+		const { ctx, notices, toolCalls } = fakeCtx({ cwd: root });
+		const result = await call(cancel, {}, ctx);
+		expect(result.details.cancelled).toBe(true);
+		expect(runtime.isEnabled()).toBe(false);
+		expect(activeTools()).toContain("write");
+		expect(toolCalls).toEqual([]);
+		expect(notices.at(-1)?.message).toContain("full access restored");
+	});
+
+	test("remote entry names the mode and its exit", async () => {
+		const { enter, runtime, root } = setup();
+		const { ctx, notices } = remoteCtx({ cwd: root, confirm: true });
+		await call(enter, {}, ctx);
+		expect(runtime.isEnabled()).toBe(true);
+		expect(notices.some((notice) => notice.message.includes("write access is off"))).toBe(true);
+	});
+
+	test("cancel_plan_mode refuses outside plan mode", async () => {
+		const { cancel } = setup();
+		const { ctx } = fakeCtx();
+		const result = await call(cancel, {}, ctx);
+		expect(result.isError).toBe(true);
+		expect(result.details.cancelled).toBe(false);
+		expect(result.content[0].text).toContain("nothing to cancel");
 	});
 
 	test("approves, restores write access, and seeds the todo list from the file", async () => {
@@ -837,7 +899,7 @@ describe("exit_plan_mode", () => {
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Use a generator");
 
 		const { ctx } = fakeCtx({
-			select: ["Refine the plan", "Keep planning"],
+			select: ["Refine the plan", "Keep planning (stay in plan mode)"],
 			editor: ["   "],
 			cwd: root,
 		});
@@ -982,6 +1044,7 @@ describe("exit_plan_mode", () => {
 		// A digest follows, so the choice is answerable if the file is never opened.
 		const digest = posted.at(-1) ?? "";
 		expect(digest).toContain("Plan (1 step)");
+		expect(digest).toContain("Plan mode is on");
 		expect(digest).toContain("1. Do it");
 	});
 
@@ -990,7 +1053,7 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, posted, setFileResult } = remoteCtx({ cwd: root, select: "Keep planning" });
+		const { ctx, posted, setFileResult } = remoteCtx({ cwd: root, select: "Keep planning (stay in plan mode)" });
 		setFileResult(false);
 		await call(exit, { plan_path: planPath }, ctx);
 		expect(posted[0]).toContain("Do it");
@@ -1003,7 +1066,7 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
 
-		const { ctx, posted } = remoteCtx({ cwd: root, select: "Keep planning" });
+		const { ctx, posted } = remoteCtx({ cwd: root, select: "Keep planning (stay in plan mode)" });
 		await call(exit, { plan_path: planPath }, ctx);
 		expect(posted.at(-1)).toContain("Plan: Test plan (1 step)");
 	});

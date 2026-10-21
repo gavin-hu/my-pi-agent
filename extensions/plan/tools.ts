@@ -3,8 +3,9 @@
  *
  * `enter_plan_mode` lets the model ask to plan before touching code; it needs
  * user confirmation. `write_plan` saves the plan artifact under `.pi/plans` and
- * returns its path. `exit_plan_mode` reads that file back, presents it for
- * approval (a scrollable review screen in the TUI, a select dialog elsewhere),
+ * returns its path. `cancel_plan_mode` leaves planning without approving, so a
+ * phone user is never trapped in read-only mode. `exit_plan_mode` reads that file
+ * back, presents it for approval (a scrollable review screen in the TUI, a select dialog elsewhere),
  * and on approval seeds the `todo` tool with the plan's steps (through
  * `ctx.executeTool`, so the todo widget and validation run normally).
  * `set_plan_steps` then keeps the plan current: after approval the model ticks
@@ -22,6 +23,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { PlanRuntime } from "./runtime.ts";
+import { registerCancelTool } from "./tools/cancel.ts";
 import { registerEnterTool } from "./tools/enter.ts";
 import { registerExitTool } from "./tools/exit.ts";
 import { registerSetPlanStepsTool } from "./tools/steps.ts";
@@ -34,6 +36,7 @@ export function registerTools(
 	web: PlanWebReview = createPlanWebReview(runtime.plans),
 ): void {
 	registerEnterTool(pi, runtime);
+	registerCancelTool(pi, runtime);
 	registerWriteTool(pi, runtime);
 	registerExitTool(pi, runtime, web);
 	registerSetPlanStepsTool(pi, runtime);

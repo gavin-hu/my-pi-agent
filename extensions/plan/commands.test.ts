@@ -52,6 +52,9 @@ function fakeRuntime(options: RuntimeOptions = {}) {
 		toggle: () => {
 			enabled = !enabled;
 		},
+		disable: () => {
+			enabled = false;
+		},
 		lastPlanPath: () => options.last ?? file?.path,
 		reviewed: () => (options.baseline === undefined ? undefined : sectionDigests(options.baseline)),
 		markReviewed: (path: string, content: string) => marks.push({ path, content }),
@@ -342,6 +345,24 @@ describe("/plan list", () => {
 		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
 	});
 
+	test("cancels plan mode without approving", async () => {
+		const { pi, ctx, notifications, runtime } = setup({ result: { status: "cancelled" }, enabled: true });
+
+		await pi.commands.get("plan").handler("cancel", ctx);
+
+		expect(runtime.isEnabled()).toBe(false);
+		expect(notifications.at(-1)).toContain("Plan mode off");
+	});
+
+	test("reports cancel when plan mode is already off", async () => {
+		const { pi, ctx, notifications, runtime } = setup({ result: { status: "cancelled" } });
+
+		await pi.commands.get("plan").handler("cancel", ctx);
+
+		expect(runtime.isEnabled()).toBe(false);
+		expect(notifications.at(-1)).toContain("already off");
+	});
+
 	test("treats a sentence starting with list as a task", async () => {
 		const { pi, ctx } = setup({ result: { status: "cancelled" }, summaries });
 
@@ -355,9 +376,10 @@ describe("/plan list", () => {
 		const complete = (prefix: string): string[] =>
 			(pi.commands.get("plan").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
 
-		expect(complete("")).toEqual(["list", "review"]);
+		expect(complete("")).toEqual(["list", "review", "cancel"]);
 		expect(complete("li")).toEqual(["list"]);
 		expect(complete("r")).toEqual(["review"]);
+		expect(complete("c")).toEqual(["cancel"]);
 		expect(complete("review ")).toEqual([]);
 	});
 });

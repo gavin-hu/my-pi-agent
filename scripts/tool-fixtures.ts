@@ -819,6 +819,16 @@ export const FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "cancel_plan_mode",
+		group: "package",
+		label: "plan mode left without approval",
+		args: {},
+		result: {
+			content: [{ type: "text", text: "Plan mode is off and write access is restored." }],
+			details: { cancelled: true },
+		},
+	},
+	{
 		name: "set_plan_steps",
 		group: "package",
 		label: "one step ticked off",

@@ -22,6 +22,7 @@ const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const REVIEW_PREFIX = "review";
 const LIST_PREFIX = "list";
+const CANCEL_PREFIX = "cancel";
 
 /** Notice text for the current mode; shared by `/plan` and the `Ctrl+Alt+P` shortcut. */
 export function planModeNotice(enabled: boolean): string {
@@ -47,6 +48,11 @@ function reviewTarget(args: string): string | undefined {
  */
 function isListSubcommand(prompt: string): boolean {
 	return prompt.toLowerCase() === LIST_PREFIX;
+}
+
+/** Exact `cancel` leaves plan mode without approving; a longer sentence stays a task. */
+function isCancelSubcommand(prompt: string): boolean {
+	return prompt.toLowerCase() === CANCEL_PREFIX;
 }
 
 /**
@@ -167,18 +173,27 @@ export function registerCommands(
 ): void {
 	pi.registerCommand("plan", {
 		description:
-			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, or review one in the browser",
+			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, review one in the browser, or cancel planning without approving",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
-			const subcommands = [LIST_PREFIX, REVIEW_PREFIX].filter((name) => name.startsWith(text));
+			const subcommands = [LIST_PREFIX, REVIEW_PREFIX, CANCEL_PREFIX].filter((name) => name.startsWith(text));
 			return subcommands.length > 0 ? subcommands.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args, ctx) => {
 			const prompt = args.trim();
 
-			// `/plan list` and `/plan review [path]` are reserved subcommands;
-			// everything else is a task.
+			// `/plan list`, `/plan review [path]`, and `/plan cancel` are reserved
+			// subcommands; everything else is a task.
+			if (isCancelSubcommand(prompt)) {
+				if (!runtime.isEnabled()) {
+					ctx.ui.notify("Plan mode is already off.", "info");
+					return;
+				}
+				runtime.disable(ctx);
+				ctx.ui.notify("Plan mode off — full access restored. The plan was not approved.", "info");
+				return;
+			}
 			if (isListSubcommand(prompt)) {
 				await openPlanIndex(pi, runtime, web, ctx);
 				return;
