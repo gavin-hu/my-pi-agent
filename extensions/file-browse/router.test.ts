@@ -16,6 +16,7 @@ import { DEFAULT_CONFIG, type ServeConfig } from "./config.ts";
 import type { DiffList, GitDiffProvider } from "./git.ts";
 import fileBrowser from "./index.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "./live.ts";
+import type { LiveTimeout } from "./live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 import { createFileServer, type FileServer } from "./server.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -523,10 +524,33 @@ function fakeTimer(): { timer: (tick: () => void) => () => void; fire(): Promise
 
 const idle = { snapshot: async () => ({ at: 0, uptimeMs: 0, requests: 0, git: null, changes: null }) };
 
+/** A grace timer that only fires when the test says so. */
+function fakeTimeout(): { timeout: LiveTimeout; fire(): void; armed: number; cancels: number } {
+	let pending: (() => void) | undefined;
+	const state = {
+		armed: 0,
+		cancels: 0,
+		timeout: (run: () => void) => {
+			state.armed += 1;
+			pending = run;
+			return () => {
+				pending = undefined;
+				state.cancels += 1;
+			};
+		},
+		fire: () => {
+			const run = pending;
+			pending = undefined;
+			run?.();
+		},
+	};
+	return state;
+}
+
 describe("live channel", () => {
 	test("sends the current status to a page as it attaches", async () => {
 		const status = createLiveStatus({ git: async () => ({ branch: "main" }), startedAt: 0, requests: () => 1 });
-		const channel = createLiveChannel({ status, intervalMs: 3000, timer: fakeTimer().timer });
+		const channel = createLiveChannel({ status, intervalMs: 3000, idleMs: 10_000, timer: fakeTimer().timer });
 		const page = liveClient();
 		const detach = channel.attach(page);
 		await settle();
@@ -545,7 +569,7 @@ describe("live channel", () => {
 			},
 		};
 		const state = fakeTimer();
-		const channel = createLiveChannel({ status, intervalMs: 3000, timer: state.timer });
+		const channel = createLiveChannel({ status, intervalMs: 3000, idleMs: 10_000, timer: state.timer });
 		const first = liveClient();
 		const second = liveClient();
 		channel.attach(first);
@@ -560,7 +584,7 @@ describe("live channel", () => {
 
 	test("stops the ticker with the last page and on close", async () => {
 		const state = fakeTimer();
-		const channel = createLiveChannel({ status: idle, intervalMs: 3000, timer: state.timer });
+		const channel = createLiveChannel({ status: idle, intervalMs: 3000, idleMs: 10_000, timer: state.timer });
 		const first = liveClient();
 		const second = liveClient();
 		const detachFirst = channel.attach(first);
@@ -580,7 +604,7 @@ describe("live channel", () => {
 
 	test("drops a page whose write fails and stops when none are left", async () => {
 		const state = fakeTimer();
-		const channel = createLiveChannel({ status: idle, intervalMs: 3000, timer: state.timer });
+		const channel = createLiveChannel({ status: idle, intervalMs: 3000, idleMs: 10_000, timer: state.timer });
 		channel.attach({
 			write: () => {
 				throw new Error("socket closed");
@@ -590,6 +614,59 @@ describe("live channel", () => {
 		await state.fire();
 		expect(state.stops).toBe(1);
 		channel.close();
+	});
+
+	test("holds the last page's departure for the grace period, and a new page cancels it", () => {
+		const grace = fakeTimeout();
+		let stops = 0;
+		const channel = createLiveChannel({
+			status: idle,
+			intervalMs: 3000,
+			idleMs: 10_000,
+			timer: fakeTimer().timer,
+			timeout: grace.timeout,
+			onIdle: () => {
+				stops += 1;
+			},
+		});
+
+		const detachFirst = channel.attach(liveClient());
+		expect(grace.armed).toBe(0);
+		detachFirst();
+		expect(grace.armed).toBe(1);
+		expect(stops).toBe(0);
+
+		// A reload or a second tab re-attaches inside the grace, so the server is not
+		// closed under the page that is still reading it.
+		const detachSecond = channel.attach(liveClient());
+		expect(grace.cancels).toBe(1);
+		grace.fire();
+		expect(stops).toBe(0);
+
+		detachSecond();
+		grace.fire();
+		expect(stops).toBe(1);
+		channel.close();
+	});
+
+	test("a pending idle stop never outlives close", () => {
+		const grace = fakeTimeout();
+		let stops = 0;
+		const channel = createLiveChannel({
+			status: idle,
+			intervalMs: 3000,
+			idleMs: 10_000,
+			timer: fakeTimer().timer,
+			timeout: grace.timeout,
+			onIdle: () => {
+				stops += 1;
+			},
+		});
+
+		channel.attach(liveClient())();
+		channel.close();
+		grace.fire();
+		expect(stops).toBe(0);
 	});
 });
 
@@ -682,6 +759,34 @@ describe("loopback server", () => {
 		await started.close();
 		expect(await connectionRefused(url)).toBe(true);
 	});
+
+	test("stops listening once the last page has gone for the grace period", async () => {
+		fixture = makeFixture();
+		let closed: (() => void) | undefined;
+		const done = new Promise<void>((resolve) => {
+			closed = resolve;
+		});
+		let started: FileServer | undefined;
+		started = await createFileServer({
+			root: fixture.root,
+			config: { ...DEFAULT_CONFIG, autoOpen: false },
+			idleStopMs: 20,
+			onIdle: () => {
+				void started?.close().then(() => closed?.());
+			},
+		});
+		server = started;
+
+		// A raw socket, so closing it is the page leaving and nothing else.
+		const { hostname, port } = new URL(started.url);
+		const socket = createConnection({ host: hostname, port: Number(port) }, () => {
+			socket.write("GET /events HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+		});
+		socket.once("data", () => socket.destroy());
+
+		await done;
+		expect(await connectionRefused(started.url)).toBe(true);
+	});
 });
 
 function fakeServer(root: string): FileServer {
@@ -747,6 +852,42 @@ describe("browse command", () => {
 		await runCommand(pi, "browse", "stop", ctx);
 		expect(closes).toBe(1);
 		expect(notifications.at(-1)?.message).toContain("stopped");
+	});
+
+	test("closes the server when its only page leaves, and says why", async () => {
+		fixture = makeFixture();
+		const { pi } = createFakePi();
+		let idle: (() => void) | undefined;
+		let closes = 0;
+		fileBrowser(pi, {
+			open: noOpen,
+			pickPort: () => 4321,
+			createServer: async (options) => {
+				idle = options.onIdle;
+				return {
+					...fakeServer(fixture!.root),
+					close: async () => {
+						closes++;
+					},
+				};
+			},
+		});
+		const { ctx, notifications, statuses } = fakeCtx(fixture.root);
+
+		await runCommand(pi, "browse", "", ctx);
+		expect(statuses.has(STATUS_KEYS.browse)).toBe(true);
+		expect(idle).toBeDefined();
+
+		idle?.();
+		await settle();
+		expect(closes).toBe(1);
+		expect(statuses.has(STATUS_KEYS.browse)).toBe(false);
+		expect(notifications.at(-1)?.message).toContain("last page was closed");
+
+		// The page is gone for good: a second idle report cannot close twice.
+		idle?.();
+		await settle();
+		expect(closes).toBe(1);
 	});
 
 	test("reprints without restarting when the root and port are unchanged", async () => {

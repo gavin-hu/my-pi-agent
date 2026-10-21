@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `file-browse`: the server stops when its last page is closed. Ten seconds after
+  the final tab's status stream detaches — the `IDLE_STOP_MS` grace in `config.ts`
+  — the port is released and the footer chip is cleared, and a reload or a new tab
+  inside that grace cancels the stop. A page with JavaScript off, or with live
+  status off, never attaches a stream, so there the server still waits for
+  `/browse stop` or the end of the session.
+
 ### Changed
 
 - `file-browse`: the live chip names its state instead of counting it — `◉ live`,

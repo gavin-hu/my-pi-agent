@@ -90,7 +90,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   the tree and the listing update in place; and the footer line reports `up 2m
   14s · 37 requests`. The chip names its state and never counts, so nothing is
   repainted between frames. One Server-Sent Events stream per page carries it, on
-  the same loopback server, so nothing extra is opened and nothing is written.
+  the same loopback server, so nothing extra is opened and nothing is written;
+  that stream is also how the server notices the last page closing its window,
+  after which it stops listening.
 - **No dependencies.** `node:http` plus the inline sprite, CSS, and client
   script.
 
@@ -111,7 +113,10 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   port; a busy port is reported, not silently changed.
 - Starting while already running with the same root reprints the URL without
   restarting; a different root (or a changed pinned port) restarts the server.
-- The server is closed on `session_shutdown`.
+- The server is closed when its last page has been gone for ten seconds, so
+  closing the browser window ends the session's browse server and `/browse`
+  starts it again on the same port. A reload or a new tab inside that grace keeps
+  it. `session_shutdown` closes it too, and `/browse stop` closes it at once.
 
 ### Status
 
@@ -135,6 +140,12 @@ line are painted from one snapshot rather than four requests. Losing the stream
 leaves everything the page last showed in place: it is read-only, so a stale
 label is never a stale action. `"live": false` turns the whole surface off — no
 chip, no stream, no `/events` route — and so does JavaScript off.
+
+The stream is also how the server knows a page is still there: when the last one
+leaves, the port is released after ten seconds and the chip is cleared, because
+nothing is left to serve. That is why a page with JavaScript off — or with live
+status off — never counts as a reader, and the server then waits for
+`/browse stop` or the end of the session.
 
 ## Routes
 
@@ -258,7 +269,7 @@ document and the project document (project wins):
 |---|---|
 | Command | `/browse` registers a single command from the factory; no tools are exposed. |
 | State | The running server, its root, and the session port live in a module-local closure; nothing is persisted and no session entries are written. |
-| Lifecycle | The factory opens no socket; the server is created on `/browse` and closed idempotently by `/browse stop` and `session_shutdown`, which also ends every attached status stream. |
+| Lifecycle | The factory opens no socket; the server is created on `/browse` and closed idempotently by `/browse stop`, by `session_shutdown`, and once its last page has been gone for the idle grace, which also ends every attached status stream. |
 
 ## Design notes
 
@@ -269,7 +280,10 @@ document and the project document (project wins):
   wins, otherwise a random port is drawn and cached after the first successful
   bind, so later starts reuse it (a conflict is reported and the next `/browse`
   rolls another). `/browse stop` and `session_shutdown` await the idempotent
-  `close()`; `session_shutdown` also clears the cached port.
+  `close()`; `session_shutdown` also clears the cached port. The page is the
+  server's only reader, so the channel reports the last page's departure after
+  `IDLE_STOP_MS` and the command closes the server and clears the chip — the
+  cached port survives, so the next `/browse` binds the same one.
 - **Pure routing.** `handleRequest(context, method, rawUrl, headers)` validates
   method and `Host`, parses the URL, matches a route, and runs every path
   through `paths.ts`. It returns a plain `ServeResponse`, so routing is tested
@@ -352,7 +366,9 @@ document and the project document (project wins):
   attached pages and starts the ticker on the first attach, so an idle server
   does no work; it shares a single in-flight snapshot between pages, drops a
   page whose write fails, and stops on the last detach and on `close()`, which
-  `server.ts` calls before closing the socket. Both providers are already
+  `server.ts` calls before closing the socket. The last detach also arms one
+  idle-stop timer — a reload re-attaches and cancels it — and `server.ts` turns
+  that into the extension's `close()` and a cleared chip. Both providers are already
   TTL-cached, so a tick re-reads at most one `git status`, and every read
   failure degrades to `null` rather than a failed frame. The event-stream
   headers and the `retry:` preamble live in `lib/http` with the rest of the
@@ -414,7 +430,9 @@ and provider (line kinds, line numbers, status and rename parsing, mode
 filtering, untracked all-add, unborn-HEAD fallback, literal pathspec, and TTL
 cache), the diff renderers (highlighted changed lines, marker sets, and chip
 totals), the live status feed (snapshot fields, degraded providers, the frame,
-and the channel's ticker driven by an injected timer), the `/events` route and
+and the channel's ticker driven by an injected timer, plus the idle stop armed on
+the last detach and cancelled by the next page or by `close()`), the `/events`
+route and
 its 404 when the channel is off, a real socket that reads a page's first frame
 and the ticker's next one and sees the stream end when the server closes, the
 live chrome a page renders when on and not when off, and the command

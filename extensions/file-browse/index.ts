@@ -4,7 +4,8 @@
  * Registers the read-only `/browse` command. It starts a `node:http` server
  * bound to 127.0.0.1, rooted at the effective cwd, and opens the default
  * browser at a two-pane tree browser. No tool is registered; the server is
- * closed on `session_shutdown`.
+ * closed on `session_shutdown`, by `/browse stop`, and once its last page has
+ * been gone for the idle grace — a closed window is not a running server.
  *
  * Load with:  pi --extension ./extensions/file-browse
  */
@@ -32,6 +33,8 @@ export interface FileBrowserDeps {
 
 interface RunningServer {
 	server: FileServer;
+	/** The context of the command that started it, used to clear the chip later. */
+	ctx: ExtensionContext;
 }
 
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
@@ -60,6 +63,17 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		await current.server.close();
 		if (ctx) setBrowseStatus(ctx, undefined);
 		return true;
+	};
+
+	/**
+	 * Close the server once the page that was its only reader has gone: nothing is
+	 * left to serve, and the chip would otherwise advertise a port that answers no
+	 * one. `/browse` starts it again on the same session port.
+	 */
+	const stopWhenPageLeft = async (): Promise<void> => {
+		const current = running;
+		if (!current) return;
+		if (await stop(current.ctx)) current.ctx.ui.notify("browse: stopped — the last page was closed", "info");
 	};
 
 	const start = async (args: string, ctx: ExtensionContext): Promise<void> => {
@@ -121,9 +135,10 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 					maxFileBytes: config.maxFileBytes,
 					maxTextLines: config.maxTextLines,
 				}),
+				onIdle: () => void stopWhenPageLeft(),
 			});
 			if (unpinned) sessionPort = port;
-			running = { server };
+			running = { server, ctx };
 			setBrowseStatus(ctx, server.port);
 			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
 			if (config.autoOpen) (deps.open ?? openInBrowser)(server.url);

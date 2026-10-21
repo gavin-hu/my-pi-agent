@@ -226,7 +226,10 @@ subcommands:
   the browser follow. It updates what is already on the page — a new file needs a
   reload to appear in the listing — and `"live": false` in the `file-browse`
   section turns it off.
-- The server stops when the session shuts down.
+- The server stops when the session shuts down, and when you close the last
+  page: ten seconds after the last tab goes, the port is released and the footer
+  chip clears. A reload or a new tab within those ten seconds keeps it, and
+  `/browse` starts it again — on the same port — whenever you want it back.
 
 ### Opening a file in its usual application
 

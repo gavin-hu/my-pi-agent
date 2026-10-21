@@ -73,6 +73,14 @@ export const LIVE_INTERVAL_MIN = 250;
 /** Slowest live-status cadence, so a page cannot look abandoned. */
 export const LIVE_INTERVAL_MAX = 60_000;
 
+/**
+ * How long the server keeps listening once the last page has gone. A reload or a
+ * navigation detaches the stream and re-attaches within a moment, so the grace has
+ * to outlast one; a closed window never re-attaches, and the port is released
+ * instead of listening for nobody until the session ends.
+ */
+export const IDLE_STOP_MS = 10_000;
+
 /** A random port in the per-session range `PORT_BASE`–`PORT_BASE + PORT_RANGE - 1`. */
 export function randomPort(): number {
 	return PORT_BASE + randomInt(PORT_RANGE);

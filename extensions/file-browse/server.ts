@@ -22,7 +22,7 @@ import {
 	textResponse,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
-import type { ServeConfig } from "./config.ts";
+import { IDLE_STOP_MS, type ServeConfig } from "./config.ts";
 import { createFileIndex } from "./files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "./git.ts";
 import { createLiveChannel, createLiveStatus } from "./live.ts";
@@ -46,6 +46,10 @@ export interface FileServerOptions {
 	git?: GitStatusProvider;
 	/** Read-only diff provider for the change and diff views; omitted when unavailable. */
 	diff?: GitDiffProvider;
+	/** Called once the last page has been gone for `idleStopMs`; omitted, the server waits for `close()`. */
+	onIdle?: () => void;
+	/** Grace before `onIdle`, in ms; defaults to `IDLE_STOP_MS`. */
+	idleStopMs?: number;
 	/** Override the request handler (tests). */
 	handler?: typeof handleRequest;
 }
@@ -65,7 +69,14 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 				requests: () => requests,
 			})
 		: undefined;
-	const live = status ? createLiveChannel({ status, intervalMs: config.liveIntervalMs }) : undefined;
+	const live = status
+		? createLiveChannel({
+				status,
+				intervalMs: config.liveIntervalMs,
+				idleMs: options.idleStopMs ?? IDLE_STOP_MS,
+				onIdle: options.onIdle,
+			})
+		: undefined;
 	const context: ServeContext = {
 		root,
 		config,
