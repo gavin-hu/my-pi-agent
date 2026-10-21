@@ -91,6 +91,9 @@ Not caught by types, and easy to get wrong.
 - Adding an extension also touches the `pi` manifest, `REQUIREMENTS` in
   `lib/requirements.ts`, the catalog table in `README.md` and its
   `README.zh-CN.md` mirror, and `test/naming.test.ts` when it adds a tool name.
+- Adding a packaged skill is a `skills/<name>/SKILL.md` whose frontmatter carries
+  `name` and `description`, plus its row in both entry READMEs' skill tables;
+  `test/extension-load.test.ts` holds the manifest and the frontmatter.
 
 ## Tool and prompt surface
 
@@ -109,14 +112,15 @@ Not caught by types, and easy to get wrong.
 
 ## Code quality
 
+- Do not copy code. A helper two extensions need lives in `lib/`, not in both; a
+  body identical to an existing one is a duplicate, not a variation.
+  `test/shared-helpers.test.ts` fails the second copy by name or body, and
+  `test/drift.test.ts` fails a `lib/` module with no row in `lib/README.md`.
 - Extension code is read far more often than written. One job per module and a
   name that says it. Past 600 lines a module is named in `LONG_MODULES` in
   `test/structure.test.ts` with the single responsibility that keeps it whole and
   its own height, which may only fall: the split costs a few lines at the bar and
   a rewrite a thousand lines later.
-- A helper two extensions need lives in `lib/`, not in both. `lib/README.md` is
-  the index, `test/shared-helpers.test.ts` fails the second copy by name or by
-  body, and `test/drift.test.ts` fails a module with no index row.
 - `unknown` at a boundary, never `any`. A cast is a claim about a value you did
   not build, so it names the guarantee it relies on.
 - No dead branch, commented-out code, or comment that restates its line.
@@ -134,6 +138,9 @@ Not caught by types, and easy to get wrong.
   `test/docs-parity.test.ts` compares shared headings, table rows, and links.
 - `CONTRIBUTING.md` is the human entry point, `docs/` holds the guides, and
   `AGENTS.md` is this file.
+- An extension's only doc is `extensions/<name>/README.md`, in the section order
+  of [`docs/development.md#one-doc-per-extension`](./docs/development.md#one-doc-per-extension);
+  there is no `DESIGN.md`.
 - A behaviour change updates the catalog table in both entry READMEs, the
   relevant `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
 - Renaming a heading or moving a file means fixing every relative link and
@@ -141,24 +148,6 @@ Not caught by types, and easy to get wrong.
 - One doc per audience. Deep per-area contracts live in
   `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`, and
   `test/README.md`; `docs/development.md#drift-rules` explains the gate lists.
-
-## Extension READMEs
-
-`extensions/<name>/README.md` is the extension's only doc; there is no
-`DESIGN.md`. Use this order, omitting empty optional sections:
-
-1. `# <name> — <tagline>`, then a 1–3 sentence intro.
-2. Quickstart: `pi --extension ./extensions/<name>`, `pi -e .`, `pi install ./`.
-3. `## What it does`.
-4. `## Tool` / `## Tools` / `## Commands` / `## Commands and flags` / `## Routes`.
-5. `## Behaviour by mode`, `## Configuration`, and `## Security` (only with a real
-   trust boundary).
-6. Deep dives, `## Limitations`, `## Non-goals`.
-7. `## Pi integration` — integration points, annotations, `executionMode`,
-   `exposure`, `outputSchema`, state storage, and lifecycle hooks.
-8. `## Design notes`, `## Files` (module responsibility table), `## Testing`.
-
-Keep user-facing content above the contributor sections and use Pi's vocabulary.
 
 ## How to work
 
