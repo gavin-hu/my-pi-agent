@@ -54,6 +54,7 @@ import type { NoticeDetails } from "../lib/notice.ts";
 import { createFakePi } from "../test/helpers/fakes.ts";
 import { ansiLinesToHtml, escapeHtml } from "./ansi-html.ts";
 import { captureFullPage } from "./chrome-shot.ts";
+import { numberArg } from "./cli.ts";
 import { setThemeInstance, theme as baseTheme } from "./theme.ts";
 import { FIXTURES, type ToolFixture } from "./tool-fixtures.ts";
 
@@ -346,14 +347,6 @@ export function galleryHtml(width = DEFAULT_WIDTH): string {
 /** A page holding exactly one block, for a per-tool capture. */
 function singleHtml(rendering: Rendering, width = DEFAULT_WIDTH): string {
 	return shell(rendering.name, width, blockHtml(rendering, width));
-}
-
-/** A number flag from the arguments, or a fallback. */
-function numberArg(args: string[], flag: string, fallback: number): number {
-	const index = args.indexOf(flag);
-	if (index < 0) return fallback;
-	const value = Number.parseInt(args[index + 1] ?? "", 10);
-	return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 /** Write `html` to a temp file, capture it full-page, and remove the file. */

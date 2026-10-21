@@ -26,7 +26,8 @@ import { DEFAULT_CONFIG } from "../extensions/file-browse/config.ts";
 import { createGitDiff, createGitStatus } from "../extensions/file-browse/git.ts";
 import { encodePath } from "../extensions/file-browse/paths.ts";
 import { createFileServer } from "../extensions/file-browse/server.ts";
-import { captureFullPage } from "./chrome-shot.ts";
+import { captureFullPage, readyWhen } from "./chrome-shot.ts";
+import { parseShotArgs, runCli } from "./cli.ts";
 import { EXPAND_SHELL_EXPRESSION, themeExpression } from "./web-shot.ts";
 
 /** CLI options after parsing. */
@@ -49,46 +50,23 @@ export interface ShotOptions {
 
 /** Parse the command line; throws a message the caller prints as usage. */
 export function parseArgs(argv: string[]): ShotOptions {
-	let root = "";
-	let file = "README.md";
-	let out = "";
-	let width = 1280;
-	let scale = 1;
-	let theme: "light" | "dark" | undefined;
-	let waitMs = 8000;
-	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i];
-		const value = (): string => {
-			const next = argv[++i];
-			if (next === undefined) throw new Error(`${arg} needs a value`);
-			return next;
-		};
-		if (arg === "-o" || arg === "--out") out = value();
-		else if (arg === "--root") root = value();
-		else if (arg === "--file") file = value();
-		else if (arg === "--width") width = Number(value());
-		else if (arg === "--scale") scale = Number(value());
-		else if (arg === "--wait") waitMs = Number(value());
-		else if (arg === "--theme") {
-			const themeValue = value();
-			if (themeValue !== "light" && themeValue !== "dark") throw new Error("--theme must be light or dark");
-			theme = themeValue;
-		} else if (arg === "-h" || arg === "--help") throw new Error("");
-		else if (arg.startsWith("-")) throw new Error(`unknown option ${arg}`);
-		else throw new Error(`unexpected argument ${arg}`);
-	}
+	const parsed = parseShotArgs(argv, {
+		out: "file-browse.png",
+		scale: 1,
+		extraFlags: ["--root", "--file"],
+		maxPositional: 0,
+	});
+	const root = parsed.values["--root"] ?? "";
+	const file = parsed.values["--file"] ?? "README.md";
 	if (file.startsWith("/")) throw new Error("--file must be root-relative");
-	if (!Number.isFinite(width) || width < 320) throw new Error("--width must be at least 320");
-	if (!Number.isFinite(scale) || scale <= 0) throw new Error("--scale must be positive");
-	if (!Number.isFinite(waitMs) || waitMs < 0) throw new Error("--wait must not be negative");
 	return {
 		root: root ? resolve(root) : undefined,
 		file,
-		out: resolve(out || "file-browse.png"),
-		width: Math.round(width),
-		scale,
-		theme,
-		waitMs,
+		out: resolve(parsed.out || "file-browse.png"),
+		width: parsed.width,
+		scale: parsed.scale,
+		theme: parsed.theme,
+		waitMs: parsed.waitMs,
 	};
 }
 
@@ -239,15 +217,13 @@ function execApi(): Pick<ExtensionAPI, "exec"> {
 
 /** The page is ready once the sidebar and the rendered Markdown are both drawn. */
 function readyExpression(waitMs: number): string {
-	return `new Promise(function (resolve) {
-	var done = function () {
-		var article = document.querySelector("article.bf-md");
-		return !!document.getElementById("filter") && !!article && (article.textContent || "").trim().length > 0;
-	};
-	if (done()) { resolve(true); return; }
-	var timer = setInterval(function () { if (done()) { clearInterval(timer); resolve(true); } }, 50);
-	setTimeout(function () { clearInterval(timer); resolve(false); }, ${waitMs});
-})`;
+	return readyWhen(
+		`(function () {
+			var article = document.querySelector("article.bf-md");
+			return !!document.getElementById("filter") && !!article && (article.textContent || "").trim().length > 0;
+		})()`,
+		waitMs,
+	);
 }
 
 /** Serve one directory and capture one file page. */
@@ -283,14 +259,9 @@ async function capture(options: ShotOptions): Promise<void> {
 const USAGE = `usage: bun run scripts/file-browse-shot.ts [--root <dir>] [--file <rel>] [-o out.png] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]`;
 
 if (import.meta.main) {
-	try {
+	runCli(USAGE, async () => {
 		const options = parseArgs(process.argv.slice(2));
 		await capture(options);
 		console.log(options.out);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(message || USAGE);
-		if (message && !message.startsWith("--")) console.error(USAGE);
-		process.exit(1);
-	}
+	});
 }

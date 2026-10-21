@@ -18,7 +18,8 @@ import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { type PlanStore, type StoredPlan } from "../extensions/plan/plans.ts";
 import { createPlanWebReview } from "../extensions/plan/web.ts";
-import { captureFullPage } from "./chrome-shot.ts";
+import { captureFullPage, readyWhen } from "./chrome-shot.ts";
+import { parseShotArgs, runCli } from "./cli.ts";
 import { EXPAND_SHELL_EXPRESSION, themeExpression } from "./web-shot.ts";
 
 /** CLI options after parsing. */
@@ -39,44 +40,17 @@ export interface ShotOptions {
 
 /** Parse the command line; throws a message the caller prints as usage. */
 export function parseArgs(argv: string[]): ShotOptions {
-	let plan = "";
-	let out = "";
-	let width = 1280;
-	let scale = 2;
-	let theme: "light" | "dark" | undefined;
-	let waitMs = 8000;
-	for (let i = 0; i < argv.length; i++) {
-		const arg = argv[i];
-		const value = (): string => {
-			const next = argv[++i];
-			if (next === undefined) throw new Error(`${arg} needs a value`);
-			return next;
-		};
-		if (arg === "-o" || arg === "--out") out = value();
-		else if (arg === "--width") width = Number(value());
-		else if (arg === "--scale") scale = Number(value());
-		else if (arg === "--wait") waitMs = Number(value());
-		else if (arg === "--theme") {
-			const themeValue = value();
-			if (themeValue !== "light" && themeValue !== "dark") throw new Error("--theme must be light or dark");
-			theme = themeValue;
-		} else if (arg === "-h" || arg === "--help") throw new Error("");
-		else if (arg.startsWith("-")) throw new Error(`unknown option ${arg}`);
-		else if (plan) throw new Error(`unexpected argument ${arg}`);
-		else plan = arg;
-	}
+	const parsed = parseShotArgs(argv, { out: "", scale: 2, maxPositional: 1 });
+	const plan = parsed.positional[0] ?? "";
 	if (!plan) throw new Error("a plan path is required");
-	if (!Number.isFinite(width) || width < 320) throw new Error("--width must be at least 320");
-	if (!Number.isFinite(scale) || scale <= 0) throw new Error("--scale must be positive");
-	if (!Number.isFinite(waitMs) || waitMs < 0) throw new Error("--wait must not be negative");
 	const planPath = resolve(plan);
 	return {
 		plan: planPath,
-		out: resolve(out || `${basename(planPath).replace(/\.md$/i, "")}.png`),
-		width: Math.round(width),
-		scale,
-		theme,
-		waitMs,
+		out: resolve(parsed.out || `${basename(planPath).replace(/\.md$/i, "")}.png`),
+		width: parsed.width,
+		scale: parsed.scale,
+		theme: parsed.theme,
+		waitMs: parsed.waitMs,
 	};
 }
 
@@ -111,16 +85,14 @@ function screenshotStore(plan: StoredPlan): PlanStore {
 
 /** The plan review page needs its blocks and the state chip before capture. */
 function readyExpression(waitMs: number): string {
-	return `new Promise(function (resolve) {
-	var done = function () {
-		var state = document.getElementById("review-state");
-		return document.querySelectorAll("#plan .bf-block").length > 0 &&
-			!!state && /Connected|Saved|Offline/.test(state.textContent || "");
-	};
-	if (done()) { resolve(true); return; }
-	var timer = setInterval(function () { if (done()) { clearInterval(timer); resolve(true); } }, 50);
-	setTimeout(function () { clearInterval(timer); resolve(false); }, ${waitMs});
-})`;
+	return readyWhen(
+		`(function () {
+			var state = document.getElementById("review-state");
+			return document.querySelectorAll("#plan .bf-block").length > 0 &&
+				!!state && /Connected|Saved|Offline/.test(state.textContent || "");
+		})()`,
+		waitMs,
+	);
 }
 
 /** Render one plan and capture it. */
@@ -156,14 +128,9 @@ async function capture(options: ShotOptions): Promise<void> {
 const USAGE = `usage: bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000]`;
 
 if (import.meta.main) {
-	try {
+	runCli(USAGE, async () => {
 		const options = parseArgs(process.argv.slice(2));
 		await capture(options);
 		console.log(options.out);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(message || USAGE);
-		if (message && !message.startsWith("--")) console.error(USAGE);
-		process.exit(1);
-	}
+	});
 }
