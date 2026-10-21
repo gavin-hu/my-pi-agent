@@ -47,6 +47,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `todo` draw their overflow notes through the same hint helpers. No tool,
   parameter, or config key changed.
 
+- `watch`: a command watcher's process lifecycle — the spawn, the SIGTERM →
+  SIGKILL grace, and the shutdown drain — is one module, `child.ts`, over the
+  injected spawn and tree-kill seams, instead of living inside the runtime's
+  closure. The escalation and the drain have their own tests; the runtime keeps
+  the status transitions, the repaint, and the clock. No tool action, parameter,
+  or config key changed.
+
 - `rewind`: `/review` folds a revert's outcome into its loop in one place
   instead of three, and repaints and re-reads the tree after a mutation in one
   helper instead of two. The partial restore, the changed-file list, and the
