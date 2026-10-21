@@ -47,6 +47,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `todo` draw their overflow notes through the same hint helpers. No tool,
   parameter, or config key changed.
 
+- `check`: one recipe-detector factory replaces the `just` and `make` detectors
+  each spelling out the same manifest lookup, target mapping, and command
+  wording, so a third recipe runner is one registration. The four located
+  failure parsers share one builder for the path/line/column shape, and the two
+  dedupe passes share one key. No detected command, failure, tool, or config key
+  changed.
+
 - `wechat`: each control verb has one implementation and one message, so the
   control screen's keys and the `/wechat stop|reset|pause|resume` subcommands
   can no longer disagree — they already had, in the reset refusal and the pause

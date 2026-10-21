@@ -13,7 +13,7 @@ import { stripControlChars } from "../../lib/format.ts";
 import { LineSplitter } from "../../lib/lines.ts";
 import { loadConfig, type CheckConfig } from "./config.ts";
 import { planCommands } from "./detect.ts";
-import { parseFailures } from "./failures.ts";
+import { failureKey, parseFailures } from "./failures.ts";
 import { createRunner, type RunOutcome } from "./runner.ts";
 import type { ActiveCheck, CheckResult, CheckStatus, CheckTarget, CommandSpec, Failure } from "./types.ts";
 
@@ -79,14 +79,7 @@ function mergeFailures(failures: readonly Failure[]): Failure[] {
 	const seen = new Set<string>();
 	const merged: Failure[] = [];
 	for (const failure of failures) {
-		const key = [
-			failure.path ?? "",
-			failure.line ?? "",
-			failure.column ?? "",
-			failure.test ?? "",
-			failure.command,
-			failure.message,
-		].join("\u0000");
+		const key = failureKey(failure, { command: true });
 		if (seen.has(key)) continue;
 		seen.add(key);
 		merged.push(failure);

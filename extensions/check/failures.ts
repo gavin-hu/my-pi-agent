@@ -25,23 +25,36 @@ function looksLikePath(path: string): boolean {
 	return path.includes("/") || path.includes("\\") || path.includes(".");
 }
 
+/** A number from a regex group, or undefined when the group did not match. */
+function numberFrom(group: string | undefined): number | undefined {
+	return group === undefined ? undefined : Number.parseInt(group, 10);
+}
+
+/**
+ * A failure at a parsed location, or undefined when the path is not a path the
+ * extension is willing to point at. A column is kept only when it parsed, so a
+ * two-part location never carries a `NaN`.
+ */
+function locatedFailure(
+	path: string,
+	line: number | undefined,
+	column: number | undefined,
+	rest: Pick<Failure, "message" | "command"> & { test?: string },
+): Failure | undefined {
+	if (!looksLikePath(path) || line === undefined || !Number.isFinite(line)) return undefined;
+	const known = column !== undefined && Number.isFinite(column) ? column : undefined;
+	return { path, line, ...(known === undefined ? {} : { column: known }), ...rest };
+}
+
 /** The generic compiler/linter location: `path:line(:col): message`. */
 function genericFailure(line: string, command: string): Failure | undefined {
 	const match = /^(.*?):(\d+)(?::(\d+))?:\s*(.+)$/.exec(line);
 	if (!match) return undefined;
 	const path = match[1]?.trim() ?? "";
-	const lineNumber = Number.parseInt(match[2] ?? "", 10);
-	const column = match[3] === undefined ? undefined : Number.parseInt(match[3], 10);
 	const message = match[4]?.trim() ?? "";
-	if (!looksLikePath(path) || !Number.isFinite(lineNumber) || message === "") return undefined;
+	if (message === "") return undefined;
 	if (path.startsWith("at ") || path.startsWith("thread ")) return undefined;
-	return {
-		path,
-		line: lineNumber,
-		...(column === undefined || !Number.isFinite(column) ? {} : { column }),
-		message,
-		command,
-	};
+	return locatedFailure(path, numberFrom(match[2]), numberFrom(match[3]), { message, command });
 }
 
 /** Pytest's `FAILED path::test - message` line. */
@@ -77,17 +90,11 @@ function stackFailure(line: string, command: string, pendingTest: string | undef
 	const match = parenthesized ?? bare;
 	if (!match) return undefined;
 	const path = match[1]?.trim() ?? "";
-	const lineNumber = Number.parseInt(match[2] ?? "", 10);
-	const column = match[3] === undefined ? undefined : Number.parseInt(match[3], 10);
-	if (!looksLikePath(path) || !Number.isFinite(lineNumber)) return undefined;
-	return {
-		path,
-		line: lineNumber,
-		...(column === undefined || !Number.isFinite(column) ? {} : { column }),
+	return locatedFailure(path, numberFrom(match[2]), numberFrom(match[3]), {
 		...(pendingTest ? { test: pendingTest } : {}),
 		message: pendingTest ? "Test failed" : "Stack frame",
 		command,
-	};
+	});
 }
 
 /** Python's `File "path", line N, in test` traceback line. */
@@ -95,15 +102,11 @@ function pythonTraceback(line: string, command: string, pendingTest: string | un
 	const match = /^File "(.+)", line (\d+)/.exec(line);
 	if (!match) return undefined;
 	const path = match[1]?.trim() ?? "";
-	const lineNumber = Number.parseInt(match[2] ?? "", 10);
-	if (!looksLikePath(path) || !Number.isFinite(lineNumber)) return undefined;
-	return {
-		path,
-		line: lineNumber,
+	return locatedFailure(path, numberFrom(match[2]), undefined, {
 		...(pendingTest ? { test: pendingTest } : {}),
 		message: pendingTest ? "Test failed" : "Traceback",
 		command,
-	};
+	});
 }
 
 /** Go's `--- FAIL: TestName` line; the next location attaches to it. */
@@ -118,24 +121,22 @@ function cargoFailure(line: string, command: string): Failure | undefined {
 	const match = /^thread '(.+)' panicked at (.+?):(\d+)(?::(\d+))?:$/.exec(line);
 	if (!match) return undefined;
 	const path = match[2]?.trim() ?? "";
-	const lineNumber = Number.parseInt(match[3] ?? "", 10);
-	if (!looksLikePath(path) || !Number.isFinite(lineNumber)) return undefined;
-	const column = match[4] === undefined ? undefined : Number.parseInt(match[4], 10);
-	return {
-		path,
-		line: lineNumber,
-		...(column === undefined || !Number.isFinite(column) ? {} : { column }),
-		test: match[1] ?? undefined,
+	return locatedFailure(path, numberFrom(match[3]), numberFrom(match[4]), {
+		test: match[1],
 		message: "Panicked",
 		command,
-	};
+	});
 }
 
-/** Stable identity for dedupe. */
-function keyOf(failure: Failure): string {
-	return [failure.path ?? "", failure.line ?? "", failure.column ?? "", failure.test ?? "", failure.message].join(
-		"\u0000",
-	);
+/**
+ * Stable identity for dedupe. The command joins the key only when two commands'
+ * failures must not merge, which is the cross-command pass in `runtime.ts`.
+ */
+export function failureKey(failure: Failure, options: { command?: boolean } = {}): string {
+	const fields: Array<string | number | undefined> = [failure.path, failure.line, failure.column, failure.test];
+	if (options.command) fields.push(failure.command);
+	fields.push(failure.message);
+	return fields.map((field) => field ?? "").join("\u0000");
 }
 
 /**
@@ -160,7 +161,7 @@ export function parseFailures(output: string, command: string, exitCode: number 
 			...(failure.path ? { path: cleanLine(failure.path) } : {}),
 		};
 		if (!normalized.message) return;
-		const key = keyOf(normalized);
+		const key = failureKey(normalized);
 		if (seen.has(key)) return;
 		seen.add(key);
 		if (failures.length < MAX_FAILURES) failures.push(normalized);
