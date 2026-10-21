@@ -130,7 +130,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 |---|---|
 | [`init`](./skills/init/SKILL.md) | 基于仓库证据，通过内置的交互式访谈和计划审阅创建或更新项目的 `AGENTS.md`。 |
 | [`refactor`](./skills/refactor/SKILL.md) | 审计项目或路径中的重构机会：重复代码、过大的模块、耦合、结构漂移，以及测试薄弱且改动频繁的代码。返回带证据和验证命令的排序清单；发现阶段只读。 |
-| [`changelog`](./skills/changelog/SKILL.md) | 在同一次提交中记录一条用户可见的变更，审计上一个 tag 以来缺失或薄弱的条目，并按项目自己的规则整理发布段落。 |
+| [`changelog`](./skills/changelog/SKILL.md) | 实现前先起草候选条目，实施后在同一次提交中记录一条用户可见的变更，审计上一个 tag 以来缺失或薄弱的条目，并按项目自己的规则整理发布段落。 |
 
 ### 主题
 
