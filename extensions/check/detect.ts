@@ -148,24 +148,49 @@ function justTargets(text: string): Set<string> {
 	return targets;
 }
 
-const justDetector: Detector = {
+/** The recipe name each target runs, for a recipe runner's declared targets. */
+const RECIPE_TARGETS: ReadonlyArray<readonly [CheckTarget, string]> = [
+	["test", "test"],
+	["lint", "lint"],
+	["typecheck", "typecheck"],
+	["all", "check"],
+];
+
+/**
+ * A detector for a recipe runner: a manifest of `name:` targets, of which the
+ * declared `test`/`lint`/`typecheck`/`check` become the commands. `targets` is
+ * the family's own target parser, because a Makefile and a justfile do not agree
+ * on what a legal target name is.
+ */
+function recipeDetector(options: {
+	name: string;
+	/** Manifest names to look for, in the family's own preference order. */
+	files: readonly string[];
+	/** The runner binary, e.g. `just`. */
+	command: string;
+	targets(text: string): Set<string>;
+}): Detector {
+	return {
+		name: options.name,
+		detect(cwd) {
+			const file = options.files.find((name) => has(cwd, name));
+			if (!file) return undefined;
+			const declared = options.targets(read(cwd, file) ?? "");
+			const commands: DetectedCommands = {};
+			for (const [target, recipe] of RECIPE_TARGETS) {
+				if (declared.has(recipe)) commands[target] = spec(`${options.command} ${recipe}`);
+			}
+			return Object.keys(commands).length > 0 ? commands : undefined;
+		},
+	};
+}
+
+const justDetector = recipeDetector({
 	name: "justfile",
-	detect(cwd) {
-		const file = ["justfile", "Justfile", ".justfile"].find((name) => has(cwd, name));
-		if (!file) return undefined;
-		const targets = justTargets(read(cwd, file) ?? "");
-		const commands: DetectedCommands = {};
-		for (const [target, name] of [
-			["test", "test"],
-			["lint", "lint"],
-			["typecheck", "typecheck"],
-			["all", "check"],
-		] as const) {
-			if (targets.has(name)) commands[target] = spec(`just ${name}`);
-		}
-		return Object.keys(commands).length > 0 ? commands : undefined;
-	},
-};
+	files: ["justfile", "Justfile", ".justfile"],
+	command: "just",
+	targets: justTargets,
+});
 
 /** Declared target names in a Makefile. */
 function makeTargets(text: string): Set<string> {
@@ -177,24 +202,12 @@ function makeTargets(text: string): Set<string> {
 	return targets;
 }
 
-const makeDetector: Detector = {
+const makeDetector = recipeDetector({
 	name: "Makefile",
-	detect(cwd) {
-		const file = ["Makefile", "makefile"].find((name) => has(cwd, name));
-		if (!file) return undefined;
-		const targets = makeTargets(read(cwd, file) ?? "");
-		const commands: DetectedCommands = {};
-		for (const [target, name] of [
-			["test", "test"],
-			["lint", "lint"],
-			["typecheck", "typecheck"],
-			["all", "check"],
-		] as const) {
-			if (targets.has(name)) commands[target] = spec(`make ${name}`);
-		}
-		return Object.keys(commands).length > 0 ? commands : undefined;
-	},
-};
+	files: ["Makefile", "makefile"],
+	command: "make",
+	targets: makeTargets,
+});
 
 /** Detectors in priority order; the first family with a command wins. */
 export const DETECTORS: readonly Detector[] = [
