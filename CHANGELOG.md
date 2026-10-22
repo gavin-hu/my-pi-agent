@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `session-bus`: a new local coordination extension for parallel Pi sessions. The
+  `session` tool and `/sessions` let peers on one repository discover each other,
+  exchange short messages and events, consume a pull-based inbox, and claim
+  paths before editing; TUI sessions join automatically while RPC, JSON, and
+  WeChat peer sessions opt in on first use. It uses the common git directory so
+  worktrees share one bus, keeps state under the agent directory, and starts no
+  server.
+
 ## [0.17.0] - 2026-10-22
 
 ### Added

@@ -38,6 +38,7 @@ import {
 	SET_PLAN_STEPS_TOOL,
 	WRITE_PLAN_TOOL,
 } from "../extensions/plan/runtime.ts";
+import { TOOL_NAME as session } from "../extensions/session-bus/tools.ts";
 import { TOOL_NAME as subagent } from "../extensions/subagent/index.ts";
 import { TOOL_NAME as watch } from "../extensions/watch/tools.ts";
 import { TOOL_NAME as webFetch } from "../extensions/web-access/fetch/tool.ts";
@@ -86,6 +87,7 @@ const REGISTERED: Array<{ extension: string; name: string }> = [
 	{ extension: "plan", name: EXIT_TOOL },
 	{ extension: "plan", name: CANCEL_TOOL },
 	{ extension: "plan", name: SET_PLAN_STEPS_TOOL },
+	{ extension: "session-bus", name: session },
 	{ extension: "subagent", name: subagent },
 	{ extension: "todo", name: todo },
 	{ extension: "watch", name: watch },
@@ -172,6 +174,7 @@ describe("extension tool naming", () => {
 			"run_check",
 			"run_doctor",
 			"send_wechat",
+			"session",
 			"set_plan_steps",
 			"subagent",
 			"todo",

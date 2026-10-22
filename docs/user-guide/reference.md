@@ -44,6 +44,8 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/watch clear [all]` | Remove stopped watchers, or all with `all` |
 | `/context` | Show where the context window goes; `c` compacts from the report |
 | `/context compact [instructions]` | Compact from the report; refused while a turn is running |
+| `/sessions` | List parallel sessions, their unread counts, and path claims |
+| `/sessions name <label>` | Name this session for other sessions |
 
 ### Worktrees, rewind, and memory
 
@@ -224,7 +226,7 @@ Snapshots and their limits are configured in
 
 ## Extensions and tools
 
-The pack adds 18 extensions and 23 tools. `worktree` also re-registers Pi's path
+The pack adds 19 extensions and 24 tools. `worktree` also re-registers Pi's path
 tools so they follow the active root; those are replacements, not additions.
 
 | Extension | Tools | Commands and flags |
@@ -241,6 +243,7 @@ tools so they follow the active root; those are replacements, not additions.
 | `rewind` | — | `/rewind`, `/review` |
 | `memory` | `memory` | `/memory` |
 | `context` | — | `/context` |
+| `session-bus` | `session` | `/sessions` |
 | `web-access` | `web_search`, `web_fetch` | — |
 | `file-read` | `read_doc` | — |
 | `file-browse` | — | `/browse` |

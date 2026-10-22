@@ -99,7 +99,7 @@ and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-18 extensions, 3 packaged skills, and 2 themes, grouped by what you are trying
+19 extensions, 4 packaged skills, and 2 themes, grouped by what you are trying
 to do. Each extension's own `README.md` has the full tool and command surface.
 
 ### Plan and delegate
@@ -114,6 +114,7 @@ to do. Each extension's own `README.md` has the full tool and command surface.
 | [`question`](./extensions/question/) | `ask_user_question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
 | [`job`](./extensions/job/) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
 | [`watch`](./extensions/watch/) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
+| [`session-bus`](./extensions/session-bus/) | `session`, `/sessions` | Coordinate parallel Pi sessions on one repository: discover peers, exchange short messages/events, consume an inbox, and claim paths before editing. Local and pull-based; it does not spawn or wake agents. |
 | [`context`](./extensions/context/) | `/context` | Show where the context window goes — system prompt, tool definitions, conversation by role, injected notes — and compact from the report with the before and after numbers. |
 
 ### Keep your work safe

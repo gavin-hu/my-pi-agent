@@ -19,7 +19,6 @@ import { configSection, configValueAt, type JsonReadResult, SHARED_CONFIG_FILE }
 import type { WebSearchProviderEvent } from "./events.ts";
 import { pdfGuidance } from "./pdf.ts";
 import { getPiInvocation, type PiInvocation } from "./pi-invocation.ts";
-
 /** How a check came out. Only `missing` is worth interrupting a session for. */
 export type FindingSeverity = "ok" | "missing" | "degraded" | "info";
 
@@ -267,6 +266,7 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		optional: [gitCheck("project-scope memory under the repository root")],
 	},
 	context: {},
+	"session-bus": {},
 	wechat: {
 		optional: [
 			{

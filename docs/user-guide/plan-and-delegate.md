@@ -803,6 +803,27 @@ assistant asks for the `project` or `both` scope.
   names a model. It does not inherit `-e` flags from your Pi invocation, so an
   extension tool such as `web_search` must come from an installed package.
 
+## Coordinating parallel sessions
+
+The `session-bus` extension lets independent Pi sessions on the same machine and
+repository act as a team without sharing a conversation.
+
+- `/sessions` lists active sessions, unread counts, and path claims. A non-TUI
+  session joins the first time it asks.
+- `/sessions name frontend` (or `backend`, `tests`) gives the session a stable
+  target. Labels are unique among active sessions.
+- `session` with `action: "send"` posts a short message or event; `action:
+  "inbox"` consumes messages at the next checkpoint. Delivery is pull-based, so
+  nothing interrupts a running turn.
+- `claim` paths before editing. A claim on `src/api` conflicts with `src/api` or
+  any file below it; `release` gives it back. A crash releases it when the
+  session expires.
+
+The intended shape is contract-first: write the API/schema once, claim separate
+directories, run frontend/backend/tests in parallel, exchange contract and
+build/test events, then merge and run the full check. The bus is not the source
+of truth — the plan, todo list, contract, and git branch are.
+
 ## Related
 
 - [Keep your work safe](./keep-work-safe.md) — isolation and undo for the work these helpers do.

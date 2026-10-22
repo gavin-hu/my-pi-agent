@@ -29,6 +29,26 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "session",
+		group: "package",
+		label: "the parallel-session board",
+		args: { action: "status" },
+		result: {
+			content: [{ type: "text", text: "Sessions (2)\n- frontend\n- backend" }],
+			details: {
+				action: "status",
+				status: {
+					me: { id: "s1", label: "frontend" },
+					sessions: [
+						{ id: "s1", label: "frontend", cwd: "/repo/frontend", mode: "tui", unread: 0 },
+						{ id: "s2", label: "backend", cwd: "/repo/backend", mode: "tui", unread: 1 },
+					],
+					claims: [],
+				},
+			},
+		},
+	},
+	{
 		name: "todo",
 		group: "package",
 		label: "a task list with every status",
