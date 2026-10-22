@@ -47,8 +47,9 @@ How the `send_wechat` call and its result look in the transcript — the call li
 - **Peer feedback** — a burst that arrives while a turn is still running is
   answered once, a message waiting on another conversation is acknowledged once,
   a slow turn says so, and a turn that ends without text says so instead of going
-  quiet. Notices and `/help` follow the peer's language. The peer can also stop
-  (`/stop`), restart (`/new`), and ask what is happening (`/status`).
+  quiet. Notices and `/help` follow the peer's language: a Chinese message sets it,
+  and a language-neutral reply (`1`, `ok`) does not switch it back. The peer can
+  also stop (`/stop`), restart (`/new`), and ask what is happening (`/status`).
 - **Remote prompts** — the peer session's own UI is bound to that peer, so
   `ask_user_question`, plan approval, and any other dialog raised inside a
   WeChat turn is sent to WeChat and answered there. Terminal turns keep the TUI,
@@ -174,14 +175,14 @@ needs. Per action:
 |---|---|
 | Sends a message | The native typing indicator starts as soon as the message is picked up; the answer is sent when the run settles. |
 | Sends several messages quickly | At most one acknowledgement, then a single answer that covers the burst in order. |
-| Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在处理…` / “Got it — working on it.”; a turn still running at 30 seconds adds one `还在处理这条…` / “Still working on this one”. |
+| Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在排队，轮到就回你。` / “Got it — queued; I’ll answer when it’s my turn.”; a turn still running at 30 seconds adds one `还在处理这条，发送 /stop 可取消。` / “Still working — send /stop to cancel.”, so the way out is named when it is wanted. |
 | Sends while another peer's turn runs | One line after four seconds, then one more at a minute (`前面还有一条正在处理…` / “Your message is queued behind another conversation…”), and the answer when the slot frees. |
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
 | Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and numbered (`[1/3] …`) only when a single part exceeds `maxReplyChars`. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
-| Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at 90 seconds and cancelled at three minutes. |
-| Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state; `/new` is declined while their run is in flight. |
+| Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at the halfway point of its window and then cancelled: three minutes for a dialog, ten for a plan review, where the plan has to be read first. |
+| Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state — including the dialog a blocked turn is waiting on; `/new` is declined while their run is in flight. A command works while a dialog waits: it is never read as an answer to it. |
 | Types `/history` | The last eight messages of this conversation (or the requested number, up to 20), one line each. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
 | Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
@@ -191,9 +192,10 @@ needs. Per action:
 | Gets a turn that could not start | `处理失败，请稍后重试。` / “Something went wrong — please try again.”, and the terminal says why. |
 | Keeps messaging an expired or logged-out bridge | Nothing — the bot goes quiet, and only the terminal chip says why. |
 
-Notices are one line and in the peer's language (Chinese when their message
-contains Chinese). The bridge never sends greetings, read receipts, or progress
-chatter: WeChat notifies per message, so every bubble has to carry information.
+Notices are one line and in the peer's language (Chinese once their messages
+contain Chinese; a bare `1` or `ok` does not switch it back). The bridge never
+sends greetings, read receipts, or progress chatter: WeChat notifies per message,
+so every bubble has to carry information.
 
 ### The reply contract
 
@@ -204,7 +206,7 @@ inside the answer it is already waiting for — not with a second “working on 
 | Situation | What the peer gets |
 |---|---|
 | 1st message, session idle | typing, then the answer (no acknowledgement: there is nothing to wait for) |
-| 1st message, peer busy | typing, `收到，正在处理…` at 4 s, `前面还有一条正在处理…` at 60 s, the answer when the slot frees |
+| 1st message, peer busy | typing, `收到，正在排队，轮到就回你。` at 4 s, `前面还有一条正在处理…` at 60 s, the answer when the slot frees |
 | 2nd message after the acknowledgement, still queued | nothing new; it is merged into the same turn and the one answer covers both in order |
 | 2nd message while a turn runs | no new acknowledgement; it becomes its own turn and answer after the first |
 | 3rd…Nth in a burst | same as the queued case; past eight queued, one line asking to wait |
@@ -228,10 +230,22 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 - Hints are bilingual (Chinese and English). A reply that cannot be read
   re-sends the prompt with a short “didn’t recognize that” notice instead of
   repeating it silently.
+- A command is not an answer. While a dialog waits the model is blocked on it, so
+  the slash commands are matched first: `/status` names the waiting question and
+  `/stop` stops the turn, where before both were parsed as an attempt to answer
+  and bounced back as “didn’t recognize that”. Any other text is still the answer,
+  so a number, 是/否, or 取消 behaves as above.
 - An unanswered prompt is bounded: a reminder goes out halfway and the question
-  is cancelled after three minutes with a one-line notice, so an ignored dialog
-  cannot freeze the session. A timed-out plan review is treated like a dismissal:
-  plan mode ends without approval, and the plan file remains.
+  is cancelled at the end of its window with a one-line notice, so an ignored
+  dialog cannot freeze the session. The window is three minutes for a dialog and
+  ten for the plan review, which arrives with the plan attached — a request that
+  carries `timeoutMs` asks for the longer one through the channel, and the
+  reminder names 取消 rather than a duration that assumes the short window. A
+  timed-out plan review is treated like a dismissal: plan mode ends without
+  approval, and the plan file remains.
+- A prompt that goes away before it is answered — a pause, a `/stop`, a shutdown —
+  says so (`问题已撤回。` / “That question was withdrawn.”) instead of reusing the
+  timeout line: the peer was not slow, the question left.
 
 Each peer session is created with its own UI context (`bindExtensions` with
 `mode: "rpc"`), so its dialogs go to that peer by construction rather than by

@@ -59,6 +59,12 @@ export interface InteractionChannel {
 	post(text: string, signal?: AbortSignal): Promise<void>;
 	/** Send a local file to the human; resolves true when delivered. */
 	postFile(path: string, name: string, signal?: AbortSignal): Promise<boolean>;
+	/**
+	 * Widen the bound on the prompts asked inside the returned scope: use it for a
+	 * dialog the human must read something before answering. Returns the restore,
+	 * and a transport with no such policy omits the method.
+	 */
+	setPromptTimeout?(ms: number): () => void;
 }
 
 /** The slice of an extension context {@link remoteChannel} reads. */
@@ -105,6 +111,12 @@ export interface AskHumanOptions<T> {
 	 * attachment may never be opened (a phone client can hide a file bubble).
 	 */
 	note?: string;
+	/**
+	 * How long a remote channel may wait for the answer before dismissing the
+	 * dialog. Raise it when the human has to read an artifact first; the channel's
+	 * own bound applies when it is omitted or unsupported.
+	 */
+	timeoutMs?: number;
 }
 
 /**
@@ -138,5 +150,10 @@ export async function askHuman<T>(
 			// The preface is best-effort; the dialogs still run.
 		}
 	}
-	return options.dialogs();
+	const restore = options.timeoutMs === undefined ? undefined : channel?.setPromptTimeout?.(options.timeoutMs);
+	try {
+		return await options.dialogs();
+	} finally {
+		restore?.();
+	}
 }

@@ -54,7 +54,7 @@ The bridge carries the signals a chat window needs, without inventing small talk
 |---|---|
 | Sends a message | Starts the typing indicator and sends the answer when the turn settles |
 | Sends several messages quickly | Sends one acknowledgement at most, then one answer covering the burst in order |
-| Waits behind a long turn | Refreshes typing, says it is working after four seconds, and adds a slower note at thirty seconds |
+| Waits behind a long turn | Refreshes typing, says the turn is queued after four seconds, and at thirty seconds names `/stop` as the way out |
 | Sends while another peer's turn runs | Says the message is queued after four seconds, then again at a minute |
 | Sends a photo or file | Passes it to the model; an attachment that cannot be read is named in the answer |
 | Sends a voice note or video | Says voice without a transcript and video are not supported |
@@ -113,8 +113,10 @@ the terminal interface:
 | `/wechat help` | List the subcommands |
 
 A peer can use `/new`, `/stop`, `/status`, `/history`, and `/help` in the chat.
-These are answered by the bridge and never become a model turn. Unknown slash
-commands are passed through.
+These are answered by the bridge and never become a model turn, and they work
+while a dialog is waiting for an answer — the dialog holds the model, so a
+command is matched first and `/status` names the question, `/stop` ends the turn.
+Unknown slash commands are passed through.
 
 ## Conversations, sessions, and state
 
@@ -142,9 +144,12 @@ the terminal: a question, a plan approval, a confirmation. The peer answers in
 the chat with a number, the option text, `yes`/`确定`, `no`/`不是`, or `取消` to
 dismiss.
 
-An unanswered prompt is nudged halfway and cancelled after three minutes, so an
-ignored dialog cannot freeze the conversation. A prompt that cannot be shown is
-answered as cancelled; the peer turn still runs.
+An unanswered prompt is nudged halfway and then cancelled at the end of its
+window — three minutes for a dialog, ten for a plan review, which arrives with
+the plan attached — so an ignored dialog cannot freeze the conversation. A prompt
+that goes away before it is answered (a pause, a `/stop`, a shutdown) says it was
+withdrawn rather than claiming the peer timed out. A prompt that cannot be shown
+is answered as cancelled; the peer turn still runs.
 
 ## Sending you a message
 

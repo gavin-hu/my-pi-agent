@@ -1448,7 +1448,7 @@ describe("presence", () => {
 		harness.presence.armAck({ peer: "alice" });
 		harness.timers.fire(4000);
 		await settle();
-		expect(harness.sent).toEqual([{ peer: "alice", text: "Got it — working on it." }]);
+		expect(harness.sent).toEqual([{ peer: "alice", text: "Got it — queued; I'll answer when it's my turn." }]);
 
 		// A second message inside the repeat window is not acknowledged again.
 		harness.presence.armAck({ peer: "alice" });
@@ -1496,7 +1496,7 @@ describe("presence", () => {
 		harness.presence.armSlowNotice("alice", undefined);
 		harness.timers.fire(30_000);
 		await settle();
-		expect(harness.sent[0]?.text).toContain("Still working");
+		expect(harness.sent[0]?.text).toContain("/stop");
 		// One line per slow turn, not a heartbeat.
 		harness.timers.fire(30_000);
 		await settle();

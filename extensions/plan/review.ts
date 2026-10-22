@@ -71,6 +71,13 @@ export interface ReviewPlanOptions {
 /** Prompt shown by the dialog-based refine editor in non-TUI modes. */
 const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, Esc to cancel)";
 
+/**
+ * How long a remote review waits for its answer. Much longer than a plain dialog's
+ * bound, because the human has to read the plan first and a phone is a slow place
+ * to do it; an expiry here also ends plan mode, so it must not be easy to hit.
+ */
+export const PLAN_REVIEW_TIMEOUT_MS = 600_000;
+
 /** How much of one step the remote digest shows. */
 const DIGEST_STEP_CHARS = 90;
 
@@ -158,6 +165,7 @@ async function askPlanReview(
 			file: sentFullText ? undefined : { path: plan.path, name: basename(plan.relativePath) },
 			body: plan.content,
 			note: sentFullText ? undefined : planReviewDigest(plan.content),
+			timeoutMs: PLAN_REVIEW_TIMEOUT_MS,
 		});
 		if (outcome.action !== "send") return outcome;
 		sentFullText = true;

@@ -238,7 +238,7 @@ describe("bridge lifecycle", () => {
 		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
 		expect(await bridge.pause()).toBe(true);
 		expect(await answer).toEqual({ kind: "cancelled" });
-		expect(sent.at(-1)?.text).toBe("That question timed out.");
+		expect(sent.at(-1)?.text).toBe("That question was withdrawn.");
 		expect(peers[0]?.disposed()).toBe(0);
 
 		peers[0]?.release("finished after pause");
@@ -728,6 +728,56 @@ describe("bridge slash commands", () => {
 		await bridge.close();
 	});
 
+	test("/status reports the dialog a blocked turn is waiting on", async () => {
+		const { client, sent, deliver } = controllableClient();
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
+		deliver(inbound("/status"));
+		// The command reached its handler instead of being parsed as an answer.
+		await waitFor(() => sent.some((item) => item.text.includes("Proceed?")));
+		expect(sent.some((item) => item.text.includes("didn't recognize"))).toBe(false);
+		expect(bridge.channel().hasPending()).toBe(true);
+
+		bridge.channel().cancel();
+		expect(await answer).toEqual({ kind: "cancelled" });
+		await bridge.close();
+	});
+
+	test("/stop stops a blocked turn instead of answering its dialog", async () => {
+		const { client, sent, deliver } = controllableClient();
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
+		deliver(inbound("/stop"));
+		await waitFor(() => sent.some((item) => item.text === "Stopped."));
+		// Only the tool's own signal settles the dialog; the command stops the turn.
+		expect(bridge.channel().hasPending()).toBe(true);
+
+		bridge.channel().reset();
+		expect(await answer).toEqual({ kind: "cancelled" });
+		await bridge.close();
+	});
+
+	test("a plain number still answers the dialog", async () => {
+		const { client, deliver } = controllableClient();
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A", "B"] });
+		deliver(inbound("1"));
+		expect(await answer).toEqual({ kind: "value", value: "A" });
+		await bridge.close();
+	});
+
 	test("starts a fresh conversation on /new when nothing is running", async () => {
 		const { client, sent } = makeClient([updates([inbound("/new")])]);
 		const { deps } = makeDeps(client);
@@ -774,6 +824,18 @@ describe("bridge delivery", () => {
 		await waitFor(() => sent.length === 1);
 		// A turn with no text says so in the peer's language, not in English.
 		expect(sent[0]?.text).toBe("这条处理完了，但没有文字输出。");
+		await bridge.close();
+	});
+
+	test("keeps that language when the peer replies with a bare number", async () => {
+		// "1" is language-neutral, so it must not be read as evidence of English and
+		// switch every later notice for this peer.
+		const { client, sent } = makeClient([updates([inbound("你好")]), updates([inbound("1")])]);
+		const { deps } = makeDeps(client, {}, { answers: ["", ""] });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => sent.length === 2);
+		expect(sent.map((item) => item.text)).toEqual(["这条处理完了，但没有文字输出。", "这条处理完了，但没有文字输出。"]);
 		await bridge.close();
 	});
 

@@ -17,6 +17,8 @@ export interface RemoteCtxResult extends FakeCtxResult {
 	files: Array<{ path: string; name: string }>;
 	/** Force the next `postFile` to succeed or fail. */
 	setFileResult(value: boolean): void;
+	/** The prompt bounds the caller asked for, in order. */
+	timeouts: number[];
 }
 
 /** Like {@link fakeCtx}, but the turn is owned by a remote channel. */
@@ -24,6 +26,7 @@ export function remoteCtx(options: FakeCtxOptions = {}): RemoteCtxResult {
 	const result = fakeCtx({ mode: "tui", hasUI: true, ...options });
 	const posted: string[] = [];
 	const files: Array<{ path: string; name: string }> = [];
+	const timeouts: number[] = [];
 	let fileResult = true;
 	const channel: InteractionChannel = {
 		isActive: () => true,
@@ -35,12 +38,17 @@ export function remoteCtx(options: FakeCtxOptions = {}): RemoteCtxResult {
 			files.push({ path, name });
 			return fileResult;
 		},
+		setPromptTimeout: (ms) => {
+			timeouts.push(ms);
+			return () => {};
+		},
 	};
 	(result.ctx.ui as Record<string, unknown>)[INTERACTION_TURN_KEY] = channel;
 	return {
 		...result,
 		posted,
 		files,
+		timeouts,
 		setFileResult: (value: boolean) => {
 			fileResult = value;
 		},

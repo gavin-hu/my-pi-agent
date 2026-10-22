@@ -122,6 +122,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   exists; `/skill:changelog draft` therefore behaves as plain `/skill:changelog`.
   Nothing else moved: the one-outcome rule stays with classification and the
   bullet shape stays with record.
+- `wechat`: a plan review waits ten minutes instead of three, and its halfway
+  reminder names 取消 / “cancel” instead of promising “about a minute”. The
+  review is the one dialog the human has to read something before answering, so
+  it asks for the longer window through `askHuman`'s new `timeoutMs` and the
+  channel's scoped `setPromptTimeout`; every other dialog keeps the three-minute
+  bound.
+- `wechat`: a slash command is no longer eaten by a waiting dialog. `/stop` and
+  `/status` are matched before an inbound message is offered to the prompt, so a
+  peer whose turn is blocked on a question can stop it, and `/status` names the
+  question instead of replying “Sorry, I didn't recognize that reply”. Any other
+  text is still the answer.
+- `wechat`: a Chinese conversation stays Chinese after a short reply. The peer's
+  language is remembered and only a Chinese message changes it, so answering with
+  `1` or `ok` no longer switches every later notice — and the `/help` list — to
+  English.
+- `wechat`: the two wait notices say what is actually true. The 30-second line
+  names the way out (`还在处理这条，发送 /stop 可取消。` / “Still working — send /stop
+  to cancel.”), and the 4-second acknowledgement says queued rather than working,
+  because it is only sent while no turn has started. A prompt withdrawn by a
+  pause, a `/stop`, or a shutdown gets its own line (`问题已撤回。` / “That question
+  was withdrawn.”) instead of the timeout notice.
 
 ## [0.16.0] - 2026-10-21
 
