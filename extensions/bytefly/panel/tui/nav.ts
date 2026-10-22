@@ -1,7 +1,7 @@
 /**
- * Cursor arithmetic for the panel's two lists: keep the focus on a row across a
- * rebuild, land on the nearest row when the shape changes, and move by rows
- * while skipping group headers.
+ * Cursor arithmetic for the panel's lists: keep the focus on a row across a
+ * rebuild, land on the nearest row when the shape changes, move by rows while
+ * skipping group headers, and read one navigation key.
  *
  * Pure: each function takes the entries and the cursor and mutates only the
  * cursor it was handed, so the component keeps one cursor per section and no
@@ -9,6 +9,7 @@
  */
 
 import type { ListCursor } from "../../../../lib/tui/cursor.ts";
+import { navIntent } from "../../../../lib/tui/cursor.ts";
 import { entryKey, isSelectable, nextRow, type PanelEntry } from "./entries.ts";
 
 /** The first selectable entry, or `undefined` when the list has none. */
@@ -72,4 +73,71 @@ export function moveRows(entries: PanelEntry[], cursor: ListCursor, delta: numbe
 		remaining -= 1;
 	}
 	cursor.set(index, entries.length);
+}
+
+/** Move to the first row of the next (or previous) group. */
+export function jumpGroup(entries: PanelEntry[], cursor: ListCursor, direction: -1 | 1): void {
+	const headers = entries.flatMap((entry, index) => (entry.kind === "group" ? [index] : []));
+	const selected = cursor.selected;
+	// Step past the focused row's own header: landing on it would not move.
+	const own = headers.filter((index) => index < selected).at(-1);
+	const target =
+		direction === 1 ? headers.find((index) => index > selected) : headers.filter((index) => index < (own ?? 0)).at(-1);
+	if (target === undefined) return;
+	for (let index = target + 1; index < entries.length; index += 1) {
+		if (isSelectable(entries[index])) {
+			cursor.set(index, entries.length);
+			return;
+		}
+	}
+}
+
+/** Move the cursor to `index`, clamped to the list. */
+export function selectRow(entries: PanelEntry[], cursor: ListCursor, index: number | undefined): void {
+	if (index === undefined) return;
+	cursor.set(index, entries.length);
+}
+
+/**
+ * Read one navigation key against a list. `grouped` is true for the resource
+ * lists, whose headings the bracket keys jump between; the Settings list is flat.
+ */
+export function navigateEntries(
+	entries: PanelEntry[],
+	cursor: ListCursor,
+	data: string,
+	options: { grouped: boolean },
+): void {
+	if (data === "g") {
+		selectRow(entries, cursor, firstRow(entries));
+		return;
+	}
+	if (data === "G") {
+		selectRow(entries, cursor, lastRow(entries));
+		return;
+	}
+	if (options.grouped && (data === "[" || data === "]")) {
+		jumpGroup(entries, cursor, data === "[" ? -1 : 1);
+		return;
+	}
+	switch (navIntent(data)) {
+		case "up":
+			moveRows(entries, cursor, -1);
+			return;
+		case "down":
+			moveRows(entries, cursor, 1);
+			return;
+		case "pageUp":
+			moveRows(entries, cursor, -Math.max(1, cursor.visible));
+			return;
+		case "pageDown":
+			moveRows(entries, cursor, Math.max(1, cursor.visible));
+			return;
+		case "home":
+			selectRow(entries, cursor, firstRow(entries));
+			return;
+		case "end":
+			selectRow(entries, cursor, lastRow(entries));
+			return;
+	}
 }

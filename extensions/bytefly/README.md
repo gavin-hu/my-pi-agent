@@ -4,10 +4,11 @@
 this package adds: one themed startup header whose two-tone nameplate carries
 the agent and chrome identities, one compact, colorful, width-adaptive two-line
 footer, a two-row `You` nameplate that opens each user message, a receipt rule that
-records each completed turn in the transcript, one keyboard-driven screen with two
-sections — Extensions, every resolved Pi extension with its enable checkbox and
-its health, and Settings, the common app and `bytefly.json` preferences — and
-an opt-in notify capability that raises an OS notification when a run finishes,
+records each completed turn in the transcript, one keyboard-driven screen with
+three sections — Extensions, every resolved Pi extension with its enable
+checkbox and its health; Skills, every resolved Pi skill with the same checkbox
+and its declared description; and Settings, the common app and `bytefly.json`
+preferences — and an opt-in notify capability that raises an OS notification when a run finishes,
 a job finishes, or the agent asks for input, and a package-update check that
 replaces Pi's startup blocks — the package list and Pi's own release — with one
 notice each and marks a new version on the header.
@@ -35,7 +36,7 @@ How the `run_doctor` call and its result look in the transcript — the call lin
 The extension owns ten surfaces: the startup header, the footer, the
 user-message marker, the rule between completed turns, the notice block for
 shared transcript notices, the tool-block frame, the live working line, the
-two-section control center, notifications, and the update check.
+three-section control center, notifications, and the update check.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
 `accent` / `warn` roles, the agent identity (`Pi`, bold, and its version), the
@@ -343,11 +344,12 @@ next session tries again; see [Update check](#update-check).
 |---|---|
 | `/bytefly [extension] [refresh]` | Open the control center on Extensions. In `tui` it mounts a docked list; every other mode prints the grouped listing, or one extension's full findings when named. |
 | `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints one `Label: Value` line per setting. |
+| `/bytefly skills` | Open the control center on Skills. Outside `tui` it prints the grouped skills listing with one row per skill. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
 | `/bytefly update` | Re-run the package update check now, ignoring the cache window, and report what it found — the updateable packages, this package's version and release URL when known, `PI_OFFLINE`, or an unreadable list. It resolves no packages and probes no extension. |
 
 Tab completes the subcommands, extension names after `doctor`, and `refresh`;
-`/bytefly settings` and `/bytefly update` take no name.
+`/bytefly settings`, `/bytefly skills`, and `/bytefly update` take no name.
 
 ## Behaviour by mode
 
@@ -581,26 +583,27 @@ and outcome as the width allows.
 
 ## The control center
 
-<img src="../../assets/bytefly.png" alt="The /bytefly control center: the Extensions and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
+<img src="../../assets/bytefly.png" alt="The /bytefly control center: the Extensions, Skills, and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
 
 `/bytefly [extension] [refresh]` opens the control center on **Extensions**: a
 keyboard-driven dock list of every extension Pi resolves for the session, so the
-list matches what actually loads. `←`/`→` switch to **Settings**, where the same
-frame lists the curated preferences. `/bytefly settings` opens directly on that
-section. It merges the former extensions picker and doctor report into one row
-per extension: the picker's enable checkbox and label, then one verdict — `off`
-when the row is switched off in settings, `env disabled` when
-`PI_DISABLED_EXTENSIONS` excludes it, otherwise the doctor's worst-severity
-glyph and summary. The screen is drawn from the design system: a label-first
-`Bytefly ────` title rule,
-the `Extensions · Settings` section bar beside the section's counts, one row
-grammar (`❯ ◼ name … summary`), the shared `◼` / `◻` checkbox, and the closing
+list matches what actually loads. `←`/`→` move to **Skills** and then
+**Settings**, one section per press and stopping at the ends, where the same
+frame lists every resolved skill and the curated preferences. `/bytefly skills`
+and `/bytefly settings` open their section directly. It merges the former
+extensions picker and doctor report into one row per extension: the picker's
+enable checkbox and label, then one verdict — `off` when the row is switched off
+in settings, `env disabled` when `PI_DISABLED_EXTENSIONS` excludes it, otherwise
+the doctor's worst-severity glyph and summary. The screen is drawn from the
+design system: a label-first `Bytefly ────` title rule,
+the `Extensions · Skills · Settings` section bar beside the section's counts, one
+row grammar (`❯ ◼ name … summary`), the shared `◼` / `◻` checkbox, and the closing
 rule under the key hints that Pi's own list screens draw.
 `/bytefly doctor [extension] [refresh]` selects the doctor report, the same text
 the `run_doctor` tool returns; in `tui` it opens the same screen. `[extension]`
 narrows the Extensions section to one extension and `refresh` forces the first
 probe. Tab completes the subcommands, extension names after `doctor`, and
-`refresh`; `/bytefly settings` takes no name.
+`refresh`; `/bytefly settings` and `/bytefly skills` take no name.
 
 The screen opens on the findings the session already has, and the Extensions
 section probes once on its first view (the hint shows `refreshing…` while it
@@ -648,7 +651,20 @@ installs or fetches a package.
 - Offers a reload after pending changes, so the new selection takes effect
   without leaving the session.
 
-**Settings.** The second section uses the same frame and the same `Tab` scope
+**Skills.** The second section is the same list over Pi's skills: one row per
+skill, grouped by source and sorted by name, labelled with the name its
+`SKILL.md` declares (or the folder name when it declares none). `Space` writes
+`+pattern` / `-pattern` into `skills` — or a package's `skills` filter — in the
+active scope, and `Tab` and `x` behave as they do for extensions. A row's verdict
+comes from the skill's own file: `off` when it is disabled, `hidden` when
+frontmatter sets `disable-model-invocation` so only `/skill:<name>` loads it, and
+`not loaded` with Pi's reason when the file was refused. The detail pane carries
+the resolved path and the declared description, one line until `Enter` expands
+it. There is nothing to probe, so `r` is not offered here; the metadata is read
+once when the section first appears, so an edited `SKILL.md` shows on the next
+open.
+
+**Settings.** The third section uses the same frame and the same `Tab` scope
 switch, with its own cursor. It is the shortlist a session changes: thirteen
 preferences on one flat line each, the value beside its label, and no group
 headings. The whole list fits a 24-row terminal, and the frame stops growing
@@ -656,7 +672,7 @@ there however tall the terminal is.
 
 ```
 Bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Settings                           Global · 13 settings
+  Extensions · Skills · Settings                    Global · 13 settings
 
 ❯ ◻ Bytefly startup TUI  Off
   ◼ Theme  system
@@ -806,21 +822,21 @@ headline; a named extension prints its full findings instead.
 
 | Key | Effect |
 |---|---|
-| `←` / `→` | Show the Extensions or Settings section. |
-| `Space` | Toggle the focused extension (Extensions); change the focused setting (Settings), or open the editor on a text row. |
-| `x` | Clear the focused extension's project override (Extensions, Project scope). |
-| `Enter` | Expand or collapse the focused extension's findings (Extensions); change the focused setting, or open the editor on a text row (Settings). |
+| `←` / `→` | Show the previous or next section — Extensions, Skills, Settings; the ends stop. |
+| `Space` | Toggle the focused extension or skill; change the focused setting, or open the editor on a text row. |
+| `x` | Clear the focused resource's project override (Extensions and Skills, Project scope). |
+| `Enter` | Expand or collapse the focused extension's findings, or the focused skill's description; change the focused setting, or open the editor on a text row (Settings). |
 | `u` | Delete the focused setting's key so its default applies again (Settings, `bytefly.json` rows). |
 | `J` | Show or hide the focused row's whole section as stored (Settings, `bytefly.json` rows). |
-| `[` / `]` | Jump to the previous or next group (Settings). |
+| `[` / `]` | Jump to the previous or next group (Extensions and Skills). |
 | `←` / `→`, `Home` / `End` (`Ctrl+A` / `Ctrl+E`) | Move the editor's caret while a text row is being edited. |
 | `Backspace` / `Delete`, `Ctrl+U` | Edit the buffer: delete a character, or clear it. |
 | `Enter` / `Esc` (editing) | Save the buffer, or cancel and restore the stored value. |
-| `Tab` | Switch between Global and Project scope, in either section. |
+| `Tab` | Switch between Global and Project scope, in any section. |
 | `r` | Re-probe the doctor (Extensions). |
-| `↑`/`↓`, `j`/`k` | Move the selection, in either section. |
-| `PgUp`/`PgDn` | Move a page, in either section. |
-| `g` / `G`, `Home` / `End` | Jump to the first or last row, in either section. |
+| `↑`/`↓`, `j`/`k` | Move the selection, in any section. |
+| `PgUp`/`PgDn` | Move a page, in any section. |
+| `g` / `G`, `Home` / `End` | Jump to the first or last row, in any section. |
 | `Esc` / `Ctrl+C` | Close the screen. |
 
 Mouse wheel scrolling and clicking a row to focus it work; every action also
@@ -1465,19 +1481,29 @@ columns, gauge), so the look follows the active theme.
 | `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the words, the tool singular/plural, and the tick interval. |
 | `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape: the plain count and the `tool · N tools · elapsed` run line. |
 | `working/register.ts` | Starts the tick on `turn_start`, tracks top-level tools on `tool_execution_start`, and cancels on `agent_end`/`session_shutdown`. |
-| `panel/types.ts` | `PanelSection` (`extensions` | `settings`), `PanelRow`, and `PanelModel`, the merged row model. |
-| `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering. |
-| `panel/format.ts` | Non-TUI text: the extension headline and grouped listing with a per-row health suffix, plus the section segments, the Settings counts/headline, and the flat Settings listing. |
+| `panel/types.ts` | `PanelSection` (`extensions` | `skills` | `settings`), `PanelRow` with its optional skill info, `SkillInfo`, and `PanelModel`, the merged row model. |
+| `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering; the skills model that labels rows from `SKILL.md`. |
+| `panel/format.ts` | Non-TUI text: the resource headline and grouped listing with a per-row verdict, the section segments and their order, the Settings counts/headline, and the flat Settings listing. |
 | `panel/settings.ts` | The curated Settings catalogue: the thirteen descriptors in screen order, snapshot views and origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |
 | `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-leaf `bytefly.json` writes, dirty state, and change listeners. |
 | `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
-| `panel/tui.ts` | `PanelComponent`, the two-section dock screen (Extensions list and Settings list) and its section composition; the editing key map is `tui/editing.ts` and the shared frame is `tui/frame.ts`. |
-| `panel/commands.ts` | `/bytefly`: one command for the screen sections, the `doctor` report, the settings listing, and their text modes. |
-| `picker/types.ts` | Picker host seams (`SettingsStore`, `ExtensionResolver`, `Discovery`), the app-settings setters, and row types. |
-| `picker/resources.ts` | Pure grouping, labels, display names, and pattern helpers. |
+| `panel/skills.ts` | Skill metadata through Pi's own `loadSkills`, keyed by resolved path, plus the deduplicated paths both discovery views read. |
+| `panel/tui.ts` | `PanelComponent`, the three-section dock screen: the section switch, the cursors, the toggle chain, and the two list sections through one `LIST_VIEWS` table. |
+| `panel/tui/list-view.ts` | The shared list grammar: the section headline and one resource row. |
+| `panel/tui/extensions-view.ts` | The Extensions detail pane (the doctor's findings) and its key hints. |
+| `panel/tui/skills-view.ts` | The Skills detail pane (path, description, Pi's refusal) and its key hints. |
+| `panel/tui/settings-view.ts` | The Settings rows, the value's source and description pane, the JSON pane, and the editing cell. |
+| `panel/tui/entries.ts` | The flat display entries per section and the stable focus keys. |
+| `panel/tui/editing.ts` | The text-row editor's key map: caret moves, delete, clear, commit, cancel. |
+| `panel/tui/frame.ts` | The shared dock frame, the section bar, the detail-row budget, and the optional rows that give way on a short terminal. |
+| `panel/tui/settings-section.ts` | The Settings section's editor and JSON-pane state, its key handling, and the screen it draws. |
+| `panel/tui/nav.ts` | The panel's cursor arithmetic and one read of a navigation key. |
+| `panel/commands.ts` | `/bytefly`: one command for the screen sections, the `doctor` report, the settings and skills listings, and their text modes. |
+| `picker/types.ts` | Picker host seams (`SettingsStore`, `ResourceResolver`, `Discovery`, `ResourceKind`), the app-settings setters, and row types. |
+| `picker/resources.ts` | Pure grouping, labels, display names per resource kind, and pattern helpers. |
 | `picker/toggle.ts` | Pure next-settings transforms for global and project toggles. |
-| `picker/discovery.ts` | Host wiring: builds the global and effective views from Pi's managers, and the two settings stores for the settings-only command path. |
-| `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence. |
+| `picker/discovery.ts` | Host wiring: builds both kinds' global and effective views from Pi's managers, and the two settings stores for the settings-only command path. |
+| `picker/runtime.ts` | Picker scope, live view copies, dirty tracking, and persistence, for both resource kinds through one ops table. |
 | `doctor/register.ts` | Registers `run_doctor` and the proactive session-start check; returns the runtime. |
 | `doctor/runtime.ts` | Host seams, the session cache, and the two probe modes. |
 | `doctor/tools.ts` | The `run_doctor` tool and its renderers. |
@@ -1530,10 +1556,12 @@ transforms (`picker/toggle`), discovery with an injected factory
 unified screen is covered by its pure model merge (`panel/join`), its text
 formatter (`panel/format`), the settings catalogue and its cycling
 (`panel/settings`), the scope-aware settings runtime (`panel/settings-runtime`,
-including a nested leaf write that keeps its siblings),
-the screen's rendering (`panel/tui`), its editing key map (`tui/editing`),
-the shared frame (`tui/frame`), and the command through
-the bytefly factory (`panel/commands`).
+including a nested leaf write that keeps its siblings), the skill metadata join
+and loader (`panel/skills`, on real `SKILL.md` files),
+the screen's rendering (`panel/tui`), its list grammar (`tui/list-view`), the
+Skills pane (`tui/skills-view`), the Settings section state (`tui/settings-section`),
+its editing key map (`tui/editing`), the shared frame (`tui/frame`), and the
+command through the bytefly factory (`panel/commands`).
 The doctor surface is covered by its pure report
 formatting (`doctor/format`), its config loader (`doctor/config`), and
 registration, the proactive notice, the session cache, and `run_doctor`

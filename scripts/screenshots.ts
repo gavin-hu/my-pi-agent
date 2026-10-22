@@ -36,7 +36,7 @@ import { nameplate } from "../extensions/bytefly/message/format.ts";
 import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
 import { DEFAULT_HOST_PAD } from "../extensions/bytefly/pad.ts";
 import { PanelComponent } from "../extensions/bytefly/panel/tui.ts";
-import { createExtensionsPickerRuntime } from "../extensions/bytefly/picker/runtime.ts";
+import { createPickerRuntime } from "../extensions/bytefly/picker/runtime.ts";
 import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
 import { JobListComponent } from "../extensions/job/tui.ts";
 import { MemoryPickerComponent } from "../extensions/memory/tui.ts";
@@ -290,12 +290,13 @@ export const SCREENS: Record<string, Screen> = {
 		size: { width: 120, rows: 19 },
 		render: (width, rows) => {
 			// A fresh runtime over a fake discovery per render: no probe, no write.
-			const { discovery } = makeDiscovery({ global: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
-			const runtime = createExtensionsPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
+			const { discovery } = makeDiscovery({ extensions: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
+			const runtime = createPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
 			return new PanelComponent({
 				runtime,
 				reports: () => PANEL_REPORTS,
 				settings: PANEL_SETTINGS,
+				skills: () => new Map(),
 				theme,
 				agentDir: PANEL_AGENT_DIR,
 				cwd: PANEL_CWD,
@@ -315,12 +316,13 @@ export const SCREENS: Record<string, Screen> = {
 		size: { width: 120, rows: 24 },
 		render: (width, rows) => {
 			// The Settings section over the real catalogue: no probe, no write.
-			const { discovery } = makeDiscovery({ global: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
-			const runtime = createExtensionsPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
+			const { discovery } = makeDiscovery({ extensions: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
+			const runtime = createPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
 			return new PanelComponent({
 				runtime,
 				reports: () => PANEL_REPORTS,
 				settings: PANEL_SETTING_VIEWS,
+				skills: () => new Map(),
 				section: "settings",
 				theme,
 				agentDir: PANEL_AGENT_DIR,

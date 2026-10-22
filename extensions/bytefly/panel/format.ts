@@ -3,7 +3,7 @@
  *
  * Every mode other than `tui` gets the same facts the screen shows, as plain
  * text: a headline with the scope and the counts, then the picker's grouped
- * listing with a health suffix on each row. The Settings listing uses the same
+ * listing with a verdict suffix on each row. The Settings listing uses the same
  * headline and groups with `Label: Value` rows. A single named extension prints
  * its full findings instead. Nothing here touches the host, and every string
  * from a probe or a settings file is sanitized before it is printed.
@@ -32,17 +32,35 @@ export interface SummarySegment {
 
 /** Row and problem counts over a model. */
 interface PanelCounts {
-	extensions: number;
+	rows: number;
 	/** Rows switched off in settings (the picker's checkbox), not the env flag. */
 	off: number;
 	missing: number;
 	degraded: number;
 }
 
+/** How one row is counted in the headline, singular, plural, and abbreviated. */
+export interface CountNoun {
+	one: string;
+	many: string;
+	/** The form a narrow terminal uses. */
+	compact: string;
+}
+
+/** Extensions are the default noun; Skills pass their own. */
+export const EXTENSION_NOUN: CountNoun = { one: "extension", many: "extensions", compact: "ext" };
+
+/** The Skills section's noun: `4 skills`, and the same word when narrowed. */
+export const SKILL_NOUN: CountNoun = { one: "skill", many: "skills", compact: "skills" };
+
 /** Options for the plain-text headline and listing. */
 export interface PanelTextOptions {
 	/** Abbreviate counts (`15 ext · 3 off`) for a narrow terminal. */
 	compact?: boolean;
+	/** What one row is called; extensions by default. */
+	noun?: CountNoun;
+	/** What the listing says when it has no rows. */
+	emptyLabel?: string;
 }
 
 /** Options for the TUI headline, which can also name a narrowed extension. */
@@ -72,7 +90,7 @@ export function panelCounts(model: PanelModel): PanelCounts {
 		missing += report.findings.filter((finding) => finding.severity === "missing").length;
 		degraded += report.findings.filter((finding) => finding.severity === "degraded").length;
 	}
-	return { extensions: model.rows.length, off, missing, degraded };
+	return { rows: model.rows.length, off, missing, degraded };
 }
 
 /**
@@ -81,12 +99,13 @@ export function panelCounts(model: PanelModel): PanelCounts {
  */
 export function summarySegments(model: PanelModel, scope: PanelScope, options: SummaryOptions = {}): SummarySegment[] {
 	const counts = panelCounts(model);
+	const forms = options.noun ?? EXTENSION_NOUN;
 	const segments: SummarySegment[] = [{ text: scope === "global" ? "Global" : "Project", color: "accent" }];
 	if (options.filter !== undefined) {
 		segments.push({ text: `${options.filter} only`, color: "meta" });
 	} else {
-		const noun = options.compact ? "ext" : counts.extensions === 1 ? "extension" : "extensions";
-		segments.push({ text: `${counts.extensions} ${noun}`, color: "meta" });
+		const noun = options.compact ? forms.compact : counts.rows === 1 ? forms.one : forms.many;
+		segments.push({ text: `${counts.rows} ${noun}`, color: "meta" });
 		if (counts.off > 0) segments.push({ text: `${counts.off} off`, color: "meta" });
 	}
 	const problems: string[] = [];
@@ -98,15 +117,25 @@ export function summarySegments(model: PanelModel, scope: PanelScope, options: S
 	return segments;
 }
 
+/** The sections left to right, as the bar reads them. */
+export const SECTION_ORDER: readonly PanelSection[] = ["extensions", "skills", "settings"];
+
+/** One section's name in the bar. */
+const SECTION_LABELS: Record<PanelSection, string> = {
+	extensions: "Extensions",
+	skills: "Skills",
+	settings: "Settings",
+};
+
 /**
- * The section bar's two segments, in screen order. The active section takes the
- * accent and the other recedes, so the bar reads as a two-way switch.
+ * The section bar's segments, in screen order. The active section takes the
+ * accent and the others recede, so the bar reads as a left-to-right switch.
  */
 export function sectionSegments(active: PanelSection): SummarySegment[] {
-	return [
-		{ text: "Extensions", color: active === "extensions" ? "accent" : "faint" },
-		{ text: "Settings", color: active === "settings" ? "accent" : "faint" },
-	];
+	return SECTION_ORDER.map((section) => ({
+		text: SECTION_LABELS[section],
+		color: active === section ? "accent" : "faint",
+	}));
 }
 
 /** The Settings section's counts: the scope and how many rows it shows. */
@@ -151,15 +180,21 @@ interface RowBadge {
 
 /**
  * The row's badge. Settings is the enablement axis the checkbox already shows,
- * so an off extension gets one verdict (`off`) instead of a health word that
+ * so an off row gets one verdict (`off`) instead of a health word that
  * contradicts it. `PI_DISABLED_EXTENSIONS` is a different axis, so it is named
- * rather than sharing the word: `env disabled`. The glyph marks what needs
+ * rather than sharing the word: `env disabled`. A skill has no probed report, so
+ * its own file supplies the verdict: `not loaded` when Pi refused it, `hidden`
+ * when it is reachable only through `/skill:<name>`. The glyph marks what needs
  * attention — a warning, a miss, a disable — so a row with nothing to report
  * carries no glyph at all, and the column reads as one shape instead of a
  * checkmark that comes and goes.
  */
 export function rowBadge(row: PanelRow): RowBadge {
 	if (row.item && !row.item.enabled) return { glyph: GLYPHS.disabled, role: "faint", text: "off" };
+	// A skill's verdict comes from its own file, not from a probed report: a file
+	// Pi refused is a warning, and one hidden from the model still loads by name.
+	if (row.skill?.problem !== undefined) return { glyph: GLYPHS.warn, role: "warn", text: "not loaded" };
+	if (row.skill?.modelHidden === true) return { role: "faint", text: "hidden" };
 	const report = row.report;
 	if (!report) return { role: "faint" };
 	if (!report.enabled) return { glyph: GLYPHS.disabled, role: "faint", text: "env disabled" };
@@ -185,7 +220,7 @@ export function formatRow(row: PanelRow): string {
 export function formatListing(model: PanelModel, scope: PanelScope, options: PanelTextOptions = {}): string {
 	const lines = [formatHeadline(model, scope, options)];
 	if (model.rows.length === 0) {
-		lines.push("", "No extensions found.");
+		lines.push("", options.emptyLabel ?? "No extensions found.");
 		return lines.join("\n");
 	}
 	for (const group of model.groups) {

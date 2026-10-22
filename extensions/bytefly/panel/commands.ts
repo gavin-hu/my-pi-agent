@@ -1,9 +1,10 @@
 /**
- * The `/bytefly` surface: one command, `/bytefly [doctor] [settings] [update] [extension] [refresh]`.
+ * The `/bytefly` surface: one command, `/bytefly [doctor] [settings] [skills] [update] [extension] [refresh]`.
  *
- * Without `doctor` it opens the extension screen: the dock in `tui`, the
+ * Without a section word it opens the extension screen: the dock in `tui`, the
  * grouped listing elsewhere. `settings` opens the Settings section, or prints
- * its grouped listing outside `tui` without resolving packages. `update`
+ * its grouped listing outside `tui` without resolving packages. `skills` opens
+ * the Skills section and lists the resolved skills in text modes. `update`
  * re-runs the published-version check and reports what it found, which is the
  * one place a request is made on demand. With `doctor` it produces the doctor
  * report — the same text `run_doctor` returns — for the whole set or one named
@@ -23,12 +24,13 @@ import { formatExtension, formatReport, hasProblems } from "../doctor/format.ts"
 import type { DoctorRuntime } from "../doctor/runtime.ts";
 import { updateOutcomeText } from "../update/format.ts";
 import type { UpdateHandle } from "../update/register.ts";
-import { createSettingsStores, discoverExtensions, type DiscoveryDeps } from "../picker/discovery.ts";
-import { createExtensionsPickerRuntime, type ExtensionsPickerRuntime } from "../picker/runtime.ts";
+import { createSettingsStores, discoverResources, type DiscoveryDeps } from "../picker/discovery.ts";
+import { createPickerRuntime, type PickerRuntime } from "../picker/runtime.ts";
 import type { Discovery } from "../picker/types.ts";
-import { formatListing, formatSettingsListing } from "./format.ts";
-import { buildPanelModel, extensionName } from "./join.ts";
+import { formatListing, formatSettingsListing, SKILL_NOUN } from "./format.ts";
+import { buildPanelModel, buildSkillModel, extensionName } from "./join.ts";
 import { createSettingsRuntime, type SettingsRuntime, type SettingsRuntimeDeps } from "./settings-runtime.ts";
+import { loadSkillIndex, resolvedSkillPaths, type SkillIndex } from "./skills.ts";
 import { shippedThemeNames } from "./themes.ts";
 import { PanelComponent } from "./tui.ts";
 import type { PanelSection } from "./types.ts";
@@ -43,6 +45,8 @@ export interface PanelCommandDeps {
 	discover?: (deps: DiscoveryDeps) => Promise<Discovery>;
 	/** The Settings runtime seam. */
 	settings?: (deps: SettingsRuntimeDeps) => SettingsRuntime;
+	/** The skill-metadata seam; `loadSkillIndex` unless a test supplies one. */
+	skills?: (paths: readonly string[], cwd: string, agentDir: string) => SkillIndex;
 }
 
 /**
@@ -52,19 +56,21 @@ export interface PanelCommandDeps {
  */
 function selectableNames(discovery: Discovery): Set<string> {
 	const names = new Set<string>(Object.keys(REQUIREMENTS));
-	for (const item of [...discovery.global, ...discovery.effective]) names.add(extensionName(item.path));
+	for (const item of [...discovery.extensions.global, ...discovery.extensions.effective]) {
+		names.add(extensionName(item.path));
+	}
 	return names;
 }
 
 /** The values a bare `/bytefly <tab>` offers, in screen order. */
-const FIRST_TOKENS = ["doctor", "settings", "update", ...Object.keys(REQUIREMENTS), "refresh"] as const;
+const FIRST_TOKENS = ["doctor", "settings", "skills", "update", ...Object.keys(REQUIREMENTS), "refresh"] as const;
 
 /**
  * Argument completions. The host replaces the whole argument text with the
  * returned `value`, so a second token returns the full `doctor <name>` or
- * `<name> refresh` argument rather than just the word. `/bytefly settings` and
- * `/bytefly update` take no name, and `refresh` is never followed by another
- * token.
+ * `<name> refresh` argument rather than just the word. `/bytefly settings`,
+ * `/bytefly skills`, and `/bytefly update` take no name, and `refresh` is never
+ * followed by another token.
  */
 function completions(prefix: string): Array<{ value: string; label: string }> | null {
 	const [first = "", second, ...rest] = prefix.trimStart().split(/\s+/);
@@ -73,7 +79,7 @@ function completions(prefix: string): Array<{ value: string; label: string }> | 
 		const options = FIRST_TOKENS.filter((option) => option.startsWith(first));
 		return options.length > 0 ? options.map((option) => ({ value: `${option} `, label: option })) : null;
 	}
-	if (first === "settings" || first === "refresh" || first === "update") return null;
+	if (first === "settings" || first === "skills" || first === "refresh" || first === "update") return null;
 	const options = (first === "doctor" ? [...Object.keys(REQUIREMENTS), "refresh"] : ["refresh"]).filter((option) =>
 		option.startsWith(second),
 	);
@@ -94,7 +100,7 @@ interface PanelArgs {
 	refresh: boolean;
 }
 
-/** Parse `/bytefly [doctor] [settings] [update] [extension] [refresh]`; extra tokens are ignored. */
+/** Parse `/bytefly [doctor] [settings] [skills] [update] [extension] [refresh]`; extra tokens are ignored. */
 function parseArgs(args: string): PanelArgs {
 	const parts = args.trim().split(/\s+/).filter(Boolean);
 	const refresh = parts.includes("refresh");
@@ -104,6 +110,7 @@ function parseArgs(args: string): PanelArgs {
 	// beside it is accepted and ignored rather than refused.
 	if (rest[0] === "update") return { mode: "update", section: "extensions", refresh };
 	if (rest[0] === "settings") return { mode: "screen", section: "settings", name: rest[1], refresh };
+	if (rest[0] === "skills") return { mode: "screen", section: "skills", name: rest[1], refresh };
 	return { mode: "screen", section: "extensions", name: rest[0], refresh };
 }
 
@@ -115,14 +122,14 @@ function notifyExtension(
 	ctx: ExtensionCommandContext,
 	name: string,
 	reports: readonly ExtensionReport[],
-	runtime: ExtensionsPickerRuntime,
+	runtime: PickerRuntime,
 ): void {
 	const report = reports.find((entry) => entry.extension === name);
 	if (report) {
 		ctx.ui.notify(formatExtension(report), hasProblems([report]) ? "warning" : "info");
 		return;
 	}
-	const item = runtime.items().find((entry) => extensionName(entry.path) === name);
+	const item = runtime.items("extensions").find((entry) => extensionName(entry.path) === name);
 	ctx.ui.notify(
 		item
 			? `bytefly: ${sanitizeLine(item.path)} — no doctor report`
@@ -146,15 +153,16 @@ function settingsThemeNames(ctx: ExtensionCommandContext): string[] {
 
 /** Register the single `/bytefly` command. */
 export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
-	const discover = deps.discover ?? discoverExtensions;
+	const discover = deps.discover ?? discoverResources;
 	const makeSettings = deps.settings ?? createSettingsRuntime;
+	const loadSkills = deps.skills ?? loadSkillIndex;
 
 	const handler = async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
 		const { mode, section, name, refresh } = parseArgs(args);
-		// `/bytefly settings` has no extension argument; a stray word is a typo, not
-		// a filter, so say so rather than ignoring it.
-		if (section === "settings" && name !== undefined) {
-			ctx.ui.notify(`bytefly: /bytefly settings takes no extension name (got "${sanitizeLine(name)}").`, "warning");
+		// Only the Extensions section takes an extension argument; a stray word is a
+		// typo, not a filter, so say so rather than ignoring it.
+		if (section !== "extensions" && name !== undefined) {
+			ctx.ui.notify(`bytefly: /bytefly ${section} takes no extension name (got "${sanitizeLine(name)}").`, "warning");
 			return;
 		}
 		const cwd = ctx.cwd ?? process.cwd();
@@ -195,7 +203,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		try {
 			discovery = await discover({ cwd, agentDir, trusted });
 		} catch (error) {
-			ctx.ui.notify(`Could not list extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
+			ctx.ui.notify(`Could not list resources: ${error instanceof Error ? error.message : String(error)}`, "error");
 			return;
 		}
 
@@ -208,7 +216,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			onError: settingsNotice,
 		});
 
-		const runtime = createExtensionsPickerRuntime({
+		const runtime = createPickerRuntime({
 			discovery,
 			cwd,
 			agentDir,
@@ -219,6 +227,18 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// prerequisite check, and the set is available as soon as discovery is.
 		if (name !== undefined && section === "extensions" && !selectableNames(discovery).has(name)) {
 			ctx.ui.notify(`bytefly: no extension named "${sanitizeLine(name)}"`, "warning");
+			return;
+		}
+
+		// Skills outside `tui` print the same grouped listing, from the metadata Pi's
+		// loader reads; there is no report to probe for and no package to resolve.
+		if (section === "skills" && ctx.mode !== "tui") {
+			const index = loadSkills(resolvedSkillPaths(discovery), cwd, agentDir);
+			const model = buildSkillModel({ items: runtime.items("skills"), index, agentDir });
+			ctx.ui.notify(
+				formatListing(model, runtime.scope(), { noun: SKILL_NOUN, emptyLabel: "No skills found." }),
+				"info",
+			);
 			return;
 		}
 
@@ -243,7 +263,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 				ctx.ui.notify(formatReport(reports), hasProblems(reports) ? "warning" : "info");
 				return;
 			}
-			const model = buildPanelModel({ items: runtime.items(), reports, agentDir });
+			const model = buildPanelModel({ items: runtime.items("extensions"), reports, agentDir });
 			ctx.ui.notify(formatListing(model, runtime.scope()), "info");
 			return;
 		}
@@ -269,6 +289,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 					initialRefresh: refresh,
 					viewportRows: () => tui.terminal?.rows,
 					requestRender: () => tui.requestRender(),
+					skills: () => loadSkills(resolvedSkillPaths(discovery), cwd, agentDir),
 					refresh: async (force) => {
 						reports = await deps.doctor.probeAll({ refresh: force === true });
 					},
@@ -293,7 +314,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 
 	pi.registerCommand("bytefly", {
 		description:
-			"Open the bytefly control center: /bytefly [extension] [refresh] lists extensions, /bytefly settings opens settings; /bytefly doctor [extension] [refresh] prints the doctor report",
+			"Open the bytefly control center: /bytefly [extension] [refresh] lists extensions, /bytefly skills lists skills, /bytefly settings opens settings; /bytefly doctor [extension] [refresh] prints the doctor report",
 		getArgumentCompletions: completions,
 		handler,
 	});

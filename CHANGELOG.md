@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: the control center gains a **Skills** section between Extensions and
+  Settings — one vertical row per resolved Pi skill, grouped by source, labelled
+  with the name its `SKILL.md` declares and toggled with `Space` into the
+  `skills` list (or a package's `skills` filter) in the active scope, with `Tab`
+  for Global/Project and `x` to drop a project override. A row's verdict comes
+  from the file itself (`off`, `hidden`, or `not loaded` with Pi's reason), the
+  detail pane carries the resolved path and description, and `/bytefly skills`
+  opens the section directly and prints the grouped listing outside `tui`.
+
 - `plan`: plan mode now has an explicit exit on the phone. The review offers
   **Exit plan mode (discard)** and treats a dismissed select as an exit; the new
   `cancel_plan_mode` tool and `/plan cancel` leave without a plan file, record no

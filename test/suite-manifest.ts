@@ -15,6 +15,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"footer/footer",
 		"notify/notify",
 		"panel/panel",
+		"panel/skills",
 		"picker/picker",
 		"update/update",
 		"working/working",

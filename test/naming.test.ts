@@ -112,6 +112,7 @@ const TOOL_SHAPED = /^[a-z][a-z0-9_]*$/;
 const NOT_TOOLS: ReadonlyMap<string, string> = new Map([
 	["doctor", "the `/bytefly doctor` subcommand, named in the `/bytefly` row"],
 	["settings", "the `/bytefly settings` subcommand, named in the `/bytefly` row"],
+	["skills", "the `/bytefly skills` subcommand, named in the `/bytefly` row"],
 	["update", "the `/bytefly update` subcommand, named in the `/bytefly` row"],
 ]);
 

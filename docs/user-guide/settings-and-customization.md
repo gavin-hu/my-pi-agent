@@ -19,28 +19,30 @@ Open it with:
 
 You land on **Extensions**: one row per installed extension, an enable checkbox,
 and a health verdict. Under the focused row is that extension's report. Press
-`→` for **Settings**, or open it directly with `/bytefly settings`.
+`→` for **Skills** — one row per Pi skill, its checkbox, and its declared
+description — and `→` again for **Settings**, or open either directly with
+`/bytefly skills` and `/bytefly settings`.
 
 | Key | What it does |
 |---|---|
-| `←` / `→` | Switch between Extensions and Settings |
+| `←` / `→` | Switch between Extensions, Skills, and Settings |
 | `↑` / `↓`, `j` / `k` | Move the selection |
 | `PgUp` / `PgDn` | Move a page |
 | `Home` / `End`, `g` / `G` | Jump to the first or last row |
-| `Space` | Turn the focused extension on or off (Extensions); change a setting (Settings) |
-| `Enter` | Expand the focused extension's findings, or change a setting |
+| `Space` | Turn the focused extension or skill on or off; change a setting (Settings) |
+| `Enter` | Expand the focused extension's findings or the skill's description, or change a setting |
 | `Tab` | Switch between Global and Project scope |
-| `x` | Clear a project-level override for the focused extension |
+| `x` | Clear a project-level override for the focused extension or skill |
 | `u` | Reset the focused setting to its default |
 | `J` | Show or hide the focused row's whole config section |
-| `[` / `]` | Jump to the previous or next extension group (Extensions only) |
+| `[` / `]` | Jump to the previous or next group (Extensions and Skills) |
 | `r` | Re-run the health checks |
 | `Esc` or `Ctrl+C` | Close |
 
 Mouse scrolling works, and clicking a row focuses it. Every action also has a
 keyboard path.
 
-<img src="../../assets/bytefly.png" alt="The /bytefly control centre: the Extensions and Settings sections, one row per extension with its checkbox and health verdict, the missing-prerequisite badge on `worktree`, and the focused row's resource path" width="100%">
+<img src="../../assets/bytefly.png" alt="The /bytefly control centre: the Extensions, Skills, and Settings sections, one row per extension with its checkbox and health verdict, the missing-prerequisite badge on `worktree`, and the focused row's resource path" width="100%">
 
 *The control centre: switch an extension off with `Space`, and read the selected
 row's report underneath when it has one.*
@@ -52,6 +54,7 @@ row's report underneath when it has one.*
 | `/bytefly` | Open the control centre on Extensions |
 | `/bytefly <extension>` | Open it filtered to one extension |
 | `/bytefly settings` | Open it on Settings |
+| `/bytefly skills` | Open it on Skills |
 | `/bytefly doctor [extension] [refresh]` | Print the health report |
 | `/bytefly update` | Re-run the package update check |
 | `/bytefly [extension] refresh` | Open the Extensions section and re-probe health instead of using the session cache |

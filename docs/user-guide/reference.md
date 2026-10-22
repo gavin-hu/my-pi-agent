@@ -99,6 +99,7 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/bytefly <extension>` | Open it filtered to one extension |
 | `/bytefly [extension] refresh` | Open the Extensions section and re-probe health |
 | `/bytefly settings` | Open the Settings section |
+| `/bytefly skills` | Open the Skills section |
 | `/bytefly doctor [extension] [refresh]` | Print the health report |
 | `/bytefly update` | Re-run the package update check |
 

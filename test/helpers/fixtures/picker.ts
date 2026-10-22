@@ -1,7 +1,7 @@
 /**
- * Builders for the bytefly extensions-picker suite.
+ * Builders for the bytefly resource-picker suite.
  *
- * `makeItem` produces a resolved extension resource; `makeStore` is an
+ * `makeItem` and `skillItem` produce a resolved resource; `makeStore` is an
  * in-memory `SettingsStore` that records writes; `makeDiscovery` pairs them
  * into the `Discovery` the runtime consumes. Value-only, no shared state.
  */
@@ -23,6 +23,11 @@ export function makeItem(overrides: ItemOverrides = {}): ResourceItem {
 		enabled,
 		metadata: { source: "auto", scope: "user", origin: "top-level", ...metadata },
 	};
+}
+
+/** A resolved user skill: the `SKILL.md` Pi resolves for `~/.pi/agent/skills/<name>`. */
+export function skillItem(name: string, enabled = true): ResourceItem {
+	return makeItem({ path: `/agent/skills/${name}/SKILL.md`, enabled });
 }
 
 /**
@@ -62,8 +67,10 @@ export function packageExtension(name: string, enabled: boolean): ResourceItem {
 
 export interface StoreCalls {
 	setExtensionPaths: string[][];
+	setSkillPaths: string[][];
 	setPackages: PackageSource[][];
 	setProjectExtensionPaths: string[][];
+	setProjectSkillPaths: string[][];
 	setProjectPackages: PackageSource[][];
 	setQuietStartup: QuietStartup[];
 	setOutputPad: Array<0 | 1>;
@@ -98,8 +105,10 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 
 	const calls: StoreCalls = {
 		setExtensionPaths: [],
+		setSkillPaths: [],
 		setPackages: [],
 		setProjectExtensionPaths: [],
+		setProjectSkillPaths: [],
 		setProjectPackages: [],
 		setQuietStartup: [],
 		setOutputPad: [],
@@ -124,6 +133,10 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 				calls.setExtensionPaths.push(paths);
 				globalSettings = { ...globalSettings, extensions: paths };
 			},
+			setSkillPaths: (paths) => {
+				calls.setSkillPaths.push(paths);
+				globalSettings = { ...globalSettings, skills: paths };
+			},
 			setPackages: (packages) => {
 				calls.setPackages.push(packages);
 				packageList = packages;
@@ -131,6 +144,10 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			setProjectExtensionPaths: (paths) => {
 				calls.setProjectExtensionPaths.push(paths);
 				projectSettings = { ...projectSettings, extensions: paths };
+			},
+			setProjectSkillPaths: (paths) => {
+				calls.setProjectSkillPaths.push(paths);
+				projectSettings = { ...projectSettings, skills: paths };
 			},
 			setProjectPackages: (packages) => {
 				calls.setProjectPackages.push(packages);
@@ -164,8 +181,10 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 }
 
 export interface DiscoveryOptions {
-	global?: ResourceItem[];
-	effective?: ResourceItem[];
+	extensions?: ResourceItem[];
+	effectiveExtensions?: ResourceItem[];
+	skills?: ResourceItem[];
+	effectiveSkills?: ResourceItem[];
 	globalStore?: FakeStore;
 	projectStore?: FakeStore;
 	trusted?: boolean;
@@ -180,12 +199,14 @@ export function makeDiscovery(options: DiscoveryOptions = {}): {
 	const trusted = options.trusted ?? true;
 	const globalStore = options.globalStore ?? makeStore();
 	const projectStore = options.projectStore ?? (trusted ? makeStore() : globalStore);
-	const global = options.global ?? [];
-	const effective = options.effective ?? global;
+	const extensions = options.extensions ?? [];
+	const effectiveExtensions = options.effectiveExtensions ?? extensions;
+	const skills = options.skills ?? [];
+	const effectiveSkills = options.effectiveSkills ?? skills;
 	return {
 		discovery: {
-			global,
-			effective,
+			extensions: { global: extensions, effective: effectiveExtensions },
+			skills: { global: skills, effective: effectiveSkills },
 			stores: { global: globalStore.store, project: projectStore.store },
 			trusted,
 		},

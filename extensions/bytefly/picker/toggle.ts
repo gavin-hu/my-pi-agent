@@ -20,7 +20,7 @@ import {
 	isLocalPath,
 	resolveLocalSource,
 } from "./resources.ts";
-import type { ResourceItem } from "./types.ts";
+import type { ResourceItem, ResourceKind } from "./types.ts";
 
 /** Replace any prior pattern for `pattern` and append `+pattern` / `-pattern`. */
 export function nextTopLevelList(current: string[], pattern: string, enabled: boolean): string[] {
@@ -30,15 +30,17 @@ export function nextTopLevelList(current: string[], pattern: string, enabled: bo
 }
 
 /**
- * Toggle one extension inside a package entry, converting a string source to
+ * Toggle one resource inside a package entry, converting a string source to
  * object form when needed and collapsing it back when no filters remain.
- * Packages not present in `packages` are returned unchanged.
+ * Packages not present in `packages` are returned unchanged. `kind` names which
+ * filter list on the entry the pattern lands in.
  */
 export function nextGlobalPackages(
 	packages: PackageSource[],
 	source: string,
 	pattern: string,
 	enabled: boolean,
+	kind: ResourceKind,
 ): PackageSource[] {
 	const updated = [...packages];
 	const index = updated.findIndex((entry) => (typeof entry === "string" ? entry : entry.source) === source);
@@ -49,8 +51,9 @@ export function nextGlobalPackages(
 		pkg = { source: pkg };
 		updated[index] = pkg;
 	}
-	pkg.extensions = nextTopLevelList(pkg.extensions ?? [], pattern, enabled);
-	updated[index] = pkg.extensions.length > 0 ? pkg : pkg.source;
+	const filters = nextTopLevelList(pkg[kind] ?? [], pattern, enabled);
+	pkg[kind] = filters;
+	updated[index] = filters.length > 0 ? pkg : pkg.source;
 	return updated;
 }
 
@@ -107,7 +110,7 @@ export function nextProjectTopLevelList(
 }
 
 /**
- * Toggle one extension inside a package in project settings. A missing project
+ * Toggle one resource inside a package in project settings. A missing project
  * entry is created with `autoload: false` so it filters the personal entry
  * rather than replacing it; an entry left with no filters is removed.
  */
@@ -117,6 +120,7 @@ export function nextProjectPackages(
 	enabled: boolean,
 	cwd: string,
 	agentDir: string,
+	kind: ResourceKind,
 ): PackageSource[] {
 	const updated = [...packages];
 	let index = updated.findIndex((entry) =>
@@ -133,8 +137,9 @@ export function nextProjectPackages(
 		updated[index] = pkg;
 	}
 	const pattern = getPackageResourcePattern(item);
-	pkg.extensions = nextTopLevelList(pkg.extensions ?? [], pattern, enabled);
-	if (pkg.extensions.length > 0) {
+	const filters = nextTopLevelList(pkg[kind] ?? [], pattern, enabled);
+	pkg[kind] = filters;
+	if (filters.length > 0) {
 		updated[index] = pkg;
 	} else if (pkg.autoload === false) {
 		updated.splice(index, 1);
@@ -181,6 +186,7 @@ export function clearProjectPackages(
 	item: ResourceItem,
 	cwd: string,
 	agentDir: string,
+	kind: ResourceKind,
 ): PackageSource[] {
 	const index = packages.findIndex((entry) =>
 		packageSourceMatches(item, typeof entry === "string" ? entry : entry.source, "project", cwd, agentDir),
@@ -189,12 +195,12 @@ export function clearProjectPackages(
 	if (entry === undefined || typeof entry === "string") return packages;
 
 	const pattern = getPackageResourcePattern(item);
-	const filters = entry.extensions ?? [];
+	const filters = entry[kind] ?? [];
 	if (!filters.some((filter) => getPatternEntryTarget(filter) === pattern)) return packages;
 
 	const updated = [...packages];
 	const remaining = filters.filter((filter) => getPatternEntryTarget(filter) !== pattern);
-	if (remaining.length > 0) updated[index] = { ...entry, extensions: remaining };
+	if (remaining.length > 0) updated[index] = { ...entry, [kind]: remaining };
 	else if (entry.autoload === false) updated.splice(index, 1);
 	else updated[index] = entry.source;
 	return updated;

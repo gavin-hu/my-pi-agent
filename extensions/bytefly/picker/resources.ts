@@ -4,14 +4,14 @@
  *
  * The pattern functions are a trimmed port of Pi's own config selector
  * (`dist/modes/interactive/components/config-selector.js`) restricted to the
- * `extensions` resource type. Keeping them here, pure and separately tested,
- * makes a future drift from the built-in easy to diff.
+ * two resource types the screen toggles. Keeping them here, pure and separately
+ * tested, makes a future drift from the built-in easy to diff.
  */
 
 import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, type PathMetadata } from "@earendil-works/pi-coding-agent";
-import type { Entry, ResourceItem } from "./types.ts";
+import type { Entry, ResourceItem, ResourceKind } from "./types.ts";
 
 /** Settings scope of a single resource, in the config selector's vocabulary. */
 type ItemScope = "user" | "project";
@@ -133,11 +133,18 @@ export function isSelf(item: ResourceItem): boolean {
 	return basename(dirname(item.path)) === SELF_EXTENSION_DIR;
 }
 
-/** Short name for one extension: `folder/file.ts` when it sits in a subfolder. */
-export function getDisplayName(item: ResourceItem): string {
+/** The file name that makes a directory a skill root. */
+const SKILL_FILE = "SKILL.md";
+
+/**
+ * Short name for one resource: `folder/file.ts` for a subfolder extension, the
+ * frontmatter-free folder name for a skill, and a standalone skill's file stem.
+ */
+export function getDisplayName(item: ResourceItem, kind: ResourceKind = "extensions"): string {
 	const fileName = basename(item.path);
 	const parentFolder = basename(dirname(item.path));
 	if (item.metadata.source === "builtin") return fileName;
+	if (kind === "skills") return fileName === SKILL_FILE ? parentFolder : fileName.replace(/\.md$/i, "");
 	return parentFolder === "extensions" ? fileName : `${parentFolder}/${fileName}`;
 }
 
@@ -164,7 +171,7 @@ interface Group {
  * Flatten resources into group headers and item rows, sorted packages-first,
  * then user-before-project, then by source; items sort by display name.
  */
-export function buildEntries(items: ResourceItem[], agentDir: string): Entry[] {
+export function buildEntries(items: ResourceItem[], agentDir: string, kind: ResourceKind = "extensions"): Entry[] {
 	const groups = new Map<string, Group>();
 	for (const item of items) {
 		const { metadata } = item;
@@ -192,9 +199,10 @@ export function buildEntries(items: ResourceItem[], agentDir: string): Entry[] {
 
 	const entries: Entry[] = [];
 	for (const group of sorted) {
-		const items = [...group.items].sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)));
+		const items = [...group.items].sort((a, b) => getDisplayName(a, kind).localeCompare(getDisplayName(b, kind)));
 		entries.push({ kind: "group", key: group.key, label: group.label, count: items.length });
-		for (const item of items) entries.push({ kind: "item", key: resourceKey(item), item, label: getDisplayName(item) });
+		for (const item of items)
+			entries.push({ kind: "item", key: resourceKey(item), item, label: getDisplayName(item, kind) });
 	}
 	return entries;
 }

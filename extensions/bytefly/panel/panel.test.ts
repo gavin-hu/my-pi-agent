@@ -1,6 +1,6 @@
 /**
  * The bytefly panel capability: the merged extension model, its text
- * projection, the settings catalogue and runtime, the two section views, the
+ * projection, the settings catalogue and runtime, the section views, the
  * editing and cursor arithmetic, the docked component, and the `/bytefly`
  * command.
  *
@@ -24,6 +24,7 @@ import {
 	makeItem,
 	makeStore,
 	packageExtension,
+	skillItem,
 	type FakeStore,
 } from "../../../test/helpers/fixtures/picker.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
@@ -32,8 +33,9 @@ import { tempDir } from "../../../test/helpers/env.ts";
 import { ListCursor } from "../../../lib/tui/cursor.ts";
 import type { ResourceItem, Settings, WriteScope } from "../picker/types.ts";
 import { resourceKey } from "../picker/resources.ts";
-import { createExtensionsPickerRuntime } from "../picker/runtime.ts";
+import { createPickerRuntime } from "../picker/runtime.ts";
 import { registerPanel } from "./commands.ts";
+import type { SkillInfo } from "./types.ts";
 import {
 	formatHeadline,
 	formatListing,
@@ -43,9 +45,10 @@ import {
 	panelCounts,
 	sectionSegments,
 	settingsSummarySegments,
+	SKILL_NOUN,
 	summarySegments,
 } from "./format.ts";
-import { buildPanelModel, extensionName, REPORT_ONLY_LABEL } from "./join.ts";
+import { buildPanelModel, buildSkillModel, extensionName, REPORT_ONLY_LABEL } from "./join.ts";
 import {
 	nextValue,
 	rowsForScope,
@@ -80,7 +83,9 @@ import {
 	totalRows,
 } from "./tui/frame.ts";
 import { clampSelection, firstRow, lastRow, moveRows, retainFocus } from "./tui/nav.ts";
-import { extensionDetail, extensionHints, extensionRow, extensionSummary } from "./tui/extensions-view.ts";
+import { extensionDetail, extensionHints } from "./tui/extensions-view.ts";
+import { resourceRow, resourceSummary } from "./tui/list-view.ts";
+import { skillDetail, skillHints } from "./tui/skills-view.ts";
 import {
 	editHints,
 	projectNote,
@@ -110,6 +115,11 @@ function findRow(model: ReturnType<typeof textModel>, label: string) {
 	const row = model.rows.find((candidate) => candidate.label === label);
 	if (!row) throw new Error(`missing row ${label}`);
 	return row;
+}
+
+/** Skill metadata keyed by the resolved path, as the loader hands it over. */
+function skillIndex(entries: Record<string, SkillInfo>): ReadonlyMap<string, SkillInfo> {
+	return new Map(Object.entries(entries));
 }
 
 function snapshot(overrides: Partial<SettingsSnapshot> = {}): SettingsSnapshot {
@@ -225,15 +235,19 @@ function makeSettings(
 	return { surface, changes, snapshot: state, isDirty: () => dirty };
 }
 
+type SkillLoader = () => ReadonlyMap<string, SkillInfo>;
+
 function build(options: {
 	items: ResourceItem[];
+	skills?: ResourceItem[];
+	skillIndex?: SkillLoader;
 	reports?: ExtensionReport[];
 	trusted?: boolean;
 	store?: FakeStore;
 	rows?: number;
 	theme?: unknown;
 	filter?: string;
-	section?: "extensions" | "settings";
+	section?: "extensions" | "skills" | "settings";
 	refresh?: (force?: boolean) => void | Promise<void>;
 	needsProbe?: boolean;
 	initialRefresh?: boolean;
@@ -245,13 +259,14 @@ function build(options: {
 }) {
 	const store = options.store ?? makeStore();
 	const { discovery, projectStore } = makeDiscovery({
-		global: options.items,
+		extensions: options.items,
+		skills: options.skills,
 		globalStore: store,
 		trusted: options.trusted ?? true,
 	});
 	// Mirrors the command: a runtime refusal or write failure lands in the frame.
 	const holder: { component?: PanelComponent } = {};
-	const runtime = createExtensionsPickerRuntime({
+	const runtime = createPickerRuntime({
 		discovery,
 		cwd: "/proj",
 		agentDir: "/agent",
@@ -278,6 +293,7 @@ function build(options: {
 		cwd: "/proj",
 		viewportRows: options.rows ?? 24,
 		requestRender: () => {},
+		skills: () => options.skillIndex?.() ?? new Map(),
 		refresh: options.refresh ?? (() => {}),
 		needsProbe: options.needsProbe,
 		initialRefresh: options.initialRefresh,
@@ -426,7 +442,7 @@ describe("panel model", () => {
 
 describe("panel text projection", () => {
 	test("counts rows, off extensions, and problem findings", () => {
-		expect(panelCounts(textModel())).toEqual({ extensions: 3, off: 1, missing: 1, degraded: 0 });
+		expect(panelCounts(textModel())).toEqual({ rows: 3, off: 1, missing: 1, degraded: 0 });
 	});
 
 	test("counts a report once when the model carries it on more than one row", () => {
@@ -436,7 +452,7 @@ describe("panel text projection", () => {
 		if (!row) throw new Error("expected a row");
 		const duplicated = { ...single, rows: [...single.rows, { ...row, key: "duplicate" }] };
 
-		expect(panelCounts(duplicated)).toEqual({ extensions: 2, off: 0, missing: 1, degraded: 1 });
+		expect(panelCounts(duplicated)).toEqual({ rows: 2, off: 0, missing: 1, degraded: 1 });
 	});
 
 	test("does not count the findings of an off row as problems", () => {
@@ -446,7 +462,7 @@ describe("panel text projection", () => {
 			agentDir: "/agent",
 		});
 
-		expect(panelCounts(off)).toEqual({ extensions: 1, off: 1, missing: 0, degraded: 0 });
+		expect(panelCounts(off)).toEqual({ rows: 1, off: 1, missing: 0, degraded: 0 });
 	});
 
 	test("states the scope, counts, and problems", () => {
@@ -487,13 +503,20 @@ describe("panel text projection", () => {
 		expect(summarySegments(degradedOnly, "global").at(-1)?.color).toBe("warn");
 	});
 
-	test("orders the two section names and accents the active one", () => {
+	test("orders the three section names and accents the active one", () => {
 		expect(sectionSegments("extensions")).toEqual([
 			{ text: "Extensions", color: "accent" },
+			{ text: "Skills", color: "faint" },
+			{ text: "Settings", color: "faint" },
+		]);
+		expect(sectionSegments("skills")).toEqual([
+			{ text: "Extensions", color: "faint" },
+			{ text: "Skills", color: "accent" },
 			{ text: "Settings", color: "faint" },
 		]);
 		expect(sectionSegments("settings")).toEqual([
 			{ text: "Extensions", color: "faint" },
+			{ text: "Skills", color: "faint" },
 			{ text: "Settings", color: "accent" },
 		]);
 		expect(settingsSummarySegments("global", 11).map((segment) => segment.text)).toEqual(["Global", "11 settings"]);
@@ -557,6 +580,45 @@ describe("panel text projection", () => {
 		expect(text).toContain("npm:pkg (user) (3)");
 		expect(text).toContain(`[x] ${GLYPHS.cross} plan/index.ts — 1 missing`);
 		expect(text).toContain(`[ ] ${GLYPHS.disabled} memory/index.ts — off`);
+	});
+
+	test("lists skills with the skills noun and one verdict per row", () => {
+		const model = buildSkillModel({
+			items: [skillItem("pdf"), skillItem("quiet"), skillItem("broken")],
+			index: skillIndex({
+				"/agent/skills/pdf/SKILL.md": {
+					name: "pdf-tools",
+					description: "Read PDFs.",
+					modelHidden: false,
+				},
+				"/agent/skills/quiet/SKILL.md": {
+					name: "quiet",
+					description: "By name only.",
+					modelHidden: true,
+				},
+				"/agent/skills/broken/SKILL.md": {
+					description: "",
+					modelHidden: false,
+					problem: "missing description",
+				},
+			}),
+			agentDir: "/agent",
+		});
+
+		const text = formatListing(model, "global", { noun: SKILL_NOUN });
+		expect(text.split("\n")[0]).toBe("bytefly: Global · 3 skills");
+		expect(text).toContain("[x] pdf-tools");
+		expect(text).toContain("quiet — hidden");
+		expect(text).toContain(`${GLYPHS.warn} broken — not loaded`);
+		expect(formatHeadline(model, "global", { noun: SKILL_NOUN })).toBe("bytefly: Global · 3 skills");
+		expect(panelCounts(model)).toEqual({ rows: 3, off: 0, missing: 0, degraded: 0 });
+	});
+
+	test("reports an empty skill list with its own empty label", () => {
+		const empty = buildSkillModel({ items: [], index: new Map(), agentDir: "/agent" });
+		expect(formatListing(empty, "global", { noun: SKILL_NOUN, emptyLabel: "No skills found." })).toContain(
+			"No skills found.",
+		);
 	});
 
 	test("reports an empty result", () => {
@@ -1393,16 +1455,17 @@ describe("panel frame arithmetic", () => {
 	test("draws the section bar with the active section accented", () => {
 		const bar = sectionBar(
 			coloringTheme,
-			90,
+			120,
 			"settings",
 			countsLine(coloringTheme, 80, settingsSummarySegments("global", 14)),
 		);
 
 		expect(bar).toContain("[dim]Extensions");
+		expect(bar).toContain("[dim]Skills");
 		expect(bar).toContain("[accent]Settings");
 		expect(bar).toContain("[accent]Global");
 		expect(bar).toContain("[muted]14 settings");
-		expect(visibleWidth(bar)).toBeLessThanOrEqual(90);
+		expect(visibleWidth(bar)).toBeLessThanOrEqual(120);
 	});
 
 	test("drops whole count segments on a narrow line", () => {
@@ -1447,24 +1510,24 @@ describe("extensions view", () => {
 	const model = textModel([packageItem("plan"), packageItem("todo")]);
 
 	test("abbreviates the summary under 72 columns", () => {
-		expect(extensionSummary(fakeTheme, 96, model, "global", undefined)).toContain("2 extensions");
-		expect(extensionSummary(fakeTheme, 44, model, "global", undefined)).toContain("2 ext");
-		expect(extensionSummary(fakeTheme, 96, model, "global", "plan")).toContain("plan only");
+		expect(resourceSummary(fakeTheme, 96, model, "global")).toContain("2 extensions");
+		expect(resourceSummary(fakeTheme, 44, model, "global")).toContain("2 ext");
+		expect(resourceSummary(fakeTheme, 96, model, "global", { filter: "plan" })).toContain("plan only");
 	});
 
 	test("draws checkbox, health glyph, name, and verdict on one row", () => {
 		const missing = findRow(model, "plan/index.ts");
 		const clean = findRow(model, "todo/index.ts");
 
-		expect(extensionRow(fakeTheme, 80, missing, false)).toContain(GLYPHS.boxOn);
-		expect(extensionRow(fakeTheme, 80, missing, false)).toContain(GLYPHS.cross);
-		expect(extensionRow(fakeTheme, 80, missing, false)).toContain("1 missing");
-		expect(extensionRow(fakeTheme, 80, clean, false)).not.toContain(GLYPHS.cross);
+		expect(resourceRow(fakeTheme, 80, missing, false)).toContain(GLYPHS.boxOn);
+		expect(resourceRow(fakeTheme, 80, missing, false)).toContain(GLYPHS.cross);
+		expect(resourceRow(fakeTheme, 80, missing, false)).toContain("1 missing");
+		expect(resourceRow(fakeTheme, 80, clean, false)).not.toContain(GLYPHS.cross);
 	});
 
 	test("accents the focused label and dims a disabled one", () => {
-		const focused = extensionRow(coloringTheme, 80, findRow(model, "plan/index.ts"), true);
-		const disabled = extensionRow(
+		const focused = resourceRow(coloringTheme, 80, findRow(model, "plan/index.ts"), true);
+		const disabled = resourceRow(
 			coloringTheme,
 			80,
 			findRow(textModel([packageItem("plan"), packageItem("zulu", false)]), "zulu/index.ts"),
@@ -1479,7 +1542,7 @@ describe("extensions view", () => {
 	test("reserves the checkbox column for a report with no item", () => {
 		const reported = buildPanelModel({ items: [], reports: [makeReport("bytefly")], agentDir: "/agent" }).rows[0];
 		if (!reported) throw new Error("expected a row");
-		const line = extensionRow(fakeTheme, 80, reported, false);
+		const line = resourceRow(fakeTheme, 80, reported, false);
 
 		expect(line).toContain("bytefly");
 		expect(line).not.toContain(GLYPHS.boxOn);
@@ -1491,8 +1554,8 @@ describe("extensions view", () => {
 			buildPanelModel({ items: [packageItem("todo")], reports: [makeReport("todo")], agentDir: "/agent" }),
 			"todo/index.ts",
 		);
-		expect(extensionRow(coloringTheme, 80, clean, false)).toContain("[dim]ok");
-		expect(extensionRow(coloringTheme, 80, findRow(model, "plan/index.ts"), false)).toContain("[error]1 missing");
+		expect(resourceRow(coloringTheme, 80, clean, false)).toContain("[dim]ok");
+		expect(resourceRow(coloringTheme, 80, findRow(model, "plan/index.ts"), false)).toContain("[error]1 missing");
 	});
 
 	test("shows the resource path in the detail pane for an unreported row", () => {
@@ -1535,6 +1598,110 @@ describe("extensions view", () => {
 		expect(expanded).toContain("Enter collapse");
 		expect(expanded).toContain("x inherit");
 		expect(expanded).toContain("refreshing…");
+	});
+});
+
+describe("skills view", () => {
+	const skillsModel = (description = "Extract text and tables from PDF files.") =>
+		buildSkillModel({
+			items: [skillItem("pdf")],
+			index: skillIndex({
+				"/agent/skills/pdf/SKILL.md": { name: "pdf", description, modelHidden: false },
+			}),
+			agentDir: "/agent",
+		});
+
+	test("starts the pane with the file and its description", () => {
+		const detail = skillDetail({
+			theme: fakeTheme,
+			width: 80,
+			row: skillsModel().rows[0],
+			budget: 3,
+			expanded: false,
+			dirty: false,
+		}).join("\n");
+
+		expect(detail).toContain("/agent/skills/pdf/SKILL.md");
+		expect(detail).toContain("Extract text and tables from PDF files.");
+	});
+
+	test("keeps a long description to one line until expanded", () => {
+		const description = `${"word ".repeat(20)}SECOND`;
+		const row = skillsModel(description).rows[0];
+		const collapsed = skillDetail({ theme: fakeTheme, width: 80, row, budget: 4, expanded: false, dirty: false }).join(
+			"\n",
+		);
+		const expanded = skillDetail({ theme: fakeTheme, width: 80, row, budget: 4, expanded: true, dirty: false }).join(
+			"\n",
+		);
+
+		expect(collapsed).not.toContain("SECOND");
+		expect(expanded).toContain("SECOND");
+	});
+
+	test("names why Pi refused the file", () => {
+		const model = buildSkillModel({
+			items: [skillItem("broken")],
+			index: skillIndex({
+				"/agent/skills/broken/SKILL.md": {
+					description: "",
+					modelHidden: false,
+					problem: "missing description",
+				},
+			}),
+			agentDir: "/agent",
+		});
+		const detail = skillDetail({
+			theme: fakeTheme,
+			width: 80,
+			row: model.rows[0],
+			budget: 3,
+			expanded: false,
+			dirty: false,
+		});
+
+		expect(detail.join("\n")).toContain("Not loaded: missing description");
+	});
+
+	test("keeps the saved marker while dirty", () => {
+		const detail = skillDetail({
+			theme: fakeTheme,
+			width: 80,
+			row: skillsModel().rows[0],
+			budget: 3,
+			expanded: false,
+			dirty: true,
+		}).join("\n");
+
+		expect(detail).toContain("Saved · reload to apply");
+	});
+
+	test("drops the description when the pane has no room", () => {
+		const detail = skillDetail({
+			theme: fakeTheme,
+			width: 80,
+			row: skillsModel().rows[0],
+			budget: 0,
+			expanded: false,
+			dirty: false,
+		}).join("\n");
+
+		expect(detail).toContain("/agent/skills/pdf/SKILL.md");
+		expect(detail).not.toContain("Extract text");
+	});
+
+	test("hints the expansion and the project override, never a probe", () => {
+		const texts = (hints: ReturnType<typeof skillHints>): string[] =>
+			hints.map((hint) => (typeof hint === "string" ? hint : hint.text));
+
+		const collapsed = texts(skillHints({ expanded: false, projectScope: false }));
+		const expanded = texts(skillHints({ expanded: true, projectScope: true }));
+
+		expect(collapsed).toContain("Enter detail");
+		expect(collapsed).not.toContain("x inherit");
+		expect(collapsed).not.toContain("r refresh");
+		expect(expanded).toContain("Enter collapse");
+		expect(expanded).toContain("x inherit");
 	});
 });
 
@@ -1832,8 +1999,8 @@ describe("PanelComponent rendering", () => {
 		}
 	});
 
-	test("keeps every line within the width in both sections at 80, 48, and 40", () => {
-		for (const section of ["extensions", "settings"] as const) {
+	test("keeps every line within the width in all sections at 80, 48, and 40", () => {
+		for (const section of ["extensions", "skills", "settings"] as const) {
 			const { component } = build({ items: [packageItem("plan")], reports: [], section });
 			for (const width of [80, 48, 40]) {
 				for (const line of component.render(width)) {
@@ -2010,6 +2177,181 @@ describe("PanelComponent rendering", () => {
 	});
 });
 
+const SKILLS_INDEX = () =>
+	skillIndex({
+		"/agent/skills/pdf/SKILL.md": {
+			name: "pdf",
+			description: "Extract text and tables from PDF files.",
+			modelHidden: false,
+		},
+		"/agent/skills/quiet/SKILL.md": {
+			name: "quiet",
+			description: "Reachable by name only.",
+			modelHidden: true,
+		},
+		"/agent/skills/broken/SKILL.md": {
+			description: "",
+			modelHidden: false,
+			problem: "missing description",
+		},
+	});
+
+describe("PanelComponent skills", () => {
+	test("draws one vertical row per skill under its group heading", () => {
+		const { component } = build({
+			items: [],
+			skills: [skillItem("pdf"), skillItem("quiet")],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+		});
+		const lines = component.render(80);
+		const rows = lines.filter((line) => line.includes("◼") || line.includes("◻"));
+		const pdf = rows.filter((line) => line.includes("pdf"));
+		const quiet = rows.filter((line) => line.includes("quiet"));
+
+		expect(rows).toHaveLength(2);
+		expect(pdf).toHaveLength(1);
+		expect(quiet).toHaveLength(1);
+		expect(pdf[0]).not.toBe(quiet[0]);
+		expect(lines.join("\n")).toContain("Global · 2 skills");
+		expect(lines.join("\n")).toContain("User");
+	});
+
+	test("shows the description, the hidden verdict, and a refusal", () => {
+		const { component } = build({
+			items: [],
+			skills: [skillItem("pdf")],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+		});
+		const text = component.render(80).join("\n");
+		expect(text).toContain("/agent/skills/pdf/SKILL.md");
+		expect(text).toContain("Extract text and tables from PDF files.");
+
+		const hidden = build({
+			items: [],
+			skills: [skillItem("quiet")],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+		}).component;
+		expect(hidden.render(80).join("\n")).toContain("hidden");
+
+		const broken = build({
+			items: [],
+			skills: [skillItem("broken")],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+		}).component;
+		const refused = broken.render(80).join("\n");
+		expect(refused).toContain("not loaded");
+		expect(refused).toContain("Not loaded: missing description");
+	});
+
+	test("toggles the focused skill into the global skills array", async () => {
+		const { component, store } = build({
+			items: [],
+			skills: [skillItem("pdf")],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+		});
+		component.render(80);
+
+		component.handleInput(" ");
+		await settle();
+		await settle();
+
+		expect(store.calls.setSkillPaths.at(-1)).toEqual(["-skills/pdf/SKILL.md"]);
+		expect(store.calls.setExtensionPaths).toEqual([]);
+		expect(component.render(80).join("\n")).toContain("off");
+	});
+
+	test("writes a project override, then clears it with x", async () => {
+		const { component, projectStore } = build({
+			items: [],
+			skills: [skillItem("pdf")],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+		});
+		component.render(80);
+
+		component.handleInput("\t");
+		component.handleInput(" ");
+		await settle();
+		await settle();
+		expect(projectStore.calls.setProjectSkillPaths.at(-1)).toEqual([
+			"/agent/skills/pdf/SKILL.md",
+			"-/agent/skills/pdf/SKILL.md",
+		]);
+
+		component.handleInput("x");
+		await settle();
+		await settle();
+		expect(projectStore.calls.setProjectSkillPaths.at(-1)).toEqual([]);
+	});
+
+	test("jumps groups and keeps the focus on a row identity", () => {
+		const other = makeItem({
+			path: "/other/skills/next/SKILL.md",
+			metadata: { source: "auto", scope: "user", origin: "top-level", baseDir: "/other" },
+		});
+		const { component } = build({
+			items: [],
+			skills: [skillItem("pdf"), other],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+		});
+		component.render(80);
+		expect(selectedLine(component)).toContain("pdf");
+
+		component.handleInput("]");
+		expect(selectedLine(component)).toContain("next");
+	});
+
+	test("names skills in the untrusted-project refusal", () => {
+		const { component } = build({
+			items: [],
+			skills: [skillItem("pdf")],
+			skillIndex: SKILLS_INDEX,
+			section: "skills",
+			trusted: false,
+		});
+
+		component.handleInput("\t");
+
+		expect(component.render(80).join("\n")).toContain("manage skills in Global scope only");
+	});
+
+	test("reads the skill index once on first show and never probes", () => {
+		let loads = 0;
+		const refreshes: boolean[] = [];
+		const { component } = build({
+			items: [packageItem("plan")],
+			skills: [skillItem("pdf")],
+			skillIndex: () => {
+				loads += 1;
+				return SKILLS_INDEX();
+			},
+			section: "skills",
+			needsProbe: true,
+			refresh: (force) => {
+				refreshes.push(force === true);
+			},
+		});
+
+		component.prime();
+		expect(loads).toBe(1);
+		component.render(80);
+		component.render(80);
+		expect(loads).toBe(1);
+		expect(refreshes).toEqual([]);
+	});
+
+	test("reports an empty skill list with its own label", () => {
+		const { component } = build({ items: [], section: "skills" });
+		expect(component.render(80).join("\n")).toContain("No skills found.");
+	});
+});
+
 describe("PanelComponent input", () => {
 	test("navigation skips group headers", async () => {
 		const { component, store } = build({
@@ -2156,7 +2498,7 @@ describe("PanelComponent input", () => {
 		const runtime = {
 			scope: () => "global" as const,
 			setScope: () => {},
-			items: () => items,
+			items: (kind: "extensions" | "skills") => (kind === "extensions" ? items : []),
 			disabledCount: () => 0,
 			projectAvailable: () => true,
 			isDirty: () => false,
@@ -2168,6 +2510,7 @@ describe("PanelComponent input", () => {
 			runtime,
 			reports: () => [],
 			settings: makeSettings().surface,
+			skills: () => new Map(),
 			theme: coloringTheme,
 			agentDir: "/agent",
 			cwd: "/proj",
@@ -2187,11 +2530,12 @@ describe("PanelComponent input", () => {
 });
 
 describe("PanelComponent sections", () => {
-	test("draws both section names and accents the active one", () => {
+	test("draws every section name and accents the active one", () => {
 		const { component } = build({ items: [packageItem("plan")], reports: [], theme: roleSgrTheme });
 
 		const text = component.render(90).join("\n");
 		expect(text).toContain(`${ROLE_SGR.accent}Extensions`);
+		expect(text).toContain(`${ROLE_SGR.other}Skills`);
 		expect(text).toContain(`${ROLE_SGR.other}Settings`);
 	});
 
@@ -2205,6 +2549,7 @@ describe("PanelComponent sections", () => {
 
 		const text = component.render(80).join("\n");
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
+		expect(text).toContain(`${ROLE_SGR.other}Skills`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
 		expect(text).toContain("13 settings");
 		expect(text).toContain("Bytefly startup TUI");
@@ -2221,10 +2566,28 @@ describe("PanelComponent sections", () => {
 		expect(selectedLine(component)).toContain("beta/index.ts");
 
 		component.handleInput("\u001b[C");
+		expect(component.render(80).join("\n")).toContain("Global · 0 skills");
+
+		component.handleInput("\u001b[C");
 		expect(component.render(80).join("\n")).toContain("Global · 13 settings");
 
 		component.handleInput("\u001b[D");
+		expect(component.render(80).join("\n")).toContain("Global · 0 skills");
+
+		component.handleInput("\u001b[D");
 		expect(selectedLine(component)).toContain("beta/index.ts");
+	});
+
+	test("stops at the ends instead of wrapping", () => {
+		const { component } = build({ items: [packageItem("alpha")], reports: [] });
+
+		component.handleInput("\u001b[D");
+		expect(component.render(80).join("\n")).toContain("1 extension");
+
+		component.handleInput("\u001b[C");
+		component.handleInput("\u001b[C");
+		component.handleInput("\u001b[C");
+		expect(component.render(80).join("\n")).toContain("Global · 13 settings");
 	});
 
 	test("keeps the scope switch working in Settings", () => {
@@ -2446,6 +2809,8 @@ describe("PanelComponent probing", () => {
 		});
 
 		component.prime();
+		expect(calls).toEqual([]);
+		component.handleInput("\u001b[D");
 		expect(calls).toEqual([]);
 		component.handleInput("\u001b[D");
 		expect(calls).toEqual([false]);
@@ -2925,7 +3290,7 @@ describe("PanelComponent theme setting", () => {
 const extensionItem = (path: string) => makeItem({ path });
 
 function commandDiscovery() {
-	return makeDiscovery({ global: [extensionItem("/agent/extensions/one.ts")] }).discovery;
+	return makeDiscovery({ extensions: [extensionItem("/agent/extensions/one.ts")] }).discovery;
 }
 
 /** A doctor runtime double that returns fixed reports and records refreshes. */
@@ -2980,6 +3345,7 @@ function bootPanel(options: {
 	discover?: () => Promise<ReturnType<typeof commandDiscovery>>;
 	reports?: ExtensionReport[];
 	settings?: (deps: SettingsRuntimeDeps) => SettingsRuntime;
+	skills?: (paths: readonly string[], cwd: string, agentDir: string) => ReadonlyMap<string, SkillInfo>;
 	update?: { recheck: () => Promise<UpdateOutcome> };
 }) {
 	const { pi, commands } = makeFakePi();
@@ -2988,6 +3354,7 @@ function bootPanel(options: {
 		update: options.update ?? fakeUpdate(),
 		discover: options.discover ?? (async () => commandDiscovery()),
 		settings: options.settings ?? (() => fakeSettings()),
+		skills: options.skills,
 	});
 	return { pi, commands };
 }
@@ -3007,7 +3374,7 @@ describe("bytefly panel command", () => {
 			(commands.get("bytefly").getArgumentCompletions(prefix) ?? []).map((entry: { label: string }) => entry.label);
 
 		const first = labels("");
-		expect(first).toEqual(expect.arrayContaining(["doctor", "settings", "refresh", "plan"]));
+		expect(first).toEqual(expect.arrayContaining(["doctor", "settings", "skills", "refresh", "plan"]));
 		expect(first).not.toContain("header");
 		expect(first).not.toContain("footer");
 		expect(first).not.toContain("status");
@@ -3021,6 +3388,7 @@ describe("bytefly panel command", () => {
 		expect(labels("plan ")).toEqual(["refresh"]);
 		expect(commands.get("bytefly").getArgumentCompletions("plan ")?.[0]?.value).toBe("plan refresh");
 		expect(commands.get("bytefly").getArgumentCompletions("settings ")).toBeNull();
+		expect(commands.get("bytefly").getArgumentCompletions("skills ")).toBeNull();
 		expect(commands.get("bytefly").getArgumentCompletions("refresh ")).toBeNull();
 		expect(commands.get("bytefly").getArgumentCompletions("doctor plan extra")).toBeNull();
 	});
@@ -3038,6 +3406,19 @@ describe("bytefly panel command", () => {
 		expect(notifications.at(-1)).toContain("settings takes no extension name");
 		expect(notifications.at(-1)).toContain("plan");
 	});
+
+	test("rejects an extension name after skills before discovery", async () => {
+		const { commands } = bootPanel({
+			discover: async () => {
+				throw new Error("should not resolve resources");
+			},
+		});
+		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+
+		await commands.get("bytefly").handler("skills plan", ctx);
+
+		expect(notifications.at(-1)).toContain("skills takes no extension name");
+	});
 });
 
 describe("bytefly panel modes", () => {
@@ -3050,6 +3431,32 @@ describe("bytefly panel modes", () => {
 		const text = notifications.at(-1) ?? "";
 		expect(text).toContain("[x] one.ts");
 		expect(text).toContain("plan");
+	});
+
+	test("prints the skills listing outside TUI mode", async () => {
+		const index = skillIndex({
+			"/agent/skills/pdf/SKILL.md": {
+				name: "pdf-tools",
+				description: "Read PDFs.",
+				modelHidden: false,
+			},
+		});
+		const { commands } = bootPanel({
+			discover: async () =>
+				makeDiscovery({
+					extensions: [extensionItem("/agent/extensions/one.ts")],
+					skills: [skillItem("pdf")],
+				}).discovery,
+			skills: () => index,
+		});
+		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
+
+		await commands.get("bytefly").handler("skills", ctx);
+
+		const text = notifications.at(-1) ?? "";
+		expect(text.split("\n")[0]).toBe("bytefly: Global · 1 skill");
+		expect(text).toContain("[x] pdf-tools");
+		expect(text).not.toContain("one.ts");
 	});
 
 	test("prints the doctor report for /bytefly doctor outside TUI mode", async () => {
@@ -3096,7 +3503,8 @@ describe("bytefly panel modes", () => {
 
 	test("prints the no-report message for a named item with no report", async () => {
 		const { commands } = bootPanel({
-			discover: async () => makeDiscovery({ global: [makeItem({ path: "/agent/extensions/one/index.ts" })] }).discovery,
+			discover: async () =>
+				makeDiscovery({ extensions: [makeItem({ path: "/agent/extensions/one/index.ts" })] }).discovery,
 		});
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
@@ -3126,7 +3534,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("", ctx);
 
-		expect(notifications.at(-1)).toContain("Could not list extensions: no settings");
+		expect(notifications.at(-1)).toContain("Could not list resources: no settings");
 	});
 
 	test("reports a probe failure instead of throwing", async () => {
@@ -3219,6 +3627,36 @@ describe("bytefly panel modes", () => {
 
 		expect(rendered).toContain("Global · 13 settings");
 		expect(rendered).toContain("Bytefly startup TUI");
+	});
+
+	test("mounts the dock screen on the Skills section in TUI mode", async () => {
+		const index = skillIndex({
+			"/agent/skills/pdf/SKILL.md": {
+				name: "pdf-tools",
+				description: "Read PDFs.",
+				modelHidden: false,
+			},
+		});
+		const { commands } = bootPanel({
+			discover: async () =>
+				makeDiscovery({
+					extensions: [extensionItem("/agent/extensions/one.ts")],
+					skills: [skillItem("pdf")],
+				}).discovery,
+			skills: () => index,
+		});
+		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
+		let rendered = "";
+		ctx.ui.custom = async (factory: any) => {
+			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			rendered = component.render(80).join("\n");
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("skills", ctx);
+
+		expect(rendered).toContain("Global · 1 skill");
+		expect(rendered).toContain("pdf-tools");
 	});
 
 	test("mounts the dock screen once in TUI mode", async () => {
@@ -3371,6 +3809,8 @@ describe("bytefly panel probing", () => {
 		expect(refreshes).toEqual([]);
 
 		component.handleInput("\u001b[D");
+		expect(refreshes).toEqual([]);
+		component.handleInput("\u001b[D");
 		expect(refreshes).toEqual([false]);
 	});
 
@@ -3429,7 +3869,10 @@ describe("bytefly panel probing", () => {
 	test("shows a runtime toggle failure in the frame", async () => {
 		const store = makeStore({ global: { extensions: [] } });
 		store.failFlush(new Error("settings locked"));
-		const built = makeDiscovery({ global: [extensionItem("/agent/extensions/one.ts")], globalStore: store }).discovery;
+		const built = makeDiscovery({
+			extensions: [extensionItem("/agent/extensions/one.ts")],
+			globalStore: store,
+		}).discovery;
 		const { pi, commands } = makeFakePi();
 		registerPanel(pi, {
 			doctor: fakeDoctor([]),
@@ -3496,7 +3939,10 @@ describe("bytefly panel probing", () => {
 describe("bytefly panel reload", () => {
 	test("offers a reload after a change and reloads when confirmed", async () => {
 		const store = makeStore({ global: { extensions: [] } });
-		const built = makeDiscovery({ global: [extensionItem("/agent/extensions/one.ts")], globalStore: store }).discovery;
+		const built = makeDiscovery({
+			extensions: [extensionItem("/agent/extensions/one.ts")],
+			globalStore: store,
+		}).discovery;
 		const { pi, commands } = makeFakePi();
 		registerPanel(pi, {
 			doctor: fakeDoctor([]),
@@ -3530,7 +3976,10 @@ describe("bytefly panel reload", () => {
 
 	test("does not offer a reload when nothing changed", async () => {
 		const store = makeStore({ global: { extensions: [] } });
-		const built = makeDiscovery({ global: [extensionItem("/agent/extensions/one.ts")], globalStore: store }).discovery;
+		const built = makeDiscovery({
+			extensions: [extensionItem("/agent/extensions/one.ts")],
+			globalStore: store,
+		}).discovery;
 		const { pi, commands } = makeFakePi();
 		registerPanel(pi, {
 			doctor: fakeDoctor([]),

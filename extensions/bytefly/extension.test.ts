@@ -177,7 +177,7 @@ describe("bytefly command wiring", () => {
 
 	test("keeps the chrome installed when the panel runs", async () => {
 		const { pi, commands } = makeFakePi({ settings: { quietStartup: true } });
-		const discovery = makeDiscovery({ global: [makeItem({ path: "/agent/extensions/one.ts" })] }).discovery;
+		const discovery = makeDiscovery({ extensions: [makeItem({ path: "/agent/extensions/one.ts" })] }).discovery;
 		bootBytefly(pi, { extensions: { discover: async () => discovery } });
 		const { ctx, footers, headers } = fakeFooterCtx({ mode: "tui", trusted: true });
 

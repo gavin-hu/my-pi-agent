@@ -3,24 +3,20 @@
  *
  * Builds the two settings views the screen shows — personal (`global`) and the
  * effective one the session sees (`effective`) — from Pi's public
- * `SettingsManager` and `DefaultPackageManager`. Both managers and resolvers
- * are built through a small factory seam so tests can supply in-memory doubles
- * instead of touching real settings files or installed packages.
+ * `SettingsManager` and `DefaultPackageManager`, for both resource kinds the
+ * screen lists. Both managers and resolvers are built through a small factory
+ * seam so tests can supply in-memory doubles instead of touching real settings
+ * files or installed packages.
  */
 
-import {
-	DefaultPackageManager,
-	getAgentDir,
-	type ResolvedResource,
-	SettingsManager,
-} from "@earendil-works/pi-coding-agent";
+import { DefaultPackageManager, getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { isSelf } from "./resources.ts";
-import type { Discovery, ExtensionResolver, SettingsStore } from "./types.ts";
+import type { Discovery, ResolvedResources, ResourceResolver, SettingsStore } from "./types.ts";
 
-/** One settings view: the store to write through and its resolved extensions. */
+/** One settings view: the store to write through and its resolved resources. */
 interface View {
 	store: SettingsStore;
-	resolve(): Promise<ResolvedResource[]>;
+	resolve(): Promise<ResolvedResources>;
 }
 
 /** Builds isolated global and project views. Injected by tests. */
@@ -44,8 +40,10 @@ export function createSettingsStore(manager: SettingsManager): SettingsStore {
 		projectSettings: () => manager.getProjectSettings(),
 		packages: () => manager.getPackages(),
 		setExtensionPaths: (paths) => manager.setExtensionPaths(paths),
+		setSkillPaths: (paths) => manager.setSkillPaths(paths),
 		setPackages: (packages) => manager.setPackages(packages),
 		setProjectExtensionPaths: (paths) => manager.setProjectExtensionPaths(paths),
+		setProjectSkillPaths: (paths) => manager.setProjectSkillPaths(paths),
 		setProjectPackages: (packages) => manager.setProjectPackages(packages),
 		setQuietStartup: (quiet) => manager.setQuietStartup(quiet),
 		setOutputPad: (padding) => manager.setOutputPad(padding),
@@ -76,18 +74,16 @@ export function createSettingsStores(
 
 /** The slice of `DefaultPackageManager` the resolver uses. */
 export interface ResolverManager {
-	resolve(
-		onMissing?: (source: string) => Promise<"install" | "skip" | "error">,
-	): Promise<{ extensions: ResolvedResource[] }>;
+	resolve(onMissing?: (source: string) => Promise<"install" | "skip" | "error">): Promise<ResolvedResources>;
 }
 
-/** Resolve a settings view's packages into extension resources, never installing. */
+/** Resolve a settings view's packages into resources, never installing. */
 export function createResolver(
 	settingsManager: SettingsManager,
 	cwd: string,
 	agentDir: string,
 	manager?: ResolverManager,
-): ExtensionResolver {
+): ResourceResolver {
 	const packages =
 		manager ??
 		new DefaultPackageManager({
@@ -99,7 +95,10 @@ export function createResolver(
 			builtinExtensions: [],
 		});
 	return {
-		resolve: async () => (await packages.resolve(async () => "skip")).extensions,
+		resolve: async () => {
+			const resolved = await packages.resolve(async () => "skip");
+			return { extensions: resolved.extensions, skills: resolved.skills };
+		},
 	};
 }
 
@@ -119,31 +118,37 @@ export function createDiscoveryFactory(cwd: string, agentDir: string): Discovery
  * can read or write project configuration.
  *
  * `bytefly`'s entrypoint — the extension that hosts this picker — is dropped
- * from every view, so the picker does not list itself and the row set, the
- * disabled count, and the text listing all agree.
+ * from the extension views, so the picker does not list itself and the row set,
+ * the disabled count, and the text listing all agree. Skills have no such self
+ * entry, so their lists are passed through untouched.
  */
-export async function discoverExtensions(deps: DiscoveryDeps): Promise<Discovery> {
+export async function discoverResources(deps: DiscoveryDeps): Promise<Discovery> {
 	const agentDir = deps.agentDir ?? getAgentDir();
 	const factory = deps.factory ?? createDiscoveryFactory(deps.cwd, agentDir);
 
 	const globalView = factory.global();
-	const global = (await globalView.resolve()).filter((item) => !isSelf(item));
+	const global = withoutSelf(await globalView.resolve());
 
 	if (!deps.trusted) {
 		return {
-			global,
-			effective: global,
+			extensions: { global: global.extensions, effective: global.extensions },
+			skills: { global: global.skills, effective: global.skills },
 			stores: { global: globalView.store, project: globalView.store },
 			trusted: false,
 		};
 	}
 
 	const projectView = factory.project();
-	const effective = (await projectView.resolve()).filter((item) => !isSelf(item));
+	const effective = withoutSelf(await projectView.resolve());
 	return {
-		global,
-		effective,
+		extensions: { global: global.extensions, effective: effective.extensions },
+		skills: { global: global.skills, effective: effective.skills },
 		stores: { global: globalView.store, project: projectView.store },
 		trusted: true,
 	};
+}
+
+/** Drop this extension's own entrypoint from the extension list, and only that. */
+function withoutSelf(resources: ResolvedResources): ResolvedResources {
+	return { extensions: resources.extensions.filter((item) => !isSelf(item)), skills: resources.skills };
 }

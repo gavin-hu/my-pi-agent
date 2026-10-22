@@ -36,7 +36,7 @@ session.
 | `file-browse` | A browser | The page cannot be opened | A page in your browser |
 | `file-open` | A desktop handler for the file type | A launch failure is reported | The command itself |
 | `wechat` | A WeChat bot account, network access, and a terminal for the QR login | The bridge stays quiet | The QR login and the control screen |
-| `bytefly` | Nothing | Nothing | The Extensions and Settings screens; `doctor` prints |
+| `bytefly` | Nothing | Nothing | The Extensions, Skills, and Settings screens; `doctor` prints |
 
 `/bytefly doctor` checks the enabled extensions and names anything missing. See
 [Settings and customization](./settings-and-customization.md#health-checks).
