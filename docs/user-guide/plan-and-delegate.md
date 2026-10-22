@@ -120,10 +120,13 @@ describe precisely.
   items or goal are recorded, and write access returns immediately. The phone
   review reaches the same outcome through **Exit plan mode** or a cancel phrase;
   outside a review, the model can call `cancel_plan_mode`.
-- The model is asked to follow a fixed outline — goal, context, approach, steps,
-  risks, verification — but any Markdown is accepted. Steps are the `- [ ]` items
-  in the `## Steps` section. A plan with more than 50 top-level steps is refused
-  at write time, because approval could not track them all.
+- The model is asked to follow a short outline — goal, context, approach, steps,
+  risks, verification — with a one-sentence goal and verification named as
+  commands you could run. It is a guide, not a form: a heading with nothing to
+  say is dropped, and any Markdown is accepted. Steps are the top-level `- [ ]`
+  items in the `## Steps` section; nested bullets are notes. A plan with more
+  than 50 top-level steps is refused at write time, because approval could not
+  track them all.
 - While plan mode is on, mutating tools are hidden or refused: file writes,
   edits, most shell commands, worktree mutations, and MCP tools that do not
   declare themselves read-only. `/check` and `/review` refuse until the plan is

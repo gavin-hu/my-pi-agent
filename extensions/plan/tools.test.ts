@@ -402,6 +402,12 @@ describe("write_plan", () => {
 		expect(result.content[0].text).toContain("Not in plan mode");
 	});
 
+	test("says the outline is a guide and how steps are counted", () => {
+		const { write } = setup();
+		expect(write.description).toContain("a guide, not a form");
+		expect(write.description).toContain("only the shallowest list is tracked");
+	});
+
 	test("writes the plan file, remembers it, and repaints the footer", async () => {
 		const { enter, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);

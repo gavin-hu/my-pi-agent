@@ -55,8 +55,12 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   one bounded read per plan.
 - **A shape that reads.** `write_plan` documents a canonical outline — a
   `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
-  `## Risks`, and `## Verification` — and the model is guided to follow it. This
-  is guidance only: any markdown is accepted, stored, and rendered as written.
+  `## Risks`, and `## Verification` — and the model is guided to follow it. The
+  goal is one sentence, verification names the commands to run, and the
+  description calls the shape a guide rather than a form: a heading with nothing
+  to say is dropped, and only the shallowest `Steps` list is tracked, so nested
+  bullets stay notes instead of becoming todos. This is guidance only: any
+  markdown is accepted, stored, and rendered as written.
 - **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
   section; approval seeds them into `todo`, with the `## Verification` section as
   the last item so the definition of done travels with the work. A plan with more
