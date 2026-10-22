@@ -655,7 +655,10 @@ describe("exit_plan_mode", () => {
 		const plan = ["Plan:", "1. Read the parser", "2. Add a tokenizer", "3. Update tests"].join("\n");
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
 
-		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", cwd: root });
+		// Accept the goal offer when it is asked: whether it is asked at all comes from
+		// the developer's own `plan.goalPrompt`, and a machine with no agent config
+		// asks. Either way the approval records the goal, which is what this asserts.
+		const { ctx, toolCalls } = fakeCtx({ select: "Approve and execute", confirm: true, cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 
 		expect(result.details.approved).toBe(true);
