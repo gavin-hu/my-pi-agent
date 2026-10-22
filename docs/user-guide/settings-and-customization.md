@@ -177,16 +177,18 @@ it in `bytefly.json` on a slow machine if a probe reports a timeout.
 
 Once per interactive session, the pack asks Pi's package manager which configured
 packages are behind, suppresses Pi's own startup update block, and posts one
-notice naming `pi update --extensions`. This package's new version also marks the
-startup header. The answer is cached for 24 hours, so a second session in the
-same window does not repeat the request.
+notice naming `pi update --extensions`. Pi's own newer release is drawn the same
+way: Pi resolves it, and bytefly replaces the `Update Available` box with a
+notice naming `pi update` and the changelog. Either new version also marks the
+startup header. The package answer is cached for 24 hours, so a second session in
+the same window does not repeat the request.
 
 - `/bytefly update` re-runs the check immediately and reports the updateable
   packages, this package's version and release URL, or a skip.
 - `PI_OFFLINE=1` skips the check and paints only a cached marker. It is the
-  switch for the automatic update check.
+  switch for the automatic update check, and Pi's release check follows it too.
 - The check sends the configured package list, not your conversation. No session
-  content is sent.
+  content is sent, and bytefly's release notice adds no request of its own.
 
 ## Turning features off or removing the pack
 

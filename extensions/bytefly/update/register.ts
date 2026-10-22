@@ -28,7 +28,7 @@ import {
 } from "./cache.ts";
 import { fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
 import { isOwnPackage, updateNotice } from "./format.ts";
-import type { UpdateOutcome, UpdateSource } from "./state.ts";
+import { paintLatest, type UpdateOutcome, type UpdateSource } from "./state.ts";
 import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
 import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
 import { isNewerVersion } from "./version.ts";
@@ -125,13 +125,6 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 		return entry.updates.some(isOwnPackage) ? entry.latest : undefined;
 	};
 
-	/** Paint the header marker, or clear it when this package is current. */
-	const paint = (latest?: string): void => {
-		if (updates.latest() === latest) return;
-		updates.set(latest);
-		deps.onUpdate?.();
-	};
-
 	/** The once-per-load transcript notice, posted only for a non-empty list. */
 	const announce = (entry: UpdateCacheEntry): void => {
 		if (announced || entry.updates.length === 0) return;
@@ -141,13 +134,13 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 
 	/** One snapshot: paint the marker and, when it has rows, announce it once. */
 	const record = (entry: UpdateCacheEntry): void => {
-		paint(ownLatestOf(entry));
+		paintLatest(updates, ownLatestOf(entry), deps.onUpdate);
 		announce(entry);
 	};
 
 	/** Offline: the cached marker is advisory, but no notice is posted. */
 	const recordMarkerOnly = (entry: UpdateCacheEntry): void => {
-		paint(ownLatestOf(entry));
+		paintLatest(updates, ownLatestOf(entry), deps.onUpdate);
 	};
 
 	/** Resolve this package's version label, dropping an equal or older answer. */
@@ -238,7 +231,7 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 			};
 			writeCache(entry);
 			// The caller prints the answer, so this path never posts a notice.
-			paint(latest);
+			paintLatest(updates, latest, deps.onUpdate);
 			return list.length > 0
 				? { kind: "available", updates: list, ...(latest ? { ownLatest: latest } : {}) }
 				: { kind: "current" };

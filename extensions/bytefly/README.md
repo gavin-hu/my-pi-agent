@@ -9,8 +9,8 @@ sections — Extensions, every resolved Pi extension with its enable checkbox an
 its health, and Settings, the common app and `bytefly.json` preferences — and
 an opt-in notify capability that raises an OS notification when a run finishes,
 a job finishes, or the agent asks for input, and a package-update check that
-replaces Pi's startup block with one notice and marks bytefly's own new version
-on the header.
+replaces Pi's startup blocks — the package list and Pi's own release — with one
+notice each and marks a new version on the header.
 DeepSeek is priced from the provider's published yuan rates and peak tariff by
 default; set `price.currency.code` to `USD` to price it from the provider's
 published dollar table instead, under the same peak windows, with Pi's recorded
@@ -35,7 +35,7 @@ How the `run_doctor` call and its result look in the transcript — the call lin
 The extension owns ten surfaces: the startup header, the footer, the
 user-message marker, the rule between completed turns, the notice block for
 shared transcript notices, the tool-block frame, the live working line, the
-two-section control center, notifications, and the package-update check.
+two-section control center, notifications, and the update check.
 
 **Header.** A nameplate: a two-tone half-block mark from the active theme's
 `accent` / `warn` roles, the agent identity (`Pi`, bold, and its version), the
@@ -58,9 +58,9 @@ that cannot render half blocks the mark falls back to a two-tone `Pi` wordmark.
    / commands · ! bash · !! bash (no context) · /bytefly extensions
 ```
 
-As the terminal narrows, the identity sheds the update marker, then the chrome
-version, then the chrome line, then the agent name, and the help rows drop whole
-keys, so nothing wraps or clips mid-word. Height sheds the same way: at 28 rows
+As the terminal narrows, the identity sheds the chrome marker, then the chrome
+version, then the chrome line, then Pi's marker with the agent name, and the help
+rows drop whole keys, so nothing wraps or clips mid-word. Height sheds the same way: at 28 rows
 all three help groups print, below 28 the middle group (the expand and model
 chords) goes first, below 22 only the `/` commands row survives, and below 16 the
 help block and the leading blank row go, leaving the nameplate and its rule. An
@@ -329,10 +329,13 @@ with the time it was read, and posts one transcript notice listing every package
 plus `pi update --extensions`. This package's new version alone puts `↑0.12.0`
 after the header's chrome version and adds its release URL to the notice. A
 session inside the 24-hour window reuses the cache without a package-manager
-call, and `/bytefly update` re-runs the check on demand. `PI_OFFLINE` uses the
-cached marker with no notice, only `tui` starts the background check, and a
-failed read is silent and not cached, so the next session tries again; see
-[Update check](#update-check).
+call, and `/bytefly update` re-runs the check on demand. Pi's own newer release
+is drawn the same way: Pi resolves it from `pi.dev` and would draw `Update
+Available`, and bytefly patches the method that draws it, so the release becomes
+a notice naming `pi update` and the changelog and marks `Pi v1.3.0 ↑1.4.0` on
+the agent line. `PI_OFFLINE` uses the cached marker with no notice, only `tui`
+starts the background check, and a failed read is silent and not cached, so the
+next session tries again; see [Update check](#update-check).
 
 ## Commands
 
@@ -910,7 +913,7 @@ suppresses Pi's own `Package Updates Available` block, and draws one notice for
 every row Pi returned.
 
 ```
- █▀█  Pi v1.3.0
+ █▀█  Pi v1.3.0 ↑1.4.0
  █▀ █ enhanced by bytefly v0.11.4 ↑0.12.0
 ```
 
@@ -926,15 +929,36 @@ The marker is the shared `↑` glyph and this package's newest version — the a
 is one cell wide, so the header's column math is unchanged — painted with the
 header's `accent` role: an action rather than a warning, so the muted version
 beside it stays quiet and the transcript is not turned yellow for a normal state.
-Other packages never change the header. The marker is part of the chrome cell, so
-the two identity cells still line up, and it is the first thing the identity
-sheds when the terminal narrows.
+Pi's own newer version marks the agent line the same way, after `Pi v1.3.0`.
+Other packages never change the header. The marker is part of the identity cell,
+so the two cells still line up, and it is the first thing the identity sheds when
+the terminal narrows.
 
 The notice is the shared transcript block: the `bytefly · title` headline at the
 margin, one rail row per package with this package's version arrow or the other
 package's scope, then the fixing command and this package's release URL, all at
 `info` severity because nothing is broken. It stays in scrollback and the model
 reads the same names, version, command, and URL in plain text.
+
+Pi's own release takes the same route. Pi resolves its newer version from
+`pi.dev` and would draw a bordered `Update Available` block from
+`InteractiveMode.showNewVersionNotification`; bytefly replaces that method, so
+the release Pi already fetched becomes one shared notice and the agent line's
+marker:
+
+```
+ bytefly · pi v1.4.0 is available
+ ╎ ◌ pi · v1.3.0 → v1.4.0
+ ╎ ◌ update · pi update
+ ╎ ◌ changelog · https://pi.dev/changelog
+```
+
+That notice is bytefly's rendering, not a second check: Pi makes the request and
+resolves the release, and bytefly reads the same answer, including the release's
+optional `note` as a `release notes` row sanitized to one line. `PI_OFFLINE` and
+`PI_SKIP_VERSION_CHECK` keep their Pi meaning, and a host whose method is missing
+or renamed keeps its own block. The patch is process-wide like the package one,
+installed at `session_start` and restored at `session_shutdown`.
 
 The list is Pi's decision: npm ranges, git refs, project scope, a missing
 install, and `PI_OFFLINE` all follow its package manager. The only extra read is
@@ -1014,16 +1038,19 @@ command.
   package sources; there is no setting for it, and `/bytefly` and `doctor` do not
   report the version. A failed or slow background request is retried by the next
   session, or immediately by `/bytefly update`.
-- **The marker needs the bytefly startup TUI.** It lives on the custom header,
+- **The markers need the bytefly startup TUI.** They live on the custom header,
   so with `quietStartup` off the notice is the whole signal.
-- **Pi's block is suppressed by a host shim.** bytefly wraps
-  `DefaultPackageManager.prototype.checkForAvailableUpdates` at `session_start`
-  and restores it on shutdown. A future Pi that changes that method shape makes
-  the shim inert, and Pi's own block can come back.
+- **Pi's blocks are suppressed by host shims.** bytefly wraps
+  `DefaultPackageManager.prototype.checkForAvailableUpdates` and
+  `InteractiveMode.prototype.showNewVersionNotification` at `session_start` and
+  restores both on shutdown. A future Pi that changes either method shape makes
+  that shim inert, and Pi's own block can come back.
 - **No auto-update, and the release URL is text only.** The notice names a
   command instead of running one, and the notice renderer cannot open a link, so
   the release row prints the URL and nothing more — no changelog body, no way to
-  click through from the transcript.
+  click through from the transcript. Pi's optional release note arrives as one
+  sanitized `release notes` row, so a multi-paragraph note is flattened and
+  clipped at the width.
 - **Project toggles are two-state per press** (`enable`/`disable`). `x` clears
   the override, which is the third state; a resource with no project entry in
   `pi config` is still managed there.
@@ -1115,7 +1142,7 @@ rather than showing a wrong value.
 
 | Integration point | Details |
 |---|---|
-| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. The factory reads `tui.terminal.rows` on every render, so the height ladder in `header/config.ts` sheds help groups and then the leading blank row as the terminal shortens (unknown height keeps the full header). The chrome version gains `↑<latest>` from the `UpdateSource`, and `registerHeader` returns a `refresh()` handle that re-installs the last context's header when that value arrives. |
+| Header | `ctx.ui.setHeader` with a custom component, replacing Pi's built-in header; installed only when `ctx.mode === "tui"` and `pi.getSettings().quietStartup === true` (the **Bytefly startup TUI** row). `false`, `"header"`, and unset call `setHeader(undefined)`, leaving Pi's built-in header in place. The nameplate insets by Pi's `outputPad` (read through `pi.getSettings()`), so it sits on the transcript margin, and the help hangs one body indent inside it. The mark and text are drawn from the active theme's tokens, the help keys resolve live through `keyText`, and the mark falls back to a wordmark on Apple Terminal (`isAppleTerminalSession`), mirroring Pi's built-in. The factory reads `tui.terminal.rows` on every render, so the height ladder in `header/config.ts` sheds help groups and then the leading blank row as the terminal shortens (unknown height keeps the full header). The chrome version gains `↑<latest>` from the `UpdateSource`, the agent line gains Pi's own `↑<latest>` from the second store, and `registerHeader` returns a `refresh()` handle that re-installs the last context's header when either value arrives. |
 | Footer | `ctx.ui.setFooter` with a custom component, replacing Pi's built-in footer; installed only when `ctx.mode === "tui"`. |
 | User message | `pi.registerMarkdownTransformer` puts a two-row `You` nameplate (the label over a full-width rule) above each user message; one padded level-2 heading carries the accent through `mdHeading` for both rows, and the shipped themes set `userMessageBg` to the terminal default, so the block has no fill. Pi renders the result as Markdown, so the surface adds no component or color of its own. |
 | Notice | `registerMessageRenderer(NOTICE_TYPE)` draws every shared transcript notice at the margin from its `details`; the headline stays at the margin with its title painted by the notice's own severity, and its rows hang from the transcript rail, painted by the notice's worst severity, whose glyph comes from the shared `RailSource`. `job` and `watch` post one when their work settles, and `doctor` posts one at `session_start` for a missing hard requirement. The type and shape come from `lib/notice.ts`. A message without `details` falls back to Pi's default custom-message box. |
@@ -1130,11 +1157,12 @@ rather than showing a wrong value.
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`, `openWorldHint: false`), direct exposure and active on registration (the defaults, so not declared), with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
+| Release notice | `session_start` in `tui` mode patches `InteractiveMode.prototype.showNewVersionNotification` through the shared `patchPrototypeMethod`, so the release Pi resolved becomes `pi.sendMessage(piReleaseNotice(...))` under the shared notice type and `paintLatest` records its version for the agent line's marker (`onUpdate` re-installs the header). The callback posts once per load and only while the session is live; a throw calls the captured original, so Pi's own box is the fallback. `session_shutdown` restores the method and clears the marker. |
 | Update check | `session_start` in `tui` mode installs a suppression on `DefaultPackageManager.prototype.checkForAvailableUpdates`, then reads `<agentDir>/bytefly/update.json`. A fresh entry whose key matches the cwd and effective package sources is recorded without a package-manager call; otherwise bytefly fires `fetchAvailableUpdates()` without awaiting, resolves this package's version through `fetchLatestVersion()` when Pi reports it, writes the snapshot, and records it. `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice with its version arrow and release URL. `PI_OFFLINE` paints the cached marker only. `/bytefly update` calls the returned `UpdateHandle.recheck()`, which bypasses the window and returns an `UpdateOutcome`; a generation counter drops a background reply that lands after `session_shutdown`, a per-load flag keeps it to one announcement, and shutdown restores Pi's method. |
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it is on whenever `PI_OFFLINE` is off, and its 24 h window is not configurable. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds this package's version in the per-load `UpdateSource` and one project-scoped snapshot in `<agentDir>/bytefly/update.json`. |
-| Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, loads the notify config and subscribes to the job bus, and starts the package-update check; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header, footer, and package-update method, disposes the branch subscription, drops doctor's cached findings, drops the notify bus subscription, and clears the recorded version. |
+| Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, loads the notify config and subscribes to the job bus, and starts the package-update check; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header, footer, package-update method, and release-notice method, disposes the branch subscription, drops doctor's cached findings, drops the notify bus subscription, and clears the recorded versions. |
 
 ## Design notes
 
@@ -1391,18 +1419,19 @@ calculation), `message/` (the user-message marker), `notice/` (the shared notice
 run line on Pi's working row), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
-and its probe runtime), `notify/`, and `update/` (Pi's package list, the host
-suppression, the cache, and the header marker). The chrome and the screen are drawn from
+and its probe runtime), `notify/`, and `update/` (Pi's package list, Pi's own
+release notice, the host patches, the cache, and the header markers). The chrome and the screen are drawn from
 the package's [`lib/tui/`](../../lib/tui/) design system (tokens, rules, rows,
 columns, gauge), so the look follows the active theme.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Composition root: the disable guard, the eleven `register*` calls, the one shared output-pad store, and the rail source. |
+| `index.ts` | Composition root: the disable guard, the `register*` calls, the two per-load update stores, the one shared output-pad store, and the rail source. |
 | `pad.ts` | `PadSource` and `createPadStore`: one record of Pi's output pad, so the tool frame, the notice, and the turn separator inset by the same margin. |
 | `chrome.ts` | The transcript rail (`RAIL_ROLES`, `railGlyph`), the `chrome` section's normalizer and loader, and the `RailSource` that `registerChrome` keeps current on `session_start`/`session_tree`. |
 | `header/config.ts` | Header tuning (`HEADER_CONFIG`): mark and identity roles, tagline, and the grouped help entries. |
-| `header/component.ts` | `ByteflyHeader`: the mark, identity rows, signature rule, and grouped help, plus its factory. |
+| `header/component.ts` | `ByteflyHeader`: the mark, the two identity rows mounted from `identityCells`, signature rule, and grouped help, plus its factory. |
+| `header/identity.ts` | `IdentityInput` and `identityCells`: the agent and chrome cells, each with its `↑` marker, in the ladder that sheds the chrome marker, the chrome version, the chrome line, and finally the agent's marker with the row. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
 | `footer/register.ts` | Installs/restores the footer and owns its session lifecycle. |
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |
@@ -1462,14 +1491,16 @@ columns, gauge), so the look follows the active theme.
 | `notify/dispatch.ts` | Method selection and delivery: OSC 777/99, Windows toast, `osascript`, `notify-send`, over injected seams. |
 | `notify/format.ts` | Pure notification text: session label and the turn / input / job / watch bodies. |
 | `notify/register.ts` | Registers the four triggers, loads the config at `session_start`, and owns the job- and watch-bus subscriptions. |
-| `update/types.ts` | `PackageUpdate`, derived from Pi's public manager method, and `PackageUpdateCheck`. |
-| `update/suppress.ts` | The host shim: capture Pi's `checkForAvailableUpdates`, replace it with an empty result, and restore it on shutdown. |
+| `update/types.ts` | `PackageUpdate` and `PackageUpdateCheck`, derived from Pi's public manager method; `PiRelease` and `ReleaseNoticePrototype`, derived from Pi's notification method. |
+| `update/patch.ts` | `patchPrototypeMethod`: the one host-method replacement both update surfaces use — a per-method `Symbol.for` marker, idempotent reuse, a restore that only puts back its own replacement, and an inert result when the host has no such method. |
+| `update/suppress.ts` | The two host shims over `patchPrototypeMethod`: capture Pi's `checkForAvailableUpdates` and replace it with an empty result, and hand `showNewVersionNotification`'s release to bytefly (falling back to the captured original if that throws). |
 | `update/check.ts` | Pi's package list through `DefaultPackageManager`, plus the registry `GET` that names this package's version for the marker, arrow, and release URL. |
 | `update/version.ts` | Pure semver parsing and `isNewerVersion`, including prerelease precedence. |
-| `update/state.ts` | `UpdateSource` and `createUpdateState` (this package's known version, one record per load), plus `UpdateOutcome`, the four answers an explicit re-check can give. |
+| `update/state.ts` | `UpdateSource` and `createUpdateState` (one known version per subject per load), `paintLatest` (record and repaint the header only on a change), plus `UpdateOutcome`, the four answers an explicit re-check can give. |
 | `update/cache.ts` | The project-scoped snapshot: `<agentDir>/bytefly/update.json`, the cwd/package key, the 24 h window in `isFresh`, a validated read that degrades to a miss, and the atomic write. |
-| `update/format.ts` | `updateMarker`, `updateNotice`, `releaseUrl`, and `updateOutcomeText`: the header's `↑0.12.0`, the multi-package notice, and the one line `/bytefly update` prints. |
-| `update/register.ts` | The lifecycle: suppression, the cache-first session-start read, the async package-manager call, this package's version lookup, the `PI_OFFLINE` and `tui` gates, the once-per-load announcement, the shutdown generation guard, and the `recheck()` handle `/bytefly update` calls. |
+| `update/format.ts` | `updateMarker`, `updateNotice`, `releaseUrl`, `updateOutcomeText`, and `piReleaseNotice`, plus the shared command/link rows: the header's `↑0.12.0`, the multi-package notice, the line `/bytefly update` prints, and the notice that replaces Pi's `Update Available` box. |
+| `update/register.ts` | The package-update lifecycle: suppression, the cache-first session-start read, the async package-manager call, this package's version lookup, the `PI_OFFLINE` and `tui` gates, the once-per-load announcement, the shutdown generation guard, and the `recheck()` handle `/bytefly update` calls. |
+| `update/release.ts` | Pi's own release lifecycle: install the notification patch in `tui` mode, record the release's version for the agent-line marker, post the notice once per load while the session is live, and restore the method on shutdown. |
 
 ## Testing
 

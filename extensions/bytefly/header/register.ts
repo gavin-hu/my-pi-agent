@@ -32,10 +32,15 @@ export interface HeaderHandle {
 /**
  * Register the install/restore lifecycle for the custom header.
  *
- * `updates` is the store the update check writes, so the marker appears when a
- * newer version is known. A test that does not exercise the marker may omit it.
+ * `updates` is the store the package-update check writes and `piUpdates` the one
+ * Pi's own release notice writes, so either marker appears when a newer version
+ * is known. A test that does not exercise a marker may omit its store.
  */
-export function registerHeader(pi: ExtensionAPI, updates: UpdateSource = createUpdateState()): HeaderHandle {
+export function registerHeader(
+	pi: ExtensionAPI,
+	updates: UpdateSource = createUpdateState(),
+	piUpdates?: UpdateSource,
+): HeaderHandle {
 	// Half blocks misalign in Apple Terminal, so the mark falls back to a wordmark
 	// there, mirroring Pi's own built-in header.
 	const halfBlocks = !isAppleTerminalSession();
@@ -60,6 +65,7 @@ export function registerHeader(pi: ExtensionAPI, updates: UpdateSource = createU
 			halfBlocks,
 			pad,
 			latest: updates.latest(),
+			piLatest: piUpdates?.latest(),
 			rows,
 		});
 		ctx.ui.setHeader(createHeader(() => ctx.ui.theme, view));

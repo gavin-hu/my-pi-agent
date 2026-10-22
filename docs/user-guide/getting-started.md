@@ -181,7 +181,9 @@ do lose work. To disable one feature rather than remove the whole pack, see
   `/bytefly settings` if you want the nameplate at the top.
 - **One update check per interactive session.** It asks Pi's package manager
   which configured packages are behind, suppresses Pi's own startup block, and
-  posts one notice. No session content is sent.
+  posts one notice. Pi's own newer release gets the same treatment: Pi resolves
+  it and bytefly draws it, so the `Update Available` box becomes a notice naming
+  `pi update` and the changelog. No session content is sent.
 - **No theme change.** Installing the pack makes the `bytefly-dark` and
   `bytefly-light` themes available but does not select one. Pick one through
   `/settings` → **Theme** or `/bytefly settings` → **Theme**; see
@@ -208,6 +210,9 @@ own. Only three things use the network, and only when they apply:
 | Web search or page fetch | You ask for one | The query goes to your chosen search provider; the page request goes to that site |
 | WeChat bridge | After you log in | Messages pass through WeChat's service |
 | Update check | Once per interactive session | The configured package list, through Pi's package manager |
+
+`pi` also checks `pi.dev` for a newer version once per start, exactly as it always
+has: bytefly only re-renders that answer, so the pack adds no request of its own.
 
 `PI_OFFLINE=1` skips the automatic update check. Everything else — plans, notes,
 snapshots, job logs, subagent transcripts — stays on your machine in the files

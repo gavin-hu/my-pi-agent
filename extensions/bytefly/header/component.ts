@@ -17,8 +17,8 @@ import { keyHintText } from "../../../lib/tui/glyphs.ts";
 import { BODY_INDENT } from "../../../lib/tui/indent.ts";
 import { RULE_GLYPH } from "../../../lib/tui/rules.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
-import { updateMarker } from "../update/format.ts";
 import { HEADER_CONFIG, type HeaderHeight, type HelpEntry } from "./config.ts";
+import { identityCells } from "./identity.ts";
 
 /** The header's shape: everything but the live terminal height is resolved once per apply. */
 export interface HeaderView {
@@ -32,6 +32,8 @@ export interface HeaderView {
 	rows?: number;
 	/** A newer published version of this package, when one is known. */
 	latest?: string;
+	/** A newer published version of Pi itself, when one is known. */
+	piLatest?: string;
 }
 
 /** The mark block is four columns on both rows, so the identity column aligns. */
@@ -121,40 +123,24 @@ export class ByteflyHeader implements Component {
 	}
 
 	private build(w: number, theme: Theme, view: HeaderView): string[] {
-		const { nameRole, chromeRole, detailRole, updateRole, chromeTagline, chromeName, chromeVersion, help } =
-			HEADER_CONFIG;
+		const { help } = HEADER_CONFIG;
 		const shape = heightShape(view.rows);
 		const padWidth = Math.max(0, Math.min(Math.floor(view.pad), Math.max(0, w - 1)));
 		const pad = " ".repeat(padWidth);
 		const [markTop, markBottom] = markLines(theme, view.halfBlocks);
 
-		const version = view.showVersion && this.version ? paint(theme, detailRole, `v${this.version}`) : "";
-		// The wordmark mark spells the app name, so the agent cell carries only the
-		// version there; the half-block mark does not, so the name stays beside it.
-		const agent = view.halfBlocks
-			? version
-				? `${theme.bold(paint(theme, nameRole, HEADER_CONFIG.appName))} ${version}`
-				: theme.bold(paint(theme, nameRole, HEADER_CONFIG.appName))
-			: version;
-		const chrome = `${paint(theme, detailRole, chromeTagline)} ${paint(theme, chromeRole, chromeName)}`;
-		const chromeWithVersion = chromeVersion ? `${chrome} ${paint(theme, detailRole, `v${chromeVersion}`)}` : chrome;
-		// The published version follows the loaded one: `v0.11.4 ↑0.12.0`.
-		const chromeWithMarker =
-			chromeVersion && view.latest
-				? `${chromeWithVersion} ${paint(theme, updateRole, updateMarker(view.latest))}`
-				: chromeWithVersion;
-
-		// The identity rows shed as one block: the update marker first, then the
-		// chrome version, the chrome line, and finally the agent.
-		const states: Array<readonly [string, string]> = [
-			[agent, chromeWithMarker],
-			[agent, chromeWithVersion],
-			[agent, chrome],
-			[agent, ""],
-			["", ""],
-		];
+		// The identity rows shed as one block, widest pair first: see `identity.ts`.
 		const lineWidth = (cell: string): number => pad.length + MARK_WIDTH + (cell ? 1 + visibleWidth(cell) : 0);
-		const [agentCell, chromeCell] = states.find(([a, c]) => Math.max(lineWidth(a), lineWidth(c)) <= w) ?? ["", ""];
+		const [agentCell, chromeCell] = identityCells(
+			{
+				halfBlocks: view.halfBlocks,
+				showVersion: view.showVersion,
+				version: this.version,
+				piLatest: view.piLatest,
+				latest: view.latest,
+			},
+			theme,
+		).find(([a, c]) => Math.max(lineWidth(a), lineWidth(c)) <= w) ?? ["", ""];
 
 		// The header owns its leading blank: Pi mounts the built-in header inside
 		// `Spacer(1)`s, but the `quietStartup: true` branch that hands this header the

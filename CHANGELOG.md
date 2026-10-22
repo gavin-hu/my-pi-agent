@@ -35,6 +35,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   blank line, and the expand hint follows it as the block's last line in every
   mode. A usage payload a child reports with a non-number contributes nothing
   instead of corrupting the row.
+- `bytefly`: Pi's own `Update Available` box is bytefly's notice now. Pi still
+  resolves the release and makes the request; bytefly replaces the method that
+  draws it, so the news arrives as one shared block — `bytefly · pi v1.4.0 is
+  available`, a `pi · v1.3.0 → v1.4.0` row, `pi update`, and the changelog — at
+  `info` severity, with Pi's optional release note as a sanitized row. The
+  header's `Pi v1.3.0` gains the `↑1.4.0` marker, and a host whose method is
+  missing or renamed keeps its own box. Both update surfaces now share one
+  host-patch helper, one marker-painting step, and one identity ladder.
 
 ## [0.16.0] - 2026-10-21
 

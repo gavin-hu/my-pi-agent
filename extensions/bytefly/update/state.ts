@@ -40,3 +40,17 @@ export function createUpdateState(): UpdateSource {
 		},
 	};
 }
+
+/**
+ * Record a version in the store and repaint the surface that reads it.
+ *
+ * The comparison is what keeps this cheap and quiet: a check that finds the same
+ * version again must not re-install the header, and clearing an unknown version
+ * must still clear the marker. `onUpdate` is the surface's repaint hook, so a
+ * registration that has no mounted surface can omit it.
+ */
+export function paintLatest(store: UpdateSource, latest: string | undefined, onUpdate?: () => void): void {
+	if (store.latest() === latest) return;
+	store.set(latest);
+	onUpdate?.();
+}
