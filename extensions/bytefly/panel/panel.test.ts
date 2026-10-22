@@ -643,7 +643,7 @@ describe("panel text projection", () => {
 			"Job finished: On",
 			"Watcher matched: On",
 			"Wake when a job finishes: Off",
-			"Wake on a match: Off",
+			"Offer the session goal: On",
 			"Automatic snapshots: On",
 			"Proactive health check: On",
 			"Currency: CNY (¥)",
@@ -673,7 +673,7 @@ describe("settings catalogue", () => {
 			"notify.jobFinished",
 			"notify.matchFound",
 			"job.wakeOnFinish",
-			"watch.wakeOnMatch",
+			"plan.goalPrompt",
 			"rewind.autoSnapshots",
 			"doctor.proactive",
 			"price.currency.code",
@@ -714,7 +714,7 @@ describe("settings catalogue", () => {
 			["notify.jobFinished", "true", "On", "default"],
 			["notify.matchFound", "true", "On", "default"],
 			["job.wakeOnFinish", "false", "Off", "default"],
-			["watch.wakeOnMatch", "false", "Off", "default"],
+			["plan.goalPrompt", "true", "On", "default"],
 			["rewind.autoSnapshots", "true", "On", "default"],
 			["doctor.proactive", "true", "On", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
@@ -864,13 +864,20 @@ describe("settings catalogue", () => {
 	});
 
 	test("reads another extension's leaf as the file states it and labels a curated value", () => {
-		const snap = snapshot({ global: { rewind: { autoSnapshots: false }, job: { wakeOnFinish: true } } });
+		const snap = snapshot({
+			global: { rewind: { autoSnapshots: false }, job: { wakeOnFinish: true }, plan: { goalPrompt: false } },
+		});
 		expect(viewOf(snap, "global", "rewind.autoSnapshots")).toMatchObject({
 			value: "false",
 			valueLabel: "Off",
 			origin: "global",
 		});
 		expect(viewOf(snap, "global", "job.wakeOnFinish")).toMatchObject({ value: "true", origin: "global" });
+		expect(viewOf(snap, "global", "plan.goalPrompt")).toMatchObject({
+			value: "false",
+			valueLabel: "Off",
+			origin: "global",
+		});
 	});
 
 	test("inherits another extension's global leaf in Project scope until the project states it", () => {
@@ -1239,7 +1246,7 @@ describe("settings runtime", () => {
 
 		expect(runtime.sectionDocument("global", "rewind")).toEqual({ autoSnapshots: false });
 		expect(runtime.sectionDocument("project", "job")).toEqual({ wakeOnFinish: true });
-		expect(runtime.sectionDocument("global", "watch")).toBeUndefined();
+		expect(runtime.sectionDocument("global", "plan")).toBeUndefined();
 	});
 });
 
@@ -3090,7 +3097,7 @@ describe("PanelComponent settings review", () => {
 		let text = component.render(80).join("\n");
 		expect(text).toContain(`Inherited from Global · ${join("/agent", "bytefly.json")}`);
 
-		focus(component, "Wake on a match");
+		focus(component, "Offer the session goal");
 		text = component.render(80).join("\n");
 		expect(text).toContain(`Default · ${join("/proj", ".pi", "bytefly.json")}`);
 		expect(text).not.toContain("Inherited from Global");

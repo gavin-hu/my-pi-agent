@@ -84,7 +84,7 @@ an editor whose value you save with `Enter` or discard with `Esc`.
 | **Watcher matched** | Announce a match while the assistant is idle |
 | **Delivery method** | Auto, OSC 777, OSC 99, Windows toast, macOS, or Linux |
 | **Wake when a job finishes** | Start one turn when any background job ends |
-| **Wake on a match** | Start one turn when a watcher matches |
+| **Offer the session goal** | Confirm the session goal when an approved plan has none; off records it without asking |
 | **Automatic snapshots** | Take one rewind snapshot per prompt |
 | **Proactive health check** | Probe at session start and warn about a missing requirement |
 | **Currency** | CNY or USD pricing for the footer's cost total |

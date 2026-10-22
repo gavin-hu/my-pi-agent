@@ -682,7 +682,7 @@ Bytefly ────────────────────────
   ◼ Job finished  On
   ◼ Watcher matched  On
   ◻ Wake when a job finishes  Off
-  ◻ Wake on a match  Off
+  ◼ Offer the session goal  On
   ◼ Automatic snapshots  On
   ◼ Proactive health check  On
     Currency  CNY (¥)
@@ -708,7 +708,7 @@ Bytefly ────────────────────────
 | Job finished | `notify.jobFinished` | Off, On |
 | Watcher matched | `notify.matchFound` | Off, On |
 | Wake when a job finishes | `job.wakeOnFinish` | Off, On |
-| Wake on a match | `watch.wakeOnMatch` | Off, On |
+| Offer the session goal | `plan.goalPrompt` | Off, On |
 | Automatic snapshots | `rewind.autoSnapshots` | Off, On |
 | Proactive health check | `doctor.proactive` | Off, On |
 | Currency | `price.currency.code` | CNY, USD |
@@ -746,15 +746,15 @@ terminal: adding a setting means removing one (`panel/panel.test.ts` holds the
 ceiling). Everything else stays in `bytefly.json` — the tuning numbers, the
 cosmetic labels, and the Pi preferences Pi's own `/settings` owns — and
 `test/settings-coverage.test.ts` keeps the split honest: every loader key is
-either a row or a declared JSON-only edit with the reason it left. Four
-`bytefly.json` sections therefore have no row at all (`chrome`, `goal`,
+either a row or a declared JSON-only edit with the reason it left. Five
+`bytefly.json` sections therefore have no row at all (`chrome`, `goal`, `watch`,
 `worktree`, `memory`), as do `notify.title`, `doctor.timeoutMs`,
-`price.currency.decimals`, `rewind.max`, `rewind.safetySnapshot`, and
-`job.detachedByDefault` inside sections that do. Each is documented in
-[`docs/configuration.md`](../../docs/configuration.md).
+`price.currency.decimals`, `rewind.max`, `rewind.safetySnapshot`,
+`job.detachedByDefault`, and `watch.wakeOnMatch` inside sections that do. Each is
+documented in [`docs/configuration.md`](../../docs/configuration.md).
 
 Three of the six sections belong to other extensions (`rewind`, `job`, and
-`watch`). The screen cannot import their normalizers, so it reports the leaf as
+`plan`). The screen cannot import their normalizers, so it reports the leaf as
 the file states it and declares the loader's default; the same test holds the
 catalogue to every loader's defaults and bounds in both directions.
 

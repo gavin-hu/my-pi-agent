@@ -18,7 +18,7 @@
  *
  * Three sections have a normalizer here, so the screen shows what the notifier,
  * the doctor, and the footer keep. The three owned by other extensions (`rewind`,
- * `job`, `watch`) are read as the file states them, because importing their
+ * `job`, `plan`) are read as the file states them, because importing their
  * normalizer would be one extension importing another's module; each such row
  * declares the loader's default, and `test/settings-coverage.test.ts` holds the
  * pair together.
@@ -61,7 +61,7 @@ interface TextRule {
 }
 
 /** The `bytefly.json` sections a row still reaches. */
-export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "watch";
+export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "plan";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -240,15 +240,15 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "job", path: ["wakeOnFinish"] },
 	},
 	{
-		id: "watch.wakeOnMatch",
-		label: "Wake on a match",
-		description: "Start one agent turn when a watcher matches while the agent is idle.",
+		id: "plan.goalPrompt",
+		label: "Offer the session goal",
+		description: "Ask before recording an approved plan as the session goal; off records it without asking.",
 		source: "bytefly",
 		kind: "boolean",
-		fallback: "false",
+		fallback: "true",
 		json: "boolean",
 		options: ON_OFF,
-		config: { section: "watch", path: ["wakeOnMatch"] },
+		config: { section: "plan", path: ["goalPrompt"] },
 	},
 	{
 		id: "rewind.autoSnapshots",

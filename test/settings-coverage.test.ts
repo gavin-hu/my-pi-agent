@@ -43,6 +43,10 @@ import {
 } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig } from "../extensions/memory/config.ts";
 import {
+	DEFAULT_CONFIG as DEFAULT_PLAN_CONFIG,
+	normalizeConfig as normalizePlanConfig,
+} from "../extensions/plan/config.ts";
+import {
 	DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG,
 	normalizeConfig as normalizeRewindConfig,
 } from "../extensions/rewind/config.ts";
@@ -152,6 +156,12 @@ const SECTIONS: readonly SectionCase[] = [
 		jsonOnly: { achieved: "how a finished goal looks, set once" },
 	},
 	{
+		section: "plan",
+		defaults: DEFAULT_PLAN_CONFIG,
+		normalize: (raw) => normalizePlanConfig(raw, DEFAULT_PLAN_CONFIG),
+		jsonOnly: {},
+	},
+	{
 		section: "job",
 		defaults: DEFAULT_JOB_CONFIG,
 		normalize: (raw) => normalizeJobConfig(raw, DEFAULT_JOB_CONFIG),
@@ -174,6 +184,7 @@ const SECTIONS: readonly SectionCase[] = [
 		normalize: (raw) => normalizeWatchConfig(raw, DEFAULT_WATCH_CONFIG),
 		jsonOnly: {
 			enabled: "a master switch for a tool that is on by default",
+			wakeOnMatch: "off by default; a bytefly.json edit",
 			showStatus: "chip placement, not behaviour",
 			maxWatchers: "a registry limit",
 			maxMatches: "a registry limit",

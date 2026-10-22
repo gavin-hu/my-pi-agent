@@ -25,6 +25,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   “exit plan mode” instead of silently retrying them. A select without an Other
   option no longer claims free text is a choice.
 
+- `plan`: the "Record this plan as the session goal?" confirm can be turned off
+  with `plan.goalPrompt` in `bytefly.json`, or the new **Offer the session goal**
+  row in `/bytefly settings`; off records the plan's objective without asking.
+  The displaced **Wake on a match** row leaves `watch.wakeOnMatch` a
+  `bytefly.json` edit.
+
 - `skills`: a model-invoked `next` skill triages what to do next from the tree —
   loose work, a broken or unfinished promise, and the command that starts each —
   or from the conversation with `/skill:next session`, and returns a short ranked

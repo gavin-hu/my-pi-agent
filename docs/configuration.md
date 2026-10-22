@@ -24,6 +24,7 @@ section and every key with its type, default, and bounds.
 - [`file-read` — document and spreadsheet extraction](#file-read--document-and-spreadsheet-extraction)
 - [`file-browse` — the local file server](#file-browse--the-local-file-server)
 - [`goal` — the goal widget](#goal--the-goal-widget)
+- [`plan` — plan mode](#plan--plan-mode)
 - [`job` — background jobs](#job--background-jobs)
 - [`watch` — file and command watchers](#watch--file-and-command-watchers)
 - [`memory` — durable notes](#memory--durable-notes)
@@ -143,7 +144,8 @@ the file for the scope you want, and the next session reads it.
 | keep an achieved goal visible | `goal.achieved` below |
 | keep more snapshots, or turn off the pre-restore one | `rewind.max`, `rewind.safetySnapshot` below |
 | wake the agent when a job finishes, or keep jobs after exit | **Wake when a job finishes**, `job.detachedByDefault` |
-| wake the agent on a watcher match | **Wake on a match** |
+| wake the agent on a watcher match | `watch.wakeOnMatch` below |
+| stop the goal prompt when a plan is approved | **Offer the session goal** in `/bytefly settings` |
 | stop injecting memory notes | `memory.inject` below |
 | choose the worktree base, branch prefix, fetch, or prune age | `worktree` below |
 | pin the browser's port | [`file-browse`](#file-browse--the-local-file-server) |
@@ -189,6 +191,7 @@ repository root rather than the active working directory.
 | [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
+| [`plan`](../extensions/plan/) | `plan` | The offer that records an approved plan as the session goal. |
 | [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
 | [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
 | [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
@@ -199,7 +202,7 @@ repository root rather than the active working directory.
 | [`wechat`](../extensions/wechat/) | `wechat` | Bridge, media, and peer-feedback settings. |
 | [`worktree`](../extensions/worktree/) | `worktree` | Worktree directory name and behaviour. |
 
-`plan`, `question`, and `file-open` read no configuration.
+`question` and `file-open` read no configuration.
 
 ## Document metadata
 
@@ -322,6 +325,14 @@ The settings screen has no row for it; `achieved` is a `bytefly.json` edit.
 |---|---|---|---|---|
 | `achieved` | string | `"hide"` | `show`, `hide` | How an achieved goal renders: `show` keeps the dimmed rail line, `hide` removes it. |
 
+## `plan` — plan mode
+
+`/bytefly settings` edits `goalPrompt`.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `goalPrompt` | boolean | `true` | | Ask before recording an approved plan's objective as the session goal; `false` records it without asking. |
+
 ## `job` — background jobs
 
 `/bytefly settings` edits `wakeOnFinish`; `detachedByDefault` is a `bytefly.json`
@@ -343,7 +354,7 @@ edit.
 
 ## `watch` — file and command watchers
 
-`/bytefly settings` edits `wakeOnMatch`.
+The settings screen has no row for it; `wakeOnMatch` is a `bytefly.json` edit.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
