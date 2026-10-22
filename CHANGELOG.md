@@ -82,6 +82,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reminds that a behavior change carries its README catalog rows and its `docs/`
   guide in the same commit.
 
+### Fixed
+
+- `plan`: plan files follow the worktree you entered instead of landing in the
+  main checkout. An extension tool sees the session cwd, not the worktree, so
+  `write_plan`, `/plan list`, and the review read and wrote `<main>/.pi/plans`
+  and reported paths like `../worktrees/<name>/.pi/plans/…`; the store now
+  applies the worktree root the worktree extension publishes before it resolves
+  any path. The test preload also clears inherited isolation variables, so a
+  suite run inside a worktree is neutral.
+
 ## [0.16.0] - 2026-10-21
 
 ### Added
@@ -192,13 +202,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `plan`: plan files follow the worktree you entered instead of landing in the
-  main checkout. An extension tool sees the session cwd, not the worktree, so
-  `write_plan`, `/plan list`, and the review read and wrote `<main>/.pi/plans`
-  and reported paths like `../worktrees/<name>/.pi/plans/…`; the store now
-  applies the worktree root the worktree extension publishes before it resolves
-  any path. The test preload also clears inherited isolation variables, so a
-  suite run inside a worktree is neutral.
 - `lib`: closing a docked screen — `/jobs`, `/watch`, `/check`, `/agents`, and the
   `/rewind` checklists — no longer crashes Pi on the way back to the editor. Pi's
   focus check is `"focused" in component`, and it then assigns that flag; a
