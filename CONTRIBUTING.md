@@ -28,7 +28,8 @@ the full test suite.
 ## Branch flow
 
 `main` is treated as protected. Do all work on a branch in its own worktree, one
-worktree per task:
+worktree per task, and enter it before you plan: plan mode is read-only, so it
+will not create one.
 
 ```bash
 # Under Pi with this package loaded:
@@ -41,10 +42,18 @@ git worktree add .pi/worktrees/<name> -b worktree-<name>
 The branch is cut from `origin/main`, which lags the local `main` when pushes are
 infrequent, so rebase onto `main` right after entering.
 
-When the work is done, ask how to reconcile the branch (commit, merge, keep, or
-discard) before removing the worktree. Never `git add -A` or `git add .`; stage
-explicit paths. Never `git reset --hard`, `git checkout .`, `git clean -fd`,
-`git stash`, `git commit --no-verify`, or force-push `main`.
+`main` moves while you work. Before merging, commit on the branch (a rebase needs
+a clean tree), run `git rebase main`, and re-run `bun run check`. Confirm with
+`git merge-base --is-ancestor main HEAD` rather than trusting the entry-time
+rebase: `git push origin main` publishes everything on it.
+
+With the work committed and checked, ask how to reconcile the branch (commit,
+merge, keep, or discard) before `exit_worktree`. Exiting with `remove: true,
+keepBranch: true` drops the clean worktree, keeps the branch, and reports the
+commits ahead plus the merge command; merge on the main checkout, push, and
+delete the branch. Never `git add -A` or `git add .`; stage explicit paths. Never
+`git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`,
+`git commit --no-verify`, or force-push `main`.
 
 ## Checks
 
