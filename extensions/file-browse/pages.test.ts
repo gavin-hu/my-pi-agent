@@ -9,7 +9,14 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { THEME_JS, WEB_THEME_STORAGE_KEY } from "../../lib/web/index.ts";
+import {
+	THEME_JS,
+	WEB_BASE_CSS,
+	WEB_COMPONENTS_CSS,
+	WEB_LAYOUT_CSS,
+	WEB_THEME_CSS,
+	WEB_THEME_STORAGE_KEY,
+} from "../../lib/web/index.ts";
 import { localTimeMs } from "../../test/helpers/fixtures/file-browse.ts";
 import { CLIENT_JS } from "./client.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
@@ -30,6 +37,9 @@ import {
 } from "./html.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { renderMarkdown } from "./markdown.ts";
+import { PALETTE_CLIENT_JS } from "./palette.ts";
+import { BROWSE_CSS } from "./styles.ts";
+import { TREE_CLIENT_JS } from "./tree.ts";
 import {
 	closesSuppressed,
 	closeHtmlSink,
@@ -160,6 +170,46 @@ describe("page chrome", () => {
 		expect(html).toContain('<span class="bf-tree__tw bf-tree__tw--spacer" aria-hidden="true"></span>');
 		expect(html).toContain('aria-expanded="true"');
 		expect(html).toContain("read-only");
+	});
+
+	test("ships each shared stylesheet block once", () => {
+		// A repeated block is invisible in a rendered page — every rule still applies —
+		// so only a count catches it, and only here: the kit does not know who concatenates it.
+		for (const [name, block] of [
+			["base", WEB_BASE_CSS],
+			["theme", WEB_THEME_CSS],
+			["layout", WEB_LAYOUT_CSS],
+			["components", WEB_COMPONENTS_CSS],
+		] as const) {
+			expect(BROWSE_CSS.split(block).length - 1, `${name} block`).toBe(1);
+		}
+	});
+
+	test("makes the tree one tab stop driven by the arrow keys", () => {
+		const html = directoryPage();
+		// The folder's own link carries the state, so a screen reader hears
+		// "sub, folder, expanded" once; the twisty is a visual control only.
+		expect(html).toMatch(/aria-expanded="(true|false)" title="/);
+		expect(html).toContain('tabindex="-1" aria-hidden="true"');
+		expect(html).not.toMatch(/bf-tree__tw--toggle"[^>]*aria-label=/);
+		expect(TREE_CLIENT_JS).toContain('event.key === "ArrowRight"');
+		expect(TREE_CLIENT_JS).toContain('event.key === "ArrowLeft"');
+		expect(TREE_CLIENT_JS).toContain("function setTabStop(row)");
+	});
+
+	test("hands the quick-open palette to the page keymap", () => {
+		expect(PALETTE_CLIENT_JS).toContain("window.bfPalette");
+		expect(PALETTE_CLIENT_JS).toContain('getElementById("quick-open")');
+		expect(CLIENT_JS).toContain("window.bfPalette.open()");
+		expect(CLIENT_JS).toContain("window.bfPalette.isOpen()");
+	});
+
+	test("prints the page without its clipping", () => {
+		// The base layer drops the chrome; a browse page is also a card with an
+		// inner scroller and a pinned hunk header, and neither belongs on paper.
+		expect(BROWSE_CSS).toContain("@media print{");
+		expect(BROWSE_CSS).toContain("overflow:visible!important}");
+		expect(BROWSE_CSS).toContain(".bf-diff .bf-diff-line--hunk{position:static}");
 	});
 
 	test("keeps the listing and the Markdown column inside their panes", () => {
@@ -1192,6 +1242,13 @@ describe("browser script", () => {
 		expect(() => new Function(LIVE_CLIENT_JS)).not.toThrow();
 	});
 
+	test("assembles the client from its fragments", () => {
+		expect(() => new Function(TREE_CLIENT_JS)).not.toThrow();
+		expect(() => new Function(PALETTE_CLIENT_JS)).not.toThrow();
+		expect(CLIENT_JS).toContain(TREE_CLIENT_JS);
+		expect(CLIENT_JS).toContain(PALETTE_CLIENT_JS);
+	});
+
 	test("fetches nothing from another origin", () => {
 		const source = CLIENT_JS.replaceAll("http://www.w3.org/2000/svg", "");
 		expect(source).not.toContain("http");
@@ -1203,6 +1260,12 @@ describe("browser script", () => {
 		expect(LIVE_CLIENT_JS).not.toContain("insertAdjacentHTML");
 		expect(LIVE_CLIENT_JS).not.toContain("outerHTML");
 		expect(LIVE_CLIENT_JS).toContain("textContent");
+	});
+
+	test("leaves the shortcut sheet's Esc to the shared dialog runtime", () => {
+		// The kit's capture listener closes the sheet; a second copy in the page
+		// keymap is the drift this shared runtime exists to prevent.
+		expect(CLIENT_JS).not.toContain("window.bfKeys.close()");
 	});
 
 	test("names the live state instead of counting it", () => {

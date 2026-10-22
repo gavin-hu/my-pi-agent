@@ -2,8 +2,10 @@
  * The browser review client, served as `/client.js`.
  *
  * Kept as one self-contained script (like `file-browse/client.ts`) with no
- * build step. It renders the plan from the JSON data island using DOM text
- * nodes only — plan and comment text never becomes markup — renders each block
+ * build step. Its document half — the inline and block Markdown rendering — is
+ * `web-markdown.ts`, a fragment of the same IIFE interpolated below. It renders
+ * the plan from the JSON data island using DOM text nodes only — plan and
+ * comment text never becomes markup — renders each block
  * with its comment threads indented directly beneath it, highlights code by
  * copying only `tok-*` spans through `DOMParser`, builds the section outline
  * and review facts, and saves the annotation list back to the server. An
@@ -11,7 +13,9 @@
  * gone; the explicit buttons are the primary save/cancel path.
  */
 
-import { keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { dialogScript, keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { WEB_CHROME_JS } from "./web-chrome.ts";
+import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -26,6 +30,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   }
   var token = typeof data.token === "string" ? data.token : "";
   var limits = data.limits || fallback.limits;
+  var DRAFT_REFUSAL = "Add or discard the comment you are writing.";
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
   var approved = false;
@@ -54,267 +59,18 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     return node;
   }
 
-  function setStatus(text, kind) {
-    if (!statusEl) return;
-    statusEl.textContent = text || "";
-    statusEl.title = text || "";
-    statusEl.className = kind ? "bf-status bf-status--" + kind : "bf-status";
-  }
+${WEB_CHROME_JS}
 
-  // The always-visible header chip: connection, comment count, and whether
-  // there are edits the file does not have yet.
-  function updateState() {
-    if (!stateEl) return;
-    var label;
-    var tone = "";
-    if (approved) {
-      label = "Approved";
-      tone = "success";
-    } else if (saved) {
-      label = "Saved";
-      tone = "success";
-    } else if (closed) {
-      // Settled by the user, not by a dropped stream: never flash Offline.
-      label = "Closed";
-    } else if (connected === true) {
-      label = "Connected";
-      tone = "success";
-    } else if (everConnected) {
-      // Only after the stream has opened once: an error before that is a
-      // transient initial connect, so keep showing Connecting rather than Offline.
-      label = "Offline";
-      tone = "danger";
-    } else {
-      label = "Connecting\u2026";
-    }
-    var count = annotations.length;
-    label += " \u00b7 " + count + (count === 1 ? " comment" : " comments");
-    if (dirty && !saved && !approved && !closed) {
-      label += " \u00b7 unsaved";
-      if (!tone) tone = "warn";
-    }
-    stateEl.textContent = label;
-    stateEl.className = "bf-chip bf-chip--accent review-state" + (tone ? " bf-chip--" + tone : "");
-  }
-
-  // A link is rendered only for an http(s) or mailto target. Resolving against
-  // the review origin is what catches a target that only looks relative: the
-  // URL parser strips a tab or newline, so "/\t/evil.com" is cross-origin once
-  // it is parsed, and a disguised target must stay text.
-  function safeHref(url, base) {
-    var trimmed = String(url).trim();
-    if (!trimmed || /^\/\//.test(trimmed)) return null;
-    var resolved;
-    try { resolved = new URL(trimmed, base); } catch (error) { return null; }
-    if (resolved.protocol === "mailto:") return trimmed;
-    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
-    if (resolved.username || resolved.password) return null;
-    if (resolved.origin === new URL(base).origin) return resolved.href;
-    return /^https?:\/\//i.test(trimmed) ? resolved.href : null;
-  }
-
-  // Inline token order matters: code, emphasis, and links are matched before a
-  // bare URL, so a URL inside a link target or a code span is never re-split.
-  var INLINE = /(\x60[^\x60]+\x60|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\)|(?:https?:\/\/|www\.)[^\s<]+)/g;
-
-  function renderInline(container, text) {
-    String(text).split(INLINE).forEach(function (part) {
-      if (!part) return;
-      var match;
-      if ((match = /^\x60([^\x60]+)\x60$/.exec(part))) {
-        var code = el("code"); code.textContent = match[1]; container.appendChild(code); return;
-      }
-      if ((match = /^\*\*([^*]+)\*\*$/.exec(part))) {
-        var strong = el("strong"); strong.textContent = match[1]; container.appendChild(strong); return;
-      }
-      if ((match = /^\*([^*]+)\*$/.exec(part))) {
-        var em = el("em"); em.textContent = match[1]; container.appendChild(em); return;
-      }
-      if ((match = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part))) {
-        var href = safeHref(match[2], location.href);
-        if (!href) { container.appendChild(document.createTextNode(part)); return; }
-        var link = el("a"); link.textContent = match[1]; link.href = href; link.target = "_blank"; link.rel = "noreferrer noopener";
-        container.appendChild(link); return;
-      }
-      // GFM extended autolink: a bare http(s) or www. URL in running text.
-      if ((match = /^(?:https?:\/\/|www\.)[^\s<]+$/.exec(part))) {
-        var url = match[0].replace(/[.,;:!?*_~]+$/, "");
-        while (url.charAt(url.length - 1) === ")" && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) {
-          url = url.slice(0, -1).replace(/[.,;:!?*_~]+$/, "");
-        }
-        var dot = url.indexOf(".");
-        var target = /^www\./i.test(url) ? "http://" + url : url;
-        var safe = dot > 0 && /\.[^./]/.test(url.slice(dot)) ? safeHref(target, location.href) : null;
-        if (safe) {
-          var auto = el("a");
-          auto.textContent = url;
-          auto.href = safe;
-          auto.target = "_blank";
-          auto.rel = "noreferrer noopener";
-          container.appendChild(auto);
-          return;
-        }
-      }
-      container.appendChild(document.createTextNode(part));
-    });
-  }
-
-  // Copy only text and tok-* spans out of server-highlighted HTML, so a code
-  // line can never introduce markup even though it arrives as a string.
-  function copyTokens(from, to) {
-    Array.prototype.forEach.call(from.childNodes, function (node) {
-      if (node.nodeType === 3) { to.appendChild(document.createTextNode(node.nodeValue)); return; }
-      if (node.nodeType === 1 && node.tagName === "SPAN" && /^tok-/.test(node.className || "")) {
-        var span = el("span", node.className);
-        copyTokens(node, span);
-        to.appendChild(span);
-        return;
-      }
-      to.appendChild(document.createTextNode(node.textContent || ""));
-    });
-  }
-
-  function codeBody(lines) {
-    var body = Array.isArray(lines) ? lines.slice() : [];
-    if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[0])) body.shift();
-    if (body.length && /^ {0,3}(\x60{3,}|~{3,})/.test(body[body.length - 1])) body.pop();
-    return body;
-  }
-
-  function renderCode(wrap, block) {
-    var body = codeBody(block.lines);
-    var highlighted = data.code && data.code[String(block.start)];
-    var pre = el("pre", "bf-code");
-    var code = el("code");
-    if (Array.isArray(highlighted)) {
-      body.forEach(function (line, index) {
-        var span = el("span", "bf-code__line");
-        var html = highlighted[index];
-        if (html) {
-          try { copyTokens(new DOMParser().parseFromString(html, "text/html").body, span); }
-          catch (error) { span.textContent = line; }
-        } else {
-          span.textContent = line;
-        }
-        code.appendChild(span);
-        if (index < body.length - 1) code.appendChild(document.createTextNode("\n"));
-      });
-    } else {
-      code.textContent = body.join("\n");
-    }
-    pre.appendChild(code);
-    wrap.appendChild(pre);
-  }
-
-  // A GFM table: split each pipe row into cells and honour the alignment row.
-  function splitRow(line) {
-    var text = String(line).trim();
-    if (text.charAt(0) === "|") text = text.slice(1);
-    if (text.charAt(text.length - 1) === "|") text = text.slice(0, -1);
-    return text.split("|").map(function (cell) { return cell.trim(); });
-  }
-
-  function columnAlign(delim) {
-    return splitRow(delim).map(function (cell) {
-      var left = cell.charAt(0) === ":";
-      var right = cell.charAt(cell.length - 1) === ":";
-      return left && right ? "center" : right ? "right" : left ? "left" : "";
-    });
-  }
-
-  function renderTable(wrap, block) {
-    var rows = block.lines.map(splitRow);
-    var align = columnAlign(block.lines[1] || "");
-    var table = el("table", "review-table");
-    var thead = el("thead");
-    var headRow = el("tr");
-    rows[0].forEach(function (cell, index) {
-      var th = el("th");
-      if (align[index]) th.style.textAlign = align[index];
-      renderInline(th, cell);
-      headRow.appendChild(th);
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-    var tbody = el("tbody");
-    rows.slice(2).forEach(function (cells) {
-      var tr = el("tr");
-      rows[0].forEach(function (unused, index) {
-        var td = el("td");
-        if (align[index]) td.style.textAlign = align[index];
-        renderInline(td, cells[index] || "");
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    var scroll = el("div", "review-table-wrap");
-    scroll.appendChild(table);
-    wrap.appendChild(scroll);
-  }
-
-  function renderBlockContent(wrap, block) {
-    var lines = Array.isArray(block.lines) ? block.lines : [];
-    if (block.kind === "heading") {
-      var text = lines.join(" ").replace(/^\s*#{1,6}\s*/, "");
-      var level = Math.min(6, Math.max(1, (lines[0].match(/^ {0,3}(#{1,6})/) || ["", "#"])[1].length));
-      var heading = el("h" + level);
-      renderInline(heading, text);
-      wrap.appendChild(heading);
-      return;
-    }
-    if (block.kind === "code") { renderCode(wrap, block); return; }
-    if (block.kind === "table") { renderTable(wrap, block); return; }
-    if (block.kind === "hr") { wrap.appendChild(el("hr")); return; }
-    if (block.kind === "quote") {
-      var quote = el("blockquote");
-      renderInline(quote, lines.map(function (line) { return line.replace(/^\s*>\s?/, ""); }).join("\n"));
-      wrap.appendChild(quote);
-      return;
-    }
-    if (block.kind === "list") {
-      var items = [];
-      lines.forEach(function (line) {
-        var match = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(line);
-        if (!match) {
-          // A following unmarked line is a CommonMark lazy continuation of the
-          // item above; join it so the paragraph hangs under the item's text.
-          var last = items[items.length - 1];
-          if (last) { if (line.trim()) last.rest += " " + line.trim(); return; }
-          var plain = el("p"); renderInline(plain, line); wrap.appendChild(plain); return;
-        }
-        var row = el("div", "bf-block__li");
-        row.style.paddingLeft = String(Math.floor(match[1].replace(/\t/g, "    ").length / 2) * 16) + "px";
-        var markerText = match[2];
-        var rest = match[3];
-        var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
-        var marker = el("span", "marker");
-        if (box) {
-          var done = box[1].toLowerCase() === "x";
-          markerText = done ? "\u2713" : "\u2610";
-          marker.className = done ? "bf-block__marker bf-block__marker--done" : "bf-block__marker";
-          rest = box[2];
-        }
-        marker.textContent = markerText;
-        var body = el("span");
-        row.appendChild(marker); row.appendChild(body); wrap.appendChild(row);
-        items.push({ body: body, rest: rest });
-      });
-      // Render each body once, after its continuation lines are collected.
-      items.forEach(function (item) { renderInline(item.body, item.rest); });
-      return;
-    }
-    var paragraph = el("p");
-    renderInline(paragraph, lines.join(" "));
-    wrap.appendChild(paragraph);
-  }
-
+${WEB_MARKDOWN_JS}
   function closeComposer() {
     var open = planEl ? planEl.querySelector(".bf-composer") : null;
     if (open && open.parentNode) open.parentNode.removeChild(open);
     Array.prototype.forEach.call(planEl ? planEl.querySelectorAll(".bf-block--composing") : [], function (block) {
       block.classList.remove("bf-block--composing");
     });
+    // The only status a composer leaves behind is the refusal to leave it; once
+    // the draft is gone that sentence is stale.
+    if (statusEl && statusEl.textContent === DRAFT_REFUSAL) setStatus("");
   }
 
   function selectionIn(wrap) {
@@ -401,6 +157,45 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     area.focus();
   }
 
+  // Deleting a comment is one click, so it is undoable rather than confirmed: the
+  // removed note is held for a few seconds and offered back in the header.
+  var undo = null;
+
+  function clearUndo() {
+    if (undo && undo.timer) window.clearTimeout(undo.timer);
+    if (undo && undo.button && undo.button.parentNode) undo.button.parentNode.removeChild(undo.button);
+    undo = null;
+  }
+
+  function offerUndo(index, annotation) {
+    var controls = document.querySelector(".review-controls");
+    clearUndo();
+    if (!controls) return;
+    var button = el("button", "bf-btn");
+    button.type = "button";
+    button.id = "undo-delete";
+    button.textContent = "Undo delete";
+    button.addEventListener("click", function () {
+      annotations.splice(Math.min(index, annotations.length), 0, annotation);
+      dirty = true;
+      clearUndo();
+      renderPlan();
+      setStatus("Comment restored.", "saved");
+    });
+    controls.appendChild(button);
+    undo = { button: button, timer: window.setTimeout(clearUndo, 6000) };
+  }
+
+  function removeComment(index) {
+    var annotation = annotations[index];
+    if (!annotation) return;
+    annotations.splice(index, 1);
+    dirty = true;
+    renderPlan();
+    offerUndo(index, annotation);
+    setStatus("Comment deleted.");
+  }
+
   function renderCommentCards(box, list) {
     list.forEach(function (annotation) {
       var index = annotations.indexOf(annotation);
@@ -413,7 +208,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
       var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
       edit.addEventListener("click", function () { startEdit(card, index); });
       var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
-      remove.addEventListener("click", function () { annotations.splice(index, 1); dirty = true; renderPlan(); });
+      remove.addEventListener("click", function () { removeComment(index); });
       actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
       card.appendChild(head);
       if (annotation.quote) {
@@ -501,6 +296,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     // The server counts the same step list approval seeds, so this never
     // disagrees with the todo list over a checkbox outside the Steps section.
     var steps = data.steps || { done: 0, total: 0 };
+    // A plan with no Steps section has no progress to show; 0/0 is noise.
+    var stepFact = document.getElementById("step-fact");
+    if (stepFact) stepFact.hidden = !steps.total;
     var stepFill = document.getElementById("step-fill");
     if (stepFill) stepFill.style.width = (steps.total > 0 ? Math.round((steps.done / steps.total) * 100) : 0) + "%";
     var stepCount = document.getElementById("step-count");
@@ -609,54 +407,6 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     updateState();
   }
 
-  function renderHeader() {
-    var titleEl = document.getElementById("plan-title");
-    if (titleEl && data.title) {
-      titleEl.textContent = data.title;
-      titleEl.title = data.title;
-    }
-    if (data.title) document.title = "Plan review \u00b7 " + data.title;
-  }
-
-  function updateProgress() {
-    if (!progressEl) return;
-    var doc = document.scrollingElement || document.documentElement;
-    var top = doc ? doc.scrollTop : 0;
-    var height = doc ? doc.scrollHeight : 0;
-    var view = doc ? doc.clientHeight : 0;
-    if (planEl && planEl.scrollHeight > planEl.clientHeight + 4) {
-      top = planEl.scrollTop; height = planEl.scrollHeight; view = planEl.clientHeight;
-    }
-    var max = height - view;
-    var percent = max > 0 ? Math.min(100, Math.max(0, (top / max) * 100)) : 0;
-    progressEl.style.width = percent + "%";
-  }
-
-  function lockActions() {
-    if (approveButton) approveButton.disabled = true;
-    if (saveButton) saveButton.disabled = true;
-    if (cancelButton) cancelButton.disabled = true;
-  }
-
-  // A conflict means the file moved under the page; only a reload can re-anchor.
-  function offerReload() {
-    if (document.getElementById("reload")) return;
-    var controls = document.querySelector(".review-controls");
-    if (!controls) return;
-    var reload = el("button");
-    reload.type = "button";
-    reload.id = "reload";
-    reload.className = "bf-btn bf-btn--primary";
-    reload.textContent = "Reload";
-    reload.addEventListener("click", function () { window.location.reload(); });
-    controls.appendChild(reload);
-  }
-
-  // The stream exists only to notice a closed tab. Once the review is settled it
-  // has no job, and leaving it open retries a dead port until the tab closes.
-  function settleStream() {
-    if (stream && stream.close) { stream.close(); stream = null; }
-  }
 
   // Save and approve share the same POST shape; only the route, the settled
   // flag, and the wording differ. Both persist the current annotations.
@@ -693,8 +443,24 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     });
   }
 
+  // A composer holds text the page has not committed, so the ways off the page
+  // refuse while it does: leaving would drop what the reviewer typed.
+  function draftTextarea() {
+    var open = planEl ? planEl.querySelector(".bf-composer") : null;
+    var area = open ? open.querySelector("textarea") : null;
+    return area && area.value.trim() ? area : null;
+  }
+  function guardDraft() {
+    var area = draftTextarea();
+    if (!area) return false;
+    setStatus(DRAFT_REFUSAL, "error");
+    area.focus();
+    return true;
+  }
+
   function save() {
     if (saved || approved || closed) return;
+    if (guardDraft()) return;
     setStatus("Saving\u2026");
     submit("/api/feedback", "Saved \u2014 return to Pi to continue.", "Could not save: ", function () { saved = true; });
   }
@@ -707,6 +473,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   function cancel() {
     if (saved || approved || closed) return;
+    if (guardDraft()) return;
     closed = true;
     settleStream();
     lockActions();
@@ -718,9 +485,29 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     });
   }
 
-  if (approveButton) approveButton.addEventListener("click", approve);
   if (saveButton) saveButton.addEventListener("click", save);
   if (cancelButton) cancelButton.addEventListener("click", cancel);
+
+  // Approving runs the plan and cannot be undone from the page, so the header
+  // button and the a key open the confirmation instead of posting. The dialog
+  // script is the same one the shortcut sheet uses: Tab trapped, Esc, focus back
+  // on whatever opened it.
+  ${dialogScript({ dialogId: "approve-dialog", closeId: "approve-cancel", globalName: "bfApprove" })}
+  var approveDialog = document.getElementById("approve-dialog");
+
+  function askApprove() {
+    if (saved || approved || closed) return;
+    if (guardDraft()) return;
+    if (!approveDialog || !window.bfApprove) { approve(); return; }
+    window.bfApprove.open();
+  }
+  function confirmApprove() {
+    if (window.bfApprove) window.bfApprove.close();
+    approve();
+  }
+  if (approveButton) approveButton.addEventListener("click", askApprove);
+  var approveConfirm = document.getElementById("approve-confirm");
+  if (approveConfirm) approveConfirm.addEventListener("click", confirmApprove);
 
   // Remember a selection made inside a block so clicking the rail button can
   // still quote it after the button press has collapsed the selection.
@@ -731,7 +518,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     pendingQuote = wrap && quote ? { wrap: wrap, quote: quote } : null;
   });
 
-  // The sheet's own wiring (trigger, close button, backdrop) is shared with browse.
+  // The sheet's own wiring — trigger, close button, backdrop, Tab trap, and Esc —
+  // is shared with browse; the page keeps only its own keymap.
   ${keysDialogScript("shortcuts")}
 
   function typing(target) {
@@ -741,9 +529,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
-      // Esc peels one layer at a time: the composer, then the sheet, then the review.
+      // The sheet owns its own Esc; this peels the composer, then the review.
       if (planEl && planEl.querySelector(".bf-composer")) { closeComposer(); return; }
-      if (window.bfKeys.isOpen()) { window.bfKeys.close(); return; }
       cancel();
       return;
     }
@@ -755,7 +542,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
     if (event.key === "j") { event.preventDefault(); moveActive(1); return; }
     if (event.key === "k") { event.preventDefault(); moveActive(-1); return; }
     if (event.key === "c") { event.preventDefault(); commentOnActive(); return; }
-    if (event.key === "a" && approveButton) { event.preventDefault(); approve(); return; }
+    if (event.key === "a" && approveButton) { event.preventDefault(); askApprove(); return; }
     if (event.key === "s") { event.preventDefault(); save(); return; }
   });
 

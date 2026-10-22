@@ -263,12 +263,8 @@ const MAX_MODULE_LINES = 600;
  * too, so the list cannot quietly grow.
  */
 const LONG_MODULES: Record<string, { lines: number; why: string }> = {
-	"extensions/file-browse/client.ts": {
-		lines: 722,
-		why: "the browse page's dependency-free client script, shipped as one asset",
-	},
 	"extensions/file-browse/html.ts": {
-		lines: 681,
+		lines: 683,
 		why: "the browse pages' renderers, from the shared shell through the diff body",
 	},
 	"extensions/file-browse/markdown.ts": {
@@ -278,10 +274,6 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 	"extensions/job/runtime.ts": {
 		lines: 957,
 		why: "the session's job table, child handles, and repaint clock",
-	},
-	"extensions/plan/web-client.ts": {
-		lines: 794,
-		why: "the review page's dependency-free client script, shipped as one asset",
 	},
 	"extensions/wechat/bridge.ts": {
 		lines: 720,
@@ -305,7 +297,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 7174;
+const LONG_MODULE_TOTAL = 5660;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {

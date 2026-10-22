@@ -84,8 +84,10 @@ describe precisely.
    nothing, so the review screen comes back instead.
 
    When the page was opened from the review screen, it also carries **Approve &
-   run**, which does the same thing as pressing `a`. A page opened later with
-   `/plan review` is comment-only and has no approve action.
+   run**, which does the same thing as pressing `a` but asks first: the
+   confirmation names what happens, starts on **Cancel**, and only its own
+   button approves. A page opened later with `/plan review` is comment-only and
+   has no approve action.
 
    <img src="../../assets/plan-review.png" alt="The browser plan review: a sticky header, a step-progress panel, the plan as one measured column, and a comment rail" width="100%">
 
@@ -93,8 +95,10 @@ describe precisely.
    when the page was opened from the terminal review.*
 
    In the page, `j` / `k` move between blocks, `c` comments on the current block,
-   `a` approves during an approval review, `s` saves feedback, `Esc` closes the
-   composer or the page, and `?` opens a shortcut sheet.
+   `a` opens the approval confirmation, `s` saves feedback, `Esc` closes the
+   composer or the page, and `?` opens a shortcut sheet. Nothing typed is lost:
+   saving, approving, or closing refuses while a comment is half-written and puts
+   the cursor back in it, and a deleted comment can be undone from the header.
 
 4. After approval, the plan's steps become your to-do list. Watch the widget tick
    them off. The assistant updates the plan file as it goes; you can reopen the

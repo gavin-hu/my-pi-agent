@@ -19,9 +19,6 @@ export const BROWSE_CSS = `${WEB_BASE_CSS}
 ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
-${WEB_THEME_CSS}
-${WEB_LAYOUT_CSS}
-${WEB_COMPONENTS_CSS}
 .browse-side{padding:var(--space-3)}
 .browse-root{flex:1 1 auto;direction:rtl;text-align:left}
 .browse-git{font-family:var(--font-mono)}
@@ -121,4 +118,12 @@ body.palette-open{overflow:hidden}
 }
 @media (max-width:520px){
 .bf-toolbar .bf-theme-toggle{margin-left:auto}
+}
+/* A printed page scrolls nothing: the card and its body open up, the pinned hunk
+   header stops pinning, and the progress hairline belongs to the screen. */
+@media print{
+.bf-card{border:0}
+.bf-card,.bf-app__main,.bf-code,.bf-md,.bf-diff,.browse-listing{height:auto!important;max-height:none!important;overflow:visible!important}
+.bf-diff .bf-diff-line--hunk{position:static}
+.browse-progress{display:none}
 }`;

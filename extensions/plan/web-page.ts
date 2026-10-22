@@ -179,7 +179,16 @@ ${WEB_COMPONENTS_CSS}
 }
 @media (prefers-reduced-motion:no-preference){.bf-block{transition:background var(--motion-fast) var(--motion-ease)}}
 @media (hover:none){.bf-block__add{opacity:1}}
-`.trim();
+/* On paper the document is the whole page: no comment rail to hover, no composer,
+   no reading progress, and the comments stay with the blocks they belong to. */
+@media print{
+.bf-review{padding:0}
+.bf-review>.bf-block{max-width:none;padding:0 0 6px}
+.bf-block__rail,.bf-composer,.bf-block__add,.review-progress{display:none}
+.bf-block:hover,.bf-block--active{background:none;box-shadow:none}
+.bf-comments{padding-left:0}
+.bf-comment{break-inside:avoid}
+}`.trim();
 
 /**
  * The sidebar's one-line keyboard reminder. It names the keys a reviewer reaches
@@ -204,6 +213,22 @@ function reviewKeys(canApprove: boolean): KeyHint[] {
 		{ keys: "?", label: "Toggle this sheet" },
 	);
 	return rows;
+}
+
+/**
+ * The approval confirmation. Approving leaves plan mode and runs the plan, which
+ * cannot be undone from the page, so it is one deliberate dialog rather than the
+ * header button's single click. The shared `bf-dialog` styles and the shared
+ * dialog runtime supply the backdrop, the Tab trap, and `Esc`.
+ */
+function approveDialog(): string {
+	return `<div class="bf-dialog" id="approve-dialog" hidden>
+<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="approve-title">
+<div class="bf-dialog__head"><h2 id="approve-title">Approve and run the plan?</h2></div>
+<div class="bf-dialog__body"><p>Pi leaves plan mode and starts the work. The comments you added are saved with the plan.</p><p class="bf-dialog__hint">Choose <strong>Approve &amp; run</strong> to go ahead, or <strong>Cancel</strong> to keep reviewing.</p></div>
+<div class="bf-dialog__actions"><button type="button" class="bf-btn" id="approve-cancel">Cancel</button><button type="button" class="bf-btn bf-btn--primary" id="approve-confirm">Approve &amp; run</button></div>
+</div>
+</div>`;
 }
 
 /**
@@ -258,6 +283,7 @@ ${saveButton}
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
 ${keysSheet(reviewKeys(data.canApprove))}
+${data.canApprove ? approveDialog() : ""}
 <script type="application/json" id="review-data">${island}</script>
 <script src="/client.js" defer></script>
 </body>
@@ -271,7 +297,7 @@ ${keysSheet(reviewKeys(data.canApprove))}
  */
 function reviewFacts(): string {
 	return `<div class="review-facts" id="review-facts">
-<div class="review-fact"><span>Steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>
+<div class="review-fact" id="step-fact"><span>Steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>
 <div class="review-fact"><span>Comments</span><span class="review-fact__value" id="comment-total">0</span></div>
 </div>`;
 }

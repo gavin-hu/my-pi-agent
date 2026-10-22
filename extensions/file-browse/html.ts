@@ -9,7 +9,7 @@
  */
 
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { brandLockup, docHead, type KeyHint, keysSheet } from "../../lib/web/index.ts";
+import { brandLockup, docHead, type KeyHint, keysSheet, themeToggle } from "../../lib/web/index.ts";
 import { escapeHtml } from "../../lib/escape.ts";
 import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "./files.ts";
 import { DIFF_MODES, statusLetter, type ChangedFile, type DiffLine, type DiffMode } from "./diff.ts";
@@ -159,7 +159,7 @@ ${SPRITE}
   <span class="bf-chip bf-chip--accent">read-only</span>
   ${renderLiveChip(layout.live)}
   <button type="button" class="bf-btn bf-btn--icon browse-keys-btn" id="keys-open" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
-  <button type="button" class="bf-btn bf-btn--icon bf-theme-toggle" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light and dark theme"><span class="theme-glyph" aria-hidden="true">☾</span></button>
+  ${themeToggle()}
 </div><div class="browse-progress" aria-hidden="true"><span class="browse-progress__fill" id="progress-fill"></span></div></header>
 <div class="bf-app__body">
   <details class="bf-app__sidebar browse-sidebar" open>
@@ -213,7 +213,7 @@ function renderTreeNode(node: TreeNode, currentRel: string, summary?: ChangeSumm
 	const href = hrefFor(node);
 	const current = node.rel === currentRel ? ` aria-current="page"` : "";
 	const twisty = isDir
-		? `<button type="button" class="bf-tree__tw bf-tree__tw--toggle" aria-expanded="${expanded}" aria-label="${escapeHtml(node.name)}">${expanded ? "▾" : "▸"}</button>`
+		? `<button type="button" class="bf-tree__tw bf-tree__tw--toggle" tabindex="-1" aria-hidden="true">${expanded ? "▾" : "▸"}</button>`
 		: `<span class="bf-tree__tw bf-tree__tw--spacer" aria-hidden="true"></span>`;
 	const dataPath = ` data-path="${escapeHtml(node.rel)}"`;
 	const name = isDir ? `${escapeHtml(node.name)}/` : escapeHtml(node.name);
@@ -222,7 +222,9 @@ function renderTreeNode(node: TreeNode, currentRel: string, summary?: ChangeSumm
 		: "";
 	const label = node.broken
 		? `<span class="browse-broken" title="broken symbolic link">${name}</span><span class="browse-link-mark">↩</span>`
-		: `<a href="${href}">${name}</a>`;
+		: isDir
+			? `<a href="${href}" aria-expanded="${expanded}" title="${escapeHtml(node.rel)}">${name}</a>`
+			: `<a href="${href}" title="${escapeHtml(node.rel)}">${name}</a>`;
 	return `<li data-open="${expanded}"><div class="bf-tree__row"${current}${dataPath}>${twisty}${iconMarkup(spec)}${label}${changeMark(summary, node.rel, isDir)}</div>${children}</li>`;
 }
 
@@ -238,7 +240,7 @@ function renderRow(entry: DirEntry, maxThumbBytes: number, thumbnails: boolean, 
 		.join(" ");
 	const link = entry.broken
 		? `<span class="browse-broken" title="broken symbolic link">${name}</span>`
-		: `<a href="${hrefFor(entry)}">${name}</a>`;
+		: `<a href="${hrefFor(entry)}" title="${escapeHtml(entry.rel)}">${name}</a>`;
 	const mark = entry.isSymlink
 		? `<span class="browse-link-mark" title="${entry.broken ? "broken symbolic link" : "symbolic link"}">↩</span>`
 		: "";

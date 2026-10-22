@@ -446,18 +446,28 @@ file and returns them to the model.
 - **Inline threads.** A comment renders directly under the block it anchors to,
   labelled and indented as a thread, so it reads in place and the plan keeps one
   measure at every width. There is no separate column to reflow.
+- **Nothing typed is lost.** **Save feedback**, **Approve & run**, and **Back to
+  Pi** refuse while a composer holds text and put the cursor back in it, and a
+  deleted comment is offered back in the header for a few seconds. The page keeps
+  no draft of its own — these are the three ways an open comment could disappear.
+- **Prints as a document.** Printing uses the light palette whatever the screen
+  shows, drops the header, panel, rail, and progress bar, and lets the comments
+  stay with the blocks they belong to.
 - **Keyboard first.** `j`/`k` move to the next or previous block, `c` comments
   on the current block, `a` approves (the approval flow only), `s` saves, `Esc`
   closes the composer or the sheet and then the review, and `?` opens a shortcut
-  sheet; the header's `?` button opens the same sheet.
+  sheet; the header's `?` button opens the same sheet. Either dialog traps
+  `Tab` and hands focus back to whatever opened it.
 - **Decision in place.** A review opened for approval (`w` on the review screen)
   shows **Approve & run** beside Save feedback: it persists the current comments,
   ends plan mode, restores write access, seeds `todo`, and hands control back to
-  the model. **Save feedback** keeps plan mode and returns the comments as a
-  refinement; **Back to Pi** closes the review with no decision. Each action
-  settles the page on a terminal state — `Approved`, `Saved`, or `Closed` — so
-  the tab never falls to Offline. `/plan review` is comment-only: it renders no
-  approve action and the server refuses one.
+  the model. Because that cannot be undone from the page, the button and `a`
+  open a confirmation that says what happens and starts on **Cancel**; only its
+  own **Approve & run** posts. **Save feedback** keeps plan mode and returns the
+  comments as a refinement; **Back to Pi** closes the review with no decision.
+  Each action settles the page on a terminal state — `Approved`, `Saved`, or
+  `Closed` — so the tab never falls to Offline. `/plan review` is comment-only:
+  it renders no approve action and the server refuses one.
 - **Markdown that reads.** Headings, lists, task items, blockquotes, fenced
   code, GFM tables, `---` rules, and bare-URL autolinks render; a list item's
   continuation lines hang under the item's text, inline code is a soft fill
@@ -684,8 +694,10 @@ file and returns them to the model.
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
 | `web.ts` | `createPlanWebReview`: the review session (SSE close detection, the body cap, settle-after-flush, abort) over the shared loopback bind, writer, and close. |
 | `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes, over the shared page and JSON header sets. |
-| `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet), its data island, and inline CSS. |
-| `web-client.ts` | The `/client.js` source (block/thread rendering, the comment rail, outline and facts, inline comments, selection quotes, tables, highlighted code, keyboard nav, save/approve/back). |
+| `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation), its data island, and inline CSS. |
+| `web-client.ts` | The `/client.js` source: state and wiring (comment rail, comments, selection quotes, save/approve/back, keyboard nav) over the two fragments below. |
+| `web-markdown.ts` | The client's document half: `safeHref` and the inline/table/code/list rendering (interpolated into `web-client.ts`). |
+| `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, reading progress, and the stream's lifetime (interpolated into `web-client.ts`). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |
