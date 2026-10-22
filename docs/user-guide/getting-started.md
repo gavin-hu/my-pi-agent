@@ -235,7 +235,6 @@ until you turn it on; the transcript and footer are always drawn.*
 | Your message | A `You` label and rule above each request you type. |
 | Tool block | A headline naming the tool and its call (for example `read src/app.ts`), with the result indented underneath behind a thin vertical rail. |
 | Turn rule | A rule such as `╌╌╌ turn 3 ╌╌╌` after a completed turn. Where width allows, it adds the duration, the tool count, and any failures. |
-| Next steps | Below the turn rule, the two or three actions the model suggests for the next turn. Absent when the turn finished the work; switch it off with **Next steps** in `/bytefly settings`. |
 | Footer | Two lines below the input: the folder and session name, git branch and worktree, the file-browser port, the context gauge and cost, plan mode, subagent cost, and the model name. |
 | Widgets | Up to two one-line rows above the input: your **to-do list** and your **goal**, when either exists. |
 | Status chips | Small badges in the footer that report background state. |

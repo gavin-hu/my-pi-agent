@@ -257,7 +257,7 @@ runs, an update check, and two themes.
 
 - Bytefly owns the header, footer, turn rule, notices, tool frame, live working
   row, control center, doctor, notify, price, and update check.
-- Settings is a flat shortlist of the fourteen preferences a session changes,
+- Settings is a flat shortlist of the thirteen preferences a session changes,
   including the Theme row and one edited amount, capped to fit a 24-row
   terminal; every other key is a `bytefly.json` edit.
 - DeepSeek is priced from its published CNY and USD tables, with peak and
@@ -265,7 +265,7 @@ runs, an update check, and two themes.
 
 **Where the promise is thin**
 
-- Settings cover fourteen scalars only: the tuning numbers and labels that left
+- Settings cover thirteen scalars only: the tuning numbers and labels that left
   the screen, plus `doctor.skip` (an array), the `rates` table, and `price.peak`
   (a nested object), remain JSON (`bytefly` README).
 - The picker manages only the `extensions` resource type and does not list

@@ -64,7 +64,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 - `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
   及其运行时健康状况，启用或禁用一个扩展，并用 `x` 清除项目级覆盖。
-- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十四项设置排成
+- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十三项设置排成
   一列，值紧跟在名称之后；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project
   作用域。其余键都是 `bytefly.json` 编辑，见配置参考。
 - `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
@@ -122,7 +122,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings`、`update` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方，每个结束的回合还会在回合线下方列出模型建议的后续步骤。`/bytefly` 可开关扩展并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings`、`update` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
 
 ### 技能
 

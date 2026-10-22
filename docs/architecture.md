@@ -183,12 +183,12 @@ The hooks an extension uses most:
 
 | Hook | What it may do |
 |---|---|
-| `before_agent_start` | Add injected context, tagged with a `customType` so it can be removed later, or write a system-prompt section (`worktree` adds its facts, `bytefly` adds the next-steps instruction). |
+| `before_agent_start` | Add injected context, tagged with a `customType` so it can be removed later, or write a system-prompt section (`worktree` adds its facts, `plan` marks plan mode). |
 | `tool_call` | Block a call with a reason, or rewrite its input. Plan mode's policy gate and the shell guard live here. |
 | `tool_execution_end` | Observe a finished call: mark work done, nudge the model, publish an event. |
 | `agent_before_settle` | Add one more request before the run settles. `todo` uses it to remind the model to update the list. |
 | `context` | Filter or dedupe injected context before it reaches the model, so repeated instructions do not accumulate. |
-| `agent_settled` | One inert entry per settled turn, drawn by a registered entry renderer. `bytefly` appends its turn receipt, then the model's next-steps block, which is why the registration order decides the reading order. |
+| `agent_settled` | One inert entry per settled turn, drawn by a registered entry renderer. `bytefly` appends its turn receipt, so the registration order decides the reading order. |
 
 A tool definition carries four contract fields this package relies on, and this
 page names them rather than restating them: `annotations` (including
