@@ -148,6 +148,7 @@ advertised to the model, and its instructions load only when the task matches
 | [`init`](./skills/init/SKILL.md) | Creates or updates a project's `AGENTS.md` through a built-in interactive interview and plan review, from repository evidence. |
 | [`refactor`](./skills/refactor/SKILL.md) | Audits a project or path for refactoring opportunities: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Returns a ranked shortlist with evidence and verification commands; discovery is read-only. |
 | [`changelog`](./skills/changelog/SKILL.md) | Drafts the candidate bullet before implementation, records one user-visible bullet in the same commit, audits commits since the last tag for missing or weak entries, and curates a release section from the project's own rules. |
+| [`next`](./skills/next/SKILL.md) | Triages what to do next — loose work, a broken or unfinished promise — from the tree or from this conversation (`/skill:next session`), with the words and a path after the command saying what to ask and where to look. Read-only, and capped at a short ranked list with evidence and the command that starts each. |
 
 ### Themes
 

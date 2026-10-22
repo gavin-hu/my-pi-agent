@@ -213,6 +213,58 @@ the end. The skill is advisory rather than an enforcement layer; it can miss a
 request or be ignored, but `.pi/plans` review and the check command still gate
 the work once a refactor starts.
 
+### Choosing what to do next
+
+The packaged `next` skill answers "what now?" from the project's real state
+rather than from the conversation's enthusiasm. It is model-invoked: a request
+such as "what should I do next?" or "where do I pick up?" can load it
+automatically, and `/skill:next` forces it. It only reads; nothing is edited,
+committed, or started by the triage itself.
+
+```text
+/skill:next                     # triage the project
+/skill:next session             # triage this conversation's loose ends
+/skill:next @extensions/plan    # the same, narrowed to one path
+/skill:next what is left?       # keep the sources that answer the question
+/skill:next plan file outline @extensions/plan/   # both: the topic and where to look
+```
+
+Whatever follows the command is the request, and it chooses both the mode and the
+scope. A first word `session` switches to the conversation; the words say what to
+ask, a path says where to look, and the usual form is both, so
+`plan file outline @extensions/plan/` asks what to do next about that outline
+with the plan extension as the only evidence. The report opens by saying how the
+prompt was read, so a misreading is visible instead of silently trimming the
+list. With no prompt it is a triage of the current project.
+
+Triage reads the working tree, the commits since the last tag, the changelog's
+unreleased section, the roadmap or issue list, the plans directory, and quotes
+the project's own check command without running it. `session` reads what this
+conversation left open instead: the todo list, the goal, the approved plan and
+its ticked steps, what subagents and jobs returned, and the diff the session
+produced. When both apply, the tree wins, because it is where the work actually
+is. An imperative — `/skill:next fix the failing test` — is treated as one item:
+the skill answers with its evidence and starting command, and asks before
+starting. A request already scoped to a refactor audit or a changelog entry goes
+to the `refactor` or `changelog` skill instead of being answered twice.
+
+Suggestions are ordered by what it would cost to lose: loose work first — a dirty
+tree, an unapproved plan, a check that was never run, an unmerged branch — then a
+broken promise, such as a README claim the code no longer meets, then an
+unfinished one, such as the remaining steps of an approved plan. New capability
+comes last. Each item also carries a label for the ceremony it needs — **Do
+next**, **Worth planning**, or **Later** — which says how much work it takes, not
+where it sits in the order. The list is capped at three to five items, each with
+`path:line` evidence, the command that starts it, and an effort estimate, plus
+the candidates that were rejected and why.
+
+An empty list is a valid result: when nothing is worth doing, the skill says so
+with what it checked instead of inventing work. It is advisory, so it can miss a
+promise or misjudge a priority; the tree it cites and the evidence it quotes are
+the parts you can verify. Once you pick an item, the handoff is the same as a
+refactor's: plan mode for a multi-file change, a todo list for a small one, and
+the project's check as both baseline and finish line.
+
 ## Checking your work
 
 ### What it is
