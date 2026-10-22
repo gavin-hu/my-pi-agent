@@ -31,20 +31,21 @@ bun run bench:render              # render benchmark, budgeted in docs/developme
 
 ## Git workflow
 
-`main` is protected by convention, not by a server rule: do work on a branch in
-its own worktree, then merge that branch into `main`.
+`main` is protected by convention.
 
-- Start every task in a worktree. Under Pi with this package loaded, use
-  `enter_worktree <name>`; otherwise
-  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It branches from
+- Start every task in a worktree, before plan mode: planning is read-only and
+  refuses `enter_worktree`. Under Pi, `enter_worktree <name>`; otherwise
+  `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It cuts from
   `origin/main`, so rebase onto `main` right after entering.
-- Never commit unless the user asks. When the work is done, ask how to reconcile
-  the branch (commit, merge, keep, discard) before `exit_worktree`.
+- Never commit unless the user asks; before `exit_worktree`, ask how to reconcile
+  the branch (commit, merge, keep, discard). It reports the commits ahead and the
+  merge command for the main checkout.
+- Commit, then rebase onto `main` before merging, re-running
+  `bun run check`: a rebase needs a clean tree, and `main` moves while you work.
+  `git push origin main` publishes everything on it.
 - Stage explicit paths; never `git add -A` or `git add .`. Never
   `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`,
   `git commit --no-verify`, or force-push `main`.
-- Rebase and re-run `bun run check` before merging: another session may have
-  landed on `main`, and `git push origin main` publishes everything on it.
 - Commit format `type(scope): summary`, where scope is the extension name or
   `lib`, `docs`, `test`, `ci`. No emojis.
 
