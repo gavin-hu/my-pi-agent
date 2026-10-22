@@ -138,7 +138,15 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
   inject the one-shot timer (`lib/timer.ts`), fire it from the test, and assert
   what the code did with it. `settle()` stays for draining work whose completion
   point is already known.
+- A wait on the *host* is the one thing a turn count cannot express: a run writes
+  a temp prompt file through the process-wide file queue before it spawns, and a
+  loaded runner takes longer over that write than any fixed number of ~1 ms
+  turns. `waitFor` therefore takes an elapsed-time budget (2 s by default) — not
+  an attempt count — and times out loudly rather than turning runner load into a
+  coin flip. Reach for it only when the completion point is genuinely outside
+  the test; otherwise `settle()` plus an assertion.
 - No `Date.now()` / `new Date()` in tests; inject `makeClock` (`helpers/clock.ts`).
+  `waitFor` is the exception, for the reason above.
 - No real network. Drive request handlers / routers directly; web-access injects
   its HTTP fetch.
 - Real git only inside temp dirs tracked by the suite harness.

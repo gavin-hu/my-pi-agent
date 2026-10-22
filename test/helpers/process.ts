@@ -201,13 +201,22 @@ export async function settle(ms = 0): Promise<void> {
 }
 
 /**
- * Wait until `predicate` holds, or throw after `attempts` macrotask turns.
+ * Wait until `predicate` holds, or throw after `budgetMs` of real time.
+ *
+ * The budget is elapsed time, not a count of macrotask turns, because what these
+ * predicates wait on is the host, not injected time: a run writes a temp prompt
+ * file through the process-wide file queue before it spawns, and a loaded machine
+ * can take longer over that write than any fixed number of ~1 ms turns. A turn
+ * count turns such a wait into a coin flip on runner load; the work always
+ * finishes. The wall clock is right here for that reason, and this helper is the
+ * one place that reads it.
+ *
  * Prefer `settle` plus an assertion when the completion point is known.
  */
-export async function waitFor(predicate: () => boolean, attempts = 50): Promise<void> {
-	for (let i = 0; i < attempts; i++) {
-		if (predicate()) return;
+export async function waitFor(predicate: () => boolean, budgetMs = 2000): Promise<void> {
+	const deadline = Date.now() + Math.max(1, budgetMs);
+	while (!predicate()) {
+		if (Date.now() >= deadline) throw new Error(`waitFor timed out after ${budgetMs}ms`);
 		await settle();
 	}
-	throw new Error("waitFor timed out");
 }
