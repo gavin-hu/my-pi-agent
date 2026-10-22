@@ -30,8 +30,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `skills`: a model-invoked `next` skill triages what to do next from the tree —
   loose work, a broken or unfinished promise, and the command that starts each —
   or from the conversation with `/skill:next session`, and returns a short ranked
-  list with evidence. It only reads: it edits nothing, commits nothing, and does
-  not start the item it recommends.
+  list with evidence. Whatever follows the command is the request, so `session`
+  switches mode, a path narrows the evidence to that path, and a question keeps
+  only the sources that can answer it. It only reads: it edits nothing, commits
+  nothing, and does not start the item it recommends.
 
 ### Changed
 

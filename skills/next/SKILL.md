@@ -12,8 +12,8 @@ explicit fallback. Read the project's own instructions first; where they disagre
 with this skill, the project wins.
 
 There are two modes. **Triage** (the default) reads the project. **Session** reads
-what this conversation left open. `/skill:next session` names it; with no mode,
-triage.
+what this conversation left open. The text after the command chooses both the
+mode and the scope, so read it first (section 2).
 
 A next-steps block that the host draws itself is not this skill's output: that is
 the reply's suggested follow-up, a turn-level hint. This skill inspects state, so
@@ -35,7 +35,27 @@ Before suggesting anything, find:
 State the profile in one or two lines. Do not invent a source the project does
 not have; a project with no roadmap is triaged from git and the check alone.
 
-## 2. Choose the mode
+## 2. Read the request, mode, and scope
+
+The host appends the text after the command to these instructions as the request.
+It is `<prompt>` in `/skill:next <prompt>`, and it is the task, read before
+anything else:
+
+- **No prompt** — `/skill:next` on its own is triage of the current project.
+- **`session` as the first word** — session mode; the rest of the prompt is
+  context. `/skill:next session what is left?` is session mode, not a filter.
+- **A path** — `@src`, `src`, `packages/api`, or one inside a sentence. Resolve
+  it from the working directory and narrow the evidence to it: its diffs, its
+  plan steps, its roadmap items, its changelog scope. A path that does not exist
+  is reported and asked about, never guessed.
+- **A question or a goal** — "what is left before 0.17?", "what did I leave
+  untested?". Keep only the sources that can answer it, and say which ones you
+  kept. A named release, file, or feature is the filter.
+- **Anything else** — triage the project anyway, and say in one clause how you
+  read the prompt, so a misreading is visible in the report rather than silently
+  narrowing the list.
+
+Then pick the mode:
 
 - **Triage** — what the tree says. Use git, the changelog, the roadmap or issues,
   the plans directory, and the check. This is the default.
@@ -46,6 +66,10 @@ not have; a project with no roadmap is triaged from git and the check alone.
   never run, a documented behavior that changed without a doc or changelog edit.
 - When both apply, run triage and read the session for context; the tree wins,
   because it is where the work actually is.
+
+Mode and scope are independent: session mode still honours a path, and triage
+with a path reads the whole tree's evidence before narrowing. State the mode, the
+scope, and the prompt as read, at the top of the report.
 
 ## 3. Gather evidence
 
@@ -108,9 +132,9 @@ not invent a numeric score; the reason must be readable.
 
 ## 7. Report
 
-- **State** — one paragraph: the mode, the branch or worktree, what is dirty,
-  what is unreleased, and whether the check passes. Name anything you could not
-  read.
+- **State** — one paragraph: the mode, the scope and how the prompt was read,
+  the branch or worktree, what is dirty, what is unreleased, and whether the
+  check passes. Name anything you could not read.
 - **The shortlist** — each item with its tier, the action, the evidence at
   `path:line` or the command output that proves it, the command that starts it,
   and effort (S/M/L). Link the file the item lives in.

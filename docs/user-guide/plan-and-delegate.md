@@ -222,9 +222,18 @@ automatically, and `/skill:next` forces it. It only reads; nothing is edited,
 committed, or started by the triage itself.
 
 ```text
-/skill:next            # triage the project
-/skill:next session    # triage this conversation's loose ends
+/skill:next                     # triage the project
+/skill:next session             # triage this conversation's loose ends
+/skill:next @extensions/plan    # the same, narrowed to one path
+/skill:next what is left?       # keep the sources that answer the question
 ```
+
+Whatever follows the command is the request, and it chooses both the mode and the
+scope. A first word `session` switches to the conversation, a path narrows the
+evidence to that path, and a question keeps only the sources that can answer it;
+the report opens by saying how the prompt was read, so a misreading is visible
+instead of silently trimming the list. With no prompt it is a triage of the
+current project.
 
 Triage reads the working tree, the commits since the last tag, the changelog's
 unreleased section, the roadmap or issue list, the plans directory, and the
