@@ -27,6 +27,7 @@ import {
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
 import { changedSections, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
+import { ENV_ROOT } from "../../lib/env.ts";
 import { createPlanPolicy, PLAN_ALLOWED_TOOLS, PLAN_SAFE_TOOLS } from "./policy.ts";
 import {
 	extractPlanSections,
@@ -43,6 +44,7 @@ import {
 } from "./steps.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
+import { withEnv } from "../../test/helpers/env.ts";
 import { fixedPlanDate } from "../../test/helpers/fixtures/plan.ts";
 import { settle } from "../../test/helpers/process.ts";
 
@@ -76,6 +78,16 @@ function noRepoPi() {
 /** A store in a fresh repository rooted at `root`. */
 function repoStore(root: string) {
 	return createPlanStore(repoPi(root), { now: () => FIXED });
+}
+
+/** A fake pi whose `git rev-parse` answers for the directory it is asked about. */
+function worktreePi(main: string, worktree: string) {
+	return createFakePi({
+		exec: async (command: string, args: string[], options?: { cwd?: string }) => {
+			if (command !== "git" || args[0] !== "rev-parse") return { stdout: "", stderr: "", code: 1 };
+			return { stdout: `${options?.cwd === worktree ? worktree : main}\n`, stderr: "", code: 0 };
+		},
+	}).pi;
 }
 
 describe("plan naming", () => {
@@ -117,6 +129,29 @@ describe("plan store — directory resolution", () => {
 	test("falls back to the agent directory outside a repository", async () => {
 		const store = createPlanStore(noRepoPi(), { now: () => FIXED });
 		expect(await store.dirFor(process.cwd())).toBe(join(getAgentDir(), "plans"));
+	});
+
+	test("follows the active worktree that an extension tool's cwd does not carry", async () => {
+		const main = tempDir();
+		const worktree = tempDir();
+		const store = createPlanStore(worktreePi(main, worktree), { now: () => FIXED });
+
+		await withEnv({ [ENV_ROOT]: worktree }, async () => {
+			expect(await store.dirFor(main)).toBe(join(worktree, CONFIG_DIR_NAME, "plans"));
+		});
+	});
+
+	test("writes into the worktree and reports the plan relative to it", async () => {
+		const main = tempDir();
+		const worktree = tempDir();
+		const store = createPlanStore(worktreePi(main, worktree), { now: () => FIXED });
+
+		await withEnv({ [ENV_ROOT]: worktree }, async () => {
+			const file = await store.write(main, { title: "Add rate limiting", content: "# Plan\n1. Do it" });
+			expect(file.path).toStartWith(join(worktree, CONFIG_DIR_NAME, "plans"));
+			expect(existsSync(file.path)).toBe(true);
+			expect(file.relativePath).toBe(join(CONFIG_DIR_NAME, "plans", basename(file.path)));
+		});
 	});
 });
 

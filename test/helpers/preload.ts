@@ -7,6 +7,11 @@ import { afterEach, beforeEach } from "bun:test";
  * environment is shared, so a test that sets `PI_CODING_AGENT_DIR` (or any
  * other key) without restoring it can leak into a later file. Snapshotting and
  * restoring around every test keeps the suite order-independent.
+ *
+ * The snapshot is also cleared for the test itself: this suite runs inside a
+ * worktree session, which exports `PI_WORKTREE_ROOT`, and an inherited root
+ * would silently re-root every test that resolves an effective cwd. A test that
+ * wants isolation sets the key itself.
  */
 const TRACKED = [
 	"PI_CODING_AGENT_DIR",
@@ -20,7 +25,10 @@ let saved: Record<string, string | undefined> = {};
 
 beforeEach(() => {
 	saved = {};
-	for (const key of TRACKED) saved[key] = process.env[key];
+	for (const key of TRACKED) {
+		saved[key] = process.env[key];
+		delete process.env[key];
+	}
 });
 
 afterEach(() => {

@@ -6,7 +6,9 @@
  * read the same artifact the model is working from and the plan survives
  * outside the conversation without a partial write ever being visible. Files
  * live under `<repo-root>/.pi/plans` (the worktree root inside a worktree), or
- * under `<agent-dir>/plans` outside a repository.
+ * under `<agent-dir>/plans` outside a repository. An extension tool sees the
+ * session cwd rather than the worktree the user entered, so the active worktree
+ * is applied before any path is resolved.
  *
  * The directory is self-ignoring: the first write drops a `.gitignore` with `*`
  * so plans never show up as untracked files or inside rewind snapshots,
@@ -29,6 +31,7 @@ import {
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { repoRootFor } from "../../lib/git/index.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
@@ -219,19 +222,32 @@ async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefin
 
 export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } = {}): PlanStore {
 	const now = options.now ?? (() => new Date());
-	// One `git rev-parse` per working directory; a worktree switch is a new cwd.
+	// One `git rev-parse` per effective root; a worktree switch changes that root.
 	const dirCache = new Map<string, string>();
 
+	/**
+	 * The root every path here is resolved against.
+	 *
+	 * A tool registered by an extension receives the session's cwd, not the
+	 * worktree the user entered: only the built-ins are re-rooted. The worktree
+	 * extension publishes its root in the environment, so this is where the two
+	 * meet, and it is applied before the git lookup, the relative path, and the
+	 * plan path resolution.
+	 */
+	const baseOf = (cwd: string): string => resolveEffectiveCwd(cwd);
+
 	const dirFor = async (cwd: string): Promise<string> => {
-		const cached = dirCache.get(cwd);
+		const base = baseOf(cwd);
+		const cached = dirCache.get(base);
 		if (cached) return cached;
-		const root = await repoRoot(pi, cwd);
+		const root = await repoRoot(pi, base);
 		const dir = root ? join(root, CONFIG_DIR_NAME, "plans") : join(getAgentDir(), "plans");
-		dirCache.set(cwd, dir);
+		dirCache.set(base, dir);
 		return dir;
 	};
 
 	const write = async (cwd: string, input: WritePlanInput): Promise<WrittenPlan> => {
+		const base = baseOf(cwd);
 		const title = input.title.trim();
 		if (!title) throw new Error("A plan title is required.");
 		const bytes = Buffer.byteLength(input.content, "utf-8");
@@ -239,13 +255,13 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			throw new Error(`The plan is too large (${bytes} bytes; the limit is ${MAX_PLAN_BYTES}).`);
 		}
 
-		const dir = await dirFor(cwd);
+		const dir = await dirFor(base);
 		mkdirSync(dir, { recursive: true });
 		ensureIgnored(dir);
 
 		let path: string;
 		if (input.planPath) {
-			const resolved = resolve(cwd, input.planPath);
+			const resolved = resolve(base, input.planPath);
 			if (!isContainedPlan(dir, resolved)) {
 				throw new Error("plan_path must be a markdown plan file inside the plans directory.");
 			}
@@ -260,18 +276,19 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 
 		writeAtomic(path, input.content);
-		return { path, relativePath: relativeTo(cwd, path), title, content: input.content, bytes };
+		return { path, relativePath: relativeTo(base, path), title, content: input.content, bytes };
 	};
 
 	const read = async (cwd: string, planPath: string): Promise<StoredPlan | undefined> => {
-		const dir = await dirFor(cwd);
-		const resolved = resolve(cwd, planPath);
+		const base = baseOf(cwd);
+		const dir = await dirFor(base);
+		const resolved = resolve(base, planPath);
 		if (!isContainedPlan(dir, resolved) || !existsSync(resolved)) return undefined;
 		try {
 			const content = readFileSync(resolved, "utf-8");
 			return {
 				path: resolved,
-				relativePath: relativeTo(cwd, resolved),
+				relativePath: relativeTo(base, resolved),
 				content,
 				bytes: Buffer.byteLength(content, "utf-8"),
 			};
@@ -375,7 +392,8 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	 * dotfile, or a file that vanishes mid-walk is simply not a plan.
 	 */
 	const index = async (cwd: string): Promise<PlanSummary[]> => {
-		const dir = await dirFor(cwd);
+		const base = baseOf(cwd);
+		const dir = await dirFor(base);
 		let names: string[];
 		try {
 			names = readdirSync(dir);
@@ -399,7 +417,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 
 			const summary: PlanSummary = {
 				path,
-				relativePath: relativeTo(cwd, path),
+				relativePath: relativeTo(base, path),
 				title: planTitle(name),
 				modified: info.mtimeMs,
 				bytes: info.size,
