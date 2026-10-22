@@ -739,7 +739,7 @@ shows where the value comes from — `Global · ~/.pi/agent/bytefly.json`, `Proj
 `Default · <the active scope's file>`; an app row names the personal
 `settings.json`. A successful change marks the screen `Saved · reload to apply`
 — even when the terminal is too short for the detail body — and closing offers
-the same reload confirm as an extension toggle.
+the same reload confirm as an extension or skill toggle.
 
 The list is capped at thirteen rows so the screen keeps fitting a 24-row
 terminal: adding a setting means removing one (`panel/panel.test.ts` holds the
@@ -1032,12 +1032,12 @@ command.
   because a two-column glyph would push every railed body one cell right; the
   loader drops anything else, and the former four-glyph menu is the
   configuration reference's example list.
-- **`doctor`, `settings`, and `update` are reserved first arguments.**
+- **`doctor`, `settings`, `skills`, and `update` are reserved first arguments.**
   `/bytefly doctor` always selects the report, so an extension literally named
-  `doctor` cannot be narrowed to by name; `settings` and `update` are reserved
-  the same way.
-- **The picker manages only the `extensions` resource type.** Skills, prompts,
-  and themes are handled by Pi's own `pi config`.
+  `doctor` cannot be narrowed to by name; `settings`, `skills`, and `update` are
+  reserved the same way.
+- **The picker manages the `extensions` and `skills` resource types.** Prompts
+  and themes stay with Pi's own `pi config`.
 - **Built-in extensions are not listed** (`builtin:mcp`, `builtin:codemode`, …):
   their authoritative names are not exposed to extensions. Use `pi config`.
 - **Packages are not installed, removed, or updated here**; use `pi install`,
@@ -1175,7 +1175,7 @@ rather than showing a wrong value.
 | Update check | `session_start` in `tui` mode installs a suppression on `DefaultPackageManager.prototype.checkForAvailableUpdates`, then reads `<agentDir>/bytefly/update.json`. A fresh entry whose key matches the cwd and effective package sources is recorded without a package-manager call; otherwise bytefly fires `fetchAvailableUpdates()` without awaiting, resolves this package's version through `fetchLatestVersion()` when Pi reports it, writes the snapshot, and records it. `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice with its version arrow and release URL. `PI_OFFLINE` paints the cached marker only. `/bytefly update` calls the returned `UpdateHandle.recheck()`, which bypasses the window and returns an `UpdateOutcome`; a generation counter drops a background reply that lands after `session_shutdown`, a per-load flag keeps it to one announcement, and shutdown restores Pi's method. |
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it is on whenever `PI_OFFLINE` is off, and its 24 h window is not configurable. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
-| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime and the current reports, and persists extension toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds this package's version in the per-load `UpdateSource` and one project-scoped snapshot in `<agentDir>/bytefly/update.json`. |
+| State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime, the current reports, and the skill index, and persists extension and skill toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds this package's version in the per-load `UpdateSource` and one project-scoped snapshot in `<agentDir>/bytefly/update.json`. |
 | Lifecycle | `session_start` installs the header when Pi's `quietStartup` is `true` and the footer, loads the chrome rail glyph, points the doctor runtime at the session cwd, probes the extensions with hard requirements when `bytefly.json`'s `doctor.proactive` is on and `quietStartup` is `true`, loads the notify config and subscribes to the job bus, and starts the package-update check; `session_tree` reinstalls the header and footer and reloads the rail; `session_shutdown` restores Pi's built-in header, footer, package-update method, and release-notice method, disposes the branch subscription, drops doctor's cached findings, drops the notify bus subscription, and clears the recorded versions. |
 
 ## Design notes

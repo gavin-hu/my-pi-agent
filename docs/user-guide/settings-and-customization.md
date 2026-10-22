@@ -59,9 +59,10 @@ row's report underneath when it has one.*
 | `/bytefly update` | Re-run the package update check |
 | `/bytefly [extension] refresh` | Open the Extensions section and re-probe health instead of using the session cache |
 
-`/bytefly settings` rejects an extension name; the Extensions section accepts
-one. `doctor` accepts an extension name too. In text-only modes, the command
-prints the grouped listing or report instead of mounting the screen.
+`/bytefly settings` and `/bytefly skills` reject an extension name; the
+Extensions section accepts one. `doctor` accepts an extension name too. In
+text-only modes, the command prints the grouped listing or report instead of
+mounting the screen.
 
 ## Settings
 
