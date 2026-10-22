@@ -11,47 +11,32 @@ model-invoked when a request matches the description; `/skill:next` is the
 explicit fallback. Read the project's own instructions first; where they disagree
 with this skill, the project wins.
 
-There are two modes. **Triage** (the default) reads the project. **Session** reads
-what this conversation left open. The text after the command chooses both the
-mode and the scope, so read it first (section 2).
+Two sibling skills own a narrower question: an audit of *where to refactor* is
+`refactor`, and *what the last tag owes the changelog* is `changelog`. When the
+request is already scoped to one of those, name the skill that answers it and
+hand over, instead of returning a generic list.
 
 A next-steps block that the host draws itself is not this skill's output: that is
 the reply's suggested follow-up, a turn-level hint. This skill inspects state, so
 its list survives the conversation that produced it.
 
-## 1. Read the project profile
-
-Before suggesting anything, find:
-
-- the instruction files, and whether they require isolation (a worktree, a
-  branch) or a specific check;
-- the check command, and whether the host forbids running it while writing is
-  off;
-- where work is tracked: a roadmap, an issue tracker, `TODO` docs, a plans
-  directory, a changelog;
-- the release path: what a tag, a version bump, or an unreleased entry owes;
-- the VCS and its branch model.
-
-State the profile in one or two lines. Do not invent a source the project does
-not have; a project with no roadmap is triaged from git and the check alone.
-
-## 2. Read the request, mode, and scope
+## 1. Read the request
 
 The host appends the text after the command to these instructions as the request.
-It is `<prompt>` in `/skill:next <prompt>`, and it is the task, read before
-anything else. It carries up to three parts, in any order except `session`:
+It is `<prompt>` in `/skill:next <prompt>`, it comes before any reading, and it
+carries up to three parts:
 
 ```text
 /skill:next [session] [what you want] [@path ...]
 ```
 
-- **`session`, first word** — session mode. The rest of the prompt keeps its own
-  meaning: `/skill:next session what is left?` is session mode with a filter, not
-  a filter of `session`.
+- **`session`, first word** — session mode (section 3). The rest of the prompt
+  keeps its own meaning: `/skill:next session what is left?` is session mode with
+  a filter, not a filter of `session`.
 - **What you want** — a question, a goal, or a topic: "what is left before
-  0.17?", "what did I leave untested?", "plan file outline". It chooses what the
-  shortlist is about and keeps only the sources that can answer it; say which
-  ones you kept. A named release, file, or feature is the filter.
+  0.17?", "plan file outline". It chooses what the shortlist is about and keeps
+  only the sources that can answer it; say which ones you kept. A named release,
+  file, or feature is the filter.
 - **One or more paths** — `@src`, `src`, `packages/api`, or one inside the
   sentence. Resolve each from the working directory, and take the evidence from
   there: that path's diffs, plan steps, roadmap items, and changelog scope. A path
@@ -60,15 +45,34 @@ anything else. It carries up to three parts, in any order except `session`:
   asks what to do next about the plan file outline, with `@extensions/plan/` as
   the evidence, so a roadmap item, a plan step, or a changelog entry outside that
   path is not a candidate.
+- **An imperative** — "fix the failing test" names one piece of work, and the
+  prompt is not approval for it. Answer with that item alone — evidence, starting
+  command, effort — and ask before starting, instead of producing a list.
 - **No prompt** — triage of the current project.
 - **Anything unreadable** — triage anyway, and say in one clause how you read the
   prompt, so a misreading is visible in the report rather than silently narrowing
   the list.
 
-Then pick the mode:
+## 2. Read the project profile
+
+With the request read, find:
+
+- the instruction files, and whether they require isolation (a worktree, a
+  branch) or a specific check;
+- the check command — the one that proves the tree is green; the triage quotes it
+  and never runs it (section 4);
+- where work is tracked: a roadmap, an issue tracker, `TODO` docs, a plans
+  directory, a changelog;
+- the release path: what a tag, a version bump, or an unreleased entry owes;
+- the VCS, its branch model, and the last tag if there is one.
+
+State the profile in one or two lines. Do not invent a source the project does
+not have; a project with no roadmap is triaged from git and the check alone.
+
+## 3. Choose the mode
 
 - **Triage** — what the tree says. Use git, the changelog, the roadmap or issues,
-  the plans directory, and the check. This is the default.
+  and the plans directory. This is the default.
 - **Session** — what this conversation left open. Read the conversation's own
   record: the todo list, the goal, the approved plan and its ticked steps, what
   subagents and jobs returned, and the diff this session produced. Then list the
@@ -81,10 +85,10 @@ Mode and scope are independent: session mode still honours a path, and triage
 with a path reads the whole tree's evidence before narrowing. State the mode, the
 scope, and the prompt as read, at the top of the report.
 
-## 3. Gather evidence
+## 4. Gather evidence
 
-Run only what the project documents or what git provides, and say what you could
-not read.
+Read only; nothing in this stage writes. Follow the project's own tool
+discipline, and say what you could not read.
 
 | Source | What it proves |
 |---|---|
@@ -95,25 +99,10 @@ not read.
 | The roadmap, issue tracker, or `TODO` docs | The project's stated priorities, and which are already done |
 | The plans directory (`.pi/plans` or the project's equivalent) | An approved plan whose steps remain |
 | The todo list, the goal, job and subagent results | What the session promised and did not finish |
-| The check command | Whether the tree is green; run it only when documented, and report instead of running it when the host forbids writes |
+| The check command | Whether the tree is green — cite the last known result, and make running it the item's starting command rather than running it here |
 
 A roadmap, a changelog, and a plan all lag the tree. Verify a candidate against
 the code before recommending it, and drop one that is already done.
-
-## 4. Classify by cost of loss
-
-Rank what the evidence proves, not what sounds interesting. The order is the
-order of loss:
-
-- **Loose work** — a dirty tree, an unapproved plan, a failing check, an unmerged
-  branch, a worktree left behind, a stopped job. Cheapest to lose, so first.
-- **A broken promise** — a README, roadmap, or doc claim the code no longer
-  meets, a released behavior with no test.
-- **An unfinished promise** — a stated roadmap item, the remaining steps of an
-  approved plan, a documented limitation with no item, an unreleased change with
-  no changelog entry.
-- **New reach** — a capability nobody has asked for comes last, and only when the
-  three above are empty.
 
 ## 5. Verify and filter
 
@@ -127,25 +116,38 @@ cannot point at it, drop it.
 - Prefer the candidate with a fast verification command.
 - Never invent work to fill the list. An empty list is a valid answer.
 
-## 6. Rank and cap
+## 6. Rank by cost of loss
 
-Use three tiers:
+Order by what it would cost to lose, cheapest loss first:
+
+- **Loose work** — a dirty tree, an unapproved plan, a check that has not been
+  run, an unmerged branch, a worktree left behind, a stopped job.
+- **A broken promise** — a README, roadmap, or doc claim the code no longer
+  meets, a released behavior with no test.
+- **An unfinished promise** — a stated roadmap item, the remaining steps of an
+  approved plan, a documented limitation with no item, an unreleased change with
+  no changelog entry.
+- **New reach** — a capability nobody has asked for comes last, and only when the
+  three above are empty.
+
+Label each item with the ceremony it needs. The label is not a second ordering:
+cost of loss decides the order, and the label says how much work the item takes.
 
 - **Do next** — cheap, safe, and unblocks the rest.
 - **Worth planning** — high value, but it spans files, changes a public surface,
   or needs a decision first.
 - **Later** — real, but not now.
 
-Cap the list at three to five items. A roadmap restated as ten suggestions is not
-a triage. Within a tier, order by cost of loss first, then cost of the work. Do
-not invent a numeric score; the reason must be readable.
+Cap the list at three to five items, and let a tier be empty. A roadmap restated
+as ten suggestions is not a triage. Do not invent a numeric score; the reason
+must be readable.
 
 ## 7. Report
 
 - **State** — one paragraph: the mode, the scope and how the prompt was read,
   the branch or worktree, what is dirty, what is unreleased, and whether the
   check passes. Name anything you could not read.
-- **The shortlist** — each item with its tier, the action, the evidence at
+- **The shortlist** — each item with its label, the action, the evidence at
   `path:line` or the command output that proves it, the command that starts it,
   and effort (S/M/L). Link the file the item lives in.
 - **Rejected or stale** — one line each, with the reason the roadmap, changelog,

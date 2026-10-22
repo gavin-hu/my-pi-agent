@@ -33,8 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   list with evidence. Whatever follows the command is the request, so `session`
   switches mode, the words say what to ask, a path says where to look —
   `plan file outline @extensions/plan/` keeps only that extension's evidence —
-  and the report opens by saying how the prompt was read. It only reads: it edits
-  nothing, commits nothing, and does not start the item it recommends.
+  and the report opens by saying how the prompt was read. It only reads — it runs
+  no check, edits nothing, commits nothing, and does not start the item it
+  recommends.
 
 ### Changed
 

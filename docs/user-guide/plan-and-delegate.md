@@ -238,24 +238,30 @@ prompt was read, so a misreading is visible instead of silently trimming the
 list. With no prompt it is a triage of the current project.
 
 Triage reads the working tree, the commits since the last tag, the changelog's
-unreleased section, the roadmap or issue list, the plans directory, and the
-project's own check command. `session` reads what this conversation left open
-instead: the todo list, the goal, the approved plan and its ticked steps, what
-subagents and jobs returned, and the diff the session produced. When both apply,
-the tree wins, because it is where the work actually is.
+unreleased section, the roadmap or issue list, the plans directory, and quotes
+the project's own check command without running it. `session` reads what this
+conversation left open instead: the todo list, the goal, the approved plan and
+its ticked steps, what subagents and jobs returned, and the diff the session
+produced. When both apply, the tree wins, because it is where the work actually
+is. An imperative — `/skill:next fix the failing test` — is treated as one item:
+the skill answers with its evidence and starting command, and asks before
+starting. A request already scoped to a refactor audit or a changelog entry goes
+to the `refactor` or `changelog` skill instead of being answered twice.
 
-Suggestions are ranked by what it would cost to lose. **Do next** is loose work —
-a dirty tree, an unapproved plan, a failing check, an unmerged branch, a worktree
-left behind. **Worth planning** is a broken or unfinished promise, such as a
-README claim the code no longer meets or the remaining steps of an approved
-plan. **Later** is new capability, and it comes last. The list is capped at three
-to five items, each with `path:line` evidence, the command that starts it, and an
-effort estimate, plus the candidates that were rejected and why.
+Suggestions are ordered by what it would cost to lose: loose work first — a dirty
+tree, an unapproved plan, a check that was never run, an unmerged branch — then a
+broken promise, such as a README claim the code no longer meets, then an
+unfinished one, such as the remaining steps of an approved plan. New capability
+comes last. Each item also carries a label for the ceremony it needs — **Do
+next**, **Worth planning**, or **Later** — which says how much work it takes, not
+where it sits in the order. The list is capped at three to five items, each with
+`path:line` evidence, the command that starts it, and an effort estimate, plus
+the candidates that were rejected and why.
 
 An empty list is a valid result: when nothing is worth doing, the skill says so
 with what it checked instead of inventing work. It is advisory, so it can miss a
-promise or misjudge a priority; the tree it cites and the check it ran are the
-parts you can verify. Once you pick an item, the handoff is the same as a
+promise or misjudge a priority; the tree it cites and the evidence it quotes are
+the parts you can verify. Once you pick an item, the handoff is the same as a
 refactor's: plan mode for a multi-file change, a todo list for a small one, and
 the project's check as both baseline and finish line.
 
