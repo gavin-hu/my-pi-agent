@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the documented outline asks for a one-sentence goal and verification
+  written as commands, and `write_plan` calls the shape a guide rather than a
+  form — a heading with nothing to say is dropped, and only the shallowest list
+  in `Steps` is tracked, so nested bullets stay notes.
 - `lib`: every docked screen — `/bytefly`'s Extensions and Settings sections,
   `/todos`, `/jobs`, `/watch`, `/agents`, `/check`, `/memory`, `/rewind`, the plan
   index and review, `/context`, and the WeChat login and control screens — now

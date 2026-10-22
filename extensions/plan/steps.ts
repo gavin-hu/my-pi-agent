@@ -30,7 +30,7 @@ export const PLAN_OUTLINE = [
 	"# <Title>",
 	"",
 	"## Goal",
-	"What this change achieves, and what it deliberately does not.",
+	"One sentence: what this change achieves, and what it deliberately does not.",
 	"",
 	"## Context",
 	"The relevant code, constraints, and prior art.",
@@ -46,7 +46,7 @@ export const PLAN_OUTLINE = [
 	"What could go wrong and how it is mitigated.",
 	"",
 	"## Verification",
-	"How to prove it works: commands and checks.",
+	"How to prove it works: the commands to run, exactly as you would type them.",
 ].join("\n");
 
 /** The outline's section titles, in order, for documentation and tests. */

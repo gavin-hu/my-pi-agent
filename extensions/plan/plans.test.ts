@@ -742,6 +742,11 @@ describe("plan outline", () => {
 		expect(PLAN_OUTLINE.startsWith("# <Title>")).toBe(true);
 		expect(PLAN_OUTLINE.split("## Steps")[1].split("\n## ")[0]).toContain("- [ ] ");
 	});
+
+	test("asks for a one-sentence goal and commands to verify", () => {
+		expect(PLAN_OUTLINE).toContain("One sentence: what this change achieves");
+		expect(PLAN_OUTLINE).toContain("the commands to run, exactly as you would type them");
+	});
 });
 
 describe("plan sections", () => {

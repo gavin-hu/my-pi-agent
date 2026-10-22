@@ -42,6 +42,8 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 			"Save the plan you designed as a markdown file under .pi/plans (project root, or the agent directory outside a " +
 			"repository). Write the complete plan, not a summary, in this outline so it is consistent and scannable:\n\n" +
 			`${PLAN_OUTLINE}\n\n` +
+			"The outline is a guide, not a form: drop a heading that has nothing to say. In Steps, each top-level bullet is " +
+			"one outcome in the order you will do them, and deeper bullets are notes — only the shallowest list is tracked. " +
 			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining. " +
 			`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it cannot track.`,
 		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
