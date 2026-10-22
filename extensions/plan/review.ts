@@ -74,9 +74,6 @@ const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, E
 /** How much of one step the remote digest shows. */
 const DIGEST_STEP_CHARS = 90;
 
-/** The refinement request used when a browser save carried no comments. */
-const NO_BROWSER_COMMENTS = "See the review comments in the plan file.";
-
 /**
  * A one-message digest of the plan for a remote review.
  *
@@ -244,13 +241,15 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 		}
 		if (result.status === "approved") return { action: "approve", plan: result.plan, comments: result.annotations };
 		if (result.status === "saved") {
-			return {
-				action: "refine",
-				plan: result.plan,
-				refinement: feedbackSummary(result.annotations) || NO_BROWSER_COMMENTS,
-				comments: result.annotations,
-				fromBrowser: true,
-			};
+			// A save with no comments asks for nothing, so it returns to the screen the
+			// way an empty refine editor does, instead of reporting a refinement nobody
+			// wrote.
+			const refinement = feedbackSummary(result.annotations);
+			if (!refinement) {
+				plan = result.plan;
+				continue;
+			}
+			return { action: "refine", plan: result.plan, refinement, comments: result.annotations, fromBrowser: true };
 		}
 		// Cancelled or the tab closed: the file may have been rewritten underneath,
 		// so re-read it before showing the screen again.

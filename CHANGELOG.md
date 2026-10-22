@@ -29,8 +29,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - `plan`: the documented outline now has a `## Visual` section for the end state —
-  a terminal frame, a command transcript, a file tree, or a table, in a fence with
-  one line saying what to look at — and asks for one job per section: a
+  the same surface before and after in one fence each when the change alters one
+  that already exists, one frame when it is new, untagged unless every line is
+  code, with one line saying what to look at — and asks for one job per section: a
   one-sentence goal, the context as the facts that force the approach, the
   approach with the alternative it rejected, and verification as a fence of
   commands. `write_plan` calls the shape a guide rather than a form — a heading
@@ -84,6 +85,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a browser save with no comments brings the review screen back instead of
+  telling the model to read comments that do not exist. The save carried no
+  request, so it is treated like an empty refine editor and the review loop keeps
+  going; the fallback line it used to print, `See the review comments in the plan
+  file.`, is gone.
 - `plan`: plan files follow the worktree you entered instead of landing in the
   main checkout. An extension tool sees the session cwd, not the worktree, so
   `write_plan`, `/plan list`, and the review read and wrote `<main>/.pi/plans`

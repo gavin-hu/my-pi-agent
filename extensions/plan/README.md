@@ -61,13 +61,14 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   description of it, and each section has one job: the goal is one sentence, the
   context is the facts that force the approach, the approach names the
   alternative it rejected, and verification is a fence of the commands to run.
-  `Visual` carries the end state — a terminal frame, a command transcript, a file
-  tree, or a table — in a fence, with one line naming what to look at, because a
-  reviewer judges the result before the steps that build it; a change with no
-  visible surface drops it. The description calls the shape a guide rather than a
-  form: a heading with nothing to say is dropped, and only the shallowest `Steps`
-  list is tracked, so nested bullets stay notes instead of becoming todos. This is
-  guidance only: any markdown is accepted, stored, and rendered as written.
+  `Visual` carries the end state in an untagged fence, with one line naming what to
+  look at: the same surface before and after when the change alters one that
+  already exists, one frame when the surface is new, because a reviewer judges the
+  result before the steps that build it; a change with no visible surface drops it.
+  The description calls the shape a guide rather than a form: a heading with
+  nothing to say is dropped, and only the shallowest `Steps` list is tracked, so
+  nested bullets stay notes instead of becoming todos. This is guidance only: any
+  markdown is accepted, stored, and rendered as written.
 - **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
   section; approval seeds them into `todo`, with the `## Verification` section as
   the last item so the definition of done travels with the work. A plan with more
@@ -461,9 +462,10 @@ file and returns them to the model.
   page rendered and answers `409`; the page then offers a **Reload** action,
   because only a reload can re-anchor the comments to the new text.
 - **Back to the model.** A save from the review screen returns `refined: true`
-  with the comments, so the model stays in plan mode and revises the same file.
-  `/plan review` sends them as a user message (a plan-mode revision or a plain
-  update, depending on the mode).
+  with the comments, so the model stays in plan mode and revises the same file. A
+  save that carries no comments asks for nothing, so the review screen comes back
+  instead. `/plan review` sends them as a user message (a plan-mode revision or a
+  plain update, depending on the mode).
 - **Loopback and tokenized.** The server binds `127.0.0.1`, carries a random
   per-session token in the URL, rejects a missing or foreign `Host` header,
   serves only `GET`, `HEAD`, and `POST`, and caps the request body. A save or cancel

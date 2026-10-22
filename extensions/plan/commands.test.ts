@@ -544,6 +544,19 @@ describe("review gate", () => {
 		expect(decision.plan.content).toContain("[!REVIEW]");
 	});
 
+	test("a save with no comments returns to the review screen", async () => {
+		const { web } = webThatResolves({ status: "saved", plan: plan(), annotations: [] });
+		const { ctx } = tuiCtx([{ action: "browser" }, { action: "approve" }]);
+		const seam = baselines();
+
+		const decision = await reviewPlan({ ctx, web, plans: readingPlans(), baselines: seam, plan: plan() });
+
+		// Nothing was asked for, so the screen is shown again rather than the model being
+		// told to read comments that do not exist.
+		expect(decision.action).toBe("approve");
+		expect(seam.marked).toHaveLength(2);
+	});
+
 	test("a server that cannot start re-offers the review screen", async () => {
 		const { ctx, notifications } = tuiCtx([{ action: "browser" }, { action: "approve" }]);
 		const seam = baselines();
