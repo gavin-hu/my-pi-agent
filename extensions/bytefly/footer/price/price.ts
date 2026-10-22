@@ -2,15 +2,16 @@
  * Price usage records from configured rates.
  *
  * `createPricer` owns the two things that must not be rebuilt per record: the
- * matching rates and the timezone formatter. `currency.code` chooses the
- * algorithm: CNY prices matched records from `rates` and `peak`, while USD
- * totals Pi's recorded dollar cost and ignores both. A CNY-mode record with no
- * matching rate contributes nothing: an unpriced model shows no price at all.
+ * matching rates and the timezone formatter. Both currencies price a record
+ * from `rates` and `peak` when a key matches. They differ only for a model no
+ * key matches: `USD` adds Pi's recorded dollar amount (its catalog is already
+ * per model), while `CNY` adds nothing and counts the record as unpriced, so the
+ * session can say what its total leaves out.
  */
 
 import { zeroUsage } from "../../../../lib/usage.ts";
 import type { ByteflyConfig, ModelRates } from "./types.ts";
-import type { UsageRecord, UsageTotals } from "../types.ts";
+import type { PricedUsage, UsageRecord } from "../types.ts";
 import { createRateLookup } from "./rates.ts";
 import { isPeak, peakFormatter } from "./schedule.ts";
 
@@ -33,7 +34,7 @@ function tokenCost(record: UsageRecord, rates: ModelRates): number {
  * The returned function totals tokens as well as cost, so the bar's meters and
  * its price always describe the same set of records.
  */
-export function createPricer(config: ByteflyConfig): (records: readonly UsageRecord[]) => UsageTotals {
+export function createPricer(config: ByteflyConfig): (records: readonly UsageRecord[]) => PricedUsage {
 	// Both currencies price from `rates` and the tariff; they differ only in what
 	// an unmatched model falls back to, and Pi's recorded cost is already dollars.
 	const dollars = config.currency.code === "USD";
@@ -43,7 +44,7 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 	const format = config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
 
 	return (records) => {
-		const totals = zeroUsage();
+		const totals: PricedUsage = { ...zeroUsage(), unpriced: 0 };
 		for (const record of records) {
 			totals.input += record.input;
 			totals.output += record.output;
@@ -54,7 +55,10 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 				totals.cost += ratedCost(config, format, record, rates);
 				continue;
 			}
+			// No rate: USD still has Pi's own per-model amount, CNY has nothing to add
+			// and only a count to report.
 			if (dollars) totals.cost += record.recordedCost;
+			else totals.unpriced += 1;
 		}
 		return totals;
 	};

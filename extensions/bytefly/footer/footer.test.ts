@@ -61,7 +61,7 @@ import {
 	worktreeSegment,
 } from "./render/segments.ts";
 import { compactStatus, dropStatusDetail } from "./render/status.ts";
-import type { UsageRecord } from "./types.ts";
+import type { PricedUsage, UsageRecord } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -538,6 +538,26 @@ describe("pricer", () => {
 		expect(createPricer(config())([record({ provider: "openai", model: "gpt-5", recordedCost: 0.31 })]).cost).toBe(0);
 	});
 
+	test("counts the records CNY could not rate, and prices nothing for them", () => {
+		const totals = createPricer(config())([
+			record({ provider: "anthropic", model: "claude-sonnet-5", recordedCost: 0.42 }),
+			record({ input: 1_000_000, at: MONDAY_PEAK }),
+		]);
+		expect(totals.cost).toBeCloseTo(2);
+		expect(totals.unpriced).toBe(1);
+	});
+
+	test("counts nothing when a rate matched, a rate is explicit, or USD falls back", () => {
+		expect(createPricer(config())([record({ input: 1_000_000 })]).unpriced).toBe(0);
+		const free = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 };
+		expect(createPricer(config({ rates: { "*": free } }))([record({ recordedCost: 5 })]).unpriced).toBe(0);
+		// USD adds Pi's recorded amount instead, so the record is priced.
+		expect(
+			createPricer(usdConfig())([record({ provider: "anthropic", model: "claude-sonnet-5", recordedCost: 0.4 })])
+				.unpriced,
+		).toBe(0);
+	});
+
 	test("honours an explicit zero rate over the recorded cost", () => {
 		const free = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 };
 		expect(createPricer(config({ rates: { "*": free } }))([record({ recordedCost: 5 })]).cost).toBe(0);
@@ -976,7 +996,11 @@ describe("snapshot reader", () => {
 		expect(read.peek()).toBeUndefined();
 
 		const snapshot = read(millionTokens(), footerData);
-		expect(read.peek()).toEqual(snapshot.usage);
+		const { unpriced, ...totals } = read.peek() as PricedUsage;
+		expect(totals).toEqual(snapshot.usage);
+		// The count rides along on the same read, so the unpriced notice never
+		// re-prices the session.
+		expect(unpriced).toBe(0);
 	});
 });
 
@@ -1616,6 +1640,20 @@ function assistantCall(cost: number): unknown {
 	};
 }
 
+/** An assistant call the built-in CNY table prices, so nothing is left unpriced. */
+function deepseekCall(): unknown {
+	return {
+		type: "message",
+		timestamp: "2026-01-05T03:00:00.000Z",
+		message: {
+			role: "assistant",
+			provider: "deepseek",
+			model: "deepseek-flash",
+			usage: { input: 1_000, output: 0, cacheRead: 0, cacheWrite: 0, cost: { total: 0.01 } },
+		},
+	};
+}
+
 interface FooterHarness {
 	pi: any;
 	ctx: any;
@@ -1839,6 +1877,82 @@ describe("registerFooter session budget", () => {
 
 	test("checks nothing before a frame has priced the session", async () => {
 		await withRegisteredFooter(usdBudget(0.5), async (h) => {
+			await h.start();
+			await h.settle();
+			expect(h.messages).toEqual([]);
+		});
+	});
+});
+
+describe("registerFooter unpriced records", () => {
+	test("names the records CNY could not price, once, with both fixes", async () => {
+		await withRegisteredFooter(undefined, async (h) => {
+			await h.start();
+			h.render();
+			await h.settle();
+
+			expect(h.messages).toHaveLength(1);
+			const notice = h.messages[0]?.message;
+			expect(notice.customType).toBe(NOTICE_TYPE);
+			expect(notice.details.title).toBe("Records with no CNY rate");
+			expect(notice.details.severity).toBe("info");
+			expect(notice.details.items).toEqual([{ label: "records", detail: "1" }]);
+			expect(notice.content).toContain("price.currency.code");
+			expect(notice.content).toContain("price.rates");
+			expect(h.bodies).toEqual(["1 record with no CNY rate · use USD or add price.rates"]);
+		});
+	});
+
+	test("stays silent after the first notice, including across a session-tree change", async () => {
+		await withRegisteredFooter(undefined, async (h) => {
+			await h.start();
+			h.render();
+			await h.settle();
+			await h.tree();
+			h.render();
+			await h.settle();
+
+			expect(h.messages).toHaveLength(1);
+			expect(h.bodies).toHaveLength(1);
+		});
+	});
+
+	test("warns again in a new session", async () => {
+		await withRegisteredFooter(undefined, async (h) => {
+			await h.start();
+			h.render();
+			await h.settle();
+			await h.start();
+			h.render();
+			await h.settle();
+
+			expect(h.messages).toHaveLength(2);
+		});
+	});
+
+	test("stays silent when every record is priced: DeepSeek in CNY, anything in USD", async () => {
+		await withRegisteredFooter(
+			undefined,
+			async (h) => {
+				await h.start();
+				h.render();
+				await h.settle();
+				expect(h.messages).toEqual([]);
+			},
+			{ entries: [deepseekCall()] },
+		);
+
+		// USD adds Pi's recorded amount for any model, so nothing is unpriced.
+		await withRegisteredFooter(usdBudget(0), async (h) => {
+			await h.start();
+			h.render();
+			await h.settle();
+			expect(h.messages).toEqual([]);
+		});
+	});
+
+	test("checks nothing before a frame has priced the session", async () => {
+		await withRegisteredFooter(undefined, async (h) => {
 			await h.start();
 			await h.settle();
 			expect(h.messages).toEqual([]);

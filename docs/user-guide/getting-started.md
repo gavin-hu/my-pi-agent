@@ -196,8 +196,10 @@ do lose work. To disable one feature rather than remove the whole pack, see
 
 **What costs money.** The pack is free and open source. Your AI provider bills
 for the model tokens a session uses, exactly as it does without the pack. The
-footer shows a running estimate, but only DeepSeek's rates are built in; another
-model needs its rates configured before the estimate means anything. **Pricing**
+footer shows a running estimate. `USD` mode prices every model from Pi's own
+per-model catalog; `CNY` prices DeepSeek from its published yuan rates and needs
+`price.rates` entries for anything else — a CNY session names the records it
+could not price rather than leaving them silently out of the total. **Pricing**
 in `/bytefly settings` sets the currency and a decimal precision, and an optional
 session budget warns you once when the total reaches it. It does not stop the
 turn.

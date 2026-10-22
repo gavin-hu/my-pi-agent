@@ -142,6 +142,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: a CNY session no longer shows a total that silently omits spend it
+  could not price. The footer counts the records with no `CNY` rate on the pass it
+  already prices, and one notice names the count and both fixes — switch
+  `price.currency.code` to `USD` for Pi's per-model cost, or add yuan
+  `price.rates` entries. USD sessions and DeepSeek-only sessions stay silent.
+
 - `file-browse`: the page ships its stylesheet once instead of twice. The shared
   theme, layout, and component blocks were concatenated twice on every browse
   response — roughly 16 KB of duplicate CSS per page — which no test could see;

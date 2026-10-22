@@ -36,6 +36,17 @@ export interface UsageTotals {
 	cost: number;
 }
 
+/**
+ * The totals plus how many records the mode had no rate for.
+ *
+ * CNY has no fallback, so those records contribute no cost at all; the count is
+ * what lets the session say so instead of quietly showing a total that omits
+ * them. USD falls back to Pi's recorded amount, so it never counts any.
+ */
+export interface PricedUsage extends UsageTotals {
+	unpriced: number;
+}
+
 /** Context-window usage for the active model. */
 export interface ContextInfo {
 	/** Estimated tokens, or `null` when unknown (for example right after compaction). */
