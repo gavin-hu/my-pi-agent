@@ -79,6 +79,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cell for 100%, so a bar no longer sits a whole cell below the percentage beside
   it; `formatTokens` prints `1.0M` rather than `1000k` for a count just under a
   million.
+- `skills`: the `changelog` skill now reads this package's profile instead of
+  asking for it, so a recorded bullet is written as the file writes bullets —
+  blank-line separated, wrapped near 80 columns, several sentences when the
+  outcome needs them — rather than as the one-line stub its example used to show.
+  It also names `docs/development.md#release` and `test/release.test.ts` as the
+  release authority, says the tag is pushed with `main` and never after it, and
+  reminds that a behavior change carries its README catalog rows and its `docs/`
+  guide in the same commit.
 
 ## [0.16.0] - 2026-10-21
 

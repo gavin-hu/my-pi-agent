@@ -14,14 +14,21 @@ whether the behavior already exists.
 
 ## 1. Read the project profile
 
-Before editing, find:
+In this package the profile is written down; read it rather than rediscover it:
 
-- the changelog file and its preamble;
-- the category spelling and order;
-- the scope prefix, and whether one bullet per extension or module is required;
-- whether the entry belongs in the same commit as the change;
-- the release document, version bump, link refs, and tag/push/publish order;
-- the check command and any release-consistency test.
+- [`../../CHANGELOG.md`](../../CHANGELOG.md) — the preamble, the scope prefixes,
+  and the bullet shape in use;
+- [`../../AGENTS.md`](../../AGENTS.md) — the entry lands in the same commit as the
+  change, and a behavior change also updates the two entry READMEs and `docs/`;
+- [`../../docs/development.md#release`](../../docs/development.md#release) — the
+  normative release procedure: version bump, link refs, tag and push order;
+- [`../../test/release.test.ts`](../../test/release.test.ts) — the guard on
+  subsection names, order, emptiness, and the version pin.
+
+Everywhere else, find the same six things: the changelog and its preamble, the
+category spelling and order, the scope prefix and one-bullet-per-unit rule,
+whether the entry ships with the change, the release document with its bump and
+push order, and the check command with any release-consistency test.
 
 State the profile in one short paragraph. Do not invent a rule the project never
 stated; ask instead.
@@ -31,7 +38,9 @@ stated; ask instead.
 For a new feature, draft the bullet in the plan or a scratchpad, not in
 `CHANGELOG.md`.
 
-- Write one line in the project's shape: ``- `scope`: <what the user can now do>``.
+- Write one bullet in the project's shape: ``- `scope`: <what the user can now
+  do>``. One outcome is the unit, not one line: a bullet may run several
+  sentences.
 - If you cannot state the outcome, or need several unrelated bullets, the feature
   is not scoped yet; split it or ask before coding.
 - Name the intended category and any migration, breaking change, or required
@@ -68,20 +77,36 @@ complete.
 - Exclude file names, internal helpers, test counts, commit hashes, and vague
   words such as "various" or "improvements".
 - Match the file's voice and tense. Do not add marketing.
+- A behavior change also updates its row in the catalog tables of
+  [`../../README.md`](../../README.md) and
+  [`../../README.zh-CN.md`](../../README.zh-CN.md) plus the `docs/` guide it
+  belongs to; the changelog is this skill's subject, not its only file. A skill's
+  change updates its `SKILL.md` and its README row together.
 - Re-read immediately before editing, append within the category, and preserve
   other bullets and concurrent edits. Never create a second category heading.
+
+Shape: one blank-line-separated bullet per outcome, wrapped near 80 columns, the
+scope in backticks followed by a colon. The scope is the extension or module name,
+spelled as this package spells it — `bytefly`, `plan`, `wechat`, `todo` — or
+`lib`, `docs`, `test`, `ci`, `skills`. A bullet with no scope, or with a name the
+package does not use, is a defect. A bullet may run several sentences — say what
+the user sees, what it replaced, and any required action. Brevity is not the
+goal; vagueness is the defect.
 
 Good:
 
 ```text
-- `billing`: invoices now show the tax line separately.
-- `config`: `oldKey` is no longer read; run `bun run config:migrate`.
+- `config`: the report now says what its percentages are shares of. A
+  `Composition · 11k estimate` header sits above the rows, and a disabled
+  compaction no longer prints a headroom figure for a threshold that will never
+  fire.
+- `cli`: `oldKey` is no longer read; run `bun run config:migrate`.
 ```
 
 Bad:
 
 ```text
-- `billing`: refactored invoice rendering and added tests.
+- `config`: refactored invoice rendering and added tests.
 - `misc`: improvements.
 ```
 
@@ -109,22 +134,29 @@ Do not edit during the audit unless the user asks. If they do, return to
 
 ## 6. Release (only when asked)
 
-Follow the project's release document; it is normative. This is a checklist, not
-a replacement:
+The project's release document is normative — in this package
+[`../../docs/development.md#release`](../../docs/development.md#release), guarded
+by [`../../test/release.test.ts`](../../test/release.test.ts). This is a
+checklist, not a replacement:
 
 - Confirm the version and the SemVer reason with the user.
 - Move every `[Unreleased]` entry under `## [X.Y.Z] - YYYY-MM-DD`; leave an empty
   `[Unreleased]` heading.
-- Bump every manifest and update the compare and release link refs.
-- Run the project's release checks.
-- Tag, push, and publish only with explicit approval, in the project's order.
+- Bump every manifest and update the compare and release link refs, in the same
+  commit as the movable part; the version in the manifest and the newest dated
+  heading must agree or the release test fails.
+- Run the project's release checks, then `bun test test/release.test.ts` for the
+  version and subsection rules.
+- Tag, push, and publish only with explicit approval, in the project's order. The
+  order matters: push the tag with `main`, never after it.
 - Keep the release commit mechanical: no behavior, code, or unrelated docs.
-- Use that section as the release body; do not add extra prose.
+- Use that section as the release body (`bun run release:notes X.Y.Z` prints it);
+  do not add extra prose.
 
 ## 7. Quality gate
 
 - One bullet per user-visible change; every bullet starts with a scope and a user
-  outcome.
+  outcome, and may take several sentences to state it.
 - No internal-only or duplicate entries, and no empty category headings.
 - No entry for a change that shipped before its heading.
 - Links and versions agree; the project check passes.
