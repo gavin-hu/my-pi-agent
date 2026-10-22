@@ -15,7 +15,7 @@ import { isExtensionEnabled } from "../../lib/env.ts";
 import { WATCH_MATCH_CHANNEL, type WatchMatchEvent } from "../../lib/events.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
-import { createPendingReporter } from "../../lib/report.ts";
+import { createPendingReporter, registerPendingChannel } from "../../lib/report.ts";
 import { registerCommands } from "./commands.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";
 import { formatPendingMatch } from "./format.ts";
@@ -97,41 +97,16 @@ export default function watch(pi: ExtensionAPI, deps: WatchDeps = {}): void {
 	registerTools(pi, runtime);
 	registerCommands(pi, runtime);
 
-	pi.on("session_start", (_event, ctx) => {
-		reporter.sessionStart();
-		runtime.load(ctx);
+	registerPendingChannel(pi, {
+		reporter,
+		runtime,
 		// `shutdown` clears this; a reload or session replacement reuses the
 		// runtime, so re-arm it on every session start.
-		runtime.onMatch = () => reporter.report();
-	});
-
-	// Tree navigation does not change the watcher table; only repaint.
-	pi.on("session_tree", (_event, ctx) => {
-		runtime.setStatus(ctx);
-	});
-
-	pi.on("agent_start", () => {
-		reporter.agentStart();
-	});
-	pi.on("agent_settled", () => {
-		reporter.agentSettled();
-	});
-
-	// Report matches to the model at the start of the next turn.
-	pi.on("before_agent_start", (_event, ctx) => {
-		const reported = reporter.beforeAgentStart();
-		if (!reported) return undefined;
-		runtime.setStatus(ctx);
-		return reported;
-	});
-
-	// Keep stale match notices out of later turns. Only this extension's notices
-	// are pruned; another source's are left for its own handler.
-	pi.on("context", (event) => reporter.filterContext(event.messages));
-
-	// `shutdown` detaches the UI controller, which clears both chips.
-	pi.on("session_shutdown", async () => {
-		runtime.onMatch = undefined;
-		await runtime.shutdown();
+		onSessionStart: () => {
+			runtime.onMatch = () => reporter.report();
+		},
+		onSessionShutdown: () => {
+			runtime.onMatch = undefined;
+		},
 	});
 }

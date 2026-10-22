@@ -14,11 +14,14 @@
  *
  * Delivery is one shared transcript notice per burst, and a burst is marked
  * reported only after the send succeeded, so a throw leaves it for the next
- * turn. Value-only: every flag lives in the returned closure, never in a module
- * variable, because each extension gets its own module instance.
+ * turn. `registerPendingChannel` is the other half: the seven host hooks that
+ * drive the machine, registered once for `job` and `watch` rather than copied
+ * into each factory. Value-only: every flag lives in the returned closure, never
+ * in a module variable, because each extension gets its own module instance.
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { pruneStaleNotices, type NoticeMessage } from "./notice.ts";
 
 export interface PendingReporterOptions<T> {
@@ -96,4 +99,74 @@ export function createPendingReporter<T>(options: PendingReporterOptions<T>): Pe
 			return pruned ? { messages: pruned } : undefined;
 		},
 	};
+}
+
+/** The session-scoped state a channel drives, narrowed to what its hooks need. */
+export interface PendingChannelRuntime {
+	/** Load this session's records; called on every session start. */
+	load(ctx: ExtensionContext): void;
+	/** Repaint the status chip. */
+	setStatus(ctx: ExtensionContext): void;
+	/** Release the session's resources; idempotent. */
+	shutdown(): Promise<void>;
+}
+
+export interface PendingChannelOptions {
+	/** The reporter that turns pending outcomes into notices. */
+	reporter: PendingReporter;
+	/** The runtime whose pending outcomes the notices describe. */
+	runtime: PendingChannelRuntime;
+	/** Runs on every session start, after the runtime loads: arm the report trigger. */
+	onSessionStart?(ctx: ExtensionContext): void;
+	/** Runs before the runtime releases: clear what `onSessionStart` armed. */
+	onSessionShutdown?(): void;
+}
+
+/**
+ * Wire a reporter to the host's session lifecycle.
+ *
+ * The order inside `session_start` is the contract: the reporter forgets the
+ * previous session's busy window, the runtime loads the records, and only then
+ * is the report trigger armed — a reload or a replaced session reuses the same
+ * runtime. A shutdown clears the trigger before the runtime releases the table it
+ * was calling into.
+ */
+export function registerPendingChannel(
+	pi: Pick<ExtensionAPI, "on">,
+	{ reporter, runtime, onSessionStart, onSessionShutdown }: PendingChannelOptions,
+): void {
+	pi.on("session_start", (_event, ctx) => {
+		reporter.sessionStart();
+		runtime.load(ctx);
+		onSessionStart?.(ctx);
+	});
+
+	// Tree navigation does not change the pending records; only repaint.
+	pi.on("session_tree", (_event, ctx) => {
+		runtime.setStatus(ctx);
+	});
+
+	pi.on("agent_start", () => {
+		reporter.agentStart();
+	});
+	pi.on("agent_settled", () => {
+		reporter.agentSettled();
+	});
+
+	// Report what is queued at the start of the next turn, without triggering one.
+	pi.on("before_agent_start", (_event, ctx) => {
+		const reported = reporter.beforeAgentStart();
+		if (!reported) return undefined;
+		runtime.setStatus(ctx);
+		return reported;
+	});
+
+	// Keep stale notices out of later turns. Only this source's notices are
+	// pruned; another source's are left for its own handler.
+	pi.on("context", (event) => reporter.filterContext(event.messages));
+
+	pi.on("session_shutdown", async () => {
+		onSessionShutdown?.();
+		await runtime.shutdown();
+	});
 }

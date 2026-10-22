@@ -45,6 +45,7 @@ export const LIB_SUITES: readonly string[] = [
 	"format",
 	"lines",
 	"process",
+	"report",
 	"state",
 	"requirements",
 	"screen-session",
