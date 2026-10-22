@@ -27,6 +27,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   “exit plan mode” instead of silently retrying them. A select without an Other
   option no longer claims free text is a choice.
 
+- `skills`: a model-invoked `next` skill triages what to do next from the tree —
+  loose work, a broken or unfinished promise, and the command that starts each —
+  or from the conversation with `/skill:next session`, and returns a short ranked
+  list with evidence. It only reads: it edits nothing, commits nothing, and does
+  not start the item it recommends.
+
 ### Changed
 
 - `plan`: the documented outline asks for a one-sentence goal and verification

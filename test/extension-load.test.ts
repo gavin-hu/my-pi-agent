@@ -28,7 +28,7 @@ import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
-import { walkFiles } from "./helpers/files.ts";
+import { posix, walkFiles } from "./helpers/files.ts";
 import { withAgentDir, withEnv } from "./helpers/env.ts";
 import { createFakePi } from "./helpers/fakes.ts";
 
@@ -99,6 +99,11 @@ describe("skill manifest", () => {
 		pi?: { skills?: string[] };
 	};
 
+	/** The skill directory a `SKILL.md` sits in, as the README links it. */
+	function skillName(file: string): string {
+		return file.slice(posix(join(root, "skills")).length + 1).split("/")[0];
+	}
+
 	test("declares and publishes the packaged skills", () => {
 		expect(pkg.pi?.skills).toContain("./skills");
 		expect(pkg.files).toContain("skills/**");
@@ -108,6 +113,22 @@ describe("skill manifest", () => {
 		for (const file of skills) {
 			expect(readFileSync(file, "utf-8"), file).toMatch(/^---\nname: [a-z0-9-]+\ndescription: /);
 		}
+	});
+
+	// The entry READMEs are the catalog: a skill with no row is a workflow nobody
+	// finds, so the row ships with the skill. The reverse — a row naming a skill
+	// that is not on disk — is caught by `structure.test.ts`'s doc-link check.
+	test("gives every packaged skill a row in both entry READMEs", () => {
+		const pages = ["README.md", "README.zh-CN.md"].map((page) => ({
+			page,
+			text: readFileSync(join(root, page), "utf-8"),
+		}));
+		const missing = skillFiles().flatMap((file) =>
+			pages
+				.filter(({ text }) => !text.includes(`](./skills/${skillName(file)}/SKILL.md)`))
+				.map(({ page }) => `${file}: no row in ${page}`),
+		);
+		expect(missing, "a packaged skill the entry READMEs do not list").toEqual([]);
 	});
 });
 

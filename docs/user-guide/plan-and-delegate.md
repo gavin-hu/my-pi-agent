@@ -213,6 +213,41 @@ the end. The skill is advisory rather than an enforcement layer; it can miss a
 request or be ignored, but `.pi/plans` review and the check command still gate
 the work once a refactor starts.
 
+### Choosing what to do next
+
+The packaged `next` skill answers "what now?" from the project's real state
+rather than from the conversation's enthusiasm. It is model-invoked: a request
+such as "what should I do next?" or "where do I pick up?" can load it
+automatically, and `/skill:next` forces it. It only reads; nothing is edited,
+committed, or started by the triage itself.
+
+```text
+/skill:next            # triage the project
+/skill:next session    # triage this conversation's loose ends
+```
+
+Triage reads the working tree, the commits since the last tag, the changelog's
+unreleased section, the roadmap or issue list, the plans directory, and the
+project's own check command. `session` reads what this conversation left open
+instead: the todo list, the goal, the approved plan and its ticked steps, what
+subagents and jobs returned, and the diff the session produced. When both apply,
+the tree wins, because it is where the work actually is.
+
+Suggestions are ranked by what it would cost to lose. **Do next** is loose work —
+a dirty tree, an unapproved plan, a failing check, an unmerged branch, a worktree
+left behind. **Worth planning** is a broken or unfinished promise, such as a
+README claim the code no longer meets or the remaining steps of an approved
+plan. **Later** is new capability, and it comes last. The list is capped at three
+to five items, each with `path:line` evidence, the command that starts it, and an
+effort estimate, plus the candidates that were rejected and why.
+
+An empty list is a valid result: when nothing is worth doing, the skill says so
+with what it checked instead of inventing work. It is advisory, so it can miss a
+promise or misjudge a priority; the tree it cites and the check it ran are the
+parts you can verify. Once you pick an item, the handoff is the same as a
+refactor's: plan mode for a multi-file change, a todo list for a small one, and
+the project's check as both baseline and finish line.
+
 ## Checking your work
 
 ### What it is
