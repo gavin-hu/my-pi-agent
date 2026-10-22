@@ -83,9 +83,9 @@ import {
 	totalRows,
 } from "./tui/frame.ts";
 import { clampSelection, firstRow, lastRow, moveRows, retainFocus } from "./tui/nav.ts";
-import { extensionDetail, extensionHints } from "./tui/extensions-view.ts";
-import { resourceRow, resourceSummary } from "./tui/list-view.ts";
-import { skillDetail, skillHints } from "./tui/skills-view.ts";
+import { extensionDetail } from "./tui/extensions-view.ts";
+import { resourceRow, resourceSummary, sectionHints } from "./tui/list-view.ts";
+import { skillDetail } from "./tui/skills-view.ts";
 import {
 	editHints,
 	projectNote,
@@ -1593,11 +1593,11 @@ describe("extensions view", () => {
 	});
 
 	test("hints the expansion, project override, and refresh states", () => {
-		const texts = (hints: ReturnType<typeof extensionHints>): string[] =>
+		const texts = (hints: ReturnType<typeof sectionHints>): string[] =>
 			hints.map((hint) => (typeof hint === "string" ? hint : hint.text));
 
-		const collapsed = texts(extensionHints({ expanded: false, refreshing: false, projectScope: false }));
-		const expanded = texts(extensionHints({ expanded: true, refreshing: true, projectScope: true }));
+		const collapsed = texts(sectionHints({ expanded: false, refreshing: false, projectScope: false }));
+		const expanded = texts(sectionHints({ expanded: true, refreshing: true, projectScope: true }));
 
 		expect(collapsed).toContain("Enter detail");
 		expect(collapsed).not.toContain("x inherit");
@@ -1698,11 +1698,11 @@ describe("skills view", () => {
 	});
 
 	test("hints the expansion and the project override, never a probe", () => {
-		const texts = (hints: ReturnType<typeof skillHints>): string[] =>
+		const texts = (hints: ReturnType<typeof sectionHints>): string[] =>
 			hints.map((hint) => (typeof hint === "string" ? hint : hint.text));
 
-		const collapsed = texts(skillHints({ expanded: false, projectScope: false }));
-		const expanded = texts(skillHints({ expanded: true, projectScope: true }));
+		const collapsed = texts(sectionHints({ expanded: false, projectScope: false }));
+		const expanded = texts(sectionHints({ expanded: true, projectScope: true }));
 
 		expect(collapsed).toContain("Enter detail");
 		expect(collapsed).not.toContain("x inherit");

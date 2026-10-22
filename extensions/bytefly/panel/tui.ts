@@ -28,13 +28,13 @@ import { UNTRUSTED_SETTINGS_NOTE } from "./settings.ts";
 import type { SettingsSurface } from "./settings-runtime.ts";
 import type { PanelModel, PanelRow, PanelSection, SkillInfo } from "./types.ts";
 import { entriesOf, entryKey, isSelectable, settingEntries, type PanelEntry } from "./tui/entries.ts";
-import { extensionDetail, extensionHints } from "./tui/extensions-view.ts";
+import { extensionDetail } from "./tui/extensions-view.ts";
 import { BODY_START, detailRows, groupLine, hintLine, noticeLine, panelFrame, sectionBar } from "./tui/frame.ts";
-import { resourceRow, resourceSummary } from "./tui/list-view.ts";
+import { resourceRow, resourceSummary, sectionHints } from "./tui/list-view.ts";
 import { clampSelection, moveRows, navigateEntries, retainFocus } from "./tui/nav.ts";
 import { editHints, settingsHints } from "./tui/settings-view.ts";
 import { SettingsSection } from "./tui/settings-section.ts";
-import { skillDetail, skillHints } from "./tui/skills-view.ts";
+import { skillDetail } from "./tui/skills-view.ts";
 
 /** A section that draws a resource list rather than the settings table. */
 type ListSection = ResourceKind;
@@ -102,16 +102,13 @@ const LIST_VIEWS: Record<ListSection, ListView> = {
 		emptyLabel: "No extensions found.",
 		detail: (input) => extensionDetail(input.theme, input.width, input.row, input.budget, input.expanded, input.dirty),
 		hints: (input) =>
-			extensionHints({
-				expanded: input.expanded,
-				refreshing: input.refreshing,
-				projectScope: input.projectScope,
-			}),
+			sectionHints({ expanded: input.expanded, projectScope: input.projectScope, refreshing: input.refreshing }),
 	},
 	skills: {
 		emptyLabel: "No skills found.",
 		detail: (input) => skillDetail(input),
-		hints: (input) => skillHints({ expanded: input.expanded, projectScope: input.projectScope }),
+		// A skill has no probe to re-run, so the section never offers the refresh key.
+		hints: (input) => sectionHints({ expanded: input.expanded, projectScope: input.projectScope }),
 	},
 };
 

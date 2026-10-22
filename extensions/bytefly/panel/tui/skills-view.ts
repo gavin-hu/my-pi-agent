@@ -1,17 +1,15 @@
 /**
- * The Skills section: the focused skill's path and description, and the
- * section's key hints.
+ * The Skills section: the focused skill's path, description, and refusal.
  *
- * Rows and the summary come from the shared list view, and the row verdict is
- * already `rowBadge`'s. The pane therefore starts with what the row cannot say:
- * the resolved file and what its frontmatter declares, or why Pi refused it.
- * Pure functions over the merged row; the component owns the cursor, the scope,
- * and the expansion.
+ * Rows, the summary, and the key hints come from the shared list view, and the
+ * row verdict is already `rowBadge`'s. The pane therefore starts with what the
+ * row cannot say: the resolved file and what its frontmatter declares, or why Pi
+ * refused it. Pure functions over the merged row; the component owns the cursor,
+ * the scope, and the expansion.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import type { ScreenHint } from "../../../../lib/tui/chrome.ts";
 import { sanitizeLine } from "../../../../lib/format.ts";
 import { clip } from "../../../../lib/tui/columns.ts";
 import { BODY_INDENT } from "../../../../lib/tui/indent.ts";
@@ -49,18 +47,4 @@ export function skillDetail(options: {
 	}
 	lines.push(...saved);
 	return lines;
-}
-
-/** The section's key hints, in the order they drop as the width runs out. */
-export function skillHints(options: { expanded: boolean; projectScope: boolean }): ScreenHint[] {
-	return [
-		"Esc close",
-		"←/→",
-		{ text: "Space toggle", color: "accent" },
-		{ text: options.expanded ? "Enter collapse" : "Enter detail", color: "accent" },
-		"Tab scope",
-		// Only Project scope can hold an override, so the key is not offered elsewhere.
-		...(options.projectScope ? ["x inherit"] : []),
-		"↑/↓ select",
-	];
 }

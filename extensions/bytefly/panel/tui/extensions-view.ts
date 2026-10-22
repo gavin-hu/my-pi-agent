@@ -1,13 +1,12 @@
 /**
- * The Extensions section's focused-row pane and key hints.
+ * The Extensions section's focused-row pane.
  *
- * The row and the summary are the shared list grammar; what is specific here is
- * the doctor's findings, including the resource path when a row has no verdict,
- * and the probe state in the hint row.
+ * The row, the summary, and the key hints are the shared list grammar; what is
+ * specific here is the doctor's findings, including the resource path when a row
+ * has no verdict.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { ScreenHint } from "../../../../lib/tui/chrome.ts";
 import { sanitizeLine } from "../../../../lib/format.ts";
 import { clip } from "../../../../lib/tui/columns.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
@@ -38,23 +37,4 @@ export function extensionDetail(
 	}
 	lines.push(...savedLine(theme, width, dirty));
 	return lines;
-}
-
-/** The section's key hints, in the order they drop as the width runs out. */
-export function extensionHints(options: {
-	expanded: boolean;
-	refreshing: boolean;
-	projectScope: boolean;
-}): ScreenHint[] {
-	return [
-		"Esc close",
-		"←/→",
-		{ text: "Space toggle", color: "accent" },
-		{ text: options.expanded ? "Enter collapse" : "Enter detail", color: "accent" },
-		"Tab scope",
-		// Only Project scope can hold an override, so the key is not offered elsewhere.
-		...(options.projectScope ? ["x inherit"] : []),
-		options.refreshing ? "refreshing…" : "r refresh",
-		"↑/↓ select",
-	];
 }

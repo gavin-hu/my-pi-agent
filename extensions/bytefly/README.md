@@ -1489,9 +1489,9 @@ columns, gauge), so the look follows the active theme.
 | `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
 | `panel/skills.ts` | Skill metadata through Pi's own `loadSkills`, keyed by resolved path, plus the deduplicated paths both discovery views read. |
 | `panel/tui.ts` | `PanelComponent`, the three-section dock screen: the section switch, the cursors, the toggle chain, and the two list sections through one `LIST_VIEWS` table. |
-| `panel/tui/list-view.ts` | The shared list grammar: the section headline and one resource row. |
-| `panel/tui/extensions-view.ts` | The Extensions detail pane (the doctor's findings) and its key hints. |
-| `panel/tui/skills-view.ts` | The Skills detail pane (path, description, Pi's refusal) and its key hints. |
+| `panel/tui/list-view.ts` | The shared list grammar: the section headline, one resource row, and the key-hint row both sections offer. |
+| `panel/tui/extensions-view.ts` | The Extensions detail pane: the doctor's findings, including the resource path when a row has no verdict. |
+| `panel/tui/skills-view.ts` | The Skills detail pane: the path, the description, and Pi's refusal. |
 | `panel/tui/settings-view.ts` | The Settings rows, the value's source and description pane, the JSON pane, and the editing cell. |
 | `panel/tui/entries.ts` | The flat display entries per section and the stable focus keys. |
 | `panel/tui/editing.ts` | The text-row editor's key map: caret moves, delete, clear, commit, cancel. |
