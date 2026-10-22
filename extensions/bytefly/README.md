@@ -153,6 +153,15 @@ default, turns it off. The check reads the total the footer already priced, and
 the footer exists only in `tui` sessions, so a print or JSON run has no budget
 alert; the footer's own numbers are visible in every interactive session.
 
+**Unpriced records.** `CNY` has no fallback, so a record for a model with no
+`price.rates` entry contributes nothing to the total — with nothing on screen
+saying so. The footer counts those records on the pass it already prices, and
+one `bytefly · Records with no CNY rate` notice names the count and the two
+fixes: switch `price.currency.code` to `USD` (Pi's catalog is per model, tiers
+included) or add yuan `price.rates` entries. It fires once per session, on the
+run that settles, like the budget alert. `USD` never counts one: Pi's recorded
+amount covers every model.
+
 **User message.** Every user message opens with a two-row `You` nameplate —
 the label over a rule that spans the width — above the message:
 
@@ -501,8 +510,9 @@ it with its own rates for the models they match:
   changes how the total is printed; the symbol follows the code.
 - **Which source.** Both currencies price a matched record from `rates`; only
   the unmatched case differs. `CNY` contributes nothing for a model it cannot
-  price, while `USD` adds Pi's recorded dollar amount for that record, because
-  that number is already dollars.
+  price and counts the record instead, so the session can name what its total
+  leaves out; `USD` adds Pi's recorded dollar amount for that record, because
+  that number is already dollars and already per model.
 
 For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
 published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
@@ -1080,7 +1090,10 @@ command.
   Anthropic's 2× one-hour cache write are not modelled; switch to `USD` mode
   to use Pi's recorded cost for those models.
 - **No FX conversion.** The two modes are separate methods; neither converts
-  one currency into the other. A model is priced only by the selected method.
+  one currency into the other. A model is priced only by the selected method. A
+  `CNY` session names the records it could not price instead of silently leaving
+  them out — switch to `USD` for Pi's per-model cost, or add yuan `price.rates`
+  entries for the models you use.
 - **Two built-in footer indicators cannot be reproduced.** Pi's `(auto)` marks
   that auto-compaction is on, and its `(sub)` marks a subscription-backed
   provider. Auto-compaction is session state on Pi's own session object, and
@@ -1456,7 +1469,8 @@ columns, gauge), so the look follows the active theme.
 | `footer/price/config.ts` | The `price` section of `bytefly.json`: schema, defaults, built-in DeepSeek rates/tariff, currency defaults, normalizer, loader. |
 | `footer/price/rates.ts` | Model-key matching: `createRateLookup` splits every key once, splits a key at its first slash (so an OpenRouter model id may contain one), matches exact and wildcard most-specific-first, and remembers the last record's model. |
 | `footer/price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
-| `footer/price/price.ts` | Records → totals: rated cost in both modes, Pi's recorded cost as USD's fallback, and the peak multiplier. |
+| `footer/price/price.ts` | Records → totals: rated cost in both modes, Pi's recorded cost as USD's fallback, the peak multiplier, and the count of records CNY could not rate. |
+| `footer/unpriced.ts` | The one notice a CNY session posts for records it could not price, and its OS-notification body. |
 | `footer/render/format.ts` | Generic formatters (tokens, cost in the configured currency, cwd, the context role, truncation). |
 | `footer/render/status.ts` | Status-chip transforms: `compactStatus` and `dropStatusDetail`. |
 | `footer/render/segments.ts` | The segment builders: forms, weights, separators, roles. |

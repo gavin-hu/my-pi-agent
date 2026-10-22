@@ -18,7 +18,7 @@ import type { DelegationLedger } from "../delegation.ts";
 import { createPricer } from "../price/price.ts";
 import type { ByteflyConfig } from "../price/types.ts";
 import { zeroUsage } from "../../../../lib/usage.ts";
-import type { ContextInfo, FooterData, StatusSnapshot, UsageTotals } from "../types.ts";
+import type { ContextInfo, FooterData, PricedUsage, StatusSnapshot, UsageTotals } from "../types.ts";
 import { usageRecords } from "./entries.ts";
 
 /**
@@ -37,21 +37,33 @@ export interface SnapshotReader {
 	 *
 	 * The budget guardrail reads the number the footer already priced instead of
 	 * walking the session a second time; if no frame has rendered yet there is
-	 * nothing stale to act on.
+	 * nothing stale to act on. The unpriced count rides along for the same reason.
 	 */
-	peek(): UsageTotals | undefined;
+	peek(): PricedUsage | undefined;
+}
+
+/** The five counters, without the unpriced count that only the notice reads. */
+function countsOf(priced: PricedUsage): UsageTotals {
+	return {
+		input: priced.input,
+		output: priced.output,
+		cacheRead: priced.cacheRead,
+		cacheWrite: priced.cacheWrite,
+		cost: priced.cost,
+	};
 }
 
 export function createSnapshotReader(config: ByteflyConfig, delegation: DelegationLedger): SnapshotReader {
 	const price = createPricer(config);
 	let key: string | null = null;
-	let usage = zeroUsage();
+	let usage: PricedUsage = { ...zeroUsage(), unpriced: 0 };
+	let usageCounts: UsageTotals = zeroUsage();
 	let delegationTotals = { runs: 0, usage: zeroUsage() };
 	let cacheHitRate: number | null = null;
 	let context: ContextInfo = { tokens: null, contextWindow: 0, percent: null };
 	let sessionName: string | null = null;
 
-	let last: UsageTotals | undefined;
+	let last: PricedUsage | undefined;
 
 	const reader = ((ctx: ExtensionContext, footerData: FooterData): StatusSnapshot => {
 		const session = ctx.sessionManager;
@@ -61,10 +73,11 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 			const active = current ? { provider: current.provider, model: current.id } : undefined;
 			const scanned = usageRecords(session.getEntries(), active);
 			usage = price(scanned.records);
+			usageCounts = countsOf(usage);
 			cacheHitRate = scanned.cacheHitRate;
 			// The child runs are priced by the same pricer, so a currency or rate
 			// change moves both numbers together — and neither is folded into the other.
-			delegationTotals = { runs: delegation.runs(), usage: price(delegation.records()) };
+			delegationTotals = { runs: delegation.runs(), usage: countsOf(price(delegation.records())) };
 
 			const usageInfo = ctx.getContextUsage();
 			context = {
@@ -92,7 +105,7 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 			model,
 			thinkingLevel: ctx.thinkingLevel ?? null,
 			context,
-			usage,
+			usage: usageCounts,
 			currency: config.currency,
 			cacheHitRate,
 			providerCount: footerData.getAvailableProviderCount(),

@@ -17,6 +17,7 @@ import { createSnapshotReader, type SnapshotReader } from "./collect/snapshot.ts
 import { createDelegationLedger } from "./delegation.ts";
 import { loadByteflyConfig } from "./price/config.ts";
 import { createFooter } from "./render/footer.ts";
+import { unpricedBody, unpricedNotice } from "./unpriced.ts";
 
 /** Host seams, injected by the composition root and by tests. */
 export interface FooterDeps {
@@ -35,6 +36,8 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 	let budget: { limit: number; read: SnapshotReader } | undefined;
 	/** One warning per session: the notice stays in scrollback, and a re-install must not repeat it. */
 	let warned = false;
+	/** The unpriced notice is once per session too, and independent of the budget. */
+	let warnedUnpriced = false;
 
 	const install = (ctx: ExtensionContext): void => {
 		if (ctx.mode !== "tui") return;
@@ -58,6 +61,7 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 		// and a budget that was already reported is unreported again.
 		delegation.reset();
 		warned = false;
+		warnedUnpriced = false;
 		install(ctx);
 	});
 	pi.on("session_tree", (_event, ctx) => install(ctx));
@@ -65,9 +69,17 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 	// A turn's cost is final when the run settles, and that is when the user can act
 	// on it. Rendering never posts anything: the footer is derived state.
 	pi.on("agent_settled", (_event, ctx) => {
-		if (warned || !budget || budget.limit <= 0 || ctx.mode !== "tui") return;
+		if (!budget || ctx.mode !== "tui") return;
 		const usage = budget.read.peek();
 		if (!usage) return;
+		// CNY records no rate for a model, so its spend is simply absent from the
+		// total. USD never counts one: Pi's recorded amount covers every model.
+		if (!warnedUnpriced && usage.unpriced > 0) {
+			warnedUnpriced = true;
+			pi.sendMessage(unpricedNotice(usage.unpriced));
+			deps.notify?.(unpricedBody(usage.unpriced));
+		}
+		if (warned || budget.limit <= 0) return;
 		const state = budgetState(budget.limit, usage.cost);
 		if (!state.exceeded) return;
 		warned = true;

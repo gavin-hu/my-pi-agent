@@ -69,7 +69,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C5, F1–F2 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C4, F1–F2 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -78,22 +78,21 @@ closed by work parked in any horizon.
 
 ## If only three things ship
 
-1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
-   each dated, so a non-DeepSeek model whose tariff a table can express is priced
-   from a published rate instead of showing no price at all.
-2. **C2 — Control-center breadth.** Skills shipped in the picker with the
+1. **C1 — Control-center breadth.** Skills shipped in the picker with the
    extension rules; *decision first* on themes and prompts — whether they belong
    with the picker or stay with `pi config`.
-3. **F1 — Dependency budget.** A check that a new runtime dependency is lazy-loaded
+2. **F1 — Dependency budget.** A check that a new runtime dependency is lazy-loaded
    unless it is needed at registration, so an install stays small.
+3. **C2 — Update channels.** An opt-in prerelease or tagged-channel preference,
+   still with no auto-update.
 
-The first two sit in `Now`; this one is the smallest foundation gap left.
+The first sits in `Now`, and the other two are the smallest foundation gaps left.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the remaining picker scope decision — themes and prompts — is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
+| **Now** (highest priority) | Are the numbers honest? | `C1`'s remaining decision — themes and prompts in the picker or in `pi config` — is recorded. The price total already names what it cannot price, and the built-in tariff's age is visible in `doctor`. |
 | **Next** (queued) | Does the daily loop feel finished? | Empty: background delegation shipped; the next tier is not yet chosen. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
@@ -104,7 +103,11 @@ this file, as the record of what shipped.
 The previous `Now` — no stale doc, every isolation gap visible in the session, a
 named Pi range, and a long-session benchmark — closed with `0.13.0`, and the
 previous `Next` closed with it: note promotion, settings completeness, and the
-worktree handoff all shipped, so the handoff item is gone rather than ticked.
+worktree handoff all shipped, so the handoff item is gone rather than ticked. The
+provider-table item that used to head this section is gone for the same reason:
+`USD` already prices every model from Pi's per-model catalog, tiers and the
+one-hour cache-write rule included, so a hand-written table could only price
+*below* it and the CNY total now names what it leaves out instead.
 
 ## 1. Plan and delegate
 
@@ -282,18 +285,12 @@ runs, an update check, and two themes.
 **Now**
 
 Nothing above is a false promise; the remaining picker gap is a scope decision
-rather than a fix, so it is an item rather than a row. The money the chrome
-reports has one gap left:
+rather than a fix, so it is an item rather than a row. The price total's own gap
+is closed: a `CNY` session now names the records it could not price, and the
+provider-table item that used to sit here is gone — see the note under the
+horizons for why a table would price worse than what `USD` already reports.
 
-- **C1 — Provider rate packs.** Add published rates for the major hosted
-  providers (Anthropic, OpenAI, Google), each with an effective date; the age
-  report `doctor` now prints for the built-in tables extends to theirs. Keep Pi's
-  recorded cost as the fallback. Scope it to a tariff a table can express: where the README's "no
-  tiers, no special cache writes" limitation applies, the model keeps Pi's
-  recorded cost instead of a guessed rate. *Done when* no network is required,
-  a model the table cannot express never prices below its recorded cost, and an
-  unknown model still shows no invented price.
-- **C2 — Control-center breadth.** Skills shipped with the extension rules —
+- **C1 — Control-center breadth.** Skills shipped with the extension rules —
   one grouped vertical list, `Space` to toggle, `Tab` and `x` for scope, writing
   the active scope's `skills` list or a package's `skills` filter — which
   settles that half. *Decision first for the rest:* do themes and prompts belong
@@ -307,11 +304,11 @@ and the rest is declared JSON-only. This section contributes no `Next` item.
 
 **Later**
 
-- **C3 — Update channels.** An opt-in prerelease or tagged-channel preference,
+- **C2 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
-- **C4 — Update action.** Offer `pi update --extensions` from the control
+- **C3 — Update action.** Offer `pi update --extensions` from the control
   center behind a confirmation, only if the host exposes a safe way to run it.
-- **C5 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C4 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 ## 5. Foundations
@@ -371,9 +368,9 @@ it.
 | `web-access`: the keyless search returns answers and related topics rather than a result list | That is the provider's shape, not a parsing gap; SearXNG and Brave return a list. Revisit if the keyless default changes. |
 | `file-read`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `file-read`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
-| `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit with `C2`, which would widen the picker. |
-| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. `C2` decides the picker's scope, not this. |
-| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C3`. |
+| `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit with `C1`, which would widen the picker. |
+| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. `C1` decides the picker's scope, not this. |
+| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C2`. |
 | `bytefly`: only packages configured in Pi's settings get an update prompt, so `pi -e .` and temporary checkouts are not checked | Pi's package manager owns the list; a second detector would restore the duplicate-block class the single-notice refactor removed. Revisit if unmanaged installs need a prompt. |
 | `bytefly`: the single update notice depends on patching `DefaultPackageManager.prototype.checkForAvailableUpdates` | Pi exposes no setting for its startup block. The shim is installed only in `tui`, restored on shutdown, and inert if the method shape changes. Revisit if Pi adds a supported switch. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
