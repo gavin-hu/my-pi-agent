@@ -1,10 +1,9 @@
 /**
- * The message transformer: the user-message nameplate, and the removal of a
- * next-steps block from an assistant reply.
+ * The message transformer: the user-message nameplate.
  *
  * Pi's message components parse the transformed string as Markdown and own their
- * colors, so shaping text is the only lever: these surfaces add no component and
- * no color of their own. The nameplate is a level-2 heading, which Pi renders
+ * colors, so shaping text is the only lever: this surface adds no component and
+ * no color of its own. The nameplate is a level-2 heading, which Pi renders
  * bold in `mdHeading` and prints without its `#` prefix; the bytefly themes point
  * `mdHeading` at the accent, so the label and rule carry the accent while the
  * message itself stays in the default text color. Markdown cannot express a
@@ -13,17 +12,10 @@
  * putting the rule on its own row with no blank between. A blank line separates
  * the nameplate from the message, so the message's own Markdown (a fence, a list,
  * a second paragraph) parses exactly as it would without it.
- *
- * The next-steps block is the other direction the same lever can move: bytefly
- * lifts that block into its own entry below the turn rule, so the reply must stop
- * drawing it or it would appear twice. The strip uses the same strict
- * `parseNextSteps` as the lift, runs while streaming too (so the block never
- * appears in the reply and then jumps), and touches nothing else.
  */
 
 import type { MarkdownTransformContext } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { parseNextSteps } from "../next/parse.ts";
 import { MESSAGE_CONFIG } from "./config.ts";
 
 const { label, ruleGlyph } = MESSAGE_CONFIG;
@@ -50,11 +42,8 @@ export function styleUserMessage(markdown: string, context: MarkdownTransformCon
 
 /**
  * Dispatch the single transformer Pi keeps per extension on the message type: a
- * user message gains the nameplate, an assistant message loses a next-steps
- * block that bytefly draws as its own entry below the turn rule.
+ * user message gains the nameplate, and every other message passes through.
  */
 export function styleMessage(markdown: string, context: MarkdownTransformContext): string {
-	if (context.messageType === "user") return styleUserMessage(markdown, context);
-	if (context.messageType !== "assistant") return markdown;
-	return parseNextSteps(markdown)?.stripped ?? markdown;
+	return context.messageType === "user" ? styleUserMessage(markdown, context) : markdown;
 }

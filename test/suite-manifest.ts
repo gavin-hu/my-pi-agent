@@ -13,7 +13,6 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"chrome",
 		"doctor/doctor",
 		"footer/footer",
-		"next/next",
 		"notify/notify",
 		"panel/panel",
 		"picker/picker",

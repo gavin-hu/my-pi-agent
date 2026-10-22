@@ -21,7 +21,6 @@ section and every key with its type, default, and bounds.
 - [`notify` — OS notifications](#notify--os-notifications)
 - [`doctor` — diagnostics](#doctor--diagnostics)
 - [`chrome` — transcript chrome](#chrome--transcript-chrome)
-- [`suggest` — next steps after a turn](#suggest--next-steps-after-a-turn)
 - [`file-read` — document and spreadsheet extraction](#file-read--document-and-spreadsheet-extraction)
 - [`file-browse` — the local file server](#file-browse--the-local-file-server)
 - [`goal` — the goal widget](#goal--the-goal-widget)
@@ -151,7 +150,7 @@ the file for the scope you want, and the next session reads it.
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — fourteen
+`/bytefly settings` is a shortlist of the preferences a session changes — thirteen
 flat rows, named in bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the rest of this page is the full list.
@@ -185,7 +184,7 @@ repository root rather than the active working directory.
 
 | Extension | Section | Covers |
 |---|---|---|
-| [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome`, `suggest` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, the transcript rail glyph, and the next-steps block. |
+| [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
 | [`check`](../extensions/check/) | `check` | Detection override, run timeout, and log tail. |
 | [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
@@ -277,16 +276,6 @@ settings screen; `rail` is a `bytefly.json` edit.
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `rail` | string | `"╎"` | Exactly one visible column | Glyph that leads a tool result and a notice body. |
-
-## `suggest` — next steps after a turn
-
-Whether the model is asked to end each reply with a short block of suggested next
-actions, drawn below the turn rule. The switch is **Next steps** on the settings
-screen, so it is a `bytefly.json` edit only for scripting.
-
-| Key | Type | Default | Values | What it does |
-|---|---|---|---|---|
-| `enabled` | boolean | `true` | `true`, `false` | Ask for the block and draw it below the turn rule. Off means no instruction is injected; a block the model writes anyway is left in the reply. |
 
 ## `file-read` — document and spreadsheet extraction
 

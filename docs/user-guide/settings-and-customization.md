@@ -62,9 +62,9 @@ prints the grouped listing or report instead of mounting the screen.
 
 ## Settings
 
-<img src="../../assets/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of fourteen preferences with each value beside its label, and a three-row detail pane" width="100%">
+<img src="../../assets/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of thirteen preferences with each value beside its label, and a three-row detail pane" width="100%">
 
-`/bytefly settings` is a shortlist: fourteen preferences on one flat list, each
+`/bytefly settings` is a shortlist: thirteen preferences on one flat list, each
 with its value beside the label. Choose a row and press `Space` or `Enter`: a
 switch toggles, a choice cycles to the next option, and **Session budget** opens
 an editor whose value you save with `Enter` or discard with `Esc`.
