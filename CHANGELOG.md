@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `skills`: a model-invoked `parallel-dev` skill organizes parallel work into
+  contract-bound workstreams rather than UI/backend/test layers: it starts with a
+  walking skeleton, assigns one integrator and one owner per workstream, uses
+  advisory path claims and events from `session-bus`, integrates small increments
+  continuously, and keeps verification independent. It stops when there is no
+  stable contract, no integrator, or no one to pull the inbox.
 - `session-bus`: a new local coordination extension for parallel Pi sessions. The
   `session` tool and `/sessions` let peers on one repository discover each other,
   exchange short messages and events, consume a pull-based inbox, and claim
