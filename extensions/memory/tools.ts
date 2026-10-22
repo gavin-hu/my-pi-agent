@@ -11,6 +11,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
+import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { messageOf } from "./errors.ts";
 import { formatCallText, formatResultText, scopeLabel } from "./format.ts";
@@ -49,12 +50,9 @@ function toStructuredContent(details: MemoryDetails): Record<string, JsonValue> 
  */
 function memoryResult(details: MemoryDetails, error?: string) {
 	const full: MemoryDetails = error === undefined ? details : { ...details, error };
-	return {
-		content: [{ type: "text" as const, text: formatResultText(full) }],
-		details: full,
-		structuredContent: toStructuredContent(full),
-		...(error === undefined ? {} : { isError: true as const }),
-	};
+	const text = formatResultText(full);
+	const structuredContent = toStructuredContent(full);
+	return error === undefined ? textResult(text, full, structuredContent) : failedResult(text, full, structuredContent);
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: MemoryRuntime): void {

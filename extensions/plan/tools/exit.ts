@@ -18,6 +18,7 @@ import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine, moreHint } from "../../../lib/tui/tool.ts";
+import { failedResult } from "../../../lib/tool-result.ts";
 import { loadConfig } from "../config.ts";
 import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, verificationNote } from "../format.ts";
@@ -103,65 +104,47 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 			const planPath = (params as ExitPlanModeArgs).plan_path.trim();
 
 			if (!runtime.isEnabled()) {
-				return {
-					content: [{ type: "text", text: "Not in plan mode; there is no plan to approve." }],
-					details: { approved: false, plan: "", planPath } satisfies ExitPlanModeDetails,
-					isError: true,
-				};
+				return failedResult("Not in plan mode; there is no plan to approve.", {
+					approved: false,
+					plan: "",
+					planPath,
+				} satisfies ExitPlanModeDetails);
 			}
 
 			const file = await runtime.plans.read(ctx.cwd, planPath);
 			if (!file) {
-				return {
-					content: [
-						{
-							type: "text",
-							text: `No plan file at "${planPath}". Save the plan with write_plan first, then pass the returned path.`,
-						},
-					],
-					details: { approved: false, plan: "", planPath } satisfies ExitPlanModeDetails,
-					isError: true,
-				};
+				return failedResult(
+					`No plan file at "${planPath}". Save the plan with write_plan first, then pass the returned path.`,
+					{ approved: false, plan: "", planPath } satisfies ExitPlanModeDetails,
+				);
 			}
 
 			const total = planStepSummary(file.content).total;
 			if (total > MAX_STEPS) {
 				// A hand-edited or older plan file can still be over the cap; refuse it here
 				// too, so approval never seeds a list it cannot hold in full.
-				return {
-					content: [
-						{
-							type: "text",
-							text: `${overCap(total)} It was not presented for approval; call write_plan with plan_path to group the steps, then exit_plan_mode again.`,
-						},
-					],
-					details: {
+				return failedResult(
+					`${overCap(total)} It was not presented for approval; call write_plan with plan_path to group the steps, then exit_plan_mode again.`,
+					{
 						approved: false,
 						plan: file.content,
 						planPath: file.path,
 						relativePath: file.relativePath,
 					} satisfies ExitPlanModeDetails,
-					isError: true,
-				};
+				);
 			}
 
 			if (!ctx.hasUI) {
-				return {
-					content: [
-						{
-							type: "text",
-							text: `No interactive UI is available to approve the plan. It is saved at ${file.relativePath}; present it and ask the user to approve it in their reply.`,
-						},
-					],
-					details: {
+				return failedResult(
+					`No interactive UI is available to approve the plan. It is saved at ${file.relativePath}; present it and ask the user to approve it in their reply.`,
+					{
 						approved: false,
 						plan: file.content,
 						planPath: file.path,
 						relativePath: file.relativePath,
 						unavailable: true,
 					} satisfies ExitPlanModeDetails,
-					isError: true,
-				};
+				);
 			}
 
 			// One decision, however the session is attached; `review.ts` owns the loop,

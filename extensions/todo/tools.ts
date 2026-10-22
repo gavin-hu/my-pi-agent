@@ -13,6 +13,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { normalizeTodos } from "../../lib/todo-state.ts";
 import { callLine, detailsOrLine, rejectionLine } from "../../lib/tui/tool.ts";
@@ -54,12 +55,10 @@ function toStructuredContent(todos: Todo[], action: "write" | "clear", error?: s
  */
 function todoResult(todos: Todo[], action: "write" | "clear", error?: string) {
 	const details: TodoDetails = error === undefined ? { todos, action } : { todos, action, error };
-	return {
-		content: [{ type: "text" as const, text: error === undefined ? formatTodoText(todos) : `Error: ${error}` }],
-		details,
-		structuredContent: toStructuredContent(todos, action, error),
-		...(error === undefined ? {} : { isError: true as const }),
-	};
+	const structuredContent = toStructuredContent(todos, action, error);
+	return error === undefined
+		? textResult(formatTodoText(todos), details, structuredContent)
+		: failedResult(`Error: ${error}`, details, structuredContent);
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: TodoRuntime): void {

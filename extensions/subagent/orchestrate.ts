@@ -5,6 +5,7 @@
  */
 
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
+import { failedResult, textResult } from "../../lib/tool-result.ts";
 import type { AgentConfig } from "./agents.ts";
 import type { TranscriptMode } from "./config.ts";
 import type { RunOptions } from "./run.ts";
@@ -73,25 +74,16 @@ export async function runChainMode(ctx: ModeContext): Promise<AgentToolResult<Su
 		results.push(result);
 
 		if (isFailedResult(result)) {
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: `Chain stopped at step ${i + 1} (${step.agent}): ${getResultOutput(result)}`,
-					},
-				],
-				details: makeDetails(results),
-				isError: true,
-			};
+			return failedResult(
+				`Chain stopped at step ${i + 1} (${step.agent}): ${getResultOutput(result)}`,
+				makeDetails(results),
+			);
 		}
 		previous = getFinalOutput(result.messages);
 	}
 
 	const last = results[results.length - 1];
-	return {
-		content: [{ type: "text" as const, text: last ? getFinalOutput(last.messages) || "(no output)" : "(no output)" }],
-		details: makeDetails(results),
-	};
+	return textResult(last ? getFinalOutput(last.messages) || "(no output)" : "(no output)", makeDetails(results));
 }
 
 /** Independent tasks with bounded concurrency, reporting running/done progress. */
@@ -104,10 +96,9 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 		if (!onUpdate) return;
 		const running = allResults.filter((r) => r.exitCode === -1).length;
 		const done = allResults.length - running;
-		onUpdate({
-			content: [{ type: "text", text: `Parallel: ${done}/${allResults.length} done, ${running} running…` }],
-			details: makeDetails([...allResults]),
-		});
+		onUpdate(
+			textResult(`Parallel: ${done}/${allResults.length} done, ${running} running…`, makeDetails([...allResults])),
+		);
 	};
 
 	const results = await mapWithConcurrencyLimit(tasks, MAX_CONCURRENCY, async (task, index) => {
@@ -146,15 +137,10 @@ export async function runParallelMode(ctx: ModeContext): Promise<AgentToolResult
 		return `### [${result.agent}] ${status}\n\n${output}`;
 	});
 
-	return {
-		content: [
-			{
-				type: "text" as const,
-				text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n---\n\n")}`,
-			},
-		],
-		details: makeDetails(results),
-	};
+	return textResult(
+		`Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n---\n\n")}`,
+		makeDetails(results),
+	);
 }
 
 /** One agent + task. */
@@ -176,20 +162,11 @@ export async function runSingleMode(ctx: ModeContext): Promise<AgentToolResult<S
 	});
 
 	if (isFailedResult(result)) {
-		return {
-			content: [
-				{
-					type: "text" as const,
-					text: `Agent ${result.agent} ${result.stopReason ?? "failed"}: ${getResultOutput(result)}`,
-				},
-			],
-			details: makeDetails([result]),
-			isError: true,
-		};
+		return failedResult(
+			`Agent ${result.agent} ${result.stopReason ?? "failed"}: ${getResultOutput(result)}`,
+			makeDetails([result]),
+		);
 	}
 
-	return {
-		content: [{ type: "text" as const, text: getFinalOutput(result.messages) || "(no output)" }],
-		details: makeDetails([result]),
-	};
+	return textResult(getFinalOutput(result.messages) || "(no output)", makeDetails([result]));
 }

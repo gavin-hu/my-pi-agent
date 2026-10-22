@@ -62,7 +62,7 @@ import {
 import { isNotice, NOTICE_TYPE, noticeMessage, pruneStaleNotices } from "./notice.ts";
 import { isInside, isInsideReal, realPathOfNearest } from "./path.ts";
 import { createReadOnlyPolicy } from "./policy.ts";
-import { errorResult, toolError } from "./tool-result.ts";
+import { errorResult, failedResult, textResult, toolError } from "./tool-result.ts";
 
 const temps = makeTempTracker();
 const env = useEnv({ [ENV_ROOT]: undefined, [ENV_DISABLED_EXTENSIONS]: undefined, [ENV_OFFLINE]: undefined });
@@ -704,6 +704,39 @@ describe("the rejected-call shape", () => {
 		expect(errorResult("stop", "j1 is already stopped")).toEqual({
 			content: [{ type: "text", text: "Error: j1 is already stopped" }],
 			details: { action: "stop", error: "j1 is already stopped" },
+			isError: true,
+		});
+	});
+
+	test("textResult carries the text and the details, and omits an absent mirror", () => {
+		const result = textResult("2 items", { items: 2 });
+		expect(result).toEqual({ content: [{ type: "text", text: "2 items" }], details: { items: 2 } });
+		expect("structuredContent" in result).toBe(false);
+	});
+
+	test("textResult keeps a mirror the tool declares", () => {
+		expect(textResult("2 items", { items: 2 }, { items: 2 })).toEqual({
+			content: [{ type: "text", text: "2 items" }],
+			details: { items: 2 },
+			structuredContent: { items: 2 },
+		});
+	});
+
+	test("failedResult is the same envelope, with the flag and no mirror", () => {
+		const result = failedResult("could not write the plan", undefined);
+		expect(result).toEqual({
+			content: [{ type: "text", text: "could not write the plan" }],
+			details: undefined,
+			isError: true,
+		});
+		expect("structuredContent" in result).toBe(false);
+	});
+
+	test("failedResult keeps the state a retry needs", () => {
+		expect(failedResult("Error: nothing to do", { items: [] }, { items: [] })).toEqual({
+			content: [{ type: "text", text: "Error: nothing to do" }],
+			details: { items: [] },
+			structuredContent: { items: [] },
 			isError: true,
 		});
 	});

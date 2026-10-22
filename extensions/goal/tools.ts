@@ -10,6 +10,7 @@
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { GOAL_TOOL } from "../../lib/tool-names.ts";
+import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -52,17 +53,11 @@ function toStructuredContent(details: GoalDetails): Record<string, JsonValue> {
  */
 function goalResult(details: GoalDetails, options: { error?: string; openTodos?: number } = {}) {
 	const { error, openTodos = 0 } = options;
-	return {
-		content: [
-			{
-				type: "text" as const,
-				text: error === undefined ? formatGoalText(details.goal, openTodos) : `Error: ${error}`,
-			},
-		],
-		details,
-		structuredContent: toStructuredContent(details),
-		...(error === undefined ? {} : { isError: true as const }),
-	};
+	const text = error === undefined ? formatGoalText(details.goal, openTodos) : `Error: ${error}`;
+	const structuredContent = toStructuredContent(details);
+	return error === undefined
+		? textResult(text, details, structuredContent)
+		: failedResult(text, details, structuredContent);
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: GoalRuntime): void {

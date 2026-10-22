@@ -11,6 +11,7 @@ import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
+import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, errorLine, rejectionLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { Bridge } from "./bridge.ts";
@@ -39,17 +40,8 @@ function sendResult(sent: boolean, error?: string) {
 	const details = error === undefined ? { sent } : { sent, error };
 	const structuredContent: Record<string, JsonValue> = { sent };
 	if (error !== undefined) structuredContent.error = error;
-	return {
-		content: [
-			{
-				type: "text" as const,
-				text: sent ? "Sent to the WeChat owner." : `WeChat send failed: ${error ?? "unknown error"}`,
-			},
-		],
-		details,
-		structuredContent,
-		...(sent ? {} : { isError: true as const }),
-	};
+	const text = sent ? "Sent to the WeChat owner." : `WeChat send failed: ${error ?? "unknown error"}`;
+	return sent ? textResult(text, details, structuredContent) : failedResult(text, details, structuredContent);
 }
 
 export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {

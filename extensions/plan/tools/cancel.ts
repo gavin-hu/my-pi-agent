@@ -12,6 +12,7 @@ import { Type } from "typebox";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
+import { failedResult } from "../../../lib/tool-result.ts";
 import { CANCEL_TOOL, type PlanRuntime } from "../runtime.ts";
 import type { CancelPlanModeDetails } from "../types.ts";
 
@@ -39,11 +40,9 @@ export function registerCancelTool(pi: ExtensionAPI, runtime: PlanRuntime): void
 
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			if (!runtime.isEnabled()) {
-				return {
-					content: [{ type: "text", text: "Not in plan mode; there is nothing to cancel." }],
-					details: { cancelled: false } satisfies CancelPlanModeDetails,
-					isError: true,
-				};
+				return failedResult("Not in plan mode; there is nothing to cancel.", {
+					cancelled: false,
+				} satisfies CancelPlanModeDetails);
 			}
 			runtime.disable(ctx);
 			ctx.ui.notify("Plan mode off — full access restored. The plan was not approved.", "info");

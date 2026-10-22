@@ -13,6 +13,7 @@ import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
+import { failedResult, textResult } from "../../../lib/tool-result.ts";
 import { describeUpdates, stepLabel } from "../format.ts";
 import { SET_PLAN_STEPS_TOOL, type PlanRuntime } from "../runtime.ts";
 import { extractPlanSteps } from "../steps.ts";
@@ -66,39 +67,26 @@ export function registerSetPlanStepsTool(pi: ExtensionAPI, runtime: PlanRuntime)
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const args = params as SetPlanStepsArgs;
 			if (runtime.isEnabled()) {
-				return {
-					content: [{ type: "text", text: "Not while planning; refine the plan with write_plan instead." }],
-					details: undefined,
-					isError: true,
-				};
+				return failedResult("Not while planning; refine the plan with write_plan instead.", undefined);
 			}
 			try {
 				const plan = await runtime.plans.setSteps(ctx.cwd, args.plan_path, args.updates);
 				const steps = extractPlanSteps(plan.content);
 				const done = steps.filter((step) => step.status === "completed").length;
 				const todoNote = await mirrorTodos(ctx, args.updates);
-				return {
-					content: [
-						{
-							type: "text",
-							text: `${describeUpdates(args.updates)} (${done}/${steps.length} done) in ${plan.relativePath}${todoNote}.`,
-						},
-					],
-					details: {
+				return textResult(
+					`${describeUpdates(args.updates)} (${done}/${steps.length} done) in ${plan.relativePath}${todoNote}.`,
+					{
 						path: plan.path,
 						relativePath: plan.relativePath,
 						updates: args.updates,
 						done,
 						total: steps.length,
 					} satisfies SetPlanStepsDetails,
-				};
+				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				return {
-					content: [{ type: "text", text: `Could not update the plan: ${message}` }],
-					details: undefined,
-					isError: true,
-				};
+				return failedResult(`Could not update the plan: ${message}`, undefined);
 			}
 		},
 

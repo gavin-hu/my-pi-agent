@@ -12,6 +12,7 @@ import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
+import { failedResult, textResult } from "../../../lib/tool-result.ts";
 import { overCap, stepElisionNote } from "../format.ts";
 import { WRITE_PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
 import { MAX_STEPS, PLAN_OUTLINE, planStepSummary } from "../steps.ts";
@@ -68,27 +69,17 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (!runtime.isEnabled()) {
-				return {
-					content: [{ type: "text", text: "Not in plan mode; call enter_plan_mode first." }],
-					details: undefined,
-					isError: true,
-				};
+				return failedResult("Not in plan mode; call enter_plan_mode first.", undefined);
 			}
 			const args = params as WritePlanArgs;
 			const summary = planStepSummary(args.content);
 			if (summary.total > MAX_STEPS) {
 				// Refuse before writing: a note after the fact arrives once the file exists and
 				// the review has listed every step, so the overflow is already lost.
-				return {
-					content: [
-						{
-							type: "text",
-							text: `${overCap(summary.total)} Nothing was written; group the steps (one outcome each, sub-bullets for detail) and call write_plan again.`,
-						},
-					],
-					details: undefined,
-					isError: true,
-				};
+				return failedResult(
+					`${overCap(summary.total)} Nothing was written; group the steps (one outcome each, sub-bullets for detail) and call write_plan again.`,
+					undefined,
+				);
 			}
 			try {
 				const file = await runtime.plans.write(ctx.cwd, {
@@ -97,22 +88,13 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 					planPath: args.plan_path,
 				});
 				runtime.setLastPlan(ctx, file.path);
-				return {
-					content: [
-						{
-							type: "text",
-							text: `Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
-						},
-					],
-					details: { path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
-				};
+				return textResult(
+					`Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
+					{ path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
+				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				return {
-					content: [{ type: "text", text: `Could not write the plan: ${message}` }],
-					details: undefined,
-					isError: true,
-				};
+				return failedResult(`Could not write the plan: ${message}`, undefined);
 			}
 		},
 

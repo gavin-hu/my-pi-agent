@@ -11,6 +11,7 @@ import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
+import { failedResult } from "../../../lib/tool-result.ts";
 import { isRemoteTurn } from "../../../lib/interaction.ts";
 import { PLAN_CONSENT, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
 import { ENTER_TOOL, type PlanRuntime } from "../runtime.ts";
@@ -46,16 +47,10 @@ export function registerEnterTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 				};
 			}
 			if (!ctx.hasUI) {
-				return {
-					content: [
-						{
-							type: "text",
-							text: "No interactive UI is available to confirm entering plan mode. Ask the user whether they want a plan.",
-						},
-					],
-					details: { entered: false, unavailable: true } satisfies EnterPlanModeDetails,
-					isError: true,
-				};
+				return failedResult(
+					"No interactive UI is available to confirm entering plan mode. Ask the user whether they want a plan.",
+					{ entered: false, unavailable: true } satisfies EnterPlanModeDetails,
+				);
 			}
 
 			const approved = await ctx.ui.confirm("Enter plan mode?", PLAN_CONSENT);

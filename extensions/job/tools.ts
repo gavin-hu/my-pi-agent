@@ -9,7 +9,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { errorResult } from "../../lib/tool-result.ts";
+import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, elapsedSuffix, rejectionLine, syncElapsedTimer } from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
@@ -77,46 +77,40 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 							},
 							ctx,
 						);
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text: `Started ${job.id} (pid ${job.pid ?? "?"}): ${job.command}\nPoll with \`job status ${job.id}\`, or \`job wait ${job.id}\`.`,
-								},
-							],
-							details: { action: "start", job: toRecord(job) } satisfies JobDetails,
-						};
+						return textResult(
+							`Started ${job.id} (pid ${job.pid ?? "?"}): ${job.command}\nPoll with \`job status ${job.id}\`, or \`job wait ${job.id}\`.`,
+							{ action: "start", job: toRecord(job) } satisfies JobDetails,
+						);
 					}
 
 					case "list": {
 						const jobs = runtime.list();
-						return {
-							content: [{ type: "text" as const, text: formatJobList(jobs, Date.now(), runtime.sessionId) }],
-							details: { action: "list", jobs, sessionId: runtime.sessionId } satisfies JobDetails,
-						};
+						return textResult(formatJobList(jobs, Date.now(), runtime.sessionId), {
+							action: "list",
+							jobs,
+							sessionId: runtime.sessionId,
+						} satisfies JobDetails);
 					}
 
 					case "status": {
 						const job = runtime.get(call.id);
 						if (!job) return errorResult("status", `no job "${call.id}".`);
-						return {
-							content: [{ type: "text" as const, text: formatJobStatus(job, Date.now(), runtime.sessionId) }],
-							details: { action: "status", job: toRecord(job), sessionId: runtime.sessionId } satisfies JobDetails,
-						};
+						return textResult(formatJobStatus(job, Date.now(), runtime.sessionId), {
+							action: "status",
+							job: toRecord(job),
+							sessionId: runtime.sessionId,
+						} satisfies JobDetails);
 					}
 
 					case "logs": {
 						const result = runtime.logs(call.id, call.lines);
 						if (!result) return errorResult("logs", `no job "${call.id}".`);
-						return {
-							content: [{ type: "text" as const, text: result.text }],
-							details: {
-								action: "logs",
-								job: toRecord(result.job),
-								logs: result.lines.join("\n"),
-								truncated: result.truncated,
-							} satisfies JobDetails,
-						};
+						return textResult(result.text, {
+							action: "logs",
+							job: toRecord(result.job),
+							logs: result.lines.join("\n"),
+							truncated: result.truncated,
+						} satisfies JobDetails);
 					}
 
 					case "send": {
@@ -132,15 +126,12 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 										result.closed ? " and closed its stdin" : ""
 									}.`
 								: `Closed ${job.id}'s stdin.`;
-						return {
-							content: [{ type: "text" as const, text }],
-							details: {
-								action: "send",
-								job: toRecord(job),
-								sent: result.sent,
-								stdinClosed: result.closed,
-							} satisfies JobDetails,
-						};
+						return textResult(text, {
+							action: "send",
+							job: toRecord(job),
+							sent: result.sent,
+							stdinClosed: result.closed,
+						} satisfies JobDetails);
 					}
 
 					case "kill": {
@@ -149,30 +140,27 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 						const job = runtime.kill(call.id, call.signal);
 						if (!job) return errorResult("kill", `no job "${call.id}".`);
 						const wasRunning = before.status === "running";
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text: wasRunning
-										? `Sent ${call.signal ?? "SIGTERM"} to ${job.id} (${job.label}).`
-										: `${job.id} already ${job.status}; nothing to kill.`,
-								},
-							],
-							details: {
+						return textResult(
+							wasRunning
+								? `Sent ${call.signal ?? "SIGTERM"} to ${job.id} (${job.label}).`
+								: `${job.id} already ${job.status}; nothing to kill.`,
+							{
 								action: "kill",
 								job: toRecord(job),
 								signalled: wasRunning,
 								signal: call.signal ?? "SIGTERM",
 							} satisfies JobDetails,
-						};
+						);
 					}
 
 					case "wait": {
 						const result = await runtime.wait(call.id, call.timeoutMs, signal, () =>
-							onUpdate?.({
-								content: [{ type: "text" as const, text: `Waiting on ${call.id}…` }],
-								details: { action: "wait", job: runtime.get(call.id) } satisfies JobDetails,
-							}),
+							onUpdate?.(
+								textResult(`Waiting on ${call.id}…`, {
+									action: "wait",
+									job: runtime.get(call.id),
+								} satisfies JobDetails),
+							),
 						);
 						if (!result) return errorResult("wait", `no job "${call.id}".`);
 						const { job, timedOut, cancelled } = result;
@@ -181,37 +169,23 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 							: timedOut
 								? " (still running after the timeout)"
 								: "";
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text: `${formatCompletion(job)}${note}${job.lastLine ? `\nlast: ${job.lastLine}` : ""}`,
-								},
-							],
-							details: {
-								action: "wait",
-								job: toRecord(job),
-								timedOut,
-								cancelled,
-							} satisfies JobDetails,
-						};
+						return textResult(`${formatCompletion(job)}${note}${job.lastLine ? `\nlast: ${job.lastLine}` : ""}`, {
+							action: "wait",
+							job: toRecord(job),
+							timedOut,
+							cancelled,
+						} satisfies JobDetails);
 					}
 
 					case "clear": {
 						const result = runtime.clear(call.id, call.all ?? false);
 						if (result.refused) return errorResult("clear", result.refused);
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text:
-										result.cleared === 0
-											? "Nothing to clear."
-											: `Cleared ${result.cleared} job${result.cleared === 1 ? "" : "s"}.`,
-								},
-							],
-							details: { action: "clear", cleared: result.cleared, jobs: runtime.list() } satisfies JobDetails,
-						};
+						return textResult(
+							result.cleared === 0
+								? "Nothing to clear."
+								: `Cleared ${result.cleared} job${result.cleared === 1 ? "" : "s"}.`,
+							{ action: "clear", cleared: result.cleared, jobs: runtime.list() } satisfies JobDetails,
+						);
 					}
 				}
 			} catch (error) {

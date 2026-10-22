@@ -17,6 +17,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
+import { textResult } from "../../lib/tool-result.ts";
 import {
 	type AgentConfig,
 	type AgentScope,
@@ -158,12 +159,10 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 			const resolution = resolveMode(args);
 			if ("error" in resolution) {
 				const roster = discoverAgents(root, args.agentScope ?? "user").agents;
-				return {
-					content: [
-						{ type: "text" as const, text: `${resolution.error} Available agents: ${formatAgentList(roster)}` },
-					],
-					details: { mode: "single", results: [] } satisfies SubagentDetails,
-				};
+				return textResult(`${resolution.error} Available agents: ${formatAgentList(roster)}`, {
+					mode: "single",
+					results: [],
+				} satisfies SubagentDetails);
 			}
 
 			const mode = resolution.mode;
@@ -195,17 +194,11 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 					.filter((agent): agent is AgentConfig => agent?.source === "project");
 				if (projectAgents.length > 0) {
 					if (!ctx.hasUI) {
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text:
-										"Refusing to run project-local agents without confirmation. " +
-										'Trust the project or use agentScope: "user".',
-								},
-							],
-							details: makeDetails([]),
-						};
+						return textResult(
+							"Refusing to run project-local agents without confirmation. " +
+								'Trust the project or use agentScope: "user".',
+							makeDetails([]),
+						);
 					}
 					const names = projectAgents.map((agent) => agent.name).join(", ");
 					const dir = discovery.projectAgentsDir ?? "(unknown)";
@@ -214,31 +207,20 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 						`Agents: ${names}\nSource: ${dir}\n\nProject agents are repo-controlled. Only continue for trusted repositories.`,
 					);
 					if (!approved) {
-						return {
-							content: [{ type: "text" as const, text: "Canceled: project-local agents not approved." }],
-							details: makeDetails([]),
-						};
+						return textResult("Canceled: project-local agents not approved.", makeDetails([]));
 					}
 				}
 			}
 
 			if (args.background) {
 				if (mode !== "single") {
-					return {
-						content: [{ type: "text" as const, text: "`background` supports single mode only." }],
-						details: makeDetails([]),
-					};
+					return textResult("`background` supports single mode only.", makeDetails([]));
 				}
 				if (!agents.some((candidate) => candidate.name === args.agent)) {
-					return {
-						content: [
-							{
-								type: "text" as const,
-								text: `Unknown agent: "${args.agent ?? ""}". Available agents: ${formatAgentList(agents)}`,
-							},
-						],
-						details: makeDetails([]),
-					};
+					return textResult(
+						`Unknown agent: "${args.agent ?? ""}". Available agents: ${formatAgentList(agents)}`,
+						makeDetails([]),
+					);
 				}
 				const started = background.start(
 					{
@@ -259,19 +241,11 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 					},
 				);
 				if (!started.ok) {
-					return {
-						content: [{ type: "text" as const, text: started.error }],
-						details: makeDetails([]),
-					};
+					return textResult(started.error, makeDetails([]));
 				}
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Started ${started.run.agent} as ${started.run.id} in the background. Use /agents to inspect, collect, or cancel it.`,
-						},
-					],
-					details: {
+				return textResult(
+					`Started ${started.run.agent} as ${started.run.id} in the background. Use /agents to inspect, collect, or cancel it.`,
+					{
 						...makeDetails([]),
 						background: {
 							runId: started.run.id,
@@ -281,7 +255,7 @@ export default function subagent(pi: ExtensionAPI, deps: SubagentDeps = {}): voi
 							startedAt: started.run.startedAt,
 						},
 					} satisfies SubagentDetails,
-				};
+				);
 			}
 
 			const context: ModeContext = {

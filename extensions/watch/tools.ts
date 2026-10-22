@@ -9,7 +9,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { sanitizeLine } from "../../lib/format.ts";
-import { errorResult } from "../../lib/tool-result.ts";
+import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, rejectionLine } from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
@@ -82,62 +82,45 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 							ctx as ExtensionContext,
 						);
 						const flags = `${call.caseSensitive ? "" : "i"}${watch.wake ? ", wake" : ""}`;
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text: `Watching ${watch.id}: ${sourceLabel(watch)} → /${sanitizeLine(watch.pattern)}/${flags}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
-								},
-							],
-							details: { action: "add", watch } satisfies WatchDetails,
-						};
+						return textResult(
+							`Watching ${watch.id}: ${sourceLabel(watch)} → /${sanitizeLine(watch.pattern)}/${flags}\nRead with \`watch matches ${watch.id}\` or \`watch logs ${watch.id}\`.`,
+							{ action: "add", watch } satisfies WatchDetails,
+						);
 					}
 
 					case "list": {
 						const watches = runtime.list();
-						return {
-							content: [{ type: "text" as const, text: formatWatchList(watches) }],
-							details: { action: "list", watches } satisfies WatchDetails,
-						};
+						return textResult(formatWatchList(watches), { action: "list", watches } satisfies WatchDetails);
 					}
 
 					case "status": {
 						const watch = runtime.get(call.id);
 						if (!watch) return errorResult("status", `no watcher "${call.id}".`);
-						return {
-							content: [{ type: "text" as const, text: formatWatchStatus(watch) }],
-							details: { action: "status", watch } satisfies WatchDetails,
-						};
+						return textResult(formatWatchStatus(watch), { action: "status", watch } satisfies WatchDetails);
 					}
 
 					case "matches": {
 						const result = runtime.matches(call.id, call.lines);
 						if (!result) return errorResult("matches", `no watcher "${call.id}".`);
 						const text = formatTail("matches", result.watch, result.lines, 4000);
-						return {
-							content: [{ type: "text" as const, text: text.text }],
-							details: {
-								action: "matches",
-								watch: result.watch,
-								matches: result.lines.join("\n"),
-								truncated: text.truncated,
-							} satisfies WatchDetails,
-						};
+						return textResult(text.text, {
+							action: "matches",
+							watch: result.watch,
+							matches: result.lines.join("\n"),
+							truncated: text.truncated,
+						} satisfies WatchDetails);
 					}
 
 					case "logs": {
 						const result = runtime.logs(call.id, call.lines);
 						if (!result) return errorResult("logs", `no watcher "${call.id}".`);
 						const text = formatTail("output", result.watch, result.lines, 4000);
-						return {
-							content: [{ type: "text" as const, text: text.text }],
-							details: {
-								action: "logs",
-								watch: result.watch,
-								logs: result.lines.join("\n"),
-								truncated: text.truncated,
-							} satisfies WatchDetails,
-						};
+						return textResult(text.text, {
+							action: "logs",
+							watch: result.watch,
+							logs: result.lines.join("\n"),
+							truncated: text.truncated,
+						} satisfies WatchDetails);
 					}
 
 					case "stop": {
@@ -145,34 +128,23 @@ export function registerTools(pi: ExtensionAPI, runtime: WatchRuntime): void {
 						if (!before) return errorResult("stop", `no watcher "${call.id}".`);
 						const stopped = runtime.stop(call.id);
 						const watch = runtime.get(call.id) ?? before;
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text: stopped
-										? `Stopped ${watch.id} (${sourceLabel(watch)}).`
-										: `${watch.id} was not running; nothing to stop.`,
-								},
-							],
-							details: { action: "stop", watch, stopped } satisfies WatchDetails,
-						};
+						return textResult(
+							stopped
+								? `Stopped ${watch.id} (${sourceLabel(watch)}).`
+								: `${watch.id} was not running; nothing to stop.`,
+							{ action: "stop", watch, stopped } satisfies WatchDetails,
+						);
 					}
 
 					case "clear": {
 						const result = runtime.clear(call.id, call.all ?? false);
 						if (result.refused) return errorResult("clear", result.refused);
-						return {
-							content: [
-								{
-									type: "text" as const,
-									text:
-										result.cleared === 0
-											? "Nothing to clear."
-											: `Cleared ${result.cleared} watcher${result.cleared === 1 ? "" : "s"}.`,
-								},
-							],
-							details: { action: "clear", cleared: result.cleared, watches: runtime.list() } satisfies WatchDetails,
-						};
+						return textResult(
+							result.cleared === 0
+								? "Nothing to clear."
+								: `Cleared ${result.cleared} watcher${result.cleared === 1 ? "" : "s"}.`,
+							{ action: "clear", cleared: result.cleared, watches: runtime.list() } satisfies WatchDetails,
+						);
 					}
 				}
 			} catch (error) {
