@@ -34,7 +34,9 @@ its timeout, which showed up as a rotating red macOS job. Use `bun run
 test:serial` to reproduce that shape locally.
 `test/helpers/preload.ts` additionally snapshots and restores the tracked env
 vars (`PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR`, `PI_WORKTREE_ROOT`,
-`PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN`) around every test.
+`PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN`) around every test, and clears them for
+the test itself: a suite run inside a worktree session inherits its root, which
+would re-root every test that resolves an effective cwd.
 
 POSIX-shell and symlink tests self-skip on hosts that cannot support them; the
 gate is stated in the test.

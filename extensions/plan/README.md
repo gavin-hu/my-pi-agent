@@ -45,9 +45,10 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   empty repositories, and falls back to evidence with recorded assumptions when
   the interview is unavailable or cancelled; it never invents commands.
 - **Plan files.** The model saves the plan with `write_plan`; the file lands in
-  `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` (or `<agent-dir>/plans`
-  outside a repository). The plans directory is self-ignoring, so plan files
-  never show up as untracked files or in `rewind` snapshots.
+  `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` — the entered worktree's
+  root when one is active — or `<agent-dir>/plans` outside a repository. The
+  plans directory is self-ignoring, so plan files never show up as untracked
+  files or in `rewind` snapshots.
 - **A discoverable index.** `/plan list` walks the plans directory and shows
   every plan with its title, modified time, and step progress, newest first — in
   the TUI as a docked list where `Enter` opens the plan's review, elsewhere as a
@@ -637,7 +638,7 @@ file and returns them to the model.
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution, containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or agent directory), containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the plan's own goal (`goalSection`), and the checkbox edit. |
 | `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
