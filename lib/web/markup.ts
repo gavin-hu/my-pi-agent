@@ -7,6 +7,7 @@
  */
 
 import { escapeHtml } from "../escape.ts";
+import { THEME_JS_PATH } from "./runtime.ts";
 
 /** Options for {@link docHead}. */
 export interface DocHeadOptions {
@@ -27,7 +28,7 @@ export function docHead(options: DocHeadOptions): string {
 <meta name="color-scheme" content="dark light">
 <title>${escapeHtml(options.title)}</title>
 <style>${options.css}</style>
-<script src="/theme.js"></script>`;
+<script src="${THEME_JS_PATH}"></script>`;
 }
 
 /**

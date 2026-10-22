@@ -8,6 +8,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `file-browse`: the file tree is keyboard-navigable. The tree is one tab stop
+  (`Home`/`End` included) instead of a stop per twisty and per link: `↑`/`↓` move
+  between the rows on screen, `→` opens a folder — reading its children first
+  when they have never been loaded — or enters it, `←` closes it or steps out to
+  the parent, `Space` toggles, and `Enter` follows the link. A folder's link now
+  carries its expanded state for a screen reader, and a mouse click moves the
+  tab stop to the row it landed on.
+
+- `plan`: the browser review's **Approve & run** asks first. The button and `a`
+  open one confirmation that says what approving does — leave plan mode, start
+  the work, keep the comments — starts on **Cancel**, traps `Tab`, and returns
+  focus to the button that opened it; only its own **Approve & run** posts.
+
+- `plan`: a half-written review comment is no longer lost. **Save feedback**,
+  **Approve & run**, and **Back to Pi** refuse while a composer holds text and
+  put the cursor back in it, and a deleted comment is offered back in the header
+  for a few seconds.
+
 - `bytefly`: the control center gains a **Skills** section between Extensions and
   Settings — one vertical row per resolved Pi skill, grouped by source, labelled
   with the name its `SKILL.md` declares and toggled with `Space` into the
@@ -56,6 +74,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   subcommand does not take prints the usage line instead of being ignored,
   `enter`/`exit`/`prune` refuse while plan mode is read-only, and the exit of a
   kept managed worktree names `/worktree enter <name>`, which re-enters it.
+
+- `lib`: printing a browser page now prints a document: the sheet switches to
+  the light palette whatever the screen shows, the header, sidebar, footer, and
+  progress bar are dropped, and a file or plan pane stops scrolling inside its
+  box. Windows High Contrast keeps the drawn task checkbox and the focus ring,
+  and the shell follows a phone's visible viewport (`100dvh`).
+
 - `plan`: the documented outline now has a `## Visual` section for the end state —
   the same surface before and after in one fence each when the change alters one
   that already exists, one frame when it is new, untagged unless every line is
@@ -116,6 +141,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   guide in the same commit.
 
 ### Fixed
+
+- `file-browse`: the page ships its stylesheet once instead of twice. The shared
+  theme, layout, and component blocks were concatenated twice on every browse
+  response — roughly 16 KB of duplicate CSS per page — which no test could see;
+  a count assertion in both page suites now fails on a repeated block.
+
+- `lib`: the primary button's label is legible in both themes. It was white on
+  the dark theme's accent, 2.5:1; the label now takes the appearance's canvas
+  colour (7.5:1 dark, 5.2:1 light), and `--dim` is measured by the palette test
+  rather than left to drift.
 
 - `plan`: a browser save with no comments brings the review screen back instead of
   telling the model to read comments that do not exist. The save carried no

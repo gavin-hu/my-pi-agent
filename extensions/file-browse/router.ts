@@ -20,7 +20,7 @@ import {
 	scriptHeaders,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
-import { THEME_JS } from "../../lib/web/index.ts";
+import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
 import type { ServeConfig } from "./config.ts";
 import { isDiffMode, type DiffMode } from "./diff.ts";
@@ -352,7 +352,7 @@ export async function handleRequest(
 
 	try {
 		if (pathname === "/app.js") return { status: 200, headers: scriptHeaders(), body: CLIENT_JS };
-		if (pathname === "/theme.js") return { status: 200, headers: scriptHeaders(), body: THEME_JS };
+		if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 		if (pathname === "/favicon.ico") return { status: 204, headers: pageHeaders(), body: "" };
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");

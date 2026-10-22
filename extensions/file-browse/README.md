@@ -147,6 +147,32 @@ nothing is left to serve. That is why a page with JavaScript off — or with liv
 status off — never counts as a reader, and the server then waits for
 `/browse stop` or the end of the session.
 
+### The page
+
+The page is keyboard-first, and the tree is one tab stop rather than two per
+folder:
+
+| Key | What it does in the tree |
+|---|---|
+| `↑` / `↓` | Move between the rows on screen |
+| `→` | Open a folder (reading its children first if needed), or enter it |
+| `←` | Close the folder, or step out to its parent |
+| `Space` | Open or close the focused folder |
+| `Enter` | Follow the focused row's link |
+| `Home` / `End` | First or last row on screen |
+
+The folder's own link carries `aria-expanded`, so a screen reader hears its
+state once; the twisty beside it is a pointer control kept out of the tab order.
+A mouse click moves the tab stop to that row, so `Tab` comes back to where you
+were. Elsewhere the page keeps its own keys: `/` or `Ctrl`/`Cmd`+`K` for quick
+open, `-` to fold, `u` to wrap, `r` for raw Markdown, `n`/`p` between diff hunks,
+and `?` for the sheet, whose dialog now traps `Tab` and returns focus to its
+button.
+
+Printing is supported: the paper gets the light palette whatever the screen is
+showing, the chrome and the tree are dropped, and a file or diff prints whole
+instead of inside its scroll box.
+
 ## Routes
 
 | Route | Result |
@@ -399,7 +425,9 @@ document and the project document (project wins):
 | `urls.ts` | Shared link/image URL policy: scheme allowlist and `/view`/`/raw` rewriting |
 | `git.ts` | Read-only branch/dirty provider for the header chip |
 | `icons.ts` | Inline SVG sprite and the per-language mapping |
-| `client.ts` | The `/app.js` source (tree toggle, filter, sort, wrap, copy, quick open) |
+| `client.ts` | The `/app.js` source: sort, wrap, copy, hunk navigation, reading progress, and the page keymap |
+| `tree.ts` | The sidebar block: path filter, fold-all, lazy tree loading, and the tree's keyboard model (interpolated into `client.ts`) |
+| `palette.ts` | The quick-open palette: fuzzy search, the combobox wiring, and the `window.bfPalette` contract (interpolated into `client.ts`) |
 | `live-client.ts` | The client's live status block: the event stream, the chips, the markers, and the footer line (interpolated into `client.ts`) |
 | `live.ts` | The live status snapshot, its frame, and the fan-out channel that ticks it |
 | `styles.ts` | The page-only `browse-*` stylesheet (the `bf-*` kit comes from `lib/web`) |

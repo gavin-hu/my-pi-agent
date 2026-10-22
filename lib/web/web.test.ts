@@ -9,7 +9,14 @@ import { WEB_BASE_CSS } from "./base.ts";
 import { WEB_COMPONENTS_CSS } from "./components.ts";
 import { SIDEBAR_COLLAPSE_MAX, WEB_LAYOUT_CSS } from "./layout.ts";
 import { brandLockup, button, chip, docHead, keysSheet, themeToggle } from "./markup.ts";
-import { keysDialogScript, THEME_JS, THEME_TOGGLE_JS, WEB_THEME_STORAGE_KEY } from "./runtime.ts";
+import {
+	dialogScript,
+	keysDialogScript,
+	THEME_JS,
+	THEME_JS_PATH,
+	THEME_TOGGLE_JS,
+	WEB_THEME_STORAGE_KEY,
+} from "./runtime.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS } from "./tokens.ts";
 
 /** sRGB relative luminance of a `#rgb`/`#rrggbb` colour. */
@@ -87,6 +94,29 @@ describe("web tokens", () => {
 		}
 	});
 
+	test("keeps a label on the accent fill at AA", () => {
+		// The primary button is the page's decisive action, so its label is the one
+		// pairing that must clear 4.5 rather than 3.
+		for (const appearance of ["dark", "light"] as const) {
+			const tokens = WEB_THEME_TOKENS[appearance];
+			expect(
+				contrast(tokens["--on-accent"], tokens["--accent"]),
+				`${appearance} on-accent/accent`,
+			).toBeGreaterThanOrEqual(4.5);
+		}
+	});
+
+	test("keeps the dim role readable where it carries text", () => {
+		// `--dim` is not decorative: it is the line-number gutter and the diff's
+		// numbered column, so it has to stay above the large-text threshold.
+		for (const appearance of ["dark", "light"] as const) {
+			const tokens = WEB_THEME_TOKENS[appearance];
+			for (const surface of ["--canvas", "--surface"]) {
+				expect(contrast(tokens["--dim"], tokens[surface]), `${appearance} dim/${surface}`).toBeGreaterThanOrEqual(3);
+			}
+		}
+	});
+
 	test("emits the dark base, the explicit light override, and the system fallback", () => {
 		expect(WEB_THEME_CSS).toContain(":root{");
 		expect(WEB_THEME_CSS).toContain(':root[data-theme="light"]');
@@ -94,6 +124,15 @@ describe("web tokens", () => {
 		expect(WEB_THEME_CSS).toContain("--canvas:#0d1117");
 		expect(WEB_THEME_CSS).toContain("--canvas:#ffffff");
 		expect(WEB_THEME_CSS).toContain(".tok-keyword{color:var(--tok-keyword)}");
+	});
+
+	test("prints the light palette last, so paper never takes the dark one", () => {
+		// A dark page prints as grey text on a white sheet unless print resets the
+		// tokens; being last in the sheet is what makes the reset win.
+		const printAt = WEB_THEME_CSS.lastIndexOf("@media print{:root{");
+		expect(printAt).toBeGreaterThan(WEB_THEME_CSS.lastIndexOf("@media (prefers-color-scheme:light)"));
+		expect(WEB_THEME_CSS.slice(printAt)).toContain("--canvas:#ffffff");
+		expect(WEB_THEME_CSS.slice(printAt)).toContain("color-scheme:light");
 	});
 });
 
@@ -120,6 +159,20 @@ describe("web base", () => {
 		expect(WEB_BASE_CSS).toContain(".skip{");
 		expect(WEB_BASE_CSS).toContain(".skip:focus{");
 		expect(WEB_BASE_CSS).toContain(".sr-only{");
+	});
+
+	test("prints the document without its chrome", () => {
+		expect(WEB_BASE_CSS).toContain("@media print{");
+		expect(WEB_BASE_CSS).toContain(
+			".bf-toolbar,.bf-app__sidebar,.bf-app__footer,.bf-progress,.skip,.bf-dialog{display:none!important}",
+		);
+		expect(WEB_BASE_CSS).toContain("overflow:visible!important}");
+	});
+
+	test("keeps the drawn controls legible in forced colours", () => {
+		expect(WEB_BASE_CSS).toContain("@media (forced-colors:active){");
+		expect(WEB_BASE_CSS).toContain(".bf-md .md-check:checked{forced-color-adjust:none;background:Highlight");
+		expect(WEB_BASE_CSS).toContain("outline-color:CanvasText");
 	});
 });
 
@@ -239,6 +292,14 @@ describe("web components", () => {
 			expect(WEB_COMPONENTS_CSS).not.toContain(hex);
 		}
 	});
+
+	test("draws every colour through a token", () => {
+		// The kit is the one place a theme swap never reaches, so a literal here is a
+		// colour that survives the toggle. Overlays are tokens too (`--scrim`,
+		// `--shadow`); the only encoded colour is the checkbox's `%23fff` data URI.
+		expect(WEB_COMPONENTS_CSS).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+		expect(WEB_COMPONENTS_CSS).not.toContain("rgba(");
+	});
 });
 
 describe("web layout", () => {
@@ -267,6 +328,8 @@ describe("web layout", () => {
 		expect(WEB_LAYOUT_CSS).toContain(
 			".bf-app{display:flex;flex-direction:column;height:100vh;min-height:0;overflow:hidden;",
 		);
+		// The fallback first, then the unit that follows a phone's visible viewport.
+		expect(WEB_LAYOUT_CSS).toContain(".bf-app{height:100dvh}");
 	});
 
 	test("scrolls the sidebar on its own box", () => {
@@ -288,8 +351,14 @@ describe("web markup", () => {
 		expect(head).toContain('<meta charset="utf-8">');
 		expect(head).toContain('name="color-scheme"');
 		expect(head).toContain("<style>body{}</style>");
-		expect(head).toContain('src="/theme.js"');
+		expect(head).toContain(`src="${THEME_JS_PATH}"`);
 		expect(head).toContain("&lt;dir&gt;");
+	});
+
+	test("serves the pre-paint theme from the one path the head asks for", () => {
+		// The routers route this constant, so a page cannot point at a script no
+		// route serves — which is what the literal in both routers allowed.
+		expect(THEME_JS_PATH).toBe("/theme.js");
 	});
 
 	test("builds the brand lockup from the two-tone mark", () => {
@@ -372,5 +441,17 @@ describe("web theme runtime", () => {
 		// The sheet's ids are fixed; only the shortcut button differs per page.
 		expect(keysDialogScript("shortcuts")).toContain('getElementById("shortcuts")');
 		expect(keysDialogScript("shortcuts")).not.toContain('getElementById("keys-open")');
+	});
+
+	test("traps Tab, closes on Esc, and restores focus for any dialog", () => {
+		const script = dialogScript({ dialogId: "approve-dialog", closeId: "approve-cancel", globalName: "bfApprove" });
+		expect(script).toContain('getElementById("approve-dialog")');
+		expect(script).toContain('getElementById("approve-cancel")');
+		expect(script).toContain("window.bfApprove");
+		expect(script).toContain('if (event.key !== "Tab") return;');
+		expect(script).toContain("opener.focus()");
+		expect(script).toContain("}, true);");
+		expect(script).toContain("event.stopPropagation();");
+		expect(() => new Function(script)).not.toThrow();
 	});
 });

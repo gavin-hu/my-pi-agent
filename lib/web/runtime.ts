@@ -11,9 +11,15 @@
 export const WEB_THEME_STORAGE_KEY = "pi-web-theme";
 
 /**
+ * Where both routers serve {@link THEME_JS}. `docHead` emits the same path, so
+ * the script tag and the route cannot drift apart.
+ */
+export const THEME_JS_PATH = "/theme.js";
+
+/**
  * A tiny head script that applies the saved theme before the body is painted,
- * so an explicit choice does not flash the system theme on load. Served as
- * `/theme.js` and shared by both pages.
+ * so an explicit choice does not flash the system theme on load. Served at
+ * {@link THEME_JS_PATH} and shared by both pages.
  */
 export const THEME_JS = `(function(){try{var t=localStorage.getItem("${WEB_THEME_STORAGE_KEY}");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();`;
 
@@ -67,52 +73,124 @@ export const THEME_TOGGLE_JS = String.raw`(function () {
   }
 })();`;
 
+/** Options for {@link dialogScript}. */
+export interface DialogOptions {
+	/** Id of the dialog root: the element carrying `.bf-dialog` and `hidden`. */
+	dialogId: string;
+	/** Id of the dialog's own close button, when the markup has one. */
+	closeId?: string;
+	/** Id of the page's trigger button, when the dialog opens from one. */
+	triggerId?: string;
+	/** Property to expose on `window`, so the page can open and close it. */
+	globalName?: string;
+}
+
+/** Everything inside a dialog that can take focus, in DOM order. */
+const FOCUSABLE =
+	'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
 /**
- * The `?` keyboard sheet's wiring, shared by both clients.
+ * The wiring every modal in the kit shares: open and close, the backdrop, the
+ * `Tab` trap, `Esc`, and focus returning to whatever opened it.
  *
- * It owns the sheet's pointer behavior — the page's trigger button, the sheet's
- * own close button, and a click on the backdrop — and nothing else: each page
- * keeps its own keyboard policy in its keydown handler, because the two differ
- * (the review peels `Esc` through a composer first), and calls in through
- * `window.bfKeys`.
+ * A dialog is modal before this script runs too — `aria-modal` and `hidden` are
+ * in the markup — so a page without JavaScript still shows it closed rather
+ * than half-open.
  *
- * `triggerId` is the page's own shortcut button, since browse opens the sheet
- * from `#keys-open` and review from `#shortcuts`. The sheet's ids are the fixed
- * contract in `keysSheet` (`lib/web/markup.ts`).
- *
- * Value-only: the open state is the dialog's own `hidden` attribute, so this
- * module holds nothing.
+ * Value-only: the open state is the dialog's own `hidden` attribute, and the
+ * element that opened it lives in this script's closure.
  */
-export function keysDialogScript(triggerId: string): string {
+export function dialogScript(options: DialogOptions): string {
+	const trigger = options.triggerId ? `document.getElementById("${options.triggerId}")` : "null";
+	const closer = options.closeId ? `document.getElementById("${options.closeId}")` : "null";
+	const expose = options.globalName
+		? `window.${options.globalName} = {
+    open: function () { toggle(true); },
+    toggle: toggle,
+    close: function () { toggle(false); },
+    isOpen: isOpen
+  };`
+		: "";
 	return `(function () {
   "use strict";
-  var dialog = document.getElementById("keys-dialog");
+  var dialog = document.getElementById("${options.dialogId}");
   if (!dialog) return;
+  var opener = null;
 
   function isOpen() {
     return !dialog.hidden;
   }
+  // A button inside a closed dialog has no boxes, so the rects are the test that
+  // survives a hidden attribute, a collapsed panel, and a stylesheet swap alike.
+  function focusables() {
+    return Array.prototype.filter.call(dialog.querySelectorAll('${FOCUSABLE}'), function (node) {
+      return node.getClientRects && node.getClientRects().length > 0;
+    });
+  }
   function toggle(force) {
     var open = force === undefined ? dialog.hidden : force;
+    if (open === isOpen()) return;
     dialog.hidden = !open;
     if (open) {
-      var close = document.getElementById("keys-close");
-      if (close && close.focus) close.focus();
+      opener = document.activeElement;
+      var first = focusables()[0];
+      if (first) first.focus();
+    } else if (opener && opener.focus) {
+      opener.focus();
+      opener = null;
     }
   }
 
-  var trigger = document.getElementById("${triggerId}");
+  var trigger = ${trigger};
   if (trigger) trigger.addEventListener("click", function () { toggle(); });
-  var closer = document.getElementById("keys-close");
+  var closer = ${closer};
   if (closer) closer.addEventListener("click", function () { toggle(false); });
   dialog.addEventListener("click", function (event) {
     if (event.target === dialog) toggle(false);
   });
 
-  window.bfKeys = {
-    toggle: toggle,
-    close: function () { toggle(false); },
-    isOpen: isOpen
-  };
+  // Tab cycles inside the dialog: leaving it would put focus behind the scrim,
+  // where the page looks inert but is not.
+  dialog.addEventListener("keydown", function (event) {
+    if (event.key !== "Tab") return;
+    var nodes = focusables();
+    if (nodes.length === 0) { event.preventDefault(); return; }
+    var first = nodes[0];
+    var last = nodes[nodes.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+
+  // Capture, so Esc closes the dialog before a page handler peels another layer.
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape" || !isOpen()) return;
+    toggle(false);
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+
+  ${expose}
 })();`;
+}
+
+/**
+ * The `?` keyboard sheet's wiring, shared by both clients.
+ *
+ * `triggerId` is the page's own shortcut button, since browse opens the sheet
+ * from `#keys-open` and review from `#shortcuts`. The sheet's ids are the fixed
+ * contract in `keysSheet` (`lib/web/markup.ts`), and the page's keydown handler
+ * calls in through `window.bfKeys`.
+ */
+export function keysDialogScript(triggerId: string): string {
+	return dialogScript({
+		dialogId: "keys-dialog",
+		closeId: "keys-close",
+		triggerId,
+		globalName: "bfKeys",
+	});
 }

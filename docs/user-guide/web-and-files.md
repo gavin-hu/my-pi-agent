@@ -172,6 +172,9 @@ fuzzy quick-open palette, and a read-only git diff view.
 
    | Action | What it does |
    |---|---|
+   | `↑` / `↓`, `Home` / `End` | Move through the file tree; it is one tab stop |
+   | `→` / `←`, `Space` | Open a folder (or enter it), close it, or toggle it |
+   | `Enter` | Open the focused file or folder |
    | `/` or `Ctrl`/`Cmd`+`K` | Quick open: fuzzy-search by path and press `Enter` |
    | `-` | Fold every folder, or expand them all again |
    | `u` | Toggle line wrapping |
@@ -193,7 +196,8 @@ fuzzy quick-open palette, and a read-only git diff view.
    remembers your choice. Until you use it, the page follows the system
    preference. Beside it, a `◉ live` chip says whether the page is still in
    touch with the server, and the footer reports how long it has been up and how
-   many requests it has answered.
+   many requests it has answered. Printing a page gives you the light palette on
+   paper, without the header, the tree, or the code view's scroll box.
 
 5. If the project is a git repository, a change chip links to a change overview
    and per-file diffs. The comparison scope can be the last commit, the staged

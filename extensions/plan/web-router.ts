@@ -23,7 +23,7 @@ import {
 	scriptHeaders,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
-import { THEME_JS } from "../../lib/web/index.ts";
+import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
 import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
@@ -109,7 +109,7 @@ export async function handleReviewRequest(
 	const { pathname, search } = parsed;
 
 	if (pathname === "/favicon.ico") return { status: 204, headers: { "Cache-Control": "no-store" } };
-	if (pathname === "/theme.js") return { status: 200, headers: scriptHeaders(), body: THEME_JS };
+	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 	if (pathname === "/client.js") return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
 
 	if (search.get("token") !== ctx.token) return jsonError(403, "Invalid or missing token.");

@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
 import type { ArmTimer } from "../../lib/timer.ts";
-import { THEME_JS } from "../../lib/web/index.ts";
+import { THEME_JS, WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../lib/web/index.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import {
 	coerceAnnotations,
@@ -27,7 +27,7 @@ import {
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
+import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, type PlanWebReviewDeps } from "./web.ts";
 
@@ -357,6 +357,18 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 }
 
 describe("review page", () => {
+	test("ships each shared stylesheet block once", () => {
+		// The kit cannot check this: it does not know which page concatenates it.
+		for (const [name, block] of [
+			["base", WEB_BASE_CSS],
+			["theme", WEB_THEME_CSS],
+			["layout", WEB_LAYOUT_CSS],
+			["components", WEB_COMPONENTS_CSS],
+		] as const) {
+			expect(REVIEW_CSS.split(block).length - 1, `${name} block`).toBe(1);
+		}
+	});
+
 	test("loads the first-party client, the shared theme, and the review controls", () => {
 		const html = page();
 		expect(html).toContain('<script src="/client.js" defer>');
@@ -410,6 +422,15 @@ describe("review page", () => {
 		expect(html).toContain("\\u003c/script>");
 	});
 
+	test("confirms approval instead of running it from one click", () => {
+		const html = page();
+		expect(html).toContain('id="approve-dialog" hidden');
+		expect(html).toContain("Approve and run the plan?");
+		expect(html).toContain('id="approve-cancel"');
+		expect(html).toContain('id="approve-confirm"');
+		expect(page({ canApprove: false })).not.toContain('id="approve-dialog"');
+	});
+
 	test("keeps plan text out of the markup outside the island", () => {
 		const html = page({ blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["UNIQUE_PLAN_TEXT"] }] });
 		const markup = html.slice(0, html.indexOf('<script type="application/json"'));
@@ -419,6 +440,7 @@ describe("review page", () => {
 	test("shows the review facts, the progress bar, and the keyboard sheet", () => {
 		const html = page();
 		expect(html).toContain('id="review-facts"');
+		expect(html).toContain('id="step-fact"');
 		expect(html).toContain('id="step-count"');
 		expect(html).toContain('id="progress-fill"');
 		expect(html).toContain('id="keys-dialog"');
@@ -471,6 +493,27 @@ describe("review client", () => {
 	test("never assigns plan or comment text as markup", () => {
 		expect(REVIEW_CLIENT_JS).not.toContain("innerHTML");
 		expect(REVIEW_CLIENT_JS).toContain(".textContent =");
+	});
+
+	test("opens the approval confirmation instead of posting on the keypress", () => {
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("approve-dialog")');
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("approve-confirm")');
+		expect(REVIEW_CLIENT_JS).toContain("window.bfApprove.open()");
+		expect(REVIEW_CLIENT_JS).toContain("askApprove()");
+	});
+
+	test("refuses to leave a draft, hides empty steps, and offers a delete back", () => {
+		expect(REVIEW_CLIENT_JS).toContain("function guardDraft()");
+		expect(REVIEW_CLIENT_JS).toContain("Add or discard the comment you are writing.");
+		expect(REVIEW_CLIENT_JS).toContain('getElementById("step-fact")');
+		expect(REVIEW_CLIENT_JS).toContain('button.id = "undo-delete"');
+		expect(REVIEW_CLIENT_JS).toContain("function removeComment(index)");
+	});
+
+	test("leaves the shortcut sheet's Esc to the shared dialog runtime", () => {
+		// One copy of the close: the kit's capture listener owns it, so the page
+		// keymap cannot drift from the sheet's own behavior.
+		expect(REVIEW_CLIENT_JS).not.toContain("window.bfKeys.close()");
 	});
 
 	test("rejects a protocol-relative link", () => {

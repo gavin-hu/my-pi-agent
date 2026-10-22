@@ -21,12 +21,11 @@ interface ThemeJson {
 const DARK = darkTheme as unknown as ThemeJson;
 const LIGHT = lightTheme as unknown as ThemeJson;
 
-/** Web custom property -> Bytefly theme var. `--accent-soft` is derived. */
+/** Web custom property -> Bytefly theme var. `--accent-soft`, `--on-accent`, `--scrim`,
+ * and `--shadow` are derived, so no appearance-only colour enters the kit. */
 const VAR_TOKENS: ReadonlyArray<readonly [string, string]> = [
 	["--canvas", "canvas"],
 	["--surface", "canvasSubtle"],
-	["--surface-raised", "selectionBg"],
-	["--selected", "selectionBg"],
 	["--border", "borderMuted"],
 	["--border-strong", "border"],
 	["--text", "text"],
@@ -90,19 +89,34 @@ function rgba(hex: string, alpha: number): string {
 	return `rgba(${r},${g},${b},${alpha})`;
 }
 
+/**
+ * Overlays are not palette entries: a scrim dims what is behind it and a shadow
+ * lifts a panel off it, so each appearance needs its own alpha rather than the
+ * theme's colours.
+ */
+const OVERLAYS: Record<"dark" | "light", { scrim: string; shadow: string }> = {
+	dark: { scrim: "rgba(0,0,0,.5)", shadow: "0 8px 24px rgba(0,0,0,.4)" },
+	light: { scrim: "rgba(15,23,42,.3)", shadow: "0 8px 24px rgba(15,23,42,.14)" },
+};
+
 /** The full custom-property set for one appearance. */
-function paletteOf(theme: ThemeJson, accentAlpha: number): Record<string, string> {
+function paletteOf(theme: ThemeJson, appearance: "dark" | "light", accentAlpha: number): Record<string, string> {
 	const palette: Record<string, string> = {};
 	for (const [token, name] of VAR_TOKENS) palette[token] = theme.vars[name];
 	palette["--accent-soft"] = rgba(palette["--accent"] ?? "#000000", accentAlpha);
+	// A label on the accent fill is the canvas colour: a light blue button takes dark
+	// text, and the same derivation gives white on the light theme's darker blue.
+	palette["--on-accent"] = palette["--canvas"];
+	palette["--scrim"] = OVERLAYS[appearance].scrim;
+	palette["--shadow"] = OVERLAYS[appearance].shadow;
 	for (const [token, name] of SYNTAX_TOKENS) palette[token] = resolve(theme, theme.colors[name] ?? "");
 	return palette;
 }
 
 /** Every token value per appearance, for tests and for building the CSS. */
 export const WEB_THEME_TOKENS: { dark: Record<string, string>; light: Record<string, string> } = {
-	dark: paletteOf(DARK, 0.15),
-	light: paletteOf(LIGHT, 0.1),
+	dark: paletteOf(DARK, "dark", 0.15),
+	light: paletteOf(LIGHT, "light", 0.1),
 };
 
 /** `a{color:var(--tok-keyword)}…` for each syntax token. */
@@ -125,4 +139,6 @@ export const WEB_THEME_CSS = `:root{${declarations(WEB_THEME_TOKENS.dark)};${SCA
 :root[data-theme="light"]{${declarations(WEB_THEME_TOKENS.light)};color-scheme:light}
 :root[data-theme="dark"]{color-scheme:dark}
 @media (prefers-color-scheme:light){:root:not([data-theme]){${declarations(WEB_THEME_TOKENS.light)};color-scheme:light}}
-${SYNTAX_RULES}`;
+${SYNTAX_RULES}
+/* Paper is white: print the light palette whatever the screen is showing. */
+@media print{:root{${declarations(WEB_THEME_TOKENS.light)};color-scheme:light}}`;
