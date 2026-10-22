@@ -65,10 +65,15 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   look at: the same surface before and after when the change alters one that
   already exists, one frame when the surface is new, because a reviewer judges the
   result before the steps that build it; a change with no visible surface drops it.
-  The description calls the shape a guide rather than a form: a heading with
-  nothing to say is dropped, and only the shallowest `Steps` list is tracked, so
-  nested bullets stay notes instead of becoming todos. This is guidance only: any
-  markdown is accepted, stored, and rendered as written.
+  The description calls the shape a guide rather than a form: `Context`,
+  `Approach`, `Visual`, and `Risks` are dropped when they have nothing to say,
+  while `Steps` and `Verification` are kept, because the steps are read from that
+  section (without it, the shallowest list anywhere becomes the steps) and
+  Verification becomes the last todo item. Within `Steps` only the shallowest
+  list is tracked, so nested bullets stay notes instead of becoming todos. This
+  is guidance only: any markdown is accepted, stored, and rendered as written,
+  and a refinement is asked to keep its section headings so the review can still
+  mark only what changed.
 - **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
   section; approval seeds them into `todo`, with the `## Verification` section as
   the last item so the definition of done travels with the work. A plan with more
@@ -599,8 +604,12 @@ file and returns them to the model.
   share one normalization so a tab cannot read as a change.
 - **The outline guides, it does not enforce.** `write_plan` documents the
   canonical shape in its description and stores whatever markdown it is given;
-  no section is required and nothing is rewritten. That keeps the model free to
-  adapt the document while making the common case consistent and scannable.
+  no section is required and nothing is rewritten. The description names the two
+  headings that do carry behavior — `Steps` is what approval reads as steps, and
+  `Verification` the trailing check — so the model is told the cost of dropping
+  one instead of having the plan refused. The review's baseline is keyed by
+  heading text, so a refinement is asked to keep its headings; a rename reads as
+  an edit, which is the one change the markers cannot tell from a rewrite.
 - **Sections are rendered one at a time.** Pi's `Markdown` exposes no
   source-line map, so `tui.ts` splits the body at its headings and renders each
   section separately. That gives exact offsets for the current-section label and

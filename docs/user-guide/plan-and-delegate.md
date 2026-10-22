@@ -124,11 +124,14 @@ describe precisely.
 - The model is asked to follow a short outline — goal, context, approach, visual,
   steps, risks, verification — with a one-sentence goal, the end state in an
   untagged fence, before and after when the surface already exists, and
-  verification named as commands you could run. It is a guide, not a form: a
-  heading with nothing to say is dropped, and any Markdown is accepted.
+  verification named as commands you could run. It is a guide, not a form:
+  `Context`, `Approach`, `Visual`, and `Risks` are dropped when they have nothing
+  to say, while `Steps` and `Verification` stay, because the steps are read from
+  that section and its check becomes the last todo item; any Markdown is accepted.
   Steps are the top-level `- [ ]` items in the `## Steps` section; nested bullets
   are notes. A plan with more than 50 top-level steps is refused at write time,
-  because approval could not track them all.
+  because approval could not track them all. A refinement keeps its section
+  headings, so the review marks only the sections that changed.
 - While plan mode is on, mutating tools are hidden or refused: file writes,
   edits, most shell commands, worktree mutations, and MCP tools that do not
   declare themselves read-only. `/check` and `/review` refuse until the plan is
