@@ -226,14 +226,16 @@ committed, or started by the triage itself.
 /skill:next session             # triage this conversation's loose ends
 /skill:next @extensions/plan    # the same, narrowed to one path
 /skill:next what is left?       # keep the sources that answer the question
+/skill:next plan file outline @extensions/plan/   # both: the topic and where to look
 ```
 
 Whatever follows the command is the request, and it chooses both the mode and the
-scope. A first word `session` switches to the conversation, a path narrows the
-evidence to that path, and a question keeps only the sources that can answer it;
-the report opens by saying how the prompt was read, so a misreading is visible
-instead of silently trimming the list. With no prompt it is a triage of the
-current project.
+scope. A first word `session` switches to the conversation; the words say what to
+ask, a path says where to look, and the usual form is both, so
+`plan file outline @extensions/plan/` asks what to do next about that outline
+with the plan extension as the only evidence. The report opens by saying how the
+prompt was read, so a misreading is visible instead of silently trimming the
+list. With no prompt it is a triage of the current project.
 
 Triage reads the working tree, the commits since the last tag, the changelog's
 unreleased section, the roadmap or issue list, the plans directory, and the

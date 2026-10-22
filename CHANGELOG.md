@@ -31,9 +31,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   loose work, a broken or unfinished promise, and the command that starts each —
   or from the conversation with `/skill:next session`, and returns a short ranked
   list with evidence. Whatever follows the command is the request, so `session`
-  switches mode, a path narrows the evidence to that path, and a question keeps
-  only the sources that can answer it. It only reads: it edits nothing, commits
-  nothing, and does not start the item it recommends.
+  switches mode, the words say what to ask, a path says where to look —
+  `plan file outline @extensions/plan/` keeps only that extension's evidence —
+  and the report opens by saying how the prompt was read. It only reads: it edits
+  nothing, commits nothing, and does not start the item it recommends.
 
 ### Changed
 

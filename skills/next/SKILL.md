@@ -39,21 +39,31 @@ not have; a project with no roadmap is triaged from git and the check alone.
 
 The host appends the text after the command to these instructions as the request.
 It is `<prompt>` in `/skill:next <prompt>`, and it is the task, read before
-anything else:
+anything else. It carries up to three parts, in any order except `session`:
 
-- **No prompt** — `/skill:next` on its own is triage of the current project.
-- **`session` as the first word** — session mode; the rest of the prompt is
-  context. `/skill:next session what is left?` is session mode, not a filter.
-- **A path** — `@src`, `src`, `packages/api`, or one inside a sentence. Resolve
-  it from the working directory and narrow the evidence to it: its diffs, its
-  plan steps, its roadmap items, its changelog scope. A path that does not exist
-  is reported and asked about, never guessed.
-- **A question or a goal** — "what is left before 0.17?", "what did I leave
-  untested?". Keep only the sources that can answer it, and say which ones you
-  kept. A named release, file, or feature is the filter.
-- **Anything else** — triage the project anyway, and say in one clause how you
-  read the prompt, so a misreading is visible in the report rather than silently
-  narrowing the list.
+```text
+/skill:next [session] [what you want] [@path ...]
+```
+
+- **`session`, first word** — session mode. The rest of the prompt keeps its own
+  meaning: `/skill:next session what is left?` is session mode with a filter, not
+  a filter of `session`.
+- **What you want** — a question, a goal, or a topic: "what is left before
+  0.17?", "what did I leave untested?", "plan file outline". It chooses what the
+  shortlist is about and keeps only the sources that can answer it; say which
+  ones you kept. A named release, file, or feature is the filter.
+- **One or more paths** — `@src`, `src`, `packages/api`, or one inside the
+  sentence. Resolve each from the working directory, and take the evidence from
+  there: that path's diffs, plan steps, roadmap items, and changelog scope. A path
+  that does not exist is reported and asked about, never guessed.
+- **Both** — the usual case. `/skill:next plan file outline @extensions/plan/`
+  asks what to do next about the plan file outline, with `@extensions/plan/` as
+  the evidence, so a roadmap item, a plan step, or a changelog entry outside that
+  path is not a candidate.
+- **No prompt** — triage of the current project.
+- **Anything unreadable** — triage anyway, and say in one clause how you read the
+  prompt, so a misreading is visible in the report rather than silently narrowing
+  the list.
 
 Then pick the mode:
 
