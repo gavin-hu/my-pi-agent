@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1200" />
+		<title>plan → execute — @gavin-hu/my-pi-agent</title>
+		<link rel="stylesheet" href="./plan-flow.css" />
+	</head>
+	<body>
+		<main class="card">
+			<div class="brand">
+				<span><span class="brand__chip">@gavin-hu/my-pi-agent</span> · plan</span>
+				<span class="brand__state">≡ plan</span>
+			</div>
+
+			<h1 class="title title--compact">plan → execute <span class="title__zh">先规划，再执行</span></h1>
+
+			<svg
+				class="diagram"
+				viewBox="0 0 1104 406"
+				role="img"
+				aria-label="The plan-then-execute flow: ask, explore, and write a plan file inside the read-only lane; a human review gate; then execution with a todo list inside the write lane. Refine loops back to the plan file, and keeping the plan loops back to explore."
+			>
+				<defs>
+					<marker
+						id="tip"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+					<marker
+						id="tip-go"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip tip--go" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+					<marker
+						id="tip-loop"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip tip--loop" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+				</defs>
+
+				<!-- The two lanes: nothing outside the plan file is writable before approval. -->
+				<rect class="lane" x="0" y="46" width="678" height="246" rx="16" />
+				<rect class="lane lane--write" x="786" y="46" width="318" height="246" rx="16" />
+				<text class="lane-label" x="2" y="30">read-only · 只读</text>
+				<text class="lane-label lane-label--write" x="788" y="30">write · 写入</text>
+
+				<!-- ① ask -->
+				<rect class="node" x="66" y="138" width="60" height="60" rx="13" />
+				<path class="glyph glyph--accent" d="M84,157 L94,168 L84,179 M100,183 L112,183" />
+				<text class="label" x="96" y="238">ask</text>
+				<text class="label label--zh" x="96" y="264">发起</text>
+
+				<!-- ② explore -->
+				<circle class="node" cx="282" cy="164" r="30" />
+				<circle class="glyph" cx="278" cy="160" r="12" />
+				<path class="glyph" d="M287,169 L298,180" />
+				<text class="label" x="282" y="238">explore</text>
+				<text class="label label--zh" x="282" y="264">探索</text>
+
+				<!-- ③ the plan file -->
+				<rect class="node" x="438" y="138" width="60" height="60" rx="13" />
+				<path class="glyph" d="M452,154 H470 L484,168 V182 H452 Z M470,154 V168 H484" />
+				<path class="glyph" d="M458,173 H478 M458,179 H472" />
+				<rect class="only-write" x="404" y="100" width="128" height="22" rx="11" />
+				<text class="only-write-text" x="468" y="115">only write · 唯一写入</text>
+				<text class="label" x="468" y="238">plan file</text>
+				<text class="label label--zh" x="468" y="264">计划文件</text>
+
+				<!-- ④ the human gate -->
+				<polygon class="gate" points="732,90 786,168 732,246 678,168" />
+				<circle class="gate-mark" cx="732" cy="158" r="10" />
+				<path class="gate-mark" d="M727,153 Q732,147 737,153 Q737,158 732,161 V165" />
+				<text class="label" x="732" y="187">review</text>
+				<text class="label label--zh" x="732" y="207">审阅</text>
+
+				<!-- ⑤ execute -->
+				<circle class="node" cx="950" cy="168" r="30" />
+				<path class="glyph glyph--success" d="M936,168 L946,179 L965,157" />
+
+				<!-- the checklist the approval seeds -->
+				<rect class="node" x="1014" y="143" width="14" height="14" rx="4" />
+				<path class="glyph glyph--success" d="M1017,150 L1020,153 L1025,147" />
+				<rect class="node" x="1014" y="168" width="14" height="14" rx="4" />
+				<path class="glyph glyph--success" d="M1017,175 L1020,178 L1025,172" />
+				<rect class="node" x="1014" y="193" width="14" height="14" rx="4" />
+				<path class="glyph" d="M1034,150 H1078 M1034,175 H1070 M1034,200 H1062" />
+				<text class="label" x="950" y="238">execute</text>
+				<text class="label label--zh" x="950" y="264">执行</text>
+
+				<!-- the spine -->
+				<line class="edge" x1="132" y1="168" x2="240" y2="168" marker-end="url(#tip)" />
+				<line class="edge" x1="318" y1="168" x2="426" y2="168" marker-end="url(#tip)" />
+				<line class="edge" x1="504" y1="168" x2="666" y2="168" marker-end="url(#tip)" />
+				<line
+					class="edge edge--go"
+					x1="792"
+					y1="168"
+					x2="908"
+					y2="168"
+					marker-end="url(#tip-go)"
+				/>
+				<text class="edge-label edge-label--go" x="862" y="145">approve 批准</text>
+
+				<!-- the two exits from the gate -->
+				<path class="edge edge--loop" d="M732,246 L732,268" />
+				<path
+					class="edge edge--loop"
+					d="M732,268 C732,340 468,340 468,298"
+					marker-end="url(#tip-loop)"
+				/>
+				<path
+					class="edge edge--loop"
+					d="M732,268 C732,392 282,392 282,298"
+					marker-end="url(#tip-loop)"
+				/>
+				<text class="edge-label edge-label--loop" x="600" y="313">refine 修改</text>
+				<text class="edge-label edge-label--loop" x="507" y="385">keep planning 继续规划</text>
+			</svg>
+
+			<div class="foot">
+				<div>read-only until you approve <span class="foot__zh">· 批准之前只读</span></div>
+				<div class="foot__right">the plan file is the source of truth</div>
+			</div>
+		</main>
+	</body>
+</html>
