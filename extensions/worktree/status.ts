@@ -1,6 +1,11 @@
 /**
  * Worktree status and reporting: labels, summaries, refusal messages, and the
  * override/`list_worktrees` view.
+ *
+ * One snapshot feeds both surfaces: `formatWorktreeStatus` renders it as the text
+ * a tool result or a headless command prints, and `screen.ts` renders the same
+ * rows as the `/worktree` list screen. They read the same git calls, so they
+ * cannot disagree about a worktree.
  */
 
 import { basename } from "node:path";
@@ -8,7 +13,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { realPathOfNearest } from "../../lib/path.ts";
 import { mapConcurrent } from "../../lib/pool.ts";
 import { loadConfig } from "./config.ts";
-import { gapLines, isolationGaps } from "./gaps.ts";
+import { gapLines, type IsolationGap, isolationGaps } from "./gaps.ts";
 import { type CheckoutCheck, defaultBranch, listManagedWorktrees, type ManagedWorktree, repoRoot } from "./git.ts";
 import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
 import { configFor, getActive, getInactiveOverrides, getUnverifiableCommands } from "./runtime.ts";
@@ -62,7 +67,7 @@ export function refusalMessage(check: CheckoutCheck, path: string, cwd: string):
 }
 
 /** Compact marks for one managed worktree in the status list. */
-function statusMarks(status: CheckoutStatus, isCurrent: boolean): string[] {
+export function statusMarks(status: CheckoutStatus, isCurrent: boolean): string[] {
 	const marks: string[] = [];
 	if (isCurrent) marks.push("current");
 	if (status.state === "missing") marks.push("missing");
@@ -75,60 +80,101 @@ function statusMarks(status: CheckoutStatus, isCurrent: boolean): string[] {
 	return marks;
 }
 
-function relativeDay(at: number): string {
+export function relativeDay(at: number): string {
 	const days = Math.floor((Date.now() - at) / 86_400_000);
 	if (days <= 0) return "today";
 	if (days === 1) return "1d ago";
 	return `${days}d ago`;
 }
 
-/** Human-readable status: current worktree, override conflicts, gaps, managed worktrees. */
-export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string> {
-	const current = getActive();
-	const lines: string[] = [];
-	if (current) {
-		lines.push(stateSummary(current));
-		if (current.borrowed) lines.push("  (inherited from the parent session)");
-	} else {
-		lines.push("Not in a worktree.");
-	}
-	const inactive = getInactiveOverrides();
-	if (inactive.length > 0) {
-		lines.push("", `Isolation not active for: ${inactive.join(", ")} (their default implementation is in use).`);
-	}
-	if (current) {
-		// What isolation does not cover, from the same rules `doctor` reports: a gap
-		// the user cannot see is a gap they cannot weigh.
-		const gaps = isolationGaps({
-			platform: process.platform,
-			activeTools: pi.getActiveTools(),
-			config: configFor(current.repoRoot),
-			unverifiableCommands: getUnverifiableCommands(),
-		});
-		const gapBlock = gapLines(gaps);
-		if (gapBlock.length > 0) lines.push("", "Not isolated:", ...gapBlock);
-	}
+/** One managed worktree and what git says about it. */
+export interface ManagedRow {
+	entry: ManagedWorktree;
+	status: CheckoutStatus;
+}
 
-	const root = current?.repoRoot ?? (await repoRoot(pi, ctx.cwd));
+/** Everything both status surfaces report, read once. */
+export interface WorktreeSnapshot {
+	active: WorktreeState | null;
+	/** What isolation does not cover, from the same rules `doctor` reports. */
+	gaps: IsolationGap[];
+	/** Built-in tools with an inactive override. */
+	inactiveOverrides: string[];
+	/** Managed worktrees with their checkout status, in git's order. */
+	managed: ManagedRow[];
+	/** The merge-target branch name, when the repository has a remote. */
+	baseBranch: string | undefined;
+}
+
+/** Read the session's worktree status once, for either surface to render. */
+export async function worktreeSnapshot(pi: ExtensionAPI, ctx: ExtensionContext): Promise<WorktreeSnapshot> {
+	const active = getActive();
+	// A gap the user cannot see is a gap they cannot weigh, so they are computed for
+	// every read rather than cached from session start.
+	const gaps = active
+		? isolationGaps({
+				platform: process.platform,
+				activeTools: pi.getActiveTools(),
+				config: configFor(active.repoRoot),
+				unverifiableCommands: getUnverifiableCommands(),
+			})
+		: [];
+
+	const managed: ManagedRow[] = [];
+	let baseBranch: string | undefined;
+	const root = active?.repoRoot ?? (await repoRoot(pi, ctx.cwd));
 	if (root) {
 		const config = loadConfig(root);
-		const managed = await listManagedWorktrees(pi, root, config);
-		const { registry } = reconcileRegistry(root, config, managed, { persist: false });
-		const baseBranch = await defaultBranch(pi, root);
+		const entries = await listManagedWorktrees(pi, root, config);
+		const { registry } = reconcileRegistry(root, config, entries, { persist: false });
+		baseBranch = await defaultBranch(pi, root);
 		const baseRef = baseBranch ? `origin/${baseBranch}` : undefined;
 		// Keyed by the canonical path the registry stores, so a row's record is one
 		// lookup instead of a scan of every record.
 		const records = new Map(registry.worktrees.map((record) => [record.path, record]));
-		const row = async (entry: ManagedWorktree): Promise<string> => {
+		const row = async (entry: ManagedWorktree): Promise<ManagedRow> => {
 			const path = realPathOfNearest(entry.path);
-			const status = await statusOf(pi, entry, { baseRef, record: records.get(path) });
-			const marks = statusMarks(status, current?.path === entry.path);
-			return `  ${entry.path}  ${entry.branch ?? ""}${marks.length > 0 ? `  [${marks.join(", ")}]` : ""}`.trimEnd();
+			return { entry, status: await statusOf(pi, entry, { baseRef, record: records.get(path) }) };
 		};
 		// Each row is up to four git reads; four at a time keeps the list in the order
 		// git reports while overlapping the waits. `statusOf` passes no `env`, which is
 		// what makes concurrent git calls safe here (see `RunGitOptions.env`).
-		lines.push("", `Managed worktrees (${managed.length}):`, ...(await mapConcurrent(managed, 4, row)));
+		managed.push(...(await mapConcurrent(entries, 4, row)));
+	}
+
+	return { active, gaps, inactiveOverrides: getInactiveOverrides(), managed, baseBranch };
+}
+
+/** Human-readable status: current worktree, override conflicts, gaps, managed worktrees. */
+export function formatWorktreeStatus(snapshot: WorktreeSnapshot): string {
+	const { active, gaps, inactiveOverrides, managed } = snapshot;
+	const lines: string[] = [];
+	if (active) {
+		lines.push(stateSummary(active));
+		if (active.borrowed) lines.push("  (inherited from the parent session)");
+	} else {
+		lines.push("Not in a worktree.");
+	}
+	if (inactiveOverrides.length > 0) {
+		lines.push(
+			"",
+			`Isolation not active for: ${inactiveOverrides.join(", ")} (their default implementation is in use).`,
+		);
+	}
+	const gapBlock = gapLines(gaps);
+	if (gapBlock.length > 0) lines.push("", "Not isolated:", ...gapBlock);
+
+	if (managed.length > 0) {
+		const row = (item: ManagedRow): string => {
+			const marks = statusMarks(item.status, active?.path === item.entry.path);
+			return `  ${item.entry.path}  ${item.entry.branch ?? ""}${marks.length > 0 ? `  [${marks.join(", ")}]` : ""}`.trimEnd();
+		};
+		lines.push("", `Managed worktrees (${managed.length}):`, ...managed.map(row));
 	}
 	return lines.join("\n");
+}
+
+/** Read the status and render it: what the `list_worktrees` tool and a headless `/worktree` print. */
+export async function worktreeStatus(pi: ExtensionAPI, ctx: ExtensionContext): Promise<string> {
+	return formatWorktreeStatus(await worktreeSnapshot(pi, ctx));
 }

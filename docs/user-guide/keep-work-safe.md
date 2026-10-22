@@ -15,7 +15,7 @@ same project fact in every new session.
 |---|---|---|---|
 | A turn changed code you do not want | [Rewind](#undoing-a-turn) | The code, the conversation, or both, as they were before that prompt | Gitignored files are never captured |
 | Keep most of the last turn, discard a file or hunk | [Review](#reviewing-the-last-turn) | Only the files or hunks you select | It does not remove a commit you already made |
-| Uncommitted work must leave your checkout | [A worktree](#working-on-a-branch-safely) | The worktree and any branch holding work, plus the handoff commands | `exit --remove` discards uncommitted changes |
+| Uncommitted work must leave your checkout | [A worktree](#working-on-a-branch-safely) | The worktree and any branch holding work, plus the handoff commands | Choosing Remove at the exit prompt discards uncommitted changes |
 | A fact must survive the session | [Memory](#remembering-between-sessions) | Notes for later sessions | It is not an undo |
 
 A commit that already exists is git history, not a snapshot: rewind and review
@@ -35,6 +35,8 @@ and shell tools resolve paths inside the worktree, including the tools Pi
 provides.
 
 This feature needs `git` on `PATH` and a project folder that git tracks.
+
+<img src="../../assets/worktree.png" alt="The /worktree screen: a Worktrees title rule with a `4 worktrees · 1 dirty · 1 ahead` summary, the current dark-mode row carrying its ahead count, a dirty row, a merged row, and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="100%">
 
 ### When to use it
 
@@ -79,11 +81,16 @@ For a one-file change, a normal turn plus `/review` is usually enough.
 
    | Command | What it does |
    |---|---|
-   | `/worktree` or `/worktree status` | Show the active worktree, isolation gaps, and managed worktrees |
+   | `/worktree` | Open the worktree screen: every managed worktree, its state, and the gaps |
    | `/worktree enter [name]` | Enter a worktree, creating it if needed |
-   | `/worktree exit [--keep\|--remove]` | Leave; `--keep` keeps it, `--remove` removes it without asking and may discard uncommitted changes |
+   | `/worktree exit` | Leave; you are asked whether to keep or remove it |
    | `/worktree prune` | Remove clean, unused worktrees older than seven days |
    | `pi --worktree <name>` | Start Pi already inside a worktree |
+
+   Inside the screen, `j`/`k` or the arrows move, Enter opens a worktree's detail,
+   `e` enters the selected one, `x` exits the active one, `p` prunes, and Esc
+   closes it. With no terminal attached, `/worktree` prints the same facts as
+   text.
 
 ### Good to know
 

@@ -16,6 +16,7 @@ import {
 	lockWorktree,
 	refExists,
 	unlockWorktree,
+	worktreePath,
 	worktreeRemove,
 } from "./git.ts";
 import { handoffLines, type Handoff } from "./handoff.ts";
@@ -163,7 +164,16 @@ export async function exitWorktree(
 		}
 	} else {
 		lines.push(`Kept worktree ${state.path}`);
-		if (state.branch) lines.push(`Re-enter with enter_worktree (path: ${state.path})`);
+		if (state.branch) {
+			// Name entry only reaches a managed worktree; a path the user pointed at is
+			// re-entered through the tool.
+			const label = worktreeLabel(state);
+			lines.push(
+				worktreePath(state.repoRoot, config, label) === state.path
+					? `Re-enter with /worktree enter ${label}`
+					: `Re-enter with enter_worktree (path: ${state.path}); /worktree enter only manages ${config.dir}`,
+			);
+		}
 		touchRecord(state.repoRoot, config, state.path);
 	}
 

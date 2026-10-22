@@ -48,6 +48,7 @@ import { ReviewListComponent } from "../extensions/rewind/review-tui.ts";
 import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
 import { TodoListComponent } from "../extensions/todo/tui.ts";
 import { WatchListComponent } from "../extensions/watch/tui.ts";
+import { WorktreeListComponent } from "../extensions/worktree/screen.ts";
 import { StatusScreenComponent } from "../extensions/wechat/status-screen.ts";
 import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
 import { sleep } from "./poll.ts";
@@ -78,6 +79,7 @@ import {
 	TODOS,
 	WATCHES,
 	WECHAT_VIEW,
+	WORKTREE_SNAPSHOT,
 } from "./screenshot-fixtures/index.ts";
 import { captureChrome, captureScreen, createProfile, deleteProfile } from "./terminal-capture.ts";
 
@@ -274,6 +276,23 @@ export const SCREENS: Record<string, Screen> = {
 				noop,
 				() => rows,
 			).render(width),
+	},
+	worktree: {
+		asset: "worktree",
+		title: "π - my-pi-agent · /worktree",
+		bounds: { left: 80, top: 80, right: 920, bottom: 400 },
+		size: { width: 100, rows: 16 },
+		render: (width, rows) =>
+			new WorktreeListComponent({
+				snapshot: WORKTREE_SNAPSHOT,
+				theme,
+				requestRender: noop,
+				onDone: noop,
+				reload: async () => WORKTREE_SNAPSHOT,
+				prune: async () => "Pruned 1 worktree",
+				readOnly: false,
+				viewportRowsSource: () => rows,
+			}).render(width),
 	},
 	memory: {
 		asset: "memory",

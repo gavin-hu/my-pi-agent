@@ -43,6 +43,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `worktree`: the bare `/worktree` is the worktree screen now — one row per managed
+  worktree with its state (current, dirty, ahead, behind, merged, locked, last
+  used), the active one's base and isolation gaps under the focused row, and a
+  detail pane holding the facts and the handoff command; `j`/`k` or the arrows
+  move, Enter opens the detail, `e` enters the selected worktree, `x` exits the
+  active one, `p` prunes in place, and Esc closes. With no terminal attached it
+  prints the same facts as text, as it did before. `/worktree status` is gone —
+  the bare command is the status — and so are `exit --keep` and `exit --remove`:
+  the prompt already offers keep or remove and `worktree.onExit` sets the
+  default, so a flag could only disagree with one of them. An argument a
+  subcommand does not take prints the usage line instead of being ignored,
+  `enter`/`exit`/`prune` refuse while plan mode is read-only, and the exit of a
+  kept managed worktree names `/worktree enter <name>`, which re-enters it.
 - `plan`: the documented outline now has a `## Visual` section for the end state —
   the same surface before and after in one fence each when the change alters one
   that already exists, one frame when it is new, untagged unless every line is

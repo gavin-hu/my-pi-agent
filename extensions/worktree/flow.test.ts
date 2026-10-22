@@ -535,15 +535,20 @@ describe.skipIf(!runSlowSuites)("/worktree command and completions", () => {
 		}> | null;
 	}
 
-	test("reports not in a worktree for the bare command and status", async () => {
+	test("reports not in a worktree for the bare command outside a terminal", async () => {
 		const { harness } = await withHarness();
 		await harness.command("");
 		expect(harness.ctx.notices.at(-1)).toContain("Not in a worktree.");
-		await harness.command("status");
-		expect(harness.ctx.notices.at(-1)).toContain("Not in a worktree.");
 	});
 
-	test("enters, prunes the current worktree, and exits with --remove", async () => {
+	test("mounts the list screen in a terminal", async () => {
+		const repo = temps.track(await makeRepo("pi-wt-cmd-tui-"));
+		const harness = await bootWorktree(repo, { hasUI: true });
+		await harness.command("");
+		expect(harness.ctx.customCalls).toHaveLength(1);
+	});
+
+	test("enters, prunes the current worktree, and exits", async () => {
 		const { harness, repo } = await withHarness();
 		await harness.command("enter cmd");
 		expect(harness.ctx.notices.at(-1)).toContain("Entered worktree");
@@ -552,7 +557,7 @@ describe.skipIf(!runSlowSuites)("/worktree command and completions", () => {
 		await harness.command("prune");
 		expect(harness.ctx.notices.at(-1)).toContain("current");
 
-		await harness.command("exit --remove");
+		await harness.command("exit");
 		expect(harness.ctx.notices.at(-1)).toContain("Removed worktree");
 		expect(existsSync(managedPath(repo, "cmd"))).toBe(false);
 	});
@@ -569,23 +574,31 @@ describe.skipIf(!runSlowSuites)("/worktree command and completions", () => {
 		expect(notice.message).toMatch(/cancelled/i);
 	});
 
-	test("rejects an unknown subcommand with usage", async () => {
+	test("rejects an unknown or retired subcommand with usage", async () => {
 		const { harness } = await withHarness();
-		await harness.command("bogus");
-		expect(harness.ctx.notices.at(-1)).toContain('Unknown worktree subcommand "bogus"');
-		expect(harness.ctx.notices.at(-1)).toContain("Usage: /worktree");
+		for (const sub of ["bogus", "status"]) {
+			await harness.command(sub);
+			expect(harness.ctx.notices.at(-1)).toContain(`Unknown worktree subcommand "${sub}"`);
+			expect(harness.ctx.notices.at(-1)).toContain("Usage: /worktree");
+		}
 	});
 
-	test("lists and filters subcommands, then completes exit flags", async () => {
+	test("rejects an argument the subcommand does not take", async () => {
 		const { harness } = await withHarness();
-		expect(completions(harness, "")?.map((item) => item.value)).toEqual(["status ", "enter ", "exit ", "prune "]);
+		for (const args of ["exit --remove", "exit --keep", "prune now", "enter one two"]) {
+			await harness.command(args);
+			expect(harness.ctx.notices.at(-1)).toContain("Unexpected argument");
+			expect(harness.ctx.notices.at(-1)).toContain("Usage: /worktree");
+		}
+	});
+
+	test("lists and filters the three subcommands and offers no flags", async () => {
+		const { harness } = await withHarness();
+		expect(completions(harness, "")?.map((item) => item.value)).toEqual(["enter ", "exit ", "prune "]);
 		expect(completions(harness, "e")?.map((item) => item.label)).toEqual(["enter", "exit"]);
-		expect(completions(harness, "exit ")?.map((item) => item.label)).toEqual(["--keep", "--remove"]);
-		expect(completions(harness, "exit --k")?.map((item) => item.label)).toEqual(["--keep"]);
-		expect(completions(harness, "exit ")?.find((item) => item.label === "--remove")?.description).toMatch(
-			/force|discard/i,
-		);
+		expect(completions(harness, "exit ")).toBeNull();
 		expect(completions(harness, "enter ")).toBeNull();
+		expect(completions(harness, "x")).toBeNull();
 	});
 });
 
