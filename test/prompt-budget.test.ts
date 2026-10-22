@@ -7,6 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
+import { nextStepInstruction } from "../extensions/bytefly/next/instruction.ts";
 import { planModeContext, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
 import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/channel.ts";
 import { formatWorktreeSection } from "../extensions/worktree/index.ts";
@@ -23,6 +24,13 @@ const WORKTREE: WorktreeState = {
 };
 
 describe("injected prompt budget", () => {
+	test("the next-steps instruction stays within its ceiling and names the shape", () => {
+		const instruction = nextStepInstruction();
+		expect(instruction.length).toBeLessThanOrEqual(420);
+		expect(instruction).toContain("Next:");
+		expect(instruction).toContain("Omit the block");
+	});
+
 	test("plan mode context stays within its ceiling", () => {
 		const context = planModeContext();
 		expect(context.length).toBeLessThanOrEqual(960);

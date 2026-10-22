@@ -26,6 +26,7 @@ import {
 	normalizeConfig as normalizeDoctorConfig,
 } from "../extensions/bytefly/doctor/config.ts";
 import { DEFAULT_BYTEFLY_CONFIG, normalizeByteflyConfig } from "../extensions/bytefly/footer/price/config.ts";
+import { DEFAULT_SUGGEST_CONFIG, normalizeSuggestConfig } from "../extensions/bytefly/next/config.ts";
 import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../extensions/bytefly/notify/config.ts";
 import { SETTING_ROWS, textError } from "../extensions/bytefly/panel/settings.ts";
 import {
@@ -87,10 +88,19 @@ const SECTIONS: readonly SectionCase[] = [
 		},
 	},
 	{
+		section: "suggest",
+		defaults: DEFAULT_SUGGEST_CONFIG,
+		normalize: (raw) => normalizeSuggestConfig(raw, DEFAULT_SUGGEST_CONFIG),
+		jsonOnly: {},
+	},
+	{
 		section: "notify",
 		defaults: DEFAULT_NOTIFY_CONFIG,
 		normalize: (raw) => normalizeNotifyConfig(raw, DEFAULT_NOTIFY_CONFIG),
-		jsonOnly: { title: "a cosmetic label, set once" },
+		jsonOnly: {
+			title: "a cosmetic label, set once",
+			method: "how a notification is delivered is set once per machine; the Next steps row took its place",
+		},
 	},
 	{
 		section: "doctor",

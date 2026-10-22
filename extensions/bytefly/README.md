@@ -441,6 +441,7 @@ catch-all prices everything).
 | `price` | the footer install (`session_start`, `session_tree`) | the cost total |
 | `notify` | `session_start` | which events are announced, and how |
 | `doctor` | `session_start` | the proactive check |
+| `suggest` | `before_agent_start` | the instruction for the next turn, so the settings row applies immediately |
 
 Nothing watches a file, so an edit applies at the next read — a reload, a new
 session, or a tree change. A malformed document is ignored by every loader and
@@ -579,6 +580,57 @@ and outcome as the width allows.
   minimum duration are tuned in
   [`separator/config.ts`](./separator/config.ts).
 
+## Next steps
+
+After a turn settles the model names two or three things worth doing next, and
+that block is drawn *below* the turn rule in the aside grammar the notice uses:
+
+```
+╌╌╌╌╌╌╌╌╌╌╌╌ turn 14 · 41s · 4 tools ╌╌╌╌╌╌╌╌
+Next
+╎ › Cut the release · ask for v0.17.0
+╎ › Recapture assets/chrome.png at the new version
+╎ › Finish the deferred render-test cleanup
+```
+
+How it works, end to end:
+
+- `before_agent_start` writes one system-prompt section
+  (`nextStepInstruction()`): when a reply leaves the user a choice, end it with a
+  single `Next:` block of two or three one-line actions, commands and paths in
+  backticks, omitted when the turn finished the work. It is a section, not a
+  message or an entry, so nothing is persisted and nothing needs deduping.
+- The model writes that block as the last thing in its reply. `message_end`
+  keeps the run's final assistant text.
+- `agent_settled` runs `parseNextSteps` over it. The match is strict: the marker
+  must be exactly `Next:`, followed only by list lines, as the reply's last block
+  and outside a code fence, with at least two items. A reply that merely mentions
+  "Next:", quotes one in a snippet, or lists one option is left alone.
+- On a match the items are appended as an inert `bytefly-next-steps` entry —
+  excluded from LLM context, so they cost no tokens — and the entry renderer
+  draws them. Because the entry is appended after the separator's, it lands
+  below the turn rule, and because it is a branch entry it survives `/resume`
+  and `/tree`.
+- The reply's own copy is removed by bytefly's Markdown transformer (the one that
+  also draws the `You` nameplate), using the same parse. The strip is
+  render-only: `/copy`, export, and the model's context keep the raw block.
+
+Three decisions are worth knowing:
+
+- **No numbers in the rows.** The model writes `1.`/`2.`/`3.`, but a numbered row
+  in a terminal reads as a key to press and nothing handles one; each row draws
+  `›` instead.
+- **No count in the headline.** `Next` alone — the rows say how many there are.
+- **Rows wrap under the marker rather than clipping**, because a clipped action
+  cannot be acted on. The 80-character instruction is what keeps them short.
+
+`Next steps` in the Settings section is the switch (`suggest.enabled`, default
+on). Off injects no instruction and lifts nothing; a block the model writes
+anyway stays in the reply, unstyled. The section is re-read per turn, so the row
+applies to the next turn rather than the next session. The list is capped at
+three items, and each item at 120 columns; a long reply costs four lines of
+chrome (rule, label, up to three rows).
+
 ## The control center
 
 <img src="../../assets/bytefly.png" alt="The /bytefly control center: the Extensions and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
@@ -665,7 +717,7 @@ Bytefly ────────────────────────
   ◼ Needs input  On
   ◼ Job finished  On
   ◼ Watcher matched  On
-    Delivery method  Auto
+  ◼ Next steps  On
   ◻ Wake when a job finishes  Off
   ◻ Wake on a match  Off
   ◼ Automatic snapshots  On
@@ -692,7 +744,7 @@ Bytefly ────────────────────────
 | Needs input | `notify.needsInput` | Off, On |
 | Job finished | `notify.jobFinished` | Off, On |
 | Watcher matched | `notify.matchFound` | Off, On |
-| Delivery method | `notify.method` | Auto, OSC 777, OSC 99, Windows toast, macOS, Linux |
+| Next steps | `suggest.enabled` | Off, On |
 | Wake when a job finishes | `job.wakeOnFinish` | Off, On |
 | Wake on a match | `watch.wakeOnMatch` | Off, On |
 | Automatic snapshots | `rewind.autoSnapshots` | Off, On |
@@ -1149,6 +1201,7 @@ rather than showing a wrong value.
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the flat settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each stored receipt; `agent_start` opens it, top-level `tool_execution_start`/`tool_execution_end` count tools and failures, and `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn, durationMs, tools, failures, aborted })` in `tui` mode only. The receipt fields are omitted when no `agent_start` was seen, so an older or partially observed entry stays `{ turn }`. |
+| Next steps | `before_agent_start` sets `systemPromptOptions.sections["next-steps"]` from `nextStepInstruction()` while `suggest.enabled` is on; `message_end` keeps the run's last assistant text, and `agent_settled` (skipped when aborted, `tui` only) runs `parseNextSteps` over it and appends `pi.appendEntry("bytefly-next-steps", { items })`, which `registerEntryRenderer` draws below the turn rule. The registration order in `index.ts` — after the separator — is what puts the aside below the rule. The same parse strips the block from the rendered reply through the one Markdown transformer. |
 | Working line | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage` in `tui` mode; before a tool runs the message is `Working… Ns`, and each top-level `tool_execution_start` repaints it as `tool · N tools · Ns` (nested calls carrying `parentToolCallId` are skipped). `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no persisted state; the count lives in the register's closure. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
@@ -1415,7 +1468,8 @@ rather than showing a wrong value.
 
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
 calculation), `message/` (the user-message marker), `notice/` (the shared notice),
-`block/` (the tool-block frame), `separator/`, `working/` (the live
+`block/` (the tool-block frame), `separator/`, `next/` (the model's next-steps
+block, drawn below the turn rule), `working/` (the live
 run line on Pi's working row), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
@@ -1451,7 +1505,12 @@ columns, gauge), so the look follows the active theme.
 | `footer/render/footer.ts` | `StatusBar` component and footer factory. |
 | `message/config.ts` | Nameplate tuning (`MESSAGE_CONFIG`): the label and the rule. |
 | `message/format.ts` | Pure `nameplate` and `styleUserMessage`: the two-row nameplate (label over a full-width rule) and its placement above the message. |
-| `message/register.ts` | Registers the Markdown transformer. |
+| `message/register.ts` | Registers the Markdown transformer (the nameplate, and the next-steps strip). |
+| `next/instruction.ts` | The system-prompt section key and `nextStepInstruction()`: what the model is asked for. |
+| `next/parse.ts` | Pure `parseNextSteps`: the strict last-block match, the item cleanup, and the stripped reply. |
+| `next/component.ts` | Pure `nextStepsLines` and `NextStepsComponent`: the label, the rail-led rows, and the wrap. |
+| `next/config.ts` | The `suggest` section: defaults, normalizer, loader. |
+| `next/register.ts` | Registers the instruction, the settle-time lift, and the entry renderer. |
 | `notice/config.ts` | Notice tuning (`NOTICE_CONFIG`): source/title/detail roles, the severity glyphs and roles, the shared rail roles, and the item cap. |
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline at the margin, the rail-led severity rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type and hands it the rail source. |
