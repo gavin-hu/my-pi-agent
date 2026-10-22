@@ -4,9 +4,8 @@
 helpers. Pi reads the `pi` manifest in `package.json` and loads each extension as
 plain TypeScript, so there is no build step to run one.
 
-This is the machine-facing contract. The reasoning lives in the docs it links; do
-not restate them here. `test/drift.test.ts` holds it to a word budget, so a new
-paragraph replaces one or moves into a guide.
+The reasoning lives in the linked docs; do not restate it. `test/drift.test.ts`
+holds this file to a word budget, so a new paragraph replaces one.
 
 ## Commands
 
@@ -21,7 +20,7 @@ bun run bench:render              # render benchmark, budgeted in docs/developme
 ```
 
 - `bun run check` is the one command a change must pass. Run the test you touched
-  while iterating; run the whole check before you call the task done.
+  while iterating; run the whole check before you call it done.
 - `rewind` and `worktree` create real repositories and skip unless `CI` or
   `PI_SLOW_TESTS=1` is set. Touching either means running them explicitly.
 - A new package-level test also goes into `ROOT_TEST_FILES` in
@@ -33,10 +32,10 @@ bun run bench:render              # render benchmark, budgeted in docs/developme
 
 `main` is protected by convention.
 
-- Start every task in a worktree, before plan mode: planning is read-only and
-  refuses `enter_worktree`. Under Pi, `enter_worktree <name>`; otherwise
+- Start every task in a worktree, before plan mode, which refuses
+  `enter_worktree`. Under Pi, `enter_worktree <name>`; otherwise
   `git worktree add .pi/worktrees/<name> -b worktree-<name>`. It cuts from
-  `origin/main`, so rebase onto `main` right after entering.
+  `origin/main`, so rebase onto `main` right after.
 - Never commit unless the user asks; before `exit_worktree`, ask how to reconcile
   the branch (commit, merge, keep, discard). It reports the commits ahead and the
   merge command for the main checkout.
@@ -62,15 +61,15 @@ plus a GitHub release whose body is that version's changelog section.
   expired — and wait for the environment review.
 - Push the tag with `main`: `git push origin vX.Y.Z main`. A `main`-first push
   races CI's `fetch-depth: 0` checkout and fails `test/release.test.ts`.
-- The `[Unreleased]` bullet lands in the same commit as the change it describes.
-  Read it against `git log <last-tag>..main` before a release.
+- The `[Unreleased]` bullet lands in the same commit as its change; read it
+  against `git log <last-tag>..main` before a release.
 
 ## Invariants
 
 Not caught by types, and easy to get wrong.
 
-- `lib/` is loaded with isolated module caches, so it stays value-only: no
-  module-level state, which `test/structure.test.ts` asserts.
+- `lib/` loads with isolated module caches, so it stays value-only: no
+  module-level state (`test/structure.test.ts`).
 - No extension imports another extension's modules. Shared tool and parameter
   names live in `lib/tool-names.ts`; shared glyphs and status keys in
   `lib/tui/glyphs.ts`.
@@ -95,16 +94,16 @@ Not caught by types, and easy to get wrong.
   `test/naming.test.ts` for a tool name.
 - Adding a packaged skill is a `skills/<name>/SKILL.md` whose frontmatter carries
   `name` and `description`, plus its row in both entry READMEs' skill tables;
-  `test/extension-load.test.ts` holds the manifest and the frontmatter.
+  `test/extension-load.test.ts` holds both.
 
 ## Tool and prompt surface
 
 Every tool declares `annotations.readOnlyHint` and `openWorldHint`, plus
 `destructiveHint` when it mutates; a missing hint defaults to the restrictive
-value. `executionMode: "sequential"` on a tool that mutates session, UI, or
-runtime state. Every registered tool has a `promptSnippet`, and each channel
-keeps its one job instead of restating another. `test/prompt-budget.test.ts`
-holds the always-on ceilings; the rules in full are in
+value. `executionMode: "sequential"` when a tool mutates session, UI, or runtime
+state. Every registered tool has a `promptSnippet`, and no channel restates
+another's job. `test/prompt-budget.test.ts` holds the always-on ceilings; the
+rules are in
 [`docs/development.md#tool-and-prompt-surface`](./docs/development.md#tool-and-prompt-surface).
 
 A tool rename updates `test/naming.test.ts` and the catalog table in both entry
@@ -113,31 +112,39 @@ READMEs; a command rename updates `docs/user-guide/reference.md`.
 ## Code quality
 
 - Do not copy code. A helper two extensions need lives in `lib/`, not in both; a
-  body identical to an existing one is a duplicate, not a variation.
-  `test/shared-helpers.test.ts` fails the second copy by name or body, and
-  `test/drift.test.ts` fails a `lib/` module with no row in `lib/README.md`.
-- Extension code is read far more often than written. One job per module and a
+  body identical to an existing one is a duplicate. `test/shared-helpers.test.ts`
+  fails the second copy by name or body, and `test/drift.test.ts` fails a `lib/`
+  module with no row in `lib/README.md`.
+- Extension code is read far more often than written: one job per module, and a
   name that says it. Past 600 lines a module is named in `LONG_MODULES` in
-  `test/structure.test.ts` with the single responsibility that keeps it whole and
-  its own height, which may only fall: the split costs a few lines at the bar and
-  a rewrite a thousand lines later.
-- `unknown` at a boundary, never `any`. A cast is a claim about a value you did
-  not build, so it names the guarantee it relies on.
+  `test/structure.test.ts` with the responsibility that keeps it whole and its own
+  height, which may only fall.
+- `unknown` at a boundary, never `any`. A cast claims something about a value you
+  did not build, so it names the guarantee it relies on.
 - No dead branch, commented-out code, or comment that restates its line.
   `test/structure.test.ts` fails `TODO` markers, suppression comments, `any`, and
   commented-out statements.
-- TUI surfaces follow Pi's built-in design system and the `lib/tui/` kit;
-  `lib/tui/README.md` is this package's contract. Colors come from a role, text
-  is sanitized at the boundary, and width is terminal columns.
+- TUI surfaces follow Pi's built-in design system and the `lib/tui/` kit, whose
+  `lib/tui/README.md` is the contract. Colors come from a role, text is sanitized
+  at the boundary, and width is terminal columns.
 - Do work once per render rather than per frame, and keep nothing that grows with
   the transcript. `bun run bench:render` measures it.
+
+## UI verification
+
+A surface is verified by rendering it. A terminal frame:
+`bun run scripts/screenshots.ts render <screen>`, or
+`bun run scripts/tool-renderings.ts render <tool> --width 80` for one block; a
+browser page: `bun run screenshot:plan <plan.md>` or `screenshot:file-browse`,
+each driving the shipped page through Playwright. `bun run check` renders every
+screen at three widths, so an overflowing frame fails there. Re-capture an
+`assets/` PNG only when its surface changed; `chrome.png` only in a release.
 
 ## Documentation
 
 - `README.md` is the user front door and `README.zh-CN.md` mirrors it;
-  `test/docs-parity.test.ts` compares shared headings, table rows, and links.
-- `CONTRIBUTING.md` is the human entry point, `docs/` holds the guides, and
-  `AGENTS.md` is this file.
+  `test/docs-parity.test.ts` compares headings, table rows, and links.
+- `CONTRIBUTING.md` is the human entry point and `docs/` holds the guides.
 - An extension's only doc is `extensions/<name>/README.md`, in the section order
   of [`docs/development.md#one-doc-per-extension`](./docs/development.md#one-doc-per-extension);
   there is no `DESIGN.md`.
@@ -145,29 +152,26 @@ READMEs; a command rename updates `docs/user-guide/reference.md`.
   relevant `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/structure.test.ts` resolves them.
-- One doc per audience. Deep per-area contracts live in
+- One doc per audience: per-area contracts live in
   `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`, and
-  `test/README.md`; `docs/development.md#drift-rules` explains the gate lists.
+  `test/README.md`.
 
 ## How to work
 
-- Be short and direct. Answer the question before making edits, and state
-  agreement or disagreement explicitly.
-- Ask before removing functionality that looks intentional, and do not add
-  backward compatibility unless asked.
+- Be short and direct: answer before editing, and state agreement or disagreement.
+- Ask before removing functionality that looks intentional; add no backward
+  compatibility unless asked.
 - If an instruction conflicts with this file, ask before overriding it.
 
 ## Read more
 
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — setup, branch flow, checks, and commit
-  format.
-- [`docs/development.md`](./docs/development.md) — scripts, test tiers, the compat
-  procedure, and the normative release steps.
-- [`docs/architecture.md`](./docs/architecture.md) — the package model, the turn,
-  state, and where new code belongs.
-- [`test/README.md`](./test/README.md) — test tiers, helpers, and determinism
-  rules.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — setup, branch flow, checks, commits.
+- [`docs/development.md`](./docs/development.md) — scripts, test tiers, compat,
+  and the release steps.
+- [`docs/architecture.md`](./docs/architecture.md) — the package model, state, and
+  where code belongs.
+- [`test/README.md`](./test/README.md) — test tiers, helpers, determinism.
 - [`lib/README.md`](./lib/README.md) and [`lib/tui/README.md`](./lib/tui/README.md)
-  — shared helpers and the terminal design system.
+  — shared helpers, the terminal design system.
 - [`extensions/worktree/README.md`](./extensions/worktree/README.md) — the
   worktree flow used above.
