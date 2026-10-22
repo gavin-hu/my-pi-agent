@@ -24,13 +24,15 @@ across `/resume` and `/tree`, and honest where a platform cannot deliver.
   three-OS CI, a shared `lib/tui/` design system, budgeted prompt context, and
   package-level guards that hold the docs, the catalog, the release window, and
   this file to the tree.
-- Recent releases through `0.15.1` cover the plan review browser, CNY/USD
+- Recent releases through `0.16.0` cover the plan review browser, CNY/USD
   pricing, inline text editing and the Theme row in `/bytefly settings`, the
   wider settings catalogue, the config reference, the re-checkable update cache,
-  live status on an open browse page, and faster directory listings and palette
-  search. `0.13.0` added subset rewind, the `wake` desktop alert, `/plan list`,
-  the worktree handoff block, isolation gaps named in the session, one reviewed
-  publish path with provenance, a Pi-compat job, and a long-session benchmark.
+  live status on an open browse page, faster directory listings and palette
+  search, the `/context` report, browse servers that stop themselves, and the
+  `changelog` skill. `0.13.0` added subset rewind, the `wake` desktop alert,
+  `/plan list`, the worktree handoff block, isolation gaps named in the session,
+  one reviewed publish path with provenance, a Pi-compat job, and a
+  long-session benchmark.
 
 ## How items are ordered
 
@@ -79,9 +81,9 @@ closed by work parked in any horizon.
 1. **C1 — Provider rate packs.** Published rates for the major hosted providers,
    each dated, so a non-DeepSeek model whose tariff a table can express is priced
    from a published rate instead of showing no price at all.
-2. **C2 — Control-center breadth.** *Decision first:* whether themes, skills, and
-   prompts belong in the picker or stay with `pi config`; if they do, they need the
-   same health and scope rules as extensions.
+2. **C2 — Control-center breadth.** Skills shipped in the picker with the
+   extension rules; *decision first* on themes and prompts — whether they belong
+   with the picker or stay with `pi config`.
 3. **F1 — Dependency budget.** A check that a new runtime dependency is lazy-loaded
    unless it is needed at registration, so an install stays small.
 
@@ -91,7 +93,7 @@ The first two sit in `Now`; this one is the smallest foundation gap left.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the picker's scope decision is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
+| **Now** (highest priority) | Are the numbers honest? | `C1` and `C2` land: a model whose tariff a table cannot express keeps Pi's recorded cost, and the remaining picker scope decision — themes and prompts — is recorded. The built-in tariff is already dated, and its age is visible in `doctor`. |
 | **Next** (queued) | Does the daily loop feel finished? | Empty: background delegation shipped; the next tier is not yet chosen. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
@@ -257,6 +259,8 @@ runs, an update check, and two themes.
 
 - Bytefly owns the header, footer, turn rule, notices, tool frame, live working
   row, control center, doctor, notify, price, and update check.
+- The control center lists extensions and skills with the same enable checkbox
+  and Global/Project scope, and keeps the curated Settings shortlist beside them.
 - Settings is a flat shortlist of the thirteen preferences a session changes,
   including the Theme row and one edited amount, capped to fit a 24-row
   terminal; every other key is a `bytefly.json` edit.
@@ -268,17 +272,18 @@ runs, an update check, and two themes.
 - Settings cover thirteen scalars only: the tuning numbers and labels that left
   the screen, plus `doctor.skip` (an array), the `rates` table, and `price.peak`
   (a nested object), remain JSON (`bytefly` README).
-- The picker manages only the `extensions` resource type and does not list
-  built-in extensions (`bytefly` README).
+- The picker manages the `extensions` and `skills` resource types; themes and
+  prompts stay with `pi config`, and built-in extensions are not listed
+  (`bytefly` README).
 - The update check has no channel or prerelease preference, and its 24-hour
   cache window is not configurable (`bytefly` README).
 - Only DeepSeek has a built-in rate table (`bytefly` README).
 
 **Now**
 
-Nothing above is a false promise; the picker gap is a scope decision rather than
-a fix, so it is an item rather than a row. The money the chrome reports has one
-gap left:
+Nothing above is a false promise; the remaining picker gap is a scope decision
+rather than a fix, so it is an item rather than a row. The money the chrome
+reports has one gap left:
 
 - **C1 — Provider rate packs.** Add published rates for the major hosted
   providers (Anthropic, OpenAI, Google), each with an effective date; the age
@@ -288,9 +293,12 @@ gap left:
   recorded cost instead of a guessed rate. *Done when* no network is required,
   a model the table cannot express never prices below its recorded cost, and an
   unknown model still shows no invented price.
-- **C2 — Control-center breadth.** *Decision first:* do themes, skills, and
-  prompts belong in the picker or stay with `pi config`? If added, they need the
-  same health and scope rules as extensions.
+- **C2 — Control-center breadth.** Skills shipped with the extension rules —
+  one grouped vertical list, `Space` to toggle, `Tab` and `x` for scope, writing
+  the active scope's `skills` list or a package's `skills` filter — which
+  settles that half. *Decision first for the rest:* do themes and prompts belong
+  in the picker or stay with `pi config`? If added, they need the same scope
+  rules.
 
 **Next**
 
