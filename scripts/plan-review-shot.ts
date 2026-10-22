@@ -18,24 +18,13 @@ import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { type PlanStore, type StoredPlan } from "../extensions/plan/plans.ts";
 import { createPlanWebReview } from "../extensions/plan/web.ts";
-import { captureFullPage, readyWhen } from "./chrome-shot.ts";
 import { parseShotArgs, runCli } from "./cli.ts";
-import { EXPAND_SHELL_EXPRESSION, themeExpression } from "./web-shot.ts";
+import { type PageShotOptions, capturePage } from "./web-shot.ts";
 
 /** CLI options after parsing. */
-export interface ShotOptions {
+export interface ShotOptions extends PageShotOptions {
 	/** Absolute plan path. */
 	plan: string;
-	/** Absolute PNG output path. */
-	out: string;
-	/** CSS viewport width. */
-	width: number;
-	/** Device pixel ratio for a crisp capture. */
-	scale: number;
-	/** Optional forced theme; the page follows the system when absent. */
-	theme?: "light" | "dark";
-	/** How long to wait for the client to render, in milliseconds. */
-	waitMs: number;
 }
 
 /** Parse the command line; throws a message the caller prints as usage. */
@@ -84,16 +73,11 @@ function screenshotStore(plan: StoredPlan): PlanStore {
 }
 
 /** The plan review page needs its blocks and the state chip before capture. */
-function readyExpression(waitMs: number): string {
-	return readyWhen(
-		`(function () {
-			var state = document.getElementById("review-state");
-			return document.querySelectorAll("#plan .bf-block").length > 0 &&
-				!!state && /Connected|Saved|Offline/.test(state.textContent || "");
-		})()`,
-		waitMs,
-	);
-}
+const READY = `(function () {
+	var state = document.getElementById("review-state");
+	return document.querySelectorAll("#plan .bf-block").length > 0 &&
+		!!state && /Connected|Saved|Offline/.test(state.textContent || "");
+})()`;
 
 /** Render one plan and capture it. */
 async function capture(options: ShotOptions): Promise<void> {
@@ -108,17 +92,14 @@ async function capture(options: ShotOptions): Promise<void> {
 	const session = await review.start(process.cwd(), plan, { canApprove: true });
 	if (!session) throw new Error("could not bind the review server");
 	try {
-		await captureFullPage({
+		await capturePage({
 			url: session.url,
-			origin: new URL(session.url).origin,
 			out: options.out,
 			width: options.width,
 			scale: options.scale,
-			before: [
-				...(options.theme ? [{ expression: themeExpression(options.theme) }] : []),
-				{ expression: readyExpression(options.waitMs), awaitPromise: true },
-				{ expression: EXPAND_SHELL_EXPRESSION },
-			],
+			theme: options.theme,
+			waitMs: options.waitMs,
+			ready: READY,
 		});
 	} finally {
 		await session.close();

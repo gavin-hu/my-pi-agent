@@ -10,6 +10,9 @@
  * Value-only: pure functions, no module state.
  */
 
+import { escapeHtml } from "../lib/escape.ts";
+import { pageColors } from "./theme.ts";
+
 /** The style a run of text carries; every field is absent when inherited. */
 export interface AnsiStyle {
 	/** `#rrggbb`, or absent for the inherited colour. */
@@ -59,12 +62,12 @@ const BASIC = [
 ];
 
 /**
- * The captured page's own colours: reverse video swaps a cell's foreground and
- * background, so a run with neither falls back to the page it is drawn on.
- * These match the `body` colours in the gallery's `shell()`.
+ * The captured page's own colours, from the theme the capture draws with:
+ * reverse video swaps a cell's foreground and background, so a run with neither
+ * falls back to the page it is drawn on.
  */
-const PAGE_BACKGROUND = "#0d1117";
-const PAGE_TEXT = "#c9d1d9";
+const PAGE_BACKGROUND = pageColors.background;
+const PAGE_TEXT = pageColors.text;
 
 /** `#rrggbb` from three channels, clamped to a byte. */
 function rgb(red: number | undefined, green: number | undefined, blue: number | undefined): string {
@@ -155,11 +158,6 @@ export function parseAnsi(input: string): AnsiSpan[] {
 	}
 	if (last < text.length) spans.push({ text: text.slice(last), style });
 	return spans.filter((span) => span.text.length > 0);
-}
-
-/** Escape the characters that would break out of a text node. */
-export function escapeHtml(text: string): string {
-	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** The inline `style` value for a run, or `""` when nothing is set. */

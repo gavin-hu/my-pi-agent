@@ -26,26 +26,15 @@ import { DEFAULT_CONFIG } from "../extensions/file-browse/config.ts";
 import { createGitDiff, createGitStatus } from "../extensions/file-browse/git.ts";
 import { encodePath } from "../extensions/file-browse/paths.ts";
 import { createFileServer } from "../extensions/file-browse/server.ts";
-import { captureFullPage, readyWhen } from "./chrome-shot.ts";
 import { parseShotArgs, runCli } from "./cli.ts";
-import { EXPAND_SHELL_EXPRESSION, themeExpression } from "./web-shot.ts";
+import { type PageShotOptions, capturePage } from "./web-shot.ts";
 
 /** CLI options after parsing. */
-export interface ShotOptions {
+export interface ShotOptions extends PageShotOptions {
 	/** Directory to serve; absent builds the fixture project. */
 	root?: string;
 	/** Root-relative file whose page is captured. */
 	file: string;
-	/** Absolute PNG output path. */
-	out: string;
-	/** CSS viewport width. */
-	width: number;
-	/** Device pixel ratio for a crisp capture. */
-	scale: number;
-	/** Optional forced theme; the page follows the system when absent. */
-	theme?: "light" | "dark";
-	/** How long to wait for the client to render, in milliseconds. */
-	waitMs: number;
 }
 
 /** Parse the command line; throws a message the caller prints as usage. */
@@ -216,15 +205,10 @@ function execApi(): Pick<ExtensionAPI, "exec"> {
 }
 
 /** The page is ready once the sidebar and the rendered Markdown are both drawn. */
-function readyExpression(waitMs: number): string {
-	return readyWhen(
-		`(function () {
-			var article = document.querySelector("article.bf-md");
-			return !!document.getElementById("filter") && !!article && (article.textContent || "").trim().length > 0;
-		})()`,
-		waitMs,
-	);
-}
+const READY = `(function () {
+	var article = document.querySelector("article.bf-md");
+	return !!document.getElementById("filter") && !!article && (article.textContent || "").trim().length > 0;
+})()`;
 
 /** Serve one directory and capture one file page. */
 async function capture(options: ShotOptions): Promise<void> {
@@ -238,17 +222,14 @@ async function capture(options: ShotOptions): Promise<void> {
 		diff: createGitDiff(api, root, {}),
 	});
 	try {
-		await captureFullPage({
+		await capturePage({
 			url: new URL(`view/${encodePath(options.file)}`, server.url).toString(),
-			origin: new URL(server.url).origin,
 			out: options.out,
 			width: options.width,
 			scale: options.scale,
-			before: [
-				...(options.theme ? [{ expression: themeExpression(options.theme) }] : []),
-				{ expression: readyExpression(options.waitMs), awaitPromise: true },
-				{ expression: EXPAND_SHELL_EXPRESSION },
-			],
+			theme: options.theme,
+			waitMs: options.waitMs,
+			ready: READY,
 		});
 	} finally {
 		await server.close();

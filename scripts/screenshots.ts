@@ -19,7 +19,7 @@
  * `render <name>` and pipe it to a pager that understands ANSI.
  *
  * The frames and the CLI are here; the fixtures they are drawn around are in
- * `screenshot-fixtures.ts`, and the Terminal.app/AppleScript half is in
+ * `screenshot-fixtures/`, and the Terminal.app/AppleScript half is in
  * `terminal-capture.ts`.
  */
 
@@ -49,10 +49,10 @@ import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
 import { TodoListComponent } from "../extensions/todo/tui.ts";
 import { WatchListComponent } from "../extensions/watch/tui.ts";
 import { StatusScreenComponent } from "../extensions/wechat/status-screen.ts";
-import type { NoticeDetails } from "../lib/notice.ts";
 import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
 import { sleep } from "./poll.ts";
-import { repo, setThemeInstance, theme } from "./theme.ts";
+import { pageColors, repo, setThemeInstance, theme } from "./theme.ts";
+import { TRANSCRIPT_NOTICE } from "./transcript-fixture.ts";
 import { makeDiscovery, makeStore } from "../test/helpers/fixtures/picker.ts";
 import { numberArg } from "./cli.ts";
 import {
@@ -78,7 +78,7 @@ import {
 	TODOS,
 	WATCHES,
 	WECHAT_VIEW,
-} from "./screenshot-fixtures.ts";
+} from "./screenshot-fixtures/index.ts";
 import { captureChrome, captureScreen, createProfile, deleteProfile } from "./terminal-capture.ts";
 
 /** The default Terminal window size in logical points; a screen may ask for its own. */
@@ -407,16 +407,6 @@ const CHROME_SNAPSHOT: StatusSnapshot = {
 	},
 };
 
-/** The notice the preview shows: the shape `job`/`watch` post to the transcript. */
-const CHROME_NOTICE: NoticeDetails = {
-	source: "job",
-	title: "2 background jobs finished",
-	items: [
-		{ label: "j1 build", detail: "exit 0", severity: "ok" },
-		{ label: "j2 test", detail: "exit 1", severity: "bad" },
-	],
-};
-
 /**
  * Draw the transcript body as one frame: the user nameplate, a tool block, a
  * notice, the turn rule, and the two-line footer. No header, so the frame carries
@@ -449,7 +439,7 @@ function renderTranscript(width: number, rows?: number): string[] {
 	);
 	lines.push("");
 
-	lines.push(...new NoticeComponent(CHROME_NOTICE, theme, pad).render(width));
+	lines.push(...new NoticeComponent(TRANSCRIPT_NOTICE, theme, pad).render(width));
 	lines.push("");
 	lines.push(...new SeparatorComponent({ turn: 3, durationMs: 72_000, tools: 7 }, theme, pad).render(width));
 	lines.push("");
@@ -481,7 +471,7 @@ function frame(screen: Screen, width: number, rows: number): string {
 	const lines = screen.render(width, rows);
 	// Reset the terminal palette to the theme, clear, then draw the frame and
 	// hide the cursor so the capture has no stray glyph.
-	const background = "\u001b]11;#0d1117\u0007\u001b]10;#c9d1d9\u0007";
+	const background = `\u001b]11;${pageColors.background}\u0007\u001b]10;${pageColors.text}\u0007`;
 	return `\u001b[2J\u001b[H${background}\u001b]0;${screen.title}\u0007${lines.join("\n")}\u001b[J\u001b[?25l`;
 }
 

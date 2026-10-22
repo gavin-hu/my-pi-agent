@@ -14,7 +14,8 @@
  *   tool-renderings.ts gallery <out.png>        capture the gallery full-page
  *   tool-renderings.ts tools <dir>              one PNG per rendering
  *
- * Fixtures live in `tool-fixtures.ts`; this module is the plumbing.
+ * Fixtures live in `tool-fixtures/`, one module per tool family; this module is
+ * the plumbing.
  */
 
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -50,13 +51,14 @@ import todo from "../extensions/todo/index.ts";
 import watch from "../extensions/watch/index.ts";
 import webAccess from "../extensions/web-access/index.ts";
 import wechat from "../extensions/wechat/index.ts";
-import type { NoticeDetails } from "../lib/notice.ts";
 import { createFakePi } from "../test/helpers/fakes.ts";
-import { ansiLinesToHtml, escapeHtml } from "./ansi-html.ts";
+import { escapeHtml } from "../lib/escape.ts";
+import { ansiLinesToHtml } from "./ansi-html.ts";
 import { captureFullPage } from "./chrome-shot.ts";
 import { numberArg } from "./cli.ts";
-import { setThemeInstance, theme as baseTheme } from "./theme.ts";
-import { FIXTURES, type ToolFixture } from "./tool-fixtures.ts";
+import { setThemeInstance, pageColors, theme as baseTheme } from "./theme.ts";
+import { TRANSCRIPT_NOTICE } from "./transcript-fixture.ts";
+import { FIXTURES, type ToolFixture } from "./tool-fixtures/index.ts";
 
 /**
  * The theme wrapped so the terminal's SGR decorations survive the capture.
@@ -100,16 +102,6 @@ const EXTENSIONS = [
 	wechat,
 ];
 
-/** The notice the transcript entry shows. */
-const NOTICE: NoticeDetails = {
-	source: "job",
-	title: "2 background jobs finished",
-	items: [
-		{ label: "j1 build", detail: "exit 0", severity: "ok" },
-		{ label: "j2 test", detail: "exit 1", severity: "bad" },
-	],
-};
-
 /** Pi's built-in definitions, which carry the built-in renderers. */
 function builtinDefinitions(): Record<string, ToolRenderers> {
 	// Each definition is typed to its own args, which is narrower than the
@@ -141,8 +133,11 @@ function harness(): {
 	return { resolve: (name, base) => resolver(name, base), tools: fake.tools };
 }
 
-/** The render context a top-level tool row gets. */
-function context(fixture: ToolFixture): any {
+/** The render context a top-level tool row gets, as the host types it. */
+type RenderContext = Parameters<NonNullable<ToolRenderers["renderCall"]>>[2];
+
+/** One for `fixture`, with the fields its renderers read. */
+function context(fixture: ToolFixture): RenderContext {
 	return {
 		args: fixture.args ?? {},
 		toolCallId: `call-${fixture.name}`,
@@ -249,7 +244,7 @@ function transcriptLines(name: string, width: number): string[] {
 		lines.push("", theme.fg("text", "Which retry policy should I implement?"), "");
 		return lines;
 	}
-	if (name === "notice") return new NoticeComponent(NOTICE, theme).render(width);
+	if (name === "notice") return new NoticeComponent(TRANSCRIPT_NOTICE, theme).render(width);
 	if (name === "turn-rule") return new SeparatorComponent({ turn: 4, durationMs: 5000, tools: 2 }, theme).render(width);
 	return [];
 }
@@ -297,7 +292,7 @@ function shell(title: string, width: number, body: string): string {
 <html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
 	:root { color-scheme: dark; }
-	body { margin: 0; background: #0d1117; color: #c9d1d9;
+	body { margin: 0; background: ${pageColors.background}; color: ${pageColors.text};
 		font: 13px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 	main { padding: 28px 32px 48px; }
 	h1 { font-size: 15px; margin: 0; color: #58a6ff; }

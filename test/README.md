@@ -160,8 +160,8 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 
 ## Banned patterns (enforced)
 
-`test/structure.test.ts` scans every `*.test.ts` under `extensions/` and `lib/`
-and fails on:
+`test/structure.test.ts` scans every `*.test.ts` under `extensions/`, `lib/`, and
+`scripts/`, and fails on:
 
 - `mock.module(` / `mock.restore(`;
 - `process.env.<NAME> =`, `process.env[NAME] =`, or `delete process.env.*`
@@ -183,9 +183,11 @@ with a stated reason; do not silently widen a regex.
 
 ## Source conventions (enforced)
 
-The same file scans extension and `lib/` **source** (`.ts`, not `.test.ts`), so
-the mechanical half of `AGENTS.md` "Code quality" is a failing test rather than
-a review note. It fails:
+The same file scans extension, `lib/`, and `scripts/` **source** (`.ts`, not
+`.test.ts`), so the mechanical half of `AGENTS.md` "Code quality" is a failing
+test rather than a review note. The capture scripts are unshipped dev tooling, so
+they are in the banned-pattern scan and the line bar but not in the renderer and
+boundary scans. It fails:
 
 - a `TODO` / `FIXME` / `HACK` / `XXX` marker — the work is finished, or it is a
   `ROADMAP.md` item;

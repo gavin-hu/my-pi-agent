@@ -9,14 +9,16 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { homedir } from "node:os";
-import { basename, resolve } from "node:path";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { basename, join, resolve } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ansiLinesToHtml, ansiToHtml, cssFor, parseAnsi } from "./ansi-html.ts";
 import { parseArgs as parseFileBrowseArgs } from "./file-browse-shot.ts";
 import { parseArgs as parsePlanReviewArgs } from "./plan-review-shot.ts";
 import { CHROME_SCREEN, SCREENS } from "./screenshots.ts";
-import { FIXTURES } from "./tool-fixtures.ts";
+import { pageColors, readPageColors, repo } from "./theme.ts";
+import { FIXTURES } from "./tool-fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderings } from "./tool-renderings.ts";
 
 /** Every capturable frame: the named screens plus the whole-chrome preview. */
@@ -315,14 +317,38 @@ describe("parseAnsi", () => {
 	});
 });
 
+describe("page palette", () => {
+	test("resolves the shipped theme's own page and text colours", () => {
+		// Read the JSON raw, not through the resolver: the two exports are a chain of
+		// maps, and a hardcoded role would pass a comparison against itself.
+		const document = JSON.parse(readFileSync(join(repo, "themes", "bytefly-dark.json"), "utf-8")) as {
+			vars: Record<string, string>;
+			export: Record<string, string>;
+		};
+		expect(pageColors).toEqual({
+			background: document.vars[document.export.pageBg],
+			text: document.vars.text,
+		});
+	});
+
+	test("fails loudly when a colour role does not resolve", () => {
+		const file = join(mkdtempSync(join(tmpdir(), "pi-page-colors-")), "dangling.json");
+		writeFileSync(
+			file,
+			JSON.stringify({ vars: { text: "#ffffff" }, colors: { text: "text" }, export: { pageBg: "canvas" } }),
+		);
+		expect(() => readPageColors(file)).toThrow('export.pageBg names "canvas"');
+	});
+});
+
 describe("cssFor", () => {
 	test("is empty for an unstyled run", () => {
 		expect(cssFor({})).toBe("");
 	});
 
 	test("inverse swaps the cell's colours against the page", () => {
-		expect(cssFor({ inverse: true })).toBe("color:#0d1117;background-color:#c9d1d9");
-		expect(cssFor({ inverse: true, fg: "#f85149" })).toBe("color:#0d1117;background-color:#f85149");
+		expect(cssFor({ inverse: true })).toBe(`color:${pageColors.background};background-color:${pageColors.text}`);
+		expect(cssFor({ inverse: true, fg: "#f85149" })).toBe(`color:${pageColors.background};background-color:#f85149`);
 		expect(cssFor({ inverse: true, bg: "#cd0000", fg: "#58a6ff" })).toBe("color:#cd0000;background-color:#58a6ff");
 	});
 });
