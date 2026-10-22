@@ -24,15 +24,17 @@ across `/resume` and `/tree`, and honest where a platform cannot deliver.
   three-OS CI, a shared `lib/tui/` design system, budgeted prompt context, and
   package-level guards that hold the docs, the catalog, the release window, and
   this file to the tree.
-- Recent releases through `0.16.0` cover the plan review browser, CNY/USD
+- Recent releases through `0.17.0` cover the plan review browser, CNY/USD
   pricing, inline text editing and the Theme row in `/bytefly settings`, the
   wider settings catalogue, the config reference, the re-checkable update cache,
   live status on an open browse page, faster directory listings and palette
-  search, the `/context` report, browse servers that stop themselves, and the
-  `changelog` skill. `0.13.0` added subset rewind, the `wake` desktop alert,
-  `/plan list`, the worktree handoff block, isolation gaps named in the session,
-  one reviewed publish path with provenance, a Pi-compat job, and a
-  long-session benchmark.
+  search, the `/context` report, browse servers that stop themselves, the
+  `changelog` skill, the control center's Skills section, the `/worktree` screen
+  and `/plan cancel`, a keyboard-navigable file tree, the browser review's
+  confirmation before it runs, and the model-invoked `next` skill. `0.13.0`
+  added subset rewind, the `wake` desktop alert, `/plan list`, the worktree
+  handoff block, isolation gaps named in the session, one reviewed publish path
+  with provenance, a Pi-compat job, and a long-session benchmark.
 
 ## How items are ordered
 
