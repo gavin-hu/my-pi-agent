@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import type { ExistingTodo } from "../../lib/todo-state.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
@@ -665,8 +665,8 @@ describe("exit_plan_mode", () => {
 		expect(activeTools()).not.toContain(EXIT_TOOL);
 		expect(activeTools()).not.toContain(WRITE_PLAN_TOOL);
 
-		expect(toolCalls).toHaveLength(1);
-		expect(toolCalls[0].name).toBe("todo");
+		// The approval seeds the steps and then records the goal, in that order.
+		expect(toolCalls.map((entry) => entry.name)).toEqual([TODO_TOOL, GOAL_TOOL]);
 		expect(toolCalls[0].args).toEqual({
 			todos: [
 				{ content: "Read the parser", status: "pending" },
@@ -824,7 +824,9 @@ describe("exit_plan_mode", () => {
 		});
 		const result = await call(exit, { plan_path: planPath }, ctx);
 
-		expect(toolCalls).toHaveLength(0);
+		// Nothing to seed, so the todo tool is not called at all; the goal is still
+		// offered, which is a separate write.
+		expect(toolCalls.filter((entry) => entry.name === TODO_TOOL)).toHaveLength(0);
 		expect(result.content[0].text).toContain("already in the todo list");
 	});
 

@@ -14,7 +14,7 @@ import { createPricer } from "../extensions/bytefly/footer/price/price.ts";
 import {
 	cacheHits,
 	deterministic,
-	fitsWidth,
+	everyLineFits,
 	frame,
 	priceConfig,
 	priceRecords,
@@ -63,8 +63,8 @@ describe("long-session frames", () => {
 	});
 
 	test("the width gate rejects an overflowing line", () => {
-		expect(fitsWidth(["x".repeat(81)], 80)).toBe(false);
-		expect(fitsWidth(["x".repeat(80)], 80)).toBe(true);
+		expect(everyLineFits(["x".repeat(81)], 80)).toBe(false);
+		expect(everyLineFits(["x".repeat(80)], 80)).toBe(true);
 	});
 });
 

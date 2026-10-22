@@ -29,6 +29,7 @@ const repo = posix(join(import.meta.dir, ".."));
 const testDir = posix(join(import.meta.dir, "..", "test"));
 const extensionsDir = posix(join(import.meta.dir, "..", "extensions"));
 const libDir = posix(join(import.meta.dir, "..", "lib"));
+const scriptsDir = posix(join(import.meta.dir, "..", "scripts"));
 
 /** A file's text, read once per test run; tests write only under OS temp dirs. */
 const textCache = new Map<string, string>();
@@ -79,6 +80,9 @@ const ROOT_TEST_FILES = new Set([
  */
 const SCANNED_DIRS: string[] = [...dirsOf(extensionsDir).map((name) => join(extensionsDir, name)), libDir];
 
+/** The dirs whose plain source the banned-pattern scan covers: `scripts/` is dev tooling, and shipped nowhere. */
+const SOURCE_DIRS: string[] = [...SCANNED_DIRS, scriptsDir];
+
 /** Files whose violations are accepted with a stated reason. Keep this tiny. */
 const EXEMPT_FILES = new Set<string>([]);
 
@@ -125,9 +129,10 @@ const BANS: Ban[] = [
 ];
 
 /**
- * The same bans, on extension and `lib/` **source** (not `.test.ts`): the half of
- * `AGENTS.md` "Code quality" a line scan can hold. `scripts/` is dev tooling and
- * outside this scan.
+ * The same bans, on extension, `lib/`, and `scripts/` **source** (not `.test.ts`):
+ * the half of `AGENTS.md` "Code quality" a line scan can hold. The capture
+ * scripts are unshipped dev tooling, which is why they are not in `SCANNED_DIRS`
+ * with the renderer and boundary scans, but they are still read as code.
  */
 const SOURCE_BANS: Ban[] = [
 	{
@@ -317,7 +322,7 @@ const LITERAL_EXPAND_KEY = /Ctrl\+O|ctrl\+o/;
 describe("source conventions", () => {
 	test("source avoids the banned patterns", () => {
 		const offenders: string[] = [];
-		for (const dir of SCANNED_DIRS) {
+		for (const dir of SOURCE_DIRS) {
 			for (const file of sourceFiles(dir)) offenders.push(...scanBans(file, SOURCE_BANS));
 		}
 		expect(offenders).toEqual([]);
@@ -343,7 +348,7 @@ describe("source conventions", () => {
 
 	test("a module over the line bar states the responsibility that keeps it whole", () => {
 		const offenders: string[] = [];
-		for (const root of [extensionsDir, libDir]) {
+		for (const root of [extensionsDir, libDir, scriptsDir]) {
 			for (const file of sourceFiles(root)) {
 				const relative = file.slice(repo.length + 1);
 				const lines = lineCount(file);

@@ -77,7 +77,7 @@ const SAME_NAME_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
  */
 const SAME_BODY_EXCEPTIONS: ReadonlyMap<string, string> = new Map([]);
 
-type Surface = "lib" | "extension" | "test";
+type Surface = "lib" | "extension" | "script" | "test";
 
 interface Source {
 	/** Repo-relative, posix-normalized. */
@@ -172,7 +172,9 @@ export function findViolations(
 ): string[] {
 	const declarations = sources.flatMap(declarationsOf);
 	const libDeclarations = declarations.filter((entry) => entry.surface === "lib");
-	const extensionDeclarations = declarations.filter((entry) => entry.surface === "extension");
+	// The consumers: an extension or a capture script. A helper either of them
+	// re-declares is owned by `lib/`, which is where the fix imports from.
+	const copierDeclarations = declarations.filter((entry) => entry.surface !== "lib" && entry.surface !== "test");
 	const libByName = new Map<string, Declaration[]>();
 	for (const declaration of libDeclarations) {
 		const matches = libByName.get(declaration.name) ?? [];
@@ -186,7 +188,7 @@ export function findViolations(
 		alreadyReported.add(`${declaration.path}:${declaration.name}`);
 	};
 
-	for (const declaration of extensionDeclarations) {
+	for (const declaration of copierDeclarations) {
 		const matches = libByName.get(declaration.name);
 		if (matches === undefined || matches.length === 0) continue;
 		if (exceptions.has(`${declaration.path}:${declaration.name}`)) continue;
@@ -198,7 +200,7 @@ export function findViolations(
 	}
 
 	const byBody = new Map<string, Declaration[]>();
-	for (const declaration of [...libDeclarations, ...extensionDeclarations]) {
+	for (const declaration of [...libDeclarations, ...copierDeclarations]) {
 		if (declaration.tokens < MIN_TOKENS) continue;
 		const group = byBody.get(declaration.body) ?? [];
 		group.push(declaration);
@@ -212,12 +214,12 @@ export function findViolations(
 		// variation, and `extensions/` is read far more often than it is written.
 		if (new Set(group.map((entry) => entry.path)).size < 2) continue;
 		const libMatches = group.filter((entry) => entry.surface === "lib");
-		const extensionMatches = group.filter((entry) => entry.surface === "extension");
+		const copierMatches = group.filter((entry) => entry.surface !== "lib" && entry.surface !== "test");
 
 		for (const declaration of group) {
-			// A `lib/` body copied into an extension is reported at the copy: the
-			// library is the owner the fix imports from, not an offender.
-			if (declaration.surface === "lib" && extensionMatches.length > 0) continue;
+			// A `lib/` body copied into an extension or a script is reported at the
+			// copy: the library is the owner the fix imports from, not an offender.
+			if (declaration.surface === "lib" && copierMatches.length > 0) continue;
 			if (alreadyReported.has(`${declaration.path}:${declaration.name}`)) continue;
 			if (SAME_BODY_EXCEPTIONS.has(`${declaration.path}:${declaration.name}`)) continue;
 			const others = group
@@ -226,8 +228,8 @@ export function findViolations(
 				.sort();
 			// A copy of a `lib/` helper is imported instead; anything else needs one
 			// owner, which is `lib/` only when the two sides are separate extensions.
-			const verb = declaration.surface === "extension" && libMatches.length > 0 ? "copies" : "duplicates";
-			const fix = extensionMatches.length > 1 ? "share one helper in lib/" : "share one helper";
+			const verb = declaration.surface !== "lib" && libMatches.length > 0 ? "copies" : "duplicates";
+			const fix = copierMatches.length > 1 ? "share one helper in lib/" : "share one helper";
 			violations.push(
 				`${declaration.path}:${declaration.name} ${verb} ${others.join(", ")} (${declaration.tokens} tokens); ${fix}`,
 			);
@@ -294,18 +296,27 @@ export function findTestHelperCopies(
 	return [...new Set(violations)].sort();
 }
 
+/** Where a source sits: `lib/` owns helpers, and extensions and scripts consume them. */
+function surfaceOf(path: string): Surface {
+	if (path.startsWith("lib/")) return "lib";
+	if (path.startsWith("scripts/")) return "script";
+	return "extension";
+}
+
 function sourceOf(path: string, text: string): Source {
-	return { path, surface: path.startsWith("lib/") ? "lib" : "extension", text };
+	return { path, surface: surfaceOf(path), text };
 }
 
 let repoSourcesCache: Source[] | undefined;
 
-/** Every non-test TypeScript file under `lib/` and `extensions/`. */
+/** Every non-test TypeScript file under `lib/`, `extensions/`, and `scripts/`. */
 function repoSources(): Source[] {
 	if (repoSourcesCache !== undefined) return repoSourcesCache;
-	const files = [...walkFiles(join(repo, "lib")), ...walkFiles(join(repo, "extensions"))].filter(
-		(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
-	);
+	const files = [
+		...walkFiles(join(repo, "lib")),
+		...walkFiles(join(repo, "extensions")),
+		...walkFiles(join(repo, "scripts")),
+	].filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
 	repoSourcesCache = files.map((file) => {
 		const path = relative(repo, file).replaceAll("\\", "/");
 		return sourceOf(path, readFileSync(file, "utf-8"));
@@ -443,6 +454,7 @@ describe("shared-helper guard", () => {
 		// A parser that stopped finding declarations would make the check vacuous.
 		expect(declarations.filter((entry) => entry.surface === "lib").length).toBeGreaterThan(50);
 		expect(declarations.filter((entry) => entry.surface === "extension").length).toBeGreaterThan(100);
+		expect(declarations.filter((entry) => entry.surface === "script").length).toBeGreaterThan(20);
 		expect(findViolations(sources)).toEqual([]);
 	});
 

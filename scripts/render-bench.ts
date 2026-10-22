@@ -85,7 +85,7 @@ export function cacheHits(session: Session, width: number): number {
 }
 
 /** Whether every line fits the width it was rendered at. */
-export function fitsWidth(lines: readonly string[], width: number): boolean {
+export function everyLineFits(lines: readonly string[], width: number): boolean {
 	return lines.every((line) => visibleWidth(line) <= width);
 }
 
@@ -295,7 +295,7 @@ if (import.meta.main) {
 	);
 
 	const unstable = results.filter((result) => !result.stable);
-	const misfit = results.filter((result) => !fitsWidth(frame(session(result.blocks), result.width), result.width));
+	const misfit = results.filter((result) => !everyLineFits(frame(session(result.blocks), result.width), result.width));
 	const unstablePrices = prices.filter((price) => !price.stable);
 	if (unstable.length > 0) {
 		console.error(`\nA frame was not deterministic for: ${unstable.map((r) => `${r.blocks} @${r.width}`).join(", ")}`);

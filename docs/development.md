@@ -29,9 +29,9 @@ repositories.
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/` (macOS only); naming screens captures only those. |
-| `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with headless Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:plan <plan.md>` | Render one plan through the browser review page and capture it as a full-page PNG with headless Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot; set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/tool-renderings.png`) with headless Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. `bun run scripts/tool-renderings.ts list` names them all, `render <name> --width n` prints one block as ANSI on any OS, and `html <out>` writes the page. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:plan <plan.md>` | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot; set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. `bun run scripts/tool-renderings.ts list` names them all, `render <name> --width n` prints one block as ANSI on any OS, and `html <out>` writes the page. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
 
 ## Screenshots
@@ -59,10 +59,13 @@ a hint row would otherwise shoot whatever geometry the window reached.
 `scripts/screenshots.test.ts` renders every entry at three widths and fails when
 a frame leaves the terminal or outgrows its `rows`.
 
-Four assets come from headless Chrome instead of the terminal: the two browser
-pages and the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`). Both
-page captures have a fixture or a fixture project, so a refresh reproduces the
-same examples:
+Four assets come from a headless browser instead of the terminal: the two
+browser pages and the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`).
+`scripts/chrome-shot.ts` drives Playwright against the Chrome the machine already
+has — `PI_CHROME`, else the usual bundles — so a refresh downloads no browser,
+and it sizes the window to the document before capturing, so a page wider than the
+window is photographed at its own layout. Both page captures have a fixture or a
+fixture project, so a refresh reproduces the same examples:
 
 ```bash
 bun run screenshot:plan scripts/fixtures/plan-review.md -o assets/plan-review.png --width 1280 --scale 1 --theme dark
@@ -202,18 +205,19 @@ own task, is review, since no test can tell one from a feature. The gates and th
 lists behind them are a backlog rather than a blessing, and every list is pinned
 to its size so it can only shrink:
 
-- **One body, one owner** is `test/shared-helpers.test.ts`: an extension may not
-  declare a helper `lib/` already exports, and a body identical to one in `lib/`
-  or in any other file is a copy — two extensions, two modules of one extension,
-  and two `lib/` modules all count, and a copied `lib/` body is reported at the
-  copy rather than at the library. The two exception maps carry the reason a
+- **One body, one owner** is `test/shared-helpers.test.ts`: an extension or a
+  capture script may not declare a helper `lib/` already exports, and a body
+  identical to one in `lib/` or in any other file is a copy — two extensions, two
+  modules of one extension, two `lib/` modules, and two `scripts/` modules all
+  count, and a copied `lib/` body is reported at the copy rather than at the
+  library. The two exception maps carry the reason a
   same-name wrapper is legitimate (a different shape, an injected seam), and the
   guard reads declarations through the TypeScript AST, so an annotated arrow or a
   nested helper is in scope. Its map sizes are pinned: a new copy is extracted,
   not excepted.
 - **No module grows** is `LONG_MODULES` in `test/structure.test.ts`: every module
-  past 600 lines carries the one responsibility that keeps it whole and its own
-  height. One added line fails. A height is lowered with the file, deleted once the
+  past 600 lines — under `extensions/`, `lib/`, or `scripts/` — carries the one
+  responsibility that keeps it whole and its own height. One added line fails. A height is lowered with the file, deleted once the
   module fits the bar, and the total (`LONG_MODULE_TOTAL`) may only fall — raising
   either number is the refactor this gate exists to prevent.
 - **One owner per concept** is `test/drift.test.ts`: every `lib/` module needs a

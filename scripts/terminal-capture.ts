@@ -27,7 +27,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { pollUntil, sleep } from "./poll.ts";
 import { repo } from "./theme.ts";
-import { WINDOW_BOUNDS } from "./screenshot-fixtures.ts";
+import { WINDOW_BOUNDS } from "./screenshot-fixtures/index.ts";
 import type { Screen } from "./screenshots.ts";
 
 /** The hero is a real `pi -e .` run, so it gets its own size. */
@@ -237,12 +237,8 @@ function turnComplete(session: string): boolean {
 
 /** Wait for the seeded `pi` turn to finish, then let the TUI settle. */
 async function waitForTurn(session: string, timeoutMs: number): Promise<void> {
-	const deadline = Date.now() + timeoutMs;
-	while (Date.now() < deadline) {
-		if (turnComplete(session)) return;
-		await sleep(250);
-	}
-	throw new Error("Timed out waiting for the hero turn");
+	const done = await pollUntil(() => turnComplete(session) || undefined, { timeoutMs, intervalMs: 250 });
+	if (done === undefined) throw new Error("Timed out waiting for the hero turn");
 }
 
 /**
@@ -359,10 +355,3 @@ export async function captureScreen(name: string, screen: Screen): Promise<void>
 		rmSync(ready, { force: true });
 	}
 }
-
-/**
- * The chrome preview: one frame of the whole chrome, drawn by the shipped
- * components with the shipped theme. `captureChrome()` is the authoritative
- * shot — a real `pi -e .` session — but this frame is what makes the design
- * reviewable on any OS and at any width.
- */
