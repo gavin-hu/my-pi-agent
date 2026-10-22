@@ -110,7 +110,7 @@ export async function enterWorktree(
 	}
 	if (current) {
 		throw new Error(
-			`Already working in a worktree (${worktreeLabel(current)}). Call exit_worktree before entering another.`,
+			`Already working in a worktree (${worktreeLabel(current)}). Run /worktree exit, or call exit_worktree, before entering another.`,
 		);
 	}
 

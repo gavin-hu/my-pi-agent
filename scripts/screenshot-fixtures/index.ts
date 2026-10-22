@@ -31,4 +31,5 @@ export { TODOS } from "./todo.ts";
 export { WATCHES } from "./watch.ts";
 export { WECHAT_ACCOUNT, WECHAT_BRIDGE, WECHAT_VIEW } from "./wechat.ts";
 export { WINDOW_BOUNDS } from "./window.ts";
+export { WORKTREE_SNAPSHOT } from "./worktree.ts";
 export { DEMO_CWD } from "./workspace.ts";

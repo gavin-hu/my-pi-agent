@@ -49,9 +49,9 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 
 | Command | What it does |
 |---|---|
-| `/worktree` or `/worktree status` | Show the active worktree and managed worktrees |
+| `/worktree` | Open the worktree screen: managed worktrees, their state, and their gaps |
 | `/worktree enter [name]` | Enter a worktree, creating it if needed |
-| `/worktree exit [--keep\|--remove]` | Leave the worktree |
+| `/worktree exit` | Leave the worktree; a clean one is removed, one holding work asks |
 | `/worktree prune` | Remove clean worktrees older than seven days |
 | `/rewind` | Open the rewind timeline |
 | `/review` | Review the latest turn's changes and revert files or hunks |
@@ -209,7 +209,7 @@ no longer need it; deleting a settings file restores defaults.
 
 | Action | What is discarded | Recoverable? |
 |---|---|---|
-| `/worktree exit --remove` | Uncommitted changes in that worktree; a clean merged branch may also be deleted | No for the uncommitted changes. Commits on a kept branch survive. |
+| `/worktree exit`, choosing Remove | Uncommitted changes in that worktree; a clean merged branch may also be deleted | No for the uncommitted changes. Commits on a kept branch survive. |
 | `/worktree prune` | Clean, unlocked, non-current worktrees older than `pruneAfterDays` (seven days by default) | Nothing uncommitted was there. A branch is deleted only if merged; otherwise it is kept. |
 | A code restore from `/rewind` | Current working-tree changes | Normally yes: a pre-restore safety snapshot is taken. It needs `safetySnapshot` and room under `max`; a pruned ref is gone. |
 | A revert from `/review` | The selected files or hunks | Yes, by the same batch safety snapshot. |

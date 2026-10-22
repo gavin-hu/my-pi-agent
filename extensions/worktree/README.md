@@ -20,6 +20,31 @@ How the `list_worktrees` call and its result look in the transcript — the call
 
 <img src="../../assets/tools/list_worktrees.png" alt="The list_worktrees tool's call and result, drawn by the generic fallback" width="100%">
 
+## The `/worktree` screen
+
+<img src="../../assets/worktree.png" alt="The /worktree screen: a Worktrees title rule with a `4 worktrees · 1 dirty · 1 ahead` summary, the current dark-mode row carrying its ahead count, a dirty row, a merged row, and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="100%">
+
+`/worktree` on its own opens a list screen: one row per managed worktree with its
+state (current, dirty, ahead, behind, merged, locked, last used), the active
+worktree's base and isolation gaps under the focused row, and a detail pane for
+the selected one. Outside a terminal — print, RPC, JSON — the same facts print as
+text instead, which is also what the model's `list_worktrees` reads.
+
+| Key | |
+|---|---|
+| `j` / `k`, arrows | move |
+| `g` / `G` | first / last row |
+| Enter, `l` | open the selected worktree's detail |
+| `e` | enter the selected worktree |
+| `x` | exit the active worktree |
+| `p` | prune eligible worktrees in place |
+| Esc, `q` | close |
+
+`e` and `x` close the screen before they act, because an exit asks through the
+normal prompt and a prompt cannot open inside a mounted screen. `p` never asks,
+so it prunes without closing and reports the result in the footer. In plan mode
+the screen still opens and every verb refuses with a notice.
+
 ## What it does
 
 - `enter_worktree` creates `<repo>/.pi/worktrees/<name>` on branch
@@ -50,18 +75,21 @@ How the `list_worktrees` call and its result look in the transcript — the call
 
 | | |
 |---|---|
-| `/worktree` | status + list managed worktrees |
+| `/worktree` | the list screen: managed worktrees, the active one, and its gaps |
 | `/worktree enter [name]` | enter a worktree (a name may be a PR/MR reference) |
-| `/worktree exit [--keep\|--remove]` | exit a worktree |
+| `/worktree exit` | exit a worktree |
 | `/worktree prune` | remove clean, unused, old managed worktrees |
 | `--worktree <name>` | enter at session start |
 
-`--remove` forces removal without prompting and may discard uncommitted
-changes; a branch that still holds work is kept. Declining a confirmation
-(entering an outside path, exiting a worktree with work) is reported as normal
-feedback, not an error.
+Exit asks whether to keep or remove, and `worktree.onExit` answers without
+asking: a clean worktree this session created is removed, one holding work or
+entered by path asks, and only a worktree with no work loses its branch. There
+are no flags to disagree with either. Declining a confirmation (entering an
+outside path, exiting a worktree with work) is reported as normal feedback, not
+an error. An argument a subcommand does not take prints the usage line instead of
+being ignored.
 
-`/worktree status` (and `list_worktrees`) reports the active worktree, any
+`list_worktrees` (and a headless `/worktree`) reports the active worktree, any
 override that is not re-rooted, what isolation does not cover, and the managed
 worktrees:
 
@@ -261,7 +289,7 @@ use, falling back to directory mtime for a worktree with no record.
 | Registration | The default export calls `registerWorktree`: root-tool overrides, the `--worktree` flag, lifecycle listeners, model tools, and the `/worktree` command. Nothing long-lived starts at load. |
 | Tools | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` via `registerTool`. All `executionMode: "sequential"`. Annotations: `enter_worktree` destructive + open-world; `exit_worktree`/`prune_worktrees` destructive; `list_worktrees` read-only. No `outputSchema`; structured state is returned in tool-result `details` — `exit_worktree` carries `{ state, removed, handoff }`, where `handoff` is `{ branch, base, ahead, merged }`. |
 | Built-in overrides | `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` are re-registered under the same names with `defaultActive: false`; each spreads the built-in definition and replaces only `execute`. `skipOverrides` is applied at load time. `powershell` is deliberately not overridden: it cannot be re-rooted without a guard, so the `tool_call` handler refuses it (see `guard.blockPowershell`). |
-| Commands | `/worktree` via `registerCommand`, with argument completions for the subcommands and exit flags. |
+| Commands | `/worktree` via `registerCommand`, with argument completions for `enter`, `exit`, and `prune`. The bare command mounts `screen.ts` in a terminal and prints the status text otherwise; `enter`/`exit`/`prune` refuse while plan mode is read-only. |
 | Flags | `--worktree` via `registerFlag`. |
 | Events | `session_start` (bind inherited env, restore or refuse recorded state, read the flag), `session_shutdown` (release the lock, clear status), `before_agent_start` (set the prompt cwd and worktree section), `tool_call` (guard file tools and `bash`, refuse `powershell`, and count a command it lets through unverified). |
 | State | The binding is a custom session entry (`worktree`) written with `pi.appendEntry` and rebuilt from `ctx.sessionManager.getBranch()` on `session_start`. `.pi/worktrees/index.json` is a disposable managed-record cache, reconciled against `git worktree list`. Child processes inherit `PI_WORKTREE_*` env. |
@@ -291,6 +319,11 @@ use, falling back to directory mtime for a worktree with no record.
   provenance and usage in a disposable index. A *Binding* is this session's
   active root, a session entry that drives `getRoot()` and is replayable on the
   branch.
+- **One snapshot, two surfaces.** `worktreeSnapshot` reads the active binding, the
+gaps, and every managed worktree once; `formatWorktreeStatus` renders it as text
+and `screen.ts` renders the same rows as the list. A tool result and the screen
+that disagree about a worktree would be a second source of truth, so there is
+one read and two renderings.
 - **Mutable root in one place.** Pi loads one extension factory per runtime, so
   `runtime.ts` owns the single active worktree, the config cache, and the
   process-environment hook; lifecycle, tools, and commands stay stateless
@@ -327,12 +360,13 @@ use, falling back to directory mtime for a worktree with no record.
 | `enter.ts` / `exit.ts` / `prune.ts` | The lifecycle phases |
 | `handoff.ts` | The `Handoff:` block an exit leaves: the branch's lead, whether the base contains it, and the merge or PR command. |
 | `tools.ts` / `commands.ts` | Model tools / slash commands |
+| `screen.ts` | The `/worktree` list screen: rows, keys, detail pane, and verbs |
 | `root-tools.ts` | Load-time built-in overrides bound to the active root |
 | `git.ts` | Git plumbing (shared runner + read helpers) |
 | `guard.ts` | Path, shell, and git-redirect isolation checks, plus the `powershell` refusal |
 | `gaps.ts` | The isolation gaps a session carries, and how they read (pure) |
 | `include.ts` | `.worktreeinclude` matcher and copy |
-| `config.ts` / `state.ts` / `status.ts` | Config, session entry shape, status text |
+| `config.ts` / `state.ts` / `status.ts` | Config, session entry shape, status text and the shared snapshot |
 | `registry.ts` | Disposable managed-worktree index + derived status |
 
 ## Testing
@@ -344,6 +378,8 @@ bun run test:watch
 ```
 
 The suite covers the pure logic (`include.ts` gitignore matcher, `guard.ts` path
-and command checks, `parsePrReference`) and drives the extension end-to-end
-against real temporary git repositories through a mocked `pi` API: enter/exit,
-isolation guards, borrowed worktrees, prune, and inactive-override reporting.
+and command checks, `parsePrReference`), drives the `/worktree` screen against a
+snapshot (`ui.test.ts`: rows, marks, verbs, and width bounds), and drives the
+extension end-to-end against real temporary git repositories through a mocked
+`pi` API: enter/exit, isolation guards, borrowed worktrees, prune, and
+inactive-override reporting.

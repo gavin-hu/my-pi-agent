@@ -1,22 +1,33 @@
 /**
  * Slash commands for the worktree extension.
  *
- * One `/worktree` command keeps the surface small and discoverable:
- *   /worktree                     status + list managed worktrees
- *   /worktree enter [name]        create or enter a worktree (name may be a PR/MR ref)
- *   /worktree exit [--keep|--remove]
+ * One `/worktree` command keeps the surface small: the bare command is the
+ * worktree screen (the status text when the session is not a terminal), and three
+ * verbs do the lifecycle.
+ *
+ *   /worktree                     the worktree screen
+ *   /worktree enter [name]        create or re-enter a worktree (name may be a PR/MR ref)
+ *   /worktree exit                leave; worktree.onExit and the prompt decide the fate
  *   /worktree prune               remove clean, unused, old managed worktrees
+ *
+ * There are no flags: the exit prompt already offers keep or remove and the
+ * config sets the default, so a flag could only disagree with one of the two.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { messageOf } from "../../lib/errors.ts";
+import { isPlanModeEnabled } from "../../lib/plan-state.ts";
+import { withRailsSuppressed } from "../../lib/rails.ts";
 import {
 	enterWorktree,
 	exitWorktree,
+	formatWorktreeStatus,
 	isWorktreeCancelled,
 	pruneWorktrees,
 	worktreeLabel,
-	worktreeStatus,
+	worktreeSnapshot,
 } from "./lifecycle.ts";
+import { type WorktreeAction, WorktreeListComponent } from "./screen.ts";
 
 interface Completion {
 	value: string;
@@ -25,83 +36,116 @@ interface Completion {
 }
 
 const SUBCOMMANDS: Completion[] = [
-	{ value: "status", label: "status", description: "Show the current worktree and list managed worktrees" },
 	{ value: "enter", label: "enter", description: "Create or enter a worktree: enter [name]" },
-	{ value: "exit", label: "exit", description: "Return to the main checkout: exit [--keep|--remove]" },
+	{ value: "exit", label: "exit", description: "Return to the main checkout" },
 	{ value: "prune", label: "prune", description: "Remove clean, unused managed worktrees older than pruneAfterDays" },
 ];
 
-const EXIT_FLAGS: Completion[] = [
-	{ value: "--keep", label: "--keep", description: "Keep the worktree on exit" },
-	{
-		value: "--remove",
-		label: "--remove",
-		description: "Force removal without prompting (may discard uncommitted changes)",
-	},
-];
+const USAGE = "Usage: /worktree [enter [name]|exit|prune]";
 
-const USAGE = "Usage: /worktree [status|enter [name]|exit [--keep|--remove]|prune]";
+/** Refuse a lifecycle change while plan mode is read-only, as `/check` does. */
+function refuseInPlanMode(ctx: ExtensionContext): boolean {
+	if (!isPlanModeEnabled(ctx.sessionManager.getBranch())) return false;
+	ctx.ui.notify("Plan mode is read-only. Approve the plan before changing worktrees.", "warning");
+	return true;
+}
+
+async function runEnter(pi: ExtensionAPI, ctx: ExtensionContext, name: string | undefined): Promise<void> {
+	if (refuseInPlanMode(ctx)) return;
+	try {
+		const { state } = await enterWorktree(pi, ctx, { name });
+		ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}\n${state.path}`, "info");
+	} catch (error) {
+		if (isWorktreeCancelled(error)) {
+			ctx.ui.notify(messageOf(error), "info");
+			return;
+		}
+		ctx.ui.notify(`Enter failed: ${messageOf(error)}`, "error");
+	}
+}
+
+async function runExit(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+	if (refuseInPlanMode(ctx)) return;
+	try {
+		const result = await exitWorktree(pi, ctx, {});
+		ctx.ui.notify(result.output, "info");
+	} catch (error) {
+		if (isWorktreeCancelled(error)) {
+			ctx.ui.notify(messageOf(error), "info");
+			return;
+		}
+		ctx.ui.notify(`Exit failed: ${messageOf(error)}`, "error");
+	}
+}
+
+async function runPrune(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+	if (refuseInPlanMode(ctx)) return;
+	ctx.ui.notify(await pruneWorktrees(pi, ctx), "info");
+}
+
+/** The bare command: the list screen in a terminal, the status text elsewhere. */
+async function showWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+	const snapshot = await worktreeSnapshot(pi, ctx);
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify(formatWorktreeStatus(snapshot), "info");
+		return;
+	}
+	// The screen closes before an enter or exit runs: both change the session
+	// binding, and `exitWorktree` asks through `ctx.ui.select`, which cannot nest
+	// inside a mounted screen. Prune runs in place, so its verb stays on the screen.
+	const action = await withRailsSuppressed(pi, () =>
+		ctx.ui.custom<WorktreeAction | undefined>((tui, theme, _keybindings, done) => {
+			return new WorktreeListComponent({
+				snapshot,
+				theme,
+				requestRender: () => tui.requestRender(),
+				onDone: (next) => done(next),
+				reload: () => worktreeSnapshot(pi, ctx),
+				prune: () => pruneWorktrees(pi, ctx),
+				readOnly: isPlanModeEnabled(ctx.sessionManager.getBranch()),
+				viewportRowsSource: () => tui.terminal?.rows,
+			});
+		}),
+	);
+	if (!action) return;
+	if (action.kind === "exit") await runExit(pi, ctx);
+	else await runEnter(pi, ctx, action.name);
+}
 
 export function registerCommands(pi: ExtensionAPI): void {
 	pi.registerCommand("worktree", {
-		description: "Manage git worktrees: /worktree [status|enter|exit|prune]",
+		description: "Manage git worktrees: the worktree screen, or enter, exit, and prune",
 		getArgumentCompletions: (prefix) => {
-			const [action = "", argument, ...rest] = prefix.trimStart().split(/\s+/);
-			if (rest.length > 0) return null;
-
-			if (argument === undefined) {
-				const items = SUBCOMMANDS.filter((item) => item.value.startsWith(action));
-				return items.length > 0 ? items.map((item) => ({ ...item, value: `${item.value} ` })) : null;
-			}
-
-			if (action === "exit") {
-				const flags = EXIT_FLAGS.filter((item) => item.value.startsWith(argument));
-				return flags.length > 0 ? flags : null;
-			}
-
-			return null;
+			const text = prefix.trimStart();
+			if (text.includes(" ")) return null;
+			const items = SUBCOMMANDS.filter((item) => item.value.startsWith(text));
+			return items.length > 0 ? items.map((item) => ({ ...item, value: `${item.value} ` })) : null;
 		},
 		handler: async (args, ctx) => {
-			const [sub = "status", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+			const [sub = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+
+			if (sub === "") {
+				await showWorktrees(pi, ctx);
+				return;
+			}
+			// Only `enter` takes an argument. Anything else is a typo, and a typo that
+			// is silently ignored is how a command does something the user did not ask for.
+			const allowed = sub === "enter" ? 1 : 0;
+			if (rest.length > allowed) {
+				ctx.ui.notify(`Unexpected argument "${rest[allowed]}".\n${USAGE}`, "error");
+				return;
+			}
 
 			switch (sub) {
-				case "status":
-					ctx.ui.notify(await worktreeStatus(pi, ctx), "info");
+				case "enter":
+					await runEnter(pi, ctx, rest[0]);
 					return;
-
-				case "enter": {
-					try {
-						const { state } = await enterWorktree(pi, ctx, { name: rest[0] });
-						ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}\n${state.path}`, "info");
-					} catch (error) {
-						if (isWorktreeCancelled(error)) {
-							ctx.ui.notify(error.message, "info");
-							return;
-						}
-						ctx.ui.notify(`Enter failed: ${error instanceof Error ? error.message : String(error)}`, "error");
-					}
+				case "exit":
+					await runExit(pi, ctx);
 					return;
-				}
-
-				case "exit": {
-					const remove = rest.includes("--remove") ? true : rest.includes("--keep") ? false : undefined;
-					try {
-						const result = await exitWorktree(pi, ctx, { remove });
-						ctx.ui.notify(result.output, "info");
-					} catch (error) {
-						if (isWorktreeCancelled(error)) {
-							ctx.ui.notify(error.message, "info");
-							return;
-						}
-						ctx.ui.notify(`Exit failed: ${error instanceof Error ? error.message : String(error)}`, "error");
-					}
-					return;
-				}
-
 				case "prune":
-					ctx.ui.notify(await pruneWorktrees(pi, ctx), "info");
+					await runPrune(pi, ctx);
 					return;
-
 				default:
 					ctx.ui.notify(`Unknown worktree subcommand "${sub}".\n${USAGE}`, "error");
 			}

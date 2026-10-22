@@ -37,7 +37,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	watch: ["runtime", "tools", "ui"],
 	"web-access": ["fetch/fetch", "search/search", "http"],
 	wechat: ["bridge", "client", "commands", "config", "peer", "status", "tools", "extension"],
-	worktree: ["git", "flow"],
+	worktree: ["git", "flow", "ui"],
 };
 
 export const LIB_SUITES: readonly string[] = [
