@@ -61,6 +61,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `file-read`: the ODT parser libraries (`fflate` and `fast-xml-parser`) load on
+  the first ODT read instead of at startup. `formats.ts` imports every extractor
+  when the tool registers, so a module-scope import was paid by every session;
+  `extract/odt.ts` now loads both inside the extractor, the pattern the other four
+  formats already used — and `test/dependencies.test.ts` now enforces it for every
+  runtime dependency.
+
+- `wechat`: the `qrcode` package loads when a login QR is first drawn instead of
+  when the extension registers, so a session that never logs in pays nothing for
+  it.
+
 - `worktree`: the bare `/worktree` is the worktree screen now — one row per managed
   worktree with its state (current, dirty, ahead, behind, merged, locked, last
   used), the active one's base and isolation gaps under the focused row, and a

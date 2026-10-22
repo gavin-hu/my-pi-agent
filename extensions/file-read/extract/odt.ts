@@ -5,11 +5,11 @@
  * unzips it with `fflate`, parses the XML with `fast-xml-parser`, and walks the
  * body for text: paragraphs and headings become lines, table cells are
  * tab-separated, and `text:s` / `text:tab` / `text:line-break` become their
- * whitespace. The walk over the parsed tree is pure and tested directly.
+ * whitespace. Both libraries load on the first ODT read, never at registration,
+ * so a session that never opens one pays nothing for them; the walk over the
+ * parsed tree is pure and tested directly.
  */
 
-import { strFromU8, unzipSync } from "fflate";
-import { XMLParser } from "fast-xml-parser";
 import { normalizeBodyText, readFormatBytes, type FormatExtractor } from "./file.ts";
 
 /** Elements that end a line. */
@@ -68,12 +68,13 @@ function collect(nodes: unknown, out: string[], inText: boolean): void {
 }
 
 /**
- * Extract plain text from the body of an ODT `content.xml`. Pure.
+ * Extract plain text from the body of an ODT `content.xml`.
  *
  * Trailing tabs and spaces at line ends, runs of blank lines, and the final
  * newline are stripped so the tool's paging sees ordinary text.
  */
-export function odtXmlToText(xml: string): string {
+export async function odtXmlToText(xml: string): Promise<string> {
+	const { XMLParser } = await import("fast-xml-parser");
 	const parser = new XMLParser({
 		preserveOrder: true,
 		ignoreAttributes: false,
@@ -94,6 +95,7 @@ export function odtXmlToText(xml: string): string {
 
 /** Extract the body text from an ODT file. */
 export const extractOdtText: FormatExtractor = async (file) => {
+	const { strFromU8, unzipSync } = await import("fflate");
 	const archive = unzipSync(await readFormatBytes(file));
 	const content = archive["content.xml"];
 	if (!content) throw new Error("ODT archive has no content.xml.");

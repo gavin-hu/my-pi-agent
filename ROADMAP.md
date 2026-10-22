@@ -69,7 +69,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C4, F1–F2 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C4, F1–F3 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -81,12 +81,12 @@ closed by work parked in any horizon.
 1. **C1 — Control-center breadth.** Skills shipped in the picker with the
    extension rules; *decision first* on themes and prompts — whether they belong
    with the picker or stay with `pi config`.
-2. **F1 — Dependency budget.** A check that a new runtime dependency is lazy-loaded
-   unless it is needed at registration, so an install stays small.
-3. **C2 — Update channels.** An opt-in prerelease or tagged-channel preference,
+2. **C2 — Update channels.** An opt-in prerelease or tagged-channel preference,
    still with no auto-update.
+3. **F2 — One path canonicalization.** `realPathOfNearest` runs up to five times
+   per managed worktree; canonicalize once and carry the path down.
 
-The first sits in `Now`, and the other two are the smallest foundation gaps left.
+The first sits in `Now`; the other two are the smallest remaining gaps.
 
 ## Horizons
 
@@ -328,18 +328,15 @@ provenance-attested path. This section contributes no `Next` item.
 
 **Later**
 
-- **F1 — Dependency budget.** A check that a new runtime dependency is
-  lazy-loaded unless it is needed at registration, matching the `file-read` and
-  `web-access` pattern.
-- **F2 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
+- **F1 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
-- **F3 — One path canonicalization.** `realPathOfNearest` runs up to five times
+- **F2 — One path canonicalization.** `realPathOfNearest` runs up to five times
   per managed worktree — in `status.ts`, twice inside `registry.ts`, and once in
   `worktree/git.ts` — each a sync ancestor walk to answer a question the layer
   above already answered. Canonicalize once and carry the path down, which means
   changing what `listManagedWorktrees` and `statusOf` take. Deferred from the
   performance pass because the contract change is wider than the saving.
-- **F4 — Split the browse listing out of `files.ts`.** At 564 of the 600-line
+- **F3 — Split the browse listing out of `files.ts`.** At 564 of the 600-line
   bar, `extensions/file-browse/files.ts` still holds classification, Markdown
   detection, text reads, listings, and the sidebar tree. The split is a
   behaviour-neutral move of the listing half into its own module; it is deferred
@@ -436,5 +433,5 @@ These stay out unless a roadmap item says otherwise:
 - Renumbering an item means grepping the Promise ledger, the three-things list,
   and the section intros; `test/roadmap.test.ts` fails on a dangling ID or a
   bucket over the cap.
-- Small, self-contained first tasks: the dependency budget (`F1`), and the SBOM
-  (`F2`) once a consumer asks for one.
+- Small, self-contained first tasks: the SBOM (`F1`) once a consumer asks for
+  one, and the path canonicalization (`F2`).

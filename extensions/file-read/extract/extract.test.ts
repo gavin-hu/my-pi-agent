@@ -111,30 +111,30 @@ describe("legacy DOC", () => {
 });
 
 describe("ODT text builder", () => {
-	test("turns paragraphs into lines", () => {
-		expect(odtXmlToText(odtContent("<text:p>Alpha</text:p><text:p>Beta</text:p>"))).toBe("Alpha\nBeta");
+	test("turns paragraphs into lines", async () => {
+		expect(await odtXmlToText(odtContent("<text:p>Alpha</text:p><text:p>Beta</text:p>"))).toBe("Alpha\nBeta");
 	});
 
-	test("turns headings and spans into text", () => {
-		expect(odtXmlToText(odtContent("<text:h>Title</text:h><text:p>a<text:span>b</text:span>c</text:p>"))).toBe(
+	test("turns headings and spans into text", async () => {
+		expect(await odtXmlToText(odtContent("<text:h>Title</text:h><text:p>a<text:span>b</text:span>c</text:p>"))).toBe(
 			"Title\nabc",
 		);
 	});
 
-	test("separates table cells with tabs and rows with newlines", () => {
+	test("separates table cells with tabs and rows with newlines", async () => {
 		const body =
 			"<table:table><table:table-row><table:table-cell>a</table:table-cell><table:table-cell>b</table:table-cell></table:table-row><table:table-row><table:table-cell>1</table:table-cell><table:table-cell>2</table:table-cell></table:table-row></table:table>";
-		expect(odtXmlToText(odtContent(body))).toBe("a\tb\n1\t2");
+		expect(await odtXmlToText(odtContent(body))).toBe("a\tb\n1\t2");
 	});
 
-	test("expands a text:s run and a tab", () => {
-		expect(odtXmlToText(odtContent('<text:p>a<text:s text:c="3"/>b<text:tab/>c</text:p>'))).toBe(
+	test("expands a text:s run and a tab", async () => {
+		expect(await odtXmlToText(odtContent('<text:p>a<text:s text:c="3"/>b<text:tab/>c</text:p>'))).toBe(
 			`a${" ".repeat(3)}b\tc`,
 		);
 	});
 
-	test("turns a line break into a newline", () => {
-		expect(odtXmlToText(odtContent("<text:p>a<text:line-break/>b</text:p>"))).toBe("a\nb");
+	test("turns a line break into a newline", async () => {
+		expect(await odtXmlToText(odtContent("<text:p>a<text:line-break/>b</text:p>"))).toBe("a\nb");
 	});
 });
 

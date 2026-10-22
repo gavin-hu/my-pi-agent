@@ -56,7 +56,8 @@ gate is stated in the test.
    `test/tool-render.test.ts`, `test/roadmap.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
-   `test/config-docs.test.ts`, `test/settings-coverage.test.ts`) — cross-cutting
+   `test/config-docs.test.ts`, `test/settings-coverage.test.ts`,
+   `test/dependencies.test.ts`) — cross-cutting
    contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
    fails an extension that reimplements what `lib/` owns, by name or by body, and
    a test that re-declares or copies a `test/helpers` export, and pins its
@@ -70,6 +71,11 @@ gate is stated in the test.
    a renderer that rebuilds its lines every frame is correct but slow. The
    states it covers are the ones a row really renders: streaming arguments, a
    settled call, and a collapsed, expanded, or partial result.
+   `dependencies.test.ts` walks each extension entrypoint's static import graph
+   through the TypeScript AST and fails when one of `package.json`'s
+   `dependencies` loads at registration; a dynamic `import()` ends the walk,
+   because deferring the load is the fix, and an exception names its reason in
+   the file.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
    the tag is present; the tag assertion is skipped in a clone that has none.

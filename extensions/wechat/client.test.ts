@@ -578,15 +578,15 @@ describe("login screen", () => {
 });
 
 describe("QR terminal lines", () => {
-	test("returns equal-width lines sized to the matrix plus the quiet zone", () => {
-		const lines = qrLines("hello", { quiet: 2 });
-		const width = qrMatrix("hello").size + 4;
+	test("returns equal-width lines sized to the matrix plus the quiet zone", async () => {
+		const lines = await qrLines("hello", { quiet: 2 });
+		const width = (await qrMatrix("hello")).size + 4;
 		expect(lines.length).toBeGreaterThan(0);
 		for (const line of lines) expect(line.length).toBe(width);
 	});
 
-	test("uses only half-block and space characters", () => {
-		for (const line of qrLines("https://example.com/login")) {
+	test("uses only half-block and space characters", async () => {
+		for (const line of await qrLines("https://example.com/login")) {
 			expect(/^[█▀▄ ]*$/.test(line)).toBe(true);
 		}
 	});

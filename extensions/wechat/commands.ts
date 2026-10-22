@@ -292,7 +292,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		return;
 	}
 
-	const state: LoginViewState = { status: "wait", lines: qrLines(qr.imgContent), url: qr.imgContent };
+	const state: LoginViewState = { status: "wait", lines: await qrLines(qr.imgContent), url: qr.imgContent };
 	const result = await ctx.ui.custom<LoginOutcome | undefined>((tui, theme, _keybindings, done) => {
 		const controller = new AbortController();
 		void (async () => {
