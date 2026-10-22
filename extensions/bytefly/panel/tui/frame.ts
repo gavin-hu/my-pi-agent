@@ -19,6 +19,7 @@ import {
 import { clip, fitCells, splitRow } from "../../../../lib/tui/columns.ts";
 import { fitRows, formatRange, type ListCursor } from "../../../../lib/tui/cursor.ts";
 import { BODY_INDENT } from "../../../../lib/tui/indent.ts";
+import { emptyState } from "../../../../lib/tui/rows.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
 import { sectionSegments, type SummarySegment } from "../format.ts";
 import type { PanelSection } from "../types.ts";
@@ -26,7 +27,7 @@ import { selectableRange, type PanelEntry } from "./entries.ts";
 
 /** Body rows when the terminal height is unknown. */
 export const SCREEN_DEFAULT_ROWS = 16;
-/** Fixed rows around the body: header, summary, blank, blank, hint, blank. */
+/** Fixed rows around the body: header, summary, blank, blank, hint, closing rule. */
 export const FRAME_ROWS = 6;
 /** Detail rows reserved for the focused row: its head, one description line, and its origin. */
 export const DETAIL_ROWS = 3;
@@ -142,6 +143,8 @@ export interface PanelFrameInput {
 	note?: string;
 	detail: string[];
 	hint: string;
+	/** The line a section shows in place of its body when it has no entries. */
+	emptyLabel?: string;
 	draw: (entry: PanelEntry, index: number) => string | undefined;
 }
 
@@ -164,6 +167,9 @@ export function panelFrame(input: PanelFrameInput): { lines: string[]; noteShown
 
 	const body: string[] = [];
 	if (note) body.push(note);
+	if (entries.length === 0 && input.emptyLabel !== undefined) {
+		body.push(...emptyState(theme, width, { label: input.emptyLabel }));
+	}
 	for (let index = start; index < end; index += 1) {
 		const line = draw(entries[index], index);
 		if (line !== undefined) body.push(line);
@@ -175,6 +181,8 @@ export function panelFrame(input: PanelFrameInput): { lines: string[]; noteShown
 	const fitted = fitOptionalLines({ viewportRows, body, note, range, detail });
 	return {
 		lines: dockListFrame({
+			theme,
+			width,
 			header: input.header,
 			summary: input.summary,
 			body: fitted.body,

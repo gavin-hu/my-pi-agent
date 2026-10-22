@@ -79,6 +79,8 @@ export class RewindListComponent implements Component {
 
 		if (this.points.length === 0) {
 			return dockListFrame({
+				theme: this.theme,
+				width: w,
 				header,
 				body: emptyState(this.theme, w, { label: "No prompts on this branch yet." }),
 				hint: this.hint(w),
@@ -122,6 +124,8 @@ export class RewindListComponent implements Component {
 		}
 
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header,
 			summary: clip(`  ${paint(this.theme, "meta", `${count}${SEPARATORS.item}newest first`)}`, w),
 			body,

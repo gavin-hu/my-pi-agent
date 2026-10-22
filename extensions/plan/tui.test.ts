@@ -333,7 +333,7 @@ describe("plan review sections", () => {
 		index % 12 === 0 ? `## Section ${index / 12}` : `line ${index}`,
 	).join("\n");
 
-	/** The scroll row, one above the hint row and the trailing blank. */
+	/** The scroll row, one above the hint row and the closing rule. */
 	const scrollLine = (component: PlanViewComponent): string => render(component, 80).at(-3) ?? "";
 
 	test("shows the current section and jumps to the next and previous", () => {
@@ -470,7 +470,7 @@ describe("plan review changed sections", () => {
 	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
 	const after = ["# Plan", "## Goal", "Ship it well.", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
 
-	/** The scroll row, one above the hint row and the trailing blank. */
+	/** The scroll row, one above the hint row and the closing rule. */
 	const scrollLine = (component: PlanViewComponent): string => render(component, 80).at(-3) ?? "";
 
 	test("summarizes the sections that changed", () => {

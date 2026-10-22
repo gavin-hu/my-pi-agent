@@ -25,7 +25,7 @@ import type { PlanSummary } from "./plans.ts";
 
 /** Rows the screen shows when the terminal height is unknown. */
 const DEFAULT_ROWS = 14;
-/** Fixed rows around the list: header, summary, blank, range, detail, hint, blank. */
+/** Fixed rows around the list: header, summary, blank, range, detail, hint, closing rule. */
 const CHROME = 7;
 /** Longest title a row draws before the trailing meta wins the column. */
 const TITLE_WIDTH = 56;
@@ -221,6 +221,8 @@ export class PlanIndexComponent implements Component {
 				: screenHint(theme, w, ["Esc close", { text: "Enter review", color: "accent" }, "r reload", "↑/↓", "g/G"]);
 
 		return dockListFrame({
+			theme,
+			width: w,
 			header: titleRule(theme, w, "Plan index"),
 			summary: this.summaryLine(w),
 			body,

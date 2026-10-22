@@ -28,7 +28,7 @@ import { SELECTION_MARKS, type PathChange, type ReviewEntry } from "./paths.ts";
 
 /** Rows a diff screen shows when the terminal height is unknown. */
 const DIFF_DEFAULT_ITEMS = 20;
-/** Header, summary, blank, blank, hint, and blank rows around the diff. */
+/** Header, summary, blank, blank, hint, and closing-rule rows around the diff. */
 const DIFF_CHROME_ROWS = 6;
 
 /** Lines one wheel notch moves in the diff pane. */
@@ -294,6 +294,8 @@ export class ReviewDiffComponent implements Component {
 		if (body.length === 0) body.push(...emptyState(this.theme, w, { label: "No textual diff." }));
 
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header,
 			summary,
 			body,

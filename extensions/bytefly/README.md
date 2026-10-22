@@ -589,9 +589,10 @@ per extension: the picker's enable checkbox and label, then one verdict — `off
 when the row is switched off in settings, `env disabled` when
 `PI_DISABLED_EXTENSIONS` excludes it, otherwise the doctor's worst-severity
 glyph and summary. The screen is drawn from the design system: a label-first
-`bytefly ────` title rule,
+`Bytefly ────` title rule,
 the `Extensions · Settings` section bar beside the section's counts, one row
-grammar (`❯ ◼ name … summary`), and the shared `◼` / `◻` checkbox.
+grammar (`❯ ◼ name … summary`), the shared `◼` / `◻` checkbox, and the closing
+rule under the key hints that Pi's own list screens draw.
 `/bytefly doctor [extension] [refresh]` selects the doctor report, the same text
 the `run_doctor` tool returns; in `tui` it opens the same screen. `[extension]`
 narrows the Extensions section to one extension and `refresh` forces the first
@@ -651,7 +652,7 @@ headings. The whole list fits a 24-row terminal, and the frame stops growing
 there however tall the terminal is.
 
 ```
-bytefly ──────────────────────────────────────────────────────────────
+Bytefly ──────────────────────────────────────────────────────────────
   Extensions · Settings                           Global · 14 settings
 
 ❯ ◻ Bytefly startup TUI  Off
@@ -674,6 +675,7 @@ bytefly ────────────────────────
   Default · ~/.pi/agent/settings.json
 
   Esc close · ←/→ · Space change · Tab scope · u reset · J JSON · ↑/↓ select
+──────────────────────────────────────────────────────────────────────
 ```
 
 <img src="../../assets/bytefly-settings.png" alt="The /bytefly Settings section: one flat list of fourteen preferences with each value beside its label, the `Global · 14 settings` counts, and a three-row detail pane naming the focused row's source, description, and file" width="100%">

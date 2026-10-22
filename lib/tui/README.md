@@ -35,17 +35,24 @@ Reach for a `lib/tui/` primitive before composing your own: `plainRule` /
 `fitCells` for two columns, `LinePane` for a scrollable log, `ListCursor` /
 `IdCursor` for selection, `byRunningFirst` for a live list's order,
 `DockListScreen` for a list that opens a pane, `TailResult` for a tool result
-that lists rows or tails output, and `ConfirmState` before a destructive action.
+that lists rows or tails output, `screenFooter` for a screen's own last three
+rows, and `ConfirmState` before a destructive action.
 
 ## Docked list screens
 
 Every list screen is `dockListFrame`: the header rule, an optional summary and
-its blank line, the body, an optional range row, an optional detail block, and
-the blank-padded hint. The frame owns that spacing, so a screen never hand-rolls
-it — including the blank line above the detail block, which keeps a footnote
-from reading as one more row. A screen that sizes its body through `fitRows`
-counts the block with `detailBlockRows`, or the hint row is pushed off the
-bottom of a short terminal.
+its blank line, the body, an optional range row, an optional detail block, the
+key-hint row, and the closing rule. The frame owns that spacing, so a screen
+never hand-rolls it — including the blank line above the detail block, which
+keeps a footnote from reading as one more row. A screen that sizes its body
+through `fitRows` counts the block with `detailBlockRows`, or the hint row is
+pushed off the bottom of a short terminal.
+
+The closing rule is not decoration: Pi's built-in selectors draw one under the
+list and over the footer, and the editor a docked screen replaces draws its own,
+so a screen that ends on a blank removes the dock's bottom edge. A screen that
+lays out its own rows closes its block with `screenFooter(theme, width, hint)`;
+a screen whose row above the hint varies places `plainRule` itself.
 
 A list that **opens a pane over one row** — `/jobs`, `/watch`, `/agents`,
 `/check` — subclasses [`dock-screen.ts`](./dock-screen.ts) instead of
@@ -92,7 +99,8 @@ Resolve colors through a [`tokens.ts`](./tokens.ts) role
 (`paint(theme, role, text)`), never a literal ANSI sequence, hex value, or Pi
 token named inline; a theme swap must re-skin every surface. Use the shared
 `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead of retyping
-their literals, and `screenHint` / Pi's `keyHint` for the hint row.
+their literals, `screenHint` / Pi's `keyHint` for the hint row, and
+`screenFooter` for the hint row with its blank and closing rule.
 
 A list accents the focused row's label (`labelRole: selected ? "accent" :
 "label"`); the `❯` marker alone is not enough to tell which row is live. The

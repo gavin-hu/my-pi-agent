@@ -8,9 +8,9 @@
  * the transcript visible.
  *
  * Screens are full-width, terminal-height-aware components. These helpers build
- * the top rule, clamp a screen's body to the terminal, and render the key-hint
- * footer, so each screen keeps its own layout but not its own copy of the
- * arithmetic or hint vocabulary.
+ * the top rule and the closing rule, clamp a screen's body to the terminal, and
+ * render the key-hint footer, so each screen keeps its own layout but not its
+ * own copy of the arithmetic or hint vocabulary.
  *
  * No runtime dependencies beyond `@earendil-works/pi-tui`: the theme is passed
  * in, and the viewport options are explicit.
@@ -20,6 +20,7 @@ import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth, visibleWidth, type EditorTheme, type OverlayOptions } from "@earendil-works/pi-tui";
 import { SEPARATORS } from "./glyphs.ts";
 import { BODY_INDENT } from "./indent.ts";
+import { plainRule } from "./rules.ts";
 
 /**
  * `ctx.ui.custom` options that give a screen the whole terminal.
@@ -89,11 +90,28 @@ export function screenHint(theme: Theme, width: number, hints: ScreenHint[], ind
 }
 
 /**
+ * The bottom of a screen: a blank row, its key-hint row, and the closing rule.
+ *
+ * {@link dockListFrame} ends a docked list screen with this, and a screen that
+ * lays out its own rows — `/context`, the WeChat login and control screens —
+ * closes its block with it too, so no screen spells the three rows out alone. A
+ * screen whose row above the hint varies (a scroll gauge or a blank) places its
+ * own rule with `plainRule` instead.
+ */
+export function screenFooter(theme: Theme, width: number, hint: string): string[] {
+	return ["", hint, plainRule(theme, width)];
+}
+
+/**
  * The sections of a docked list screen, assembled by {@link dockListFrame}.
  * `body`, `range`, and `detail` lines are built (and truncated) by the caller;
  * the frame only places them.
  */
 export interface DockListFrame {
+	/** The active theme, used for the closing rule. */
+	theme: Theme;
+	/** The screen width in columns, used for the closing rule. */
+	width: number;
 	/** The pre-rendered header line, usually `titleRule(theme, width, title)`. */
 	header: string;
 	/** A summary line under the header; a blank line follows it. */
@@ -132,11 +150,14 @@ export function detailBlockRows(detail: readonly string[] | undefined, blank = t
 /**
  * Assemble a docked list screen: the caller's header rule, an optional summary
  * and its blank line, the body, an optional range row, optional detail rows after
- * their own blank line, and the blank-line-padded key-hint footer.
+ * their own blank line, the key-hint row, and the closing rule.
  *
  * This is the convention every docked list screen shares — the bytefly panel,
  * `/jobs`, `/watch`, `/todos`, `/memory`, and `/rewind`. The header line is built
- * by the caller (usually `titleRule`), so the frame never picks a rule style.
+ * by the caller (usually `titleRule`), so the frame never picks the *opening*
+ * rule style; the closing rule is always the muted fill, matching the closing
+ * rule Pi's built-in selectors draw and the bottom border of the editor slot the
+ * screen replaces.
  */
 export function dockListFrame(frame: DockListFrame): string[] {
 	const lines: string[] = [frame.header];
@@ -147,7 +168,7 @@ export function dockListFrame(frame: DockListFrame): string[] {
 		if (frame.detailBlank !== false) lines.push("");
 		lines.push(...frame.detail);
 	}
-	lines.push("", frame.hint, "");
+	lines.push(...screenFooter(frame.theme, frame.width, frame.hint));
 	return lines;
 }
 

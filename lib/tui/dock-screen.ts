@@ -33,10 +33,10 @@ import { paint } from "./tokens.ts";
 /** Rows the body shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
 
-/** Fixed rows around the list body: header, summary, blank, blank, hint, blank. */
+/** Fixed rows around the list body: header, summary, blank, blank, hint, closing rule. */
 const LIST_CHROME_ROWS = 6;
 
-/** Fixed rows around a detail body: header, subtitle, blank, blank, hint, blank. */
+/** Fixed rows around a detail body: header, subtitle, blank, blank, hint, closing rule. */
 const DETAIL_CHROME_ROWS = 6;
 
 /** What a detail pane shows: its title, lines, and the one-line subtitle. */
@@ -353,6 +353,8 @@ export abstract class DockListScreen<T> implements Component {
 		}
 
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header: titleRule(this.theme, w, this.options.title),
 			summary: this.summary(rows, w),
 			body,
@@ -389,6 +391,8 @@ export abstract class DockListScreen<T> implements Component {
 		}
 
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header: titleRule(this.theme, w, this.pane.title(this.options.detailTitle)),
 			summary: clip(`  ${paint(this.theme, "faint", this.pane.subtitleLine())}`, w),
 			body,

@@ -16,7 +16,7 @@ import type { CompactionResult, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
 import { messageOf } from "../../lib/errors.ts";
 import { formatTokens } from "../../lib/format.ts";
-import { screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { screenFooter, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { ConfirmState } from "../../lib/tui/confirm.ts";
 import { clampScroll, fitRows, formatRange, isCloseKey, navigateScroll } from "../../lib/tui/cursor.ts";
 import { gaugeBar, gaugeRole } from "../../lib/tui/gauge.ts";
@@ -26,7 +26,7 @@ import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { formatBudget, formatCompaction, formatDrift } from "./format.ts";
 import type { ContextBucket, ContextReport } from "./types.ts";
 
-/** Fixed rows around the scrollable body: title, gauge, budget, blank, blank, footer, blank. */
+/** Fixed rows around the scrollable body: title, gauge, budget, blank, blank, footer, closing rule. */
 const CHROME_ROWS = 7;
 
 /** Cells in the composition bar. */
@@ -230,7 +230,7 @@ export class ContextComponent implements Component {
 		if (this.body.length > this.visible) {
 			lines.push(formatRange(this.theme, w, { start: this.scroll, end, total: this.body.length }));
 		}
-		lines.push("", this.footerLine(w), "");
+		lines.push(...screenFooter(this.theme, w, this.footerLine(w)));
 		return lines.map((line) => truncateToWidth(line, w));
 	}
 

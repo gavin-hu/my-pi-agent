@@ -161,13 +161,15 @@ export class TodoListComponent implements Component {
 
 		if (this.todos.length === 0) {
 			return dockListFrame({
+				theme: this.theme,
+				width: w,
 				header,
 				body: emptyState(this.theme, w, { label: "No todos yet. Ask the agent to plan some work." }),
 				hint: screenHint(this.theme, w, ["Esc close"]),
 			});
 		}
 
-		// header, summary, blank, blank-after-list, hint, blank
+		// header, summary, blank, blank-after-list, hint, closing rule
 		const chrome = 6;
 		this.visible = fitRows(this.viewportRowsSource, this.todos.length, chrome, SCREEN_DEFAULT_ITEMS);
 		this.scrollTop = clampScroll(this.scrollTop, this.todos.length, this.visible);
@@ -177,6 +179,8 @@ export class TodoListComponent implements Component {
 		for (let i = this.scrollTop; i < end; i++) body.push(todoRow(this.todos[i], this.theme, w));
 
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header,
 			summary: clip(`  ${paint(this.theme, "meta", progressSummary(this.todos))}`, w),
 			body,

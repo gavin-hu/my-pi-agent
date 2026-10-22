@@ -37,7 +37,7 @@ import {
 import { isCloseKey } from "../../lib/tui/cursor.ts";
 import { gaugeBar } from "../../lib/tui/gauge.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
+import { plainRule, titleRule } from "../../lib/tui/rules.ts";
 import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
@@ -87,7 +87,7 @@ export interface PlanViewOptions {
 
 /** Rows the screen shows when the terminal height is unknown. */
 const DEFAULT_ROWS = 20;
-/** Header, blanks, footer, and trailing rows around a non-empty plan. */
+/** Header, blanks, footer, and closing rule around a non-empty plan. */
 const CHROME_ROWS = 5;
 /** Narrowest width where Markdown's 2-column padding still fits the body. */
 const MIN_PADDED_WIDTH = 6;
@@ -405,7 +405,7 @@ export class PlanViewComponent implements Component {
 				this.maxOffset > 0 ? [...PRIMARY_HINTS, ...SCROLL_HINTS, ...sectionHints] : PRIMARY_HINTS;
 			lines.push(screenHint(theme, w, hints));
 		}
-		lines.push("");
+		lines.push(plainRule(theme, w));
 		return lines;
 	}
 }

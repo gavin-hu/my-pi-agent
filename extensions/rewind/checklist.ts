@@ -152,6 +152,8 @@ export abstract class ChecklistScreen<T> implements Component {
 		const rows = this.rows();
 		if (rows.length === 0 && this.options.emptyLabel !== undefined) {
 			return dockListFrame({
+				theme: this.theme,
+				width: w,
 				header,
 				body: emptyState(this.theme, w, { label: this.options.emptyLabel }),
 				hint: this.hint(w),
@@ -172,6 +174,8 @@ export abstract class ChecklistScreen<T> implements Component {
 		}
 
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header,
 			summary: clip(`  ${paint(this.theme, "meta", this.summaryText())}`, w),
 			body,
