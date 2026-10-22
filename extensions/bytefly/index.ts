@@ -35,6 +35,7 @@ import { type NotifyDeps, registerNotify } from "./notify/register.ts";
 import { createPadStore } from "./pad.ts";
 import { type PanelCommandDeps, registerPanel } from "./panel/commands.ts";
 import { registerTurnSeparator } from "./separator/register.ts";
+import { registerPiRelease, type ReleaseDeps } from "./update/release.ts";
 import { registerUpdate, type UpdateDeps } from "./update/register.ts";
 import { createUpdateState } from "./update/state.ts";
 import { registerWorkingTimer } from "./working/register.ts";
@@ -49,6 +50,8 @@ export interface ByteflyDeps {
 	notify?: NotifyDeps;
 	/** Seams for the package-update surface. */
 	update?: UpdateDeps;
+	/** Seams for Pi's own release notice. */
+	release?: ReleaseDeps;
 }
 
 /** Register every bytefly surface; the factory only registers. */
@@ -56,9 +59,11 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	if (!isExtensionEnabled("bytefly")) return;
 
 	// One store per load: the update check writes this package's new version and
-	// the header reads it, so the marker and every re-install agree.
+	// the header reads it, so the marker and every re-install agree. Pi's own
+	// release notice writes the second store the same way.
 	const updates = createUpdateState();
-	const header = registerHeader(pi, updates);
+	const piUpdates = createUpdateState();
+	const header = registerHeader(pi, updates, piUpdates);
 	// Notify first, so the footer's budget guardrail can raise one OS notification
 	// through the same capability the triggers use instead of a second dispatch path.
 	const notifications = registerNotify(pi, deps.notify);
@@ -78,5 +83,8 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	// The returned handle is what `/bytefly update` re-runs, so the update surface is
 	// registered before the panel that offers the command.
 	const update = registerUpdate(pi, updates, { ...deps.update, onUpdate: () => header.refresh() });
+	// Pi's own release notice is the second source of a header marker, so it shares
+	// the one repaint hook rather than installing a header of its own.
+	registerPiRelease(pi, piUpdates, { ...deps.release, onUpdate: () => header.refresh() });
 	registerPanel(pi, { doctor, update, discover: deps.extensions?.discover });
 }

@@ -26,11 +26,26 @@ import {
 	LATEST_VERSION_URL,
 	UPDATE_TIMEOUT_MS,
 } from "./check.ts";
-import { releaseUrl, updateMarker, updateNotice, updateOutcomeText } from "./format.ts";
+import {
+	PI_CHANGELOG_URL,
+	PI_UPDATE_COMMAND,
+	piReleaseNotice,
+	releaseUrl,
+	updateMarker,
+	updateNotice,
+	updateOutcomeText,
+} from "./format.ts";
+import { patchPrototypeMethod } from "./patch.ts";
+import { registerPiRelease } from "./release.ts";
 import { registerUpdate, type UpdateCache } from "./register.ts";
-import { createUpdateState, type UpdateSource } from "./state.ts";
-import { type PackageManagerPrototype, suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
-import type { PackageUpdate } from "./types.ts";
+import { createUpdateState, paintLatest, type UpdateSource } from "./state.ts";
+import {
+	type PackageManagerPrototype,
+	suppressPiPackageUpdates,
+	suppressPiReleaseNotice,
+	type UpdateSuppression,
+} from "./suppress.ts";
+import type { PackageUpdate, PiRelease, ReleaseNoticePrototype } from "./types.ts";
 import { isNewerVersion, parseVersion } from "./version.ts";
 
 const temps = makeTempTracker();
@@ -344,6 +359,60 @@ describe("updateOutcomeText", () => {
 		expect(outcome.text).not.toContain("This package");
 		expect(outcome.text).not.toContain(RELEASE);
 		expect(outcome.text).toContain("example/tool");
+	});
+});
+
+describe("piReleaseNotice", () => {
+	const PI_CURRENT = "1.3.0";
+	const PI_NEXT = "1.4.0";
+
+	test("is the shared notice type, shown in the transcript", () => {
+		const notice = piReleaseNotice({ version: PI_NEXT }, PI_CURRENT);
+
+		expect(notice.customType).toBe(NOTICE_TYPE);
+		expect(notice.display).toBe(true);
+	});
+
+	test("is informational, not a fault", () => {
+		const notice = piReleaseNotice({ version: PI_NEXT }, PI_CURRENT);
+
+		expect(notice.details.source).toBe("bytefly");
+		expect(notice.details.title).toBe(`pi v${PI_NEXT} is available`);
+		expect(notice.details.severity).toBe("info");
+	});
+
+	test("carries the version movement, the command, and the changelog", () => {
+		const notice = piReleaseNotice({ version: PI_NEXT }, PI_CURRENT);
+
+		expect(notice.details.items).toEqual([
+			{ label: "pi", detail: `v${PI_CURRENT} → v${PI_NEXT}` },
+			{ label: "update", detail: PI_UPDATE_COMMAND },
+			{ label: "changelog", detail: PI_CHANGELOG_URL },
+		]);
+	});
+
+	test("tells the model both versions, the command, and the changelog", () => {
+		const notice = piReleaseNotice({ version: PI_NEXT }, PI_CURRENT);
+
+		expect(notice.content).toContain(`Pi v${PI_NEXT} is available`);
+		expect(notice.content).toContain(`v${PI_CURRENT}`);
+		expect(notice.content).toContain(PI_UPDATE_COMMAND);
+		expect(notice.content).toContain(PI_CHANGELOG_URL);
+	});
+
+	test("adds the release's notes as one sanitized row when the API sends them", () => {
+		const notice = piReleaseNotice({ version: PI_NEXT, note: "  Faster\n\nstartup  " }, PI_CURRENT);
+
+		expect(notice.details.items?.at(-1)).toEqual({ label: "release notes", detail: "Faster startup" });
+		expect(notice.content).toContain("Release notes:");
+		expect(notice.content).toContain("startup");
+	});
+
+	test("omits the notes row for a release without notes", () => {
+		const notice = piReleaseNotice({ version: PI_NEXT, note: "   " }, PI_CURRENT);
+
+		expect(notice.details.items).toHaveLength(3);
+		for (const item of notice.details.items ?? []) expect(item.label).not.toBe("release notes");
 	});
 });
 
@@ -727,12 +796,17 @@ describe("suppressPiPackageUpdates", () => {
 		expect(await prototype.checkForAvailableUpdates({} as never)).toEqual(UPDATES);
 	});
 
-	test("is idempotent and does not restore twice over another patch", async () => {
+	test("a second install reuses the patch and does not restore twice over another patch", async () => {
 		const prototype = fakePrototype();
 		const first = suppressPiPackageUpdates(prototype);
+		const installed = prototype.checkForAvailableUpdates;
 		const second = suppressPiPackageUpdates(prototype);
 
-		expect(second).toBe(first);
+		expect(prototype.checkForAvailableUpdates).toBe(installed);
+		expect(await second.check({} as never)).toEqual(UPDATES);
+		second.restore();
+		second.restore();
+
 		const replacement = async () => [];
 		prototype.checkForAvailableUpdates = replacement;
 		first.restore();
@@ -746,6 +820,215 @@ describe("suppressPiPackageUpdates", () => {
 
 		expect(await suppression.check({} as never)).toEqual([]);
 		expect(() => suppression.restore()).not.toThrow();
+	});
+});
+
+describe("suppressPiReleaseNotice", () => {
+	/** A prototype that records the release Pi would have drawn, and on which object. */
+	function fakePrototype(): ReleaseNoticePrototype & { drawn: Array<{ release: PiRelease; self: unknown }> } {
+		const drawn: Array<{ release: PiRelease; self: unknown }> = [];
+		return {
+			drawn,
+			showNewVersionNotification(release) {
+				drawn.push({ release, self: this });
+			},
+		};
+	}
+
+	test("hands the release to bytefly instead of drawing Pi's box", () => {
+		const prototype = fakePrototype();
+		const seen: PiRelease[] = [];
+		suppressPiReleaseNotice((release) => seen.push(release), prototype);
+
+		prototype.showNewVersionNotification({ version: "1.4.0" });
+
+		expect(seen).toEqual([{ version: "1.4.0" }]);
+		expect(prototype.drawn).toEqual([]);
+	});
+
+	test("restores Pi's method", () => {
+		const prototype = fakePrototype();
+		const original = prototype.showNewVersionNotification;
+		const shim = suppressPiReleaseNotice(() => {}, prototype);
+		shim.restore();
+
+		expect(prototype.showNewVersionNotification).toBe(original);
+	});
+
+	test("falls back to Pi's own box when bytefly cannot draw the notice", () => {
+		const prototype = fakePrototype();
+		suppressPiReleaseNotice(() => {
+			throw new Error("no transcript");
+		}, prototype);
+
+		expect(() => prototype.showNewVersionNotification({ version: "1.4.0" })).not.toThrow();
+		expect(prototype.drawn).toHaveLength(1);
+		expect(prototype.drawn[0]?.self).toBe(prototype);
+	});
+
+	test("is inert when the host has no such method, and does not install one", () => {
+		const prototype = {} as ReleaseNoticePrototype;
+		const seen: PiRelease[] = [];
+		const shim = suppressPiReleaseNotice((release) => seen.push(release), prototype);
+
+		expect(prototype.showNewVersionNotification).toBeUndefined();
+		expect(seen).toEqual([]);
+		expect(() => shim.restore()).not.toThrow();
+	});
+});
+
+describe("patchPrototypeMethod", () => {
+	/** A prototype with one method, so a test states only the patch it exercises. */
+	function host(): { greet(): string } {
+		return { greet: () => "original" };
+	}
+
+	test("installs the replacement and hands back the original", () => {
+		const target = host();
+		const patch = patchPrototypeMethod(target, "greet", () => "patched");
+
+		expect(target.greet()).toBe("patched");
+		expect(patch.original?.()).toBe("original");
+	});
+
+	test("restores the original once, and never over another patch", () => {
+		const target = host();
+		const original = target.greet;
+		const patch = patchPrototypeMethod(target, "greet", () => "patched");
+		patch.restore();
+		expect(target.greet).toBe(original);
+
+		const other = () => "someone else";
+		patchPrototypeMethod(target, "greet", other);
+		patch.restore();
+
+		expect(target.greet).toBe(other);
+	});
+
+	test("reuses the installed patch on a second call", () => {
+		const target = host();
+		const first = patchPrototypeMethod(target, "greet", () => "patched");
+		const installed = target.greet;
+		const second = patchPrototypeMethod(target, "greet", () => "second");
+
+		expect(second).toBe(first);
+		expect(target.greet).toBe(installed);
+	});
+
+	test("is inert when the host has no such method", () => {
+		const target = {} as { greet(): string };
+		const patch = patchPrototypeMethod(target, "greet", () => "patched");
+
+		expect(patch.original).toBeUndefined();
+		expect(() => patch.restore()).not.toThrow();
+	});
+});
+
+describe("paintLatest", () => {
+	test("records a version and repaints once", () => {
+		const store = createUpdateState();
+		let paints = 0;
+		paintLatest(store, "0.12.0", () => paints++);
+
+		expect(store.latest()).toBe("0.12.0");
+		expect(paints).toBe(1);
+	});
+
+	test("does not repaint a value the store already holds", () => {
+		const store = createUpdateState();
+		store.set("0.12.0");
+		let paints = 0;
+		paintLatest(store, "0.12.0", () => paints++);
+
+		expect(paints).toBe(0);
+	});
+
+	test("clears the marker and repaints for a session that lost its version", () => {
+		const store = createUpdateState();
+		store.set("0.12.0");
+		let paints = 0;
+		paintLatest(store, undefined, () => paints++);
+
+		expect(store.latest()).toBeUndefined();
+		expect(paints).toBe(1);
+	});
+
+	test("works without a surface to repaint", () => {
+		const store = createUpdateState();
+		expect(() => paintLatest(store, "0.12.0")).not.toThrow();
+		expect(store.latest()).toBe("0.12.0");
+	});
+});
+
+describe("registerPiRelease", () => {
+	/** Boot Pi's release surface over a fake prototype Pi would have drawn on. */
+	function boot(options: { mode?: string; currentVersion?: string } = {}) {
+		const { pi, customMessages } = makeFakePi({ settings: {} });
+		const { ctx } = fakeCtx({ mode: options.mode ?? "tui" });
+		const drawn: PiRelease[] = [];
+		const prototype: ReleaseNoticePrototype = {
+			showNewVersionNotification: (release) => drawn.push(release),
+		};
+		const latest = createUpdateState();
+		let repaints = 0;
+		registerPiRelease(pi, latest, {
+			prototype,
+			currentVersion: options.currentVersion ?? "1.3.0",
+			onUpdate: () => repaints++,
+		});
+		const start = async (): Promise<void> => {
+			for (const handler of pi.handlers.get("session_start") ?? []) await handler({}, ctx);
+		};
+		const shutdown = async (): Promise<void> => {
+			for (const handler of pi.handlers.get("session_shutdown") ?? []) await handler({}, ctx);
+		};
+		return { pi, customMessages, prototype, drawn, latest, start, shutdown, repaints: () => repaints };
+	}
+
+	test("records Pi's new version and posts one notice", async () => {
+		const booted = boot();
+		await booted.start();
+
+		booted.prototype.showNewVersionNotification({ version: "1.4.0" });
+
+		expect(booted.latest.latest()).toBe("1.4.0");
+		expect(booted.repaints()).toBe(1);
+		expect(booted.drawn).toEqual([]);
+		const message = noticeOf(booted.customMessages);
+		expect(message.details.title).toBe("pi v1.4.0 is available");
+		expect(message.content).toContain("v1.3.0");
+	});
+
+	test("announces once per load, but keeps recording the version", async () => {
+		const booted = boot();
+		await booted.start();
+
+		booted.prototype.showNewVersionNotification({ version: "1.4.0" });
+		booted.prototype.showNewVersionNotification({ version: "1.5.0" });
+
+		expect(booted.customMessages).toHaveLength(1);
+		expect(booted.latest.latest()).toBe("1.5.0");
+	});
+
+	test("restores Pi's method and clears the marker on shutdown", async () => {
+		const booted = boot();
+		await booted.start();
+		booted.prototype.showNewVersionNotification({ version: "1.4.0" });
+
+		await booted.shutdown();
+		booted.prototype.showNewVersionNotification({ version: "1.5.0" });
+
+		expect(booted.latest.latest()).toBeUndefined();
+		expect(booted.customMessages).toHaveLength(1);
+		expect(booted.drawn).toEqual([{ version: "1.5.0" }]);
+	});
+
+	test("leaves Pi's method alone outside the interactive mode", async () => {
+		const booted = boot({ mode: "print" });
+		const original = booted.prototype.showNewVersionNotification;
+		await booted.start();
+
+		expect(booted.prototype.showNewVersionNotification).toBe(original);
 	});
 });
 

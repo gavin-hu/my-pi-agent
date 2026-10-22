@@ -9,10 +9,11 @@
  */
 
 import pkg from "../../../package.json";
-import { noticeMessage, type NoticeMessage } from "../../../lib/notice.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { noticeMessage, type NoticeItem, type NoticeMessage } from "../../../lib/notice.ts";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import type { UpdateOutcome } from "./state.ts";
-import type { PackageUpdate } from "./types.ts";
+import type { PackageUpdate, PiRelease } from "./types.ts";
 
 /** The header marker: an up arrow and this package's newest version. */
 export function updateMarker(latest: string): string {
@@ -21,6 +22,12 @@ export function updateMarker(latest: string): string {
 
 /** The command that resolves every row in the notice. */
 export const UPDATE_COMMAND = "pi update --extensions";
+
+/** The command that updates Pi itself. */
+export const PI_UPDATE_COMMAND = "pi update";
+
+/** Where Pi publishes its own changelog; Pi hardcodes the same URL in its box. */
+export const PI_CHANGELOG_URL = "https://pi.dev/changelog";
 
 /**
  * The release page for a version, or `undefined` when this checkout does not name
@@ -73,14 +80,66 @@ function ownRelease(ownLatest?: string): string | undefined {
 	return ownLatest ? releaseUrl(ownLatest) : undefined;
 }
 
+/** The row that names the command resolving an update. */
+function commandRow(command: string): NoticeItem {
+	return { label: "update", detail: command };
+}
+
+/** The row that names a page the answer points at, e.g. a release or a changelog. */
+function linkRow(label: string, url: string): NoticeItem {
+	return { label, detail: url };
+}
+
+/**
+ * The tail both answers end with: the command to run, then where the notes are
+ * when they are known. Each caller supplies its own sentence, because the notice
+ * is read in the transcript and the re-check answer is read as one printed line.
+ */
+function actionParts(action: string, release?: string): string[] {
+	return release ? [action, `Release notes: ${release}`] : [action];
+}
+
+/**
+ * The notice that replaces Pi's own `Update Available` box.
+ *
+ * Pi resolves the release and then draws a bordered warning block; bytefly takes
+ * the same release and draws the shared transcript notice, so the news reads like
+ * every other bytefly message and states the version movement, the command, and
+ * the changelog. `note` is Pi's changelog excerpt when the release API sends one;
+ * it is a free-form paragraph, so it is sanitized to a single row rather than
+ * given a layout of its own.
+ */
+export function piReleaseNotice(release: PiRelease, current: string): NoticeMessage {
+	const note = release.note?.trim();
+	const parts = [
+		`Pi v${release.version} is available; this session runs v${current}.`,
+		`Run \`${PI_UPDATE_COMMAND}\`.`,
+		`Changelog: ${PI_CHANGELOG_URL}`,
+	];
+	if (note) parts.push(`Release notes: ${note}`);
+	return noticeMessage({
+		content: parts.join(" "),
+		details: {
+			source: "bytefly",
+			title: `pi v${release.version} is available`,
+			severity: "info",
+			items: [
+				{ label: "pi", detail: `v${current} → v${release.version}` },
+				commandRow(PI_UPDATE_COMMAND),
+				linkRow("changelog", PI_CHANGELOG_URL),
+				...(note ? [{ label: "release notes", detail: sanitizeLine(note) }] : []),
+			],
+		},
+	});
+}
+
 /** The single notice a session posts when Pi reports package updates. */
 export function updateNotice(updates: readonly PackageUpdate[], current: string, ownLatest?: string): NoticeMessage {
 	const own = updates.find(isOwnPackage);
 	const release = own ? ownRelease(ownLatest) : undefined;
 	const parts = [namesLine(updates)];
 	if (own && ownLatest) parts.push(`${pkg.name} v${current} → v${ownLatest}.`);
-	parts.push(`Run \`${UPDATE_COMMAND}\` to update.`);
-	if (release) parts.push(`Release notes: ${release}`);
+	parts.push(...actionParts(`Run \`${UPDATE_COMMAND}\` to update.`, release));
 	return noticeMessage({
 		content: parts.join(" "),
 		details: {
@@ -89,8 +148,8 @@ export function updateNotice(updates: readonly PackageUpdate[], current: string,
 			severity: "info",
 			items: [
 				...updates.map((update) => packageRow(update, current, ownLatest)),
-				{ label: "update", detail: UPDATE_COMMAND },
-				...(release ? [{ label: "release", detail: release }] : []),
+				commandRow(UPDATE_COMMAND),
+				...(release ? [linkRow("release", release)] : []),
 			],
 		},
 	});
@@ -120,8 +179,7 @@ export function updateOutcomeText(
 			const release = own ? ownRelease(outcome.ownLatest) : undefined;
 			const parts = [`bytefly: ${namesLine(outcome.updates)}`];
 			if (own && outcome.ownLatest) parts.push(`This package is v${current} → v${outcome.ownLatest}.`);
-			parts.push(`Run ${UPDATE_COMMAND}.`);
-			if (release) parts.push(`Release notes: ${release}`);
+			parts.push(...actionParts(`Run ${UPDATE_COMMAND}.`, release));
 			return { text: parts.join(" "), severity: "info" };
 		}
 	}

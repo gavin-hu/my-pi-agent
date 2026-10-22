@@ -87,9 +87,11 @@ Then, from inside Pi:
 
 One thing the pack does on its own: once per interactive session, `bytefly`
 asks Pi's package manager which configured packages are behind, suppresses Pi's
-own startup update block, and posts one themed notice naming
-`pi update --extensions`; this package's new version also marks the header.
-Nothing about the session is sent, and `PI_OFFLINE` skips the check;
+own startup update blocks, and posts one themed notice naming
+`pi update --extensions`, plus one for a newer Pi that names `pi update` and the
+changelog; a new version also marks the header — this package's, and Pi's own.
+Nothing about the session is sent — Pi's own release request is only re-rendered —
+and `PI_OFFLINE` skips the check;
 [`docs/security.md`](./docs/security.md) covers the trust boundaries.
 
 ## What you get
@@ -133,7 +135,7 @@ to do. Each extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you. `bytefly.json` is the config document every extension reads. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you, and Pi's own startup update blocks become themed notices and header markers. `bytefly.json` is the config document every extension reads. |
 
 ### Skills
 

@@ -27,6 +27,7 @@ import {
 } from "./chrome.ts";
 import { ByteflyHeader, createHeader, type HeaderView } from "./header/component.ts";
 import { HEADER_CONFIG } from "./header/config.ts";
+import { identityCells, type IdentityInput } from "./header/identity.ts";
 import { registerHeader } from "./header/register.ts";
 import { nameplate, styleUserMessage } from "./message/format.ts";
 import { registerUserMessage } from "./message/register.ts";
@@ -515,15 +516,16 @@ function bootHeader(settings: Record<string, unknown>, mode = "tui") {
 		headers.push(factory);
 	};
 	const updates = createUpdateState();
-	const handle = registerHeader(pi, updates);
-	return { pi, ctx, headers, updates, handle };
+	const piUpdates = createUpdateState();
+	const handle = registerHeader(pi, updates, piUpdates);
+	return { pi, ctx, headers, updates, piUpdates, handle };
 }
 
 /** Render the last installed header at 80 columns, at an optional terminal height. */
-function renderLast(headers: unknown[], rows?: number): string[] {
+function renderLast(headers: unknown[], rows?: number, width = 80): string[] {
 	const factory = headers.at(-1) as ((tui: unknown, theme: unknown) => { render(width: number): string[] }) | undefined;
 	if (typeof factory !== "function") return [];
-	return factory(rows === undefined ? {} : { terminal: { rows } }, fakeTheme).render(80);
+	return factory(rows === undefined ? {} : { terminal: { rows } }, fakeTheme).render(width);
 }
 
 describe("header lifecycle", () => {
@@ -572,6 +574,37 @@ describe("header lifecycle", () => {
 	});
 });
 
+describe("header identity ladder", () => {
+	const input = (overrides: Partial<IdentityInput> = {}): IdentityInput => ({
+		halfBlocks: true,
+		showVersion: true,
+		version: "1.2.0",
+		...overrides,
+	});
+
+	test("puts the marker on the chrome row first, then sheds it", () => {
+		const pairs = identityCells(input({ latest: "0.12.0" }), fakeTheme);
+
+		expect(pairs[0]?.[1]).toContain("↑0.12.0");
+		expect(pairs[1]?.[1]).not.toContain("↑");
+	});
+
+	test("names a rung only when it is narrower than the one before", () => {
+		expect(identityCells(input(), fakeTheme)).toHaveLength(4);
+		expect(identityCells(input({ latest: "0.12.0" }), fakeTheme)).toHaveLength(5);
+	});
+
+	test("ends by giving up both rows", () => {
+		expect(identityCells(input({ latest: "0.12.0" }), fakeTheme).at(-1)).toEqual(["", ""]);
+	});
+
+	test("keeps only the version on the agent row where the mark spells the name", () => {
+		const [pair] = identityCells(input({ halfBlocks: false }), fakeTheme);
+
+		expect(pair?.[0]).toBe("v1.2.0");
+	});
+});
+
 describe("header update marker", () => {
 	test("renders no marker until a newer version is known", async () => {
 		const { pi, ctx, headers } = bootHeader({ quietStartup: true });
@@ -604,6 +637,41 @@ describe("header update marker", () => {
 		after.updates.set("0.12.0");
 		after.handle.refresh();
 		expect(after.headers).toHaveLength(installed);
+	});
+
+	test("marks Pi's own row with the newer Pi version", async () => {
+		const { pi, ctx, headers, piUpdates, handle } = bootHeader({ quietStartup: true });
+		await emit(pi, "session_start", {}, ctx);
+
+		piUpdates.set("1.4.0");
+		handle.refresh();
+
+		expect(renderLast(headers)[1]).toContain("↑1.4.0");
+	});
+
+	test("sheds the chrome marker before Pi's own", async () => {
+		const { pi, ctx, headers, updates, piUpdates, handle } = bootHeader({ quietStartup: true });
+		await emit(pi, "session_start", {}, ctx);
+		updates.set("0.99.0");
+		piUpdates.set("1.4.0");
+		handle.refresh();
+
+		const rows = renderLast(headers, undefined, 40);
+
+		expect(rows[1]).toContain("↑1.4.0");
+		expect(rows[2]).not.toContain("↑");
+	});
+
+	test("sheds Pi's own marker last, with the agent row", async () => {
+		const { pi, ctx, headers, piUpdates, handle } = bootHeader({ quietStartup: true });
+		await emit(pi, "session_start", {}, ctx);
+		piUpdates.set("1.4.0");
+		handle.refresh();
+
+		const rows = renderLast(headers, undefined, 20);
+
+		expect(rows[1]).toContain(HEADER_CONFIG.appName);
+		expect(rows[1]).not.toContain("↑");
 	});
 });
 
