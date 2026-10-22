@@ -46,8 +46,8 @@ describe precisely.
    the project. It writes only the plan file.
 
 2. When the plan is ready, the review screen opens in the terminal. The plan is
-   laid out as Markdown, with its goal, context, approach, steps, risks, and
-   verification. Read it, then choose an action:
+   laid out as Markdown, with its goal, context, approach, visual, steps, risks,
+   and verification. Read it, then choose an action:
 
    | Key | What it does |
    |---|---|
@@ -120,13 +120,13 @@ describe precisely.
   items or goal are recorded, and write access returns immediately. The phone
   review reaches the same outcome through **Exit plan mode** or a cancel phrase;
   outside a review, the model can call `cancel_plan_mode`.
-- The model is asked to follow a short outline — goal, context, approach, steps,
-  risks, verification — with a one-sentence goal and verification named as
-  commands you could run. It is a guide, not a form: a heading with nothing to
-  say is dropped, and any Markdown is accepted. Steps are the top-level `- [ ]`
-  items in the `## Steps` section; nested bullets are notes. A plan with more
-  than 50 top-level steps is refused at write time, because approval could not
-  track them all.
+- The model is asked to follow a short outline — goal, context, approach, visual,
+  steps, risks, verification — with a one-sentence goal, the end state sketched in
+  a fence, and verification named as commands you could run. It is a guide, not a
+  form: a heading with nothing to say is dropped, and any Markdown is accepted.
+  Steps are the top-level `- [ ]` items in the `## Steps` section; nested bullets
+  are notes. A plan with more than 50 top-level steps is refused at write time,
+  because approval could not track them all.
 - While plan mode is on, mutating tools are hidden or refused: file writes,
   edits, most shell commands, worktree mutations, and MCP tools that do not
   declare themselves read-only. `/check` and `/review` refuse until the plan is

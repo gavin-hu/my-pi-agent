@@ -55,13 +55,19 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   notice with each plan's path. The directory stays the index: no registry file,
   one bounded read per plan.
 - **A shape that reads.** `write_plan` documents a canonical outline — a
-  `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Steps`,
-  `## Risks`, and `## Verification` — and the model is guided to follow it. The
-  goal is one sentence, verification names the commands to run, and the
-  description calls the shape a guide rather than a form: a heading with nothing
-  to say is dropped, and only the shallowest `Steps` list is tracked, so nested
-  bullets stay notes instead of becoming todos. This is guidance only: any
-  markdown is accepted, stored, and rendered as written.
+  `# <Title>`, then `## Goal`, `## Context`, `## Approach`, `## Visual`,
+  `## Steps`, `## Risks`, and `## Verification` — and the model is guided to
+  follow it. Every example in the template is the shape wanted rather than a
+  description of it, and each section has one job: the goal is one sentence, the
+  context is the facts that force the approach, the approach names the
+  alternative it rejected, and verification is a fence of the commands to run.
+  `Visual` carries the end state — a terminal frame, a command transcript, a file
+  tree, or a table — in a fence, with one line naming what to look at, because a
+  reviewer judges the result before the steps that build it; a change with no
+  visible surface drops it. The description calls the shape a guide rather than a
+  form: a heading with nothing to say is dropped, and only the shallowest `Steps`
+  list is tracked, so nested bullets stay notes instead of becoming todos. This is
+  guidance only: any markdown is accepted, stored, and rendered as written.
 - **Trackable steps.** Steps are written as `- [ ]` checkboxes in the `## Steps`
   section; approval seeds them into `todo`, with the `## Verification` section as
   the last item so the definition of done travels with the work. A plan with more
@@ -107,9 +113,10 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   replacement: existing items keep their place and status, a step whose text is
   already there is skipped, and the tool's item cap defers the rest instead of
   dropping anything. The plan's `## Verification` section follows as the **last**
-  todo item, summarized on one line (`Verify: …`) — it is not a plan step, so it is
-  ticked in the todo list rather than with `set_plan_steps`, and it never counts
-  against the 50-step cap. A plan without a `Steps` heading keeps the older rule —
+  todo item, summarized on one line (`Verify: …`) — a fenced block contributes its
+  commands, not its fence lines. It is not a plan step, so it is ticked in the todo
+  list rather than with `set_plan_steps`, and it never counts against the 50-step
+  cap. A plan without a `Steps` heading keeps the older rule —
   the shallowest list in the document — so prose bullets in a plan that follows the
   outline never become todos, and its verification bullets are already covered.
   Each seeded item is matched back to its step by text, so ticking a step with

@@ -23,34 +23,52 @@ export const MAX_STEPS = 50;
 export const MAX_STEP_LENGTH = 200;
 
 /**
- * The outline a plan is guided to follow. Guidance only: `write_plan` never
- * rejects or rewrites a plan that omits a section.
+ * The outline a plan is guided to follow: one job per section, and every example
+ * is the shape wanted rather than a description of it. `Visual` is the one
+ * section that carries the end state — a sketch, a transcript, a tree, a table —
+ * so the reviewer sees the result before the steps that build it. Guidance only:
+ * `write_plan` never rejects or rewrites a plan that omits a section, and a change
+ * with no visible surface drops `Visual`.
  */
 export const PLAN_OUTLINE = [
 	"# <Title>",
 	"",
 	"## Goal",
-	"One sentence: what this change achieves, and what it deliberately does not.",
+	"One sentence: the outcome this change delivers, and what it deliberately does not do.",
 	"",
 	"## Context",
-	"The relevant code, constraints, and prior art.",
+	"- `src/load.ts:42` reads the config once at startup; that is the only caller.",
+	"- The file is user-editable, so a bad key must name the file and line.",
 	"",
 	"## Approach",
-	"The chosen approach and why; alternatives considered.",
+	"- Parse into a typed record in `parseConfig`; `load()` keeps the file read.",
+	"- Rejected: validating inside `load()`, because the test would need a filesystem.",
+	"",
+	"## Visual",
+	"A bad key at startup:",
+	"```bash",
+	"$ bun start",
+	'config.json:12: unknown key "timeout_ms" — did you mean "timeoutMs"?',
+	"```",
 	"",
 	"## Steps",
 	"- [ ] Add `parseConfig` in `src/config.ts`, with a test for a missing key",
-	"- [ ] Wire it into `load()` and document the failure in the README",
+	"  - `load()` is the only caller today; it keeps the file read.",
+	"- [ ] Report a bad key with its file and line, and note the rule in the README",
 	"",
 	"## Risks",
-	"What could go wrong and how it is mitigated.",
+	"- A missing key now fails at startup rather than on first use: name that in the README.",
+	"- Mitigated by the test in the first step.",
 	"",
 	"## Verification",
-	"How to prove it works: the commands to run, exactly as you would type them.",
+	"```bash",
+	"bun test src/config.test.ts",
+	"bun run check",
+	"```",
 ].join("\n");
 
 /** The outline's section titles, in order, for documentation and tests. */
-export const PLAN_SECTIONS = ["Goal", "Context", "Approach", "Steps", "Risks", "Verification"] as const;
+export const PLAN_SECTIONS = ["Goal", "Context", "Approach", "Visual", "Steps", "Risks", "Verification"] as const;
 
 export interface PlanStep {
 	content: string;
@@ -233,11 +251,12 @@ const LIST_PREFIX = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/;
  * The plan's `Verification` section as one trailing checklist item, or
  * `undefined` when the plan has none.
  *
- * The section is prose ("commands and checks"), and a todo item is one line, so
- * the lines are stripped of list markers and inline emphasis and joined with
- * `; `, prefixed with `Verify:` and elided like a long step. The item is
- * deliberately *not* a plan step: it is not in the `Steps` section, so it must
- * not count against the step cap or appear in `set_plan_steps` numbering.
+ * The section is prose ("commands and checks") or a fenced block of them, and a
+ * todo item is one line, so the fence lines are dropped, the rest is stripped of
+ * list markers and inline emphasis, and the lines are joined with `; `, prefixed
+ * with `Verify:` and elided like a long step. The item is deliberately *not* a
+ * plan step: it is not in the `Steps` section, so it must not count against the
+ * step cap or appear in `set_plan_steps` numbering.
  *
  * A plan with no `Steps` heading feeds its shallowest list as steps (the older
  * rule), so that list already covers the verification bullets; appending a
@@ -252,6 +271,9 @@ export function verificationItem(plan: string): PlanStep | undefined {
 	const items = section.text
 		.split("\n")
 		.slice(1)
+		// A fenced block is how the outline asks for commands; its fence lines are
+		// punctuation, not a check, so only the commands inside it are carried.
+		.filter((line) => !FENCE.test(line))
 		.map((line) => plainText(line.replace(LIST_PREFIX, "")))
 		.filter(Boolean);
 	if (items.length === 0) return undefined;

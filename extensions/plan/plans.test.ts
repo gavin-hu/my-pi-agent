@@ -778,9 +778,26 @@ describe("plan outline", () => {
 		expect(PLAN_OUTLINE.split("## Steps")[1].split("\n## ")[0]).toContain("- [ ] ");
 	});
 
+	test("shows the end state in a fence under Visual, before the steps", () => {
+		const visual = PLAN_OUTLINE.split("## Visual")[1].split("\n## ")[0];
+		expect(visual).toContain("```bash");
+		// The caption names what to look at; the sketch itself lives in the fence.
+		expect(visual.split("\n").filter((line) => line.trim() !== "")[0]).toContain("startup");
+		expect(PLAN_OUTLINE.indexOf("## Visual")).toBeGreaterThan(PLAN_OUTLINE.indexOf("## Approach"));
+		expect(PLAN_OUTLINE.indexOf("## Visual")).toBeLessThan(PLAN_OUTLINE.indexOf("## Steps"));
+	});
+
 	test("asks for a one-sentence goal and commands to verify", () => {
-		expect(PLAN_OUTLINE).toContain("One sentence: what this change achieves");
-		expect(PLAN_OUTLINE).toContain("the commands to run, exactly as you would type them");
+		expect(PLAN_OUTLINE).toContain("One sentence: the outcome this change delivers");
+		expect(PLAN_OUTLINE.split("## Verification")[1]).toContain("```bash");
+	});
+
+	test("is itself a valid plan", () => {
+		// The template is what a model copies, so the example document has to parse:
+		// eight sections in order, two tracked steps, and one verification item.
+		expect(extractPlanSections(PLAN_OUTLINE).map((section) => section.title)).toEqual(["<Title>", ...PLAN_SECTIONS]);
+		expect(planStepSummary(PLAN_OUTLINE)).toEqual({ total: 2, elided: 0 });
+		expect(verificationItem(PLAN_OUTLINE)?.content).toBe("Verify: bun test src/config.test.ts; bun run check");
 	});
 });
 
@@ -919,6 +936,20 @@ describe("plan verification item", () => {
 		expect(verificationItem(plan("1. [ ] first check\n2. second check"))?.content).toBe(
 			"Verify: first check; second check",
 		);
+	});
+
+	test("carries a fenced block's commands without its fence", () => {
+		// The outline asks for the commands in a fence, so the fence lines are
+		// punctuation: the tracked item is the commands, joined.
+		expect(verificationItem(plan("```bash\nbun test\nbun run check\n```"))?.content).toBe(
+			"Verify: bun test; bun run check",
+		);
+	});
+
+	test("drops a fence line even without a closing fence", () => {
+		// A trailing fence is still a fence line, so the rule is one rule: the
+		// command lines inside the section are what the item carries.
+		expect(verificationItem(plan("run the suite\n```sh\nbun test"))?.content).toBe("Verify: run the suite; bun test");
 	});
 
 	test("ignores a verification heading inside a fence", () => {

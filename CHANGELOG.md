@@ -28,10 +28,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `plan`: the documented outline asks for a one-sentence goal and verification
-  written as commands, and `write_plan` calls the shape a guide rather than a
-  form — a heading with nothing to say is dropped, and only the shallowest list
-  in `Steps` is tracked, so nested bullets stay notes.
+- `plan`: the documented outline now has a `## Visual` section for the end state —
+  a terminal frame, a command transcript, a file tree, or a table, in a fence with
+  one line saying what to look at — and asks for one job per section: a
+  one-sentence goal, the context as the facts that force the approach, the
+  approach with the alternative it rejected, and verification as a fence of
+  commands. `write_plan` calls the shape a guide rather than a form — a heading
+  with nothing to say is dropped, `Visual` included, and only the shallowest list
+  in `Steps` is tracked, so nested bullets stay notes. A fenced verification block
+  reaches the todo list as its commands (`Verify: …`), not its fence lines.
 - `lib`: every docked screen — `/bytefly`'s Extensions and Settings sections,
   `/todos`, `/jobs`, `/watch`, `/agents`, `/check`, `/memory`, `/rewind`, the plan
   index and review, `/context`, and the WeChat login and control screens — now
