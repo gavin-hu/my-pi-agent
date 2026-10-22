@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Container, getKeybindings, KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { emptyUsage } from "./stream.ts";
@@ -32,16 +33,28 @@ function render(component: { render(width: number): string[] }, width = 80): str
 	return component.render(width).join("\n");
 }
 
+/** What a test may vary about the rendered block. */
+interface ViewOptions {
+	expanded?: boolean;
+	isPartial?: boolean;
+	now?: number;
+	theme?: Theme;
+	/** The result's fallback text, when a test needs its own. */
+	content?: string;
+}
+
 /** The rendered result block for one details object, collapsed unless asked. */
-function view(
-	details: SubagentDetails,
-	options: { expanded?: boolean; isPartial?: boolean; now?: number; theme?: any } = {},
-): string[] {
+function view(details: SubagentDetails, options: ViewOptions = {}): string[] {
 	return renderSubagentResult(
-		toolResult(details),
+		toolResult(details, options.content),
 		{ expanded: options.expanded ?? false, isPartial: options.isPartial, now: options.now },
 		options.theme ?? theme,
 	).render(80);
+}
+
+/** The same block as one string, for the tests that match text rather than lines. */
+function viewText(details: SubagentDetails, options: ViewOptions = {}): string {
+	return view(details, options).join("\n");
 }
 
 describe("renderSubagentCall", () => {
@@ -187,26 +200,18 @@ describe("renderSubagentCall", () => {
 
 describe("renderSubagentResult", () => {
 	test("names a background start and points at /agents", () => {
-		const result = toolResult({
+		const text = viewText({
 			mode: "single",
 			results: [],
-			background: {
-				runId: "a1",
-				agent: "explorer",
-				task: "find auth",
-				cwd: "/repo",
-				startedAt: NOW,
-			},
+			background: { runId: "a1", agent: "explorer", task: "find auth", cwd: "/repo", startedAt: NOW },
 		});
-		const component = renderSubagentResult(result, { expanded: false }, theme);
 
-		const text = component.render(80).join("\n");
 		expect(text).toContain("Started explorer as a1");
 		expect(text).toContain("/agents");
 	});
 
 	test("collapsed single success shows output and usage", () => {
-		const text = view({ mode: "single", results: [single()] }).join("\n");
+		const text = viewText({ mode: "single", results: [single()] });
 		expect(text).toContain("✓");
 		expect(text).toContain("explorer");
 		expect(text).toContain("all done");
@@ -239,33 +244,25 @@ describe("renderSubagentResult", () => {
 	});
 
 	test("paints the agent name with the accent, matching the call line", () => {
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, coloringTheme),
-		);
+		const text = viewText({ mode: "single", results: [single()] }, { theme: coloringTheme });
 		expect(text).toContain("[accent][bold]explorer");
 	});
 
 	test("names the source of a non-builtin agent", () => {
 		const custom = single({ agent: "auditor", agentSource: "user" });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [custom] }), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [custom] });
 		expect(text).toContain("auditor [user]");
 	});
 
 	test("collapsed single failure shows the error", () => {
 		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "quota exceeded" });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [failed] });
 		expect(text).toContain("✗");
 		expect(text).toContain("quota exceeded");
 	});
 
 	test("expanded single shows task and output sections", () => {
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "single", results: [single()] }, { expanded: true });
 		expect(text).toContain("Task");
 		expect(text).toContain("Output");
 		expect(text).toContain("find auth");
@@ -273,44 +270,34 @@ describe("renderSubagentResult", () => {
 
 	test("expanded single names the transcript it kept", () => {
 		const kept = single({ artifactPath: "/repo/.pi/subagents/20261015-143012-a1b2c3", artifactBytes: 42 });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [kept] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "single", results: [kept] }, { expanded: true });
 		expect(text).toContain("/repo/.pi/subagents/20261015-143012-a1b2c3");
 	});
 
 	test("expanded single marks a truncated transcript", () => {
 		const truncated = single({ artifactPath: "/repo/.pi/subagents/run", artifactTruncated: true });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [truncated] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "single", results: [truncated] }, { expanded: true });
 		expect(text).toContain("(truncated)");
 	});
 
 	test("expanded single reports an unwritable transcript", () => {
 		const broken = single({ artifactError: "EACCES: permission denied" });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [broken] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "single", results: [broken] }, { expanded: true });
 		expect(text).toContain("EACCES: permission denied");
 	});
 
 	test("a timed-out run reports its deadline in both views", () => {
 		const late = single({ exitCode: 1, timedOut: true, timeoutMs: 600_000, errorMessage: "Timed out after 10m00s" });
 		const details: SubagentDetails = { mode: "single", results: [late] };
-		expect(render(renderSubagentResult(toolResult(details), { expanded: false }, theme))).toContain(
-			"Timed out after 10m00s",
-		);
-		expect(render(renderSubagentResult(toolResult(details), { expanded: true }, theme))).toContain(
-			"Timed out after 10m00s",
-		);
+		expect(viewText(details)).toContain("Timed out after 10m00s");
+		expect(viewText(details, { expanded: true })).toContain("Timed out after 10m00s");
 	});
 
 	test("collapsed parallel reports the count and a total", () => {
-		const text = view({
+		const text = viewText({
 			mode: "parallel",
 			results: [single(), single({ agent: "planner" })],
-		}).join("\n");
+		});
 		expect(text).toContain("parallel");
 		expect(text).toContain("2/2 tasks");
 		expect(text).toContain("Total:");
@@ -321,7 +308,7 @@ describe("renderSubagentResult", () => {
 			single({ model: "claude-sonnet-4-5", usage: { ...emptyUsage(), turns: 1, contextTokens: 900 } }),
 			single({ agent: "planner", model: "claude-sonnet-4-5" }),
 		];
-		const text = view({ mode: "parallel", results }).join("\n");
+		const text = viewText({ mode: "parallel", results });
 		expect(text).toContain("Total: 2 turns claude-sonnet-4-5");
 		// Every child has its own window, so an aggregate says nothing about context.
 		expect(text).not.toContain("ctx:");
@@ -329,7 +316,7 @@ describe("renderSubagentResult", () => {
 
 	test("a mixed-model total names no model", () => {
 		const results = [single({ model: "claude-sonnet-4-5" }), single({ agent: "planner", model: "gpt-5" })];
-		const text = view({ mode: "parallel", results }).join("\n");
+		const text = viewText({ mode: "parallel", results });
 		expect(text).toContain("Total: 2 turns");
 		expect(text).not.toContain("claude-sonnet-4-5");
 		expect(text).not.toContain("gpt-5");
@@ -338,7 +325,7 @@ describe("renderSubagentResult", () => {
 	test("parallel shows a running placeholder before completion", () => {
 		const running = single({ exitCode: -1, messages: [] });
 		const details: SubagentDetails = { mode: "parallel", results: [running, single()] };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		const text = viewText(details);
 		expect(text).toContain("running");
 	});
 
@@ -347,22 +334,20 @@ describe("renderSubagentResult", () => {
 			mode: "chain",
 			results: [single({ step: 1 }), single({ step: 2, agent: "worker" })],
 		};
-		const text = render(renderSubagentResult(toolResult(details), { expanded: true }, theme));
+		const text = viewText(details, { expanded: true });
 		expect(text).toContain("Step 1");
 		expect(text).toContain("Step 2");
 	});
 
 	test("falls back to content when there are no results", () => {
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [] }, "nothing here"), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [] }, { content: "nothing here" });
 		expect(text.trim()).toBe("nothing here");
 	});
 
 	test("multi view surfaces the failure count and error detail", () => {
 		const failed = single({ agent: "worker", exitCode: 1, stopReason: "error", errorMessage: "permission denied" });
 		const details: SubagentDetails = { mode: "parallel", results: [single(), failed] };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		const text = viewText(details);
 		expect(text).toContain("1/2 tasks (1 failed)");
 		expect(text).toContain("Error: permission denied");
 	});
@@ -370,15 +355,13 @@ describe("renderSubagentResult", () => {
 	test("multi expanded view surfaces the error too", () => {
 		const failed = single({ agent: "worker", exitCode: 1, stopReason: "error", errorMessage: "boom" });
 		const details: SubagentDetails = { mode: "parallel", results: [single(), failed] };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: true }, theme));
+		const text = viewText(details, { expanded: true });
 		expect(text).toContain("Error: boom");
 	});
 
 	test("falls back to stderr when a failure has no error message", () => {
 		const failed = single({ exitCode: 1, stderr: "fatal: EACCES\n" });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [failed] });
 		expect(text).toContain("Error: fatal: EACCES");
 	});
 
@@ -395,9 +378,7 @@ describe("renderSubagentResult", () => {
 			assistantMessage("final answer"),
 		] as never;
 		const result = single({ messages });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [result] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "single", results: [result] }, { expanded: true });
 		expect(text).toContain("thinking out loud");
 		expect(text).toContain("intermediate note");
 		expect(text).toContain("final answer");
@@ -405,16 +386,13 @@ describe("renderSubagentResult", () => {
 
 	test("running results show an elapsed-time label", () => {
 		const running = single({ exitCode: -1, messages: [], startedAt: NOW - 12000 });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false, now: NOW }, theme),
-		);
+		const text = viewText({ mode: "single", results: [running] }, { now: NOW });
 		expect(text).toContain("12.0s");
 	});
 
 	test("the running glyph animates on the repaint clock", () => {
 		const running = single({ exitCode: -1, messages: [], startedAt: NOW });
-		const renderAt = (now: number) =>
-			render(renderSubagentResult(toolResult({ mode: "single", results: [running] }), { expanded: false, now }, theme));
+		const renderAt = (now: number) => viewText({ mode: "single", results: [running] }, { now });
 		const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 		const first = renderAt(NOW);
 		const second = renderAt(NOW + 1000);
@@ -427,7 +405,7 @@ describe("renderSubagentResult", () => {
 	test("an in-flight streamed parallel task shows as running, not failed", () => {
 		const streaming = single({ agent: "explorer", exitCode: -1, messages: [assistantMessage("working")] });
 		const details: SubagentDetails = { mode: "parallel", results: [streaming, single({ agent: "planner" })] };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false, isPartial: true }, theme));
+		const text = viewText(details, { isPartial: true });
 		expect(text).toContain("1. explorer");
 		expect(text).not.toContain("✗");
 		expect(text).toContain("1/2 tasks done, 1 running");
@@ -436,29 +414,21 @@ describe("renderSubagentResult", () => {
 	test("a failed result with many items still offers to expand", () => {
 		const messages = Array.from({ length: 12 }, (_, i) => assistantMessage(`note ${i}`));
 		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "boom", messages });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [failed] });
 		expect(text).toContain("Error: boom");
 		expect(text).toContain("to expand");
 	});
 
 	test("a single-step chain keeps its mode header", () => {
 		const details: SubagentDetails = { mode: "chain", results: [single({ step: 1 })] };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		const text = viewText(details);
 		expect(text).toContain("chain ·");
 		expect(text).toContain("Step 1: explorer");
 	});
 
 	test("offers to expand when a single message is line-truncated", () => {
 		const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
-		const text = render(
-			renderSubagentResult(
-				toolResult({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] }),
-				{ expanded: false },
-				theme,
-			),
-		);
+		const text = viewText({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] });
 		expect(text).toContain("to expand");
 	});
 
@@ -467,18 +437,14 @@ describe("renderSubagentResult", () => {
 			assistantMessage("EARLY ANSWER"),
 			{ role: "assistant", content: [{ type: "toolCall", name: "bash", arguments: { command: "ls" } }] },
 		] as never;
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [single({ messages })] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "single", results: [single({ messages })] }, { expanded: true });
 		expect(text.indexOf("EARLY ANSWER")).toBeLessThan(text.indexOf("ls"));
 	});
 
 	test("clips long error detail in the collapsed view", () => {
 		const stderr = Array.from({ length: 30 }, (_, i) => `stderr line ${i}`).join("\n");
 		const failed = single({ exitCode: 1, stopReason: "error", stderr });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [failed] });
 		expect(text).toContain("Error: stderr line 0");
 		expect(text).toContain("…");
 		expect(text).not.toContain("stderr line 29");
@@ -487,7 +453,7 @@ describe("renderSubagentResult", () => {
 	test("a stopped chain counts the requested steps", () => {
 		const failed = single({ agent: "planner", exitCode: 1, stopReason: "error", errorMessage: "boom", step: 1 });
 		const details: SubagentDetails = { mode: "chain", results: [failed], total: 3 };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		const text = viewText(details);
 		expect(text).toContain("0/3 steps");
 		expect(text).toContain("(1 failed, stopped at step 1)");
 	});
@@ -497,7 +463,7 @@ describe("renderSubagentResult", () => {
 			mode: "parallel",
 			results: [single({ agent: "explorer", task: "map auth" }), single({ agent: "explorer", task: "map billing" })],
 		};
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		const text = viewText(details);
 		expect(text).toContain("1. explorer map auth");
 		expect(text).toContain("2. explorer map billing");
 	});
@@ -510,22 +476,20 @@ describe("renderSubagentResult", () => {
 				single({ agent: "worker", exitCode: -1 }),
 			],
 		};
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false, isPartial: true }, theme));
+		const text = viewText(details, { isPartial: true });
 		expect(text).toContain("running (1 failed)");
 	});
 
 	test("offers to expand when a single error is truncated", () => {
 		const failed = single({ exitCode: 1, stopReason: "error", errorMessage: "x".repeat(1000) });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [failed] });
 		expect(text).toContain("to expand");
 	});
 
 	test("offers to expand when a multi error is truncated", () => {
 		const failed = single({ agent: "planner", exitCode: 1, stopReason: "error", stderr: "e".repeat(1000) });
 		const details: SubagentDetails = { mode: "parallel", results: [failed, single({ agent: "worker" })] };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		const text = viewText(details);
 		expect(text).toContain("to expand");
 	});
 
@@ -533,23 +497,21 @@ describe("renderSubagentResult", () => {
 		const blank = single({
 			messages: [{ role: "assistant", content: [{ type: "text", text: "   " }] }] as never,
 		});
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [blank] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "single", results: [blank] }, { expanded: true });
 		expect(text).toContain("Output");
 		expect(text).toContain("(no output)");
 	});
 
 	test("surfaces a tool-error count in the usage line", () => {
-		expect(view({ mode: "single", results: [single({ toolErrors: 2 })] }).join("\n")).toContain("2 tool errors");
-		expect(view({ mode: "single", results: [single({ toolErrors: 1 })] }).join("\n")).toContain("1 tool error");
+		expect(viewText({ mode: "single", results: [single({ toolErrors: 2 })] })).toContain("2 tool errors");
+		expect(viewText({ mode: "single", results: [single({ toolErrors: 1 })] })).toContain("1 tool error");
 	});
 
 	test("multi Total sums tool errors across results", () => {
-		const text = view({
+		const text = viewText({
 			mode: "parallel",
 			results: [single({ toolErrors: 1 }), single({ toolErrors: 2 })],
-		}).join("\n");
+		});
 		expect(text).toContain("Total:");
 		expect(text).toContain("3 tool errors");
 	});
@@ -557,13 +519,9 @@ describe("renderSubagentResult", () => {
 	test("strips terminal control characters from collapsed and expanded text", () => {
 		const messages = [assistantMessage("early \u001b[1mBOLD"), assistantMessage("Result: \u001b[31mRED")];
 		const result = single({ messages });
-		const collapsed = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [result] }), { expanded: false }, theme),
-		);
+		const collapsed = viewText({ mode: "single", results: [result] });
 		expect(collapsed).not.toContain("\u001b");
-		const expanded = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [result] }), { expanded: true }, theme),
-		);
+		const expanded = viewText({ mode: "single", results: [result] }, { expanded: true });
 		expect(expanded).not.toContain("\u001b");
 		expect(expanded).toContain("early");
 	});
@@ -575,9 +533,7 @@ describe("renderSubagentResult", () => {
 			task: "plan using PRIOR-OUTPUT",
 			taskTemplate: "plan using {previous}",
 		});
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "chain", results: [step] }), { expanded: true }, theme),
-		);
+		const text = viewText({ mode: "chain", results: [step] }, { expanded: true });
 		expect(text).toContain("plan using {previous}");
 		expect(text).not.toContain("PRIOR-OUTPUT");
 	});
@@ -591,16 +547,14 @@ describe("renderSubagentResult", () => {
 			taskTemplate: "plan using {previous}",
 		});
 		const details: SubagentDetails = { mode: "chain", results: [first, second] };
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		const text = viewText(details);
 		expect(text).toContain("plan using {previous}");
 		expect(text).not.toContain("PRIOR-OUTPUT");
 	});
 
 	test("a message-less failure shows the exit code and a reason", () => {
 		const failed = single({ exitCode: 1, messages: [], stderr: "" });
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [failed] }), { expanded: false }, theme),
-		);
+		const text = viewText({ mode: "single", results: [failed] });
 		expect(text).toContain("exit 1");
 		expect(text).toContain("Subprocess exited with code 1");
 	});
@@ -619,13 +573,7 @@ describe("keybinding and reuse", () => {
 		);
 		try {
 			const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
-			const text = render(
-				renderSubagentResult(
-					toolResult({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] }),
-					{ expanded: false },
-					theme,
-				),
-			);
+			const text = viewText({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] });
 			expect(text).toContain("ctrl+o to expand");
 		} finally {
 			setKeybindings(previous);
