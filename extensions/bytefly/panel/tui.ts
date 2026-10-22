@@ -16,9 +16,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import type { ViewportRowsSource } from "../../../lib/tui/chrome.ts";
-import { dockListFrame } from "../../../lib/tui/chrome.ts";
 import { isCloseKey, ListCursor, navIntent, wheelDelta } from "../../../lib/tui/cursor.ts";
-import { emptyState } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import type { ExtensionsPickerRuntime } from "../picker/runtime.ts";
@@ -601,7 +599,7 @@ export class PanelComponent implements Component {
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
-		const header = titleRule(this.theme, w, "bytefly");
+		const header = titleRule(this.theme, w, "Bytefly");
 		if (this.section === "settings") return this.renderSettings(w, header);
 
 		const model = this.model();
@@ -612,15 +610,6 @@ export class PanelComponent implements Component {
 			this.section,
 			extensionSummary(this.theme, w, model, this.options.runtime.scope(), this.options.filter),
 		);
-
-		if (entries.length === 0) {
-			return dockListFrame({
-				header,
-				summary,
-				body: emptyState(this.theme, w, { label: "No extensions found." }),
-				hint: this.hintRow(w),
-			});
-		}
 
 		const focusedEntry = this.retain(entries);
 		const focused = focusedEntry?.kind === "row" ? focusedEntry.row : undefined;
@@ -642,6 +631,7 @@ export class PanelComponent implements Component {
 			header,
 			summary,
 			entries,
+			emptyLabel: "No extensions found.",
 			detail,
 			hint: this.hintRow(w, { expanded }),
 			draw: (entry, index) => {

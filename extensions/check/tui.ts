@@ -79,6 +79,8 @@ export class CheckRunComponent implements Component {
 		});
 		if (body.length === 0) body.push(...emptyState(this.theme, w, { label: "Starting…" }));
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header: titleRule(this.theme, w, "Check"),
 			summary: clip(
 				`  ${paint(this.theme, "meta", `running${SEPARATORS.item}${sanitizeLine(this.options.command)}${SEPARATORS.item}${formatDuration(this.options.elapsedMs())}`)}`,

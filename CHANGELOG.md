@@ -16,6 +16,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   “exit plan mode” instead of silently retrying them. A select without an Other
   option no longer claims free text is a choice.
 
+### Changed
+
+- `lib`: every docked screen — `/bytefly`'s Extensions and Settings sections,
+  `/todos`, `/jobs`, `/watch`, `/agents`, `/check`, `/memory`, `/rewind`, the plan
+  index and review, `/context`, and the WeChat login and control screens — now
+  closes with a full-width `─` rule under its key hints, the edge Pi's own
+  `/settings` draws and the editor it replaces carries, instead of a blank row.
+  No row is added, so a short terminal keeps its hints.
+- `bytefly`: the control center's title rule reads `Bytefly`, capitalised like
+  every other screen title, instead of the lowercase command name.
+
 ## [0.16.0] - 2026-10-21
 
 ### Added

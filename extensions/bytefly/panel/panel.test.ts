@@ -1815,11 +1815,11 @@ describe("PanelComponent rendering", () => {
 		expect(text).toContain("1 degraded");
 	});
 
-	test("draws the bytefly header and a checkbox column", () => {
+	test("draws the Bytefly header and a checkbox column", () => {
 		const { component } = build({ items: [packageItem("plan")], reports: [] });
 
 		const lines = component.render(60);
-		expect(lines[0]).toContain("bytefly");
+		expect(lines[0]).toContain("Bytefly");
 		expect(lines.join("\n")).toContain(GLYPHS.boxOn);
 	});
 

@@ -43,7 +43,7 @@ const MAX_NOTE_CHARS = 500;
 /** Rows the screen shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ROWS = 14;
 
-/** Fixed rows around the list: header, summary, blank, blank, hint, blank. */
+/** Fixed rows around the list: header, summary, blank, blank, hint, closing rule. */
 const CHROME = 6;
 
 /** Which scopes the list shows. */
@@ -482,6 +482,8 @@ export class MemoryPickerComponent implements Component {
 		const body: string[] = [];
 		for (const line of this.editor.render(Math.max(1, width - 2))) body.push(`${pad}${line}`);
 		return dockListFrame({
+			theme: this.theme,
+			width,
 			header: titleRule(this.theme, width, `Memory · ${verb} ${scope}`),
 			summary: clip(`  ${paint(this.theme, "meta", summary)}`, width),
 			body,
@@ -528,6 +530,8 @@ export class MemoryPickerComponent implements Component {
 						]);
 
 		return dockListFrame({
+			theme: this.theme,
+			width: w,
 			header: titleRule(this.theme, w, "Memory"),
 			summary: this.summary(w),
 			body,

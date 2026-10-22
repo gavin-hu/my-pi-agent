@@ -13,6 +13,7 @@ import {
 	editorTheme,
 	FULL_SCREEN_OVERLAY,
 	reuseText,
+	screenFooter,
 	screenHint,
 	toolDetails,
 	viewportRows,
@@ -124,46 +125,58 @@ describe("screenHint", () => {
 });
 
 describe("dockListFrame", () => {
+	const frame = { theme: fakeTheme, width: 80 };
+	const rule = plainRule(fakeTheme, 80);
+
 	test("assembles the header, summary, body, and hint with the shared blanks", () => {
-		const lines = dockListFrame({ header: "Jobs", summary: "1 job", body: ["a", "b"], hint: "Esc close" });
-		expect(lines).toEqual(["Jobs", "1 job", "", "a", "b", "", "Esc close", ""]);
+		const lines = dockListFrame({ ...frame, header: "Jobs", summary: "1 job", body: ["a", "b"], hint: "Esc close" });
+		expect(lines).toEqual(["Jobs", "1 job", "", "a", "b", "", "Esc close", rule]);
 	});
 
 	test("omits the summary and its blank line when absent", () => {
-		const lines = dockListFrame({ header: "Jobs", body: ["a"], hint: "Esc" });
-		expect(lines).toEqual(["Jobs", "a", "", "Esc", ""]);
+		const lines = dockListFrame({ ...frame, header: "Jobs", body: ["a"], hint: "Esc" });
+		expect(lines).toEqual(["Jobs", "a", "", "Esc", rule]);
 	});
 
 	test("places the range after the body and the detail after the range", () => {
 		const lines = dockListFrame({
+			...frame,
 			header: "Jobs",
 			body: ["a"],
 			range: "1/2",
 			detail: ["detail"],
 			hint: "Esc",
 		});
-		expect(lines).toEqual(["Jobs", "a", "1/2", "", "detail", "", "Esc", ""]);
+		expect(lines).toEqual(["Jobs", "a", "1/2", "", "detail", "", "Esc", rule]);
 	});
 
 	test("adds no blank line for an empty detail block", () => {
-		const lines = dockListFrame({ header: "Jobs", body: ["a"], detail: [], hint: "Esc" });
-		expect(lines).toEqual(["Jobs", "a", "", "Esc", ""]);
+		const lines = dockListFrame({ ...frame, header: "Jobs", body: ["a"], detail: [], hint: "Esc" });
+		expect(lines).toEqual(["Jobs", "a", "", "Esc", rule]);
 	});
 
 	test("drops the separator rather than the block when the caller asks", () => {
 		const lines = dockListFrame({
+			...frame,
 			header: "Jobs",
 			body: ["a"],
 			detail: ["detail"],
 			detailBlank: false,
 			hint: "Esc",
 		});
-		expect(lines).toEqual(["Jobs", "a", "detail", "", "Esc", ""]);
+		expect(lines).toEqual(["Jobs", "a", "detail", "", "Esc", rule]);
+	});
+
+	test("closes with the muted rule, as Pi's built-in screens do", () => {
+		const lines = dockListFrame({ theme: coloringTheme, width: 4, header: "Jobs", body: ["a"], hint: "Esc" });
+		expect(lines.at(-1)).toBe("[borderMuted]────");
 	});
 
 	test("keeps the caller's header and the hint inside the width", () => {
 		for (const width of [1, 8, 20, 80]) {
 			const lines = dockListFrame({
+				theme: fakeTheme,
+				width,
 				header: titleRule(fakeTheme, width, "Extensions"),
 				body: [],
 				hint: screenHint(fakeTheme, width, ["Esc close"]),
@@ -171,6 +184,23 @@ describe("dockListFrame", () => {
 
 			expect(visibleWidth(lines[0] ?? "")).toBe(Math.max(1, width));
 			expect(visibleWidth(lines.at(-2) ?? "")).toBeLessThanOrEqual(width);
+			expect(visibleWidth(lines.at(-1) ?? "")).toBe(Math.max(1, width));
+		}
+	});
+});
+
+describe("screenFooter", () => {
+	test("is a blank row, the hint row, and the closing rule", () => {
+		expect(screenFooter(fakeTheme, 8, "Esc close")).toEqual(["", "Esc close", "─".repeat(8)]);
+	});
+
+	test("paints the rule with the rule role", () => {
+		expect(screenFooter(coloringTheme, 3, "Esc")).toEqual(["", "Esc", "[borderMuted]───"]);
+	});
+
+	test("never renders a rule of zero columns", () => {
+		for (const width of [0, -5]) {
+			expect(visibleWidth(screenFooter(fakeTheme, width, "Esc").at(-1) ?? "")).toBe(1);
 		}
 	});
 });

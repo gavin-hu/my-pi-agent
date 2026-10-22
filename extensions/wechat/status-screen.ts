@@ -12,7 +12,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { formatDuration, sanitizeLine } from "../../lib/format.ts";
-import { screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
+import { screenFooter, screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { formatRange, IdCursor, isCloseKey, navIntent } from "../../lib/tui/cursor.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
@@ -441,7 +441,7 @@ export class StatusScreenComponent implements Component {
 			...statusBody(view, theme, target, selection),
 		];
 		if (this.flash) lines.push("", clip(`  ${paint(theme, "meta", this.flash)}`, target));
-		lines.push("", screenHint(theme, target, this.hints(view)));
+		lines.push(...screenFooter(theme, target, screenHint(theme, target, this.hints(view))));
 		return lines;
 	}
 }
