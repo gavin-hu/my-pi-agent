@@ -43,10 +43,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   code, with one line saying what to look at — and asks for one job per section: a
   one-sentence goal, the context as the facts that force the approach, the
   approach with the alternative it rejected, and verification as a fence of
-  commands. `write_plan` calls the shape a guide rather than a form — a heading
-  with nothing to say is dropped, `Visual` included, and only the shallowest list
-  in `Steps` is tracked, so nested bullets stay notes. A fenced verification block
-  reaches the todo list as its commands (`Verify: …`), not its fence lines.
+  commands. `write_plan` calls the shape a guide rather than a form: `Context`,
+  `Approach`, `Visual`, and `Risks` are dropped when they have nothing to say,
+  while `Steps` and `Verification` stay because they carry behavior — the steps
+  are read from that section, and without it the shallowest list anywhere becomes
+  the steps — and only the shallowest list in `Steps` is tracked, so nested
+  bullets stay notes. A refinement is asked to keep its section headings, so the
+  review still marks only what changed. A fenced verification block reaches the
+  todo list as its commands (`Verify: …`), not its fence lines.
 - `lib`: every docked screen — `/bytefly`'s Extensions and Settings sections,
   `/todos`, `/jobs`, `/watch`, `/agents`, `/check`, `/memory`, `/rewind`, the plan
   index and review, `/context`, and the WeChat login and control screens — now

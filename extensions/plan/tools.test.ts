@@ -402,11 +402,17 @@ describe("write_plan", () => {
 		expect(result.content[0].text).toContain("Not in plan mode");
 	});
 
-	test("says the outline is a guide and how steps are counted", () => {
+	test("names the droppable headings and how steps are counted", () => {
 		const { write } = setup();
 		expect(write.description).toContain("a guide, not a form");
-		expect(write.description).toContain("only the shallowest list is tracked");
+		expect(write.description).toContain("drop Context, Approach, Visual, or Risks");
+		expect(write.description).toContain("the shallowest list anywhere becomes the steps");
 		expect(write.description).toContain("before and after in one fence each");
+	});
+
+	test("asks a refinement to keep its section headings", () => {
+		const { write } = setup();
+		expect(write.promptGuidelines.join("\n")).toContain("keep every section heading");
 	});
 
 	test("writes the plan file, remembers it, and repaints the footer", async () => {

@@ -1104,6 +1104,14 @@ describe("plan text — changed sections", () => {
 		]);
 	});
 
+	test("flags a renamed heading even when its body is unchanged", () => {
+		// The baseline is keyed by heading text, which is why write_plan asks a
+		// refinement to keep its headings: a rename has no digest to compare against.
+		expect(
+			changedSections(sectionDigests(["## Approach", "Ship it."].join("\n")), ["## Design", "Ship it."].join("\n")),
+		).toEqual([true]);
+	});
+
 	test("flags nothing on a first review", () => {
 		// A plan this branch never showed has no baseline; every section is new, and
 		// marking them all would claim the whole plan changed.

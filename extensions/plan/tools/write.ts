@@ -47,14 +47,17 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 			"and commands in inline code or a fence rather than pasted prose. " +
 			"When the change alters a surface that already exists, Visual shows it before and after in one fence each; " +
 			"tag a fence only when every line in it is code. " +
-			"The outline is a guide, not a form: drop a heading that has nothing to say, Visual included. " +
-			"In Steps, each top-level bullet is one outcome in the order you will do them, and deeper bullets are notes — " +
-			"only the shallowest list is tracked. " +
+			"The outline is a guide, not a form: drop Context, Approach, Visual, or Risks when there is nothing to say. " +
+			"Keep Steps and Verification — the steps are read from that section (without it, the shallowest list " +
+			"anywhere becomes the steps), and Verification becomes the last todo item. " +
+			"In Steps, each top-level bullet is one outcome in the order you will do them, and deeper bullets are notes. " +
 			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining. " +
 			`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it cannot track.`,
 		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
 		promptGuidelines: [
 			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
+			"When refining with plan_path, keep every section heading as it was: the review marks changed sections by heading, " +
+				"so a rename reads as an edit.",
 		],
 		parameters: WritePlanParams,
 		defaultActive: false,
