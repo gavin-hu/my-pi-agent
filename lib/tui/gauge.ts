@@ -26,16 +26,20 @@ export const DEFAULT_GAUGE_THRESHOLDS: GaugeThresholds = { warn: 70, danger: 90 
 /**
  * Filled and empty block counts for a percentage across `blocks` cells.
  *
- * The fill floors so the bar reads full only at 100%, and forces one block for
- * any non-zero usage so a small percentage is still visible. A `null` percent
- * (unknown) fills nothing, leaving the caller to decide whether to draw the
- * empty track; a known `0` draws it.
+ * The fill rounds to the nearest cell, so a bar sits no more than half a cell
+ * away from the number printed beside it, and the last cell is kept for 100% so
+ * a bar reads full only at a full value. Any non-zero usage still forces one
+ * block, so a small percentage stays visible. A `null` percent (unknown) fills
+ * nothing, leaving the caller to decide whether to draw the empty track; a known
+ * `0` draws it.
  */
 export function computeGauge(percent: number | null, blocks: number): { filled: number; empty: number } {
 	if (blocks <= 0) return { filled: 0, empty: 0 };
 	if (percent === null) return { filled: 0, empty: blocks };
 	const clamped = Math.max(0, Math.min(100, percent));
-	const filled = Math.max(clamped > 0 ? 1 : 0, Math.floor((clamped / 100) * blocks));
+	const nearest = Math.round((clamped / 100) * blocks);
+	const capped = clamped < 100 ? Math.min(blocks - 1, nearest) : nearest;
+	const filled = Math.max(clamped > 0 ? 1 : 0, capped);
 	return { filled, empty: blocks - filled };
 }
 

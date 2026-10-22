@@ -38,6 +38,11 @@ describe("formatTokens", () => {
 		expect(formatTokens(12000000)).toBe("12M");
 	});
 
+	test("switches to M before a count can round to 1000k", () => {
+		expect(formatTokens(999499)).toBe("999k");
+		expect(formatTokens(999974)).toBe("1.0M");
+	});
+
 	test("shows ? for a value that is not a number", () => {
 		expect(formatTokens(Number.NaN)).toBe("?");
 		expect(formatTokens(Number.POSITIVE_INFINITY)).toBe("?");

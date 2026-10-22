@@ -43,6 +43,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   header's `Pi v1.3.0` gains the `↑1.4.0` marker, and a host whose method is
   missing or renamed keeps its own box. Both update surfaces now share one
   host-patch helper, one marker-painting step, and one identity ladder.
+- `lib`: a gauge fills the nearest cell instead of flooring, keeping the last
+  cell for 100%, so a bar no longer sits a whole cell below the percentage beside
+  it; `formatTokens` prints `1.0M` rather than `1000k` for a count just under a
+  million.
 
 ## [0.16.0] - 2026-10-21
 
