@@ -1,15 +1,17 @@
 /**
- * Registers bytefly's user-message markdown transformer.
+ * Registers bytefly's single Markdown transformer.
  *
- * Registration happens at extension load, like the turn separator's entry
- * renderer: the transformer only matters where a transcript renders, and Pi
- * calls it for every message, so no session lifecycle is needed.
+ * Pi keeps one transformer per extension (`loader.js`), and the extension
+ * already spends it on the user-message nameplate; the next-steps strip rides
+ * along in the same registration, dispatched by message type. A second
+ * `registerMarkdownTransformer` call would silently replace the first, so there
+ * is exactly one, here.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { styleUserMessage } from "./format.ts";
+import { styleMessage } from "./format.ts";
 
-/** Register the transformer that marks each user message. */
+/** Register the transformer that marks user messages and strips a lifted block. */
 export function registerUserMessage(pi: ExtensionAPI): void {
-	pi.registerMarkdownTransformer((markdown, context) => styleUserMessage(markdown, context));
+	pi.registerMarkdownTransformer((markdown, context) => styleMessage(markdown, context));
 }

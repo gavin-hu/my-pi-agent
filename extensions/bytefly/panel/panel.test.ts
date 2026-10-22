@@ -580,7 +580,6 @@ describe("panel text projection", () => {
 			"Needs input: On",
 			"Job finished: On",
 			"Watcher matched: On",
-			"Delivery method: Auto",
 			"Wake when a job finishes: Off",
 			"Wake on a match: Off",
 			"Automatic snapshots: On",
@@ -611,7 +610,7 @@ describe("settings catalogue", () => {
 			"notify.needsInput",
 			"notify.jobFinished",
 			"notify.matchFound",
-			"notify.method",
+			"suggest.enabled",
 			"job.wakeOnFinish",
 			"watch.wakeOnMatch",
 			"rewind.autoSnapshots",
@@ -653,7 +652,7 @@ describe("settings catalogue", () => {
 			["notify.needsInput", "true", "On", "default"],
 			["notify.jobFinished", "true", "On", "default"],
 			["notify.matchFound", "true", "On", "default"],
-			["notify.method", "auto", "Auto", "default"],
+			["suggest.enabled", "true", "On", "default"],
 			["job.wakeOnFinish", "false", "Off", "default"],
 			["watch.wakeOnMatch", "false", "Off", "default"],
 			["rewind.autoSnapshots", "true", "On", "default"],
@@ -692,7 +691,8 @@ describe("settings catalogue", () => {
 		const snap = snapshot({
 			app: { quietStartup: true } as Settings,
 			global: {
-				notify: { enabled: true, method: "osc99" },
+				notify: { enabled: true },
+				suggest: { enabled: false },
 				doctor: { proactive: false },
 				price: { currency: { code: "USD" } },
 				job: { wakeOnFinish: true },
@@ -701,7 +701,7 @@ describe("settings catalogue", () => {
 
 		expect(viewOf(snap, "global", "byteflyUi")).toMatchObject({ valueLabel: "On", origin: "global" });
 		expect(viewOf(snap, "global", "notify.enabled")).toMatchObject({ valueLabel: "On", origin: "global" });
-		expect(viewOf(snap, "global", "notify.method").valueLabel).toBe("OSC 99");
+		expect(viewOf(snap, "global", "suggest.enabled").valueLabel).toBe("Off");
 		expect(viewOf(snap, "global", "doctor.proactive").valueLabel).toBe("Off");
 		expect(viewOf(snap, "global", "price.currency.code").valueLabel).toBe("USD ($)");
 		expect(viewOf(snap, "global", "job.wakeOnFinish").valueLabel).toBe("On");
@@ -739,10 +739,10 @@ describe("settings catalogue", () => {
 		expect(nextValue(descriptor("price.currency.code"), "USD").value).toBe("CNY");
 	});
 
-	test("cycles the delivery method through every surface and wraps", () => {
-		const method = descriptor("notify.method");
-		expect(nextValue(method, "auto").value).toBe("osc777");
-		expect(nextValue(method, "notify-send").value).toBe("auto");
+	test("cycles a boolean row through both values and wraps", () => {
+		const row = descriptor("suggest.enabled");
+		expect(nextValue(row, "true").value).toBe("false");
+		expect(nextValue(row, "false").value).toBe("true");
 	});
 
 	test("cycles the theme through the names it is given", () => {
@@ -781,7 +781,7 @@ describe("settings catalogue", () => {
 		expect(storedValue(descriptor("byteflyUi"), "false")).toBe(false);
 		expect(storedValue(descriptor("byteflyUi"), "true")).toBe(true);
 		expect(storedValue(descriptor("notify.enabled"), "true")).toBe(true);
-		expect(storedValue(descriptor("notify.method"), "osc99")).toBe("osc99");
+		expect(storedValue(descriptor("suggest.enabled"), "false")).toBe(false);
 		expect(storedValue(descriptor("price.budget"), "3")).toBe(3);
 	});
 
@@ -1044,13 +1044,13 @@ describe("settings runtime", () => {
 		expect(runtimeValue(runtime, "project", "price.currency.code")).toBe("USD");
 	});
 
-	test("writes the delivery method as a string", async () => {
+	test("writes the next-steps switch as a boolean", async () => {
 		const { runtime, globalPath } = bootRuntime();
 
-		await runtime.change("global", "notify.method");
+		await runtime.change("global", "suggest.enabled");
 
-		expect(JSON.parse(readText(globalPath))).toEqual({ notify: { method: "osc777" } });
-		expect(runtimeValue(runtime, "global", "notify.method")).toBe("osc777");
+		expect(JSON.parse(readText(globalPath))).toEqual({ suggest: { enabled: false } });
+		expect(runtimeValue(runtime, "global", "suggest.enabled")).toBe("false");
 	});
 
 	test("refuses a project write when the project is untrusted", async () => {
@@ -2223,7 +2223,7 @@ describe("PanelComponent sections", () => {
 		expect(text).toContain("14 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
-		expect(text).toContain("Delivery method");
+		expect(text).toContain("Next steps");
 		expect(text).toContain("Watcher matched");
 		expect(text).not.toContain("plan/index.ts");
 	});
@@ -3194,7 +3194,7 @@ describe("bytefly panel modes", () => {
 
 		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 14 settings");
 		expect(notifications.at(-1)).toContain("Bytefly startup TUI: Off");
-		expect(notifications.at(-1)).toContain("Delivery method: Auto");
+		expect(notifications.at(-1)).toContain("Next steps: On");
 		expect(notifications.at(-1)).toContain("Session budget: 0");
 		expect(notifications.at(-1)).toContain("Theme: system");
 	});

@@ -135,7 +135,7 @@ to do. Each extension's own `README.md` has the full tool and command surface.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you, and Pi's own startup update blocks become themed notices and header markers. `bytefly.json` is the config document every extension reads. |
+| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it, and where each settled turn ends with the model's suggested next steps, drawn under the turn rule. `/bytefly` switches extensions and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you, and Pi's own startup update blocks become themed notices and header markers. `bytefly.json` is the config document every extension reads. |
 
 ### Skills
 

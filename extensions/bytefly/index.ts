@@ -1,23 +1,26 @@
 /**
- * bytefly — the package's terminal chrome and diagnostics, composed from eleven
+ * bytefly — the package's terminal chrome and diagnostics, composed from twelve
  * feature folders: `header/` (the themed startup mark and version), `footer/`
  * (the two-line, width-adaptive status bar with its price calculation),
- * `message/` (the user-message nameplate), `notice/` (the shared transcript
+ * `message/` (the user-message nameplate, and the strip that keeps a lifted
+ * next-steps block out of the reply), `notice/` (the shared transcript
  * notice renderer), `block/` (the unified tool-block frame), `separator/` (the
- * transcript turn rule), `working/` (the live run line on Pi's working row),
+ * transcript turn rule), `next/` (the model's next-steps block, lifted at settle
+ * and drawn below the turn rule, switched by the `suggest` section), `working/`
+ * (the live run line on Pi's working row),
  * `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
  * probe runtime), `notify/` (OS notifications for unattended runs), and
  * `update/` (Pi's package list, the host suppression, and the header marker).
  *
- * The header, footer, turn rule, and working line are installed only in
- * interactive (`tui`) sessions, and are always on; the user-message marker,
- * notice, and tool blocks register at load and take effect wherever a
+ * The header, footer, turn rule, next-steps aside, and working line are installed
+ * only in interactive (`tui`) sessions, and are always on; the user-message
+ * marker, notice, and tool blocks register at load and take effect wherever a
  * transcript renders. `pi config` turns bytefly's chrome off. The panel and doctor work
  * in every mode, and notify works wherever the environment can deliver it. The
  * footer is priced from DeepSeek's published rates by default and from
- * `bytefly.json` otherwise, the same file whose `notify` section configures
- * notifications.
+ * `bytefly.json` otherwise, the same file whose `notify` and `suggest` sections
+ * configure notifications and the next-steps block.
  *
  * Load with:  pi --extension ./extensions/bytefly
  */
@@ -30,6 +33,7 @@ import { type DoctorDeps, registerDoctor } from "./doctor/register.ts";
 import { registerFooter } from "./footer/register.ts";
 import { registerHeader } from "./header/register.ts";
 import { registerUserMessage } from "./message/register.ts";
+import { registerNextSteps } from "./next/register.ts";
 import { registerNotice } from "./notice/register.ts";
 import { type NotifyDeps, registerNotify } from "./notify/register.ts";
 import { createPadStore } from "./pad.ts";
@@ -78,6 +82,8 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	registerNotice(pi, pad, rail);
 	registerToolBlocks(pi, pad, rail);
 	registerTurnSeparator(pi, pad);
+	// Registered after the separator so its entry lands below the turn rule.
+	registerNextSteps(pi, pad, rail);
 	registerWorkingTimer(pi);
 	const doctor = registerDoctor(pi, deps.doctor);
 	// The returned handle is what `/bytefly update` re-runs, so the update surface is

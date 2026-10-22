@@ -34,6 +34,7 @@ import {
 	normalizeByteflyConfig,
 } from "../footer/price/config.ts";
 import type { CurrencyCode } from "../footer/price/types.ts";
+import { DEFAULT_SUGGEST_CONFIG, normalizeSuggestConfig } from "../next/config.ts";
 import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.ts";
 import type { Settings, WriteScope } from "../picker/types.ts";
 
@@ -61,7 +62,7 @@ interface TextRule {
 }
 
 /** The `bytefly.json` sections a row still reaches. */
-export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "watch";
+export type ConfigSectionName = "suggest" | "notify" | "doctor" | "price" | "rewind" | "job" | "watch";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -125,14 +126,6 @@ const ON_OFF: readonly SettingOption[] = [
 ];
 
 /** The notify section's delivery methods, labeled by the surface each reaches. */
-const METHOD_OPTIONS: readonly SettingOption[] = [
-	{ value: "auto", label: "Auto" },
-	{ value: "osc777", label: "OSC 777" },
-	{ value: "osc99", label: "OSC 99" },
-	{ value: "toast", label: "Windows toast" },
-	{ value: "osascript", label: "macOS" },
-	{ value: "notify-send", label: "Linux" },
-];
 
 /**
  * A text rule for a money amount inside an inclusive range: a whole number or a
@@ -157,6 +150,12 @@ function amountRule(min: number, max: number): TextRule {
  *
  * Global scope lists all fourteen; Project lists the twelve `bytefly.json` rows,
  * because Pi's setters write the personal `settings.json` only.
+ *
+ * `suggest.enabled` took the slot `notify.method` used to hold: a new row has to
+ * displace one to keep the screen inside a 24-row terminal, and how a
+ * notification is delivered is set once per machine (`bytefly.json` still carries
+ * `notify.method`), while whether the model ends every reply with next steps
+ * changes turn to turn.
  */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
@@ -236,14 +235,15 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "notify", path: ["matchFound"] },
 	},
 	{
-		id: "notify.method",
-		label: "Delivery method",
-		description: "How a notification is delivered; Auto picks from the terminal, then the platform.",
+		id: "suggest.enabled",
+		label: "Next steps",
+		description: "Ask the model to end a reply with two or three suggested next actions, drawn below the turn rule.",
 		source: "bytefly",
-		kind: "enum",
-		fallback: "auto",
-		options: METHOD_OPTIONS,
-		config: { section: "notify", path: ["method"] },
+		kind: "boolean",
+		fallback: "true",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: "suggest", path: ["enabled"] },
 	},
 	{
 		id: "job.wakeOnFinish",
@@ -405,6 +405,8 @@ type SectionReader = (
 
 /** The sections bytefly owns, each read through its own normalizer so the screen shows what the loader keeps. */
 const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
+	suggest: (globalRaw, projectRaw, path) =>
+		configValueAt(normalizeSuggestConfig(projectRaw, normalizeSuggestConfig(globalRaw, DEFAULT_SUGGEST_CONFIG)), path),
 	notify: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeNotifyConfig(projectRaw, normalizeNotifyConfig(globalRaw, DEFAULT_NOTIFY_CONFIG)), path),
 	doctor: (globalRaw, projectRaw, path) =>

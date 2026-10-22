@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: after a turn settles, the model's next two or three actions are drawn
+  below the turn rule as a `Next` aside — the label at the margin, one wrapped
+  `›` row per item behind the transcript rail, no numbering to mistake for keys.
+  A system-prompt section asks for the block as the reply's last lines and says to
+  omit it when the work is finished; `agent_settled` lifts it into an inert
+  `bytefly-next-steps` entry (so it survives `/resume` and costs no tokens) and the
+  Markdown transformer that draws the `You` nameplate removes the raw copy from
+  the reply, leaving `/copy` and export with the original text. **Next steps** in
+  `/bytefly settings` switches it off, and it took the row `notify.method` used to
+  hold — delivery is a per-machine choice, still in `bytefly.json`.
+
 - `plan`: plan mode now has an explicit exit on the phone. The review offers
   **Exit plan mode (discard)** and treats a dismissed select as an exit; the new
   `cancel_plan_mode` tool and `/plan cancel` leave without a plan file, record no
