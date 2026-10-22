@@ -43,6 +43,16 @@ describe("the composition", () => {
 		expect(tools?.share).toBe(36.7);
 	});
 
+	test("derives every share from the unrounded tokens", () => {
+		const report = buildReport(sampleContext());
+		for (const bucket of report.buckets) {
+			expect(bucket.share, bucket.id).toBe(Math.round((bucket.tokens / report.estimate) * 1000) / 10);
+		}
+		const top = report.buckets.filter((bucket) => bucket.depth === 0);
+		const total = top.reduce((sum, bucket) => sum + bucket.share, 0);
+		expect(Math.abs(total - 100)).toBeLessThanOrEqual(0.2);
+	});
+
 	test("names the active tool surface", () => {
 		const report = buildReport(sampleContext());
 		expect(report.buckets.find((bucket) => bucket.id === "tools")?.note).toBe("3 active of 5");
@@ -51,6 +61,26 @@ describe("the composition", () => {
 	test("counts the injected messages above their children", () => {
 		const report = buildReport(sampleContext());
 		expect(report.buckets.find((bucket) => bucket.id === "injected")?.note).toBe("2 messages");
+	});
+
+	test("does not repeat the parent's count on its only child", () => {
+		const messages = [
+			{
+				role: "custom",
+				customType: "my-pi-agent/notice",
+				content: "m".repeat(40),
+				display: false,
+				timestamp: 0,
+			} as unknown as AgentMessage,
+		];
+		const report = buildReport(sampleContext({ messages }));
+		expect(report.buckets.find((bucket) => bucket.id === "injected")?.note).toBe("1 message");
+		expect(report.buckets.find((bucket) => bucket.id === "injected:my-pi-agent/notice")?.note).toBeUndefined();
+	});
+
+	test("keeps a child count that divides the total", () => {
+		const report = buildReport(sampleContext());
+		expect(report.buckets.find((bucket) => bucket.id === "injected:memory")?.note).toBe("1 message");
 	});
 
 	test("caps the injected children and folds the rest into one row", () => {
@@ -124,6 +154,8 @@ describe("the budget", () => {
 		const report = buildReport(sampleContext({ settings: { compaction: { enabled: false } } }));
 		expect(report.enabled).toBe(false);
 		expect(report.reserve).toBe(16384);
+		expect(report.autoCompactAt).toBe(183616);
+		expect(report.headroom).toBeNull();
 	});
 
 	test("goes past the threshold when the host total exceeds it", () => {
@@ -187,7 +219,7 @@ describe("the compaction history", () => {
 	});
 });
 
-describe("the largest blocks", () => {
+describe("the largest messages", () => {
 	test("orders them biggest first and labels the role", () => {
 		const report = buildReport(sampleContext());
 		expect(report.largest.map((block) => [block.role, block.tokens])).toEqual([
@@ -254,7 +286,10 @@ describe("the plain-text form", () => {
 
 	test("says when automatic compaction is off", () => {
 		const report = buildReport(sampleContext({ settings: { compaction: { enabled: false } } }));
-		expect(formatBudget(report)).toContain("auto-compaction off");
+		const budget = formatBudget(report);
+		expect(budget).toContain("auto-compaction off");
+		expect(budget).not.toContain("headroom");
+		expect(budget).not.toContain("past the threshold");
 	});
 
 	test("reports a crossing and a missing history", () => {
@@ -262,18 +297,57 @@ describe("the plain-text form", () => {
 			"1 so far · last 2026-01-02 14:03Z cut 180k → 100 summary (freed 180k)",
 		);
 		expect(formatCompaction(buildReport(sampleContext({ branch: [] })))).toBe("none yet");
-		expect(formatDrift(buildReport(sampleContext()))).toBe("Provider overhead · +123k not attributed to a row");
+		expect(formatDrift(buildReport(sampleContext()))).toBe(
+			"Estimate drift · rows 545 vs host 124k · +123k unattributed",
+		);
 	});
 
 	test("says when the rows exceed the host's total", () => {
 		const report = buildReport(sampleContext({ usage: { tokens: 500, contextWindow: 200000, percent: 0.25 } }));
-		expect(formatDrift(report)).toBe("Estimate drift · the rows are 45 above the host's total; both are estimates");
+		expect(report.beforeFirstReply).toBe(false);
+		expect(formatDrift(report)).toBe("Estimate drift · rows 545 vs host 500");
+	});
+
+	test("names Pi's message-only total before the first reply", () => {
+		const report = buildReport(
+			sampleContext({
+				messages: [{ role: "user", content: "u".repeat(40), timestamp: 0 } as unknown as AgentMessage],
+				usage: { tokens: 100, contextWindow: 200000, percent: 0.05 },
+			}),
+		);
+		expect(report.beforeFirstReply).toBe(true);
+		expect(formatDrift(report)).toBe("Estimate drift · rows 310 vs host 100 · host counts messages only");
+	});
+
+	test("keeps the longest drift line inside a narrow terminal", () => {
+		const report = buildReport(
+			sampleContext({
+				window: 1000000,
+				usage: { tokens: 26, contextWindow: 1000000, percent: 0.0026 },
+				systemPrompt: "s".repeat(5141 * 4),
+				tools: { tokens: 5462 },
+				messages: [
+					{
+						role: "custom",
+						customType: "my-pi-agent/notice",
+						content: "n".repeat(104),
+						display: false,
+						timestamp: 0,
+					} as unknown as AgentMessage,
+				],
+				branch: [],
+			}),
+		);
+		const drift = formatDrift(report) ?? "";
+		expect(drift).toBe("Estimate drift · rows 11k vs host 26 · host counts messages only");
+		expect(drift.length).toBeLessThanOrEqual(72);
 	});
 
 	test("assembles the notification body", () => {
 		const text = formatReport(buildReport(sampleContext()));
 		const lines = text.split("\n");
 		expect(lines[0]).toBe("Context · 124k / 200k (62%)");
+		expect(text).toContain("Composition · 545 estimate");
 		expect(text).toContain("Tool definitions");
 		expect(text).toContain("Compaction · 1 so far");
 		expect(text).toContain("Largest · 200 tool result read");

@@ -9,11 +9,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { buildReport } from "./report.ts";
 import { ContextComponent, type ContextCompactCallbacks, type ContextScreenOptions } from "./tui.ts";
 import type { ContextReport } from "./types.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { sampleContext } from "../../test/helpers/fixtures/context.ts";
+import { GLYPHS } from "../../lib/tui/glyphs.ts";
 
 /** A screen with recorder callbacks and a mutable report source. */
 function makeScreen(overrides: Partial<ContextScreenOptions> = {}, next?: ContextReport) {
@@ -66,6 +68,55 @@ describe("the context screen", () => {
 		expect(text).toContain("Tool definitions");
 		expect(text).toContain("Compaction");
 		expect(text).toContain("c compact");
+	});
+
+	test("draws the gauge from the percentage it prints", () => {
+		const { component } = makeScreen({
+			report: buildReport(
+				sampleContext({ window: 1000000, usage: { tokens: 26, contextWindow: 1000000, percent: 0.0026 } }),
+			),
+		});
+		const gauge = component.render(80).find((line) => line.includes("/ 1.0M")) ?? "";
+		expect(gauge).toContain("0%");
+		expect(gauge).toContain(GLYPHS.gaugeEmpty.repeat(10));
+		expect(gauge).not.toContain(GLYPHS.gaugeFull);
+	});
+
+	test("fills a row's bar from the share it prints", () => {
+		const report = buildReport(sampleContext());
+		const crafted: ContextReport = {
+			...report,
+			buckets: [{ id: "system", label: "System prompt", tokens: 483, share: 48.3, depth: 0 }],
+		};
+		const row =
+			makeScreen({ report: crafted })
+				.component.render(80)
+				.find((line) => line.includes("48.3%")) ?? "";
+		expect(row).toContain(`${GLYPHS.gaugeFull.repeat(4)}${GLYPHS.gaugeEmpty.repeat(4)}`);
+	});
+
+	test("names the composition total above the rows", () => {
+		expect(makeScreen().component.render(80).join("\n")).toContain("Composition · 545 estimate");
+	});
+
+	test("drops the composition total when the width cannot hold it", () => {
+		const narrow = makeScreen().component.render(24).join("\n");
+		expect(narrow).toContain("Composition");
+		expect(narrow).not.toContain("estimate");
+	});
+
+	test("does not clip an injected type in its child row", () => {
+		const messages = [
+			{
+				role: "custom",
+				customType: "my-pi-agent/notice",
+				content: "n".repeat(104),
+				display: false,
+				timestamp: 0,
+			} as unknown as AgentMessage,
+		];
+		const { component } = makeScreen({ report: buildReport(sampleContext({ messages })) });
+		expect(component.render(80).join("\n")).toContain("my-pi-agent/notice");
 	});
 
 	test("drops the optional columns as the terminal narrows", () => {

@@ -48,11 +48,11 @@ export function formatCompaction(report: ContextReport): string {
 
 /** The difference between the host's total and the composition estimate, when it is not zero. */
 export function formatDrift(report: ContextReport): string | undefined {
-	if (report.drift === null || report.drift === 0) return undefined;
-	if (report.drift > 0) {
-		return `Provider overhead · +${formatTokens(report.drift)} not attributed to a row`;
-	}
-	return `Estimate drift · the rows are ${formatTokens(-report.drift)} above the host's total; both are estimates`;
+	const tokens = report.tokens;
+	if (report.drift === null || report.drift === 0 || tokens === null) return undefined;
+	const base = `Estimate drift · rows ${formatTokens(report.estimate)} vs host ${formatTokens(tokens)}`;
+	if (report.drift > 0) return `${base} · +${formatTokens(report.drift)} unattributed`;
+	return report.beforeFirstReply ? `${base} · host counts messages only` : base;
 }
 
 /** One composition row, as plain text. */
@@ -65,10 +65,12 @@ export function formatBucket(bucket: ContextBucket): string {
 	return `${indent}${label}${tokens}${share}${note}`;
 }
 
-/** The report as a notification body: headline, budget, rows, then what happened. */
+/** The report as a notification body: headline, budget, composition, rows, then what happened. */
 export function formatReport(report: ContextReport): string {
 	const lines = [formatHeadline(report), formatBudget(report)];
-	if (report.buckets.length > 0) lines.push("", ...report.buckets.map(formatBucket));
+	if (report.buckets.length > 0) {
+		lines.push("", `Composition · ${formatTokens(report.estimate)} estimate`, ...report.buckets.map(formatBucket));
+	}
 	const drift = formatDrift(report);
 	if (drift) lines.push("", drift);
 	lines.push("", `Compaction · ${formatCompaction(report)}`);
@@ -76,7 +78,7 @@ export function formatReport(report: ContextReport): string {
 		const blocks = report.largest
 			.map((block) => `${formatTokens(block.tokens)} ${block.role} ${block.label}`)
 			.join(" · ");
-		lines.push(`Largest · ${blocks}`);
+		lines.push("", `Largest · ${blocks}`);
 	}
 	return lines.join("\n");
 }

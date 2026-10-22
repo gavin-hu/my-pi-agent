@@ -94,7 +94,7 @@ function firstText(content: unknown): string {
 	return "";
 }
 
-/** A one-line, bounded descriptor for the "largest blocks" list. */
+/** A one-line, bounded descriptor for the "largest messages" list. */
 function boundedLabel(text: string, maxLength = 40): string {
 	const line = sanitizeLine(text);
 	return line.length > maxLength ? `${line.slice(0, maxLength - 1)}…` : line;
@@ -184,7 +184,10 @@ export function buildReport(inputs: ContextInputs): ContextReport {
 	const percent = inputs.usage?.percent ?? (tokens !== null && window > 0 ? (tokens / window) * 100 : null);
 	const free = tokens !== null && window > 0 ? window - tokens : null;
 	const autoCompactAt = window > 0 ? Math.max(0, window - resolved.reserve) : 0;
-	const headroom = tokens !== null && free !== null && window > 0 ? autoCompactAt - tokens : null;
+	const headroom = resolved.enabled && tokens !== null && window > 0 ? autoCompactAt - tokens : null;
+	// Pi's total is a message-only estimate until an assistant reply reports real
+	// usage, so the drift row names that cause instead of calling the gap noise.
+	const beforeFirstReply = !inputs.messages.some((message) => roleOf(message) === "assistant");
 
 	const messageCounts = new Map<string, number>();
 	const messageTokens = new Map<string, number>();
@@ -267,12 +270,21 @@ export function buildReport(inputs: ContextInputs): ContextReport {
 	const children = [...injectedTokens.entries()].sort((a, b) => b[1] - a[1]);
 	const shown = children.slice(0, 5);
 	const rest = children.slice(5);
-	const childDrafts: BucketDraft[] = shown.map(([customType, estimateForType]) => ({
-		id: `injected:${customType}`,
-		label: customType,
-		tokens: estimateForType,
-		note: countNote(injectedCounts.get(customType) ?? 0),
-	}));
+	// A child's count is informative only when it divides the parent's; one
+	// injected type would otherwise repeat the same `1 message` twice.
+	const childNote = (customType: string): string | undefined => {
+		const count = injectedCounts.get(customType) ?? 0;
+		return count > 0 && count < injectedCount ? countNote(count) : undefined;
+	};
+	const childDrafts: BucketDraft[] = shown.map(([customType, estimateForType]) => {
+		const note = childNote(customType);
+		return {
+			id: `injected:${customType}`,
+			label: customType,
+			tokens: estimateForType,
+			...(note ? { note } : {}),
+		};
+	});
 	if (rest.length > 0) {
 		childDrafts.push({
 			id: "injected:other",
@@ -313,6 +325,7 @@ export function buildReport(inputs: ContextInputs): ContextReport {
 		buckets,
 		estimate,
 		drift: tokens !== null ? tokens - estimate : null,
+		beforeFirstReply,
 		compaction: compactionHistory(inputs),
 		largest,
 	};

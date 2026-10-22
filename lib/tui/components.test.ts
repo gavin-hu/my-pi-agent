@@ -320,12 +320,15 @@ describe("computeGauge", () => {
 		expect(computeGauge(62, 10)).toEqual({ filled: 6, empty: 4 });
 	});
 
-	test("floors, so the bar reads full only at 100%", () => {
+	test("rounds to the nearest cell, keeping the last one for 100%", () => {
+		expect(computeGauge(48.3, 8)).toEqual({ filled: 4, empty: 4 });
 		expect(computeGauge(99, 10)).toEqual({ filled: 9, empty: 1 });
+		expect(computeGauge(99.9, 10)).toEqual({ filled: 9, empty: 1 });
 	});
 
 	test("forces one block for any non-zero usage", () => {
 		expect(computeGauge(1, 10)).toEqual({ filled: 1, empty: 9 });
+		expect(computeGauge(0.2, 8)).toEqual({ filled: 1, empty: 7 });
 	});
 
 	test("clamps out-of-range percentages", () => {

@@ -43,6 +43,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   header's `Pi v1.3.0` gains the `↑1.4.0` marker, and a host whose method is
   missing or renamed keeps its own box. Both update surfaces now share one
   host-patch helper, one marker-painting step, and one identity ladder.
+- `context`: the report now says what its percentages are shares of. A
+  `Composition · 11k estimate` header sits above the rows, the drift line prints
+  both figures (`rows 11k vs host 26`) and adds `host counts messages only`
+  before the first reply, a disabled compaction no longer prints a headroom
+  figure for a threshold that will never fire, the section is called **Largest
+  messages**, and an injected child's type is no longer clipped nor its message
+  count repeated.
+- `lib`: a gauge fills the nearest cell instead of flooring, keeping the last
+  cell for 100%, so a bar no longer sits a whole cell below the percentage beside
+  it; `formatTokens` prints `1.0M` rather than `1000k` for a count just under a
+  million.
 
 ## [0.16.0] - 2026-10-21
 
