@@ -406,6 +406,7 @@ describe("write_plan", () => {
 		const { write } = setup();
 		expect(write.description).toContain("a guide, not a form");
 		expect(write.description).toContain("only the shallowest list is tracked");
+		expect(write.description).toContain("before and after in one fence each");
 	});
 
 	test("writes the plan file, remembers it, and repaints the footer", async () => {

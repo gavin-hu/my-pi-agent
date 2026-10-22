@@ -121,9 +121,10 @@ describe precisely.
   review reaches the same outcome through **Exit plan mode** or a cancel phrase;
   outside a review, the model can call `cancel_plan_mode`.
 - The model is asked to follow a short outline — goal, context, approach, visual,
-  steps, risks, verification — with a one-sentence goal, the end state sketched in
-  a fence, and verification named as commands you could run. It is a guide, not a
-  form: a heading with nothing to say is dropped, and any Markdown is accepted.
+  steps, risks, verification — with a one-sentence goal, the end state in an
+  untagged fence, before and after when the surface already exists, and
+  verification named as commands you could run. It is a guide, not a form: a
+  heading with nothing to say is dropped, and any Markdown is accepted.
   Steps are the top-level `- [ ]` items in the `## Steps` section; nested bullets
   are notes. A plan with more than 50 top-level steps is refused at write time,
   because approval could not track them all.

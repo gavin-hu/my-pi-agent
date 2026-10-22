@@ -778,11 +778,15 @@ describe("plan outline", () => {
 		expect(PLAN_OUTLINE.split("## Steps")[1].split("\n## ")[0]).toContain("- [ ] ");
 	});
 
-	test("shows the end state in a fence under Visual, before the steps", () => {
+	test("shows the surface before and after under Visual, before the steps", () => {
 		const visual = PLAN_OUTLINE.split("## Visual")[1].split("\n## ")[0];
-		expect(visual).toContain("```bash");
-		// The caption names what to look at; the sketch itself lives in the fence.
-		expect(visual.split("\n").filter((line) => line.trim() !== "")[0]).toContain("startup");
+		// Two frames, both untagged: a transcript carries its output, so it is not code.
+		expect(visual.match(/^```/gm)?.length).toBe(4);
+		expect(visual).not.toContain("```bash");
+		// The caption names what to look at, and that the two frames are a comparison.
+		const caption = visual.split("\n").filter((line) => line.trim() !== "")[0];
+		expect(caption).toContain("startup");
+		expect(caption).toContain("before and after");
 		expect(PLAN_OUTLINE.indexOf("## Visual")).toBeGreaterThan(PLAN_OUTLINE.indexOf("## Approach"));
 		expect(PLAN_OUTLINE.indexOf("## Visual")).toBeLessThan(PLAN_OUTLINE.indexOf("## Steps"));
 	});

@@ -45,6 +45,8 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 			"Each section has one job: lead it with its outcome, keep a prose section to a few bullets or two or three " +
 			"sentences, give each step one verifiable outcome with the detail in a nested note, and put the sketch, files, " +
 			"and commands in inline code or a fence rather than pasted prose. " +
+			"When the change alters a surface that already exists, Visual shows it before and after in one fence each; " +
+			"tag a fence only when every line in it is code. " +
 			"The outline is a guide, not a form: drop a heading that has nothing to say, Visual included. " +
 			"In Steps, each top-level bullet is one outcome in the order you will do them, and deeper bullets are notes — " +
 			"only the shallowest list is tracked. " +

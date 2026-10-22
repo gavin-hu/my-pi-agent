@@ -25,10 +25,12 @@ export const MAX_STEP_LENGTH = 200;
 /**
  * The outline a plan is guided to follow: one job per section, and every example
  * is the shape wanted rather than a description of it. `Visual` is the one
- * section that carries the end state — a sketch, a transcript, a tree, a table —
- * so the reviewer sees the result before the steps that build it. Guidance only:
- * `write_plan` never rejects or rewrites a plan that omits a section, and a change
- * with no visible surface drops `Visual`.
+ * section that carries the end state — the same surface before and after when the
+ * change alters one that already exists, one frame when it is new — in a fence
+ * that stays untagged unless every line is code, so the reviewer sees the result
+ * before the steps that build it. Guidance only: `write_plan` never rejects or
+ * rewrites a plan that omits a section, and a change with no visible surface drops
+ * `Visual`.
  */
 export const PLAN_OUTLINE = [
 	"# <Title>",
@@ -45,8 +47,13 @@ export const PLAN_OUTLINE = [
 	"- Rejected: validating inside `load()`, because the test would need a filesystem.",
 	"",
 	"## Visual",
-	"A bad key at startup:",
-	"```bash",
+	"A bad key at startup, before and after:",
+	"```",
+	"$ bun start",
+	'config.json:12: ignoring unknown key "timeout_ms"',
+	"```",
+	"",
+	"```",
 	"$ bun start",
 	'config.json:12: unknown key "timeout_ms" — did you mean "timeoutMs"?',
 	"```",
