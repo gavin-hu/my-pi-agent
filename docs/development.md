@@ -101,7 +101,9 @@ The suite is organized by tier; the full contract is in
    pure-unit and platform-seam contracts.
 3. **Package-level tests** — cross-cutting contracts (`naming`,
    `extension-load`, `config-docs`, `prompt-budget`, `release`, `structure`,
-   `drift`, `theme`).
+   `drift`, `theme`, `dependencies`). `dependencies` walks each extension
+   entrypoint's static import graph, so a parser library loads in the function
+   that needs it rather than on every start — the `extract/xlsx.ts` pattern.
 
 Tests are deterministic by construction: inject `now`, `spawn`, `kill`,
 `liveness`, and a clock rather than stubbing globals. Real git is allowed only

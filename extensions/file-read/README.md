@@ -201,7 +201,10 @@ config defaults, and error listing all derive from it.
 2. Add `extensions/file-read/extract/<fmt>.ts` exporting a `FormatExtractor` that
    `await import(...)`s its library, reads the bytes with `readFormatBytes`, and
    normalizes the output. Keep the parsing in a pure, exported helper so it is
-   testable without a real file.
+   testable without a real file. **The import goes inside the function**, not at
+   module scope: `formats.ts` imports every extractor when the tool registers, so
+   a module-scope import loads that library on every start — `test/dependencies.test.ts`
+   fails on exactly that.
 3. Add a `ReadFormat` entry to `FORMATS` and widen the `id` union.
 4. Add the new extractor to `extract/extract.test.ts` with a real minimal
    fixture, and extend `tool.test.ts` for format selection and config.
