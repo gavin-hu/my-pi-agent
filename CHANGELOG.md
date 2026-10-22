@@ -150,6 +150,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   release authority, says the tag is pushed with `main` and never after it, and
   reminds that a behavior change carries its README catalog rows and its `docs/`
   guide in the same commit.
+- `skills`: the `changelog` skill drops draft mode. It keeps **record** (the
+  default), **audit**, and **release**, and a run with no mode records rather
+  than choosing between drafting and recording from whether the behavior already
+  exists; `/skill:changelog draft` therefore behaves as plain `/skill:changelog`.
+  Nothing else moved: the one-outcome rule stays with classification and the
+  bullet shape stays with record.
 
 ### Fixed
 
@@ -181,12 +187,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   applies the worktree root the worktree extension publishes before it resolves
   any path. The test preload also clears inherited isolation variables, so a
   suite run inside a worktree is neutral.
-- `skills`: the `changelog` skill drops draft mode. It keeps **record** (the
-  default), **audit**, and **release**, and a run with no mode records rather
-  than choosing between drafting and recording from whether the behavior already
-  exists; `/skill:changelog draft` therefore behaves as plain `/skill:changelog`.
-  Nothing else moved: the one-outcome rule stays with classification and the
-  bullet shape stays with record.
 - `wechat`: a plan review waits ten minutes instead of three, and its halfway
   reminder names 取消 / “cancel” instead of promising “about a minute”. The
   review is the one dialog the human has to read something before answering, so
@@ -208,6 +208,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   because it is only sent while no turn has started. A prompt withdrawn by a
   pause, a `/stop`, or a shutdown gets its own line (`问题已撤回。` / “That question
   was withdrawn.”) instead of the timeout notice.
+- `lib`: the `?` keyboard sheet is a real modal on both pages. `Tab` now cycles
+  inside it instead of walking out behind the scrim, and closing it — `Esc`, the
+  close button, or a click on the backdrop — returns focus to the button that
+  opened it instead of leaving it on a control the dialog has just hidden.
 
 ## [0.16.0] - 2026-10-21
 
