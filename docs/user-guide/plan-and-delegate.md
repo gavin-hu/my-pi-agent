@@ -408,10 +408,16 @@ The report separates the parts that are easy to confuse:
    Context ──────────────────────────────────────────────
     124k / 200k  ▰▰▰▰▰▰▱▱▱▱  62%
     76k free · auto-compact at 184k · 60k headroom · keeps newest 20k
+
+    Composition · 121k estimate
+    System prompt          4.2k   3.5%  ▰▱▱▱▱▱▱▱
+    Tool results         108k  89.3%  ▰▰▰▰▰▰▰▱  6 messages
    ```
 
-2. Read the rows. A row's percentage is its share of the composition estimate,
-   and **Largest blocks** names the single items taking the most room.
+2. Read the rows. The **Composition** header names the estimate they are shares
+   of, so `3.5%` is 3.5% of those rows, not of the 200k window; a bar rounds to
+   the nearest cell, so it sits within half a cell of the number beside it.
+   **Largest messages** names the single messages taking the most room.
 
 3. Press `c` to compact from here. The screen asks first, then reports the
    before and after numbers. Right after a compaction the token count is unknown

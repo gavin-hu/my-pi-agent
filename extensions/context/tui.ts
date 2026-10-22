@@ -137,16 +137,28 @@ export class ContextComponent implements Component {
 		const { percent, tokens, window } = this.report;
 		if (window <= 0) return truncateToWidth(`  ${paint(this.theme, "meta", "no model context window")}`, width);
 		const role = gaugeRole(percent);
+		// The bar and the printed percentage come from one rounded value, so a
+		// label reading `0%` can never sit beside a filled cell. The tone stays on
+		// the exact percent, so the warn and danger thresholds do not move.
+		const shown = percent === null ? null : Math.round(percent);
 		const value = tokens === null ? `? / ${formatTokens(window)}` : `${formatTokens(tokens)} / ${formatTokens(window)}`;
-		const bar = gaugeBar(this.theme, { percent, blocks: 10 });
-		const label = percent === null ? "unknown" : `${Math.round(percent)}%`;
+		const bar = gaugeBar(this.theme, { percent: shown, blocks: 10 });
+		const label = shown === null ? "unknown" : `${shown}%`;
 		return truncateToWidth(`  ${paint(this.theme, role, value)}  ${bar}  ${paint(this.theme, role, label)}`, width);
+	}
+
+	/** The composition header: the denominator the percent column is a share of. */
+	private compositionLine(width: number): string {
+		const label = paint(this.theme, "label", "Composition");
+		const total = paint(this.theme, "meta", `${formatTokens(this.report.estimate)} estimate`);
+		const full = `  ${label} · ${total}`;
+		return visibleWidth(full) <= width ? full : truncateToWidth(`  ${label}`, width);
 	}
 
 	/** One composition row; optional columns drop as the terminal narrows. */
 	private bucketLine(bucket: ContextBucket, width: number): string {
 		const indent = " ".repeat(bucket.depth > 0 ? 4 : 2);
-		const labelWidth = bucket.depth > 0 ? 16 : 18;
+		const labelWidth = bucket.depth > 0 ? 20 : 22;
 		const label = padCell(bucket.label, labelWidth);
 		const tokens = formatTokens(bucket.tokens).padStart(6);
 		const share = shareCell(bucket.share);
@@ -167,13 +179,17 @@ export class ContextComponent implements Component {
 		return truncateToWidth(head, width);
 	}
 
-	/** The scrollable body: composition, drift, compaction, and the largest blocks. */
+	/** The scrollable body: composition, drift, compaction, and the largest messages. */
 	private buildBody(width: number): string[] {
 		const report = this.report;
-		const lines: string[] = report.buckets.map((bucket) => this.bucketLine(bucket, width));
+		const lines: string[] = [];
+		if (report.buckets.length > 0) {
+			lines.push(this.compositionLine(width));
+			for (const bucket of report.buckets) lines.push(this.bucketLine(bucket, width));
+		}
 
 		const drift = formatDrift(report);
-		if (drift) lines.push("", truncateToWidth(`  ${paint(this.theme, "warn", drift)}`, width));
+		if (drift) lines.push("", truncateToWidth(`  ${paint(this.theme, "meta", drift)}`, width));
 
 		lines.push(
 			"",
@@ -184,7 +200,7 @@ export class ContextComponent implements Component {
 		);
 
 		if (report.largest.length > 0) {
-			lines.push("", `  ${paint(this.theme, "label", "Largest blocks")}`);
+			lines.push("", `  ${paint(this.theme, "label", "Largest messages")}`);
 			for (const block of report.largest) {
 				const tokens = formatTokens(block.tokens).padStart(6);
 				const role = padCell(block.role, 11);

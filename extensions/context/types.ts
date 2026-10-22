@@ -79,7 +79,7 @@ export interface CompactionHistory {
 	last: CompactionSummary | null;
 }
 
-/** One of the largest single blocks in the projected context. */
+/** One of the largest single messages in the projected context. */
 export interface LargestBlock {
 	/** Estimated tokens. */
 	tokens: number;
@@ -99,7 +99,7 @@ export interface ContextReport {
 	percent: number | null;
 	/** `window - tokens`, `null` when `tokens` is unknown. */
 	free: number | null;
-	/** `window - reserve - tokens`, `null` when `tokens` is unknown. */
+	/** `window - reserve - tokens`, `null` when `tokens` is unknown or automatic compaction is off. */
 	headroom: number | null;
 	/** The resolved `reserveTokens` for the active model. */
 	reserve: number;
@@ -115,8 +115,10 @@ export interface ContextReport {
 	estimate: number;
 	/** `tokens - estimate` when the host's estimate is known, else `null`. */
 	drift: number | null;
+	/** True when the projection holds no assistant message: Pi's total is its message-only fallback. */
+	beforeFirstReply: boolean;
 	/** The branch's compaction history. */
 	compaction: CompactionHistory;
-	/** The largest projected blocks, biggest first. */
+	/** The largest projected messages, biggest first. */
 	largest: LargestBlock[];
 }

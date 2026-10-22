@@ -16,15 +16,19 @@ pi install ./                          # install the package
 - Registers one command, `/context`. In the TUI it opens a docked screen; in
   `rpc`, `json`, and `print` it notifies the same facts as plain text.
 - Reports Pi's own estimate first — tokens, window, percentage, free space, the
-  auto-compaction threshold, and the headroom left before it — then the
-  composition: the system prompt, the active tool definitions, the conversation
-  by role, injected pack context grouped by type, summaries, and shell output.
+  auto-compaction threshold, and the headroom left before it while compaction is
+  on — then the composition under a header that names the composition's own
+  estimate: the system prompt, the active tool definitions, the conversation by
+  role, injected pack context grouped by type, summaries, and shell output.
 - Names the difference between Pi's total and the composition estimate instead
-  of forcing the parts to add up: provider usage plus trailing messages is not
-  the same measurement as characters/4 over the rows.
+  of forcing the parts to add up: one line with both figures, `unattributed` when
+  the host's total is the larger one, and `host counts messages only` before the
+  first reply, when Pi's fallback leaves the prompt and the tools out.
+- Rounds each bar to the nearest cell, so a bar sits within half a cell of the
+  percentage printed beside it; the percentage itself is exact.
 - Reads the branch's compaction history: how many compactions there have been,
   what the newest one cut from and to, and how much its summary costs.
-- Lists the five largest single blocks, so a report that is mostly one tool
+- Lists the five largest single messages, so a report that is mostly one tool
   result says so.
 - Compacts from the report: `c` on the screen asks first, `/context compact
   [instructions]` runs directly. Both refuse while the agent is busy — a
@@ -58,7 +62,7 @@ for.
 
 `/context` works everywhere. The screen needs `ctx.mode === "tui"`; the other
 modes notify the same report as text, including the composition rows and the
-largest blocks. `/context compact` is the same in every mode and reports through
+largest messages. `/context compact` is the same in every mode and reports through
 `ctx.ui.notify` when it finishes or fails.
 
 ## How the numbers are computed
@@ -67,13 +71,14 @@ largest blocks. `/context compact` is the same in every mode and reports through
 |---|---|
 | Headline (`tokens`, `percent`) | `ctx.getContextUsage()`: the last valid provider usage plus Pi's estimate of the messages after it. `tokens` is `null` between a compaction and the next successful reply, because the last usage describes the pre-compaction context. |
 | Window | `getContextUsage().contextWindow`, then the active model's `contextWindow`. |
+| Headroom | `window - reserve - tokens`, `null` when the total is unknown or automatic compaction is off — there is no threshold in effect. |
 | System prompt | A `system` message in the projection when one exists, otherwise `ctx.getSystemPrompt()` at characters/4. |
 | Tool definitions | `pi.getAllTools()` filtered to `pi.getActiveTools()`, over each active tool's name, description, and parameter schema at characters/4. `promptGuidelines` are counted in the system prompt instead, because Pi renders them into its rules section. |
 | Conversation rows | `sessionManager.buildSessionProjection().messages`, each counted with Pi's own `estimateTokens` (characters/4; an image is 4800 characters; a tool call is its name plus its JSON arguments). |
 | Injected context | `custom` messages grouped by `customType`, biggest first; the five largest types are named and the rest fold into one row. |
 | Threshold | `compaction.modelOverrides["provider/id"]`, then `compaction`, then `DEFAULT_COMPACTION_SETTINGS` — the same three-step fallback Pi uses. |
 | Compaction history | `getLatestCompactionEntry(branch)` and the branch's `compaction` count. The summary's cost is the summary text at characters/4. |
-| Drift | `tokens - estimate`. Positive means Pi's total includes overhead no row attributes; negative means the rows are larger, which happens before the first reply because Pi's message-only fallback omits the system prompt and tool definitions. Both numbers are estimates and the row says which direction the gap runs. |
+| Drift | `tokens - estimate`, printed with both figures. A positive value appends `+… unattributed` — usage the rows do not explain; a negative one appends `host counts messages only` while the projection holds no assistant message, because Pi's message-only fallback omits the system prompt and the tool definitions. |
 
 ## Limitations
 
@@ -92,8 +97,13 @@ largest blocks. `/context compact` is the same in every mode and reports through
   Once a reply exists the host total includes them.
 - Without a model whose `contextWindow` is known there is no threshold to show;
   the report says so and leaves compaction to Pi.
-- Descriptors in **Largest blocks** are one line, clipped to 40 characters; a long
-  tool result is represented by its tool name, not its content.
+- A percentage is computed from unrounded tokens and shown to one decimal, while
+  the token column is compact (`5.1k`), so re-deriving a percentage from the
+  printed figures can differ by a couple of points. A bar rounds to the nearest
+  cell and a non-zero share always gets one, so a `0.2%` row draws one cell
+  beside its label.
+- Descriptors in **Largest messages** are one line, clipped to 40 characters; a
+  long tool result is represented by its tool name, not its content.
 
 ## Non-goals
 
@@ -146,7 +156,7 @@ largest blocks. `/context compact` is the same in every mode and reports through
 | `index.ts` | Factory: the `PI_DISABLED_EXTENSIONS` guard and command registration. |
 | `commands.ts` | `/context` and `/context compact`: the TUI mount, the text fallback, and the idle guard. |
 | `collect.ts` | The host boundary: one read of usage, prompt, tools, settings, projection, and branch. |
-| `report.ts` | The pure builder: composition, reserve resolution, compaction history, largest blocks. |
+| `report.ts` | The pure builder: composition, reserve resolution, compaction history, largest messages. |
 | `format.ts` | The plain-text report for non-TUI modes. |
 | `tui.ts` | `ContextComponent`: gauge, rows, scroll, confirmation, feedback. |
 | `types.ts` | `ContextInputs`, `ContextReport`, buckets, and the host types named through `ReturnType<…>`. |
