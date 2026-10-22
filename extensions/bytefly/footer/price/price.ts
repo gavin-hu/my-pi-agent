@@ -8,7 +8,7 @@
  * matching rate contributes nothing: an unpriced model shows no price at all.
  */
 
-import { emptyUsage } from "../collect/entries.ts";
+import { zeroUsage } from "../../../../lib/usage.ts";
 import type { ByteflyConfig, ModelRates } from "./types.ts";
 import type { UsageRecord, UsageTotals } from "../types.ts";
 import { createRateLookup } from "./rates.ts";
@@ -43,7 +43,7 @@ export function createPricer(config: ByteflyConfig): (records: readonly UsageRec
 	const format = config.peak.windows.length > 0 ? peakFormatter(config.peak.timezone) : null;
 
 	return (records) => {
-		const totals = emptyUsage();
+		const totals = zeroUsage();
 		for (const record of records) {
 			totals.input += record.input;
 			totals.output += record.output;

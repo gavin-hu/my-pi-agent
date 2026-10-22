@@ -8,7 +8,7 @@
  * built-in footer.
  */
 
-import type { UsageRecord, UsageTotals } from "../types.ts";
+import type { UsageRecord } from "../types.ts";
 
 interface UsageLike {
 	input: number;
@@ -41,11 +41,6 @@ interface UsageSource {
 	/** The object naming the model, when the entry has one of its own. */
 	owner?: EntryLike | MessageLike;
 	isAssistant: boolean;
-}
-
-/** Zeroed totals; the starting point for every accumulation. */
-export function emptyUsage(): UsageTotals {
-	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 }
 
 /**

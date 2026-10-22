@@ -17,8 +17,9 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { DelegationLedger } from "../delegation.ts";
 import { createPricer } from "../price/price.ts";
 import type { ByteflyConfig } from "../price/types.ts";
+import { zeroUsage } from "../../../../lib/usage.ts";
 import type { ContextInfo, FooterData, StatusSnapshot, UsageTotals } from "../types.ts";
-import { emptyUsage, usageRecords } from "./entries.ts";
+import { usageRecords } from "./entries.ts";
 
 /**
  * Build a reader that memoizes both scans by branch leaf and model.
@@ -44,8 +45,8 @@ export interface SnapshotReader {
 export function createSnapshotReader(config: ByteflyConfig, delegation: DelegationLedger): SnapshotReader {
 	const price = createPricer(config);
 	let key: string | null = null;
-	let usage = emptyUsage();
-	let delegationTotals = { runs: 0, usage: emptyUsage() };
+	let usage = zeroUsage();
+	let delegationTotals = { runs: 0, usage: zeroUsage() };
 	let cacheHitRate: number | null = null;
 	let context: ContextInfo = { tokens: null, contextWindow: 0, percent: null };
 	let sessionName: string | null = null;

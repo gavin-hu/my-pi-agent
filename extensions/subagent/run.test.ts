@@ -120,6 +120,36 @@ describe("stream helpers", () => {
 		expect(target.model).toBe("claude-sonnet-4-5");
 	});
 
+	test("applyEvent ignores a usage payload that is not a set of numbers", () => {
+		const target = emptyResult();
+		applyEvent(target, {
+			type: "message_end",
+			message: {
+				role: "assistant",
+				content: [{ type: "text", text: "x" }],
+				usage: { input: "12", output: Number.NaN, cacheRead: null, totalTokens: "20", cost: { total: "0.5" } },
+			},
+		});
+
+		// The turn is still counted, so "turns but no tokens" stays visible.
+		expect(target.usage.turns).toBe(1);
+		expect(target.usage).toMatchObject({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
+		expect(target.usage.contextTokens).toBe(0);
+	});
+
+	test("applyEvent keeps the last reported context size", () => {
+		const target = emptyResult();
+		applyEvent(target, { type: "message_end", message: assistantMessage("one", { totalTokens: 12, cost: 0.1 }) });
+		// A later message that reports no window occupancy must not erase it.
+		applyEvent(target, {
+			type: "message_end",
+			message: { role: "assistant", content: [{ type: "text", text: "two" }], usage: { cost: { total: 0.2 } } },
+		});
+
+		expect(target.usage.cost).toBeCloseTo(0.3);
+		expect(target.usage.contextTokens).toBe(12);
+	});
+
 	test("applyEvent keeps the first model and the latest stop reason", () => {
 		const target = emptyResult();
 		applyEvent(target, {

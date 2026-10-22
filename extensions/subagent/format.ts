@@ -1,46 +1,93 @@
 /**
  * Pure formatting helpers shared by the transcript renderers.
+ *
+ * The usage line keeps tokens, turns, model, and context — the facts the child
+ * reported — and never money: a price needs a currency and a tariff, which the
+ * bytefly footer owns for the whole session. See `usageLine` / `totalUsageLine`.
  */
 
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { formatDuration, formatTokens, sanitizeLine, shortenPath } from "../../lib/format.ts";
+import { USAGE_COUNTERS, zeroUsage } from "../../lib/usage.ts";
 import type { BackgroundRun } from "./background.ts";
-import type { UsageStats } from "./types.ts";
+import type { UsageSource, UsageStats } from "./types.ts";
 
-/** Dollar cost, keeping four decimals for the sub-cent amounts these runs produce. */
-function formatCost(cost: number): string {
-	if (cost >= 1) return `$${cost.toFixed(2)}`;
-	if (cost >= 0.0001) return `$${cost.toFixed(4)}`;
-	return `$${cost.toPrecision(2)}`;
+/** `2 turns` / `1 turn`, or "" when no turn was counted. */
+function turnPart(turns: number | undefined): string {
+	if (!turns) return "";
+	return `${turns} turn${turns > 1 ? "s" : ""}`;
+}
+
+/** A prefix and a compact count, or "" when the counter is zero. */
+function tokenPart(prefix: string, count: number | undefined): string {
+	return count ? `${prefix}${formatTokens(count)}` : "";
+}
+
+/** `ctx:18.2k`, or "" when no context was reported. */
+function contextPart(tokens: number | undefined): string {
+	const count = tokens ?? 0;
+	return count > 0 ? `ctx:${formatTokens(count)}` : "";
 }
 
 /** A space-separated usage line, omitting zero fields. */
 export function formatUsageStats(usage: Partial<UsageStats>, model?: string): string {
-	const parts: string[] = [];
-	if (usage.turns) parts.push(`${usage.turns} turn${usage.turns > 1 ? "s" : ""}`);
-	if (usage.input) parts.push(`↑${formatTokens(usage.input)}`);
-	if (usage.output) parts.push(`↓${formatTokens(usage.output)}`);
-	if (usage.cacheRead) parts.push(`R${formatTokens(usage.cacheRead)}`);
-	if (usage.cacheWrite) parts.push(`W${formatTokens(usage.cacheWrite)}`);
-	if (usage.cost) parts.push(formatCost(usage.cost));
-	if (usage.contextTokens && usage.contextTokens > 0) parts.push(`ctx:${formatTokens(usage.contextTokens)}`);
-	if (model) parts.push(model);
-	return parts.join(" ");
+	return [
+		turnPart(usage.turns),
+		tokenPart("↑", usage.input),
+		tokenPart("↓", usage.output),
+		tokenPart("R", usage.cacheRead),
+		tokenPart("W", usage.cacheWrite),
+		contextPart(usage.contextTokens),
+		model ?? "",
+	]
+		.filter(Boolean)
+		.join(" ");
 }
 
 /** Sum usage across results, for the chain/parallel totals line. */
-export function aggregateUsage(results: { usage: UsageStats }[]): Partial<UsageStats> {
-	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+export function aggregateUsage(results: readonly { usage: UsageStats }[]): Partial<UsageStats> {
+	const counters = zeroUsage();
+	let turns = 0;
 	for (const { usage } of results) {
-		total.input += usage.input;
-		total.output += usage.output;
-		total.cacheRead += usage.cacheRead;
-		total.cacheWrite += usage.cacheWrite;
-		total.cost += usage.cost;
-		total.turns += usage.turns;
+		for (const counter of USAGE_COUNTERS) counters[counter] += usage[counter];
+		turns += usage.turns;
 	}
-	return total;
+	return { ...counters, turns };
+}
+
+/** "2 tool errors", "1 tool error", or "" when the run hit none. */
+function toolErrorsLabel(count: number | undefined): string {
+	if (!count) return "";
+	return `${count} tool error${count > 1 ? "s" : ""}`;
+}
+
+/**
+ * The one model every result ran, or undefined when they differ.
+ *
+ * A total may name a model only when the name is true of all of it: a batch whose
+ * tasks pinned different models gets no label rather than one task's.
+ */
+function sharedModel(sources: readonly UsageSource[]): string | undefined {
+	const models = new Set(sources.map((source) => source.model).filter((model): model is string => Boolean(model)));
+	return models.size === 1 ? [...models][0] : undefined;
+}
+
+/** One result's usage line, with its tool-error count when it hit any. */
+export function usageLine(source: UsageSource): string {
+	return [formatUsageStats(source.usage, source.model), toolErrorsLabel(source.toolErrors)].filter(Boolean).join(" ");
+}
+
+/**
+ * The `Total:` line for a multi run: summed counters, the shared model when there
+ * is one, and summed tool errors. A total carries no `ctx:` — every child has its
+ * own context window, so a sum of them would mean nothing.
+ */
+export function totalUsageLine(sources: readonly UsageSource[]): string {
+	const usage = formatUsageStats(aggregateUsage(sources), sharedModel(sources));
+	const errors = sources.reduce((sum, source) => sum + (source.toolErrors ?? 0), 0);
+	const line = [usage, toolErrorsLabel(errors)].filter(Boolean).join(" ");
+	return line ? `Total: ${line}` : "";
 }
 
 /** Display-width-aware truncation with a trailing ellipsis (keeps wide chars/surrogates intact). */

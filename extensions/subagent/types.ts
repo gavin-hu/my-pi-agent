@@ -24,6 +24,13 @@ export interface UsageStats {
 	turns: number;
 }
 
+/** The fields a usage line reads from one result. */
+export interface UsageSource {
+	usage: UsageStats;
+	model?: string;
+	toolErrors?: number;
+}
+
 /** Everything captured from one subagent subprocess. */
 export interface SingleResult {
 	agent: string;

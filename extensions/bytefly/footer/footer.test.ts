@@ -16,12 +16,13 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { SUBAGENT_FINISHED_CHANNEL } from "../../../lib/events.ts";
 import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
+import { zeroUsage } from "../../../lib/usage.ts";
 import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { emit, fakeTheme, makeFakePi, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
 import { fakeFooterCtx, fullSnapshot, renderFooter } from "../../../test/helpers/fixtures/bytefly.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
 import { budgetBody, budgetNotice, budgetState } from "./budget.ts";
-import { emptyUsage, usageRecords } from "./collect/entries.ts";
+import { usageRecords } from "./collect/entries.ts";
 import { createSnapshotReader } from "./collect/snapshot.ts";
 import { CONFIG } from "./config.ts";
 import { createDelegationLedger, MAX_DELEGATION_RECORDS } from "./delegation.ts";
@@ -581,7 +582,7 @@ describe("usage records", () => {
 	});
 
 	test("starts every accumulation from zeroed totals", () => {
-		expect(emptyUsage()).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
+		expect(zeroUsage()).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
 	});
 
 	test("reads every usage source", () => {

@@ -8,6 +8,11 @@
  *
  * Status and error rendering is shared across single- and multi-result modes so
  * a failed task never loses its message, regardless of how many tasks ran.
+ *
+ * The usage footnote follows the same grammar in every mode: a blank line, the
+ * faint metrics row, then the expand hint, so the affordance is always the
+ * block's last line. `format.ts` owns the row's text; it carries no money,
+ * because a price needs the footer's currency and tariff.
  */
 
 import { getMarkdownTheme, type Theme } from "@earendil-works/pi-coding-agent";
@@ -20,7 +25,7 @@ import { expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { centeredRule } from "../../lib/tui/rules.ts";
 import { BODY_INDENT } from "../../lib/tui/indent.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
-import { aggregateUsage, clip, formatToolCall, formatUsageStats } from "./format.ts";
+import { clip, formatToolCall, totalUsageLine, usageLine } from "./format.ts";
 import { COLLAPSED_ERROR_MAX, COLLAPSED_ITEM_COUNT, COLLAPSED_TEXT_LINES, type SubagentArgs } from "./schema.ts";
 import { getFinalOutput, isFailedResult } from "./stream.ts";
 import type { SingleResult, SubagentDetails } from "./types.ts";
@@ -130,27 +135,6 @@ function collapsedBody(result: SingleResult, status: ResultStatus, items: Displa
 /** Whether expanding a collapsed result would reveal more than its preview. */
 function isExpandable(result: SingleResult, status: ResultStatus, items: DisplayItem[]): boolean {
 	return hasExpandableContent(items) || hasClippedError(result, status);
-}
-
-/** "2 tool errors" / "1 tool error". */
-function toolErrorsLabel(count: number): string {
-	return `${count} tool error${count > 1 ? "s" : ""}`;
-}
-
-/** Usage plus a tool-error count when the subagent hit any. */
-function usageLine(result: SingleResult): string {
-	const base = formatUsageStats(result.usage, result.model);
-	if (!result.toolErrors) return base;
-	const label = toolErrorsLabel(result.toolErrors);
-	return base ? `${base} ${label}` : label;
-}
-
-/** The `Total:` usage line for a multi run, including summed tool errors. */
-function totalUsageLine(results: SingleResult[]): string {
-	const usage = formatUsageStats(aggregateUsage(results));
-	const errors = results.reduce((sum, result) => sum + (result.toolErrors ?? 0), 0);
-	const label = errors ? toolErrorsLabel(errors) : "";
-	return [usage, label].filter(Boolean).join(" ");
 }
 
 /** " 12s" while running or once finished, or "" when no start time was recorded. */
@@ -306,6 +290,22 @@ function transcriptLine(result: SingleResult, theme: Theme): string | undefined 
 	return paint(theme, "faint", `transcript: ${sanitizeLine(result.artifactPath)}${cut}`);
 }
 
+/** A blank line and one faint row: the shape every expanded footnote takes. */
+function addFaintRow(container: Container, theme: Theme, text: string): void {
+	container.addChild(new Spacer(1));
+	container.addChild(new Text(paint(theme, "faint", text), 0, 0));
+}
+
+/**
+ * The collapsed block's footnote: a blank line, the faint metrics row, then the
+ * expand hint. Both collapsed views end through here, so the metrics row and the
+ * affordance cannot swap places again.
+ */
+function collapsedFooter(theme: Theme, metrics: string, hinted: boolean): string {
+	const rows = metrics ? `\n\n${paint(theme, "faint", metrics)}` : "";
+	return hinted ? `${rows}\n${expandHint(theme)}` : rows;
+}
+
 /** Append one result's expanded block: header, error, task, output, usage. */
 function addExpandedResult(
 	container: Container,
@@ -359,15 +359,12 @@ function addExpandedResult(
 	}
 
 	const usage = usageLine(result);
-	if (usage) {
-		container.addChild(new Spacer(1));
-		container.addChild(new Text(paint(theme, "faint", usage), 0, 0));
-	}
+	if (usage) addFaintRow(container, theme, usage);
 	const transcript = transcriptLine(result, theme);
 	if (transcript) container.addChild(new Text(transcript, 0, 0));
 }
 
-/** The collapsed single result: header, a word, body, expand hint, and usage. */
+/** The collapsed single result: header, a word, body, and the shared footer. */
 function collapsedSingleText(result: SingleResult, theme: Theme, isPartial: boolean, now: number): string {
 	const status = resultStatus(result, isPartial);
 	// The leading blank line separates the result block from the call line, matching
@@ -377,10 +374,7 @@ function collapsedSingleText(result: SingleResult, theme: Theme, isPartial: bool
 	const displayItems = getDisplayItems(result.messages);
 	// A blank line separates the header from the body, matching the multi view.
 	text += `\n\n${collapsedBody(result, status, displayItems, theme)}`;
-	if (isExpandable(result, status, displayItems)) text += `\n${expandHint(theme)}`;
-	const usage = usageLine(result);
-	if (usage) text += `\n${paint(theme, "faint", usage)}`;
-	return text;
+	return text + collapsedFooter(theme, usageLine(result), isExpandable(result, status, displayItems));
 }
 
 function summarizeResults(results: SingleResult[]) {
@@ -445,12 +439,8 @@ function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number)
 		text += statusSuffix(result, status, theme, now);
 		text += `\n${collapsedBody(result, status, displayItems, theme)}`;
 	}
-	if (running === 0) {
-		const usage = totalUsageLine(results);
-		if (usage) text += `\n\n${paint(theme, "faint", `Total: ${usage}`)}`;
-	}
-	if (running > 0 || hasHidden) text += `\n${expandHint(theme)}`;
-	return text;
+	const metrics = running === 0 ? totalUsageLine(results) : "";
+	return text + collapsedFooter(theme, metrics, running > 0 || hasHidden);
 }
 
 function fillExpandedMulti(container: Container, details: SubagentDetails, theme: Theme, now: number): void {
@@ -464,11 +454,8 @@ function fillExpandedMulti(container: Container, details: SubagentDetails, theme
 
 	const { running } = summarizeResults(details.results);
 	if (running === 0) {
-		const usage = totalUsageLine(details.results);
-		if (usage) {
-			container.addChild(new Spacer(1));
-			container.addChild(new Text(paint(theme, "faint", `Total: ${usage}`), 0, 0));
-		}
+		const total = totalUsageLine(details.results);
+		if (total) addFaintRow(container, theme, total);
 	}
 }
 

@@ -85,6 +85,18 @@ export function asRecord(value: unknown): Record<string, unknown> | undefined {
 	return value as Record<string, unknown>;
 }
 
+/**
+ * A finite number from an untrusted JSON field, or `undefined`.
+ *
+ * The numeric companion to {@link asRecord}: a field a wire format, a child
+ * process, or a config file claims is a number is only a number when it is one —
+ * a string, `NaN`, or `null` reads as "not reported" so a caller can fall back
+ * instead of summing garbage into a total.
+ */
+export function asNumber(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 /** Parse a JSON object from disk, ignoring missing/malformed/non-object files. */
 export function readJson(path: string): Record<string, unknown> | undefined {
 	const result = readJsonResult(path);

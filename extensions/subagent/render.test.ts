@@ -32,6 +32,18 @@ function render(component: { render(width: number): string[] }, width = 80): str
 	return component.render(width).join("\n");
 }
 
+/** The rendered result block for one details object, collapsed unless asked. */
+function view(
+	details: SubagentDetails,
+	options: { expanded?: boolean; isPartial?: boolean; now?: number; theme?: any } = {},
+): string[] {
+	return renderSubagentResult(
+		toolResult(details),
+		{ expanded: options.expanded ?? false, isPartial: options.isPartial, now: options.now },
+		options.theme ?? theme,
+	).render(80);
+}
+
 describe("renderSubagentCall", () => {
 	test("single mode shows the agent and task", () => {
 		const text = render(renderSubagentCall({ agent: "explorer", task: "find the retry logic" }, theme));
@@ -194,13 +206,36 @@ describe("renderSubagentResult", () => {
 	});
 
 	test("collapsed single success shows output and usage", () => {
-		const text = render(
-			renderSubagentResult(toolResult({ mode: "single", results: [single()] }), { expanded: false }, theme),
-		);
+		const text = view({ mode: "single", results: [single()] }).join("\n");
 		expect(text).toContain("✓");
 		expect(text).toContain("explorer");
 		expect(text).toContain("all done");
 		expect(text).toContain("1 turn");
+	});
+
+	test("the collapsed footer is a blank line, the usage row, then the hint", () => {
+		const long = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");
+		const block = view({ mode: "single", results: [single({ messages: [assistantMessage(long)] })] });
+
+		// The affordance is the block's last line, as in the multi view and every other tool block.
+		expect(block.at(-1)).toContain("to expand");
+		expect(block.at(-2)).toContain("1 turn");
+		// A blank line separates the metrics row from the body, matching the expanded view.
+		expect(block.at(-3)?.trim()).toBe("");
+	});
+
+	test("omits the metrics row when the child reported no usage", () => {
+		const blank = single({ usage: emptyUsage() });
+		const block = view({ mode: "single", results: [blank] });
+		expect(block.at(-1)?.trim()).toBe("all done");
+		expect(block.join("\n")).not.toContain("turn");
+	});
+
+	test("prints no money in either view, because the footer prices the run", () => {
+		const priced = single({ usage: { ...emptyUsage(), turns: 1, cost: 1.5 } });
+		for (const expanded of [false, true]) {
+			expect(view({ mode: "single", results: [priced] }, { expanded }).join("\n")).not.toContain("$");
+		}
 	});
 
 	test("paints the agent name with the accent, matching the call line", () => {
@@ -272,14 +307,32 @@ describe("renderSubagentResult", () => {
 	});
 
 	test("collapsed parallel reports the count and a total", () => {
-		const details: SubagentDetails = {
+		const text = view({
 			mode: "parallel",
 			results: [single(), single({ agent: "planner" })],
-		};
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		}).join("\n");
 		expect(text).toContain("parallel");
 		expect(text).toContain("2/2 tasks");
 		expect(text).toContain("Total:");
+	});
+
+	test("the parallel total names the model the tasks agree on", () => {
+		const results = [
+			single({ model: "claude-sonnet-4-5", usage: { ...emptyUsage(), turns: 1, contextTokens: 900 } }),
+			single({ agent: "planner", model: "claude-sonnet-4-5" }),
+		];
+		const text = view({ mode: "parallel", results }).join("\n");
+		expect(text).toContain("Total: 2 turns claude-sonnet-4-5");
+		// Every child has its own window, so an aggregate says nothing about context.
+		expect(text).not.toContain("ctx:");
+	});
+
+	test("a mixed-model total names no model", () => {
+		const results = [single({ model: "claude-sonnet-4-5" }), single({ agent: "planner", model: "gpt-5" })];
+		const text = view({ mode: "parallel", results }).join("\n");
+		expect(text).toContain("Total: 2 turns");
+		expect(text).not.toContain("claude-sonnet-4-5");
+		expect(text).not.toContain("gpt-5");
 	});
 
 	test("parallel shows a running placeholder before completion", () => {
@@ -488,30 +541,15 @@ describe("renderSubagentResult", () => {
 	});
 
 	test("surfaces a tool-error count in the usage line", () => {
-		const text = render(
-			renderSubagentResult(
-				toolResult({ mode: "single", results: [single({ toolErrors: 2 })] }),
-				{ expanded: false },
-				theme,
-			),
-		);
-		expect(text).toContain("2 tool errors");
-		const one = render(
-			renderSubagentResult(
-				toolResult({ mode: "single", results: [single({ toolErrors: 1 })] }),
-				{ expanded: false },
-				theme,
-			),
-		);
-		expect(one).toContain("1 tool error");
+		expect(view({ mode: "single", results: [single({ toolErrors: 2 })] }).join("\n")).toContain("2 tool errors");
+		expect(view({ mode: "single", results: [single({ toolErrors: 1 })] }).join("\n")).toContain("1 tool error");
 	});
 
 	test("multi Total sums tool errors across results", () => {
-		const details: SubagentDetails = {
+		const text = view({
 			mode: "parallel",
 			results: [single({ toolErrors: 1 }), single({ toolErrors: 2 })],
-		};
-		const text = render(renderSubagentResult(toolResult(details), { expanded: false }, theme));
+		}).join("\n");
 		expect(text).toContain("Total:");
 		expect(text).toContain("3 tool errors");
 	});

@@ -677,7 +677,12 @@ describe("formatUsageStats", () => {
 			{ turns: 2, input: 1200, output: 300, cacheRead: 800, cacheWrite: 0, cost: 0.0042, contextTokens: 2000 },
 			"claude-sonnet-4-5",
 		);
-		expect(text).toBe("2 turns ↑1.2k ↓300 R800 $0.0042 ctx:2.0k claude-sonnet-4-5");
+		expect(text).toBe("2 turns ↑1.2k ↓300 R800 ctx:2.0k claude-sonnet-4-5");
+	});
+
+	test("never prints money, because the footer prices the run", () => {
+		expect(formatUsageStats({ turns: 1, cost: 0.0042 })).toBe("1 turn");
+		expect(formatUsageStats({ cost: 1.5 })).toBe("");
 	});
 
 	test("returns an empty string when there is nothing to show", () => {

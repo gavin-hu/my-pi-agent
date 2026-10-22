@@ -9,6 +9,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { asNumber } from "../../lib/config.ts";
 import { mediaDownloadUrl } from "./media.ts";
 import type {
 	BotCredentials,
@@ -118,10 +119,6 @@ function parseJson(text: string): Record<string, unknown> {
 	} catch {
 		return {};
 	}
-}
-
-function asNumber(value: unknown): number | undefined {
-	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function asString(value: unknown): string | undefined {

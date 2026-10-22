@@ -26,6 +26,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   No row is added, so a short terminal keeps its hints.
 - `bytefly`: the control center's title rule reads `Bytefly`, capitalised like
   every other screen title, instead of the lowercase command name.
+- `subagent`: the transcript's usage footnote no longer prints a dollar figure.
+  It keeps turns, token counts, context size, and the model, and a parallel or
+  chain `Total:` names a model only when every task ran the same one. Only the
+  status bar prices a delegated run, in the configured currency and tariff, so
+  the same run no longer shows two different amounts; the child's recorded cost
+  still travels in the tool details and `meta.json`. The row now sits under a
+  blank line, and the expand hint follows it as the block's last line in every
+  mode. A usage payload a child reports with a non-number contributes nothing
+  instead of corrupting the row.
 
 ## [0.16.0] - 2026-10-21
 

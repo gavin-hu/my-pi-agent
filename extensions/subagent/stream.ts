@@ -6,11 +6,13 @@
  */
 
 import type { Message } from "@earendil-works/pi-ai";
+import { asNumber, asRecord } from "../../lib/config.ts";
+import { USAGE_COUNTERS, type UsageCounts, zeroUsage } from "../../lib/usage.ts";
 import type { SingleResult, UsageStats } from "./types.ts";
 
 /** A zeroed usage accumulator. */
 export function emptyUsage(): UsageStats {
-	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 };
+	return { ...zeroUsage(), contextTokens: 0, turns: 0 };
 }
 
 /** A fresh result for one subagent run; `exitCode: -1` marks it still running. */
@@ -27,6 +29,23 @@ export function parseJsonLine(line: string): Record<string, unknown> | undefined
 	} catch {
 		return undefined;
 	}
+}
+
+/**
+ * The counters and context size one assistant message reported.
+ *
+ * The payload is a child process's JSON, so every number is read defensively: a
+ * string, `NaN`, or a missing field contributes nothing instead of concatenating
+ * into the accumulator or publishing a bogus recorded cost. `contextTokens` is
+ * the message's `totalTokens`, the occupancy of the child's window at that turn.
+ */
+function readUsage(raw: unknown): { counters: UsageCounts; contextTokens?: number } {
+	const usage = asRecord(raw);
+	const counters = zeroUsage();
+	for (const counter of USAGE_COUNTERS) counters[counter] = asNumber(usage?.[counter]) ?? 0;
+	// The wire nests the dollar amount one level down, as `{ total }`.
+	counters.cost = asNumber(asRecord(usage?.cost)?.total) ?? 0;
+	return { counters, contextTokens: asNumber(usage?.totalTokens) };
 }
 
 /**
@@ -51,25 +70,12 @@ export function applyEvent(result: SingleResult, event: unknown): boolean {
 				model?: string;
 				stopReason?: string;
 				errorMessage?: string;
-				usage?: {
-					input?: number;
-					output?: number;
-					cacheRead?: number;
-					cacheWrite?: number;
-					totalTokens?: number;
-					cost?: { total?: number };
-				};
+				usage?: unknown;
 			};
 			result.usage.turns++;
-			const usage = assistant.usage;
-			if (usage) {
-				result.usage.input += usage.input ?? 0;
-				result.usage.output += usage.output ?? 0;
-				result.usage.cacheRead += usage.cacheRead ?? 0;
-				result.usage.cacheWrite += usage.cacheWrite ?? 0;
-				result.usage.cost += usage.cost?.total ?? 0;
-				result.usage.contextTokens = usage.totalTokens ?? result.usage.contextTokens;
-			}
+			const reported = readUsage(assistant.usage);
+			for (const counter of USAGE_COUNTERS) result.usage[counter] += reported.counters[counter];
+			if (reported.contextTokens !== undefined) result.usage.contextTokens = reported.contextTokens;
 			if (!result.provider && assistant.provider) result.provider = assistant.provider;
 			if (!result.model && assistant.model) result.model = assistant.model;
 			if (assistant.stopReason) result.stopReason = assistant.stopReason;

@@ -275,8 +275,17 @@ child's system prompt for behavior; the tool list is the enforcement.
 → grep /retry/ in ~/src
 → read ~/src/http.ts:40-120
 Retries are configured in http.ts:64...
-2 turns ↑12.4k ↓1.1k R8.0k $0.0042 ctx:18.2k claude-sonnet-4-5
+
+2 turns ↑12.4k ↓1.1k R8.0k ctx:18.2k claude-sonnet-4-5
 ```
+
+The footnote is the same in every mode: a blank line, the faint usage row, then —
+when the run has more to show — the expand affordance, so the hint is always the
+block's last line. The row carries turns, token counts, context size, and the
+model — never money. A price needs a currency and a tariff, and those belong to
+the status bar, which shows every child run as its own `↳` roll-up priced in the
+configured currency (see [Non-goals](#non-goals)). A parallel or chain `Total:`
+row sums the counters, and names a model only when every task ran the same one.
 
 **Expanded** (the `app.tools.expand` key, `ctrl+o` by default): the full task,
 every intermediate assistant message and tool call, the final output rendered as
@@ -296,7 +305,9 @@ the first failing step also reports `stopped at step N`. Running tasks show an
 elapsed-time label on the shared 1s repaint timer (the package's common
 duration format, e.g. `12.0s`), and a finished run keeps its duration. A result
 that hit tool errors appends `N tool errors` to its
-usage line (and to the multi `Total:`).
+usage line (and to the multi `Total:`). A usage payload the child reports with a
+non-number (a string, `NaN`) contributes nothing, so a malformed event cannot
+corrupt the row.
 
 A chain step's expanded `Task` section shows the step's original instruction,
 with `{previous}` left in place, rather than the substituted prior output that
@@ -317,15 +328,17 @@ step's `Output`.
   details; keeping it on disk is opt-in, parent-written, and bounded by age and
   count. It is an audit and handoff record, not a resume point: replaying a run
   whose writes already landed is not attempted.
-- **No cost attribution to the parent session.** A subagent's tokens and cost are
+- **No cost attribution to the parent session.** A subagent's token counts are
   captured in the tool result and shown in the transcript, but they belong to a
-  separate process and are not added to the dispatching session's totals. Instead,
-  each finished run publishes `my-pi-agent/subagent-finished`
-  (`SubagentFinishedEvent` in `lib/events.ts`) and bytefly's footer shows the
-  session's child runs as their own `↳` roll-up, priced separately from the
-  session total (the last 500 runs). The roll-up is per process: a resumed session
-  starts from zero, and a run that never produced an assistant message publishes
-  nothing.
+  separate process and are not added to the dispatching session's totals. The
+  child's own dollar cost stays in the tool details (and in a run's `meta.json`)
+  and is never printed in the transcript: only the status bar prices a delegated
+  run, in the configured currency and tariff. Each finished run publishes
+  `my-pi-agent/subagent-finished` (`SubagentFinishedEvent` in `lib/events.ts`)
+  and bytefly's footer shows the session's child runs as their own `↳` roll-up,
+  priced separately from the session total (the last 500 runs). The roll-up is
+  per process: a resumed session starts from zero, and a run that never produced
+  an assistant message publishes nothing.
 
 ## Limitations
 
@@ -421,7 +434,7 @@ step's `Output`.
 | `agents.ts` | Built-in agent definitions, external markdown discovery, and pool resolution. |
 | `schema.ts` | TypeBox params, limits, and `resolveMode`. |
 | `invocation.ts` | `pi` subprocess invocation and argument construction. |
-| `stream.ts` | JSON-event parsing, usage accounting, output helpers (pure). |
+| `stream.ts` | JSON-event parsing, guarded usage accounting, output helpers (pure). |
 | `transcripts.ts` | Per-run transcript buffer, run ids, the store directory, and pruning. |
 | `config.ts` | The `subagent` section of `bytefly.json`: deadline, transcripts, retention. |
 | `run.ts` | Runs one subagent process and captures its result (including the background abort-as-result path). |
@@ -429,6 +442,6 @@ step's `Output`.
 | `background-tui.ts` | The `/agents` board: a `DockListScreen` with a live output pane and width-aware facts. |
 | `commands.ts` | The `/agents` command. |
 | `ui.ts` | The running-count footer chip and finish notices. |
-| `format.ts` | Token/usage/tool-call formatting (pure). |
+| `format.ts` | Token/usage/total line and tool-call formatting (pure, money-free). |
 | `render.ts` | `renderCall` / `renderResult` transcript rendering. |
 | `types.ts` | Shared result and process types. |
