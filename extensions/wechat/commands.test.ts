@@ -995,7 +995,10 @@ describe("formatPrompt", () => {
 	}
 
 	test("numbers select options and appends the hint", () => {
-		const text = formatPrompt(request({ kind: "select", title: "Pick", options: ["A", "B", INTERACTION_OTHER_LABEL] }));
+		const text = formatPrompt(
+			request({ kind: "select", title: "Pick", options: ["A", "B", INTERACTION_OTHER_LABEL] }),
+			{ language: "zh" },
+		);
 		expect(text).toContain("Pick");
 		expect(text).toContain("1. A");
 		expect(text).toContain("2. B");
@@ -1003,18 +1006,23 @@ describe("formatPrompt", () => {
 		expect(text).toContain("取消");
 	});
 
-	test("carries bilingual hints so either reader can answer", () => {
-		const text = formatPrompt(request({ kind: "select", title: "Pick", options: ["A", "B", INTERACTION_OTHER_LABEL] }));
-		expect(text).toContain("回复编号");
-		expect(text).toContain("Reply with a number");
-		expect(text).toContain("cancel");
+	test("renders one language per peer", () => {
+		const request: InteractionRequest = { kind: "select", title: "Pick", options: ["A", "B", INTERACTION_OTHER_LABEL] };
+		const zh = formatPrompt(request, { language: "zh" });
+		const en = formatPrompt(request, { language: "en" });
+		expect(zh).toContain("回复编号");
+		expect(zh).not.toContain("Reply with a number");
+		expect(en).toContain("Reply with a number");
+		expect(en).not.toContain("回复编号");
 	});
 
 	test("does not promise free text when the select has no Other option", () => {
-		const text = formatPrompt(request({ kind: "select", title: "Plan mode", options: ["Approve", "Exit"] }));
+		const text = formatPrompt(request({ kind: "select", title: "Plan mode", options: ["Approve", "Exit"] }), {
+			language: "zh",
+		});
 		expect(text).not.toContain("anything else becomes");
 		expect(text).toContain("回复编号或选项文字");
-		expect(text).toContain("cancel");
+		expect(text).toContain("取消");
 	});
 
 	test("prepends the retry notice only when asked", () => {
@@ -1278,7 +1286,7 @@ describe("interaction channel", () => {
 		expect(sent).toHaveLength(1); // the prompt itself
 
 		timers.fire(PROMPT_TIMEOUT_MS / 2);
-		expect(sent.at(-1)).toContain("Still waiting for your reply");
+		expect(sent.at(-1)).toContain("Waiting for your reply");
 		expect(channel.hasPending()).toBe(true);
 
 		timers.fire(PROMPT_TIMEOUT_MS);
@@ -1305,7 +1313,7 @@ describe("interaction channel", () => {
 		const answer = channel.request(CONFIRM);
 
 		timers.fire(PROMPT_TIMEOUT_MS / 2);
-		expect(sent.at(-1)).toContain("还在等你的回复");
+		expect(sent.at(-1)).toContain("等你回复");
 		timers.fire(PROMPT_TIMEOUT_MS);
 		expect(await answer).toEqual({ kind: "cancelled" });
 		expect(sent.at(-1)).toBe("问题超时，已取消。");
@@ -1321,7 +1329,7 @@ describe("interaction channel", () => {
 		timers.fire(PROMPT_TIMEOUT_MS);
 		expect(channel.hasPending()).toBe(true);
 		timers.fire(300_000);
-		expect(sent.at(-1)).toContain("Still waiting for your reply");
+		expect(sent.at(-1)).toContain("Waiting for your reply");
 		timers.fire(600_000);
 		expect(await answer).toEqual({ kind: "cancelled" });
 		restore();

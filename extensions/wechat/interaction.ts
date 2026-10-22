@@ -28,10 +28,10 @@ import { defaultTimer, type ArmTimer } from "./timer.ts";
 export const PROMPT_TIMEOUT_MS = 180_000;
 
 export interface WechatInteractionDeps {
-	/** Send one text message to the owning peer; resolves false when it fails. */
-	send: (text: string, signal?: AbortSignal) => Promise<boolean>;
-	/** Send a local file to the owning peer; resolves false when it fails. */
-	sendFile: (path: string, name: string, signal?: AbortSignal) => Promise<boolean>;
+	/** Send one text message to the owning peer; `force` bypasses the prompt-active gate. */
+	send: (text: string, signal?: AbortSignal, options?: { force?: boolean }) => Promise<boolean>;
+	/** Send a local file to the owning peer; `force` bypasses the prompt-active gate. */
+	sendFile: (path: string, name: string, signal?: AbortSignal, options?: { force?: boolean }) => Promise<boolean>;
 	/** The peer that owns the in-flight turn, or undefined when there is none. */
 	activePeer: () => string | undefined;
 	/** The language the owning peer writes in, for the timeout notices. */
@@ -55,7 +55,9 @@ export interface WechatInteractionChannel extends InteractionChannel {
 	/** The waiting prompt, for the control screen; undefined when none waits. */
 	pendingInfo(): PendingPromptInfo | undefined;
 	/** Withdraw the waiting prompt: tell the peer and resolve it cancelled. */
-	cancel(): void;
+	cancel(): Promise<void>;
+	/** The language prompts are rendered in. */
+	language(): PeerLanguage;
 	/** Drop any pending prompt (turn settled or the bridge stopped). */
 	reset(): void;
 }
@@ -111,6 +113,10 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			return deps.activePeer() !== undefined;
 		},
 
+		language(): PeerLanguage {
+			return deps.language();
+		},
+
 		hasPending(): boolean {
 			return pending !== undefined;
 		},
@@ -127,21 +133,26 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 					};
 		},
 
-		cancel(): void {
-			if (!pending) return;
+		async cancel(): Promise<void> {
+			const current = pending;
+			if (!current) return;
 			// The peer saw the prompt; one line says it was withdrawn, which is not the
 			// same as expiry — they were not slow, the question went away. `reset` is the
-			// silent cleanup path and deliberately does not send this.
-			void deps.send(notice("withdrawn", deps.language()));
-			settle({ kind: "cancelled" });
+			// silent cleanup path and deliberately does not send this. Settle after the
+			// notice is on the wire, so a caller awaiting the answer knows it was sent.
+			try {
+				await deps.send(notice("withdrawn", deps.language()), undefined, { force: true });
+			} finally {
+				if (pending === current) settle({ kind: "cancelled" });
+			}
 		},
 
 		async post(text: string, signal?: AbortSignal): Promise<void> {
-			await deps.send(text, signal);
+			await deps.send(text, signal, { force: true });
 		},
 
 		async postFile(path: string, name: string, signal?: AbortSignal): Promise<boolean> {
-			return deps.sendFile(path, name, signal);
+			return deps.sendFile(path, name, signal, { force: true });
 		},
 
 		setPromptTimeout(ms: number): () => void {
@@ -178,15 +189,17 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 				// An ignored question must not freeze the session: nudge once, then
 				// cancel so the model gets a clean answer instead of a hang.
 				const bound = scopedTimeoutMs ?? PROMPT_TIMEOUT_MS;
-				cancelTimers.push(arm(bound / 2, () => void deps.send(notice("promptWaiting", deps.language()))));
+				cancelTimers.push(
+					arm(bound / 2, () => void deps.send(notice("promptWaiting", deps.language()), undefined, { force: true })),
+				);
 				cancelTimers.push(
 					arm(bound, () => {
-						void deps.send(notice("timeout", deps.language()));
+						void deps.send(notice("timeout", deps.language()), undefined, { force: true });
 						settle({ kind: "cancelled" });
 					}),
 				);
 			});
-			const sent = await deps.send(formatPrompt(request), signal);
+			const sent = await deps.send(formatPrompt(request, { language: deps.language() }), signal);
 			if (!sent) settle({ kind: "cancelled" });
 			return await answer;
 		},
@@ -197,7 +210,9 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			const parsed = parsePromptAnswer(current.request, text);
 			switch (parsed.kind) {
 				case "retry":
-					void deps.send(formatPrompt(current.request, { retry: true }));
+					void deps.send(formatPrompt(current.request, { retry: true, language: deps.language() }), undefined, {
+						force: true,
+					});
 					return true;
 				case "other":
 					other.set(peer, parsed.text);

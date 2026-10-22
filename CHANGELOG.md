@@ -22,6 +22,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   worktrees share one bus, keeps state under the agent directory, and starts no
   server.
 
+### Changed
+
+- `wechat`: one message is one turn and one answer. A queued message is no longer
+  merged into another prompt, so its answer cannot arrive ahead of it; outbound
+  replies, prompts, and files are serialized per peer; the 4 s and 60 s notices
+  still cover a message waiting behind a running turn; and a pending dialog owns
+  the peer until it is answered or cancelled.
+- `plan`: on a remote turn the review is one compact editor prompt — title, first
+  steps, mode status, and four actions — instead of an attachment, digest, and
+  select. Any other reply refines the plan directly, the plan file is no longer
+  sent, and approval records the session goal without a second confirm.
+- `question`: on a dialog-only host, two or more questions are asked in one batch
+  prompt and answered in one reply, with one retry, instead of one dialog each.
+
 ## [0.17.0] - 2026-10-22
 
 ### Added

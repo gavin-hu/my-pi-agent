@@ -12,6 +12,7 @@ import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../../lib/format.ts";
+import { isRemoteTurn } from "../../../lib/interaction.ts";
 import { lastGoal } from "../../../lib/goal-state.ts";
 import { GOAL_TOOL } from "../../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
@@ -63,7 +64,7 @@ async function finalizeGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promis
 	const objective = planObjective(plan);
 	const current = lastGoal(ctx.sessionManager.getBranch());
 	if (current !== null && current.status !== "planning") return { objective };
-	if (current === null) {
+	if (current === null && !isRemoteTurn(ctx)) {
 		if (!ctx.hasUI) return { objective };
 		if (loadConfig(ctx.cwd).goalPrompt) {
 			const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);

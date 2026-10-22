@@ -154,7 +154,7 @@ function resetMessage(bridge: Bridge, peer: string): VerbOutcome {
 
 function cancelPromptMessage(bridge: Bridge): VerbOutcome {
 	if (!bridge.status().promptPending) return { message: "No prompt is waiting.", kind: "info" };
-	bridge.channel().cancel();
+	void bridge.channel().cancel();
 	return { message: "Cancelled the waiting prompt.", kind: "info" };
 }
 

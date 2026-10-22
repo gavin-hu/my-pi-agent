@@ -145,8 +145,9 @@ the chat with a number, the option text, `yes`/`确定`, `no`/`不是`, or `取�
 dismiss.
 
 An unanswered prompt is nudged halfway and then cancelled at the end of its
-window — three minutes for a dialog, ten for a plan review, which arrives with
-the plan attached — so an ignored dialog cannot freeze the conversation. A prompt
+window — three minutes for a dialog, ten for a plan review — so an ignored dialog
+cannot freeze the conversation. A plan review is one compact prompt; the plan
+file stays on disk and `2` posts its text. A prompt
 that goes away before it is answered (a pause, a `/stop`, a shutdown) says it was
 withdrawn rather than claiming the peer timed out. A prompt that cannot be shown
 is answered as cancelled; the peer turn still runs.

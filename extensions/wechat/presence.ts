@@ -204,14 +204,13 @@ export function createPresence(deps: PresenceDeps): Presence {
 	 * the same thing without spending a bubble.
 	 */
 	function armAck(target: PresenceTarget): void {
-		// A turn for this peer is already running: its own progress notice covers
-		// this message, so a second acknowledgement would be noise.
-		if (isRunning(target.peer)) return;
+		// A message can be queued behind a running turn; it still gets one
+		// acknowledgement after the delay, but not one per message.
 		if (acks.has(target.peer)) return;
 		const last = ackedAt.get(target.peer);
 		if (last !== undefined && deps.now() - last < ACK_REPEAT_MS) return;
 		acks.arm(target.peer, ACK_DELAY_MS, () => {
-			if (!hasWork(target.peer) || isRunning(target.peer)) return;
+			if (!hasWork(target.peer)) return;
 			ackedAt.set(target.peer, deps.now());
 			void deps.send(target.peer, target.contextToken, notice("ack", deps.languageOf(target.peer)));
 			// Still waiting after a minute behind another turn: say why.

@@ -96,10 +96,10 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   it for approval. The user approves, keeps planning, asks for a refinement, or
   exits plan mode without approving; the last keeps the plan file for a later
   review and records no todo items or goal.
-  On a remote turn (WeChat) the plan file is sent first, then a digest of its
-  title, step count, and first steps, then the choices, so the review is still
-  answerable when the attachment is not opened. The choices include **Send the
-  full plan**, which posts the plan text and asks again.
+  On a remote turn (WeChat) the review is one compact editor prompt: the title,
+  step count, first steps, mode status, and four actions (approve, full plan,
+  keep, exit). Any other reply is a refinement request. The plan file is not
+  attached; **full plan** posts the text and asks again.
 - **Browser review on demand.** Press `w` on the review screen (or run
   `/plan review [path]`) to open the plan in a local browser: a reading-first
   page with the plan's H1 as its title, GitHub's Markdown content column, a
@@ -237,10 +237,9 @@ actions (`a approve & run` in `success`, `r refine` in `accent`).
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
 model the plan was not approved; `x` leaves plan mode without approving and
-keeps the plan file. The dialog path offers the same five outcomes, including
-**Exit plan mode (discard)**. Dismissing the dialog (or a timeout) is also an
-exit, not a silent `keep`; only the explicit **Keep planning** option stays in
-plan mode. When the plan changed since the previous review
+keeps the plan file. The dialog path is one editor prompt: `1` approve, `2` full
+plan, `3` keep, `4` exit; any other text refines the plan. Dismissing or timing
+out the prompt exits without approving. When the plan changed since the previous review
 on this branch, a summary line under the title names how many sections changed
 and the scroll row appends `· changed` to the current section. Scroll with `↑`/`↓` or `j`/`k`, `space`/`b` or
 `PgUp`/`PgDn`, `d`/`u`, `g`/`G`, and the mouse wheel. Press `n`/`p` to jump to
@@ -255,14 +254,12 @@ dropped whole as the terminal narrows, and each footer leads with its safe exit
 (`Esc keep plan` in the review, `Esc back to plan` in the inline editor) so
 the exit survives even when only one hint fits.
 
-Dialog-capable non-TUI modes (RPC) show the same five choices as a select menu
-plus the refine editor; cancelling the editor returns to the select instead of
-being reported as "not approved". Dismissing the plan select is an exit. A WeChat turn takes the same dialog path and
-is answered over WeChat, even though the session is in TUI mode: the choice
-comes from `askHuman(ctx, { custom, dialogs, file, body })` in
-`lib/interaction.ts`, not from `ctx.mode`. A remote turn also receives the plan
-**file** first (falling back to the plan text if the upload fails) so the whole
-plan is reviewable there; RPC has no channel and still sees only the choices.
+Dialog-capable non-TUI modes (RPC/WeChat) use one editor prompt; a non-action
+reply is the refinement, so “select Refine, then type” is gone. A WeChat turn
+takes the same dialog path and is answered over WeChat, even though the session
+is in TUI mode: the choice comes from `askHuman(ctx, { custom, dialogs, body })`
+in `lib/interaction.ts`, not from `ctx.mode`. No plan file is attached; **full
+plan** posts the text and asks again.
 Without any UI the tools fail with an actionable message instead of deciding for
 the user.
 

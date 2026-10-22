@@ -12,8 +12,8 @@ import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
-import { isRemoteTurn } from "../../../lib/interaction.ts";
-import { PLAN_CONSENT, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
+import { isRemoteTurn, remoteLanguage } from "../../../lib/interaction.ts";
+import { PLAN_CONSENT, PLAN_CONSENT_SHORT, PLAN_CONSENT_SHORT_ZH, READ_ONLY_SUMMARY } from "../../../lib/plan-entry.ts";
 import { ENTER_TOOL, type PlanRuntime } from "../runtime.ts";
 import type { EnterPlanModeDetails } from "../types.ts";
 
@@ -53,7 +53,12 @@ export function registerEnterTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 				);
 			}
 
-			const approved = await ctx.ui.confirm("Enter plan mode?", PLAN_CONSENT);
+			const consent = isRemoteTurn(ctx)
+				? remoteLanguage(ctx) === "zh"
+					? PLAN_CONSENT_SHORT_ZH
+					: PLAN_CONSENT_SHORT
+				: PLAN_CONSENT;
+			const approved = await ctx.ui.confirm("Enter plan mode?", consent);
 			if (!approved) {
 				return {
 					content: [{ type: "text", text: "Stayed in normal mode. Proceed, or ask the user how to continue." }],

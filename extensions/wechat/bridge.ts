@@ -246,7 +246,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			lastSendError = undefined;
 		},
 	});
-
 	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
 	async function runSlashAction(command: SlashCommand, target: MessageTarget, args: string): Promise<void> {
 		if (!command.run) return;
@@ -280,27 +279,28 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/**
-	 * Send a dialog preface (or plan digest) to the peer owning the in-flight turn.
+	 * Send a prompt to the peer owning the in-flight turn.
 	 *
 	 * A failure is reported on the terminal once per peer by the deliverer; a silent
 	 * failure would leave the peer with only the choices, as if nothing preceded
 	 * them.
 	 */
-	async function sendPrompt(text: string, signal?: AbortSignal): Promise<boolean> {
+	async function sendPrompt(text: string, signal?: AbortSignal, options?: { force?: boolean }): Promise<boolean> {
 		const current = worker?.current();
 		if (!current) return false;
+		// The model may have produced text before this prompt; put it on the wire first.
+		await worker?.flush(current.peer);
+		if (!options?.force && !interaction.hasPending()) return false;
 		return deliverer.prompt(current, text, signal ?? abort?.signal);
 	}
-
-	/** Upload and send a local file to the peer owning the in-flight turn. */
 	async function sendFileToPeer(filePath: string, fileName: string, signal?: AbortSignal): Promise<boolean> {
 		const current = worker?.current();
 		if (!current) return false;
+		await worker?.flush(current.peer);
 		return deliverer.file(current, filePath, fileName, signal ?? abort?.signal);
 	}
-
 	const interaction = createWechatInteractionChannel({
-		send: (text, signal) => sendPrompt(text, signal),
+		send: (text, signal, options) => sendPrompt(text, signal, options),
 		sendFile: (path, name, signal) => sendFileToPeer(path, name, signal),
 		activePeer: () => worker?.current()?.peer,
 		language: () => languageOf(worker?.current()?.peer ?? ""),
@@ -618,7 +618,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// not be cancelled by the poll abort that follows.
 				const stopping = abort;
 				abort = undefined;
-				if (interaction.hasPending()) interaction.cancel();
+				if (interaction.hasPending()) await interaction.cancel();
 				stopping?.abort();
 				try {
 					await loopPromise;

@@ -4,9 +4,10 @@ import { describe, expect, test } from "bun:test";
 import type { AgentSession, CreateAgentSessionOptions, LoadExtensionsResult } from "@earendil-works/pi-coding-agent";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeClock, type Clock } from "../../test/helpers/clock.ts";
-import { updates } from "../../test/helpers/fixtures/wechat-bridge.ts";
+import { account, updates } from "../../test/helpers/fixtures/wechat-bridge.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { createAdmissionQueue, createTurnBudget, type TurnBudget } from "./admission.ts";
+import { createDeliverer } from "./deliver.ts";
 import { WECHAT_CHANNEL_PROMPT } from "./channel.ts";
 import type { WechatClient } from "./client.ts";
 import { acquireLock, isLocked, releaseLock, type LockDeps } from "./lock.ts";
@@ -402,6 +403,66 @@ describe("timer map", () => {
 
 	test("defaultSleep rejects at once for an already aborted signal", async () => {
 		await expect(defaultSleep(60_000, AbortSignal.abort())).rejects.toThrow("aborted");
+	});
+});
+
+describe("deliverer ordering", () => {
+	test("serializes a reply and a prompt per peer", async () => {
+		const order: string[] = [];
+		let release: (() => void) | undefined;
+		const client = {
+			sendMessage: async (_account: unknown, args: { text: string }) => {
+				if (args.text === "one") await new Promise<void>((resolve) => (release = resolve));
+				order.push(args.text);
+				return { ret: 0 };
+			},
+		} as unknown as WechatClient;
+		const deliverer = createDeliverer({
+			client: () => client,
+			account: () => account,
+			maxReplyChars: () => 1000,
+			cdnBaseUrl: "",
+			maxMediaBytes: 1024,
+			notify: () => {},
+			onExpired: () => {},
+			forgetToken: () => {},
+		});
+		const first = deliverer.reply({ peer: "alice" }, "one");
+		const second = deliverer.prompt({ peer: "alice" }, "two");
+		await settle();
+		expect(order).toEqual([]);
+		release?.();
+		await Promise.all([first, second]);
+		expect(order).toEqual(["one", "two"]);
+	});
+
+	test("does not let one peer block another", async () => {
+		const order: string[] = [];
+		let release: (() => void) | undefined;
+		const client = {
+			sendMessage: async (_account: unknown, args: { to: string; text: string }) => {
+				if (args.to === "slow") await new Promise<void>((resolve) => (release = resolve));
+				order.push(args.text);
+				return { ret: 0 };
+			},
+		} as unknown as WechatClient;
+		const deliverer = createDeliverer({
+			client: () => client,
+			account: () => account,
+			maxReplyChars: () => 1000,
+			cdnBaseUrl: "",
+			maxMediaBytes: 1024,
+			notify: () => {},
+			onExpired: () => {},
+			forgetToken: () => {},
+		});
+		const slow = deliverer.reply({ peer: "slow" }, "one");
+		const fast = deliverer.reply({ peer: "fast" }, "two");
+		await settle();
+		expect(order).toEqual(["two"]);
+		release?.();
+		await Promise.all([slow, fast]);
+		expect(order).toEqual(["two", "one"]);
 	});
 });
 
@@ -862,18 +923,30 @@ describe("peer worker", () => {
 		expect(sent).toEqual([{ peer: "alice@im.wechat", text: "pong" }]);
 	});
 
-	test("merges a burst that arrives while the peer is still waiting", async () => {
-		const { worker, sent, sessions } = workerHarness({ answers: ["one", "two"], holdFirst: true });
+	test("answers each queued message in its own turn", async () => {
+		const { worker, sent, sessions } = workerHarness({ answers: ["one", "two", "three"], holdFirst: true });
 		worker.enqueue(peerItem("first"));
-		// The first turn started; these two are waiting and merge into one turn.
+		// The first turn started; these two are waiting as separate turns.
 		worker.enqueue(peerItem("second"));
 		worker.enqueue(peerItem("third"));
 		await settle();
-		await sessions[0]?.session.abort();
+		sessions[0]?.release();
+		await waitFor(() => sent.length === 3);
+		expect(sessions[0]?.prompts).toEqual(["first", "second", "third"]);
+		expect(sent.map((message) => message.text)).toEqual(["one", "two", "three"]);
+	});
+
+	test("flushes buffered text before a prompt is sent", async () => {
+		const { worker, sent, sessions } = workerHarness({ answers: [""], holdFirst: true });
+		worker.enqueue(peerItem("work"));
 		await settle();
+		sessions[0]?.emit("partial answer");
 		await settle();
-		expect(sessions[0]?.prompts).toEqual(["first", "second\nthird"]);
-		expect(sent.map((message) => message.text)).toEqual(["one", "two"]);
+		expect(sent).toEqual([]);
+		await worker.flush("alice@im.wechat");
+		expect(sent.map((message) => message.text)).toEqual(["partial answer"]);
+		sessions[0]?.release();
+		await settle();
 	});
 
 	test("sends each paragraph as it arrives, instead of one lump", async () => {
@@ -1448,7 +1521,7 @@ describe("presence", () => {
 		harness.presence.armAck({ peer: "alice" });
 		harness.timers.fire(4000);
 		await settle();
-		expect(harness.sent).toEqual([{ peer: "alice", text: "Got it — queued; I'll answer when it's my turn." }]);
+		expect(harness.sent).toEqual([{ peer: "alice", text: "Queued — I'll answer next." }]);
 
 		// A second message inside the repeat window is not acknowledged again.
 		harness.presence.armAck({ peer: "alice" });
@@ -1457,11 +1530,13 @@ describe("presence", () => {
 		expect(harness.sent).toHaveLength(1);
 	});
 
-	test("does not acknowledge a turn that is already running", async () => {
+	test("acknowledges a message queued behind a running turn", async () => {
 		const harness = presenceHarness();
 		harness.status("alice", "running");
 		harness.presence.armAck({ peer: "alice" });
-		expect(harness.timers.count(4000)).toBe(0);
+		harness.timers.fire(4000);
+		await settle();
+		expect(harness.sent.map((entry) => entry.text)).toEqual(["Queued — I'll answer next."]);
 	});
 
 	test("cancels a pending acknowledgement when the turn starts", async () => {
@@ -1482,12 +1557,12 @@ describe("presence", () => {
 		await settle();
 		harness.timers.fire(60_000);
 		await settle();
-		const busy = harness.sent.filter((entry) => entry.text.includes("queued behind another conversation"));
+		const busy = harness.sent.filter((entry) => entry.text.includes("Still on the previous message"));
 		expect(busy).toHaveLength(1);
 
 		harness.timers.fire(60_000);
 		await settle();
-		expect(harness.sent.filter((entry) => entry.text.includes("queued behind another conversation"))).toHaveLength(1);
+		expect(harness.sent.filter((entry) => entry.text.includes("Still on the previous message"))).toHaveLength(1);
 	});
 
 	test("says still working once for a slow turn", async () => {

@@ -32,6 +32,9 @@ on.
   `Other` row `Space` opens the editor, like `Enter`.
 - `Esc` cancels; the model receives “User cancelled the question.” and can
   continue or ask in prose.
+- On a dialog-only host (RPC/WeChat), one question uses the normal select/input.
+  Two or more become one batch editor prompt and one reply (`1: 2; 2: A, B`),
+  with one retry if the format is unclear; the TUI keeps its tabbed screen.
 
 ## Tool
 

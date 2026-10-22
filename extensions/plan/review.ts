@@ -1,9 +1,9 @@
 /**
  * The plan review gate: ask the human about a plan file and return one decision.
  *
- * A review has three presentations — the scrollable TUI screen, a select plus
- * editor for dialog-only modes, and a remote turn's plan file plus digest — and
- * one optional browser server. This module owns the loop that switches between
+ * A review has three presentations — the scrollable TUI screen, a dialog-only
+ * editor, and a remote turn's compact editor prompt — and one optional browser
+ * server. This module owns the loop that switches between
  * them, so `exit_plan_mode` and `/plan review` share one lifecycle and only map
  * the returned {@link ReviewDecision} to their own result.
  *
@@ -13,8 +13,7 @@
  */
 
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
-import { basename } from "node:path";
-import { askHuman } from "../../lib/interaction.ts";
+import { askHuman, remoteLanguage } from "../../lib/interaction.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui/chrome.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
@@ -82,48 +81,63 @@ export const PLAN_REVIEW_TIMEOUT_MS = 600_000;
 const DIGEST_STEP_CHARS = 90;
 
 /**
- * A one-message digest of the plan for a remote review.
- *
- * The file is the primary artifact, but a phone client may never render or open
- * it, and the peer still has to choose approve / refine. The digest carries the
- * title, the step count, and the first few steps; the full text follows as a
- * file or as the fallback message.
+ * One compact remote prompt: title, first steps, mode status, and the action
+ * line. The plan file is not attached; “full plan” sends it as text.
  */
-function planReviewDigest(content: string): string {
+function planReviewPrompt(content: string, language: "zh" | "en"): string {
 	const title = /^#\s+(.+)$/m.exec(content)?.[1]?.trim();
 	const steps = extractPlanSteps(content);
 	const count = steps.length;
-	const head = `Plan${title ? `: ${title}` : ""}${count > 0 ? ` (${count} step${count === 1 ? "" : "s"})` : ""}`;
+	const head =
+		language === "zh"
+			? `计划${title ? `：${title}` : ""}${count > 0 ? `（${count} 步）` : ""}`
+			: `Plan${title ? `: ${title}` : ""}${count > 0 ? ` (${count} step${count === 1 ? "" : "s"})` : ""}`;
 	const preview = steps.slice(0, 3).map((step, index) => {
 		const text = step.content.replace(/\s+/g, " ").trim();
 		const shown = text.length > DIGEST_STEP_CHARS ? `${text.slice(0, DIGEST_STEP_CHARS - 1)}…` : text;
 		return `${index + 1}. ${shown}`;
 	});
-	const more = count > preview.length ? `… (${count - preview.length} more)` : "";
-	return [
-		head,
-		...preview,
-		more,
-		"Plan mode is on — write access is off. Choose “Exit plan mode” to leave without approving.",
-		"The full plan is attached above, or sent as text if the file failed.",
-	]
-		.filter((line) => line !== "")
-		.join("\n");
+	const more =
+		count > preview.length
+			? language === "zh"
+				? `… 还有 ${count - preview.length} 步`
+				: `… (${count - preview.length} more)`
+			: "";
+	const status = language === "zh" ? "Plan 模式开启，写入已关闭。" : "Plan mode is on — write access is off.";
+	const actions =
+		language === "zh"
+			? "回复 1 批准，2 查看全文，3 继续规划，4 退出；或直接输入修改意见（想做别的先退出或批准）。"
+			: "Reply 1 approve, 2 full plan, 3 keep, 4 exit — or type feedback to revise. To ask something else, exit or approve first.";
+	return [head, ...preview, more, status, actions].filter((line) => line !== "").join("\n");
 }
 
 /**
- * Ask the user to review the plan file. The TUI opens the scrollable review
- * screen (with an inline refine editor); dialog-capable modes (RPC) fall back to
- * a select plus the refine editor; a remote turn gets the plan file and a digest
- * first. Asking for the full plan re-enters with the text only, then shows the
- * choices again.
+ * Parse the one editor reply. Only an exact number or action word is an action;
+ * any other non-empty text is a refinement request.
+ */
+function parsePlanReviewReply(raw: string): PlanReviewChoice | { action: "send" } {
+	const text = raw.trim();
+	if (text === "") return { action: "cancel" };
+	const key = text.toLowerCase();
+	if (["1", "approve", "批准", "同意"].includes(key)) return { action: "approve" };
+	if (["2", "full", "full plan", "全文", "查看全文"].includes(key)) return { action: "send" };
+	if (["3", "keep", "keep planning", "继续", "继续规划"].includes(key)) return { action: "keep" };
+	if (["4", "exit", "cancel", "quit", "退出", "取消"].includes(key)) return { action: "cancel" };
+	return { action: "refine", refinement: text };
+}
+
+/**
+ * Ask the user to review the plan file. The TUI opens the scrollable screen;
+ * dialog-capable modes (RPC/WeChat) get one editor prompt. A reply that is not an
+ * action is a refinement; asking for the full plan posts it, then asks again.
  */
 async function askPlanReview(
 	ctx: ExtensionToolContext,
 	plan: StoredPlan,
 	baseline: SectionDigest[] | undefined,
 ): Promise<PlanReviewChoice> {
-	let sentFullText = false;
+	const language = remoteLanguage(ctx) ?? "en";
+	let sendFullText = false;
 	for (;;) {
 		const outcome = await askHuman<ReviewChoice>(ctx, {
 			custom: async () => {
@@ -143,32 +157,17 @@ async function askPlanReview(
 				return choice ?? { action: "keep" };
 			},
 			dialogs: async () => {
-				const choice = await ctx.ui.select("Plan mode — what next?", [
-					"Approve and execute",
-					"Send the full plan",
-					"Refine the plan",
-					"Keep planning (stay in plan mode)",
-					"Exit plan mode (discard)",
-				]);
-				if (choice === "Approve and execute") return { action: "approve" };
-				if (choice === "Send the full plan") return { action: "send" };
-				if (choice === "Refine the plan") return { action: "refine" };
-				if (choice === "Keep planning (stay in plan mode)") return { action: "keep" };
-				// Dismissing the plan gate means leaving plan mode, not silently staying
-				// in it. The explicit Keep choice above is the only way to stay.
-				return { action: "cancel" };
+				const answer = await ctx.ui.editor(planReviewPrompt(plan.content, language), "");
+				return parsePlanReviewReply(answer ?? "");
 			},
-			// A remote turn gets the plan file up front, falling back to the full text;
-			// a local TUI turn ignores both and renders the component. The digest goes
-			// out either way so the choices stay answerable when a phone client does not
-			// render the file bubble.
-			file: sentFullText ? undefined : { path: plan.path, name: basename(plan.relativePath) },
-			body: plan.content,
-			note: sentFullText ? undefined : planReviewDigest(plan.content),
+			// A remote turn gets one compact prompt; the full plan is sent only when
+			// the user chooses it, then the same prompt asks again.
+			body: sendFullText ? plan.content : undefined,
 			timeoutMs: PLAN_REVIEW_TIMEOUT_MS,
 		});
+		sendFullText = false;
 		if (outcome.action !== "send") return outcome;
-		sentFullText = true;
+		sendFullText = true;
 	}
 }
 

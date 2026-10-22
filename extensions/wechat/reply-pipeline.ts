@@ -27,6 +27,8 @@ export interface ReplyPipelineDeps {
 export interface ReplyPipeline {
 	/** Add streamed text; parts go out as boundaries are crossed. */
 	push(delta: string): void;
+	/** Send the current buffer now, in order; used before a dialog or file. */
+	flush(): Promise<void>;
 	/** Send whatever is left and resolve once every part is out. */
 	finish(): Promise<void>;
 	/** Drop the unsent remainder (an aborted turn) and cancel the timer. */
@@ -106,6 +108,13 @@ export function createReplyPipeline(deps: ReplyPipelineDeps): ReplyPipeline {
 		enqueue(part);
 	}
 
+	async function flushBuffer(): Promise<void> {
+		cancelQuiet();
+		enqueue(buffer);
+		buffer = "";
+		await chain;
+	}
+
 	return {
 		push(delta: string): void {
 			if (!delta) return;
@@ -125,11 +134,10 @@ export function createReplyPipeline(deps: ReplyPipelineDeps): ReplyPipeline {
 			scheduleQuiet();
 		},
 
+		flush: flushBuffer,
+
 		async finish(): Promise<void> {
-			cancelQuiet();
-			enqueue(buffer);
-			buffer = "";
-			await chain;
+			await flushBuffer();
 		},
 
 		drop(): void {

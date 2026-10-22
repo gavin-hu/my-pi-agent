@@ -2,15 +2,15 @@
  * Pure rendering and parsing of remote dialog prompts (no I/O).
  *
  * A prompt is rendered to a WeChat message by {@link formatPrompt}; the reply is
- * interpreted by {@link parsePromptAnswer}. Hints are bilingual (Chinese and
- * English) so either reader can answer, and {@link formatPrompt} can prepend a
- * short notice when a reply was not understood. The parser is deliberately total:
+ * interpreted by {@link parsePromptAnswer}. Hints are rendered in the peer's
+ * language, and {@link formatPrompt} can prepend a short notice when a reply was
+ * not understood. The parser is deliberately total:
  * anything it cannot resolve reports `retry`, and free text on a `select` becomes
  * the {@link INTERACTION_OTHER_LABEL} option so the caller can collect it once.
  */
 
 import { INTERACTION_OTHER_LABEL, type InteractionRequest } from "../../lib/interaction.ts";
-import { sanitizeInbound } from "./format.ts";
+import { sanitizeInbound, type PeerLanguage } from "./format.ts";
 
 /** A parsed reply: a resolved answer, the "other" choice, or a retry. */
 export type PromptParse =
@@ -20,20 +20,30 @@ export type PromptParse =
 	| { kind: "cancelled" }
 	| { kind: "retry" };
 
-const SELECT_OTHER_HINT =
-	"回复编号或选项文字；其它内容作为自定义回答；回复「取消」或 cancel 跳过。\n" +
-	"Reply with a number or the option text; anything else becomes your own answer; reply cancel to dismiss.";
-const SELECT_CHOICE_HINT =
-	"回复编号或选项文字；回复「取消」或 cancel 跳过。\n" +
-	"Reply with a number or the option text; reply cancel to dismiss.";
-const CONFIRM_HINT = "回复「是」或「否」。\nReply yes or no.";
-const INPUT_HINT = "直接回复内容；回复「取消」或 cancel 跳过。\nReply with the text; reply cancel to skip.";
-const EDITOR_HINT =
-	"把内容作为一条消息发回；回复「取消」或 cancel 取消。\nSend the text as one message; reply cancel to cancel.";
+const SELECT_OTHER_HINT: Record<PeerLanguage, string> = {
+	zh: "回复编号或选项文字；其它内容作为自定义回答；回复「取消」跳过。",
+	en: "Reply with a number or the option text; anything else is your own answer; reply cancel to dismiss.",
+};
+const SELECT_CHOICE_HINT: Record<PeerLanguage, string> = {
+	zh: "回复编号或选项文字；回复「取消」跳过。",
+	en: "Reply with a number or the option text; reply cancel to dismiss.",
+};
+const CONFIRM_HINT: Record<PeerLanguage, string> = {
+	zh: "回复「是」或「否」。",
+	en: "Reply yes or no.",
+};
+const INPUT_HINT: Record<PeerLanguage, string> = {
+	zh: "直接回复内容；回复「取消」跳过。",
+	en: "Reply with the text; reply cancel to skip.",
+};
+const EDITOR_HINT: Record<PeerLanguage, string> = {
+	zh: "把内容作为一条消息发回；回复「取消」取消。",
+	en: "Send the text as one message; reply cancel to cancel.",
+};
 
 /** Sent ahead of a re-prompt when a reply could not be interpreted. */
-export const RETRY_NOTICE =
-	"没有识别到有效回复，请重新回答。\nSorry, I didn't recognize that reply — please answer again.";
+export const RETRY_NOTICE = "Sorry, I didn't recognize that reply — please answer again.";
+const RETRY_ZH = "没有识别到有效回复，请重新回答。";
 
 const CANCEL_WORDS = new Set(["取消", "退出", "cancel", "quit", "exit"]);
 const YES_WORDS = new Set(["是", "y", "yes", "1", "确认", "确定", "行", "ok", "好", "对"]);
@@ -44,24 +54,29 @@ function lines(parts: Array<string | undefined>): string {
 }
 
 /** Render a dialog prompt as a WeChat message body, optionally after a retry. */
-export function formatPrompt(request: InteractionRequest, options: { retry?: boolean } = {}): string {
-	const body = promptBody(request);
-	return options.retry ? `${RETRY_NOTICE}\n\n${body}` : body;
+export function formatPrompt(
+	request: InteractionRequest,
+	options: { retry?: boolean; language?: PeerLanguage } = {},
+): string {
+	const language = options.language ?? "en";
+	const body = promptBody(request, language);
+	const retry = language === "zh" ? RETRY_ZH : RETRY_NOTICE;
+	return options.retry ? `${retry}\n\n${body}` : body;
 }
 
-function promptBody(request: InteractionRequest): string {
+function promptBody(request: InteractionRequest, language: PeerLanguage): string {
 	switch (request.kind) {
 		case "select": {
 			const options = (request.options ?? []).map((label, index) => `${index + 1}. ${label}`);
 			const hasOther = (request.options ?? []).includes(INTERACTION_OTHER_LABEL);
-			return lines([request.title, ...options, hasOther ? SELECT_OTHER_HINT : SELECT_CHOICE_HINT]);
+			return lines([request.title, ...options, hasOther ? SELECT_OTHER_HINT[language] : SELECT_CHOICE_HINT[language]]);
 		}
 		case "confirm":
-			return lines([request.title, request.message, CONFIRM_HINT]);
+			return lines([request.title, request.message, CONFIRM_HINT[language]]);
 		case "input":
-			return lines([request.title, request.placeholder, INPUT_HINT]);
+			return lines([request.title, request.placeholder, INPUT_HINT[language]]);
 		case "editor":
-			return lines([request.title, request.prefill, EDITOR_HINT]);
+			return lines([request.title, request.prefill, EDITOR_HINT[language]]);
 	}
 }
 

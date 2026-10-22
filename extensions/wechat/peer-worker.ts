@@ -12,8 +12,8 @@
  *
  * - One turn at a time per peer, and by default one turn at a time overall
  *   (`concurrency`), so a forwarded dialog always has a single owning peer.
- * - A message that arrives while its peer is already waiting behind a turn is
- *   merged into the waiting one, so a burst is answered once, in order.
+ * - Every message is its own turn, in arrival order. A message that arrives
+ *   while a turn runs waits for its own turn and answer; nothing is merged.
  * - A turn's answer is the text it produced. A requested `/stop` says `stopped`
  *   and drops the partial answer, a finished turn with no text says `noText`,
  *   and a thrown turn says `failed` — never silence.
@@ -26,7 +26,7 @@
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { messageOf } from "./errors.ts";
 import type { PeerSession } from "./peer-session.ts";
-import { createReplyPipeline } from "./reply-pipeline.ts";
+import { createReplyPipeline, type ReplyPipeline } from "./reply-pipeline.ts";
 import { defaultTimer, type ArmTimer } from "./timer.ts";
 
 /** One admitted, media-resolved inbound message. */
@@ -97,6 +97,8 @@ export interface PeerWorker {
 	reset(peer: string): boolean;
 	/** The turn running right now, if any (one with the default concurrency). */
 	current(): PeerItem | undefined;
+	/** Flush buffered assistant text for a running peer before a prompt/file. */
+	flush(peer: string): Promise<void>;
 	state(peer: string): PeerState;
 	snapshot(): PeerSnapshot[];
 	/** Drop every session; queued messages are dropped with them. */
@@ -107,8 +109,6 @@ const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface PeerEntry {
 	queue: PeerItem[];
-	/** Messages merged into the waiting item, so `queued` counts real messages. */
-	merged: number;
 	running?: PeerItem;
 	/** Monotonic start time of the running turn, for `runningMs`. */
 	startedAt?: number;
@@ -119,26 +119,14 @@ interface PeerEntry {
 	disposeTimer?: () => void;
 }
 
-/** Merge a waiting item with a newer one from the same peer. */
-function mergeItems(first: PeerItem, next: PeerItem): PeerItem {
-	const images = [...(first.images ?? []), ...(next.images ?? [])];
-	return {
-		peer: first.peer,
-		text: first.text && next.text ? `${first.text}\n${next.text}` : first.text || next.text,
-		images: images.length > 0 ? images : undefined,
-		// The first item's prefix still describes an attachment the model never saw.
-		prefix: first.prefix,
-		language: next.language,
-		contextToken: next.contextToken ?? first.contextToken,
-	};
-}
-
 export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	const now = deps.now ?? Date.now;
 	const armTimer = deps.armTimer ?? defaultTimer;
 	const idleTimeoutMs = deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
 	const concurrency = Math.max(1, deps.concurrency ?? 1);
 	const peers = new Map<string, PeerEntry>();
+	/** Active reply pipelines, so a dialog can flush buffered text first. */
+	const pipelines = new Map<string, ReplyPipeline>();
 	/** Peers whose running turn the peer asked to stop, so it reads as stopped. */
 	const aborted = new Set<string>();
 	/** Peers whose next session must start empty (`/new`). */
@@ -150,7 +138,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	function entry(peer: string): PeerEntry {
 		const existing = peers.get(peer);
 		if (existing) return existing;
-		const created: PeerEntry = { queue: [], merged: 0 };
+		const created: PeerEntry = { queue: [] };
 		peers.set(peer, created);
 		return created;
 	}
@@ -168,12 +156,12 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		if (target.running) {
 			return {
 				status: "running",
-				queued: target.queue.length + target.merged,
+				queued: target.queue.length,
 				runningMs: target.startedAt === undefined ? 0 : now() - target.startedAt,
 				...sessionAge,
 			};
 		}
-		const queued = target.queue.length + target.merged;
+		const queued = target.queue.length;
 		return { status: queued > 0 ? "queued" : "idle", queued, ...sessionAge };
 	}
 
@@ -251,6 +239,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			partChars: deps.partChars,
 			quietMs: deps.quietMs,
 		});
+		pipelines.set(item.peer, pipeline);
 		/** The session compacted this turn, so the peer is told its older detail is fuzzy. */
 		let compacted = false;
 		const unsubscribe = session.subscribe((event) => {
@@ -289,6 +278,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			}
 		} finally {
 			unsubscribe();
+			pipelines.delete(item.peer);
 		}
 		if (reason) await sendPart(deps.fallback(item, reason));
 		if (compacted) await sendPart(deps.fallback(item, "compacted"));
@@ -309,7 +299,6 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			if (!next) return;
 			const [peer, target] = next;
 			const item = target.queue.shift() as PeerItem;
-			target.merged = 0;
 			target.running = item;
 			target.startedAt = now();
 			running += 1;
@@ -340,16 +329,8 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 		enqueue(item: PeerItem): void {
 			if (closed) return;
 			const target = entry(item.peer);
-			const tail = target.queue.at(-1);
-			// A non-empty queue means this peer's turn has not started yet, so the
-			// burst is answered once, in send order. The merged count keeps `queued`
-			// honest so the bridge can cap a flood and the panel can report it.
-			if (tail) {
-				target.queue[target.queue.length - 1] = mergeItems(tail, item);
-				target.merged += 1;
-			} else {
-				target.queue.push(item);
-			}
+			// One message, one turn: a queued item is never folded into another.
+			target.queue.push(item);
 			wake();
 		},
 
@@ -368,7 +349,6 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			releaseSession(peer);
 			if (target) {
 				target.queue = [];
-				target.merged = 0;
 				cancelIdleSweep(target);
 			}
 			return true;
@@ -376,6 +356,10 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 
 		current(): PeerItem | undefined {
 			return currentItem;
+		},
+
+		async flush(peer: string): Promise<void> {
+			await pipelines.get(peer)?.flush();
 		},
 
 		state(peer: string): PeerState {
@@ -388,6 +372,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 
 		async close(): Promise<void> {
 			closed = true;
+			pipelines.clear();
 			const runningAborts = [...peers.values()]
 				.filter((target) => target.session)
 				.map((target) => target.session?.session.abort());

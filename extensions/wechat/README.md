@@ -199,17 +199,16 @@ so every bubble has to carry information.
 
 ### The reply contract
 
-One acknowledgement per wait episode, one answer per turn. A message that
-arrives before the first turn starts is merged into that turn, so it is answered
-inside the answer it is already waiting for — not with a second “working on it”.
+One message, one turn, one answer. A queued message is never merged into
+another prompt; it waits for its own turn. One acknowledgement per wait episode.
 
 | Situation | What the peer gets |
 |---|---|
 | 1st message, session idle | typing, then the answer (no acknowledgement: there is nothing to wait for) |
-| 1st message, peer busy | typing, `收到，正在排队，轮到就回你。` at 4 s, `前面还有一条正在处理…` at 60 s, the answer when the slot frees |
-| 2nd message after the acknowledgement, still queued | nothing new; it is merged into the same turn and the one answer covers both in order |
-| 2nd message while a turn runs | no new acknowledgement; it becomes its own turn and answer after the first |
-| 3rd…Nth in a burst | same as the queued case; past eight queued, one line asking to wait |
+| 1st message, peer busy | typing, `收到，排队中，轮到就回。` at 4 s, `还在处理前一条，轮到就回。` at 60 s, the answer when the slot frees |
+| 2nd message while a turn runs | its own turn behind the first; the 4 s ack and 60 s busy line; then its own answer |
+| 2nd message already queued | behind the first in FIFO; no merge |
+| 3rd…Nth in a burst | each is its own turn; past eight queued, one line asking to wait |
 
 Two consequences worth knowing: an answer can take up to one long-poll cycle
 (the server holds each `getupdates`; measured ~18 s) before the turn even
@@ -227,9 +226,9 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
 - Reply 取消 (or cancel) to dismiss; `退出`, `退出 plan 模式`, and
   `exit plan mode` are recognized as cancel intent. In a plan review a dismissal
   leaves plan mode without approving.
-- Hints are bilingual (Chinese and English). A reply that cannot be read
-  re-sends the prompt with a short “didn’t recognize that” notice instead of
-  repeating it silently.
+- Hints are rendered in the peer’s language, one language per prompt. A reply
+  that cannot be read re-sends the prompt with a short “didn’t recognize that”
+  notice instead of repeating it silently.
 - A command is not an answer. While a dialog waits the model is blocked on it, so
   the slash commands are matched first: `/status` names the waiting question and
   `/stop` stops the turn, where before both were parsed as an attempt to answer
@@ -237,12 +236,9 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   so a number, 是/否, or 取消 behaves as above.
 - An unanswered prompt is bounded: a reminder goes out halfway and the question
   is cancelled at the end of its window with a one-line notice, so an ignored
-  dialog cannot freeze the session. The window is three minutes for a dialog and
-  ten for the plan review, which arrives with the plan attached — a request that
-  carries `timeoutMs` asks for the longer one through the channel, and the
-  reminder names 取消 rather than a duration that assumes the short window. A
-  timed-out plan review is treated like a dismissal: plan mode ends without
-  approval, and the plan file remains.
+  dialog cannot freeze the session. A dialog uses three minutes; the plan review
+  uses ten. A timed-out plan review is treated like a dismissal: plan mode ends
+  without approval, and the plan file remains.
 - A prompt that goes away before it is answered — a pause, a `/stop`, a shutdown —
   says so (`问题已撤回。` / “That question was withdrawn.”) instead of reusing the
   timeout line: the peer was not slow, the question left.
@@ -257,25 +253,17 @@ to WeChat. See [Design notes](#design-notes).
 
 ## Outbound files
 
-A remote prompt can deliver a local file first. `exit_plan_mode` uses this to
-send the plan file itself before the five choices, so WeChat sees the whole plan
-(a long one falls back to chunked text if the upload fails). The peer session's
-UI context carries the bridge channel, so `askHuman` finds it and posts the file
-then the text before the dialogs. Before the choices it also posts a short
-digest — the title, the step count, and the first steps — so the review is
-answerable from the chat even if the file bubble is never opened, and a file or
-digest the bridge cannot deliver is reported on the terminal instead of vanishing.
-The digest says plan mode is on and that write access is off. The choices also
-include **Send the full plan**, which posts the plan text and asks again, so the
-whole plan is reachable without the attachment, and **Exit plan mode (discard)**,
-which leaves without approving. After a Keep decision the user can say “exit plan
-mode”; the model calls `cancel_plan_mode`, which needs no plan path and records
-no todo or goal.
+A remote prompt can deliver a local file first; the transport still supports it,
+but no current flow requires an attachment. The plan review is one compact editor
+prompt: the title, first steps, mode status, and four actions. Replying 2 posts
+the full plan text and asks again; any other text is a refinement. The plan file
+stays on disk. After a Keep decision the user can say “exit plan mode”; the model
+calls `cancel_plan_mode`, which needs no plan path and records no todo or goal.
 The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext
 (`Content-Type: application/octet-stream`) → read `x-encrypted-param` → send a
-`type: 4` file item. Only the plan review uses it today; images, video, and voice
-are not sent outbound.
+`type: 4` file item. No current flow uses it; images, video, and voice are not
+sent outbound.
 
 ## Configuration
 

@@ -13,7 +13,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { OTHER_LABEL } from "./answers.ts";
-import { askViaDialogs, parseMultiSelect, type QuestionUI } from "./dialogs.ts";
+import { askViaDialogs, batchPrompt, parseBatchAnswers, parseMultiSelect, type QuestionUI } from "./dialogs.ts";
 import { askViaTui } from "./tui.ts";
 import {
 	allAnswered,
@@ -154,13 +154,47 @@ describe("askViaDialogs", () => {
 		expect(result.answers[0].indices).toEqual([1, 2]);
 	});
 
-	test("keeps answers gathered before a cancel", async () => {
-		const { ui } = fakeUI({ select: ["OAuth", undefined] });
-		const result = await askViaDialogs(ui, [auth, { ...auth, id: "q2", header: "Scope" }]);
+	test("asks all questions in one editor reply", async () => {
+		const { ui, calls } = fakeUI({ editor: ["1: 1; 2: 2"] });
+		const second = { ...auth, id: "q2", header: "Second" };
+		const result = await askViaDialogs(ui, [auth, second]);
 
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toContain("1. Which authentication?");
+		expect(result.cancelled).toBe(false);
+		expect(result.answers.map((answer) => answer.indices)).toEqual([[1], [2]]);
+	});
+
+	test("parses a batch with text and multi-select", () => {
+		const parsed = parseBatchAnswers([notes, scope], "1: free text; 2: 1, 2");
+		expect(parsed?.get(notes.id)).toEqual({ type: "custom", text: "free text" });
+		expect(parsed?.get(scope.id)).toEqual({
+			type: "options",
+			values: ["OAuth", "Cookies"],
+			labels: ["OAuth", "Cookies"],
+			indices: [1, 2],
+		});
+	});
+
+	test("retries once when a batch answer is malformed", async () => {
+		const { ui, calls } = fakeUI({ editor: ["nope", "1: 1; 2: 2"] });
+		const second = { ...auth, id: "q2", header: "Second" };
+		const result = await askViaDialogs(ui, [auth, second]);
+
+		expect(calls).toHaveLength(2);
+		expect(calls[1]).toContain("Please reply again");
+		expect(result.cancelled).toBe(false);
+	});
+
+	test("cancels a batch when the editor is dismissed", async () => {
+		const { ui } = fakeUI({ editor: [undefined] });
+		const result = await askViaDialogs(ui, [auth, { ...auth, id: "q2" }]);
 		expect(result.cancelled).toBe(true);
-		expect(result.answers).toHaveLength(1);
-		expect(result.answers[0].header).toBe("Auth");
+	});
+
+	test("names the batch format in one language", () => {
+		expect(batchPrompt([auth, notes], "zh")).toContain("请一次性回答所有问题");
+		expect(batchPrompt([auth, notes], "en")).toContain("Answer all questions in one message");
 	});
 
 	test("cancels when a selector is dismissed", async () => {

@@ -27,14 +27,14 @@ export type NoticeKind =
 	| "newBusy";
 
 const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
-	ack: { zh: "收到，正在排队，轮到就回你。", en: "Got it — queued; I'll answer when it's my turn." },
+	ack: { zh: "收到，排队中，轮到就回。", en: "Queued — I'll answer next." },
 	busy: {
-		zh: "前面还有一条正在处理，你的消息排在后面，轮到你就回你。",
-		en: "Your message is queued behind another conversation; I'll answer as soon as it's free.",
+		zh: "还在处理前一条，轮到就回。",
+		en: "Still on the previous message; yours is next.",
 	},
 	stillWorking: {
-		zh: "还在处理这条，发送 /stop 可取消。",
-		en: "Still working — send /stop to cancel.",
+		zh: "还在处理，/stop 可取消。",
+		en: "Still working — /stop cancels.",
 	},
 	overflow: { zh: "消息有点多，稍后再发。", en: "Too many messages queued — please wait a moment." },
 	media: {
@@ -59,8 +59,8 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 		en: "You've reached this hour's message limit — please try again later.",
 	},
 	promptWaiting: {
-		zh: "还在等你的回复，回复「取消」可跳过。",
-		en: "Still waiting for your reply — reply “cancel” to skip this.",
+		zh: "等你回复；回复「取消」跳过。",
+		en: "Waiting for your reply — reply cancel to skip.",
 	},
 	timeout: { zh: "问题超时，已取消。", en: "That question timed out." },
 	withdrawn: { zh: "问题已撤回。", en: "That question was withdrawn." },

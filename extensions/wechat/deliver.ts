@@ -59,7 +59,7 @@ export interface DeliveryDeps {
 export interface Deliverer {
 	/** Send a reply to a peer; false when the transport rejected it. */
 	reply(target: MessageTarget, text: string, signal?: AbortSignal): Promise<boolean>;
-	/** Send a dialog preface (or plan digest) to a peer. */
+	/** Send a prompt to a peer. */
 	prompt(target: MessageTarget, text: string, signal?: AbortSignal): Promise<boolean>;
 	/** Upload and send a local file to a peer. */
 	file(target: MessageTarget, filePath: string, fileName: string, signal?: AbortSignal): Promise<boolean>;
@@ -72,6 +72,22 @@ export interface Deliverer {
 export function createDeliverer(deps: DeliveryDeps): Deliverer {
 	/** Peers already reported as unable to receive, until a send gets through. */
 	const failureNotified = new Set<string>();
+	/** Per-peer FIFO: a reply, prompt, or file cannot start before the previous one. */
+	const queues = new Map<string, Promise<void>>();
+
+	function serialize<T>(peer: string, work: () => Promise<T>): Promise<T> {
+		const previous = queues.get(peer) ?? Promise.resolve();
+		const run = previous.then(work, work);
+		const settled = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		queues.set(peer, settled);
+		void settled.finally(() => {
+			if (queues.get(peer) === settled) queues.delete(peer);
+		});
+		return run;
+	}
 
 	/**
 	 * Send `text` in `maxReplyChars` chunks, stopping at the first failed chunk.
@@ -149,51 +165,55 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 
 	return {
 		reply(target, text, signal) {
-			return deliverWithNotice(target, text, "reply", signal);
+			return serialize(target.peer, () => deliverWithNotice(target, text, "reply", signal));
 		},
 
 		prompt(target, text, signal) {
-			return deliverWithNotice(target, text, "message delivery", signal);
+			return serialize(target.peer, () => deliverWithNotice(target, text, "message delivery", signal));
 		},
 
-		async file(target, filePath, fileName, signal) {
-			const client = deps.client();
-			const account = deps.account();
-			if (!client || !account) return false;
-			const sent = await sendLocalFile({
-				client,
-				account,
-				cdnBaseUrl: deps.cdnBaseUrl,
-				maxBytes: deps.maxMediaBytes,
-				to: target.peer,
-				contextToken: target.contextToken,
-				filePath,
-				fileName,
-				signal,
+		file(target, filePath, fileName, signal) {
+			return serialize(target.peer, async () => {
+				const client = deps.client();
+				const account = deps.account();
+				if (!client || !account) return false;
+				const sent = await sendLocalFile({
+					client,
+					account,
+					cdnBaseUrl: deps.cdnBaseUrl,
+					maxBytes: deps.maxMediaBytes,
+					to: target.peer,
+					contextToken: target.contextToken,
+					filePath,
+					fileName,
+					signal,
+				});
+				// `sendLocalFile` reports only success, and the caller may fall back to text;
+				// without this line the operator would never know the attachment was dropped.
+				if (!sent && !signal?.aborted) {
+					deps.onSendError?.(`file delivery failed: ${fileName}`);
+					deps.notify(`WeChat file delivery failed for ${fileName}.`, "warning");
+				}
+				if (sent) deps.onSent?.();
+				return sent;
 			});
-			// `sendLocalFile` reports only success, and the caller may fall back to text;
-			// without this line the operator would never know the attachment was dropped.
-			if (!sent && !signal?.aborted) {
-				deps.onSendError?.(`file delivery failed: ${fileName}`);
-				deps.notify(`WeChat file delivery failed for ${fileName}.`, "warning");
-			}
-			if (sent) deps.onSent?.();
-			return sent;
 		},
 
-		async toOwner(owner, contextToken, text, signal) {
-			let failure: string | undefined;
-			const delivery = await deliverText(owner, contextToken, text, signal, (error, progress) => {
-				deps.forgetToken(owner);
-				const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
-				deps.onSendError?.(messageOf(error));
-				failure = `${messageOf(error)}${partial}`;
+		toOwner(owner, contextToken, text, signal) {
+			return serialize(owner, async () => {
+				let failure: string | undefined;
+				const delivery = await deliverText(owner, contextToken, text, signal, (error, progress) => {
+					deps.forgetToken(owner);
+					const partial = progress.total > 1 ? ` after ${progress.sent} of ${progress.total} parts were sent` : "";
+					deps.onSendError?.(messageOf(error));
+					failure = `${messageOf(error)}${partial}`;
+				});
+				if (delivery.expired) return { ok: false, error: "WeChat session expired." };
+				if (delivery.empty) return { ok: false, error: "Nothing to send after formatting." };
+				if (!delivery.ok) return { ok: false, error: failure ?? "WeChat send failed." };
+				deps.onSent?.();
+				return { ok: true };
 			});
-			if (delivery.expired) return { ok: false, error: "WeChat session expired." };
-			if (delivery.empty) return { ok: false, error: "Nothing to send after formatting." };
-			if (!delivery.ok) return { ok: false, error: failure ?? "WeChat send failed." };
-			deps.onSent?.();
-			return { ok: true };
 		},
 
 		reset() {

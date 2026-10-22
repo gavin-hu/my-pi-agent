@@ -36,6 +36,11 @@ export const PLAN_CONSENT =
 	`Plan mode is read-only exploration: ${READ_ONLY_SUMMARY}. ` +
 	"Enter plan mode to investigate and propose an approach before making changes?";
 
+/** The short remote consent; the full read-only summary stays in the tool docs. */
+export const PLAN_CONSENT_SHORT =
+	"Enter read-only plan mode? Writes and mutating tools are disabled until you approve a plan.";
+export const PLAN_CONSENT_SHORT_ZH = "进入只读 plan 模式？批准计划前会禁用写入和修改。";
+
 /** What a caller sends on {@link PLAN_ENTER_REQUEST}. */
 export interface PlanEnterRequest {
 	/** The caller's context; `plan` uses it for the footer status. */

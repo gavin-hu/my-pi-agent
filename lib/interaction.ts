@@ -20,6 +20,9 @@ import type { ExtensionContext, ExtensionUIContext } from "@earendil-works/pi-co
 /** The host run modes, derived because the package does not export the union. */
 export type InteractionMode = ExtensionContext["mode"];
 
+/** The two languages a remote prompt is rendered in. */
+export type InteractionLanguage = "zh" | "en";
+
 /** The `ctx.ui` property a remote transport marks with the channel that owns its turn. */
 export const INTERACTION_TURN_KEY = "isRemoteTurn";
 
@@ -59,6 +62,8 @@ export interface InteractionChannel {
 	post(text: string, signal?: AbortSignal): Promise<void>;
 	/** Send a local file to the human; resolves true when delivered. */
 	postFile(path: string, name: string, signal?: AbortSignal): Promise<boolean>;
+	/** The language this channel renders prompts in, when it knows one. */
+	language?(): InteractionLanguage;
 	/**
 	 * Widen the bound on the prompts asked inside the returned scope: use it for a
 	 * dialog the human must read something before answering. Returns the restore,
@@ -89,6 +94,11 @@ export function remoteChannel(ctx: UIContextCarrier): InteractionChannel | undef
 /** Whether the turn in flight is answered from outside the terminal. */
 export function isRemoteTurn(ctx: UIContextCarrier): boolean {
 	return remoteChannel(ctx) !== undefined;
+}
+
+/** The remote channel's prompt language, or undefined for a local turn. */
+export function remoteLanguage(ctx: UIContextCarrier): InteractionLanguage | undefined {
+	return remoteChannel(ctx)?.language?.();
 }
 
 /** Whether a full-screen `ctx.ui.custom` component may be used for this turn. */

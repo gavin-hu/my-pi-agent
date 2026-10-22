@@ -6,13 +6,15 @@
  * fake and reusable by any host.
  */
 
-import { OTHER_LABEL, cancelledResult, completedResult } from "./answers.ts";
+import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult } from "./answers.ts";
 import type { Answer, AskResult, Question, Selection } from "./types.ts";
 
 export interface QuestionUI {
 	select(title: string, options: string[], opts?: { signal?: AbortSignal }): Promise<string | undefined>;
 	input(title: string, placeholder?: string, opts?: { signal?: AbortSignal }): Promise<string | undefined>;
 	editor(title: string, prefill?: string): Promise<string | undefined>;
+	/** Prompt language, when the host knows it. */
+	language?(): "zh" | "en";
 }
 
 const MULTI_INSTRUCTIONS = "Enter one or more option numbers or labels, separated by commas.";
@@ -56,8 +58,96 @@ export function parseMultiSelect(question: Question, text: string): Selection | 
 	return { type: "options", values, labels, indices };
 }
 
+/** The one-message prompt for a multi-question ask. */
+export function batchPrompt(questions: Question[], language: "zh" | "en" = "en"): string {
+	const zh = language === "zh";
+	const lines = [zh ? "请一次性回答所有问题：" : "Answer all questions in one message:", ""];
+	questions.forEach((question, index) => {
+		lines.push(`${index + 1}. ${question.question}`);
+		if (question.options.length === 0) {
+			lines.push(zh ? "   文字" : "   text");
+			return;
+		}
+		const options = question.options.map((option, optionIndex) => `${optionIndex + 1}. ${option.label}`).join("  ");
+		lines.push(`   ${options}${question.multiSelect ? (zh ? "（可多选）" : " (multi)") : ""}`);
+	});
+	lines.push("", zh ? "格式：1: 2；2: A, B；3: 文字" : "Format: 1: 2; 2: A, B; 3: text");
+	return lines.join("\n");
+}
+
+/**
+ * Parse one batch reply. Each line/semicolon chunk starts with the question
+ * number; a chunk with no prefix makes the whole reply ambiguous.
+ */
+export function parseBatchAnswers(questions: Question[], text: string): Map<string, Selection> | undefined {
+	const entries = new Map<number, string>();
+	for (const chunk of text.split(/[\n;]+/)) {
+		const match = /^\s*(\d+)\s*[:.)-]\s*(.*)$/.exec(chunk);
+		if (!match) {
+			if (chunk.trim() !== "") return undefined;
+			continue;
+		}
+		const index = Number.parseInt(match[1] ?? "", 10);
+		if (index < 1 || index > questions.length) return undefined;
+		entries.set(index, (match[2] ?? "").trim());
+	}
+	const selections = new Map<string, Selection>();
+	for (const [index, question] of questions.entries()) {
+		const raw = entries.get(index + 1);
+		if (raw === undefined || raw === "") return undefined;
+		if (question.options.length === 0) {
+			selections.set(question.id, { type: "custom", text: raw });
+			continue;
+		}
+		if (question.multiSelect) {
+			const selection = parseMultiSelect(question, raw);
+			if (!selection) return undefined;
+			selections.set(question.id, selection);
+			continue;
+		}
+		const asNumber = Number.parseInt(raw, 10);
+		const optionIndex =
+			String(asNumber) === raw && asNumber >= 1 && asNumber <= question.options.length
+				? asNumber - 1
+				: question.options.findIndex((option) => option.label.toLowerCase() === raw.toLowerCase());
+		if (optionIndex >= 0) {
+			const option = question.options[optionIndex];
+			if (!option) return undefined;
+			selections.set(question.id, {
+				type: "options",
+				values: [option.label],
+				labels: [option.label],
+				indices: [optionIndex + 1],
+			});
+			continue;
+		}
+		if (!question.allowOther) return undefined;
+		selections.set(question.id, { type: "custom", text: raw });
+	}
+	return selections;
+}
+
+/** One batch editor, with one retry only when the format was not understood. */
+async function askViaBatch(ui: QuestionUI, questions: Question[], signal?: AbortSignal): Promise<AskResult> {
+	const language = ui.language?.() ?? "en";
+	const prompt = batchPrompt(questions, language);
+	const first = await ui.editor(prompt, "");
+	if (first === undefined) return cancelledResult(questions);
+	const parsed = parseBatchAnswers(questions, first);
+	if (parsed) return completedResult(questions, parsed);
+	if (signal?.aborted) return cancelledResult(questions);
+	const retry = await ui.editor(
+		`${prompt}\n\n${language === "zh" ? "格式不对，请按“1: 答案”重发。" : "Please reply again as “1: answer”."}`,
+		"",
+	);
+	if (retry === undefined) return cancelledResult(questions);
+	const again = parseBatchAnswers(questions, retry);
+	return again ? completedResult(questions, again) : cancelledResult(questions, collectAnswers(questions, new Map()));
+}
+
 /** Ask every question through forwarded dialogs, stopping on cancel or abort. */
 export async function askViaDialogs(ui: QuestionUI, questions: Question[], signal?: AbortSignal): Promise<AskResult> {
+	if (questions.length > 1) return askViaBatch(ui, questions, signal);
 	const selections = new Map<string, Selection>();
 	const opts = { signal };
 

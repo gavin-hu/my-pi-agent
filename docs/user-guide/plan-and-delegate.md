@@ -62,9 +62,10 @@ describe precisely.
    | `x` | Exit plan mode without approving; the plan file stays |
    | `Esc` | Keep planning without approving |
 
-   On a phone or RPC, the same review is a numbered select: **Approve and
-   execute**, **Send the full plan**, **Refine the plan**, **Keep planning (stay
-   in plan mode)**, and **Exit plan mode (discard)**. Dismissing the select, or
+   On a phone or RPC, the review is one prompt: reply `1` to approve and run,
+   `2` to post the full plan, `3` to keep planning, or `4` to exit without
+   approving. Any other text is a refinement: the model rewrites the plan and
+   asks again, with no second “choose Refine” step. Dismissing the prompt, or
    replying `取消`, `退出`, or `exit plan mode`, also exits without approving.
 
    If the plan changed since your last review, a line under the title says how
