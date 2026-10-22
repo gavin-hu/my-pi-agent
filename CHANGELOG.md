@@ -85,6 +85,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a browser save with no comments brings the review screen back instead of
+  telling the model to read comments that do not exist. The save carried no
+  request, so it is treated like an empty refine editor and the review loop keeps
+  going; the fallback line it used to print, `See the review comments in the plan
+  file.`, is gone.
 - `plan`: plan files follow the worktree you entered instead of landing in the
   main checkout. An extension tool sees the session cwd, not the worktree, so
   `write_plan`, `/plan list`, and the review read and wrote `<main>/.pi/plans`

@@ -80,7 +80,8 @@ describe precisely.
    machine with the plan as one measured column, a live step-progress panel, a
    section outline, and a comment rail. Select text or use **+ Comment** to
    annotate a block; **Save feedback** writes the comments into the plan file and
-   returns them to the assistant as a refinement.
+   returns them to the assistant as a refinement. A save with no comments asks for
+   nothing, so the review screen comes back instead.
 
    When the page was opened from the review screen, it also carries **Approve &
    run**, which does the same thing as pressing `a`. A page opened later with

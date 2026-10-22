@@ -462,9 +462,10 @@ file and returns them to the model.
   page rendered and answers `409`; the page then offers a **Reload** action,
   because only a reload can re-anchor the comments to the new text.
 - **Back to the model.** A save from the review screen returns `refined: true`
-  with the comments, so the model stays in plan mode and revises the same file.
-  `/plan review` sends them as a user message (a plan-mode revision or a plain
-  update, depending on the mode).
+  with the comments, so the model stays in plan mode and revises the same file. A
+  save that carries no comments asks for nothing, so the review screen comes back
+  instead. `/plan review` sends them as a user message (a plan-mode revision or a
+  plain update, depending on the mode).
 - **Loopback and tokenized.** The server binds `127.0.0.1`, carries a random
   per-session token in the URL, rejects a missing or foreign `Host` header,
   serves only `GET`, `HEAD`, and `POST`, and caps the request body. A save or cancel
