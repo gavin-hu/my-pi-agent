@@ -169,9 +169,10 @@ export const SCREENS: Record<string, Screen> = {
 		asset: "plan",
 		title: "π - my-pi-agent · exit_plan_mode",
 		// Wide enough for the whole hint row and tall enough to reach the Steps
-		// list; the frame size is fixed so the capture never depends on the resize.
-		bounds: { left: 80, top: 80, right: 1080, bottom: 740 },
-		size: { width: 120, rows: 35 },
+		// checklist under the fixture's Goal/Context/Approach/Visual sections; the
+		// frame size is fixed so the capture never depends on the resize.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 903 },
+		size: { width: 120, rows: 44 },
 		render: (width, rows) => {
 			setThemeInstance(theme);
 			return new PlanViewComponent({

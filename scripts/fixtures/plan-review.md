@@ -8,24 +8,34 @@ or the provider is down.
 
 ## Context
 
-The footer prices a run from a table the process fetches at startup. A cold start
-therefore waits on the network before it can draw, and an offline start shows
-every model unpriced even when the table has not changed in weeks.
-
-The table is small (under 40 KB), versioned by the provider, and replaced
-wholesale rather than patched, so a cache is one file and one timestamp.
+- The footer prices a run from a table the process fetches at startup, so a cold
+  start waits on the network before it can draw.
+- The table is under 40 KB, versioned by the provider, and replaced wholesale
+  rather than patched, so a cache is one file and one timestamp.
 
 ## Approach
 
-- Write the fetched table to `<agentDir>/prices.json` with the fetch time.
+- Write the fetched table to `<agentDir>/prices.json` with the provider's
+  `updatedAt` and the fetch time.
 - Read it before the network call; serve it when it is younger than a day.
 - Fetch in the background when it is stale and keep serving the cached copy.
-- Fall back to the bundled rates when there is no cache and no network.
+- Rejected: patching rows into the cached table, because the provider replaces
+  the whole table and a merge would invent rates that were never published.
 > [!REVIEW] Age the cache by the provider's updatedAt field rather than the fetch time, so an unchanged table is not refetched daily.
+
+## Visual
+
+What `doctor` reports once the cache exists:
+
+```bash
+$ pi doctor
+prices   cached 2h ago   /Users/u/.pi/prices.json   1,204 models
+```
 
 ## Steps
 
 - [x] Add a `PriceCache` module that reads and writes one JSON file
+  - `lib/env.ts` already resolves `<agentDir>`, so the module takes that path.
 - [x] Stamp the fetch time next to the table
 - [x] Serve the cache when it is fresh
 - [x] Keep the bundled rates as the last fallback
@@ -44,6 +54,7 @@ wholesale rather than patched, so a cache is one file and one timestamp.
 
 ## Verification
 
-`bun test` covers the miss, fresh, stale, and corrupt-cache paths, and `doctor`
-prints the table's age and the file it read. With the network off, a fresh cache
-still prices every model it priced before.
+```bash
+bun test lib/price-cache.test.ts
+bun run check
+```
