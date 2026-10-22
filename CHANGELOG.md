@@ -116,6 +116,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   applies the worktree root the worktree extension publishes before it resolves
   any path. The test preload also clears inherited isolation variables, so a
   suite run inside a worktree is neutral.
+- `skills`: the `changelog` skill drops draft mode. It keeps **record** (the
+  default), **audit**, and **release**, and a run with no mode records rather
+  than choosing between drafting and recording from whether the behavior already
+  exists; `/skill:changelog draft` therefore behaves as plain `/skill:changelog`.
+  Nothing else moved: the one-outcome rule stays with classification and the
+  bullet shape stays with record.
 
 ## [0.16.0] - 2026-10-21
 
