@@ -22,18 +22,19 @@ export type NoticeKind =
 	| "budget"
 	| "promptWaiting"
 	| "timeout"
+	| "withdrawn"
 	| "failed"
 	| "newBusy";
 
 const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
-	ack: { zh: "收到，正在处理…", en: "Got it — working on it." },
+	ack: { zh: "收到，正在排队，轮到就回你。", en: "Got it — queued; I'll answer when it's my turn." },
 	busy: {
 		zh: "前面还有一条正在处理，你的消息排在后面，轮到你就回你。",
 		en: "Your message is queued behind another conversation; I'll answer as soon as it's free.",
 	},
 	stillWorking: {
-		zh: "还在处理这条，稍等一下…",
-		en: "Still working on this one — a moment…",
+		zh: "还在处理这条，发送 /stop 可取消。",
+		en: "Still working — send /stop to cancel.",
 	},
 	overflow: { zh: "消息有点多，稍后再发。", en: "Too many messages queued — please wait a moment." },
 	media: {
@@ -58,10 +59,11 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 		en: "You've reached this hour's message limit — please try again later.",
 	},
 	promptWaiting: {
-		zh: "还在等你的回复，约 1 分钟后超时。",
-		en: "Still waiting for your reply — this expires in about a minute.",
+		zh: "还在等你的回复，回复「取消」可跳过。",
+		en: "Still waiting for your reply — reply “cancel” to skip this.",
 	},
 	timeout: { zh: "问题超时，已取消。", en: "That question timed out." },
+	withdrawn: { zh: "问题已撤回。", en: "That question was withdrawn." },
 	failed: { zh: "处理失败，请稍后重试。", en: "Something went wrong — please try again." },
 	newBusy: {
 		zh: "正在处理当前消息，稍后再发送 /new。",

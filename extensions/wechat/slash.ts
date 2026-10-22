@@ -21,6 +21,8 @@ export interface SlashPeerState {
 	status: "idle" | "queued" | "running";
 	queued: number;
 	runningMs?: number;
+	/** The title of a dialog waiting on the sender, when one is. */
+	prompt?: string;
 }
 
 /** The session controls an action may invoke; every one acts on the sender. */
@@ -152,6 +154,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		kind: "action",
 		run: async (ctx) => {
 			const state = ctx.session.status();
+			// A waiting dialog is the whole status while it waits: the turn is blocked on
+			// it, so "working, 12s" would hide the one thing the peer can act on.
+			if (state.prompt !== undefined) {
+				await ctx.reply(
+					localized(
+						ctx.language,
+						`正在等你回答「${state.prompt}」，回复「取消」可跳过。`,
+						`Waiting for your answer: “${state.prompt}” — reply “cancel” to skip.`,
+					),
+				);
+				return;
+			}
 			if (state.status !== "running") {
 				await ctx.reply(
 					state.queued > 0

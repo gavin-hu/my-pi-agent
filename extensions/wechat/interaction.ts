@@ -43,6 +43,11 @@ export interface WechatInteractionDeps {
 }
 
 export interface WechatInteractionChannel extends InteractionChannel {
+	/**
+	 * Widen the bound for the prompts asked inside the scope, and restore the
+	 * previous one when it ends: the optional channel member, made concrete here.
+	 */
+	setPromptTimeout(ms: number): () => void;
 	/** Consume an inbound message as a reply; true when it was one. */
 	handleInbound(peer: string, text: string): boolean;
 	/** Whether a prompt is currently waiting for a reply. */
@@ -79,6 +84,11 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 	const arm = deps.armTimer ?? defaultTimer;
 	const now = deps.now ?? Date.now;
 	let pending: Pending | undefined;
+	/**
+	 * The bound for the prompts asked inside the current `setPromptTimeout` scope,
+	 * set by a caller whose dialog needs reading time before it can be answered.
+	 */
+	let scopedTimeoutMs: number | undefined;
 	/**
 	 * Free text captured from a `select` "Other" reply, per peer: the immediately
 	 * following `input` for that peer returns it. Keyed so one peer's free text can
@@ -119,9 +129,10 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 
 		cancel(): void {
 			if (!pending) return;
-			// The peer saw the prompt; one line says it was withdrawn. `reset` is the
+			// The peer saw the prompt; one line says it was withdrawn, which is not the
+			// same as expiry — they were not slow, the question went away. `reset` is the
 			// silent cleanup path and deliberately does not send this.
-			void deps.send(notice("timeout", deps.language()));
+			void deps.send(notice("withdrawn", deps.language()));
 			settle({ kind: "cancelled" });
 		},
 
@@ -131,6 +142,14 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 
 		async postFile(path: string, name: string, signal?: AbortSignal): Promise<boolean> {
 			return deps.sendFile(path, name, signal);
+		},
+
+		setPromptTimeout(ms: number): () => void {
+			const previous = scopedTimeoutMs;
+			scopedTimeoutMs = ms;
+			return () => {
+				scopedTimeoutMs = previous;
+			};
 		},
 
 		async request(request: InteractionRequest, signal?: AbortSignal): Promise<InteractionAnswer> {
@@ -158,9 +177,10 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 				signal?.addEventListener("abort", onAbort, { once: true });
 				// An ignored question must not freeze the session: nudge once, then
 				// cancel so the model gets a clean answer instead of a hang.
-				cancelTimers.push(arm(PROMPT_TIMEOUT_MS / 2, () => void deps.send(notice("promptWaiting", deps.language()))));
+				const bound = scopedTimeoutMs ?? PROMPT_TIMEOUT_MS;
+				cancelTimers.push(arm(bound / 2, () => void deps.send(notice("promptWaiting", deps.language()))));
 				cancelTimers.push(
-					arm(PROMPT_TIMEOUT_MS, () => {
+					arm(bound, () => {
 						void deps.send(notice("timeout", deps.language()));
 						settle({ kind: "cancelled" });
 					}),
@@ -197,6 +217,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 
 		reset(): void {
 			other.clear();
+			scopedTimeoutMs = undefined;
 			settle({ kind: "cancelled" });
 		},
 	};

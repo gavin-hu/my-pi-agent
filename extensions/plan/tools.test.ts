@@ -13,6 +13,7 @@ import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import { createPlanPolicy } from "./policy.ts";
+import { PLAN_REVIEW_TIMEOUT_MS } from "./review.ts";
 import {
 	CANCEL_TOOL,
 	createPlanRuntime,
@@ -1049,7 +1050,7 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, customCalls, files, posted } = remoteCtx({ cwd: root, select: "Approve and execute" });
+		const { ctx, customCalls, files, posted, timeouts } = remoteCtx({ cwd: root, select: "Approve and execute" });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
 		expect(customCalls).toEqual([]);
@@ -1060,6 +1061,8 @@ describe("exit_plan_mode", () => {
 		expect(digest).toContain("Plan (1 step)");
 		expect(digest).toContain("Plan mode is on");
 		expect(digest).toContain("1. Do it");
+		// Reading the plan takes longer than answering a plain dialog.
+		expect(timeouts).toEqual([PLAN_REVIEW_TIMEOUT_MS]);
 	});
 
 	test("falls back to the plan text when the file cannot be sent", async () => {
@@ -1090,7 +1093,7 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
 
-		const { ctx, selects, posted, files } = remoteCtx({
+		const { ctx, selects, posted, files, timeouts } = remoteCtx({
 			cwd: root,
 			select: ["Send the full plan", "Approve and execute"],
 		});
@@ -1098,6 +1101,8 @@ describe("exit_plan_mode", () => {
 		expect(result.details.approved).toBe(true);
 		// The file went out on the first pass; the second pass posts the text instead.
 		expect(files).toHaveLength(1);
+		// The re-ask keeps the reading window, so "send the full plan" is not a trap.
+		expect(timeouts).toEqual([PLAN_REVIEW_TIMEOUT_MS, PLAN_REVIEW_TIMEOUT_MS]);
 		expect(selects[0]).toContain("Send the full plan");
 		expect(selects).toHaveLength(2);
 		expect(posted.some((text) => text.includes("# Test plan") && text.includes("1. Do it"))).toBe(true);

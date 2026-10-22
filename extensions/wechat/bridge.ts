@@ -18,7 +18,7 @@
 
 import { WechatError, type WechatClient } from "./client.ts";
 import { createAdmissionQueue, createTurnBudget } from "./admission.ts";
-import { createDeliverer } from "./deliver.ts";
+import { createDeliverer, type MessageTarget } from "./deliver.ts";
 import { createInboundAdmission } from "./inbound.ts";
 import { createPollLoop, defaultPollTimeout } from "./poll.ts";
 import { messageOf } from "./errors.ts";
@@ -225,8 +225,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/** Send one bubble to a peer and report whether it was delivered. */
-	async function reply(item: { peer: string; contextToken?: string }, text: string): Promise<boolean> {
-		return deliverer.reply(item, text, abort?.signal);
+	async function reply(target: MessageTarget, text: string): Promise<boolean> {
+		return deliverer.reply(target, text, abort?.signal);
 	}
 
 	/** The outbound surface, reading the live client and account at call time. */
@@ -248,30 +248,34 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	});
 
 	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
-	async function runSlashAction(command: SlashCommand, item: InboundItem, args: string): Promise<void> {
+	async function runSlashAction(command: SlashCommand, target: MessageTarget, args: string): Promise<void> {
 		if (!command.run) return;
 		const ctx: SlashContext = {
 			args,
-			peer: item.peer,
+			peer: target.peer,
 			reply: async (text) => {
-				await reply(item, text);
+				await reply(target, text);
 			},
-			activeTurn: worker?.state(item.peer).status === "running",
-			language: languageOf(item.peer),
+			activeTurn: worker?.state(target.peer).status === "running",
+			language: languageOf(target.peer),
 			session: {
 				newSession: () => {
-					worker?.reset(item.peer);
+					worker?.reset(target.peer);
 				},
-				stop: () => worker?.abort(item.peer) ?? false,
-				status: () => worker?.state(item.peer) ?? { status: "idle", queued: 0 },
-				history: (count) => deps.readHistory(item.peer, count),
+				stop: () => worker?.abort(target.peer) ?? false,
+				status: () => {
+					const current = worker?.state(target.peer) ?? { status: "idle" as const, queued: 0 };
+					const waiting = interaction.pendingInfo();
+					return waiting?.peer === target.peer ? { ...current, prompt: waiting.title } : current;
+				},
+				history: (count) => deps.readHistory(target.peer, count),
 			},
 		};
 		try {
 			await command.run(ctx);
 		} catch (error) {
 			notify(`WeChat command /${command.name} failed: ${messageOf(error)}`, "warning");
-			await reply(item, `Command /${command.name} failed.`);
+			await reply(target, `Command /${command.name} failed.`);
 		}
 	}
 
@@ -305,11 +309,10 @@ export function createBridge(deps: BridgeDeps): Bridge {
 
 	/** The peer's language: from this text, else the last one they wrote. */
 	function languageOf(peer: string, text?: string): PeerLanguage {
-		if (text) {
-			const language = peerLanguage(text);
-			languages.set(peer, language);
-			return language;
-		}
+		// A Chinese message is evidence of Chinese. Its absence is not evidence of
+		// English, or a short reply ("ok", "1") would flip an established conversation
+		// back to English; English is the fallback, so it needs no record of its own.
+		if (text && peerLanguage(text) === "zh") languages.set(peer, "zh");
 		return languages.get(peer) ?? "en";
 	}
 
@@ -386,26 +389,11 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		if (typeof messageId === "number" && messageId !== 0) rememberMessage(state, peer, messageId, now);
 		deps.saveState(state);
 
-		// A reply to a pending prompt is consumed here, before queueing, so it never
-		// starts a turn of its own. A duplicate answer was stopped by the id check.
-		if (interaction.handleInbound(peer, text)) return;
-		const language = languageOf(peer, text);
-		const item: InboundItem = {
-			peer,
-			contextToken: message.context_token ?? findPeer(state, peer)?.lastContextToken,
-			text,
-			media,
-			language,
-		};
-		if (!text && media.length === 0) {
-			// Nothing to read. A voice note without a transcript or a video is
-			// answered, so the peer knows it did not reach the agent.
-			if (unsupported > 0) void reply(item, notice("unsupported", language));
-			return;
-		}
-		// Intercept a text slash command before it becomes a turn. A message with
-		// media is never a command, so an attachment is never dropped; an unknown
-		// command falls through to the model as ordinary text.
+		const target = { peer, contextToken: message.context_token ?? findPeer(state, peer)?.lastContextToken };
+		// A command is not an answer: while a dialog waits the model is blocked on it,
+		// so /stop and /status must reach their handlers or the peer's only way out is
+		// the prompt timing out. A message with media is never a command, and an
+		// unknown command falls through to the model as ordinary text.
 		const slash = media.length === 0 ? parseSlash(text) : undefined;
 		const command = slash ? findSlashCommand(slashCommands, slash.name) : undefined;
 		if (command && slash) {
@@ -415,11 +403,21 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			}
 			if (command.kind === "snippet") {
 				text = expandSnippet(command, slash.args);
-				item.text = text;
 			} else {
-				void runSlashAction(command, item, slash.args);
+				void runSlashAction(command, target, slash.args);
 				return;
 			}
+		}
+		// A reply to a pending prompt is consumed here, before queueing, so it never
+		// starts a turn of its own. A duplicate answer was stopped by the id check.
+		if (interaction.handleInbound(peer, text)) return;
+		const language = languageOf(peer, text);
+		const item: InboundItem = { ...target, text, media, language };
+		if (!text && media.length === 0) {
+			// Nothing to read. A voice note without a transcript or a video is
+			// answered, so the peer knows it did not reach the agent.
+			if (unsupported > 0) void reply(item, notice("unsupported", language));
+			return;
 		}
 		// A slot is reserved here, before the download, so a burst of media cannot
 		// all pass the check and then enqueue together.

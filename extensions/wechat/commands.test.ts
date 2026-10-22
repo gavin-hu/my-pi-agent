@@ -791,6 +791,19 @@ describe("built-in /stop and /status", () => {
 		expect(replies[0]).toContain("正在处理，已用 3 秒");
 	});
 
+	test("/status names the dialog a blocked turn is waiting on", async () => {
+		const command = findSlashCommand(SLASH_COMMANDS, "status");
+		const { ctx, replies } = context(
+			{},
+			{ status: "running", queued: 0, runningMs: 3000, prompt: "Plan mode — what next?" },
+		);
+		await command?.run?.(ctx);
+		// The dialog is the only thing the peer can act on, so it replaces the timer.
+		expect(replies[0]).toContain("Plan mode — what next?");
+		expect(replies[0]).toContain("cancel");
+		expect(replies[0]).not.toContain("3s so far");
+	});
+
 	test("/history replies with the peer's own recent messages", async () => {
 		const command = findSlashCommand(SLASH_COMMANDS, "history");
 		const { ctx, replies } = context({}, { status: "idle", queued: 0 }, async () => "You: hi\nMe: hello");
@@ -949,6 +962,7 @@ describe("notices", () => {
 		"budget",
 		"promptWaiting",
 		"timeout",
+		"withdrawn",
 		"failed",
 		"newBusy",
 	];
@@ -1203,7 +1217,8 @@ describe("interaction channel", () => {
 		const answer = channel.request(SELECT);
 		channel.cancel();
 		expect(await answer).toEqual({ kind: "cancelled" });
-		expect(sent.at(-1)).toBe("That question timed out.");
+		// A withdrawal is not an expiry: the peer was not slow, the question left.
+		expect(sent.at(-1)).toBe("That question was withdrawn.");
 		expect(channel.hasPending()).toBe(false);
 	});
 
@@ -1294,6 +1309,27 @@ describe("interaction channel", () => {
 		timers.fire(PROMPT_TIMEOUT_MS);
 		expect(await answer).toEqual({ kind: "cancelled" });
 		expect(sent.at(-1)).toBe("问题超时，已取消。");
+	});
+
+	test("honours a scoped bound and restores the default when it ends", async () => {
+		const timers = timerSeam();
+		const { channel, sent } = setupChannel("owner", { timer: timers.arm });
+		const restore = channel.setPromptTimeout(600_000);
+		const answer = channel.request(CONFIRM);
+
+		// The default bound is not in force while the scope is open.
+		timers.fire(PROMPT_TIMEOUT_MS);
+		expect(channel.hasPending()).toBe(true);
+		timers.fire(300_000);
+		expect(sent.at(-1)).toContain("Still waiting for your reply");
+		timers.fire(600_000);
+		expect(await answer).toEqual({ kind: "cancelled" });
+		restore();
+
+		const next = channel.request(CONFIRM);
+		timers.fire(PROMPT_TIMEOUT_MS);
+		expect(await next).toEqual({ kind: "cancelled" });
+		expect(sent.at(-1)).toBe("That question timed out.");
 	});
 
 	test("handleInbound ignores a reply from another peer", async () => {
