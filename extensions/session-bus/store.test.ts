@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
+import { readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createBusStore } from "./store.ts";
@@ -76,23 +77,62 @@ describe("inbox", () => {
 describe("claims", () => {
 	test("is idempotent for the owner and conflicts for another", async () => {
 		const { store } = fixture();
-		const first = await store.claim("src/a.ts", "s1", "one", 100);
-		expect(first.conflict).toBeUndefined();
-		const again = await store.claim("src/a.ts", "s1", "one", 101);
-		expect(again.conflict).toBeUndefined();
-		const other = await store.claim("src/a.ts", "s2", "two", 102);
-		expect(other.conflict?.owner).toBe("s1");
+		expect((await store.claimAll(["src/a.ts"], "s1", "one", 100)).claimed).toEqual(["src/a.ts"]);
+		expect((await store.claimAll(["src/a.ts"], "s1", "one", 101)).claimed).toEqual(["src/a.ts"]);
+		const other = await store.claimAll(["src/a.ts"], "s2", "two", 102);
+		expect(other.claimed).toEqual([]);
+		expect(other.conflicts[0]?.owner).toBe("s1");
 		expect(await store.release("src/a.ts", "s2")).toBe(false);
 		expect(await store.release("src/a.ts", "s1")).toBe(true);
-		expect(await store.claim("src/a.ts", "s2", "two", 103)).toHaveProperty("claim");
+		expect((await store.claimAll(["src/a.ts"], "s2", "two", 103)).claimed).toEqual(["src/a.ts"]);
+	});
+
+	test("claims a batch all or nothing, reporting every blocker", async () => {
+		const { store } = fixture();
+		expect((await store.claimAll(["src/api"], "s1", "one", 100)).claimed).toEqual(["src/api"]);
+		const blocked = await store.claimAll(["src/ui", "src/api"], "s2", "two", 101);
+		expect(blocked.claimed).toEqual([]);
+		expect(blocked.conflicts).toEqual([{ path: "src/api", owner: "s1", ownerLabel: "one" }]);
+		expect((await store.claims()).map((claim) => claim.path)).toEqual(["src/api"]);
+	});
+
+	test("gives a batch that loses the create race nothing to hold", async () => {
+		const { store } = fixture();
+		const results = await Promise.all([
+			store.claimAll(["src/a.ts", "src/b.ts"], "s1", "one", 100),
+			store.claimAll(["src/a.ts", "src/b.ts"], "s2", "two", 100),
+		]);
+		expect(results.filter((result) => result.claimed.length > 0)).toHaveLength(1);
+		const held = await store.claims();
+		expect(held).toHaveLength(2);
+		expect(new Set(held.map((claim) => claim.owner)).size).toBe(1);
 	});
 
 	test("releases all claims owned by a session", async () => {
 		const { store } = fixture();
-		await store.claim("src/a.ts", "s1", "one", 100);
-		await store.claim("src/b.ts", "s2", "two", 100);
+		await store.claimAll(["src/a.ts"], "s1", "one", 100);
+		await store.claimAll(["src/b.ts"], "s2", "two", 100);
 		expect(await store.releaseAll("s1")).toEqual(["src/a.ts"]);
 		expect((await store.claims()).map((claim) => claim.path)).toEqual(["src/b.ts"]);
+	});
+
+	test("publishes a claim whole, so the loser of a race leaves no temp file", async () => {
+		const { dir, store } = fixture();
+		expect((await store.claimAll(["src/a.ts"], "s1", "one", 100)).claimed).toEqual(["src/a.ts"]);
+		expect((await store.claimAll(["src/a.ts"], "s2", "two", 101)).conflicts[0]?.owner).toBe("s1");
+		expect(await store.claims()).toHaveLength(1);
+		const names = await readdir(join(dir, "claims"));
+		expect(names.filter((name) => name.endsWith(".tmp"))).toEqual([]);
+	});
+
+	test("republishes a claim whose file does not parse", async () => {
+		const { dir, store } = fixture();
+		await store.claimAll(["src/a.ts"], "s1", "one", 100);
+		const [file] = await readdir(join(dir, "claims"));
+		if (!file) throw new Error("the claim file was not written");
+		await writeFile(join(dir, "claims", file), "{");
+		expect((await store.claimAll(["src/a.ts"], "s2", "two", 101)).claimed).toEqual(["src/a.ts"]);
+		expect((await store.claims()).map((claim) => claim.owner)).toEqual(["s2"]);
 	});
 });
 
@@ -101,7 +141,7 @@ describe("prune", () => {
 		const { store } = fixture();
 		await store.writeSession(session("s1", 100));
 		await store.writeMessage("s2", message("100-a", "s2", 100));
-		await store.claim("src/a.ts", "s1", "one", 100);
+		await store.claimAll(["src/a.ts"], "s1", "one", 100);
 		await store.prune({ now: 1_000, activeIds: new Set(["s1", "s2"]), sessionTtlMs: 500, messageTtlMs: 500 });
 		expect(await store.sessions()).toEqual([]);
 		expect(await store.claims()).toEqual([]);
@@ -111,7 +151,7 @@ describe("prune", () => {
 	test("keeps fresh sessions and claims", async () => {
 		const { store } = fixture();
 		await store.writeSession(session("s1", 900));
-		await store.claim("src/a.ts", "s1", "one", 900);
+		await store.claimAll(["src/a.ts"], "s1", "one", 900);
 		await store.prune({ now: 1_000, activeIds: new Set(["s1"]), sessionTtlMs: 500, messageTtlMs: 500 });
 		expect(await store.sessions()).toHaveLength(1);
 		expect(await store.claims()).toHaveLength(1);

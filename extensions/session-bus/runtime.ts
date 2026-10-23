@@ -14,9 +14,9 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { createExecRunner, gitCommonDir, repoRoot } from "../../lib/git/index.ts";
 import {
-	claimsConflict,
 	defaultLabel,
 	isAutoJoinMode,
+	MAX_LABEL,
 	normalizeKind,
 	normalizeLabel,
 	normalizeLimit,
@@ -55,7 +55,6 @@ export interface SessionBus {
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
 	rename(label: string): Promise<string>;
-	current(): { id: string; label: string } | undefined;
 }
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
@@ -141,7 +140,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		const used = new Set(
 			sessions.filter((session) => session.id !== record?.id).map((session) => session.label.toLowerCase()),
 		);
-		if (used.has(candidate.toLowerCase())) candidate = `${candidate}-${shortId(record.id)}`.slice(0, 40);
+		if (used.has(candidate.toLowerCase())) candidate = `${candidate}-${shortId(record.id)}`.slice(0, MAX_LABEL);
 		record.label = candidate;
 		record.lastSeen = now();
 		await store.writeSession(record);
@@ -267,29 +266,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if (!store) throw new Error("session bus is not started.");
 			const normalized = normalizePaths(me.repoRoot, me.cwd, rawPaths);
 			if ("error" in normalized) throw new Error(normalized.error);
-			const existing = await store.claims();
-			const conflicts: ClaimConflict[] = [];
-			for (const path of normalized.paths) {
-				for (const claim of existing) {
-					if (claimsConflict(path, claim.path) && claim.owner !== me.id) {
-						conflicts.push({ path, owner: claim.owner, ownerLabel: claim.ownerLabel });
-					}
-				}
-			}
-			if (conflicts.length > 0) return { claimed: [], conflicts };
-			const claimed: string[] = [];
-			for (const path of normalized.paths) {
-				const result = await store.claim(path, me.id, me.label, now());
-				if (result.conflict) {
-					for (const done of claimed) await store.release(done, me.id);
-					return {
-						claimed: [],
-						conflicts: [{ path, owner: result.conflict.owner, ownerLabel: result.conflict.ownerLabel }],
-					};
-				}
-				claimed.push(path);
-			}
-			return { claimed, conflicts: [] };
+			return store.claimAll(normalized.paths, me.id, me.label, now());
 		},
 
 		async release(rawPaths) {
@@ -307,9 +284,5 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		},
 
 		rename,
-
-		current() {
-			return record ? { id: record.id, label: record.label } : undefined;
-		},
 	};
 }

@@ -106,8 +106,9 @@ agent directory, not the project, so it is never committed.
   worktrees of one repository the same bus; `--show-toplevel` normalizes claim
   paths within each worktree. Non-repository sessions fall back to their cwd.
 - **One file per item.** Sessions never append to a shared registry: each session
-  writes its own record, each message is its own file, and a claim is an
-  exclusive create. This avoids a cross-process lock for the common path.
+  writes its own record, each message is its own file, and a claim is a temp file
+  hard-linked into place — an exclusive create no reader can see half-written.
+  This avoids a cross-process lock for the common path.
 - **Lazy join.** Loading a package extension must not make every subagent and
   WeChat peer a team member. Auto-join only in `tui`; every other mode opts in by
   using the tool or command.

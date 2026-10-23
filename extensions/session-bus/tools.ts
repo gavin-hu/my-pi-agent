@@ -9,6 +9,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
+import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
@@ -132,18 +133,20 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 					paint(theme, "meta", `${value.status.sessions.length} session(s) · ${value.status.claims.length} claim(s)`),
 				);
 			} else if (value.action === "send") {
-				text.setText(paint(theme, "ok", `Delivered to ${value.delivered?.join(", ") ?? "nobody"}`));
+				const delivered = sanitizeLine(value.delivered?.join(", ") ?? "nobody");
+				text.setText(paint(theme, "ok", `Delivered to ${delivered}`));
 			} else if (value.action === "inbox") {
 				text.setText(paint(theme, "meta", `${value.messages?.length ?? 0} message(s)`));
 			} else if (value.action === "claim") {
 				const conflicts = value.conflicts?.length ?? 0;
+				const claimed = sanitizeLine(value.claimed?.join(", ") ?? "nothing");
 				text.setText(
 					conflicts > 0
 						? paint(theme, "warn", `${conflicts} claim conflict(s)`)
-						: paint(theme, "ok", `Claimed ${value.claimed?.join(", ") ?? "nothing"}`),
+						: paint(theme, "ok", `Claimed ${claimed}`),
 				);
 			} else {
-				text.setText(paint(theme, "meta", `Released ${value.released?.join(", ") ?? "nothing"}`));
+				text.setText(paint(theme, "meta", `Released ${sanitizeLine(value.released?.join(", ") ?? "nothing")}`));
 			}
 			return text;
 		},

@@ -5,18 +5,25 @@
  * before it reaches the transcript, and paths/labels are rendered as one line.
  */
 
-import { sanitize } from "../../lib/format.ts";
+import { sanitizeLine } from "../../lib/format.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, SessionStatus } from "./types.ts";
 
+/** A short id suffix, neutralized like every other peer-supplied field. */
+function idSuffix(id: string): string {
+	return sanitizeLine(id.slice(-6));
+}
+
 function claimLine(claim: ClaimRecord): string {
-	return `${claim.path} · ${claim.ownerLabel}`;
+	return `${sanitizeLine(claim.path)} · ${sanitizeLine(claim.ownerLabel)}`;
 }
 
 /** The status listing: sessions, unread counts, and claims. */
 export function formatStatus(status: SessionStatus): string {
 	const sessions = status.sessions.map((session) => {
 		const unread = session.unread > 0 ? ` · ${session.unread} unread` : "";
-		return `- ${session.label} (${session.id.slice(-6)}) · ${session.cwd} · ${session.mode}${unread}`;
+		const label = sanitizeLine(session.label);
+		const cwd = sanitizeLine(session.cwd);
+		return `- ${label} (${idSuffix(session.id)}) · ${cwd} · ${sanitizeLine(session.mode)}${unread}`;
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	return [
@@ -26,7 +33,7 @@ export function formatStatus(status: SessionStatus): string {
 		`Claims (${status.claims.length})`,
 		...(claims.length > 0 ? claims : ["- none"]),
 		"",
-		`You: ${status.me.label} (${status.me.id.slice(-6)})`,
+		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})`,
 	].join("\n");
 }
 
@@ -35,8 +42,11 @@ export function formatInbox(messages: readonly BusMessage[]): string {
 	if (messages.length === 0) return "Inbox empty.";
 	return messages
 		.map((message, index) => {
-			const paths = message.paths?.length ? `\n   paths: ${message.paths.join(", ")}` : "";
-			return `${index + 1}. ${message.fromLabel} · ${message.kind} · ${sanitize(message.text)}${paths}`;
+			const paths = message.paths?.length
+				? `\n   paths: ${message.paths.map((path) => sanitizeLine(path)).join(", ")}`
+				: "";
+			const from = sanitizeLine(message.fromLabel);
+			return `${index + 1}. ${from} · ${sanitizeLine(message.kind)} · ${sanitizeLine(message.text)}${paths}`;
 		})
 		.join("\n");
 }
@@ -44,15 +54,17 @@ export function formatInbox(messages: readonly BusMessage[]): string {
 /** Confirmation for a send. */
 export function formatSend(delivered: readonly string[], messageId: string): string {
 	if (delivered.length === 0) return "Delivered to 0 sessions.";
-	return `Delivered to ${delivered.join(", ")} (${messageId}).`;
+	const names = delivered.map((label) => sanitizeLine(label)).join(", ");
+	return `Delivered to ${names} (${sanitizeLine(messageId)}).`;
 }
 
 /** Claim result, including the owner that blocked it. */
 export function formatClaim(claimed: readonly string[], conflicts: readonly ClaimConflict[]): string {
 	const lines: string[] = [];
-	if (claimed.length > 0) lines.push(`Claimed: ${claimed.join(", ")}.`);
+	if (claimed.length > 0) lines.push(`Claimed: ${claimed.map((path) => sanitizeLine(path)).join(", ")}.`);
 	for (const conflict of conflicts) {
-		lines.push(`${conflict.path} is owned by ${conflict.ownerLabel} (${conflict.owner.slice(-6)}).`);
+		const owner = sanitizeLine(conflict.ownerLabel);
+		lines.push(`${sanitizeLine(conflict.path)} is owned by ${owner} (${idSuffix(conflict.owner)}).`);
 	}
 	return lines.length > 0 ? lines.join("\n") : "Nothing claimed.";
 }
@@ -60,7 +72,7 @@ export function formatClaim(claimed: readonly string[], conflicts: readonly Clai
 /** Release result. */
 export function formatRelease(released: readonly string[], notOwned: readonly string[]): string {
 	const lines: string[] = [];
-	if (released.length > 0) lines.push(`Released: ${released.join(", ")}.`);
-	if (notOwned.length > 0) lines.push(`Not yours: ${notOwned.join(", ")}.`);
+	if (released.length > 0) lines.push(`Released: ${released.map((path) => sanitizeLine(path)).join(", ")}.`);
+	if (notOwned.length > 0) lines.push(`Not yours: ${notOwned.map((path) => sanitizeLine(path)).join(", ")}.`);
 	return lines.length > 0 ? lines.join("\n") : "Nothing to release.";
 }
