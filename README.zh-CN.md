@@ -100,7 +100,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 | [`question`](./extensions/question/) | `ask_user_question` | 向你提出一个或多个结构化问题（带标签的选项外加自由填写的“其他”）并等待回答。 |
 | [`job`](./extensions/job/) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
 | [`watch`](./extensions/watch/) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
-| [`session-bus`](./extensions/session-bus/) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；会话可以自行开启收件箱监视，从而唤起本会话的一轮，从不创建智能体。 |
+| [`session-bus`](./extensions/session-bus/) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；会话可以自行开启收件箱监视，在空闲时唤起本会话的一轮，从不创建智能体。 |
 | [`context`](./extensions/context/) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
 
 ### 保护你的工作

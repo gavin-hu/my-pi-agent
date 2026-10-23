@@ -2,12 +2,15 @@
  * The pending-report coordinator: how a live feature tells the model what
  * happened without interrupting it.
  *
- * A watcher match and a finished job follow one rule — report at the next turn,
- * and raise at most one triggered turn when the work opted into `wake`. The two
- * traps are subtle enough to have been re-derived once per extension:
+ * A watcher match, a finished job, and arriving mail follow one rule — report at
+ * the next turn, and raise at most one triggered turn per burst when the work
+ * opted into `wake`, as soon as the agent is idle. The three traps are subtle
+ * enough to have been re-derived once per extension:
  *
  * - a wake is only safe while the agent is idle, so an outcome that arrives
- *   mid-turn must be queued rather than sent;
+ *   mid-turn is queued rather than sent, and `agent_settled` retries it;
+ * - an outcome outlives the run it arrived in, so the retry asks
+ *   `wakeRequested()` rather than trusting the one call that queued it;
  * - between the triggered send and the `agent_start` it causes, the agent still
  *   looks idle, so a second outcome in that window must not trigger a second
  *   turn. `waking` closes that window.
@@ -33,6 +36,11 @@ export interface PendingReporterOptions<T> {
 	markReported(items: T[]): void;
 	/** Build the notice for one burst: model text plus renderer details. */
 	buildNotice(items: T[]): NoticeMessage;
+	/**
+	 * Whether any pending outcome asks for a triggered turn. Called by the settle
+	 * retry, so a mid-turn outcome still wakes once the agent is idle.
+	 */
+	wakeRequested(): boolean;
 	/** The notice's source, so only its own stale entries are pruned. */
 	source: string;
 	/** Runs after a wake turn was successfully requested, for an extra announcement. */
@@ -47,8 +55,8 @@ export interface PendingReporter {
 	sessionStart(): void;
 	/** A turn began: outcomes queue up, and none of them triggers a turn. */
 	agentStart(): void;
-	/** The turn settled: a later outcome may wake again. */
-	agentSettled(): void;
+	/** The turn settled: retry a wake it suppressed, unless it was aborted. */
+	agentSettled(event?: { aborted?: boolean }): void;
 	/** Report what is queued at the start of a turn, without triggering one. */
 	beforeAgentStart(): { message: NoticeMessage } | undefined;
 	/** Drop this source's older notices from the outgoing context. */
@@ -56,26 +64,29 @@ export interface PendingReporter {
 }
 
 export function createPendingReporter<T>(options: PendingReporterOptions<T>): PendingReporter {
-	const { wake, pending, markReported, buildNotice, source, onWoke } = options;
+	const { wake, pending, markReported, buildNotice, wakeRequested, source, onWoke } = options;
 	let busy = false;
 	let waking = false;
 
+	const report = (): void => {
+		if (busy || waking) return;
+		if (!wakeRequested()) return;
+		const items = pending();
+		if (items.length === 0) return;
+		try {
+			wake(buildNotice(items));
+		} catch {
+			// Reporting is best-effort; the next turn reports the same items.
+			return;
+		}
+		// Mark only after the send succeeded, so a throw changes nothing.
+		markReported(items);
+		waking = true;
+		onWoke?.(items);
+	};
+
 	return {
-		report: () => {
-			if (busy || waking) return;
-			const items = pending();
-			if (items.length === 0) return;
-			try {
-				wake(buildNotice(items));
-			} catch {
-				// Reporting is best-effort; the next turn reports the same items.
-				return;
-			}
-			// Mark only after the send succeeded, so a throw changes nothing.
-			markReported(items);
-			waking = true;
-			onWoke?.(items);
-		},
+		report,
 		sessionStart: () => {
 			busy = false;
 			waking = false;
@@ -83,9 +94,13 @@ export function createPendingReporter<T>(options: PendingReporterOptions<T>): Pe
 		agentStart: () => {
 			busy = true;
 		},
-		agentSettled: () => {
+		agentSettled: (event) => {
 			busy = false;
 			waking = false;
+			// An interrupted run is not a request to interrupt again; its outcomes
+			// stay queued for the next turn.
+			if (event?.aborted === true) return;
+			report();
 		},
 		beforeAgentStart: () => {
 			const items = pending();
@@ -153,8 +168,8 @@ export function registerPendingChannel(
 	pi.on("agent_start", () => {
 		reporter.agentStart();
 	});
-	pi.on("agent_settled", () => {
-		reporter.agentSettled();
+	pi.on("agent_settled", (event) => {
+		reporter.agentSettled(event);
 	});
 
 	// Report what is queued at the start of the next turn, without triggering one.

@@ -189,10 +189,10 @@ describe("jobs extension", () => {
 		expect(sent[0].message.customType).toBe(NOTICE_TYPE);
 	});
 
-	test("queues a wake job that finishes during a turn, then reports it before the next", async () => {
+	test("a wake job that finishes during a turn wakes once at settle", async () => {
 		const { h, pi, ctx } = setup();
-		const sent: unknown[] = [];
-		pi.sendMessage = (...args: unknown[]) => sent.push(args);
+		const sent: Array<{ message: any; options: any }> = [];
+		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
 
 		await emit(pi, "session_start", {}, ctx);
 		await emit(pi, "agent_start", {}, ctx);
@@ -200,13 +200,20 @@ describe("jobs extension", () => {
 		h.children[0].close(0);
 		expect(sent).toHaveLength(0);
 
-		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
-		expect(result?.message?.content).toContain("j1");
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.options.triggerTurn).toBe(true);
+		expect(sent[0]?.message.content).toContain("j1");
+		// The settle retry already reported it, so the next turn adds nothing.
+		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
 
-		await emit(pi, "agent_settled", {}, ctx);
+		// The triggered run starts and settles; a later completion while idle wakes
+		// its own turn.
+		await emit(pi, "agent_start", {}, ctx);
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
 		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
 		h.children[1].close(0);
-		expect(sent).toHaveLength(1);
+		expect(sent).toHaveLength(2);
 	});
 
 	test("wake reports other pending completions instead of dropping them", async () => {

@@ -100,24 +100,45 @@ describe("watch extension", () => {
 		expect(customMessages[0].message.customType).toBe(NOTICE_TYPE);
 	});
 
-	test("announces the whole wake cycle, describing its newest match", async () => {
-		const { h, pi, ctx } = setup();
+	test("a mid-turn match wakes once when the run settles, carrying the burst", async () => {
+		const { h, pi, ctx, customMessages } = setup();
 		const seen: unknown[] = [];
 		pi.events.on(WATCH_MATCH_CHANNEL, (data: unknown) => seen.push(data));
 
 		await emit(pi, "session_start", {}, ctx);
 		h.runtime.add({ command: "build", pattern: "FAIL", label: "ci", wake: true }, ctx);
 
-		// A match during a run is collected, not woken for; the next one, once the
-		// agent is idle, wakes and carries both.
+		// Both matches arrive during a run; the settle retry raises one turn for the
+		// whole burst, describing its newest match.
 		await emit(pi, "agent_start", {}, ctx);
 		h.children[0].write("FAIL: one\n");
-		await emit(pi, "agent_settled", { aborted: false }, ctx);
 		h.children[0].write("FAIL: two\n");
+		expect(seen).toEqual([]);
+		expect(customMessages).toHaveLength(0);
 
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
+
+		expect(customMessages).toHaveLength(1);
+		expect(customMessages[0]?.options).toMatchObject({ triggerTurn: true });
 		expect(seen).toHaveLength(1);
 		expect(seen[0]).toMatchObject({ count: 2, label: "ci", line: "FAIL: two" });
 		expect((seen[0] as { watcherId: string }).watcherId).toMatch(/^w\d+$/);
+		// The settle retry already reported it, so the next turn adds nothing.
+		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
+	});
+
+	test("an aborted run leaves a wake match for the next turn", async () => {
+		const { h, pi, ctx, customMessages } = setup();
+		await emit(pi, "session_start", {}, ctx);
+		h.runtime.add({ command: "build", pattern: "FAIL", wake: true }, ctx);
+		await emit(pi, "agent_start", {}, ctx);
+		h.children[0].write("FAIL\n");
+
+		await emit(pi, "agent_settled", { aborted: true }, ctx);
+		expect(customMessages).toHaveLength(0);
+
+		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
+		expect(result?.message?.content).toContain("FAIL");
 	});
 
 	test("does not announce a match it did not wake for", async () => {

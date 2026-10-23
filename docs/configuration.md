@@ -249,7 +249,7 @@ triggers. `method` and `title` are `bytefly.json` edits.
 | `turnFinished` | boolean | `true` | | Announce a run that settled. |
 | `needsInput` | boolean | `true` | | Announce a prompt raised during a run. |
 | `jobFinished` | boolean | `true` | | Announce a finished background job. |
-| `matchFound` | boolean | `true` | | Announce a `watch` wake match: a watcher with `wake` on matched while the agent was idle. |
+| `matchFound` | boolean | `true` | | Announce a `watch` wake match: a watcher with `wake` on matched, raised as soon as the agent is idle. |
 | `method` | string | `"auto"` | `auto`, `osc777`, `osc99`, `toast`, `osascript`, `notify-send` | Delivery route; `auto` picks from the terminal, then the platform. |
 | `title` | string | `"Pi"` | Up to 40 characters | Notification title. |
 

@@ -9,9 +9,10 @@
  *
  * An armed inbox watch polls this session's own inbox directory and hands what
  * arrived to the caller's `onWake`, which the extension wires to the shared
- * pending reporter. It announces and never consumes: `inbox` keeps sole
- * ownership of deleting mail, so a wake cannot eat a message the model did not
- * read.
+ * pending reporter. A wake that arrives while the agent is running is queued and
+ * raised by that reporter once the run settles. It announces and never consumes:
+ * `inbox` keeps sole ownership of deleting mail, so a wake cannot eat a message
+ * the model did not read.
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -76,6 +77,8 @@ export interface SessionBus {
 	rename(label: string): Promise<string>;
 	/** Arm or disarm this session's inbox watch. */
 	watch(input: { wake?: boolean; stop?: boolean }): Promise<{ armed: boolean; wake: boolean }>;
+	/** Whether the armed watch asked for a triggered turn; the settle retry reads it. */
+	wantsWake(): boolean;
 	/** Read the inbox without consuming it, queueing what is new; no-op when unarmed. */
 	poll(): Promise<void> /** Mail that arrived and has not been reported yet, oldest first. */;
 	pending(): BusMessage[];
@@ -360,13 +363,20 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			disarm();
 			return { armed: false, wake: false };
 		}
-		// Arming is a state, not a mode switch: an armed session keeps its setting
-		// until it disarms, so `wake` cannot be flipped under a queued notice.
-		if (armed) return { armed, wake };
-		armed = true;
-		wake = input.wake === true;
-		await pollOnce();
-		if (watchMs > 0) stopTicker = interval(watchMs, () => void pollOnce().catch(() => {}));
+		if (!armed) {
+			armed = true;
+			wake = input.wake === true;
+			await pollOnce();
+			if (watchMs > 0) stopTicker = interval(watchMs, () => void pollOnce().catch(() => {}));
+			return { armed, wake };
+		}
+		// The mode is a setting, not an arm-time flag: an explicit `wake` changes it
+		// under a queued notice, and an omitted one keeps it, so bare `watch` never
+		// demotes an armed session.
+		if (input.wake !== undefined) wake = input.wake;
+		// Asking for wake over mail already queued is a request for that burst too;
+		// mid-turn it is suppressed here and retried once the run settles.
+		if (wake && pendingMail.length > 0) onWake?.();
 		return { armed, wake };
 	}
 
@@ -407,6 +417,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		},
 
 		watch,
+		wantsWake: () => armed && wake,
 		poll: pollOnce,
 		pending: () => [...pendingMail],
 		markReported,

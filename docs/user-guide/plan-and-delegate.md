@@ -709,8 +709,8 @@ server, a test run in another window.
   chatty command cannot fill your disk. The tail shown in the transcript is
   sanitized, so stray terminal codes cannot garble the screen.
 - A watcher keeps the most recent 200 matches and lives only for the session. A
-  match while the assistant is busy is collected for the next turn; a match while
-  it is idle can wake it.
+  match while the assistant is busy is raised once that turn settles; a match
+  while it is idle wakes it at once.
 - Both can wake the assistant: say "and wake me when it's done" or "wake me when
   it matches". The same switches are **Wake when a job finishes** and **Wake on a
   match** in `/bytefly settings`.
@@ -868,8 +868,9 @@ repository act as a team without sharing a conversation.
   "inbox"` consumes messages at the start of the next turn. Delivery is pull-based
   by default, so nothing interrupts a running turn and no turn starts by itself.
 - `/sessions watch` arms this session's inbox watch: new mail is reported at its
-  next turn, and `/sessions watch wake` raises that turn when it arrives while the
-  session is idle. It is per session and session-only, so arming it in the owner
+  next turn, and `/sessions watch wake` raises that turn as soon as the session is
+  idle, including right after a running turn settles. It is per session and
+  session-only, so arming it in the owner
   you are waiting on is how a lead gets an answer without asking you to switch.
 - `claim` paths before editing. A claim on `src/api` conflicts with `src/api` or
   any file below it; `release` gives it back. A crash releases it when the

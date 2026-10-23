@@ -327,7 +327,7 @@ See [The control center](#the-control-center).
 **Notify.** Off by default, one `notify` section in `bytefly.json` turns on OS
 notifications for unattended runs: when a full agent run settles, when a
 background job finishes, when the agent opens a prompt asking for input, and when
-a `watch` wake match fires while the agent is idle. The
+an armed `watch` wake match fires as the agent becomes idle. The
 method follows the terminal (OSC 777, OSC 99, a Windows toast) or falls back to
 the platform notifier (`osascript`, `notify-send`); see
 [Notifications](#notifications).
@@ -899,12 +899,12 @@ of `bytefly.json` (see [Configuration](#configuration)):
 - **A background job finished.** The [job](../job/) extension announces each
   terminal transition on the shared `pi.events` bus
   (`my-pi-agent/job-finished`); bytefly listens and never imports it.
-- **A watcher matched.** A [watch](../watch/) whose `wake` is on matched while the
-  agent was idle, and announced it on `my-pi-agent/watch-match` with the cycle's
+- **A watcher matched.** A [watch](../watch/) whose `wake` is on matched, and
+  announced it on `my-pi-agent/watch-match` with the cycle's
   count, the watcher, and its newest line. The body names that line, sanitized and
   clipped to 80 characters, because the line is the alert: a watch usually tails a
-  build or an error log. A match the agent was busy for does not notify — it is
-  collected for the next turn instead.
+  build or an error log. A match the agent was busy for notifies once that run
+  settles, when its wake is raised.
 
 ### Delivery method
 

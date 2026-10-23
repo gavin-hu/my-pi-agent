@@ -4,7 +4,8 @@ A local coordination bus for Pi sessions on the same machine and repository.
 Sessions discover each other, exchange short messages and events, consume an
 inbox, and claim paths before editing. Delivery is pull-based, and a session can
 arm an inbox watch to be told about new mail: a report at its next turn, or —
-with `wake` — one raised turn. No network service, and no hidden context.
+with `wake` — one raised turn as soon as the agent is idle, including right after
+a running turn settles. No network service, and no hidden context.
 
 <img src="../../assets/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, and the focused session's cwd, claims, and identity" width="100%">
 
@@ -37,7 +38,7 @@ pi -e .                                   # load the whole package
 | `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` arms or disarms this session's inbox watch, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing and joins. |
 | `/sessions name <label>` | Name this session for the bus and for Pi. The label is unique among active sessions, and it becomes the session name the footer shows and `/resume` lists. |
 | `/sessions watch` | Report new mail at this session’s next turn. |
-| `/sessions watch wake` | Report new mail, and raise one turn when it arrives while idle. |
+| `/sessions watch wake` | Report new mail, and raise one turn as soon as the agent is idle — including right after a running turn settles. |
 | `/sessions watch off` | Stop the inbox watch. |
 | `/sessions help` | Show the command usage. |
 
@@ -58,7 +59,7 @@ named session comes back under the same label after a resume.
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
-| `watch` | optional `wake`, optional `stop` | Arms this session’s inbox watch, or turns it off with `stop`. `wake` also raises one turn per burst. |
+| `watch` | optional `wake`, optional `stop` | Arms this session’s inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch’s mode. |
 
 Message kinds are `message` (default), `event`, `ask`, and `handoff`. An `ask` is
 still a message: it does not block or wait for a reply. Text is capped at 4,000
@@ -70,9 +71,11 @@ a directory conflicts with claims below it and above it, so `src/api` and
 `src/api/routes.ts` cannot be held by different sessions. There is no `force`
 takeover; wait for the owner, ask it to release, or let the session expire.
 
-Arming is a state, not a mode switch: arming an armed session keeps its setting,
-so changing `wake` means `watch` with `stop` and then arming again. Nothing arms
-on `session_start`; a session that never asks stays pull-only.
+`wake` is the mode, not an arm-time switch: `/sessions watch wake` raises a turn
+for a watch that was reporting at the next turn, and `/sessions watch` — or
+`wake: false` — sets it back. The board’s `w` only arms and disarms, and it arms
+a plain watch; set `wake` with the command or the tool. Nothing arms on
+`session_start`; a session that never asks stays pull-only.
 
 ## Parallel workflow
 
@@ -82,8 +85,9 @@ on `session_start`; a session that never asks stays pull-only.
 3. A contract, build, or test change goes out as an event:
    `session({action:"send", to:"*", kind:"event", text:"contract v2: ..."})`.
 4. Other sessions consume `inbox` at the start of their next turn, or arm
-   `session({action:"watch", wake:true})` so a message raises their turn; nothing
-   is pushed into a turn that is already running.
+   `session({action:"watch", wake:true})` so a message raises their turn as soon
+   as they are idle; a wake that arrives mid-turn is raised once that run
+   settles, never pushed into the running turn.
 5. The lead merges the worktrees and runs the project’s full check.
 
 The bus carries coordination, not authority. The plan, todo list, contract, and
@@ -123,7 +127,7 @@ The bus lives under the agent directory, not the project, so it is never committ
   inbox watch and `x` releases a claim it holds. Mail is a preview, not a consume:
   the board never deletes a message, never marks one reported, and never touches a
   peer's inbox or claim.
-- **Two armed peers can ping-pong.** Each reply wakes the other while both are
+- **Two armed peers can ping-pong.** Each reply wakes the other as soon as it is
   idle. A wake raises one turn per burst, and `inbox` consumes, so the loop needs
   both sides to keep replying; the answer is to disarm one of them.
 - **No broadcast history.** A broadcast reaches the sessions active at send time;
@@ -188,7 +192,7 @@ The bus lives under the agent directory, not the project, so it is never committ
 | Tools | `session` — one action-shaped tool; `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: false`, `executionMode: "sequential"`. |
 | Commands | `/sessions` (board in `tui`, listing elsewhere), `/sessions name <label>`, `/sessions watch [off\|wake]`, `/sessions help`. |
 | UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so the watch never changes the footer. |
-| Events | `session_start` resolves the repository and joins a TUI session and arms the mail trigger; `before_agent_start` reports queued mail at the next turn; `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
+| Events | `session_start` resolves the repository and joins a TUI session and arms the mail trigger; `before_agent_start` reports queued non-wake mail at the next turn, `agent_settled` retries a wake the run suppressed, and `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
 | State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. The armed watch is session-only. `/resume` re-registers the same session id. |
 | Lifecycle | The factory only registers. The runtime starts on `session_start`; heartbeat, watch ticker, and cleanup belong to it. Disabling `session-bus` through `PI_DISABLED_EXTENSIONS` registers nothing. |
 | Mode | Uses `ctx.mode` to decide auto-join and whether `/sessions` mounts the board; `askHuman` is not involved and no status chip is published. |

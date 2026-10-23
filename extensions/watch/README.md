@@ -3,7 +3,8 @@
 Tail a file or a command's merged output, match each new line against a regular
 expression, and keep the matching lines. Matches are sanitized and alerted in
 the TUI, reported to the model at the next turn, or — when a watcher opts into
-`wake` — raise one triggered turn immediately.
+`wake` — raise one triggered turn as soon as the agent is idle, including right
+after a running turn settles.
 
 ```
 pi --extension ./extensions/watch    # load just this extension
@@ -29,7 +30,9 @@ How the `watch` call and its result look in the transcript — the call line as 
 - Shows a `⊚ N` running-watcher chip and a `! N` unreported-match chip, raises a
   `ctx.ui.notify` alert once per unreported burst, and offers a `/watch` screen.
 - Reports pending matches to the model at the start of the next turn, or wakes a
-  turn for a watcher added with `wake: true`. A wake also leaves the terminal: the
+  turn for a watcher added with `wake: true` as soon as the agent is idle. A wake
+  that arrives mid-turn is raised once that run settles. A wake also leaves the
+  terminal: the
   match is announced on `my-pi-agent/watch-match`, which bytefly's
   [notify](../bytefly/README.md#notifications) capability turns into a desktop
   notification when `notify.enabled` and `notify.matchFound` are on.
@@ -172,8 +175,8 @@ other.
 - Matching is per line; a pattern cannot span a newline.
 - Only a **wake** match raises an OS notification, and only when bytefly's
   `notify.enabled` and `notify.matchFound` are on. A match collected while the
-  agent was busy is reported at the next turn without a notification, and `watch`
-  itself never sends one — it announces the match and bytefly owns delivery.
+  agent was busy notifies once that run settles, and `watch` itself never sends
+  one — it announces the match and bytefly owns delivery.
 
 ## Non-goals
 
@@ -213,7 +216,8 @@ UTF-8 sequence split across a read boundary is never mangled. State is
 session-only by design: a watcher is a live process or file position, not
 transcript state, so it cannot be faithfully rebuilt from a `/tree` fork. Match
 delivery mirrors `job` — reported at the next turn, with `wake` triggering one
-turn — so a match is never dropped when the wake window is busy. Stopping a
+turn as soon as the agent is idle — so a match is never dropped when the wake
+window is busy; a mid-turn wake is raised once that run settles. Stopping a
 command sends SIGTERM to its process group and escalates to SIGKILL after a 2 s
 grace; shutdown waits the same grace, so a command that ignores SIGTERM cannot
 outlive the session.

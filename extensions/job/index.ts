@@ -5,7 +5,8 @@
  * processes with their output streamed to log files; the status chip shows
  * running and unreported-failure counts, and finished jobs are reported to the
  * model — and shown as a bytefly notice — at the next turn, or by triggering one
- * turn for a `wake` job.
+ * turn for a `wake` job as soon as the agent is idle, including right after a
+ * running turn settles.
  *
  * Load with:  pi --extension ./extensions/job
  */
@@ -71,15 +72,17 @@ export default function jobs(pi: ExtensionAPI, deps: JobsDeps = {}): void {
 	if (!isExtensionEnabled("job")) return;
 	const runtime = deps.runtime ?? createJobsRuntime();
 
-	// Opt-in wake: a `wake` job finished while the agent is idle. The reporter
-	// reports *all* pending completions, not just the waking one, so a job that
-	// finished earlier is not silently marked seen and dropped.
+	// Opt-in wake: a `wake` job finished. The reporter reports *all* pending
+	// completions, not just the waking one, so a job that finished earlier is not
+	// silently marked seen and dropped, and it retries a completion that arrived
+	// mid-turn once the run settles.
 	const reporter = createPendingReporter<JobRecord>({
 		wake: (notice) => pi.sendMessage(notice, { triggerTurn: true }),
 		pending: () => runtime.pendingCompletions(),
 		markReported: (records) => runtime.markReported(records.map((job) => job.id)),
 		buildNotice: jobNotice,
 		source: "job",
+		wakeRequested: () => runtime.pendingCompletions().some((job) => job.wake),
 	});
 
 	registerTools(pi, runtime);

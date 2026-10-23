@@ -189,6 +189,7 @@ describe("session-bus extension", () => {
 		expect((await bus.status()).watching).toEqual({ armed: true, wake: false });
 		await command.handler("watch wake", ctx);
 		expect(notices.at(-1)?.message).toContain("Inbox watch on");
+		expect((await bus.status()).watching).toEqual({ armed: true, wake: true });
 		await command.handler("watch advanced", ctx);
 		expect(notices.at(-1)?.message).toContain("Unknown watch mode");
 		await command.handler("watch off", ctx);
@@ -262,7 +263,7 @@ describe("session-bus extension", () => {
 		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 	});
 
-	test("a run in progress queues the wake instead of interrupting it", async () => {
+	test("a wake that arrives mid-turn raises one turn once the run settles", async () => {
 		const dir = busDir();
 		const { pi, bus, ctx, customMessages } = setup(dir);
 		const peer = createSessionBus({} as ExtensionAPI, {
@@ -281,12 +282,73 @@ describe("session-bus extension", () => {
 		await peer.send({ to: "frontend", text: "mid-turn" });
 		await bus.poll();
 		expect(customMessages).toEqual([]);
+		expect(bus.pending()).toHaveLength(1);
 
-		await emit(pi, "agent_settled", {}, ctx);
-		await bus.poll();
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
+		expect(customMessages).toHaveLength(1);
+		expect(customMessages[0]?.options).toEqual({ triggerTurn: true });
+		expect(customMessages[0]?.message.content).toContain("mid-turn");
+		// The settle retry already reported it, so the next turn adds nothing.
+		expect(await emitFirst(pi, "before_agent_start", {}, ctx)).toBeUndefined();
+		// Announcing never consumes: only `inbox` deletes.
+		expect(await bus.inbox()).toHaveLength(1);
+
+		await peer.stop();
+		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+	});
+
+	test("arming mid-turn wakes for mail already waiting once the run settles", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx, customMessages } = setup(dir);
+		const peer = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+		});
+		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s5", sessionName: "integrator" }).ctx as ExtensionContext;
+		await emit(pi, "session_start", { type: "session_start" }, ctx);
+		await peer.start(peerCtx);
+		await peer.send({ to: "frontend", text: "already here" });
+
+		// The tool call that arms the watch always runs inside a turn.
+		await emit(pi, "agent_start", {}, ctx);
+		await bus.watch({ wake: true });
 		expect(customMessages).toEqual([]);
+
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
+		expect(customMessages).toHaveLength(1);
+		expect(customMessages[0]?.options).toEqual({ triggerTurn: true });
+		expect(customMessages[0]?.message.content).toContain("already here");
+
+		await peer.stop();
+		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+	});
+
+	test("a plain armed watch waits for the next turn after a settle", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx, customMessages } = setup(dir);
+		const peer = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+		});
+		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s6", sessionName: "integrator" }).ctx as ExtensionContext;
+		await emit(pi, "session_start", { type: "session_start" }, ctx);
+		await peer.start(peerCtx);
+		await bus.watch({});
+
+		await emit(pi, "agent_start", {}, ctx);
+		await peer.send({ to: "frontend", text: "next turn" });
+		await bus.poll();
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
+		expect(customMessages).toEqual([]);
+
 		const reported = await emitFirst(pi, "before_agent_start", {}, ctx);
-		expect(reported?.message.content).toContain("mid-turn");
+		expect(reported?.message.content).toContain("next turn");
 
 		await peer.stop();
 		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);

@@ -148,16 +148,15 @@ one-hour cache-write rule included, so a hand-written table could only price
 - A subagent's tokens and cost are published for bytefly's `↳` footer roll-up but
   deliberately never added to the parent session's total, and the roll-up starts
   from zero after `/resume` (`subagent` README).
-- `watch` notifies the desktop only for a `wake` match found while the agent is
-  idle; a match during a running turn is reported at the next turn without a
-  notification (`watch` README).
+- `watch` notifies the desktop for a `wake` match once the agent is idle; a match
+  during a running turn notifies once that turn settles (`watch` README).
 - Delegation is synchronous: parallel mode overlaps children inside one call,
   but the turn waits for every child, so a long run stops the conversation.
 - The bus is one machine and one OS user: no network, no synchronization across
   machines, and no authentication between sessions (`session-bus` README).
 - Delivery is pull-based unless a session arms its inbox watch
   (`/sessions watch [off|wake]`): a message then previews at that session's next turn,
-  or raises one turn when `wake` is set. Unarmed, a message wakes nothing, so a peer
+  or raises one turn when `wake` is set, as soon as the session is idle. Unarmed, a message wakes nothing, so a peer
   moves on its next turn or not at all, and a broadcast reaches only the sessions
   active when it was sent (`session-bus` README).
 - The bus board acts only on its own session's state: it previews its unread mail
@@ -376,7 +375,7 @@ it.
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file, so no reviewed step is lost. Revisit if an approval surface must show a full step. |
 | `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. Revisit if one view over several repositories is actually needed. |
 | `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns, and a transcript is an audit record rather than a cost ledger. |
-| `watch`: only a **wake** match found while the agent is idle raises a notification | A busy match is queued for the next turn, where the agent is already the listener. Revisit if a match during a long turn has to interrupt. |
+| `watch`: a **wake** match raises a notification only when the agent is idle | A match during a running turn is raised once that run settles, and the notification follows the wake. Revisit if a long turn has to be interrupted mid-flight. |
 | `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S1`, which changes what "guarded" means. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
 | `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |

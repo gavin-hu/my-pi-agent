@@ -220,7 +220,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
 		id: "notify.matchFound",
 		label: "Watcher matched",
-		description: "Announce it when a `watch` whose `wake` is on matches while the agent is idle.",
+		description: "Announce it when a `watch` whose `wake` is on matches, once the agent is idle.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",

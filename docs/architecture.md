@@ -188,7 +188,7 @@ The hooks an extension uses most:
 | `tool_execution_end` | Observe a finished call: mark work done, nudge the model, publish an event. |
 | `agent_before_settle` | Add one more request before the run settles. `todo` uses it to remind the model to update the list. |
 | `context` | Filter or dedupe injected context before it reaches the model, so repeated instructions do not accumulate. |
-| `agent_settled` | One inert entry per settled turn, drawn by a registered entry renderer. `bytefly` appends its turn receipt, so the registration order decides the reading order. |
+| `agent_settled` | One inert entry per settled turn, drawn by a registered entry renderer; the pending-report channel also retries a wake a running turn suppressed, unless the run was aborted. `bytefly` appends its turn receipt, so the registration order decides the reading order. |
 
 A tool definition carries four contract fields this package relies on, and this
 page names them rather than restating them: `annotations` (including
