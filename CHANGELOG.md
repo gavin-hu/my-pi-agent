@@ -32,10 +32,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   derives it from that name.
 - `plan`: a review can be **shared**. **Share** in the browser page (or `/plan
   share`) mints a reviewer link with a QR a teammate on the same network opens to
-  read the plan and comment under their own name; **Stop sharing** revokes it. Only
-  the owner's own page approves — a reviewer token is refused on approve, cancel,
-  and share — comments arrive as `> [!REVIEW] @alice: …`, and every open page
-  follows the change stream instead of waiting for a reload.
+  read the plan and comment under their own name; **Stop sharing** revokes it.
+  A reviewer can only post comments: her page renders **Post comments** and no
+  approve, save, or close action, posting writes `> [!REVIEW] @alice: …` and never
+  ends the review, and only the owner's own **Save feedback**, **Approve & run**,
+  or **Back to Pi** does. Every open page follows the change stream instead of
+  waiting for a reload, and a page that stops updating says why (`closed`, or
+  `revoked` when sharing was stopped).
+- Tooling: `bun run screenshot:plan --as reviewer` captures the page a shared
+  review link opens, so the reviewer's action set can be rendered without a second
+  machine; it shares to a loopback-as-LAN snapshot and never binds a real
+  interface.
 - `session-bus`: a session can arm its own inbox watch — `session({action:"watch"})`
   or `/sessions watch [off|wake]` — so new mail previews at its next turn, or raises
   one turn when `wake` is set, as soon as the session is idle. `wake` is a mode:

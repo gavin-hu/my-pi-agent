@@ -53,6 +53,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     cancel.addEventListener("click", closeComposer);
     var add = el("button"); add.type = "button"; add.className = "bf-btn bf-btn--primary"; add.textContent = "Add comment";
     var submit = function () {
+      if (closed) { setStatus("The review is closed; this comment was not added.", "error"); return; }
       if (role === "reviewer" && !reviewerName) { askName(); return; }
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }

@@ -146,6 +146,11 @@ describe("plan review shot arguments", () => {
 		expect(options.waitMs).toBe(100);
 	});
 
+	test("--as captures the reviewer's page", () => {
+		expect(parsePlanReviewArgs(["plan.md"]).role).toBe("owner");
+		expect(parsePlanReviewArgs(["plan.md", "--as", "reviewer"]).role).toBe("reviewer");
+	});
+
 	test("rejects a missing plan, an unknown flag, and bad values", () => {
 		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
 			[[], "a plan path is required"],
@@ -155,6 +160,7 @@ describe("plan review shot arguments", () => {
 			[["plan.md", "--scale", "0"], "--scale must be positive"],
 			[["plan.md", "--wait", "-1"], "--wait must not be negative"],
 			[["plan.md", "--width"], "--width needs a value"],
+			[["plan.md", "--as", "admin"], "--as must be owner or reviewer"],
 		];
 		for (const [argv, message] of invalid) {
 			expect(() => parsePlanReviewArgs(argv), argv.join(" ")).toThrow(message);

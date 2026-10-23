@@ -215,21 +215,26 @@ ${WEB_COMPONENTS_CSS}
  * for first and defers to the shortcut sheet (`?`) for the rest, so the line does
  * not have to grow every time a binding is added.
  */
-function reviewHints(canApprove: boolean): string {
+function reviewHints(role: ReviewRole, canApprove: boolean): string {
 	const approve = canApprove ? `, <kbd class="bf-kbd">a</kbd> to approve` : "";
-	return `<p class="review-hints">Press <kbd class="bf-kbd">j</kbd>/<kbd class="bf-kbd">k</kbd> to move, <kbd class="bf-kbd">c</kbd> to comment${approve}, <kbd class="bf-kbd">s</kbd> to save, <kbd class="bf-kbd">?</kbd> for all shortcuts.</p>`;
+	const save = role === "owner" ? "save" : "post";
+	return `<p class="review-hints">Press <kbd class="bf-kbd">j</kbd>/<kbd class="bf-kbd">k</kbd> to move, <kbd class="bf-kbd">c</kbd> to comment${approve}, <kbd class="bf-kbd">s</kbd> to ${save}, <kbd class="bf-kbd">?</kbd> for all shortcuts.</p>`;
 }
 
 /** The shortcut sheet's rows: the review's own keys, led by approve when offered. */
-function reviewKeys(canApprove: boolean): KeyHint[] {
+function reviewKeys(role: ReviewRole, canApprove: boolean): KeyHint[] {
 	const rows: KeyHint[] = [];
 	if (canApprove) rows.push({ keys: "a", label: "Approve and run the plan" });
 	rows.push(
 		{ keys: ["j", "k"], label: "Next and previous block" },
 		{ keys: "c", label: "Comment on the current block" },
 		{ keys: "Enter", label: "Add the comment you are writing" },
-		{ keys: "s", label: "Save feedback and return to Pi" },
-		{ keys: "Esc", label: "Close the composer, the sheet, or the review" },
+		role === "owner"
+			? { keys: "s", label: "Save feedback and return to Pi" }
+			: { keys: "s", label: "Post your comments to the plan" },
+		role === "owner"
+			? { keys: "Esc", label: "Close the composer, the sheet, or the review" }
+			: { keys: "Esc", label: "Close the composer or this sheet" },
 		{ keys: "?", label: "Toggle this sheet" },
 	);
 	return rows;
@@ -292,23 +297,28 @@ export function renderReviewPage(data: ReviewPageData): string {
 <div class="bf-panel review-panel">
 ${reviewFacts()}
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
-${reviewHints(data.canApprove)}
+${reviewHints(data.role, data.canApprove)}
 </div>
 </details>
 `
 		: "";
-	// Approve is the decisive action, so it takes the primary button and Save is
-	// demoted; a comment-only review has no approve button and keeps Save primary.
+	// Approve is the decisive action, so it takes the primary button and the
+	// owner's Save is demoted; a comment-only review has no approve button and
+	// keeps Save primary. A reviewer's one write action is Post, and nothing on
+	// their page closes the review or mints another link.
+	const isOwner = data.role === "owner";
 	const approveButton = data.canApprove
 		? `
 <button type="button" class="bf-btn bf-btn--primary" id="approve">Approve &amp; run</button>`
 		: "";
-	const saveButton = `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save">Save feedback</button>`;
+	const saveControl = isOwner
+		? `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save">Save feedback</button>`
+		: `<button type="button" class="bf-btn bf-btn--primary" id="post">Post comments</button>`;
+	const closeControl = isOwner ? `<button type="button" class="bf-btn" id="cancel">Back to Pi</button>` : "";
 	// Sharing belongs to the owner; a reviewer gets the name they comment under.
-	const shareControl =
-		data.role === "owner"
-			? `<button type="button" class="bf-btn" id="share">Share</button>`
-			: `<button type="button" class="bf-btn" id="reviewer-name" hidden></button>`;
+	const shareControl = isOwner
+		? `<button type="button" class="bf-btn" id="share">Share</button>`
+		: `<button type="button" class="bf-btn" id="reviewer-name" hidden></button>`;
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -325,15 +335,13 @@ ${brandLockup("plan review")}
 <span class="bf-status review-status" id="status" role="status" aria-live="polite"></span>
 <div class="review-controls">
 ${themeToggle()}
-<button type="button" class="bf-btn bf-btn--icon" id="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>${shareControl}${approveButton}
-${saveButton}
-<button type="button" class="bf-btn" id="cancel">Back to Pi</button>
+<button type="button" class="bf-btn bf-btn--icon" id="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>${shareControl}${approveButton}${saveControl}${closeControl}
 </div>
 </div><div class="review-progress" aria-hidden="true"><span class="review-progress__fill" id="progress-fill"></span></div></header>
 <div class="${bodyClass}">
 ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan"></main>
 </div>
-${keysSheet(reviewKeys(data.canApprove))}
+${keysSheet(reviewKeys(data.role, data.canApprove))}
 ${data.canApprove ? approveDialog() : ""}
 ${data.role === "owner" ? shareDialog() : nameDialog()}
 <script type="application/json" id="review-data">${island}</script>

@@ -88,6 +88,26 @@ export const WEB_COLLAB_JS = String.raw`  /**
    */
   function refreshFromServer(event) {
     var kind = event && event.data ? String(event.data).trim() : "";
+    // A terminal frame is the server saying why this page will not update again;
+    // a reviewer has no decision to make, so being told beats reading "Offline".
+    if (kind === "closed") {
+      if (saved || approved || closed) return;
+      closed = true;
+      settleStream();
+      lockActions();
+      setStatus("The review is closed.", "info");
+      updateState();
+      return;
+    }
+    if (kind === "revoked") {
+      if (closed) return;
+      closed = true;
+      settleStream();
+      lockActions();
+      setStatus("The owner stopped sharing this review \u2014 your comments stay in the plan.", "info");
+      updateState();
+      return;
+    }
     if (saved || approved || closed) return;
     if (draftTextarea()) {
       setStatus("A change arrived; finish or discard your draft to see it.");

@@ -50,7 +50,7 @@ export interface ReviewContext {
 	share: () => Promise<ShareResult>;
 	/** Revoke reviewer tokens and stop accepting reviewers. */
 	stopShare: () => Promise<ShareResult>;
-	/** Called after a successful save; the server resolves the session once the response has flushed. */
+	/** Called after the owner's save; the server resolves the session once the response has flushed. */
 	onSaved: (annotations: PlanAnnotation[]) => void;
 	/** Called after a successful approve; the server resolves the session once the response has flushed. */
 	onApprove: (annotations: PlanAnnotation[]) => void;
@@ -169,8 +169,22 @@ export async function handleReviewRequest(
 		const result = pathname === "/api/share" ? await ctx.share() : await ctx.stopShare();
 		return jsonResponse(200, { ok: true, share: result.state, svg: result.svg });
 	}
+	if (pathname === "/api/comment") {
+		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to post comments.");
+		// A reviewer's whole surface: persist the comments they wrote and end
+		// nothing. Only the owner's own save decides the review.
+		if (role !== "reviewer") return jsonError(403, "Only a shared reviewer posts comments.");
+		const annotations = parseAnnotations(body);
+		if (isResponse(annotations)) return annotations;
+		const result = await ctx.save(annotations, role);
+		if (!result.ok) return jsonError(result.status, result.message);
+		return jsonResponse(200, { ok: true });
+	}
 	if (pathname === "/api/feedback") {
 		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to save feedback.");
+		// Returning to the model is the owner's decision; a reviewer posts to
+		// `/api/comment`, so this route can never settle a shared review.
+		if (role !== "owner") return jsonError(403, "Only the plan owner saves this review; a reviewer posts comments.");
 		const annotations = parseAnnotations(body);
 		if (isResponse(annotations)) return annotations;
 		const result = await ctx.save(annotations, role);
