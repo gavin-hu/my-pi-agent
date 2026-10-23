@@ -826,7 +826,9 @@ The intended shape is contract-first: write the API/schema once, claim separate
 outcome slices rather than frontend/backend/test layers, exchange contract and
 build/test events, then merge and run the full check. The bus is not the source of
 truth — the plan, todo list, contract, and git branch are. The `parallel-dev` skill
-carries the full protocol: the workstream table, the turn boundary, and integration.
+carries the full protocol — the workstream table, the turn boundary, and integration
+— and is model-invoked: a request such as "split this across two sessions" can load
+it, and `/skill:parallel-dev` forces it.
 
 ## Related
 
