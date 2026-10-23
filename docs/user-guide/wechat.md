@@ -146,8 +146,9 @@ dismiss.
 
 An unanswered prompt is nudged halfway and then cancelled at the end of its
 window — three minutes for a dialog, ten for a plan review — so an ignored dialog
-cannot freeze the conversation. A plan review is one compact prompt; the plan
-file stays on disk and `2` posts its text. A prompt
+cannot freeze the conversation. A plan review sends the plan file first, then one
+compact prompt; the file stays on disk, and its text is posted instead if the
+upload fails. A prompt
 that goes away before it is answered (a pause, a `/stop`, a shutdown) says it was
 withdrawn rather than claiming the peer timed out. A prompt that cannot be shown
 is answered as cancelled; the peer turn still runs.

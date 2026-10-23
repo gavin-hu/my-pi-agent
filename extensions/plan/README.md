@@ -96,10 +96,10 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   it for approval. The user approves, keeps planning, asks for a refinement, or
   exits plan mode without approving; the last keeps the plan file for a later
   review and records no todo items or goal.
-  On a remote turn (WeChat) the review is one compact editor prompt: the title,
-  step count, first steps, mode status, and four actions (approve, full plan,
-  keep, exit). Any other reply is a refinement request. The plan file is not
-  attached; **full plan** posts the text and asks again.
+  On a remote turn (WeChat) the plan file is sent first, then one compact editor
+  prompt: the title, step count, first steps, mode status, and three actions
+  (approve, keep, exit). Any other reply is a refinement request; if the file
+  upload fails, its text is sent instead.
 - **Browser review on demand.** Press `w` on the review screen (or run
   `/plan review [path]`) to open the plan in a local browser: a reading-first
   page with the plan's H1 as its title, GitHub's Markdown content column, a

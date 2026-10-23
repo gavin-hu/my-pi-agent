@@ -253,11 +253,11 @@ to WeChat. See [Design notes](#design-notes).
 
 ## Outbound files
 
-A remote prompt can deliver a local file first; the transport still supports it,
-but no current flow requires an attachment. The plan review is one compact editor
-prompt: the title, first steps, mode status, and four actions. Replying 2 posts
-the full plan text and asks again; any other text is a refinement. The plan file
-stays on disk. After a Keep decision the user can say “exit plan mode”; the model
+A remote prompt can deliver a local file first. The plan review uses this: the
+plan file is sent before one compact editor prompt with the title, first steps,
+mode status, and three actions. Reply 2 to keep planning or 3 to exit; any other
+text is a refinement. If the upload fails, the plan text is sent instead. The
+plan file stays on disk. After a Keep decision the user can say “exit plan mode”; the model
 calls `cancel_plan_mode`, which needs no plan path and records no todo or goal.
 The flow mirrors the
 reference client: `getuploadurl` → AES-128-ECB encrypt → `POST` the ciphertext

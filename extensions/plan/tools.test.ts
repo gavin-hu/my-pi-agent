@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import type { ExistingTodo } from "../../lib/todo-state.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
@@ -586,7 +586,7 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ editor: "3", cwd: root });
+		const { ctx } = fakeCtx({ editor: "2", cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(false);
 		expect(result.isError).toBeUndefined();
@@ -612,7 +612,7 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx } = fakeCtx({ editor: "4", cwd: root });
+		const { ctx } = fakeCtx({ editor: "3", cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.cancelled).toBe(true);
 		expect(runtime.isEnabled()).toBe(false);
@@ -1064,28 +1064,30 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, customCalls, files, editorCalls, timeouts } = remoteCtx({ cwd: root, editor: "1" });
+		const { ctx, customCalls, files, events, editorCalls, timeouts } = remoteCtx({ cwd: root, editor: "1" });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 		expect(result.details.approved).toBe(true);
 		expect(customCalls).toEqual([]);
-		expect(files).toEqual([]);
+		expect(files).toEqual([{ path: planPath, name: basename(planPath) }]);
+		expect(events).toEqual(["file", "editor"]);
 		const prompt = editorCalls[0]?.title ?? "";
 		expect(prompt).toContain("Plan (1 step)");
 		expect(prompt).toContain("Plan mode is on");
 		expect(prompt).toContain("1. Do it");
+		expect(prompt).toContain("The plan is above.");
 		expect(prompt).toContain("Reply 1 approve");
 		expect(timeouts).toEqual([PLAN_REVIEW_TIMEOUT_MS]);
 	});
 
-	test("keeps the plan file out of the prompt", async () => {
+	test("sends the plan file before the prompt", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
 
-		const { ctx, files, editorCalls } = remoteCtx({ cwd: root, editor: "3" });
+		const { ctx, files, editorCalls } = remoteCtx({ cwd: root, editor: "2" });
 		await call(exit, { plan_path: planPath }, ctx);
-		expect(files).toEqual([]);
-		expect(editorCalls[0]?.title).toContain("Plan (1 step)");
+		expect(files).toEqual([{ path: planPath, name: basename(planPath) }]);
+		expect(editorCalls[0]?.title).toContain("The plan is above.");
 	});
 
 	test("the digest names the plan title when the file has one", async () => {
@@ -1098,21 +1100,35 @@ describe("exit_plan_mode", () => {
 		expect(editorCalls[0]?.title).toContain("Plan: Test plan (1 step)");
 	});
 
-	test("sends the full plan on request, then asks again", async () => {
+	test("removes the full-plan action and keeps planning on 2", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
 
-		const { ctx, posted, files, editorCalls, timeouts } = remoteCtx({
-			cwd: root,
-			editor: ["2", "1"],
-		});
+		const { ctx, posted, files, editorCalls, timeouts } = remoteCtx({ cwd: root, editor: "2" });
 		const result = await call(exit, { plan_path: planPath }, ctx);
-		expect(result.details.approved).toBe(true);
-		expect(files).toEqual([]);
-		expect(editorCalls).toHaveLength(2);
-		expect(timeouts).toEqual([PLAN_REVIEW_TIMEOUT_MS, PLAN_REVIEW_TIMEOUT_MS]);
-		expect(posted.some((text) => text.includes("# Test plan") && text.includes("1. Do it"))).toBe(true);
+		expect(result.details.approved).toBe(false);
+		expect(runtime.isEnabled()).toBe(true);
+		expect(files).toEqual([{ path: planPath, name: basename(planPath) }]);
+		expect(posted).toEqual([]);
+		expect(editorCalls).toHaveLength(1);
+		expect(timeouts).toEqual([PLAN_REVIEW_TIMEOUT_MS]);
+		const prompt = editorCalls[0]?.title ?? "";
+		expect(prompt).not.toContain("full plan");
+		expect(prompt).toContain("2 keep planning");
+	});
+
+	test("falls back to the plan text when the file cannot be sent", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Test plan\n\n1. Do it");
+
+		const { ctx, posted, events, setFileResult } = remoteCtx({ cwd: root, editor: "1" });
+		setFileResult(false);
+		await call(exit, { plan_path: planPath }, ctx);
+		expect(events).toEqual(["file", "post", "editor"]);
+		expect(posted[0]).toContain("# Test plan");
+		expect(posted[0]).toContain("1. Do it");
 	});
 
 	// The review sizes itself to the whole terminal, so it must be an overlay.

@@ -12,13 +12,14 @@
  * signal reaches the browser server so an aborted turn closes it.
  */
 
+import { basename } from "node:path";
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
-import { askHuman, remoteLanguage } from "../../lib/interaction.ts";
+import { askHuman, isRemoteTurn, remoteLanguage } from "../../lib/interaction.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui/chrome.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import type { SectionDigest } from "./plan-text.ts";
-import { extractPlanSteps } from "./steps.ts";
+import { planReviewPrompt, parsePlanReviewReply } from "./review-prompt.ts";
 import { PlanViewComponent, type PlanViewAction } from "./tui.ts";
 import type { PlanReviewResult, PlanReviewSession, PlanWebReview } from "./web.ts";
 
@@ -27,9 +28,6 @@ interface PlanReviewChoice {
 	action: PlanViewAction;
 	refinement?: string;
 }
-
-/** A dialog-only choice: post the full plan text, then ask again. Never returned. */
-type ReviewChoice = PlanReviewChoice | { action: "send" };
 
 /** What a review decided, and the plan state it decided on. */
 export type ReviewDecision =
@@ -77,59 +75,10 @@ const REFINE_PROMPT = "Refine the plan — what should change? (Enter to save, E
  */
 export const PLAN_REVIEW_TIMEOUT_MS = 600_000;
 
-/** How much of one step the remote digest shows. */
-const DIGEST_STEP_CHARS = 90;
-
-/**
- * One compact remote prompt: title, first steps, mode status, and the action
- * line. The plan file is not attached; “full plan” sends it as text.
- */
-function planReviewPrompt(content: string, language: "zh" | "en"): string {
-	const title = /^#\s+(.+)$/m.exec(content)?.[1]?.trim();
-	const steps = extractPlanSteps(content);
-	const count = steps.length;
-	const head =
-		language === "zh"
-			? `计划${title ? `：${title}` : ""}${count > 0 ? `（${count} 步）` : ""}`
-			: `Plan${title ? `: ${title}` : ""}${count > 0 ? ` (${count} step${count === 1 ? "" : "s"})` : ""}`;
-	const preview = steps.slice(0, 3).map((step, index) => {
-		const text = step.content.replace(/\s+/g, " ").trim();
-		const shown = text.length > DIGEST_STEP_CHARS ? `${text.slice(0, DIGEST_STEP_CHARS - 1)}…` : text;
-		return `${index + 1}. ${shown}`;
-	});
-	const more =
-		count > preview.length
-			? language === "zh"
-				? `… 还有 ${count - preview.length} 步`
-				: `… (${count - preview.length} more)`
-			: "";
-	const status = language === "zh" ? "Plan 模式开启，写入已关闭。" : "Plan mode is on — write access is off.";
-	const actions =
-		language === "zh"
-			? "回复 1 批准，2 查看全文，3 继续规划，4 退出；或直接输入修改意见（想做别的先退出或批准）。"
-			: "Reply 1 approve, 2 full plan, 3 keep, 4 exit — or type feedback to revise. To ask something else, exit or approve first.";
-	return [head, ...preview, more, status, actions].filter((line) => line !== "").join("\n");
-}
-
-/**
- * Parse the one editor reply. Only an exact number or action word is an action;
- * any other non-empty text is a refinement request.
- */
-function parsePlanReviewReply(raw: string): PlanReviewChoice | { action: "send" } {
-	const text = raw.trim();
-	if (text === "") return { action: "cancel" };
-	const key = text.toLowerCase();
-	if (["1", "approve", "批准", "同意"].includes(key)) return { action: "approve" };
-	if (["2", "full", "full plan", "全文", "查看全文"].includes(key)) return { action: "send" };
-	if (["3", "keep", "keep planning", "继续", "继续规划"].includes(key)) return { action: "keep" };
-	if (["4", "exit", "cancel", "quit", "退出", "取消"].includes(key)) return { action: "cancel" };
-	return { action: "refine", refinement: text };
-}
-
 /**
  * Ask the user to review the plan file. The TUI opens the scrollable screen;
  * dialog-capable modes (RPC/WeChat) get one editor prompt. A reply that is not an
- * action is a refinement; asking for the full plan posts it, then asks again.
+ * action is a refinement.
  */
 async function askPlanReview(
 	ctx: ExtensionToolContext,
@@ -137,38 +86,34 @@ async function askPlanReview(
 	baseline: SectionDigest[] | undefined,
 ): Promise<PlanReviewChoice> {
 	const language = remoteLanguage(ctx) ?? "en";
-	let sendFullText = false;
-	for (;;) {
-		const outcome = await askHuman<ReviewChoice>(ctx, {
-			custom: async () => {
-				const choice = await ctx.ui.custom<PlanReviewChoice | undefined>(
-					(tui, theme, _keybindings, done) =>
-						new PlanViewComponent({
-							plan,
-							baseline,
-							theme,
-							onClose: (action, refinement) => done({ action, refinement }),
-							requestRender: () => tui.requestRender(),
-							viewportRows: () => tui.terminal?.rows,
-							tui,
-						}),
-					FULL_SCREEN_OVERLAY,
-				);
-				return choice ?? { action: "keep" };
-			},
-			dialogs: async () => {
-				const answer = await ctx.ui.editor(planReviewPrompt(plan.content, language), "");
-				return parsePlanReviewReply(answer ?? "");
-			},
-			// A remote turn gets one compact prompt; the full plan is sent only when
-			// the user chooses it, then the same prompt asks again.
-			body: sendFullText ? plan.content : undefined,
-			timeoutMs: PLAN_REVIEW_TIMEOUT_MS,
-		});
-		sendFullText = false;
-		if (outcome.action !== "send") return outcome;
-		sendFullText = true;
-	}
+	const remote = isRemoteTurn(ctx);
+	return askHuman<PlanReviewChoice>(ctx, {
+		custom: async () => {
+			const choice = await ctx.ui.custom<PlanReviewChoice | undefined>(
+				(tui, theme, _keybindings, done) =>
+					new PlanViewComponent({
+						plan,
+						baseline,
+						theme,
+						onClose: (action, refinement) => done({ action, refinement }),
+						requestRender: () => tui.requestRender(),
+						viewportRows: () => tui.terminal?.rows,
+						tui,
+					}),
+				FULL_SCREEN_OVERLAY,
+			);
+			return choice ?? { action: "keep" };
+		},
+		dialogs: async () => {
+			const answer = await ctx.ui.editor(planReviewPrompt(plan.content, language, remote), "");
+			return parsePlanReviewReply(answer ?? "");
+		},
+		// The full plan is the artifact under review, so it goes out before the
+		// choices; if the upload fails, the same text is the fallback.
+		file: { path: plan.path, name: basename(plan.relativePath) },
+		body: plan.content,
+		timeoutMs: PLAN_REVIEW_TIMEOUT_MS,
+	});
 }
 
 /** How a browser review may decide, and what to report when it opens. */
