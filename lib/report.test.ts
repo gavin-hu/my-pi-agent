@@ -196,7 +196,9 @@ describe("registerPendingChannel", () => {
 	/** The runtime seam, recording each call in the order the hooks make it. */
 	function fakeRuntime(log: string[]): PendingChannelRuntime {
 		return {
-			load: () => log.push("load"),
+			load: () => {
+				log.push("load");
+			},
 			setStatus: () => log.push("status"),
 			shutdown: async () => {
 				log.push("shutdown");
@@ -230,6 +232,46 @@ describe("registerPendingChannel", () => {
 		});
 		await emit(pi, "session_start", {}, ctx);
 		expect(log).toEqual(["sessionStart", "load", "arm"]);
+	});
+
+	test("an async load settles before the report trigger is armed", async () => {
+		const log: string[] = [];
+		const { pi } = createFakePi();
+		const runtime: PendingChannelRuntime = {
+			load: async () => {
+				await Promise.resolve();
+				log.push("load");
+			},
+			shutdown: async () => {
+				log.push("shutdown");
+			},
+		};
+		registerPendingChannel(pi, {
+			reporter: fakeReporter(log).reporter,
+			runtime,
+			onSessionStart: () => log.push("arm"),
+		});
+		await emit(pi, "session_start", {}, ctx);
+		expect(log).toEqual(["sessionStart", "load", "arm"]);
+	});
+
+	test("a runtime without a status chip still arms and survives a repaint", async () => {
+		const log: string[] = [];
+		const { pi } = createFakePi();
+		registerPendingChannel(pi, {
+			reporter: fakeReporter(log).reporter,
+			runtime: {
+				load: () => {
+					log.push("load");
+				},
+				shutdown: async () => {
+					log.push("shutdown");
+				},
+			},
+		});
+		await emit(pi, "session_tree", {}, ctx);
+		await emit(pi, "session_start", {}, ctx);
+		expect(log).toEqual(["sessionStart", "load"]);
 	});
 
 	test("tree navigation only repaints", async () => {

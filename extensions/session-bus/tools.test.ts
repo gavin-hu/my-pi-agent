@@ -112,6 +112,44 @@ describe("session tool", () => {
 		await backend.bus.stop();
 	});
 
+	test("watch arms, reports a turn-start notice, and stops", async () => {
+		const dir = busDir();
+		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
+		const backend = session(dir, "/repo/backend", "s2", "backend");
+		await frontend.bus.start(frontend.ctx);
+		await backend.bus.start(backend.ctx);
+
+		const armed = await backend.tool.execute("call", { action: "watch" }, undefined, undefined, backend.ctx);
+		expect(armed.details.watching).toEqual({ armed: true, wake: false });
+		expect(armed.content[0]?.text).toContain("next turn");
+
+		await frontend.bus.send({ to: "backend", text: "is checkout.ts free?" });
+		await backend.bus.poll();
+		expect(backend.bus.pending().map((message) => message.fromLabel)).toEqual(["frontend"]);
+
+		const stopped = await backend.tool.execute(
+			"call",
+			{ action: "watch", stop: true },
+			undefined,
+			undefined,
+			backend.ctx,
+		);
+		expect(stopped.details.watching).toEqual({ armed: false, wake: false });
+		expect(stopped.content[0]?.text).toContain("Inbox watch off");
+		await frontend.bus.stop();
+		await backend.bus.stop();
+	});
+
+	test("the watch transcript line says which mode is on", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const rendered = frontend.tool.renderResult(
+			{ content: [], details: { action: "watch", watching: { armed: true, wake: true } } },
+			{ expanded: false },
+			fakeTheme,
+		);
+		expect(rendered.render(80).join("\n")).toContain("wakes a turn");
+	});
+
 	test("an invalid action returns a model-readable error", async () => {
 		const dir = busDir();
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");

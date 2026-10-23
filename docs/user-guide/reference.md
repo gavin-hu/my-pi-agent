@@ -46,6 +46,7 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/context compact [instructions]` | Compact from the report; refused while a turn is running |
 | `/sessions` | List parallel sessions, their unread counts, and path claims |
 | `/sessions name <label>` | Name this session for other sessions |
+| `/sessions watch [off\|wake]` | Report new mail at this session's next turn, or raise one (`wake`); `off` stops it |
 
 ### Worktrees, rewind, and memory
 

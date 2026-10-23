@@ -49,6 +49,8 @@ export interface SessionStatus {
 	me: { id: string; label: string };
 	sessions: Array<SessionRecord & { unread: number }>;
 	claims: ClaimRecord[];
+	/** Present only when this session armed its inbox watch. */
+	watching?: { armed: boolean; wake: boolean };
 }
 
 /** A conflict returned by `session claim`. */
@@ -60,7 +62,7 @@ export interface ClaimConflict {
 
 /** Structured result carried in the `session` tool's details. */
 export interface SessionDetails {
-	action: "status" | "send" | "inbox" | "claim" | "release";
+	action: "status" | "send" | "inbox" | "claim" | "release" | "watch";
 	status?: SessionStatus;
 	delivered?: string[];
 	messageId?: string;
@@ -69,5 +71,7 @@ export interface SessionDetails {
 	conflicts?: ClaimConflict[];
 	released?: string[];
 	notOwned?: string[];
+	/** Whether the inbox watch is on, and whether it raises a turn. */
+	watching?: { armed: boolean; wake: boolean };
 	error?: string;
 }

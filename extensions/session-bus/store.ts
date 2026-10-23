@@ -29,6 +29,8 @@ export interface BusStore {
 	sessions(): Promise<SessionRecord[]>;
 	removeSession(id: string): Promise<void>;
 	writeMessage(target: string, message: BusMessage): Promise<void>;
+	/** Read a recipient's messages without consuming them, oldest first. */
+	peek(id: string, limit: number): Promise<BusMessage[]>;
 	inbox(id: string, limit: number): Promise<BusMessage[]>;
 	unread(id: string): Promise<number>;
 	claims(): Promise<ClaimRecord[]>;
@@ -265,6 +267,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			await mkdir(directory, { recursive: true, mode: DIR_MODE });
 			await writeJson(join(directory, `${message.id}.json`), message);
 		},
+
+		peek: (id, limit) => readMessages(id, limit, false),
 
 		inbox: (id, limit) => readMessages(id, limit, true),
 

@@ -13,7 +13,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL, type JobFinishedEvent } from "../../lib/events.ts";
-import { noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
+import { burstText, noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
 import { createPendingReporter, registerPendingChannel } from "../../lib/report.ts";
 import { registerCommands } from "./commands.ts";
 import { formatCompletion, jobOutcome, shortLabel } from "./format.ts";
@@ -25,8 +25,13 @@ import type { JobRecord } from "./types.ts";
 const JOB_CONTEXT_MARKER = "[BACKGROUND JOBS]";
 
 function buildContext(jobs: JobRecord[]): string {
-	const lines = jobs.map((job) => formatCompletion(job));
-	return `${JOB_CONTEXT_MARKER}\n${jobs.length} background job${jobs.length === 1 ? "" : "s"} finished:\n${lines.join("\n")}\nRun \`job logs <id>\` for output.`;
+	const count = jobs.length;
+	return burstText({
+		marker: JOB_CONTEXT_MARKER,
+		headline: `${count} background job${count === 1 ? "" : "s"} finished`,
+		lines: jobs.map((job) => formatCompletion(job)),
+		hint: "Run `job logs <id>` for output.",
+	});
 }
 
 /** The shared notice for pending completions: model text plus renderer details. */

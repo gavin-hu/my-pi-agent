@@ -11,8 +11,10 @@
  *
  * `content` is what the model reads; `details` is never sent to the model and
  * is the renderer's whole input, so a producer states the facts once and the
- * renderer decides the look. Value-only: constants and pure functions, no
- * state.
+ * renderer decides the look. `burstText` is the one assembly of that content for
+ * a burst of pending outcomes, so a job completion, a watch match, and a bus
+ * message are laid out by the same code. Value-only: constants and pure
+ * functions, no state.
  */
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
@@ -66,6 +68,31 @@ export type NoticeEntry = AgentMessage & { customType: string; details?: NoticeD
 /** Build a visible notice message: shared type, `display: true`, the given content and details. */
 export function noticeMessage(input: NoticeInput): NoticeMessage {
 	return { customType: NOTICE_TYPE, content: input.content, display: true, details: input.details };
+}
+
+/** The parts of one burst of pending outcomes, as the model reads them. */
+export interface BurstTextInput {
+	/** The marker embedded in the injected context, e.g. `[BACKGROUND JOBS]`. */
+	marker: string;
+	/** The counted headline without its colon, e.g. `2 background jobs finished`. */
+	headline: string;
+	/** One line per outcome, already formatted by the caller. */
+	lines: readonly string[];
+	/** A trailing count of the rows the caller left out, e.g. `… 3 more matches`. */
+	more?: string;
+	/** How to read the rest, e.g. 'Run `job logs <id>` for output.'. */
+	hint?: string;
+}
+
+/**
+ * The model-facing text of a burst: marker, counted headline, one line per
+ * outcome, and the caller's own tail. The joins and the colon live here so a
+ * `job` completion, a `watch` match, and a bus message read alike; the wording,
+ * the cap, and the hint stay with the extension that knows them.
+ */
+export function burstText(input: BurstTextInput): string {
+	const { marker, headline, lines, more, hint } = input;
+	return [marker, `${headline}:`, ...lines, ...(more ? [more] : []), ...(hint ? [hint] : [])].join("\n");
 }
 
 /** Whether a conversation message is a notice. */

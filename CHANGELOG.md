@@ -14,15 +14,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the owner's own page approves — a reviewer token is refused on approve, cancel,
   and share — comments arrive as `> [!REVIEW] @alice: …`, and every open page
   follows the change stream instead of waiting for a reload.
+- `session-bus`: a session can arm its own inbox watch — `session({action:"watch"})`
+  or `/sessions watch [off|wake]` — so new mail previews at its next turn, or raises
+  one turn when `wake` is set and the session is idle. The bus announces and never
+  consumes, arming is per session and session-only, and nothing arms on session
+  start, so an unarmed session stays pull-only. It polls this session's own inbox
+  every 2 s and reports through the shared pending channel that `job` and `watch`
+  use, which now also accepts an async `load` and a runtime without a status chip;
+  the notice text is one `burstText` assembly shared by all three.
 - `skills`: a model-invoked `parallel-dev` skill runs parallel work as a lead and a
   team: a lead accountable for the contract, the shared files, merge order and a green
   baseline who also owns a workstream of its own, one owner per disjoint outcome slice
   rather than per UI/backend/test layer, a walking skeleton first, and a turn boundary
-  at every coordination point. The bus never wakes a session, so the user starts, names,
-  and switches each one — a lead can leave a message but not a turn, and the team is
-  sized to the switches the user will actually pay. A shared-file change is proposed by
-  an owner and landed by the lead, verification stays independent, and the skill stops
-  when there is no stable contract, no accountable lead, or a split not worth a team.
+  at every coordination point. The bus wakes nothing unless an owner arms its inbox
+  watch, so the user starts, names, and switches each one — a lead can leave a message
+  but not a turn, and the team is sized to the switches the user will actually pay. A
+  shared-file change is proposed by an owner and landed by the lead, verification stays
+  independent, and the skill stops when there is no stable contract, no accountable
+  lead, or a split not worth a team.
 - `session-bus`: a new local coordination extension for parallel Pi sessions. The
   `session` tool and `/sessions` let peers on one repository discover each other,
   exchange short messages and events, consume a pull-based inbox, and claim
