@@ -6,7 +6,6 @@ import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import type { ExistingTodo } from "../../lib/todo-state.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { withAgentDir } from "../../test/helpers/env.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
@@ -655,9 +654,8 @@ describe("exit_plan_mode", () => {
 		const plan = ["Plan:", "1. Read the parser", "2. Add a tokenizer", "3. Update tests"].join("\n");
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, plan);
 
-		// Accept the goal offer when it is asked: whether it is asked at all comes from
-		// the developer's own `plan.goalPrompt`, and a machine with no agent config
-		// asks. Either way the approval records the goal, which is what this asserts.
+		// Accept the goal offer: the approval records the goal, which is what this
+		// asserts.
 		const { ctx, toolCalls } = fakeCtx({ editor: "1", confirm: true, cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 
@@ -1160,32 +1158,20 @@ describe("exit_plan_mode", () => {
 		/** Approve `content` through the dialog path with the given fake ctx options. */
 		async function approve(
 			content: string,
-			options: { confirm?: boolean; branch?: unknown[]; executeError?: string; goalPrompt?: boolean } = {},
+			options: { confirm?: boolean; branch?: unknown[]; executeError?: string } = {},
 		) {
-			// The tool reads `plan.goalPrompt` from the shared document, whose global layer
-			// is the developer's own agent dir; a temp one keeps this machine's file from
-			// deciding what these tests see.
-			return withAgentDir(async () => {
-				const { enter, exit, write, runtime, root } = setup();
-				await enterPlan(enter, runtime, root);
-				const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
-				if (options.goalPrompt !== undefined) {
-					mkdirSync(join(root, ".pi"), { recursive: true });
-					writeFileSync(
-						join(root, ".pi", "bytefly.json"),
-						JSON.stringify({ plan: { goalPrompt: options.goalPrompt } }),
-					);
-				}
-				const fake = fakeCtx({
-					editor: "1",
-					confirm: options.confirm ?? true,
-					branch: options.branch,
-					executeError: options.executeError,
-					cwd: root,
-				});
-				const result = await call(exit, { plan_path: planPath }, fake.ctx);
-				return { ...fake, result };
-			}, "plan-global-");
+			const { enter, exit, write, runtime, root } = setup();
+			await enterPlan(enter, runtime, root);
+			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
+			const fake = fakeCtx({
+				editor: "1",
+				confirm: options.confirm ?? true,
+				branch: options.branch,
+				executeError: options.executeError,
+				cwd: root,
+			});
+			const result = await call(exit, { plan_path: planPath }, fake.ctx);
+			return { ...fake, result };
 		}
 
 		test("offers the plan's title and records it as the goal when accepted", async () => {
@@ -1198,26 +1184,6 @@ describe("exit_plan_mode", () => {
 				),
 			).toBe(true);
 			expect(result.content[0].text).toContain("Recorded the session goal: Add rate limiting.");
-		});
-
-		test("records the goal without asking when the offer is off", async () => {
-			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", {
-				goalPrompt: false,
-			});
-
-			expect(confirms).toEqual([]);
-			expect(
-				toolCalls.some(
-					(entry) => entry.name === "goal" && (entry.args as { objective: string }).objective === "Add rate limiting",
-				),
-			).toBe(true);
-			expect(result.content[0].text).toContain("Recorded the session goal: Add rate limiting.");
-		});
-
-		test("still asks when the offer is stated as on", async () => {
-			const { confirms } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", { goalPrompt: true });
-
-			expect(confirms.map((entry) => entry.message)).toEqual(["Add rate limiting"]);
 		});
 
 		test("records nothing when the offer is declined", async () => {

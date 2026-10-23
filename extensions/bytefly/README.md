@@ -675,14 +675,14 @@ once when the section first appears, so an edited `SKILL.md` shows on the next
 open.
 
 **Settings.** The third section uses the same frame and the same `Tab` scope
-switch, with its own cursor. It is the shortlist a session changes: thirteen
+switch, with its own cursor. It is the shortlist a session changes: twelve
 preferences on one flat line each, the value beside its label, and no group
 headings. The whole list fits a 24-row terminal, and the frame stops growing
 there however tall the terminal is.
 
 ```
 Bytefly ──────────────────────────────────────────────────────────────
-  Extensions · Skills · Settings                    Global · 13 settings
+  Extensions · Skills · Settings                    Global · 12 settings
 
 ❯ ◻ Bytefly startup TUI  Off
   ◼ Theme  system
@@ -692,7 +692,6 @@ Bytefly ────────────────────────
   ◼ Job finished  On
   ◼ Watcher matched  On
   ◻ Wake when a job finishes  Off
-  ◼ Offer the session goal  On
   ◼ Automatic snapshots  On
   ◼ Proactive health check  On
     Currency  CNY (¥)
@@ -706,7 +705,7 @@ Bytefly ────────────────────────
 ──────────────────────────────────────────────────────────────────────
 ```
 
-<img src="../../assets/bytefly-settings.png" alt="The /bytefly Settings section: one flat list of thirteen preferences with each value beside its label, the `Global · 13 settings` counts, and a three-row detail pane naming the focused row's source, description, and file" width="100%">
+<img src="../../assets/bytefly-settings.png" alt="The /bytefly Settings section: one flat list of twelve preferences with each value beside its label, the `Global · 12 settings` counts, and a three-row detail pane naming the focused row's source, description, and file" width="100%">
 
 | Row | Source | Values |
 |---|---|---|
@@ -718,7 +717,6 @@ Bytefly ────────────────────────
 | Job finished | `notify.jobFinished` | Off, On |
 | Watcher matched | `notify.matchFound` | Off, On |
 | Wake when a job finishes | `job.wakeOnFinish` | Off, On |
-| Offer the session goal | `plan.goalPrompt` | Off, On |
 | Automatic snapshots | `rewind.autoSnapshots` | Off, On |
 | Proactive health check | `doctor.proactive` | Off, On |
 | Currency | `price.currency.code` | CNY, USD |
@@ -751,20 +749,20 @@ shows where the value comes from — `Global · ~/.pi/agent/bytefly.json`, `Proj
 — even when the terminal is too short for the detail body — and closing offers
 the same reload confirm as an extension or skill toggle.
 
-The list is capped at thirteen rows so the screen keeps fitting a 24-row
+The list is capped at twelve rows so the screen keeps fitting a 24-row
 terminal: adding a setting means removing one (`panel/panel.test.ts` holds the
 ceiling). Everything else stays in `bytefly.json` — the tuning numbers, the
 cosmetic labels, and the Pi preferences Pi's own `/settings` owns — and
 `test/settings-coverage.test.ts` keeps the split honest: every loader key is
-either a row or a declared JSON-only edit with the reason it left. Five
-`bytefly.json` sections therefore have no row at all (`chrome`, `goal`, `watch`,
-`worktree`, `memory`), as do `notify.title`, `doctor.timeoutMs`,
+either a row or a declared JSON-only edit with the reason it left. Six
+`bytefly.json` sections therefore have no row at all (`chrome`, `goal`, `plan`,
+`watch`, `worktree`, `memory`), as do `notify.title`, `doctor.timeoutMs`,
 `price.currency.decimals`, `rewind.max`, `rewind.safetySnapshot`,
 `job.detachedByDefault`, and `watch.wakeOnMatch` inside sections that do. Each is
 documented in [`docs/configuration.md`](../../docs/configuration.md).
 
-Three of the six sections belong to other extensions (`rewind`, `job`, and
-`plan`). The screen cannot import their normalizers, so it reports the leaf as
+Two of the five sections belong to other extensions (`rewind` and `job`). The
+screen cannot import their normalizers, so it reports the leaf as
 the file states it and declares the loader's default; the same test holds the
 catalogue to every loader's defaults and bounds in both directions.
 
@@ -776,7 +774,7 @@ with `true` or `false`.
 
 App rows are **Global only**: Pi's setters for them write the personal
 `settings.json`, and only resource paths have public project setters. Project
-scope therefore lists the eleven `bytefly.json` rows and a
+scope therefore lists the ten `bytefly.json` rows and a
 `App settings are Global only.` note rather than promising a write that cannot
 happen. A `bytefly.json` row writes one leaf in the selected scope (a depth-1
 key, or a nested one such as `price.currency.code`) through a per-key writer, so
@@ -788,16 +786,19 @@ The non-`tui` form prints the headline and one `Label: Value` row per line, in
 screen order:
 
 ```
-bytefly: Settings · Global · 14 settings
+bytefly: Settings · Global · 12 settings
   Bytefly startup TUI: Off
-  Theme: system
-  Desktop notifications: Off
+  Theme: bytefly-dark
+  Desktop notifications: On
   Turn finished: On
   Needs input: On
   Job finished: On
   Watcher matched: On
-  Delivery method: Auto
-  ...
+  Wake when a job finishes: On
+  Automatic snapshots: On
+  Proactive health check: On
+  Currency: CNY (¥)
+  Session budget: 5
 ```
 
 The doctor side probes every declared extension and reports each check as `ok`,
@@ -1034,7 +1035,7 @@ command.
 - **The list is a shortlist, not the whole document.** A row is one boolean,
   enum, string, or number; the tuning numbers, the labels, and the Pi
   preferences `/settings` owns stay in their files, and the catalogue is capped
-  at thirteen rows so the screen fits a 24-row terminal. `doctor.skip` (an
+  at twelve rows so the screen fits a 24-row terminal. `doctor.skip` (an
   array), the `rates` table, and `price.peak` (a nested object) could never be a
   row; the rest are declared JSON-only with their reason in
   `test/settings-coverage.test.ts`.
@@ -1498,7 +1499,7 @@ columns, gauge), so the look follows the active theme.
 | `panel/types.ts` | `PanelSection` (`extensions` | `skills` | `settings`), `PanelRow` with its optional skill info, `SkillInfo`, and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering; the skills model that labels rows from `SKILL.md`. |
 | `panel/format.ts` | Non-TUI text: the resource headline and grouped listing with a per-row verdict, the section segments and their order, the Settings counts/headline, and the flat Settings listing. |
-| `panel/settings.ts` | The curated Settings catalogue: the thirteen descriptors in screen order, snapshot views and origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |
+| `panel/settings.ts` | The curated Settings catalogue: the twelve descriptors in screen order, snapshot views and origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |
 | `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-leaf `bytefly.json` writes, dirty state, and change listeners. |
 | `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
 | `panel/skills.ts` | Skill metadata through Pi's own `loadSkills`, keyed by resolved path, plus the deduplicated paths both discovery views read. |

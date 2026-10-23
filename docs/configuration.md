@@ -24,7 +24,6 @@ section and every key with its type, default, and bounds.
 - [`file-read` — document and spreadsheet extraction](#file-read--document-and-spreadsheet-extraction)
 - [`file-browse` — the local file server](#file-browse--the-local-file-server)
 - [`goal` — the goal widget](#goal--the-goal-widget)
-- [`plan` — plan mode](#plan--plan-mode)
 - [`job` — background jobs](#job--background-jobs)
 - [`watch` — file and command watchers](#watch--file-and-command-watchers)
 - [`memory` — durable notes](#memory--durable-notes)
@@ -145,14 +144,13 @@ the file for the scope you want, and the next session reads it.
 | keep more snapshots, or turn off the pre-restore one | `rewind.max`, `rewind.safetySnapshot` below |
 | wake the agent when a job finishes, or keep jobs after exit | **Wake when a job finishes**, `job.detachedByDefault` |
 | wake the agent on a watcher match | `watch.wakeOnMatch` below |
-| stop the goal prompt when a plan is approved | **Offer the session goal** in `/bytefly settings` |
 | stop injecting memory notes | `memory.inject` below |
 | choose the worktree base, branch prefix, fetch, or prune age | `worktree` below |
 | pin the browser's port | [`file-browse`](#file-browse--the-local-file-server) |
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — thirteen
+`/bytefly settings` is a shortlist of the preferences a session changes — twelve
 flat rows, named in bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the rest of this page is the full list.
@@ -191,7 +189,6 @@ repository root rather than the active working directory.
 | [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
-| [`plan`](../extensions/plan/) | `plan` | The offer that records an approved plan as the session goal. |
 | [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
 | [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
 | [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
@@ -243,8 +240,8 @@ inclusive, `to` exclusive, and a `to` at or before `from` wraps past midnight.
 
 ## `notify` — OS notifications
 
-Read at `session_start`; `/bytefly settings` edits `enabled`, the four triggers,
-and `method`. `title` has no row; it is a `bytefly.json` edit.
+Read at `session_start`; `/bytefly settings` edits `enabled` and the four
+triggers. `method` and `title` are `bytefly.json` edits.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
@@ -324,14 +321,6 @@ The settings screen has no row for it; `achieved` is a `bytefly.json` edit.
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
 | `achieved` | string | `"hide"` | `show`, `hide` | How an achieved goal renders: `show` keeps the dimmed rail line, `hide` removes it. |
-
-## `plan` — plan mode
-
-`/bytefly settings` edits `goalPrompt`.
-
-| Key | Type | Default | Values | What it does |
-|---|---|---|---|---|
-| `goalPrompt` | boolean | `true` | | Ask before recording an approved plan's objective as the session goal; `false` records it without asking. |
 
 ## `job` — background jobs
 

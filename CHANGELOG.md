@@ -43,6 +43,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   upload fails, and approval records the session goal without a second confirm.
 - `question`: on a dialog-only host, two or more questions are asked in one batch
   prompt and answered in one reply, with one retry, instead of one dialog each.
+- `plan`: approving from the terminal review asks first. `a` shows
+  `Approve and run the plan? y/N` in the footer, where `y` or `Enter` leaves plan
+  mode and starts the work, and `n`, `q`, or `Esc` returns to the plan where it
+  was left. The browser page already asked, and the phone's one editor prompt is
+  unchanged.
+
+### Removed
+
+- `plan`: the goal prompt can no longer be turned off. Approving a plan in a
+  session with no goal always asks before recording it, and `/bytefly settings`
+  drops the **Offer the session goal** row, so the screen is twelve preferences.
+  `plan.goalPrompt` and the `plan` section of `bytefly.json` are no longer read;
+  delete the section if you set it.
 
 ### Fixed
 

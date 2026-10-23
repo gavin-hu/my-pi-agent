@@ -6,9 +6,11 @@
  * the active Markdown theme, so headings, lists, code, links, and quotes match
  * the rest of the application; plan-authored control characters are stripped
  * first so the file cannot drive the terminal. Task checkboxes are recolored
- * and the footer colors the primary actions. It returns the chosen action
- * through `onClose` so the caller can act
- * only after the screen is gone and input focus is free again.
+ * and the footer colors the primary actions. Approving leaves plan mode and
+ * starts the work, so it asks `y/N` first through the shared `ConfirmState`;
+ * the plan stays mounted, and `Esc` backs out of the question before it backs
+ * out of the review. It returns the chosen action through `onClose` so the
+ * caller can act only after the screen is gone and input focus is free again.
  */
 
 import { basename } from "node:path";
@@ -35,6 +37,7 @@ import {
 	type ViewportRowsSource,
 } from "../../lib/tui/chrome.ts";
 import { isCloseKey } from "../../lib/tui/cursor.ts";
+import { ConfirmState } from "../../lib/tui/confirm.ts";
 import { gaugeBar } from "../../lib/tui/gauge.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { plainRule, titleRule } from "../../lib/tui/rules.ts";
@@ -175,6 +178,8 @@ export class PlanViewComponent implements Component {
 	private cache: BodyCache | null = null;
 	/** True while the inline refine editor owns the keyboard. */
 	private editing = false;
+	/** The y/N approval question, shared with the other destructive screens. */
+	private readonly confirm = new ConfirmState();
 	/** The inline refine editor, built lazily once a TUI handle is available. */
 	private editor: Editor | null = null;
 
@@ -314,6 +319,12 @@ export class PlanViewComponent implements Component {
 			this.options.requestRender();
 			return;
 		}
+		// A pending question owns the keyboard, so a scroll key cannot slip past it
+		// and `Esc` backs out of the question rather than the review.
+		if (this.confirm.pending) {
+			if (this.confirm.resolve(data) !== undefined) this.options.requestRender();
+			return;
+		}
 		if (isCloseKey(data)) {
 			this.options.onClose("keep");
 			return;
@@ -330,8 +341,10 @@ export class PlanViewComponent implements Component {
 		else if (matchesKey(data, Key.end) || data === "G") this.scrollTo(this.maxOffset);
 		else if (data === "n") this.jumpSection(1);
 		else if (data === "p") this.jumpSection(-1);
-		else if (data === "a") this.options.onClose("approve");
-		else if (data === "r") this.startRefine();
+		else if (data === "a") {
+			this.confirm.ask("Approve and run the plan? y/N", () => this.options.onClose("approve"));
+			this.options.requestRender();
+		} else if (data === "r") this.startRefine();
 		else if (data === "w") this.options.onClose("browser");
 		else if (data === "x") this.options.onClose("cancel");
 	}
@@ -400,10 +413,13 @@ export class PlanViewComponent implements Component {
 		} else {
 			if (this.maxOffset > 0) lines.push(scrollRow(theme, w, this.offset, end, body.length, sectionLabel));
 			else lines.push("");
+			const pending = this.confirm.pending;
 			const sectionHints = sections.length > 1 ? SECTION_HINTS : [];
 			const hints: ScreenHint[] =
 				this.maxOffset > 0 ? [...PRIMARY_HINTS, ...SCROLL_HINTS, ...sectionHints] : PRIMARY_HINTS;
-			lines.push(screenHint(theme, w, hints));
+			lines.push(
+				pending ? truncateToWidth(`  ${paint(theme, "warn", pending.prompt)}`, w) : screenHint(theme, w, hints),
+			);
 		}
 		lines.push(plainRule(theme, w));
 		return lines;

@@ -43,10 +43,6 @@ import {
 } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig } from "../extensions/memory/config.ts";
 import {
-	DEFAULT_CONFIG as DEFAULT_PLAN_CONFIG,
-	normalizeConfig as normalizePlanConfig,
-} from "../extensions/plan/config.ts";
-import {
 	DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG,
 	normalizeConfig as normalizeRewindConfig,
 } from "../extensions/rewind/config.ts";
@@ -154,12 +150,6 @@ const SECTIONS: readonly SectionCase[] = [
 		defaults: DEFAULT_GOAL_CONFIG,
 		normalize: (raw) => normalizeGoalConfig(raw, DEFAULT_GOAL_CONFIG),
 		jsonOnly: { achieved: "how a finished goal looks, set once" },
-	},
-	{
-		section: "plan",
-		defaults: DEFAULT_PLAN_CONFIG,
-		normalize: (raw) => normalizePlanConfig(raw, DEFAULT_PLAN_CONFIG),
-		jsonOnly: {},
 	},
 	{
 		section: "job",

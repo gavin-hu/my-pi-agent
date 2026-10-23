@@ -56,7 +56,7 @@ describe precisely.
    | `d` / `u` | Scroll half a page |
    | `g` / `G` | Jump to the start or end |
    | `n` / `p` | Jump to the next or previous heading |
-   | `a` | **Approve and run**: leave plan mode and start the work |
+   | `a` | **Approve and run**: asks `y`/`N`, then leaves plan mode and starts the work |
    | `r` | Refine: type feedback, `Enter` to send it, `Esc` to go back |
    | `w` | Open the plan in the browser for review |
    | `x` | Exit plan mode without approving; the plan file stays |
@@ -86,7 +86,7 @@ describe precisely.
    nothing, so the review screen comes back instead.
 
    When the page was opened from the review screen, it also carries **Approve &
-   run**, which does the same thing as pressing `a` but asks first: the
+   run**: the
    confirmation names what happens, starts on **Cancel**, and only its own
    button approves. A page opened later with `/plan review` is comment-only and
    has no approve action.
