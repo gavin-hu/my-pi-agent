@@ -29,7 +29,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	goal: ["format", "tools", "runtime", "extension"],
 	job: ["runtime", "tools", "tui", "extension"],
 	memory: ["store", "format", "tools", "tui"],
-	plan: ["plans", "tools", "review-prompt", "web", "commands", "runtime", "tui", "extension"],
+	plan: ["plans", "feedback", "tools", "review-prompt", "web", "web-share", "commands", "runtime", "tui", "extension"],
 	question: ["tools", "tui", "extension"],
 	rewind: ["store", "review", "runtime", "extension"],
 	subagent: ["agents", "run", "render", "extension"],

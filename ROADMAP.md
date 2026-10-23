@@ -117,8 +117,9 @@ one-hour cache-write rule included, so a hand-written table could only price
 
 **Today**
 
-- `plan`: four tools, `/plan`, `--plan`, `Ctrl+Alt+P`, a TUI review, and a
-  loopback browser review with inline comments.
+- `plan`: four tools, `/plan`, `--plan`, `Ctrl+Alt+P`, a TUI review, and a browser
+  review with inline comments that an owner can share with a link, so reviewers on
+  one network comment under their own names while only the owner approves.
 - `subagent`: eight built-in agents, single/parallel/chain, read-only mode, a
   per-run deadline, and opt-in per-run transcripts.
 - `todo`, `goal`, `question`, `job`, and `watch` keep the loop visible and
@@ -136,6 +137,11 @@ one-hour cache-write rule included, so a hand-written table could only price
   approval listing (`plan` README); the plan file keeps the full text.
 - Prior plans are only discoverable through `/plan list`, which walks the
   directory on demand; there is no cross-repository history (`plan` README).
+- A shared review reaches one network and one address: there is no tunnel or
+  relay, so a distributed team cannot open the link, and a laptop that changes
+  network changes its link. A reviewer's name is a claim rather than an account, so
+  two people typing one name share one voice, and no comment can be resolved or
+  threaded (`plan` README).
 - A subagent's tokens and cost are published for bytefly's `↳` footer roll-up but
   deliberately never added to the parent session's total, and the roll-up starts
   from zero after `/resume` (`subagent` README).

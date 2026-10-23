@@ -27,6 +27,8 @@ import {
 } from "../../lib/web/index.ts";
 import type { PlanBlock } from "./blocks.ts";
 import type { PlanAnnotation } from "./feedback.ts";
+import type { ReviewRole } from "./types.ts";
+import type { ShareState } from "./web-share.ts";
 
 /** A heading the outline can jump to. */
 export interface ReviewOutlineItem {
@@ -67,6 +69,10 @@ export interface ReviewPageData {
 	limits: { comments: number; comment: number; quote: number };
 	/** Whether the review may approve the plan (only the `exit_plan_mode` flow). */
 	canApprove: boolean;
+	/** Who is looking: `owner` may approve, `reviewer` may only comment. */
+	role: ReviewRole;
+	/** A running share, so a reload re-renders the link the owner already minted. */
+	share?: ShareState;
 	/** Per-session secret the client echoes on every request. */
 	token: string;
 }
@@ -76,6 +82,9 @@ export const REVIEW_CSS = `${WEB_BASE_CSS}
 ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
+.review-share__link{margin:0 0 var(--space-3);font:var(--fs-sm) var(--font-mono);word-break:break-all;color:var(--text)}
+.review-share__qr{display:flex;justify-content:center;margin:0 0 var(--space-3)}
+.review-share__qr svg{width:168px;height:168px;background:#fff;border-radius:var(--radius-md);padding:var(--space-1)}
 .bf-review{--review-measure:1012px;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
 /* The document is one content column at GitHub's Markdown body width, with the
    comment rail inside it, so a plan reads the way the same file does on GitHub. */
@@ -83,9 +92,9 @@ ${WEB_COMPONENTS_CSS}
    hairline reading-progress bar pinned to the header's bottom edge. */
 .review-bar{align-items:center;gap:var(--space-2) var(--space-4)}
 .review-bar .bf-brand{flex:0 0 auto}
-.review-heading{display:flex;align-items:center;flex:1 1 160px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
-.review-title{display:block;flex:1 1 auto;min-width:0;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.review-state{flex:0 0 auto;white-space:nowrap}
+.review-heading{display:flex;align-items:center;flex:1 1 240px;min-width:0;overflow:hidden;border-left:1px solid var(--border);padding-left:var(--space-4)}
+.review-title{display:block;flex:1 1 auto;min-width:8ch;font-size:var(--fs-lg);font-weight:var(--fw-semibold);line-height:var(--lh-tight);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-state{flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-status{flex:0 0 auto;max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-status:empty{display:none}
 .review-controls{display:inline-flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
@@ -150,6 +159,8 @@ ${WEB_COMPONENTS_CSS}
 .bf-comment{padding:var(--space-3) var(--space-4)}
 .bf-comment__head{display:flex;align-items:center;gap:var(--space-2);margin-bottom:6px}
 .bf-comment__label{font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--warn);text-transform:uppercase;letter-spacing:.06em}
+/* A reviewer's name is a name, not a label: keep its own capitalisation. */
+.bf-comment__label--author{text-transform:none;letter-spacing:0}
 .bf-comment__spacer{flex:1 1 auto}
 .bf-comment__actions{display:flex;gap:4px}
 .bf-comment__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
@@ -171,11 +182,20 @@ ${WEB_COMPONENTS_CSS}
 .bf-review{padding:var(--space-4) 18px 80px}
 .review-nav__title{display:none}
 }
-@media (max-width:820px){
+/* The controls are the widest thing in the bar — seven of them once a review can
+   be shared — so the title moves to its own row while they still need a row of
+   their own, rather than being squeezed to nothing beside it. */
+@media (max-width:1120px){
 .review-bar{align-items:flex-start}
 .review-heading{flex:1 1 100%;order:3;border-left:0;padding-left:0;margin-top:var(--space-1)}
 .review-controls{order:2;margin-left:auto}
 .review-status{order:4;flex:1 1 100%;max-width:none;white-space:normal}
+}
+/* Below a phone's width the controls wrap instead of running off the page. */
+@media (max-width:640px){
+.review-controls{flex-wrap:wrap;justify-content:flex-end;max-width:100%}
+.review-heading{gap:var(--space-2)}
+.review-title{min-width:0}
 }
 @media (prefers-reduced-motion:no-preference){.bf-block{transition:background var(--motion-fast) var(--motion-ease)}}
 @media (hover:none){.bf-block__add{opacity:1}}
@@ -232,6 +252,32 @@ function approveDialog(): string {
 }
 
 /**
+ * The owner's Share dialog: the reviewer link, its QR, and the revoke action.
+ * The markup is empty on purpose — the client fills it after the server mints a
+ * token, so a link never travels in the page source.
+ */
+function shareDialog(): string {
+	return `<div class="bf-dialog" id="share-dialog" hidden>
+<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="share-title">
+<div class="bf-dialog__head"><h2 id="share-title">Share this review</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="share-close">Close</button></div>
+<div class="bf-dialog__body"><p class="review-share__link" id="share-link">Minting a link\u2026</p><div class="review-share__qr" id="share-qr"></div><p class="bf-dialog__hint" id="share-note"></p></div>
+<div class="bf-dialog__actions"><button type="button" class="bf-btn" id="share-stop">Stop sharing</button><button type="button" class="bf-btn bf-btn--primary" id="share-copy">Copy link</button></div>
+</div>
+</div>`;
+}
+
+/** The reviewer's name dialog: one line, kept in this browser. */
+function nameDialog(): string {
+	return `<div class="bf-dialog" id="name-dialog" hidden>
+<div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="name-title">
+<div class="bf-dialog__head"><h2 id="name-title">Your name</h2></div>
+<div class="bf-dialog__body"><p>Your comments are signed with this name. It stays in this browser.</p><p class="bf-field"><input class="bf-input" id="name-input" maxlength="40" placeholder="alice" aria-labelledby="name-title"></p></div>
+<div class="bf-dialog__actions"><button type="button" class="bf-btn" id="name-cancel">Cancel</button><button type="button" class="bf-btn bf-btn--primary" id="name-save">Save name</button></div>
+</div>
+</div>`;
+}
+
+/**
  * Render the review page for `data`. The markup is a fixed shell; the client
  * fills every dynamic field, so this function is the only place that needs the
  * JSON-island escaping.
@@ -258,6 +304,11 @@ ${reviewHints(data.canApprove)}
 <button type="button" class="bf-btn bf-btn--primary" id="approve">Approve &amp; run</button>`
 		: "";
 	const saveButton = `<button type="button" class="${data.canApprove ? "bf-btn" : "bf-btn bf-btn--primary"}" id="save">Save feedback</button>`;
+	// Sharing belongs to the owner; a reviewer gets the name they comment under.
+	const shareControl =
+		data.role === "owner"
+			? `<button type="button" class="bf-btn" id="share">Share</button>`
+			: `<button type="button" class="bf-btn" id="reviewer-name" hidden></button>`;
 	return `<!doctype html>
 <html lang="en">
 <head>
@@ -274,7 +325,7 @@ ${brandLockup("plan review")}
 <span class="bf-status review-status" id="status" role="status" aria-live="polite"></span>
 <div class="review-controls">
 ${themeToggle()}
-<button type="button" class="bf-btn bf-btn--icon" id="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>${approveButton}
+<button type="button" class="bf-btn bf-btn--icon" id="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>${shareControl}${approveButton}
 ${saveButton}
 <button type="button" class="bf-btn" id="cancel">Back to Pi</button>
 </div>
@@ -284,6 +335,7 @@ ${outlinePanel}<main class="bf-app__main bf-review" id="plan" aria-label="Plan">
 </div>
 ${keysSheet(reviewKeys(data.canApprove))}
 ${data.canApprove ? approveDialog() : ""}
+${data.role === "owner" ? shareDialog() : nameDialog()}
 <script type="application/json" id="review-data">${island}</script>
 <script src="/client.js" defer></script>
 </body>

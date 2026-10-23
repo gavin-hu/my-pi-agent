@@ -2,15 +2,17 @@
  * Slash command for the plan-mode extension.
  *
  * `/plan` toggles plan mode, or enters it and sends an optional task;
- * `Ctrl+Alt+P` toggles too. Two subcommands are reserved: `/plan review [path]`
+ * `Ctrl+Alt+P` toggles too. Four subcommands are reserved: `/plan review [path]`
  * opens a plan in the browser (and sends saved comments to the model as a
- * refinement), and `/plan list` shows the plans directory, newest first, with
- * Enter opening a review.
+ * refinement), `/plan share [stop]` prints or revokes the link a teammate opens,
+ * `/plan list` shows the plans directory, newest first with Enter opening a
+ * review, and `/plan cancel` leaves the mode without approving.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isRemoteTurn } from "../../lib/interaction.ts";
 import { READ_ONLY_SUMMARY } from "../../lib/plan-entry.ts";
+import { qrLines } from "../../lib/qr.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { PlanIndexComponent, formatPlanIndex } from "./plan-index.ts";
 import { runBrowserReview } from "./review.ts";
@@ -21,6 +23,7 @@ import { createPlanWebReview, type PlanWebReview } from "./web.ts";
 const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
 const REVIEW_PREFIX = "review";
+const SHARE_PREFIX = "share";
 const LIST_PREFIX = "list";
 const CANCEL_PREFIX = "cancel";
 
@@ -65,6 +68,39 @@ function isReviewSubcommand(prompt: string): boolean {
 	if (!prompt.startsWith(`${REVIEW_PREFIX} `)) return false;
 	const target = prompt.slice(REVIEW_PREFIX.length).trim();
 	return target.endsWith(".md") || target.includes("/") || target.includes("\\");
+}
+
+/**
+ * Whether a command line is the reserved `share` subcommand. Exact `share` and
+ * `share stop` are; `share the tokens` stays a task.
+ */
+function isShareSubcommand(prompt: string): boolean {
+	const text = prompt.toLowerCase();
+	return text === SHARE_PREFIX || text === `${SHARE_PREFIX} stop`;
+}
+
+/**
+ * `/plan share`: print the link (and a QR) a teammate opens, or revoke it. The
+ * browser page has the same button; this is the path a phone-owned or remote
+ * session needs, where there is no page to click.
+ */
+async function shareReview(web: PlanWebReview, prompt: string, ctx: ExtensionContext): Promise<void> {
+	const stopping = prompt.toLowerCase().endsWith("stop");
+	const result = stopping ? await web.stopSharing() : await web.share();
+	if (!result) {
+		ctx.ui.notify("Plan share: no browser review is open; run /plan review first.", "warning");
+		return;
+	}
+	if (stopping) {
+		ctx.ui.notify("Plan share: reviewers can no longer open this review.", "info");
+		return;
+	}
+	const link = result.state.links[0];
+	if (!result.state.sharing || !link) {
+		ctx.ui.notify(`Plan share: ${result.state.reason ?? "no link is available"}.`, "warning");
+		return;
+	}
+	ctx.ui.notify(["Review link: " + link.url, ...(await qrLines(link.url))].join("\n"), "info");
 }
 
 /**
@@ -173,11 +209,13 @@ export function registerCommands(
 ): void {
 	pi.registerCommand("plan", {
 		description:
-			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, review one in the browser, or cancel planning without approving",
+			"Toggle plan mode (read-only exploration), enter it with an optional task, list saved plans, review one in the browser, share that review with a link, or cancel planning without approving",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
-			const subcommands = [LIST_PREFIX, REVIEW_PREFIX, CANCEL_PREFIX].filter((name) => name.startsWith(text));
+			const subcommands = [LIST_PREFIX, REVIEW_PREFIX, SHARE_PREFIX, CANCEL_PREFIX].filter((name) =>
+				name.startsWith(text),
+			);
 			return subcommands.length > 0 ? subcommands.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args, ctx) => {
@@ -196,6 +234,10 @@ export function registerCommands(
 			}
 			if (isListSubcommand(prompt)) {
 				await openPlanIndex(pi, runtime, web, ctx);
+				return;
+			}
+			if (isShareSubcommand(prompt)) {
+				await shareReview(web, prompt, ctx);
 				return;
 			}
 			if (isReviewSubcommand(prompt)) {

@@ -35,7 +35,7 @@ import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { repoRootFor } from "../../lib/git/index.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
-import { formatFeedback, type PlanAnnotation } from "./feedback.ts";
+import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
 
 /** Largest plan accepted, in UTF-8 bytes. */
@@ -99,8 +99,13 @@ export interface PlanStore {
 	index(cwd: string): Promise<PlanSummary[]>;
 	/** Set the given top-level steps' checkboxes in an existing plan. Throws when the file or any step is invalid. */
 	setSteps(cwd: string, planPath: string, updates: StepUpdate[]): Promise<StoredPlan>;
-	/** Replace the plan's stored browser feedback. Throws when the file is missing or outside the plans directory. */
-	saveFeedback(cwd: string, planPath: string, annotations: PlanAnnotation[]): Promise<StoredPlan>;
+	/** Replace the comments of `options.author` (the owner when absent) and keep every other writer's. */
+	saveFeedback(
+		cwd: string,
+		planPath: string,
+		annotations: PlanAnnotation[],
+		options?: { author?: string },
+	): Promise<StoredPlan>;
 }
 
 /** Timestamp prefix the plan store adds to file names. */
@@ -275,8 +280,18 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			throw new Error("The plan path is not writable inside the plans directory.");
 		}
 
-		writeAtomic(path, input.content);
-		return { path, relativePath: relativeTo(base, path), title, content: input.content, bytes };
+		// A refinement rewrites the body but not the review: every stored comment is
+		// carried onto the block whose text survived, so revising a plan under review
+		// does not silently discard what a teammate wrote.
+		const previous = existsSync(path) ? readFileSync(path, "utf-8") : undefined;
+		const content = previous === undefined ? carryFeedback("", input.content) : carryFeedback(previous, input.content);
+		const nextBytes = Buffer.byteLength(content, "utf-8");
+		if (nextBytes > MAX_PLAN_BYTES) {
+			throw new Error(`The plan is too large with its review comments (${nextBytes} bytes).`);
+		}
+
+		writeAtomic(path, content);
+		return { path, relativePath: relativeTo(base, path), title, content, bytes: nextBytes };
 	};
 
 	const read = async (cwd: string, planPath: string): Promise<StoredPlan | undefined> => {
@@ -333,14 +348,27 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	};
 
 	/**
-	 * Write the browser review comments into an existing plan, replacing any
-	 * feedback already stored there. The file must already be a contained plan,
-	 * so this is the same path-safe write as `setSteps`.
+	 * Write the browser review comments into an existing plan, replacing the
+	 * comments of `options.author` (the owner when absent) and leaving every other
+	 * writer's in place. The file must already be a contained plan, so this is the
+	 * same path-safe write as `setSteps`.
 	 */
-	const saveFeedback = async (cwd: string, planPath: string, annotations: PlanAnnotation[]): Promise<StoredPlan> => {
+	const saveFeedback = async (
+		cwd: string,
+		planPath: string,
+		annotations: PlanAnnotation[],
+		options: { author?: string } = {},
+	): Promise<StoredPlan> => {
 		const plan = await read(cwd, planPath);
 		if (!plan) throw new Error("No plan file there; pass a plan_path written by write_plan.");
-		const content = formatFeedback(plan.content, annotations);
+		const author = normalizeAuthor(options.author);
+		// An untagged entry is the writer's own; one tagged with a different name is
+		// another writer's comment, so it is dropped rather than re-signed.
+		const own = annotations.filter((annotation) => {
+			const who = normalizeAuthor(annotation.author);
+			return who === "" || who === author;
+		});
+		const content = formatFeedback(plan.content, own, { author });
 		writeAtomic(plan.path, content);
 		return {
 			path: plan.path,

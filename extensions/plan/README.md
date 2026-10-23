@@ -403,7 +403,7 @@ review below.
 
 ## Browser review
 
-<img src="../../assets/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail and an inline review thread" width="100%">
+<img src="../../assets/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a Share action, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail holding the owner's own comment and a teammate's @priya comment" width="100%">
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
 in the default browser on `127.0.0.1`. The page is a reading-first review
@@ -467,10 +467,16 @@ file and returns them to the model.
   `DOMParser`, so a code line is never parsed as markup.
 
 - **The file is the store.** Each comment is written as
-  `> [!REVIEW] <comment>` on the line after the block it anchors to. Saving is
-  idempotent: the previous markers are stripped first, so a second save replaces
-  rather than appends. Stripping is fence-aware: a `> [!REVIEW]` line inside a
-  code block is documentation, not feedback. The browser keeps no copy of its own.
+  `> [!REVIEW] <comment>` on the line after the block it anchors to, tagged with
+  its author when a teammate wrote it (`> [!REVIEW] @alice: <comment>`). Saving is
+  idempotent per writer: that writer's previous markers are replaced and everyone
+  else's are kept, so two people reviewing the same plan cannot erase each other.
+  Stripping is fence-aware: a `> [!REVIEW]` line inside a code block is
+  documentation, not feedback. The browser keeps no copy of its own.
+- **A revision keeps the review.** `write_plan` passes the file it is replacing
+  through `carryFeedback`, which re-attaches each comment to the block whose text
+  survived the rewrite. A comment whose block is gone moves to the end of the
+  file, where the page shows it as unattached, rather than disappearing.
 - **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
   source-line ranges; a comment is placed after the whole anchored block, so a
   fenced code block is never split. A save re-checks the file against what the
@@ -481,9 +487,10 @@ file and returns them to the model.
   save that carries no comments asks for nothing, so the review screen comes back
   instead. `/plan review` sends them as a user message (a plan-mode revision or a
   plain update, depending on the mode).
-- **Loopback and tokenized.** The server binds `127.0.0.1`, carries a random
-  per-session token in the URL, rejects a missing or foreign `Host` header,
-  serves only `GET`, `HEAD`, and `POST`, and caps the request body. A save or cancel
+- **Loopback first, tokenized.** The server binds `127.0.0.1`, carries a random
+  per-session token in the URL, rejects a `Host` header it was not bound on,
+  refuses a cross-origin POST, serves only `GET`, `HEAD`, and `POST`, and caps the
+  request body. Sharing adds a second listener (below); it never widens the first. A save or cancel
   resolves the session only after its HTTP response is delivered, so the browser
   never sees a false "Failed to fetch". The last bound port is remembered per
   plan, so reviewing the same plan again reuses the origin (and the browser's
@@ -496,9 +503,44 @@ file and returns them to the model.
 | `GET /?token=…` | the review page (a JSON data island plus `/theme.js` and `/client.js`) |
 | `GET /theme.js` | the shared pre-paint theme bootstrap |
 | `GET /client.js` | the first-party client script |
-| `GET /events?token=…` | Server-Sent Events stream, used only to detect a closed tab |
-| `POST /api/feedback?token=…` | validate and write the annotations into the plan |
-| `POST /api/cancel?token=…` | end the session without saving |
+| `GET /events?token=…` | Server-Sent Events stream: a `comment`, `plan`, or `share` frame when something changed, and a dropped stream to detect a closed tab |
+| `POST /api/feedback?token=…` | validate and write the annotations into the plan, replacing each writer's own comments and keeping the rest |
+| `POST /api/approve?token=…` | owner only: save, then approve |
+| `POST /api/cancel?token=…` | owner only: end the session without saving |
+| `POST /api/share?token=…` | owner only: mint a reviewer link and its QR |
+| `POST /api/share/stop?token=…` | owner only: revoke every reviewer token |
+
+## Shared review
+
+A review is not only the owner's. **Share** in the review header (or `/plan share`)
+mints one reviewer token, binds a second listener on the machine's first reachable
+IPv4 address, and shows the link with a QR a phone can scan. **Stop sharing**
+revokes the token and closes that listener; closing the review does both.
+
+- **Two roles, two tokens.** The owner's token — the one the browser opened with —
+  may comment and approve. A reviewer token may comment only: `/api/approve`,
+  `/api/cancel`, and `/api/share` answer `403`, and the page never renders the
+  Approve button for it. Anything the reviewer holds is reachable only while the
+  share is on.
+- **Signed comments.** A reviewer names themselves once, on the page; the name is
+  kept in that browser, signs each comment, and is what a save replaces — so a
+  reviewer can edit or withdraw their own notes and nobody else's. A name is a
+  claim, not an account: whoever holds the link can type it, which is why the
+  owner still makes the only decision.
+- **One link, one machine.** Sharing opens exactly the address the dialog printed —
+  never `0.0.0.0` — and the `Host` allowlist becomes loopback plus that address.
+  A machine with no reachable IPv4 address reports why instead of printing a link
+  that cannot work. There is no tunnel, no relay, and no cross-machine sync: this
+  is the same Wi-Fi.
+- **Live.** Every open page follows the stream, so a comment appears on the
+  owner's page without a reload, and a revision saved on disk reaches the
+  reviewers. A page with a draft open refuses to repaint and says what arrived
+  instead.
+- **What a shared link is.** A bearer credential: anyone who has it reads the plan
+  and can comment under any name. The dialog says so, `Referrer-Policy:
+  no-referrer` keeps a click from leaking it, and **Stop sharing** is the
+  revocation. The plan file is the record — a comment arrives as an author-tagged
+  marker, so `/resume` and the terminal show the same review the page did.
 
 ## Limitations
 
@@ -675,22 +717,27 @@ file and returns them to the model.
 | `tools.ts` | Registration entry: composes the four tool registrations in the order the session sees them. |
 | `tools/` | One module per tool (`enter.ts`, `write.ts`, `exit.ts`, `steps.ts`), plus `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. |
-| `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
+| `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, and `/plan share [stop]`. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
-| `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the review session (SSE close detection, the body cap, settle-after-flush, abort) over the shared loopback bind, writer, and close. |
-| `web-router.ts` | Pure request handler: token/`Host`/method checks and the review routes, over the shared page and JSON header sets. |
-| `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation), its data island, and inline CSS. |
-| `web-client.ts` | The `/client.js` source: state and wiring (comment rail, comments, selection quotes, save/approve/back, keyboard nav) over the two fragments below. |
+| `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `parseFeedback`, `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `resolveAnchor`, `feedbackSummary`, and payload validation. |
+| `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the share listener, the body cap, settle-after-flush, abort) over the shared bind, writer, and close. |
+| `web-router.ts` | Pure request handler: token role, `Host` allowlist, origin, and method checks, then the page, comment, approve, cancel, and share routes. |
+| `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation, share and name dialogs), its data island, and inline CSS. |
+| `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, and the tokenized links built from them. |
+| `web-client.ts` | The `/client.js` source: state and wiring (comment rail, save/approve/back, keyboard nav, the stream's lifetime) over the three fragments below. |
+| `web-comments.ts` | The client's comment half: selection quotes, the composer, authored cards and who may edit them, delete-with-undo. |
+| `web-collab.ts` | The client's collaboration half: the share dialog, the reviewer's name, and the island refetch a stream frame triggers. |
 | `web-markdown.ts` | The client's document half: `safeHref` and the inline/table/code/list rendering (interpolated into `web-client.ts`). |
-| `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, reading progress, and the stream's lifetime (interpolated into `web-client.ts`). |
+| `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, and reading progress (interpolated into `web-client.ts`). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |
 | [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
+| [`../../lib/qr.ts`](../../lib/qr.ts) | QR matrix, terminal half-blocks, and inline SVG for the share link (shared with `wechat`). |
+| [`../../lib/http/`](../../lib/http/) | The bind, `Host` allowlist, header sets, and response kit both browser surfaces serve through. |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, the shortcut sheet (`keysSheet`, `keysDialogScript`), and shared markup. |
 | [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `file-browse`: the page policy and header sets, `ServeResponse`, the request-envelope helpers, bind/respond/close. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |

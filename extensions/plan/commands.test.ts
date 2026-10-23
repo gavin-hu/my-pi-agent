@@ -9,6 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { registerCommands } from "./commands.ts";
+import type { ShareResult } from "./web-share.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanSummary, StoredPlan } from "./plans.ts";
@@ -94,6 +95,10 @@ function fakeWeb(result: PlanReviewResult) {
 				},
 			};
 		},
+		current: () => undefined,
+		share: async () => undefined,
+		stopSharing: async () => undefined,
+		shareState: () => undefined,
 		closeAll: async () => {},
 	};
 	return { web, started, starts, closeCalls };
@@ -129,6 +134,102 @@ function setup(
 		closeCalls,
 	};
 }
+
+/** A web seam whose share calls are recorded, so the command's output is testable. */
+function shareWeb(result: ShareResult | undefined, stopped: ShareResult | undefined = result): PlanWebReview {
+	const calls: string[] = [];
+	return {
+		start: async () => undefined,
+		current: () => undefined,
+		share: async () => {
+			calls.push("share");
+			return result;
+		},
+		stopSharing: async () => {
+			calls.push("stop");
+			return stopped;
+		},
+		shareState: () => result?.state,
+		closeAll: async () => {},
+	};
+}
+
+describe("/plan share", () => {
+	test("prints the link and a QR for the running review", async () => {
+		const { runtime } = fakeRuntime({ file: plan() });
+		const web = shareWeb({
+			state: {
+				sharing: true,
+				port: 51789,
+				links: [{ address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" }],
+			},
+			svg: "<svg/>",
+		});
+		const pi = makeFakePi();
+		registerCommands(pi.pi, runtime, web);
+		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("share", ctx);
+
+		const notice = notifications.join("\n");
+		expect(notice).toContain("http://192.168.1.24:51789/?token=abc");
+		expect(notice).toContain("█");
+	});
+
+	test("says why it cannot share when the machine has no address", async () => {
+		const { runtime } = fakeRuntime({ file: plan() });
+		const web = shareWeb({
+			state: { sharing: false, port: 0, links: [], reason: "no network address to share on." },
+		});
+		const pi = makeFakePi();
+		registerCommands(pi.pi, runtime, web);
+		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("share", ctx);
+
+		expect(notifications.join("\n")).toContain("no network address");
+	});
+
+	test("reports when no review is open", async () => {
+		const { runtime } = fakeRuntime({ file: plan() });
+		const pi = makeFakePi();
+		registerCommands(pi.pi, runtime, shareWeb(undefined));
+		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("share", ctx);
+
+		expect(notifications.join("\n")).toContain("no browser review is open");
+	});
+
+	test("stops sharing and says reviewers can no longer join", async () => {
+		const { runtime } = fakeRuntime({ file: plan() });
+		const web = shareWeb(
+			{ state: { sharing: true, port: 51789, links: [{ address: "192.168.1.24", url: "http://x/?token=abc" }] } },
+			{ state: { sharing: false, port: 0, links: [] } },
+		);
+		const pi = makeFakePi();
+		registerCommands(pi.pi, runtime, web);
+		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("share stop", ctx);
+
+		expect(notifications.join("\n")).toContain("can no longer open");
+	});
+
+	test("leaves a task that merely begins with share alone", async () => {
+		const { pi, runtime } = (() => {
+			const built = setup({ result: { status: "cancelled" } });
+			return { pi: built.pi, runtime: built.runtime };
+		})();
+		const { ctx } = fakeCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("share the load between two sessions", ctx);
+
+		expect(pi.sentMessages).toHaveLength(1);
+		expect(pi.sentMessages[0]?.content).toContain("share the load");
+		expect(runtime.isEnabled()).toBe(true);
+	});
+});
 
 describe("/plan review", () => {
 	test("opens the most recent plan and sends saved comments to the model", async () => {
@@ -252,6 +353,10 @@ describe("/plan review", () => {
 			start: async () => {
 				throw new Error("bind failed");
 			},
+			current: () => undefined,
+			share: async () => undefined,
+			stopSharing: async () => undefined,
+			shareState: () => undefined,
 			closeAll: async () => {},
 		};
 		const pi = makeFakePi();
@@ -376,7 +481,7 @@ describe("/plan list", () => {
 		const complete = (prefix: string): string[] =>
 			(pi.commands.get("plan").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
 
-		expect(complete("")).toEqual(["list", "review", "cancel"]);
+		expect(complete("")).toEqual(["list", "review", "share", "cancel"]);
 		expect(complete("li")).toEqual(["list"]);
 		expect(complete("r")).toEqual(["review"]);
 		expect(complete("c")).toEqual(["cancel"]);
@@ -419,6 +524,10 @@ function webThatWaits() {
 			options?.signal?.addEventListener("abort", () => void close());
 			return { url: "http://127.0.0.1:1/?token=t", port: 1, done, close };
 		},
+		current: () => undefined,
+		share: async () => undefined,
+		stopSharing: async () => undefined,
+		shareState: () => undefined,
 		closeAll: async () => {},
 	};
 	return { web, starts, closes };
@@ -440,6 +549,10 @@ function webThatResolves(result: PlanReviewResult) {
 				},
 			};
 		},
+		current: () => undefined,
+		share: async () => undefined,
+		stopSharing: async () => undefined,
+		shareState: () => undefined,
 		closeAll: async () => {},
 	};
 	return { web, starts, closes };
@@ -451,6 +564,10 @@ function webThatFails(): PlanWebReview {
 		start: async () => {
 			throw new Error("bind failed");
 		},
+		current: () => undefined,
+		share: async () => undefined,
+		stopSharing: async () => undefined,
+		shareState: () => undefined,
 		closeAll: async () => {},
 	};
 }

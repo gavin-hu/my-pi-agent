@@ -188,6 +188,42 @@ describe("plan review render", () => {
 
 const manyLines = Array.from({ length: 60 }, (_, index) => `Line ${index + 1}`).join("\n");
 
+describe("plan review comments", () => {
+	const strip = (line: string): string => line.replace(/\u001b\[[0-9;]*m/g, "");
+
+	test("shows a teammate's comment under the block it refers to", () => {
+		const { component } = setup("# Plan\n- [ ] one\n> [!REVIEW] @alice: name the ceiling\n- [ ] two");
+		const lines = render(component, 80).map(strip);
+
+		const comment = lines.findIndex((line) => line.includes("@alice"));
+		const block = lines.findIndex((line) => line.includes("one"));
+		expect(comment).toBeGreaterThan(block);
+		expect(lines[comment]).toContain("name the ceiling");
+	});
+
+	test("marks the owner's own comment as a review note", () => {
+		const { component } = setup("# Plan\n- [ ] one\n> [!REVIEW] what about bursts");
+		const lines = render(component, 80).map(strip);
+		expect(lines.some((line) => line.includes("Review: what about bursts"))).toBe(true);
+	});
+
+	test("never shows the stored marker itself", () => {
+		const { component } = setup("# Plan\n- [ ] one\n> [!REVIEW] @alice: theirs");
+		expect(render(component, 80).map(strip).join("\n")).not.toContain("[!REVIEW]");
+	});
+
+	test("keeps a reviewed plan inside the terminal width", () => {
+		const { component } = setup(
+			"# Plan\n- [ ] one\n> [!REVIEW] @a-very-long-reviewer-name: a comment long enough to wrap several times over",
+		);
+		for (const width of [80, 40, 20]) {
+			for (const line of render(component, width)) {
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+});
+
 describe("plan review scrolling", () => {
 	test("clamps scrolling to the body and repaints", () => {
 		const { component, renders } = setup(manyLines, { rows: 20 });

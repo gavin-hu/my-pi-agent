@@ -10,6 +10,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
+import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
 import type { ArmTimer } from "../../lib/timer.ts";
 import { THEME_JS, WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../lib/web/index.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
@@ -30,6 +31,7 @@ import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, type PlanWebReviewDeps } from "./web.ts";
+import type { NetworkInterfaces } from "./web-share.ts";
 
 const PLAN = "# Title\n\n## Steps\n- [ ] one\n- [ ] two\n";
 const PATH = "/repo/.pi/plans/2026-10-14-1600-demo.md";
@@ -38,6 +40,9 @@ const RELATIVE = ".pi/plans/2026-10-14-1600-demo.md";
 interface ReviewIsland {
 	title: string;
 	token: string;
+	role: "owner" | "reviewer";
+	canApprove: boolean;
+	annotations: PlanAnnotation[];
 	steps: { done: number; total: number };
 	outline: Array<{ id: string; line: number; level: number; text: string; changed?: boolean }>;
 	code: Record<string, string[]>;
@@ -167,6 +172,7 @@ const PAGE_DATA: ReviewPageData = {
 	code: {},
 	limits: { comments: 200, comment: 2000, quote: 500 },
 	canApprove: true,
+	role: "owner",
 	token: "tok",
 };
 
@@ -177,13 +183,16 @@ function router(overrides: Partial<ReviewContext> = {}) {
 	const cancelled: number[] = [];
 	let nextSave: SaveResult = { ok: true };
 	const ctx: ReviewContext = {
-		token: "tok",
+		roleOf: (token) => (token === "tok" ? "owner" : undefined),
+		hosts: () => [...LOOPBACK_HOSTS],
 		canApprove: true,
 		page: async () => PAGE_DATA,
 		save: async (annotations) => {
 			saved.push(annotations);
 			return nextSave;
 		},
+		share: async () => ({ state: { sharing: true, port: 1, links: [{ address: "192.168.1.24", url: "http://x" }] } }),
+		stopShare: async () => ({ state: { sharing: false, port: 0, links: [] } }),
 		onSaved: () => {},
 		onApprove: (annotations) => approved.push(annotations),
 		onCancel: () => cancelled.push(1),
@@ -339,6 +348,63 @@ describe("review router", () => {
 		expect(response.status).toBe(409);
 		expect(approved).toEqual([]);
 	});
+
+	test("a reviewer token can comment but never approve or cancel", async () => {
+		const { ctx, saved, approved, cancelled } = router({
+			roleOf: (token) => (token === "tok" ? "reviewer" : undefined),
+		});
+		const commented = await post(ctx, "/api/feedback?token=tok", JSON.stringify({ annotations: [] }));
+		expect(commented.status).toBe(200);
+		expect(saved).toHaveLength(1);
+
+		expect((await post(ctx, "/api/approve?token=tok")).status).toBe(403);
+		expect((await post(ctx, "/api/cancel?token=tok")).status).toBe(403);
+		expect(approved).toEqual([]);
+		expect(cancelled).toEqual([]);
+	});
+
+	test("refuses a Host header the server was not bound on", async () => {
+		const { ctx } = router();
+		const response = await handleReviewRequest(ctx, "GET", "/?token=tok", { host: "evil.example" });
+		expect(response.status).toBe(403);
+		expect(response.body).toContain("Unexpected Host header");
+	});
+
+	test("serves a LAN Host once the review is shared to that address", async () => {
+		const { ctx } = router({ hosts: () => [...LOOPBACK_HOSTS, "192.168.1.24"] });
+		const response = await handleReviewRequest(ctx, "GET", "/?token=tok", { host: "192.168.1.24:51789" });
+		expect(response.status).toBe(200);
+	});
+
+	test("refuses a cross-origin POST and accepts the page's own", async () => {
+		const { ctx, saved } = router();
+		const crossSite = await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", {
+			...HOST,
+			origin: "https://evil.example",
+		});
+		expect(crossSite.status).toBe(403);
+		expect(saved).toEqual([]);
+
+		const crossSiteFetch = await handleReviewRequest(ctx, "POST", "/api/feedback?token=tok", {
+			...HOST,
+			"sec-fetch-site": "cross-site",
+		});
+		expect(crossSiteFetch.status).toBe(403);
+
+		const own = await handleReviewRequest(
+			ctx,
+			"POST",
+			"/api/feedback?token=tok",
+			{
+				...HOST,
+				origin: "http://127.0.0.1:1234",
+				"sec-fetch-site": "same-origin",
+				"content-type": "application/json",
+			},
+			JSON.stringify({ annotations: [] }),
+		);
+		expect(own.status).toBe(200);
+	});
 });
 
 function page(overrides: Partial<ReviewPageData> = {}): string {
@@ -351,10 +417,36 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 		code: {},
 		limits: { comments: 200, comment: 2000, quote: 500 },
 		canApprove: true,
+		role: "owner",
 		token: "secret-token",
 		...overrides,
 	});
 }
+
+describe("review page roles", () => {
+	test("gives the owner Share and the matching dialog", () => {
+		const html = page();
+		expect(html).toContain('id="share"');
+		expect(html).toContain('id="share-dialog"');
+		expect(html).toContain('id="share-qr"');
+		expect(html).not.toContain('id="name-dialog"');
+	});
+
+	test("gives a reviewer a name dialog and no share or approve action", () => {
+		const html = page({ role: "reviewer", canApprove: false });
+		expect(html).toContain('id="reviewer-name"');
+		expect(html).toContain('id="name-dialog"');
+		expect(html).not.toContain('id="share"');
+		expect(html).not.toContain('id="approve"');
+	});
+
+	test("never puts a reviewer token in the page source", () => {
+		// The share link is minted on request; the page only knows its own token.
+		const html = page({ role: "reviewer", canApprove: false, token: "reviewer-token" });
+		expect(html).toContain('id="review-data"');
+		expect(html).not.toContain("share-link?token=");
+	});
+});
 
 describe("review page", () => {
 	test("ships each shared stylesheet block once", () => {
@@ -591,6 +683,238 @@ describe("review client", () => {
 	});
 });
 
+/** The same URL with its path replaced, for a reviewer's API call. */
+function apiOf(link: string, route: string): string {
+	const url = new URL(link);
+	url.pathname = route;
+	return url.toString();
+}
+
+/** A machine that reports one reachable IPv4 address, as a LAN laptop does. */
+const LAN = (): NetworkInterfaces => ({
+	en0: [
+		{
+			address: "127.0.0.1",
+			netmask: "255.255.255.0",
+			family: "IPv4",
+			mac: "00:00:00:00:00:00",
+			internal: false,
+			cidr: "127.0.0.1/24",
+		},
+	],
+});
+
+/** Read the next `data:` frame from an event stream, decoded. */
+async function nextFrame(body: ReadableStream<Uint8Array> | null | undefined): Promise<string> {
+	if (!body) throw new Error("no stream body");
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	let text = "";
+	for (let read = 0; read < 40; read++) {
+		const { value, done } = await reader.read();
+		if (done) break;
+		text += decoder.decode(value, { stream: true });
+		const line = /^data: (.*)$/m.exec(text)?.[1];
+		if (line !== undefined) {
+			await reader.cancel();
+			return line;
+		}
+	}
+	await reader.cancel();
+	return text;
+}
+
+describe("review stream", () => {
+	test("tells an open page when a comment arrives", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		// The owner's page is open on the loopback stream when the comment lands.
+		const stream = await fetch(`http://127.0.0.1:${session.port}/events?token=tok`);
+		const frame = nextFrame(stream.body);
+
+		await fetch(apiOf(link.url, "/api/feedback"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "hello", author: "alice" }] }),
+		});
+
+		expect(await frame).toBe("comment");
+	});
+
+	test("tells an open page when sharing starts and stops", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const first = await fetch(`http://127.0.0.1:${session.port}/events?token=tok`);
+		const frame = nextFrame(first.body);
+
+		await review.share();
+		expect(await frame).toBe("share");
+	});
+});
+
+describe("shared review", () => {
+	test("reports why it cannot share when the machine has no address", async () => {
+		const { review } = await startShared({
+			networkInterfaces: (): NetworkInterfaces => ({
+				lo0: [
+					{
+						address: "127.0.0.1",
+						netmask: "255.0.0.0",
+						family: "IPv4",
+						mac: "00:00:00:00:00:00",
+						internal: true,
+						cidr: "127.0.0.1/8",
+					},
+				],
+			}),
+		});
+		const result = await review.share();
+
+		expect(result?.state.sharing).toBe(false);
+		expect(result?.state.links).toEqual([]);
+		expect(result?.state.reason).toContain("no network address");
+		expect(result?.svg).toBeUndefined();
+	});
+
+	test("mints a reviewer link with a QR and keeps the owner's page working", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const result = await review.share();
+
+		expect(result?.state.sharing).toBe(true);
+		const link = result?.state.links[0];
+		expect(link?.address).toBe("127.0.0.1");
+		expect(link?.url).toContain("token=");
+		expect(result?.svg).toContain("<svg");
+		// The owner's own link still answers: sharing adds a listener, never moves one.
+		expect((await fetch(session.url)).status).toBe(200);
+		expect(review.shareState()?.sharing).toBe(true);
+	});
+
+	test("a reviewer comments under their own name and the owner sees it", async () => {
+		const { review, session, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		const response = await fetch(apiOf(link.url, "/api/feedback"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "name the ceiling", author: "alice" }] }),
+		});
+
+		expect(response.status).toBe(200);
+		expect(content()).toContain("> [!REVIEW] @alice: name the ceiling");
+		const island = islandOf(await (await fetch(session.url)).text());
+		expect(island.annotations).toEqual([{ anchor: 1, comment: "name the ceiling", author: "alice" }]);
+	});
+
+	test("a reviewer must choose a name, and can never approve or cancel", async () => {
+		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+		const origin = new URL(link.url).origin;
+		const post = (route: string, body = "{}") =>
+			fetch(apiOf(link.url, route), {
+				method: "POST",
+				headers: { "content-type": "application/json", origin },
+				body,
+			});
+
+		const anonymous = await post("/api/feedback", JSON.stringify({ annotations: [{ anchor: 1, comment: "hi" }] }));
+		expect(anonymous.status).toBe(400);
+		expect((await post("/api/approve")).status).toBe(403);
+		expect((await post("/api/cancel")).status).toBe(403);
+		expect((await post("/api/share")).status).toBe(403);
+	});
+
+	test("stop sharing revokes the reviewer token and closes the shared listener", async () => {
+		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		const stopped = await review.stopSharing();
+		expect(stopped?.state.sharing).toBe(false);
+
+		const refused = await fetch(apiOf(link.url, "/api/feedback"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "late", author: "alice" }] }),
+		}).then(
+			(response) => `answered ${response.status}`,
+			() => "refused",
+		);
+		expect(refused).toBe("refused");
+	});
+
+	test("a reviewer re-posting the page's comments does not duplicate them", async () => {
+		const seeded = "# Plan\n- [ ] one\n> [!REVIEW] mine\n> [!REVIEW] @bob: theirs\n- [ ] two";
+		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true }, seeded);
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		const page = islandOf(await (await fetch(link.url)).text());
+		const response = await fetch(apiOf(link.url, "/api/feedback"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+			// What a reviewer's page posts: everyone's comments, plus their own new one.
+			body: JSON.stringify({
+				annotations: [...page.annotations, { anchor: 1, comment: "mine too", author: "priya" }],
+			}),
+		});
+
+		expect(response.status).toBe(200);
+		const text = content();
+		expect(text.match(/> \[!REVIEW\] mine/g)?.length).toBe(1);
+		expect(text.match(/@bob: theirs/g)?.length).toBe(1);
+		expect(text).toContain("> [!REVIEW] @bob: theirs");
+		expect(text).toContain("> [!REVIEW] @priya: mine too");
+	});
+
+	test("a repeating token generator cannot turn the owner's page into a reviewer's", async () => {
+		const { review, session } = await startShared(
+			{ networkInterfaces: LAN, token: () => "same" },
+			{ canApprove: true },
+		);
+		expect((await review.share())?.state.sharing).toBe(true);
+
+		const html = await (await fetch(session.url)).text();
+		expect(html).toContain('id="share"');
+		expect(html).not.toContain('id="reviewer-name"');
+		expect(html).toContain('"role":"owner"');
+	});
+
+	test("a reviewer's save with nothing new changes nothing", async () => {
+		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+		const before = content();
+
+		const response = await fetch(apiOf(link.url, "/api/feedback"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+			body: JSON.stringify({ annotations: [] }),
+		});
+
+		expect(response.status).toBe(200);
+		expect(content()).toBe(before);
+	});
+
+	test("a second share reuses the link instead of minting another", async () => {
+		const { review } = await startShared({ networkInterfaces: LAN });
+		const first = (await review.share())?.state.links[0]?.url;
+		const second = (await review.share())?.state.links[0]?.url;
+		expect(second).toBe(first);
+	});
+
+	test("sharing twice from one review keeps one listener and one token", async () => {
+		const { review } = await startShared({ networkInterfaces: LAN });
+		const first = await review.share();
+		const second = await review.share();
+		expect(second?.state.links).toEqual(first?.state.links);
+		expect(second?.state.sharing).toBe(true);
+	});
+});
+
 function stored(content: string): StoredPlan {
 	return { path: PATH, relativePath: RELATIVE, content, bytes: Buffer.byteLength(content, "utf-8") };
 }
@@ -600,8 +924,13 @@ function fakeStore(initial: string) {
 	let content = initial;
 	const store = {
 		read: async (): Promise<StoredPlan> => stored(content),
-		saveFeedback: async (_cwd: string, _path: string, annotations: PlanAnnotation[]): Promise<StoredPlan> => {
-			content = formatFeedback(content, annotations);
+		saveFeedback: async (
+			_cwd: string,
+			_path: string,
+			annotations: PlanAnnotation[],
+			options: { author?: string } = {},
+		): Promise<StoredPlan> => {
+			content = formatFeedback(content, annotations, options);
 			return stored(content);
 		},
 	} as unknown as PlanStore;
@@ -634,6 +963,20 @@ async function start(
 	expect(opened).toEqual([session.url]);
 	expect(session.url).toContain("token=tok");
 	return session;
+}
+
+/** A started review plus its server, for the tests that drive sharing. */
+async function startShared(
+	deps: Partial<PlanWebReviewDeps> = {},
+	options: PlanReviewOptions = {},
+	plan = "# Plan\n- [ ] one\n- [ ] two\n",
+) {
+	const { store, content } = fakeStore(plan);
+	const review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, ...deps });
+	reviews.push(review);
+	const session = await review.start("/repo", stored(content()), options);
+	if (!session) throw new Error("the review server did not start");
+	return { review, session, content };
 }
 
 /** A review that shares one remembered port across turns, as the extension does. */

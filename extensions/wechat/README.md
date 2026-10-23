@@ -517,7 +517,6 @@ status, which is what the old start/stop guidance used to do.
 | `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
 | `outbound.ts` | Upload and send a local file: hash, encrypt, `getUploadUrl`, upload, `sendFileMessage`. |
 | `login.ts` | QR login state machine. |
-| `qrcode.ts` | QR matrix → Unicode half-block terminal lines; the `qrcode` package is imported on first use, not at registration. |
 | `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
 | `status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list with stop/reset/history keys, and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |

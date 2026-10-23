@@ -45,7 +45,7 @@ import {
 } from "./media.ts";
 import { sendLocalFile, UPLOAD_MEDIA_TYPE_FILE } from "./outbound.ts";
 import { peerSessionDir } from "./peer-session.ts";
-import { qrLines, qrMatrix } from "./qrcode.ts";
+import { qrLines, qrMatrix } from "../../lib/qr.ts";
 import type { BotCredentials, QrResponse, QrStatus } from "./types.ts";
 
 const account: BotCredentials = {

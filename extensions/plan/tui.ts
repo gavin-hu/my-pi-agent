@@ -44,7 +44,7 @@ import { plainRule, titleRule } from "../../lib/tui/rules.ts";
 import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
-import { changedSections, sanitizePlanText, type SectionDigest } from "./plan-text.ts";
+import { changedSections, planDisplayText, type SectionDigest } from "./plan-text.ts";
 import { extractPlanSections } from "./steps.ts";
 
 /** What the user chose from the read/review screen. */
@@ -200,7 +200,7 @@ export class PlanViewComponent implements Component {
 		const padding = width >= MIN_PADDED_WIDTH ? BODY_PADDING : 0;
 		const base = this.options.markdownTheme ?? getMarkdownTheme();
 		const theme = planMarkdownTheme(this.theme, base);
-		const current = sanitizePlanText(this.options.plan.content);
+		const current = planDisplayText(this.options.plan.content);
 		const changed = changedSections(this.options.baseline, current);
 		const chunks = extractPlanSections(current);
 		const lines: string[] = [];

@@ -15,6 +15,8 @@
 
 import { dialogScript, keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
 import { WEB_CHROME_JS } from "./web-chrome.ts";
+import { WEB_COMMENTS_JS } from "./web-comments.ts";
+import { WEB_COLLAB_JS } from "./web-collab.ts";
 import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
@@ -30,6 +32,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   }
   var token = typeof data.token === "string" ? data.token : "";
   var limits = data.limits || fallback.limits;
+  // Who the server says is looking: the owner approves, a reviewer comments.
+  var role = data.role === "reviewer" ? "reviewer" : "owner";
+  var reviewerName = "";
+  try { reviewerName = window.localStorage.getItem("bf-review-name") || ""; } catch (error) { reviewerName = ""; }
   var DRAFT_REFUSAL = "Add or discard the comment you are writing.";
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
@@ -61,6 +67,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 
 ${WEB_CHROME_JS}
 
+${WEB_COMMENTS_JS}
+
+${WEB_COLLAB_JS}
+
 ${WEB_MARKDOWN_JS}
   function closeComposer() {
     var open = planEl ? planEl.querySelector(".bf-composer") : null;
@@ -71,164 +81,6 @@ ${WEB_MARKDOWN_JS}
     // The only status a composer leaves behind is the refusal to leave it; once
     // the draft is gone that sentence is stale.
     if (statusEl && statusEl.textContent === DRAFT_REFUSAL) setStatus("");
-  }
-
-  function selectionIn(wrap) {
-    var selection = window.getSelection && window.getSelection();
-    if (!selection || selection.isCollapsed) return "";
-    var range = selection.rangeCount ? selection.getRangeAt(0) : null;
-    if (!range || !wrap.contains(range.commonAncestorContainer)) return "";
-    return selection.toString().replace(/\s+/g, " ").trim().slice(0, limits.quote);
-  }
-
-  function commentsBoxAfter(wrap) {
-    var next = wrap.nextElementSibling;
-    if (next && next.classList && next.classList.contains("bf-comments")) return next;
-    var box = el("div", "bf-comments");
-    wrap.insertAdjacentElement("afterend", box);
-    return box;
-  }
-
-  // Enter submits a comment; Shift+Enter is left for the browser.
-  function submitOnEnter(area, submit) {
-    area.addEventListener("keydown", function (event) {
-      // An IME uses Enter to commit a composition; submitting then would send a
-      // half-typed comment.
-      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
-      event.preventDefault();
-      submit();
-    });
-  }
-
-  function openComposer(wrap, block, quote) {
-    closeComposer();
-    wrap.classList.add("bf-block--composing");
-    var composer = el("div", "bf-composer");
-    if (quote) {
-      var chip = el("div", "bf-quote-chip");
-      chip.textContent = "\u201c" + quote + "\u201d";
-      composer.appendChild(chip);
-    }
-    var area = el("textarea", "bf-textarea");
-    area.placeholder = "Leave feedback on this part of the plan (Enter to add)";
-    area.setAttribute("aria-label", "Comment");
-    area.maxLength = limits.comment;
-    composer.appendChild(area);
-    var row = el("div", "bf-composer__row");
-    var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
-    cancel.addEventListener("click", closeComposer);
-    var add = el("button"); add.type = "button"; add.className = "bf-btn bf-btn--primary"; add.textContent = "Add comment";
-    var submit = function () {
-      var comment = area.value.replace(/\s+/g, " ").trim();
-      if (!comment) { area.focus(); return; }
-      if (annotations.length >= limits.comments) { setStatus("Comment limit reached (" + limits.comments + ").", "error"); return; }
-      annotations.push(quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment });
-      dirty = true;
-      renderPlan();
-    };
-    add.addEventListener("click", submit);
-    submitOnEnter(area, submit);
-    row.appendChild(cancel); row.appendChild(add); composer.appendChild(row);
-    commentsBoxAfter(wrap).appendChild(composer);
-    area.focus();
-  }
-
-  function startEdit(card, index) {
-    var annotation = annotations[index];
-    card.textContent = "";
-    var area = el("textarea", "bf-textarea");
-    area.value = annotation.comment;
-    area.setAttribute("aria-label", "Edit comment");
-    area.maxLength = limits.comment;
-    card.appendChild(area);
-    var row = el("div", "bf-comment__row");
-    var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
-    cancel.addEventListener("click", renderPlan);
-    var apply = el("button"); apply.type = "button"; apply.className = "bf-btn bf-btn--primary"; apply.textContent = "Save";
-    apply.addEventListener("click", function () {
-      var comment = area.value.replace(/\s+/g, " ").trim();
-      if (!comment) { area.focus(); return; }
-      annotation.comment = comment;
-      dirty = true;
-      renderPlan();
-    });
-    submitOnEnter(area, function () { apply.click(); });
-    row.appendChild(cancel); row.appendChild(apply); card.appendChild(row);
-    area.focus();
-  }
-
-  // Deleting a comment is one click, so it is undoable rather than confirmed: the
-  // removed note is held for a few seconds and offered back in the header.
-  var undo = null;
-
-  function clearUndo() {
-    if (undo && undo.timer) window.clearTimeout(undo.timer);
-    if (undo && undo.button && undo.button.parentNode) undo.button.parentNode.removeChild(undo.button);
-    undo = null;
-  }
-
-  function offerUndo(index, annotation) {
-    var controls = document.querySelector(".review-controls");
-    clearUndo();
-    if (!controls) return;
-    var button = el("button", "bf-btn");
-    button.type = "button";
-    button.id = "undo-delete";
-    button.textContent = "Undo delete";
-    button.addEventListener("click", function () {
-      annotations.splice(Math.min(index, annotations.length), 0, annotation);
-      dirty = true;
-      clearUndo();
-      renderPlan();
-      setStatus("Comment restored.", "saved");
-    });
-    controls.appendChild(button);
-    undo = { button: button, timer: window.setTimeout(clearUndo, 6000) };
-  }
-
-  function removeComment(index) {
-    var annotation = annotations[index];
-    if (!annotation) return;
-    annotations.splice(index, 1);
-    dirty = true;
-    renderPlan();
-    offerUndo(index, annotation);
-    setStatus("Comment deleted.");
-  }
-
-  function renderCommentCards(box, list) {
-    list.forEach(function (annotation) {
-      var index = annotations.indexOf(annotation);
-      var card = el("div", "bf-comment");
-      var head = el("div", "bf-comment__head");
-      var label = el("span", "bf-comment__label"); label.textContent = "Review";
-      head.appendChild(label);
-      head.appendChild(el("span", "bf-comment__spacer"));
-      var actions = el("div", "bf-comment__actions");
-      var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
-      edit.addEventListener("click", function () { startEdit(card, index); });
-      var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
-      remove.addEventListener("click", function () { removeComment(index); });
-      actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
-      card.appendChild(head);
-      if (annotation.quote) {
-        var quote = el("div", "bf-comment__quote");
-        quote.textContent = "\u201c" + annotation.quote + "\u201d";
-        card.appendChild(quote);
-      }
-      var body = el("div", "bf-comment__body");
-      body.textContent = annotation.comment;
-      card.appendChild(body);
-      box.appendChild(card);
-    });
-  }
-
-  function renderComments(container, anchor) {
-    var mine = annotations.filter(function (annotation) { return annotation.anchor === anchor; });
-    if (mine.length === 0) return;
-    var box = el("div", "bf-comments");
-    renderCommentCards(box, mine);
-    container.appendChild(box);
   }
 
   function observeSections() {
@@ -409,12 +261,15 @@ ${WEB_MARKDOWN_JS}
 
 
   // Save and approve share the same POST shape; only the route, the settled
-  // flag, and the wording differ. Both persist the current annotations.
+  // flag, and the wording differ. Both persist the current annotations — and a
+  // reviewer sends only their own, so a page showing everyone's comments cannot
+  // re-post the owner's or another reviewer's back into the file.
   function submit(url, okText, failText, mark) {
+    var payload = role === "reviewer" ? annotations.filter(isMine) : annotations;
     fetch(url + "?token=" + encodeURIComponent(token), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ annotations: annotations })
+      body: JSON.stringify({ annotations: payload })
     }).then(function (response) {
       if (response.ok) {
         mark();
@@ -509,6 +364,34 @@ ${WEB_MARKDOWN_JS}
   var approveConfirm = document.getElementById("approve-confirm");
   if (approveConfirm) approveConfirm.addEventListener("click", confirmApprove);
 
+  // The share and name dialogs. The fragment above holds their behaviour; this
+  // is the wiring, which needs the page's own element handles.
+  var shareButton = document.getElementById("share");
+  var shareDialogNode = document.getElementById("share-dialog");
+  var shareLinkEl = document.getElementById("share-link");
+  var shareQrEl = document.getElementById("share-qr");
+  var shareCopy = document.getElementById("share-copy");
+  var shareStop = document.getElementById("share-stop");
+  var shareNote = document.getElementById("share-note");
+  var nameButton = document.getElementById("reviewer-name");
+  var nameInput = document.getElementById("name-input");
+
+  if (shareButton) shareButton.addEventListener("click", shareNow);
+  if (shareStop) shareStop.addEventListener("click", stopSharing);
+  if (shareCopy) shareCopy.addEventListener("click", function () {
+    if (!shareLinkEl) return;
+    var text = shareLinkEl.textContent || "";
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { setStatus("Link copied."); }, function () {});
+    }
+  });
+  ${dialogScript({ dialogId: "share-dialog", closeId: "share-close", globalName: "bfShare" })}
+
+  if (nameButton) nameButton.addEventListener("click", askName);
+  var nameSave = document.getElementById("name-save");
+  if (nameSave) nameSave.addEventListener("click", saveName);
+  ${dialogScript({ dialogId: "name-dialog", closeId: "name-cancel", globalName: "bfName" })}
+
   // Remember a selection made inside a block so clicking the rail button can
   // still quote it after the button press has collapsed the selection.
   document.addEventListener("mouseup", function (event) {
@@ -559,6 +442,7 @@ ${WEB_MARKDOWN_JS}
   try {
     stream = new EventSource("/events?token=" + encodeURIComponent(token));
     stream.addEventListener("open", function () { connected = true; everConnected = true; updateState(); });
+    stream.addEventListener("message", function (event) { refreshFromServer(event); });
     stream.addEventListener("error", function () {
       // The server ends the stream once the review is settled; keep showing the
       // terminal state rather than Offline.
@@ -574,6 +458,7 @@ ${WEB_MARKDOWN_JS}
   ${THEME_TOGGLE_JS}
 
   renderHeader();
+  renderName();
   renderOutline();
   renderPlan();
   updateProgress();

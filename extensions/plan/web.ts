@@ -11,24 +11,29 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { networkInterfaces } from "node:os";
 import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
 import {
+	bindHost,
 	bindLoopback,
 	createCloser,
 	jsonHeaders,
+	LOOPBACK_HOSTS,
 	openEventStream,
 	respond,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
+import { qrSvg } from "../../lib/qr.ts";
 import { type ArmTimer, defaultTimer } from "../../lib/timer.ts";
 import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
 import {
 	MAX_ANNOTATIONS,
 	MAX_COMMENT_LENGTH,
 	MAX_QUOTE_LENGTH,
+	normalizeAuthor,
 	parseFeedback,
 	stripFeedback,
 	type PlanAnnotation,
@@ -36,8 +41,17 @@ import {
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
 import { changedSections, type SectionDigest } from "./plan-text.ts";
 import { extractPlanSections, extractPlanSteps } from "./steps.ts";
+import type { ReviewRole } from "./types.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
+import {
+	lanAddresses,
+	NO_SHARE_REASON,
+	shareUrls,
+	type NetworkInterfaces,
+	type ShareState,
+	type ShareResult,
+} from "./web-share.ts";
 
 /** How a browser review ended. */
 export type PlanReviewResult =
@@ -47,13 +61,13 @@ export type PlanReviewResult =
 
 /** A running review the caller awaits and then closes. */
 export interface PlanReviewSession {
-	/** Tokenized URL to open or print. */
+	/** Tokenized URL to open or print; the owner's own page. */
 	url: string;
 	/** Bound loopback port. */
 	port: number;
 	/** Resolves once, when the review ends. */
 	done: Promise<PlanReviewResult>;
-	/** Stop the server. Safe to call more than once. */
+	/** Stop the server(s). Safe to call more than once. */
 	close(): Promise<void>;
 }
 
@@ -70,6 +84,14 @@ export interface PlanReviewOptions {
 /** Starts and tracks review sessions. */
 export interface PlanWebReview {
 	start(cwd: string, plan: StoredPlan, options?: PlanReviewOptions): Promise<PlanReviewSession | undefined>;
+	/** The session currently serving a review, if any. */
+	current(): PlanReviewSession | undefined;
+	/** Start (or re-read) the share link for the running review, if one is open. */
+	share(): Promise<ShareResult | undefined>;
+	/** Revoke every reviewer token and stop accepting reviewers. */
+	stopSharing(): Promise<ShareResult | undefined>;
+	/** The running review's share state, without changing it. */
+	shareState(): ShareState | undefined;
 	/** Stop every running session (session shutdown). */
 	closeAll(): Promise<void>;
 }
@@ -93,6 +115,8 @@ export interface PlanWebReviewDeps {
 	schedule?: ArmTimer;
 	/** Override the accepted body size; a test keeps it small. */
 	maxBodyBytes?: number;
+	/** Override the machine's network interfaces (tests), never read live in a test. */
+	networkInterfaces?: () => NetworkInterfaces;
 }
 
 /** Largest feedback body accepted, in bytes. */
@@ -136,6 +160,12 @@ function readBody(request: IncomingMessage, limit: number): Promise<BodyResult> 
 
 export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = {}): PlanWebReview {
 	const sessions = new Set<PlanReviewSession>();
+	// What each running review can do about sharing; the session itself stays the
+	// four things a caller awaits and closes.
+	const shares = new Map<
+		PlanReviewSession,
+		{ share: () => Promise<ShareResult>; stopSharing: () => Promise<ShareResult>; state: () => ShareState }
+	>();
 	// Last bound port per plan path, so the same plan keeps one origin across
 	// review turns (and its saved browser theme with it).
 	const ports = new Map<string, number>();
@@ -148,7 +178,31 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const { signal } = options;
 		const canApprove = options.canApprove === true;
 		const maxBody = deps.maxBodyBytes ?? MAX_BODY_BYTES;
-		const token = (deps.token ?? (() => randomBytes(16).toString("hex")))();
+		// One token per holder: the owner's is minted here and never shared, and a
+		// reviewer token is minted by `share()`. The role travels with the token.
+		const tokens = new Map<string, ReviewRole>();
+		const mint = (role: ReviewRole): string => {
+			const next = deps.token ?? (() => randomBytes(16).toString("hex"));
+			// A role is keyed by its token, so two roles may never share one: a
+			// generator that repeats would otherwise let a reviewer token displace the
+			// owner's and hand a reviewer the approval route.
+			let value = next();
+			for (let attempt = 0; tokens.has(value) && attempt < 8; attempt++) value = next();
+			if (tokens.has(value)) value = `${value}-${tokens.size}`;
+			tokens.set(value, role);
+			return value;
+		};
+		const token = mint("owner");
+		let reviewerToken: string | undefined;
+		// The owner's bound port, so a shared listener can reuse it for the same URL shape.
+		let currentPort = 0;
+		// The address reviewers connect to, once sharing starts.
+		let shareAddress = "";
+		let sharePort = 0;
+		let shareServer: Server | undefined;
+		let closeShareServer: (() => Promise<void>) | undefined;
+		let sharing: ShareState = { sharing: false, port: 0, links: [] };
+		const hosts = (): readonly string[] => (shareAddress ? [...LOOPBACK_HOSTS, shareAddress] : [...LOOPBACK_HOSTS]);
 		let settled = false;
 		let resolveDone!: (result: PlanReviewResult) => void;
 		const done = new Promise<PlanReviewResult>((resolve) => {
@@ -181,11 +235,28 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		 */
 		const refreshPageText = async (): Promise<StoredPlan> => {
 			const current = (await store.read(cwd, plan.path)) ?? plan;
-			pageText = stripFeedback(current.content);
+			const next = stripFeedback(current.content);
+			// Someone saved the plan outside this page: the readers must see the new
+			// body, and the next save must anchor against it rather than 409.
+			if (next !== pageText) notifyPlanChange();
+			pageText = next;
 			return current;
 		};
+		// Set below, once the stream set exists; a page load before that has no
+		// reader to notify and nothing to notify it about.
+		let notifyPlanChange: () => void = () => {};
 
-		const page = async (): Promise<ReviewPageData> => {
+		/**
+		 * Tell every open page something changed. The frame carries only a kind:
+		 * the page re-reads the island, so there is one update path and no second
+		 * copy of the review state travelling over the stream.
+		 */
+		const broadcast = (kind: string): void => {
+			for (const client of clients) client.write(`data: ${kind}\n\n`);
+		};
+		notifyPlanChange = () => broadcast("plan");
+
+		const page = async (role: ReviewRole): Promise<ReviewPageData> => {
 			const stored = await refreshPageText();
 			const current = pageText;
 			const blocks = planBlocks(current);
@@ -231,29 +302,125 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				code,
 				limits: { comments: MAX_ANNOTATIONS, comment: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
 				token,
-				canApprove,
+				role,
+				canApprove: role === "owner" && canApprove,
+				share: role === "owner" ? sharing : undefined,
 			};
 		};
 
-		const save = async (annotations: PlanAnnotation[]): Promise<SaveResult> => {
+		/**
+		 * A save replaces the comments of the writers it carries: the owner's are
+		 * untagged, a reviewer's are tagged with the name that browser chose. Neither
+		 * touches another writer's markers, and both refuse a plan that changed since
+		 * the page was rendered.
+		 */
+		const save = async (annotations: PlanAnnotation[], role: ReviewRole): Promise<SaveResult> => {
 			const current = await store.read(cwd, plan.path);
 			if (!current) return { ok: false, status: 404, message: "The plan file is gone." };
 			if (stripFeedback(current.content) !== pageText) {
 				return { ok: false, status: 409, message: "The plan changed on disk; reload the page and review again." };
 			}
 			try {
-				savedPlan = await store.saveFeedback(cwd, plan.path, annotations);
+				if (role === "owner") {
+					savedPlan = await store.saveFeedback(cwd, plan.path, annotations);
+					broadcast("comment");
+					return { ok: true };
+				}
+				// The page sends every comment it shows, so a reviewer's save is grouped by
+				// name and each name replaces only its own markers. An untagged entry is
+				// somebody else's comment echoed back, never re-signed.
+				const groups = new Map<string, PlanAnnotation[]>();
+				let signed = 0;
+				for (const annotation of annotations) {
+					const author = normalizeAuthor(annotation.author);
+					if (!author) continue;
+					signed += 1;
+					groups.set(author, [...(groups.get(author) ?? []), annotation]);
+				}
+				// Nothing signed at all means the reviewer has not chosen a name yet.
+				if (annotations.length > 0 && signed === 0) {
+					return { ok: false, status: 400, message: "Choose a display name before commenting." };
+				}
+				let last: StoredPlan | undefined;
+				for (const [author, group] of groups) {
+					last = await store.saveFeedback(cwd, plan.path, group, { author });
+				}
+				if (last !== undefined) {
+					savedPlan = last;
+					broadcast("comment");
+				}
 				return { ok: true };
 			} catch (error) {
 				return { ok: false, status: 500, message: error instanceof Error ? error.message : String(error) };
 			}
 		};
 
+		/**
+		 * Start sharing, or report why it cannot: one bound LAN address, one reviewer
+		 * token, and the QR a phone scans. Idempotent, so a second click re-reads the
+		 * same link rather than minting another.
+		 */
+		const shareNow = async (): Promise<ShareResult> => {
+			if (shareServer === undefined) {
+				const addresses = lanAddresses((deps.networkInterfaces ?? networkInterfaces)());
+				const address = addresses[0];
+				if (address === undefined) {
+					sharing = { sharing: false, port: 0, links: [], reason: NO_SHARE_REASON };
+					return { state: sharing };
+				}
+				const candidate = createServer(handleRequest);
+				// Keep the owner's port when the address allows it, so the two links read
+				// the same; otherwise let the OS pick one for the shared side.
+				let bound: number | undefined;
+				for (const port of [currentPort, 0]) {
+					try {
+						bound = await bindHost(candidate, address, port);
+						break;
+					} catch {
+						bound = undefined;
+					}
+				}
+				if (bound === undefined) {
+					candidate.close();
+					sharing = { sharing: false, port: 0, links: [], reason: NO_SHARE_REASON };
+					return { state: sharing };
+				}
+				shareServer = candidate;
+				closeShareServer = createCloser(candidate);
+				shareAddress = address;
+				sharePort = bound;
+			}
+			reviewerToken ??= mint("reviewer");
+			const links = shareUrls([shareAddress], sharePort, reviewerToken);
+			sharing = { sharing: true, port: sharePort, links };
+			broadcast("share");
+			return { state: sharing, svg: await qrSvg(links[0].url) };
+		};
+
+		/** Stop accepting reviewers and forget every reviewer token. */
+		const stopSharing = async (): Promise<ShareResult> => {
+			if (reviewerToken !== undefined) {
+				tokens.delete(reviewerToken);
+				reviewerToken = undefined;
+			}
+			if (closeShareServer) await closeShareServer();
+			shareServer = undefined;
+			closeShareServer = undefined;
+			shareAddress = "";
+			sharePort = 0;
+			sharing = { sharing: false, port: 0, links: [] };
+			broadcast("share");
+			return { state: sharing };
+		};
+
 		const context: ReviewContext = {
-			token,
+			roleOf: (value) => tokens.get(value),
+			hosts,
 			canApprove,
 			page,
 			save,
+			share: shareNow,
+			stopShare: stopSharing,
 			onSaved: (annotations) => {
 				pendingResult = savedPlan ? { status: "saved", plan: savedPlan, annotations } : { status: "cancelled" };
 			},
@@ -279,7 +446,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			});
 		};
 
-		const server = createServer((request, response) => {
+		const server = createServer(handleRequest);
+		/** One request, on either listener: the loopback page or a shared one. */
+		function handleRequest(request: IncomingMessage, response: ServerResponse): void {
 			void (async () => {
 				const method = request.method ?? "GET";
 				const read =
@@ -324,9 +493,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				respond(request, response, result, settlePending);
 				response.on("close", settlePending);
 			})();
-		});
+		}
 
-		// The accept-level `error` listener lives in `bindLoopback`, so a transient
+		// The accept-level `error` listener lives in `bindHost`, so a transient
 		// failure cannot take the host down; the review still ends through its own
 		// paths: cancel, abort, drop, or shutdown.
 		const preferred = deps.port ?? ports.get(plan.path) ?? 0;
@@ -348,6 +517,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			return undefined;
 		}
 		ports.set(plan.path, port);
+		currentPort = port;
 		const closeServer = createCloser(server);
 
 		const url = `http://127.0.0.1:${port}/?token=${token}`;
@@ -358,14 +528,19 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			closed = true;
 			if (signal && abortHandler) signal.removeEventListener("abort", abortHandler);
 			sessions.delete(session);
+			shares.delete(session);
 			for (const client of clients) client.end();
 			clients.clear();
 			finish({ status: "cancelled" });
+			if (closeShareServer) await closeShareServer();
+			closeShareServer = undefined;
+			shareServer = undefined;
 			await closeServer();
 		};
 
 		const session: PlanReviewSession = { url, port, done, close };
 		sessions.add(session);
+		shares.set(session, { share: shareNow, stopSharing, state: () => sharing });
 
 		if (signal) {
 			abortHandler = (): void => void close();
@@ -377,8 +552,18 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		return session;
 	};
 
+	const current = (): PlanReviewSession | undefined => [...sessions].at(-1);
+	const controls = () => {
+		const session = current();
+		return session ? shares.get(session) : undefined;
+	};
+
 	return {
 		start,
+		current,
+		share: async () => controls()?.share(),
+		stopSharing: async () => controls()?.stopSharing(),
+		shareState: () => controls()?.state(),
 		closeAll: async () => {
 			await Promise.all([...sessions].map((session) => session.close()));
 		},

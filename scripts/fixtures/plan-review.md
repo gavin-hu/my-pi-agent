@@ -51,6 +51,7 @@ prices   cached 2h ago   /Users/u/.pi/prices.json   1,204 models
 - A clock that jumps backwards makes the cache look fresh forever; age it by the
   timestamp inside the file rather than by the file's mtime.
 > [!REVIEW] The stale refresh has to be cancellable, or a slow provider keeps the process alive after the reply is already on screen.
+> [!REVIEW] @priya: A cache written by an unknown version should be discarded outright; treating it as a miss leaves a half-parsed table on disk for the next start.
 
 ## Verification
 

@@ -83,6 +83,10 @@ function webThatSaves(annotations: PlanAnnotation[]): PlanWebReview {
 			}),
 			close: async () => {},
 		}),
+		current: () => undefined,
+		share: async () => undefined,
+		stopSharing: async () => undefined,
+		shareState: () => undefined,
 		closeAll: async () => {},
 	};
 }
@@ -96,6 +100,10 @@ function webThatCancels(): PlanWebReview {
 			done: Promise.resolve({ status: "cancelled" as const }),
 			close: async () => {},
 		}),
+		current: () => undefined,
+		share: async () => undefined,
+		stopSharing: async () => undefined,
+		shareState: () => undefined,
 		closeAll: async () => {},
 	};
 }
@@ -113,6 +121,10 @@ function webThatApproves(annotations: PlanAnnotation[]): { web: PlanWebReview; s
 				close: async () => {},
 			};
 		},
+		current: () => undefined,
+		share: async () => undefined,
+		stopSharing: async () => undefined,
+		shareState: () => undefined,
 		closeAll: async () => {},
 	};
 	return { web, starts };

@@ -91,16 +91,27 @@ describe precisely.
    button approves. A page opened later with `/plan review` is comment-only and
    has no approve action.
 
-   <img src="../../assets/plan-review.png" alt="The browser plan review: a sticky header, a step-progress panel, the plan as one measured column, and a comment rail" width="100%">
+   <img src="../../assets/plan-review.png" alt="The browser plan review: a sticky header with Share and Approve & run, a step-progress panel, the plan as one measured column, and a comment rail with a teammate's comment" width="100%">
 
-   *The browser review: step progress, a comment rail, and the approval action
-   when the page was opened from the terminal review.*
+   *The browser review: step progress, a comment rail holding a teammate's
+   comment, and the approval action when the page was opened from the terminal
+   review.*
 
    In the page, `j` / `k` move between blocks, `c` comments on the current block,
    `a` opens the approval confirmation, `s` saves feedback, `Esc` closes the
    composer or the page, and `?` opens a shortcut sheet. Nothing typed is lost:
    saving, approving, or closing refuses while a comment is half-written and puts
    the cursor back in it, and a deleted comment can be undone from the header.
+
+   **Review with someone else.** **Share** in the page header mints a link (and a
+   QR a phone can scan) that a teammate on the same network opens to read the plan
+   and comment under their own name. Their comments arrive in the same file as
+   `> [!REVIEW] @alice: …`, appear under the block they refer to on your page
+   while it is open, and stay when you revise the plan. They cannot approve:
+   **Approve & run** is yours alone, and the reviewer's page never renders it.
+   **Stop sharing** — or closing the review — revokes the link. From a phone-owned
+   or remote session, `/plan share` prints the link and QR and `/plan share stop`
+   revokes it, because there is no page to click.
 
 4. After approval, the plan's steps become your to-do list. Watch the widget tick
    them off. The assistant updates the plan file as it goes; you can reopen the
@@ -123,6 +134,11 @@ describe precisely.
 - `/plan review [path]` opens the browser page for the newest plan, or for the
   path you give it. It is for comments only; approve from the terminal review or
   from the page opened with `w`.
+- A shared link is a credential: anyone who has it can read the plan and comment
+  under any name. The page says so, the link is generated per review, and it is
+  revoked by **Stop sharing**. The server binds one address on this network, never
+  a wildcard, and a machine with no reachable address says so instead of printing
+  a link that cannot work. Nothing leaves the machine.
 - `/plan cancel` leaves plan mode without approving. The plan file stays, no todo
   items or goal are recorded, and write access returns immediately. The phone
   review reaches the same outcome through **Exit plan mode** or a cancel phrase;

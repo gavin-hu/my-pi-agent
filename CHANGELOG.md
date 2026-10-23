@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: a review can be **shared**. **Share** in the browser page (or `/plan
+  share`) mints a reviewer link with a QR a teammate on the same network opens to
+  read the plan and comment under their own name; **Stop sharing** revokes it. Only
+  the owner's own page approves — a reviewer token is refused on approve, cancel,
+  and share — comments arrive as `> [!REVIEW] @alice: …`, and every open page
+  follows the change stream instead of waiting for a reload.
 - `skills`: a model-invoked `parallel-dev` skill runs parallel work as a lead and a
   team: a lead accountable for the contract, the shared files, merge order and a green
   baseline who also owns a workstream of its own, one owner per disjoint outcome slice
@@ -27,6 +33,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: a review comment carries its author, and every save replaces only its own
+  writer's comments, so two reviewers cannot erase each other; a revision carries
+  the review onto the rewritten plan instead of dropping it, and the terminal
+  review, the dialog, and the phone prompt show the comments in place instead of
+  hiding them.
+- `plan`: the review server's `Host` allowlist, bind address, and token roles are
+  parameters of the shared `lib/http/` kit, so `file-browse` keeps its loopback
+  guarantee while a shared review answers the one address it printed.
+- `wechat`: the QR renderer moved to `lib/qr.ts` so the review's share dialog uses
+  the same matrix, terminal half-blocks, and SVG a login code does.
 - `docs`: the guide and the reference cover every packaged skill — `/skill:changelog`
   gains a section, the command index lists `/sessions`, and the five skills get their
   own table instead of one row among the commands — and `ROADMAP.md` names

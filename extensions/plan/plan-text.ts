@@ -15,7 +15,7 @@
 
 import { createHash } from "node:crypto";
 import { stripControlChars } from "../../lib/format.ts";
-import { stripFeedback } from "./feedback.ts";
+import { displayFeedback, stripFeedback } from "./feedback.ts";
 import { extractPlanSections } from "./steps.ts";
 
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
@@ -36,6 +36,14 @@ export interface SectionDigest {
  */
 export function sanitizePlanText(text: string): string {
 	return stripControlChars(text.replace(/\t/g, " ".repeat(TAB_WIDTH)));
+}
+
+/**
+ * The text a review *shows*: terminal-safe, with stored comments kept in place
+ * as readable quotes, so a reviewer sees what a teammate wrote.
+ */
+export function planDisplayText(content: string): string {
+	return displayFeedback(sanitizePlanText(content));
 }
 
 /**

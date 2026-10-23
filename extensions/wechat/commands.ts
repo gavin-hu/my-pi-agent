@@ -30,7 +30,7 @@ import { peerLabel, peerKey } from "./format.ts";
 import { waitForLogin, type LoginOutcome } from "./login.ts";
 import { defaultSleep } from "./timer.ts";
 import { LoginScreenComponent, type LoginViewState } from "./login-screen.ts";
-import { qrLines } from "./qrcode.ts";
+import { qrLines } from "../../lib/qr.ts";
 import { statusLine, statusView, StatusScreenComponent, type StatusAction, type StatusView } from "./status-screen.ts";
 import type { BotCredentials } from "./types.ts";
 

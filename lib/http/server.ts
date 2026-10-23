@@ -1,14 +1,15 @@
 /**
- * The socket seam shared by the two loopback servers: bind, write a response
- * out, and close.
+ * The socket seam shared by the browser servers: bind, write a response out,
+ * and close.
  *
  * Everything here is behavior a caller cannot get right by accident: a bind on
- * `127.0.0.1` only, an accept-level `error` listener so a transient failure
- * cannot take the host down, a `HEAD` that sends headers and no body, a `filePath`
- * response streamed instead of buffered, a `stream` response opened as an event
- * stream, and a close that is safe to call twice and drops keep-alive
- * connections. What each server does *around* this — which frames an event
- * stream carries, request bodies, session settling — stays with that server.
+ * an address the caller names (loopback unless it asked for more), an
+ * accept-level `error` listener so a transient failure cannot take the host
+ * down, a `HEAD` that sends headers and no body, a `filePath` response streamed
+ * instead of buffered, a `stream` response opened as an event stream, and a
+ * close that is safe to call twice and drops keep-alive connections. What each
+ * server does *around* this — which frames an event stream carries, request
+ * bodies, session settling — stays with that server.
  */
 
 import { createReadStream } from "node:fs";
@@ -16,15 +17,19 @@ import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import type { ServeResponse } from "./response.ts";
 
 /**
- * Bind `server` to `127.0.0.1:port` and resolve the port it actually bound
- * (`0` asks the OS to pick one). Rejects when the bind fails, so a caller that
- * wants a fallback can retry with another port.
+ * Bind `server` to `host:port` and resolve the port it actually bound (`0` asks
+ * the OS to pick one). Rejects when the bind fails, so a caller that wants a
+ * fallback can retry with another port.
+ *
+ * `host` is the address the caller is about to print, never a wildcard by
+ * default: a review shared on a LAN opens exactly one address, so the link the
+ * owner sees is the whole surface.
  */
-export async function bindLoopback(server: Server, port: number): Promise<number> {
+export async function bindHost(server: Server, host: string, port: number): Promise<number> {
 	await new Promise<void>((resolve, reject) => {
 		const onError = (error: Error) => reject(error);
 		server.once("error", onError);
-		server.listen(port, "127.0.0.1", () => {
+		server.listen(port, host, () => {
 			server.off("error", onError);
 			resolve();
 		});
@@ -35,6 +40,15 @@ export async function bindLoopback(server: Server, port: number): Promise<number
 	server.on("error", () => {});
 	const address = server.address();
 	return typeof address === "object" && address ? address.port : port;
+}
+
+/**
+ * Bind `server` to `127.0.0.1:port` and resolve the port it actually bound
+ * (`0` asks the OS to pick one). Rejects when the bind fails, so a caller that
+ * wants a fallback can retry with another port.
+ */
+export async function bindLoopback(server: Server, port: number): Promise<number> {
+	return bindHost(server, "127.0.0.1", port);
 }
 
 /**

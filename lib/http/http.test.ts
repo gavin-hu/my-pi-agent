@@ -16,7 +16,8 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { eventHeaders, jsonHeaders, PAGE_CSP, pageHeaders, scriptHeaders } from "./headers.ts";
 import { htmlResponse, jsonError, jsonResponse, textResponse } from "./response.ts";
-import { isLocalHostHeader, parseRequestUrl } from "./router.ts";
+import { LOOPBACK_HOSTS } from "./router.ts";
+import { hostHeaderName, isAllowedHostHeader, isLocalHostHeader, parseRequestUrl } from "./router.ts";
 import { bindLoopback, createCloser, openEventStream, respond } from "./server.ts";
 
 const temps = makeTempTracker();
@@ -185,6 +186,36 @@ describe("isLocalHostHeader", () => {
 		expect(isLocalHostHeader({ host: "" }, { required: false })).toBe(true);
 		expect(isLocalHostHeader({ host: "" }, { required: true })).toBe(false);
 		expect(isLocalHostHeader({ host: ["127.0.0.1"] }, { required: true })).toBe(false);
+	});
+});
+
+describe("isAllowedHostHeader", () => {
+	const hosts = [...LOOPBACK_HOSTS, "192.168.1.24"];
+
+	test("accepts a name the server was bound on", () => {
+		for (const host of ["127.0.0.1:8080", "localhost", "192.168.1.24:8080"]) {
+			expect(isAllowedHostHeader({ host }, { hosts, required: true }), host).toBe(true);
+		}
+	});
+
+	test("refuses a name it was not bound on", () => {
+		expect(isAllowedHostHeader({ host: "192.168.1.25:8080" }, { hosts, required: true })).toBe(false);
+		expect(isAllowedHostHeader({ host: "evil.example" }, { hosts, required: true })).toBe(false);
+	});
+
+	test("still fails closed on a missing host", () => {
+		expect(isAllowedHostHeader({}, { hosts, required: true })).toBe(false);
+		expect(isAllowedHostHeader({}, { hosts, required: false })).toBe(true);
+	});
+});
+
+describe("hostHeaderName", () => {
+	test("drops a port, lowercases, and keeps an IPv6 bracket", () => {
+		expect(hostHeaderName("LocalHost:8080")).toBe("localhost");
+		expect(hostHeaderName("[::1]:80")).toBe("[::1]");
+		expect(hostHeaderName("192.168.1.24")).toBe("192.168.1.24");
+		// A bare IPv6 address is not a port-bearing host, so nothing is stripped.
+		expect(hostHeaderName("::1")).toBe("::1");
 	});
 });
 

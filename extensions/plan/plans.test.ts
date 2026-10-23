@@ -16,14 +16,6 @@ import { basename, join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { blockAt, codeBody, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
-import {
-	coerceAnnotations,
-	feedbackSummary,
-	formatFeedback,
-	MAX_ANNOTATIONS,
-	parseFeedback,
-	stripFeedback,
-} from "./feedback.ts";
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
 import { changedSections, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
@@ -603,6 +595,84 @@ describe("plan store — saveFeedback", () => {
 	});
 });
 
+describe("plan store — authored review comments", () => {
+	/** A repo store with one plan holding two steps. */
+	async function seeded(): Promise<{ root: string; store: ReturnType<typeof repoStore>; path: string }> {
+		const root = tempDir();
+		const store = repoStore(root);
+		const file = await store.write(root, { title: "Review", content: "# Plan\n- [ ] one\n- [ ] two" });
+		return { root, store, path: file.path };
+	}
+
+	test("a save writes one writer's comments and keeps the other writer's", async () => {
+		const { root, store, path } = await seeded();
+		await store.saveFeedback(root, path, [{ anchor: 1, comment: "alice's" }], { author: "alice" });
+		const updated = await store.saveFeedback(root, path, [{ anchor: 2, comment: "bob's" }], { author: "bob" });
+		expect(updated.content).toBe("# Plan\n- [ ] one\n> [!REVIEW] @alice: alice's\n- [ ] two\n> [!REVIEW] @bob: bob's");
+	});
+
+	test("the owner's save keeps every reviewer's comment", async () => {
+		const { root, store, path } = await seeded();
+		await store.saveFeedback(root, path, [{ anchor: 1, comment: "alice's" }], { author: "alice" });
+		await store.saveFeedback(root, path, [{ anchor: 2, comment: "bob's" }], { author: "bob" });
+		const updated = await store.saveFeedback(root, path, [{ anchor: 1, comment: "owner's" }]);
+		expect(updated.content).toBe(
+			"# Plan\n- [ ] one\n> [!REVIEW] @alice: alice's\n> [!REVIEW] owner's\n- [ ] two\n> [!REVIEW] @bob: bob's",
+		);
+	});
+
+	test("a save cannot re-sign another writer's comment", async () => {
+		const { root, store, path } = await seeded();
+		const updated = await store.saveFeedback(
+			root,
+			path,
+			[
+				{ anchor: 1, comment: "pretending", author: "alice" },
+				{ anchor: 2, comment: "mine" },
+			],
+			{ author: "bob" },
+		);
+		expect(updated.content).toBe("# Plan\n- [ ] one\n- [ ] two\n> [!REVIEW] @bob: mine");
+	});
+
+	test("a reviewer's own save replaces their earlier comments", async () => {
+		const { root, store, path } = await seeded();
+		await store.saveFeedback(root, path, [{ anchor: 1, comment: "first" }], { author: "alice" });
+		const updated = await store.saveFeedback(root, path, [{ anchor: 2, comment: "second" }], { author: "alice" });
+		expect(updated.content).toBe("# Plan\n- [ ] one\n- [ ] two\n> [!REVIEW] @alice: second");
+	});
+
+	test("refuses a missing or outside plan", async () => {
+		const { root, store } = await seeded();
+		writeFileSync(join(root, "outside.md"), "- One");
+		await expect(
+			store.saveFeedback(root, join(root, ".pi", "plans", "nope.md"), [], { author: "alice" }),
+		).rejects.toThrow(/No plan file/);
+		await expect(store.saveFeedback(root, join(root, "outside.md"), [], { author: "alice" })).rejects.toThrow(
+			/No plan file/,
+		);
+	});
+
+	test("a refinement carries the review onto the rewritten plan", async () => {
+		const { root, store, path } = await seeded();
+		await store.saveFeedback(root, path, [{ anchor: 1, comment: "alice's" }], { author: "alice" });
+		const rewritten = await store.write(root, {
+			title: "Review",
+			planPath: path,
+			content: "# Plan\n- [ ] one\n- [ ] two\n- [ ] three",
+		});
+		expect(rewritten.content).toBe("# Plan\n- [ ] one\n> [!REVIEW] @alice: alice's\n- [ ] two\n- [ ] three");
+		expect(readFileSync(path, "utf-8")).toBe(rewritten.content);
+	});
+
+	test("a new plan never inherits markers from the content it is given", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const file = await store.write(root, { title: "Fresh", content: "- [ ] one\n> [!REVIEW] stray" });
+		expect(file.content).toBe("- [ ] one");
+	});
+});
+
 describe("step extraction", () => {
 	const pending = (content: string) => ({ content, status: "pending" as const });
 	const completed = (content: string) => ({ content, status: "completed" as const });
@@ -1127,128 +1197,6 @@ describe("plan text — changed sections", () => {
 		const plan = ["# Plan", "## Goal", "Ship it."].join("\n");
 		const commented = ["# Plan", "## Goal", "Ship it.", "> [!REVIEW] make it concrete"].join("\n");
 		expect(changedSections(sectionDigests(commented), plan)).toEqual([false, false]);
-	});
-});
-
-describe("plan feedback codec", () => {
-	const plan = "# Title\n\n## Steps\n- [ ] one\n- [ ] two\n";
-
-	test("strips stored feedback lines and leaves the body", () => {
-		expect(stripFeedback("- one\n> [!REVIEW] a note\n- two")).toBe("- one\n- two");
-		expect(stripFeedback("a\n  > [!REVIEW]\nb")).toBe("a\nb");
-	});
-
-	test("keeps a marker-looking line inside a fenced code block", () => {
-		const fenced = "```md\n> [!REVIEW] documentation\n```";
-		expect(stripFeedback(fenced)).toBe(fenced);
-	});
-
-	test("places a comment after the block it is anchored to", () => {
-		expect(formatFeedback(plan, [{ anchor: 3, comment: "too vague" }])).toBe(
-			"# Title\n\n## Steps\n- [ ] one\n> [!REVIEW] too vague\n- [ ] two\n",
-		);
-	});
-
-	test("groups several comments on one block in order", () => {
-		const saved = formatFeedback(plan, [
-			{ anchor: 3, comment: "first" },
-			{ anchor: 3, comment: "second" },
-		]);
-		expect(saved).toContain("- [ ] one\n> [!REVIEW] first\n> [!REVIEW] second\n- [ ] two");
-	});
-
-	test("never splits a fenced code block", () => {
-		const fenced = "```ts\nconst x = 1;\n```\nafter\n";
-		const saved = formatFeedback(fenced, [{ anchor: 1, comment: "rename x" }]);
-		expect(saved).toBe("```ts\nconst x = 1;\n```\n> [!REVIEW] rename x\nafter\n");
-	});
-
-	test("collapses a multi-line comment to one marker line", () => {
-		expect(formatFeedback("- one", [{ anchor: 0, comment: "line one\nline two" }])).toBe(
-			"- one\n> [!REVIEW] line one line two",
-		);
-	});
-
-	test("drops empty comments and clears stored feedback when none remain", () => {
-		expect(formatFeedback("- one\n> [!REVIEW] old", [])).toBe("- one");
-		expect(formatFeedback("- one", [{ anchor: 0, comment: "   " }])).toBe("- one");
-	});
-
-	test("writes into an empty plan", () => {
-		expect(formatFeedback("", [{ anchor: 0, comment: "start over" }])).toBe("> [!REVIEW] start over");
-	});
-
-	test("is idempotent across repeated saves", () => {
-		const annotations = [
-			{ anchor: 3, comment: "first" },
-			{ anchor: 4, comment: "second" },
-		];
-		const once = formatFeedback(plan, annotations);
-		expect(formatFeedback(once, annotations)).toBe(once);
-	});
-
-	test("recovers the anchor and comment written by formatFeedback", () => {
-		const saved = formatFeedback(plan, [
-			{ anchor: 3, comment: "first" },
-			{ anchor: 4, comment: "second" },
-		]);
-		expect(parseFeedback(saved)).toEqual([
-			{ anchor: 3, comment: "first" },
-			{ anchor: 4, comment: "second" },
-		]);
-	});
-
-	test("returns nothing when there is no feedback", () => {
-		expect(parseFeedback(plan)).toEqual([]);
-	});
-
-	test("anchors a leading comment to the first block", () => {
-		expect(parseFeedback("> [!REVIEW] top\n# Title")).toEqual([{ anchor: 0, comment: "top" }]);
-	});
-
-	test("ignores a marker-looking line inside a fenced code block", () => {
-		expect(parseFeedback("```md\n> [!REVIEW] documentation\n```")).toEqual([]);
-	});
-
-	test("leaves a plan whose code block documents the marker unchanged", () => {
-		const fenced = "# Title\n\n```md\n> [!REVIEW] documentation\n```\n\n- [ ] step\n";
-		const saved = formatFeedback(fenced, [{ anchor: 6, comment: "real" }]);
-		expect(stripFeedback(saved)).toBe(fenced);
-		expect(parseFeedback(saved)).toEqual([{ anchor: 6, comment: "real" }]);
-	});
-
-	test("numbers comments and includes a short quote", () => {
-		const summary = feedbackSummary([
-			{ anchor: 0, quote: "token bucket", comment: "burst case?" },
-			{ anchor: 1, comment: "add a test" },
-		]);
-		expect(summary).toBe('1. On "token bucket": burst case?\n2. add a test');
-	});
-
-	test("truncates a long quote", () => {
-		const summary = feedbackSummary([{ anchor: 0, quote: "x".repeat(200), comment: "note" }]);
-		expect(summary).toContain("…");
-		expect(summary).toContain("note");
-	});
-
-	test("accepts a well-formed annotation payload and drops an empty comment", () => {
-		expect(coerceAnnotations([{ anchor: 2, quote: "q", comment: "c" }])).toEqual([
-			{ anchor: 2, quote: "q", comment: "c" },
-		]);
-		expect(coerceAnnotations([{ anchor: 2, comment: "  " }])).toEqual([]);
-	});
-
-	test("rejects a non-array or a malformed entry", () => {
-		expect(coerceAnnotations("nope")).toBeUndefined();
-		expect(coerceAnnotations([{ anchor: -1, comment: "c" }])).toBeUndefined();
-		expect(coerceAnnotations([{ anchor: 1.5, comment: "c" }])).toBeUndefined();
-		expect(coerceAnnotations([{ anchor: 1 }])).toBeUndefined();
-		expect(coerceAnnotations([{ anchor: 1, comment: "c", quote: 3 }])).toBeUndefined();
-	});
-
-	test("caps the annotation count", () => {
-		const many = Array.from({ length: MAX_ANNOTATIONS + 1 }, () => ({ anchor: 0, comment: "c" }));
-		expect(coerceAnnotations(many)).toBeUndefined();
 	});
 });
 

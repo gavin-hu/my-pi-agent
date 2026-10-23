@@ -6,6 +6,13 @@ import type { PlanAnnotation } from "./feedback.ts";
 import type { SectionDigest } from "./plan-text.ts";
 import type { StepUpdate } from "./steps.ts";
 
+/**
+ * Who is looking at a running review: the session that opened it (`owner`, the
+ * only role that can approve), or someone the link was shared with (`reviewer`,
+ * who may comment).
+ */
+export type ReviewRole = "owner" | "reviewer";
+
 /** Persisted (custom entry) plan-mode state. */
 export interface PlanModeEntry {
 	enabled: boolean;
