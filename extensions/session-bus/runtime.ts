@@ -15,10 +15,11 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { createExecRunner, gitCommonDir, repoRoot } from "../../lib/git/index.ts";
+import { isInside, realPathOfNearest } from "../../lib/path.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
 	defaultLabel,
@@ -98,6 +99,37 @@ function messageId(now: number): string {
 	return `${now}-${randomBytes(4).toString("hex")}`;
 }
 
+/** Whether a record's heartbeat is fresh: the rule the bus prunes and displays by. */
+function isLive(session: SessionRecord, at: number, ttlMs: number): boolean {
+	return at - session.lastSeen <= ttlMs;
+}
+
+/** A label with this session's short id appended, inside the label budget. */
+function suffixLabel(label: string, id: string): string {
+	const suffix = `-${shortId(id)}`;
+	return `${label.slice(0, MAX_LABEL - suffix.length)}${suffix}`;
+}
+
+/**
+ * Re-key accepted paths by their real target, so a symlinked spelling inside the
+ * repository and the file it names are one claim. The paths arrive relative and
+ * already inside the root; a link that leaves it is refused here.
+ */
+function canonicalPaths(root: string, paths: readonly string[]): { paths: string[] } | { error: string } {
+	const realRoot = realPathOfNearest(root);
+	const canonical: string[] = [];
+	for (const path of paths) {
+		const target = realPathOfNearest(join(root, path));
+		const rel = relative(realRoot, target);
+		if (rel === "" || !isInside(realRoot, target)) {
+			return { error: `path "${path}" does not resolve to a file in the repository.` };
+		}
+		const normalized = rel.split(sep).join("/");
+		if (!canonical.includes(normalized)) canonical.push(normalized);
+	}
+	return { paths: canonical };
+}
+
 function sessionName(ctx: ExtensionContext): string | undefined {
 	try {
 		return ctx.sessionManager.getSessionName();
@@ -131,8 +163,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const ensureStarted = async (context: ExtensionContext): Promise<void> => {
 		if (starting) return starting;
 		starting = (async () => {
-			const cwd = context.cwd;
-			const repo = options.repo ?? (await resolveRepo(context.cwd));
+			// Canonical once, here: the root git reports is a real path, so an unresolved
+			// cwd does not contain the paths a caller resolves against it.
+			const cwd = realPathOfNearest(context.cwd);
+			const repo = options.repo ?? (await resolveRepo(cwd));
 			const dir = options.dir ?? join(getAgentDir(), "session-bus", repo.key);
 			store = createBusStore({ dir });
 			await store.ensure();
@@ -173,23 +207,54 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	async function joinBus(): Promise<void> {
 		if (!store || !record) throw new Error("session bus is not started.");
 		if (joined) return;
-		const sessions = await store.sessions();
-		let candidate = record.label;
-		const used = new Set(
-			sessions.filter((session) => session.id !== record?.id).map((session) => session.label.toLowerCase()),
-		);
-		if (used.has(candidate.toLowerCase())) candidate = `${candidate}-${shortId(record.id)}`.slice(0, MAX_LABEL);
-		record.label = candidate;
+		const used = await takenLabels(store, record.id);
+		if (used.has(record.label.toLowerCase())) record.label = suffixLabel(record.label, record.id);
 		record.lastSeen = now();
 		await store.writeSession(record);
+		await settleLabel();
 		joined = true;
 		if (heartbeatMs > 0) {
 			stopHeartbeat = interval(heartbeatMs, () => {
-				if (!record || !store) return;
-				record.lastSeen = now();
-				void store.writeSession(record).catch(() => {});
+				void (async () => {
+					if (!record || !store) return;
+					record.lastSeen = now();
+					await store.writeSession(record);
+					// A heartbeat that resumed after a long pause can find its label taken; the
+					// tick is where a revived session notices and yields, after its own write.
+					await settleLabel();
+				})().catch(() => {});
 			});
 		}
+	}
+
+	/** The labels other live sessions hold: a crashed session's label is not taken. */
+	async function takenLabels(bus: BusStore, mine: string): Promise<Set<string>> {
+		const at = now();
+		const sessions = await bus.sessions();
+		return new Set(
+			sessions
+				.filter((session) => session.id !== mine && isLive(session, at, sessionTtlMs))
+				.map((session) => session.label.toLowerCase()),
+		);
+	}
+
+	/**
+	 * A collision is settled by yielding, never by comparing session ids: a session
+	 * that keeps the label does not look again, and two of them can each decide that.
+	 * Every writer that observes a rival yields, and the record written last always
+	 * observes the other, so a collision ends with two distinct labels.
+	 */
+	async function settleLabel(): Promise<void> {
+		if (!store || !record) return;
+		const me = record;
+		let yields = 0;
+		while (yields < 3 && (await takenLabels(store, me.id)).has(me.label.toLowerCase())) {
+			me.label = suffixLabel(me.label, me.id);
+			yields += 1;
+		}
+		if (yields === 0) return;
+		me.lastSeen = now();
+		await store.writeSession(me);
 	}
 
 	async function prepare(): Promise<void> {
@@ -201,7 +266,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		await store.writeSession(record);
 		const sessions = await store.sessions();
 		const active = new Set(
-			sessions.filter((session) => now() - session.lastSeen <= sessionTtlMs).map((session) => session.id),
+			sessions.filter((session) => isLive(session, now(), sessionTtlMs)).map((session) => session.id),
 		);
 		if (record) active.add(record.id);
 		await store.prune({ now: now(), activeIds: active, sessionTtlMs, messageTtlMs });
@@ -211,6 +276,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		await prepare();
 		if (!record) throw new Error("session bus is not started.");
 		return record;
+	}
+
+	/** The stored form of the paths a caller passed: validated, then keyed by target. */
+	function storedPaths(me: SessionRecord, raw: unknown): string[] {
+		const normalized = normalizePaths(me.repoRoot, me.cwd, raw);
+		if ("error" in normalized) throw new Error(normalized.error);
+		const keyed = canonicalPaths(me.repoRoot, normalized.paths);
+		if ("error" in keyed) throw new Error(keyed.error);
+		return keyed.paths;
 	}
 
 	async function withUnread(rows: readonly SessionRecord[]): Promise<Array<SessionRecord & { unread: number }>> {
@@ -229,7 +303,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (!store) throw new Error("session bus is not started.");
 		const records = await store.sessions();
 		const sessions = liveOnly
-			? records.filter((session) => session.id === record?.id || now() - session.lastSeen <= sessionTtlMs)
+			? records.filter((session) => session.id === record?.id || isLive(session, now(), sessionTtlMs))
 			: records;
 		const live = new Set(sessions.map((session) => session.id));
 		const claims = (await store.claims()).filter((claim) => !liveOnly || live.has(claim.owner));
@@ -299,17 +373,17 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	async function rename(label: string): Promise<string> {
 		if (!store || !record) throw new Error("session bus is not started.");
 		const candidate = normalizeLabel(label, record.label);
-		const sessions = await store.sessions();
-		if (
-			sessions.some((session) => session.id !== record?.id && session.label.toLowerCase() === candidate.toLowerCase())
-		) {
+		if ((await takenLabels(store, record.id)).has(candidate.toLowerCase())) {
 			throw new Error(`the label "${candidate}" is already in use.`);
 		}
 		record.label = candidate;
 		record.lastSeen = now();
 		await store.writeSession(record);
+		// A rename that raced another one ends on the label the bus settled on, which
+		// is what the caller hands to Pi as this session's name.
+		await settleLabel();
 		joined = true;
-		return candidate;
+		return record.label;
 	}
 
 	return {
@@ -380,11 +454,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const resolved = resolveRecipients(sessions, input.to, me.id);
 			if ("error" in resolved) throw new Error(resolved.error);
 			let paths: string[] | undefined;
-			if (input.paths !== undefined) {
-				const normalized = normalizePaths(me.repoRoot, me.cwd, input.paths);
-				if ("error" in normalized) throw new Error(normalized.error);
-				paths = normalized.paths;
-			}
+			if (input.paths !== undefined) paths = storedPaths(me, input.paths);
 			const id = messageId(now());
 			for (const recipient of resolved.recipients) {
 				const message: BusMessage = {
@@ -415,19 +485,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async claim(rawPaths) {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
-			const normalized = normalizePaths(me.repoRoot, me.cwd, rawPaths);
-			if ("error" in normalized) throw new Error(normalized.error);
-			return store.claimAll(normalized.paths, me.id, me.label, now());
+			return store.claimAll(storedPaths(me, rawPaths), me.id, me.label, now());
 		},
 
 		async release(rawPaths) {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
-			const normalized = normalizePaths(me.repoRoot, me.cwd, rawPaths);
-			if ("error" in normalized) throw new Error(normalized.error);
 			const released: string[] = [];
 			const notOwned: string[] = [];
-			for (const path of normalized.paths) {
+			for (const path of storedPaths(me, rawPaths)) {
 				if (await store.release(path, me.id)) released.push(path);
 				else notOwned.push(path);
 			}

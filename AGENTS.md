@@ -21,8 +21,9 @@ bun run bench:render              # render benchmark, budgeted in docs/developme
 
 - `bun run check` is the one command a change must pass. Run the test you touched
   while iterating; run the whole check before you call it done.
-- `rewind` and `worktree` create real repositories and skip unless `CI` or
-  `PI_SLOW_TESTS=1` is set. Touching either means running them explicitly.
+- `rewind`, `worktree`, and `session-bus`'s real-repository tests create real
+  repositories and skip unless `CI` or `PI_SLOW_TESTS=1` is set. Touching one
+  means running it explicitly.
 - A new package-level test also goes into `ROOT_TEST_FILES` in
   `test/structure.test.ts`: that set is compared exactly.
 - A peer change is proved against the newest published Pi by the `compat` CI job;

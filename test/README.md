@@ -20,11 +20,11 @@ implies `--isolate`), so each test file runs in its own worker process and
 `process.env` edits in one file cannot leak into another. The worker count is
 capped at four so the git-heavy worktree and rewind suites are not starved.
 
-The git-heavy `rewind` and `worktree` suites create real repositories and real
-git commands, so `test/helpers/slow-suite.ts` gates them: they skip unless `CI`
-is set (GitHub Actions sets it) or `PI_SLOW_TESTS=1` is exported. A local
-`bun run check` therefore stays fast while CI keeps the coverage. Run them
-locally with `PI_SLOW_TESTS=1 bun run test` or
+The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests create
+real repositories and real git commands, so `test/helpers/slow-suite.ts` gates
+them: they skip unless `CI` is set (GitHub Actions sets it) or `PI_SLOW_TESTS=1`
+is exported. A local `bun run check` therefore stays fast while CI keeps the
+coverage. Run them locally with `PI_SLOW_TESTS=1 bun run test` or
 `PI_SLOW_TESTS=1 bun test <path>`; a new slow suite opts in with
 `describe.skipIf(!runSlowSuites)("...", () => { ... })`.
 CI runs the macOS job through `bun run check:serial` instead: a `--parallel`

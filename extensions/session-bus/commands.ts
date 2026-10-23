@@ -13,6 +13,7 @@ import { messageOf } from "../../lib/errors.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withPolledScreen } from "../../lib/screen-session.ts";
 import { formatStatus, formatWatch } from "./format.ts";
+import { COMMAND_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { SessionListComponent } from "./tui.ts";
 
@@ -102,7 +103,7 @@ async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: Session
 }
 
 export function registerCommands(pi: ExtensionAPI, bus: SessionBus): void {
-	pi.registerCommand("sessions", {
+	pi.registerCommand(COMMAND_NAME, {
 		description: "List parallel Pi sessions, their unread counts and claims; name this session",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();

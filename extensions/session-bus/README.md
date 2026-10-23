@@ -133,6 +133,9 @@ The bus lives under the agent directory, not the project, so it is never committ
 - **Bounded by TTL.** An idle session with a stopped heartbeat is pruned after
   ten minutes; its record, its claims, and an inbox directory left empty go with
   it, and its unread mail expires after 24 hours.
+- **A message file that does not parse is dropped.** The board's read never
+  consumes mail, but it does delete a file it cannot validate, so a truncated
+  message cannot linger on the bus.
 - **No network.** It is not a distributed bus and does not synchronize machines.
 
 ## Design notes
@@ -140,6 +143,15 @@ The bus lives under the agent directory, not the project, so it is never committ
 - **Common git dir as the key.** `git rev-parse --git-common-dir` gives all
   worktrees of one repository the same bus; `--show-toplevel` normalizes claim
   paths within each worktree. Non-repository sessions fall back to their cwd.
+- **One path, one claim.** The cwd is canonicalized at join and every claim or
+  release is re-keyed by its real target, so a working directory reached through
+  a symlink still resolves inside its own repository, a link inside the repository
+  and the file it names are the same claim, and a link that leaves the repository
+  is refused. The automatic label is the real basename of the cwd, so a session
+  started through a link named differently is named after the directory it is
+  actually in. An absolute path argument that sits outside the repository is
+  refused before it is re-keyed, and a relative one whose target leaves the
+  repository is refused by the re-keying itself.
 - **One file per item.** Sessions never append to a shared registry: each session
   writes its own record, each message is its own file, and a claim is a temp file
   hard-linked into place — an exclusive create no reader can see half-written.

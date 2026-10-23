@@ -63,7 +63,7 @@ delete the branch. Never `git add -A` or `git add .`; stage explicit paths. Neve
 | `bun run format` | Rewrite formatting with Biome |
 | `bun run typecheck` | `tsc --noEmit` |
 | `bun run test` | Unit tests |
-| `PI_SLOW_TESTS=1 bun run test` | Include the git-heavy `worktree` and `rewind` suites |
+| `PI_SLOW_TESTS=1 bun run test` | Include the git-heavy `worktree`, `rewind`, and `session-bus` tests |
 
 See [`docs/development.md`](./docs/development.md) and
 [`test/README.md`](./test/README.md) for the test tiers and determinism rules.

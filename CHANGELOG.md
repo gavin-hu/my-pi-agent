@@ -132,6 +132,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `session-bus`: a bus no longer keeps one empty inbox directory for every session
   that ever joined it. A session's directory is removed when its record goes and
   when its last message expires, unless mail for a resumed session is still there.
+- `session-bus`: a claim works from a working directory that is a symlinked
+  spelling of its repository. The cwd and every stored path are canonicalized, so
+  a link inside the repository and its target are one claim and a link that leaves
+  the repository is refused.
+- `session-bus`: a session whose heartbeat stopped no longer holds its label. A
+  label is unique among the sessions the bus counts as active, so a restart under
+  the same name keeps that name instead of joining with a short id suffix once the
+  crashed record's ten minutes have passed.
+- `session-bus`: two sessions that join in the same instant under the same name end
+  with distinct labels — whichever notices the other yields to a short id suffix —
+  and a name at the 40-character limit no longer swallows that suffix.
 
 ## [0.17.0] - 2026-10-22
 
