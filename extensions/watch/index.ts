@@ -14,7 +14,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { WATCH_MATCH_CHANNEL, type WatchMatchEvent } from "../../lib/events.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import { noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
+import { burstText, noticeMessage, type NoticeMessage } from "../../lib/notice.ts";
 import { createPendingReporter, registerPendingChannel } from "../../lib/report.ts";
 import { registerCommands } from "./commands.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";
@@ -32,10 +32,14 @@ const MAX_CONTEXT_MATCHES = 20;
 /** Build the model-facing text for the pending-match notice. */
 export function buildWatchContext(matches: PendingMatch[]): string {
 	const shown = matches.slice(0, MAX_CONTEXT_MATCHES);
-	const lines = shown.map(formatPendingMatch);
 	const more = matches.length - shown.length;
-	const suffix = more > 0 ? `\n… ${more} more match${more === 1 ? "" : "es"}` : "";
-	return `${WATCH_CONTEXT_MARKER}\n${matches.length} watched line${matches.length === 1 ? "" : "s"} matched:\n${lines.join("\n")}${suffix}\nRead more with \`watch matches <id>\`.`;
+	return burstText({
+		marker: WATCH_CONTEXT_MARKER,
+		headline: `${matches.length} watched line${matches.length === 1 ? "" : "s"} matched`,
+		lines: shown.map((match) => formatPendingMatch(match)),
+		...(more > 0 ? { more: `… ${more} more match${more === 1 ? "" : "es"}` } : {}),
+		hint: "Read more with `watch matches <id>`.",
+	});
 }
 
 /** The shared notice for pending matches: model text plus renderer details. */

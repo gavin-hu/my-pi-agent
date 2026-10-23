@@ -59,7 +59,7 @@ import {
 	supportsCustomUI,
 	type UIContextCarrier,
 } from "./interaction.ts";
-import { isNotice, NOTICE_TYPE, noticeMessage, pruneStaleNotices } from "./notice.ts";
+import { burstText, isNotice, NOTICE_TYPE, noticeMessage, pruneStaleNotices } from "./notice.ts";
 import { isInside, isInsideReal, realPathOfNearest } from "./path.ts";
 import { createReadOnlyPolicy } from "./policy.ts";
 import { errorResult, failedResult, textResult, toolError } from "./tool-result.ts";
@@ -787,6 +787,33 @@ describe("the transcript notice", () => {
 
 	test("pruneStaleNotices answers undefined when nothing is stale", () => {
 		expect(pruneStaleNotices([user, notice("job")], "job")).toBeUndefined();
+	});
+
+	test("burstText joins the marker, the counted headline, the rows, and the caller's tail", () => {
+		expect(
+			burstText({
+				marker: "[BACKGROUND JOBS]",
+				headline: "1 background job finished",
+				lines: ["- j1 build · exit 0"],
+			}),
+		).toBe("[BACKGROUND JOBS]\n1 background job finished:\n- j1 build · exit 0");
+	});
+
+	test("burstText appends the hidden-row count and the hint in that order", () => {
+		const text = burstText({
+			marker: "[WATCH MATCHES]",
+			headline: "23 watched lines matched",
+			lines: ["- w1 server · ERROR first"],
+			more: "… 22 more matches",
+			hint: "Read more with `watch matches <id>`.",
+		});
+		expect(text.split("\n")).toEqual([
+			"[WATCH MATCHES]",
+			"23 watched lines matched:",
+			"- w1 server · ERROR first",
+			"… 22 more matches",
+			"Read more with `watch matches <id>`.",
+		]);
 	});
 });
 

@@ -7,7 +7,6 @@
 
 import { sanitizeLine } from "../../lib/format.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, SessionStatus } from "./types.ts";
-
 /** A short id suffix, neutralized like every other peer-supplied field. */
 function idSuffix(id: string): string {
 	return sanitizeLine(id.slice(-6));
@@ -17,7 +16,7 @@ function claimLine(claim: ClaimRecord): string {
 	return `${sanitizeLine(claim.path)} · ${sanitizeLine(claim.ownerLabel)}`;
 }
 
-/** The status listing: sessions, unread counts, and claims. */
+/** The status listing: sessions, unread counts, claims, and this session's alerts. */
 export function formatStatus(status: SessionStatus): string {
 	const sessions = status.sessions.map((session) => {
 		const unread = session.unread > 0 ? ` · ${session.unread} unread` : "";
@@ -26,15 +25,26 @@ export function formatStatus(status: SessionStatus): string {
 		return `- ${label} (${idSuffix(session.id)}) · ${cwd} · ${sanitizeLine(session.mode)}${unread}`;
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
+	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
 	return [
 		`Sessions (${status.sessions.length})`,
 		...(sessions.length > 0 ? sessions : ["- none"]),
 		"",
 		`Claims (${status.claims.length})`,
 		...(claims.length > 0 ? claims : ["- none"]),
+		...(alerts.length > 0 ? ["", ...alerts] : []),
 		"",
 		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})`,
 	].join("\n");
+}
+
+/** The inbox-watch result. */
+export function formatWatch(watching: { armed: boolean; wake: boolean }, name?: string): string {
+	const owner = name ? ` for "${sanitizeLine(name)}"` : "";
+	if (!watching.armed) return `Inbox watch off${owner}.`;
+	return watching.wake
+		? `Inbox watch on${owner}: a new message raises one turn.`
+		: `Inbox watch on${owner}: new messages appear at your next turn.`;
 }
 
 /** One consumed inbox, oldest first. */

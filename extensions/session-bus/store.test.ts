@@ -72,6 +72,29 @@ describe("inbox", () => {
 		expect(rest.map((entry) => entry.id)).toEqual(["101-b"]);
 		expect(await store.inbox("s2", 10)).toEqual([]);
 	});
+
+	test("peek reads a message without consuming it", async () => {
+		const { store } = fixture();
+		await store.writeMessage("s2", message("100-a", "s2"));
+		expect((await store.peek("s2", 10)).map((entry) => entry.id)).toEqual(["100-a"]);
+		expect((await store.peek("s2", 10)).map((entry) => entry.id)).toEqual(["100-a"]);
+		expect(await store.unread("s2")).toBe(1);
+		expect((await store.inbox("s2", 10)).map((entry) => entry.id)).toEqual(["100-a"]);
+		expect(await store.unread("s2")).toBe(0);
+		expect(await store.peek("s2", 10)).toEqual([]);
+	});
+
+	test("peek stops at a corrupt file, which the next consume clears", async () => {
+		const { dir, store } = fixture();
+		await store.writeMessage("s2", message("100-a", "s2"));
+		const [inbox] = await readdir(join(dir, "inbox"));
+		if (!inbox) throw new Error("the inbox directory was not written");
+		const [file] = await readdir(join(dir, "inbox", inbox));
+		if (!file) throw new Error("the message file was not written");
+		await writeFile(join(dir, "inbox", inbox, file), "{");
+		expect(await store.peek("s2", 10)).toEqual([]);
+		expect(await store.inbox("s2", 10)).toEqual([]);
+	});
 });
 
 describe("claims", () => {

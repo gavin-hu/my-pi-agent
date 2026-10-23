@@ -17,12 +17,13 @@ function context(cwd: string, sessionId: string, sessionName: string, mode = "tu
 	return fakeCtx({ cwd, sessionId, sessionName, mode, hasUI: mode === "tui" }).ctx as ExtensionContext;
 }
 
-function bus(dir: string, root: string, now: () => number): SessionBus {
+function bus(dir: string, root: string, now: () => number, watchMs = 0): SessionBus {
 	return createSessionBus({} as ExtensionAPI, {
 		dir,
 		repo: { root, key: "shared" },
 		now,
 		heartbeatMs: 0,
+		watchMs,
 	});
 }
 
@@ -122,6 +123,143 @@ describe("claims and labels", () => {
 		await expect(second.rename("ui")).rejects.toThrow("already in use");
 		await first.stop();
 		await second.stop();
+	});
+});
+
+describe("the inbox watch", () => {
+	/** A frontend peer and an armed backend, with the backend's mail calls recorded. */
+	async function pair(dir: string) {
+		const now = () => 1_000;
+		const frontend = bus(dir, "/repo/frontend", now);
+		const backend = bus(dir, "/repo/backend", now);
+		await frontend.start(context("/repo/frontend", "s1", "frontend"));
+		await backend.start(context("/repo/backend", "s2", "backend", "json"));
+		// A non-TUI session opts into the bus on its first use, so it is addressable.
+		await backend.status();
+		const calls: number[] = [];
+		backend.onWake = () => calls.push(calls.length + 1);
+		return { frontend, backend, calls };
+	}
+
+	test("queues new mail once and leaves it on disk", async () => {
+		const dir = busDir();
+		const { frontend, backend, calls } = await pair(dir);
+		expect(await backend.watch({ wake: true })).toEqual({ armed: true, wake: true });
+		await frontend.send({ to: "backend", text: "contract v2" });
+		await backend.poll();
+		expect(backend.pending().map((message) => message.text)).toEqual(["contract v2"]);
+		expect(calls).toHaveLength(1);
+		await backend.poll();
+		expect(backend.pending()).toHaveLength(1);
+		expect(calls).toHaveLength(1);
+		expect(await createBusStore({ dir }).unread("s2")).toBe(1);
+		await frontend.stop();
+		await backend.stop();
+	});
+
+	test("a watch without wake queues mail and leaves the turn alone", async () => {
+		const dir = busDir();
+		const { frontend, backend, calls } = await pair(dir);
+		await backend.watch({});
+		await frontend.send({ to: "backend", text: "next turn, please" });
+		await backend.poll();
+		expect(backend.pending().map((message) => message.text)).toEqual(["next turn, please"]);
+		expect(calls).toEqual([]);
+		await frontend.stop();
+		await backend.stop();
+	});
+
+	test("a message read with inbox is never announced afterwards", async () => {
+		const dir = busDir();
+		const { frontend, backend, calls } = await pair(dir);
+		await backend.watch({ wake: true });
+		await frontend.send({ to: "backend", text: "read me first" });
+		expect(await backend.inbox()).toHaveLength(1);
+		await backend.poll();
+		expect(backend.pending()).toEqual([]);
+		expect(calls).toEqual([]);
+		await frontend.stop();
+		await backend.stop();
+	});
+
+	test("reports a broadcast once, whatever the number of recipients", async () => {
+		const dir = busDir();
+		const { frontend, backend } = await pair(dir);
+		const third = bus(dir, "/repo/third", () => 1_000);
+		await third.start(context("/repo/third", "s3", "third"));
+		await backend.watch({ wake: true });
+		await frontend.send({ to: "*", kind: "event", text: "build failed" });
+		await backend.poll();
+		expect(backend.pending().map((message) => message.kind)).toEqual(["event"]);
+		await frontend.stop();
+		await backend.stop();
+		await third.stop();
+	});
+
+	test("arming twice keeps the setting, and stop is safe when unarmed", async () => {
+		const dir = busDir();
+		const { backend } = await pair(dir);
+		expect(await backend.watch({ wake: true })).toEqual({ armed: true, wake: true });
+		expect(await backend.watch({})).toEqual({ armed: true, wake: true });
+		expect((await backend.status()).watching).toEqual({ armed: true, wake: true });
+		expect(await backend.watch({ stop: true })).toEqual({ armed: false, wake: false });
+		expect(await backend.watch({ stop: true })).toEqual({ armed: false, wake: false });
+		expect((await backend.status()).watching).toBeUndefined();
+		await backend.stop();
+	});
+
+	test("the ticker starts on arm and stops on disarm and shutdown", async () => {
+		const dir = busDir();
+		const ticks: Array<() => void> = [];
+		let stopped = 0;
+		const backend = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			interval: (_ms, tick) => {
+				ticks.push(tick);
+				return () => {
+					stopped += 1;
+				};
+			},
+		});
+		await backend.start(context("/repo/backend", "s2", "backend"));
+		await backend.watch({});
+		expect(ticks).toHaveLength(1);
+		await backend.watch({ stop: true });
+		expect(stopped).toBe(1);
+		await backend.watch({});
+		await backend.stop();
+		expect(stopped).toBe(2);
+	});
+
+	test("reported mail leaves the queue but stays unread until inbox runs", async () => {
+		const dir = busDir();
+		const { frontend, backend } = await pair(dir);
+		await backend.watch({});
+		await frontend.send({ to: "backend", text: "notice me" });
+		await backend.poll();
+		const [message] = backend.pending();
+		if (!message) throw new Error("the message was not queued");
+		backend.markReported([message.id]);
+		expect(backend.pending()).toEqual([]);
+		await backend.poll();
+		expect(backend.pending()).toEqual([]);
+		expect(await backend.inbox()).toHaveLength(1);
+		await frontend.stop();
+		await backend.stop();
+	});
+
+	test("nothing is queued while the watch is off", async () => {
+		const dir = busDir();
+		const { frontend, backend, calls } = await pair(dir);
+		await frontend.send({ to: "backend", text: "ignored" });
+		await backend.poll();
+		expect(backend.pending()).toEqual([]);
+		expect(calls).toEqual([]);
+		await frontend.stop();
+		await backend.stop();
 	});
 });
 

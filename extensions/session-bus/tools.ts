@@ -14,7 +14,7 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
-import { formatClaim, formatInbox, formatRelease, formatSend, formatStatus } from "./format.ts";
+import { formatClaim, formatInbox, formatRelease, formatSend, formatStatus, formatWatch } from "./format.ts";
 import { normalizeAction, TOOL_NAME } from "./protocol.ts";
 
 export { TOOL_NAME };
@@ -22,8 +22,8 @@ import type { SessionBus } from "./runtime.ts";
 import type { SessionDetails } from "./types.ts";
 
 const SessionParams = Type.Object({
-	action: StringEnum(["status", "send", "inbox", "claim", "release"] as const, {
-		description: "status, send, inbox, claim, or release.",
+	action: StringEnum(["status", "send", "inbox", "claim", "release", "watch"] as const, {
+		description: "status, send, inbox, claim, release, or watch.",
 	}),
 	to: Type.Optional(Type.String({ description: "Target session label/id, or * for an event broadcast." })),
 	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
@@ -38,6 +38,10 @@ const SessionParams = Type.Object({
 	limit: Type.Optional(
 		Type.Integer({ minimum: 1, maximum: 50, description: "Inbox messages to consume (default 20)." }),
 	),
+	wake: Type.Optional(
+		Type.Boolean({ description: "With watch: a new message also raises one turn, instead of waiting for the next." }),
+	),
+	stop: Type.Optional(Type.Boolean({ description: "With watch: turn this session's inbox watch off." })),
 });
 
 type SessionArgs = Static<typeof SessionParams>;
@@ -48,9 +52,10 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 		label: "Session bus",
 		description:
 			"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims), " +
-			"`send` (to a label/id, or `*` for an event), `inbox` (consume messages), `claim`/`release` (paths). " +
-			"The inbox is pull-based; it never wakes a session or injects a turn.",
-		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release.",
+			"`send` (to a label/id, or `*` for an event), `inbox` (consume messages), `claim`/`release` (paths), " +
+			"`watch` (report new mail at your next turn, or raise one with `wake`; `stop` turns it off). " +
+			"Delivery is pull-based unless this session arms `watch`.",
+		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, watch.",
 		promptGuidelines: [
 			"Check `session inbox` when starting or joining a coordinated turn.",
 			"Claim the paths you will edit before changing them; release them when done.",
@@ -105,6 +110,10 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							notOwned: result.notOwned,
 						});
 					}
+					case "watch": {
+						const watching = await bus.watch({ wake: args.wake, stop: args.stop });
+						return textResult(formatWatch(watching), { action, watching });
+					}
 				}
 			} catch (error) {
 				return errorResult(action, error instanceof Error ? error.message : String(error));
@@ -145,6 +154,11 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 						? paint(theme, "warn", `${conflicts} claim conflict(s)`)
 						: paint(theme, "ok", `Claimed ${claimed}`),
 				);
+			} else if (value.action === "watch") {
+				const armed = value.watching?.armed === true;
+				const wakes = value.watching?.wake === true;
+				const label = armed ? (wakes ? "Inbox watch on: new mail wakes a turn" : "Inbox watch on") : "Inbox watch off";
+				text.setText(paint(theme, armed ? (wakes ? "warn" : "ok") : "meta", label));
 			} else {
 				text.setText(paint(theme, "meta", `Released ${sanitizeLine(value.released?.join(", ") ?? "nothing")}`));
 			}

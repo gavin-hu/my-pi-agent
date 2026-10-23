@@ -6,6 +6,12 @@
  * subagent or phone peer does not join a team merely because the package loaded.
  * The runtime owns the heartbeat, keeps no module-level state, and uses the
  * common git directory so worktrees of one repository share one bus.
+ *
+ * An armed inbox watch polls this session's own inbox directory and hands what
+ * arrived to the caller's `onWake`, which the extension wires to the shared
+ * pending reporter. It announces and never consumes: `inbox` keeps sole
+ * ownership of deleting mail, so a wake cannot eat a message the model did not
+ * read.
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -13,10 +19,12 @@ import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { createExecRunner, gitCommonDir, repoRoot } from "../../lib/git/index.ts";
+import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
 	defaultLabel,
 	isAutoJoinMode,
 	MAX_LABEL,
+	MAX_LIMIT,
 	normalizeKind,
 	normalizeLabel,
 	normalizeLimit,
@@ -37,6 +45,10 @@ export interface SessionBusOptions {
 	repo?: { root: string; key: string };
 	/** Heartbeat interval; 0 disables it (tests). */
 	heartbeatMs?: number;
+	/** Inbox-watch poll interval; 0 disables it (tests). */
+	watchMs?: number;
+	/** Test seam: the repeating timer behind the heartbeat and the poll. */
+	interval?: RepeatTimer;
 	sessionTtlMs?: number;
 	messageTtlMs?: number;
 }
@@ -55,9 +67,19 @@ export interface SessionBus {
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
 	rename(label: string): Promise<string>;
+	/** Arm or disarm this session's inbox watch. */
+	watch(input: { wake?: boolean; stop?: boolean }): Promise<{ armed: boolean; wake: boolean }>;
+	/** Read the inbox without consuming it, queueing what is new; no-op when unarmed. */
+	poll(): Promise<void> /** Mail that arrived and has not been reported yet, oldest first. */;
+	pending(): BusMessage[];
+	/** Drop mail from the pending queue, once reported or consumed. */
+	markReported(ids: readonly string[]): void;
+	/** Set what to call when new mail arrives and this session asked to be woken. */
+	set onWake(callback: (() => void) | undefined);
 }
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
+const DEFAULT_WATCH_MS = 2_000;
 const DEFAULT_SESSION_TTL_MS = 10 * 60_000;
 const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
 const MAX_KEY = 12;
@@ -81,14 +103,24 @@ function sessionName(ctx: ExtensionContext): string | undefined {
 export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = {}): SessionBus {
 	const now = options.now ?? Date.now;
 	const heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
+	const watchMs = options.watchMs ?? DEFAULT_WATCH_MS;
+	const interval = options.interval ?? defaultInterval;
 	const sessionTtlMs = options.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS;
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
 	let store: BusStore | undefined;
 	let record: SessionRecord | undefined;
 	let joined = false;
-	let heartbeat: ReturnType<typeof setInterval> | undefined;
+	let stopHeartbeat: (() => void) | undefined;
 	let starting: Promise<void> | undefined;
+
+	let armed = false;
+	let wake = false;
+	let stopTicker: (() => void) | undefined;
+	let pendingMail: BusMessage[] = [];
+	/** Ids already queued, reported, or consumed; a broadcast shares one id. */
+	let reported = new Set<string>();
+	let onWake: (() => void) | undefined;
 
 	const ensureStarted = async (context: ExtensionContext): Promise<void> => {
 		if (starting) return starting;
@@ -146,12 +178,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		await store.writeSession(record);
 		joined = true;
 		if (heartbeatMs > 0) {
-			heartbeat = setInterval(() => {
+			stopHeartbeat = interval(heartbeatMs, () => {
 				if (!record || !store) return;
 				record.lastSeen = now();
 				void store.writeSession(record).catch(() => {});
-			}, heartbeatMs);
-			(heartbeat as { unref?: () => void }).unref?.();
+			});
 		}
 	}
 
@@ -176,6 +207,61 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return record;
 	}
 
+	function dropFromPending(ids: ReadonlySet<string>): void {
+		pendingMail = pendingMail.filter((message) => !ids.has(message.id));
+	}
+
+	function markReported(ids: readonly string[]): void {
+		for (const id of ids) reported.add(id);
+		dropFromPending(new Set(ids));
+	}
+
+	/**
+	 * Queue what arrived since the last poll, once, and wake a turn when this
+	 * session asked for one.
+	 *
+	 * The reported set is narrowed to the mail still on disk, so it is bounded by
+	 * the unread count rather than by the session's whole history; an id is unique
+	 * for good, so a message that was consumed can never be queued again.
+	 */
+	async function pollOnce(): Promise<void> {
+		if (!armed || !store || !record) return;
+		const mail = await store.peek(record.id, MAX_LIMIT);
+		const unread = new Set(mail.map((message) => message.id));
+		reported = new Set([...reported].filter((id) => unread.has(id)));
+		// A message that expired or was consumed leaves the queue with its file.
+		pendingMail = pendingMail.filter((message) => unread.has(message.id));
+		const queued = new Set(pendingMail.map((message) => message.id));
+		const fresh = mail.filter((message) => !reported.has(message.id) && !queued.has(message.id));
+		if (fresh.length === 0) return;
+		pendingMail = [...pendingMail, ...fresh];
+		if (wake) onWake?.();
+	}
+
+	function disarm(): void {
+		stopTicker?.();
+		stopTicker = undefined;
+		armed = false;
+		wake = false;
+		pendingMail = [];
+	}
+
+	async function watch(input: { wake?: boolean; stop?: boolean }): Promise<{ armed: boolean; wake: boolean }> {
+		await currentRecord();
+		if (input.stop) {
+			disarm();
+			return { armed: false, wake: false };
+		}
+		// Arming is a state, not a mode switch: an armed session keeps its setting
+		// until it disarms, so `wake` cannot be flipped under a queued notice.
+		if (armed) return { armed, wake };
+		armed = true;
+		wake = input.wake === true;
+		await pollOnce();
+		if (watchMs > 0) stopTicker = interval(watchMs, () => void pollOnce().catch(() => {}));
+		return { armed, wake };
+	}
+
 	async function rename(label: string): Promise<string> {
 		if (!store || !record) throw new Error("session bus is not started.");
 		const candidate = normalizeLabel(label, record.label);
@@ -198,8 +284,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		},
 
 		async stop() {
-			if (heartbeat) clearInterval(heartbeat);
-			heartbeat = undefined;
+			stopHeartbeat?.();
+			stopHeartbeat = undefined;
+			disarm();
+			reported = new Set();
 			if (store && record && joined) {
 				await store.releaseAll(record.id).catch(() => {});
 				await store.removeSession(record.id).catch(() => {});
@@ -210,6 +298,14 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			record = undefined;
 		},
 
+		watch,
+		poll: pollOnce,
+		pending: () => [...pendingMail],
+		markReported,
+		set onWake(callback: (() => void) | undefined) {
+			onWake = callback;
+		},
+
 		async status() {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
@@ -218,7 +314,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const withUnread = await Promise.all(
 				sessions.map(async (session) => ({ ...session, unread: (await store?.unread(session.id)) ?? 0 })),
 			);
-			return { me: { id: me.id, label: me.label }, sessions: withUnread, claims };
+			return {
+				me: { id: me.id, label: me.label },
+				sessions: withUnread,
+				claims,
+				...(armed ? { watching: { armed, wake } } : {}),
+			};
 		},
 
 		async send(input) {
@@ -258,7 +359,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async inbox(limit) {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
-			return store.inbox(me.id, normalizeLimit(limit));
+			const messages = await store.inbox(me.id, normalizeLimit(limit));
+			// Mail read before its notice fired is never announced afterwards.
+			markReported(messages.map((message) => message.id));
+			return messages;
 		},
 
 		async claim(rawPaths) {

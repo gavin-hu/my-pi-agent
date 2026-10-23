@@ -858,8 +858,12 @@ repository act as a team without sharing a conversation.
   session is named from inside it, by you — one session cannot name another. Labels
   are unique among active sessions; name the outcome a session owns, not a layer.
 - `session` with `action: "send"` posts a short message or event; `action:
-  "inbox"` consumes messages at the start of the next turn. Delivery is pull-based,
-  so nothing interrupts a running turn, and no turn starts by itself.
+  "inbox"` consumes messages at the start of the next turn. Delivery is pull-based
+  by default, so nothing interrupts a running turn and no turn starts by itself.
+- `/sessions watch` arms this session's inbox watch: new mail is reported at its
+  next turn, and `/sessions watch wake` raises that turn when it arrives while the
+  session is idle. It is per session and session-only, so arming it in the owner
+  you are waiting on is how a lead gets an answer without asking you to switch.
 - `claim` paths before editing. A claim on `src/api` conflicts with `src/api` or
   any file below it; `release` gives it back. A crash releases it when the
   session expires.
@@ -869,8 +873,9 @@ files, the merge order and a green baseline — and working a workstream of its 
 it is never a queue between owners — with one owner per disjoint outcome slice. Claim
 slices rather than frontend/backend/test layers, exchange contract and build/test
 events, then merge and run the full check. The bus moves no work by itself: a lead
-cannot start a peer's turn, so each round costs you one switch to every owner holding
-an increment. The bus is not the source of truth — the plan, todo list, contract, and
+cannot start a peer's turn unless that peer armed its inbox watch, so each round
+otherwise costs you one switch to every owner holding an increment. The bus is not the
+source of truth — the plan, todo list, contract, and
 git branch are. The `parallel-dev` skill carries the full protocol — the team table,
 the roles, the shared-file rule, the turn boundary, and integration — and is
 model-invoked: a request such as "split this across two sessions" can load it, and

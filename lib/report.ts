@@ -103,10 +103,14 @@ export function createPendingReporter<T>(options: PendingReporterOptions<T>): Pe
 
 /** The session-scoped state a channel drives, narrowed to what its hooks need. */
 export interface PendingChannelRuntime {
-	/** Load this session's records; called on every session start. */
-	load(ctx: ExtensionContext): void;
-	/** Repaint the status chip. */
-	setStatus(ctx: ExtensionContext): void;
+	/**
+	 * Load this session's records on every session start. A promise is awaited, so a
+	 * runtime that resolves a repository or opens a store is fully loaded before the
+	 * report trigger is armed.
+	 */
+	load(ctx: ExtensionContext): void | Promise<void>;
+	/** Repaint the status chip; a runtime that publishes none omits it. */
+	setStatus?(ctx: ExtensionContext): void;
 	/** Release the session's resources; idempotent. */
 	shutdown(): Promise<void>;
 }
@@ -135,15 +139,15 @@ export function registerPendingChannel(
 	pi: Pick<ExtensionAPI, "on">,
 	{ reporter, runtime, onSessionStart, onSessionShutdown }: PendingChannelOptions,
 ): void {
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", async (_event, ctx) => {
 		reporter.sessionStart();
-		runtime.load(ctx);
+		await runtime.load(ctx);
 		onSessionStart?.(ctx);
 	});
 
 	// Tree navigation does not change the pending records; only repaint.
 	pi.on("session_tree", (_event, ctx) => {
-		runtime.setStatus(ctx);
+		runtime.setStatus?.(ctx);
 	});
 
 	pi.on("agent_start", () => {
@@ -157,7 +161,7 @@ export function registerPendingChannel(
 	pi.on("before_agent_start", (_event, ctx) => {
 		const reported = reporter.beforeAgentStart();
 		if (!reported) return undefined;
-		runtime.setStatus(ctx);
+		runtime.setStatus?.(ctx);
 		return reported;
 	});
 
