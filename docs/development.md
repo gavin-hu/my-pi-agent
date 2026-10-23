@@ -31,7 +31,7 @@ repositories.
 | `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/` (macOS only); naming screens captures only those. |
 | `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot; set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:plan-flow [flow\|graphic]` | Capture the two posting cards — `assets/plan-flow.html` and `assets/plan-flow-graphic.html` — as `assets/plan-flow.png` and `assets/plan-flow-graphic.png` at 1200×675, 2× by default. Naming one card captures only it and honours `-o`; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:plan-flow [flow\|graphic\|parallel]` | Capture the posting cards at 1200×675, 2× by default: `assets/plan-flow.html` and `assets/plan-flow-graphic.html` — the plan-then-execute flow, one prose-led and one graphic-led — plus `assets/parallel-dev.html`, which draws the lead-and-team split as one terminal frame. Naming one card captures only it and honours `-o`; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. `bun run scripts/tool-renderings.ts list` names them all, `render <name> --width n` prints one block as ANSI on any OS, and `html <out>` writes the page. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
 
@@ -78,12 +78,16 @@ bun run screenshot:file-browse -o assets/file-browse.png --theme dark
 own checkout out of the image. Both scripts set the theme through the page's own
 toggle, which keeps the header glyph and the page in step.
 
-Two headless captures are not screenshots of the product. `assets/plan-flow.html`
+Not every headless capture is a screenshot of the product. `assets/plan-flow.html`
 and `assets/plan-flow-graphic.html` are the bilingual cards for posting the
-plan-then-execute flow — one prose-led, one graphic-led — captured at 1200×675 by
-`screenshot:plan-flow`. They share `assets/plan-flow.css`, so the pair cannot
-drift apart, and a card whose content outgrows its box fails the capture rather
-than being clipped.
+plan-then-execute flow — one prose-led, one graphic-led — and
+`assets/parallel-dev.html` is the lead-and-team card: a tmux split of five pi
+panes, one large lead pane and four peers, drawn the way the terminal captures
+under `assets/` are — accent title with a rule to the edge, muted metadata, glyph
+rows, and an accent-key hint footer — rather than with window chrome. All three
+are captured at 1200×675 by `screenshot:plan-flow`. They share
+`assets/plan-flow.css`, so the set cannot drift apart, and a card whose content
+outgrows its box fails the capture rather than being clipped.
 
 The screenshot grid in the root `README.md` is a curated set rather than the
 full list; each screen is shown in its own extension README.
