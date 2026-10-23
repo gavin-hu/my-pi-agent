@@ -44,7 +44,7 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/watch clear [all]` | Remove stopped watchers, or all with `all` |
 | `/context` | Show where the context window goes; `c` compacts from the report |
 | `/context compact [instructions]` | Compact from the report; refused while a turn is running |
-| `/sessions` | List parallel sessions, their unread counts, and path claims |
+| `/sessions` | Open the bus board: `Tab` between sessions, unread mail, and path claims; `w` toggles the watch, `x` releases your own claim |
 | `/sessions name <label>` | Name this session for other sessions |
 | `/sessions watch [off\|wake]` | Report new mail at this session's next turn, or raise one (`wake`); `off` stops it |
 
@@ -182,7 +182,7 @@ some keys mean different things in an editor or a diff.
 | `Tab` | Switch scope or filter |
 | `[` / `]` | Jump to the previous or next extension group (Extensions only) |
 | `r` | Refresh, rerun, or revert, depending on the screen |
-| `x` | Clear, stop, or cancel, depending on the screen |
+| `x` | Clear, stop, cancel, or release your own claim, depending on the screen |
 | `Ctrl+O` | Expand or collapse a long tool block |
 | `Ctrl+C` | Clear the input line, or close a screen |
 | `Ctrl+D` | Exit Pi when the input is empty |

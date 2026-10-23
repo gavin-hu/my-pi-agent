@@ -7,8 +7,11 @@ import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createFakePi, emit, emitFirst } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit, emitFirst, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
+import { settle } from "../../test/helpers/process.ts";
+import { onRailsSuppressed } from "../../lib/rails.ts";
+import { SessionListComponent } from "./tui.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -62,6 +65,8 @@ describe("session-bus extension", () => {
 		const { bus, ctx, notices, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 		await bus.start(ctx);
+		// Outside the TUI there is no dock, so the command prints the listing.
+		ctx.mode = "json";
 		await command.handler("", ctx);
 		expect(notices.at(-1)?.message).toContain("Sessions (1)");
 		await command.handler("name backend", ctx);
@@ -70,6 +75,69 @@ describe("session-bus extension", () => {
 		expect(notices.at(-1)?.message).toContain("Usage:");
 		await command.handler("nope", ctx);
 		expect(notices.at(-1)?.message).toContain("Unknown sessions command");
+		await bus.stop();
+	});
+
+	test("opens the bus board in the TUI and restores the rails", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx, command } = setup(dir);
+		if (!command) throw new Error("sessions command not registered");
+		await bus.start(ctx);
+
+		let mounted: SessionListComponent | undefined;
+		ctx.ui.custom = async (factory: any) => {
+			mounted = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
+		};
+		const suppressed: boolean[] = [];
+		onRailsSuppressed(pi, (value) => suppressed.push(value));
+
+		await command.handler("", ctx);
+		expect(mounted).toBeInstanceOf(SessionListComponent);
+		expect(mounted?.render(80).join("\n")).toContain("frontend · you");
+		expect(suppressed).toEqual([true, false]);
+		await bus.stop();
+	});
+
+	test("reads unread mail and releases its own claim from the board", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx, command } = setup(dir);
+		if (!command) throw new Error("sessions command not registered");
+		await bus.start(ctx);
+		await bus.claim(["src/api"]);
+
+		const peer = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+		});
+		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s2", sessionName: "integrator" }).ctx as ExtensionContext;
+		await peer.start(peerCtx);
+		await peer.send({ to: "frontend", text: "contract v2 landed" });
+
+		let mounted: SessionListComponent | undefined;
+		ctx.ui.custom = async (factory: any) => {
+			mounted = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
+		};
+		onRailsSuppressed(pi, () => {});
+		await command.handler("", ctx);
+		if (!mounted) throw new Error("the board did not mount");
+
+		mounted.handleInput("\t");
+		expect(mounted.render(80).join("\n")).toContain("contract v2 landed");
+		mounted.handleInput("\r");
+		expect(mounted.render(80).join("\n")).toContain("integrator · message");
+		mounted.handleInput("\x1b");
+		mounted.handleInput("\t");
+		mounted.handleInput("x");
+		expect(mounted.render(80).join("\n")).toContain("Release src/api? y/N");
+		mounted.handleInput("y");
+		await settle();
+
+		expect(await createBusStore({ dir }).claims()).toEqual([]);
+		expect(mounted.render(80).join("\n")).toContain("Released src/api.");
+		await peer.stop();
 		await bus.stop();
 	});
 

@@ -264,6 +264,33 @@ describe("TailResult", () => {
 		expect(visibleWidth(view.render(10)[1] ?? "")).toBeLessThanOrEqual(10);
 	});
 
+	test("draws one group of rows per section, with a faint heading and a per-section overflow note", () => {
+		const view = new TailResult<string>(
+			{
+				kind: "sections",
+				sections: [
+					{ rows: ["a"], more: 0, rowLine },
+					{ label: "Claims", rows: ["b"], more: 2, rowLine },
+				],
+			},
+			fakeTheme,
+		);
+		const lines = view.render(40);
+		expect(lines[0]).toBe("");
+		expect(lines[1]).toBe("a:40");
+		expect(lines[2]).toBe("Claims");
+		expect(lines[3]).toBe("b:40");
+		expect(lines[4]).toContain("… 2 more");
+	});
+
+	test("clips a section heading to the render width", () => {
+		const view = new TailResult<string>(
+			{ kind: "sections", sections: [{ label: "C".repeat(20), rows: [], more: 0, rowLine }] },
+			fakeTheme,
+		);
+		expect(visibleWidth(view.render(10)[1] ?? "")).toBeLessThanOrEqual(10);
+	});
+
 	test("updates in place for reuse", () => {
 		const view = new TailResult<string>(
 			{ kind: "lines", lines: ["old"], earlier: 0, earlierLabel: "lines" },

@@ -48,6 +48,7 @@ import { ReviewListComponent } from "../extensions/rewind/review-tui.ts";
 import { RewindListComponent } from "../extensions/rewind/rewind-tui.ts";
 import { TodoListComponent } from "../extensions/todo/tui.ts";
 import { WatchListComponent } from "../extensions/watch/tui.ts";
+import { SessionListComponent } from "../extensions/session-bus/tui.ts";
 import { WorktreeListComponent } from "../extensions/worktree/screen.ts";
 import { StatusScreenComponent } from "../extensions/wechat/status-screen.ts";
 import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
@@ -58,6 +59,7 @@ import { makeDiscovery, makeStore } from "../test/helpers/fixtures/picker.ts";
 import { numberArg } from "./cli.ts";
 import {
 	AGENT_RUNS,
+	BUS_BOARD,
 	CHECK_RESULT,
 	JOBS,
 	MEMORY_CALLBACKS,
@@ -276,6 +278,22 @@ export const SCREENS: Record<string, Screen> = {
 				noop,
 				() => rows,
 			).render(width),
+	},
+	session: {
+		asset: "session",
+		title: "π - my-pi-agent · /sessions",
+		bounds: { left: 80, top: 80, right: 1000, bottom: 350 },
+		size: { width: 100, rows: 13 },
+		render: (width, rows) =>
+			new SessionListComponent({
+				latest: () => BUS_BOARD,
+				theme,
+				callbacks: { toggleWatch: async () => "Inbox watch off.", releaseClaim: async () => "Released." },
+				onClose: noop,
+				requestRender: noop,
+				now: () => now,
+				viewportRowsSource: () => rows,
+			}).render(width),
 	},
 	worktree: {
 		asset: "worktree",

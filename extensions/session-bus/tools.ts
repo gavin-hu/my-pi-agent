@@ -3,23 +3,23 @@
  *
  * One action-shaped tool keeps the prompt surface small: status, send, inbox,
  * claim, release. The runtime owns file I/O and lifecycle; this module only
- * validates the action, calls the runtime, and renders a compact result.
+ * validates the action, calls the runtime, and hands the result to the shared
+ * presentation module — one collapsed line, or the board's rows on expand.
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
-import { sanitizeLine } from "../../lib/format.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { paint } from "../../lib/tui/tokens.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { formatClaim, formatInbox, formatRelease, formatSend, formatStatus, formatWatch } from "./format.ts";
 import { normalizeAction, TOOL_NAME } from "./protocol.ts";
+import type { SessionBus } from "./runtime.ts";
+import { collapsedLine, resultSections, SessionResult } from "./result.ts";
+import type { SessionDetails } from "./types.ts";
 
 export { TOOL_NAME };
-import type { SessionBus } from "./runtime.ts";
-import type { SessionDetails } from "./types.ts";
 
 const SessionParams = Type.Object({
 	action: StringEnum(["status", "send", "inbox", "claim", "release", "watch"] as const, {
@@ -45,6 +45,23 @@ const SessionParams = Type.Object({
 });
 
 type SessionArgs = Static<typeof SessionParams>;
+
+/**
+ * The call line's subject: the verb, and what it acts on. `end` clipping keeps
+ * the verb readable, because the paths that follow are the detail, not the
+ * identity of the call.
+ */
+function callSubject(action: string, args: Record<string, unknown>): string {
+	if (action === "send") {
+		const to = typeof args.to === "string" ? args.to : "";
+		return to ? `send ${to}` : "send";
+	}
+	if (action !== "claim" && action !== "release") return action;
+	const paths = Array.isArray(args.paths) ? args.paths.filter((path): path is string => typeof path === "string") : [];
+	const [first, ...rest] = paths;
+	if (first === undefined) return action;
+	return `${action} ${first}${rest.length > 0 ? ` +${rest.length}` : ""}`;
+}
 
 export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 	pi.registerTool({
@@ -122,8 +139,7 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 
 		renderCall(args, theme, context) {
 			const action = typeof args.action === "string" ? args.action : "session";
-			const to = typeof args.to === "string" ? ` ${args.to}` : "";
-			return callLine(theme, context.lastComponent, TOOL_NAME, `${action}${to}`, "middle");
+			return callLine(theme, context.lastComponent, TOOL_NAME, callSubject(action, args as Record<string, unknown>));
 		},
 
 		renderResult(result, options, theme, context) {
@@ -135,34 +151,15 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 				return text;
 			}
 			const value = outcome.details;
-			if (value.error) {
-				text.setText(paint(theme, "bad", `Session bus: ${value.error}`));
-			} else if (value.action === "status" && value.status) {
-				text.setText(
-					paint(theme, "meta", `${value.status.sessions.length} session(s) · ${value.status.claims.length} claim(s)`),
-				);
-			} else if (value.action === "send") {
-				const delivered = sanitizeLine(value.delivered?.join(", ") ?? "nobody");
-				text.setText(paint(theme, "ok", `Delivered to ${delivered}`));
-			} else if (value.action === "inbox") {
-				text.setText(paint(theme, "meta", `${value.messages?.length ?? 0} message(s)`));
-			} else if (value.action === "claim") {
-				const conflicts = value.conflicts?.length ?? 0;
-				const claimed = sanitizeLine(value.claimed?.join(", ") ?? "nothing");
-				text.setText(
-					conflicts > 0
-						? paint(theme, "warn", `${conflicts} claim conflict(s)`)
-						: paint(theme, "ok", `Claimed ${claimed}`),
-				);
-			} else if (value.action === "watch") {
-				const armed = value.watching?.armed === true;
-				const wakes = value.watching?.wake === true;
-				const label = armed ? (wakes ? "Inbox watch on: new mail wakes a turn" : "Inbox watch on") : "Inbox watch off";
-				text.setText(paint(theme, armed ? (wakes ? "warn" : "ok") : "meta", label));
-			} else {
-				text.setText(paint(theme, "meta", `Released ${sanitizeLine(value.released?.join(", ") ?? "nothing")}`));
+			const sections = options.expanded ? resultSections(value) : undefined;
+			if (!sections) {
+				text.setText(collapsedLine(theme, value));
+				return text;
 			}
-			return text;
+			const view =
+				context?.lastComponent instanceof SessionResult ? context.lastComponent : new SessionResult(sections, theme);
+			view.setInput(sections, theme);
+			return view;
 		},
 	});
 }

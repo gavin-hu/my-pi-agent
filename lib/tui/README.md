@@ -35,8 +35,8 @@ Reach for a `lib/tui/` primitive before composing your own: `plainRule` /
 `fitCells` for two columns, `LinePane` for a scrollable log, `ListCursor` /
 `IdCursor` for selection, `byRunningFirst` for a live list's order,
 `DockListScreen` for a list that opens a pane, `TailResult` for a tool result
-that lists rows or tails output, `screenFooter` for a screen's own last three
-rows, and `ConfirmState` before a destructive action.
+that lists rows, heads several row sections, or tails output, `screenFooter` for a
+screen's own last three rows, and `ConfirmState` before a destructive action.
 
 ## Docked list screens
 
@@ -80,6 +80,20 @@ what a plain list wants — do not hand-roll the frame to get one of them:
 - `handleDetailVerb(key, row)` — a verb that also works while reading the pane
   (`c` collect, `x` cancel). Return `true` for the keys it claimed; everything
   else falls through to the pane's scroll keys.
+
+A pane is a log by default: it opens at the tail and its subtitle says
+`following` or `paused`. Two more fields cover the other body:
+
+- `DetailContents.text` — prose instead of `lines`, wrapped to the width the pane
+  renders at and re-wrapped on a resize. One source line is one paragraph; a blank
+  line stays blank. `lines` remains the right shape for output that is already
+  split.
+- `DetailContents.tail: false` — a prose or list pane opens at the top and never
+  claims to follow anything. Leave it out for a log.
+
+A screen whose list is one of several scopes overrides `headerLabel()` (the
+header rule's name) and `emptyLabel()` (the empty-list line), so `Tab` can change
+what is listed without a second renderer; both default to the screen's options.
 
 A destructive action asks through [`confirm.ts`](./confirm.ts):
 `ConfirmState.ask(prompt, accept)` holds the question, `resolve(data)` accepts on

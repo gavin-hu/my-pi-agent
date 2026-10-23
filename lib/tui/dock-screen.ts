@@ -20,11 +20,13 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { detailBlockRows, dockListFrame, screenHint, type ScreenHint, type ViewportRowsSource } from "./chrome.ts";
 import { clip, fitCells } from "./columns.ts";
 import { ConfirmState } from "./confirm.ts";
 import { fitRows, formatRange, IdCursor, isCloseKey, navIntent, wheelDelta } from "./cursor.ts";
 import { SEPARATORS } from "./glyphs.ts";
+import { BODY_INDENT } from "./indent.ts";
 import { LinePane } from "./line-pane.ts";
 import { emptyState } from "./rows.ts";
 import { titleRule } from "./rules.ts";
@@ -43,12 +45,23 @@ const DETAIL_CHROME_ROWS = 6;
 export interface DetailContents {
 	/** Pane title, e.g. `j1 build`. */
 	title: string;
-	/** The body lines, already sanitized by the caller. */
-	lines: string[];
+	/** The body lines, already sanitized by the caller. Omit for a `text` pane. */
+	lines?: string[];
+	/**
+	 * Prose body, built once at open and wrapped to the render width on every
+	 * frame. Takes precedence over `lines`. A resize re-wraps; a blank line in the
+	 * source stays a blank line in the pane.
+	 */
+	text?: string;
 	/** More lines exist above the ones supplied. */
 	more?: boolean;
 	/** Subtitle under the title, e.g. the log file path. */
 	subtitle?: string;
+	/**
+	 * Whether the pane follows its tail. Default true, which is a log's behavior;
+	 * false opens a prose or list pane at the top and never says `following`.
+	 */
+	tail?: boolean;
 	/**
 	 * Rows above the scrollable body that depend on the width: key/value facts,
 	 * a legend, a divider. Read fresh every frame with the live width and already
@@ -101,6 +114,9 @@ export abstract class DockListScreen<T> implements Component {
 	private readonly confirmState = new ConfirmState();
 	private feedback: string | undefined;
 	private detailFacts: ((width: number) => string[]) | undefined;
+	/** Prose body for the open pane, wrapped to the width it is rendered at. */
+	private detailText: string | undefined;
+	private detailWrap: { width: number; lines: string[] } | undefined;
 
 	constructor(protected readonly options: DockListScreenOptions) {}
 
@@ -163,6 +179,19 @@ export abstract class DockListScreen<T> implements Component {
 		this.options.requestRender();
 	}
 
+	/**
+	 * The header rule's label. A screen whose list is one of several scopes
+	 * overrides it, so the rule names what is on screen.
+	 */
+	protected headerLabel(): string {
+		return this.options.title;
+	}
+
+	/** The empty-list line; a screen whose scopes differ overrides it. */
+	protected emptyLabel(): string {
+		return this.options.emptyList;
+	}
+
 	/** Show one line of feedback in place of the hints. */
 	protected notify(text: string): void {
 		this.feedback = text;
@@ -182,6 +211,12 @@ export abstract class DockListScreen<T> implements Component {
 		// Facts stay with the pane unless this update supplies its own, so a poll that
 		// only refreshes the body cannot drop the facts the row opened with.
 		if (contents.facts) this.detailFacts = contents.facts;
+		// `text` and `tail` belong to the row that opened the pane; an update either
+		// replaces the prose or settles the pane back onto a line buffer.
+		if (contents.text !== undefined || contents.lines !== undefined) {
+			this.detailText = contents.text;
+			this.detailWrap = undefined;
+		}
 		const changed =
 			contents.subtitle === undefined
 				? this.pane.update({ title: contents.title, lines: contents.lines, more: contents.more })
@@ -201,6 +236,7 @@ export abstract class DockListScreen<T> implements Component {
 
 	/** Re-read the open detail pane, so a poll cannot show stale lines. */
 	refreshDetail(id: string): void {
+		if (this.detailText !== undefined) return;
 		const source = this.detailById?.(id);
 		if (source && this.pane.update({ lines: source.lines, more: source.more })) this.options.requestRender();
 	}
@@ -242,8 +278,28 @@ export abstract class DockListScreen<T> implements Component {
 		const contents = this.detailFor(row);
 		this.mode = "detail";
 		this.detailFacts = contents.facts;
-		this.pane.open(this.idOf(row), contents);
+		this.detailText = contents.text;
+		this.detailWrap = undefined;
+		this.pane.open(
+			this.idOf(row),
+			{
+				title: contents.title,
+				lines: contents.text === undefined ? (contents.lines ?? []) : [],
+				more: contents.more,
+				subtitle: contents.subtitle,
+			},
+			contents.tail ?? true,
+		);
 		this.options.requestRender();
+	}
+
+	/** Leave detail mode and drop everything that belonged to the open row. */
+	private closeDetail(): void {
+		this.mode = "list";
+		this.pane.close();
+		this.detailFacts = undefined;
+		this.detailText = undefined;
+		this.detailWrap = undefined;
 	}
 
 	private handleListKey(data: string): void {
@@ -294,9 +350,7 @@ export abstract class DockListScreen<T> implements Component {
 
 	private handleDetailKey(data: string): void {
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.backspace) || data === "q") {
-			this.mode = "list";
-			this.pane.close();
-			this.detailFacts = undefined;
+			this.closeDetail();
 			this.options.requestRender();
 			return;
 		}
@@ -307,11 +361,11 @@ export abstract class DockListScreen<T> implements Component {
 	}
 
 	/** The footer: a pending confirmation, one line of feedback, or the hints. */
-	private hint(width: number, rows: readonly T[]): string {
+	private footer(width: number, hints: ScreenHint[]): string {
 		const pending = this.confirmState.pending;
 		if (pending) return clip(`  ${paint(this.theme, "warn", pending.prompt)}`, width);
 		if (this.feedback) return clip(`  ${paint(this.theme, "meta", this.feedback)}`, width);
-		return screenHint(this.theme, width, this.listHints(rows));
+		return screenHint(this.theme, width, hints);
 	}
 
 	private summary(rows: readonly T[], width: number): string {
@@ -343,7 +397,7 @@ export abstract class DockListScreen<T> implements Component {
 		const body: string[] = [];
 		let range: string | undefined;
 		if (rows.length === 0) {
-			body.push(...emptyState(this.theme, w, { label: this.options.emptyList }));
+			body.push(...emptyState(this.theme, w, { label: this.emptyLabel() }));
 		} else {
 			const end = Math.min(rows.length, this.cursor.scroll + this.cursor.visible);
 			for (let i = this.cursor.scroll; i < end; i++) body.push(this.rowLine(rows[i], w, i === index));
@@ -355,12 +409,12 @@ export abstract class DockListScreen<T> implements Component {
 		return dockListFrame({
 			theme: this.theme,
 			width: w,
-			header: titleRule(this.theme, w, this.options.title),
+			header: titleRule(this.theme, w, this.headerLabel()),
 			summary: this.summary(rows, w),
 			body,
 			range,
 			detail: block.map((line) => clip(`  ${paint(this.theme, "meta", line)}`, w)),
-			hint: this.hint(w, rows),
+			hint: this.footer(w, this.listHints(rows)),
 		});
 	}
 
@@ -368,6 +422,7 @@ export abstract class DockListScreen<T> implements Component {
 		this.syncDetail();
 		// A live pane whose row is gone has already closed itself: draw the list.
 		if (this.mode !== "detail") return this.renderList(w);
+		this.syncText(w);
 		const facts = this.detailFacts ? this.detailFacts(w) : [];
 		const visible = fitRows(
 			this.options.viewportRowsSource,
@@ -397,14 +452,15 @@ export abstract class DockListScreen<T> implements Component {
 			summary: clip(`  ${paint(this.theme, "faint", this.pane.subtitleLine())}`, w),
 			body,
 			range,
-			hint: screenHint(this.theme, w, this.detailHints(this.detailRow)),
+			hint: this.footer(w, this.detailHints(this.detailRow)),
 		});
 	}
 
 	/**
 	 * Re-read a live pane in place. This runs inside a render, so it must not ask
 	 * for another frame; a source that disappeared closes the pane instead of
-	 * showing lines the list no longer has a row for.
+	 * showing lines the list no longer has a row for. A prose pane is skipped here:
+	 * `syncText` owns its lines, and this still closes it when the row is gone.
 	 */
 	private syncDetail(): void {
 		if (!this.liveDetail()) return;
@@ -412,11 +468,23 @@ export abstract class DockListScreen<T> implements Component {
 		if (!id) return;
 		const source = this.detailById?.(id);
 		if (!source) {
-			this.mode = "list";
-			this.pane.close();
-			this.detailFacts = undefined;
+			this.closeDetail();
 			return;
 		}
-		this.pane.update({ lines: source.lines, more: source.more });
+		if (this.detailText === undefined) this.pane.update({ lines: source.lines, more: source.more });
+	}
+
+	/**
+	 * Wrap a prose body to the width the pane actually renders at, once per width.
+	 * The pane's body lines are built at open, so this is the one source that can
+	 * follow a resize.
+	 */
+	private syncText(width: number): void {
+		if (this.detailText === undefined) return;
+		const inner = Math.max(1, width - BODY_INDENT);
+		if (this.detailWrap?.width === inner) return;
+		const lines = this.detailText.split("\n").flatMap((line) => (line === "" ? [""] : wrapTextWithAnsi(line, inner)));
+		this.detailWrap = { width: inner, lines };
+		this.pane.update({ lines });
 	}
 }

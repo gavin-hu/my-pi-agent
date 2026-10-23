@@ -536,6 +536,20 @@ describe("LinePane", () => {
 		expect(value.count).toBe(0);
 		expect(value.scroll).toBe(0);
 	});
+
+	test("a non-tail pane opens at the top and never reports following", () => {
+		const value = new LinePane();
+		value.visible = 2;
+		value.open("m1", { title: "integrator · event", lines: ["a", "b", "c"] }, false);
+		expect(value.tail).toBe(false);
+		expect(value.scroll).toBe(0);
+		expect(value.follow).toBe(false);
+		expect(value.subtitleLine()).not.toContain("following");
+		value.setScroll(2);
+		expect(value.subtitleLine()).not.toContain("paused");
+		value.close();
+		expect(value.tail).toBe(true);
+	});
 });
 
 interface Row {
@@ -718,7 +732,94 @@ class FeatureScreen extends DockListScreen<Row> {
 
 	protected handleDetailVerb(key: string, row: Row): boolean {
 		this.verbs.push(`${key}:${row.id}`);
+		if (key === "x") {
+			this.confirm(`Stop ${row.id}? y/N`, () => this.verbs.push(`stop:${row.id}`));
+			return true;
+		}
 		return key === "c";
+	}
+
+	protected handleVerb(): void {}
+}
+
+/**
+ * A screen whose list is one of several scopes and whose pane is prose: it
+ * exercises the header and empty-line hooks plus `DetailContents.text`/`tail`.
+ */
+class ProseScreen extends DockListScreen<Row> {
+	private rows_: Row[];
+
+	constructor(rows: Row[]) {
+		super({
+			theme: fakeTheme,
+			title: "Sessions",
+			detailTitle: "Detail",
+			emptyList: "Nothing here.",
+			emptyDetail: "No lines yet.",
+			requestRender: () => {},
+			onClose: () => {},
+		});
+		this.rows_ = rows;
+	}
+
+	setRows(rows: Row[]): void {
+		this.rows_ = rows;
+	}
+
+	protected headerLabel(): string {
+		return "Inbox";
+	}
+
+	protected emptyLabel(): string {
+		return "No unread mail.";
+	}
+
+	protected rows(): readonly Row[] {
+		return this.rows_;
+	}
+
+	protected idOf(row: Row): string {
+		return row.id;
+	}
+
+	protected rowLine(row: Row, width: number): string {
+		return ` ${row.label}`.slice(0, Math.max(1, width));
+	}
+
+	protected detailBlock(): string[] {
+		return [];
+	}
+
+	protected summaryCells(rows: readonly Row[]): string[] {
+		return [`${rows.length} rows`];
+	}
+
+	protected listHints(): ScreenHint[] {
+		return ["Esc close"];
+	}
+
+	protected detailHints(): ScreenHint[] {
+		return ["Esc back"];
+	}
+
+	protected detailFor(row: Row): DetailContents {
+		if (row.id !== "r1") return { title: row.id, lines: ["plain line"] };
+		return {
+			title: "integrator · event",
+			subtitle: "2m ago",
+			tail: false,
+			text: Array.from({ length: 12 }, () => "contract v2").join(" "),
+		};
+	}
+
+	protected detailById(id: string): DetailSource | undefined {
+		const row = this.rows().find((entry) => entry.id === id);
+		if (!row) return undefined;
+		return row.id === "r1" ? { lines: [] } : { lines: ["plain line"] };
+	}
+
+	protected liveDetail(): boolean {
+		return true;
 	}
 
 	protected handleVerb(): void {}
@@ -727,6 +828,49 @@ class FeatureScreen extends DockListScreen<Row> {
 function renderFrame(screen: { render(width: number): string[] }, width = 60): string[] {
 	return screen.render(width);
 }
+
+describe("DockListScreen prose panes and scope labels", () => {
+	test("names the header and the empty line through the hooks", () => {
+		const screen = new ProseScreen(sampleRows());
+		expect(renderFrame(screen)[0]).toContain("Inbox");
+		screen.setRows([]);
+		expect(renderFrame(screen).some((line) => line.includes("No unread mail."))).toBe(true);
+	});
+
+	test("wraps a prose body to the width, re-wraps on a resize, and never says following", () => {
+		const screen = new ProseScreen(sampleRows());
+		screen.handleInput("\r");
+		const wide = renderFrame(screen, 80).filter((line) => line.includes("contract"));
+		const narrow = renderFrame(screen, 40).filter((line) => line.includes("contract"));
+		expect(narrow.length).toBeGreaterThan(wide.length);
+		for (const width of [40, 80]) {
+			for (const line of renderFrame(screen, width)) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+		expect(renderFrame(screen, 80).join("\n")).not.toContain("following");
+	});
+
+	test("returns from prose to a line pane without stale text", () => {
+		const screen = new ProseScreen(sampleRows());
+		screen.handleInput("\r");
+		expect(renderFrame(screen)[0]).toContain("integrator");
+		screen.handleInput("\x1b");
+		screen.handleInput("j");
+		screen.handleInput("\r");
+		expect(renderFrame(screen)[0]).toContain("r2");
+		expect(renderFrame(screen).some((line) => line.includes("plain line"))).toBe(true);
+		expect(renderFrame(screen).join("\n")).not.toContain("contract v2");
+	});
+
+	test("closes a prose pane when its row disappears", () => {
+		const screen = new ProseScreen(sampleRows());
+		screen.handleInput("\r");
+		expect(renderFrame(screen)[0]).toContain("integrator");
+		screen.setRows([]);
+		const lines = renderFrame(screen);
+		expect(lines[0]).toContain("Inbox");
+		expect(lines.some((line) => line.includes("No unread mail."))).toBe(true);
+	});
+});
 
 describe("DockListScreen", () => {
 	test("does not answer Pi's focus check, so the host never assigns the flag", () => {
@@ -930,6 +1074,16 @@ describe("DockListScreen optional members", () => {
 
 		// The verb saw both keys; it claimed `c` and left `j` for the pane to scroll.
 		expect(screen.verbs).toEqual(["c:r1", "j:r1"]);
+	});
+
+	test("shows a confirmation asked from inside the pane", () => {
+		const screen = new FeatureScreen(sampleRows());
+		screen.handleInput("\r");
+		screen.handleInput("x");
+		expect(renderFrame(screen).some((line) => line.includes("Stop r1? y/N"))).toBe(true);
+		screen.handleInput("y");
+		expect(screen.verbs).toContain("stop:r1");
+		expect(renderFrame(screen).some((line) => line.includes("Stop r1? y/N"))).toBe(false);
 	});
 
 	test("passes the rows to the list hints and the open row to the detail hints", () => {

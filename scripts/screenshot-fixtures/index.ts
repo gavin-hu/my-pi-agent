@@ -27,6 +27,7 @@ export { PLAN, PLAN_BASELINE, PLAN_CONTENT, PLAN_PATH } from "./plan.ts";
 export { QUESTIONS } from "./questions.ts";
 export { REVIEW_ENTRIES, REWIND_POINTS } from "./rewind.ts";
 export { SCREEN_TUI, noop, now } from "./shared.ts";
+export { BUS_BOARD } from "./session.ts";
 export { TODOS } from "./todo.ts";
 export { WATCHES } from "./watch.ts";
 export { WECHAT_ACCOUNT, WECHAT_BRIDGE, WECHAT_VIEW } from "./wechat.ts";

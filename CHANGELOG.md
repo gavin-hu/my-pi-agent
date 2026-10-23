@@ -8,6 +8,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: `/sessions` opens a live board in the TUI — a counts summary,
+  session rows with their unread and claim counts, a focus block, and a pane of one
+  session's identity and claims — with `w` arming or disarming this session's inbox
+  watch, `Enter` opening a session, and `Esc` closing it. Every other mode keeps the
+  text listing, and the board reads a read-only snapshot so polling it never rewrites
+  this session's record.
+- `session-bus`: the `session` tool block lists its rows on expand — sessions and
+  claims, the consumed mail, claim conflicts, and the released and not-owned paths —
+  instead of a bare count; the collapsed line pluralizes, names the owner that blocked
+  a claim and the paths a release did not own, and the mail notice hands every message
+  to the renderer so its `… N more` row appears. `TailResult` gained a `sections`
+  input for a block with more than one headed row list.
+- `session-bus`: `/sessions` now has three scopes — Sessions, Inbox, and Claims,
+  switched with `Tab`. Inbox previews this session's unread mail without consuming
+  it (`Enter` opens the message wrapped in a pane), and Claims lists every path with
+  its holder, so `x` releases a claim you hold after a y/N confirmation, from the
+  list or the pane. A peer's claim is refused with its owner named, and the hint row
+  keeps the scope key and the verb in a 46-column terminal.
 - `plan`: a review can be **shared**. **Share** in the browser page (or `/plan
   share`) mints a reviewer link with a QR a teammate on the same network opens to
   read the plan and comment under their own name; **Stop sharing** revokes it. Only

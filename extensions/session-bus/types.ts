@@ -60,6 +60,15 @@ export interface ClaimConflict {
 	ownerLabel: string;
 }
 
+/**
+ * What the board reads in one poll: the bus as it stands, and this session's
+ * unread mail. Peeking never consumes, so the notice and `inbox` are unaffected.
+ */
+export interface BoardSnapshot {
+	status: SessionStatus;
+	messages: BusMessage[];
+}
+
 /** Structured result carried in the `session` tool's details. */
 export interface SessionDetails {
 	action: "status" | "send" | "inbox" | "claim" | "release" | "watch";

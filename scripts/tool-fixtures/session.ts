@@ -31,7 +31,7 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 	{
 		name: "session",
 		group: "package",
-		label: "the parallel-session board",
+		label: "the bus summary",
 		args: { action: "status" },
 		result: {
 			content: [{ type: "text", text: "Sessions (2)\n- frontend\n- backend" }],
@@ -44,6 +44,68 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 						{ id: "s2", label: "backend", cwd: "/repo/backend", mode: "tui", unread: 1 },
 					],
 					claims: [],
+				},
+			},
+		},
+	},
+	{
+		name: "session-expanded",
+		tool: "session",
+		group: "package",
+		label: "the parallel-session board, expanded",
+		args: { action: "status" },
+		options: { expanded: true },
+		result: {
+			content: [
+				{
+					type: "text",
+					text: "Sessions (3)\n- frontend (s1) · /repo/frontend · tui\n- backend (s2) · /repo/backend · tui · 1 unread",
+				},
+			],
+			details: {
+				action: "status",
+				status: {
+					me: { id: "s1", label: "frontend" },
+					sessions: [
+						{
+							id: "s1",
+							label: "frontend",
+							cwd: "/repo/frontend",
+							mode: "tui",
+							unread: 0,
+							pid: 1,
+							repoRoot: "/repo",
+							startedAt: 1,
+							lastSeen: 2,
+						},
+						{
+							id: "s2",
+							label: "backend",
+							cwd: "/repo/backend",
+							mode: "tui",
+							unread: 1,
+							pid: 2,
+							repoRoot: "/repo",
+							startedAt: 1,
+							lastSeen: 2,
+						},
+						{
+							id: "s3",
+							label: "verify-billing",
+							cwd: "/repo/backend",
+							mode: "rpc",
+							unread: 0,
+							pid: 3,
+							repoRoot: "/repo",
+							startedAt: 1,
+							lastSeen: 2,
+						},
+					],
+					claims: [
+						{ path: "src/api", owner: "s2", ownerLabel: "backend", at: 1 },
+						{ path: "src/api/routes.ts", owner: "s2", ownerLabel: "backend", at: 1 },
+					],
+					watching: { armed: true, wake: false },
 				},
 			},
 		},

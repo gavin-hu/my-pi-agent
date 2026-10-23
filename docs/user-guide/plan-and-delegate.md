@@ -852,8 +852,12 @@ assistant asks for the `project` or `both` scope.
 The `session-bus` extension lets independent Pi sessions on the same machine and
 repository act as a team without sharing a conversation.
 
-- `/sessions` lists active sessions, unread counts, and path claims. A non-TUI
-  session joins the first time it asks.
+- `/sessions` opens the board. `Tab` cycles **Sessions**, **Inbox**, and
+  **Claims**: sessions with their unread counts, this session's unread mail, and
+  every path a session holds. `Enter` opens the focused row, `w` arms or disarms
+  the inbox watch, and in Claims `x` releases a claim you hold after a y/N
+  confirmation. A non-TUI session prints the same listing and joins the first
+  time it asks.
 - `/sessions name billing-core` gives **this** session a stable target, so every
   session is named from inside it, by you — one session cannot name another. Labels
   are unique among active sessions; name the outcome a session owns, not a layer.
@@ -867,6 +871,10 @@ repository act as a team without sharing a conversation.
 - `claim` paths before editing. A claim on `src/api` conflicts with `src/api` or
   any file below it; `release` gives it back. A crash releases it when the
   session expires.
+
+<img src="../../assets/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, the focused session's cwd, claims, and identity, and the Tab scope and watch hints" width="100%">
+
+*/sessions: the sessions on this repository, their unread counts and claims, and the focused session's identity.*
 
 The intended shape is contract-first: one lead accountable for the contract, the shared
 files, the merge order and a green baseline — and working a workstream of its own, so

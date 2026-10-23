@@ -200,18 +200,29 @@ export function earlierHint(theme: Theme, hidden: number, label: string): string
 /** The row renderer a {@link TailResult} list uses: the extension's row grammar at a width. */
 export type TailRowLine<Row> = (row: Row, width: number, theme: Theme) => string;
 
-/** What a {@link TailResult} draws: the caller's rows plus a hidden count, or a bounded tail. */
+/** One group of rows inside a {@link TailResult}, under an optional faint heading. */
+export interface TailSection<Row> {
+	/** A faint heading above the rows, e.g. `Claims`; omit for the block's primary list. */
+	label?: string;
+	rows: readonly Row[];
+	more: number;
+	rowLine: TailRowLine<Row>;
+}
+
+/** What a {@link TailResult} draws: the caller's rows plus a hidden count, a headed row list, or a bounded tail. */
 export type TailResultInput<Row> =
 	| { kind: "list"; rows: readonly Row[]; more: number; rowLine: TailRowLine<Row> }
+	| { kind: "sections"; sections: readonly TailSection<Row>[] }
 	| { kind: "lines"; lines: readonly string[]; earlier: number; earlierLabel: string };
 
 /**
  * The transcript result block a tool that lists rows or tails output shares.
  *
  * One leading blank line per the block grammar, then either the caller's rows
- * (already ordered and capped) with a "more" note, or the themed tail with an
- * "earlier" note. The caller owns the row renderer, so the extension's own row
- * grammar — a peer-session tag, a status glyph — stays with its vocabulary.
+ * (already ordered and capped) with a "more" note, one headed group of rows per
+ * section, or the themed tail with an "earlier" note. The caller owns the row
+ * renderer, so the extension's own row grammar — a peer-session tag, a status
+ * glyph — stays with its vocabulary.
  */
 export class TailResult<Row> implements Component {
 	private input: TailResultInput<Row>;
@@ -237,6 +248,14 @@ export class TailResult<Row> implements Component {
 		if (input.kind === "list") {
 			for (const row of input.rows) lines.push(input.rowLine(row, w, this.theme));
 			if (input.more > 0) lines.push(clip(`  ${overflowHint(this.theme, input.more)}`, w));
+			return lines;
+		}
+		if (input.kind === "sections") {
+			for (const section of input.sections) {
+				if (section.label) lines.push(clip(paint(this.theme, "faint", section.label), w));
+				for (const row of section.rows) lines.push(section.rowLine(row, w, this.theme));
+				if (section.more > 0) lines.push(clip(`  ${overflowHint(this.theme, section.more)}`, w));
+			}
 			return lines;
 		}
 		if (input.earlier > 0) lines.push(clip(earlierHint(this.theme, input.earlier, input.earlierLabel), w));
