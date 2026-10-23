@@ -9,13 +9,17 @@
 	<body class="center-page">
 		<!-- Drawn as the TUI screens under `assets/` are: title, rule, panes, hints. -->
 		<main class="card card--term">
+			<header class="card__head">
+				<h1 class="title title--compact">
+					Plan, then parallel execute <span class="title__zh">先规划，再并行执行</span>
+				</h1>
+				<p class="caption">
+					<span>@gavin-hu/my-pi-agent · shop · add-favorites · 3 unread</span>
+					<span class="caption__state">▸ 5 executing</span>
+				</p>
+			</header>
+
 			<div class="term">
-				<div class="term__head">
-					<span class="term__title">Lead + team</span>
-					<span class="term__slug">· add-favorites</span>
-					<span class="rule"></span>
-					<span class="term__meta"><span class="term__pkg">@gavin-hu/my-pi-agent</span> · shop · 5 sessions · 3 unread</span>
-				</div>
 
 				<div class="panes">
 					<section class="pane pane--lead">
@@ -107,13 +111,13 @@
 						</div>
 						<div class="pane__body">
 							<div class="count">server/favorites · 1 unread</div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">claim <span class="lit">server/favorites</span></span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">migration <span class="lit">0042_favorites</span></span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">claim <span class="lit">server/favorites</span></span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">migration <span class="lit">0042_favorites</span></span></div>
 							<div class="row"><span class="row__g accent">◉</span><span class="bold">POST /api/favorites/:id</span></div>
 							<div class="row"><span class="row__g"></span><span class="dim">idempotent · a pair, once</span></div>
 							<div class="row"><span class="row__g"></span><span class="dim">DELETE takes the row back</span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted"><span class="lit">server tests</span> · 8 pass</span></div>
-							<div class="row"><span class="row__g accent">→</span><span class="muted">send web · routes are live</span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim"><span class="lit">server tests</span> · 8 pass</span></div>
+							<div class="row"><span class="row__g accent">→</span><span class="dim">send web · routes are live</span></div>
 							<div class="row"><span class="row__g dim">·</span><span class="dim">4 commits ahead</span></div>
 							<div class="row"><span class="row__g dim">·</span><span class="dim">nothing blocked</span></div>
 							<div class="row composer"><span class="row__g accent">❯</span><span>pnpm dev:api </span><span class="cursor"></span></div>
@@ -128,13 +132,13 @@
 						</div>
 						<div class="pane__body">
 							<div class="count">web/favorites · 0 unread</div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">claim <span class="lit">web/favorites</span></span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">event read · <span class="lit">contract v1</span></span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">claim <span class="lit">web/favorites</span></span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">event read · <span class="lit">contract v1</span></span></div>
 							<div class="row"><span class="row__g accent">◉</span><span class="bold">FavoriteButton + list page</span></div>
 							<div class="row"><span class="row__g"></span><span class="dim">types from openapi.yaml</span></div>
 							<div class="row"><span class="row__g"></span><span class="dim">optimistic, then rollback</span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted"><span class="lit">test</span> web/favorites · 6 pass</span></div>
-							<div class="row"><span class="row__g accent">→</span><span class="muted">ask lead · pagination?</span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim"><span class="lit">test</span> web/favorites · 6 pass</span></div>
+							<div class="row"><span class="row__g accent">→</span><span class="dim">ask lead · pagination?</span></div>
 							<div class="row"><span class="row__g dim">·</span><span class="dim">2 commits ahead</span></div>
 							<div class="row"><span class="row__g dim">·</span><span class="dim">not blocked</span></div>
 							<div class="row composer"><span class="row__g accent">❯</span><span>pnpm dev:web </span><span class="cursor"></span></div>
@@ -149,14 +153,14 @@
 						</div>
 						<div class="pane__body">
 							<div class="count">e2e/favorites · 0 unread</div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">claim <span class="lit">e2e/favorites</span></span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">fixtures · 3 products</span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">claim <span class="lit">e2e/favorites</span></span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">fixtures · 3 products</span></div>
 							<div class="row"><span class="row__g accent">◉</span><span class="bold">favorite → list → reload</span></div>
 							<div class="row"><span class="row__g"></span><span class="dim">the round trip, not the DOM</span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">unfavorite · count drops</span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">unfavorite · count drops</span></div>
 							<div class="row"><span class="row__g bad">✕</span><span class="bold">empty state · 0 favorites</span></div>
 							<div class="row"><span class="row__g"></span><span class="dim">needs a seed from the lead</span></div>
-							<div class="row"><span class="row__g accent">→</span><span class="muted">ask lead · how to seed</span></div>
+							<div class="row"><span class="row__g accent">→</span><span class="dim">ask lead · how to seed</span></div>
 							<div class="row"><span class="row__g dim">·</span><span class="dim">1 of 3 rows green</span></div>
 							<div class="row composer"><span class="row__g accent">❯</span><span>pnpm e2e </span><span class="cursor"></span></div>
 						</div>
@@ -171,8 +175,8 @@
 						<div class="pane__body">
 							<div class="count">4 rows · no claims, no edits</div>
 							<div class="row"><span class="row__g accent">◉</span><span class="bold"><span class="lit">run_check</span> · whole repo</span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">server · 8 pass</span></div>
-							<div class="row"><span class="row__g ok">✓</span><span class="muted">web · 6 pass</span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">server · 8 pass</span></div>
+							<div class="row"><span class="row__g ok">✓</span><span class="dim">web · 6 pass</span></div>
 							<div class="row"><span class="row__g accent">◉</span><span class="bold">e2e · running</span></div>
 							<div class="row"><span class="row__g"></span><span class="dim">one row per acceptance item</span></div>
 							<div class="row"><span class="row__g dim">·</span><span class="dim">re-runs as a branch moves</span></div>

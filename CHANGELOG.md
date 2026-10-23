@@ -62,11 +62,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   worktrees share one bus, keeps state under the agent directory, and starts no
   server.
 - dev: `assets/parallel-dev.html` is a third posting card, `bun run
-  screenshot:plan-flow parallel`. It draws the lead-and-team protocol as one
-  terminal frame — a tmux split of five pi panes, one large lead pane and four
-  peers working at the same moment — in the palette, glyphs and key-hint footer
-  the terminal captures use, in the same 1200×675 box as the plan-flow cards it
-  shares a stylesheet with.
+  screenshot:plan-flow parallel`. It titles itself `Plan, then parallel execute`
+  in the poster face, captions itself with the project and the task, and gives the
+  rest of the card to a tmux split of five pi panes — one large lead pane and four
+  peers working at the same moment — with no window chrome, in the palette, glyphs
+  and key-hint footer the terminal captures use, in the same 1200×675 box as the
+  plan-flow cards it shares a stylesheet with.
 
 ### Changed
 
