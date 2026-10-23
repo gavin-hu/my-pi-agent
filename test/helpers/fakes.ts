@@ -180,6 +180,7 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 	const sentMessages: Array<{ content: unknown; options: unknown }> = [];
 	const customMessages: Array<{ message: any; options: unknown }> = [];
 	let active = [...(options.active ?? [])];
+	let sessionName: string | undefined;
 
 	const pi: any = {
 		handlers,
@@ -210,6 +211,10 @@ export function createFakePi(options: FakePiOptions = {}): FakePi {
 		setActiveTools: (names: string[]) => {
 			active = [...new Set(names)];
 		},
+		setSessionName: (name: string) => {
+			sessionName = name;
+		},
+		getSessionName: () => sessionName,
 		getAllTools: () => (pi.allTools.length > 0 ? pi.allTools : [...tools.values()]),
 		getSettings: () => options.settings ?? { compaction: { enabled: true } },
 

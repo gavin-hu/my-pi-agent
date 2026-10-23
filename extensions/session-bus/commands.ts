@@ -145,7 +145,10 @@ export function registerCommands(pi: ExtensionAPI, bus: SessionBus): void {
 				try {
 					await bus.start(ctx);
 					await bus.status();
-					ctx.ui.notify(`This session is now named "${await bus.rename(label)}".`, "info");
+					const renamed = await bus.rename(label);
+					// The bus validates first, so a rejected label leaves both names alone.
+					pi.setSessionName(renamed);
+					ctx.ui.notify(`This session is now named "${renamed}".`, "info");
 				} catch (error) {
 					ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
 				}
