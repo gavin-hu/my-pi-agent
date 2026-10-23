@@ -39,7 +39,10 @@ const SessionParams = Type.Object({
 		Type.Integer({ minimum: 1, maximum: 50, description: "Inbox messages to consume (default 20)." }),
 	),
 	wake: Type.Optional(
-		Type.Boolean({ description: "With watch: a new message also raises one turn, instead of waiting for the next." }),
+		Type.Boolean({
+			description:
+				"With watch: set the mode — true raises one turn per burst, false waits for the next turn, omitted keeps it.",
+		}),
 	),
 	stop: Type.Optional(Type.Boolean({ description: "With watch: turn this session's inbox watch off." })),
 });

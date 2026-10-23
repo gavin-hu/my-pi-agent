@@ -4,8 +4,9 @@
  * Registers the `watch` tool and `/watch` command. Watchers read a file or a
  * command's merged output, match each new line against a regular expression,
  * and alert the user; matching lines are reported to the model — and shown as a
- * bytefly notice — at the next turn, or wake a turn immediately when the
- * watcher opted into `wake`. Watchers are session-only and stopped on shutdown.
+ * bytefly notice — at the next turn, or wake a turn as soon as the agent is idle
+ * when the watcher opted into `wake`, including right after a running turn
+ * settles. Watchers are session-only and stopped on shutdown.
  *
  * Load with:  pi --extension ./extensions/watch
  */
@@ -68,15 +69,16 @@ export default function watch(pi: ExtensionAPI, deps: WatchDeps = {}): void {
 	if (!isExtensionEnabled("watch")) return;
 	const runtime = deps.runtime ?? createWatchRuntime();
 
-	// Opt-in wake: a `wake` watcher matched while the agent is idle. The reporter
-	// reports *all* pending matches, not just the waking one, so a non-wake match
-	// is not silently dropped.
+	// Opt-in wake: a `wake` watcher matched. The reporter reports *all* pending
+	// matches, not just the waking one, so a non-wake match is not silently
+	// dropped, and it retries a burst that arrived mid-turn once the run settles.
 	const reporter = createPendingReporter<PendingMatch>({
 		wake: (notice) => pi.sendMessage(notice, { triggerTurn: true }),
 		pending: () => runtime.pendingMatches(),
 		markReported: (matches) => runtime.markReported(matches),
 		buildNotice: watchNotice,
 		source: "watch",
+		wakeRequested: () => runtime.pendingMatches().some((match) => runtime.get(match.watcherId)?.wake === true),
 		// A wake means the user is away from the terminal, so the alert also leaves
 		// the process. bytefly's notify capability owns delivery; this publishes the
 		// fact and never learns how it is sent. The newest match is the one an alert

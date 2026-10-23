@@ -199,15 +199,35 @@ describe("the inbox watch", () => {
 		await third.stop();
 	});
 
-	test("arming twice keeps the setting, and stop is safe when unarmed", async () => {
+	test("arming is idempotent, an explicit wake sets the mode, and stop is safe when unarmed", async () => {
 		const dir = busDir();
 		const { backend } = await pair(dir);
 		expect(await backend.watch({ wake: true })).toEqual({ armed: true, wake: true });
+		// An omitted `wake` keeps an armed watch's mode.
 		expect(await backend.watch({})).toEqual({ armed: true, wake: true });
+		expect(await backend.watch({ wake: false })).toEqual({ armed: true, wake: false });
+		expect((await backend.status()).watching).toEqual({ armed: true, wake: false });
+		expect(await backend.watch({ wake: true })).toEqual({ armed: true, wake: true });
 		expect((await backend.status()).watching).toEqual({ armed: true, wake: true });
 		expect(await backend.watch({ stop: true })).toEqual({ armed: false, wake: false });
 		expect(await backend.watch({ stop: true })).toEqual({ armed: false, wake: false });
 		expect((await backend.status()).watching).toBeUndefined();
+		await backend.stop();
+	});
+
+	test("enabling wake over mail already queued signals that burst", async () => {
+		const dir = busDir();
+		const { frontend, backend, calls } = await pair(dir);
+		await backend.watch({});
+		await frontend.send({ to: "backend", text: "queued first" });
+		await backend.poll();
+		expect(backend.pending()).toHaveLength(1);
+		expect(calls).toEqual([]);
+
+		await backend.watch({ wake: true });
+		expect(calls).toHaveLength(1);
+
+		await frontend.stop();
 		await backend.stop();
 	});
 

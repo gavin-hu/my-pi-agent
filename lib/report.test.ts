@@ -25,12 +25,13 @@ describe("createPendingReporter", () => {
 	}
 
 	/** A reporter over a queue that records every wake, mark, and `onWoke` batch. */
-	function harness(options: { fail?: boolean } = {}) {
+	function harness(options: { fail?: boolean; requested?: boolean } = {}) {
 		const queued: Outcome[] = [];
 		const marked = new Set<string>();
 		const woken: NoticeMessage[] = [];
 		const wokeBatches: Outcome[][] = [];
 		const markedBatches: string[][] = [];
+		let requested = options.requested ?? true;
 		const reporter = createPendingReporter<Outcome>({
 			wake: (notice) => {
 				if (options.fail) throw new Error("send failed");
@@ -46,6 +47,7 @@ describe("createPendingReporter", () => {
 					content: `${items.length} finished`,
 					details: { source: "test", title: `${items.length} finished` },
 				}),
+			wakeRequested: () => requested,
 			source: "test",
 			onWoke: (items) => wokeBatches.push([...items]),
 		});
@@ -53,6 +55,9 @@ describe("createPendingReporter", () => {
 			reporter,
 			queue: (...ids: string[]) => {
 				for (const id of ids) queued.push({ id });
+			},
+			setRequested: (value: boolean) => {
+				requested = value;
 			},
 			woken,
 			wokeBatches,
@@ -101,17 +106,61 @@ describe("createPendingReporter", () => {
 		expect(h.woken).toHaveLength(2);
 	});
 
-	test("queues without waking while the agent is mid-turn", () => {
+	test("queues a mid-turn wake, then wakes once at settle", () => {
 		const h = harness();
 		h.reporter.agentStart();
 		h.queue("a");
 		h.reporter.report();
 		expect(h.woken).toEqual([]);
 		expect(h.pending()).toEqual(["a"]);
+		h.reporter.agentSettled({ aborted: false });
+		expect(h.woken).toHaveLength(1);
+		expect(h.woken[0]?.content).toBe("1 finished");
+		expect(h.pending()).toEqual([]);
 	});
 
-	test("reports leftovers at the next turn without triggering one", () => {
+	test("a mid-turn outcome that did not request a wake waits for the next turn", () => {
+		const h = harness({ requested: false });
+		h.reporter.agentStart();
+		h.queue("a");
+		h.reporter.report();
+		h.reporter.agentSettled({ aborted: false });
+		expect(h.woken).toEqual([]);
+		expect(h.reporter.beforeAgentStart()?.message.content).toBe("1 finished");
+	});
+
+	test("an aborted settle leaves the outcome queued", () => {
 		const h = harness();
+		h.reporter.agentStart();
+		h.queue("a");
+		h.reporter.report();
+		h.reporter.agentSettled({ aborted: true });
+		expect(h.woken).toEqual([]);
+		expect(h.pending()).toEqual(["a"]);
+		h.reporter.agentSettled({ aborted: false });
+		expect(h.woken).toHaveLength(1);
+	});
+
+	test("two settles wake once for the same burst", () => {
+		const h = harness();
+		h.reporter.agentStart();
+		h.queue("a");
+		h.reporter.report();
+		h.reporter.agentSettled({ aborted: false });
+		h.reporter.agentSettled({ aborted: false });
+		expect(h.woken).toHaveLength(1);
+	});
+
+	test("does not wake when no outcome requested one", () => {
+		const h = harness({ requested: false });
+		h.queue("a");
+		h.reporter.report();
+		expect(h.woken).toEqual([]);
+		expect(h.pending()).toEqual(["a"]);
+	});
+
+	test("reports what is queued at the next turn when no wake was requested", () => {
+		const h = harness({ requested: false });
 		h.reporter.agentStart();
 		h.queue("a", "b");
 		h.reporter.report();
@@ -174,7 +223,7 @@ describe("registerPendingChannel", () => {
 			report: () => log.push("report"),
 			sessionStart: () => log.push("sessionStart"),
 			agentStart: () => log.push("agentStart"),
-			agentSettled: () => log.push("agentSettled"),
+			agentSettled: (event) => log.push(`agentSettled:${event?.aborted === true}`),
 			beforeAgentStart: () => {
 				log.push("beforeAgentStart");
 				return queued ? { message: notice } : undefined;
@@ -287,8 +336,16 @@ describe("registerPendingChannel", () => {
 		const { pi } = createFakePi();
 		registerPendingChannel(pi, { reporter: fakeReporter(log).reporter, runtime: fakeRuntime(log) });
 		await emit(pi, "agent_start", {}, ctx);
-		await emit(pi, "agent_settled", {}, ctx);
-		expect(log).toEqual(["agentStart", "agentSettled"]);
+		await emit(pi, "agent_settled", { aborted: false }, ctx);
+		expect(log).toEqual(["agentStart", "agentSettled:false"]);
+	});
+
+	test("an aborted settle reaches the reporter as aborted", async () => {
+		const log: string[] = [];
+		const { pi } = createFakePi();
+		registerPendingChannel(pi, { reporter: fakeReporter(log).reporter, runtime: fakeRuntime(log) });
+		await emit(pi, "agent_settled", { aborted: true }, ctx);
+		expect(log).toEqual(["agentSettled:true"]);
 	});
 
 	test("the next turn returns the notice and repaints only when there is one", async () => {

@@ -38,12 +38,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   follows the change stream instead of waiting for a reload.
 - `session-bus`: a session can arm its own inbox watch — `session({action:"watch"})`
   or `/sessions watch [off|wake]` — so new mail previews at its next turn, or raises
-  one turn when `wake` is set and the session is idle. The bus announces and never
-  consumes, arming is per session and session-only, and nothing arms on session
-  start, so an unarmed session stays pull-only. It polls this session's own inbox
-  every 2 s and reports through the shared pending channel that `job` and `watch`
-  use, which now also accepts an async `load` and a runtime without a status chip;
-  the notice text is one `burstText` assembly shared by all three.
+  one turn when `wake` is set, as soon as the session is idle. `wake` is a mode:
+  `watch wake` upgrades an armed watch, and `wake: false` returns it to next-turn
+  reporting. The bus announces and never consumes, arming is per session and
+  session-only, and nothing arms on session start, so an unarmed session stays
+  pull-only. It polls this session's own inbox every 2 s and reports through the
+  shared pending channel that `job` and `watch` use, which now also accepts an async
+  `load` and a runtime without a status chip; the notice text is one `burstText`
+  assembly shared by all three.
 - `skills`: a model-invoked `parallel-dev` skill runs parallel work as a lead and a
   team: a lead accountable for the contract, the shared files, merge order and a green
   baseline who also owns a workstream of its own, one owner per disjoint outcome slice
@@ -71,6 +73,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `job`, `watch`, `session-bus`: a wake outcome that arrives while a turn is
+  running now raises one turn as soon as that run settles, instead of waiting for
+  the next turn; an aborted run leaves it queued. The shared pending reporter gates
+  each wake on the channel's own `wakeRequested()`, so a non-wake outcome still
+  only reports at the next turn.
 - `plan`: a review comment carries its author, and every save replaces only its own
   writer's comments, so two reviewers cannot erase each other; a revision carries
   the review onto the rewritten plan instead of dropping it, and the terminal

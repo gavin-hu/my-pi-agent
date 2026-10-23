@@ -37,7 +37,8 @@ How the `job` call and its result look in the transcript — the call line as a 
   chip for this session's jobs, plus a `/jobs` screen for selecting, tailing,
   killing, and clearing.
 - Reports finished jobs to the model at the start of the next turn, or — for
-  jobs started with `wake: true` — by triggering one turn.
+  jobs started with `wake: true` — by triggering one turn as soon as the agent is
+  idle, including right after a running turn settles.
 - Kills session-owned jobs on shutdown so no process is left behind; on POSIX,
   start a job with `detached: true` to keep it running and reattach next session.
   A detached job points its own output straight at its log file, so it keeps
@@ -338,13 +339,14 @@ rewritten.
   extension keeps only what is job-shaped — the durable registry, rotation,
   stdin, and the job vocabulary. The report coordinator is also why a wake can
   never stack two turns: it owns the guard for the window between the triggered
-  send and `agent_start`.
+  send and `agent_start`, and it retries a wake the running turn suppressed.
 - **Notify by default, wake opt-in.** A failed job raises one `ctx.ui.notify`
   (a clean exit is left to the list and chips). Finished jobs are also posted
   as a shared transcript notice — model-facing text plus the notice block — at the
-  next `before_agent_start`. A `wake: true` job (or `wakeOnFinish`) additionally
-  triggers one turn when the agent is idle; auto-wake is not the default because
-  it easily loops and burns tokens.
+  next `before_agent_start`, or in the wake turn it raises. A `wake: true` job (or
+  `wakeOnFinish`) additionally triggers one turn as soon as the agent is idle,
+  including right after a running turn settles; auto-wake is not the default
+  because it easily loops and burns tokens.
 - **Width-1 glyphs and cached latest line.** The running chip is `▸ N` and the
   failure chip `✗ N`, each a two-token badge under its own status key, so the
   status bar compacts each independently (`▸N` / `✗N`) and an unreported

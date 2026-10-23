@@ -81,7 +81,7 @@ an editor whose value you save with `Enter` or discard with `Esc`.
 | **Turn finished** | Announce a run that has settled |
 | **Needs input** | Announce a prompt the assistant opens during a run |
 | **Job finished** | Announce a finished background job or watcher |
-| **Watcher matched** | Announce a match while the assistant is idle |
+| **Watcher matched** | Announce a match that wakes the assistant |
 | **Wake when a job finishes** | Start one turn when any background job ends |
 | **Automatic snapshots** | Take one rewind snapshot per prompt |
 | **Proactive health check** | Probe at session start and warn about a missing requirement |
@@ -137,7 +137,7 @@ triggers can be switched independently:
 | **Turn finished** | A full run settles and Pi waits for your next message |
 | **Needs input** | The assistant opens a prompt during a run and waits for an answer |
 | **Job finished** | A background job reaches a terminal state |
-| **Watcher matched** | A watcher whose wake setting is on matches while the assistant is idle |
+| **Watcher matched** | A watcher whose wake setting is on matches and raises a turn once the assistant is idle |
 
 `notify.method` in `bytefly.json` can stay `auto`, which prefers the terminal and
 then the platform, or name a mechanism: OSC 777, OSC 99, Windows toast, macOS, or

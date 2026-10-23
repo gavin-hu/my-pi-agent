@@ -5,8 +5,9 @@
  * sessions join only when the tool or `/sessions` is used. The factory only
  * registers; the runtime owns the heartbeat and removes the registry entry on
  * shutdown. Nothing arms an inbox watch by itself, so delivery stays pull-based
- * until a session asks: with the watch armed, mail that arrived while the agent
- * was idle raises one turn (`wake`) or is reported at the next one.
+ * until a session asks: with the watch armed, new mail is reported at the next
+ * turn, or — with `wake` — raises one turn as soon as the agent is idle,
+ * including right after a running turn settles.
  *
  * Load with:  pi --extension ./extensions/session-bus
  */
@@ -36,6 +37,7 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 		markReported: (messages) => bus.markReported(messages.map((message) => message.id)),
 		buildNotice: mailNotice,
 		source: "session-bus",
+		wakeRequested: () => bus.wantsWake(),
 	});
 
 	registerTools(pi, bus);
