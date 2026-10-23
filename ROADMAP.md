@@ -71,7 +71,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
-| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C4, F1–F3 |
+| Optional and upgradeable | Strong; docs and releases can be tighter | C1–C3, F1–F2 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -80,21 +80,21 @@ closed by work parked in any horizon.
 
 ## If only three things ship
 
-1. **C1 — Control-center breadth.** Skills shipped in the picker with the
-   extension rules; *decision first* on themes and prompts — whether they belong
-   with the picker or stay with `pi config`.
-2. **C2 — Update channels.** An opt-in prerelease or tagged-channel preference,
+1. **C1 — Update channels.** An opt-in prerelease or tagged-channel preference,
    still with no auto-update.
-3. **F2 — One path canonicalization.** `realPathOfNearest` runs up to five times
-   per managed worktree; canonicalize once and carry the path down.
+2. **C2 — Update action.** Offering `pi update --extensions` from the control
+   center, behind a confirmation and only where the host runs it safely.
+3. **F2 — Split the browse listing out of `files.ts`.** The one structural move
+   left on the per-file churn list; deferred until the file bar is reached.
 
-The first sits in `Now`; the other two are the smallest remaining gaps.
+All three sit in `Later`: the update story is the next user-visible gap, and the
+split is the cheapest structural one.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** (highest priority) | Are the numbers honest? | `C1`'s remaining decision — themes and prompts in the picker or in `pi config` — is recorded. The price total already names what it cannot price, and the built-in tariff's age is visible in `doctor`. |
+| **Now** (highest priority) | Are the numbers honest? | Met: the picker's scope decision is recorded — themes and prompts stay out, because neither is a scoped enable list — and the price total already names what it cannot price, with the built-in tariff's age visible in `doctor`. No `Now` item is open. |
 | **Next** (queued) | Does the daily loop feel finished? | Empty: background delegation shipped; the next tier is not yet chosen. |
 | **Later** (parked) | Is it a platform? | Reproducible releases, benchmarked long sessions, expansion decisions made. |
 
@@ -316,18 +316,11 @@ runs, an update check, and two themes.
 
 **Now**
 
-Nothing above is a false promise; the remaining picker gap is a scope decision
-rather than a fix, so it is an item rather than a row. The price total's own gap
-is closed: a `CNY` session now names the records it could not price, and the
-provider-table item that used to sit here is gone — see the note under the
-horizons for why a table would price worse than what `USD` already reports.
-
-- **C1 — Control-center breadth.** Skills shipped with the extension rules —
-  one grouped vertical list, `Space` to toggle, `Tab` and `x` for scope, writing
-  the active scope's `skills` list or a package's `skills` filter — which
-  settles that half. *Decision first for the rest:* do themes and prompts belong
-  in the picker or stay with `pi config`? If added, they need the same scope
-  rules.
+Nothing here is queued: the picker's scope decision is made — extensions and
+skills, not themes or prompts, because those are a single selection and a
+discovered file rather than a scoped enable list (`Deliberately left thin`) —
+and the price total's own gap is closed, since a `CNY` session names the records
+it could not price. This section contributes no `Now` item.
 
 **Next**
 
@@ -336,11 +329,11 @@ and the rest is declared JSON-only. This section contributes no `Next` item.
 
 **Later**
 
-- **C2 — Update channels.** An opt-in prerelease or tagged-channel preference,
+- **C1 — Update channels.** An opt-in prerelease or tagged-channel preference,
   still with no auto-update.
-- **C3 — Update action.** Offer `pi update --extensions` from the control
+- **C2 — Update action.** Offer `pi update --extensions` from the control
   center behind a confirmation, only if the host exposes a safe way to run it.
-- **C4 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C3 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 ## 5. Foundations
@@ -362,13 +355,7 @@ provenance-attested path. This section contributes no `Next` item.
 
 - **F1 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
-- **F2 — One path canonicalization.** `realPathOfNearest` runs up to five times
-  per managed worktree — in `status.ts`, twice inside `registry.ts`, and once in
-  `worktree/git.ts` — each a sync ancestor walk to answer a question the layer
-  above already answered. Canonicalize once and carry the path down, which means
-  changing what `listManagedWorktrees` and `statusOf` take. Deferred from the
-  performance pass because the contract change is wider than the saving.
-- **F3 — Split the browse listing out of `files.ts`.** At 564 of the 600-line
+- **F2 — Split the browse listing out of `files.ts`.** At 564 of the 600-line
   bar, `extensions/file-browse/files.ts` still holds classification, Markdown
   detection, text reads, listings, and the sidebar tree. The split is a
   behaviour-neutral move of the listing half into its own module; it is deferred
@@ -397,9 +384,10 @@ it.
 | `web-access`: the keyless search returns answers and related topics rather than a result list | That is the provider's shape, not a parsing gap; SearXNG and Brave return a list. Revisit if the keyless default changes. |
 | `file-read`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. Revisit with a worker-thread extractor if a real document needs preemption. |
 | `file-read`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
-| `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit with `C1`, which would widen the picker. |
-| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. `C1` decides the picker's scope, not this. |
-| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C2`. |
+| `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. Revisit if the picker widens to list-valued keys. |
+| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row; the picker's scope does not change that. |
+| `bytefly`: themes and prompts are not picker sections | A theme is one active selection — a scalar, global setting — and a prompt template is a file Pi discovers from a directory; neither is the scoped enable list this screen's checkbox rows write. Themes stay with `pi config`. | A decision, reached against the picker's contract rather than deferred: revisit if Pi exposes a scoped theme or prompt setting. |
+| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. Revisit with `C1`. |
 | `bytefly`: only packages configured in Pi's settings get an update prompt, so `pi -e .` and temporary checkouts are not checked | Pi's package manager owns the list; a second detector would restore the duplicate-block class the single-notice refactor removed. Revisit if unmanaged installs need a prompt. |
 | `bytefly`: the single update notice depends on patching `DefaultPackageManager.prototype.checkForAvailableUpdates` | Pi exposes no setting for its startup block. The shim is installed only in `tui`, restored on shutdown, and inert if the method shape changes. Revisit if Pi adds a supported switch. |
 | `file-open`: Windows `explorer` exits non-zero after a successful open, so its status is not a failure signal | That is how `explorer` behaves; a launcher that cannot start is reported on every platform. |
@@ -466,4 +454,4 @@ These stay out unless a roadmap item says otherwise:
   and the section intros; `test/roadmap.test.ts` fails on a dangling ID or a
   bucket over the cap.
 - Small, self-contained first tasks: the SBOM (`F1`) once a consumer asks for
-  one, and the path canonicalization (`F2`).
+  one.

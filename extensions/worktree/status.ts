@@ -10,7 +10,6 @@
 
 import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { realPathOfNearest } from "../../lib/path.ts";
 import { mapConcurrent } from "../../lib/pool.ts";
 import { loadConfig } from "./config.ts";
 import { gapLines, type IsolationGap, isolationGaps } from "./gaps.ts";
@@ -133,8 +132,7 @@ export async function worktreeSnapshot(pi: ExtensionAPI, ctx: ExtensionContext):
 		// lookup instead of a scan of every record.
 		const records = new Map(registry.worktrees.map((record) => [record.path, record]));
 		const row = async (entry: ManagedWorktree): Promise<ManagedRow> => {
-			const path = realPathOfNearest(entry.path);
-			return { entry, status: await statusOf(pi, entry, { baseRef, record: records.get(path) }) };
+			return { entry, status: await statusOf(pi, entry, { baseRef, record: records.get(entry.path) }) };
 		};
 		// Each row is up to four git reads; four at a time keeps the list in the order
 		// git reports while overlapping the waits. `statusOf` passes no `env`, which is
