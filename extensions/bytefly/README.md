@@ -674,6 +674,12 @@ it. There is nothing to probe, so `r` is not offered here; the metadata is read
 once when the section first appears, so an edited `SKILL.md` shows on the next
 open.
 
+Themes and prompts have no section of their own, by decision rather than by
+omission: a theme is one active selection — a scalar, global setting — and a
+prompt template is a file Pi discovers from a directory, so neither is a scoped
+enable list this screen's checkbox rows can write. Themes stay with `pi config`;
+`ROADMAP.md` carries the reason under *Deliberately left thin*.
+
 **Settings.** The third section uses the same frame and the same `Tab` scope
 switch, with its own cursor. It is the shortlist a session changes: twelve
 preferences on one flat line each, the value beside its label, and no group
