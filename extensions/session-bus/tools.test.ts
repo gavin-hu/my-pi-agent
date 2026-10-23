@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
@@ -25,10 +26,16 @@ interface Session {
 			update?: undefined,
 			ctx?: ExtensionContext,
 		): Promise<{ content: Array<{ text: string }>; details: any; isError?: true }>;
+		renderCall(
+			args: unknown,
+			theme: unknown,
+			context?: { lastComponent?: unknown },
+		): { render(width: number): string[] };
 		renderResult(
 			result: { content: Array<{ type: string; text?: string }>; details: unknown },
 			options: { expanded: boolean },
 			theme: unknown,
+			context?: { lastComponent?: unknown },
 		): { render(width: number): string[] };
 	};
 }
@@ -168,5 +175,157 @@ describe("session tool", () => {
 		const out = rendered.render(80).join("\n");
 		expect(out).not.toContain("\u001b");
 		expect(out).toContain("Delivered to back [31m end");
+	});
+
+	test("the call line names the verb and what it acts on", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const send = frontend.tool
+			.renderCall({ action: "send", to: "backend" }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(send).toContain("session send backend");
+		const claim = frontend.tool
+			.renderCall({ action: "claim", paths: ["src/api", "src/http"] }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(claim).toContain("session claim src/api +1");
+		expect(
+			frontend.tool
+				.renderCall({ action: "claim", paths: ["src/api"] }, fakeTheme, { lastComponent: undefined })
+				.render(20),
+		).toHaveLength(1);
+	});
+
+	test("expanded status draws the sessions and the claims", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const rendered = frontend.tool.renderResult(
+			{
+				content: [],
+				details: {
+					action: "status",
+					status: {
+						me: { id: "s1", label: "frontend" },
+						sessions: [
+							{
+								id: "s1",
+								label: "frontend",
+								cwd: "/repo/frontend",
+								mode: "tui",
+								unread: 0,
+								pid: 1,
+								repoRoot: "/repo",
+								startedAt: 1,
+								lastSeen: 2,
+							},
+							{
+								id: "s2",
+								label: "backend",
+								cwd: "/repo/backend",
+								mode: "tui",
+								unread: 2,
+								pid: 2,
+								repoRoot: "/repo",
+								startedAt: 1,
+								lastSeen: 2,
+							},
+						],
+						claims: [{ path: "src/api", owner: "s2", ownerLabel: "backend", at: 1 }],
+						watching: { armed: true, wake: false },
+					},
+				},
+			},
+			{ expanded: true },
+			fakeTheme,
+		);
+		const text = rendered.render(80).join("\n");
+		expect(text).toContain("frontend · you");
+		expect(text).toContain("2 unread · 1 claim");
+		expect(text).toContain("Claims");
+		expect(text).toContain("src/api");
+		for (const width of [40, 80]) {
+			for (const line of rendered.render(width)) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
+	});
+
+	test("collapsed status counts in the plural and names the watch", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const rendered = frontend.tool.renderResult(
+			{
+				content: [],
+				details: {
+					action: "status",
+					status: {
+						me: { id: "s1", label: "frontend" },
+						sessions: [
+							{
+								id: "s1",
+								label: "frontend",
+								cwd: "/r",
+								mode: "tui",
+								unread: 0,
+								pid: 1,
+								repoRoot: "/r",
+								startedAt: 1,
+								lastSeen: 2,
+							},
+						],
+						claims: [],
+						watching: { armed: true, wake: true },
+					},
+				},
+			},
+			{ expanded: false },
+			fakeTheme,
+		);
+		expect(rendered.render(80).join("\n")).toContain("1 session · 0 claims · watch wake");
+	});
+
+	test("expanded inbox lists what was consumed", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const rendered = frontend.tool.renderResult(
+			{
+				content: [],
+				details: {
+					action: "inbox",
+					messages: [
+						{
+							id: "m1",
+							from: "s2",
+							fromLabel: "backend",
+							to: "s1",
+							toLabel: "frontend",
+							kind: "event",
+							text: "contract v2",
+							at: 1,
+						},
+					],
+				},
+			},
+			{ expanded: true },
+			fakeTheme,
+		);
+		const text = rendered.render(80).join("\n");
+		expect(text).toContain("contract v2");
+		expect(text).toContain("backend · event");
+	});
+
+	test("a release names the paths it did not own instead of a green success", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const rendered = frontend.tool.renderResult(
+			{ content: [], details: { action: "release", released: ["src/ok.ts"], notOwned: ["src/theirs.ts"] } },
+			{ expanded: false },
+			fakeTheme,
+		);
+		const text = rendered.render(80).join("\n");
+		expect(text).toContain("Released src/ok.ts");
+		expect(text).toContain("Not yours: src/theirs.ts");
+	});
+
+	test("empty results never print a bare success", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const line = (details: unknown): string =>
+			frontend.tool.renderResult({ content: [], details }, { expanded: false }, fakeTheme).render(80).join("\n");
+		expect(line({ action: "send", delivered: [] })).toContain("Delivered to nobody");
+		expect(line({ action: "claim", claimed: [], conflicts: [] })).toContain("Claimed nothing");
 	});
 });

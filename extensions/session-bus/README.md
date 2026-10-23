@@ -6,6 +6,8 @@ inbox, and claim paths before editing. Delivery is pull-based, and a session can
 arm an inbox watch to be told about new mail: a report at its next turn, or —
 with `wake` — one raised turn. No network service, and no hidden context.
 
+<img src="../../assets/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, and the focused session's cwd, claims, and identity" width="100%">
+
 ```bash
 pi --extension ./extensions/session-bus   # load just this extension
 pi -e .                                   # load the whole package
@@ -13,7 +15,8 @@ pi -e .                                   # load the whole package
 
 ## What it does
 
-- Registers one `session` tool and the `/sessions` command.
+- Registers one `session` tool and the `/sessions` command; in the TUI the command
+  opens a live board with Sessions, Inbox, and Claims scopes.
 - Stores one record per session, one file per message, and one file per claim
   under `<agent-dir>/session-bus/<repo-key>/`; the key is the repository’s common
   git directory, so worktrees meet on one bus.
@@ -31,7 +34,7 @@ pi -e .                                   # load the whole package
 
 | Command | Effect |
 |---|---|
-| `/sessions` | List active sessions, labels, working directories, unread counts, and claims; a non-TUI caller joins. |
+| `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` arms or disarms this session's inbox watch, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing and joins. |
 | `/sessions name <label>` | Give this session a stable label, unique among active sessions. |
 | `/sessions watch` | Report new mail at this session’s next turn. |
 | `/sessions watch wake` | Report new mail, and raise one turn when it arrives while idle. |
@@ -86,14 +89,17 @@ git branch remain the source of truth.
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Joins automatically on `session_start`. Inbox and claims are available to the model through the tool; `/sessions` lists them. |
+| `tui` | Joins automatically on `session_start`. `/sessions` opens the board: sessions, this session's unread mail, and every claim, with `Tab` between them. |
 | `rpc`, `json`, `print` | Does not join automatically. The first `session` call or `/sessions` joins; this is how a subagent or an RPC-driven session opts in. |
 | WeChat peer | Same as `rpc`: the peer is a separate AgentSession in the bridge process and joins only on explicit use. Messages are read by that peer’s model; the bridge does not forward them to the phone. |
 
 Every mode can arm the inbox watch; the notice is a visible transcript message, so
 a `wake` raises that session’s own turn, not a phone notification.
 
-No screen is opened. `/sessions` prints a compact text listing in every mode.
+The TUI opens the board; RPC, JSON, and print print the compact listing. The board
+changes only this session's own state: `w` toggles its watch and `x` releases a
+claim it holds. Mail is previewed, not consumed — `session inbox` consumes it —
+and no view shows another session's inbox or releases its claims.
 
 ## Configuration
 
@@ -109,6 +115,10 @@ The bus lives under the agent directory, not the project, so it is never committ
   its inbox watch. Agents must call `inbox` at coordination points.
 - **Arming is per session and session-only.** It survives neither a resume nor a
   new process; unread mail is previewed once more after `/resume`.
+- **The board acts on your own state only.** `w` arms or disarms this session's
+  inbox watch and `x` releases a claim it holds. Mail is a preview, not a consume:
+  the board never deletes a message, never marks one reported, and never touches a
+  peer's inbox or claim.
 - **Two armed peers can ping-pong.** Each reply wakes the other while both are
   idle. A wake raises one turn per burst, and `inbox` consumes, so the loop needs
   both sides to keep replying; the answer is to disarm one of them.
@@ -135,10 +145,22 @@ The bus lives under the agent directory, not the project, so it is never committ
   using the tool or command.
 - **Sanitized at the boundary.** Messages are model-authored and are sanitized
   before rendering, like other untrusted text in the transcript.
-- **Poll, not `fs.watch`.** The inbox watch reads this session’s inbox directory
+- **Poll, not `fs.watch`.** The inbox watch reads this session's inbox directory
   with one `readdir` every 2 s, the same trade `watch` makes for a file tail, so
-  it does not depend on a platform’s event API or a filename in the event. Only
+  it does not depend on a platform's event API or a filename in the event. Only
   an armed session polls.
+- **Read the board, prune on the next call.** The open board polls a read-only
+  `snapshot()` and `peek()` that hide a session past the TTL, a claim held by one,
+  and consume nothing. The physical prune, and the claim release that goes with
+  it, happen on the next `status` or `claim` call — which is the call that reader
+  is about to make.
+- **Release by the stored path.** A claim is stored relative to the repo root of
+  the session that took it, so releasing one resolves nothing: re-resolving it
+  against a cwd below that root would target `src/src/api`. The screen refuses a
+  peer's claim before asking the store, which checks the owner again.
+- **A pane is a log or prose.** `DetailContents.text` wraps at the render width
+  and `tail: false` opens it at the top, so a message reads as prose while a job
+  log keeps following its tail.
 - **The notice reuses the shared report channel.** `lib/report.ts` already owns
   whether an outcome may raise a turn; the bus supplies the pending mail and the
   text, and bytefly renders the notice like a `job` or `watch` one.
@@ -148,20 +170,25 @@ The bus lives under the agent directory, not the project, so it is never committ
 | Point | Detail |
 |---|---|
 | Tools | `session` — one action-shaped tool; `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: false`, `executionMode: "sequential"`. |
-| Commands | `/sessions`, `/sessions name <label>`, `/sessions watch [off\|wake]`, `/sessions help`. |
+| Commands | `/sessions` (board in `tui`, listing elsewhere), `/sessions name <label>`, `/sessions watch [off\|wake]`, `/sessions help`. |
+| UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so the watch never changes the footer. |
 | Events | `session_start` resolves the repository and joins a TUI session and arms the mail trigger; `before_agent_start` reports queued mail at the next turn; `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
 | State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. The armed watch is session-only. `/resume` re-registers the same session id. |
 | Lifecycle | The factory only registers. The runtime starts on `session_start`; heartbeat, watch ticker, and cleanup belong to it. Disabling `session-bus` through `PI_DISABLED_EXTENSIONS` registers nothing. |
-| Mode | Uses `ctx.mode` only to choose auto-join; `askHuman` is not involved and no UI is drawn, so the inbox watch publishes no status chip. |
+| Mode | Uses `ctx.mode` to decide auto-join and whether `/sessions` mounts the board; `askHuman` is not involved and no status chip is published. |
 
 ## File map
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Disable guard, registration, the pending-report channel and its notice, and the session hooks. |
+| `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
 | `runtime.ts` | Lifecycle, repo key, lazy join, heartbeat, inbox watch and its poll, operations. |
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |
-| `tools.ts` | The `session` tool and renderer. |
+| `tui.ts` | The `/sessions` board, its scopes, and the pane over one row; the row grammar is in `rows.ts`. |
+| `rows.ts` | The session/claim/message row builders and summaries shared by the board and the transcript. |
+| `result.ts` | The `session` tool's expanded result block and its collapsed line. |
+| `notice.ts` | The mail notice's model text and renderer details. |
+| `tools.ts` | The `session` tool and its renderer. |
 | `commands.ts` | `/sessions`. |
 | `format.ts` | Model-facing listing and result text. |

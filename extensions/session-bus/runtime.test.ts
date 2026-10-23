@@ -278,3 +278,94 @@ describe("pruning", () => {
 		await second.stop();
 	});
 });
+
+describe("board reads", () => {
+	test("peek reads mail without consuming or queueing it", async () => {
+		const dir = busDir();
+		const now = () => 1_000;
+		const frontend = bus(dir, "/repo/frontend", now);
+		const backend = bus(dir, "/repo/backend", now);
+		await frontend.start(context("/repo/frontend", "s1", "frontend"));
+		await backend.start(context("/repo/backend", "s2", "backend"));
+		await backend.watch({});
+		await frontend.send({ to: "backend", text: "preview me" });
+
+		expect((await backend.peek()).map((message) => message.text)).toEqual(["preview me"]);
+		// Nothing is queued for a report and nothing was deleted: `inbox` still owns both.
+		expect(backend.pending()).toEqual([]);
+		expect(await createBusStore({ dir }).unread("s2")).toBe(1);
+		expect(await backend.inbox()).toHaveLength(1);
+		await frontend.stop();
+		await backend.stop();
+	});
+
+	test("releaseStored releases a stored path that a cwd-relative release would rewrite", async () => {
+		const dir = busDir();
+		const root = "/repo/frontend";
+		const frontend = bus(dir, root, () => 1_000);
+		await frontend.start(context(`${root}/src`, "s1", "frontend"));
+		const store = createBusStore({ dir });
+		await store.claimAll(["src/api"], "s1", "frontend", 1_000);
+
+		// A normalizing release resolves `src/api` against `/repo/frontend/src`.
+		expect(await frontend.release(["src/api"])).toEqual({ released: [], notOwned: ["src/src/api"] });
+		expect(await frontend.releaseStored("src/api")).toBe(true);
+		expect(await store.claims()).toEqual([]);
+		await frontend.stop();
+	});
+
+	test("releaseStored never releases another session's claim", async () => {
+		const dir = busDir();
+		const frontend = bus(dir, "/repo/frontend", () => 1_000);
+		const backend = bus(dir, "/repo/backend", () => 1_000);
+		await frontend.start(context("/repo/frontend", "s1", "frontend"));
+		await backend.start(context("/repo/backend", "s2", "backend"));
+		await frontend.claim(["src/api"]);
+
+		expect(await backend.releaseStored("src/api")).toBe(false);
+		expect((await createBusStore({ dir }).claims()).map((claim) => claim.path)).toEqual(["src/api"]);
+		await frontend.stop();
+		await backend.stop();
+	});
+});
+
+describe("snapshot", () => {
+	test("shows the live bus and this session without writing or pruning", async () => {
+		const dir = busDir();
+		let now = 1_000;
+		const first = bus(dir, "/repo/frontend", () => now);
+		const second = bus(dir, "/repo/backend", () => now);
+		await first.start(context("/repo/frontend", "s1", "frontend"));
+		await second.start(context("/repo/backend", "s2", "backend"));
+		await second.claim(["src/api"]);
+		await first.watch({ wake: true });
+		await second.send({ to: "frontend", text: "notice me" });
+
+		const live = await first.snapshot();
+		expect(live.sessions.map((session) => session.label).sort()).toEqual(["backend", "frontend"]);
+		expect(live.sessions.find((session) => session.id === "s1")?.unread).toBe(1);
+		expect(live.claims.map((claim) => claim.path)).toEqual(["src/api"]);
+		expect(live.watching).toEqual({ armed: true, wake: true });
+
+		now = 1_000_000;
+		const stale = await first.snapshot();
+		// This session is always on its own board; the stale peer and its claim are not.
+		expect(stale.sessions.map((session) => session.id)).toEqual(["s1"]);
+		expect(stale.claims).toEqual([]);
+
+		// Nothing was deleted, so the next `status` is what prunes.
+		const store = createBusStore({ dir });
+		expect((await store.sessions()).map((session) => session.id).sort()).toEqual(["s1", "s2"]);
+		expect(await store.claims()).toHaveLength(1);
+		await first.status();
+		expect((await store.sessions()).map((session) => session.id)).toEqual(["s1"]);
+		expect(await store.claims()).toEqual([]);
+
+		await first.stop();
+		await second.stop();
+	});
+
+	test("refuses to read a bus that never started", async () => {
+		await expect(bus(busDir(), "/repo/frontend", () => 1_000).snapshot()).rejects.toThrow("not started");
+	});
+});

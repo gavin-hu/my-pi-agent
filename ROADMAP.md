@@ -127,10 +127,12 @@ one-hour cache-write rule included, so a hand-written table could only price
 - `session-bus`: one `session` tool and `/sessions` let independent sessions on one
   repository find each other, exchange messages and events, and claim paths before
   editing, with every worktree of that repository on the same bus, plus an opt-in
-  inbox watch that reports new mail at the next turn or raises one. The packaged
-  `parallel-dev` skill turns it into a protocol — contract-bound workstreams, one lead
-  who owns a workstream of its own and accountable for integration, and coordination at
-  turn boundaries rather than by assumption.
+  inbox watch that reports new mail at the next turn or raises one. `/sessions` opens
+  a live board of the peers, their unread counts and claims, and one session's
+  identity and claims in a pane. The packaged `parallel-dev` skill turns it into a
+  protocol — contract-bound workstreams, one lead who owns a workstream of its own
+  and accountable for integration, and coordination at turn boundaries rather than by
+  assumption.
 
 **Where the promise is thin**
 
@@ -158,6 +160,9 @@ one-hour cache-write rule included, so a hand-written table could only price
   or raises one turn when `wake` is set. Unarmed, a message wakes nothing, so a peer
   moves on its next turn or not at all, and a broadcast reaches only the sessions
   active when it was sent (`session-bus` README).
+- The bus board acts only on its own session's state: it previews its unread mail
+  but never consumes it, releases a claim it holds but never a peer's, and names
+  are set through the command (`session-bus` README).
 - A claim is advisory and never taken over: a crashed owner keeps its paths until the
   session expires, and a claim cannot see branch divergence, so rebasing on the
   baseline still decides what merges (`session-bus` README).

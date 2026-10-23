@@ -45,6 +45,11 @@ export class LinePane {
 	visible = 1;
 	/** Whether the view is parked at the tail; set false once the user scrolls up. */
 	follow = true;
+	/**
+	 * Whether this pane follows its tail. A log does; a prose or list pane does not:
+	 * it opens at the top and never reports `following`/`paused`.
+	 */
+	tail = true;
 
 	private buffer: string[] = [];
 	private label = "";
@@ -66,16 +71,21 @@ export class LinePane {
 		return Math.max(0, this.buffer.length - this.visible);
 	}
 
-	/** Open the pane on a row, reset to the tail. */
-	open(id: string, source: PaneSource): void {
+	/** Open the pane on a row, reset to the tail for a log, or to the top for prose. */
+	open(id: string, source: PaneSource, tail = true): void {
 		this.id = id;
 		this.buffer = [];
 		this.label = "";
 		this.subtitle = undefined;
 		this.more = false;
 		this.scroll = 0;
-		this.follow = true;
+		this.tail = tail;
+		this.follow = tail;
 		this.update(source);
+		if (!tail) {
+			this.follow = false;
+			this.scroll = 0;
+		}
 	}
 
 	/** Close the pane and drop its buffer. */
@@ -87,6 +97,7 @@ export class LinePane {
 		this.more = false;
 		this.scroll = 0;
 		this.follow = true;
+		this.tail = true;
 	}
 
 	/**
@@ -127,7 +138,7 @@ export class LinePane {
 		const parts: string[] = [];
 		if (this.subtitle) parts.push(this.subtitle);
 		if (this.more && this.buffer.length > 0) parts.push(`showing last ${this.buffer.length} lines`);
-		if (this.buffer.length > 0) parts.push(this.follow ? "following" : "paused");
+		if (this.tail && this.buffer.length > 0) parts.push(this.follow ? "following" : "paused");
 		return parts.join(" · ");
 	}
 

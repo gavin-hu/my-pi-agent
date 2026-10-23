@@ -8,7 +8,7 @@
 import { sanitizeLine } from "../../lib/format.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, SessionStatus } from "./types.ts";
 /** A short id suffix, neutralized like every other peer-supplied field. */
-function idSuffix(id: string): string {
+export function shortId(id: string): string {
 	return sanitizeLine(id.slice(-6));
 }
 
@@ -22,7 +22,7 @@ export function formatStatus(status: SessionStatus): string {
 		const unread = session.unread > 0 ? ` · ${session.unread} unread` : "";
 		const label = sanitizeLine(session.label);
 		const cwd = sanitizeLine(session.cwd);
-		return `- ${label} (${idSuffix(session.id)}) · ${cwd} · ${sanitizeLine(session.mode)}${unread}`;
+		return `- ${label} (${shortId(session.id)}) · ${cwd} · ${sanitizeLine(session.mode)}${unread}`;
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
@@ -34,7 +34,7 @@ export function formatStatus(status: SessionStatus): string {
 		...(claims.length > 0 ? claims : ["- none"]),
 		...(alerts.length > 0 ? ["", ...alerts] : []),
 		"",
-		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})`,
+		`You: ${sanitizeLine(status.me.label)} (${shortId(status.me.id)})`,
 	].join("\n");
 }
 
@@ -74,7 +74,7 @@ export function formatClaim(claimed: readonly string[], conflicts: readonly Clai
 	if (claimed.length > 0) lines.push(`Claimed: ${claimed.map((path) => sanitizeLine(path)).join(", ")}.`);
 	for (const conflict of conflicts) {
 		const owner = sanitizeLine(conflict.ownerLabel);
-		lines.push(`${sanitizeLine(conflict.path)} is owned by ${owner} (${idSuffix(conflict.owner)}).`);
+		lines.push(`${sanitizeLine(conflict.path)} is owned by ${owner} (${shortId(conflict.owner)}).`);
 	}
 	return lines.length > 0 ? lines.join("\n") : "Nothing claimed.";
 }

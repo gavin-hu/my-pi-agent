@@ -57,6 +57,12 @@ export interface SessionBus {
 	start(ctx: ExtensionContext): Promise<void>;
 	stop(): Promise<void>;
 	status(): Promise<SessionStatus>;
+	/** The live bus, read only: no record refresh, no prune. */
+	snapshot(): Promise<SessionStatus>;
+	/** This session's unread mail, read only: nothing is consumed or marked. */
+	peek(): Promise<BusMessage[]>;
+	/** Release a claim by its stored repository-relative path. */
+	releaseStored(path: string): Promise<boolean>;
 	send(input: {
 		to: string;
 		text: string;
@@ -207,6 +213,34 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return record;
 	}
 
+	async function withUnread(rows: readonly SessionRecord[]): Promise<Array<SessionRecord & { unread: number }>> {
+		return Promise.all(rows.map(async (session) => ({ ...session, unread: (await store?.unread(session.id)) ?? 0 })));
+	}
+
+	/**
+	 * The bus as it stands, this session's own record included.
+	 *
+	 * `liveOnly` drops a session whose heartbeat went stale, and a claim held by
+	 * one, without writing or deleting anything, so a board can read it every
+	 * second. The prune itself stays with `prepare()` on the next tool or command
+	 * call, which is therefore what the screen's next action sees.
+	 */
+	async function readStatus(me: { id: string; label: string }, liveOnly: boolean): Promise<SessionStatus> {
+		if (!store) throw new Error("session bus is not started.");
+		const records = await store.sessions();
+		const sessions = liveOnly
+			? records.filter((session) => session.id === record?.id || now() - session.lastSeen <= sessionTtlMs)
+			: records;
+		const live = new Set(sessions.map((session) => session.id));
+		const claims = (await store.claims()).filter((claim) => !liveOnly || live.has(claim.owner));
+		return {
+			me,
+			sessions: await withUnread(sessions),
+			claims,
+			...(armed ? { watching: { armed, wake } } : {}),
+		};
+	}
+
 	function dropFromPending(ids: ReadonlySet<string>): void {
 		pendingMail = pendingMail.filter((message) => !ids.has(message.id));
 	}
@@ -308,18 +342,31 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 
 		async status() {
 			const me = await currentRecord();
-			if (!store) throw new Error("session bus is not started.");
-			const sessions = await store.sessions();
-			const claims = await store.claims();
-			const withUnread = await Promise.all(
-				sessions.map(async (session) => ({ ...session, unread: (await store?.unread(session.id)) ?? 0 })),
-			);
-			return {
-				me: { id: me.id, label: me.label },
-				sessions: withUnread,
-				claims,
-				...(armed ? { watching: { armed, wake } } : {}),
-			};
+			return readStatus({ id: me.id, label: me.label }, false);
+		},
+
+		async snapshot() {
+			if (!store || !record) throw new Error("session bus is not started.");
+			return readStatus({ id: record.id, label: record.label }, true);
+		},
+
+		async peek() {
+			if (!store || !record) throw new Error("session bus is not started.");
+			return store.peek(record.id, MAX_LIMIT);
+		},
+
+		/**
+		 * Release a claim by its stored path.
+		 *
+		 * No normalization: a claim is stored relative to the repo root of the
+		 * session that took it, and resolving it again against a cwd below that root
+		 * would rewrite the target (`src/api` becomes `src/src/api`). The path comes
+		 * from the store and `releaseOne` still refuses a claim owned by someone
+		 * else, so this cannot touch a peer's claim.
+		 */
+		async releaseStored(path) {
+			if (!store || !record) throw new Error("session bus is not started.");
+			return store.release(path, record.id);
 		},
 
 		async send(input) {
