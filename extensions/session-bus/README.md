@@ -32,8 +32,9 @@ pi -e .                                   # load the whole package
 | `/sessions name <label>` | Give this session a stable label, unique among active sessions. |
 | `/sessions help` | Show the command usage. |
 
-Labels are how another session addresses you. Use `frontend`, `backend`,
-`tests`, or a branch name; duplicate labels get a short id suffix automatically.
+Labels are how another session addresses you. Name one by the outcome it owns
+(`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
+duplicate labels get a short id suffix automatically.
 
 ## Tools
 
@@ -57,13 +58,13 @@ takeover; wait for the owner, ask it to release, or let the session expire.
 
 ## Parallel workflow
 
-1. The lead names the sessions and writes the contract (OpenAPI, schema, or
-   types) before parallel work starts.
+1. The user names each session (`/sessions name`), and the contract (OpenAPI,
+   schema, or types) is written before parallel work starts.
 2. Each session claims its paths, then implements its side.
 3. A contract, build, or test change goes out as an event:
    `session({action:"send", to:"*", kind:"event", text:"contract v2: ..."})`.
-4. Other sessions consume `inbox` at their next checkpoint; messages are not
-   pushed into a turn.
+4. Other sessions consume `inbox` at the start of their next turn; messages are
+   not pushed into a turn.
 5. The lead merges the worktrees and runs the project’s full check.
 
 The bus carries coordination, not authority. The plan, todo list, contract, and

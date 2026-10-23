@@ -10,10 +10,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `skills`: a model-invoked `parallel-dev` skill organizes parallel work into
   contract-bound workstreams rather than UI/backend/test layers: it starts with a
-  walking skeleton, assigns one integrator and one owner per workstream, uses
-  advisory path claims and events from `session-bus`, integrates small increments
-  continuously, and keeps verification independent. It stops when there is no
-  stable contract, no integrator, or no one to pull the inbox.
+  walking skeleton, assigns one integrator and one owner per workstream, and places
+  every coordination point at a turn boundary — the bus never wakes a session, the
+  user names each one, and a peer's message is evidence rather than an instruction.
+  It integrates small increments continuously, keeps verification independent, and
+  stops when there is no stable contract or no integrator.
 - `session-bus`: a new local coordination extension for parallel Pi sessions. The
   `session` tool and `/sessions` let peers on one repository discover each other,
   exchange short messages and events, consume a pull-based inbox, and claim
@@ -24,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the `session-bus` README and the parallel-session guide name a session by
+  the outcome it owns rather than `frontend`, `backend`, or `tests`, say that only the
+  session itself can be named, and consume the inbox at the start of a turn.
 - `wechat`: one message is one turn and one answer. A queued message is no longer
   merged into another prompt, so its answer cannot arrive ahead of it; outbound
   replies, prompts, and files are serialized per peer; the 4 s and 60 s notices

@@ -812,19 +812,21 @@ repository act as a team without sharing a conversation.
 
 - `/sessions` lists active sessions, unread counts, and path claims. A non-TUI
   session joins the first time it asks.
-- `/sessions name frontend` (or `backend`, `tests`) gives the session a stable
-  target. Labels are unique among active sessions.
+- `/sessions name billing-core` gives **this** session a stable target, so every
+  session is named from inside it, by you — one session cannot name another. Labels
+  are unique among active sessions; name the outcome a session owns, not a layer.
 - `session` with `action: "send"` posts a short message or event; `action:
-  "inbox"` consumes messages at the next checkpoint. Delivery is pull-based, so
-  nothing interrupts a running turn.
+  "inbox"` consumes messages at the start of the next turn. Delivery is pull-based,
+  so nothing interrupts a running turn, and no turn starts by itself.
 - `claim` paths before editing. A claim on `src/api` conflicts with `src/api` or
   any file below it; `release` gives it back. A crash releases it when the
   session expires.
 
 The intended shape is contract-first: write the API/schema once, claim separate
-directories, run frontend/backend/tests in parallel, exchange contract and
-build/test events, then merge and run the full check. The bus is not the source
-of truth — the plan, todo list, contract, and git branch are.
+outcome slices rather than frontend/backend/test layers, exchange contract and
+build/test events, then merge and run the full check. The bus is not the source of
+truth — the plan, todo list, contract, and git branch are. The `parallel-dev` skill
+carries the full protocol: the workstream table, the turn boundary, and integration.
 
 ## Related
 
