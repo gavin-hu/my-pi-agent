@@ -131,8 +131,8 @@ The bus lives under the agent directory, not the project, so it is never committ
 - **No forced claims.** A crashed owner blocks its paths until the session TTL
   expires. This is deliberate; stealing a claim is worse than waiting.
 - **Bounded by TTL.** An idle session with a stopped heartbeat is pruned after
-  ten minutes; its record and claims disappear, and its unread mail expires after
-  24 hours.
+  ten minutes; its record, its claims, and an inbox directory left empty go with
+  it, and its unread mail expires after 24 hours.
 - **No network.** It is not a distributed bus and does not synchronize machines.
 
 ## Design notes

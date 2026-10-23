@@ -129,6 +129,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `session-bus`: a claim is published whole. It is written to a temp file and
   hard-linked into place, so a session that loses the create can no longer take a
   live claim by reading it mid-write.
+- `session-bus`: a bus no longer keeps one empty inbox directory for every session
+  that ever joined it. A session's directory is removed when its record goes and
+  when its last message expires, unless mail for a resumed session is still there.
 
 ## [0.17.0] - 2026-10-22
 

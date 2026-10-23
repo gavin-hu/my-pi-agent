@@ -51,11 +51,22 @@ describe("sessions", () => {
 		expect(await store.unread("missing")).toBe(0);
 	});
 
-	test("removes a session", async () => {
-		const { store } = fixture();
+	test("removes a session, and its inbox directory once it holds no mail", async () => {
+		const { dir, store } = fixture();
+		await store.ensure();
 		await store.writeSession(session("s1"));
 		await store.removeSession("s1");
 		expect(await store.sessions()).toEqual([]);
+		expect(await readdir(join(dir, "inbox"))).toEqual([]);
+	});
+
+	test("keeps a removed session's inbox while the mail may still be read", async () => {
+		const { dir, store } = fixture();
+		await store.writeSession(session("s1"));
+		await store.writeMessage("s1", message("100-a", "s1"));
+		await store.removeSession("s1");
+		expect(await readdir(join(dir, "inbox"))).toHaveLength(1);
+		expect((await store.inbox("s1", 10)).map((entry) => entry.id)).toEqual(["100-a"]);
 	});
 });
 
@@ -178,5 +189,14 @@ describe("prune", () => {
 		await store.prune({ now: 1_000, activeIds: new Set(["s1"]), sessionTtlMs: 500, messageTtlMs: 500 });
 		expect(await store.sessions()).toHaveLength(1);
 		expect(await store.claims()).toHaveLength(1);
+	});
+
+	test("drops the inbox directory whose mail expired and keeps one that is still fresh", async () => {
+		const { dir, store } = fixture();
+		await store.writeMessage("s2", message("100-a", "s2", 100));
+		await store.writeMessage("s3", message("900-b", "s3", 900));
+		await store.prune({ now: 1_000, activeIds: new Set(["s2", "s3"]), sessionTtlMs: 500, messageTtlMs: 500 });
+		expect(await readdir(join(dir, "inbox"))).toHaveLength(1);
+		expect(await store.peek("s3", 10)).toHaveLength(1);
 	});
 });

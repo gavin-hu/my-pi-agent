@@ -8,7 +8,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, link, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, link, readdir, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
 import { claimsConflict } from "./protocol.ts";
@@ -119,6 +119,18 @@ async function listFiles(dir: string): Promise<string[]> {
 	} catch {
 		return [];
 	}
+}
+
+/**
+ * Drop a recipient's directory once it holds no files, so a bus does not keep
+ * one empty directory for every session that ever joined it. An inbox with mail
+ * stays, because a session's id survives a resume and its mail is still its own;
+ * non-recursive removal also loses the race to a message that lands meanwhile.
+ */
+async function dropIfEmpty(dir: string): Promise<void> {
+	const entries = await readdir(dir).catch(() => null);
+	if (!entries || entries.length > 0) return;
+	await rmdir(dir).catch(() => {});
 }
 
 /** Create a store rooted at one repository's bus directory. */
@@ -260,6 +272,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		async removeSession(id) {
 			await rm(sessionFile(id), { force: true });
+			await dropIfEmpty(inboxDir(id));
 		},
 
 		async writeMessage(target, message) {
@@ -296,6 +309,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			for (const session of await readSessions()) {
 				if (at - session.lastSeen > sessionTtlMs) {
 					await rm(sessionFile(session.id), { force: true });
+					await dropIfEmpty(inboxDir(session.id));
 					activeIds = new Set([...activeIds].filter((id) => id !== session.id));
 				}
 			}
@@ -308,6 +322,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 					const message = readTyped(join(directory, file), isMessage);
 					if (!message || at - message.at > messageTtlMs) await rm(join(directory, file), { force: true });
 				}
+				await dropIfEmpty(directory);
 			}
 		},
 	};
