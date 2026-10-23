@@ -67,7 +67,7 @@ screenshots.
 | README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; review continuity and `/plan list` shipped, and the remaining gaps are documented behavior | — |
-| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, background runs are live, and folding a child total into the parent stays a documented non-goal | — |
+| Delegate and parallelize | Strong; a child run's cost now has its own footer roll-up, background runs are live, cross-session work runs on `session-bus` within one machine, and folding a child total into the parent stays a documented non-goal | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health | — |
 | Reach the web and your files | Broad; formats and remote media are thin | W1–W7 |
@@ -123,6 +123,11 @@ one-hour cache-write rule included, so a hand-written table could only price
   per-run deadline, and opt-in per-run transcripts.
 - `todo`, `goal`, `question`, `job`, and `watch` keep the loop visible and
   interruptible.
+- `session-bus`: one `session` tool and `/sessions` let independent sessions on one
+  repository find each other, exchange messages and events, and claim paths before
+  editing, with every worktree of that repository on the same bus. The packaged
+  `parallel-dev` skill turns it into a protocol — contract-bound workstreams, one
+  integrator, and coordination at turn boundaries rather than by assumption.
 
 **Where the promise is thin**
 
@@ -138,6 +143,16 @@ one-hour cache-write rule included, so a hand-written table could only price
   notification (`watch` README).
 - Delegation is synchronous: parallel mode overlaps children inside one call,
   but the turn waits for every child, so a long run stops the conversation.
+- The bus is one machine and one OS user: no network, no synchronization across
+  machines, and no authentication between sessions (`session-bus` README).
+- Delivery is pull-based: a message does not wake a session, so a peer moves on its
+  next turn or not at all, and a broadcast reaches only the sessions active when it
+  was sent (`session-bus` README).
+- A claim is advisory and never taken over: a crashed owner keeps its paths until the
+  session expires, and a claim cannot see branch divergence, so rebasing on the
+  baseline still decides what merges (`session-bus` README).
+- A subagent cannot own a workstream — it runs with no inbox loop and its context
+  ends with the run, so it scouts or verifies instead (`parallel-dev` skill).
 
 **Now**
 

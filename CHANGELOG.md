@@ -25,6 +25,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the guide and the reference cover every packaged skill — `/skill:changelog`
+  gains a section, the command index lists `/sessions`, and the five skills get their
+  own table instead of one row among the commands — and `ROADMAP.md` names
+  `session-bus` and `parallel-dev` with the limits each one documents.
 - `docs`: the `session-bus` README and the parallel-session guide name a session by
   the outcome it owns rather than `frontend`, `backend`, or `tests`, say that only the
   session itself can be named, and consume the inbox at the start of a turn.

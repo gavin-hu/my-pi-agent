@@ -276,6 +276,32 @@ the parts you can verify. Once you pick an item, the handoff is the same as a
 refactor's: plan mode for a multi-file change, a todo list for a small one, and
 the project's check as both baseline and finish line.
 
+### Recording changes in the changelog
+
+The packaged `changelog` skill keeps the changelog honest. It is model-invoked: a
+request such as "add a changelog entry for this" can load it automatically, and
+`/skill:changelog` forces it. It has three modes, and the words after the command
+pick one:
+
+```text
+/skill:changelog                  # record: one bullet for this change
+/skill:changelog audit            # compare commits since the last tag with [Unreleased]
+/skill:changelog release 0.18.0   # curate a release section from the project's rules
+```
+
+A recorded change is one bullet for one user-visible change, under `[Unreleased]`,
+scoped by the extension or area it touches, and written in the same commit as the
+change itself — a changelog that trails the work is a changelog nobody trusts. The
+skill reads the project's own preamble, scope prefixes, and release document first
+and follows those rather than a generic template.
+
+`audit` is read-only: it lists the commits since the last tag and names the ones
+with no entry or a weak one, so a change that shipped without a bullet is visible
+before a release rather than after it. `release` runs only when you ask for a
+specific version, and the steps it follows are this package's, in
+[Development](../development.md#release) — the version bump, the link references,
+and the tag-and-`main` push order. Never treat an audit as a release.
+
 ## Checking your work
 
 ### What it is

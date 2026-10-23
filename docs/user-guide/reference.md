@@ -126,13 +126,13 @@ Alphabetical, for lookup. Each subcommand is explained in its parent section.
 | `/check` | [Checking your work](./plan-and-delegate.md#checking-your-work) |
 | `/context` | [Seeing where the context goes](./plan-and-delegate.md#seeing-where-the-context-goes) |
 | `/goal` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
-| `/skill:init` | [Plan first, then write](./plan-and-delegate.md#plan-first-then-write) |
 | `/jobs` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
 | `/memory` | [Remembering between sessions](./keep-work-safe.md#remembering-between-sessions) |
 | `/open` | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |
 | `/plan` | [Plan first, then write](./plan-and-delegate.md#plan-first-then-write) |
 | `/review` | [Reviewing the last turn](./keep-work-safe.md#reviewing-the-last-turn) |
 | `/rewind` | [Undoing a turn](./keep-work-safe.md#undoing-a-turn) |
+| `/sessions` | [Coordinating parallel sessions](./plan-and-delegate.md#coordinating-parallel-sessions) |
 | `/todos` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
 | `/watch` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
 | `/wechat` | [The control screen](./wechat.md#the-control-screen) |
@@ -149,6 +149,19 @@ Pi's own commands are documented by Pi. The guide uses them here:
 | `/help`, `/resume`, `/settings`, `/tree` | [Getting started](./getting-started.md) and [Themes](./settings-and-customization.md#themes) |
 | `pi install`, `pi list`, `pi update`, `pi remove` | [Install](./getting-started.md#install) and [Update and remove](./getting-started.md#update-and-remove) |
 | `pi --version` | [Prerequisites](./getting-started.md#prerequisites) |
+
+### Skills
+
+Every packaged skill is model-invoked, so a matching request loads it;
+`/skill:<name>` forces it, and the words after the command are the request.
+
+| Skill | Where explained |
+|---|---|
+| `/skill:changelog` | [Recording changes in the changelog](./plan-and-delegate.md#recording-changes-in-the-changelog) |
+| `/skill:init` | [Initializing AGENTS.md with /skill:init](./plan-and-delegate.md#initializing-agentsmd-with-skillinit) |
+| `/skill:next` | [Choosing what to do next](./plan-and-delegate.md#choosing-what-to-do-next) |
+| `/skill:parallel-dev` | [Coordinating parallel sessions](./plan-and-delegate.md#coordinating-parallel-sessions) |
+| `/skill:refactor` | [Finding refactoring opportunities](./plan-and-delegate.md#finding-refactoring-opportunities) |
 
 ## Keys
 
