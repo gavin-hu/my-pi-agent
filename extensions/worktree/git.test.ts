@@ -375,6 +375,23 @@ describe.skipIf(!runSlowSuites)("git plumbing", () => {
 		expect(await worktreeExists(pi, dir)).toBe(false);
 	});
 
+	test("lists managed worktrees with canonical paths, so no caller re-resolves them", async () => {
+		if (!canCreateSymlinks()) return;
+		const repo = temps.track(await makeRepo("pi-wt-canonical-"));
+		const dir = managedPath(repo, "canon");
+		expect((await worktreeAdd(pi, repo, dir, "worktree-canon", "HEAD")).ok).toBe(true);
+
+		// Reach the same repository through a link: git reports the path it recorded,
+		// and the listing is what resolves it, once, for every reader downstream.
+		const link = join(temps.track(tempDir("pi-wt-link-")), "repo");
+		symlinkSync(repo, link, "dir");
+		const managed = await listManagedWorktrees(pi, link, testConfig());
+
+		expect(managed.length).toBeGreaterThan(0);
+		expect(managed.some((entry) => entry.path === realPathOfNearest(dir))).toBe(true);
+		for (const entry of managed) expect(entry.path).toBe(realPathOfNearest(entry.path));
+	});
+
 	test("attaches an existing branch instead of creating it", async () => {
 		const attachRepo = temps.track(await makeRepo("pi-wt-attach-"));
 		expect(await branchExists(pi, attachRepo, "worktree-attach")).toBe(false);

@@ -355,6 +355,11 @@ export async function inspectWork(pi: ExtensionAPI, dir: string, base?: string):
 }
 
 export interface ManagedWorktree {
+	/**
+	 * Canonical path, resolved through symlinks by `listManagedWorktrees`. Every
+	 * caller takes that as given: re-resolving it here would repeat a sync ancestor
+	 * walk the listing already paid for, once per worktree per status read.
+	 */
 	path: string;
 	branch?: string;
 	head?: string;

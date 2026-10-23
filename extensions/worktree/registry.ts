@@ -145,7 +145,9 @@ export function reconcileRegistry(
 	options: { persist?: boolean } = {},
 ): { registry: WorktreeRegistry; changed: boolean } {
 	const registry = loadRegistry(repoRoot, config);
-	const live = new Set(managed.map((entry) => realPathOfNearest(entry.path)));
+	// Resolve each entry once: the live set and the synthesized records both need it.
+	const resolved = managed.map((entry) => ({ entry, path: realPathOfNearest(entry.path) }));
+	const live = new Set(resolved.map((row) => row.path));
 	const byPath = new Map(registry.worktrees.map((record) => [record.path, record] as const));
 
 	let changed = false;
@@ -157,8 +159,7 @@ export function reconcileRegistry(
 			changed = true;
 		}
 	}
-	for (const entry of managed) {
-		const path = realPathOfNearest(entry.path);
+	for (const { entry, path } of resolved) {
 		if (byPath.has(path)) continue;
 		next.push({
 			path,
@@ -183,13 +184,18 @@ export interface StatusOptions {
 	record?: WorktreeRecord;
 }
 
-/** Derive one checkout's status from its git listing and registry record. */
+/**
+ * Derive one checkout's status from its git listing and registry record.
+ *
+ * `entry.path` is taken as canonical — the listing and `reconcileRegistry` are the
+ * two places a path is resolved — so this does not walk the ancestors again.
+ */
 export async function statusOf(
 	pi: ExtensionAPI,
 	entry: ManagedWorktree,
 	options: StatusOptions = {},
 ): Promise<CheckoutStatus> {
-	const path = realPathOfNearest(entry.path);
+	const path = entry.path;
 	const locked = entry.locked !== undefined;
 	const staleLock = locked && entry.locked ? isStaleLock(entry.locked) : false;
 	const base: CheckoutStatus = {
