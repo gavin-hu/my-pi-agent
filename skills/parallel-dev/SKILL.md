@@ -19,6 +19,11 @@ turn in that session — the lead can send it a decision and name what it should
 up, and that is all. Plan every workstream as if its owner is asleep until the user
 switches to it.
 
+Your first act is not to form a team but to find out whether you are in one:
+`session({action:"status"})` lists the roster, and the plan's team table has a row per
+session. With a row, act as that role — the lead or an owner, never both — and build no
+second team. Without one, this skill is offering two roles, not a fleet: go to §2.
+
 | Automatic (the bus does it)          | Manual (the user does it)                |
 |---|---|
 | Roster, labels, unread counts        | Starting, naming, and switching sessions |
@@ -116,6 +121,17 @@ contract tests and evolved deliberately.
   migration boundary) at v1 with contract tests, before parallel work starts.
 - Do not require a complete design before the first line of code. A contract that is
   never exercised is a guess.
+
+The whole contract is about this long — if it needs more, the split is not ready:
+
+```text
+contract v1 — <name>
+  shape:    <the type, schema, or message>, in <file>
+  boundary: what crosses it, and nothing else
+  test:     <one file> exercises one case per shape
+  grows:    add additively; a rename needs v2 and both shapes on the wire
+  owner:    the lead's workstream
+```
 
 ## 6. Run the turn protocol
 
