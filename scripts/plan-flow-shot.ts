@@ -7,7 +7,7 @@
  * (`PI_CHROME` first, then the usual bundles) and writes the PNG a card is
  * posted as — 2× by default, so the text stays crisp where X scales it.
  *
- *   bun run scripts/plan-flow-shot.ts             # both cards
+ *   bun run scripts/plan-flow-shot.ts             # every card
  *   bun run scripts/plan-flow-shot.ts graphic     # one card
  *   bun run scripts/plan-flow-shot.ts flow -o /tmp/flow.png --scale 3
  *
@@ -35,6 +35,7 @@ interface Card {
 const CARDS: Record<string, Card> = {
 	flow: { page: "plan-flow.html", png: "plan-flow.png" },
 	graphic: { page: "plan-flow-graphic.html", png: "plan-flow-graphic.png" },
+	parallel: { page: "parallel-dev.html", png: "parallel-dev.png" },
 };
 
 /** `assets/`, anchored to this script so a capture does not depend on the cwd. */
@@ -110,7 +111,7 @@ async function capture(name: string, options: ShotOptions): Promise<void> {
 	console.log(out);
 }
 
-const USAGE = `usage: bun run scripts/plan-flow-shot.ts [flow|graphic] [-o out.png] [--scale 2] [--wait 8000]`;
+const USAGE = `usage: bun run scripts/plan-flow-shot.ts [${Object.keys(CARDS).join("|")}] [-o out.png] [--scale 2] [--wait 8000]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

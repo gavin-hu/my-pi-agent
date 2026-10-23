@@ -57,6 +57,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   WeChat peer sessions opt in on first use. It uses the common git directory so
   worktrees share one bus, keeps state under the agent directory, and starts no
   server.
+- dev: `assets/parallel-dev.html` is a third posting card, `bun run
+  screenshot:plan-flow parallel`. It draws the lead-and-team protocol as one
+  terminal frame — a tmux split of five pi panes, one large lead pane and four
+  peers working at the same moment — in the palette, glyphs and key-hint footer
+  the terminal captures use, in the same 1200×675 box as the plan-flow cards it
+  shares a stylesheet with.
 
 ### Changed
 

@@ -1,6 +1,7 @@
 /**
- * The plan-flow cards: the shell shared by `plan-flow.html` (prose-led) and
- * `plan-flow-graphic.html` (graphic-led).
+ * The posting cards: the shell shared by `plan-flow.html` (prose-led),
+ * `plan-flow-graphic.html` (graphic-led), and `parallel-dev.html` (a terminal
+ * frame, in its own `terminal card` section at the foot of this file).
  *
  * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
  * README hero, and the browser pages all draw from — copied here because a page
@@ -429,4 +430,302 @@ body {
 
 .tip--loop {
 	fill: var(--accent-alt);
+}
+
+/* ------------------------------------------------------- terminal card */
+
+/*
+ * `parallel-dev.html` is drawn as the TUI screens under `assets/` are: no window
+ * chrome, an accent title with a rule running to the edge, a muted metadata line,
+ * glyph-led rows, and an accent-key hint footer. The palette is
+ * `themes/bytefly-dark.json` — the one every capture and the browser pages draw
+ * from — and the glyphs are `lib/tui/`'s own vocabulary.
+ */
+.card--term {
+	padding: 0;
+	background: var(--canvas);
+	font-family: var(--font-mono);
+	font-size: 14px;
+	line-height: 1.45;
+}
+
+.card--term::after {
+	display: none;
+}
+
+/*
+ * The card sits in the middle of whatever viewport it is opened in, so a
+ * screenshot is a crop of the card rather than a page pinned to the top-left.
+ */
+.center-page {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+}
+
+.term {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	overflow: hidden;
+	background: var(--canvas);
+}
+
+/* `Lead + team · parallel-dev ─────────────── 5 sessions · 3 unread` */
+.term__head {
+	flex: 0 0 36px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 0 18px;
+}
+
+.term__title {
+	font-size: 18px;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	color: var(--accent);
+	white-space: nowrap;
+}
+
+.term__slug {
+	font-size: 15px;
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+.term__meta {
+	font-size: 13px;
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+/* The package this card posts for, the attribution both siblings carry. */
+.term__pkg {
+	font-size: 12px;
+	color: var(--dim);
+}
+
+.rule {
+	flex: 1 1 auto;
+	height: 1px;
+	align-self: center;
+	background: var(--line-strong);
+}
+
+/* The tmux split: lead spans both rows, so the four peers keep a 2×2 beside it. */
+.panes {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: grid;
+	grid-template-columns: 600px 1fr 1fr;
+	grid-template-rows: 1fr 1fr;
+	gap: 1px;
+	margin: 0 18px;
+	background: var(--line);
+}
+
+.pane {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	background: var(--canvas);
+	color: var(--text);
+}
+
+.pane--lead {
+	grid-row: span 2;
+}
+
+/* A pane's own title row, as a screen under `assets/` draws it. */
+.pane__bar {
+	flex: 0 0 28px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 10px;
+}
+
+.pane__name {
+	font-size: 15px;
+	font-weight: 700;
+	color: var(--accent);
+	white-space: nowrap;
+}
+
+.pane__slug {
+	font-size: 14px;
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+.pane__state {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+.pane__body {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+	padding: 0 10px 4px;
+}
+
+/* The muted metadata line every screen carries directly under its title. */
+.count {
+	font-size: 13px;
+	color: var(--muted);
+}
+
+/* One output line: a glyph column, the text, and an optional right-hand note. */
+.row {
+	display: flex;
+	align-items: baseline;
+	white-space: pre;
+}
+
+.row__g {
+	flex: 0 0 2ch;
+}
+
+.row__end {
+	margin-left: auto;
+	padding-left: 12px;
+	color: var(--muted);
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.dim {
+	color: var(--dim);
+}
+
+.accent {
+	color: var(--accent);
+}
+
+.ok {
+	color: var(--success);
+}
+
+.bad {
+	color: var(--danger);
+}
+
+.gate {
+	color: var(--accent-alt);
+}
+
+.warn {
+	color: var(--warn);
+}
+
+/* An inline literal, the way Markdown renders one: a path, a tool, a shape. */
+.lit {
+	color: var(--accent-2);
+}
+
+.bold {
+	font-weight: 700;
+	color: var(--text);
+}
+
+/* A section label inside a pane: accent and bold, as `Goal` and `Steps` are. */
+.sect {
+	margin-top: 8px;
+}
+
+.label {
+	color: var(--accent);
+	font-weight: 700;
+}
+
+.label .count {
+	font-weight: 400;
+}
+
+/* plan → approve → execute, as the lead pane's own history. */
+.phase__name {
+	flex: 0 0 10ch;
+	font-weight: 700;
+}
+
+.team {
+	display: grid;
+	grid-template-columns: 124px 124px 1fr;
+	column-gap: 12px;
+}
+
+.team > * {
+	white-space: nowrap;
+}
+
+.team b {
+	font-weight: 700;
+	color: var(--text);
+}
+
+/* The composer line and its block cursor. */
+.composer {
+	margin-top: auto;
+	padding-top: 4px;
+}
+
+.cursor {
+	display: inline-block;
+	width: 8px;
+	height: 15px;
+	background: var(--text);
+	vertical-align: -2px;
+}
+
+.pane:not(.pane--lead) .cursor {
+	background: var(--muted);
+}
+
+/* The hint footer: the key accent, its description muted, as every screen. */
+.term__foot {
+	flex: 0 0 34px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 0 18px;
+	font-size: 13px;
+}
+
+.hint__key {
+	color: var(--accent);
+}
+
+.hint__text {
+	color: var(--muted);
+}
+
+.hint__sep {
+	color: var(--dim);
+}
+
+.term__zh {
+	color: var(--dim);
+	white-space: nowrap;
+}
+
+.hint {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	white-space: nowrap;
 }
