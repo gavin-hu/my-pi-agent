@@ -133,9 +133,8 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   (`planning`) is finalized from the plan's own `## Goal` section — falling back
   to the title — through the `goal` tool, with no extra dialog, because approving
   the plan *is* the decision. A session with no goal at all gets one confirm to
-  record the same objective, unless `plan.goalPrompt` is off, which records it
-  without asking. An `active` or `achieved` goal is never rewritten: a final
-  objective is the user's. No path spends a model turn.
+  record the same objective. An `active` or `achieved` goal is never rewritten: a
+  final objective is the user's. No path spends a model turn.
 - **Branch-aware.** The enabled flag and the review baseline are custom session
   entries, so `/resume` and `/tree` restore the right mode and keep the
   changed-section markers.
@@ -233,7 +232,9 @@ so headings, lists, inline code, code blocks, links, and quotes carry the active
 theme's colors; task items get the shared `◼` (done) or `◻` (pending) marker,
 like the bytefly screen and the question dialog. The footer colors the primary
 actions (`a approve & run` in `success`, `r refine` in `accent`).
-`a` ends plan mode, restores write access, and seeds `todo`; `r` keeps the plan
+`a` asks `y/N` in the footer, then ends plan mode, restores write access, and
+seeds `todo`; `y` or `Enter` approves and `n`, `q`, or `Esc` goes back to
+reading. `r` keeps the plan
 mounted and opens an inline editor beneath it (`Enter` submits, an empty buffer
 does nothing, `Esc` returns to the plan); `Esc` keeps planning and tells the
 model the plan was not approved; `x` leaves plan mode without approving and
@@ -299,16 +300,6 @@ exit_plan_mode submitted a plan
 
 … 12 more lines (ctrl+o to expand)
 ```
-
-## Configuration
-
-The `plan` section of the shared `bytefly.json` (global then project), or the
-**Offer the session goal** row in `/bytefly settings`. It is read when a plan is
-approved, so a change applies to the next approval without a reload.
-
-| Key | Default | Meaning |
-|---|---|---|
-| `goalPrompt` | `true` | Ask before recording an approved plan's objective as the session goal; `false` records it without asking. |
 
 ## Security
 
@@ -406,8 +397,9 @@ Pi's Markdown renderer with the active theme, so headings, lists, code, and
 links read as they do in the transcript; the checkboxes in `Steps` use the
 shared `◼`/`◻` vocabulary. A plan taller than the terminal scrolls under a gauge
 that names the section at the top of the viewport and the line range it shows,
-and the footer lists only the keys that apply. `Esc` keeps planning, `a` approves
-and runs, `r` refines inline, and `w` opens the browser review below.
+and the footer lists only the keys that apply. `Esc` keeps planning, `a` asks
+`y/N` and then approves and runs, `r` refines inline, and `w` opens the browser
+review below.
 
 ## Browser review
 
@@ -548,7 +540,7 @@ file and returns them to the model.
 |---|---|
 | Tools | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, and `set_plan_steps` registered with `executionMode: "sequential"`. `enter_plan_mode` is active normally with `readOnlyHint: true`; `write_plan` (`readOnlyHint: false`) and `exit_plan_mode` (`readOnlyHint: true`) are `defaultActive: false`. `set_plan_steps` is active normally (`readOnlyHint: false`, `idempotentHint: true`); the read-only policy default-denies it in plan mode. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
-| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })`: a `planning` goal is promoted to the plan's `## Goal`, a session with none is offered one unless `plan.goalPrompt` is off, and an `active`/`achieved` goal is left alone. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })`: a `planning` goal is promoted to the plan's `## Goal`, a session with none is asked once, and an `active`/`achieved` goal is left alone. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
 | Entry requests | `pi.events` channel `PLAN_ENTER_REQUEST` from `lib/plan-entry.ts`: the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog. Subscribed on `session_start`, released on `session_shutdown`. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with a pursued session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
@@ -672,7 +664,6 @@ file and returns them to the model.
 |---|---|
 | `index.ts` | Wiring: tools, command, flag, shortcut, events, context injection. |
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `SetPlanStepsDetails`. |
-| `config.ts` | The `plan` section loader: `goalPrompt`, default on. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or agent directory), containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
@@ -685,7 +676,7 @@ file and returns them to the model.
 | `tools/` | One module per tool (`enter.ts`, `write.ts`, `exit.ts`, `steps.ts`), plus `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |
 | `review.ts` | The review gate: one decision from the TUI screen, a dialog, or the browser, the shared browser lifecycle, and the "mark what was shown" baseline rule. |
 | `commands.ts` | `/plan` (enter, optional task) and the `/plan review [path]` browser subcommand. |
-| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, approve/refine/browser/keep). |
+| `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Browser-comment codec: `stripFeedback`, `parseFeedback`, `formatFeedback`, `feedbackSummary`, and payload validation. |

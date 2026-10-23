@@ -281,7 +281,7 @@ runs, an update check, and two themes.
   row, control center, doctor, notify, price, and update check.
 - The control center lists extensions and skills with the same enable checkbox
   and Global/Project scope, and keeps the curated Settings shortlist beside them.
-- Settings is a flat shortlist of the thirteen preferences a session changes,
+- Settings is a flat shortlist of the twelve preferences a session changes,
   including the Theme row and one edited amount, capped to fit a 24-row
   terminal; every other key is a `bytefly.json` edit.
 - DeepSeek is priced from its published CNY and USD tables, with peak and
@@ -289,7 +289,7 @@ runs, an update check, and two themes.
 
 **Where the promise is thin**
 
-- Settings cover thirteen scalars only: the tuning numbers and labels that left
+- Settings cover twelve scalars only: the tuning numbers and labels that left
   the screen, plus `doctor.skip` (an array), the `rates` table, and `price.peak`
   (a nested object), remain JSON (`bytefly` README).
 - The picker manages the `extensions` and `skills` resource types; themes and

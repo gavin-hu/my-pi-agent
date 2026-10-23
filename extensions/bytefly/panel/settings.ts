@@ -9,7 +9,7 @@
  * The catalogue is the shortlist a session changes, not the whole document: every
  * row is one a workflow differs on, and each states its own rule so a value the
  * screen accepts is a value the loader keeps. The catalogue order is the screen's
- * order, and it is capped so the section fits a 24-row terminal (`settings.test.ts`
+ * order, and it is capped so the section fits a 24-row terminal (`panel.test.ts`
  * holds the ceiling); a new row has to displace one. Everything else stays
  * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
  * (`price.peak`), and the tuning numbers and labels this screen deliberately does
@@ -17,8 +17,8 @@
  * pane of any row whose section is still on the list.
  *
  * Three sections have a normalizer here, so the screen shows what the notifier,
- * the doctor, and the footer keep. The three owned by other extensions (`rewind`,
- * `job`, `plan`) are read as the file states them, because importing their
+ * the doctor, and the footer keep. The two owned by other extensions (`rewind`
+ * and `job`) are read as the file states them, because importing their
  * normalizer would be one extension importing another's module; each such row
  * declares the loader's default, and `test/settings-coverage.test.ts` holds the
  * pair together.
@@ -61,7 +61,7 @@ interface TextRule {
 }
 
 /** The `bytefly.json` sections a row still reaches. */
-export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "plan";
+export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -147,7 +147,7 @@ function amountRule(min: number, max: number): TextRule {
 /**
  * The catalogue, in screen order.
  *
- * Global scope lists all thirteen; Project lists the eleven `bytefly.json` rows,
+ * Global scope lists all twelve; Project lists the ten `bytefly.json` rows,
  * because Pi's setters write the personal `settings.json` only. The list is
  * capped so the screen keeps fitting a 24-row terminal.
  */
@@ -238,17 +238,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		json: "boolean",
 		options: ON_OFF,
 		config: { section: "job", path: ["wakeOnFinish"] },
-	},
-	{
-		id: "plan.goalPrompt",
-		label: "Offer the session goal",
-		description: "Ask before recording an approved plan as the session goal; off records it without asking.",
-		source: "bytefly",
-		kind: "boolean",
-		fallback: "true",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: "plan", path: ["goalPrompt"] },
 	},
 	{
 		id: "rewind.autoSnapshots",

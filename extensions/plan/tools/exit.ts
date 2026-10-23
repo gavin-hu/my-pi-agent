@@ -20,7 +20,6 @@ import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { callLine, detailsOrLine, moreHint } from "../../../lib/tui/tool.ts";
 import { failedResult } from "../../../lib/tool-result.ts";
-import { loadConfig } from "../config.ts";
 import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, verificationNote } from "../format.ts";
 import { sanitizePlanText } from "../plan-text.ts";
@@ -54,8 +53,7 @@ interface GoalOutcome {
  * Finalise the session goal from the approved plan.
  *
  * A `planning` goal needs no dialog — approving the plan *is* the decision — and a
- * session with no goal at all gets one confirm, unless `plan.goalPrompt` is off,
- * which records the objective without asking. A final goal (`active` or
+ * session with no goal at all gets one confirm. A final goal (`active` or
  * `achieved`) is the user's own: approving ordinary work never rewrites it.
  * Recording runs through the goal tool, so validation and the widget stay goal's,
  * and no model turn is spent.
@@ -66,10 +64,8 @@ async function finalizeGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promis
 	if (current !== null && current.status !== "planning") return { objective };
 	if (current === null && !isRemoteTurn(ctx)) {
 		if (!ctx.hasUI) return { objective };
-		if (loadConfig(ctx.cwd).goalPrompt) {
-			const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);
-			if (!approved) return { objective };
-		}
+		const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);
+		if (!approved) return { objective };
 	}
 	const outcome = await ctx.executeTool(GOAL_TOOL, { objective, status: "active" });
 	const action = current === null ? "recorded" : "promoted";

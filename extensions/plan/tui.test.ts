@@ -1,7 +1,7 @@
 /**
  * The plan review screen: its width-safe Markdown body, scroll and section
- * navigation, overflow gauge, footer hints, actions, inline refine editor, and
- * changed-section markers.
+ * navigation, overflow gauge, footer hints, the approve question, actions, inline
+ * refine editor, and changed-section markers.
  *
  * The component is driven directly at fixed widths and row counts, so no test
  * needs a terminal. Assertions are about fields, bounds, ordering, and glyphs,
@@ -373,9 +373,8 @@ describe("plan review sections", () => {
 });
 
 describe("plan review actions", () => {
-	test("a approves, r refines, w opens the browser, Esc keeps planning", () => {
+	test("r refines, w opens the browser, Esc keeps planning", () => {
 		for (const [key, action] of [
-			["a", "approve"],
 			["r", "refine"],
 			["w", "browser"],
 			[ESCAPE, "keep"],
@@ -383,6 +382,60 @@ describe("plan review actions", () => {
 			const chosen = setup();
 			chosen.component.handleInput(key);
 			expect(chosen.actions).toEqual([action]);
+		}
+	});
+
+	test("a asks y/N before approving", () => {
+		const { component, actions } = setup();
+
+		component.handleInput("a");
+		expect(actions).toEqual([]);
+		expect(render(component, 80).join("\n")).toContain("Approve and run the plan? y/N");
+
+		component.handleInput("y");
+		expect(actions).toEqual(["approve"]);
+	});
+
+	test("Enter accepts the approval question too", () => {
+		const { component, actions } = setup();
+		component.handleInput("a");
+		component.handleInput("\r");
+
+		expect(actions).toEqual(["approve"]);
+	});
+
+	test("n, q, and Esc dismiss the question and keep the review", () => {
+		for (const key of ["n", "q", ESCAPE]) {
+			const { component, actions } = setup();
+			component.handleInput("a");
+			component.handleInput(key);
+
+			expect(actions, key).toEqual([]);
+			expect(render(component, 80).join("\n"), key).toContain("a approve");
+
+			// The review is still there, so the ordinary exit still works.
+			component.handleInput(ESCAPE);
+			expect(actions, key).toEqual(["keep"]);
+		}
+	});
+
+	test("a pending question holds every other key", () => {
+		const { component, actions } = setup();
+		component.handleInput("a");
+		component.handleInput("x");
+		component.handleInput("w");
+
+		expect(actions).toEqual([]);
+		expect(render(component, 80).join("\n")).toContain("Approve and run the plan? y/N");
+	});
+
+	test("the question stays within the terminal width", () => {
+		const { component } = setup();
+		component.handleInput("a");
+		for (const width of [120, 80, 40, 20]) {
+			for (const line of render(component, width)) {
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
 		}
 	});
 
@@ -456,6 +509,7 @@ describe("plan review inline refine", () => {
 
 		expect(actions).toEqual([]);
 		component.handleInput("a");
+		component.handleInput("y");
 		expect(actions).toEqual(["approve"]);
 	});
 

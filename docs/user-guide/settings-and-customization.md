@@ -66,9 +66,9 @@ mounting the screen.
 
 ## Settings
 
-<img src="../../assets/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of thirteen preferences with each value beside its label, and a three-row detail pane" width="100%">
+<img src="../../assets/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of twelve preferences with each value beside its label, and a three-row detail pane" width="100%">
 
-`/bytefly settings` is a shortlist: thirteen preferences on one flat list, each
+`/bytefly settings` is a shortlist: twelve preferences on one flat list, each
 with its value beside the label. Choose a row and press `Space` or `Enter`: a
 switch toggles, a choice cycles to the next option, and **Session budget** opens
 an editor whose value you save with `Enter` or discard with `Esc`.
@@ -82,9 +82,7 @@ an editor whose value you save with `Enter` or discard with `Esc`.
 | **Needs input** | Announce a prompt the assistant opens during a run |
 | **Job finished** | Announce a finished background job or watcher |
 | **Watcher matched** | Announce a match while the assistant is idle |
-| **Delivery method** | Auto, OSC 777, OSC 99, Windows toast, macOS, or Linux |
 | **Wake when a job finishes** | Start one turn when any background job ends |
-| **Offer the session goal** | Confirm the session goal when an approved plan has none; off records it without asking |
 | **Automatic snapshots** | Take one rewind snapshot per prompt |
 | **Proactive health check** | Probe at session start and warn about a missing requirement |
 | **Currency** | CNY or USD pricing for the footer's cost total |
@@ -141,11 +139,11 @@ triggers can be switched independently:
 | **Job finished** | A background job reaches a terminal state |
 | **Watcher matched** | A watcher whose wake setting is on matches while the assistant is idle |
 
-**Delivery method** can stay on **Auto**, which prefers the terminal and then
-the platform, or name a mechanism: OSC 777, OSC 99, Windows toast, macOS, or
-Linux `notify-send`. **Notification title** is the title of every OS
-notification. An explicit method your host cannot deliver is reported by the
-doctor as degraded, not silently ignored.
+`notify.method` in `bytefly.json` can stay `auto`, which prefers the terminal and
+then the platform, or name a mechanism: OSC 777, OSC 99, Windows toast, macOS, or
+Linux `notify-send`. `notify.title` is the title of every OS notification. An
+explicit method your host cannot deliver is reported by the doctor as degraded,
+not silently ignored.
 
 An aborted run is not announced: pressing `Esc` means you are already at the
 keyboard. A prompt opened while the assistant is idle is a command you just
