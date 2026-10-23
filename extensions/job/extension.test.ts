@@ -216,6 +216,23 @@ describe("jobs extension", () => {
 		expect(sent).toHaveLength(2);
 	});
 
+	test("an aborted run leaves a wake job for the next turn", async () => {
+		const { h, pi, ctx } = setup();
+		const sent: Array<{ message: any; options: any }> = [];
+		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
+
+		await emit(pi, "session_start", {}, ctx);
+		await emit(pi, "agent_start", {}, ctx);
+		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		h.children[0].close(0);
+
+		await emit(pi, "agent_settled", { aborted: true }, ctx);
+		expect(sent).toHaveLength(0);
+
+		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
+		expect(result?.message?.content).toContain("j1");
+	});
+
 	test("wake reports other pending completions instead of dropping them", async () => {
 		const { h, pi, ctx } = setup();
 		const sent: Array<{ message: any }> = [];

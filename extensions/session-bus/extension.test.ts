@@ -297,6 +297,36 @@ describe("session-bus extension", () => {
 		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 	});
 
+	test("an aborted run leaves the inbox wake for the next turn", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx, customMessages } = setup(dir);
+		const peer = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+		});
+		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s7", sessionName: "integrator" }).ctx as ExtensionContext;
+		await emit(pi, "session_start", { type: "session_start" }, ctx);
+		await peer.start(peerCtx);
+		await bus.watch({ wake: true });
+
+		await emit(pi, "agent_start", {}, ctx);
+		await peer.send({ to: "frontend", text: "after the abort" });
+		await bus.poll();
+		await emit(pi, "agent_settled", { aborted: true }, ctx);
+		expect(customMessages).toEqual([]);
+		// The interruption leaves the burst queued rather than consuming it.
+		expect(bus.pending()).toHaveLength(1);
+
+		const reported = await emitFirst(pi, "before_agent_start", {}, ctx);
+		expect(reported?.message.content).toContain("after the abort");
+
+		await peer.stop();
+		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+	});
+
 	test("arming mid-turn wakes for mail already waiting once the run settles", async () => {
 		const dir = busDir();
 		const { pi, bus, ctx, customMessages } = setup(dir);
