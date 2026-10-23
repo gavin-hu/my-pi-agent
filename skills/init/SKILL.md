@@ -13,7 +13,8 @@ be verified. Plan mode is the review gate: no write happens before approval.
 
 `/skill:init` loads this skill. If plan mode is not active, call
 `enter_plan_mode` and wait for confirmation. Keep the interview and the plan
-review in that order; do not write the file early to save a step.
+review in that order; do not write the file early to save a step. A declined plan
+mode ends the skill: stop and explain, rather than writing directly.
 
 ## Workflow
 
@@ -80,8 +81,9 @@ Choose the deterministic default set for the repository state.
   material ambiguity that changes what the file says; do not ask a second round
   merely to collect preferences.
 - Fill option labels with evidence: the detected test command, the actual package
-  manager, the real instruction file names. Keep a free-form escape on every
-  question whose answer cannot be enumerated.
+  manager, the real instruction file names. Four options at most, and never one of
+  them for a free-form escape: the tool always adds Other, so an "Other" or "None of
+  these" label spends a real answer's slot.
 - Ask only what the evidence cannot answer. Do not ask for the stack when a
   manifest states it, or for a command already documented in CI.
 - Never ask for secrets, credentials, tokens, environment values, or personal
@@ -138,7 +140,9 @@ evidence, not as a replacement for reading the repository.
   - the full draft for a new file, or the exact edits for an existing one;
   - assumptions, conflicts, and unanswered gaps from a cancelled or unavailable
     interview;
-  - a verification step that reads the written file back against the checklist.
+  - a verification step in this order: the project's own check when it declares one
+    (`run_check`, or the narrower docs or structure test that guards `AGENTS.md`),
+    then reading the written file back against the checklist.
 - Call `exit_plan_mode` with the returned path.
 - If the user refines or rejects the plan, stay in plan mode, rewrite the same
   plan file with `write_plan` (`plan_path`), and present it again.
@@ -150,6 +154,9 @@ evidence, not as a replacement for reading the repository.
 - Change only `AGENTS.md`. Do not touch unrelated files.
 - Read the result back from disk and rerun the quality checklist against what is
   actually there, not what you intended to write.
+- Run the plan's verification step. A check that fails on the written file is the
+  report's follow-up, not a success; a check that fails for something `AGENTS.md`
+  cannot cause is named as an unrelated failure rather than blamed on the draft.
 - Report the path, what the file covers, whether the interview was answered or
   fell back to assumptions, and any real follow-up. Name a missing fact instead of
   inventing it.

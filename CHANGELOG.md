@@ -59,6 +59,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `skills`: the `init` interview stays inside the question tool's four-option cap —
+  no question offers a fifth label, or spends one on the free-form escape the tool
+  already adds — and the written `AGENTS.md` is verified with the project's own check
+  as the plan's last step. `test/skill-bank.test.ts` holds the bank to those shapes.
 - `docs`: the tool gallery and the per-tool image directory cover `session` and
   `cancel_plan_mode`, so the README's one-image-per-tool promise holds again; the
   render contract exercises the `session` block at its three widths.

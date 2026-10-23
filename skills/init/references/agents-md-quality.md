@@ -9,6 +9,8 @@ invented command.
 
 - [ ] The first call used the deterministic default set for the repository state.
 - [ ] At most four questions were asked in the call.
+- [ ] No question offered more than four options, and none spent one on a free-form
+      escape the tool already provides.
 - [ ] Options were filled from evidence where the bank names commands, files, or
       instruction documents.
 - [ ] No question duplicated a fact the recon already answered.
@@ -97,6 +99,8 @@ invented command.
 ## Final read-back
 
 - [ ] The written file matches the approved plan.
+- [ ] The project's own check passed against the written file, or the report names the
+      failure it returned.
 - [ ] The file was read back from disk, not recalled from memory.
 - [ ] Only `AGENTS.md` changed.
 - [ ] The report names the path, whether the interview was answered or fell back
