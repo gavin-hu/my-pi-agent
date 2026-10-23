@@ -3,7 +3,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 
@@ -25,6 +25,11 @@ interface Session {
 			update?: undefined,
 			ctx?: ExtensionContext,
 		): Promise<{ content: Array<{ text: string }>; details: any; isError?: true }>;
+		renderResult(
+			result: { content: Array<{ type: string; text?: string }>; details: unknown },
+			options: { expanded: boolean },
+			theme: unknown,
+		): { render(width: number): string[] };
 	};
 }
 
@@ -113,5 +118,17 @@ describe("session tool", () => {
 		const result = await frontend.tool.execute("call", { action: "explode" }, undefined, undefined, frontend.ctx);
 		expect(result.isError).toBe(true);
 		expect(result.content[0]?.text).toContain("unknown action");
+	});
+
+	test("the transcript line neutralizes a peer label", () => {
+		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const rendered = frontend.tool.renderResult(
+			{ content: [], details: { action: "send", delivered: ["back\u001b[31m\nend"] } },
+			{ expanded: false },
+			fakeTheme,
+		);
+		const out = rendered.render(80).join("\n");
+		expect(out).not.toContain("\u001b");
+		expect(out).toContain("Delivered to back [31m end");
 	});
 });

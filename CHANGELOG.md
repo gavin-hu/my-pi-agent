@@ -41,6 +41,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs`: the tool gallery and the per-tool image directory cover `session` and
   `cancel_plan_mode`, so the README's one-image-per-tool promise holds again; the
   render contract exercises the `session` block at its three widths.
+- `session-bus`: another session's text is neutralized wherever it is shown. A
+  path, label, or working directory carrying a newline can no longer forge an
+  extra inbox entry, and an escape sequence in a message, a claim, or a session
+  record can no longer reach the model's listing or the transcript block.
+- `session-bus`: a claim is published whole. It is written to a temp file and
+  hard-linked into place, so a session that loses the create can no longer take a
+  live claim by reading it mid-write.
 
 ## [0.17.0] - 2026-10-22
 

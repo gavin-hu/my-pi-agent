@@ -35,7 +35,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	subagent: ["agents", "run", "render", "extension"],
 	todo: ["tools", "runtime", "ui"],
 	watch: ["runtime", "tools", "ui"],
-	"session-bus": ["protocol", "store", "runtime", "tools", "extension"],
+	"session-bus": ["format", "protocol", "store", "runtime", "tools", "extension"],
 	"web-access": ["fetch/fetch", "search/search", "http"],
 	wechat: ["bridge", "client", "commands", "config", "peer", "status", "tools", "extension"],
 	worktree: ["git", "flow", "ui"],

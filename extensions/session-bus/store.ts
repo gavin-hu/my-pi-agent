@@ -8,10 +8,11 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, open, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, link, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
-import type { BusMessage, ClaimRecord, SessionRecord } from "./types.ts";
+import { claimsConflict } from "./protocol.ts";
+import type { BusMessage, ClaimConflict, ClaimRecord, SessionRecord } from "./types.ts";
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
@@ -31,12 +32,12 @@ export interface BusStore {
 	inbox(id: string, limit: number): Promise<BusMessage[]>;
 	unread(id: string): Promise<number>;
 	claims(): Promise<ClaimRecord[]>;
-	claim(
-		path: string,
+	claimAll(
+		paths: readonly string[],
 		owner: string,
 		ownerLabel: string,
 		at: number,
-	): Promise<{ claim: ClaimRecord; conflict?: ClaimRecord }>;
+	): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(path: string, owner: string): Promise<boolean>;
 	releaseAll(owner: string): Promise<string[]>;
 	prune(input: {
@@ -160,6 +161,85 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		return claims.sort((a, b) => a.path.localeCompare(b.path));
 	}
 
+	async function claimOne(
+		path: string,
+		owner: string,
+		ownerLabel: string,
+		at: number,
+	): Promise<{ claim: ClaimRecord; conflict?: ClaimRecord }> {
+		await mkdir(claimsDir, { recursive: true, mode: DIR_MODE });
+		const file = claimFile(path);
+		const claim: ClaimRecord = { path, owner, ownerLabel, at };
+		// Publish a written temp file instead of creating the claim and filling it
+		// afterwards: the link is the exclusive create, so no reader can observe a
+		// half-written claim and mistake it for a crashed owner's.
+		const temp = `${file}.${randomBytes(4).toString("hex")}.tmp`;
+		await writeFile(temp, `${JSON.stringify(claim, null, 2)}\n`, { encoding: "utf-8", mode: FILE_MODE });
+		try {
+			try {
+				await link(temp, file);
+				return { claim };
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			}
+			const existing = readTyped(file, isClaim);
+			if (existing) {
+				return existing.owner === owner ? { claim: existing } : { claim, conflict: existing };
+			}
+			// A claim file that does not parse is debris from before claims were
+			// published whole; clear it once so a stale path cannot block forever.
+			await rm(file, { force: true });
+			await link(temp, file);
+			return { claim };
+		} finally {
+			await rm(temp, { force: true });
+		}
+	}
+
+	async function releaseOne(path: string, owner: string): Promise<boolean> {
+		const file = claimFile(path);
+		const existing = readTyped(file, isClaim);
+		if (!existing || existing.owner !== owner) return false;
+		await rm(file, { force: true });
+		return true;
+	}
+
+	/**
+	 * Claim every path for one owner, or nothing.
+	 *
+	 * The pre-check reads the claims once and reports every blocking owner, so a
+	 * batch that cannot be satisfied touches no file. A create that loses a race
+	 * after the pre-check releases the paths this batch already took.
+	 */
+	async function claimAll(
+		paths: readonly string[],
+		owner: string,
+		ownerLabel: string,
+		at: number,
+	): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }> {
+		const existing = await readClaims();
+		const conflicts: ClaimConflict[] = [];
+		for (const path of paths) {
+			for (const held of existing) {
+				if (held.owner !== owner && claimsConflict(path, held.path)) {
+					conflicts.push({ path, owner: held.owner, ownerLabel: held.ownerLabel });
+				}
+			}
+		}
+		if (conflicts.length > 0) return { claimed: [], conflicts };
+		const claimed: string[] = [];
+		for (const path of paths) {
+			const result = await claimOne(path, owner, ownerLabel, at);
+			if (result.conflict) {
+				for (const done of claimed) await releaseOne(done, owner);
+				const { owner: holder, ownerLabel: holderLabel } = result.conflict;
+				return { claimed: [], conflicts: [{ path, owner: holder, ownerLabel: holderLabel }] };
+			}
+			claimed.push(path);
+		}
+		return { claimed, conflicts: [] };
+	}
+
 	return {
 		dir,
 		async ensure() {
@@ -194,38 +274,9 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		claims: readClaims,
 
-		async claim(path, owner, ownerLabel, at) {
-			await mkdir(claimsDir, { recursive: true, mode: DIR_MODE });
-			const file = claimFile(path);
-			const claim: ClaimRecord = { path, owner, ownerLabel, at };
-			try {
-				const handle = await open(file, "wx", FILE_MODE);
-				try {
-					await handle.writeFile(`${JSON.stringify(claim, null, 2)}\n`, "utf-8");
-				} finally {
-					await handle.close();
-				}
-				return { claim };
-			} catch (error) {
-				const code = (error as NodeJS.ErrnoException).code;
-				if (code !== "EEXIST") throw error;
-				const existing = readTyped(file, isClaim);
-				if (!existing) {
-					// A torn/empty file from a crash: replace it rather than block forever.
-					await writeJson(file, claim);
-					return { claim };
-				}
-				return existing.owner === owner ? { claim: existing } : { claim, conflict: existing };
-			}
-		},
+		claimAll,
 
-		async release(path, owner) {
-			const file = claimFile(path);
-			const existing = readTyped(file, isClaim);
-			if (!existing || existing.owner !== owner) return false;
-			await rm(file, { force: true });
-			return true;
-		},
+		release: releaseOne,
 
 		async releaseAll(owner) {
 			const released: string[] = [];
