@@ -442,7 +442,7 @@ body {
  * from — and the glyphs are `lib/tui/`'s own vocabulary.
  */
 .card--term {
-	padding: 0;
+	padding: 0 18px;
 	background: var(--canvas);
 	font-family: var(--font-mono);
 	font-size: 14px;
@@ -451,6 +451,38 @@ body {
 
 .card--term::after {
 	display: none;
+}
+
+/* The poster title the sibling cards carry, above a frame that takes the rest. */
+.card__head {
+	flex: 0 0 auto;
+	padding: 18px 0 10px;
+}
+
+/* Sans, as the two plan-flow cards title themselves: the mono family this card
+ * sets is the terminal's, and a poster title is not a terminal line. */
+.card__head .title {
+	margin: 0;
+	font-family: var(--font-sans);
+	font-size: 40px;
+}
+
+/* One caption line carries what the frame's title bar used to: who the card is
+ * for and what it shows, with the live state at the right edge. */
+.caption {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 16px;
+	margin: 8px 0 0;
+	font-size: 14px;
+	color: var(--muted);
+	white-space: nowrap;
+}
+
+.caption__state {
+	font-size: 12px;
+	color: var(--accent);
 }
 
 /*
@@ -475,41 +507,6 @@ body {
 	background: var(--canvas);
 }
 
-/* `Lead + team · parallel-dev ─────────────── 5 sessions · 3 unread` */
-.term__head {
-	flex: 0 0 36px;
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 0 18px;
-}
-
-.term__title {
-	font-size: 18px;
-	font-weight: 700;
-	letter-spacing: -0.01em;
-	color: var(--accent);
-	white-space: nowrap;
-}
-
-.term__slug {
-	font-size: 15px;
-	color: var(--muted);
-	white-space: nowrap;
-}
-
-.term__meta {
-	font-size: 13px;
-	color: var(--muted);
-	white-space: nowrap;
-}
-
-/* The package this card posts for, the attribution both siblings carry. */
-.term__pkg {
-	font-size: 12px;
-	color: var(--dim);
-}
-
 .rule {
 	flex: 1 1 auto;
 	height: 1px;
@@ -522,10 +519,9 @@ body {
 	flex: 1 1 auto;
 	min-height: 0;
 	display: grid;
-	grid-template-columns: 600px 1fr 1fr;
+	grid-template-columns: 560px 1fr 1fr;
 	grid-template-rows: 1fr 1fr;
 	gap: 1px;
-	margin: 0 18px;
 	background: var(--line);
 }
 
@@ -544,7 +540,7 @@ body {
 
 /* A pane's own title row, as a screen under `assets/` draws it. */
 .pane__bar {
-	flex: 0 0 28px;
+	flex: 0 0 26px;
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -552,8 +548,8 @@ body {
 }
 
 .pane__name {
-	font-size: 15px;
-	font-weight: 700;
+	font-size: 14px;
+	font-weight: 600;
 	color: var(--accent);
 	white-space: nowrap;
 }
@@ -568,7 +564,7 @@ body {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	font-size: 13px;
+	font-size: 12px;
 	color: var(--muted);
 	white-space: nowrap;
 }
@@ -584,7 +580,7 @@ body {
 
 /* The muted metadata line every screen carries directly under its title. */
 .count {
-	font-size: 13px;
+	font-size: 14px;
 	color: var(--muted);
 }
 
@@ -650,7 +646,7 @@ body {
 
 .label {
 	color: var(--accent);
-	font-weight: 700;
+	font-weight: 600;
 }
 
 .label .count {
@@ -665,7 +661,7 @@ body {
 
 .team {
 	display: grid;
-	grid-template-columns: 124px 124px 1fr;
+	grid-template-columns: 106px 106px 1fr;
 	column-gap: 12px;
 }
 
@@ -674,7 +670,7 @@ body {
 }
 
 .team b {
-	font-weight: 700;
+	font-weight: 600;
 	color: var(--text);
 }
 
@@ -698,12 +694,12 @@ body {
 
 /* The hint footer: the key accent, its description muted, as every screen. */
 .term__foot {
-	flex: 0 0 34px;
+	flex: 0 0 30px;
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	padding: 0 18px;
-	font-size: 13px;
+	padding: 0 10px;
+	font-size: 12px;
 }
 
 .hint__key {
