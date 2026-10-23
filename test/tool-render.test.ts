@@ -21,6 +21,7 @@ import jobs from "../extensions/job/index.ts";
 import memory from "../extensions/memory/index.ts";
 import planMode from "../extensions/plan/index.ts";
 import question from "../extensions/question/index.ts";
+import sessionBus from "../extensions/session-bus/index.ts";
 import subagent from "../extensions/subagent/index.ts";
 import todo from "../extensions/todo/index.ts";
 import watch from "../extensions/watch/index.ts";
@@ -38,6 +39,7 @@ const EXTENSIONS: Array<(pi: any) => void> = [
 	memory,
 	planMode,
 	question,
+	sessionBus,
 	subagent,
 	todo,
 	watch,

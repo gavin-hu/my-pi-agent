@@ -186,7 +186,7 @@ each tool's own renderer (or bytefly's generic fallback): the user nameplate and
 a notice, Pi's built-ins, and every tool this package registers. The rail glyph
 is the `chrome.rail` setting.
 
-![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, the plan tools, and the worktree tools](assets/tool-renderings.png)
+![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, the plan tools, and the worktree tools](assets/tool-renderings.png)
 
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).

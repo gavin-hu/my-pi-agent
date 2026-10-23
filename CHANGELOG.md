@@ -36,6 +36,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `question`: on a dialog-only host, two or more questions are asked in one batch
   prompt and answered in one reply, with one retry, instead of one dialog each.
 
+### Fixed
+
+- `docs`: the tool gallery and the per-tool image directory cover `session` and
+  `cancel_plan_mode`, so the README's one-image-per-tool promise holds again; the
+  render contract exercises the `session` block at its three widths.
+
 ## [0.17.0] - 2026-10-22
 
 ### Added
