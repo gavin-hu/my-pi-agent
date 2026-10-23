@@ -126,8 +126,9 @@ one-hour cache-write rule included, so a hand-written table could only price
 - `session-bus`: one `session` tool and `/sessions` let independent sessions on one
   repository find each other, exchange messages and events, and claim paths before
   editing, with every worktree of that repository on the same bus. The packaged
-  `parallel-dev` skill turns it into a protocol — contract-bound workstreams, one
-  integrator, and coordination at turn boundaries rather than by assumption.
+  `parallel-dev` skill turns it into a protocol — contract-bound workstreams, one lead
+  who owns a workstream of its own and accountable for integration, and coordination at
+  turn boundaries rather than by assumption.
 
 **Where the promise is thin**
 

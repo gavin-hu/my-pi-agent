@@ -152,7 +152,7 @@ advertised to the model, and its instructions load only when the task matches
 | [`init`](./skills/init/SKILL.md) | Creates or updates a project's `AGENTS.md` through a built-in interactive interview and plan review, from repository evidence. |
 | [`refactor`](./skills/refactor/SKILL.md) | Audits a project or path for refactoring opportunities: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Returns a ranked shortlist with evidence and verification commands; discovery is read-only. |
 | [`changelog`](./skills/changelog/SKILL.md) | Records one user-visible bullet in the same commit as the change, audits commits since the last tag for missing or weak entries, and curates a release section from the project's own rules. |
-| [`parallel-dev`](./skills/parallel-dev/SKILL.md) | Coordinates parallel development across independent sessions by contract-bound workstreams: a walking skeleton, one integrator and an owner per workstream, advisory path claims, continuous integration, and independent verification. |
+| [`parallel-dev`](./skills/parallel-dev/SKILL.md) | Runs parallel development as a lead and a team: a lead accountable for the contract, shared files, merge order and a green baseline who also owns a workstream, one owner per disjoint workstream, a walking skeleton first, advisory path claims, a turn-boundary protocol, and independent verification. |
 | [`next`](./skills/next/SKILL.md) | Triages what to do next — loose work, a broken or unfinished promise — from the tree or from this conversation (`/skill:next session`), with the words and a path after the command saying what to ask and where to look. Read-only, and capped at a short ranked list with evidence and the command that starts each. |
 
 ### Themes

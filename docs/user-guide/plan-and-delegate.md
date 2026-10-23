@@ -848,13 +848,17 @@ repository act as a team without sharing a conversation.
   any file below it; `release` gives it back. A crash releases it when the
   session expires.
 
-The intended shape is contract-first: write the API/schema once, claim separate
-outcome slices rather than frontend/backend/test layers, exchange contract and
-build/test events, then merge and run the full check. The bus is not the source of
-truth — the plan, todo list, contract, and git branch are. The `parallel-dev` skill
-carries the full protocol — the workstream table, the turn boundary, and integration
-— and is model-invoked: a request such as "split this across two sessions" can load
-it, and `/skill:parallel-dev` forces it.
+The intended shape is contract-first: one lead accountable for the contract, the shared
+files, the merge order and a green baseline — and working a workstream of its own, so
+it is never a queue between owners — with one owner per disjoint outcome slice. Claim
+slices rather than frontend/backend/test layers, exchange contract and build/test
+events, then merge and run the full check. The bus moves no work by itself: a lead
+cannot start a peer's turn, so each round costs you one switch to every owner holding
+an increment. The bus is not the source of truth — the plan, todo list, contract, and
+git branch are. The `parallel-dev` skill carries the full protocol — the team table,
+the roles, the shared-file rule, the turn boundary, and integration — and is
+model-invoked: a request such as "split this across two sessions" can load it, and
+`/skill:parallel-dev` forces it.
 
 ## Related
 
