@@ -55,6 +55,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var stateEl = document.getElementById("review-state");
   var approveButton = document.getElementById("approve");
   var saveButton = document.getElementById("save");
+  var postButton = document.getElementById("post");
   var cancelButton = document.getElementById("cancel");
   var outlineList = document.getElementById("outline-list");
   var progressEl = document.getElementById("progress-fill");
@@ -260,11 +261,11 @@ ${WEB_MARKDOWN_JS}
   }
 
 
-  // Save and approve share the same POST shape; only the route, the settled
-  // flag, and the wording differ. Both persist the current annotations — and a
-  // reviewer sends only their own, so a page showing everyone's comments cannot
-  // re-post the owner's or another reviewer's back into the file.
-  function submit(url, okText, failText, mark) {
+  // Save, approve, and post share the same POST shape; what differs is whether
+  // the review settles. Only the owner's save and approve resolve the session,
+  // so only their callback marks the page terminal. A reviewer posts only their
+  // own comments, so a page showing everyone's cannot re-post another writer's.
+  function submit(url, okText, failText, onOk) {
     var payload = role === "reviewer" ? annotations.filter(isMine) : annotations;
     fetch(url + "?token=" + encodeURIComponent(token), {
       method: "POST",
@@ -272,11 +273,9 @@ ${WEB_MARKDOWN_JS}
       body: JSON.stringify({ annotations: payload })
     }).then(function (response) {
       if (response.ok) {
-        mark();
         dirty = false;
-        settleStream();
         setStatus(okText, "saved");
-        lockActions();
+        if (onOk) onOk();
         updateState();
         return;
       }
@@ -284,6 +283,7 @@ ${WEB_MARKDOWN_JS}
         setStatus("The plan changed on disk \u2014 reload to review again.", "error");
         if (approveButton) approveButton.disabled = true;
         if (saveButton) saveButton.disabled = true;
+        if (postButton) postButton.disabled = true;
         offerReload();
         return;
       }
@@ -317,17 +317,35 @@ ${WEB_MARKDOWN_JS}
     if (saved || approved || closed) return;
     if (guardDraft()) return;
     setStatus("Saving\u2026");
-    submit("/api/feedback", "Saved \u2014 return to Pi to continue.", "Could not save: ", function () { saved = true; });
+    submit("/api/feedback", "Saved \u2014 return to Pi to continue.", "Could not save: ", function () {
+      saved = true;
+      settleStream();
+      lockActions();
+    });
+  }
+
+  // A reviewer's write never settles the page: the server keeps the review open,
+  // so the page keeps following it and she can keep editing her own comments.
+  function postComments() {
+    if (closed) return;
+    if (guardDraft()) return;
+    setStatus("Posting\u2026");
+    submit("/api/comment", "Comments posted \u2014 the owner sees them now.", "Could not post: ", null);
   }
 
   function approve() {
     if (saved || approved || closed) return;
     setStatus("Approving\u2026");
-    submit("/api/approve", "Approved \u2014 return to Pi to continue.", "Could not approve: ", function () { approved = true; });
+    submit("/api/approve", "Approved \u2014 return to Pi to continue.", "Could not approve: ", function () {
+      approved = true;
+      settleStream();
+      lockActions();
+    });
   }
 
   function cancel() {
-    if (saved || approved || closed) return;
+    // Closing the review is the owner's decision; a reviewer closes their tab.
+    if (role !== "owner" || saved || approved || closed) return;
     if (guardDraft()) return;
     closed = true;
     settleStream();
@@ -340,6 +358,7 @@ ${WEB_MARKDOWN_JS}
     });
   }
 
+  if (postButton) postButton.addEventListener("click", postComments);
   if (saveButton) saveButton.addEventListener("click", save);
   if (cancelButton) cancelButton.addEventListener("click", cancel);
 
@@ -426,7 +445,7 @@ ${WEB_MARKDOWN_JS}
     if (event.key === "k") { event.preventDefault(); moveActive(-1); return; }
     if (event.key === "c") { event.preventDefault(); commentOnActive(); return; }
     if (event.key === "a" && approveButton) { event.preventDefault(); askApprove(); return; }
-    if (event.key === "s") { event.preventDefault(); save(); return; }
+    if (event.key === "s") { event.preventDefault(); if (saveButton) save(); else postComments(); return; }
   });
 
   // A closed tab is detected by the stream below: the server sees the last

@@ -43,7 +43,7 @@ export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
     var count = annotations.length;
     label += " \u00b7 " + count + (count === 1 ? " comment" : " comments");
     if (dirty && !saved && !approved && !closed) {
-      label += " \u00b7 unsaved";
+      label += " \u00b7 " + (role === "reviewer" ? "unposted" : "unsaved");
       if (!tone) tone = "warn";
     }
     stateEl.textContent = label;
@@ -76,6 +76,7 @@ export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
   function lockActions() {
     if (approveButton) approveButton.disabled = true;
     if (saveButton) saveButton.disabled = true;
+    if (postButton) postButton.disabled = true;
     if (cancelButton) cancelButton.disabled = true;
   }
 

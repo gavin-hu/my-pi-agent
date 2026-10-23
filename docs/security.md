@@ -23,10 +23,15 @@ Two surfaces serve local HTTP:
   the same status the page already renders — a branch, changed paths, an uptime,
   a request count — and can only be read.
 - [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
-  tokenized, and closes its server on save, cancel, tab close, or session
-  shutdown.
+  tokenized, and closes its server on the owner's save or cancel, the owner's page
+  going away, or session shutdown. Sharing adds a second listener on one address
+  this machine has, only while the owner has sharing on; it serves the same routes
+  under a reviewer token that may comment and nothing else, and **Stop sharing**
+  closes it and revokes that token.
 
-Neither ever binds a non-loopback interface, and both answer from one shared
+The loopback listeners never leave `127.0.0.1`; the only wider bind is the share
+listener the owner starts and can revoke, and it answers only the one address the
+share dialog printed. Both surfaces answer from one shared
 policy in `lib/http` — the same CSP (which refuses to be framed), the same
 `Host` allowlist shape, the same event-stream headers, and the same bind/close
 rules — so the two surfaces cannot drift into different envelopes. A remote turn (for example over WeChat)

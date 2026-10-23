@@ -494,17 +494,19 @@ file and returns them to the model.
   resolves the session only after its HTTP response is delivered, so the browser
   never sees a false "Failed to fetch". The last bound port is remembered per
   plan, so reviewing the same plan again reuses the origin (and the browser's
-  saved theme with it). It is closed on save, cancel, a dropped event stream, or
-  `session_shutdown`; a reload reconnects inside that grace, so refreshing or
-  reloading a conflicted page does not end the review.
+  saved theme with it). It is closed on the owner's save or cancel, on the owner's
+  page going away, or on `session_shutdown`; a reload reconnects inside that grace,
+  so refreshing or reloading a conflicted page does not end the review. A
+  reviewer's tab opening or closing is not the review's lifetime.
 
 | Route | Result |
 |---|---|
 | `GET /?token=…` | the review page (a JSON data island plus `/theme.js` and `/client.js`) |
 | `GET /theme.js` | the shared pre-paint theme bootstrap |
 | `GET /client.js` | the first-party client script |
-| `GET /events?token=…` | Server-Sent Events stream: a `comment`, `plan`, or `share` frame when something changed, and a dropped stream to detect a closed tab |
-| `POST /api/feedback?token=…` | validate and write the annotations into the plan, replacing each writer's own comments and keeping the rest |
+| `GET /events?token=…` | Server-Sent Events stream: a `comment`, `plan`, or `share` frame when something changed, `closed` when the review ends, `revoked` when sharing stops, and a dropped stream to detect a closed tab |
+| `POST /api/comment?token=…` | reviewer only: write their own comments into the plan, replacing only their own; never ends the review |
+| `POST /api/feedback?token=…` | owner only: write the owner's comments and return to the model |
 | `POST /api/approve?token=…` | owner only: save, then approve |
 | `POST /api/cancel?token=…` | owner only: end the session without saving |
 | `POST /api/share?token=…` | owner only: mint a reviewer link and its QR |
@@ -518,13 +520,22 @@ IPv4 address, and shows the link with a QR a phone can scan. **Stop sharing**
 revokes the token and closes that listener; closing the review does both.
 
 - **Two roles, two tokens.** The owner's token — the one the browser opened with —
-  may comment and approve. A reviewer token may comment only: `/api/approve`,
-  `/api/cancel`, and `/api/share` answer `403`, and the page never renders the
-  Approve button for it. Anything the reviewer holds is reachable only while the
+  decides: it may comment, save (which returns to the model), approve, cancel, and
+  share. A reviewer token may read and comment, and its one write route is
+  `POST /api/comment`: `/api/feedback`, `/api/approve`, `/api/cancel`, and
+  `/api/share` answer `403`, and the page renders only the name control and
+  **Post comments** for it. Anything the reviewer holds is reachable only while the
   share is on.
+- **The owner's page is the review's lifetime.** A reviewer's tab opening or
+  closing changes nothing; the review ends when the owner saves, approves, or
+  closes it, or when the owner's own page goes away. A reviewer's post writes the
+  plan and updates every open page, and leaves the review waiting. A page that is
+  still open when the review ends is told why — `closed`, or `revoked` when sharing
+  was stopped — and keeps the plan readable.
 - **Signed comments.** A reviewer names themselves once, on the page; the name is
-  kept in that browser, signs each comment, and is what a save replaces — so a
-  reviewer can edit or withdraw their own notes and nobody else's. A name is a
+  kept in that browser, signs each comment, and is what a post replaces — so a
+  reviewer can edit or withdraw their own notes and nobody else's, and her second
+  post replaces rather than duplicates the first. A name is a
   claim, not an account: whoever holds the link can type it, which is why the
   owner still makes the only decision.
 - **One link, one machine.** Sharing opens exactly the address the dialog printed —
@@ -532,7 +543,7 @@ revokes the token and closes that listener; closing the review does both.
   A machine with no reachable IPv4 address reports why instead of printing a link
   that cannot work. There is no tunnel, no relay, and no cross-machine sync: this
   is the same Wi-Fi.
-- **Live.** Every open page follows the stream, so a comment appears on the
+- **Live.** Every open page follows the stream, so a reviewer's post appears on the
   owner's page without a reload, and a revision saved on disk reaches the
   reviewers. A page with a draft open refuses to repaint and says what arrived
   instead.
@@ -722,10 +733,11 @@ revokes the token and closes that listener; closing the review does both.
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `parseFeedback`, `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `resolveAnchor`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the share listener, the body cap, settle-after-flush, abort) over the shared bind, writer, and close. |
-| `web-router.ts` | Pure request handler: token role, `Host` allowlist, origin, and method checks, then the page, comment, approve, cancel, and share routes. |
+| `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the body cap, settle-after-flush, abort) over the shared bind, writer, and close. |
+| `web-router.ts` | Pure request handler: token role, `Host` allowlist, origin, and method checks, then the page, comment, owner-save, approve, cancel, and share routes. |
 | `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation, share and name dialogs), its data island, and inline CSS. |
 | `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, and the tokenized links built from them. |
+| `web-share-session.ts` | The shared listener's lifecycle: its reviewer token, bound address, `ShareState`, and stop/close, injected with the request handler, role map, and frame hooks. |
 | `web-client.ts` | The `/client.js` source: state and wiring (comment rail, save/approve/back, keyboard nav, the stream's lifetime) over the three fragments below. |
 | `web-comments.ts` | The client's comment half: selection quotes, the composer, authored cards and who may edit them, delete-with-undo. |
 | `web-collab.ts` | The client's collaboration half: the share dialog, the reviewer's name, and the island refetch a stream frame triggers. |

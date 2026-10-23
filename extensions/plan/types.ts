@@ -13,6 +13,14 @@ import type { StepUpdate } from "./steps.ts";
  */
 export type ReviewRole = "owner" | "reviewer";
 
+/**
+ * One frame on the review's event stream. `comment`, `plan`, and `share` say a
+ * page should re-read the island; `closed` ends the review for everyone, and
+ * `revoked` tells a reviewer the owner stopped sharing. The frame carries no
+ * state of its own, so the island stays the one contract.
+ */
+export type ReviewFrame = "comment" | "plan" | "share" | "closed" | "revoked";
+
 /** Persisted (custom entry) plan-mode state. */
 export interface PlanModeEntry {
 	enabled: boolean;

@@ -180,6 +180,7 @@ const PAGE_DATA: ReviewPageData = {
 function router(overrides: Partial<ReviewContext> = {}) {
 	const saved: PlanAnnotation[][] = [];
 	const approved: PlanAnnotation[][] = [];
+	const ownerSaves: PlanAnnotation[][] = [];
 	const cancelled: number[] = [];
 	let nextSave: SaveResult = { ok: true };
 	const ctx: ReviewContext = {
@@ -193,7 +194,7 @@ function router(overrides: Partial<ReviewContext> = {}) {
 		},
 		share: async () => ({ state: { sharing: true, port: 1, links: [{ address: "192.168.1.24", url: "http://x" }] } }),
 		stopShare: async () => ({ state: { sharing: false, port: 0, links: [] } }),
-		onSaved: () => {},
+		onSaved: (annotations) => ownerSaves.push(annotations),
 		onApprove: (annotations) => approved.push(annotations),
 		onCancel: () => cancelled.push(1),
 		...overrides,
@@ -202,6 +203,7 @@ function router(overrides: Partial<ReviewContext> = {}) {
 		ctx,
 		saved,
 		approved,
+		ownerSaves,
 		cancelled,
 		setSave: (result: SaveResult) => {
 			nextSave = result;
@@ -349,18 +351,33 @@ describe("review router", () => {
 		expect(approved).toEqual([]);
 	});
 
-	test("a reviewer token can comment but never approve or cancel", async () => {
-		const { ctx, saved, approved, cancelled } = router({
+	test("a reviewer posts comments but never saves, approves, or closes the review", async () => {
+		const { ctx, saved, approved, ownerSaves, cancelled } = router({
 			roleOf: (token) => (token === "tok" ? "reviewer" : undefined),
 		});
-		const commented = await post(ctx, "/api/feedback?token=tok", JSON.stringify({ annotations: [] }));
-		expect(commented.status).toBe(200);
+		const posted = await post(ctx, "/api/comment?token=tok", JSON.stringify({ annotations: [] }));
+		expect(posted.status).toBe(200);
 		expect(saved).toHaveLength(1);
+		// Posting writes comments; it never resolves the review.
+		expect(ownerSaves).toEqual([]);
 
+		expect((await post(ctx, "/api/feedback?token=tok")).status).toBe(403);
 		expect((await post(ctx, "/api/approve?token=tok")).status).toBe(403);
 		expect((await post(ctx, "/api/cancel?token=tok")).status).toBe(403);
 		expect(approved).toEqual([]);
 		expect(cancelled).toEqual([]);
+	});
+
+	test("the owner saves the review and cannot post to the reviewer route", async () => {
+		const { ctx, saved, ownerSaves } = router();
+
+		expect((await post(ctx, "/api/comment?token=tok", JSON.stringify({ annotations: [] }))).status).toBe(403);
+		expect(saved).toEqual([]);
+		expect(
+			(await post(ctx, "/api/feedback?token=tok", JSON.stringify({ annotations: [{ anchor: 0, comment: "m" }] })))
+				.status,
+		).toBe(200);
+		expect(ownerSaves).toHaveLength(1);
 	});
 
 	test("refuses a Host header the server was not bound on", async () => {
@@ -432,12 +449,31 @@ describe("review page roles", () => {
 		expect(html).not.toContain('id="name-dialog"');
 	});
 
-	test("gives a reviewer a name dialog and no share or approve action", () => {
+	test("gives a reviewer a name dialog and only the post action", () => {
 		const html = page({ role: "reviewer", canApprove: false });
 		expect(html).toContain('id="reviewer-name"');
 		expect(html).toContain('id="name-dialog"');
+		expect(html).toContain('id="post"');
+		expect(html).toContain("Post comments");
+		// Nothing that decides the review, closes it, or mints another link.
 		expect(html).not.toContain('id="share"');
+		expect(html).not.toContain('id="share-dialog"');
+		expect(html).not.toContain('id="save"');
+		expect(html).not.toContain('id="cancel"');
 		expect(html).not.toContain('id="approve"');
+		expect(html).not.toContain('id="approve-dialog"');
+		expect(html).not.toContain("Back to Pi");
+	});
+
+	test("names the reviewer's write action as posting, not saving", () => {
+		const reviewer = page({ role: "reviewer", canApprove: false });
+		expect(reviewer).toContain("Post your comments to the plan");
+		expect(reviewer).not.toContain("Save feedback and return to Pi");
+		expect(reviewer).not.toContain("or the review");
+
+		const owner = page();
+		expect(owner).toContain("Save feedback and return to Pi");
+		expect(owner).not.toContain('id="post"');
 	});
 
 	test("never puts a reviewer token in the page source", () => {
@@ -576,10 +612,34 @@ describe("review client", () => {
 
 	test("uses only same-origin routes with the session token", () => {
 		expect(REVIEW_CLIENT_JS).toContain('submit("/api/feedback"');
+		expect(REVIEW_CLIENT_JS).toContain('submit("/api/comment"');
 		expect(REVIEW_CLIENT_JS).toContain('submit("/api/approve"');
 		expect(REVIEW_CLIENT_JS).toContain("/api/cancel?token=");
 		expect(REVIEW_CLIENT_JS).toContain("/events?token=");
 		expect(REVIEW_CLIENT_JS).toContain('"?token=" + encodeURIComponent(token)');
+	});
+
+	test("a reviewer's post keeps the page live and an owner's save settles it", () => {
+		// The bodies are read apart because the difference is which flags they touch:
+		// posting is transient, saving ends the review.
+		const body = (name: string): string =>
+			new RegExp(`function ${name}\\(\\) \\{([\\s\\S]*?)\\n  \\}`).exec(REVIEW_CLIENT_JS)?.[1] ?? "";
+		const post = body("postComments");
+		expect(post).toContain('"/api/comment"');
+		expect(post).not.toContain("saved = true");
+		expect(post).not.toContain("settleStream");
+		expect(post).not.toContain("lockActions");
+
+		const save = body("save");
+		expect(save).toContain('"/api/feedback"');
+		expect(save).toContain("saved = true");
+	});
+
+	test("closes the review only for its owner and reads a terminal frame", () => {
+		expect(REVIEW_CLIENT_JS).toContain('if (role !== "owner" || saved || approved || closed) return;');
+		expect(REVIEW_CLIENT_JS).toContain('kind === "closed"');
+		expect(REVIEW_CLIENT_JS).toContain('kind === "revoked"');
+		expect(REVIEW_CLIENT_JS).toContain("if (postButton) postButton.disabled = true;");
 	});
 
 	test("never assigns plan or comment text as markup", () => {
@@ -734,7 +794,7 @@ describe("review stream", () => {
 		const stream = await fetch(`http://127.0.0.1:${session.port}/events?token=tok`);
 		const frame = nextFrame(stream.body);
 
-		await fetch(apiOf(link.url, "/api/feedback"), {
+		await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
 			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "hello", author: "alice" }] }),
@@ -796,7 +856,7 @@ describe("shared review", () => {
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
-		const response = await fetch(apiOf(link.url, "/api/feedback"), {
+		const response = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
 			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "name the ceiling", author: "alice" }] }),
@@ -808,7 +868,53 @@ describe("shared review", () => {
 		expect(island.annotations).toEqual([{ anchor: 1, comment: "name the ceiling", author: "alice" }]);
 	});
 
-	test("a reviewer must choose a name, and can never approve or cancel", async () => {
+	test("a reviewer's post keeps the review open and tells the owner's page", async () => {
+		const { review, session, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		// The owner's page is reading the loopback stream before the post lands.
+		const stream = await fetch(eventsUrl(session));
+		const frame = nextFrame(stream.body);
+
+		const response = await fetch(apiOf(link.url, "/api/comment"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "name the ceiling", author: "alice" }] }),
+		});
+
+		expect(response.status).toBe(200);
+		expect(content()).toContain("@alice: name the ceiling");
+		expect(await frame).toBe("comment");
+		// A post is not a decision: the review is still waiting for its owner.
+		const outcome = await Promise.race([session.done.then(() => "settled"), settle(50).then(() => "pending")]);
+		expect(outcome).toBe("pending");
+		expect((await fetch(session.url)).status).toBe(200);
+	});
+
+	test("a reviewer's second post replaces her comment and nobody else's", async () => {
+		const seeded = "# Plan\n- [ ] one\n> [!REVIEW] mine\n> [!REVIEW] @bob: theirs\n- [ ] two\n";
+		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true }, seeded);
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+		const post = (comment: string) =>
+			fetch(apiOf(link.url, "/api/comment"), {
+				method: "POST",
+				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment, author: "priya" }] }),
+			});
+
+		expect((await post("first note")).status).toBe(200);
+		expect((await post("second note")).status).toBe(200);
+
+		const text = content();
+		expect(text).toContain("> [!REVIEW] @priya: second note");
+		expect(text).not.toContain("first note");
+		expect(text).toContain("> [!REVIEW] mine");
+		expect(text).toContain("> [!REVIEW] @bob: theirs");
+	});
+
+	test("a reviewer must choose a name, and can never save, approve, or cancel", async () => {
 		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
@@ -820,8 +926,9 @@ describe("shared review", () => {
 				body,
 			});
 
-		const anonymous = await post("/api/feedback", JSON.stringify({ annotations: [{ anchor: 1, comment: "hi" }] }));
+		const anonymous = await post("/api/comment", JSON.stringify({ annotations: [{ anchor: 1, comment: "hi" }] }));
 		expect(anonymous.status).toBe(400);
+		expect((await post("/api/feedback")).status).toBe(403);
 		expect((await post("/api/approve")).status).toBe(403);
 		expect((await post("/api/cancel")).status).toBe(403);
 		expect((await post("/api/share")).status).toBe(403);
@@ -835,7 +942,7 @@ describe("shared review", () => {
 		const stopped = await review.stopSharing();
 		expect(stopped?.state.sharing).toBe(false);
 
-		const refused = await fetch(apiOf(link.url, "/api/feedback"), {
+		const refused = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
 			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "late", author: "alice" }] }),
@@ -853,7 +960,7 @@ describe("shared review", () => {
 		if (!link) throw new Error("no share link");
 
 		const page = islandOf(await (await fetch(link.url)).text());
-		const response = await fetch(apiOf(link.url, "/api/feedback"), {
+		const response = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
 			// What a reviewer's page posts: everyone's comments, plus their own new one.
@@ -889,7 +996,7 @@ describe("shared review", () => {
 		if (!link) throw new Error("no share link");
 		const before = content();
 
-		const response = await fetch(apiOf(link.url, "/api/feedback"), {
+		const response = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
 			body: JSON.stringify({ annotations: [] }),
@@ -1197,6 +1304,92 @@ describe("review session", () => {
 		await waitFor(() => armed !== undefined);
 		armed?.();
 		expect((await session.done).status).toBe("cancelled");
+	});
+
+	test("a reviewer's dropped stream neither arms nor ends the review", async () => {
+		let armed: (() => void) | undefined;
+		const schedule: ArmTimer = (_ms, fn) => {
+			armed = fn;
+			return () => {
+				if (armed === fn) armed = undefined;
+			};
+		};
+		const { review, session } = await startShared({ networkInterfaces: LAN, schedule }, {});
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		// The reviewer's page loads, then that tab closes.
+		const reviewer = new AbortController();
+		const page = await fetch(apiOf(link.url, "/events"), { signal: reviewer.signal });
+		expect(page.status).toBe(200);
+		await page.body?.getReader().read();
+		reviewer.abort();
+		await settle(50);
+
+		// The review's lifetime is the owner's page, not the reviewer's.
+		expect(armed).toBeUndefined();
+		const outcome = await Promise.race([session.done.then(() => "settled"), settle(20).then(() => "pending")]);
+		expect(outcome).toBe("pending");
+	});
+
+	test("a reviewer's reconnect does not cancel the owner's pending teardown", async () => {
+		let armed: (() => void) | undefined;
+		const schedule: ArmTimer = (_ms, fn) => {
+			armed = fn;
+			return () => {
+				if (armed === fn) armed = undefined;
+			};
+		};
+		const { review, session } = await startShared({ networkInterfaces: LAN, schedule }, {});
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		// The owner's tab closes, arming the teardown.
+		const owner = new AbortController();
+		const page = await fetch(eventsUrl(session), { signal: owner.signal });
+		expect(page.status).toBe(200);
+		await page.body?.getReader().read();
+		owner.abort();
+		await waitFor(() => armed !== undefined);
+		const pending = armed;
+
+		// A reviewer opens the shared link before the grace fires.
+		const reviewer = new AbortController();
+		expect((await fetch(apiOf(link.url, "/events"), { signal: reviewer.signal })).status).toBe(200);
+		await settle(20);
+		expect(armed).toBe(pending);
+
+		pending?.();
+		expect((await session.done).status).toBe("cancelled");
+		reviewer.abort();
+	});
+
+	test("stop sharing tells a reviewer why and leaves the review open", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN }, {});
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		const stream = await fetch(apiOf(link.url, "/events"));
+		const frame = nextFrame(stream.body);
+
+		await review.stopSharing();
+		expect(await frame).toBe("revoked");
+		// Revoking the link is not a decision about the plan.
+		const outcome = await Promise.race([session.done.then(() => "settled"), settle(20).then(() => "pending")]);
+		expect(outcome).toBe("pending");
+		expect((await fetch(session.url)).status).toBe(200);
+	});
+
+	test("closing the review tells a reviewer why it stopped", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN }, {});
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		const stream = await fetch(apiOf(link.url, "/events"));
+		const frame = nextFrame(stream.body);
+
+		await session.close();
+		expect(await frame).toBe("closed");
 	});
 
 	test("rejects an oversize body with a JSON 413, not a dropped connection", async () => {

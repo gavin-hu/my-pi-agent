@@ -106,10 +106,13 @@ describe precisely.
    **Review with someone else.** **Share** in the page header mints a link (and a
    QR a phone can scan) that a teammate on the same network opens to read the plan
    and comment under their own name. Their comments arrive in the same file as
-   `> [!REVIEW] @alice: …`, appear under the block they refer to on your page
-   while it is open, and stay when you revise the plan. They cannot approve:
-   **Approve & run** is yours alone, and the reviewer's page never renders it.
-   **Stop sharing** — or closing the review — revokes the link. From a phone-owned
+   `> [!REVIEW] @alice: …`, appear under the block they refer to on your page as
+   they post them, and stay when you revise the plan. They cannot approve, save the
+   review, or close it: **Approve & run**, **Save feedback**, and **Back to Pi**
+   are yours alone, and the reviewer's page renders only **Post comments**. Her
+   posting never ends your review — only your own decision, or your page going
+   away, does that. **Stop sharing** — or closing the review — revokes the link,
+   and her page is told so rather than left guessing. From a phone-owned
    or remote session, `/plan share` prints the link and QR and `/plan share stop`
    revokes it, because there is no page to click.
 
