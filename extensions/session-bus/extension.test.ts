@@ -9,7 +9,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createFakePi, emit, emitFirst, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
-import { settle } from "../../test/helpers/process.ts";
+import { waitFor } from "../../test/helpers/process.ts";
 import { onRailsSuppressed } from "../../lib/rails.ts";
 import { SessionListComponent } from "./tui.ts";
 
@@ -158,7 +158,7 @@ describe("session-bus extension", () => {
 		mounted.handleInput("x");
 		expect(mounted.render(80).join("\n")).toContain("Release src/api? y/N");
 		mounted.handleInput("y");
-		await settle();
+		await waitFor(() => mounted?.render(80).join("\n").includes("Released src/api.") ?? false);
 
 		expect(await createBusStore({ dir }).claims()).toEqual([]);
 		expect(mounted.render(80).join("\n")).toContain("Released src/api.");
