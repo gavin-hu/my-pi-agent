@@ -35,7 +35,7 @@ pi -e .                                   # load the whole package
 | Command | Effect |
 |---|---|
 | `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` arms or disarms this session's inbox watch, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing and joins. |
-| `/sessions name <label>` | Give this session a stable label, unique among active sessions. |
+| `/sessions name <label>` | Name this session for the bus and for Pi. The label is unique among active sessions, and it becomes the session name the footer shows and `/resume` lists. |
 | `/sessions watch` | Report new mail at this session’s next turn. |
 | `/sessions watch wake` | Report new mail, and raise one turn when it arrives while idle. |
 | `/sessions watch off` | Stop the inbox watch. |
@@ -44,6 +44,10 @@ pi -e .                                   # load the whole package
 Labels are how another session addresses you. Name one by the outcome it owns
 (`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
 duplicate labels get a short id suffix automatically.
+
+Naming also sets Pi's session name, so the footer's `[label]` and `/resume` agree
+with the bus. Because the bus derives a joining session's label from that name, a
+named session comes back under the same label after a resume.
 
 ## Tools
 

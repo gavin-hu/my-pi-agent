@@ -861,6 +861,9 @@ repository act as a team without sharing a conversation.
 - `/sessions name billing-core` gives **this** session a stable target, so every
   session is named from inside it, by you — one session cannot name another. Labels
   are unique among active sessions; name the outcome a session owns, not a layer.
+  It also sets Pi's session name, so the footer shows `[billing-core]` and
+  `/resume` lists it; the label comes back after a resume because it is derived
+  from that name.
 - `session` with `action: "send"` posts a short message or event; `action:
   "inbox"` consumes messages at the start of the next turn. Delivery is pull-based
   by default, so nothing interrupts a running turn and no turn starts by itself.

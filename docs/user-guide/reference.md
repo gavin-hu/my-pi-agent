@@ -45,7 +45,7 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/context` | Show where the context window goes; `c` compacts from the report |
 | `/context compact [instructions]` | Compact from the report; refused while a turn is running |
 | `/sessions` | Open the bus board: `Tab` between sessions, unread mail, and path claims; `w` toggles the watch, `x` releases your own claim |
-| `/sessions name <label>` | Name this session for other sessions |
+| `/sessions name <label>` | Name this session for other sessions and set Pi's session name (footer, `/resume`) |
 | `/sessions watch [off\|wake]` | Report new mail at this session's next turn, or raise one (`wake`); `off` stops it |
 
 ### Worktrees, rewind, and memory

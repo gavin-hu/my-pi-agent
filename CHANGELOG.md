@@ -26,6 +26,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   its holder, so `x` releases a claim you hold after a y/N confirmation, from the
   list or the pane. A peer's claim is refused with its owner named, and the hint row
   keeps the scope key and the verb in a 46-column terminal.
+- `session-bus`: `/sessions name <label>` now also sets Pi's session name, so the
+  footer shows `[label]` and `/resume` lists it. A rejected label leaves both names
+  alone, and a resumed session comes back under the same label because the bus
+  derives it from that name.
 - `plan`: a review can be **shared**. **Share** in the browser page (or `/plan
   share`) mints a reviewer link with a QR a teammate on the same network opens to
   read the plan and comment under their own name; **Stop sharing** revokes it. Only

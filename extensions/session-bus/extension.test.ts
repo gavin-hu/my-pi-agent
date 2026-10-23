@@ -62,7 +62,7 @@ describe("session-bus extension", () => {
 
 	test("lists and names through /sessions", async () => {
 		const dir = busDir();
-		const { bus, ctx, notices, command } = setup(dir);
+		const { pi, bus, ctx, notices, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 		await bus.start(ctx);
 		// Outside the TUI there is no dock, so the command prints the listing.
@@ -71,10 +71,35 @@ describe("session-bus extension", () => {
 		expect(notices.at(-1)?.message).toContain("Sessions (1)");
 		await command.handler("name backend", ctx);
 		expect(notices.at(-1)?.message).toContain("backend");
+		// The label is also Pi's session name, so the footer and /resume agree.
+		expect(pi.getSessionName()).toBe("backend");
 		await command.handler("name", ctx);
 		expect(notices.at(-1)?.message).toContain("Usage:");
 		await command.handler("nope", ctx);
 		expect(notices.at(-1)?.message).toContain("Unknown sessions command");
+		await bus.stop();
+	});
+
+	test("a rejected name leaves Pi's session name alone", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx, notices, command } = setup(dir);
+		if (!command) throw new Error("sessions command not registered");
+		await bus.start(ctx);
+
+		const peer = createSessionBus({} as ExtensionAPI, {
+			dir,
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 0,
+			watchMs: 0,
+		});
+		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s2", sessionName: "taken" }).ctx as ExtensionContext;
+		await peer.start(peerCtx);
+
+		await command.handler("name taken", ctx);
+		expect(notices.at(-1)?.message).toContain("already in use");
+		expect(pi.getSessionName()).toBeUndefined();
+		await peer.stop();
 		await bus.stop();
 	});
 
