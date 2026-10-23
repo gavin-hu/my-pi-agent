@@ -118,9 +118,9 @@ inside a tracked temp directory.
 
 ### Slow suites
 
-The git-heavy `rewind` and `worktree` suites are gated: they skip unless `CI` is
-set or `PI_SLOW_TESTS=1` is exported. A local `bun run check` stays fast; run
-them with:
+The git-heavy `rewind`, `worktree`, and `session-bus` real-repository tests are
+gated: they skip unless `CI` is set or `PI_SLOW_TESTS=1` is exported. A local
+`bun run check` stays fast; run them with:
 
 ```bash
 PI_SLOW_TESTS=1 bun run test

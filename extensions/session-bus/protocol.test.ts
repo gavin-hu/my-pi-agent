@@ -10,6 +10,7 @@ import {
 	normalizePaths,
 	normalizeText,
 	resolveRecipients,
+	sessionMode,
 	shortId,
 } from "./protocol.ts";
 
@@ -35,6 +36,11 @@ describe("labels and actions", () => {
 		expect(isAutoJoinMode("tui")).toBe(true);
 		expect(isAutoJoinMode("rpc")).toBe(false);
 		expect(isAutoJoinMode("json")).toBe(false);
+	});
+	test("records the session mode, and unknown for anything else", () => {
+		expect(["tui", "rpc", "json", "print"].map((mode) => sessionMode(mode))).toEqual(["tui", "rpc", "json", "print"]);
+		expect(sessionMode("wechat")).toBe("unknown");
+		expect(sessionMode(undefined)).toBe("unknown");
 	});
 });
 

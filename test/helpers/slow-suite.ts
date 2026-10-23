@@ -1,11 +1,11 @@
 /**
  * Gate for the slow, git-repo-spawning suites.
  *
- * The `rewind` and `worktree` suites create real repositories and run real git
- * commands, which dominates the runtime of `bun run test` and `bun run check`.
- * They run in CI (GitHub Actions sets `CI`) and locally when `PI_SLOW_TESTS=1`;
- * otherwise each gated `describe` is skipped, not deleted, so CI keeps the
- * coverage.
+ * The `rewind` and `worktree` suites and the session-bus real-repository tests
+ * create real repositories and run real git commands, which dominates the runtime
+ * of `bun run test` and `bun run check`. They run in CI (GitHub Actions sets `CI`)
+ * and locally when `PI_SLOW_TESTS=1`; otherwise each gated `describe` is skipped,
+ * not deleted, so CI keeps the coverage.
  *
  * Usage: `describe.skipIf(!runSlowSuites)("...", () => { ... })`.
  *

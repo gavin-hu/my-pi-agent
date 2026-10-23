@@ -80,6 +80,19 @@ describe("session-bus extension", () => {
 		await bus.stop();
 	});
 
+	test("completes the subcommands, and stops once an argument starts", () => {
+		const { command } = setup(busDir());
+		if (!command) throw new Error("sessions command not registered");
+		expect(command.getArgumentCompletions?.("")).toEqual([
+			{ value: "name", label: "name" },
+			{ value: "help", label: "help" },
+			{ value: "watch", label: "watch" },
+		]);
+		expect(command.getArgumentCompletions?.("wa")).toEqual([{ value: "watch", label: "watch" }]);
+		expect(command.getArgumentCompletions?.("name ")).toBeNull();
+		expect(command.getArgumentCompletions?.("zzz")).toBeNull();
+	});
+
 	test("a rejected name leaves Pi's session name alone", async () => {
 		const dir = busDir();
 		const { pi, bus, ctx, notices, command } = setup(dir);
