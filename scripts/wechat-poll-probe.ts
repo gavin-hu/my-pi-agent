@@ -1,14 +1,17 @@
 /**
- * Does `/getupdates` honour a requested long-poll hold?
+ * What does one `/getupdates` request actually return?
  *
- * Every response carries `longpolling_timeout_ms`, which is the hold the server
- * used. Whether the *request* may ask for a shorter one is undocumented, and it
- * is worth knowing: a WeChat message is only visible to Pi when a poll returns,
- * so the hold is the floor on "how fast can the bot react".
+ * Two questions, one request. First, every response carries
+ * `longpolling_timeout_ms`, the hold the server used, and whether the *request*
+ * may ask for a shorter one is undocumented — worth knowing, because a message is
+ * only visible to Pi when a poll returns, so the hold is the floor on "how fast
+ * can the bot react". Second, a message carries a `group_id` and a `session_id`
+ * when the protocol supplies them, and the bridge routes on the sender alone; the
+ * probe prints both, so a message sent in a group answers whether rooms are
+ * delivered at all, which is what the roadmap's group-chat item turns on.
  *
- * This sends one request with a chosen hold and reports what happened. It is a
- * manual experiment, so it refuses to run while a bridge is polling: two clients
- * on one account can steal each other's messages.
+ * This is a manual experiment, so it refuses to run while a bridge is polling: two
+ * clients on one account can steal each other's messages.
  *
  * Usage: `bun scripts/wechat-poll-probe.ts [holdMs]` (default 3000)
  *
@@ -75,6 +78,9 @@ try {
 	console.log("messages:     ", response.msgs.length);
 	for (const message of response.msgs) {
 		console.log("  from", message.from_user_id, JSON.stringify(message.item_list ?? []).slice(0, 120));
+		// A room is a routing question the bridge cannot answer yet; name what arrived.
+		if (message.group_id !== undefined) console.log("       group_id:  ", message.group_id);
+		if (message.session_id !== undefined) console.log("       session_id:", message.session_id);
 	}
 	if (response.ret !== undefined && response.ret !== 0) console.log("ret:          ", response.ret);
 	if (response.errcode !== undefined && response.errcode !== 0) console.log("errcode:      ", response.errcode);
