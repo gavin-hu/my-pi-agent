@@ -203,7 +203,7 @@ export class ContextComponent implements Component {
 			lines.push("", `  ${paint(this.theme, "label", "Largest messages")}`);
 			for (const block of report.largest) {
 				const tokens = formatTokens(block.tokens).padStart(6);
-				const role = padCell(block.role, 11);
+				const role = padCell(block.role, 12);
 				const candidate = `    ${paint(this.theme, "meta", tokens)}  ${paint(this.theme, "label", role)}${block.label}`;
 				lines.push(truncateToWidth(candidate, width));
 			}

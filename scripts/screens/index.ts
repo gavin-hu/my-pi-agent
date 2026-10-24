@@ -26,6 +26,7 @@ import { MemoryPickerComponent } from "../../extensions/memory/tui.ts";
 import { PlanViewComponent } from "../../extensions/plan/tui.ts";
 import { askViaTui } from "../../extensions/question/tui.ts";
 import { CheckResultComponent } from "../../extensions/check/tui.ts";
+import { ContextComponent } from "../../extensions/context/tui.ts";
 import { AgentsBoardComponent } from "../../extensions/subagent/background-tui.ts";
 import { ReviewListComponent } from "../../extensions/rewind/view/review-tui.ts";
 import { RewindListComponent } from "../../extensions/rewind/view/rewind-tui.ts";
@@ -42,6 +43,7 @@ import {
 	AGENT_RUNS,
 	BUS_BOARD,
 	CHECK_RESULT,
+	CONTEXT_REPORT,
 	JOBS,
 	MEMORY_CALLBACKS,
 	PANEL_AGENT_DIR,
@@ -192,6 +194,23 @@ export const SCREENS: Record<string, Screen> = {
 				onClose: noop,
 				requestRender: noop,
 				viewportRows: () => rows,
+			}).render(width),
+	},
+	context: {
+		asset: "context",
+		title: "π - my-pi-agent · /context",
+		bounds: { left: 80, top: 80, right: 920, bottom: 640 },
+		size: { width: 100, rows: 30 },
+		render: (width, rows) =>
+			new ContextComponent({
+				theme,
+				report: CONTEXT_REPORT,
+				read: () => CONTEXT_REPORT,
+				isIdle: () => true,
+				compact: noop,
+				close: noop,
+				requestRender: noop,
+				viewportRowsSource: () => rows,
 			}).render(width),
 	},
 	check: {

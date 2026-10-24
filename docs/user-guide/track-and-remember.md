@@ -129,21 +129,18 @@ The report separates the parts that are easy to confuse:
 
 ### Walkthrough
 
-1. Run `/context`. The screen opens with Pi's own number:
+1. Run `/context`. The screen opens with Pi's own number, then the composition it
+   adds up to, the history, and the messages taking the most room:
 
-   ```text
-   Context ──────────────────────────────────────────────
-    124k / 200k  ▰▰▰▰▰▰▱▱▱▱  62%
-    76k free · auto-compact at 184k · 60k headroom · keeps newest 20k
+   <img src="../../assets/context.png" alt="The /context screen: a gauge reading 124k of 200k at 62%, the composition rows with their bars, the estimate drift, the compaction history, the largest messages, and the key hints" width="100%">
 
-    Composition · 121k estimate
-    System prompt          4.2k   3.5%  ▰▱▱▱▱▱▱▱
-    Tool results         108k  89.3%  ▰▰▰▰▰▰▰▱  6 messages
-   ```
+   *The report after one compaction: tool results take four fifths of the
+   estimate, and the largest single message is named.*
 
 2. Read the rows. The **Composition** header names the estimate they are shares
-   of, so `3.5%` is 3.5% of those rows, not of the 200k window; a bar rounds to
-   the nearest cell, so it sits within half a cell of the number beside it.
+   of, so the `0.5%` beside the system prompt is 0.5% of those rows, not of the
+   200k window; a bar rounds to the nearest cell, so it sits within half a cell of
+   the number beside it.
    **Largest messages** names the single messages taking the most room.
 
 3. Press `c` to compact from here. The screen asks first, then reports the

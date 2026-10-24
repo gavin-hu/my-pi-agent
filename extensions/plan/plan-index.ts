@@ -17,6 +17,7 @@ import { type Component, Key, matchesKey, type TuiMouseEvent, type TuiMouseEvent
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
 import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { formatSize } from "../../lib/format.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { emptyState, listRow } from "../../lib/tui/rows.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
@@ -57,10 +58,32 @@ function localTime(ms: number): string {
 }
 
 /**
- * The non-TUI listing: one line per plan with its title, step progress, modified
- * time, and path, newest first. The directory is named once in the header.
+ * The store's own footprint for one repository: the bytes its plans hold, and the
+ * oldest of them. Derived from the summary the directory walk already produced, so
+ * reporting a size never becomes a second index that can disagree with the files.
  */
-export function formatPlanIndex(summaries: readonly PlanSummary[], dir: string): string {
+function footprint(summaries: readonly PlanSummary[]): { bytes: number; oldest: number } {
+	let bytes = 0;
+	let oldest = summaries[0]?.modified ?? 0;
+	for (const summary of summaries) {
+		bytes += summary.bytes;
+		oldest = Math.min(oldest, summary.modified);
+	}
+	return { bytes, oldest };
+}
+
+/** `2.4 kB — oldest 2d ago`, the store's footprint as the header and the screen say it. */
+function footprintText(summaries: readonly PlanSummary[], nowMs: number): string {
+	const { bytes, oldest } = footprint(summaries);
+	return `${formatSize(bytes)} — oldest ${relativeAge(oldest, nowMs)}`;
+}
+
+/**
+ * The non-TUI listing: one line per plan with its title, step progress, modified
+ * time, and path, newest first. The header names the count, the store's footprint,
+ * and the directory once; `now` is injectable so the age can be asserted.
+ */
+export function formatPlanIndex(summaries: readonly PlanSummary[], dir: string, now: number = Date.now()): string {
 	const where = sanitizeLine(shortenPath(dir));
 	if (summaries.length === 0) {
 		return `No plans in ${where} yet; write_plan saves one there.`;
@@ -69,7 +92,7 @@ export function formatPlanIndex(summaries: readonly PlanSummary[], dir: string):
 		(summary) =>
 			`  ${sanitizeLine(summary.title)} — ${stepsText(summary)} — ${localTime(summary.modified)} — ${sanitizeLine(summary.relativePath)}`,
 	);
-	return [`Plans (${summaries.length}) — ${where}`, ...lines].join("\n");
+	return [`Plans (${summaries.length}) — ${footprintText(summaries, now)} — ${where}`, ...lines].join("\n");
 }
 
 export interface PlanIndexOptions {
@@ -185,7 +208,8 @@ export class PlanIndexComponent implements Component {
 	private summaryLine(width: number): string {
 		const { theme } = this.options;
 		const count = this.summaries.length;
-		const text = `${paint(theme, "accent", "Plans")} ${paint(theme, "meta", `· ${count} ${count === 1 ? "plan" : "plans"}`)}`;
+		const size = footprintText(this.summaries, (this.options.now ?? Date.now)());
+		const text = `${paint(theme, "accent", "Plans")} ${paint(theme, "meta", `· ${count} ${count === 1 ? "plan" : "plans"} · ${size}`)}`;
 		const where = paint(theme, "faint", ` · ${sanitizeLine(shortenPath(this.options.dir))}`);
 		return clip(`  ${text}${where}`, width);
 	}

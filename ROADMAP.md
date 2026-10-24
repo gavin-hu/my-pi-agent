@@ -78,7 +78,7 @@ screenshots.
 
 | README promise | Today | Open items |
 |---|---|---|
-| Plan, then execute | Strong; one plan store per repository, a split at approval that its owners are held to, and a review that follows its file | P1 |
+| Plan, then execute | Strong; one plan store per repository, a split at approval that its owners are held to, and a review that follows its file | — |
 | Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
@@ -175,8 +175,8 @@ item went the same way: both modules it named have a second consumer inside
   network changes its link. A review holds at most eight links, and a reviewer's
   name is a label on a bearer link rather than an account (`plan` page).
 - The plans directory is the only index: `/plan list` walks it on demand, there
-  is no cross-repository history, and nothing reports how large a repository's
-  store has grown (`P1`).
+  is no cross-repository history, and its header reports the footprint of this
+  repository's store.
 - Approval caps a plan at 50 top-level steps, and a step over 200 characters is
   shortened in the todo list and the approval listing; the plan file keeps the
   full text.
@@ -201,15 +201,12 @@ together, so approval and claiming read one list and cannot disagree.
 
 **Next**
 
-Nothing here is queued either; the next work in this area is `P1`, the plan
-store's own size.
+Nothing here is queued either: the store now reports its own footprint.
 
 **Later**
 
-- **P1 — The plan store says how big it is.** The store moved into the agent
-  directory, so it grows with every repository and nothing reports it. `/plan
-  list` names how many plans the repository holds and how old the oldest is;
-  nothing deletes a plan, because a plan is the user's record of an approval.
+Nothing here is queued: the directory stays the only index, and there is no
+cross-repository history to build.
 
 ## 2. Keep your work safe
 
@@ -445,7 +442,7 @@ it. A limitation an item owns is named in that section instead, never here.
 | `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S1`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file. Revisit if an approval surface must show a full step. |
-| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. `P1` reports a store's size without becoming one. |
+| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. The store reports its own size, in its header, without becoming one. |
 | `plan`: a shared review reaches one network, one address, and at most eight links | A tunnel, relay, or hosted review service is a product to operate, not a page to serve; the non-goal names it. Revisit with a hosted deployment. |
 | `plan`: a reviewer's name is a label bound to a link, not an account | The owner still makes the only decision, so an account would add identity without adding a decision. Revisit if reviewers must be authenticated across restarts. |
 | `plan`: the browser cannot approve a split | The `## Team` section is written at approval, so it has no source lines for a comment to anchor to. Revisit if a split is ever authored inside the page. |

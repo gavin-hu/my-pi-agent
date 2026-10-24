@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: `/plan list` says how big the plan store is. Its header now carries the
+  bytes this repository's plans hold and how old the oldest one is —
+  `Plans (7) — 24.8 kB — oldest 3mo ago — …` — in both the notice and the docked
+  screen, derived from the directory walk that just happened rather than from a
+  second index, so reporting a size cannot drift from the files. Nothing deletes a
+  plan: the store reports its footprint, it does not manage it. The byte formatter
+  this needs moved from `file-browse` to `lib/format.ts`, where the two readers
+  share one body.
 - `wechat`: `send_wechat` sends one local image beside its text, and it arrives on the
   phone as a picture rather than a document attachment. The upload is now one body
   for both shapes — file and image differ in the media type (3 vs 1) and the item
@@ -78,6 +86,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the `/context` screen is captured like every other screen — it joins
+  `SCREENS`, so the suite renders it at three widths — and the guide embeds the
+  image in place of the pasted report, which no longer had to stand in for one.
 - `docs`: `assets/chrome.png` is drawn from a fixture like every other asset
   instead of a live `pi -e .` turn, so a recapture is byte-identical for the same
   code and the frame names no machine's model or spend. The `chrome` frame joins
@@ -277,6 +288,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/memory reload`. A filesystem whose own stamp is no finer than the last one read
   keeps the documented caveat — reload is still the way in there — because the
   alternative is reading the file on every run.
+- `context`: the largest-messages rows pad the role column to twelve cells, so
+  "tool result" — the longest role — no longer runs into its label as
+  "tool resultread".
 
 ## [0.18.0] - 2026-10-24
 

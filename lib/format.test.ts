@@ -10,6 +10,7 @@ import {
 	boundedTail,
 	formatCount,
 	formatDuration,
+	formatSize,
 	formatToolCount,
 	formatTokens,
 	lineOf,
@@ -70,6 +71,15 @@ describe("formatDuration", () => {
 	test("never prints NaN for a missing duration", () => {
 		expect(formatDuration(Number.NaN)).toBe("0ms");
 		expect(formatDuration(-1)).toBe("0ms");
+	});
+});
+
+describe("formatSize", () => {
+	test("formats byte sizes compactly", () => {
+		expect(formatSize(0)).toBe("0 B");
+		expect(formatSize(68)).toBe("68 B");
+		expect(formatSize(12_400)).toBe("12 kB");
+		expect(formatSize(5 * 1024 * 1024)).toBe("5.0 MB");
 	});
 });
 

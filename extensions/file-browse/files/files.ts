@@ -166,19 +166,6 @@ export function isProbablyText(sample: Buffer): boolean {
 	return suspicious / sample.length < 0.3;
 }
 
-/** Compact byte size: `68 B`, `12.4 kB`, `1.5 MB`. */
-export function formatSize(bytes: number): string {
-	if (bytes < 1024) return `${bytes} B`;
-	const units = ["kB", "MB", "GB", "TB"];
-	let value = bytes;
-	let index = -1;
-	do {
-		value /= 1024;
-		index++;
-	} while (value >= 1024 && index < units.length - 1);
-	return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[index]}`;
-}
-
 /** MIME type for a name; text is always served as plain text. */
 export function contentTypeFor(name: string): string {
 	const ext = extname(name).slice(1).toLowerCase();
