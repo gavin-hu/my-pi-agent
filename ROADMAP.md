@@ -32,11 +32,15 @@ surface arrives with its limitation written in the same breath.
 - The last tag is `0.18.0`, and it shipped the body the previous review listed
   as pending: `session-bus` with its live board and slice joining, plans split
   into a team at approval, reviewer links that follow the plan file live, and the
-  browse page's `path:line` reference copy. The window since then adds outbound
-  images, two peers' turns at once, and the notice a close sends when it abandons
-  a turn; moves every extension doc to `docs/extensions/`, capabilities first;
-  and adds the `refactor` and `project-docs` skills, with the changelog's
-  `scripts/state.ts` moved under the latter. `docs/architecture.md` now states the
+  browse page's `path:line` reference copy. The window since then closes three
+  gaps this file listed: one loopback server lifecycle in `lib/http/`, so no
+  served page owns a socket of its own; a split's shared files refused at claiming
+  time as well as at approval; and a memory store that notices a same-size edit
+  inside a millisecond. It adds outbound images, two peers' turns at once, and the
+  notice a close sends when it abandons a turn; moves every extension doc to
+  `docs/extensions/`, capabilities first; fits the browse page to a phone; and adds
+  the `refactor` and `project-docs` skills, with the changelog's `scripts/state.ts`
+  moved under the latter. `docs/architecture.md` now states the
   target architecture rather than a snapshot, and `AGENTS.md` names its four rules,
   the fourth enforced by review alone.
 
