@@ -2,11 +2,13 @@
  * Model-facing registration for the `send_wechat` tool.
  *
  * The bridge replies to inbound messages automatically; this tool is for the
- * agent to message the owner proactively. It is deliberately owner-only and
- * text-only: the model cannot choose a recipient, so untrusted generated text
- * cannot be aimed at an arbitrary WeChat account.
+ * agent to message the owner proactively. It is deliberately owner-only: the
+ * model cannot choose a recipient, so untrusted generated text cannot be aimed at
+ * an arbitrary WeChat account. It carries one text or one local image, and an
+ * image arrives as a picture rather than a document.
  */
 
+import { basename } from "node:path";
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
@@ -19,11 +21,20 @@ import type { Bridge } from "./bridge.ts";
 export const TOOL_NAME = "send_wechat";
 
 const WechatSendParams = Type.Object({
-	text: Type.String({
-		minLength: 1,
-		maxLength: 4000,
-		description: "The message to send to the WeChat owner. Plain text.",
-	}),
+	text: Type.Optional(
+		Type.String({
+			minLength: 1,
+			maxLength: 4000,
+			description: "The message to send to the WeChat owner. Plain text.",
+		}),
+	),
+	image: Type.Optional(
+		Type.String({
+			minLength: 1,
+			maxLength: 4096,
+			description: "Path to a local image to send instead, as a picture. One of text or image.",
+		}),
+	),
 });
 type WechatSendArgs = Static<typeof WechatSendParams>;
 
@@ -49,12 +60,13 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 		name: TOOL_NAME,
 		label: "WeChat send",
 		description: [
-			"Send a plain-text WeChat message to the account owner from the running bridge (start it with /wechat login).",
+			"Send a WeChat message — plain text, or one local image as a picture — to the account owner from the running bridge (start it with /wechat login).",
 			"The recipient is always the owner and cannot be chosen.",
 		].join(" "),
-		promptSnippet: "Send a plain-text WeChat message to the account owner.",
+		promptSnippet: "Send a WeChat text or image to the account owner.",
 		promptGuidelines: [
 			"Use send_wechat only to message the owner proactively, not to answer an inbound WeChat message (the bridge replies automatically).",
+			"Give one of text or image: a plot or screenshot goes as a path, not described in words.",
 			"Keep messages concise and do not include secrets unless the user asked for them.",
 		],
 		parameters: WechatSendParams,
@@ -64,16 +76,21 @@ export function registerTools(pi: ExtensionAPI, deps: ToolDeps): void {
 
 		async execute(_toolCallId, params) {
 			const args = params as WechatSendArgs;
+			if ((args.text === undefined) === (args.image === undefined)) {
+				return sendResult(false, "Give exactly one of text or image.");
+			}
 			const bridge = deps.getBridge();
 			if (!bridge) {
 				return sendResult(false, "WeChat bridge is not started. Run /wechat login first.");
 			}
-			const outcome = await bridge.sendToOwner(args.text);
+			const outcome = await bridge.sendToOwner(args.text, args.image);
 			return sendResult(outcome.ok, outcome.error);
 		},
 
 		renderCall(args, theme, context) {
-			const body = (args as { text?: unknown }).text;
+			const { text, image } = args as { text?: unknown; image?: unknown };
+			// An image is named by its file, so a call line never carries a whole path.
+			const body = typeof image === "string" ? basename(image) : text;
 			const label = context.argsComplete && typeof body === "string" ? body : "…";
 			return callLine(theme, context.lastComponent, TOOL_NAME, label);
 		},

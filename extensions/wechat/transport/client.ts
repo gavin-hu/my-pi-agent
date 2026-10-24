@@ -324,6 +324,30 @@ export class WechatClient {
 		};
 	}
 
+	/** `POST /ilink/bot/sendmessage` — send one image. */
+	async sendImageMessage(
+		account: BotCredentials,
+		args: { to: string; media: CDNMedia; midSize: number; aeskey: string; contextToken?: string },
+		signal?: AbortSignal,
+	): Promise<SendResponse> {
+		const url = `${account.baseUrl}/ilink/bot/sendmessage`;
+		const msg: Record<string, unknown> = {
+			from_user_id: "",
+			to_user_id: args.to,
+			client_id: randomUUID(),
+			message_type: 2,
+			message_state: 2,
+			item_list: [{ type: 2, image_item: { media: args.media, mid_size: args.midSize, aeskey: args.aeskey } }],
+		};
+		if (args.contextToken) msg.context_token = args.contextToken;
+		const data = await this.post(url, this.authHeaders(account), { msg, base_info: this.baseInfo() }, signal);
+		return {
+			ret: asNumber(data.ret),
+			errcode: asNumber(data.errcode),
+			errmsg: asString(data.errmsg),
+		};
+	}
+
 	/** `POST /ilink/bot/getconfig` — the per-user typing ticket. */
 	async getConfig(
 		account: BotCredentials,

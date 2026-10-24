@@ -1,5 +1,5 @@
 /**
- * The `send_wechat` tool: owner-only proactive text from a running bridge.
+ * The `send_wechat` tool: owner-only proactive text or one image.
  *
  * The bridge is a double, so the tool's contract is exercised without a poller:
  * what it accepts, what it reports on success and failure, and what it renders.
@@ -10,10 +10,10 @@ import { fakeTheme, createFakePi } from "../../test/helpers/fakes.ts";
 import type { Bridge, SendResult } from "./bridge.ts";
 import { registerTools, TOOL_NAME } from "./tools.ts";
 
-function stubBridge(outcome: SendResult, calls: string[] = []): Bridge {
+function stubBridge(outcome: SendResult, calls: Array<{ text?: string; image?: string }> = []): Bridge {
 	return {
-		async sendToOwner(text: string): Promise<SendResult> {
-			calls.push(text);
+		async sendToOwner(text: string | undefined, image?: string): Promise<SendResult> {
+			calls.push({ text, image });
 			return outcome;
 		},
 	} as unknown as Bridge;
@@ -28,24 +28,44 @@ function toolFor(getBridge: () => Bridge | undefined) {
 }
 
 describe("send_wechat registration", () => {
-	test("registers the owner-only text tool", () => {
+	test("registers the owner-only tool with one text and one image", () => {
 		const tool = toolFor(() => undefined);
 		expect(tool.name).toBe(TOOL_NAME);
 		expect(tool.executionMode).toBe("sequential");
 		expect(tool.annotations).toMatchObject({ readOnlyHint: false, openWorldHint: true });
 		// The model cannot choose a recipient: the owner is the only target.
-		expect(Object.keys(tool.parameters.properties)).toEqual(["text"]);
+		expect(Object.keys(tool.parameters.properties)).toEqual(["text", "image"]);
+		expect(tool.parameters.required ?? []).toEqual([]);
 	});
 });
 
 describe("send_wechat execution", () => {
 	test("sends the text to the bridge and reports success", async () => {
-		const calls: string[] = [];
+		const calls: Array<{ text?: string; image?: string }> = [];
 		const tool = toolFor(() => stubBridge({ ok: true }, calls));
 		const result = await tool.execute("id", { text: "hello" });
-		expect(calls).toEqual(["hello"]);
+		expect(calls).toEqual([{ text: "hello", image: undefined }]);
 		expect(result.details).toEqual({ sent: true });
 		expect(result.isError).toBeUndefined();
+	});
+
+	test("sends one image path to the bridge", async () => {
+		const calls: Array<{ text?: string; image?: string }> = [];
+		const tool = toolFor(() => stubBridge({ ok: true }, calls));
+		const result = await tool.execute("id", { image: "build/timing.png" });
+		expect(calls).toEqual([{ text: undefined, image: "build/timing.png" }]);
+		expect(result.details).toEqual({ sent: true });
+	});
+
+	test("refuses neither or both of text and image", async () => {
+		const calls: Array<{ text?: string; image?: string }> = [];
+		const tool = toolFor(() => stubBridge({ ok: true }, calls));
+		const empty = await tool.execute("id", {});
+		const both = await tool.execute("id", { text: "hello", image: "build/timing.png" });
+		expect(empty.isError).toBe(true);
+		expect(both.isError).toBe(true);
+		expect(empty.details.error).toContain("exactly one of text or image");
+		expect(calls).toEqual([]);
 	});
 
 	test("errors when the bridge is not started", async () => {

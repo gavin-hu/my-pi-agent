@@ -156,9 +156,11 @@ is answered as cancelled; the peer turn still runs.
 ## Sending you a message
 
 The assistant can message the account owner proactively with `send_wechat` — for
-example to report a long job. It only ever sends to you, never to an admitted
-peer. It refuses while a turn with you is in flight, so an answer cannot arrive
-twice.
+example to report a long job, or to send a plot or screenshot as a picture. It
+only ever sends to you, never to an admitted peer, and it takes one text or one
+local image. Its text is refused while a turn with you is in flight, so an answer
+cannot arrive twice; an image is allowed then, because the bridge never produces
+one.
 
 ## Security and limits
 

@@ -1060,6 +1060,63 @@ describe("bridge sendToOwner", () => {
 		await bridge.close();
 	});
 
+	test("sends one image to the owner as a picture", async () => {
+		const { client, sentImages } = controllableClient();
+		const { deps } = makeDeps(client, {
+			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+
+		const path = join(tempDir("wechat-bridge-image-"), "plot.png");
+		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]));
+		expect(await bridge.sendToOwner(undefined, path)).toEqual({ ok: true });
+		// An image item carries the padded size and the key, and no file name.
+		expect(sentImages[0]).toMatchObject({ to: owner, contextToken: "ctx" });
+		expect(sentImages[0]?.midSize).toBeGreaterThan(0);
+		await bridge.close();
+	});
+
+	test("sends an image while the owner's turn runs, though text is refused", async () => {
+		const { client, sentImages } = controllableClient();
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		const path = join(tempDir("wechat-bridge-image-"), "plot.png");
+		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]));
+		// The bridge cannot produce an image, so an image cannot duplicate the answer.
+		expect(await bridge.sendToOwner(undefined, path)).toEqual({ ok: true });
+		expect(sentImages).toHaveLength(1);
+		expect(await bridge.sendToOwner("hi back")).toMatchObject({ ok: false });
+		await bridge.close();
+	});
+
+	test("reports an image the owner cannot receive, once", async () => {
+		const notifications: string[] = [];
+		const { client } = controllableClient();
+		const failing = {
+			...client,
+			sendImageMessage: async () => {
+				throw new Error("network down");
+			},
+		} as unknown as WechatClient;
+		const { deps } = makeDeps(failing, {
+			notify: (message) => notifications.push(message),
+			loadState: () => ({ cursor: "", peers: { [owner]: { lastContextToken: "ctx", lastSeen: 0 } } }),
+		});
+		const bridge = createBridge(deps);
+		bridge.open();
+
+		const path = join(tempDir("wechat-bridge-image-"), "plot.png");
+		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]));
+		const result = await bridge.sendToOwner(undefined, path);
+		expect(result.ok).toBe(false);
+		expect(notifications.filter((message) => message.includes("image delivery failed"))).toHaveLength(1);
+		await bridge.close();
+	});
+
 	test("still messages the owner while another peer's turn runs", async () => {
 		const other = "friend@im.wechat";
 		const { client, sent } = makeClient([updates([inbound("hi", other)])]);

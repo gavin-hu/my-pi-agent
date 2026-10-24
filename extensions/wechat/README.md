@@ -38,9 +38,10 @@ How the `send_wechat` call and its result look in the transcript — the call li
   whichever comes first, so a long answer is not one long silence. Text is plain
   chat text (Markdown fences, headings, and emphasis markers are flattened), and
   a single part longer than `maxReplyChars` still arrives in numbered parts. The
-  owner-only `send_wechat` tool lets the model message the owner proactively; it
-  is refused while a turn with that peer is in flight, so the answer cannot
-  arrive twice.
+  owner-only `send_wechat` tool lets the model message the owner proactively —
+  one text, or one local image as a picture — and its text half is refused while a
+  turn with that peer is in flight, so the answer cannot arrive twice. An image is
+  never produced by the bridge, so it is allowed mid-turn.
 - **Typing indicator** — the native typing status is set as soon as a message is
   queued and refreshed for as long as the turn runs (`typingIndicator`, on by
   default), so the phone can tell a long turn from a dead bridge.
@@ -179,6 +180,7 @@ needs. Per action:
 | Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在排队，轮到就回你。` / “Got it — queued; I’ll answer when it’s my turn.”; a turn still running at 30 seconds adds one `还在处理这条，发送 /stop 可取消。` / “Still working — send /stop to cancel.”, so the way out is named when it is wanted. |
 | Sends while another peer's turn runs | Both conversations are answered in parallel, each with its own typing indicator and its own place in a dialog. |
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
+| Is sent an image by the bot | A picture in the chat, from `send_wechat` with a local path, not a document attachment. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
 | Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and numbered (`[1/3] …`) only when a single part exceeds `maxReplyChars`. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
@@ -404,8 +406,9 @@ never touches the stored cursor.
   handled only through the server-provided transcript. Both are answered with a
   one-line notice rather than being dropped silently, and a voice note the
   server gave no transcript for is treated the same way.
-- Outbound **files** are supported (used by the plan review); outbound images,
-  video, and voice are not, and `send_wechat` sends text only.
+- Outbound **files** are supported (used by the plan review), and so are
+  **images**, which `send_wechat` sends as a picture when given a local path whose
+  bytes sniff as one. Outbound video and voice are not supported.
 - Remote prompts cover the standard dialogs (`select`/`confirm`/`input`/`editor`).
   A full-screen `ctx.ui.custom` component cannot be answered over WeChat: a peer
   session's UI context refuses it, exactly like RPC mode.
@@ -419,16 +422,16 @@ never touches the stored cursor.
 
 ## Non-goals
 
-Outbound image/video/voice media, video, model-callable sends to arbitrary
-recipients, group chats, a local quote cache, and a long-lived RPC child (peer
-sessions are in-process).
+Outbound video or voice, model-callable sends to arbitrary recipients, group
+chats, a local quote cache, and a long-lived RPC child (peer sessions are
+in-process).
 
 ## Pi integration
 
 | Integration point | Detail |
 |---|---|
 | Command | `pi.registerCommand("wechat", …)` — `login`, `new`, `status`, `pause`, `resume`, `doctor`, `stop <peer>`, `reset <peer>`, `history <peer> [n]`, `allow [peer]`, `logout`, `help`; bare `/wechat` opens the control screen. |
-| Tools | `send_wechat` — owner-only proactive text; registered at factory time with direct exposure (the default), `executionMode: "sequential"`, `openWorldHint: true`. |
+| Tools | `send_wechat` — one text or one local image, to the owner only; registered at factory time with direct exposure (the default), `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
 | Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, one idle sweep per session, and the one notice an abandoning close sends per peer. `PEER_CONCURRENCY` is 2, and `dialog/channels.ts` gives each running peer its own channel, so a forwarded dialog has one owner without serializing the bridge. |
@@ -511,17 +514,17 @@ status, which is what the old start/stop guidance used to do.
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge, open peer sessions from the host context. |
 | `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle, slash dispatch, the status snapshot, and `sendToOwner`. |
-| `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
+| `tools.ts` | The `send_wechat` tool: owner-only proactive text or one image, with the neither-or-both refusal. |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `types.ts` | Wire and domain types. |
 | `errors.ts` | Re-exports `messageOf` from `lib/errors.ts`, the one error-to-line helper every notice and tool error uses. |
 | `timer.ts` | The timer seam: the cancellable one-shot `ArmTimer`, `defaultTimer`, and the abortable `defaultSleep`. |
-| `transport/client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
+| `transport/client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file and image sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
 | `transport/poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence, and the expiry stop. |
-| `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
-| `transport/outbound.ts` | Upload and send a local file: hash, encrypt, `getUploadUrl`, upload, `sendFileMessage`. |
+| `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file and image delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
+| `transport/outbound.ts` | Upload and send local media: one hash/encrypt/`getUploadUrl`/upload body, then a file item or an image item, and an image must sniff as one. |
 | `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
-| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
+| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), filename sanitize, and save helpers. |
 | `state/state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids). |
 | `state/credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
 | `state/lock.ts` | Poller lockfile. |

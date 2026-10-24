@@ -84,7 +84,7 @@ export function createInboundAdmission(deps: InboundDeps): InboundAdmission {
 					images.push({
 						type: "image",
 						data: Buffer.from(plain).toString("base64"),
-						mimeType: sniffImageMime(plain),
+						mimeType: sniffImageMime(plain) ?? "image/jpeg",
 					});
 				}
 			} catch (error) {
