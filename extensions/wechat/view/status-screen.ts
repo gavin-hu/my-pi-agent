@@ -48,8 +48,8 @@ export interface StatusView {
 	refusedPeers: string[];
 	mediaDropped: number;
 	promptPending: boolean;
-	/** The waiting prompt's peer, title, and start time. */
-	prompt?: { peer: string; title: string; startedAt: number };
+	/** Every waiting prompt, one per peer that was asked something. */
+	prompts: Array<{ peer: string; title: string; startedAt: number }>;
 	/** The clock the view was built with, for the prompt age. */
 	now?: number;
 }
@@ -96,13 +96,11 @@ export function statusView(
 		refusedPeers: status?.refusedPeers ?? [],
 		mediaDropped: status?.mediaDropped ?? 0,
 		promptPending: status?.promptPending ?? false,
-		prompt: status?.prompt
-			? {
-					peer: sanitizeLine(peerLabel(status.prompt.peer)),
-					title: sanitizeLine(status.prompt.title),
-					startedAt: status.prompt.startedAt,
-				}
-			: undefined,
+		prompts: (status?.prompts ?? []).map((prompt) => ({
+			peer: sanitizeLine(peerLabel(prompt.peer)),
+			title: sanitizeLine(prompt.title),
+			startedAt: prompt.startedAt,
+		})),
 		now,
 	};
 }
@@ -186,9 +184,12 @@ export function statusBody(view: StatusView, theme: Theme, width: number, select
 		lines.push(row(theme, target, "Queued", String(view.queued), "meta"));
 		if (view.refused > 0) lines.push(row(theme, target, "Refused", refusedValue(view), "meta"));
 		if (view.mediaDropped > 0) lines.push(row(theme, target, "Media", `${view.mediaDropped} dropped`, "meta"));
-		if (view.prompt) {
-			const age = formatDuration(Math.max(0, (view.now ?? Date.now()) - view.prompt.startedAt));
-			lines.push(row(theme, target, "Prompt", `${view.prompt.peer} · ${view.prompt.title} · ${age}`, "accent"));
+		if (view.prompts.length > 0) {
+			// One line per peer: with two turns running, two prompts can wait at once.
+			for (const prompt of view.prompts) {
+				const age = formatDuration(Math.max(0, (view.now ?? Date.now()) - prompt.startedAt));
+				lines.push(row(theme, target, "Prompt", `${prompt.peer} · ${prompt.title} · ${age}`, "accent"));
+			}
 		} else if (view.promptPending) {
 			lines.push(row(theme, target, "Prompt", "waiting for a reply", "accent"));
 		}
@@ -257,7 +258,8 @@ export interface StatusActions {
 	/** Start a fresh conversation for the peer; returns the line to flash. */
 	reset(peer: string): string;
 	/** Withdraw the waiting prompt; returns the line to flash. */
-	cancelPrompt(): string;
+	/** Withdraw the focused peer's waiting prompt. */
+	cancelPrompt(peer: string): string;
 	/** Pause or resume polling; async because it settles the poll loop first. */
 	togglePause(): string | Promise<string>;
 }
@@ -360,11 +362,14 @@ export class StatusScreenComponent implements Component {
 			return;
 		}
 		if (data === "c" || data === "C") {
-			if (!view.prompt) {
+			// Cancel the focused peer's own prompt: with two turns running, the other
+			// peer's question is not this operator's to withdraw.
+			const waiting = peer ? view.prompts.find((entry) => entry.peer === peer.label) : undefined;
+			if (!peer || !waiting) {
 				this.setFlash("No prompt waiting.");
 				return;
 			}
-			this.setFlash(this.options.actions?.cancelPrompt() ?? "Prompt cancel is unavailable.");
+			this.setFlash(this.options.actions?.cancelPrompt(peer.id ?? peer.label) ?? "Prompt cancel is unavailable.");
 			return;
 		}
 		if (data === "s" || data === "S" || data === "d" || data === "D" || data === "h" || data === "H") {

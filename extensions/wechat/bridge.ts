@@ -25,11 +25,8 @@ import { messageOf } from "./errors.ts";
 import { parseInbound, peerKey, peerLabel, peerLanguage, sanitizeInbound, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
 import { createPresence } from "./peer/presence.ts";
-import {
-	createWechatInteractionChannel,
-	type PendingPromptInfo,
-	type WechatInteractionChannel,
-} from "./dialog/interaction.ts";
+import { createPeerChannels, type PeerChannels } from "./dialog/channels.ts";
+import type { PendingPromptInfo, WechatInteractionChannel } from "./dialog/interaction.ts";
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
 import { createPeerWorker, type PeerState, type PeerWorker } from "./peer/peer-worker.ts";
 import type { PeerSession } from "./peer/peer-session.ts";
@@ -120,10 +117,10 @@ export interface BridgeStatus {
 	/** Labels of the senders refused since the bridge opened, newest last, capped. */
 	refusedPeers: string[];
 	mediaDropped: number;
-	/** Whether a remote dialog prompt is waiting for an answer. */
+	/** Whether any peer's dialogs prompt is waiting for an answer. */
 	promptPending: boolean;
-	/** The waiting prompt's peer, kind, title, and age. */
-	prompt?: PendingPromptInfo;
+	/** Every waiting prompt, one per peer, with its kind, title, and age. */
+	prompts: PendingPromptInfo[];
 	/** When this connection opened. */
 	startedAt?: number;
 	/** When the last poll settled, successful or not. */
@@ -160,8 +157,8 @@ export interface Bridge {
 	/** What one peer's conversation is doing, for `/status`. */
 	peerState(peer: string): PeerState;
 	status(): BridgeStatus;
-	/** The remote interaction channel the peer sessions route their dialogs through. */
-	channel(): WechatInteractionChannel;
+	/** One peer's interaction channel: the channel its session routes its dialogs through. */
+	channel(peer: string): WechatInteractionChannel;
 	/** Message the owner proactively. Owner-only and text-only by design. */
 	sendToOwner(text: string): Promise<SendResult>;
 }
@@ -264,8 +261,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				stop: () => worker?.abort(target.peer) ?? false,
 				status: () => {
 					const current = worker?.state(target.peer) ?? { status: "idle" as const, queued: 0 };
-					const waiting = interaction.pendingInfo();
-					return waiting?.peer === target.peer ? { ...current, prompt: waiting.title } : current;
+					const waiting = channels.pendingFor(target.peer);
+					return waiting ? { ...current, prompt: waiting.title } : current;
 				},
 				history: (count) => deps.readHistory(target.peer, count),
 			},
@@ -279,31 +276,27 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/**
-	 * Send a prompt to the peer owning the in-flight turn.
+	 * Every peer's dialogs, one channel each.
 	 *
-	 * A failure is reported on the terminal once per peer by the deliverer; a silent
-	 * failure would leave the peer with only the choices, as if nothing preceded
-	 * them.
+	 * A prompt is sent through the peer's channel to the turn it belongs to, so a
+	 * reply can only answer its own peer's question even when two turns run at once.
+	 * A failure is reported once per peer by the deliverer; a silent failure would
+	 * leave the peer with only the choices, as if nothing preceded them.
 	 */
-	async function sendPrompt(text: string, signal?: AbortSignal, options?: { force?: boolean }): Promise<boolean> {
-		const current = worker?.current();
-		if (!current) return false;
-		// The model may have produced text before this prompt; put it on the wire first.
-		await worker?.flush(current.peer);
-		if (!options?.force && !interaction.hasPending()) return false;
-		return deliverer.prompt(current, text, signal ?? abort?.signal);
-	}
-	async function sendFileToPeer(filePath: string, fileName: string, signal?: AbortSignal): Promise<boolean> {
-		const current = worker?.current();
-		if (!current) return false;
-		await worker?.flush(current.peer);
-		return deliverer.file(current, filePath, fileName, signal ?? abort?.signal);
-	}
-	const interaction = createWechatInteractionChannel({
-		send: (text, signal, options) => sendPrompt(text, signal, options),
-		sendFile: (path, name, signal) => sendFileToPeer(path, name, signal),
-		activePeer: () => worker?.current()?.peer,
-		language: () => languageOf(worker?.current()?.peer ?? ""),
+	const channels: PeerChannels = createPeerChannels({
+		flush: async (peer) => {
+			await worker?.flush(peer);
+		},
+		send: (peer, text, signal) => {
+			const item = worker?.running(peer);
+			return item ? deliverer.prompt(item, text, signal ?? abort?.signal) : Promise.resolve(false);
+		},
+		sendFile: (peer, filePath, fileName, signal) => {
+			const item = worker?.running(peer);
+			return item ? deliverer.file(item, filePath, fileName, signal ?? abort?.signal) : Promise.resolve(false);
+		},
+		active: (peer) => worker?.state(peer).status === "running",
+		language: (peer) => languageOf(peer),
 		armTimer: deps.armTimer,
 	});
 
@@ -332,7 +325,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		statusOf: peerStatus,
 		languageOf,
 		send: (peer, contextToken, text) => reply({ peer, contextToken }, text),
-		promptPending: () => interaction.hasPending(),
+		promptPending: (peer) => channels.hasPending(peer),
 	});
 
 	/** Inbound media resolution and the hand-off to a peer session. */
@@ -410,7 +403,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		}
 		// A reply to a pending prompt is consumed here, before queueing, so it never
 		// starts a turn of its own. A duplicate answer was stopped by the id check.
-		if (interaction.handleInbound(peer, text)) return;
+		if (channels.handleInbound(peer, text)) return;
 		const language = languageOf(peer, text);
 		const item: InboundItem = { ...target, text, media, language };
 		if (!text && media.length === 0) {
@@ -477,7 +470,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		overflow.clear();
 		refused = 0;
 		refusedPeers.clear();
-		interaction.reset();
+		channels.reset();
 		deliverer.reset();
 		presence.reset();
 		budget.reset();
@@ -552,7 +545,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			// a login (or a reconnect after an expiry) starts from a clean slate while
 			// each peer's history stays on disk.
 			worker = createPeerWorker({
-				openSession: (peer, options) => deps.openSession(peer, { fresh: options.fresh, channel: interaction }),
+				openSession: (peer, options) => deps.openSession(peer, { fresh: options.fresh, channel: channels.for(peer) }),
 				// Each part is delivered as its own bubble; the worker puts the
 				// attachment line on the first one. A false result stops the stream.
 				send: (item, text, options) => reply(item, text, options?.signal),
@@ -618,7 +611,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// not be cancelled by the poll abort that follows.
 				const stopping = abort;
 				abort = undefined;
-				if (interaction.hasPending()) await interaction.cancel();
+				await channels.cancelAll();
 				stopping?.abort();
 				try {
 					await loopPromise;
@@ -682,8 +675,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				refused,
 				refusedPeers: [...refusedPeers],
 				mediaDropped: inbound.dropped(),
-				promptPending: interaction.hasPending(),
-				prompt: interaction.pendingInfo(),
+				promptPending: channels.hasPending(),
+				prompts: channels.prompts(),
 				startedAt,
 				lastPollAt,
 				lastPollError,
@@ -694,15 +687,14 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			};
 		},
 
-		channel(): WechatInteractionChannel {
-			return interaction;
+		channel(peer: string): WechatInteractionChannel {
+			return channels.for(peer);
 		},
 
 		async sendToOwner(text: string): Promise<SendResult> {
 			if (!running || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
 			const owner = state.ownerId ?? account.ilinkUserId;
-			const current = worker?.current();
-			if (current && peerKey(current.peer) === peerKey(owner)) {
+			if (worker?.state(owner).status === "running") {
 				// The bridge answers this turn itself, so a tool send would land twice.
 				return {
 					ok: false,

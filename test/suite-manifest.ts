@@ -44,6 +44,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"extension",
 		"transport/client",
 		"commands/commands",
+		"dialog/channels",
 		"peer/peer",
 		"view/status",
 	],

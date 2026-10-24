@@ -1,11 +1,13 @@
 /**
  * The WeChat implementation of {@link InteractionChannel}: it forwards a dialog
- * prompt to the peer that owns the current turn and resolves when that peer
- * replies.
+ * prompt to one peer and resolves when that peer replies.
  *
- * It depends only on injected `send`/`sendFile`/`activePeer` accessors and a
- * timer seam, never on the bridge or HTTP client, so it is unit-tested without
- * I/O. The bridge owns the poll loop and hands each inbound message to
+ * One channel serves one peer. That is what lets two peers' turns run at once
+ * without a dialog becoming ambiguous: the channel knows who it is asking, so a
+ * reply can only answer its own peer's prompt. It depends only on injected
+ * `send`/`sendFile`/`active` accessors and a timer seam, never on the bridge or
+ * HTTP client, so it is unit-tested without I/O. The bridge owns the poll loop,
+ * keeps one channel per peer (`channels.ts`), and hands each inbound message to
  * {@link WechatInteractionChannel.handleInbound}.
  *
  * A prompt is bounded: a peer who never answers cannot hold the session open, so
@@ -28,13 +30,15 @@ import { defaultTimer, type ArmTimer } from "../timer.ts";
 export const PROMPT_TIMEOUT_MS = 180_000;
 
 export interface WechatInteractionDeps {
-	/** Send one text message to the owning peer; `force` bypasses the prompt-active gate. */
+	/** The one peer this channel asks. */
+	peer: string;
+	/** Send one text message to the peer; `force` bypasses the prompt-active gate. */
 	send: (text: string, signal?: AbortSignal, options?: { force?: boolean }) => Promise<boolean>;
-	/** Send a local file to the owning peer; `force` bypasses the prompt-active gate. */
+	/** Send a local file to the peer; `force` bypasses the prompt-active gate. */
 	sendFile: (path: string, name: string, signal?: AbortSignal, options?: { force?: boolean }) => Promise<boolean>;
-	/** The peer that owns the in-flight turn, or undefined when there is none. */
-	activePeer: () => string | undefined;
-	/** The language the owning peer writes in, for the timeout notices. */
+	/** Whether the peer owns a turn right now, so a prompt has somewhere to land. */
+	active: () => boolean;
+	/** The language the peer writes in, for the timeout notices. */
 	language: () => PeerLanguage;
 	/** Arm a cancellable one-shot timer. Defaults to a real, unref'd `setTimeout`. */
 	armTimer?: ArmTimer;
@@ -48,8 +52,8 @@ export interface WechatInteractionChannel extends InteractionChannel {
 	 * previous one when it ends: the optional channel member, made concrete here.
 	 */
 	setPromptTimeout(ms: number): () => void;
-	/** Consume an inbound message as a reply; true when it was one. */
-	handleInbound(peer: string, text: string): boolean;
+	/** Consume an inbound message as a reply to this peer's prompt. */
+	handleInbound(text: string): boolean;
 	/** Whether a prompt is currently waiting for a reply. */
 	hasPending(): boolean;
 	/** The waiting prompt, for the control screen; undefined when none waits. */
@@ -73,7 +77,6 @@ export interface PendingPromptInfo {
 
 interface Pending {
 	request: InteractionRequest;
-	peer: string;
 	startedAt: number;
 	resolve: (answer: InteractionAnswer) => void;
 	signal?: AbortSignal;
@@ -92,11 +95,11 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 	 */
 	let scopedTimeoutMs: number | undefined;
 	/**
-	 * Free text captured from a `select` "Other" reply, per peer: the immediately
-	 * following `input` for that peer returns it. Keyed so one peer's free text can
-	 * never become another peer's answer.
+	 * Free text captured from a `select` "Other" reply: the immediately following
+	 * `input` for this peer returns it. One value, because one channel asks one peer
+	 * — another peer's free text cannot reach this channel at all.
 	 */
-	const other = new Map<string, string>();
+	let other: string | undefined;
 
 	function settle(answer: InteractionAnswer): void {
 		const current = pending;
@@ -110,7 +113,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 
 	return {
 		isActive(): boolean {
-			return deps.activePeer() !== undefined;
+			return deps.active();
 		},
 
 		language(): PeerLanguage {
@@ -126,7 +129,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			return current === undefined
 				? undefined
 				: {
-						peer: current.peer,
+						peer: deps.peer,
 						kind: current.request.kind,
 						title: current.request.title,
 						startedAt: current.startedAt,
@@ -164,27 +167,24 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 		},
 
 		async request(request: InteractionRequest, signal?: AbortSignal): Promise<InteractionAnswer> {
-			// A `select` that resolved to "Other" stashes its text for that peer; the
-			// immediately following `input` from the same peer returns it without
-			// another round-trip.
-			const asking = deps.activePeer();
-			const stashed = asking === undefined ? undefined : other.get(asking);
-			if (request.kind === "input" && asking !== undefined && stashed !== undefined) {
-				other.delete(asking);
+			// A `select` that resolved to "Other" stashes its text; the immediately
+			// following `input` returns it without another round-trip.
+			const stashed = other;
+			if (request.kind === "input" && stashed !== undefined) {
+				other = undefined;
 				return { kind: "value", value: stashed };
 			}
-			if (request.kind !== "input" && asking !== undefined) other.delete(asking);
+			if (request.kind !== "input") other = undefined;
 
 			if (signal?.aborted || !this.isActive()) return { kind: "cancelled" };
 			if (pending) return { kind: "cancelled" };
 
 			// Register the pending prompt before the send await so a fast reply is
 			// never lost to the round-trip, then send and fail closed.
-			const peer = deps.activePeer() as string;
 			const cancelTimers: Array<() => void> = [];
 			const answer = new Promise<InteractionAnswer>((resolve) => {
 				const onAbort = () => settle({ kind: "cancelled" });
-				pending = { request, peer, startedAt: now(), resolve, signal, onAbort, cancelTimers };
+				pending = { request, startedAt: now(), resolve, signal, onAbort, cancelTimers };
 				signal?.addEventListener("abort", onAbort, { once: true });
 				// An ignored question must not freeze the session: nudge once, then
 				// cancel so the model gets a clean answer instead of a hang.
@@ -204,9 +204,9 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 			return await answer;
 		},
 
-		handleInbound(peer: string, text: string): boolean {
+		handleInbound(text: string): boolean {
 			const current = pending;
-			if (!current || current.peer !== peer) return false;
+			if (!current) return false;
 			const parsed = parsePromptAnswer(current.request, text);
 			switch (parsed.kind) {
 				case "retry":
@@ -215,7 +215,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 					});
 					return true;
 				case "other":
-					other.set(peer, parsed.text);
+					other = parsed.text;
 					settle({ kind: "value", value: INTERACTION_OTHER_LABEL });
 					return true;
 				case "value":
@@ -231,7 +231,7 @@ export function createWechatInteractionChannel(deps: WechatInteractionDeps): Wec
 		},
 
 		reset(): void {
-			other.clear();
+			other = undefined;
 			scopedTimeoutMs = undefined;
 			settle({ kind: "cancelled" });
 		},

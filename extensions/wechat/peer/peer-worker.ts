@@ -10,8 +10,9 @@
  *
  * Contract:
  *
- * - One turn at a time per peer, and by default one turn at a time overall
- *   (`concurrency`), so a forwarded dialog always has a single owning peer.
+ * - One turn at a time per peer, and by default two peers' turns at once
+ *   (`PEER_CONCURRENCY`), so each answered peer owns its dialog through its own
+ *   interaction channel. A third peer waits for a slot and is told so.
  * - Every message is its own turn, in arrival order. A message that arrives
  *   while a turn runs waits for its own turn and answer; nothing is merged.
  * - A turn's answer is the text it produced. A requested `/stop` says `stopped`
@@ -64,7 +65,7 @@ export interface PeerWorkerDeps {
 	onSettled?: (item: PeerItem) => void;
 	/** A session or turn failure worth showing on the terminal. */
 	notify?: (message: string, kind?: "info" | "warning" | "error") => void;
-	/** Turns running at once across peers. Default 1, so a dialog has one owner. */
+	/** Turns running at once across peers. Defaults to {@link PEER_CONCURRENCY}. */
 	concurrency?: number;
 	/** Dispose an idle session after this long. `0` disables the idle sweep. */
 	idleTimeoutMs?: number;
@@ -100,8 +101,8 @@ export interface PeerWorker {
 	 * Refused while a turn runs, and the queued messages go with it.
 	 */
 	reset(peer: string): boolean;
-	/** The turn running right now, if any (one with the default concurrency). */
-	current(): PeerItem | undefined;
+	/** The turn running for this peer, if any. */
+	running(peer: string): PeerItem | undefined;
 	/** Flush buffered assistant text for a running peer before a prompt/file. */
 	flush(peer: string): Promise<void>;
 	state(peer: string): PeerState;
@@ -111,6 +112,15 @@ export interface PeerWorker {
 }
 
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+/**
+ * Peers whose turns run at once.
+ *
+ * Two, because a phone chat rarely has more than two conversations in flight and
+ * every concurrent turn is a full model run on the user's budget; the rest wait
+ * in a fair queue and are acknowledged, exactly as a second peer waits today.
+ */
+export const PEER_CONCURRENCY = 2;
 
 /** How long a shutdown waits for its one notice per peer before giving up. */
 const ABANDON_NOTICE_MS = 5000;
@@ -131,7 +141,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	const now = deps.now ?? Date.now;
 	const armTimer = deps.armTimer ?? defaultTimer;
 	const idleTimeoutMs = deps.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
-	const concurrency = Math.max(1, deps.concurrency ?? 1);
+	const concurrency = Math.max(1, deps.concurrency ?? PEER_CONCURRENCY);
 	const peers = new Map<string, PeerEntry>();
 	/** Active reply pipelines, so a dialog can flush buffered text first. */
 	const pipelines = new Map<string, ReplyPipeline>();
@@ -140,7 +150,9 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	/** Peers whose next session must start empty (`/new`). */
 	const fresh = new Set<string>();
 	let running = 0;
-	let currentItem: PeerItem | undefined;
+	/** When each queued item arrived, so the next free slot goes to the oldest wait. */
+	const arrived = new WeakMap<PeerItem, number>();
+	let arrivals = 0;
 	let closed = false;
 
 	function entry(peer: string): PeerEntry {
@@ -295,11 +307,18 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 	}
 
 	/** The next peer with work, so a finished turn can hand its slot on. */
+	/** The next peer with work, oldest queued message first so no peer starves. */
 	function nextRunnable(): [string, PeerEntry] | undefined {
+		let picked: [string, PeerEntry] | undefined;
 		for (const [peer, target] of peers) {
-			if (!target.running && target.queue.length > 0) return [peer, target];
+			if (target.running || target.queue.length === 0) continue;
+			const waiting = target.queue[0];
+			const oldest = picked?.[1].queue[0];
+			if (!picked || (waiting && oldest && (arrived.get(waiting) ?? 0) < (arrived.get(oldest) ?? 0))) {
+				picked = [peer, target];
+			}
 		}
-		return undefined;
+		return picked;
 	}
 
 	/** Start turns until the concurrency limit or the queues are empty. */
@@ -312,7 +331,6 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			target.running = item;
 			target.startedAt = now();
 			running += 1;
-			currentItem = item;
 			cancelIdleSweep(target);
 			deps.onStart?.(item);
 			void (async () => {
@@ -328,7 +346,6 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					target.running = undefined;
 					target.startedAt = undefined;
 					running -= 1;
-					currentItem = undefined;
 					deps.onSettled?.(item);
 					armIdleSweep(target);
 					wake();
@@ -379,6 +396,8 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			if (closed) return;
 			const target = entry(item.peer);
 			// One message, one turn: a queued item is never folded into another.
+			arrivals += 1;
+			arrived.set(item, arrivals);
 			target.queue.push(item);
 			wake();
 		},
@@ -403,8 +422,8 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			return true;
 		},
 
-		current(): PeerItem | undefined {
-			return currentItem;
+		running(peer: string): PeerItem | undefined {
+			return peers.get(peer)?.running;
 		},
 
 		async flush(peer: string): Promise<void> {

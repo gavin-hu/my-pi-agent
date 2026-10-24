@@ -26,8 +26,8 @@ How the `send_wechat` call and its result look in the transcript — the call li
   conversations cannot contaminate each other.
 - **One conversation per peer** — a session per admitted peer, persisted under
   `<agent-dir>/wechat/sessions/<peer>/`, resumed on the next message and disposed
-  after half an hour idle. Turns run one at a time across peers by default, so a
-  forwarded dialog always has a single owner.
+  after half an hour idle. Two peers' turns run at once and each peer's own turns
+  stay serial, so a forwarded dialog has a single owner per conversation.
 - **Inbound media** — images are downloaded, AES-128-ECB decrypted, and attached
   as model image content; files are saved under `<agent-dir>/wechat/media/` and
   referenced by path. Voice uses the transcript the server provides. An
@@ -175,13 +175,14 @@ needs. Per action:
 |---|---|
 | Sends a message | The native typing indicator starts as soon as the message is picked up; the answer is sent when the run settles. |
 | Sends several messages quickly | At most one acknowledgement, then a single answer that covers the burst in order. |
+| Waits behind two running peers | One line after four seconds, then one more at a minute (`前面还有一条正在处理…` / “Your message is queued behind another conversation…”), and the answer when a slot frees. The next free slot goes to whoever has been waiting longest. |
 | Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在排队，轮到就回你。` / “Got it — queued; I’ll answer when it’s my turn.”; a turn still running at 30 seconds adds one `还在处理这条，发送 /stop 可取消。` / “Still working — send /stop to cancel.”, so the way out is named when it is wanted. |
-| Sends while another peer's turn runs | One line after four seconds, then one more at a minute (`前面还有一条正在处理…` / “Your message is queued behind another conversation…”), and the answer when the slot frees. |
+| Sends while another peer's turn runs | Both conversations are answered in parallel, each with its own typing indicator and its own place in a dialog. |
 | Sends a photo or a file | The model reads it; an attachment that could not be read (too large, a failed download, no key) is named in the answer. |
 | Sends a voice note or video | One line: voice without a transcript and video are not supported. |
 | Reads a long answer | Streamed as it is produced — one part per paragraph, per two silent seconds, or per 400 characters — and numbered (`[1/3] …`) only when a single part exceeds `maxReplyChars`. |
 | Reads an answer | Plain chat text — Markdown fences, headings, and emphasis markers are flattened, code-block bodies survive. |
-| Is asked a question | A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at the halfway point of its window and then cancelled: three minutes for a dialog, ten for a plan review, where the plan has to be read first. |
+| Is asked a question | Their own prompt, never another peer's: a reply answers the question their own conversation is blocked on. A numbered prompt; 确定/是/yes or 不是/否/no answers it, 取消 dismisses. Ignored, it is nudged at the halfway point of its window and then cancelled: three minutes for a dialog, ten for a plan review, where the plan has to be read first. |
 | Types `/help`, `/new`, `/stop`, or `/status` | The command list, a fresh conversation, a stopped answer, or the current state — including the dialog a blocked turn is waiting on; `/new` is declined while their run is in flight. A command works while a dialog waits: it is never read as an answer to it. |
 | Types `/history` | The last eight messages of this conversation (or the requested number, up to 20), one line each. |
 | Floods the chat | Past eight queued messages, one line asking to wait rather than an unbounded queue. |
@@ -375,11 +376,12 @@ never touches the stored cursor.
 - An expired bridge or a `/wechat logout` is silence on the phone: the token that
   would carry a notice is the one that expired, so only the terminal chip and
   `/wechat status` say what happened.
-- Turns run one at a time across peers, fixed at one: a second peer's message
-  waits for the first peer's turn. That keeps a forwarded dialog unambiguous
-  (the shared interaction channel has one owner); a peer who is waiting is
-  acknowledged and told why. More concurrency needs a per-peer channel, not a
-  config value.
+- Two peers' turns run at once (`PEER_CONCURRENCY`), not more, and it is not a
+  setting: every extra concurrent turn is a full model run on the user's budget.
+  A third peer's message waits in a fair queue — the oldest wait takes the next
+  free slot, so a talkative peer cannot starve a quiet one — and that peer is
+  acknowledged and told why. A forwarded dialog stays unambiguous because each
+  peer has its own interaction channel.
 - Each peer conversation is a full Pi session: it carries its own context and
   costs its own model tokens, and it loads the package's tools (minus this
   bridge) in the same workspace. The idle sweep disposes a session after 30
@@ -429,7 +431,7 @@ sessions are in-process).
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with direct exposure (the default), `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
-| Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, one idle sweep per session, and the one notice an abandoning close sends per peer. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
+| Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, one idle sweep per session, and the one notice an abandoning close sends per peer. `PEER_CONCURRENCY` is 2, and `dialog/channels.ts` gives each running peer its own channel, so a forwarded dialog has one owner without serializing the bridge. |
 | Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state, `history` → a read-only read of that peer's newest session). |
 | Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer and marking the context for `askHuman`'s file/text preface. The terminal's shared `ctx.ui` is deliberately not adapted: a host turn is never answered remotely, so its dialogs stay local even while a peer turn runs. |
 | Status | The bridge's connection state (`running` / `paused` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, pause keeps a warning chip, and the status bar renders it on line 2. |
@@ -524,7 +526,7 @@ status, which is what the old start/stop guidance used to do.
 | `state/credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
 | `state/lock.ts` | Poller lockfile. |
 | `peer/peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
-| `peer/peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
+| `peer/peer-worker.ts` | Per-peer queue, two peers' turns at once (`PEER_CONCURRENCY`), the fair slot hand-off, prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
 | `peer/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain. |
 | `peer/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `peer/presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
@@ -536,7 +538,8 @@ status, which is what the old start/stop guidance used to do.
 | `text/format.ts` | Sanitize, chunk, and label helpers (text only). |
 | `text/notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
 | `text/channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
-| `dialog/interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
+| `dialog/interaction.ts` | One peer's `InteractionChannel`: pending-prompt state machine, the other-answer stash, and reply routing for that peer. |
+| `dialog/channels.ts` | The per-peer channel registry: one channel each, inbound reply routing, the waiting prompts for the control screen, and cancel-all on a pause. |
 | `dialog/prompt.ts` | Pure prompt formatting and reply parsing. |
 | `dialog/remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
 | `view/login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |

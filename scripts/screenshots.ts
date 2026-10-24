@@ -375,7 +375,8 @@ export const SCREENS: Record<string, Screen> = {
 		asset: "wechat",
 		title: "π - my-pi-agent · /wechat",
 		bounds: { left: 80, top: 80, right: 920, bottom: 400 },
-		size: { width: 100, rows: 16 },
+		// Two peers' prompts can wait at once, so the frame is one row taller.
+		size: { width: 100, rows: 17 },
 		render: (width) =>
 			new StatusScreenComponent({
 				theme,

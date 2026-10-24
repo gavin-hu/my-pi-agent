@@ -27,19 +27,18 @@ export const WECHAT_BRIDGE: BridgeStatus = {
 	queued: 2,
 	peerStates: [
 		{ peer: "alice@im.wechat", state: { status: "running", queued: 0, runningMs: 48_000 } },
-		{ peer: "bob@im.wechat", state: { status: "queued", queued: 2 } },
+		{ peer: "bob@im.wechat", state: { status: "running", queued: 2, runningMs: 12_000 } },
 		{ peer: "carol@im.wechat", state: { status: "idle", queued: 0 } },
 	],
 	refused: 1,
 	refusedPeers: ["stranger@im.wechat"],
 	mediaDropped: 0,
 	promptPending: true,
-	prompt: {
-		peer: "alice@im.wechat",
-		kind: "select",
-		title: "Which migration should run first?",
-		startedAt: now - 90_000,
-	},
+	// Two peers run at once, so two of them can be waiting on a question.
+	prompts: [
+		{ peer: "alice@im.wechat", kind: "select", title: "Which migration should run first?", startedAt: now - 90_000 },
+		{ peer: "bob@im.wechat", kind: "confirm", title: "Continue with the plan?", startedAt: now - 20_000 },
+	],
 	startedAt: now - 3 * 60 * 60_000,
 	lastPollAt: now - 2_000,
 };
