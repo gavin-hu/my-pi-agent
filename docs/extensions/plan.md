@@ -30,7 +30,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
 | Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
 | Parallel slices | `exit_plan_mode` `units`, `plan.split` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
-| Split validation gate | `checkSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens. | Shipped |
+| Split validation gate | `checkSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens — and the same shared list refuses an owner's `claim` once the team is running. | Shipped |
 | Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. | Shipped |
 
 ### Review
@@ -546,7 +546,7 @@ What the gate enforces, and why each rule is a refusal rather than a warning:
 | a `dependsOn` cycle | No unit can start. |
 | more than two owner units | The user switches to every owner each round; three means the split is wrong. |
 | a unit with no test | The unit's definition of done would be undocumented. |
-| an owner unit claiming a shared file | `package.json`, the changelog, the test manifests, and the shared name modules belong to the lead. |
+| an owner unit claiming a shared file | `package.json`, the changelog, the test manifests, and the shared name modules belong to the lead. The same list refuses that owner's `claim` through `session-bus`, so the rule outlives approval. |
 | no unit marked lead | The approving session needs a unit of its own, or it is a queue. |
 
 Refusals name the pair they caught, and a value that would break the `## Team`

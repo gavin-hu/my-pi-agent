@@ -74,8 +74,8 @@ screenshots.
 
 | README promise | Today | Open items |
 |---|---|---|
-| Plan, then execute | Strong; one plan store per repository, a split at approval, and a review that follows its file | P1–P2 |
-| Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | P1 |
+| Plan, then execute | Strong; one plan store per repository, a split at approval that its owners are held to, and a review that follows its file | P1 |
+| Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
 | Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W5 |
@@ -88,12 +88,12 @@ closed by work parked in any horizon.
 
 ## If only two things ship
 
-1. **P1 — A split's shared files stay the lead's after approval.** Approval
-   refuses an owner unit that claims `package.json`; nothing stops that edit once
-   the sessions are running.
-2. **S1 — Memory notices a same-size edit in the same tick.** The store compares
+1. **S1 — Memory notices a same-size edit in the same tick.** The store compares
    a millisecond stamp, so an edit that keeps the size and lands inside one tick
    is invisible until `/memory reload`.
+2. **W1 — Structured fetch.** `web_fetch` hands a JSON, CSV, or XML body back as
+   the raw blob it downloaded, which is a page a reader has to parse in their
+   head.
 
 These are the two `Now` items: the rest of this file can wait for a later
 release, and the changelog, not this list, records what did.
@@ -102,8 +102,8 @@ release, and the changelog, not this list, records what did.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the pack keep what it promised? | `P1` and `S1` ship, each with its test and its page line. |
-| **Next** | Does the daily loop feel finished? | `W1`, `C1`, and `F3` land, or are demoted with the reason recorded. |
+| **Now** | Does the pack keep what it promised? | `S1` and `W1` ship, each with its test and its page line. |
+| **Next** | Does the daily loop feel finished? | `C1` and `F3` land, or are demoted with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -153,9 +153,13 @@ item went the same way: both modules it named have a second consumer inside
 
 **Where the promise is thin**
 
-- A split's shared-file rule is a refusal at approval and nothing else: after
-  `join`, an owner session can still claim or edit `package.json`, the changelog,
-  the test manifests, and the shared name modules (`P1`).
+- A split's shared-file rule is a refusal, twice: approval refuses an owner unit
+  that covers `package.json`, the changelog, the test manifests, or the shared
+  name modules, and `session-bus` refuses that owner's `claim` on one. It is
+  advisory in both places — an owner that edits a shared file without claiming it
+  is stopped by the merge, not by the bus — and the claiming half reads the newest
+  split, so a team a newer plan replaced is unguarded until its sessions join
+  again.
 - A split can be approved only in the terminal review. The browser cannot approve
   one, because the `## Team` section is written at approval and has no source
   lines for a comment to anchor to (`plan` page).
@@ -165,7 +169,7 @@ item went the same way: both modules it named have a second consumer inside
   name is a label on a bearer link rather than an account (`plan` page).
 - The plans directory is the only index: `/plan list` walks it on demand, there
   is no cross-repository history, and nothing reports how large a repository's
-  store has grown (`P2`).
+  store has grown (`P1`).
 - Approval caps a plan at 50 top-level steps, and a step over 200 characters is
   shortened in the todo list and the approval listing; the plan file keeps the
   full text.
@@ -183,24 +187,19 @@ item went the same way: both modules it named have a second consumer inside
 
 **Now**
 
-- **P1 — A split's shared files stay the lead's after approval.** Approval
-  refuses an owner unit whose prefixes cover a shared file, and nothing applies
-  that rule once the sessions are working. A session joined to an owner unit
-  refuses a `claim` on any path `SHARED_FILES` covers, or is covered by, and the
-  refusal names the lead; the lead's own claim is untouched. One list
-  (`lib/plans/split.ts`) drives approval and claiming, so the two cannot
-  disagree. *Done when* an owner's claim on `package.json` is refused with the
-  lead named, the plan page says the rule holds at claiming time, and a
-  project-extended shared list is still approval-only by name.
+**Now**
+
+Nothing here is queued: the split, the bus, and the shared-file rule shipped
+together, so approval and claiming read one list and cannot disagree.
 
 **Next**
 
-Nothing here is queued: the split and the bus shipped with this window, and `P1`
-is the one gap they left.
+Nothing here is queued either; the next work in this area is `P1`, the plan
+store's own size.
 
 **Later**
 
-- **P2 — The plan store says how big it is.** The store moved into the agent
+- **P1 — The plan store says how big it is.** The store moved into the agent
   directory, so it grows with every repository and nothing reports it. `/plan
   list` names how many plans the repository holds and how old the oldest is;
   nothing deletes a plan, because a plan is the user's record of an approval.
@@ -313,18 +312,17 @@ its own health, and the remaining gaps are documented behavior.
 
 **Now**
 
-Nothing here is queued: the abandoned-turn notice shipped, so a close that cuts a
-peer's turn off says so in one line. The rest of this section is `Next` work or a
-decision.
-
-**Next**
-
 - **W1 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
   readable text — indented keys, aligned columns, one record per block — instead
   of a raw blob. No model call and no new dependency, and the HTML heuristic
   path is untouched. *Done when* a fixture of each renders as text, a malformed
   document still returns its raw body, and the web-access page says which
   formats are rendered.
+
+**Next**
+
+Nothing here is queued: the abandoned-turn notice shipped, so a close that cuts a
+peer's turn off says so in one line. The rest of this section is a decision.
 
 **Later**
 
@@ -452,7 +450,7 @@ it. A limitation an item owns is named in that section instead, never here.
 | `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S2`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file. Revisit if an approval surface must show a full step. |
-| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. `P2` reports a store's size without becoming one. |
+| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. `P1` reports a store's size without becoming one. |
 | `plan`: a shared review reaches one network, one address, and at most eight links | A tunnel, relay, or hosted review service is a product to operate, not a page to serve; the non-goal names it. Revisit with a hosted deployment. |
 | `plan`: a reviewer's name is a label bound to a link, not an account | The owner still makes the only decision, so an account would add identity without adding a decision. Revisit if reviewers must be authenticated across restarts. |
 | `plan`: the browser cannot approve a split | The `## Team` section is written at approval, so it has no source lines for a comment to anchor to. Revisit if a split is ever authored inside the page. |

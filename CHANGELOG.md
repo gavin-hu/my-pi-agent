@@ -65,6 +65,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   heading, the link refs, the version stamped in the guides, the release body against
   the section the project's tooling prints, and the publish run still awaiting its
   approval — which is how this window found 0.18.0 half-published.
+- `session-bus`: a session that holds an owner unit of a split can no longer claim
+  a shared file — `package.json`, the changelog, the test manifests, or the shared
+  name modules — and the refusal names the lead whose unit keeps them. The
+  predicate is the one approval already applies (`lib/plans/split.ts`'s
+  `sharedFileFor`), so the rule outlives approval instead of only refusing the
+  split; it is read from the session's claims and the newest split, which is why
+  `/resume` and `/tree` keep it, and it refuses nothing when the session holds no
+  owner unit, when the path is not shared, or when the lead itself is claiming. A
+  project-extended shared list stays approval-only: the bus reads no
+  configuration.
 
 ### Changed
 
