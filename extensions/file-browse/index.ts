@@ -16,11 +16,11 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { loadConfig, randomPort } from "./config.ts";
-import { createGitDiff, createGitStatus } from "./git.ts";
+import { loadConfig, randomPort } from "./config/config.ts";
+import { createGitDiff, createGitStatus } from "./git/git.ts";
 import { openInBrowser } from "../../lib/browser.ts";
-import { HttpError, resolveRequestPath } from "./paths.ts";
-import { createFileServer, type FileServer } from "./server.ts";
+import { HttpError, resolveRequestPath } from "./files/paths.ts";
+import { createFileServer, type FileServer } from "./transport/server.ts";
 
 export interface FileBrowserDeps {
 	/** Override the server factory (tests). */

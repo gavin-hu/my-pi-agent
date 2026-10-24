@@ -270,7 +270,7 @@ const MAX_MODULE_LINES = 600;
  * too, so the list cannot quietly grow.
  */
 const LONG_MODULES: Record<string, { lines: number; why: string }> = {
-	"extensions/file-browse/markdown.ts": {
+	"extensions/file-browse/view/markdown.ts": {
 		lines: 878,
 		why: "one escape-first block and inline scan for README Markdown",
 	},

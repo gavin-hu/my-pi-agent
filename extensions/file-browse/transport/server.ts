@@ -13,11 +13,11 @@
  */
 
 import { realpathSync } from "node:fs";
-import { type ServeResponse, serveLoopback, textResponse } from "../../lib/http/index.ts";
-import { IDLE_STOP_MS, type ServeConfig } from "./config.ts";
-import { createFileIndex } from "./files.ts";
-import type { GitDiffProvider, GitStatusProvider } from "./git.ts";
-import { createLiveChannel, createLiveStatus } from "./live.ts";
+import { type ServeResponse, serveLoopback, textResponse } from "../../../lib/http/index.ts";
+import { IDLE_STOP_MS, type ServeConfig } from "../config/config.ts";
+import { createFileIndex } from "../files/files.ts";
+import type { GitDiffProvider, GitStatusProvider } from "../git/git.ts";
+import { createLiveChannel, createLiveStatus } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 
 export interface FileServer {

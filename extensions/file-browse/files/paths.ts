@@ -9,7 +9,7 @@
 
 import { realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import { isInside } from "../../lib/path.ts";
+import { isInside } from "../../../lib/path.ts";
 
 /** An HTTP-shaped failure the router turns into a status page. */
 export class HttpError extends Error {

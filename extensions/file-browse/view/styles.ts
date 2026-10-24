@@ -12,7 +12,7 @@ import {
 	WEB_COMPONENTS_CSS,
 	WEB_LAYOUT_CSS,
 	WEB_THEME_CSS,
-} from "../../lib/web/index.ts";
+} from "../../../lib/web/index.ts";
 
 /** The shared shell, components, and the page-only `browse-*` rules. */
 export const BROWSE_CSS = `${WEB_BASE_CSS}

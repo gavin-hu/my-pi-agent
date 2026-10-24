@@ -5,7 +5,7 @@
  */
 
 import { extname } from "node:path";
-import { IMAGE_EXTENSIONS } from "./files.ts";
+import { IMAGE_EXTENSIONS } from "../files/files.ts";
 
 export type IconName = "folder" | "file-code" | "file-text" | "file-image" | "file-json" | "file-archive" | "file";
 

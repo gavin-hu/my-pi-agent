@@ -3,7 +3,7 @@
 The tokens, base rules, app shell, `bf-*` components, HTML atoms, and client
 runtime the two loopback pages draw with: the plan review
 ([`../../extensions/plan/web-page.ts`](../../extensions/plan/web-page.ts)) and
-file browse ([`../../extensions/file-browse/styles.ts`](../../extensions/file-browse/styles.ts)).
+file browse ([`../../extensions/file-browse/view/styles.ts`](../../extensions/file-browse/view/styles.ts)).
 The module-by-module inventory is the `web/` row of [`../README.md`](../README.md);
 this file is the conventions those modules exist to make easy.
 

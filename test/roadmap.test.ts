@@ -189,21 +189,23 @@ describe("roadmap sizes", () => {
 		).length;
 	}
 
-	test("states each extension's module count as the tree counts it", () => {
+	test("states no extension size the tree cannot back", () => {
 		// A number this file states about the code is derived here rather than
-		// remembered: F3 sizes extensions by module count, and a split, a new module,
-		// or a relocated suite moves every figure it quotes.
-		const start = roadmap.indexOf("- **F3 — ");
-		const end = roadmap.indexOf("- **", start + 1);
-		const item = roadmap.slice(start, end === -1 ? undefined : end);
-		const stated = [...item.matchAll(/`([a-z-]+)` \((\d+) modules\)/g)].map((match) => ({
+		// remembered: an item that sizes an extension by module count is checked
+		// against the tree, because a split, a new module, or a relocated suite moves
+		// every figure it quotes. No item states one today — the last was `F3`, which
+		// shipped — so the list is empty rather than absent, and the next item to quote
+		// a count is checked the moment it is written.
+		const stated = [...roadmap.matchAll(/`([a-z-]+)` \((\d+) modules\)/g)].map((match) => ({
 			extension: match[1] ?? "",
 			modules: Number(match[2]),
 		}));
-		expect(stated.length).toBeGreaterThan(0);
 		const drift = stated
 			.filter((entry) => countModules(entry.extension) !== entry.modules)
-			.map((entry) => `${entry.extension}: F3 states ${entry.modules}, the tree has ${countModules(entry.extension)}`);
+			.map(
+				(entry) =>
+					`${entry.extension}: the roadmap states ${entry.modules}, the tree has ${countModules(entry.extension)}`,
+			);
 		expect(drift).toEqual([]);
 	});
 });

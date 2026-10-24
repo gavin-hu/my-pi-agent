@@ -12,11 +12,11 @@
  * pair — so the whole feed is tested without one.
  */
 
-import type { EventSink } from "../../lib/http/index.ts";
-import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
-import { LIVE_MAX_CLIENTS } from "./config.ts";
-import { changeDirs } from "./diff.ts";
-import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
+import type { EventSink } from "../../../lib/http/index.ts";
+import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
+import { LIVE_MAX_CLIENTS } from "../config/config.ts";
+import { changeDirs } from "../text/diff.ts";
+import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "../git/git.ts";
 import { changeRevision } from "./rev.ts";
 
 /**

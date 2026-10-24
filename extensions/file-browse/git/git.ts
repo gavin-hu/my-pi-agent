@@ -9,7 +9,14 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createExecRunner, currentBranch, hasCommits, repoRoot, revParse, type RunGit } from "../../lib/git/index.ts";
+import {
+	createExecRunner,
+	currentBranch,
+	hasCommits,
+	repoRoot,
+	revParse,
+	type RunGit,
+} from "../../../lib/git/index.ts";
 import {
 	diffArgs,
 	inMode,
@@ -18,8 +25,8 @@ import {
 	type ChangedFile,
 	type DiffLine,
 	type DiffMode,
-} from "./diff.ts";
-import { readFileView } from "./files.ts";
+} from "../text/diff.ts";
+import { readFileView } from "../files/files.ts";
 
 export interface GitStatus {
 	/** Checked-out branch, when HEAD is attached. */

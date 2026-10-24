@@ -8,9 +8,9 @@
  * hunk and never across the unchanged lines a hunk does not show.
  */
 
-import { escapeHtml } from "../../lib/escape.ts";
-import { highlightLines, type HighlightLanguage } from "../../lib/highlight.ts";
-import type { DiffLine } from "./diff.ts";
+import { escapeHtml } from "../../../lib/escape.ts";
+import { highlightLines, type HighlightLanguage } from "../../../lib/highlight.ts";
+import type { DiffLine } from "../text/diff.ts";
 
 /**
  * The inner HTML per diff line. Hunk bodies are highlighted by rebuilding the

@@ -22,7 +22,7 @@ import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG } from "../extensions/bytefly/d
 import { DEFAULT_BYTEFLY_CONFIG } from "../extensions/bytefly/footer/price/config.ts";
 import { DEFAULT_NOTIFY_CONFIG } from "../extensions/bytefly/notify/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_FILE_READ_CONFIG } from "../extensions/file-read/config.ts";
-import { DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG } from "../extensions/file-browse/config.ts";
+import { DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG } from "../extensions/file-browse/config/config.ts";
 import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG } from "../extensions/memory/config.ts";

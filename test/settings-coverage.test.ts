@@ -43,7 +43,7 @@ import {
 import {
 	DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG,
 	normalizeConfig as normalizeFileBrowseConfig,
-} from "../extensions/file-browse/config.ts";
+} from "../extensions/file-browse/config/config.ts";
 import { DEFAULT_GOAL_CONFIG, normalizeGoalConfig } from "../extensions/goal/config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_JOB_CONFIG,

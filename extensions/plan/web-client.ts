@@ -1,7 +1,7 @@
 /**
  * The browser review client, served as `/client.js`.
  *
- * Kept as one self-contained script (like `file-browse/client.ts`) with no
+ * Kept as one self-contained script (like `file-browse/view/client.ts`) with no
  * build step. Its document half — the inline and block Markdown rendering — is
  * `web-markdown.ts`, a fragment of the same IIFE interpolated below. It renders
  * the plan from the JSON data island using DOM text nodes only — plan and

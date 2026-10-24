@@ -45,7 +45,7 @@ const SAME_NAME_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 	],
 	["extensions/worktree/git.ts:repoRoot", "canonicalizes the shared repoRootFor result for worktree path comparison"],
 	[
-		"extensions/file-browse/markdown.ts:isBlank",
+		"extensions/file-browse/view/markdown.ts:isBlank",
 		"the Markdown renderer stays free of TUI imports; its blank test is a local one-liner",
 	],
 	[

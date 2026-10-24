@@ -10,9 +10,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { makeClock } from "../../test/helpers/clock.ts";
-import { createFakePi, type FakePiOptions } from "../../test/helpers/fakes.ts";
-import { makeFixture, type Fixture } from "../../test/helpers/fixtures/file-browse.ts";
+import { makeClock } from "../../../test/helpers/clock.ts";
+import { createFakePi, type FakePiOptions } from "../../../test/helpers/fakes.ts";
+import { makeFixture, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
 import {
 	changeDirs,
 	diffArgs,
@@ -23,7 +23,7 @@ import {
 	statusLetter,
 	type ChangedFile,
 	type DiffLine,
-} from "./diff.ts";
+} from "../text/diff.ts";
 import {
 	buildFileIndex,
 	buildTree,
@@ -40,10 +40,10 @@ import {
 	type DirectoryFs,
 	type TreeNode,
 } from "./files.ts";
-import { createGitDiff, createGitStatus } from "./git.ts";
-import { listingRevision } from "./rev.ts";
-import { FOLDER_ICON, iconHref, languageOf, SPRITE } from "./icons.ts";
-import { fuzzyMatch, fuzzySearch, type FuzzyResult } from "./fuzzy.ts";
+import { createGitDiff, createGitStatus } from "../git/git.ts";
+import { listingRevision } from "../live/rev.ts";
+import { FOLDER_ICON, iconHref, languageOf, SPRITE } from "../view/icons.ts";
+import { fuzzyMatch, fuzzySearch, type FuzzyResult } from "../text/fuzzy.ts";
 import { HttpError, encodePath, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
 
 let fixture: Fixture | undefined;

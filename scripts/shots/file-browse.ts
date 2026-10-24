@@ -22,10 +22,10 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { DEFAULT_CONFIG } from "../../extensions/file-browse/config.ts";
-import { createGitDiff, createGitStatus } from "../../extensions/file-browse/git.ts";
-import { encodePath } from "../../extensions/file-browse/paths.ts";
-import { createFileServer } from "../../extensions/file-browse/server.ts";
+import { DEFAULT_CONFIG } from "../../extensions/file-browse/config/config.ts";
+import { createGitDiff, createGitStatus } from "../../extensions/file-browse/git/git.ts";
+import { encodePath } from "../../extensions/file-browse/files/paths.ts";
+import { createFileServer } from "../../extensions/file-browse/transport/server.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
 

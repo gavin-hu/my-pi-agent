@@ -19,14 +19,14 @@ import {
 	parseRequestUrl,
 	scriptHeaders,
 	type ServeResponse,
-} from "../../lib/http/index.ts";
-import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
-import { CLIENT_JS } from "./client.ts";
-import type { LivePage } from "./chrome.ts";
-import type { ServeConfig } from "./config.ts";
-import { isDiffMode, type DiffMode } from "./diff.ts";
-import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
-import { changeIndexOf, type LiveStatusSource } from "./live.ts";
+} from "../../../lib/http/index.ts";
+import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
+import { CLIENT_JS } from "../view/client.ts";
+import type { LivePage } from "../view/chrome.ts";
+import type { ServeConfig } from "../config/config.ts";
+import { isDiffMode, type DiffMode } from "../text/diff.ts";
+import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "../git/git.ts";
+import { changeIndexOf, type LiveStatusSource } from "../live/live.ts";
 import {
 	buildFileIndex,
 	buildTree,
@@ -38,13 +38,19 @@ import {
 	type DirEntry,
 	type FileIndexProvider,
 	type TreeNode,
-} from "./files.ts";
-import { FOLDER_ICON, iconHref, languageOf } from "./icons.ts";
-import { fuzzySearch } from "./fuzzy.ts";
-import { renderDirectoryPage, renderDiffPage, renderErrorPage, renderFileDiffPage, renderFilePage } from "./html.ts";
-import type { ChangeSummary } from "./html.ts";
-import { encodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
-import { listingRevision } from "./rev.ts";
+} from "../files/files.ts";
+import { FOLDER_ICON, iconHref, languageOf } from "../view/icons.ts";
+import { fuzzySearch } from "../text/fuzzy.ts";
+import {
+	renderDirectoryPage,
+	renderDiffPage,
+	renderErrorPage,
+	renderFileDiffPage,
+	renderFilePage,
+} from "../view/html.ts";
+import type { ChangeSummary } from "../view/html.ts";
+import { encodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "../files/paths.ts";
+import { listingRevision } from "../live/rev.ts";
 
 export interface ServeContext {
 	root: string;
