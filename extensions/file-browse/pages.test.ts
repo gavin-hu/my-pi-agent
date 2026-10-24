@@ -204,6 +204,27 @@ describe("page chrome", () => {
 		expect(CLIENT_JS).toContain("window.bfPalette.isOpen()");
 	});
 
+	test("keeps a phone's card head to one row of controls", () => {
+		// The download belongs to the action group so one narrow rule covers the file
+		// and diff heads together. Below 520px the group holds one line and scrolls;
+		// without the no-shrink rule, a control wraps its own label onto two lines.
+		const html = filePage("sub/b.md", markdownView(["# hi"]));
+		expect(html).toContain('title="Copy the root-relative path">copy path</button>');
+		expect(html).toMatch(
+			/copy path<\/button><a class="bf-btn" href="\/raw\/sub\/b\.md" download>download<\/a><\/span>/,
+		);
+		expect(BROWSE_CSS).toContain(".bf-card__actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}");
+		expect(BROWSE_CSS).toContain(".bf-card__actions>*{flex:0 0 auto}");
+	});
+
+	test("keeps the served folder's tail when the header path is cut", () => {
+		// A left ellipsis names the root; cutting the end kept only
+		// `Users/gavin/Repositories/Github/` and lost the folder being browsed.
+		expect(BROWSE_CSS).toContain(".browse-root{flex:1 1 auto;direction:rtl;text-align:left}");
+		expect(BROWSE_CSS).toContain("@media (max-width:820px){\n.browse-root{order:9;flex:1 1 100%}");
+		expect(BROWSE_CSS).not.toContain("direction:ltr");
+	});
+
 	test("prints the page without its clipping", () => {
 		// The base layer drops the chrome; a browse page is also a card with an
 		// inner scroller and a pinned hunk header, and neither belongs on paper.

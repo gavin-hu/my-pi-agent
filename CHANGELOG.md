@@ -161,6 +161,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   304px rows on a phone. The frame is now a size container and the cells take a
   14em floor below 600px, so the table overflows into the wrapper that already
   scrolls it instead; above that width nothing changes.
+- `file-browse`: a phone gets the file, not four stacked button rows above it. Below
+  820px the served folder's path keeps the tail that names it — the ellipsis falls on
+  the left instead of on the last segments — and below 520px the card's controls hold
+  one scrolling row. The download moves into the action group the diff head already
+  had, so a control keeps its own width on the way: shrunk, `copy contents` wrapped
+  onto two lines and the `rendered`/`raw` control lost its second half.
 
 ## [0.18.0] - 2026-10-24
 

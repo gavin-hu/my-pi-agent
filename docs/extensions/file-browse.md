@@ -175,11 +175,13 @@ icons, progressively enhanced by one first-party script (`client.ts`). A folder
 folds from its twisty, and a `fold all` / `expand all` button beside the filter
 folds the whole tree at once. The tree scrolls in its own pane with quick open
 and the filter pinned above it; below 860px it collapses into a `Files`
-disclosure above the listing. A hairline progress bar tracks whichever column is
-scrolling (the card body for a file or diff, the main column otherwise), and the
-served folder names the root page. The sidebar is a `<details>` whose content
-wrapper has no definite height, so the panel fills it absolutely and the tree
-flexes inside.
+disclosure above the listing. Below 820px the served folder's path takes a row of
+its own and keeps its last segments, an ellipsis cutting the leading directories;
+below 520px the card's controls hold one scrolling row above the file instead of
+stacking. A hairline progress bar tracks whichever column is scrolling (the card
+body for a file or diff, the main column otherwise), and the served folder names
+the root page. The sidebar is a `<details>` whose content wrapper has no definite
+height, so the panel fills it absolutely and the tree flexes inside.
 
 The filter hides non-matching rows while keeping ancestors, and disclosure
 triangles lazily fetch `/api/tree`. Without JavaScript the page still browses and
