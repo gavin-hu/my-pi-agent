@@ -95,6 +95,13 @@ body.palette-open{overflow:hidden}
    the measure with the rest of the prose. The frame is also the container a
    squeezed table asks about: it is the pane, not the window, that narrows one. */
 .browse-measure .bf-md>.md-table-frame{max-width:none;padding-left:var(--browse-gutter);container-type:inline-size}
+/* A table spans the reading column rather than stopping at its own content: a
+   shrink-wrapped table leaves a ragged band beside itself — 254px on a 2560px
+   screen, and 300px beside the three-column tables at 1440 — which the reader
+   cannot tell from a column that failed to draw. The card is wider than the text
+   it holds, so the measure is the ceiling: a table ends where the prose does, and
+   below the floor's threshold the minimum still wins and the wrapper scrolls. */
+.browse-measure .bf-md .md-table-frame table{width:100%;max-width:var(--browse-measure)}
 /* In a pane this narrow, auto layout gives the prose cell whatever an unbreakable
    code span leaves — one word per line, and a four-column table read as a
    300px-tall row. A floor on the cells makes the table wider than the pane
