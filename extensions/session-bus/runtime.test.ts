@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir } from "../../test/helpers/env.ts";
-import { splitStore, SPLIT_TEAM } from "../../test/helpers/fixtures/split.ts";
+import { SPLIT_PLAN, SPLIT_TEAM, splitStore } from "../../test/helpers/fixtures/split.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { settle } from "../../test/helpers/process.ts";
@@ -189,6 +189,23 @@ describe("joining a unit of an approved split", () => {
 			await acting(owner, context("/repo", "s1", "core"));
 			await expect(owner.join({ team, unit: "report" })).rejects.toThrow(/contract, core/);
 			await expect(owner.join({ team: "nope", unit: "core" })).rejects.toThrow(/No split plan named/);
+			await owner.stop();
+		} finally {
+			restore();
+		}
+	});
+
+	test("refuses a table the gate would have refused", async () => {
+		const dir = busDir();
+		// An owner unit that lists a shared file is what approval refuses, so a section
+		// that carries one was never written by the gate: it is hand-edited or stale,
+		// and joining it would leave the shared-file rule with a hole in it.
+		const edited = SPLIT_PLAN.replace("| core | src/core |", "| core | src/core, package.json |");
+		const { plans, team, restore } = splitStore(temps, SPLIT_TEAM, { content: edited });
+		try {
+			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			await acting(owner, context("/repo", "s1", "core"));
+			await expect(owner.join({ team, unit: "core" })).rejects.toThrow(/shared files/);
 			await owner.stop();
 		} finally {
 			restore();

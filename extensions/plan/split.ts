@@ -22,7 +22,6 @@ export type SplitDecision =
 	| { kind: "none" }
 	| { kind: "off" }
 	| { kind: "refused"; reason: string }
-	| { kind: "serial" }
 	| { kind: "team"; team: PlanTeam; verdict: "pair" | "team" };
 
 /**
@@ -41,7 +40,8 @@ export function decideSplit(
 	if (!splitEnabled(cwd, root)) return { kind: "off" };
 	const check = checkSplit(units);
 	if (!check.ok) return { kind: "refused", reason: check.reason };
-	if (check.verdict === "serial") return { kind: "serial" };
+	// `checkSplit` answers "serial" only for no units at all, which the guard above
+	// already answered with `none`, so what is left is a team.
 	return { kind: "team", team: { lead: check.lead, units: check.units }, verdict: check.verdict };
 }
 

@@ -30,7 +30,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
 | Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
 | Parallel slices | `exit_plan_mode` `units`, `plan.split` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
-| Split validation gate | `checkSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens — and the same shared list refuses an owner's `claim` once the team is running. | Shipped |
+| Split validation gate | `checkSplit`, `readSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens — the same list refuses an owner's `claim` once the team is running, and the same rules re-read the table when a session joins, so a hand-edited section cannot get in. | Shipped |
 | Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. | Shipped |
 
 ### Review
@@ -138,7 +138,10 @@ rendered as written, and a refinement is asked to keep its section headings so
 the review can still mark only what changed.
 
 A plan with more than 50 top-level steps in its `Steps` section is refused with
-the cap and the fix named, and nothing is written.
+the cap and the fix named, and nothing is written. A plan that carries a `## Team`
+section is refused the same way — the gate writes that table from
+`exit_plan_mode`'s `units`, so a section the model wrote would be a team no rule
+ever accepted.
 
 The file is the source of truth. On approval the model follows the plan file's
 steps, and refinements rewrite the same file (`write_plan` with `plan_path`), so
@@ -187,12 +190,15 @@ objective is the user's. No path spends a model turn.
 a `/bytefly settings` row), `exit_plan_mode` also accepts `units`: the plan's
 slices, each with a name, path prefixes, a test, and the units it depends on. The
 split is validated *before* the review opens, so a refusal costs no review, and
-the review screen shows it as a read-only `Split` section; while the switch is
-off, `units` is ignored with one note. On approval the team
+the review screen shows it as a read-only `## Team` section — the heading the
+approved file will carry; while the switch is off, `units` is ignored with one
+note. On approval the team
 is written into the plan as a `## Team` table — a sentence naming the lead's
-unit, then one row per unit — and the result carries a roster card. A refinement
-rewrites the plan, and with it the team ceases to exist until the plan is
-approved again. See [Splitting a plan](#splitting-a-plan).
+unit, then one row per unit — and the result carries a roster card. Approval is
+also what revokes one: a plan approved with no `units` loses any `## Team`
+section it carried, so a refinement, a hand edit, or a file from an older version
+cannot leave a team behind that nobody approved. See
+[Splitting a plan](#splitting-a-plan).
 
 ### `cancel_plan_mode`
 
@@ -555,11 +561,13 @@ What the gate enforces, and why each rule is a refusal rather than a warning:
 Refusals name the pair they caught, and a value that would break the `## Team`
 table is refused with them.
 
-The table itself is a wire format: [`session-bus`](./session-bus.md) parses it with
-the same module that writes it, so a hand-edited or stale section is refused
-rather than half-read. The browser review cannot approve a split plan — a section
-written at approval has no source lines for its comments to anchor to — so the
-terminal review is where a split is approved.
+The table itself is a wire format: [`session-bus`](./session-bus.md) reads it
+through `readSplit`, which parses it with the module that writes it and then runs
+these same rules, so a hand-edited or stale section is refused rather than
+half-read — a table approval would have refused cannot be joined either. The
+browser review cannot approve a split plan — a section written at approval has no
+source lines for its comments to anchor to — so the terminal review is where a
+split is approved.
 
 ## Review screen
 
@@ -1044,7 +1052,7 @@ Ten co-located suites, declared in `test/suite-manifest.ts`:
   path-argument scan.
 - `tui.test.ts` — the review screen at fixed widths: Markdown body, scrolling,
   section navigation, the gauge, footer hints, the approve question, the inline
-  refine editor, the `Split` section, and the changed-section markers.
+  refine editor, the `## Team` section, and the changed-section markers.
 - `extension.test.ts` — the Pi wiring: registration, the entry request, the
   session lifecycle, the tool-call guard, injected context, the command, and the
   shortcut.

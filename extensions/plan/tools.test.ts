@@ -1,5 +1,14 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
@@ -548,6 +557,24 @@ describe("write_plan", () => {
 		expect(result.content[0].text).toContain("too large");
 	});
 
+	test("refuses a plan that carries its own team section", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const { ctx } = fakeCtx({ cwd: root });
+
+		const result = await call(
+			write,
+			{ title: "Hand-split", content: "# T\n\n## Team\n\nLead: a\n\n## Steps\n\n- [ ] one" },
+			ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain('its own "## Team" section');
+		expect(result.content[0].text).toContain("exit_plan_mode's units");
+		expect(result.content[0].text).toContain("Nothing was written");
+		expect(runtime.lastPlanPath()).toBeUndefined();
+	});
+
 	test("renders the saved relative path", () => {
 		const { write } = setup();
 		const component = write.renderResult(
@@ -673,6 +700,25 @@ describe("exit_plan_mode with a split", () => {
 		expect(written).toContain("## Team");
 		expect(written).toContain("Lead: contract");
 		expect(written).toContain("| core | src/core | bun test src/core | contract |");
+	});
+
+	test("removes a team section no approval wrote", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+		// A section left by an older version, or edited in by hand: approval without
+		// units is what revokes it, so no session can join a team the user never saw.
+		appendFileSync(
+			planPath,
+			"\n\n## Team\n\nLead: contract\n\n| unit | paths | test | depends on |\n| --- | --- | --- | --- |\n| contract | src/contract | bun test src/contract | — |\n| core | src/core | bun test src/core | contract |\n",
+		);
+
+		const result = await call(exit, { plan_path: planPath }, fakeCtx({ editor: "1", cwd: root }).ctx);
+
+		expect(result.details.approved).toBe(true);
+		expect(result.details.team).toBeUndefined();
+		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
 	});
 
 	test("a serial plan approves byte-identically with the switch on", async () => {

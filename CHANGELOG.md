@@ -112,6 +112,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: a plan's `## Team` section belongs to the approval gate. `write_plan`
+  refuses a plan that writes one, because a table the rules never accepted is a
+  team nobody reviewed, and it points at `exit_plan_mode`'s `units`; approval with
+  no `units` removes a section it did not write, so a refinement, a hand edit, or
+  a file from an older version cannot leave a team behind that was never approved;
+  and the review screen names the section `Team`, the heading the approved file
+  will carry, instead of `Split`. `session-bus` now reads the table through
+  `readSplit`, which parses it with the writer's module and then runs approval's
+  own rules, so a hand-edited or stale section is refused at `join` rather than
+  half-read. `checkSplit` answers a refusal instead of an "approved as one flow"
+  success that only its own caller could have produced, so `decideSplit`'s
+  unreachable `serial` arm is gone.
+
 - `session-bus`: a session joins by naming itself. Nothing joins on
   `session_start` in any mode, so a fresh terminal session's `/sessions` board is
   empty and a peer appears only once it has taken a name; `/sessions` and
@@ -295,6 +308,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   honest*.
 
 ### Fixed
+
+- `plan`: an owner unit that lists a shared file anywhere but first is refused.
+  The gate asked which shared file a unit claims with
+  `unit.paths.flatMap(...).at(0)`, which reads the first element of a list whose
+  entries are `undefined` whenever that path is not shared, so
+  `paths: ["src/core", "package.json"]` passed approval and `join` then claimed
+  `package.json` for an owner. The rule is a `find` over every path, and
+  `readSplit` runs it again when a session joins.
 
 - `session-bus`: pruning no longer deletes a claim that a peer took after the
   pruning session read the session list. `store.prune` decided which claims to

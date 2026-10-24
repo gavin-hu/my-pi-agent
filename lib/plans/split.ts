@@ -13,7 +13,7 @@
  */
 
 import { claimsConflict, findClaimOverlap, normalizeClaimPath } from "../claims/overlap.ts";
-import { type PlanTeam, type PlanUnit, UNIT_NAME, unsafeValue } from "./team.ts";
+import { type PlanTeam, type PlanUnit, readTeam, UNIT_NAME, unsafeValue } from "./team.ts";
 
 /** Most non-lead units a team may have: the user switches to each one every round. */
 export const MAX_OWNERS = 2;
@@ -37,11 +37,8 @@ export const SHARED_FILES: readonly string[] = [
 	"lib/requirements.ts",
 ];
 
-/** What approval does with a proposed split. */
-export type SplitCheck =
-	| { ok: true; verdict: "serial"; note: string }
-	| ({ ok: true; verdict: "pair" | "team" } & PlanTeam)
-	| { ok: false; reason: string };
+/** What approval does with a proposed split: a team, or the reason there is none. */
+export type SplitCheck = ({ ok: true; verdict: "pair" | "team" } & PlanTeam) | { ok: false; reason: string };
 
 /** A unit named in a refusal, so the message says which two collide. */
 function unitAt(units: readonly PlanUnit[], index: number): string {
@@ -96,19 +93,16 @@ function findCycle(units: readonly PlanUnit[]): string[] | undefined {
 /**
  * Decide what approval does with `units`.
  *
- * No units means the plan approves as one flow, which is the common case and
- * never a failure. One unit is refused with the skeleton advice: a single path
- * proven end to end is what a split should be cut from, and approving it as a
- * team would produce a table with nobody to join.
+ * Fewer than two units is refused with the skeleton advice: a single path proven
+ * end to end is what a split should be cut from, and approving it as a team would
+ * write a table with nobody to join. Approving with no `units` at all is
+ * `decideSplit`'s answer, not this one — it is the single flow, not a bad split.
  */
 export function checkSplit(
 	units: readonly PlanUnit[] | undefined,
 	shared: readonly string[] = SHARED_FILES,
 ): SplitCheck {
-	if (!units || units.length === 0) {
-		return { ok: true, verdict: "serial", note: "Approved as one flow." };
-	}
-	if (units.length === 1) {
+	if (!units || units.length < 2) {
 		return {
 			ok: false,
 			reason:
@@ -127,9 +121,14 @@ export function checkSplit(
 		if (!unit.test.trim())
 			return { ok: false, reason: `Unit "${unit.name}" has no test; name the command that proves it.` };
 	}
+	// A piped or multiline value breaks the row; a comma breaks a path list, which
+	// is one cell. The message names every rule because the value is all it has.
 	const unsafe = unsafeValue({ lead: units.find((unit) => unit.lead)?.name ?? "", units: [...units] });
 	if (unsafe !== undefined) {
-		return { ok: false, reason: `"${unsafe}" would break the team table; remove the pipe or the line break.` };
+		return {
+			ok: false,
+			reason: `"${unsafe}" would break the team table; remove the pipe, the line break, or the comma.`,
+		};
 	}
 
 	const leads = units.filter((unit) => unit.lead);
@@ -179,7 +178,9 @@ export function checkSplit(
 
 	for (const unit of units) {
 		if (unit.lead) continue;
-		const hit = unit.paths.flatMap((path) => sharedFileFor(path, shared)).at(0);
+		// `find`, not a first element: a unit's shared file is rarely its first path, and
+		// reading only `at(0)` let every later one through the gate.
+		const hit = unit.paths.map((path) => sharedFileFor(path, shared)).find((file) => file !== undefined);
 		if (hit !== undefined) {
 			return {
 				ok: false,
@@ -198,6 +199,22 @@ export function checkSplit(
 	if (cycle) return { ok: false, reason: `Dependencies loop: ${cycle.join(" → ")}.` };
 
 	return { ok: true, verdict: owners.length === 1 ? "pair" : "team", lead, units: units.map((unit) => ({ ...unit })) };
+}
+
+/**
+ * The team a plan file carries, valid as an approval would have made it.
+ *
+ * The table is a wire format, so a section that was hand-edited, written by a
+ * version that did not know this rule, or copied from another plan must not reach
+ * a session: `readTeam` shapes it, and this decides whether it is a split at all
+ * with the same rules approval applies — overlap, cycles, owner count, a test, a
+ * shared file held by an owner, and one lead.
+ */
+export function readSplit(plan: string): PlanTeam | { error: string } | undefined {
+	const team = readTeam(plan);
+	if (team === undefined || "error" in team) return team;
+	const check = checkSplit(team.units);
+	return check.ok ? team : { error: check.reason };
 }
 
 /**

@@ -40,8 +40,16 @@ export const TEAM_SECTION = "Team";
 /** Unit names are addressed as session labels, so they take the same shape. */
 export const UNIT_NAME = /^[a-z0-9][a-z0-9-]*$/;
 
-/** A value that would break the table or a message. */
+/** A value that would break the table, a row, or a message. */
 const UNSAFE = /[|\n\r]/;
+
+/**
+ * A value that would read back as two, in a cell whose values are comma-separated.
+ *
+ * `paths` and `depends on` are lists inside one cell, so a comma is their
+ * separator; the `test` cell is read whole, where a comma is ordinary shell.
+ */
+const COMMA = /,/;
 const NONE = "—";
 
 /**
@@ -140,11 +148,19 @@ export function writeTeam(plan: string, team: PlanTeam): string {
 	return replaceSection(plan, TEAM_SECTION, renderTeam(team));
 }
 
-/** Whether any rendered value would break the table. */
+/** The plan without its team section, unchanged when it carries none. */
+export function removeTeam(plan: string): string {
+	return replaceSection(plan, TEAM_SECTION, undefined);
+}
+
+/** Whether any rendered value would break the table or read back as two values. */
 export function unsafeValue(team: PlanTeam): string | undefined {
 	for (const unit of team.units) {
 		for (const value of [unit.name, unit.test, ...unit.paths, ...unit.dependsOn]) {
 			if (UNSAFE.test(value)) return value;
+		}
+		for (const value of [...unit.paths, ...unit.dependsOn]) {
+			if (COMMA.test(value)) return value;
 		}
 	}
 	return UNSAFE.test(team.lead) ? team.lead : undefined;

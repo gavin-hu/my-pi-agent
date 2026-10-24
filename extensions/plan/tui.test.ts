@@ -75,7 +75,7 @@ function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", optio
 	return { component, actions, refinements, renders: () => renders };
 }
 
-describe("the split section", () => {
+describe("the team section", () => {
 	const split = {
 		lead: "contract",
 		verdict: "pair" as const,
@@ -88,8 +88,8 @@ describe("the split section", () => {
 	test("renders the table approval will write, after the plan", () => {
 		const text = setup("# Plan\n\n## Steps\n\n- [ ] one").component.render(80).join("\n");
 		const withSplit = setup("# Plan\n\n## Steps\n\n- [ ] one", { split }).component.render(80).join("\n");
-		expect(text).not.toContain("Split");
-		expect(withSplit).toContain("Split");
+		expect(text).not.toContain("Team");
+		expect(withSplit).toContain("Team");
 		expect(withSplit).toContain("pair · lead + 1 owner · written on approval");
 		expect(withSplit).toContain("Lead: contract");
 		expect(withSplit).toContain("src/contract");
@@ -99,12 +99,12 @@ describe("the split section", () => {
 		const { component } = setup("# Plan\n\n## Steps\n\n- [ ] one", { split });
 		component.handleInput("n");
 		component.handleInput("n");
-		expect(component.render(80).join("\n")).toContain("Split");
+		expect(component.render(80).join("\n")).toContain("Team");
 	});
 
 	test("adds nothing when the plan has no split", () => {
 		const { component } = setup("# Plan\n\n## Steps\n\n- [ ] one");
-		expect(component.render(80).join("\n")).not.toContain("Split");
+		expect(component.render(80).join("\n")).not.toContain("Team");
 	});
 });
 

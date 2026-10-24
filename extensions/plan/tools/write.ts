@@ -15,7 +15,7 @@ import { callLine, detailsOrLine } from "../../../lib/tui/tool.ts";
 import { failedResult, textResult } from "../../../lib/tool-result.ts";
 import { overCap, stepElisionNote } from "../format.ts";
 import { WRITE_PLAN_TOOL, type PlanRuntime } from "../runtime.ts";
-import { MAX_STEPS, PLAN_OUTLINE, planStepSummary } from "../steps.ts";
+import { MAX_STEPS, PLAN_OUTLINE, planStepSummary, reservedSection } from "../steps.ts";
 import type { WritePlanDetails } from "../types.ts";
 
 const WritePlanParams = Type.Object({
@@ -60,6 +60,7 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
 			"When refining with plan_path, keep every section heading as it was: the review marks changed sections by heading, " +
 				"so a rename reads as an edit.",
+			"Never write a `## Team` section: a split is exit_plan_mode's units, which the gate validates and writes.",
 		],
 		parameters: WritePlanParams,
 		defaultActive: false,
@@ -73,6 +74,15 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 				return failedResult("Not in plan mode; call enter_plan_mode first.", undefined);
 			}
 			const args = params as WritePlanArgs;
+			const reserved = reservedSection(args.content);
+			if (reserved !== undefined) {
+				// The gate writes this section, so a plan that carries one asks for a team no
+				// rule ever accepted; `exit_plan_mode`'s `units` is the only way in.
+				return failedResult(
+					`The plan carries its own "## ${reserved}" section. The approval gate writes that table from exit_plan_mode's units; remove the section and pass the units there instead. Nothing was written.`,
+					undefined,
+				);
+			}
 			const summary = planStepSummary(args.content);
 			if (summary.total > MAX_STEPS) {
 				// Refuse before writing: a note after the fact arrives once the file exists and

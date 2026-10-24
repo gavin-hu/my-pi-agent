@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { parseTeam, readTeam, renderTeam, unsafeValue, writeTeam, type PlanUnit } from "./team.ts";
+import { parseTeam, readTeam, removeTeam, renderTeam, unsafeValue, writeTeam, type PlanUnit } from "./team.ts";
 
 function unit(name: string, overrides: Partial<PlanUnit> = {}): PlanUnit {
 	return { name, paths: [`src/${name}`], test: `bun test src/${name}`, dependsOn: [], ...overrides };
@@ -40,6 +40,15 @@ describe("renderTeam", () => {
 			"bun test | tee",
 		);
 		expect(unsafeValue(TEAM)).toBeUndefined();
+	});
+
+	test("flags a comma only in a cell that is a list, because it would read back as two values", () => {
+		expect(unsafeValue({ lead: "a", units: [unit("a", { lead: true, paths: ["src/a,b"] })] })).toBe("src/a,b");
+		expect(unsafeValue({ lead: "a", units: [unit("a", { lead: true, dependsOn: ["b,c"] })] })).toBe("b,c");
+		// The test cell is read whole, so a comma there is ordinary shell.
+		expect(
+			unsafeValue({ lead: "a", units: [unit("a", { lead: true, test: "bun test --reporter=lcov,text" })] }),
+		).toBeUndefined();
 	});
 });
 
@@ -140,6 +149,15 @@ describe("readTeam and writeTeam", () => {
 
 	test("refuses a hand-edited section instead of half-reading it", () => {
 		expect(readTeam("# T\n\n## Team\n\nLead: a\n")).toEqual({ error: "The team section has no table." });
+	});
+
+	test("removes the section, and leaves a plan that has none alone", () => {
+		const plan = writeTeam("# T\n\n## Steps\n\n- [ ] one\n\n## Verification\n\nbun test\n", TEAM);
+		const bare = removeTeam(plan);
+		expect(bare).not.toContain("## Team");
+		expect(bare).toContain("## Verification");
+		expect(readTeam(bare)).toBeUndefined();
+		expect(removeTeam(bare)).toBe(bare);
 	});
 
 	test("returns every path a joined unit owns, and nothing else", () => {

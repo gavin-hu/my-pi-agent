@@ -177,8 +177,10 @@ session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
 ```
 
 `team` is the plan file's stem, so two plans in one repository never share a team.
-The unit's paths come from the table the same module wrote, so a hand-edited or
-stale section is refused rather than half-read; an unknown unit names the units
+The unit's paths come from the table the same module wrote, and the read runs
+approval's own rules (`readSplit`), so a hand-edited or stale section is refused
+rather than half-read — and a table approval would have refused, such as an owner
+unit listing `package.json`, cannot be joined either; an unknown unit names the units
 that exist; a taken unit names its holder; and with `plan.split` off `join`
 refuses and names the settings row. `status` reports `units 1/2 joined` with the
 holder of each unit, which is how a lead answers "has everyone started?" without

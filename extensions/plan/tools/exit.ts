@@ -26,7 +26,7 @@ import { sanitizePlanText } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { reviewPlan } from "../review.ts";
 import { decideSplit, rosterCard, SPLIT_OFF_NOTE } from "../split.ts";
-import { writeTeam } from "../../../lib/plans/team.ts";
+import { removeTeam, writeTeam } from "../../../lib/plans/team.ts";
 import { EXIT_TOOL, SET_PLAN_STEPS_TOOL, type PlanRuntime } from "../runtime.ts";
 import { goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
 import type { ExitPlanModeDetails } from "../types.ts";
@@ -251,20 +251,26 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 			}
 
 			// The team becomes real here, never before: the section is what a joining
-			// session reads, so it appears only after the user approved the split. The
-			// write happens while plan mode is still on, so a failure leaves the session
-			// able to retry instead of approved-but-empty.
+			// session reads, so it appears only after the user approved the split — and a
+			// section no approval wrote is removed, so a stale or hand-edited table cannot
+			// outlive the plan it was written for. The write happens while plan mode is
+			// still on, so a failure leaves the session able to retry instead of
+			// approved-but-empty.
 			let approved = decision.plan;
-			if (pending !== undefined) {
+			const content =
+				pending === undefined
+					? removeTeam(decision.plan.content)
+					: writeTeam(decision.plan.content, { lead: pending.team.lead, units: pending.team.units });
+			if (content !== decision.plan.content) {
 				try {
 					approved = await runtime.plans.write(ctx.cwd, {
 						title: planTitle(basename(decision.plan.path)),
-						content: writeTeam(decision.plan.content, { lead: pending.team.lead, units: pending.team.units }),
+						content,
 						planPath: decision.plan.path,
 					});
 				} catch (writeError) {
 					return failedResult(
-						`The plan was approved but its team could not be written: ${messageOf(writeError)}. Plan mode is still on and no steps were seeded; fix the plan file and call exit_plan_mode again.`,
+						`The plan was approved but its team section could not be updated: ${messageOf(writeError)}. Plan mode is still on and no steps were seeded; fix the plan file and call exit_plan_mode again.`,
 						{
 							approved: false,
 							plan: decision.plan.content,

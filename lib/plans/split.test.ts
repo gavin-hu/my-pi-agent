@@ -7,7 +7,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { checkSplit, MAX_OWNERS, mergeOrder, SHARED_FILES, sharedFileFor } from "./split.ts";
+import { checkSplit, MAX_OWNERS, mergeOrder, readSplit, SHARED_FILES, sharedFileFor } from "./split.ts";
+import { writeTeam } from "./team.ts";
 import type { PlanUnit } from "./team.ts";
 
 function unit(name: string, overrides: Partial<PlanUnit> = {}): PlanUnit {
@@ -19,9 +20,13 @@ const CORE = unit("core", { paths: ["src/billing/core"], dependsOn: ["contract"]
 const REPORT = unit("report", { paths: ["src/billing/report"], dependsOn: ["contract"] });
 
 describe("checkSplit", () => {
-	test("no units approves as one flow", () => {
-		expect(checkSplit(undefined)).toEqual({ ok: true, verdict: "serial", note: "Approved as one flow." });
-		expect(checkSplit([])).toEqual({ ok: true, verdict: "serial", note: "Approved as one flow." });
+	test("no units is refused, because approval with none is not this call", () => {
+		for (const units of [undefined, []]) {
+			const result = checkSplit(units);
+			expect(result.ok).toBe(false);
+			if (result.ok) return;
+			expect(result.reason).toContain("at least two units");
+		}
 	});
 
 	test("one unit is refused with the skeleton advice", () => {
@@ -169,6 +174,35 @@ describe("checkSplit", () => {
 	test("sibling prefixes are fine, nested ones are not", () => {
 		expect(checkSplit([LEAD, unit("core", { paths: ["src/billing/core"] })]).ok).toBe(true);
 		expect(checkSplit([LEAD, unit("core", { paths: ["src/billing"] })]).ok).toBe(false);
+	});
+});
+
+describe("readSplit", () => {
+	const plan = (units: PlanUnit[], lead = "contract"): string =>
+		writeTeam("# T\n\n## Steps\n\n- [ ] one\n", { lead, units });
+
+	test("reads a table approval would have written", () => {
+		expect(readSplit(plan([LEAD, CORE]))).toEqual({ lead: "contract", units: [LEAD, CORE] });
+	});
+
+	test("reads nothing from a plan that was never split", () => {
+		expect(readSplit("# T\n\n## Steps\n\n- [ ] one")).toBeUndefined();
+	});
+
+	test("refuses a section the gate would have refused, so a hand-edited table cannot be joined", () => {
+		const overlapping = [LEAD, unit("core", { paths: ["src/billing/contract/deep"] })];
+		expect(readSplit(plan(overlapping))).toEqual({
+			error:
+				'Units "contract" and "core" overlap: src/billing/contract and src/billing/contract/deep. Combine them or serialize.',
+		});
+		const shared = [LEAD, unit("core", { paths: ["src/core", "package.json"] })];
+		expect(readSplit(plan(shared))).toMatchObject({ error: expect.stringContaining("which every workstream touches") });
+		const looping = [LEAD, unit("core", { dependsOn: ["report"] }), unit("report", { dependsOn: ["core"] })];
+		expect(readSplit(plan(looping))).toMatchObject({ error: expect.stringContaining("Dependencies loop") });
+	});
+
+	test("reports the table's own shape errors as they were written", () => {
+		expect(readSplit("# T\n\n## Team\n\nLead: a\n")).toEqual({ error: "The team section has no table." });
 	});
 });
 

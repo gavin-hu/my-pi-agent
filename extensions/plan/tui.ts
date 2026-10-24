@@ -29,7 +29,7 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
-import { renderTeam, type PlanUnit } from "../../lib/plans/team.ts";
+import { renderTeam, TEAM_SECTION, type PlanUnit } from "../../lib/plans/team.ts";
 import {
 	editorTheme,
 	screenHint,
@@ -231,7 +231,7 @@ export class PlanViewComponent implements Component {
 			const rendered = new Markdown(split, padding, 0, theme)
 				.render(width)
 				.map((line) => truncateToWidth(line.trimEnd(), width));
-			sections.push({ title: "Split", offset: lines.length });
+			sections.push({ title: TEAM_SECTION, offset: lines.length });
 			lines.push(...rendered);
 		}
 		this.cache = { width, lines, sections, changedCount: marks.filter((mark) => mark.changed).length };
@@ -239,15 +239,18 @@ export class PlanViewComponent implements Component {
 	}
 
 	/**
-	 * The split as a read-only section: the same table approval writes, so what the
-	 * user approves is what the plan file will carry.
+	 * The team as a read-only section, under the heading the file will carry: the
+	 * same table approval writes, so the section the reviewer navigates to is the
+	 * section the approved plan has.
 	 */
 	private splitSection(): string | undefined {
 		const split = this.options.split;
 		if (split === undefined) return undefined;
 		const owners = split.units.filter((unit) => !unit.lead).length;
 		const summary = `${split.verdict} · lead + ${owners} owner${owners === 1 ? "" : "s"} · written on approval`;
-		return ["## Split", "", summary, "", renderTeam({ lead: split.lead, units: [...split.units] })].join("\n");
+		return [`## ${TEAM_SECTION}`, "", summary, "", renderTeam({ lead: split.lead, units: [...split.units] })].join(
+			"\n",
+		);
 	}
 
 	/** The section whose heading is at or above the viewport top. */
