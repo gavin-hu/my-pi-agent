@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { checkSplit, MAX_OWNERS, mergeOrder, readSplit, SHARED_FILES, sharedFileFor } from "./split.ts";
+import { checkSplit, MAX_OWNERS, mergeOrder, readSplit, sharedFileFor } from "./split.ts";
 import { writeTeam } from "./team.ts";
 import type { PlanUnit } from "./team.ts";
 
@@ -135,18 +135,10 @@ describe("checkSplit", () => {
 		expect(checkSplit([unit("contract", { lead: true, paths: ["package.json"] }), unit("core")]).ok).toBe(true);
 	});
 
-	test("the project can extend the shared list", () => {
-		const shared = [...SHARED_FILES, "docs/"];
-		const result = checkSplit([LEAD, unit("core", { paths: ["docs/guide"] })], shared);
-		expect(result.ok).toBe(false);
-	});
-
 	test("names the shared file a path covers, for the bus to refuse the same one", () => {
 		expect(sharedFileFor("package.json")).toBe("package.json");
 		expect(sharedFileFor(".")).toBe("package.json");
 		expect(sharedFileFor("docs/extensions/plan.md")).toBeUndefined();
-		// A project's own list is a parameter here and nowhere else.
-		expect(sharedFileFor("docs/guide", [...SHARED_FILES, "docs/"])).toBe("docs/");
 		expect(sharedFileFor("docs/guide")).toBeUndefined();
 	});
 

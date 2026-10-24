@@ -87,8 +87,7 @@ by both sides, and it holds for as long as the session holds the unit: leaving
 releases the paths and with them the rule. It is read from the claims and the
 newest split rather than remembered, so `/resume` and `/tree` do not lose it, and
 a split a newer plan replaced is out of scope until the session joins again. Like
-every claim rule it is advisory: it refuses a `claim`, not an edit. A shared list
-a project extends is passed to approval by name and is not enforced here.
+every claim rule it is advisory: it refuses a `claim`, not an edit.
 
 Paths resolve against the caller's working directory and are stored relative to
 its repository root; a path outside the repository is refused.

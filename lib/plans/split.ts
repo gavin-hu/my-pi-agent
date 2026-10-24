@@ -20,7 +20,9 @@ export const MAX_OWNERS = 2;
 
 /**
  * Files every workstream touches, so an owner that writes one is a merge conflict
- * by rule. The lead lands them; the project can extend the list through config.
+ * by rule. The lead lands them. The list is a constant on purpose: approval and
+ * `session-bus` must refuse the same paths, and a second copy — or a config key
+ * only one of them read — is how the two answers drift.
  */
 export const SHARED_FILES: readonly string[] = [
 	"package.json",
@@ -52,8 +54,8 @@ function unitAt(units: readonly PlanUnit[], index: number): string {
  * whose paths cover one, and `session-bus` refuses the same file at claiming time
  * through `sharedFileFor`, so the two cannot disagree about what "shared" means.
  */
-export function sharedFileFor(path: string, shared: readonly string[] = SHARED_FILES): string | undefined {
-	return shared.find((file) => claimsConflict(path, file));
+export function sharedFileFor(path: string): string | undefined {
+	return SHARED_FILES.find((file) => claimsConflict(path, file));
 }
 
 /**
@@ -98,10 +100,7 @@ function findCycle(units: readonly PlanUnit[]): string[] | undefined {
  * write a table with nobody to join. Approving with no `units` at all is
  * `decideSplit`'s answer, not this one — it is the single flow, not a bad split.
  */
-export function checkSplit(
-	units: readonly PlanUnit[] | undefined,
-	shared: readonly string[] = SHARED_FILES,
-): SplitCheck {
+export function checkSplit(units: readonly PlanUnit[] | undefined): SplitCheck {
 	if (!units || units.length < 2) {
 		return {
 			ok: false,
@@ -180,7 +179,7 @@ export function checkSplit(
 		if (unit.lead) continue;
 		// `find`, not a first element: a unit's shared file is rarely its first path, and
 		// reading only `at(0)` let every later one through the gate.
-		const hit = unit.paths.map((path) => sharedFileFor(path, shared)).find((file) => file !== undefined);
+		const hit = unit.paths.map((path) => sharedFileFor(path)).find((file) => file !== undefined);
 		if (hit !== undefined) {
 			return {
 				ok: false,

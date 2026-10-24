@@ -54,9 +54,9 @@ export function heldUnits(units: readonly PlanUnit[], claims: readonly ClaimedPa
  * The refusal for a claim `held` must not make, or undefined when it may.
  *
  * All-or-nothing, like every other claim rule: the caller asks before it writes,
- * so a refused call leaves the caller holding exactly what it held. The canonical
- * shared list is the only one applied — a project-extended list is a parameter
- * approval passes by name, and the bus never reads configuration to find it.
+ * so a refused call leaves the caller holding exactly what it held. The list is
+ * `lib/plans/split.ts`'s `SHARED_FILES`, the one approval applies: the bus reads
+ * no configuration of its own, so the two answers cannot drift apart.
  */
 export function sharedClaimRefusal(held: readonly HeldUnit[], paths: readonly string[]): string | undefined {
 	const owner = held.find((entry) => entry.owner);
