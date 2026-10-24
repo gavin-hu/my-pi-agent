@@ -155,6 +155,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   prose, its sample frame, and both image alt texts), the configuration
   reference, and the guide. `assets/bytefly-settings.png` is recaptured from the
   current screen, whose header reads `Global · 13 settings`.
+- dev: `test/settings-coverage.test.ts` derives the settings count each doc states
+  from `SETTING_ROWS`, so a fourteenth row fails by naming the file that still
+  describes the older screen, and a stale count is named rather than tolerated.
 - `plan`: an open browser review follows its plan file, so an edit this review did
   not make — the model rewriting the plan while `/plan review` is open in normal
   mode, or an editor saving it — repaints every reader within about a second

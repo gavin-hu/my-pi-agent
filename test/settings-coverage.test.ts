@@ -15,8 +15,15 @@
  *
  * The loaders stay the source of truth: bounds are derived by probing each
  * normalizer with an extreme value, not by exporting the limits for the test.
+ *
+ * The same catalogue is the source of truth for the prose that counts the
+ * screen: the two entry READMEs, the extension README, the reference, and the
+ * guide state how many rows it holds, and every count below is built from
+ * `SETTING_ROWS`, so a fourteenth row fails here until the prose follows.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
 import { DEFAULT_SPLIT_CONFIG, normalizeSplitConfig } from "../lib/plans/setting.ts";
@@ -374,5 +381,88 @@ describe("the settings catalogue against the loaders", () => {
 				above: false,
 			});
 		}
+	});
+});
+
+/** The repository root, so a doc is read by the path a reader follows. */
+const root = join(import.meta.dir, "..");
+
+/** One doc's text with its line wrapping flattened, so a phrase survives a reflow. */
+const prose = (file: string): string => readFileSync(join(root, file), "utf-8").replace(/\s+/g, " ");
+
+const ROW_COUNT = SETTING_ROWS.length;
+const PROJECT_ROW_COUNT = SETTING_ROWS.filter((row) => row.config !== undefined).length;
+
+const COUNT_WORDS = [
+	"zero",
+	"one",
+	"two",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+	"ten",
+	"eleven",
+	"twelve",
+	"thirteen",
+	"fourteen",
+	"fifteen",
+	"sixteen",
+	"seventeen",
+	"eighteen",
+	"nineteen",
+	"twenty",
+];
+/** The Chinese README's numerals, up to nineteen, which is past any sane screen. */
+const ZH_DIGITS = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
+/** A count as the English docs spell it. */
+const count = (n: number): string => COUNT_WORDS[n] ?? String(n);
+/** The same count in the Chinese README's numerals. */
+const zhCount = (n: number): string => (n < 10 ? ZH_DIGITS[n] : `十${n % 10 === 0 ? "" : ZH_DIGITS[n % 10]}`);
+
+/** One file and a sentence it must hold, built from the catalogue. */
+const STATED: readonly { file: string; phrase: string }[] = [
+	{ file: "README.md", phrase: `the ${count(ROW_COUNT)} preferences a session changes` },
+	{ file: "README.zh-CN.md", phrase: `${zhCount(ROW_COUNT)}项设置` },
+	{ file: "extensions/bytefly/README.md", phrase: `a session changes: ${count(ROW_COUNT)} preferences` },
+	{ file: "extensions/bytefly/README.md", phrase: `Global · ${ROW_COUNT} settings` },
+	{ file: "extensions/bytefly/README.md", phrase: `capped at ${count(ROW_COUNT)} rows` },
+	{ file: "extensions/bytefly/README.md", phrase: `the ${count(PROJECT_ROW_COUNT)} \`bytefly.json\` rows` },
+	{ file: "extensions/bytefly/README.md", phrase: `at ${count(ROW_COUNT)} rows so the screen fits` },
+	{ file: "extensions/bytefly/README.md", phrase: `catalogue: the ${count(ROW_COUNT)} descriptors` },
+	{ file: "docs/configuration.md", phrase: `${count(ROW_COUNT)} flat rows` },
+	{ file: "docs/user-guide/settings-and-customization.md", phrase: `${count(ROW_COUNT)} preferences` },
+];
+
+/** The spelling each of those sentences carried before the last row landed. */
+const STALE: readonly string[] = [
+	`${count(ROW_COUNT - 1)} preferences`,
+	`${count(ROW_COUNT - 1)} flat rows`,
+	`${count(ROW_COUNT - 1)} rows`,
+	`${count(ROW_COUNT - 1)} descriptors`,
+	`Global · ${ROW_COUNT - 1} settings`,
+	`the ${count(PROJECT_ROW_COUNT - 1)} \`bytefly.json\` rows`,
+	`${zhCount(ROW_COUNT - 1)}项设置`,
+];
+
+describe("the docs count the settings screen", () => {
+	test("states the catalogue's counts wherever it counts the screen", () => {
+		const missing = STATED.filter((entry) => !prose(entry.file).includes(entry.phrase)).map(
+			(entry) => `${entry.file} does not say "${entry.phrase}"`,
+		);
+		expect(missing).toEqual([]);
+	});
+
+	test("carries no count the catalogue has outgrown", () => {
+		const files = [...new Set(STATED.map((entry) => entry.file))];
+		const stale = files.flatMap((file) => {
+			const text = prose(file);
+			return STALE.filter((phrase) => text.includes(phrase)).map((phrase) => `${file} still says "${phrase}"`);
+		});
+		expect(stale).toEqual([]);
 	});
 });

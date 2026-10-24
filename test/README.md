@@ -283,7 +283,7 @@ test/
   config-docs.test.ts      # the configuration reference against the loaders
   release.test.ts          # package version, changelog heading, and newest tag
   roadmap.test.ts          # ROADMAP.md ids, links, and per-horizon caps
-  settings-coverage.test.ts # the settings catalogue against the config loaders
+  settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame
 ```
 
