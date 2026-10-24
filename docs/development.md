@@ -86,9 +86,11 @@ terminal captures under `assets/` are: its name in the accent, a rule running to
 the state at the right edge, muted metadata, glyph rows. There is no window
 chrome and no frame of its own; the hint footer along the bottom is the only
 strip the panes do not own. All three are captured at 1200×675 by
-`screenshot:plan-flow`. They share `assets/plan-flow.css`, so the set
-cannot drift apart, and a card whose content outgrows its box fails the capture
-rather than being clipped.
+`screenshot:plan-flow`. The two plan-flow cards share `assets/plan-flow.css`, and
+its shell — palette, `.card`, `.title`, `.foot` — is what keeps the set from
+drifting apart: `assets/terminal.css` adds only the terminal frame, and its page
+links it second. A card whose content outgrows its box fails the capture rather
+than being clipped.
 
 The screenshot grid in the root `README.md` is a curated set rather than the
 full list; each screen is shown on its extension's page under
