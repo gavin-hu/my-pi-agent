@@ -78,13 +78,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   order, the capability table, the Markdown-free `extensions/` tree, and the
   rule that every tool and command an extension registers is named in it.
   `package.json` ships `docs/extensions/**`, so the pages travel with the
-  published package. WeChat, bytefly, plan, and check rank their capability rows
+  published package. WeChat, bytefly, plan, check, and subagent rank their
+  capability rows
   by user value and add a `Status` column for shipped, unreleased, and partial
   capabilities; bytefly also names its theme, status-chip, delegated-cost,
   tariff, proactive health, Pi-release, and reload capabilities; plan names its
   git-shell, delegation, goal, split-gate, stale-step, path, and store
-  safeguards; and check names its plan-mode refusal, single-run guard, target
-  selection, rerun, and detection families.
+  safeguards; check names its plan-mode refusal, single-run guard, target
+  selection, rerun, and detection families; and subagent names its plan guard,
+  tool allowlist, project-agent trust gate, parallel/chain bounds, per-step cwd,
+  background cap, and session-owned background run.
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by

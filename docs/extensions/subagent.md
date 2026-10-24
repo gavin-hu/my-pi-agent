@@ -8,18 +8,27 @@ can also start in the background and be inspected, collected, or cancelled with
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Isolated context | `subagent` | Each task runs in its own process with its own transcript, and only its final reply returns to the caller. |
-| Three delegation modes | `subagent` (`agent` + `task`, `tasks[]`, `chain[]`) | One agent, an independent batch of up to 8, or an ordered chain whose steps receive `{previous}`. |
-| Built-in agents | `subagent` (`agent`) | Recon, planning, review, implementation, research, testing, debugging, and docs work without writing an agent file. |
-| External agents | `subagent` (`agentScope`) | Markdown agents from the user directory and the nearest `.pi/agents`, opt-in per scope and never replacing a built-in silently. |
-| Background runs | `subagent` (`background: true`), `/agents` | A single run continues after the call returns and is inspected, collected, or cancelled from the board. |
-| Live progress | `subagent` | Tool calls and progress update in the transcript while the child runs, with a `↳ N` footer chip and a finish notice. |
-| Bounded runs | `timeoutMs` | A child that hangs is killed at the deadline and reported as a failed run rather than rejecting the whole call. |
-| Read-only delegation | `subagent` (`readOnly: true`) | Every spawned agent runs with a reader-only tool set, enforced at the process boundary. |
-| Optional transcripts | `transcripts` | Per-run streams under `.pi/subagents/`, written by the parent and pruned by age and count. |
-| Inherited model | `subagent` | Children use the dispatching session's model and thinking level unless an agent overrides them. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Isolated context | `subagent` | Each task runs in its own process with its own transcript, and only its final reply returns to the caller. | Shipped |
+| Explicit tool allowlist | `--tools` for every child | An agent gets only its declared tools, not the parent's ambient extensions; `worker` cannot recurse into `subagent`. | Shipped |
+| Read-only delegation | `subagent` (`readOnly: true`) | Every spawned agent runs with a reader-only tool set, enforced at the process boundary. | Shipped |
+| Plan-mode guard | `subagent`, plan mode | Plan mode forces every call read-only and refuses `/agents` until the plan is approved. | Shipped |
+| Project-agent trust gate | `agentScope` with the trust gate | A `.pi/agents` file loads only when the project is trusted or confirmed, so a repository cannot inject a prompt by adding a file. | Shipped |
+| Three delegation modes | `subagent` (`agent` + `task`, `tasks[]`, `chain[]`) | One agent, an independent batch, or an ordered chain whose steps receive `{previous}`. | Shipped |
+| Parallel and chain bounds | `tasks[]`, `chain[]` | Parallel accepts up to 8 tasks with 4 running at once; a chain accepts up to 8 steps and stops at the first failure. | Shipped |
+| Per-step working directory | `cwd` | A single run, each parallel task, or each chain step can name its working directory; a relative path resolves against the active root. | Shipped |
+| Built-in agents | `subagent` (`agent`) | Recon, planning, review, implementation, research, testing, debugging, and docs work without writing an agent file. | Shipped |
+| External agents | `subagent` (`agentScope`) | Markdown agents from the user directory and the nearest `.pi/agents`, opt-in per scope and never replacing a built-in silently. | Shipped |
+| Background runs | `subagent` (`background: true`), `/agents` | A single run continues after the call returns and is inspected, collected, or cancelled from the board. | Shipped |
+| Background concurrency cap | `backgroundMax` | At most four background children run at once; finished runs release their slot. | Shipped |
+| Session-owned background run | `background: true` | `/tree` does not move the run and a restart cannot resume it; an unfinished start shows as `interrupted`. | Shipped |
+| Live progress | `subagent` | Tool calls and progress update in the transcript while the child runs, with a `↳ N` footer chip and a finish notice. | Shipped |
+| Bounded runs | `timeoutMs` | A child that hangs is killed at the deadline and reported as a failed run rather than rejecting the whole call. | Shipped |
+| Optional transcripts | `transcripts` | Per-run streams under `.pi/subagents/`, written by the parent and pruned by age and count. | Shipped |
+| Inherited model | `subagent` | Children use the dispatching session's model and thinking level unless an agent overrides them. | Shipped |
 
 ## Quickstart
 
