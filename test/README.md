@@ -278,6 +278,7 @@ test/
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links, catalog counts
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   changelog-skill.test.ts  # the `changelog` skill's state script: parse, report, and file lookup
+  refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
   shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role

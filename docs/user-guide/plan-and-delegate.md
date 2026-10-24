@@ -288,9 +288,14 @@ Give it a scope with a path, or let it use the current project:
 
 A directory is an audit scope, a file is the starting point, and several paths
 can be audited together. The skill reads the project's own instructions and CI
-thresholds first, then looks for duplication, oversized modules, coupling,
-structural drift, high-churn code with weak tests, test friction, and boundary
-erosion. It checks callers and tests before keeping a candidate, so intentional
+thresholds first, then measures the scope with a bundled script — sizes, fan-in,
+churn over a stated window, and test proximity by convention — and carries forward
+the files above the 90th percentile rather than claiming to have read the tree. It
+says what it could not measure, such as a shallow clone's missing history or a
+language the scanner cannot read, instead of reporting that as zero. It then looks
+for duplication, oversized modules, coupling, structural drift, high-churn code with
+weak tests, test friction, boundary erosion, and one change that has to be edited in
+many places. It checks callers and tests before keeping a candidate, so intentional
 duplication and public API are not reported as opportunities.
 
 The report names the scope and method, then three to five candidates ranked as
@@ -299,8 +304,9 @@ The report names the scope and method, then three to five candidates ranked as
 blast radius, effort, and the commands that would verify it. Rejected signals are
 listed with their reasons. Nothing is edited during the audit.
 
-After you choose a candidate, the handoff keeps the refactor safe: state the
-behavior contract, run the project's check for a baseline, add characterization
+After you choose a candidate — the skill asks with the shortlist by name — the
+handoff keeps the refactor safe: state the behavior contract, run the project's
+check for a baseline, add characterization
 tests if the behavior is untested, enter plan mode when the change spans files or
 a public surface, make one structural change per step, and run the full check at
 the end. The skill is advisory rather than an enforcement layer; it can miss a

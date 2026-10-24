@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `skills`: the `refactor` skill measures a scope instead of asking the model to eyeball
+  it. `scripts/inventory.ts` prints the languages it read, the size distribution, fan-in
+  from resolvable imports, churn over a stated window, test proximity, and the files
+  above the 90th percentile — and names what it could not measure, such as a shallow
+  clone's missing history or a language it cannot parse, rather than reporting zero.
+  That outlier list is also the audit's budget, so the report has to say what it left
+  outside it. The signal table and the post-selection rules moved to `references/`, the
+  procedure gained a quality gate, and the description now names the handoff, so a
+  request to execute a refactor routes here instead of missing the audit-only wording.
 - `skills`: the `changelog` skill works on any project's changelog instead of this
   package's. It finds the file, its category names and order, the scope prefixes, the
   bullet shape, and the release document, states that profile in one line, and keeps
