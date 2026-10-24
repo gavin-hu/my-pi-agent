@@ -278,7 +278,7 @@ callable from a script.
 | [Configuration](../configuration.md) | Every setting, its default, and its bounds |
 | [Security](../security.md) | Trust boundaries for the shell, the loopback pages, and WeChat |
 | [`extensions/<name>/README.md`](../../extensions/) | Each extension's full contract and design notes |
-| [Architecture](../architecture.md) | The load path and runtime model for contributors |
+| [Architecture](../architecture.md) | The target shape for contributors: the extension contract, the turn, and state |
 | [Development](../development.md) | Setup, checks, and the release process |
 
 ---

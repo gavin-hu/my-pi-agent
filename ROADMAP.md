@@ -75,7 +75,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
 | Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W8 |
-| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F2 |
+| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F5 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -422,7 +422,30 @@ Nothing here makes a false promise today.
 
 **Next**
 
-Nothing here is queued.
+- **F3 — One loopback lifecycle.** Binding, the `Host` check, page headers, and
+  the response writer live in `lib/http/`, but `plan` and `file-browse` each
+  build their own `node:http` server around those pieces and close it
+  themselves, so the close path exists twice and idle grace exists once
+  (`extensions/file-browse/server.ts`, `extensions/plan/web.ts`). Give
+  `lib/http/` one server entry that owns bind → accept → close → idle, and let an
+  extension supply routes and an idle policy only. *Done when* neither extension
+  imports `node:http` for its own server, idle grace is asserted by a `lib/http/`
+  test, and a page cannot outlive the session it describes.
+- **F4 — Role directories past twenty modules.** The architecture page names the
+  roles a module can play and lets a role earn a directory past roughly twenty
+  modules, the way `bytefly/` groups `footer/`, `notice/`, and `separator/` and
+  `web-access/` groups `fetch/` and `search/`. Five extensions are flat past that
+  size: `job` (24 modules), `wechat` (39), `rewind` (28), `worktree` (23), and
+  `subagent` (22). *Done when* each of the five holds role subdirectories plus
+  `index.ts`, its imports are updated, and the page's layout rule describes the
+  tree without an exception.
+- **F5 — `lib/` names a contract.** Shared code is promoted on a second consumer
+  or on a contract two sides must agree on, but `lib/claims/overlap.ts` has one
+  consumer (`session-bus`, which re-exports it) and `lib/pi-invocation.ts` has
+  one (`subagent`). Move each into the extension that uses it, and keep
+  `lib/requirements.ts` — a declaration table whose whole point is being one
+  list. *Done when* neither module is in `lib/`, both extensions' suites cover
+  them, and `lib/README.md`'s conventions name the single-table exception.
 
 **Later**
 

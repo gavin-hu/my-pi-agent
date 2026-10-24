@@ -174,8 +174,8 @@ when its surface changed; `chrome.png` only in a release.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — branch flow, checks, commits.
 - [`docs/development.md`](./docs/development.md) — scripts, test tiers, compat,
   release steps.
-- [`docs/architecture.md`](./docs/architecture.md) — the package model, state, and
-  where code belongs.
+- [`docs/architecture.md`](./docs/architecture.md) — the target architecture, state,
+  and where code belongs.
 - [`test/README.md`](./test/README.md) — test tiers, helpers, determinism.
 - [`extensions/worktree/README.md`](./extensions/worktree/README.md) — the
   worktree flow above.
