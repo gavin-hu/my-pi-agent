@@ -57,7 +57,8 @@ gate is stated in the test.
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
    `test/config-docs.test.ts`, `test/settings-coverage.test.ts`,
-   `test/dependencies.test.ts`, `test/skill-bank.test.ts`) — cross-cutting
+   `test/dependencies.test.ts`, `test/skill-bank.test.ts`,
+   `test/scripts-surface.test.ts`) — cross-cutting
    contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
    fails an extension that reimplements what `lib/` owns, by name or by body, and
    a test that re-declares or copies a `test/helpers` export, and pins its
@@ -287,6 +288,7 @@ test/
   config-docs.test.ts      # the configuration reference against the loaders
   release.test.ts          # package version, changelog heading, and newest tag
   roadmap.test.ts          # ROADMAP.md ids, links, and per-horizon caps
+  scripts-surface.test.ts  # the package scripts, and the docs that name them
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame
 ```

@@ -139,8 +139,8 @@ Three of the four are gates; the fourth is review.
 ## UI verification
 
 A surface is verified by rendering it. A terminal frame:
-`bun run scripts/screenshots.ts render <screen>`, or
-`bun run scripts/tool-renderings.ts render <tool> --width 80` for one block; a
+`bun run screenshots render <screen>`, or
+`bun run tools:render render <tool> --width 80` for one block; a
 browser page: `bun run screenshot:plan <plan.md>` or `screenshot:file-browse`,
 each driving the shipped page. `bun run check` renders every screen at three
 widths, so an overflowing frame fails there. Re-capture an `assets/` file only

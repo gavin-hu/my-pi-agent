@@ -78,6 +78,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   three-column table, and the rule that every tool and command an extension
   registers is named in it. `package.json` ships `docs/extensions/**`, so the
   signposts in a published package resolve.
+- Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
+  `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
+  (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by
+  package script instead of a raw file path. `AGENTS.md` and `docs/development.md`
+  now name package scripts only, and the scripts table lists every entry —
+  `check:static` and `config:migrate` were missing from it.
 - `wechat`: the poll probe also reports the `group_id` and `session_id` a message
   carries, and `WeixinMessage` declares both, so one run with `pi` stopped answers
   whether a message posted in a group is delivered at all — the question the

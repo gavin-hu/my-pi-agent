@@ -71,6 +71,7 @@ const ROOT_TEST_FILES = new Set([
 	"refactor-skill.test.ts",
 	"release.test.ts",
 	"roadmap.test.ts",
+	"scripts-surface.test.ts",
 	"settings-coverage.test.ts",
 	"shared-helpers.test.ts",
 	"skill-bank.test.ts",

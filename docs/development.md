@@ -17,6 +17,7 @@ repositories.
 
 | Command | What it does |
 |---|---|
+| `bun run check:static` | `format:check` + `typecheck`, the static half of `check`. |
 | `bun run check` | `format:check` + `typecheck` + `test`. The one command a change must pass. |
 | `bun run test` | Unit tests (`bun test --parallel=4`, 30s timeout). |
 | `bun run test:serial` | Unit tests, one file at a time. |
@@ -25,6 +26,7 @@ repositories.
 | `bun run format` | `biome format --write .`. |
 | `bun run format:check` | `biome format .`, check only. |
 | `bun run check:serial` | `bun run check` with the serial suite. |
+| `bun run config:migrate [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`configuration.md`](./configuration.md#migrating-from-older-versions). |
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
@@ -32,7 +34,8 @@ repositories.
 | `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot, and `--as owner\|reviewer` picks the owner's page or the one a shared link opens. `--post <name>` posts one comment as that reviewer before the capture, so the frame shows the name bound to her link, and `--draft <text>` starts the tab with one unsaved comment, the state a reload restores; `--share` opens the owner's Share dialog with two links instead of the plan, so the per-person list is what the frame shows. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:plan-flow [flow\|graphic\|parallel]` | Capture the posting cards at 1200×675, 2× by default: `assets/plan-flow.html` and `assets/plan-flow-graphic.html` — the plan-then-execute flow, one prose-led and one graphic-led — plus `assets/parallel-dev.html`, which titles itself `Plan, then parallel execute` over one terminal frame that draws the lead-and-team split. Naming one card captures only it and honours `-o`; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. `bun run scripts/tool-renderings.ts list` names them all, `render <name> --width n` prints one block as ANSI on any OS, and `html <out>` writes the page. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run tools:render <list\|render\|html\|gallery\|tools>` | The tool-renderings CLI: `list` names every rendering, `render <name> --width n` prints one block as ANSI on any OS, `html <out>` writes the gallery page, and `gallery <out>` / `tools <dir>` capture PNGs with Playwright driving the local Chrome. `screenshot:tools` and `screenshot:tool-pngs` are the last two with their asset paths filled in. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run tools:render gallery assets/tool-renderings.png`. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
 
 ## Screenshots
@@ -43,7 +46,7 @@ theme inside a real Terminal.app window, then captured with `screencapture`, so
 the docs show the product rather than a mock. Naming screens captures only
 those; with no argument it captures every entry in the `SCREENS` map of
 `scripts/screenshots.ts` and then the hero. To check a layout without a
-capture, `bun run scripts/screenshots.ts render <name>` prints one frame as ANSI
+capture, `bun run screenshots render <name>` prints one frame as ANSI
 on any OS; `--width` and `--rows` override the terminal.
 
 The hero is the one asset tied to the version: `ByteflyHeader` draws
