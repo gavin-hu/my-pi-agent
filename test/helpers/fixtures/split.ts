@@ -1,7 +1,7 @@
 /**
  * A split plan store, for the suites that join a unit.
  *
- * Approval writes a `## Team` table into the plan and turns `plan.split` on; these
+ * Approval writes a `## Team` table into the plan and turns `plan.team` on; these
  * suites start from that state instead of driving an approval, so the fixture is
  * one plan file plus one settings file. The caller owns its temp directories.
  */
@@ -36,7 +36,7 @@ export const SPLIT_LEAD = "contract";
 export const SPLIT_TEAM = "2026-10-24-0820-split";
 
 export interface SplitStoreOptions {
-	/** Whether `plan.split` is on; off is how a suite proves the refusal names it. */
+	/** Whether `plan.team` is on; off is how a suite proves the refusal names it. */
 	on?: boolean;
 	/** A different plan body, for the refusals that read the table. */
 	content?: string;
@@ -56,7 +56,7 @@ export function splitStore(temps: TempTracker, team = SPLIT_TEAM, options: Split
 	const plans = temps.track(tempDir("pi-split-plans-"));
 	writeFileSync(join(plans, `${team}.md`), options.content ?? SPLIT_PLAN);
 	const agent = temps.track(tempDir("pi-split-agent-"));
-	writeFileSync(join(agent, "bytefly.json"), JSON.stringify({ plan: { split: options.on ?? true } }));
+	writeFileSync(join(agent, "bytefly.json"), JSON.stringify({ plan: { team: options.on ?? true } }));
 	const scoped = useEnv({ PI_CODING_AGENT_DIR: agent });
 	return { plans, team, restore: scoped.restore };
 }

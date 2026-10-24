@@ -193,7 +193,7 @@ repository root rather than the active working directory.
 | [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
 | [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
 | [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
-| [`plan`](../extensions/plan/) | `plan` | The split switch: whether an approved plan may carry a team of slices. |
+| [`plan`](../extensions/plan/) | `plan` | The team switch: whether an approved plan may carry a team of slices. |
 | [`rewind`](../extensions/rewind/) | `rewind` | Snapshot scope and retention. |
 | [`subagent`](../extensions/subagent/) | `subagent` | Run deadline, transcript retention. |
 | [`todo`](../extensions/todo/) | `todo` | Widget behaviour. |
@@ -369,11 +369,11 @@ The settings screen has no row for it; `inject` is a `bytefly.json` edit.
 
 ## `plan` — parallel slices
 
-Off by default. `/bytefly settings` edits `split`; there are no other keys.
+Off by default. `/bytefly settings` edits `team`; there are no other keys.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `split` | boolean | `false` | | Let an approved plan carry a `## Team` table of slices, which separate sessions join by name. Off approves every plan as one flow. |
+| `team` | boolean | `false` | | Let an approved plan carry a `## Team` table of slices, which separate sessions join by name. Off approves every plan as one flow. |
 
 The project file may set it, so a repository can switch its own team on while the
 global default stays off. Turning it off never strand a claim: `session leave`

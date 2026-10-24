@@ -589,7 +589,7 @@ describe("write_plan", () => {
 describe("exit_plan_mode with a split", () => {
 	/** Turn the feature on for this test, in the isolated agent dir. */
 	function enableSplit(on = true): void {
-		writeFileSync(join(AGENT, "bytefly.json"), JSON.stringify({ plan: { split: on } }));
+		writeFileSync(join(AGENT, "bytefly.json"), JSON.stringify({ plan: { team: on } }));
 	}
 
 	const LEAD = { name: "contract", paths: ["src/contract"], test: "bun test src/contract", lead: true };
@@ -607,7 +607,7 @@ describe("exit_plan_mode with a split", () => {
 		expect(result.details.approved).toBe(true);
 		expect(result.details.team).toBeUndefined();
 		expect(result.details.splitOff).toBe(true);
-		expect(result.content[0].text).toContain("plan.split");
+		expect(result.content[0].text).toContain("plan.team");
 		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
 	});
 

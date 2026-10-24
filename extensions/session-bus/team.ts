@@ -49,7 +49,7 @@ export function resolveUnit(plansRoot: string, input: { team?: string; unit?: st
 	}
 	const parsed = readSplit(content);
 	if (parsed === undefined) {
-		throw new Error(`"${team}" has no team section; a split is written when a plan is approved with plan.split on.`);
+		throw new Error(`"${team}" has no team section; a split is written when a plan is approved with plan.team on.`);
 	}
 	if ("error" in parsed) throw new Error(`${team}: ${parsed.error}`);
 	const unit = parsed.units.find((entry) => entry.name === wanted);

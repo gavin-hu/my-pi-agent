@@ -26,7 +26,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
 | Inbox watch | `session watch`, `/sessions watch [off\|wake]` | New mail reported at the next turn, or one raised turn once the agent is idle. | Shipped |
 | Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. | Shipped |
-| Unit joining | `session join`, `session leave`; `plan.split` | One call claims every path an approved split's unit owns. | Shipped |
+| Unit joining | `session join`, `session leave`; `plan.team` | One call claims every path an approved split's unit owns. | Shipped |
 | Joined-unit report | `session status` (`units n/m`) | The newest split's joined units, their holder, and the lead are visible without opening the plan. | Shipped |
 | Leave everything | `session leave` with no unit | Releases every claim this session holds, not only one unit's paths. | Shipped |
 | Usage help | `/sessions help` | The command's usage lines, printed in the transcript. | Shipped |
@@ -63,7 +63,7 @@ collapsed line that expands to the board's rows.
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. An owner unit of a split may not claim a shared file — the refusal names the lead. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
-| `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.split` on. Idempotent: joining twice is the same claims. The unit it claims is what `claim` reads to keep shared files with the lead. |
+| `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.team` on. Idempotent: joining twice is the same claims. The unit it claims is what `claim` reads to keep shared files with the lead. |
 | `leave` | optional `team`, `unit` | Releases that unit's paths, or every claim this session holds when neither is given. Never gated by the switch. |
 | `watch` | optional `wake`, optional `stop` | Arms this session's inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch's mode. |
 | `name` | `label` | Joins the bus, and renames this session on it and in Pi — the same path as `/sessions name`, with the same uniqueness rule, so the footer and `/resume` agree with the record peers address. An empty label is refused rather than keeping the old one, and a label a live session holds is refused with its owner named. The result reports the label the bus settled on. |
@@ -180,7 +180,7 @@ The unit's paths come from the table the same module wrote, and the read runs
 approval's own rules (`readSplit`), so a hand-edited or stale section is refused
 rather than half-read — and a table approval would have refused, such as an owner
 unit listing `package.json`, cannot be joined either; an unknown unit names the units
-that exist; a taken unit names its holder; and with `plan.split` off `join`
+that exist; a taken unit names its holder; and with `plan.team` off `join`
 refuses and names the settings row. `status` reports `units 1/2 joined` with the
 holder of each unit, which is how a lead answers "has everyone started?" without
 messaging anyone.

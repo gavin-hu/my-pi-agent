@@ -648,7 +648,7 @@ describe("panel text projection", () => {
 			"Proactive health check: On",
 			"Currency: CNY (¥)",
 			"Session budget: 0",
-			"Split plans into slices: Off",
+			"Run plans as a team: Off",
 		]) {
 			expect(lines.join("\n"), row).toContain(row);
 		}
@@ -678,7 +678,7 @@ describe("settings catalogue", () => {
 			"doctor.proactive",
 			"price.currency.code",
 			"price.budget",
-			"plan.split",
+			"plan.team",
 		]);
 		expect(SETTING_ROWS.length).toBeLessThanOrEqual(13);
 		expect(new Set(SETTING_ROWS.map((entry) => entry.id)).size).toBe(SETTING_ROWS.length);
@@ -719,7 +719,7 @@ describe("settings catalogue", () => {
 			["doctor.proactive", "true", "On", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.budget", "0", "0", "default"],
-			["plan.split", "false", "Off", "default"],
+			["plan.team", "false", "Off", "default"],
 		]);
 
 		expect(settingViews(snapshot(), "project").map((entry) => entry.origin)).toEqual(
@@ -1300,7 +1300,7 @@ describe("panel entries", () => {
 		expect(entries).toHaveLength(13);
 		expect(entries.every((entry) => entry.kind === "setting")).toBe(true);
 		expect(entryKey(entries[0])).toBe("byteflyUi");
-		expect(entryKey(entries.at(-1))).toBe("plan.split");
+		expect(entryKey(entries.at(-1))).toBe("plan.team");
 	});
 
 	test("marks only rows selectable and skips headings when stepping", () => {
@@ -3061,7 +3061,7 @@ describe("PanelComponent settings actions", () => {
 		expect(selectedLine(component)).toContain("Bytefly startup TUI");
 
 		component.handleInput("G");
-		expect(selectedLine(component)).toContain("Split plans into slices");
+		expect(selectedLine(component)).toContain("Run plans as a team");
 	});
 });
 
@@ -3229,7 +3229,7 @@ describe("PanelComponent settings frame", () => {
 
 		expect(lines).toHaveLength(23);
 		expect(lines.join("\n")).not.toContain("showing");
-		expect(lines.join("\n")).toContain("Split plans into slices");
+		expect(lines.join("\n")).toContain("Run plans as a team");
 	});
 
 	test("stays content-sized on a tall terminal", () => {

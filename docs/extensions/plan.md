@@ -29,7 +29,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first, under a header naming the store's size and its oldest plan. | Shipped |
 | Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
 | Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
-| Parallel slices | `exit_plan_mode` `units`, `plan.split` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
+| Parallel slices | `exit_plan_mode` `units`, `plan.team` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
 | Split validation gate | `checkSplit`, `readSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens — the same list refuses an owner's `claim` once the team is running, and the same rules re-read the table when a session joins, so a hand-edited section cannot get in. | Shipped |
 | Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. | Shipped |
 
@@ -87,7 +87,7 @@ stays small.
 |---|---|---|
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
-| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Optional `units` proposes a split when `plan.split` is on. |
+| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Optional `units` proposes a split when `plan.team` is on. |
 | `cancel_plan_mode` | plan mode | Leave plan mode without a plan file or a review. Empty schema. |
 | `set_plan_steps` | normal mode | Set the checkboxes of the given top-level steps of an approved plan in one write, and their todo items with them. |
 
@@ -186,7 +186,7 @@ the decision. A session with no goal at all is given the same objective, also
 without asking. An `active` or `achieved` goal is never rewritten: a final
 objective is the user's. No path spends a model turn.
 
-**A split, when the switch is on.** With `plan.split` enabled (off by default;
+**A split, when the switch is on.** With `plan.team` enabled (off by default;
 a `/bytefly settings` row), `exit_plan_mode` also accepts `units`: the plan's
 slices, each with a name, path prefixes, a test, and the units it depends on. The
 split is validated *before* the review opens, so a refusal costs no review, and
@@ -406,9 +406,9 @@ then project document, project wins; resolution rules in
 
 | Key | Default | Meaning |
 |---|---|---|
-| `split` | `false` | Let an approval carry a `## Team` table of slices that separate sessions join by name. |
+| `team` | `false` | Let an approval carry a `## Team` table of slices that separate sessions join by name. |
 
-The switch is also the `/bytefly settings` row **Split plans into slices**. With
+The switch is also the `/bytefly settings` row **Run plans as a team**. With
 it off, approval treats every plan as one flow.
 
 ## Security
@@ -514,7 +514,7 @@ agent file that overrides it.
 
 ## Splitting a plan
 
-Off by default: enable **Split plans into slices** in `/bytefly settings`, or set
+Off by default: enable **Run plans as a team** in `/bytefly settings`, or set
 `"plan": { "split": true }` in the project's `.pi/bytefly.json` so a repository
 switches its own team on.
 
@@ -1008,7 +1008,7 @@ both.
 | `web-markdown.ts` | The client's document half: `safeHref` and the inline/table/code/list rendering (interpolated into `web-client.ts`). |
 | `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, and reading progress (interpolated into `web-client.ts`). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
-| [`../../lib/plans/`](../../lib/plans/) | The plan document's shared shape: `sections.ts` (the one fence-aware scan, and the occurrence key that tells two identically titled sections apart), `team.ts` (the `## Team` codec), `split.ts` (`checkSplit` and its refusals), `store.ts` (`plansDir`), and `setting.ts` (the `plan.split` key), so approval and `session-bus` cannot disagree. |
+| [`../../lib/plans/`](../../lib/plans/) | The plan document's shared shape: `sections.ts` (the one fence-aware scan, and the occurrence key that tells two identically titled sections apart), `team.ts` (the `## Team` codec), `split.ts` (`checkSplit` and its refusals), `store.ts` (`plansDir`), and `setting.ts` (the `plan.team` key), so approval and `session-bus` cannot disagree. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |
 | [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |

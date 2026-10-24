@@ -9,7 +9,7 @@
  * remembered: a session that left is out of scope the moment its claims are gone.
  */
 
-import { SPLIT_OFF_NOTE, splitEnabled } from "../../lib/plans/setting.ts";
+import { teamEnabled, TEAM_OFF_NOTE } from "../../lib/plans/setting.ts";
 import { claimsConflict } from "./protocol.ts";
 import { heldUnits, sharedClaimRefusal } from "./membership.ts";
 import { releaseClaimed } from "./store.ts";
@@ -72,7 +72,7 @@ export function createTeamRuntime(deps: TeamRuntimeDeps): TeamRuntime {
 
 	async function join(input: { team?: string; unit?: string }): Promise<JoinResult> {
 		const me = await deps.me();
-		if (!splitEnabled(me.cwd, me.repoRoot)) throw new Error(SPLIT_OFF_NOTE);
+		if (!teamEnabled(me.cwd, me.repoRoot)) throw new Error(TEAM_OFF_NOTE);
 		const unit = resolveUnit(deps.plansRoot() ?? "", input, "join");
 		const claimed = await deps.claimAll(me, deps.rooted(me, unit.paths));
 		return { team: unit.team, unit: unit.name, ...claimed };

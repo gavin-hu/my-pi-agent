@@ -334,7 +334,7 @@ runs, an update check, and two themes.
   them.
 - Settings is a flat shortlist of thirteen preferences — eleven of them
   `bytefly.json` rows — including the Theme row, one edited amount, and the
-  `plan.split` switch; every other key is a `bytefly.json` edit. The counts the
+  `plan.team` switch; every other key is a `bytefly.json` edit. The counts the
   docs state are derived from the catalogue by a test, so a new row cannot leave
   the docs describing an older screen.
 - DeepSeek is priced from its published CNY and USD tables, with peak and

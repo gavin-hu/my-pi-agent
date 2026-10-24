@@ -143,7 +143,7 @@ the only QA.
 ## Minimal recipe
 
 ```text
-user:       /bytefly settings → "Split plans into slices" On      (once per project or globally)
+user:       /bytefly settings → "Run plans as a team" On      (once per project or globally)
 lead:       /plan …  →  exit_plan_mode with units  →  generate the roster card, work the lead unit
 user:       one session per owner: enter_worktree <unit> · /sessions name <unit> · /sessions watch wake
 each:       session({action:"join", team, unit}) at the start, then one increment per turn

@@ -112,6 +112,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: the switch is `plan.team`, and its settings row reads **Run plans as a
+  team**. The key was `plan.split` and the row **Split plans into slices**, while
+  everything it turns on — the `## Team` section, the units, the sessions that
+  join them, the roster card — is already named a team, so one concept had two
+  names. A project that set `plan.split` has to write `plan.team`: the old key is
+  not read, and `join` keeps refusing with the note naming the new row until it
+  is on.
+
 - `plan`: a plan's `## Team` section belongs to the approval gate. `write_plan`
   refuses a plan that writes one, because a table the rules never accepted is a
   team nobody reviewed, and it points at `exit_plan_mode`'s `units`; approval with

@@ -25,7 +25,7 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import { SPLIT_KEY, SPLIT_SECTION, SPLIT_SETTING_ID, SPLIT_SETTING_LABEL } from "../../../lib/plans/setting.ts";
+import { TEAM_KEY, TEAM_SECTION, TEAM_SETTING_ID, TEAM_SETTING_LABEL } from "../../../lib/plans/setting.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
@@ -297,10 +297,10 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		config: { section: "price", path: ["budget"] },
 	},
 	{
-		// The split's switch, with the label, id, and default taken from the module
+		// The team switch, with the label, id, and default taken from the module
 		// that reads it, so this row cannot describe a key nothing honours.
-		id: SPLIT_SETTING_ID,
-		label: SPLIT_SETTING_LABEL,
+		id: TEAM_SETTING_ID,
+		label: TEAM_SETTING_LABEL,
 		description:
 			"Let an approved plan carry a team of slices, which separate sessions join by name. Off keeps every plan one flow.",
 		source: "plan",
@@ -308,7 +308,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		fallback: "false",
 		json: "boolean",
 		options: ON_OFF,
-		config: { section: SPLIT_SECTION, path: [SPLIT_KEY] },
+		config: { section: TEAM_SECTION, path: [TEAM_KEY] },
 	},
 ];
 

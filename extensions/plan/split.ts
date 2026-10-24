@@ -11,11 +11,11 @@
  */
 
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
-import { splitEnabled } from "../../lib/plans/setting.ts";
+import { teamEnabled } from "../../lib/plans/setting.ts";
 import { checkSplit, mergeOrder } from "../../lib/plans/split.ts";
 import type { PlanTeam, PlanUnit } from "../../lib/plans/team.ts";
 
-export { SPLIT_OFF_NOTE, SPLIT_SETTING_ID, SPLIT_SETTING_LABEL, splitEnabled } from "../../lib/plans/setting.ts";
+export { teamEnabled, TEAM_OFF_NOTE, TEAM_SETTING_ID, TEAM_SETTING_LABEL } from "../../lib/plans/setting.ts";
 
 /** What approval decides about the units a model proposed. */
 export type SplitDecision =
@@ -37,7 +37,7 @@ export function decideSplit(
 	units: readonly PlanUnit[] | undefined,
 ): SplitDecision {
 	if (units === undefined || units.length === 0) return { kind: "none" };
-	if (!splitEnabled(cwd, root)) return { kind: "off" };
+	if (!teamEnabled(cwd, root)) return { kind: "off" };
 	const check = checkSplit(units);
 	if (!check.ok) return { kind: "refused", reason: check.reason };
 	// `checkSplit` answers "serial" only for no units at all, which the guard above

@@ -157,7 +157,7 @@ describe("joining a unit of an approved split", () => {
 		try {
 			// The switch is off globally and only the repository root turns it on.
 			mkdirSync(join(root, ".pi"), { recursive: true });
-			writeFileSync(join(root, ".pi", "bytefly.json"), JSON.stringify({ plan: { split: true } }));
+			writeFileSync(join(root, ".pi", "bytefly.json"), JSON.stringify({ plan: { team: true } }));
 			const nested = runtime(dir, { repo: { root, key: "shared" }, plans });
 			await acting(nested, context(join(root, "packages", "web"), "s1", "core"));
 			const joined = await nested.join({ team, unit: "core" });
@@ -174,7 +174,7 @@ describe("joining a unit of an approved split", () => {
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			await acting(owner, context("/repo", "s1", "core"));
-			await expect(owner.join({ team, unit: "core" })).rejects.toThrow(/plan\.split/);
+			await expect(owner.join({ team, unit: "core" })).rejects.toThrow(/plan\.team/);
 			await owner.stop();
 		} finally {
 			restore();

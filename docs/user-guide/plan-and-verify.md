@@ -176,7 +176,7 @@ describe precisely.
 
 ### Splitting a plan into slices
 
-Off by default. Turn on **Split plans into slices** in `/bytefly settings`, or set
+Off by default. Turn on **Run plans as a team** in `/bytefly settings`, or set
 `"plan": { "split": true }` in the project's `.pi/bytefly.json` so a repository
 opts its own team in while the global default stays off.
 

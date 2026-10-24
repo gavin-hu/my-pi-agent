@@ -110,7 +110,7 @@ export interface ExitPlanModeDetails {
 		units: Array<{ name: string; paths: string[]; test: string; dependsOn: string[] }>;
 		verdict: "pair" | "team";
 	};
-	/** True when the model proposed a split while `plan.split` was off. */
+	/** True when the model proposed a split while `plan.team` was off. */
 	splitOff?: boolean;
 }
 

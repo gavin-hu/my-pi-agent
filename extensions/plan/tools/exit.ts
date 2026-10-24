@@ -25,7 +25,7 @@ import { mergeSummary, overCap, preview, verificationNote } from "../format.ts";
 import { sanitizePlanText } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { reviewPlan } from "../review.ts";
-import { decideSplit, rosterCard, SPLIT_OFF_NOTE } from "../split.ts";
+import { decideSplit, rosterCard, TEAM_OFF_NOTE } from "../split.ts";
 import { removeTeam, writeTeam } from "../../../lib/plans/team.ts";
 import { EXIT_TOOL, SET_PLAN_STEPS_TOOL, type PlanRuntime } from "../runtime.ts";
 import { goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
@@ -51,7 +51,7 @@ const ExitPlanModeParams = Type.Object({
 		Type.Array(PlanUnitParams, {
 			description:
 				"The plan's slices, when it has two or more independent ones the user will run in separate sessions. " +
-				"Only used when the plan.split setting is on; validation refuses an overlapping, looping, or oversized " +
+				"Only used when the plan.team setting is on; validation refuses an overlapping, looping, or oversized " +
 				"split before the review opens. Omit it to approve as one flow.",
 		}),
 	),
@@ -312,7 +312,7 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 			const splitNote =
 				pending === undefined
 					? split.kind === "off"
-						? `\n\n${SPLIT_OFF_NOTE}`
+						? `\n\n${TEAM_OFF_NOTE}`
 						: ""
 					: `\n\n${rosterCard(pending.team, approved.path, pi.getSessionName())}\n\nWork only your own unit (${pending.team.lead}); the other units belong to the sessions the user starts.`;
 			return {
