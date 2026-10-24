@@ -9,18 +9,22 @@
  *
  *   bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280]
  *     [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer]
+ *     [--post <name>] [--draft <text>]
  *
  * The plan path is any Markdown file; the review page, not the CLI, decides how
- * it renders. Output defaults to `<plan-stem>.png` in the working directory, and
- * `--as reviewer` captures the page a shared link opens.
+ * it renders. Output defaults to `<plan-stem>.png` in the working directory.
+ * `--as reviewer` captures the page a shared link opens, `--post <name>` posts one
+ * comment as that reviewer first (so the frame shows the name bound to the link),
+ * and `--draft <text>` starts the tab with one unsaved comment, the state a reload
+ * produces.
  */
 
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { type PlanStore, type StoredPlan } from "../extensions/plan/plans.ts";
 import { createPlanWebReview } from "../extensions/plan/web.ts";
 import type { NetworkInterfaces } from "../extensions/plan/web-share.ts";
 import { parseShotArgs, runCli } from "./cli.ts";
+import { anchorOf, captureStore, draftSeed, postAsReviewer, storedPlan } from "./plan-review-capture.ts";
 import { type PageShotOptions, capturePage } from "./web-shot.ts";
 
 /** Which role's page to capture. */
@@ -32,15 +36,34 @@ export interface ShotOptions extends PageShotOptions {
 	plan: string;
 	/** Whose page to capture: the owner's own, or the link a reviewer opens. */
 	role: ShotRole;
+	/** Reviewer name to post a comment as before the capture, binding the link. */
+	post?: string;
+	/** Unsaved comment to seed the tab with, which the client restores on boot. */
+	draft?: string;
 }
 
 /** Parse the command line; throws a message the caller prints as usage. */
 export function parseArgs(argv: string[]): ShotOptions {
-	const parsed = parseShotArgs(argv, { out: "", scale: 2, maxPositional: 1, extraFlags: ["--as"] });
+	const parsed = parseShotArgs(argv, {
+		out: "",
+		scale: 2,
+		maxPositional: 1,
+		extraFlags: ["--as", "--post", "--draft"],
+	});
 	const plan = parsed.positional[0] ?? "";
 	if (!plan) throw new Error("a plan path is required");
 	const role = parsed.values["--as"] ?? "owner";
 	if (role !== "owner" && role !== "reviewer") throw new Error("--as must be owner or reviewer");
+	// Only a shared link binds a name, so posting belongs to that page alone.
+	const post = parsed.values["--post"];
+	if (post !== undefined) {
+		if (role !== "reviewer") throw new Error("--post needs --as reviewer");
+		if (post.trim() === "") throw new Error("--post needs a reviewer name");
+	}
+	// A bound link already has its name, so the two states cannot share a frame.
+	const draft = parsed.values["--draft"];
+	if (draft !== undefined && post !== undefined) throw new Error("--draft cannot be combined with --post");
+	if (draft !== undefined && draft.trim() === "") throw new Error("--draft needs the comment text");
 	const planPath = resolve(plan);
 	return {
 		plan: planPath,
@@ -50,37 +73,8 @@ export function parseArgs(argv: string[]): ShotOptions {
 		theme: parsed.theme,
 		waitMs: parsed.waitMs,
 		role,
-	};
-}
-
-/** A plan as the store would serve it, without reading or writing the disk. */
-function storedPlan(content: string, path: string): StoredPlan {
-	return {
-		path,
-		relativePath: basename(path),
-		content,
-		bytes: Buffer.byteLength(content, "utf-8"),
-	};
-}
-
-/**
- * A `PlanStore` that serves one plan and refuses every write. The capture never
- * saves, so the write methods exist only to satisfy the interface.
- */
-function screenshotStore(plan: StoredPlan): PlanStore {
-	const readOnly = async (): Promise<never> => {
-		throw new Error("the screenshot store is read-only");
-	};
-	return {
-		dirFor: readOnly,
-		rootFor: async () => undefined,
-		write: readOnly,
-		setSteps: readOnly,
-		saveFeedback: readOnly,
-		read: async () => plan,
-		latest: async () => plan,
-		index: async () => [],
-		takeNotice: () => undefined,
+		...(post === undefined ? {} : { post }),
+		...(draft === undefined ? {} : { draft }),
 	};
 }
 
@@ -112,9 +106,10 @@ const LOOPBACK_AS_LAN: NetworkInterfaces = {
 /** Render one plan and capture it. */
 async function capture(options: ShotOptions): Promise<void> {
 	const plan = storedPlan(readFileSync(options.plan, "utf-8"), options.plan);
-	// Drive the shipped review server: a stub store serves the file, the browser
-	// opener is suppressed, and the token is fixed so the URL is stable.
-	const review = createPlanWebReview(screenshotStore(plan), {
+	const capture = captureStore(plan);
+	// Drive the shipped review server: an in-memory store serves the file, the
+	// browser opener is suppressed, and the token is fixed so the URL is stable.
+	const review = createPlanWebReview(capture.store, {
 		open: () => {},
 		token: () => "screenshot",
 		port: 0,
@@ -131,6 +126,9 @@ async function capture(options: ShotOptions): Promise<void> {
 			if (!link) throw new Error("could not mint a reviewer link");
 			url = link.url;
 		}
+		// A posted comment is what binds the name to the link, so the frame shows the
+		// state a teammate's page reaches after writing once.
+		if (options.post !== undefined) await postAsReviewer(url, options.post, anchorOf(capture.content()));
 		await capturePage({
 			url,
 			out: options.out,
@@ -139,13 +137,14 @@ async function capture(options: ShotOptions): Promise<void> {
 			theme: options.theme,
 			waitMs: options.waitMs,
 			ready: READY,
+			...(options.draft === undefined ? {} : { init: [draftSeed(capture.content(), options.draft)] }),
 		});
 	} finally {
 		await session.close();
 	}
 }
 
-const USAGE = `usage: bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer]`;
+const USAGE = `usage: bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer] [--post <name>] [--draft <text>]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

@@ -64,6 +64,8 @@ export interface PageShot extends PageShotOptions {
 	url: string;
 	/** An expression that is true once the page has drawn itself. */
 	ready: string;
+	/** Scripts installed before the first navigation, for a page that starts with state. */
+	init?: string[];
 }
 
 /** Capture one page of a shipped browser surface as a full-page PNG. */
@@ -74,6 +76,7 @@ export async function capturePage(shot: PageShot): Promise<void> {
 		out: shot.out,
 		width: shot.width,
 		scale: shot.scale,
+		...(shot.init === undefined ? {} : { init: shot.init }),
 		before: [
 			...(shot.theme ? [{ expression: themeExpression(shot.theme) }] : []),
 			{ expression: readyWhen(shot.ready, shot.waitMs) },

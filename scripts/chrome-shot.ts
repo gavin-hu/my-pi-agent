@@ -48,6 +48,8 @@ export interface ChromeShotOptions {
 	width: number;
 	/** Device pixel ratio for a crisp capture. Default 2. */
 	scale?: number;
+	/** Scripts installed before the first navigation, for a page that starts with state. */
+	init?: string[];
 	/** Expressions run in order before the capture. */
 	before?: ChromeShotStep[];
 }
@@ -117,6 +119,9 @@ export async function captureFullPage(options: ChromeShotOptions): Promise<void>
 			deviceScaleFactor: options.scale ?? 2,
 			reducedMotion: "reduce",
 		});
+		// Before the first navigation: a capture that starts from restored state needs
+		// its storage in place before the page's own scripts run.
+		for (const script of options.init ?? []) await page.addInitScript({ content: script });
 		await page.goto(options.url, { waitUntil: "load" });
 		await page.waitForFunction(
 			`location.href.indexOf(${JSON.stringify(options.origin)}) === 0 && document.readyState === "complete"`,
