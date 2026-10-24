@@ -76,8 +76,8 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; one plan store per repository, a split at approval that its owners are held to, and a review that follows its file | P1 |
 | Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | — |
-| Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
-| Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
+| Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W5 |
 | Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F3 |
 
@@ -88,12 +88,12 @@ closed by work parked in any horizon.
 
 ## If only two things ship
 
-1. **S1 — Memory notices a same-size edit in the same tick.** The store compares
-   a millisecond stamp, so an edit that keeps the size and lands inside one tick
-   is invisible until `/memory reload`.
-2. **W1 — Structured fetch.** `web_fetch` hands a JSON, CSV, or XML body back as
+1. **W1 — Structured fetch.** `web_fetch` hands a JSON, CSV, or XML body back as
    the raw blob it downloaded, which is a page a reader has to parse in their
    head.
+2. **C1 — Update action.** The control center can report a stale package but not
+   update it, so the one remaining surface of "the package upgrades with Pi" is a
+   shell command the user has to know.
 
 These are the two `Now` items: the rest of this file can wait for a later
 release, and the changelog, not this list, records what did.
@@ -102,8 +102,8 @@ release, and the changelog, not this list, records what did.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the pack keep what it promised? | `S1` and `W1` ship, each with its test and its page line. |
-| **Next** | Does the daily loop feel finished? | `C1` and `F3` land, or are demoted with the reason recorded. |
+| **Now** | Does the daily loop feel finished? | `W1` and `C1` land, or are demoted with the reason recorded. |
+| **Next** | Does the pack keep what it promised? | `F3` lands and `S1` is spiked or demoted, each with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -111,7 +111,10 @@ whatever is ready; this project releases often and treats the changelog, not
 this file, as the record of what shipped.
 
 The previous `Now` — a stale-doc sweep, every isolation gap visible in the
-session, a named Pi range, and a long-session benchmark — closed with `0.13.0`.
+session, a named Pi range, and a long-session benchmark — closed with `0.13.0`,
+and the one after it — a split's shared files and memory's same-tick edit —
+shipped unreleased, which is why this tier now asks the daily-loop question and
+the promise question waits behind it.
 The two items that used to head this file are gone for a reason worth keeping:
 the provider table would only price *below* Pi's per-model catalog, and the
 picker's scope decision is made — themes and prompts stay out, because neither is
@@ -238,33 +241,28 @@ store's own size.
   plan mode is on (`rewind` page).
 - Memory injects a large store truncated with a tail note, `forget` is an exact
   match, one note is one line, and the near-duplicate key is conservative by
-  design (`memory` page). A same-size edit inside one filesystem timestamp
-  tick is invisible until `/memory reload`; `S1` narrows that to a filesystem
-  whose mtime is coarser than the write.
+  design (`memory` page). A same-size edit is picked up inside a millisecond now;
+  on a filesystem whose own stamp is coarser than that, `/memory reload` is still
+  the way in.
 
 **Now**
 
-- **S1 — Memory notices a same-size edit in the same tick.** The store cache keys
-  on `(mtimeMs, size)`, so an edit that keeps the size and lands inside one
-  timestamp tick is invisible until `/memory reload`. Compare the nanosecond
-  stamp a bigint `stat` gives; where the filesystem reports no finer stamp than
-  the cached one, keep the documented caveat rather than reading the file on
-  every run. *Done when* a sub-millisecond, same-size edit is picked up without
-  a reload, the existing mtime-jump test still passes, and the memory page
-  states the residual case.
+Nothing here is queued: cleanup refuses what it cannot verify, the store reports
+its own health and notices a same-size edit inside a millisecond, and the
+remaining gaps are documented behavior.
 
 **Next**
 
-Nothing here is queued: cleanup refuses what it cannot verify, the store reports
-its own health, and the remaining gaps are documented behavior.
+Nothing here is queued either: both items left are decisions a spike has to earn,
+not work that is ready to start.
 
 **Later**
 
-- **S2 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S1 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics, because it also
   decides what "guarded" means for the user's own shell.
-- **S3 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S2 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -375,17 +373,17 @@ runs, an update check, and two themes.
 
 **Now**
 
-Nothing here is queued: the count every doc states is the catalogue's, and a test
-derives it from `SETTING_ROWS`, so a fourteenth row fails by naming the file that
-did not follow.
-
-**Next**
-
 - **C1 — Update action.** Offer `pi update --extensions` from the control center
   behind a confirmation — but only if a spike finds a host path that updates
   through Pi's own package manager instead of a shell. Start with the spike; if
   Pi exposes nothing safe, delete the item and leave the notice as the whole
   surface, which is what it is today.
+
+**Next**
+
+Nothing here is queued: the count every doc states is the catalogue's, and a test
+derives it from `SETTING_ROWS`, so a fourteenth row fails by naming the file that
+did not follow.
 
 **Later**
 
@@ -447,7 +445,7 @@ it. A limitation an item owns is named in that section instead, never here.
 
 | Limitation | Why it has no item |
 |---|---|
-| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S2`. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S1`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file. Revisit if an approval surface must show a full step. |
 | `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. `P1` reports a store's size without becoming one. |
@@ -458,12 +456,12 @@ it. A limitation an item owns is named in that section instead, never here.
 | `subagent`: background is single mode, and a background child is session-owned | Making a child resumable is a durable job queue, which the non-goals exclude. Revisit if a run must outlive its session. |
 | `watch`: a **wake** match raises a notification once the running turn settles | A match found mid-turn is raised when that run settles, so a long turn delays it but never drops it. Revisit if a turn must be interrupted mid-flight. |
 | `watch`: watcher state is memory-only | A watcher tails a live process or file; a resumed session cannot re-attach to a pipe it no longer has. Revisit if a watcher is given a durable source. |
-| `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S2`, which changes what "guarded" means. |
+| `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S1`, which changes what "guarded" means. |
 | `worktree`: `--merged` calls a never-committed worktree landed | `git branch --merged` compares branches, not working trees; prune refuses that worktree and `list_worktrees` shows the clean flag beside the merged one. Revisit if the status line grows a "no commits" state. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
 | `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |
 | `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. |
-| `memory`: a store on a filesystem with coarse mtime can still hide a same-size edit | `S1` closes the case every APFS/ext4 write hits; a one-second stamp cannot be beaten without reading the file each run. Revisit if a store lives on such a filesystem. |
+| `memory`: a store on a filesystem with coarse mtime can still hide a same-size edit | The stamp is nanoseconds, so every APFS/ext4 write is caught; a filesystem that reports one-second mtime cannot be beaten without reading the file on every run. Revisit if a store lives on such a filesystem. |
 | `job`: `exec cmd` and Windows can settle a job with no exit code | The shell owns the exit path there; the job reports `unknown` rather than guessing. Revisit if a wrapper can always observe the code. |
 | `job`: stdin is a pipe, a detached log is not rotated, and Windows cannot detach | Each is the price of a process that outlives its turn; the job page names all three where the option is offered. |
 | `question`: there is no timeout, and RPC multi-select degrades to an editor | A prompt exists to wait for a person, and RPC cannot forward the component. Revisit if a host adds a component channel. |

@@ -177,6 +177,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one scrolling row. The download moves into the action group the diff head already
   had, so a control keeps its own width on the way: shrunk, `copy contents` wrapped
   onto two lines and the `rendered`/`raw` control lost its second half.
+- `memory`: a same-size edit to a store is picked up inside one millisecond instead
+  of a whole one. The freshness stamp is the nanosecond field a bigint `stat`
+  returns, compared with the size as before, so an editor that rewrites a line in
+  place is seen on the next injection or tool call rather than waiting for
+  `/memory reload`. A filesystem whose own stamp is no finer than the last one read
+  keeps the documented caveat — reload is still the way in there — because the
+  alternative is reading the file on every run.
 
 ## [0.18.0] - 2026-10-24
 

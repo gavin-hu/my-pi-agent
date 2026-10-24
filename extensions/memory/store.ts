@@ -74,17 +74,24 @@ export function readMemoryFile(path: string): string {
 	return readFileSync(path, "utf-8");
 }
 
-/** Coarse identity of a store file, for cheap change detection. */
+/**
+ * Identity of a store file, for cheap change detection.
+ *
+ * The stamp is nanoseconds, not milliseconds: an edit that keeps the file's size
+ * is otherwise invisible for a whole millisecond, which is long enough for an
+ * editor that writes in place. `size` stays a number so the doctor's byte counts
+ * read the same.
+ */
 export interface MemoryFileStamp {
-	mtimeMs: number;
+	mtimeNs: bigint;
 	size: number;
 }
 
 /** Freshness stamp for a store file; `undefined` when it is missing or unstattable. */
 export function memoryFileStamp(path: string): MemoryFileStamp | undefined {
 	try {
-		const info = statSync(path);
-		return { mtimeMs: info.mtimeMs, size: info.size };
+		const info = statSync(path, { bigint: true });
+		return { mtimeNs: info.mtimeNs, size: Number(info.size) };
 	} catch {
 		return undefined;
 	}
@@ -93,7 +100,7 @@ export function memoryFileStamp(path: string): MemoryFileStamp | undefined {
 /** Whether two stamps describe the same file state. */
 export function sameStamp(a: MemoryFileStamp | undefined, b: MemoryFileStamp | undefined): boolean {
 	if (a === undefined || b === undefined) return a === b;
-	return a.mtimeMs === b.mtimeMs && a.size === b.size;
+	return a.mtimeNs === b.mtimeNs && a.size === b.size;
 }
 
 /** Note text of every bullet line, sanitized to one terminal-safe line. */

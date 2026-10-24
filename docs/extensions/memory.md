@@ -182,10 +182,13 @@ skill. Mitigations:
 
 - Notes are injected whole (bounded), so a very large store is truncated with a
   `(+N more; use the memory tool)` tail rather than summarized.
-- External edits to a store are picked up automatically by an mtime/size check
-  before the next injection or tool call. A same-size edit within one filesystem
-  mtime tick is only caught by `/memory reload`; a store that becomes unreadable
-  (symlinked or over the size cap) keeps its last good view until fixed.
+- External edits to a store are picked up automatically by an `(mtimeNs, size)`
+  check before the next injection or tool call, so a same-size edit inside one
+  millisecond is seen. The residual case is the filesystem's own resolution: where
+  the stamp is no finer than the last one read — a one-second mtime, or a write
+  the kernel coalesced — only `/memory reload` catches the edit. A store that
+  becomes unreadable (symlinked or over the size cap) keeps its last good view
+  until fixed.
 - Matching for `forget` is exact and case-sensitive.
 - The near-duplicate guard on `add` is deliberately conservative: it folds
   case, whitespace runs, and trailing sentence punctuation only, never word
@@ -242,10 +245,13 @@ skill. Mitigations:
   writers for the same file, and each write lands atomically via a temp file and
   rename; `executionMode: "sequential"` keeps in-process calls ordered as well.
 - **Stamped cache, not a watcher.** The session cache is validated against each
-  file's `(mtimeMs, size)` stamp before every read, matching the worktree cache's
-  freshness check rather than holding an `fs.watch` handle. A mutation adopts the
-  fresh on-disk stamp, so a self-write is not mistaken for an external change, and
-  a failed re-read keeps the last good view instead of breaking the run.
+  file's `(mtimeNs, size)` stamp before every read rather than holding an
+  `fs.watch` handle. The stamp is the nanosecond field a bigint `stat` returns, so
+  a same-size edit in the same millisecond is a distinct state; a millisecond
+  stamp would have to read the file on every run to tell them apart. A mutation
+  adopts the fresh on-disk stamp, so a self-write is not mistaken for an external
+  change, and a failed re-read keeps the last good view instead of breaking the
+  run.
 
 ## Files
 
