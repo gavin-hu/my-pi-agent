@@ -548,7 +548,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async join(input) {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
-			if (!splitEnabled(me.cwd)) throw new Error(SPLIT_OFF_NOTE);
+			if (!splitEnabled(me.cwd, me.repoRoot)) throw new Error(SPLIT_OFF_NOTE);
 			const unit = resolveUnit(plansRoot ?? "", input, "join");
 			const claimed = await store.claimAll(rootedPaths(me, unit.paths), me.id, me.label, now());
 			return { team: unit.team, unit: unit.name, ...claimed };

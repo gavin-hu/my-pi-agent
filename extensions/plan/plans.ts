@@ -94,6 +94,13 @@ export interface WritePlanInput {
 export interface PlanStore {
 	/** Directory plans are written to for `cwd`. */
 	dirFor(cwd: string): Promise<string>;
+	/**
+	 * The repository root `cwd` belongs to, or undefined outside a repository.
+	 *
+	 * A repository-scoped setting — the split switch — is read at the root, so a
+	 * session started in a subdirectory still sees what the project turned on.
+	 */
+	rootFor(cwd: string): Promise<string | undefined>;
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
@@ -285,7 +292,7 @@ function migrateLegacyStore(dir: string, legacy: string): number {
 export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } = {}): PlanStore {
 	const now = options.now ?? (() => new Date());
 	// One `git rev-parse` per effective root; a worktree switch changes that root.
-	const dirCache = new Map<string, string>();
+	const dirCache = new Map<string, { dir: string; root: string | undefined }>();
 	let notice: string | undefined;
 
 	const takeNotice = (): string | undefined => {
@@ -305,21 +312,25 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	 */
 	const baseOf = (cwd: string): string => resolveEffectiveCwd(cwd);
 
-	const dirFor = async (cwd: string): Promise<string> => {
+	const resolve = async (cwd: string): Promise<{ dir: string; root: string | undefined }> => {
 		const base = baseOf(cwd);
 		const cached = dirCache.get(base);
 		if (cached) return cached;
 		const repo = await repoKeyFor(pi, base);
 		const dir = plansDir(getAgentDir(), repo.fromGit ? repo.key : undefined);
-		dirCache.set(base, dir);
+		dirCache.set(base, { dir, root: repo.fromGit ? repo.root : undefined });
 		if (repo.fromGit) {
 			// The keyed directory is the store; a store an older version left in the
 			// checkout moves in once, so an upgrade does not strand its plans.
 			const moved = migrateLegacyStore(dir, join(base, CONFIG_DIR_NAME, "plans"));
 			if (moved > 0) notice = `Moved ${moved} plan${moved === 1 ? "" : "s"} to ${shortenPath(dir)}.`;
 		}
-		return dir;
+		return { dir, root: repo.fromGit ? repo.root : undefined };
 	};
+
+	const dirFor = async (cwd: string): Promise<string> => (await resolve(cwd)).dir;
+
+	const rootFor = async (cwd: string): Promise<string | undefined> => (await resolve(cwd)).root;
 
 	const write = async (cwd: string, input: WritePlanInput): Promise<WrittenPlan> => {
 		const base = baseOf(cwd);
@@ -545,5 +556,5 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		return summaries;
 	};
 
-	return { dirFor, write, read, latest, index, setSteps, saveFeedback, takeNotice };
+	return { dirFor, rootFor, write, read, latest, index, setSteps, saveFeedback, takeNotice };
 }

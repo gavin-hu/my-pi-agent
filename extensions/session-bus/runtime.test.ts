@@ -139,6 +139,24 @@ describe("joining a unit of an approved split", () => {
 		}
 	});
 
+	test("honours a project switch set at the repository root, from a nested cwd", async () => {
+		const dir = busDir();
+		const { plans, team, restore } = splitStore();
+		const root = temps.track(tempDir("pi-split-root-"));
+		try {
+			// The switch is off globally and only the repository root turns it on.
+			mkdirSync(join(root, ".pi"), { recursive: true });
+			writeFileSync(join(root, ".pi", "bytefly.json"), JSON.stringify({ plan: { split: true } }));
+			const nested = runtime(dir, { repo: { root, key: "shared" }, plans });
+			await nested.start(context(join(root, "packages", "web"), "s1", "core"));
+			const joined = await nested.join({ team, unit: "core" });
+			expect(joined.claimed).toEqual(["src/core"]);
+			await nested.stop();
+		} finally {
+			restore();
+		}
+	});
+
 	test("refuses while the switch is off, naming it", async () => {
 		const dir = busDir();
 		const { plans, team, restore } = splitStore("2026-10-24-0820-split", { on: false });

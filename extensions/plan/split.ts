@@ -32,9 +32,13 @@ export type SplitDecision =
  * than validated, so a user who never enabled the feature cannot be blocked by a
  * rule about it.
  */
-export function decideSplit(cwd: string, units: readonly PlanUnit[] | undefined): SplitDecision {
+export function decideSplit(
+	cwd: string,
+	root: string | undefined,
+	units: readonly PlanUnit[] | undefined,
+): SplitDecision {
 	if (units === undefined || units.length === 0) return { kind: "none" };
-	if (!splitEnabled(cwd)) return { kind: "off" };
+	if (!splitEnabled(cwd, root)) return { kind: "off" };
 	const check = checkSplit(units);
 	if (!check.ok) return { kind: "refused", reason: check.reason };
 	if (check.verdict === "serial") return { kind: "serial" };

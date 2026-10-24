@@ -34,9 +34,16 @@ export function normalizeSplitConfig(raw: Record<string, unknown> | undefined, b
 	return { split: asBoolean(configValueAt(raw, [SPLIT_KEY]), base.split) };
 }
 
-/** Whether this project (or the user's global config) has the split on. */
-export function splitEnabled(cwd: string): boolean {
-	return loadConfigSection(cwd, SPLIT_SECTION, DEFAULT_SPLIT_CONFIG, normalizeSplitConfig).split;
+/**
+ * Whether this repository (or the user's global config) has the split on.
+ *
+ * The project file is read at `root` when the caller knows it: a split belongs to
+ * the repository, so a session started in a subdirectory must honour what the
+ * repository turned on. Without a root the session's cwd is used, which is what a
+ * caller outside a repository has.
+ */
+export function splitEnabled(cwd: string, root?: string): boolean {
+	return loadConfigSection(root ?? cwd, SPLIT_SECTION, DEFAULT_SPLIT_CONFIG, normalizeSplitConfig).split;
 }
 
 /** The one line a refusal or a note uses to say the switch is off and where it lives. */

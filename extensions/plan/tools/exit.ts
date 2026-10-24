@@ -154,7 +154,7 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 				dependsOn: [...(unit.dependsOn ?? [])],
 				...(unit.lead ? { lead: true } : {}),
 			}));
-			const split = decideSplit(ctx.cwd, units);
+			const split = decideSplit(ctx.cwd, await runtime.plans.rootFor(ctx.cwd), units);
 			if (split.kind === "refused") {
 				return failedResult(`Refused: ${split.reason}`, {
 					approved: false,

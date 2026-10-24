@@ -115,6 +115,12 @@ refuses and names the settings row. `status` reports `units 1/2 joined` with the
 holder of each unit, which is how a lead answers "has everyone started?" without
 messaging anyone.
 
+A claim belongs to the live session, not to a branch: a session that exits
+releases its unit, so a restarted owner joins again (the join is idempotent), and
+a crashed one frees the unit when its record goes stale. That is why the roster
+card asks you to name each session — an unnamed one joins under its working
+directory's name, which says nothing about the unit it holds.
+
 ## Behaviour by mode
 
 | Mode | Behaviour |

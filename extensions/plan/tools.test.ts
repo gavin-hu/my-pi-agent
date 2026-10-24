@@ -584,6 +584,21 @@ describe("exit_plan_mode with a split", () => {
 		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
 	});
 
+	test("reads the switch at the repository root, not the session cwd", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+		const nested = join(root, "packages", "web");
+		mkdirSync(nested, { recursive: true });
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: nested });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
+
+		expect(result.details.approved).toBe(true);
+		expect(result.details.team).toMatchObject({ lead: "contract" });
+	});
+
 	test("refuses an overlapping split before the review opens", async () => {
 		enableSplit();
 		const { enter, exit, write, runtime, root } = setup();

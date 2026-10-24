@@ -73,6 +73,7 @@ function screenshotStore(plan: StoredPlan): PlanStore {
 	};
 	return {
 		dirFor: readOnly,
+		rootFor: async () => undefined,
 		write: readOnly,
 		setSteps: readOnly,
 		saveFeedback: readOnly,
