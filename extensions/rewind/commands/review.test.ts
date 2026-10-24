@@ -2,10 +2,10 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stripTerminalSequences, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
-import { fakeTheme, makeRecordingTheme } from "../../test/helpers/fakes.ts";
-import { cleanup, makeRepo } from "../../test/helpers/git.ts";
-import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
+import { PLAN_MODE_ENTRY_TYPE } from "../../../lib/plan-state.ts";
+import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
+import { cleanup, makeRepo } from "../../../test/helpers/git.ts";
+import { runSlowSuites } from "../../../test/helpers/slow-suite.ts";
 import {
 	branchWithUser,
 	makeCtx,
@@ -16,10 +16,10 @@ import {
 	setupRewind,
 	snapshotInput,
 	WRITE_TOOL,
-} from "../../test/helpers/fixtures/rewind.ts";
-import { HunkPickerComponent } from "./hunk-picker.ts";
-import { buildHunkPatch, parseFilePatch, type Hunk } from "./patch.ts";
-import { PathPickerComponent } from "./path-picker.ts";
+} from "../../../test/helpers/fixtures/rewind.ts";
+import { HunkPickerComponent } from "../view/hunk-picker.ts";
+import { buildHunkPatch, parseFilePatch, type Hunk } from "../text/patch.ts";
+import { PathPickerComponent } from "../view/path-picker.ts";
 import {
 	baseName,
 	entryPaths,
@@ -32,15 +32,15 @@ import {
 	toReviewEntries,
 	type ChangedPath,
 	type ReviewEntry,
-} from "./paths.ts";
+} from "../text/paths.ts";
 import {
 	ReviewDiffComponent,
 	ReviewListComponent,
 	diffLineRole,
 	type ReviewDiffAction,
 	type ReviewListResult,
-} from "./review-tui.ts";
-import { createSnapshot } from "./snapshot.ts";
+} from "../view/review-tui.ts";
+import { createSnapshot } from "../transport/snapshot.ts";
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));

@@ -8,13 +8,13 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../../lib/rails.ts";
-import { formatRewindListText, formatRewindRow } from "./format.ts";
+import { withRailsSuppressed } from "../../../lib/rails.ts";
+import { formatRewindListText, formatRewindRow } from "../text/format.ts";
 import { openReview } from "./review.ts";
 import { rewindTo } from "./rewind.ts";
-import type { RewindRuntime } from "./runtime.ts";
-import { RewindListComponent } from "./rewind-tui.ts";
-import { buildRewindPoints, type RewindPoint } from "./timeline.ts";
+import type { RewindRuntime } from "../state/runtime.ts";
+import { RewindListComponent } from "../view/rewind-tui.ts";
+import { buildRewindPoints, type RewindPoint } from "../state/timeline.ts";
 
 /** Pick a point from the timeline, or undefined when the user cancels. */
 async function choosePoint(ctx: ExtensionCommandContext, points: RewindPoint[]): Promise<RewindPoint | undefined> {

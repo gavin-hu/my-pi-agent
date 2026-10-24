@@ -10,10 +10,10 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { messageOf } from "../../lib/errors.ts";
-import { sanitizeLine } from "../../lib/format.ts";
-import { isPlanModeEnabled } from "../../lib/plan-state.ts";
-import { withRailsSuppressed } from "../../lib/rails.ts";
+import { messageOf } from "../../../lib/errors.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { isPlanModeEnabled } from "../../../lib/plan-state.ts";
+import { withRailsSuppressed } from "../../../lib/rails.ts";
 import {
 	boundDiff,
 	formatHunkRevertBody,
@@ -23,20 +23,20 @@ import {
 	formatRevertSelectedBody,
 	formatReviewListText,
 	formatReviewRevertText,
-} from "./format.ts";
-import { HunkPickerComponent } from "./hunk-picker.ts";
-import { buildHunkPatch, parseFilePatch } from "./patch.ts";
-import { entryPaths, toReviewEntries, type ReviewEntry } from "./paths.ts";
+} from "../text/format.ts";
+import { HunkPickerComponent } from "../view/hunk-picker.ts";
+import { buildHunkPatch, parseFilePatch } from "../text/patch.ts";
+import { entryPaths, toReviewEntries, type ReviewEntry } from "../text/paths.ts";
 import {
 	ReviewDiffComponent,
 	ReviewListComponent,
 	type ReviewDiffAction,
 	type ReviewListResult,
-} from "./review-tui.ts";
-import type { RestorePlan } from "./restore.ts";
-import type { RewindRuntime } from "./runtime.ts";
-import { buildRewindPoints, type RewindPoint } from "./timeline.ts";
-import type { Snapshot, RestoreSummary } from "./types.ts";
+} from "../view/review-tui.ts";
+import type { RestorePlan } from "../transport/restore.ts";
+import type { RewindRuntime } from "../state/runtime.ts";
+import { buildRewindPoints, type RewindPoint } from "../state/timeline.ts";
+import type { Snapshot, RestoreSummary } from "../types.ts";
 
 /** One reviewable view of the working tree. */
 interface ReviewView {

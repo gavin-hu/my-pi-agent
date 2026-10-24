@@ -265,26 +265,26 @@ commit. These refs are not branches and are not touched by `git push --all`.
 |---|---|
 | `index.ts` | Registrar: wire the runtime, the commands, and the run-state module to Pi's events (`registerRewind`). |
 | `types.ts` | `Snapshot`, `SnapshotReason`, `RestoreSummary`. |
-| `config.ts` | Config defaults and merge/normalize over `lib/config.ts`. |
-| `git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes (name status, stat, patch, and `--numstat`), the reverse apply a hunk revert uses, and the production `RunGit`. |
-| `snapshot.ts` | Create a snapshot (tree from a temporary index → commit → ref). |
-| `snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
-| `restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths, recreating a rename's source and removing its destination. |
-| `paths.ts` | Pure: the changed-path list from `git diff --name-status` (a rename is one paired entry), its directory grouping, the change marks, the `--numstat` counts, and the restore counts. |
-| `checklist.ts` | The shared multi-select checklist screen: the cursor, `Space`/`a`/`n`/`Enter`, the height math, and the dock frame. The three checklists below supply only their rows and their words. |
-| `path-picker.ts` | The partial restore's checklist, a `ChecklistScreen` over grouped paths: directory toggles, the change marks, and the selection it returns. |
-| `patch.ts` | Pure: split a single-file unified diff into its header and hunks, and rebuild a patch from chosen hunks. |
-| `hunk-picker.ts` | The hunk checklist a modified file's diff opens, a `ChecklistScreen` over the hunks: previews, the indices it returns, and its own row budget. |
-| `store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
-| `policy.ts` | Which tool calls are worth a snapshot. |
-| `temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
-| `status.ts` | The `↺ N` status chip. |
-| `queue.ts` | The serialized git operation queue for staging calls (`GIT_INDEX_FILE`). |
-| `runtime.ts` | Root/config caches and the snapshot/list/plan/patch/numstat/restore/hunk-revert operations. |
-| `timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
-| `rewind.ts` | Scope choice, the path step, confirmation, and applying code + conversation rewind. |
-| `review.ts` | The `/review` orchestration: the latest snapshot, the list/diff loop, the hunk step, confirmations, and the reverts. |
-| `review-tui.ts` | The changed-file list (a `ChecklistScreen`) and the scrollable per-file diff, which offers the hunk checklist. |
-| `rewind-tui.ts` | The selectable, width-safe timeline component, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
-| `commands.ts` | The `/rewind` and `/review` commands. |
-| `format.ts` | Pure rewind and review text, including diff bounding and the hunk prompt. |
+| `config/config.ts` | Config defaults and merge/normalize over `lib/config.ts`. |
+| `transport/git.ts` | Single git entry point: rewind plumbing, the shared read helpers rewind consumes (name status, stat, patch, and `--numstat`), the reverse apply a hunk revert uses, and the production `RunGit`. |
+| `transport/snapshot.ts` | Create a snapshot (tree from a temporary index → commit → ref). |
+| `state/snapshot-run.ts` | Per-run automatic-snapshot state: one snapshot per prompt, with a synchronous guard. |
+| `transport/restore.ts` | Plan and apply a working-tree rewind, whole or for a chosen subset of paths, recreating a rename's source and removing its destination. |
+| `text/paths.ts` | Pure: the changed-path list from `git diff --name-status` (a rename is one paired entry), its directory grouping, the change marks, the `--numstat` counts, and the restore counts. |
+| `view/checklist.ts` | The shared multi-select checklist screen: the cursor, `Space`/`a`/`n`/`Enter`, the height math, and the dock frame. The three checklists below supply only their rows and their words. |
+| `view/path-picker.ts` | The partial restore's checklist, a `ChecklistScreen` over grouped paths: directory toggles, the change marks, and the selection it returns. |
+| `text/patch.ts` | Pure: split a single-file unified diff into its header and hunks, and rebuild a patch from chosen hunks. |
+| `view/hunk-picker.ts` | The hunk checklist a modified file's diff opens, a `ChecklistScreen` over the hunks: previews, the indices it returns, and its own row budget. |
+| `transport/store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
+| `state/policy.ts` | Which tool calls are worth a snapshot. |
+| `transport/temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
+| `view/status.ts` | The `↺ N` status chip. |
+| `transport/queue.ts` | The serialized git operation queue for staging calls (`GIT_INDEX_FILE`). |
+| `state/runtime.ts` | Root/config caches and the snapshot/list/plan/patch/numstat/restore/hunk-revert operations. |
+| `state/timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |
+| `commands/rewind.ts` | Scope choice, the path step, confirmation, and applying code + conversation rewind. |
+| `commands/review.ts` | The `/review` orchestration: the latest snapshot, the list/diff loop, the hunk step, confirmations, and the reverts. |
+| `view/review-tui.ts` | The changed-file list (a `ChecklistScreen`) and the scrollable per-file diff, which offers the hunk checklist. |
+| `view/rewind-tui.ts` | The selectable, width-safe timeline component, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
+| `commands/commands.ts` | The `/rewind` and `/review` commands. |
+| `text/format.ts` | Pure rewind and review text, including diff bounding and the hunk prompt. |

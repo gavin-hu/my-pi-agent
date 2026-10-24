@@ -2,12 +2,12 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { DEFAULT_CONFIG, loadConfig, normalizeConfig, type RewindConfig } from "./config.ts";
+import { DEFAULT_CONFIG, loadConfig, normalizeConfig, type RewindConfig } from "../config/config.ts";
 import { commitTree, revParse, updateRef } from "./git.ts";
-import { createSnapshotPolicy } from "./policy.ts";
+import { createSnapshotPolicy } from "../state/policy.ts";
 import { createOperationQueue } from "./queue.ts";
-import type { RewindRuntime, SnapshotOptions } from "./runtime.ts";
-import { createSnapshotRun } from "./snapshot-run.ts";
+import type { RewindRuntime, SnapshotOptions } from "../state/runtime.ts";
+import { createSnapshotRun } from "../state/snapshot-run.ts";
 import { createSnapshot } from "./snapshot.ts";
 import {
 	belongsToRoot,
@@ -22,12 +22,12 @@ import {
 	type SnapshotMeta,
 } from "./store.ts";
 import { createTempIndexStore } from "./temp-index.ts";
-import type { Snapshot } from "./types.ts";
-import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
-import { cleanup, makeRepo } from "../../test/helpers/git.ts";
-import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { branchWithUser, makeCtx, makeSnapshot, runGit, snapshotInput } from "../../test/helpers/fixtures/rewind.ts";
+import type { Snapshot } from "../types.ts";
+import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
+import { createFakePi } from "../../../test/helpers/fakes.ts";
+import { cleanup, makeRepo } from "../../../test/helpers/git.ts";
+import { runSlowSuites } from "../../../test/helpers/slow-suite.ts";
+import { branchWithUser, makeCtx, makeSnapshot, runGit, snapshotInput } from "../../../test/helpers/fixtures/rewind.ts";
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));

@@ -18,7 +18,7 @@ import {
 	type RunGit,
 } from "./git.ts";
 import { encodeMessage, refFor, META_VERSION, type SnapshotMeta } from "./store.ts";
-import type { Snapshot, SnapshotReason } from "./types.ts";
+import type { Snapshot, SnapshotReason } from "../types.ts";
 
 export interface SnapshotDeps {
 	runGit: RunGit;

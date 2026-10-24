@@ -423,11 +423,13 @@ it describes.
   modules, the way `bytefly/` groups `footer/`, `notice/`, and `separator/` and
   `web-access/` groups `fetch/` and `search/`. Counting modules and not files —
   a co-located suite is not a module — `wechat` (35 modules) shipped its seven
-  role directories, so `rewind` (25 modules) and `file-browse` (23 modules) are
-  the extensions still flat past that size, and `job` (20 modules), `worktree`
-  (20 modules), and `subagent` (17 modules) stay flat until they cross it. *Done
-  when* both flat ones hold role subdirectories plus `index.ts`, their imports are
-  updated, and the page's layout rule describes the tree without an exception.
+  role directories and `rewind` (25 modules) followed it into `commands/`,
+  `config/`, `state/`, `text/`, `transport/`, and `view/`, so `file-browse` (23
+  modules) is the last extension flat past that size; `job` (20 modules),
+  `worktree` (20 modules), and `subagent` (17 modules) stay flat until they cross
+  it. *Done when* `file-browse` holds role subdirectories plus `index.ts`, its
+  imports are updated, and the page's layout rule describes the tree without an
+  exception.
 
 **Later**
 

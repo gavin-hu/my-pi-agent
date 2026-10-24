@@ -20,7 +20,7 @@ import {
 } from "../../test/helpers/fixtures/rewind.ts";
 import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
 import rewindExtension from "./index.ts";
-import { createSnapshot } from "./snapshot.ts";
+import { createSnapshot } from "./transport/snapshot.ts";
 
 const cleanups: string[] = [];
 afterAll(() => cleanup(...cleanups));

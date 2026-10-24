@@ -23,8 +23,8 @@ import {
 	revParseMany,
 	runGitOrThrow as run,
 	type RunGit,
-} from "../../lib/git/index.ts";
-import { parseNameStatus, parseNumStat, type ChangedPath, type PathStat } from "./paths.ts";
+} from "../../../lib/git/index.ts";
+import { parseNameStatus, parseNumStat, type ChangedPath, type PathStat } from "../text/paths.ts";
 
 // Re-export exactly the shared helpers this extension consumes, so rewind code
 // has one git import surface instead of reaching into `lib/git` directly.

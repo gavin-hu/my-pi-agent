@@ -9,8 +9,8 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { loadConfig, type RewindConfig } from "./config.ts";
+import { resolveEffectiveCwd } from "../../../lib/env.ts";
+import { loadConfig, type RewindConfig } from "../config/config.ts";
 import {
 	applyPatchReverse,
 	createRewindRunner,
@@ -19,16 +19,16 @@ import {
 	repoRoot,
 	revParse,
 	type RunGit,
-} from "./git.ts";
-import { createOperationQueue } from "./queue.ts";
-import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "./restore.ts";
-import type { PathStat } from "./paths.ts";
-import { createSnapshot } from "./snapshot.ts";
-import { createStatusChip } from "./status.ts";
-import { belongsToRoot, listSnapshots, pruneSnapshots } from "./store.ts";
-import { createTempIndexStore } from "./temp-index.ts";
+} from "../transport/git.ts";
+import { createOperationQueue } from "../transport/queue.ts";
+import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "../transport/restore.ts";
+import type { PathStat } from "../text/paths.ts";
+import { createSnapshot } from "../transport/snapshot.ts";
+import { createStatusChip } from "../view/status.ts";
+import { belongsToRoot, listSnapshots, pruneSnapshots } from "../transport/store.ts";
+import { createTempIndexStore } from "../transport/temp-index.ts";
 import { lastUserEntryId } from "./timeline.ts";
-import type { Snapshot, SnapshotReason, RestoreSummary } from "./types.ts";
+import type { Snapshot, SnapshotReason, RestoreSummary } from "../types.ts";
 
 export interface SnapshotOptions {
 	reason: SnapshotReason;

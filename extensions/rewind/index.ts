@@ -16,9 +16,9 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { registerCommands } from "./commands.ts";
-import { createRuntime } from "./runtime.ts";
-import { createSnapshotRun } from "./snapshot-run.ts";
+import { registerCommands } from "./commands/commands.ts";
+import { createRuntime } from "./state/runtime.ts";
+import { createSnapshotRun } from "./state/snapshot-run.ts";
 
 export function registerRewind(pi: ExtensionAPI): void {
 	const runtime = createRuntime(pi);

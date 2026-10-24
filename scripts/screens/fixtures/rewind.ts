@@ -6,8 +6,8 @@
  * store it would actually read — while the paths inside are invented.
  */
 
-import type { ReviewEntry } from "../../../extensions/rewind/paths.ts";
-import type { RewindPoint } from "../../../extensions/rewind/timeline.ts";
+import type { ReviewEntry } from "../../../extensions/rewind/text/paths.ts";
+import type { RewindPoint } from "../../../extensions/rewind/state/timeline.ts";
 import { now } from "./shared.ts";
 import { repo } from "../../theme.ts";
 

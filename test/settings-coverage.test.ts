@@ -53,7 +53,7 @@ import { DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig } from "../extensions/memo
 import {
 	DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG,
 	normalizeConfig as normalizeRewindConfig,
-} from "../extensions/rewind/config.ts";
+} from "../extensions/rewind/config/config.ts";
 import { DEFAULT_TODO_CONFIG, normalizeTodoConfig } from "../extensions/todo/config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_WATCH_CONFIG,

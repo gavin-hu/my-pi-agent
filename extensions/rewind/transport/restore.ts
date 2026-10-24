@@ -26,8 +26,8 @@ import {
 	treeFromWorkingTree,
 	type RunGit,
 } from "./git.ts";
-import { entryPaths, summarize, type ChangedPath } from "./paths.ts";
-import type { Snapshot, RestoreSummary } from "./types.ts";
+import { entryPaths, summarize, type ChangedPath } from "../text/paths.ts";
+import type { Snapshot, RestoreSummary } from "../types.ts";
 
 export interface RestoreDeps {
 	runGit: RunGit;

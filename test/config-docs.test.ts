@@ -27,7 +27,7 @@ import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG } from "../extensions/memory/config.ts";
 import { DEFAULT_SPLIT_CONFIG } from "../lib/plans/setting.ts";
-import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/config.ts";
+import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/config/config.ts";
 import { DEFAULT_SUBAGENT_CONFIG } from "../extensions/subagent/config.ts";
 import { DEFAULT_TODO_CONFIG } from "../extensions/todo/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WATCH_CONFIG } from "../extensions/watch/config.ts";

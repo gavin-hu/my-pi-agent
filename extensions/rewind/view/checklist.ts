@@ -14,12 +14,12 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { detailBlockRows, dockListFrame, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
-import { emptyState } from "../../lib/tui/rows.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
-import { paint } from "../../lib/tui/tokens.ts";
+import { detailBlockRows, dockListFrame, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../../lib/tui/cursor.ts";
+import { emptyState } from "../../../lib/tui/rows.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
 
 /** Rows the checklist shows when the terminal height is unknown. */
 const SCREEN_DEFAULT_ITEMS = 12;
