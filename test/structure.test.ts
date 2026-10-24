@@ -78,6 +78,7 @@ const ROOT_TEST_FILES = new Set([
 	"structure.test.ts",
 	"theme.test.ts",
 	"tool-render.test.ts",
+	"wait-budget.test.ts",
 ]);
 
 /**

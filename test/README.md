@@ -291,6 +291,7 @@ test/
   scripts-surface.test.ts  # the package scripts, and the docs that name them
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame
+  wait-budget.test.ts      # no test waits on `waitFor` for a literal budget under a second
 ```
 
 Rules:
