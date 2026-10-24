@@ -107,6 +107,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   whether a team is worth it, contract first, vertical slices, shared files, merge
   order, and when to stop — because the table, the claims, and the join are the
   extensions' documented behaviour instead.
+- `skills`: the `next` skill picks its source from the conversation instead of
+  a `session` word — a conversation that has done work is asked what it left
+  open, and only an empty one is triaged from the project — and returns a
+  numbered list of suggested next todos in priority order, with cost of loss as
+  the ladder and the **Do next** / **Worth planning** / **Later** label for
+  effort rather than rank.
 - `job`, `watch`, `session-bus`: a wake outcome that arrives while a turn is
   running now raises one turn as soon as that run settles, instead of waiting for
   the next turn; an aborted run leaves it queued. The shared pending reporter gates
