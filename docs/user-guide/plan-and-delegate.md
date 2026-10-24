@@ -207,7 +207,9 @@ owner addresses its completion report to.
 Then you open one session per owner and paste its line. Each owner joins its unit
 once — `session({action:"join"})` claims every path the unit owns — works one
 increment per turn, and leaves when it merges. `status` reports `units 1/2 joined`
-with each unit's holder, so you can see who has started without asking.
+with each unit's holder, so you can see who has started without asking — the count
+follows holders, so a unit whose owner has released reads as unheld, and `0/2` after
+everyone finished means done rather than idle.
 
 What the approval refuses, by name: fewer than two units (one path is not a split;
 build the thinnest end-to-end path first), overlapping prefixes, a dependency
