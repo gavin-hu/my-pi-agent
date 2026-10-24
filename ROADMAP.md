@@ -12,18 +12,15 @@ the review that removes it.
 
 ## North star
 
-The README makes one promise: **plan before you act, delegate the work, keep the
-main checkout clean, and carry context across sessions** — without forking Pi.
-`session-bus` and the `parallel-dev` skill give that promise its hardest clause:
-**several sessions on one repository, coordinated at turn boundaries rather than
-by assumption.** The roadmap is ordered by how directly an item makes those
-sentences true.
+Pi's core is small on purpose; this pack is the layer that makes it deliberate.
+One sentence is the end state: **what the pack promises, it either does, names as
+a limitation, or reports from `doctor`** — so nobody has to guess which of the
+two they are reading.
 
-The pack has breadth: nineteen extensions, five skills, two themes. The next
-stage is not more surface area. It is making the newest promises exact — a split
-whose rule survives approval, a review that reaches the person it was shared
-with, a store that says how large it grew — and honest where a platform cannot
-deliver.
+The README's promises — plan, delegate, isolate, remember, reach — are that
+sentence's content, and the ledger below tracks each one. The breadth is already
+there (see *Where we are*); the next stage is not more of it, but that every new
+surface arrives with its limitation written in the same breath.
 
 ## Where we are
 
