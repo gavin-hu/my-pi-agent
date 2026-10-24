@@ -26,7 +26,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Plan kept current | `set_plan_steps` | Ticking a step rewrites its checkbox in the file and its todo item in one call. | Shipped |
 | Stale-step protection | `expected` in `set_plan_steps` | A step whose number moved, is out of range, or no longer matches its text refuses the whole batch instead of ticking the wrong line. | Shipped |
 | Cancel without a plan | `cancel_plan_mode`, `/plan cancel` | Write access returns, and no todo items or goal are recorded. | Shipped |
-| Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first. | Shipped |
+| Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first, under a header naming the store's size and its oldest plan. | Shipped |
 | Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
 | Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
 | Parallel slices | `exit_plan_mode` `units`, `plan.split` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
@@ -273,7 +273,10 @@ is on, and `≡ plan · <plan-file>` once the model has written a plan.
 `/plan list` walks the plans directory and shows every plan with its title,
 modified time, and step progress, newest first — in the TUI as a docked list
 where `Enter` opens the plan's review, elsewhere as a notice with each plan's
-path. The directory stays the index: no registry file, one bounded read per plan.
+path. The header carries the store's own footprint for this repository: the bytes
+its plans hold and how old the oldest one is, both derived from the walk that just
+happened. The directory stays the index: no registry file, nothing deletes a plan,
+and one bounded read per plan.
 
 `/plan review` is the only subcommand that takes an argument. Bare `/plan review`
 reviews the plan this session wrote, or, in a later session, the newest plan file
@@ -377,7 +380,7 @@ WeChat, even though the session is in TUI mode: the choice comes from
 deciding for the user.
 
 `/plan list` is a docked list screen in the TUI and a notice with each plan's
-path everywhere else.
+path everywhere else; both name the store's size and its oldest plan.
 
 Browser review is a local-turn feature: the server binds `127.0.0.1`, so a remote
 (WeChat) turn cannot reach it and `/plan review` there refuses with a notice
@@ -981,7 +984,7 @@ both.
 | `review-prompt.ts` | Pure rendering and parsing for the compact remote review: one action table behind both the prompt and the reply parser. |
 | `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, `/plan list`, `/plan share [stop]`, and `/plan cancel`. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
-| `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
+| `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |
 | `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over `lib/http`'s one loopback server. |

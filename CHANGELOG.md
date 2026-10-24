@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: `/plan list` says how big the plan store is. Its header now carries the
+  bytes this repository's plans hold and how old the oldest one is —
+  `Plans (7) — 24.8 kB — oldest 3mo ago — …` — in both the notice and the docked
+  screen, derived from the directory walk that just happened rather than from a
+  second index, so reporting a size cannot drift from the files. Nothing deletes a
+  plan: the store reports its footprint, it does not manage it. The byte formatter
+  this needs moved from `file-browse` to `lib/format.ts`, where the two readers
+  share one body.
 - `wechat`: `send_wechat` sends one local image beside its text, and it arrives on the
   phone as a picture rather than a document attachment. The upload is now one body
   for both shapes — file and image differ in the media type (3 vs 1) and the item

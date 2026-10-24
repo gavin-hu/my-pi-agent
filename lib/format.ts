@@ -166,3 +166,16 @@ export function shortenPath(path: string, home: string = homedir()): string {
 	if (normalized === root) return "~";
 	return normalized.startsWith(`${root}/`) ? `~${normalized.slice(root.length)}` : normalized;
 }
+
+/** A compact byte size for a listing or a report: `68 B`, `12.4 kB`, `1.5 MB`. */
+export function formatSize(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	const units = ["kB", "MB", "GB", "TB"];
+	let value = bytes;
+	let index = -1;
+	do {
+		value /= 1024;
+		index++;
+	} while (value >= 1024 && index < units.length - 1);
+	return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[index]}`;
+}

@@ -11,7 +11,8 @@
 import { brandLockup, docHead, type KeyHint, keysSheet, themeToggle } from "../../../lib/web/index.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
 import { renderChanges, renderGit, renderLiveChrome, renderLiveStatus, type LivePage } from "./chrome.ts";
-import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
+import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
+import { formatSize } from "../../../lib/format.ts";
 import { DIFF_MODES, statusLetter, type ChangedFile, type DiffMode } from "../text/diff.ts";
 import { renderDiffLines } from "./diff-html.ts";
 import type { DiffFileView, GitStatus } from "../git/git.ts";
