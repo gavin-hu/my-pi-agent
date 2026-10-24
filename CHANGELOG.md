@@ -72,10 +72,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `revoked` when sharing was stopped).
 - Tooling: `bun run screenshot:plan --as reviewer` captures the page a shared
   review link opens, so the reviewer's action set can be rendered without a second
-  machine; it shares to a loopback-as-LAN snapshot and never binds a real
-  interface. `--post <name>` posts one comment as that reviewer first, so the
-  bound name renders, and `--draft <text>` starts the tab with one unsaved comment,
-  which is the state a reload restores.
+  machine; the shared link binds a loopback-as-LAN snapshot, never a real
+  interface. `--share` captures the owner's Share dialog with two links, `--post
+  <name>` posts one comment as that reviewer first, so the bound name renders, and
+  `--draft <text>` starts the tab with one unsaved comment, which is the state a
+  reload restores.
 - `session-bus`: a session can arm its own inbox watch — `session({action:"watch"})`
   or `/sessions watch [off|wake]` — so new mail previews at its next turn, or raises
   one turn when `wake` is set, as soon as the session is idle. `wake` is a mode:
