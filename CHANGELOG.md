@@ -78,6 +78,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: [`scripts/README.md`](./scripts/README.md) is the tooling contract — the
+  two capture mechanisms, fixture ownership, and when an asset is recaptured,
+  including the hero's live session and the `bun.lock` floor it prints.
+  `docs/development.md` keeps the commands and points at it, and the claim that no
+  live state can reach the hero's frame is corrected to name what does.
 - `test`: `scripts/` is re-cut around the four jobs it does: `capture/` holds the
   two mechanisms (Terminal.app and Playwright, with the JXA crop beside its
   caller), `screens/` the frames and their fixtures, `shots/` one CLI per

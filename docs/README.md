@@ -28,5 +28,6 @@ These are the authoritative references the guides summarize:
 | [Skills](../skills/) | The five packaged workflows, one `SKILL.md` each: when one loads, what it needs, and what it will not decide for you. |
 | [lib](../lib/README.md) | Shared helpers and the host seams. |
 | [lib/tui](../lib/tui/README.md) | The terminal design system: host-before-custom, block grammar, primitives, width, focus, and the render rules. |
+| [Scripts](../scripts/README.md) | The dev tooling: the two capture mechanisms, fixture ownership, and when an asset is recaptured. |
 | [test](../test/README.md) | Test principles, tiers, and helper conventions. |
 | [Changelog](../CHANGELOG.md) | Release notes. |
