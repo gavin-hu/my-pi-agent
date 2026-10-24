@@ -78,6 +78,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `test`: the dev floor is raised to Pi 1.4.0 (`typebox` 1.4.3, `bun.lock`
+  refreshed), so `bun run check` proves the package against the newest published
+  peers instead of 1.1.0. The peers keep their `"*"` range; nothing a consumer
+  installs changes.
 - `docs`: the [user guide](./docs/user-guide/) is re-cut so a page is one job —
   nine chapters and two lookup pages instead of eight chapters whose middle held
   a third of the manual. `plan-and-delegate` becomes `plan-and-verify`,
