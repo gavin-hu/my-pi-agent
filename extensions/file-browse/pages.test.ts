@@ -227,6 +227,18 @@ describe("page chrome", () => {
 		expect(prose).toContain(".md-table-frame.browse-table-more::after{");
 	});
 
+	test("floors a table's cells so a narrow pane scrolls instead of stacking", () => {
+		// Auto layout starves the prose column against a nowrapped code span, and a
+		// cell of one word per line turns a ten-row table into a 2000px strip. The
+		// floor only applies to a pane narrower than 600px, so a table that still
+		// fits keeps sizing its columns to the content.
+		const prose = filePage("sub/b.md", markdownView(["# hi"]));
+		expect(prose).toContain(".browse-measure .bf-md>.md-table-frame{max-width:none;");
+		expect(prose).toContain("container-type:inline-size");
+		expect(prose).toContain("@container (max-width:600px){");
+		expect(prose).toContain(".browse-measure .bf-md .md-table-frame td{min-width:14em}");
+	});
+
 	test("renders the git chip with the branch alone", () => {
 		const html = directoryPage({ git: { branch: "main" } });
 		expect(html).toContain('class="bf-chip browse-git"');

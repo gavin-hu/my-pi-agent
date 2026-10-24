@@ -152,6 +152,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is `test/project-docs-skill.test.ts`, and the guide's section is now *Keeping the docs
   honest*.
 
+### Fixed
+
+- `file-browse`: a rendered Markdown table keeps a readable column width in a pane
+  narrower than 600px. Auto layout was handing the prose cell whatever a nowrapped
+  code span beside it left, so a four-column table stacked one word per line — a
+  ten-row table ran to 1758px with 221px rows at a 900px window, and 2154px with
+  304px rows on a phone. The frame is now a size container and the cells take a
+  14em floor below 600px, so the table overflows into the wrapper that already
+  scrolls it instead; above that width nothing changes.
+
 ## [0.18.0] - 2026-10-24
 
 ### Added
