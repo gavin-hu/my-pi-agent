@@ -59,6 +59,24 @@ that is still owed, never to edit the generated file.
 - The release body is that section verbatim, heading included. Do not add a summary,
   a thank-you, or a rewrite of the bullets a reader already has.
 
+## Verify a release you did not cut
+
+A release is a chain of steps, and the last one can sit for hours waiting on a
+pipeline's approval, so checking a tagged version is its own job. It touches no file:
+open the tag, read each of these, and report the line.
+
+- The tag's own manifest — `git show vX.Y.Z:package.json`, or the equivalent — because
+  the publish job proves that before it publishes, not the branch's.
+- The newest dated heading, and the project's release guard where it has one.
+- The link refs: `[Unreleased]` compares from the new tag, and `X.Y.Z` points at it.
+- Whatever the release document bumps in the same commit — an install pin, a version
+  stamped in a guide, a captured image.
+- The release body against the section the project's own tooling prints, never against
+  memory.
+- The publish run itself: a workflow that checks out `vX.Y.Z` publishes the tagged tree
+  whatever ref the dispatch named, so what remains is its environment approval and the
+  registry version after it.
+
 ## After
 
 If a shipped change turns out to have no bullet, do not edit the released section.

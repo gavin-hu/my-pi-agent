@@ -61,7 +61,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changeset-generated changelog, a roadmap without ids — which added the contributor
   path's commands to the audit's cross-document face, made `release` hand a generated
   file to its generator, and stopped an absent link reference from being read as a
-  defect.
+  defect. The mode also verifies a release it did not cut — the tag's own manifest, the
+  heading, the link refs, the version stamped in the guides, the release body against
+  the section the project's tooling prints, and the publish run still awaiting its
+  approval — which is how this window found 0.18.0 half-published.
 
 ### Changed
 
