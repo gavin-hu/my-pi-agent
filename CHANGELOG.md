@@ -86,9 +86,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   store safeguards; check names its plan-mode refusal, single-run guard, target
   selection, rerun, and detection families; subagent names its plan guard, tool
   allowlist, project-agent trust gate, parallel/chain bounds, per-step cwd,
-  background cap, and session-owned background run; and todo names its atomic
+  background cap, and session-owned background run; todo names its atomic
   validation, terminal-safe normalization, compact result, transcript rendering,
-  and headless listing.
+  and headless listing; and goal, question, job, and watch name their plan
+  lifecycle, tab/submit/language, deadline/clear/escalation, and
+  outcome/transcript/sanitization capabilities.
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by
