@@ -210,7 +210,7 @@ for another agent (typically `worker`) to execute, and it works headlessly. It
 returns the plan as text and writes nothing. For **interactive** planning where
 the user reviews and approves a saved plan, use the plan-mode extension instead
 (`enter_plan_mode` / `write_plan` / `exit_plan_mode`), which operates on the
-main session and persists to `.pi/plans`. Plan mode keeps `subagent` available
+main session and persists to the agent directory. Plan mode keeps `subagent` available
 for exploration but forces it read-only, so delegated recon is safe mid-plan.
 
 ## External agents

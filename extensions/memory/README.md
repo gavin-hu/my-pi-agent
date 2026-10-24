@@ -169,9 +169,9 @@ skill. Mitigations:
   injection, and rendering.
 - Reads are capped at 256 KiB and the injected body at `maxInjectBytes`.
 - The path is a fixed constant; a symlink at the memory path is refused.
-- The files are ordinary user-owned markdown. They are **not** self-ignored like
-  `.pi/plans`, so committing or sharing them is the user's choice; review
-  project memory before trusting a repository.
+- The files are ordinary user-owned markdown, so committing or sharing them is
+  the user's choice; review project memory before trusting a repository. Notes
+  stay in the project, unlike plans, which live in the agent directory.
 
 ## Limitations
 

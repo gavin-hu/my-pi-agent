@@ -97,7 +97,7 @@ discipline, and say what you could not read.
 | `git worktree list`, `git branch --no-merged` | An isolated tree left behind, a branch never merged |
 | The changelog's `[Unreleased]` | Whether a landed change is recorded, and whether the window is empty |
 | The roadmap, issue tracker, or `TODO` docs | The project's stated priorities, and which are already done |
-| The plans directory (`.pi/plans` or the project's equivalent) | An approved plan whose steps remain |
+| The plans directory (`~/.pi/agent/plans/<repo-key>`) | An approved plan whose steps remain |
 | The todo list, the goal, job and subagent results | What the session promised and did not finish |
 | The check command | Whether the tree is green — cite the last known result, and make running it the item's starting command rather than running it here |
 

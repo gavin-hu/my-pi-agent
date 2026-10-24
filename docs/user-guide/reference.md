@@ -205,7 +205,7 @@ no longer need it; deleting a settings file restores defaults.
 
 | Location | What it is |
 |---|---|
-| `.pi/plans/` in the project | Plan files as Markdown |
+| `~/.pi/agent/plans/<repo-key>/` | Plan files as Markdown, shared by every worktree of the repository |
 | `.pi/worktrees/` in the project | Isolated worktrees; `index.json` is a disposable record |
 | `.pi/subagents/` in the project | Optional helper transcripts, pruned by age and count |
 | `.pi/memory.md` in the project | Project memory notes |

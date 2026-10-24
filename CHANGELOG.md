@@ -103,6 +103,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: the `plan` section of `bytefly.json` is read again, holding `split`, and
   `/bytefly settings` gains a thirteenth row for it. Off by default, so an
   existing setup approves plans exactly as before.
+- `skills`: `parallel-dev` now carries only the judgment a gate cannot enforce —
+  whether a team is worth it, contract first, vertical slices, shared files, merge
+  order, and when to stop — because the table, the claims, and the join are the
+  extensions' documented behaviour instead.
 - `job`, `watch`, `session-bus`: a wake outcome that arrives while a turn is
   running now raises one turn as soon as that run settles, instead of waiting for
   the next turn; an aborted run leaves it queued. The shared pending reporter gates
