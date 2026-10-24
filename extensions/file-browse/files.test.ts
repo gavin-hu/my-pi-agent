@@ -41,6 +41,7 @@ import {
 	type TreeNode,
 } from "./files.ts";
 import { createGitDiff, createGitStatus } from "./git.ts";
+import { listingRevision } from "./rev.ts";
 import { FOLDER_ICON, iconHref, languageOf, SPRITE } from "./icons.ts";
 import { fuzzyMatch, fuzzySearch, type FuzzyResult } from "./fuzzy.ts";
 import { HttpError, encodePath, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
@@ -234,6 +235,25 @@ describe("directory listings", () => {
 			status: 404,
 			message: "That folder could not be read.",
 		});
+	});
+});
+
+describe("listing revisions", () => {
+	test("is independent of the order the names arrived in", () => {
+		expect(listingRevision(["b.txt", "a.txt", "sub"])).toBe(listingRevision(["sub", "b.txt", "a.txt"]));
+	});
+
+	test("moves when a name appears or goes, and stays for the same names", () => {
+		const before = listingRevision(["a.txt", "sub"]);
+		expect(listingRevision(["a.txt", "sub"])).toBe(before);
+		expect(listingRevision(["a.txt", "sub", "new.ts"])).not.toBe(before);
+		expect(listingRevision(["a.txt"])).not.toBe(before);
+	});
+
+	test("does not run adjacent names together into one digest", () => {
+		// The NUL separator is what a filename cannot contain, so a split cannot
+		// collide with a different split of the same text.
+		expect(listingRevision(["ab", "c"])).not.toBe(listingRevision(["a", "bc"]));
 	});
 });
 

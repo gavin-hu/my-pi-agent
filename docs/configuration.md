@@ -314,7 +314,7 @@ ignored, and an absent id keeps its registry default.
 | `diffContext` | integer | `3` | `0`–`100` | Unified diff context lines. |
 | `maxDiffLines` | integer | `4000` | `1`–`1000000` | Diff lines rendered before the view is truncated. |
 | `live` | boolean | `true` | | Push live status to open pages over `/events`. |
-| `liveIntervalMs` | integer | `3000` | `250`–`60000` | How often a connected page is sent a status frame. |
+| `liveIntervalMs` | integer | `5000` | `250`–`60000` | How often a connected page is sent a status frame. |
 
 ## `goal` — the goal widget
 

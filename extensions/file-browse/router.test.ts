@@ -12,7 +12,7 @@ import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import { join } from "node:path";
-import { DEFAULT_CONFIG, type ServeConfig } from "./config.ts";
+import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "./config.ts";
 import type { DiffList, GitDiffProvider } from "./git.ts";
 import fileBrowser from "./index.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "./live.ts";
@@ -53,7 +53,7 @@ function context(overrides: Partial<ServeConfig> = {}): ServeContext {
 /** A live status source that answers one idle snapshot. */
 function idleStatus() {
 	return {
-		snapshot: async () => ({ at: 0, uptimeMs: 0, requests: 0, git: null, changes: null }),
+		snapshot: async () => ({ uptimeMs: 0, requests: 0, git: null, changes: null }),
 	};
 }
 
@@ -287,6 +287,70 @@ describe("live status stream route", () => {
 	});
 });
 
+describe("live folder revision", () => {
+	test("carries the listing's revision and the reload control on a folder page", async () => {
+		fixture = makeFixture();
+		const page = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/browse/sub", {}));
+		expect(page).toContain('data-dir="sub"');
+		expect(page).toMatch(/data-rev="[0-9a-f]{12}"/);
+		expect(page).toContain('id="reload-hint"');
+		expect(page).toContain("hidden>⟳ reload");
+	});
+
+	test("leaves the control off a page with nothing to compare", async () => {
+		fixture = makeFixture();
+		const file = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/view/a.txt", {}));
+		expect(file).toContain('id="live-state"');
+		expect(file).not.toContain("reload-hint");
+
+		const off = text(
+			await handleRequest({ ...context({ live: false }), live: idleStatus() }, "GET", "/browse/sub", {}),
+		);
+		expect(off).not.toContain("reload-hint");
+		expect(off).not.toContain("data-rev=");
+	});
+
+	test("omits a revision it could not trust from a truncated listing", async () => {
+		fixture = makeFixture();
+		const page = text(
+			await handleRequest({ ...context({ maxDirEntries: 1 }), live: idleStatus() }, "GET", "/browse/", {}),
+		);
+		expect(page).toContain('id="live-state"');
+		expect(page).not.toContain("data-rev=");
+		expect(page).not.toContain("reload-hint");
+	});
+
+	test("answers the revision the page drew", async () => {
+		fixture = makeFixture();
+		const page = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/browse/sub", {}));
+		const drawn = /data-rev="([0-9a-f]{12})"/.exec(page)?.[1];
+		const answer = await handleRequest({ ...context(), live: idleStatus() }, "GET", "/api/dir-rev?path=sub", {});
+		expect(answer.status).toBe(200);
+		expect(JSON.parse(text(answer))).toEqual({ path: "sub", rev: drawn });
+	});
+
+	test("says it cannot tell for a truncated folder, and 404s one that is gone", async () => {
+		fixture = makeFixture();
+		const truncated = await handleRequest(
+			{ ...context({ maxDirEntries: 1 }), live: idleStatus() },
+			"GET",
+			"/api/dir-rev?path=",
+			{},
+		);
+		expect(JSON.parse(text(truncated))).toEqual({ path: "", rev: null });
+
+		const missing = await handleRequest({ ...context(), live: idleStatus() }, "GET", "/api/dir-rev?path=nope", {});
+		expect(missing.status).toBe(404);
+	});
+
+	test("escapes the folder name it puts in the attribute", async () => {
+		fixture = makeFixture();
+		mkdirSync(join(fixture.root, 'we"ird'));
+		const page = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/browse/we%22ird", {}));
+		expect(page).toContain('data-dir="we&quot;ird"');
+	});
+});
+
 describe("diff routes", () => {
 	test("lists changes, links each file, and shows the header chip", async () => {
 		const response = await handleRequest(
@@ -420,17 +484,46 @@ describe("live snapshot", () => {
 			now: clock.now,
 		});
 		const snapshot = await status.snapshot();
-		expect(snapshot.at).toBe(10_000);
 		expect(snapshot.uptimeMs).toBe(6_000);
 		expect(snapshot.requests).toBe(7);
 		expect(snapshot.git).toEqual({ branch: "main" });
-		expect(snapshot.changes).toEqual({
+		expect(snapshot.changes).toMatchObject({
 			count: 2,
 			insertions: 1,
 			deletions: 1,
 			files: ["a.txt", "sub/b.md"],
 			dirs: ["sub"],
 		});
+		expect(snapshot.changes?.rev).toMatch(/^[0-9a-f]{12}$/);
+	});
+
+	test("keeps a revision still while the change set is unchanged", async () => {
+		const status = createLiveStatus({ diff: provider(), startedAt: 0, requests: () => 0 });
+		const first = await status.snapshot();
+		const second = await status.snapshot();
+		expect(second.changes?.rev).toBe(first.changes?.rev);
+	});
+
+	test("moves the revision when a path or a total changes", async () => {
+		const base = createLiveStatus({ diff: provider(), startedAt: 0, requests: () => 0 });
+		const added = createLiveStatus({
+			diff: provider({
+				...LIST,
+				files: [...LIST.files, { rel: "new.ts", index: "?", worktree: "?", untracked: true }],
+			}),
+			startedAt: 0,
+			requests: () => 0,
+		});
+		// The same paths, one more added line: a content edit still moves the chip's totals.
+		const totals = createLiveStatus({
+			diff: provider({ ...LIST, insertions: 4 }),
+			startedAt: 0,
+			requests: () => 0,
+		});
+		const rev = (await base.snapshot()).changes?.rev;
+		expect(rev).toBeTruthy();
+		expect((await added.snapshot()).changes?.rev).not.toBe(rev);
+		expect((await totals.snapshot()).changes?.rev).not.toBe(rev);
 	});
 
 	test("sends a detached head through as it is", async () => {
@@ -479,7 +572,7 @@ describe("live snapshot", () => {
 	});
 
 	test("frameOf is one named event carrying the snapshot as JSON", () => {
-		const snapshot = { at: 5, uptimeMs: 5, requests: 1, git: { branch: "main" }, changes: null };
+		const snapshot = { uptimeMs: 5, requests: 1, git: { branch: "main" }, changes: null };
 		const frame = frameOf(snapshot);
 		expect(frame.startsWith("event: status\ndata: {")).toBe(true);
 		expect(frame.endsWith("}\n\n")).toBe(true);
@@ -522,7 +615,7 @@ function fakeTimer(): { timer: (tick: () => void) => () => void; fire(): Promise
 	return state;
 }
 
-const idle = { snapshot: async () => ({ at: 0, uptimeMs: 0, requests: 0, git: null, changes: null }) };
+const idle = { snapshot: async () => ({ uptimeMs: 0, requests: 0, git: null, changes: null }) };
 
 /** A grace timer that only fires when the test says so. */
 function fakeTimeout(): { timeout: LiveTimeout; fire(): void; armed: number; cancels: number } {
@@ -548,6 +641,23 @@ function fakeTimeout(): { timeout: LiveTimeout; fire(): void; armed: number; can
 }
 
 describe("live channel", () => {
+	test("refuses a page beyond its capacity and takes one back after a detach", async () => {
+		const channel = createLiveChannel({
+			status: idle,
+			intervalMs: 3000,
+			idleMs: 10_000,
+			timer: fakeTimer().timer,
+			maxClients: 2,
+		});
+		expect(channel.atCapacity()).toBe(false);
+		const first = channel.attach(liveClient());
+		channel.attach(liveClient());
+		expect(channel.atCapacity()).toBe(true);
+		first();
+		expect(channel.atCapacity()).toBe(false);
+		channel.close();
+	});
+
 	test("sends the current status to a page as it attaches", async () => {
 		const status = createLiveStatus({ git: async () => ({ branch: "main" }), startedAt: 0, requests: () => 1 });
 		const channel = createLiveChannel({ status, intervalMs: 3000, idleMs: 10_000, timer: fakeTimer().timer });
@@ -749,6 +859,27 @@ describe("loopback server", () => {
 		const reply = await fetch(`${server.url}events`);
 		expect(reply.status).toBe(404);
 		expect(await reply.text()).toContain("Live status is not available");
+	});
+
+	test("refuses a page beyond the stream cap with a status that stops the reconnect", async () => {
+		fixture = makeFixture();
+		const stream = {
+			status: 200,
+			headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
+			stream: true,
+		};
+		server = await createFileServer({
+			root: fixture.root,
+			config: { ...DEFAULT_CONFIG, autoOpen: false },
+			handler: async () => stream,
+		});
+		for (let page = 0; page < LIVE_MAX_CLIENTS; page++) {
+			const reply = await fetch(`${server.url}events`);
+			expect(reply.status).toBe(200);
+		}
+		const refused = await fetch(`${server.url}events`);
+		expect(refused.status).toBe(204);
+		expect(await refused.text()).toBe("");
 	});
 
 	test("closes idempotently and stops accepting connections", async () => {

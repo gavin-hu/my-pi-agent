@@ -103,6 +103,13 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 				respond(request, response, result);
 				return;
 			}
+			// Checked before the head is written: a refusal must not leave a stream the
+			// client would wait on. `204` is the one status an event source does not
+			// reconnect after, so a page beyond the cap goes quiet instead of retrying.
+			if (live.atCapacity()) {
+				respond(request, response, { status: 204, headers: { "Cache-Control": "no-store" }, body: "" });
+				return;
+			}
 			openEventStream(response, result);
 			const detach = live.attach({
 				write: (frame) => {

@@ -9,6 +9,12 @@
  *
  * It does nothing at all unless the server rendered the connection chip, which
  * is what makes `live: false` and JS-off leave the page exactly as it was.
+ *
+ * The folder check is the other half: the stream is shared by every open page, so
+ * it cannot say what *this* page's rows show. A page that lists a folder carries
+ * the revision of what it drew, and asks the server for the folder's current one
+ * once per interval; a difference reveals a reload control instead of touching
+ * the document, because a reload is the only honest way to add a row.
  */
 
 export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the header chips, the tree and listing
@@ -19,9 +25,14 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		var liveLine = document.getElementById("live-status");
 		var liveGit = document.querySelector(".browse-git");
 		var liveChanges = document.getElementById("browse-changes");
-		var liveInterval = Number(liveChip.getAttribute("data-interval")) || 3000;
+		var liveInterval = Number(liveChip.getAttribute("data-interval")) || 5000;
 		var liveStale = 0;
 		var liveTone = "";
+		var liveRev = "";
+		var liveDir = liveChip.getAttribute("data-dir");
+		var liveDirRev = liveChip.getAttribute("data-rev");
+		var liveReload = document.getElementById("reload-hint");
+		var liveDirTimer = 0;
 
 		function formatSpan(ms) {
 			var seconds = Math.max(0, Math.round(ms / 1000));
@@ -88,7 +99,12 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			});
 		}
 
+		// One revision covers the chip and the markers: a frame that did not move the
+		// change set is not painted at all, so a tick on an idle tree costs no DOM
+		// work however many rows the page drew.
 		function paintLiveChanges(changes) {
+			if (changes && changes.rev === liveRev) return;
+			liveRev = changes && changes.rev ? changes.rev : "";
 			var count = changes ? changes.count : 0;
 			if (liveChanges) {
 				liveChanges.hidden = count <= 0;
@@ -136,6 +152,32 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			paintLiveChanges(snapshot.changes);
 		}
 
+		// The folder the page drew, checked against the disk on the frame cadence. It
+		// waits for the first frame, never runs in a hidden tab, and stops as soon as
+		// it has something to say: the control is the fix, and a reload ends the
+		// question.
+		function showLiveReload() {
+			window.clearInterval(liveDirTimer);
+			liveDirTimer = 0;
+			if (!liveReload || !liveReload.hidden) return;
+			liveReload.hidden = false;
+			liveReload.addEventListener("click", function () { window.location.reload(); });
+		}
+
+		function checkLiveDir() {
+			if (document.hidden || liveTone !== "success") return;
+			fetch("/api/dir-rev?path=" + encodeURIComponent(liveDir))
+				.then(function (response) {
+					if (!response.ok) throw new Error("check failed");
+					return response.json();
+				})
+				.then(function (answer) {
+					var rev = answer.rev;
+					if (typeof rev === "string" && rev !== liveDirRev) showLiveReload();
+				})
+				.catch(function () { /* the stream already reports a dead server */ });
+		}
+
 		if (window.EventSource) {
 			var liveStream = new EventSource("/events");
 			liveStream.addEventListener("open", function () {
@@ -152,7 +194,11 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 			window.addEventListener("pagehide", function () {
 				liveStream.close();
 				window.clearTimeout(liveStale);
+				window.clearInterval(liveDirTimer);
 			});
+			if (liveDir !== null && liveDirRev && liveReload) {
+				liveDirTimer = window.setInterval(checkLiveDir, liveInterval);
+			}
 		}
 	}
 `;

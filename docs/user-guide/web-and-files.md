@@ -195,9 +195,11 @@ fuzzy quick-open palette, and a read-only git diff view.
 4. The header's theme button switches the page between light and dark and
    remembers your choice. Until you use it, the page follows the system
    preference. Beside it, a `◉ live` chip says whether the page is still in
-   touch with the server, and the footer reports how long it has been up and how
-   many requests it has answered. Printing a page gives you the light palette on
-   paper, without the header, the tree, or the code view's scroll box.
+   touch with the server; when the folder you are looking at has changed on
+   disk, a `⟳ reload` control appears beside that chip. The footer reports how
+   long the server has been up and how many requests it has answered. Printing a
+   page gives you the light palette on paper, without the header, the tree, or
+   the code view's scroll box.
 
 5. If the project is a git repository, a change chip links to a change overview
    and per-file diffs. The comparison scope can be the last commit, the staged
@@ -227,9 +229,11 @@ subcommands:
   frozen page.
 - A tab left open keeps up: the branch chip, the change chip, and the change
   markers refresh as the working tree changes, so you can edit in Pi and watch
-  the browser follow. It updates what is already on the page — a new file needs a
-  reload to appear in the listing — and `"live": false` in the `file-browse`
-  section turns it off.
+  the browser follow. It updates what is already on the page rather than
+  redrawing it, and a listing that has fallen behind says so: when a file appears
+  or goes on disk, the `⟳ reload` control appears beside the `◉ live` chip and
+  reloads the page when you click it. `"live": false` in the `file-browse`
+  section turns all of it off.
 - The server stops when the session shuts down, and when you close the last
   page: ten seconds after the last tab goes, the port is released and the footer
   chip clears. A reload or a new tab within those ten seconds keeps it, and

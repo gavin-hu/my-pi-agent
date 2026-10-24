@@ -22,6 +22,7 @@ import {
 } from "../../lib/http/index.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
 import { CLIENT_JS } from "./client.ts";
+import type { LivePage } from "./chrome.ts";
 import type { ServeConfig } from "./config.ts";
 import { isDiffMode, type DiffMode } from "./diff.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
@@ -43,6 +44,7 @@ import { fuzzySearch } from "./fuzzy.ts";
 import { renderDirectoryPage, renderDiffPage, renderErrorPage, renderFileDiffPage, renderFilePage } from "./html.ts";
 import type { ChangeSummary } from "./html.ts";
 import { encodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "./paths.ts";
+import { listingRevision } from "./rev.ts";
 
 export interface ServeContext {
 	root: string;
@@ -108,9 +110,13 @@ function summaryOf(list: DiffList): ChangeSummary {
 	};
 }
 
-/** The live chrome a page renders, or `undefined` when live status is off. */
-function liveOf(ctx: ServeContext): { intervalMs: number } | undefined {
-	return ctx.config.live && ctx.live ? { intervalMs: ctx.config.liveIntervalMs } : undefined;
+/**
+ * The live chrome a page renders, or `undefined` when live status is off. A
+ * listing page also passes the revision of what it drew, which is what its
+ * reload control compares against; every other page has nothing to compare.
+ */
+function liveOf(ctx: ServeContext, folder?: { dir: string; rev: string }): LivePage | undefined {
+	return ctx.config.live && ctx.live ? { intervalMs: ctx.config.liveIntervalMs, ...folder } : undefined;
 }
 
 /** The `head` change summary, for the header chip, tree markers, and file action. */
@@ -184,7 +190,10 @@ async function directoryResponse(ctx: ServeContext, rel: string): Promise<ServeR
 			maxThumbBytes: ctx.config.maxThumbBytes,
 			git,
 			summary: changes,
-			live: liveOf(ctx),
+			live: liveOf(
+				ctx,
+				listing.truncated ? undefined : { dir: rel, rev: listingRevision(listing.entries.map((entry) => entry.name)) },
+			),
 		}),
 	);
 }
@@ -312,6 +321,17 @@ async function treeApi(ctx: ServeContext, decodedPath: string): Promise<ServeRes
 	return jsonResponse(200, { path: rel, entries: listing.entries.map(treeApiEntry) });
 }
 
+/** The revision of one folder's listing: what a page's reload control compares against. */
+async function dirRevApi(ctx: ServeContext, decodedPath: string): Promise<ServeResponse> {
+	const abs = await resolveDecodedPath(ctx.root, decodedPath);
+	const rel = relativePath(ctx.root, abs);
+	const listing = await listDirectory(ctx.root, rel, ctx.config.maxDirEntries);
+	// A truncated listing is a prefix whose boundary moves, so its revision is not
+	// comparable with what the page drew: `null` says "cannot tell".
+	const names = listing.entries.map((entry) => entry.name);
+	return jsonResponse(200, { path: rel, rev: listing.truncated ? null : listingRevision(names) });
+}
+
 /** Fuzzy file search for the quick-open palette, over the cached index. */
 async function filesApi(ctx: ServeContext, query: string): Promise<ServeResponse> {
 	const index = ctx.index ? await ctx.index() : await buildFileIndex(ctx.root, ctx.config.maxIndexEntries);
@@ -355,6 +375,7 @@ export async function handleRequest(
 		if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 		if (pathname === "/favicon.ico") return { status: 204, headers: pageHeaders(), body: "" };
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
+		if (pathname === "/api/dir-rev") return await dirRevApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");
 		if (pathname === "/events") return liveEvents(ctx);
 		const rawMode = search.get("mode");
