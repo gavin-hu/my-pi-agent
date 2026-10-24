@@ -139,6 +139,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- dev: `test/docs-parity.test.ts` derives the catalog the front door advertises —
+  the extension, skill, and theme counts — from `extensions/`, `skills/*/SKILL.md`,
+  and `themes/*.json`, and holds both entry READMEs to it, so a twentieth
+  extension fails by naming the sentence that still says nineteen.
 - `docs`: the front door carries the pack's hardest promise. The "Delegate and
   parallelize" bullet now says several sessions can run on one repository through
   a shared bus, each owning its slice, instead of leaving `session-bus` to the
