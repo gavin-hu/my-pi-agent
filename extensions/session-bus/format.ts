@@ -54,6 +54,11 @@ function unitLine(units: NonNullable<SessionStatus["units"]>): string {
 	].join("\n");
 }
 
+/** The rename result: the label the bus settled on, which peers now address. */
+export function formatName(label: string): string {
+	return `This session is now named "${sanitizeLine(label)}".`;
+}
+
 /** The inbox-watch result. */
 export function formatWatch(watching: { armed: boolean; wake: boolean }, name?: string): string {
 	const owner = name ? ` for "${sanitizeLine(name)}"` : "";

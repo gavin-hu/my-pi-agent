@@ -2,9 +2,10 @@
  * The `session` tool.
  *
  * One action-shaped tool keeps the prompt surface small: status, send, inbox,
- * claim, release. The runtime owns file I/O and lifecycle; this module only
- * validates the action, calls the runtime, and hands the result to the shared
- * presentation module — one collapsed line, or the board's rows on expand.
+ * claim, release, join, leave, watch, name. The runtime owns file I/O and
+ * lifecycle; this module only validates the action, calls the runtime, and hands
+ * the result to the shared presentation module — one collapsed line, or the
+ * board's rows on expand.
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -17,6 +18,7 @@ import {
 	formatClaim,
 	formatInbox,
 	formatJoin,
+	formatName,
 	formatRelease,
 	formatSend,
 	formatStatus,
@@ -30,8 +32,8 @@ import type { SessionDetails } from "./types.ts";
 export { TOOL_NAME };
 
 const SessionParams = Type.Object({
-	action: StringEnum(["status", "send", "inbox", "claim", "release", "join", "leave", "watch"] as const, {
-		description: "status, send, inbox, claim, release, join, leave, or watch.",
+	action: StringEnum(["status", "send", "inbox", "claim", "release", "join", "leave", "watch", "name"] as const, {
+		description: "status, send, inbox, claim, release, join, leave, watch, or name.",
 	}),
 	to: Type.Optional(Type.String({ description: "Target session label/id, or * for an event broadcast." })),
 	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
@@ -59,6 +61,9 @@ const SessionParams = Type.Object({
 		}),
 	),
 	unit: Type.Optional(Type.String({ description: "With join/leave: the unit to claim or release, e.g. `core`." })),
+	label: Type.Optional(
+		Type.String({ description: "With name: what other sessions call this one, e.g. `billing-lead`." }),
+	),
 });
 
 type SessionArgs = Static<typeof SessionParams>;
@@ -69,6 +74,10 @@ type SessionArgs = Static<typeof SessionParams>;
  * identity of the call.
  */
 function callSubject(action: string, args: Record<string, unknown>): string {
+	if (action === "name") {
+		const label = typeof args.label === "string" ? args.label.trim() : "";
+		return label ? `name ${label}` : "name";
+	}
 	if (action === "send") {
 		const to = typeof args.to === "string" ? args.to : "";
 		return to ? `send ${to}` : "send";
@@ -95,7 +104,7 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 			"`join`/`leave` (a unit of an approved split, by `team` and `unit`), " +
 			"`watch` (report new mail at your next turn, or raise one with `wake`; `stop` turns it off). " +
 			"Delivery is pull-based unless this session arms `watch`.",
-		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, join, leave, watch.",
+		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, join, leave, watch, name.",
 		promptGuidelines: [
 			"Check `session inbox` when starting or joining a coordinated turn.",
 			"Claim the paths you will edit before changing them; release them when done.",
@@ -174,6 +183,15 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 					case "watch": {
 						const watching = await bus.watch({ wake: args.wake, stop: args.stop });
 						return textResult(formatWatch(watching), { action, watching });
+					}
+					case "name": {
+						const label = typeof args.label === "string" ? args.label.trim() : "";
+						if (!label) return errorResult(action, 'name requires a label, e.g. "billing-lead".');
+						const named = await bus.rename(label);
+						// The bus's label and Pi's session name are one identity: the footer,
+						// `/resume`, and the record a peer addresses have to agree.
+						pi.setSessionName(named);
+						return textResult(formatName(named), { action, label: named });
 					}
 				}
 			} catch (error) {

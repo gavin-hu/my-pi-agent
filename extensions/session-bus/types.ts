@@ -78,7 +78,7 @@ export interface BoardSnapshot {
 
 /** Structured result carried in the `session` tool's details. */
 export interface SessionDetails {
-	action: "status" | "send" | "inbox" | "claim" | "release" | "join" | "leave" | "watch";
+	action: "status" | "send" | "inbox" | "claim" | "release" | "join" | "leave" | "watch" | "name";
 	/** With join/leave: the split and the unit, so a resumed transcript still says which. */
 	team?: string;
 	unit?: string;
@@ -92,5 +92,7 @@ export interface SessionDetails {
 	notOwned?: string[];
 	/** Whether the inbox watch is on, and whether it raises a turn. */
 	watching?: { armed: boolean; wake: boolean };
+	/** With name: the label the bus settled on, which is what this session is called. */
+	label?: string;
 	error?: string;
 }
