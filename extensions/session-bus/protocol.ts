@@ -33,11 +33,6 @@ const ACTIONS: readonly SessionAction[] = [
 ];
 const KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 
-/** Only a terminal session is visible on the bus before it asks to join. */
-export function isAutoJoinMode(mode: string | undefined): boolean {
-	return mode === "tui";
-}
-
 /** The session mode as the record stores it. */
 export function sessionMode(mode: string | undefined): SessionMode {
 	return mode === "tui" || mode === "rpc" || mode === "json" || mode === "print" ? mode : "unknown";

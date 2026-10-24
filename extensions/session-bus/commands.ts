@@ -4,8 +4,8 @@
  * In the TUI, bare `/sessions` opens the live board: `Tab` cycles Sessions,
  * Inbox, and Claims, and `w`/`x` act on this session's own watch and claims.
  * Every other mode prints the compact listing, because there is no dock to mount
- * the screen in. `name <label>` gives this session a stable target and `watch
- * [off|wake]` controls the inbox watch from either surface.
+ * the screen in. Neither joins the bus: reading is not joining, so the board is
+ * empty until this session names itself. `name <label>` is the join.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";

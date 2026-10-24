@@ -112,6 +112,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `session-bus`: a session joins by naming itself. Nothing joins on
+  `session_start` in any mode, so a fresh terminal session's `/sessions` board is
+  empty and a peer appears only once it has taken a name; `/sessions` and
+  `session status` are reads that never add the reader to the bus, while the first
+  addressable action — `send`, `claim`, `release`, `join`, `leave`, or `watch` —
+  joins as before. A name joins and renames in one call, and it now also starts the
+  heartbeat: naming first used to leave the record to go stale after the ten-minute
+  TTL while the session was still alive, which §1 of the parallel-dev skill asks
+  every session to do. The empty board says how to join, and a status read says it
+  is not on the bus yet.
+
 - `rewind`: the `/rewind` list answers `Enter` only. `r` chose the focused point as well, was
   never hinted, and means the opposite one screen later, where it reverts — so the shortcut is
   removed rather than taught twice. The poster's fixture alternates its snapshot marks

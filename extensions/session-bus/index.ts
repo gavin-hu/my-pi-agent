@@ -1,8 +1,10 @@
 /**
  * session-bus — coordinate parallel Pi sessions on one repository.
  *
- * A terminal session joins on `session_start`; RPC, JSON, print, and WeChat peer
- * sessions join only when the tool or `/sessions` is used. The factory only
+ * No session joins on start: it joins by naming itself, or by the first action
+ * that makes it addressable, in any mode. `/sessions` and `status` only read, so a
+ * fresh board is empty and a peer never appears merely because the package
+ * loaded. The factory only
  * registers; the runtime owns the heartbeat and removes the registry entry on
  * shutdown. Nothing arms an inbox watch by itself, so delivery stays pull-based
  * until a session asks: with the watch armed, new mail is reported at the next

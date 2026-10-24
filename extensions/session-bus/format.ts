@@ -36,7 +36,7 @@ export function formatStatus(status: SessionStatus): string {
 		...(units.length > 0 ? ["", ...units] : []),
 		...(alerts.length > 0 ? ["", ...alerts] : []),
 		"",
-		`You: ${sanitizeLine(status.me.label)} (${shortId(status.me.id)})`,
+		`You: ${sanitizeLine(status.me.label)} (${shortId(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 name this session to join"}`,
 	].join("\n");
 }
 

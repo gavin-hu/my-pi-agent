@@ -168,7 +168,12 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 			if (units) cells.push(`${units.joined}/${units.total} units`);
 			const watching = details.status?.watching;
 			if (watching) cells.push(watching.wake ? "watch wake" : "watch on");
-			return paint(theme, "meta", cells.join(sep));
+			const line = paint(theme, "meta", cells.join(sep));
+			// A reader that has not named itself is looking at a bus it is not on.
+			if (details.status?.onBus === false) {
+				return `${line}${paint(theme, "faint", sep)}${paint(theme, "warn", "not on the bus \u2014 name this session to join")}`;
+			}
+			return line;
 		}
 		case "send": {
 			const delivered = details.delivered ?? [];

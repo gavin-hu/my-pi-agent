@@ -62,13 +62,19 @@ function session(dir: string, root: string, id: string, name: string, plans?: st
 	return { bus, ctx, tool, pi: fake.pi };
 }
 
+/** Naming is the join, so a session that must appear on the bus names itself. */
+async function joins(target: Session): Promise<void> {
+	await target.bus.start(target.ctx);
+	await target.bus.rename(target.pi.getSessionName() ?? "session");
+}
+
 describe("session tool", () => {
 	test("status lists both terminal sessions", async () => {
 		const dir = busDir();
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const backend = session(dir, "/repo/backend", "s2", "backend");
-		await frontend.bus.start(frontend.ctx);
-		await backend.bus.start(backend.ctx);
+		await joins(frontend);
+		await joins(backend);
 
 		const result = await frontend.tool.execute("call", { action: "status" }, undefined, undefined, frontend.ctx);
 		expect(result.details.status.sessions.map((item: { label: string }) => item.label).sort()).toEqual([
@@ -83,8 +89,8 @@ describe("session tool", () => {
 		const dir = busDir();
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const backend = session(dir, "/repo/backend", "s2", "backend");
-		await frontend.bus.start(frontend.ctx);
-		await backend.bus.start(backend.ctx);
+		await joins(frontend);
+		await joins(backend);
 
 		const sent = await frontend.tool.execute(
 			"call",
@@ -233,7 +239,8 @@ describe("session tool", () => {
 		const lead = session(dir, "/repo/mono", "s1", "mono");
 		const owner = session(dir, "/repo/mono", "s2", "billing-core");
 		await lead.bus.start(lead.ctx);
-		await owner.bus.start(owner.ctx);
+		// Only the owner needs to be on the bus: the lead is naming itself into it.
+		await joins(owner);
 
 		const taken = await lead.tool.execute(
 			"call",

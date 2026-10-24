@@ -143,6 +143,7 @@ export function summaryCells(
 	theme: Theme,
 	rows: readonly SessionRow[],
 	watching: { armed: boolean; wake: boolean } | undefined,
+	onBus = true,
 ): string[] {
 	const unread = rows.reduce((total, row) => total + row.session.unread, 0);
 	const claims = rows.reduce((total, row) => total + row.claims.length, 0);
@@ -150,6 +151,7 @@ export function summaryCells(
 	if (unread > 0) cells.push(paint(theme, "label", `${unread} unread`));
 	cells.push(paint(theme, "meta", count(claims, "claim")));
 	if (watching) cells.push(paint(theme, "ok", watching.wake ? "watch wake" : "watch on"));
+	if (!onBus) cells.push(paint(theme, "warn", "not on the bus"));
 	return cells;
 }
 

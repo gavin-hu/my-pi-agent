@@ -1,18 +1,18 @@
 /**
  * Session-bus lifecycle and operations.
  *
- * A terminal session registers on `session_start`. RPC, JSON, print, and WeChat
- * peer sessions stay invisible until they call the tool or `/sessions`, so a
- * subagent or phone peer does not join a team merely because the package loaded.
+ * No mode joins on start. A session is invisible until it names itself, or takes
+ * an action that makes it addressable (`send`, `claim`, `join`, `watch`), so a
+ * subagent or phone peer never joins a team merely because the package loaded,
+ * and a fresh terminal session's board is empty. Reading — the board and
+ * `status` — never joins: a reader is not a member.
  * The runtime owns the heartbeat, keeps no module-level state, and uses the
  * common git directory so worktrees of one repository share one bus.
  *
- * An armed inbox watch polls this session's own inbox directory and hands what
- * arrived to the caller's `onWake`, which the extension wires to the shared
- * pending reporter. A wake that arrives while the agent is running is queued and
- * raised by that reporter once the run settles. It announces and never consumes:
- * `inbox` keeps sole ownership of deleting mail, so a wake cannot eat a message
- * the model did not read.
+ * A wake that arrives while the agent is running is queued and raised by the
+ * extension's reporter once the run settles. The watch itself — the poll, the
+ * queue, and the reported set — is `mail-watch.ts`; this module supplies one
+ * read-only peek and the actions that join.
  */
 
 import { randomBytes } from "node:crypto";
@@ -26,7 +26,6 @@ import { repoKeyFor } from "../../lib/repo-key.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
 	defaultLabel,
-	isAutoJoinMode,
 	MAX_LABEL,
 	MAX_LIMIT,
 	normalizeKind,
@@ -40,6 +39,7 @@ import {
 	shortId,
 } from "./protocol.ts";
 import { heldUnits, sharedClaimRefusal } from "./membership.ts";
+import { createMailWatch } from "./mail-watch.ts";
 import { createBusStore, type BusStore } from "./store.ts";
 import { newestTeam, resolveUnit, unitHolder } from "./team.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
@@ -164,13 +164,12 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	let stopHeartbeat: (() => void) | undefined;
 	let starting: Promise<void> | undefined;
 
-	let armed = false;
-	let wake = false;
-	let stopTicker: (() => void) | undefined;
-	let pendingMail: BusMessage[] = [];
-	/** Ids already queued, reported, or consumed; a broadcast shares one id. */
-	let reported = new Set<string>();
-	let onWake: (() => void) | undefined;
+	/** The watch reads this session's own inbox; nothing is consumed or marked. */
+	const mailWatch = createMailWatch({
+		peek: async () => (store && record ? store.peek(record.id, MAX_LIMIT) : []),
+		interval,
+		watchMs,
+	});
 
 	const ensureStarted = async (context: ExtensionContext): Promise<void> => {
 		if (starting) return starting;
@@ -195,7 +194,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				startedAt: now(),
 				lastSeen: now(),
 			};
-			if (isAutoJoinMode(context.mode)) await joinBus();
 		})();
 		try {
 			await starting;
@@ -214,18 +212,25 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		await store.writeSession(record);
 		await settleLabel();
 		joined = true;
-		if (heartbeatMs > 0) {
-			stopHeartbeat = interval(heartbeatMs, () => {
-				void (async () => {
-					if (!record || !store) return;
-					record.lastSeen = now();
-					await store.writeSession(record);
-					// A heartbeat that resumed after a long pause can find its label taken; the
-					// tick is where a revived session notices and yields, after its own write.
-					await settleLabel();
-				})().catch(() => {});
-			});
-		}
+		armHeartbeat();
+	}
+
+	/**
+	 * Start the heartbeat once, whoever joins: `joinBus` on the first addressable
+	 * action, and `rename`, which is a join of its own.
+	 */
+	function armHeartbeat(): void {
+		if (heartbeatMs <= 0 || stopHeartbeat) return;
+		stopHeartbeat = interval(heartbeatMs, () => {
+			void (async () => {
+				if (!record || !store) return;
+				record.lastSeen = now();
+				await store.writeSession(record);
+				// A heartbeat that resumed after a long pause can find its label taken; the
+				// tick is where a revived session notices and yields, after its own write.
+				await settleLabel();
+			})().catch(() => {});
+		});
 	}
 
 	/** The labels other live sessions hold: a crashed session's label is not taken. */
@@ -256,6 +261,17 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (yields === 0) return;
 		me.lastSeen = now();
 		await store.writeSession(me);
+	}
+
+	/** The live session ids a prune must keep: this session is active by definition. */
+	async function liveIds(): Promise<Set<string>> {
+		if (!store) throw new Error("session bus is not started.");
+		const at = now();
+		const active = new Set(
+			(await store.sessions()).filter((session) => isLive(session, at, sessionTtlMs)).map((session) => session.id),
+		);
+		if (record) active.add(record.id);
+		return active;
 	}
 
 	async function prepare(): Promise<void> {
@@ -316,7 +332,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 * second. The prune itself stays with `prepare()` on the next tool or command
 	 * call, which is therefore what the screen's next action sees.
 	 */
-	async function readStatus(me: { id: string; label: string }, liveOnly: boolean): Promise<SessionStatus> {
+	async function readStatus(
+		me: { id: string; label: string; onBus: boolean },
+		liveOnly: boolean,
+	): Promise<SessionStatus> {
 		if (!store) throw new Error("session bus is not started.");
 		const records = await store.sessions();
 		const sessions = liveOnly
@@ -344,74 +363,13 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 						}),
 					};
 		return {
-			me,
+			me: { id: me.id, label: me.label },
+			onBus: me.onBus,
 			sessions: await withUnread(sessions),
 			claims,
 			...(units ? { units } : {}),
-			...(armed ? { watching: { armed, wake } } : {}),
+			...(mailWatch.state().armed ? { watching: mailWatch.state() } : {}),
 		};
-	}
-
-	function dropFromPending(ids: ReadonlySet<string>): void {
-		pendingMail = pendingMail.filter((message) => !ids.has(message.id));
-	}
-
-	function markReported(ids: readonly string[]): void {
-		for (const id of ids) reported.add(id);
-		dropFromPending(new Set(ids));
-	}
-
-	/**
-	 * Queue what arrived since the last poll, once, and wake a turn when this
-	 * session asked for one.
-	 *
-	 * The reported set is narrowed to the mail still on disk, so it is bounded by
-	 * the unread count rather than by the session's whole history; an id is unique
-	 * for good, so a message that was consumed can never be queued again.
-	 */
-	async function pollOnce(): Promise<void> {
-		if (!armed || !store || !record) return;
-		const mail = await store.peek(record.id, MAX_LIMIT);
-		const unread = new Set(mail.map((message) => message.id));
-		reported = new Set([...reported].filter((id) => unread.has(id)));
-		// A message that expired or was consumed leaves the queue with its file.
-		pendingMail = pendingMail.filter((message) => unread.has(message.id));
-		const queued = new Set(pendingMail.map((message) => message.id));
-		const fresh = mail.filter((message) => !reported.has(message.id) && !queued.has(message.id));
-		if (fresh.length === 0) return;
-		pendingMail = [...pendingMail, ...fresh];
-		if (wake) onWake?.();
-	}
-
-	function disarm(): void {
-		stopTicker?.();
-		stopTicker = undefined;
-		armed = false;
-		wake = false;
-		pendingMail = [];
-	}
-
-	async function watch(input: { wake?: boolean; stop?: boolean }): Promise<{ armed: boolean; wake: boolean }> {
-		await currentRecord();
-		if (input.stop) {
-			disarm();
-			return { armed: false, wake: false };
-		}
-		if (!armed) {
-			armed = true;
-			wake = input.wake === true;
-			await pollOnce();
-			if (watchMs > 0) stopTicker = interval(watchMs, () => void pollOnce().catch(() => {}));
-			return { armed, wake };
-		}
-		// The mode is a setting, not an arm-time flag: an explicit `wake` changes it
-		// under a queued notice, and an omitted one keeps it, so bare `watch` never
-		// demotes an armed session.
-		if (input.wake !== undefined) wake = input.wake;
-		// Asking for wake over mail already queued is a request for that burst too;
-		// mid-turn it is suppressed here and retried once the run settles.
-		if (wake && pendingMail.length > 0) onWake?.();
-		return { armed, wake };
 	}
 
 	async function rename(label: string): Promise<string> {
@@ -427,6 +385,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// is what the caller hands to Pi as this session's name.
 		await settleLabel();
 		joined = true;
+		armHeartbeat();
 		return record.label;
 	}
 
@@ -438,8 +397,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async stop() {
 			stopHeartbeat?.();
 			stopHeartbeat = undefined;
-			disarm();
-			reported = new Set();
+			mailWatch.stop();
 			if (store && record && joined) {
 				await store.releaseAll(record.id).catch(() => {});
 				await store.removeSession(record.id).catch(() => {});
@@ -450,23 +408,34 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			record = undefined;
 		},
 
-		watch,
-		wantsWake: () => armed && wake,
-		poll: pollOnce,
-		pending: () => [...pendingMail],
-		markReported,
+		async watch(input) {
+			// Arming needs an inbox, so it is one of the actions that joins.
+			await currentRecord();
+			return mailWatch.watch(input);
+		},
+		wantsWake: () => mailWatch.wantsWake(),
+		poll: () => mailWatch.poll(),
+		pending: () => mailWatch.pending(),
+		markReported: (ids) => mailWatch.markReported(ids),
 		set onWake(callback: (() => void) | undefined) {
-			onWake = callback;
+			mailWatch.onWake = callback;
 		},
 
 		async status() {
+			if (!store || !record) throw new Error("session bus is not started.");
+			// A reader does not join: an unjoined session prunes and reads, and is not
+			// listed by the act of looking. Only an addressable action joins.
+			if (!joined) {
+				await store.prune({ now: now(), activeIds: await liveIds(), sessionTtlMs, messageTtlMs });
+				return readStatus({ id: record.id, label: record.label, onBus: false }, false);
+			}
 			const me = await currentRecord();
-			return readStatus({ id: me.id, label: me.label }, false);
+			return readStatus({ id: me.id, label: me.label, onBus: true }, false);
 		},
 
 		async snapshot() {
 			if (!store || !record) throw new Error("session bus is not started.");
-			return readStatus({ id: record.id, label: record.label }, true);
+			return readStatus({ id: record.id, label: record.label, onBus: joined }, true);
 		},
 
 		async peek() {
@@ -523,7 +492,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if (!store) throw new Error("session bus is not started.");
 			const messages = await store.inbox(me.id, normalizeLimit(limit));
 			// Mail read before its notice fired is never announced afterwards.
-			markReported(messages.map((message) => message.id));
+			mailWatch.markReported(messages.map((message) => message.id));
 			return messages;
 		},
 
