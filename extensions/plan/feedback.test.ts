@@ -219,10 +219,26 @@ describe("authored review comments", () => {
 		expect(carryFeedback(previous, "- [ ] same\n- [ ] same")).toBe(previous);
 	});
 
-	test("moves a comment to its section's end when the step is gone", () => {
+	test("keeps a comment in the gap a deleted step left", () => {
+		// The step it was written on is gone: the note goes where that step stood —
+		// between the heading and the step that followed — not at the section's end.
 		const previous = "## Steps\n- [ ] one\n> [!REVIEW] about one\n- [ ] two";
-		const rewritten = "## Steps\n- [ ] two";
-		expect(carryFeedback(previous, rewritten)).toBe("## Steps\n- [ ] two\n> [!REVIEW] about one");
+		expect(carryFeedback(previous, "## Steps\n- [ ] two")).toBe("## Steps\n> [!REVIEW] about one\n- [ ] two");
+	});
+
+	test("keeps a comment in the gap between the steps that survived", () => {
+		const previous = "## Steps\n- [ ] a\n- [ ] b\n> [!REVIEW] on b\n- [ ] c";
+		expect(carryFeedback(previous, "## Steps\n- [ ] a\n- [ ] c")).toBe("## Steps\n- [ ] a\n> [!REVIEW] on b\n- [ ] c");
+	});
+
+	test("keeps a reworded step's comment when a step was inserted above it", () => {
+		// A raw position would hand this comment to "- [ ] a" the moment "- [ ] x"
+		// arrived; the alignment follows the step's own words instead.
+		const previous = "## Steps\n- [ ] a\n- [ ] b\n> [!REVIEW] on b\n- [ ] c";
+		const rewritten = "## Steps\n- [ ] x\n- [ ] a\n- [ ] b reworded\n- [ ] c";
+		expect(carryFeedback(previous, rewritten)).toBe(
+			"## Steps\n- [ ] x\n- [ ] a\n- [ ] b reworded\n> [!REVIEW] on b\n- [ ] c",
+		);
 	});
 
 	test("falls back to the end of the plan when the section is gone", () => {

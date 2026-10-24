@@ -681,8 +681,10 @@ file and returns them to the model.
 - **A revision keeps the review.** `write_plan` passes the file it is replacing
   through `carryFeedback`, which re-attaches each comment by the strongest evidence
   that survived: the anchored block's text, per occurrence, so a plan that repeats
-  a step keeps the comments apart; then the same section at the same position, so a
-  reworded step keeps its note; then the last block that section still has. A
+  a step keeps the comments apart; then the block whose wording still overlaps it —
+  half the longer block's words — so a reworded step keeps its note, and a step
+  that shifted down under an inserted one keeps it too; then the gap it left
+  between the steps that survived; then the last block that section still has. A
   comment whose section is gone too moves to the plan's last block rather than
   disappearing, and every one of those placements lands beside a block, never after
   a blank line, so the page keeps the thread under its block. Only a plan with no
@@ -971,7 +973,7 @@ both.
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the plan's own goal (`goalSection`), and the checkbox edit. |
 | `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
-| `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`. |
+| `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`, which hands each section back with its flag. |
 | `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), control-tool identity, footer status. |
 | `tools.ts` | Registration entry: composes the five tool registrations in the order the session sees them. |
 | `tools/` | One module per tool (`enter.ts`, `write.ts`, `exit.ts`, `cancel.ts`, `steps.ts`), plus `todo-seed.ts` (the two nested `todo` writes) and `nested.ts` (reading a nested result). |

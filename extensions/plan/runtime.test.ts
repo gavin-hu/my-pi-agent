@@ -262,8 +262,8 @@ describe("plan runtime — review baseline", () => {
 		const { runtime, ctx } = setup({ branch: [baselineEntry(path, sectionDigests(plan))] });
 		runtime.restore(ctx);
 
-		expect(changedSections(runtime.reviewed(path), plan)).toEqual([false, false]);
-		expect(changedSections(runtime.reviewed(path), edited)).toEqual([false, true]);
+		expect(changedSections(runtime.reviewed(path), plan).map((mark) => mark.changed)).toEqual([false, false]);
+		expect(changedSections(runtime.reviewed(path), edited).map((mark) => mark.changed)).toEqual([false, true]);
 	});
 
 	test("finds a baseline recorded under a non-canonical path", () => {

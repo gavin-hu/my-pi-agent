@@ -37,7 +37,7 @@ import {
 } from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
 import { changedSections, planDigest, type SectionDigest } from "./plan-text.ts";
-import { extractPlanSections, extractPlanSteps } from "./steps.ts";
+import { extractPlanSteps } from "./steps.ts";
 import type { ReviewCaller } from "./types.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
@@ -252,11 +252,10 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			const read = readFeedback(stored.content);
 			const current = read.body;
 			const blocks = read.blocks;
-			const sections = extractPlanSections(current);
-			// Per-occurrence change flags, aligned with the sections list: the same shape
-			// the terminal review renders, so duplicate headings cannot both light up.
-			const changed = changedSections(options.baseline, current);
-			const outline = sections.flatMap((section, index) =>
+			// Per-section change marks, each carrying its own section: the same shape the
+			// terminal review renders, so a heading and its mark cannot be paired wrongly.
+			const marks = changedSections(options.baseline, current);
+			const outline = marks.flatMap(({ section, changed }) =>
 				section.title === ""
 					? []
 					: [
@@ -265,7 +264,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 								line: section.line,
 								level: section.level,
 								text: section.title,
-								...(changed[index] ? { changed: true } : {}),
+								...(changed ? { changed: true } : {}),
 							},
 						],
 			);
@@ -283,7 +282,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			return {
 				// The document's own H1 reads better than the file-name slug, and the
 				// slug is still the fallback for a plan that starts with something else.
-				title: sections.find((section) => section.level === 1)?.title || planTitle(basename(plan.path)),
+				title: marks.find((mark) => mark.section.level === 1)?.section.title || planTitle(basename(plan.path)),
 				blocks,
 				annotations: read.annotations,
 				outline,
