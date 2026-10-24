@@ -320,8 +320,9 @@ which moves one is visible; the threat model and the policy for each are
 
 A boundary that two extensions answer has exactly one policy module, in `lib/`.
 Two copies are how a header, a `Host` rule, or an allowlist drifts apart, which
-is why the two served pages share `lib/http/` and the two design systems are
-`lib/tui/` and `lib/web/`.
+is why the two served pages share `lib/http/`, the two design systems are
+`lib/tui/` and `lib/web/`, and plan approval and `session-bus` claiming ask
+"do these paths collide?" of one predicate in [`../lib/claims/`](../lib/claims/).
 
 ## Where a change belongs
 
@@ -374,14 +375,13 @@ If you are new to the tree, this order teaches one idea per stop.
 
 ## Where the tree has not caught up
 
-This page states the target. Three rules in it are ahead of the code, and each is
+This page states the target. Two rules in it are ahead of the code, and each is
 work in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
 
 | Gap | The rule above | What the tree does today |
 |---|---|---|
 | `F3` | One loopback lifecycle in `lib/http/` | `plan` and `file-browse` each build and close their own server around `lib/http`'s pieces |
 | `F4` | A role earns a directory past roughly twenty modules | `rewind` is flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
-| `F5` | Promote on a second user or a contract | `lib/claims/overlap.ts` and `lib/pi-invocation.ts` have one consumer each |
 
 The list shrinks and never grows: when a gap ships, its row is deleted from both
 files. A new rule reaches this page first and the roadmap second, because the

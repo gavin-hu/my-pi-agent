@@ -79,7 +79,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
 | Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W5 |
-| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F5 |
+| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F4 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -103,7 +103,7 @@ release, and the changelog, not this list, records what did.
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** | Does the pack keep what it promised? | `P1` and `S1` ship, each with its test and its page line. |
-| **Next** | Does the daily loop feel finished? | `W1`, `C1`, and `F3`–`F5` land, or are demoted with the reason recorded. |
+| **Next** | Does the daily loop feel finished? | `W1`, `C1`, and `F3`–`F4` land, or are demoted with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -116,7 +116,9 @@ The two items that used to head this file are gone for a reason worth keeping:
 the provider table would only price *below* Pi's per-model catalog, and the
 picker's scope decision is made — themes and prompts stay out, because neither is
 a scoped enable list. The update-channel item is gone for the third kind of
-reason: the tree contradicts it (see *Chrome and upkeep*).
+reason: the tree contradicts it (see *Chrome and upkeep*). The `lib/` promotion
+item went the same way: both modules it named have a second consumer inside
+`lib/`, so moving either into an extension would make `lib/` import one.
 
 ## 1. Plan and delegate
 
@@ -433,13 +435,6 @@ Nothing here makes a false promise today.
   modules) stay flat until they cross it. *Done when* `rewind` holds role
   subdirectories plus `index.ts`, its imports are updated, and the page's layout
   rule describes the tree without an exception.
-- **F5 — `lib/` names a contract.** Shared code is promoted on a second consumer
-  or on a contract two sides must agree on, but `lib/claims/overlap.ts` has one
-  consumer (`session-bus`, which re-exports it) and `lib/pi-invocation.ts` has
-  one (`subagent`). Move each into the extension that uses it, and keep
-  `lib/requirements.ts` — a declaration table whose whole point is being one
-  list. *Done when* neither module is in `lib/`, both extensions' suites cover
-  them, and `lib/README.md`'s conventions name the single-table exception.
 
 **Later**
 
