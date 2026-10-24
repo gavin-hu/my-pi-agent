@@ -30,11 +30,12 @@ import type { PendingPromptInfo, WechatInteractionChannel } from "./dialog/inter
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
 import { createPeerWorker, type PeerState, type PeerWorker } from "./peer/peer-worker.ts";
 import type { PeerSession } from "./peer/peer-session.ts";
-import { emptyState, findPeer, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
+import { emptyState, findPeer, ownerTarget, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import {
 	expandSnippet,
 	findSlashCommand,
 	parseSlash,
+	slashControls,
 	SLASH_COMMANDS,
 	type SlashCommand,
 	type SlashContext,
@@ -159,8 +160,8 @@ export interface Bridge {
 	status(): BridgeStatus;
 	/** One peer's interaction channel: the channel its session routes its dialogs through. */
 	channel(peer: string): WechatInteractionChannel;
-	/** Message the owner proactively. Owner-only and text-only by design. */
-	sendToOwner(text: string): Promise<SendResult>;
+	/** Message the owner proactively: one text, or one image, never a chosen recipient. */
+	sendToOwner(text: string | undefined, image?: string): Promise<SendResult>;
 }
 
 /** Create the bridge over an injected environment. */
@@ -254,18 +255,15 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			},
 			activeTurn: worker?.state(target.peer).status === "running",
 			language: languageOf(target.peer),
-			session: {
-				newSession: () => {
-					worker?.reset(target.peer);
+			session: slashControls(target.peer, {
+				state: (peer) => worker?.state(peer) ?? { status: "idle", queued: 0 },
+				prompt: (peer) => channels.pendingFor(peer)?.title,
+				reset: (peer) => {
+					worker?.reset(peer);
 				},
-				stop: () => worker?.abort(target.peer) ?? false,
-				status: () => {
-					const current = worker?.state(target.peer) ?? { status: "idle" as const, queued: 0 };
-					const waiting = channels.pendingFor(target.peer);
-					return waiting ? { ...current, prompt: waiting.title } : current;
-				},
-				history: (count) => deps.readHistory(target.peer, count),
-			},
+				stop: (peer) => worker?.abort(peer) ?? false,
+				history: (peer, count) => deps.readHistory(peer, count),
+			}),
 		};
 		try {
 			await command.run(ctx);
@@ -309,11 +307,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		return languages.get(peer) ?? "en";
 	}
 
-	/** The peer's conversation state, for the wait decisions in presence. */
-	function peerStatus(peer: string): PeerState["status"] {
-		return worker?.state(peer).status ?? "idle";
-	}
-
 	/** Typing, acknowledgement, and the slow/busy lines; one timer registry each. */
 	const presence = createPresence({
 		typingIndicator: () => deps.config.typingIndicator,
@@ -322,7 +315,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		client: () => client,
 		account: () => account,
 		signal: () => abort?.signal,
-		statusOf: peerStatus,
+		statusOf: (peer) => worker?.state(peer).status ?? "idle",
 		languageOf,
 		send: (peer, contextToken, text) => reply({ peer, contextToken }, text),
 		promptPending: (peer) => channels.hasPending(peer),
@@ -691,22 +684,21 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			return channels.for(peer);
 		},
 
-		async sendToOwner(text: string): Promise<SendResult> {
+		async sendToOwner(text: string | undefined, image?: string): Promise<SendResult> {
 			if (!running || !client || !account) return { ok: false, error: "WeChat bridge is not started." };
-			const owner = state.ownerId ?? account.ilinkUserId;
-			if (worker?.state(owner).status === "running") {
-				// The bridge answers this turn itself, so a tool send would land twice.
-				return {
-					ok: false,
-					error: "The bridge replies to this turn automatically; do not repeat it.",
-				};
+			const target = ownerTarget(state, account);
+			if (text !== undefined && worker?.state(target.peer).status === "running") {
+				// The bridge answers this turn itself, so a text send would land twice.
+				return { ok: false, error: "The bridge replies to this turn automatically; do not repeat it." };
 			}
-			const trimmed = sanitizeInbound(text);
+			if (image !== undefined) {
+				// An image cannot duplicate the streamed answer, so a running turn is fine.
+				const sent = await deliverer.image(target, image, abort?.signal);
+				return sent ? { ok: true } : { ok: false, error: "The image could not be sent; see the terminal notice." };
+			}
+			const trimmed = sanitizeInbound(text ?? "");
 			if (!trimmed) return { ok: false, error: "Nothing to send." };
-			// Either id form may be stored: the owner id comes from the login response
-			// and the token from an inbound `from_user_id`, and they need not agree.
-			const contextToken = findPeer(state, owner)?.lastContextToken;
-			return deliverer.toOwner(owner, contextToken, trimmed, abort?.signal);
+			return deliverer.toOwner(target.peer, target.contextToken, trimmed, abort?.signal);
 		},
 	};
 }

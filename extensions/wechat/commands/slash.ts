@@ -37,6 +37,42 @@ export interface SlashSessionControls {
 	history?: (count: number) => Promise<string>;
 }
 
+/** What a builder needs to bind the session controls to one sender. */
+export interface SlashControlsDeps {
+	/** What that peer's conversation is doing. */
+	state: (peer: string) => SlashPeerState;
+	/** The title of a dialog waiting on that peer, if one waits. */
+	prompt: (peer: string) => string | undefined;
+	/** Drop the peer's conversation, so the next message starts empty. */
+	reset: (peer: string) => void;
+	/** Stop the peer's running turn; false when nothing was running. */
+	stop: (peer: string) => boolean;
+	/** The last `count` messages of the peer's own conversation. */
+	history: (peer: string, count: number) => Promise<string>;
+}
+
+/**
+ * The controls one action runs against, for the peer that typed the command.
+ *
+ * The registry owns what a command may do; the bridge owns the queue and the
+ * channels, so it supplies them here and keeps no per-peer session shape of its
+ * own.
+ */
+export function slashControls(peer: string, deps: SlashControlsDeps): SlashSessionControls {
+	return {
+		newSession: () => {
+			deps.reset(peer);
+		},
+		stop: () => deps.stop(peer),
+		status: () => {
+			const waiting = deps.prompt(peer);
+			const state = deps.state(peer);
+			return waiting === undefined ? state : { ...state, prompt: waiting };
+		},
+		history: (count) => deps.history(peer, count),
+	};
+}
+
 /** The environment an action handler runs in. */
 export interface SlashContext {
 	/** Text after the command name, trimmed. */

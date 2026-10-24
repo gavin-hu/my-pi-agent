@@ -38,8 +38,14 @@ export function aesEcbPaddedSize(plaintextSize: number): number {
 	return Math.ceil((plaintextSize + 1) / 16) * 16;
 }
 
-/** Sniff a common image MIME from magic bytes; defaults to `image/jpeg`. */
-export function sniffImageMime(bytes: Uint8Array): string {
+/**
+ * The MIME a common image's magic bytes name, or `undefined` when they name none.
+ *
+ * `undefined` is what an outbound image send refuses on; the inbound attach path
+ * decides its own fallback, because a peer's photo is worth passing on even when
+ * the header is unfamiliar.
+ */
+export function sniffImageMime(bytes: Uint8Array): string | undefined {
 	if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
 		return "image/png";
 	}
@@ -60,7 +66,7 @@ export function sniffImageMime(bytes: Uint8Array): string {
 	) {
 		return "image/webp";
 	}
-	return "image/jpeg";
+	return undefined;
 }
 
 /** Strip control characters and path separators, cap length, and never empty. */

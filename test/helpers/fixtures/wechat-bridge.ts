@@ -251,10 +251,12 @@ export function controllableClient(options: ClientOptions = {}): {
 	client: WechatClient;
 	sent: Array<{ to: string; text: string; contextToken?: string }>;
 	sentFiles: Array<{ to: string; fileName: string; len: string }>;
+	sentImages: Array<{ to: string; midSize: number; aeskey: string; contextToken?: string }>;
 	deliver: (message: WeixinMessage) => void;
 } {
 	const sent: Array<{ to: string; text: string; contextToken?: string }> = [];
 	const sentFiles: Array<{ to: string; fileName: string; len: string }> = [];
+	const sentImages: Array<{ to: string; midSize: number; aeskey: string; contextToken?: string }> = [];
 	let deliver: ((message: WeixinMessage) => void) | undefined;
 	let first = true;
 	const client = {
@@ -283,6 +285,13 @@ export function controllableClient(options: ClientOptions = {}): {
 			sentFiles.push(args);
 			return { ret: 0 };
 		},
+		sendImageMessage: async (
+			_account: BotCredentials,
+			args: { to: string; midSize: number; aeskey: string; contextToken?: string },
+		) => {
+			sentImages.push(args);
+			return { ret: 0 };
+		},
 		getConfig: async () => ({ ret: 0 }),
 		sendTyping: async () => ({ ret: 0 }),
 		downloadCdn: async () => {
@@ -293,6 +302,7 @@ export function controllableClient(options: ClientOptions = {}): {
 		client,
 		sent,
 		sentFiles,
+		sentImages,
 		deliver: (message) => deliver?.(message),
 	};
 }

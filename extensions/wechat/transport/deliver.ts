@@ -12,7 +12,8 @@ import type { BotCredentials } from "../types.ts";
 import { isSessionExpired, rejectionOf, WechatError, type WechatClient } from "./client.ts";
 import { messageOf } from "../errors.ts";
 import { chunkText, toWechatText } from "../text/format.ts";
-import { sendLocalFile } from "./outbound.ts";
+import { basename } from "node:path";
+import { sendLocalFile, sendLocalImage } from "./outbound.ts";
 
 /** One addressed text destination. */
 export interface MessageTarget {
@@ -63,6 +64,8 @@ export interface Deliverer {
 	prompt(target: MessageTarget, text: string, signal?: AbortSignal): Promise<boolean>;
 	/** Upload and send a local file to a peer. */
 	file(target: MessageTarget, filePath: string, fileName: string, signal?: AbortSignal): Promise<boolean>;
+	/** Upload and send a local image to a peer, as a picture. */
+	image(target: MessageTarget, filePath: string, signal?: AbortSignal): Promise<boolean>;
 	/** Message the owner; returns the tool's result instead of logging. */
 	toOwner(owner: string, contextToken: string | undefined, text: string, signal?: AbortSignal): Promise<DeliveryResult>;
 	/** Forget the one-notice-per-outage state (a new connection). */
@@ -163,6 +166,33 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 		return delivery.ok;
 	}
 
+	/**
+	 * Send one attachment, reporting a failure the model cannot see otherwise.
+	 *
+	 * The sender reports only success, and a caller may fall back to text; without
+	 * this report the operator would never know the attachment was dropped.
+	 */
+	function media(
+		target: MessageTarget,
+		label: "file" | "image",
+		name: string,
+		send: (client: WechatClient, account: BotCredentials, signal?: AbortSignal) => Promise<boolean>,
+		signal?: AbortSignal,
+	): Promise<boolean> {
+		return serialize(target.peer, async () => {
+			const client = deps.client();
+			const account = deps.account();
+			if (!client || !account) return false;
+			const sent = await send(client, account, signal);
+			if (!sent && !signal?.aborted) {
+				deps.onSendError?.(`${label} delivery failed: ${name}`);
+				deps.notify(`WeChat ${label} delivery failed for ${name}.`, "warning");
+			}
+			if (sent) deps.onSent?.();
+			return sent;
+		});
+	}
+
 	return {
 		reply(target, text, signal) {
 			return serialize(target.peer, () => deliverWithNotice(target, text, "reply", signal));
@@ -173,30 +203,44 @@ export function createDeliverer(deps: DeliveryDeps): Deliverer {
 		},
 
 		file(target, filePath, fileName, signal) {
-			return serialize(target.peer, async () => {
-				const client = deps.client();
-				const account = deps.account();
-				if (!client || !account) return false;
-				const sent = await sendLocalFile({
-					client,
-					account,
-					cdnBaseUrl: deps.cdnBaseUrl,
-					maxBytes: deps.maxMediaBytes,
-					to: target.peer,
-					contextToken: target.contextToken,
-					filePath,
-					fileName,
-					signal,
-				});
-				// `sendLocalFile` reports only success, and the caller may fall back to text;
-				// without this line the operator would never know the attachment was dropped.
-				if (!sent && !signal?.aborted) {
-					deps.onSendError?.(`file delivery failed: ${fileName}`);
-					deps.notify(`WeChat file delivery failed for ${fileName}.`, "warning");
-				}
-				if (sent) deps.onSent?.();
-				return sent;
-			});
+			return media(
+				target,
+				"file",
+				fileName,
+				(client, account, abortSignal) =>
+					sendLocalFile({
+						client,
+						account,
+						cdnBaseUrl: deps.cdnBaseUrl,
+						maxBytes: deps.maxMediaBytes,
+						to: target.peer,
+						contextToken: target.contextToken,
+						filePath,
+						fileName,
+						signal: abortSignal,
+					}),
+				signal,
+			);
+		},
+
+		image(target, filePath, signal) {
+			return media(
+				target,
+				"image",
+				basename(filePath),
+				(client, account, abortSignal) =>
+					sendLocalImage({
+						client,
+						account,
+						cdnBaseUrl: deps.cdnBaseUrl,
+						maxBytes: deps.maxMediaBytes,
+						to: target.peer,
+						contextToken: target.contextToken,
+						filePath,
+						signal: abortSignal,
+					}),
+				signal,
+			);
 		},
 
 		toOwner(owner, contextToken, text, signal) {

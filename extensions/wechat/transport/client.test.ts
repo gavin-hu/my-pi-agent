@@ -55,7 +55,7 @@ import {
 	sniffImageMime,
 	uploadUrlOf,
 } from "./media.ts";
-import { sendLocalFile, UPLOAD_MEDIA_TYPE_FILE } from "./outbound.ts";
+import { sendLocalFile, sendLocalImage, UPLOAD_MEDIA_TYPE_FILE, UPLOAD_MEDIA_TYPE_IMAGE } from "./outbound.ts";
 import { peerSessionDir } from "../peer/peer-session.ts";
 import { qrLines, qrMatrix } from "../../../lib/qr.ts";
 import type { BotCredentials, QrResponse, QrStatus } from "../types.ts";
@@ -647,13 +647,13 @@ describe("media encoding", () => {
 		for (const [plain, padded] of cases) expect(aesEcbPaddedSize(plain)).toBe(padded);
 	});
 
-	test("sniffImageMime recognizes png, jpeg, gif, and webp, and defaults to jpeg", () => {
+	test("sniffImageMime recognizes png, jpeg, gif, and webp, and nothing else", () => {
 		expect(sniffImageMime(Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]))).toBe("image/png");
 		expect(sniffImageMime(Buffer.from([0xff, 0xd8, 0xff, 1]))).toBe("image/jpeg");
 		expect(sniffImageMime(Buffer.from("GIF89a"))).toBe("image/gif");
 		const webp = Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4), Buffer.from("WEBP")]);
 		expect(sniffImageMime(webp)).toBe("image/webp");
-		expect(sniffImageMime(Buffer.from([1, 2, 3]))).toBe("image/jpeg");
+		expect(sniffImageMime(Buffer.from([1, 2, 3]))).toBeUndefined();
 	});
 
 	test("sanitizeFileName strips separators, control chars, and leading dots", () => {
@@ -703,6 +703,7 @@ describe("outbound files", () => {
 		const uploadRequests: Array<Record<string, unknown>> = [];
 		const uploads: Array<{ url: string; body: Uint8Array }> = [];
 		const sent: Array<Record<string, unknown>> = [];
+		const images: Array<Record<string, unknown>> = [];
 		let uploadParam: string | undefined = "up";
 		let fullUrl: string | undefined;
 		let uploadResult = "dl";
@@ -723,6 +724,10 @@ describe("outbound files", () => {
 				sent.push(args);
 				return { ret: sendRet };
 			},
+			sendImageMessage: async (_account: BotCredentials, args: Record<string, unknown>) => {
+				images.push(args);
+				return { ret: sendRet };
+			},
 		} as unknown as WechatClient;
 
 		return {
@@ -730,6 +735,7 @@ describe("outbound files", () => {
 			uploadRequests,
 			uploads,
 			sent,
+			images,
 			setFullUrl: (value: string | undefined) => {
 				fullUrl = value;
 			},
@@ -762,6 +768,47 @@ describe("outbound files", () => {
 			random: fixedRandom,
 		};
 	}
+
+	test("uploads an image with the image media type and sends an image item", async () => {
+		const path = join(tempDir("wechat-outbound-"), "plot.png");
+		const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]), Buffer.from("body")]);
+		writeFileSync(path, png);
+		const h = fakeClient();
+
+		expect(await sendLocalImage(baseArgs(path, h.client))).toBe(true);
+		const key = fixedRandom(16).toString("hex");
+		expect(h.uploadRequests[0]).toMatchObject({ mediaType: UPLOAD_MEDIA_TYPE_IMAGE, aeskey: key });
+		// An image item carries no file name: the phone draws a picture, not a document.
+		expect(h.images[0]).toEqual({
+			to: "peer",
+			midSize: aesEcbPaddedSize(png.length),
+			aeskey: key,
+			contextToken: "ctx",
+			media: {
+				encrypt_query_param: "dl",
+				aes_key: Buffer.from(key).toString("base64"),
+				encrypt_type: 1,
+			},
+		});
+		expect(h.sent).toEqual([]);
+	});
+
+	test("refuses a file that is not an image, before uploading anything", async () => {
+		const h = fakeClient();
+		expect(await sendLocalImage(baseArgs(tempFile("plain text"), h.client))).toBe(false);
+		expect(h.uploadRequests).toEqual([]);
+		expect(h.images).toEqual([]);
+	});
+
+	test("refuses an empty or oversized image, and one the server rejects", async () => {
+		const path = join(tempDir("wechat-outbound-"), "tiny.png");
+		writeFileSync(path, Buffer.from([0x89, 0x50, 0x4e, 0x47, 1]));
+		const h = fakeClient();
+		expect(await sendLocalImage({ ...baseArgs(path, h.client), maxBytes: 2 })).toBe(false);
+
+		h.setSendRet(1);
+		expect(await sendLocalImage(baseArgs(path, h.client))).toBe(false);
+	});
 
 	test("uploads the ciphertext and sends a file item", async () => {
 		const content = "plan body";

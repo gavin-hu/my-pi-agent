@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: `send_wechat` sends one local image beside its text, and it arrives on the
+  phone as a picture rather than a document attachment. The upload is now one body
+  for both shapes — file and image differ in the media type (3 vs 1) and the item
+  they post (`type: 4` file vs `type: 2` image, with `mid_size` and the hex
+  `aeskey`) — and a path whose bytes sniff as no image is refused before the
+  upload, so the image route cannot become a general file sender. The tool takes
+  `text` or `image`, exactly one, and its text half keeps the "do not repeat the
+  turn in flight" refusal while an image is allowed mid-turn because the bridge
+  never produces one. This reverses half of the documented non-goal: outbound
+  video and voice stay out.
 - `wechat`: two peers' turns run at once, each with its own interaction channel, so a
   forwarded dialog has one owner per conversation instead of one in the whole
   bridge. `dialog/channels.ts` builds a channel per peer, routes a reply only to the

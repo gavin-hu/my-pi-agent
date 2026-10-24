@@ -8,7 +8,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { PeerState, SeenMessage, WechatState } from "../types.ts";
+import type { BotCredentials, PeerState, SeenMessage, WechatState } from "../types.ts";
+import type { MessageTarget } from "../transport/deliver.ts";
 import { wechatDir } from "./credentials.ts";
 import { peerKey } from "../text/format.ts";
 
@@ -112,6 +113,17 @@ function storedKey(state: WechatState, peer: string): string {
 /** The peer's entry, accepting either id form. */
 export function findPeer(state: WechatState, peer: string): PeerState | undefined {
 	return state.peers[storedKey(state, peer)];
+}
+
+/**
+ * Who a proactive send goes to, and the token that carries it.
+ *
+ * Either id form may be stored: the owner id comes from the login response and the
+ * token from an inbound `from_user_id`, and they need not agree.
+ */
+export function ownerTarget(state: WechatState, account: BotCredentials): MessageTarget {
+	const peer = state.ownerId ?? account.ilinkUserId;
+	return { peer, contextToken: findPeer(state, peer)?.lastContextToken };
 }
 
 /** Whether this message id was already handled for the peer. */
