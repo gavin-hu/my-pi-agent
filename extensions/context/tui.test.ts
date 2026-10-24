@@ -70,6 +70,21 @@ describe("the context screen", () => {
 		expect(text).toContain("c compact");
 	});
 
+	test("separates the longest role from its label", () => {
+		// "tool result" fills the padded role column exactly, so the label used to run
+		// straight into it as "tool resultread".
+		const report = buildReport(sampleContext());
+		const crafted: ContextReport = {
+			...report,
+			largest: [{ tokens: 12000, role: "tool result", label: "read" }],
+		};
+		const row =
+			makeScreen({ report: crafted })
+				.component.render(80)
+				.find((line) => line.includes("read")) ?? "";
+		expect(row).toContain("tool result read");
+	});
+
 	test("draws the gauge from the percentage it prints", () => {
 		const { component } = makeScreen({
 			report: buildReport(

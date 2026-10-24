@@ -277,6 +277,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `/memory reload`. A filesystem whose own stamp is no finer than the last one read
   keeps the documented caveat — reload is still the way in there — because the
   alternative is reading the file on every run.
+- `context`: the largest-messages rows pad the role column to twelve cells, so
+  "tool result" — the longest role — no longer runs into its label as
+  "tool resultread".
 
 ## [0.18.0] - 2026-10-24
 
