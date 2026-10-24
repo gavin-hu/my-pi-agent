@@ -10,7 +10,7 @@
  * the bus reads the same section.
  */
 
-import { shortenPath } from "../../lib/format.ts";
+import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { splitEnabled } from "../../lib/plans/setting.ts";
 import { checkSplit, mergeOrder } from "../../lib/plans/split.ts";
 import type { PlanTeam, PlanUnit } from "../../lib/plans/team.ts";
@@ -52,7 +52,7 @@ export function decideSplit(
  * what step 3 can do — and its first line says so, because the rest of the flow
  * depends on the user believing it.
  */
-export function rosterCard(team: PlanTeam, planPath: string): string {
+export function rosterCard(team: PlanTeam, planPath: string, sessionLabel?: string): string {
 	const lead = team.units.find((unit) => unit.lead)?.name ?? team.lead;
 	const owners = team.units.filter((unit) => !unit.lead);
 	const rows = owners.map((unit) => {
@@ -60,11 +60,18 @@ export function rosterCard(team: PlanTeam, planPath: string): string {
 		return `  ${unit.name}: enter_worktree ${unit.name} · /sessions name ${unit.name} · /sessions watch wake\n    ${join}`;
 	});
 	const order = mergeOrderLine(team);
+	// The lead's own label is the one line of the card it cannot get itself until
+	// after this card is printed, so the card either names it or says how to set it.
+	const name = sessionLabel?.trim();
+	const label = name
+		? `  your label: ${sanitizeLine(name)} — owners send their report there`
+		: `  your label: none — name this session: session({action:"name", label:"${lead}"})`;
 	return [
 		`Split: ${team.units.length} units · ${shortenPath(planPath)}`,
 		"  You start and switch every session; nothing here can.",
 		...rows,
 		`  ${order} · your unit: ${lead}`,
+		label,
 	].join("\n");
 }
 

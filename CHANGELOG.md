@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `session-bus`: `session({action:"name", label})` sets this session's bus label and
+  Pi session name — the tool-side twin of `/sessions name`, sharing its validation,
+  its uniqueness rule, and its settle when two renames race. An empty label is
+  refused rather than keeping the old one, a label a live session holds is refused
+  with its owner named, and the result reports the label the bus settled on, so a
+  lead can name itself instead of being handed its derived label.
+- `plan`: the roster card's last line is the lead's own label — the label itself
+  once the session has one, otherwise the `session({action:"name"})` call that sets
+  it — so an owner has a named target for its completion report.
 - `plan`: approving a plan can split it into slices. With `plan.split` on,
   `exit_plan_mode` takes `units` — a name, path prefixes, a test, and its
   dependencies per unit — validates them before the review opens, shows the split
