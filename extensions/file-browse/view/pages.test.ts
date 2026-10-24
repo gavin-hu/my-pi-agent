@@ -16,13 +16,13 @@ import {
 	WEB_LAYOUT_CSS,
 	WEB_THEME_CSS,
 	WEB_THEME_STORAGE_KEY,
-} from "../../lib/web/index.ts";
-import { localTimeMs } from "../../test/helpers/fixtures/file-browse.ts";
+} from "../../../lib/web/index.ts";
+import { localTimeMs } from "../../../test/helpers/fixtures/file-browse.ts";
 import { CLIENT_JS } from "./client.ts";
-import { DEFAULT_CONFIG } from "./config.ts";
-import { changeDirs, type ChangedFile } from "./diff.ts";
+import { DEFAULT_CONFIG } from "../config/config.ts";
+import { changeDirs, type ChangedFile } from "../text/diff.ts";
 import { renderDiffLines } from "./diff-html.ts";
-import type { DirEntry, FileView, Listing, TreeNode } from "./files.ts";
+import type { DirEntry, FileView, Listing, TreeNode } from "../files/files.ts";
 import {
 	formatDate,
 	renderBreadcrumbs,
@@ -48,7 +48,7 @@ import {
 	sanitizeHtmlBlock,
 	sanitizeInlineTag,
 } from "./raw-html.ts";
-import { handleRequest } from "./router.ts";
+import { handleRequest } from "../transport/router.ts";
 
 const ROOT_LABEL = "/srv/aurora";
 const MTIME_MS = 1_700_000_000_000;

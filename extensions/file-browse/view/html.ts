@@ -8,18 +8,18 @@
  * the page-only `browse-*` rules from `styles.ts`.
  */
 
-import { brandLockup, docHead, type KeyHint, keysSheet, themeToggle } from "../../lib/web/index.ts";
-import { escapeHtml } from "../../lib/escape.ts";
+import { brandLockup, docHead, type KeyHint, keysSheet, themeToggle } from "../../../lib/web/index.ts";
+import { escapeHtml } from "../../../lib/escape.ts";
 import { renderChanges, renderGit, renderLiveChrome, renderLiveStatus, type LivePage } from "./chrome.ts";
-import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "./files.ts";
-import { DIFF_MODES, statusLetter, type ChangedFile, type DiffMode } from "./diff.ts";
+import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
+import { DIFF_MODES, statusLetter, type ChangedFile, type DiffMode } from "../text/diff.ts";
 import { renderDiffLines } from "./diff-html.ts";
-import type { DiffFileView, GitStatus } from "./git.ts";
-import type { ChangeIndex } from "./live.ts";
-import { detectLanguage, highlightLines, type HighlightLanguage } from "../../lib/highlight.ts";
+import type { DiffFileView, GitStatus } from "../git/git.ts";
+import type { ChangeIndex } from "../live/live.ts";
+import { detectLanguage, highlightLines, type HighlightLanguage } from "../../../lib/highlight.ts";
 import { FOLDER_ICON, iconHref, languageOf, SPRITE, type IconSpec } from "./icons.ts";
 import { renderMarkdown } from "./markdown.ts";
-import { encodePath } from "./paths.ts";
+import { encodePath } from "../files/paths.ts";
 import { BROWSE_CSS } from "./styles.ts";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

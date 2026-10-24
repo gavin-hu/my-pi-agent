@@ -6,12 +6,10 @@ extensions cooperate without importing each other, and which shape new code
 takes.
 
 It describes the shape this package commits to, not a snapshot of the tree. A
-rule is written in the present tense because it is meant to hold; where the tree
-has not caught up, the section names the gap and [`../ROADMAP.md`](../ROADMAP.md)
-carries the work. The rulebook that is *enforced today* — the invariants, the
-code-quality bar, the workflow — is [`../AGENTS.md`](../AGENTS.md). This page
-explains those rules and is deliberately ahead of the code in the three places
-listed at [the end](#where-the-tree-has-not-caught-up).
+rule is written in the present tense because it is meant to hold; every rule here
+holds today, and where work is queued it is [`../ROADMAP.md`](../ROADMAP.md) that
+carries it. The rulebook that is *enforced today* — the invariants, the
+code-quality bar, the workflow — is [`../AGENTS.md`](../AGENTS.md).
 
 It is not a second rulebook. Every rule has one owner and its reasoning sits next
 to it: invariants in [`../AGENTS.md`](../AGENTS.md), the shared module table in
@@ -36,7 +34,6 @@ and one extension's full surface on its page under
 - [Trust boundaries](#trust-boundaries)
 - [Where a change belongs](#where-a-change-belongs)
 - [Reading the code](#reading-the-code)
-- [Where the tree has not caught up](#where-the-tree-has-not-caught-up)
 - [Related docs](#related-docs)
 
 ## Vocabulary
@@ -135,10 +132,9 @@ in flat modules — [`../extensions/todo/`](../extensions/todo/) is one tool, on
 command, one widget, and branch replay. Past roughly twenty modules a role earns
 a directory, the way [`../extensions/bytefly/`](../extensions/bytefly/) groups
 `footer/`, `notice/`, `header/`, and `separator/`, and `plan` keeps its tool
-surface in `tools/`. One extension is still flat at that size, and
-[`../extensions/wechat/`](../extensions/wechat/) is the worked example of the
-rule — seven role directories around the wiring — while `file-browse` is gap
-`F3`.
+surface in `tools/`. Every extension past that size now holds role directories —
+[`../extensions/wechat/`](../extensions/wechat/) is the worked example, seven
+directories around the wiring — so the rule has no exception left to make.
 
 ## One turn
 
@@ -372,19 +368,6 @@ If you are new to the tree, this order teaches one idea per stop.
 | [`../extensions/wechat/`](../extensions/wechat/) | A transport, peer sessions, and a one-runtime lock |
 | [`../extensions/bytefly/`](../extensions/bytefly/) | Chrome and renderers: one extension that draws the others |
 | [`../lib/tui/`](../lib/tui/) | The design system every surface above draws through |
-
-## Where the tree has not caught up
-
-This page states the target. One rule in it is ahead of the code, and it is work
-in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
-
-| Gap | The rule above | What the tree does today |
-|---|---|---|
-| `F3` | A role earns a directory past roughly twenty modules | `file-browse` (23) is flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
-
-The list shrinks and never grows: when a gap ships, its row is deleted from both
-files. A new rule reaches this page first and the roadmap second, because the
-page is what a contributor reads before deciding where a change belongs.
 
 ## Related docs
 

@@ -497,31 +497,31 @@ stops at the first difference because the control, not the checker, is the fix.
 | File | Purpose |
 |---|---|
 | `index.ts` | `/browse` command, running-server closure, shutdown cleanup |
-| `config.ts` | Config defaults, validation, global/project merge |
-| `paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
+| `config/config.ts` | Config defaults, validation, global/project merge |
+| `files/paths.ts` | Decode/encode, resolve, and `realpath`-containment guard |
 | [`../../lib/escape.ts`](../../lib/escape.ts) | `escapeHtml`, the shared HTML escaping used by every renderer |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer for the code view (shared with `plan`) |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | The shared Bytefly web brand system: tokens, base, components, layout, runtime, and markup |
-| `files.ts` | Classification (incl. Markdown), text reads, and one page-level walk (`directoryView`) that returns a directory's listing and its sidebar tree |
-| `diff.ts` | Pure unified-diff and porcelain-status parsing for the diff view |
-| `fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
-| `markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted; raw HTML through `raw-html.ts`) |
-| `raw-html.ts` | Allowlisted raw-HTML sanitizer: element/attribute policy, suppressed bodies, and cross-block balancing |
-| `urls.ts` | Shared link/image URL policy: scheme allowlist and `/view`/`/raw` rewriting |
-| `git.ts` | Read-only branch/dirty provider for the header chip |
-| `icons.ts` | Inline SVG sprite and the per-language mapping |
-| `client.ts` | The `/app.js` source: sort, wrap, copy, hunk navigation, reading progress, and the page keymap |
-| `tree.ts` | The sidebar block: path filter, fold-all, lazy tree loading, and the tree's keyboard model (interpolated into `client.ts`) |
-| `palette.ts` | The quick-open palette: fuzzy search, the combobox wiring, and the `window.bfPalette` contract (interpolated into `client.ts`) |
-| `live-client.ts` | The client's live status block: the event stream, the chips, the markers, and the footer line (interpolated into `client.ts`) |
-| `live.ts` | The live status snapshot, its frame, and the fan-out channel that ticks it |
-| `rev.ts` | Short digests of the change set and a folder's listing names, so an unchanged frame is skipped |
-| `chrome.ts` | Header chrome: the git and changes chips, the live chip, the reload control, and the footer line |
-| `styles.ts` | The page-only `browse-*` stylesheet (the `bf-*` kit comes from `lib/web`) |
-| `html.ts` | Page renderers: the shared shell, the two-pane layout, the listing, and the cards |
-| `diff-html.ts` | The unified-diff body: the gutter, the sign, the hunk sections, and per-hunk highlighting |
-| `router.ts` | Pure request handler: routes, the `/raw` sandbox policy, and the error page |
-| `server.ts` | This extension's routes over `lib/http`'s loopback server: the request count, the stream cap, and the idle policy |
+| `files/files.ts` | Classification (incl. Markdown), text reads, and one page-level walk (`directoryView`) that returns a directory's listing and its sidebar tree |
+| `text/diff.ts` | Pure unified-diff and porcelain-status parsing for the diff view |
+| `text/fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
+| `view/markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted; raw HTML through `raw-html.ts`) |
+| `view/raw-html.ts` | Allowlisted raw-HTML sanitizer: element/attribute policy, suppressed bodies, and cross-block balancing |
+| `view/urls.ts` | Shared link/image URL policy: scheme allowlist and `/view`/`/raw` rewriting |
+| `git/git.ts` | Read-only branch/dirty provider for the header chip |
+| `view/icons.ts` | Inline SVG sprite and the per-language mapping |
+| `view/client.ts` | The `/app.js` source: sort, wrap, copy, hunk navigation, reading progress, and the page keymap |
+| `view/tree.ts` | The sidebar block: path filter, fold-all, lazy tree loading, and the tree's keyboard model (interpolated into `client.ts`) |
+| `view/palette.ts` | The quick-open palette: fuzzy search, the combobox wiring, and the `window.bfPalette` contract (interpolated into `client.ts`) |
+| `view/live-client.ts` | The client's live status block: the event stream, the chips, the markers, and the footer line (interpolated into `client.ts`) |
+| `live/live.ts` | The live status snapshot, its frame, and the fan-out channel that ticks it |
+| `live/rev.ts` | Short digests of the change set and a folder's listing names, so an unchanged frame is skipped |
+| `view/chrome.ts` | Header chrome: the git and changes chips, the live chip, the reload control, and the footer line |
+| `view/styles.ts` | The page-only `browse-*` stylesheet (the `bf-*` kit comes from `lib/web`) |
+| `view/html.ts` | Page renderers: the shared shell, the two-pane layout, the listing, and the cards |
+| `view/diff-html.ts` | The unified-diff body: the gutter, the sign, the hunk sections, and per-hunk highlighting |
+| `transport/router.ts` | Pure request handler: routes, the `/raw` sandbox policy, and the error page |
+| `transport/server.ts` | This extension's routes over `lib/http`'s loopback server: the request count, the stream cap, and the idle policy |
 | [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: one server entry (`serveLoopback`), page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, the event-stream sink and its idle grace |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |
 

@@ -7,7 +7,7 @@
  */
 
 import { randomInt } from "node:crypto";
-import { asBoolean, clampInteger, loadConfigSection } from "../../lib/config.ts";
+import { asBoolean, clampInteger, loadConfigSection } from "../../../lib/config.ts";
 
 export interface ServeConfig {
 	/** TCP port on 127.0.0.1; `0` picks one random port fixed for the session, a positive value pins it. */

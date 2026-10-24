@@ -12,7 +12,7 @@
  * and `bun build --no-bundle` needs no separate asset.
  */
 
-import { keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { keysDialogScript, THEME_TOGGLE_JS } from "../../../lib/web/index.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { PALETTE_CLIENT_JS } from "./palette.ts";
 import { TREE_CLIENT_JS } from "./tree.ts";

@@ -8,10 +8,10 @@
  * it reaches the page. The page shell and the page bodies stay in `html.ts`.
  */
 
-import { escapeHtml } from "../../lib/escape.ts";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import type { GitStatus } from "./git.ts";
-import type { ChangeIndex } from "./live.ts";
+import { escapeHtml } from "../../../lib/escape.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import type { GitStatus } from "../git/git.ts";
+import type { ChangeIndex } from "../live/live.ts";
 
 /** The header's git chip: the branch, or the detached head; changes are the changes chip's job. */
 export function renderGit(git: GitStatus | undefined): string {

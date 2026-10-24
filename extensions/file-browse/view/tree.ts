@@ -8,7 +8,7 @@
  * intent, and the one row the keyboard is on.
  */
 
-import { SIDEBAR_COLLAPSE_MAX } from "../../lib/web/index.ts";
+import { SIDEBAR_COLLAPSE_MAX } from "../../../lib/web/index.ts";
 
 export const TREE_CLIENT_JS = `	var tree = document.querySelector("nav.bf-tree");
 	var filter = document.getElementById("filter");

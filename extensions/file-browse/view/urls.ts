@@ -14,7 +14,7 @@
  */
 
 import { posix } from "node:path";
-import { encodePath } from "./paths.ts";
+import { encodePath } from "../files/paths.ts";
 
 const HAS_SCHEME = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 const SAFE_LINK_SCHEME = /^(?:https?|mailto):/i;

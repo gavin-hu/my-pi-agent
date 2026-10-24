@@ -83,7 +83,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W5 |
-| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F3 |
+| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F2 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -107,7 +107,7 @@ release, and the changelog, not this list, records what did.
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** | Does the daily loop feel finished? | `W1` and `C1` land, or are demoted with the reason recorded. |
-| **Next** | Does the pack keep what it promised? | `F3` lands and `S1` is spiked or demoted, each with the reason recorded. |
+| **Next** | Does the pack keep what it promised? | `S1` is spiked or demoted, with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -418,25 +418,16 @@ it describes.
 
 **Next**
 
-- **F3 — Role directories past twenty modules.** The architecture page names the
-  roles a module can play and lets a role earn a directory past roughly twenty
-  modules, the way `bytefly/` groups `footer/`, `notice/`, and `separator/` and
-  `web-access/` groups `fetch/` and `search/`. Counting modules and not files —
-  a co-located suite is not a module — `wechat` (35 modules) shipped its seven
-  role directories and `rewind` (25 modules) followed it into `commands/`,
-  `config/`, `state/`, `text/`, `transport/`, and `view/`, so `file-browse` (23
-  modules) is the last extension flat past that size; `job` (20 modules),
-  `worktree` (20 modules), and `subagent` (17 modules) stay flat until they cross
-  it. *Done when* `file-browse` holds role subdirectories plus `index.ts`, its
-  imports are updated, and the page's layout rule describes the tree without an
-  exception.
+Nothing here is queued: the last flat extension past twenty modules moved into
+role directories, so the rule the architecture page states now holds without an
+exception.
 
 **Later**
 
 - **F1 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
 - **F2 — Split the browse listing out of `files.ts`.** At 564 of the 600-line
-  bar, `extensions/file-browse/files.ts` still holds classification, Markdown
+  bar, `extensions/file-browse/files/files.ts` still holds classification, Markdown
   detection, text reads, listings, and the sidebar tree. The split is a
   behaviour-neutral move of the listing half into its own module; it is deferred
   until the bar is reached, because today it is one file-browse-local module

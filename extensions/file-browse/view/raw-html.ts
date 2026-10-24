@@ -25,7 +25,7 @@
  * how `<details>` wraps Markdown.
  */
 
-import { decodeCodePoint, escapeHtml } from "../../lib/escape.ts";
+import { decodeCodePoint, escapeHtml } from "../../../lib/escape.ts";
 import { resolveImage, resolveLink } from "./urls.ts";
 
 /** Elements re-emitted with sanitized attributes. */

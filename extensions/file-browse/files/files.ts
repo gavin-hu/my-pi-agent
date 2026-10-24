@@ -8,7 +8,7 @@
 import type { Dirent, Stats } from "node:fs";
 import { readFile, readdir, stat, lstat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
-import { mapConcurrent } from "../../lib/pool.ts";
+import { mapConcurrent } from "../../../lib/pool.ts";
 import { HttpError } from "./paths.ts";
 
 export type EntryKind = "directory" | "text" | "image" | "binary";

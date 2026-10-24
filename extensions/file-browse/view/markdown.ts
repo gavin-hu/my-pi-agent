@@ -25,8 +25,8 @@
  * policy and raw HTML do not.
  */
 
-import { decodeCodePoint, escapeHtml } from "../../lib/escape.ts";
-import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
+import { decodeCodePoint, escapeHtml } from "../../../lib/escape.ts";
+import { fenceLanguage, highlightLines } from "../../../lib/highlight.ts";
 import {
 	closesSuppressed,
 	closeHtmlSink,
