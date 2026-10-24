@@ -278,7 +278,7 @@ test/
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links, catalog counts
   architecture-doc.test.ts # docs/architecture.md: the paths and roadmap ids it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
-  changelog-skill.test.ts  # the `changelog` skill's state script: parse, report, and file lookup
+  project-docs-skill.test.ts # the `project-docs` skill's changelog state script: parse, report, and file lookup
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
   shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export
   prompt-budget.test.ts    # injected-context size ceilings

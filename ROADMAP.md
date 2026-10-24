@@ -36,9 +36,10 @@ surface arrives with its limitation written in the same breath.
   behaviour — `docs/architecture.md` now states the target architecture rather
   than a snapshot, with the three rules the code has not reached carried here as
   `F3`–`F5`; the `refactor` skill measures a scope with a shipped
-  `scripts/inventory.ts`; the `changelog` skill works on any project's changelog
-  through its own `scripts/state.ts`; and `AGENTS.md` names its four rules, the
-  fourth enforced by review alone.
+  `scripts/inventory.ts`; the `project-docs` skill keeps the front door, the roadmap,
+  and the changelog honest from one five-mode workflow, with the changelog's
+  `scripts/state.ts` moved under it; and `AGENTS.md` names its four rules, the fourth
+  enforced by review alone.
 
 ## How items are ordered
 

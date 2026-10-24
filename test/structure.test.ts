@@ -59,7 +59,7 @@ function dirsOf(dir: string): string[] {
 
 const ROOT_TEST_FILES = new Set([
 	"architecture-doc.test.ts",
-	"changelog-skill.test.ts",
+	"project-docs-skill.test.ts",
 	"config-docs.test.ts",
 	"dependencies.test.ts",
 	"docs-parity.test.ts",

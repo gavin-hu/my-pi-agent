@@ -1,5 +1,5 @@
 /**
- * Changelog state, for the `changelog` skill.
+ * Changelog state, for the `project-docs` skill.
  *
  * The skill's judgement is the model's; the counting is not. This prints what a
  * changelog can be asked mechanically — the file, the last tag, the commits since it,

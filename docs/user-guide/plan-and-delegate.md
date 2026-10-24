@@ -350,8 +350,8 @@ before it is suggested, and a conversation that ended cleanly returns an empty
 list rather than the project's backlog. An imperative — `/skill:next fix the
 failing test` — is treated as one item: the skill answers with its evidence and
 starting command, and asks before starting. A request already scoped to a
-refactor audit or a changelog entry goes to the `refactor` or `changelog` skill
-instead of being answered twice.
+refactor audit or to a document that no longer matches the tree goes to the
+`refactor` or `project-docs` skill instead of being answered twice.
 
 The report is a numbered list of suggested next todos in priority order, so the
 first item is the one to start. Priority is what it would cost to lose: loose
@@ -371,37 +371,67 @@ the parts you can verify. Once you pick an item, the handoff is the same as a
 refactor's: plan mode for a multi-file change, a todo list for a small one, and
 the project's check as both baseline and finish line.
 
-### Recording changes in the changelog
+### Keeping the docs honest
 
-The packaged `changelog` skill keeps the changelog honest. It is model-invoked: a
-request such as "add a changelog entry for this" can load it automatically, and
-`/skill:changelog` forces it. It has three modes, and the words after the command
-pick one:
+The packaged `project-docs` skill keeps the four documents a reader trusts — the
+front door, the roadmap, the contributor path, and the changelog — telling the truth
+about the code. It is model-invoked: a request such as "the README still lists a
+command we removed" or "add a changelog entry for this" can load it automatically,
+and `/skill:project-docs` forces it. It has five modes, the words after the command
+pick one, and no words at all means the read-only audit:
 
 ```text
-/skill:changelog                  # record: one bullet for this change
-/skill:changelog audit            # compare commits since the last tag with [Unreleased]
-/skill:changelog release 0.18.0   # curate a release section from the project's rules
+/skill:project-docs                 # audit: every document, against the tree and each other
+/skill:project-docs changelog       # one bullet for this change, in this commit
+/skill:project-docs release 0.19.0  # curate one version's section from the project's rules
+/skill:project-docs roadmap         # delete what shipped, renumber, keep the caps
+/skill:project-docs readme          # sync the catalog rows, counts, and examples
 ```
 
-A recorded change is one bullet for one user-visible change, under `[Unreleased]`,
-scoped by the extension or area it touches, and written in the same commit as the
-change itself — a changelog that trails the work is a changelog nobody trusts. The
-skill works on any project: before it writes anything it finds the changelog file,
-its category names and order, the scope prefixes, the bullet shape, and the release
-document, states that profile in one line, and follows those rather than a generic
-template. In this package the answers live in the changelog preamble, `AGENTS.md`,
-and Development, and the skill names them as its worked example.
+Every mode starts the same way: it finds the project's documents, the version's
+single source, the changelog's category names and scope spelling, the roadmap's item
+form and caps, the check command, and the guards by name, then states that profile in
+one line — so a misread is visible in a sentence instead of in a diff. Nothing it
+finds is imposed: the project's own conventions win, and where two sources disagree
+it asks rather than averaging them. In this package the answers live in the changelog
+preamble, `AGENTS.md`, `ROADMAP.md`, and Development, and the skill names them as its
+worked example.
 
-`audit` is read-only: it lists the commits since the last tag and names the ones
-with no entry or a weak one, so a change that shipped without a bullet is visible
-before a release rather than after it. A bundled `state` script prints the file, the
-tag, the commits in the window, the `[Unreleased]` categories with their counts, and
-the empty or duplicated headings, so the audit starts from facts rather than a
-hand-run `git log`. `release` runs only when you ask for a specific version, and the
-steps it follows are the project's release document — this package's is
+`audit` is read-only, and the default. It reads five faces — the tree against the
+docs, the docs against each other, the changelog's commit window, the roadmap's own
+ids and caps, and the front door's examples — and every finding names the mode that
+fixes it. A change that shipped without a bullet, a count the tree has outgrown, and
+a roadmap item the code already does all arrive here, before a release rather than
+after it. A bundled `state` script prints the changelog file, the tag, the commits in
+the window, the `[Unreleased]` categories with their counts, and the empty or
+duplicated headings, so the audit starts from facts rather than a hand-run `git log`.
+
+`changelog` writes one bullet for one user-visible change, under `[Unreleased]`,
+scoped by the extension or area it touches, and in the same commit as the change
+itself — a changelog that trails the work is a changelog nobody trusts. It does not
+decide what has already shipped; only you do.
+
+`release` runs only when you name a version, and the steps it follows are the
+project's release document — this package's is
 [Development](../development.md#release), with the version bump, the link references,
 and the tag-and-`main` push order. Never treat an audit as a release.
+
+`roadmap` re-derives the file from the commits since the last tag rather than from the
+last tag itself, deletes what the tree already does with the reason recorded where the
+item was, and renumbers the ids and every citation with them. It sets no priority and
+no date.
+
+`readme` keeps the front door equal to the tree: the catalog rows, the counts the
+pages state, an example that actually runs, and the mirrored translation in step with
+it. It does not move a guide's detail up into the front door, or change positioning on
+its own.
+
+It is advisory rather than an enforcement layer: it can miss a claim, and it will not
+touch a judgement — priority, dates, non-goals, and contribution policy stay yours.
+The project's check is the gate, and in this package the documents are held by
+`test/docs-parity.test.ts`, `test/extension-load.test.ts`, `test/roadmap.test.ts`, and
+`test/release.test.ts`. A request that is really "what should I do next?" belongs to
+`next`, and one about structure to `refactor`.
 
 ## Checking your work
 

@@ -160,10 +160,10 @@ Every packaged skill is model-invoked, so a matching request loads it;
 
 | Skill | Where explained |
 |---|---|
-| `/skill:changelog` | [Recording changes in the changelog](./plan-and-delegate.md#recording-changes-in-the-changelog) |
 | `/skill:init` | [Initializing AGENTS.md with /skill:init](./plan-and-delegate.md#initializing-agentsmd-with-skillinit) |
 | `/skill:next` | [Choosing what to do next](./plan-and-delegate.md#choosing-what-to-do-next) |
 | `/skill:parallel-dev` | [Coordinating parallel sessions](./plan-and-delegate.md#coordinating-parallel-sessions) |
+| `/skill:project-docs` | [Keeping the docs honest](./plan-and-delegate.md#keeping-the-docs-honest) |
 | `/skill:refactor` | [Finding refactoring opportunities](./plan-and-delegate.md#finding-refactoring-opportunities) |
 
 ## Keys

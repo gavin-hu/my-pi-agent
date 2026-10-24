@@ -1,5 +1,5 @@
 /**
- * The `changelog` skill's state script.
+ * The `project-docs` skill's changelog state script.
  *
  * The script exists because the counting half of an audit should not be the model's
  * memory of `git log` flags. Its parse is pure, so every finding the report prints is
@@ -10,7 +10,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { findChangelog, formatState, gitFacts, MAX_SCOPES, readState } from "../skills/changelog/scripts/state.ts";
+import { findChangelog, formatState, gitFacts, MAX_SCOPES, readState } from "../skills/project-docs/scripts/state.ts";
 import { tempDir } from "./helpers/env.ts";
 
 const FIXTURE = `# Changelog

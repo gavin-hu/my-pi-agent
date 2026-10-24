@@ -31,6 +31,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   exit: a notice that could not be delivered is reported on the terminal once and
   not retried. A reconnect after an expired session keeps the silent path, where
   the token is already dead.
+- `skills`: a model-invoked `project-docs` skill keeps the four documents a reader
+  trusts telling the truth about the code. A bare `/skill:project-docs` is a read-only
+  audit across five faces — the tree against the docs, the docs against each other,
+  the changelog's commit window, the roadmap's own ids and caps, and the front door's
+  examples — and every finding names the mode that fixes it. Four modes then write, one
+  artefact each: `changelog` records a bullet in the same commit as the change,
+  `release <version>` curates one version's section from the project's own rules,
+  `roadmap` re-derives its items from `git log <last-tag>..main` and deletes what
+  shipped with the reason recorded where the item was, and `readme` syncs the catalog
+  rows, the counts the pages state, an example that runs, and the mirrored translation.
+  It discovers each project's documents, version source, category spelling, item form,
+  and guards instead of imposing a template, and leaves judgement — priority, dates,
+  non-goals, contribution policy — with the maintainer.
 
 ### Changed
 
@@ -72,6 +85,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in the window, the `[Unreleased]` categories, the empty and duplicate headings, and
   the link refs, so an audit starts from facts instead of a hand-run `git log`.
   `tsconfig.json` now typechecks `skills/` for the script it ships.
+- `skills`: the `changelog` skill is now `project-docs`. `/skill:changelog` no longer
+  resolves: the read-only audit is the bare `/skill:project-docs`, recording one bullet
+  is `/skill:project-docs changelog`, and a release is `/skill:project-docs release
+  X.Y.Z`. Its `scripts/state.ts` and references moved with it, `test/changelog-skill.test.ts`
+  is `test/project-docs-skill.test.ts`, and the guide's section is now *Keeping the docs
+  honest*.
 
 ## [0.18.0] - 2026-10-24
 
