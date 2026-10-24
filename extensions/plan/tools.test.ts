@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
@@ -8,6 +8,9 @@ import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
+import { useEnv } from "../../test/helpers/env.ts";
+import { repoKeyOf } from "../../lib/repo-key.ts";
+import { shortenPath } from "../../lib/format.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import { sectionDigests } from "./plan-text.ts";
@@ -25,6 +28,25 @@ import { MAX_STEP_LENGTH, MAX_STEPS } from "./steps.ts";
 import { DEFAULT_TODO_MAX, mergeTodos, mirrorStepStatuses } from "./todos.ts";
 import { registerTools } from "./tools.ts";
 import type { PlanReviewOptions, PlanWebReview } from "./web.ts";
+
+/** One agent directory for this file: plans land outside the project now. */
+const AGENT = mkdtempSync(join(tmpdir(), "pi-plan-tools-agent-"));
+let scoped: { restore: () => void } | undefined;
+beforeEach(() => {
+	scoped = useEnv({ PI_CODING_AGENT_DIR: AGENT });
+});
+afterEach(() => {
+	scoped?.restore();
+	scoped = undefined;
+});
+afterAll(() => {
+	rmSync(AGENT, { recursive: true, force: true });
+});
+
+/** The store one repository's plans land in, keyed by its common git dir. */
+function planDir(root: string): string {
+	return join(AGENT, "plans", repoKeyOf(root));
+}
 
 function repoExec(root: string) {
 	return async (command: string, args: string[]) =>
@@ -438,7 +460,8 @@ describe("write_plan", () => {
 
 		expect(existsSync(details.path)).toBe(true);
 		expect(readFileSync(details.path, "utf-8")).toBe("# Plan\n1. Do it");
-		expect(details.path).toContain(join(".pi", "plans"));
+		expect(details.path).toStartWith(planDir(root));
+		expect(details.relativePath).toBe(shortenPath(details.path));
 		expect(details.bytes).toBeGreaterThan(0);
 		expect(result.content[0].text).toContain(details.path);
 		expect(runtime.lastPlanPath()).toBe(details.path);
@@ -528,11 +551,165 @@ describe("write_plan", () => {
 	test("renders the saved relative path", () => {
 		const { write } = setup();
 		const component = write.renderResult(
-			{ details: { path: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md", bytes: 1 } },
+			{ details: { path: "/x/plans/p.md", relativePath: "/x/plans/p.md", bytes: 1 } },
 			{ expanded: false },
 			fakeTheme,
 		);
-		expect(component.render(80).join("\n")).toContain(".pi/plans/p.md");
+		expect(component.render(80).join("\n")).toContain("/x/plans/p.md");
+	});
+});
+
+describe("exit_plan_mode with a split", () => {
+	/** Turn the feature on for this test, in the isolated agent dir. */
+	function enableSplit(on = true): void {
+		writeFileSync(join(AGENT, "bytefly.json"), JSON.stringify({ plan: { split: on } }));
+	}
+
+	const LEAD = { name: "contract", paths: ["src/contract"], test: "bun test src/contract", lead: true };
+	const CORE = { name: "core", paths: ["src/core"], test: "bun test src/core", dependsOn: ["contract"] };
+	const PLAN = "# Split plan\n\n## Steps\n\n- [ ] contract\n- [ ] core";
+
+	test("ignores units while the switch is off, and says so once", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
+
+		expect(result.details.approved).toBe(true);
+		expect(result.details.team).toBeUndefined();
+		expect(result.details.splitOff).toBe(true);
+		expect(result.content[0].text).toContain("plan.split");
+		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
+	});
+
+	test("refuses an overlapping split before the review opens", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(
+			exit,
+			{ plan_path: planPath, units: [LEAD, { name: "core", paths: ["src"], test: "bun test src" }] },
+			ctx,
+		);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain("Refused:");
+		expect(result.content[0].text).toContain("overlap");
+		// Still planning, nothing seeded, and the file is untouched.
+		expect(runtime.isEnabled()).toBe(true);
+		expect(toolCalls).toHaveLength(0);
+		expect(readFileSync(planPath, "utf-8")).toBe(PLAN);
+	});
+
+	test("refuses a single unit with the skeleton advice", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD] }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain("thinnest end-to-end path");
+	});
+
+	test("writes the team, prints the roster card, and seeds the steps", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
+
+		expect(result.details.approved).toBe(true);
+		expect(result.details.team).toMatchObject({ lead: "contract", verdict: "pair" });
+		expect(result.content[0].text).toContain("Split: 2 units");
+		expect(result.content[0].text).toContain("You start and switch every session");
+		expect(result.content[0].text).toContain('session({action:"join"');
+		expect(result.content[0].text).toContain("merge order: contract → core");
+		expect(result.content[0].text).toContain("Work only your own unit (contract)");
+		expect(toolCalls[0]?.name).toBe("todo");
+
+		const written = readFileSync(planPath, "utf-8");
+		expect(written).toContain("## Team");
+		expect(written).toContain("Lead: contract");
+		expect(written).toContain("| core | src/core | bun test src/core | contract |");
+	});
+
+	test("a serial plan approves byte-identically with the switch on", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(result.details.team).toBeUndefined();
+		expect(result.details.splitOff).toBeUndefined();
+		expect(result.content[0].text).not.toContain("Split:");
+		expect(readFileSync(planPath, "utf-8")).toBe(PLAN);
+	});
+
+	test("opens the browser comment-only for a split plan, and says why", async () => {
+		enableSplit();
+		const { web, starts } = webThatApproves([]);
+		const { enter, exit, write, runtime, root } = setup(web);
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
+
+		expect(starts).toHaveLength(1);
+		expect(starts[0]?.canApprove).toBe(false);
+		expect(starts[0]?.note).toContain("terminal");
+		// The page's refusal of the approve endpoint is the router's test; here the
+		// point is that the page was opened without the action at all.
+		expect(result.details.approved).toBe(true);
+	});
+
+	test("a browser review still approves a plan with no split", async () => {
+		const { web, starts } = webThatApproves([]);
+		const { enter, exit, write, runtime, root } = setup(web);
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		expect(starts[0]?.canApprove).toBe(true);
+		expect(result.details.approved).toBe(true);
+	});
+
+	test("a failed team write keeps plan mode on and seeds nothing", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+		// A plan file the store will refuse to overwrite: the write path is the one
+		// that fails, after the user approved.
+		const refusal = runtime.plans.write;
+		runtime.plans.write = async () => {
+			throw new Error("disk full");
+		};
+
+		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
+		runtime.plans.write = refusal;
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain("disk full");
+		expect(result.content[0].text).toContain("Plan mode is still on");
+		expect(runtime.isEnabled()).toBe(true);
+		expect(toolCalls).toHaveLength(0);
 	});
 });
 
@@ -540,7 +717,7 @@ describe("exit_plan_mode", () => {
 	test("rejects when not in plan mode", async () => {
 		const { exit, root } = setup();
 		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: join(root, ".pi", "plans", "x.md") }, ctx);
+		const result = await call(exit, { plan_path: join(planDir(root), "x.md") }, ctx);
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toContain("Not in plan mode");
 	});
@@ -550,7 +727,7 @@ describe("exit_plan_mode", () => {
 		await enterPlan(enter, runtime, root);
 		const { ctx } = fakeCtx({ cwd: root });
 
-		const missing = await call(exit, { plan_path: join(root, ".pi", "plans", "nope.md") }, ctx);
+		const missing = await call(exit, { plan_path: join(planDir(root), "nope.md") }, ctx);
 		expect(missing.isError).toBe(true);
 		expect(missing.content[0].text).toContain("No plan file");
 
@@ -576,7 +753,7 @@ describe("exit_plan_mode", () => {
 		const { enter, exit, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		// A hand-edited (or older-session) file can exceed the cap without write_plan.
-		const plansDir = join(root, ".pi", "plans");
+		const plansDir = planDir(root);
 		mkdirSync(plansDir, { recursive: true });
 		const planPath = join(plansDir, "big.md");
 		writeFileSync(planPath, planWithSteps(MAX_STEPS + 1));
@@ -866,14 +1043,23 @@ describe("exit_plan_mode", () => {
 		expect(result.content[0].text).toContain("2 deferred, list full");
 	});
 
-	test("accepts a plan_path relative to the working directory", async () => {
+	test("accepts a plan_path named relative to the store", async () => {
 		const { enter, exit, write, runtime, root } = setup();
 		await enterPlan(enter, runtime, root);
 		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
-		const relative = planPath.slice(root.length + 1);
 
 		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: relative }, ctx);
+		const result = await call(exit, { plan_path: basename(planPath) }, ctx);
+		expect(result.details.approved).toBe(true);
+	});
+
+	test("accepts a plan_path spelled the way the tool displays it", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "1. Do it");
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: shortenPath(planPath) }, ctx);
 		expect(result.details.approved).toBe(true);
 	});
 
@@ -1363,7 +1549,7 @@ describe("set_plan_steps", () => {
 
 		expect(result.isError).toBeUndefined();
 		expect(toolCalls).toHaveLength(0);
-		expect(result.content[0].text).toContain(`(1/1 done) in ${join(".pi", "plans")}`);
+		expect(result.content[0].text).toContain(`(1/1 done) in ${shortenPath(planDir(root))}`);
 		expect(result.content[0].text).not.toContain("todo item");
 	});
 
@@ -1471,7 +1657,7 @@ describe("set_plan_steps", () => {
 		const component = setSteps.renderResult(
 			{
 				details: {
-					path: "/x/.pi/plans/p.md",
+					path: "/x/plans/p.md",
 					relativePath: ".pi/plans/p.md",
 					updates: [{ step: 2, status: "completed" }],
 					done: 2,
@@ -1491,7 +1677,7 @@ describe("plan tool rendering", () => {
 	test("exit_plan_mode previews the plan and shows it in full when expanded", async () => {
 		const { exit } = setup();
 		const plan = ["# Plan", ...Array.from({ length: 20 }, (_, index) => `${index + 1}. step`)].join("\n");
-		const details = { approved: true, plan, planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" };
+		const details = { approved: true, plan, planPath: "/x/plans/p.md", relativePath: ".pi/plans/p.md" };
 
 		const collapsed = exit.renderResult({ details }, { expanded: false }, fakeTheme).render(80).join("\n");
 		expect(collapsed).toContain("Plan approved");
@@ -1507,13 +1693,13 @@ describe("plan tool rendering", () => {
 	test("renders the relative plan path, not the absolute one", async () => {
 		const { exit } = setup();
 		const component = exit.renderResult(
-			{ details: { approved: true, plan: "# P", planPath: "/x/.pi/plans/p.md", relativePath: ".pi/plans/p.md" } },
+			{ details: { approved: true, plan: "# P", planPath: "/x/plans/p.md", relativePath: ".pi/plans/p.md" } },
 			{ expanded: false },
 			fakeTheme,
 		);
 		const text = component.render(80).join("\n");
 		expect(text).toContain(".pi/plans/p.md");
-		expect(text).not.toContain("/x/.pi/plans/p.md");
+		expect(text).not.toContain("/x/plans/p.md");
 	});
 
 	test("strips control characters from the rendered plan and refinement", () => {
@@ -1524,7 +1710,7 @@ describe("plan tool rendering", () => {
 					details: {
 						approved: false,
 						plan: "hello\u001b[31mred\u001b[0m\u0007 world",
-						planPath: "/x/.pi/plans/p.md",
+						planPath: "/x/plans/p.md",
 						relativePath: ".pi/plans/p.md",
 						refined: true,
 						refinement: "use\u001b[2J x",

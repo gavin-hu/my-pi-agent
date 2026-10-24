@@ -12,6 +12,7 @@ import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../../lib/format.ts";
+import { messageOf } from "../../../lib/errors.ts";
 import { lastGoal } from "../../../lib/goal-state.ts";
 import { GOAL_TOOL } from "../../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
@@ -24,6 +25,8 @@ import { mergeSummary, overCap, preview, verificationNote } from "../format.ts";
 import { sanitizePlanText } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
 import { reviewPlan } from "../review.ts";
+import { decideSplit, rosterCard, SPLIT_OFF_NOTE } from "../split.ts";
+import { writeTeam } from "../../../lib/plans/team.ts";
 import { EXIT_TOOL, SET_PLAN_STEPS_TOOL, type PlanRuntime } from "../runtime.ts";
 import { goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
 import type { ExitPlanModeDetails } from "../types.ts";
@@ -31,11 +34,27 @@ import type { PlanWebReview } from "../web.ts";
 import { firstTextLine } from "./nested.ts";
 import { seedTodos } from "./todo-seed.ts";
 
+const PlanUnitParams = Type.Object({
+	name: Type.String({ description: "Lowercase slug; the owner session takes it as its label." }),
+	paths: Type.Array(Type.String(), { description: "Repository-relative path prefixes this unit owns." }),
+	test: Type.String({ description: "The command that proves the unit is done." }),
+	dependsOn: Type.Optional(Type.Array(Type.String(), { description: "Units that must land first." })),
+	lead: Type.Optional(Type.Boolean({ description: "True for the one unit this session keeps." })),
+});
+
 const ExitPlanModeParams = Type.Object({
 	plan_path: Type.String({
 		description:
-			"Path to the plan file written by write_plan (absolute, or relative to the working directory). The user reviews this file.",
+			"Path to the plan file written by write_plan: the absolute path it returned, or the `~/…` form it displayed. A bare name resolves inside the plans directory. The user reviews this file.",
 	}),
+	units: Type.Optional(
+		Type.Array(PlanUnitParams, {
+			description:
+				"The plan's slices, when it has two or more independent ones the user will run in separate sessions. " +
+				"Only used when the plan.split setting is on; validation refuses an overlapping, looping, or oversized " +
+				"split before the review opens. Omit it to approve as one flow.",
+		}),
+	),
 });
 
 type ExitPlanModeArgs = Static<typeof ExitPlanModeParams>;
@@ -92,7 +111,8 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 		annotations: { readOnlyHint: true, openWorldHint: false },
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const planPath = (params as ExitPlanModeArgs).plan_path.trim();
+			const args = params as ExitPlanModeArgs;
+			const planPath = args.plan_path.trim();
 
 			if (!runtime.isEnabled()) {
 				return failedResult("Not in plan mode; there is no plan to approve.", {
@@ -125,6 +145,26 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 				);
 			}
 
+			// The split is decided before the review opens, so a refused or rejected split
+			// never spends the user's review — and the screen can show what it approves.
+			const units = args.units?.map((unit) => ({
+				name: unit.name,
+				paths: [...unit.paths],
+				test: unit.test,
+				dependsOn: [...(unit.dependsOn ?? [])],
+				...(unit.lead ? { lead: true } : {}),
+			}));
+			const split = decideSplit(ctx.cwd, units);
+			if (split.kind === "refused") {
+				return failedResult(`Refused: ${split.reason}`, {
+					approved: false,
+					plan: file.content,
+					planPath: file.path,
+					relativePath: file.relativePath,
+				} satisfies ExitPlanModeDetails);
+			}
+			const pending = split.kind === "team" ? split : undefined;
+
 			if (!ctx.hasUI) {
 				return failedResult(
 					`No interactive UI is available to approve the plan. It is saved at ${file.relativePath}; present it and ask the user to approve it in their reply.`,
@@ -147,6 +187,7 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 				baselines: runtime,
 				plan: file,
 				signal,
+				...(pending === undefined ? {} : { split: { ...pending.team, verdict: pending.verdict } }),
 			});
 
 			if (decision.action === "refine") {
@@ -209,9 +250,33 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 				};
 			}
 
+			// The team becomes real here, never before: the section is what a joining
+			// session reads, so it appears only after the user approved the split. The
+			// write happens while plan mode is still on, so a failure leaves the session
+			// able to retry instead of approved-but-empty.
+			let approved = decision.plan;
+			if (pending !== undefined) {
+				try {
+					approved = await runtime.plans.write(ctx.cwd, {
+						title: planTitle(basename(decision.plan.path)),
+						content: writeTeam(decision.plan.content, { lead: pending.team.lead, units: pending.team.units }),
+						planPath: decision.plan.path,
+					});
+				} catch (writeError) {
+					return failedResult(
+						`The plan was approved but its team could not be written: ${messageOf(writeError)}. Plan mode is still on and no steps were seeded; fix the plan file and call exit_plan_mode again.`,
+						{
+							approved: false,
+							plan: decision.plan.content,
+							planPath: decision.plan.path,
+							relativePath: decision.plan.relativePath,
+						} satisfies ExitPlanModeDetails,
+					);
+				}
+			}
 			runtime.disable(ctx);
-			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
-			const goal = await finalizeGoal(ctx, decision.plan);
+			const { steps, merged, error } = await seedTodos(pi, ctx, approved.content);
+			const goal = await finalizeGoal(ctx, approved);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps
@@ -238,19 +303,41 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 			const browserNote = decision.comments.length
 				? `\n\nThe user approved from the browser review with these comments:\n${feedbackSummary(decision.comments)}`
 				: "";
+			const splitNote =
+				pending === undefined
+					? split.kind === "off"
+						? `\n\n${SPLIT_OFF_NOTE}`
+						: ""
+					: `\n\n${rosterCard(pending.team, approved.path)}\n\nWork only your own unit (${pending.team.lead}); the other units belong to the sessions the user starts.`;
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${decision.plan.relativePath} is the source of truth; follow its steps.${browserNote}${tail}${verification}${goalNote}${listing}`,
+						text: `Plan approved. Plan mode is off and write access is restored. The plan file ${approved.relativePath} is the source of truth; follow its steps.${browserNote}${splitNote}${tail}${verification}${goalNote}${listing}`,
 					},
 				],
 				details: {
 					approved: true,
-					plan: decision.plan.content,
-					planPath: decision.plan.path,
-					relativePath: decision.plan.relativePath,
+					plan: approved.content,
+					planPath: approved.path,
+					relativePath: approved.relativePath,
 					annotations: decision.comments.length > 0 ? decision.comments : undefined,
+					...(pending === undefined
+						? split.kind === "off"
+							? { splitOff: true }
+							: {}
+						: {
+								team: {
+									lead: pending.team.lead,
+									verdict: pending.verdict,
+									units: pending.team.units.map((unit) => ({
+										name: unit.name,
+										paths: unit.paths,
+										test: unit.test,
+										dependsOn: unit.dependsOn,
+									})),
+								},
+							}),
 				} satisfies ExitPlanModeDetails,
 			};
 		},

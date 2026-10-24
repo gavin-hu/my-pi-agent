@@ -17,6 +17,27 @@
  * checkbox or a `[DONE:n]` marker sets the status.
  */
 
+import {
+	extractSections as extractPlanSections,
+	FENCE,
+	HEADING,
+	normalizeHeadingText,
+} from "../../lib/plans/sections.ts";
+
+/**
+ * The section machinery is `lib/plans/sections.ts`, because the split writes
+ * `## Team` with the same fence-aware scan this module navigates with. These
+ * re-exports keep the plan extension's public surface one import.
+ */
+export {
+	extractSections as extractPlanSections,
+	FENCE,
+	HEADING,
+	normalizeHeadingText,
+	replaceSection,
+} from "../../lib/plans/sections.ts";
+export type { PlanSection } from "../../lib/plans/sections.ts";
+
 /** Most steps seeded from one plan. */
 export const MAX_STEPS = 50;
 /** Longest seeded step text; longer lines are elided. */
@@ -82,18 +103,6 @@ export interface PlanStep {
 	status: "pending" | "completed";
 }
 
-/** A heading-delimited chunk of the plan, for the review screen's navigation. */
-export interface PlanSection {
-	/** Plain heading text, or `""` for the content before the first heading. */
-	title: string;
-	/** The section's markdown, including its heading line. */
-	text: string;
-	/** 0-based source line of the section's heading (0 for the preamble). */
-	line: number;
-	/** Heading level, or 0 for the preamble before the first heading. */
-	level: number;
-}
-
 /** A top-level list item located in the source. */
 interface PlanListItem {
 	/** Zero-based source line index. */
@@ -109,39 +118,10 @@ interface PlanListItem {
 /** A top-level numbered or bulleted list item, capturing its parts. */
 const LIST_ITEM = /^([ \t]*)((?:\d+[.)]|[-*+])\s+)(.*\S)\s*$/;
 const CHECKBOX = /^\[([ xX])\]\s*(.*)$/;
-/**
- * A markdown heading outside a fence, capturing its level and text: up to three
- * leading spaces, a space after the hashes, and a closing hash run only when a
- * space separates it. Shared with `blocks.ts`, so the section split and the
- * browser outline read a heading line the same way, and `## C#` keeps its title.
- */
-export const HEADING = /^ {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/;
-/**
- * A markdown code-fence opener or closer (backticks or tildes). Shared with
- * `blocks.ts`: a tab-indented fence is prose for both parsers, never code for
- * one and prose for the other.
- */
-export const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const DONE_MARKER = /\[DONE:\d+\]/gi;
 
-/**
- * A heading or step label as the review surfaces compare it: inline emphasis and
- * code removed, whitespace collapsed. Exported so `blocks.ts` labels an outline
- * entry the same way `extractPlanSections` labels its section, which is what
- * lets the browser mark a changed section.
- */
-export function normalizeHeadingText(text: string): string {
-	return text
-		.replace(/\*\*([^*]+)\*\*/g, "$1")
-		.replace(/\*([^*]+)\*/g, "$1")
-		.replace(/(?<![A-Za-z0-9_])_([^_]+)_(?![A-Za-z0-9_])/g, "$1")
-		.replace(/`([^`]+)`/g, "$1")
-		.replace(/\s+/g, " ")
-		.trim();
-}
-
-/** Strip inline markdown emphasis and code, then collapse to one clean line. */
-function plainText(text: string): string {
+/** A label with its inline markers and any done marker removed. */
+function cleanLabel(text: string): string {
 	return normalizeHeadingText(text.replace(DONE_MARKER, ""));
 }
 
@@ -157,7 +137,7 @@ function parseStep(raw: string): PlanStep {
 	}
 	if (/\[DONE:\d+\]/i.test(text)) done = true;
 
-	return { content: plainText(text), status: done ? "completed" : "pending" };
+	return { content: cleanLabel(text), status: done ? "completed" : "pending" };
 }
 
 /** Every top-level list item, in order, before de-duplication and capping. */
@@ -208,7 +188,7 @@ function stepsSection(plan: string): { start: number; end: number } | undefined 
 		if (!heading) continue;
 		const depth = heading[1].length;
 		if (start < 0) {
-			if (plainText(heading[2]).toLowerCase() !== "steps") continue;
+			if (normalizeHeadingText(heading[2]).toLowerCase() !== "steps") continue;
 			start = index;
 			level = depth;
 			continue;
@@ -281,7 +261,7 @@ export function verificationItem(plan: string): PlanStep | undefined {
 		// A fenced block is how the outline asks for commands; its fence lines are
 		// punctuation, not a check, so only the commands inside it are carried.
 		.filter((line) => !FENCE.test(line))
-		.map((line) => plainText(line.replace(LIST_PREFIX, "")))
+		.map((line) => cleanLabel(line.replace(LIST_PREFIX, "")))
 		.filter(Boolean);
 	if (items.length === 0) return undefined;
 	return { content: elide(`Verify: ${items.join("; ")}`), status: "pending" };
@@ -359,43 +339,6 @@ export function setStepStatuses(plan: string, updates: readonly StepEdit[]): str
 		lines[target.line] = `${" ".repeat(target.indent)}${target.lead}${checkbox} ${text}`;
 	}
 	return lines.join("\n");
-}
-
-/**
- * Sections of a plan, split at heading lines outside code fences. The content
- * before the first heading is a section titled `""`. Pi's `Markdown` renderer
- * exposes no source-line map, so the review screen renders these chunks
- * separately to know where each section begins.
- */
-export function extractPlanSections(plan: string): PlanSection[] {
-	const sections: PlanSection[] = [];
-	let current: PlanSection | undefined;
-	let fence: string | undefined;
-
-	const flush = (): void => {
-		if (current && (current.title !== "" || current.text.trim() !== "")) sections.push(current);
-		current = undefined;
-	};
-
-	plan.split("\n").forEach((line, index) => {
-		const fenceMatch = line.match(FENCE);
-		if (fenceMatch) {
-			if (fence === undefined) fence = fenceMatch[1][0];
-			else if (fence === fenceMatch[1][0]) fence = undefined;
-		} else if (fence === undefined) {
-			const heading = line.match(HEADING);
-			if (heading) {
-				flush();
-				current = { title: plainText(heading[2]), text: line, line: index, level: heading[1].length };
-				return;
-			}
-		}
-		if (current === undefined) current = { title: "", text: line, line: 0, level: 0 };
-		else current.text += `\n${line}`;
-	});
-
-	flush();
-	return sections;
 }
 
 /**

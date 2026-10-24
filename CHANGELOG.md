@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: approving a plan can split it into slices. With `plan.split` on,
+  `exit_plan_mode` takes `units` — a name, path prefixes, a test, and its
+  dependencies per unit — validates them before the review opens, shows the split
+  as a read-only `Split` section, writes a `## Team` table into the plan on
+  approval, and prints a roster card naming the commands for the sessions the
+  package cannot start and the order to merge in. Overlapping prefixes, a
+  dependency cycle, more than two owners, a unit without a test, or an owner unit
+  that claims a shared file are refused by name. Off by default.
 - `session-bus`: `/sessions` opens a live board in the TUI — a counts summary,
   session rows with their unread and claim counts, a focus block, and a pane of one
   session's identity and claims — with `w` arming or disarming this session's inbox
@@ -80,6 +88,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `plan`: plans now live in `<agent-dir>/plans/<repo-key>`, keyed by the
+  repository's common git directory, so a plan approved in one worktree is the
+  same plan from the main checkout and from every other session; they are no
+  longer files in the project, so nothing is written into the checkout and a
+  `rewind` snapshot never contains one. A store an older version left in
+  `<repo>/.pi/plans` is moved in once, with a notice, and `plan_path` accepts the
+  `~/.pi/agent/plans/<key>/…` form the tools display.
+- `plan`: the `plan` section of `bytefly.json` is read again, holding `split`, and
+  `/bytefly settings` gains a thirteenth row for it. Off by default, so an
+  existing setup approves plans exactly as before.
 - `job`, `watch`, `session-bus`: a wake outcome that arrives while a turn is
   running now raises one turn as soon as that run settles, instead of waiting for
   the next turn; an aborted run leaves it queued. The shared pending reporter gates
@@ -122,10 +140,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Removed
 
 - `plan`: the goal prompt is gone. Approving a plan in a session with no goal
-  records the plan's objective without asking, `/bytefly settings` drops the
-  **Offer the session goal** row, so the screen is twelve preferences, and
-  `plan.goalPrompt` and the `plan` section of `bytefly.json` are no longer read;
-  delete the section if you set it.
+  records the plan's objective without asking, and `/bytefly settings` drops the
+  **Offer the session goal** row. `plan.goalPrompt` is no longer read; the `plan`
+  section now holds only `split`.
 
 ### Fixed
 

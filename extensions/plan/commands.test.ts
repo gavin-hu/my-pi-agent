@@ -19,10 +19,15 @@ import type { PlanReviewOptions, PlanReviewResult, PlanWebReview } from "./web.t
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 
-const PATH = "/repo/.pi/plans/2026-10-14-1600-demo.md";
+const PATH = "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md";
 
 function plan(content = "- one"): StoredPlan {
-	return { path: PATH, relativePath: ".pi/plans/2026-10-14-1600-demo.md", content, bytes: content.length };
+	return {
+		path: PATH,
+		relativePath: "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md",
+		content,
+		bytes: content.length,
+	};
 }
 
 interface RuntimeOptions {
@@ -72,7 +77,8 @@ function fakeRuntime(options: RuntimeOptions = {}) {
 				indexCalls.push(cwd);
 				return summaries;
 			},
-			dirFor: async () => "/repo/.pi/plans",
+			dirFor: async () => "~/.pi/agent/plans/a1f9c02",
+			takeNotice: () => undefined,
 		},
 	};
 	return { runtime: runtime as unknown as PlanRuntime, readCalls, latestCalls, indexCalls, enableCalls, marks };
@@ -263,9 +269,9 @@ describe("/plan review", () => {
 		const file = plan();
 		const { pi, ctx, readCalls } = setup({ file, result: saved(file, [{ anchor: 0, comment: "note" }]) });
 
-		await pi.commands.get("plan").handler("review /repo/.pi/plans/other.md", ctx);
+		await pi.commands.get("plan").handler("review ~/.pi/agent/plans/a1f9c02/other.md", ctx);
 
-		expect(readCalls).toEqual(["/repo/.pi/plans/other.md"]);
+		expect(readCalls).toEqual(["~/.pi/agent/plans/a1f9c02/other.md"]);
 	});
 
 	test("falls back to the newest plan when the session has not written one", async () => {
@@ -395,8 +401,8 @@ describe("/plan review", () => {
 describe("/plan list", () => {
 	const summaries: PlanSummary[] = [
 		{
-			path: "/repo/.pi/plans/2026-10-16-1030-add-rate-limiting.md",
-			relativePath: ".pi/plans/2026-10-16-1030-add-rate-limiting.md",
+			path: "~/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md",
+			relativePath: "~/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md",
 			title: "Add rate limiting",
 			modified: Date.UTC(2026, 9, 16, 10, 30),
 			bytes: 512,

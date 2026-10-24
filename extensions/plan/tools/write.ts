@@ -40,7 +40,7 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 		name: WRITE_PLAN_TOOL,
 		label: "Write plan",
 		description:
-			"Save the plan you designed as a markdown file under .pi/plans (project root, or the agent directory outside a " +
+			"Save the plan you designed as a markdown file in the plans directory (the agent directory, keyed by " +
 			"repository). Write the complete plan, not a summary, in this outline so it is consistent and scannable:\n\n" +
 			`${PLAN_OUTLINE}\n\n` +
 			"Each section has one job: lead it with its outcome, keep a prose section to a few bullets or two or three " +
@@ -54,7 +54,7 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 			"In Steps, each top-level bullet is one outcome in the order you will do them, and deeper bullets are notes. " +
 			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining. " +
 			`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it cannot track.`,
-		promptSnippet: "Save the designed plan as a markdown file under .pi/plans.",
+		promptSnippet: "Save the designed plan as a markdown file in the plans directory.",
 		promptGuidelines: [
 			"While plan mode is active, write the full plan with write_plan, then call exit_plan_mode with the returned path.",
 			"When refining with plan_path, keep every section heading as it was: the review marks changed sections by heading, " +
@@ -88,6 +88,10 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 					planPath: args.plan_path,
 				});
 				runtime.setLastPlan(ctx, file.path);
+				// A store an older version kept in the checkout was moved in by this
+				// write; say so once, where the user is looking.
+				const moved = runtime.plans.takeNotice();
+				if (moved) ctx.ui.notify(moved, "info");
 				return textResult(
 					`Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
 					{ path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,

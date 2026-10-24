@@ -6,7 +6,7 @@
  * read-only git command, powershell is blocked, and everything else that mutates
  * (worktree, MCP tools) is blocked. `subagent` stays active but is forced
  * read-only. The one permitted write is `write_plan`,
- * which saves the plan under `.pi/plans`. The model investigates, saves the
+ * which saves the plan in the agent directory. The model investigates, saves the
  * plan, and calls `exit_plan_mode` to read the file back and ask for approval.
  *
  * Toggle with `/plan`, `Ctrl+Alt+P`, or start with `--plan`. The state is

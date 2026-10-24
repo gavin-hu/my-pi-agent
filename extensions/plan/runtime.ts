@@ -4,7 +4,7 @@
  * Enabling plan mode removes every tool the policy does not consider read-only
  * from the active set and activates the plan-mode control tools: `exit_plan_mode`
  * (present the plan for approval) and `write_plan` (save the plan artifact under
- * `.pi/plans`). Disabling restores exactly what it hid. The enabled flag is
+ * the plans directory). Disabling restores exactly what it hid. The enabled flag is
  * persisted as a custom session entry so `/resume` and `/tree` follow the
  * branch, and it is also mirrored into the footer status. The review baseline
  * travels the same way, as one digest per heading section, so the changed-section

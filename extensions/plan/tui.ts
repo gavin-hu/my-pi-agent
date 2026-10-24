@@ -29,6 +29,7 @@ import {
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
+import { renderTeam, type PlanUnit } from "../../lib/plans/team.ts";
 import {
 	editorTheme,
 	screenHint,
@@ -86,6 +87,11 @@ export interface PlanViewOptions {
 	tui?: TUI;
 	/** Markdown theme for the body; defaults to Pi's active theme. */
 	markdownTheme?: MarkdownTheme;
+	/**
+	 * The split approval would write. Rendered as a read-only section after the
+	 * plan, because the `## Team` section itself only exists after approval.
+	 */
+	split?: { lead: string; units: readonly PlanUnit[]; verdict: "pair" | "team" };
 }
 
 /** Rows the screen shows when the terminal height is unknown. */
@@ -221,8 +227,29 @@ export class PlanViewComponent implements Component {
 			// chunk omits before the next section.
 			if (index < chunks.length - 1 && lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
 		});
+		const split = this.splitSection();
+		if (split !== undefined) {
+			if (lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
+			const rendered = new Markdown(split, padding, 0, theme)
+				.render(width)
+				.map((line) => truncateToWidth(line.trimEnd(), width));
+			sections.push({ title: "Split", offset: lines.length });
+			lines.push(...rendered);
+		}
 		this.cache = { width, lines, sections, changedCount: changed.filter(Boolean).length };
 		return this.cache;
+	}
+
+	/**
+	 * The split as a read-only section: the same table approval writes, so what the
+	 * user approves is what the plan file will carry.
+	 */
+	private splitSection(): string | undefined {
+		const split = this.options.split;
+		if (split === undefined) return undefined;
+		const owners = split.units.filter((unit) => !unit.lead).length;
+		const summary = `${split.verdict} · lead + ${owners} owner${owners === 1 ? "" : "s"} · written on approval`;
+		return ["## Split", "", summary, "", renderTeam({ lead: split.lead, units: [...split.units] })].join("\n");
 	}
 
 	/** The section whose heading is at or above the viewport top. */

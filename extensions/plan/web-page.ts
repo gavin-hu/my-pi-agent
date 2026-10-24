@@ -25,6 +25,7 @@ import {
 	WEB_LAYOUT_CSS,
 	WEB_THEME_CSS,
 } from "../../lib/web/index.ts";
+import { escapeHtml } from "../../lib/escape.ts";
 import type { PlanBlock } from "./blocks.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { ReviewRole } from "./types.ts";
@@ -71,6 +72,11 @@ export interface ReviewPageData {
 	canApprove: boolean;
 	/** Who is looking: `owner` may approve, `reviewer` may only comment. */
 	role: ReviewRole;
+	/**
+	 * One line the owner needs before acting, such as why approval happens in the
+	 * terminal; absent when the page needs no caveat.
+	 */
+	note?: string;
 	/** A running share, so a reload re-renders the link the owner already minted. */
 	share?: ShareState;
 	/** Per-session secret the client echoes on every request. */
@@ -297,6 +303,7 @@ export function renderReviewPage(data: ReviewPageData): string {
 <div class="bf-panel review-panel">
 ${reviewFacts()}
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
+${data.note ? `<p class="review-hint">${escapeHtml(data.note)}</p>` : ""}
 ${reviewHints(data.role, data.canApprove)}
 </div>
 </details>

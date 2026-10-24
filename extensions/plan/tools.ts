@@ -2,7 +2,7 @@
  * Model-facing registration for the plan-mode tools.
  *
  * `enter_plan_mode` lets the model ask to plan before touching code; it needs
- * user confirmation. `write_plan` saves the plan artifact under `.pi/plans` and
+ * user confirmation. `write_plan` saves the plan artifact in the plans directory and
  * returns its path. `cancel_plan_mode` leaves planning without approving, so a
  * phone user is never trapped in read-only mode. `exit_plan_mode` reads that file
  * back, presents it for approval (a scrollable review screen in the TUI, a select dialog elsewhere),

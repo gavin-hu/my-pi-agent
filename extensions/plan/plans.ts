@@ -4,15 +4,19 @@
  * A plan is written to disk as markdown: one file per plan, named from the
  * title and stamp. A refinement rewrites that file atomically, so the user can
  * read the same artifact the model is working from and the plan survives
- * outside the conversation without a partial write ever being visible. Files
- * live under `<repo-root>/.pi/plans` (the worktree root inside a worktree), or
- * under `<agent-dir>/plans` outside a repository. An extension tool sees the
- * session cwd rather than the worktree the user entered, so the active worktree
- * is applied before any path is resolved.
+ * outside the conversation without a partial write ever being visible.
  *
- * The directory is self-ignoring: the first write drops a `.gitignore` with `*`
- * so plans never show up as untracked files or inside rewind snapshots,
- * without editing the project's own `.gitignore`.
+ * Plans live under `<agent-dir>/plans/<repo-key>`, keyed by the repository's
+ * common git directory, so every worktree and every session of one repository
+ * reads one store — a plan approved in a worktree is the same plan from the main
+ * checkout. Outside a repository they land under `<agent-dir>/plans`. An
+ * extension tool sees the session cwd rather than the worktree the user entered,
+ * so the active worktree is applied before any path is resolved.
+ *
+ * Plans are outside the project, so they are never untracked files and never
+ * appear in a rewind snapshot. A store written by an older version, under
+ * `<repo>/.pi/plans`, is moved in once, and nothing is deleted before its plans
+ * have arrived.
  *
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
@@ -25,16 +29,19 @@ import {
 	readFileSync,
 	readdirSync,
 	renameSync,
+	rmdirSync,
 	statSync,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { homedir } from "node:os";
+import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import { repoRootFor } from "../../lib/git/index.ts";
-import { sanitizeLine } from "../../lib/format.ts";
+import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
+import { plansDir } from "../../lib/plans/store.ts";
+import { repoKeyFor } from "../../lib/repo-key.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
 
@@ -47,7 +54,7 @@ const MAX_SLUG_LENGTH = 60;
 export interface StoredPlan {
 	/** Absolute path. */
 	path: string;
-	/** Path relative to the working directory, when it is inside it. */
+	/** How the path is shown to the user: `~`-shortened, since plans live outside the project. */
 	relativePath: string;
 	content: string;
 	bytes: number;
@@ -62,7 +69,7 @@ export interface WrittenPlan extends StoredPlan {
 export interface PlanSummary {
 	/** Absolute path. */
 	path: string;
-	/** Path relative to the working directory, when it is inside it. */
+	/** How the path is shown to the user: `~`-shortened, since plans live outside the project. */
 	relativePath: string;
 	/** The plan's `# title`, or a title derived from the file name. */
 	title: string;
@@ -106,6 +113,13 @@ export interface PlanStore {
 		annotations: PlanAnnotation[],
 		options?: { author?: string },
 	): Promise<StoredPlan>;
+	/**
+	 * The line a one-time migration wants reported, or undefined.
+	 *
+	 * A moved store is the user's business — plans are not where they used to be —
+	 * so the first caller that can show a notice takes it and clears it.
+	 */
+	takeNotice(): string | undefined;
 }
 
 /** Timestamp prefix the plan store adds to file names. */
@@ -160,16 +174,19 @@ function isContainedPlan(dir: string, path: string): boolean {
 	return isInsideReal(dir, dirname(path));
 }
 
-/** Keep plan files out of git (and so out of rewind snapshots) without touching the project. */
-function ensureIgnored(dir: string): void {
-	const ignore = join(dir, ".gitignore");
-	try {
-		// `wx` is race-free: an existing ignore file (ours or a user's) is left alone.
-		writeFileSync(ignore, "*\n", { encoding: "utf-8", flag: "wx" });
-	} catch {
-		// A read-only plans directory will fail on the plan write anyway; the
-		// ignore file is best-effort.
-	}
+/**
+ * Resolve a `plan_path` argument against the store.
+ *
+ * A plan lives outside the project, so a path relative to the working directory
+ * can no longer name one. Absolute paths and the `~/…` form the tools display are
+ * accepted, and a bare name resolves inside the store — which is what a reader of
+ * a tool result has in hand.
+ */
+function resolvePlanArg(dir: string, planPath: string): string {
+	const text = planPath.trim();
+	if (text === "~") return homedir();
+	if (text.startsWith("~/") || text.startsWith(`~${sep}`)) return resolve(homedir(), text.slice(2));
+	return isAbsolute(text) ? resolve(text) : resolve(dir, text);
 }
 
 /**
@@ -193,12 +210,6 @@ function writeAtomic(path: string, content: string): void {
 	}
 }
 
-/** `path` relative to `cwd` when inside it, else `path`. */
-function relativeTo(cwd: string, path: string): string {
-	const rel = relative(cwd, path);
-	return rel && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel) ? rel : path;
-}
-
 function uniquePath(dir: string, base: string): string {
 	const taken = (candidate: string): boolean => {
 		try {
@@ -219,16 +230,69 @@ function uniquePath(dir: string, base: string): string {
 	return candidate;
 }
 
-/** Repository (or worktree) root of `cwd`, or undefined outside a repository. */
-async function repoRoot(pi: ExtensionAPI, cwd: string): Promise<string | undefined> {
-	// Local `rev-parse` is fast; cap it so a stuck call cannot hang the tool.
-	return repoRootFor(pi, cwd, 5_000);
+/** A repository (or worktree) root is applied before any path here is resolved. */
+
+/** How many legacy plans one migration moves, so a pathological directory cannot stall a tool call. */
+const MAX_MIGRATED_PLANS = 200;
+
+/**
+ * Move a store written by an older version, under `<repo>/.pi/plans`, into `dir`.
+ *
+ * Copy-then-unlink when a rename crosses a filesystem boundary, so a store on a
+ * different volume still arrives. Nothing here deletes before its plan has
+ * landed, a file that cannot move is left where it is, and the old directory
+ * goes only when what remains is the ignore file this package used to write.
+ */
+function migrateLegacyStore(dir: string, legacy: string): number {
+	if (!existsSync(legacy)) return 0;
+	let names: string[];
+	try {
+		names = readdirSync(legacy);
+	} catch {
+		return 0;
+	}
+	const plans = names.filter((name) => isPlanFileName(name)).slice(0, MAX_MIGRATED_PLANS);
+	let moved = 0;
+	for (const name of plans) {
+		const from = join(legacy, name);
+		try {
+			if (!statSync(from).isFile()) continue;
+			mkdirSync(dir, { recursive: true });
+			const to = uniquePath(dir, name.replace(/\.md$/i, ""));
+			try {
+				renameSync(from, to);
+			} catch {
+				writeFileSync(to, readFileSync(from), { flag: "wx" });
+				unlinkSync(from);
+			}
+			moved += 1;
+		} catch {
+			// A plan that cannot move stays where it is, and the directory stays with it.
+		}
+	}
+	try {
+		if (readdirSync(legacy).every((name) => name === ".gitignore")) {
+			const ignore = join(legacy, ".gitignore");
+			if (existsSync(ignore) && readFileSync(ignore, "utf-8") === "*\n") unlinkSync(ignore);
+			rmdirSync(legacy);
+		}
+	} catch {
+		// Leave a directory that still holds something.
+	}
+	return moved;
 }
 
 export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } = {}): PlanStore {
 	const now = options.now ?? (() => new Date());
 	// One `git rev-parse` per effective root; a worktree switch changes that root.
 	const dirCache = new Map<string, string>();
+	let notice: string | undefined;
+
+	const takeNotice = (): string | undefined => {
+		const line = notice;
+		notice = undefined;
+		return line;
+	};
 
 	/**
 	 * The root every path here is resolved against.
@@ -236,8 +300,8 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 	 * A tool registered by an extension receives the session's cwd, not the
 	 * worktree the user entered: only the built-ins are re-rooted. The worktree
 	 * extension publishes its root in the environment, so this is where the two
-	 * meet, and it is applied before the git lookup, the relative path, and the
-	 * plan path resolution.
+	 * meet, and it is applied before the repository lookup, the migration of an
+	 * older store, and the plan path resolution.
 	 */
 	const baseOf = (cwd: string): string => resolveEffectiveCwd(cwd);
 
@@ -245,9 +309,15 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		const base = baseOf(cwd);
 		const cached = dirCache.get(base);
 		if (cached) return cached;
-		const root = await repoRoot(pi, base);
-		const dir = root ? join(root, CONFIG_DIR_NAME, "plans") : join(getAgentDir(), "plans");
+		const repo = await repoKeyFor(pi, base);
+		const dir = plansDir(getAgentDir(), repo.fromGit ? repo.key : undefined);
 		dirCache.set(base, dir);
+		if (repo.fromGit) {
+			// The keyed directory is the store; a store an older version left in the
+			// checkout moves in once, so an upgrade does not strand its plans.
+			const moved = migrateLegacyStore(dir, join(base, CONFIG_DIR_NAME, "plans"));
+			if (moved > 0) notice = `Moved ${moved} plan${moved === 1 ? "" : "s"} to ${shortenPath(dir)}.`;
+		}
 		return dir;
 	};
 
@@ -262,11 +332,10 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 
 		const dir = await dirFor(base);
 		mkdirSync(dir, { recursive: true });
-		ensureIgnored(dir);
 
 		let path: string;
 		if (input.planPath) {
-			const resolved = resolve(base, input.planPath);
+			const resolved = resolvePlanArg(dir, input.planPath);
 			if (!isContainedPlan(dir, resolved)) {
 				throw new Error("plan_path must be a markdown plan file inside the plans directory.");
 			}
@@ -291,19 +360,19 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		}
 
 		writeAtomic(path, content);
-		return { path, relativePath: relativeTo(base, path), title, content, bytes: nextBytes };
+		return { path, relativePath: shortenPath(path), title, content, bytes: nextBytes };
 	};
 
 	const read = async (cwd: string, planPath: string): Promise<StoredPlan | undefined> => {
 		const base = baseOf(cwd);
 		const dir = await dirFor(base);
-		const resolved = resolve(base, planPath);
+		const resolved = resolvePlanArg(dir, planPath);
 		if (!isContainedPlan(dir, resolved) || !existsSync(resolved)) return undefined;
 		try {
 			const content = readFileSync(resolved, "utf-8");
 			return {
 				path: resolved,
-				relativePath: relativeTo(base, resolved),
+				relativePath: shortenPath(resolved),
 				content,
 				bytes: Buffer.byteLength(content, "utf-8"),
 			};
@@ -445,7 +514,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 
 			const summary: PlanSummary = {
 				path,
-				relativePath: relativeTo(base, path),
+				relativePath: shortenPath(path),
 				title: planTitle(name),
 				modified: info.mtimeMs,
 				bytes: info.size,
@@ -476,5 +545,5 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		return summaries;
 	};
 
-	return { dirFor, write, read, latest, index, setSteps, saveFeedback };
+	return { dirFor, write, read, latest, index, setSteps, saveFeedback, takeNotice };
 }

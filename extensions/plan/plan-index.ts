@@ -207,7 +207,7 @@ export class PlanIndexComponent implements Component {
 
 		const body: string[] = [];
 		if (this.summaries.length === 0) {
-			body.push(...emptyState(theme, w, { label: "No plans yet. write_plan saves one under .pi/plans." }));
+			body.push(...emptyState(theme, w, { label: "No plans yet. write_plan saves one in the agent directory." }));
 		} else {
 			const { start, end } = this.cursor.window(this.summaries.length);
 			for (let index = start; index < end; index++) {

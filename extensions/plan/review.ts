@@ -17,6 +17,7 @@ import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { askHuman, isRemoteTurn, remoteLanguage } from "../../lib/interaction.ts";
 import { FULL_SCREEN_OVERLAY } from "../../lib/tui/chrome.ts";
 import { feedbackSummary, type PlanAnnotation } from "./feedback.ts";
+import type { PlanUnit } from "../../lib/plans/team.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import type { SectionDigest } from "./plan-text.ts";
 import { planReviewPrompt, parsePlanReviewReply } from "./review-prompt.ts";
@@ -63,6 +64,15 @@ export interface ReviewPlanOptions {
 	plan: StoredPlan;
 	/** Aborting the turn closes a browser review and returns the plan unapproved. */
 	signal?: AbortSignal;
+	/** The split approval would write, so the screen shows what is being approved. */
+	split?: ReviewSplit;
+}
+
+/** A validated split, as the review screen displays it. */
+export interface ReviewSplit {
+	lead: string;
+	units: readonly PlanUnit[];
+	verdict: "pair" | "team";
 }
 
 /** Prompt shown by the dialog-based refine editor in non-TUI modes. */
@@ -84,6 +94,7 @@ async function askPlanReview(
 	ctx: ExtensionToolContext,
 	plan: StoredPlan,
 	baseline: SectionDigest[] | undefined,
+	split: ReviewSplit | undefined,
 ): Promise<PlanReviewChoice> {
 	const language = remoteLanguage(ctx) ?? "en";
 	const remote = isRemoteTurn(ctx);
@@ -94,6 +105,7 @@ async function askPlanReview(
 					new PlanViewComponent({
 						plan,
 						baseline,
+						...(split === undefined ? {} : { split }),
 						theme,
 						onClose: (action, refinement) => done({ action, refinement }),
 						requestRender: () => tui.requestRender(),
@@ -126,6 +138,8 @@ export interface BrowserReviewOptions {
 	signal?: AbortSignal;
 	/** Called once the server is listening and the browser was opened. */
 	onOpened?: (session: PlanReviewSession) => void;
+	/** A line the page shows the owner, such as why approval belongs in the terminal. */
+	note?: string;
 }
 
 /**
@@ -140,7 +154,12 @@ export async function runBrowserReview(
 ): Promise<PlanReviewResult | undefined> {
 	if (options.signal?.aborted) return { status: "cancelled" };
 	const session = await web
-		.start(cwd, plan, { canApprove: options.canApprove, baseline: options.baseline, signal: options.signal })
+		.start(cwd, plan, {
+			canApprove: options.canApprove,
+			baseline: options.baseline,
+			signal: options.signal,
+			...(options.note === undefined ? {} : { note: options.note }),
+		})
 		.catch(() => undefined);
 	if (!session) return undefined;
 	options.onOpened?.(session);
@@ -157,7 +176,7 @@ export async function runBrowserReview(
  * cancelled returns to the screen it was opened from.
  */
 export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDecision> {
-	const { ctx, web, plans, baselines, signal } = options;
+	const { ctx, web, plans, baselines, signal, split } = options;
 	let plan = options.plan;
 	for (;;) {
 		// An aborted turn has nobody left to answer the screen.
@@ -165,7 +184,7 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 		// Read the baseline before the screen and mark it after, so what the next
 		// review compares against is the content this one actually showed.
 		const baseline = baselines.reviewed(plan.path);
-		const choice = await askPlanReview(ctx, plan, baseline);
+		const choice = await askPlanReview(ctx, plan, baseline, split);
 		baselines.markReviewed(plan.path, plan.content);
 
 		if (choice.action === "approve") return { action: "approve", plan, comments: [] };
@@ -181,8 +200,17 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 		// An unrecognized action keeps planning rather than opening a server.
 		if (choice.action !== "browser") return { action: "keep", plan };
 
+		// A split section exists only after approval, and the page anchors comments to
+		// source lines, so a page cannot show — or approve — a plan it cannot carry.
+		// The terminal review is where the split is approved.
+		const splitNote =
+			split === undefined
+				? undefined
+				: "This plan has a split, which the page cannot show; approve it in the terminal review.";
+		if (splitNote !== undefined) ctx.ui.notify(splitNote, "info");
 		const result = await runBrowserReview(web, ctx.cwd, plan, {
-			canApprove: true,
+			canApprove: split === undefined,
+			...(splitNote === undefined ? {} : { note: splitNote }),
 			baseline,
 			signal,
 			onOpened: (session) => ctx.ui.notify(`Plan review: opened ${session.url}`, "info"),

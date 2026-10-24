@@ -27,8 +27,8 @@ const END = "\x1b[F";
 const PAGE_DOWN = "\x1b[6~";
 const ESCAPE = "\x1b";
 
-function plan(content: string, path = "/repo/.pi/plans/2026-10-08-1530-demo.md"): StoredPlan {
-	return { path, relativePath: ".pi/plans/2026-10-08-1530-demo.md", content, bytes: content.length };
+function plan(content: string, path = "~/.pi/agent/plans/a1f9c02/2026-10-08-1530-demo.md"): StoredPlan {
+	return { path, relativePath: "~/.pi/agent/plans/a1f9c02/2026-10-08-1530-demo.md", content, bytes: content.length };
 }
 
 function render(component: PlanViewComponent, width: number): string[] {
@@ -43,6 +43,12 @@ interface SetupOptions {
 	path?: string;
 	/** Content the previous review showed, for the changed markers. */
 	baseline?: string;
+	/** A validated split to show as a read-only section. */
+	split?: {
+		lead: string;
+		units: Array<{ name: string; paths: string[]; test: string; dependsOn: string[]; lead?: boolean }>;
+		verdict: "pair" | "team";
+	};
 }
 
 function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", options: SetupOptions = {}) {
@@ -64,9 +70,43 @@ function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", optio
 		},
 		viewportRows: options.rows,
 		tui: options.tui as TuiHandle | undefined,
+		...(options.split === undefined ? {} : { split: options.split }),
 	});
 	return { component, actions, refinements, renders: () => renders };
 }
+
+describe("the split section", () => {
+	const split = {
+		lead: "contract",
+		verdict: "pair" as const,
+		units: [
+			{ name: "contract", paths: ["src/contract"], test: "bun test src/contract", dependsOn: [], lead: true },
+			{ name: "core", paths: ["src/core"], test: "bun test src/core", dependsOn: ["contract"] },
+		],
+	};
+
+	test("renders the table approval will write, after the plan", () => {
+		const text = setup("# Plan\n\n## Steps\n\n- [ ] one").component.render(80).join("\n");
+		const withSplit = setup("# Plan\n\n## Steps\n\n- [ ] one", { split }).component.render(80).join("\n");
+		expect(text).not.toContain("Split");
+		expect(withSplit).toContain("Split");
+		expect(withSplit).toContain("pair · lead + 1 owner · written on approval");
+		expect(withSplit).toContain("Lead: contract");
+		expect(withSplit).toContain("src/contract");
+	});
+
+	test("is navigable as its own section", () => {
+		const { component } = setup("# Plan\n\n## Steps\n\n- [ ] one", { split });
+		component.handleInput("n");
+		component.handleInput("n");
+		expect(component.render(80).join("\n")).toContain("Split");
+	});
+
+	test("adds nothing when the plan has no split", () => {
+		const { component } = setup("# Plan\n\n## Steps\n\n- [ ] one");
+		expect(component.render(80).join("\n")).not.toContain("Split");
+	});
+});
 
 /** Percent shown in the scroll row, or -1 when there is none. */
 function percent(lines: string[]): number {
@@ -120,7 +160,7 @@ describe("plan review render", () => {
 		expect(text).toContain("Plan Review");
 		expect(text).toContain("demo");
 		expect(text).toContain("Plan");
-		expect(text).not.toContain(".pi/plans/2026-10-08-1530-demo.md");
+		expect(text).not.toContain("~/.pi/agent/plans/a1f9c02/2026-10-08-1530-demo.md");
 	});
 
 	test("renders the key hints", () => {

@@ -43,7 +43,6 @@ const SAME_NAME_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 		"extensions/web-access/search/json.ts:asRecord",
 		"provider response shaper returns {} and accepts arrays; lib asRecord narrows config files",
 	],
-	["extensions/plan/plans.ts:repoRoot", "caps the shared repoRootFor call at five seconds for a plan-store lookup"],
 	["extensions/worktree/git.ts:repoRoot", "canonicalizes the shared repoRootFor result for worktree path comparison"],
 	[
 		"extensions/file-browse/markdown.ts:isBlank",
@@ -444,7 +443,7 @@ describe("shared-helper guard", () => {
 
 	test("the exception lists have no room to grow", () => {
 		// Shrink these as helpers move into lib/; a new copy is extracted, not excepted.
-		expect(SAME_NAME_EXCEPTIONS.size).toBe(10);
+		expect(SAME_NAME_EXCEPTIONS.size).toBe(9);
 		expect(SAME_BODY_EXCEPTIONS.size).toBe(0);
 	});
 

@@ -79,6 +79,7 @@ function screenshotStore(plan: StoredPlan): PlanStore {
 		read: async () => plan,
 		latest: async () => plan,
 		index: async () => [],
+		takeNotice: () => undefined,
 	};
 }
 

@@ -53,7 +53,7 @@ export interface EnterPlanModeDetails {
 export interface WritePlanDetails {
 	/** Absolute path of the written plan file. */
 	path: string;
-	/** Path relative to the working directory, when inside it. */
+	/** How the path is shown: `~`-shortened, since plans live outside the project. */
 	relativePath: string;
 	/** Size of the written plan in bytes. */
 	bytes: number;
@@ -63,7 +63,7 @@ export interface WritePlanDetails {
 export interface SetPlanStepsDetails {
 	/** Absolute path of the plan file that was updated. */
 	path: string;
-	/** Path relative to the working directory, for transcript display. */
+	/** How the path is shown: `~`-shortened. */
 	relativePath: string;
 	/** The checkbox changes that were applied, in call order. */
 	updates: StepUpdate[];
@@ -81,7 +81,7 @@ export interface ExitPlanModeDetails {
 	plan: string;
 	/** Absolute path of the reviewed plan file. */
 	planPath?: string;
-	/** Path relative to the working directory, for transcript display. */
+	/** How the path is shown: `~`-shortened. */
 	relativePath?: string;
 	/** True when the user asked to refine the plan instead of approving. */
 	refined?: boolean;
@@ -93,6 +93,14 @@ export interface ExitPlanModeDetails {
 	cancelled?: boolean;
 	/** True when no interactive UI was available to ask for approval. */
 	unavailable?: boolean;
+	/** The team approval wrote into the plan, when the plan was split. */
+	team?: {
+		lead: string;
+		units: Array<{ name: string; paths: string[]; test: string; dependsOn: string[] }>;
+		verdict: "pair" | "team";
+	};
+	/** True when the model proposed a split while `plan.split` was off. */
+	splitOff?: boolean;
 }
 
 /** Structured result carried in `cancel_plan_mode`'s `details`. */

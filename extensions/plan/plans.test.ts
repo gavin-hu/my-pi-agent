@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
 	existsSync,
 	lutimesSync,
@@ -7,13 +7,14 @@ import {
 	readFileSync,
 	readdirSync,
 	realpathSync,
+	rmSync,
 	symlinkSync,
 	utimesSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { blockAt, codeBody, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
@@ -35,12 +36,37 @@ import {
 	verificationItem,
 } from "./steps.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
+import { useEnv } from "../../test/helpers/env.ts";
+import { repoKeyOf } from "../../lib/repo-key.ts";
+import { shortenPath } from "../../lib/format.ts";
 import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import { fixedPlanDate } from "../../test/helpers/fixtures/plan.ts";
 import { settle } from "../../test/helpers/process.ts";
 
 const FIXED = fixedPlanDate(); // 2026-10-08 15:30 local
+
+/**
+ * One agent directory for this file. Plans live outside the project now, so
+ * every test that writes one must not reach the machine's real agent dir.
+ */
+const AGENT = mkdtempSync(join(tmpdir(), "pi-plan-agent-"));
+let scoped: { restore: () => void } | undefined;
+beforeEach(() => {
+	scoped = useEnv({ PI_CODING_AGENT_DIR: AGENT });
+});
+afterEach(() => {
+	scoped?.restore();
+	scoped = undefined;
+});
+afterAll(() => {
+	rmSync(AGENT, { recursive: true, force: true });
+});
+
+/** The store one repository's plans land in: the agent dir, keyed by its common git dir. */
+function storeDir(root: string): string {
+	return join(AGENT, "plans", repoKeyOf(join(root, ".git")));
+}
 
 // Windows requires Developer Mode/admin to create symlinks; skip those tests
 // rather than fail when the privilege is unavailable.
@@ -56,8 +82,9 @@ function tempDir(): string {
 function repoPi(root: string) {
 	return createFakePi({
 		exec: async (command: string, args: string[]) => {
-			if (command === "git" && args[0] === "rev-parse") return { stdout: `${root}\n`, stderr: "", code: 0 };
-			return { stdout: "", stderr: "", code: 1 };
+			if (command !== "git" || args[0] !== "rev-parse") return { stdout: "", stderr: "", code: 1 };
+			const out = args.includes("--git-common-dir") ? join(root, ".git") : root;
+			return { stdout: `${out}\n`, stderr: "", code: 0 };
 		},
 	}).pi;
 }
@@ -77,6 +104,8 @@ function worktreePi(main: string, worktree: string) {
 	return createFakePi({
 		exec: async (command: string, args: string[], options?: { cwd?: string }) => {
 			if (command !== "git" || args[0] !== "rev-parse") return { stdout: "", stderr: "", code: 1 };
+			// The common dir is shared by both checkouts, exactly as git reports it.
+			if (args.includes("--git-common-dir")) return { stdout: `${join(main, ".git")}\n`, stderr: "", code: 0 };
 			return { stdout: `${options?.cwd === worktree ? worktree : main}\n`, stderr: "", code: 0 };
 		},
 	}).pi;
@@ -113,63 +142,105 @@ describe("plan naming", () => {
 });
 
 describe("plan store — directory resolution", () => {
-	test("uses <repo>/.pi/plans inside a repository", async () => {
+	test("files a repository's plans in the agent directory keyed by its common git dir", async () => {
 		const root = tempDir();
-		expect(await repoStore(root).dirFor(root)).toBe(join(root, CONFIG_DIR_NAME, "plans"));
+		expect(await repoStore(root).dirFor(root)).toBe(storeDir(root));
 	});
 
-	test("falls back to the agent directory outside a repository", async () => {
+	test("falls back to an unkeyed agent directory outside a repository", async () => {
 		const store = createPlanStore(noRepoPi(), { now: () => FIXED });
-		expect(await store.dirFor(process.cwd())).toBe(join(getAgentDir(), "plans"));
+		expect(await store.dirFor(process.cwd())).toBe(join(AGENT, "plans"));
 	});
 
-	test("follows the active worktree that an extension tool's cwd does not carry", async () => {
+	test("is the same store from the main checkout and from a worktree", async () => {
 		const main = tempDir();
 		const worktree = tempDir();
 		const store = createPlanStore(worktreePi(main, worktree), { now: () => FIXED });
 
+		expect(await store.dirFor(main)).toBe(storeDir(main));
 		await withEnv({ [ENV_ROOT]: worktree }, async () => {
-			expect(await store.dirFor(main)).toBe(join(worktree, CONFIG_DIR_NAME, "plans"));
+			expect(await store.dirFor(main)).toBe(storeDir(main));
 		});
 	});
 
-	test("writes into the worktree and reports the plan relative to it", async () => {
+	test("writes from a worktree into the shared store and shows the path from home", async () => {
 		const main = tempDir();
 		const worktree = tempDir();
 		const store = createPlanStore(worktreePi(main, worktree), { now: () => FIXED });
 
 		await withEnv({ [ENV_ROOT]: worktree }, async () => {
 			const file = await store.write(main, { title: "Add rate limiting", content: "# Plan\n1. Do it" });
-			expect(file.path).toStartWith(join(worktree, CONFIG_DIR_NAME, "plans"));
+			expect(file.path).toStartWith(storeDir(main));
 			expect(existsSync(file.path)).toBe(true);
-			expect(file.relativePath).toBe(join(CONFIG_DIR_NAME, "plans", basename(file.path)));
+			expect(file.relativePath).toBe(shortenPath(file.path));
 		});
+	});
+
+	test("moves a store an older version kept in the checkout, once", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const legacy = join(root, ".pi", "plans");
+		mkdirSync(legacy, { recursive: true });
+		writeFileSync(join(legacy, "2026-10-01-0900-old.md"), "# Old\n- [ ] one");
+		writeFileSync(join(legacy, ".gitignore"), "*\n");
+
+		const dir = await store.dirFor(root);
+
+		expect(store.takeNotice()).toContain("Moved 1 plan");
+		expect(existsSync(join(legacy, "2026-10-01-0900-old.md"))).toBe(false);
+		expect(existsSync(join(dir, "2026-10-01-0900-old.md"))).toBe(true);
+		expect(existsSync(legacy)).toBe(false);
+		// The notice is one-shot: nothing repeats it on the next turn.
+		expect(store.takeNotice()).toBeUndefined();
+	});
+
+	test("suffixes a legacy plan instead of overwriting one already in the store", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const dir = storeDir(root);
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(join(dir, "2026-10-01-0900-old.md"), "current");
+		const legacy = join(root, ".pi", "plans");
+		mkdirSync(legacy, { recursive: true });
+		writeFileSync(join(legacy, "2026-10-01-0900-old.md"), "ancient");
+
+		await store.dirFor(root);
+
+		expect(readFileSync(join(dir, "2026-10-01-0900-old.md"), "utf-8")).toBe("current");
+		expect(readFileSync(join(dir, "2026-10-01-0900-old-2.md"), "utf-8")).toBe("ancient");
+	});
+
+	test("leaves a legacy directory that still holds something else", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const legacy = join(root, ".pi", "plans");
+		mkdirSync(legacy, { recursive: true });
+		writeFileSync(join(legacy, "notes.txt"), "mine");
+
+		await store.dirFor(root);
+
+		expect(existsSync(join(legacy, "notes.txt"))).toBe(true);
+		expect(store.takeNotice()).toBeUndefined();
 	});
 });
 
 describe("plan store — write", () => {
-	test("names the file by timestamp and slug and self-ignores the directory", async () => {
+	test("names the file by timestamp and slug in the keyed store", async () => {
 		const root = tempDir();
 		const store = repoStore(root);
 		const file = await store.write(root, { title: "Add rate limiting", content: "# Plan\n1. Do it" });
 
-		expect(file.path).toBe(join(root, CONFIG_DIR_NAME, "plans", "2026-10-08-1530-add-rate-limiting.md"));
+		expect(file.path).toBe(join(storeDir(root), "2026-10-08-1530-add-rate-limiting.md"));
 		expect(readFileSync(file.path, "utf-8")).toContain("1. Do it");
-		expect(readFileSync(join(root, CONFIG_DIR_NAME, "plans", ".gitignore"), "utf-8")).toBe("*\n");
-		expect(file.relativePath).toBe(join(CONFIG_DIR_NAME, "plans", "2026-10-08-1530-add-rate-limiting.md"));
+		expect(file.relativePath).toBe(shortenPath(file.path));
 		expect(file.bytes).toBeGreaterThan(0);
 	});
 
-	test("leaves an existing .gitignore alone", async () => {
+	test("writes nothing into the checkout, not even an ignore file", async () => {
 		const root = tempDir();
-		const store = repoStore(root);
-		const dir = await store.dirFor(root);
-		mkdirSync(dir, { recursive: true });
-		writeFileSync(join(dir, ".gitignore"), "!*.md\n");
+		await repoStore(root).write(root, { title: "Kept", content: "body" });
 
-		await store.write(root, { title: "Kept", content: "body" });
-
-		expect(readFileSync(join(dir, ".gitignore"), "utf-8")).toBe("!*.md\n");
+		expect(readdirSync(root)).toEqual([]);
 	});
 
 	test("suffixes a colliding name instead of overwriting", async () => {
@@ -227,13 +298,13 @@ describe("plan store — read", () => {
 		expect(await store.read(root, join(root, "outside.md"))).toBeUndefined();
 	});
 
-	test("accepts a path relative to the working directory", async () => {
+	test("accepts a path relative to the store, and the ~/ form it displays", async () => {
 		const root = tempDir();
 		const store = repoStore(root);
 		const file = await store.write(root, { title: "Relative", content: "body" });
-		const relative = join(CONFIG_DIR_NAME, "plans", "2026-10-08-1530-relative.md");
 		expect(existsSync(file.path)).toBe(true);
-		expect((await store.read(root, relative))?.content).toBe("body");
+		expect((await store.read(root, basename(file.path)))?.content).toBe("body");
+		expect((await store.read(root, file.relativePath))?.content).toBe("body");
 	});
 });
 
@@ -300,8 +371,7 @@ describe("plan store — latest", () => {
 
 describe("plan store — index", () => {
 	/** Write a plan file directly, so the test controls the name and mtime. */
-	function seed(root: string, name: string, content: string, mtimeSeconds: number): string {
-		const dir = join(root, CONFIG_DIR_NAME, "plans");
+	function seed(root: string, name: string, content: string, mtimeSeconds: number, dir = storeDir(root)): string {
 		mkdirSync(dir, { recursive: true });
 		const path = join(dir, name);
 		writeFileSync(path, content);
@@ -320,7 +390,7 @@ describe("plan store — index", () => {
 		expect(rows.map((row) => row.path)).toEqual([fresh, old]);
 		expect(rows[0]).toMatchObject({ title: "Fresh plan", steps: { done: 1, total: 1 } });
 		expect(rows[1]).toMatchObject({ title: "Old plan", steps: { done: 1, total: 2 } });
-		expect(rows[0]?.relativePath).toContain(join(CONFIG_DIR_NAME, "plans"));
+		expect(rows[0]?.relativePath).toBe(shortenPath(rows[0]?.path ?? ""));
 		expect(rows[0]?.bytes).toBeGreaterThan(0);
 		expect(rows[0]?.modified).toBeCloseTo(1_700_000_500_000, -3);
 	});
@@ -352,8 +422,8 @@ describe("plan store — index", () => {
 		const root = tempDir();
 		const store = repoStore(root);
 		const kept = seed(root, "2026-10-01-0900-kept.md", "# Kept", 1_700_000_000);
-		const dir = join(root, CONFIG_DIR_NAME, "plans");
-		writeFileSync(join(dir, ".gitignore"), "*\n");
+		const dir = storeDir(root);
+		writeFileSync(join(dir, ".nearby"), "state");
 		writeFileSync(join(dir, "notes.txt"), "not a plan");
 		mkdirSync(join(dir, "sub.md"));
 
@@ -364,7 +434,7 @@ describe("plan store — index", () => {
 		const root = tempDir();
 		const store = repoStore(root);
 		const kept = seed(root, "2026-10-01-0900-kept.md", "# Kept", 1_700_000_000);
-		const dir = join(root, CONFIG_DIR_NAME, "plans");
+		const dir = storeDir(root);
 		const outside = join(root, "outside.md");
 		writeFileSync(outside, "# Outside");
 		symlinkSync(outside, join(dir, "link.md"));
@@ -372,17 +442,17 @@ describe("plan store — index", () => {
 		expect((await store.index(root)).map((row) => row.path)).toEqual([kept]);
 	});
 
-	test("indexes the worktree's own plans, not the main checkout's", async () => {
+	test("indexes the repository's one store from either checkout", async () => {
 		const main = tempDir();
 		const worktree = tempDir();
 		seed(main, "2026-10-01-0900-main.md", "# Main checkout plan", 1_700_000_000);
-		const own = seed(worktree, "2026-10-02-0900-worktree.md", "# Worktree plan", 1_700_000_500);
-		// Inside a worktree, `git rev-parse --show-toplevel` reports the worktree.
-		const store = repoStore(worktree);
+		const own = seed(worktree, "2026-10-02-0900-worktree.md", "# Worktree plan", 1_700_000_500, storeDir(main));
+		// Both checkouts share one key, so a plan written in either is a plan in both.
+		const store = createPlanStore(worktreePi(main, worktree), { now: () => FIXED });
 
 		const rows = await store.index(worktree);
 
-		expect(rows.map((row) => row.path)).toEqual([own]);
+		expect(rows.map((row) => row.path)).toEqual([own, join(storeDir(main), "2026-10-01-0900-main.md")]);
 		expect(rows[0]?.title).toBe("Worktree plan");
 	});
 
@@ -402,7 +472,7 @@ describe("plan store — atomic writes", () => {
 
 		const dir = await store.dirFor(root);
 		expect(readFileSync(file.path, "utf-8")).toBe("v2");
-		expect(readdirSync(dir).sort()).toEqual([".gitignore", basename(file.path)]);
+		expect(readdirSync(dir).sort()).toEqual([basename(file.path)]);
 	});
 
 	test("a step edit leaves no temp file either", async () => {
@@ -413,27 +483,27 @@ describe("plan store — atomic writes", () => {
 		await store.setSteps(root, file.path, [{ step: 1, status: "completed", expected: "One" }]);
 
 		const dir = await store.dirFor(root);
-		expect(readdirSync(dir).sort()).toEqual([".gitignore", basename(file.path)]);
+		expect(readdirSync(dir).sort()).toEqual([basename(file.path)]);
 	});
 });
 
 describe("plan store — containment", () => {
-	test("refuses to overwrite the directory's .gitignore or a non-markdown file", async () => {
+	test("refuses to overwrite a dotfile or a non-markdown file beside the plans", async () => {
 		const root = tempDir();
 		const store = repoStore(root);
 		const dir = await store.dirFor(root);
 		mkdirSync(dir, { recursive: true });
-		writeFileSync(join(dir, ".gitignore"), "*\n");
+		writeFileSync(join(dir, ".state"), "keep");
 		writeFileSync(join(dir, "notes.txt"), "keep");
 
-		await expect(
-			store.write(root, { title: "x", content: "!*.md\n", planPath: join(dir, ".gitignore") }),
-		).rejects.toThrow(/markdown plan file/);
+		await expect(store.write(root, { title: "x", content: "x", planPath: join(dir, ".state") })).rejects.toThrow(
+			/markdown plan file/,
+		);
 		await expect(store.write(root, { title: "x", content: "x", planPath: join(dir, "notes.txt") })).rejects.toThrow(
 			/markdown plan file/,
 		);
 
-		expect(readFileSync(join(dir, ".gitignore"), "utf-8")).toBe("*\n");
+		expect(readFileSync(join(dir, ".state"), "utf-8")).toBe("keep");
 		expect(readFileSync(join(dir, "notes.txt"), "utf-8")).toBe("keep");
 	});
 
@@ -1288,8 +1358,8 @@ describe("plan index — age and notice", () => {
 	/** A summary for a plan modified `days` before NOW. */
 	function summary(over: Partial<PlanSummary> = {}): PlanSummary {
 		return {
-			path: "/repo/.pi/plans/2026-10-16-1030-add-rate-limiting.md",
-			relativePath: ".pi/plans/2026-10-16-1030-add-rate-limiting.md",
+			path: "/home/u/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md",
+			relativePath: "~/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md",
 			title: "Add rate limiting",
 			modified: NOW - 2 * DAY,
 			bytes: 512,
@@ -1313,25 +1383,27 @@ describe("plan index — age and notice", () => {
 	test("names the directory and one line per plan, newest first", () => {
 		const text = formatPlanIndex(
 			[summary(), summary({ title: "Older plan", modified: NOW - 40 * DAY, steps: { done: 0, total: 2 } })],
-			"/repo/.pi/plans",
+			"~/.pi/agent/plans/a1f9c02",
 		);
 		const lines = text.split("\n");
 		expect(lines[0]).toContain("Plans (2)");
-		expect(lines[0]).toContain("/repo/.pi/plans");
+		expect(lines[0]).toContain("~/.pi/agent/plans/a1f9c02");
 		expect(lines[1]).toContain("Add rate limiting — 3/7 steps");
-		expect(lines[1]).toContain(".pi/plans/2026-10-16-1030-add-rate-limiting.md");
+		expect(lines[1]).toContain("~/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md");
 		expect(lines[2]).toContain("Older plan — 0/2 steps");
 	});
 
 	test("says where plans go when there are none", () => {
-		expect(formatPlanIndex([], "/repo/.pi/plans")).toBe("No plans in /repo/.pi/plans yet; write_plan saves one there.");
+		expect(formatPlanIndex([], "~/.pi/agent/plans/a1f9c02")).toBe(
+			"No plans in ~/.pi/agent/plans/a1f9c02 yet; write_plan saves one there.",
+		);
 	});
 
 	test("reports a file it did not read as unknown steps and sanitizes a title", () => {
-		const unknown = formatPlanIndex([summary({ steps: undefined, oversize: true })], "/repo/.pi/plans");
+		const unknown = formatPlanIndex([summary({ steps: undefined, oversize: true })], "~/.pi/agent/plans/a1f9c02");
 		expect(unknown).toContain("steps unknown");
 
-		const dirty = formatPlanIndex([summary({ title: "bad\u0001title" })], "/repo/.pi/plans");
+		const dirty = formatPlanIndex([summary({ title: "bad\u0001title" })], "~/.pi/agent/plans/a1f9c02");
 		expect(dirty).toContain("bad title");
 		expect(dirty).not.toContain("\u0001");
 	});
@@ -1344,8 +1416,8 @@ describe("plan index — screen", () => {
 	/** A summary for a plan modified `days` before NOW. */
 	function summary(over: Partial<PlanSummary> = {}): PlanSummary {
 		return {
-			path: "/repo/.pi/plans/2026-10-16-1030-add-rate-limiting.md",
-			relativePath: ".pi/plans/2026-10-16-1030-add-rate-limiting.md",
+			path: "/home/u/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md",
+			relativePath: "~/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md",
 			title: "Add rate limiting",
 			modified: NOW - 2 * DAY,
 			bytes: 512,
@@ -1361,7 +1433,7 @@ describe("plan index — screen", () => {
 		let closed = 0;
 		const component = new PlanIndexComponent({
 			summaries: options.summaries ?? [summary(), summary({ title: "Older plan", modified: NOW - 40 * DAY })],
-			dir: "/repo/.pi/plans",
+			dir: "~/.pi/agent/plans/a1f9c02",
 			theme,
 			now: () => NOW,
 			onSelect: (plan) => selected.push(plan),
@@ -1392,8 +1464,10 @@ describe("plan index — screen", () => {
 
 	test("shows the focused plan's path and modified time", () => {
 		const h = harness();
-		expect(h.text()).toContain(".pi/plans/2026-10-16-1030-add-rate-limiting.md");
-		expect(h.text()).toContain("modified 2026-10-06 15:30");
+		expect(h.text()).toContain("~/.pi/agent/plans/a1f9c02/2026-10-16-1030-add-rate-limiting.md");
+		// The path is long enough to clip the tail at 80 columns; the row still carries
+		// the modified time.
+		expect(h.text()).toContain("modified 202");
 	});
 
 	test("shows an empty state", () => {

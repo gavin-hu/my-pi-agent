@@ -173,6 +173,10 @@ async function openPlanIndex(
 	ctx: ExtensionContext,
 ): Promise<void> {
 	const dir = await runtime.plans.dirFor(ctx.cwd);
+	// A store an older version kept in the checkout was just moved in; the list is
+	// where a user notices their plans are somewhere else.
+	const moved = runtime.plans.takeNotice();
+	if (moved) ctx.ui.notify(moved, "info");
 	const summarise = async (): Promise<Awaited<ReturnType<typeof runtime.plans.index>>> => runtime.plans.index(ctx.cwd);
 	const summaries = await summarise();
 

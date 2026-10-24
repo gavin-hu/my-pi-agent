@@ -34,8 +34,8 @@ import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, ty
 import type { NetworkInterfaces } from "./web-share.ts";
 
 const PLAN = "# Title\n\n## Steps\n- [ ] one\n- [ ] two\n";
-const PATH = "/repo/.pi/plans/2026-10-14-1600-demo.md";
-const RELATIVE = ".pi/plans/2026-10-14-1600-demo.md";
+const PATH = "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md";
+const RELATIVE = "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md";
 
 interface ReviewIsland {
 	title: string;
@@ -162,6 +162,15 @@ describe("browser comment codec", () => {
 });
 
 const HOST = { host: "127.0.0.1:1234" };
+
+test("the page shows the owner a note when approval belongs in the terminal", () => {
+	const withNote = renderReviewPage({ ...PAGE_DATA, note: "Approve this split in the terminal." });
+	const without = renderReviewPage(PAGE_DATA);
+	expect(withNote).toContain("Approve this split in the terminal.");
+	expect(without).not.toContain("Approve this split in the terminal.");
+	// The note is escaped: it is text, not markup.
+	expect(renderReviewPage({ ...PAGE_DATA, note: "<b>x</b>" })).not.toContain("<b>x</b>");
+});
 
 const PAGE_DATA: ReviewPageData = {
 	title: "T",

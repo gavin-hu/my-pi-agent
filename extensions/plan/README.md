@@ -3,7 +3,7 @@
 A read-only exploration mode modelled on Claude Code's `EnterPlanMode` /
 `ExitPlanMode` pair. While plan mode is on, the model investigates and proposes,
 but the only thing it may write is the plan file itself. The plan is saved under
-`.pi/plans`; the user reviews that file, and it is the artifact the model
+the agent directory; the user reviews that file, and it is the artifact the model
 executes.
 
 ```bash
@@ -44,11 +44,14 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   quality checklist, and writes only after plan approval. It supports existing and
   empty repositories, and falls back to evidence with recorded assumptions when
   the interview is unavailable or cancelled; it never invents commands.
-- **Plan files.** The model saves the plan with `write_plan`; the file lands in
-  `<repo-root>/.pi/plans/<YYYY-MM-DD-HHmm>-<slug>.md` — the entered worktree's
-  root when one is active — or `<agent-dir>/plans` outside a repository. The
-  plans directory is self-ignoring, so plan files never show up as untracked
-  files or in `rewind` snapshots.
+- **Plan files, shared by the whole repository.** The model saves the plan with
+  `write_plan`; the file lands in
+  `<agent-dir>/plans/<repo-key>/<YYYY-MM-DD-HHmm>-<slug>.md`, keyed by the
+  repository's common git directory, so a plan approved in one worktree is the
+  same plan from the main checkout and from every other session. Outside a
+  repository the store is `<agent-dir>/plans`. Plans are outside the project, so
+  they are never untracked files and never appear in a `rewind` snapshot; a store
+  an older version left in `<repo>/.pi/plans` is moved in once, with a notice.
 - **A discoverable index.** `/plan list` walks the plans directory and shows
   every plan with its title, modified time, and step progress, newest first — in
   the TUI as a docked list where `Enter` opens the plan's review, elsewhere as a
@@ -135,9 +138,69 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   the plan *is* the decision. A session with no goal at all is given the same
   objective, also without asking. An `active` or `achieved` goal is never
   rewritten: a final objective is the user's. No path spends a model turn.
+- **A split, when the switch is on.** With `plan.split` enabled (off by default;
+  a `/bytefly settings` row), `exit_plan_mode` also accepts `units`: the plan's
+  slices, each with a name, path prefixes, a test, and the units it depends on.
+  The split is validated *before* the review opens, so a refusal costs no review,
+  and the review screen shows it as a read-only `Split` section. On approval the
+  team is written into the plan as a `## Team` table — a sentence naming the lead's
+  unit, then one row per unit — and the result carries a roster card: the exact
+  commands for the sessions this package cannot start, the merge order, and which
+  unit is the lead's own. The team section is what a joining session reads, so it
+  appears only after approval; a refinement rewrites the plan, and with it the team
+  ceases to exist until the plan is approved again. Refusals name the pair: fewer
+  than two units (with the skeleton advice), overlapping prefixes, a `dependsOn`
+  cycle, more than two owners plus the lead, a unit with no test, an owner unit
+  that claims a shared file, and a value that would break the table. See
+  [Splitting a plan](#splitting-a-plan).
 - **Branch-aware.** The enabled flag and the review baseline are custom session
   entries, so `/resume` and `/tree` restore the right mode and keep the
   changed-section markers.
+
+## Splitting a plan
+
+Off by default: enable **Split plans into slices** in `/bytefly settings`, or set
+`"plan": { "split": true }` in the project's `.pi/bytefly.json` so a repository
+switches its own team on.
+
+```text
+exit_plan_mode({
+  plan_path: "~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md",
+  units: [
+    { name: "contract", paths: ["src/billing/contract"], test: "bun test src/billing/contract", lead: true },
+    { name: "core", paths: ["src/billing/core"], test: "bun test src/billing/core", dependsOn: ["contract"] }
+  ]
+})
+```
+
+The result prints the roster card, which is all the package can do about sessions
+it cannot start:
+
+```text
+Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
+  You start and switch every session; nothing here can.
+  core: enter_worktree core · /sessions name core · /sessions watch wake
+    session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
+  merge order: contract → core · your unit: contract
+```
+
+What the gate enforces, and why each rule is a refusal rather than a warning:
+
+| Refusal | Why |
+|---|---|
+| fewer than two units | One path is not a split: approve as one flow, or build the thinnest end-to-end path first. |
+| overlapping prefixes | Two owners on one path is a merge conflict by construction. |
+| a `dependsOn` cycle | No unit can start. |
+| more than two owners | The user switches to every owner each round; three means the split is wrong. |
+| a unit with no test | The unit's definition of done would be undocumented. |
+| an owner unit claiming a shared file | `package.json`, the changelog, the test manifests, and the shared name modules belong to the lead. |
+| no unit marked lead | The approving session needs a unit of its own, or it is a queue. |
+
+The table itself is a wire format: [`session-bus`](../session-bus/) parses it with
+the same module that writes it, so a hand-edited or stale section is refused
+rather than half-read. The browser review cannot approve a split plan — a section
+written at approval has no source lines for its comments to anchor to — so the
+terminal review is where a split is approved.
 
 ## Tools
 
@@ -145,7 +208,7 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 |---|---|---|
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. A plan with more than 50 top-level steps in its `Steps` section is refused, with the cap and the fix named, and nothing is written. |
-| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. The review also offers **Exit plan mode (discard)**, which leaves plan mode without approving. Refuses a file whose step list is over the cap, before the review screen. |
+| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Optional `units` proposes a split when `plan.split` is on; it is validated before the review, written into the plan on approval, and ignored with one note while the switch is off. The review also offers **Exit plan mode (discard)**, which leaves plan mode without approving. Refuses a file whose step list is over the cap, before the review screen. |
 | `cancel_plan_mode` | plan mode | Leave plan mode without a plan file or a review. Restores write access; records no todo items or goal; keeps any saved plan. Empty schema. |
 | `set_plan_steps` | normal mode | Keep an approved plan current: set the checkboxes of the given top-level steps (`updates`, each a 1-based `step` in the order `exit_plan_mode` listed, plus `status`, and `expected` — the step's text, so a reordered plan is refused) to `pending` or `completed` in one write. Only the checkboxes change, and a reopened step drops its `[DONE:n]` marker. The todo item approval seeded from a step is ticked with it: the file is written first and is authoritative, a renamed item is left alone, and a failed todo write is reported in the result. |
 
@@ -287,13 +350,13 @@ enter_plan_mode requested plan mode
 
 ```
 write_plan Add rate limiting
-✓ Saved plan .pi/plans/2026-10-09-1809-add-rate-limiting.md
+✓ Saved plan ~/.pi/agent/plans/a1f9c02/2026-10-09-1809-add-rate-limiting.md
 ```
 
 ```
 exit_plan_mode submitted a plan
 ✓ Plan approved
-.pi/plans/2026-10-09-1809-add-rate-limiting.md
+~/.pi/agent/plans/a1f9c02/2026-10-09-1809-add-rate-limiting.md
 
 # Add rate limiting
 1. Add a token bucket …
