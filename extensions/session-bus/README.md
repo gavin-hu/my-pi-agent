@@ -50,6 +50,10 @@ Naming also sets Pi's session name, so the footer's `[label]` and `/resume` agre
 with the bus. Because the bus derives a joining session's label from that name, a
 named session comes back under the same label after a resume.
 
+The tool's `name` action is the same rename from the model's side, so a lead can
+name itself once the roster card has told it how — the one line of the card it
+cannot get any other way.
+
 ## Tools
 
 | Action | Inputs | Result |
@@ -62,6 +66,7 @@ named session comes back under the same label after a resume.
 | `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.split` on. Idempotent: joining twice is the same claims. |
 | `leave` | optional `team`, `unit` | Releases that unit's paths, or every claim this session holds when neither is given. Never gated by the switch. |
 | `watch` | optional `wake`, optional `stop` | Arms this session’s inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch’s mode. |
+| `name` | `label` | Renames this session on the bus and in Pi — the same path as `/sessions name`, with the same uniqueness rule, so the footer and `/resume` agree with the record peers address. An empty label is refused rather than keeping the old one, and a label a live session holds is refused with its owner named. The result reports the label the bus settled on. |
 
 Message kinds are `message` (default), `event`, `ask`, and `handoff`. An `ask` is
 still a message: it does not block or wait for a reply. Text is capped at 4,000

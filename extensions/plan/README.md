@@ -183,7 +183,14 @@ Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
   core: enter_worktree core · /sessions name core · /sessions watch wake
     session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
   merge order: contract → core · your unit: contract
+  your label: none — name this session: session({action:"name", label:"contract"})
 ```
+
+The last line is the lead's own label. The card's other lines are for the sessions
+the user starts; this one is the lead's own, so it names the label when the session
+already has one, and otherwise prints the rename to run. Once set, it reads
+`your label: billing-lead — owners send their report there`, which is what an
+owner addresses its completion report to.
 
 What the gate enforces, and why each rule is a refusal rather than a warning:
 

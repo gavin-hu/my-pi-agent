@@ -621,6 +621,20 @@ describe("exit_plan_mode with a split", () => {
 		expect(readFileSync(planPath, "utf-8")).toBe(PLAN);
 	});
 
+	test("the roster card names the lead's own label once it has one", async () => {
+		enableSplit();
+		const { pi, enter, exit, write, runtime, root } = setup();
+		pi.setSessionName("billing-lead");
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
+
+		expect(result.content[0].text).toContain("your label: billing-lead — owners send their report there");
+		expect(result.content[0].text).not.toContain("name this session");
+	});
+
 	test("refuses a single unit with the skeleton advice", async () => {
 		enableSplit();
 		const { enter, exit, write, runtime, root } = setup();
@@ -650,6 +664,9 @@ describe("exit_plan_mode with a split", () => {
 		expect(result.content[0].text).toContain('session({action:"join"');
 		expect(result.content[0].text).toContain("merge order: contract → core");
 		expect(result.content[0].text).toContain("Work only your own unit (contract)");
+		expect(result.content[0].text).toContain(
+			'your label: none — name this session: session({action:"name", label:"contract"})',
+		);
 		expect(toolCalls[0]?.name).toBe("todo");
 
 		const written = readFileSync(planPath, "utf-8");

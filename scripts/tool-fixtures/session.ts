@@ -111,6 +111,17 @@ export const SESSION_FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "session-name",
+		tool: "session",
+		group: "package",
+		label: "a session naming itself",
+		args: { action: "name", label: "billing-lead" },
+		result: {
+			content: [{ type: "text", text: 'This session is now named "billing-lead".' }],
+			details: { action: "name", label: "billing-lead" },
+		},
+	},
+	{
 		name: "todo",
 		group: "package",
 		label: "a task list with every status",

@@ -17,10 +17,20 @@ export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
-export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join" | "leave" | "watch";
+export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join" | "leave" | "watch" | "name";
 export type MessageKind = "message" | "event" | "ask" | "handoff";
 
-const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "join", "leave", "watch"];
+const ACTIONS: readonly SessionAction[] = [
+	"status",
+	"send",
+	"inbox",
+	"claim",
+	"release",
+	"join",
+	"leave",
+	"watch",
+	"name",
+];
 const KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 
 /** Only a terminal session is visible on the bus before it asks to join. */

@@ -143,6 +143,8 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 		}
 		case "watch":
 			return undefined;
+		case "name":
+			return undefined;
 	}
 }
 
@@ -235,5 +237,7 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 				details.watching?.wake === true ? "Inbox watch on: new mail wakes a turn" : "Inbox watch on",
 			);
 		}
+		case "name":
+			return paint(theme, "ok", `Named this session "${sanitizeLine(details.label ?? "")}"`);
 	}
 }

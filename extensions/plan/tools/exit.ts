@@ -308,7 +308,7 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 					? split.kind === "off"
 						? `\n\n${SPLIT_OFF_NOTE}`
 						: ""
-					: `\n\n${rosterCard(pending.team, approved.path)}\n\nWork only your own unit (${pending.team.lead}); the other units belong to the sessions the user starts.`;
+					: `\n\n${rosterCard(pending.team, approved.path, pi.getSessionName())}\n\nWork only your own unit (${pending.team.lead}); the other units belong to the sessions the user starts.`;
 			return {
 				content: [
 					{

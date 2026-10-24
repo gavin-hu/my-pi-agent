@@ -18,6 +18,8 @@ function busDir(): string {
 interface Session {
 	bus: SessionBus;
 	ctx: ExtensionContext;
+	/** The Pi surface the tool writes a rename through. */
+	pi: { getSessionName(): string | undefined; setSessionName(name: string): void };
 	tool: {
 		execute(
 			id: string,
@@ -48,11 +50,14 @@ function session(dir: string, root: string, id: string, name: string): Session {
 		heartbeatMs: 0,
 	});
 	const fake = createFakePi();
+	// Pi's session name and the bus's label are one identity in production, so a
+	// test that renames has to start from the name the session came back with.
+	fake.pi.setSessionName(name);
 	registerTools(fake.pi, bus);
 	const tool = fake.tools.get("session");
 	if (!tool) throw new Error("session tool not registered");
 	const ctx = fakeCtx({ cwd: root, sessionId: id, sessionName: name }).ctx as ExtensionContext;
-	return { bus, ctx, tool };
+	return { bus, ctx, tool, pi: fake.pi };
 }
 
 describe("session tool", () => {
@@ -155,6 +160,88 @@ describe("session tool", () => {
 			fakeTheme,
 		);
 		expect(rendered.render(80).join("\n")).toContain("wakes a turn");
+	});
+
+	test("name sets the bus label and Pi's session name, and peers address it", async () => {
+		const dir = busDir();
+		const lead = session(dir, "/repo/mono", "s1", "mono");
+		const owner = session(dir, "/repo/mono", "s2", "billing-core");
+		await lead.bus.start(lead.ctx);
+		await owner.bus.start(owner.ctx);
+
+		const named = await lead.tool.execute(
+			"call",
+			{ action: "name", label: "  billing-lead  " },
+			undefined,
+			undefined,
+			lead.ctx,
+		);
+		expect(named.isError).toBeUndefined();
+		expect(named.details.label).toBe("billing-lead");
+		expect(named.content[0]?.text).toBe('This session is now named "billing-lead".');
+		expect(lead.pi.getSessionName()).toBe("billing-lead");
+
+		const sent = await owner.tool.execute(
+			"call",
+			{ action: "send", to: "billing-lead", text: "config test is green" },
+			undefined,
+			undefined,
+			owner.ctx,
+		);
+		expect(sent.details.delivered).toEqual(["billing-lead"]);
+		const inbox = await lead.tool.execute("call", { action: "inbox" }, undefined, undefined, lead.ctx);
+		expect(inbox.details.messages[0]).toMatchObject({ fromLabel: "billing-core", text: "config test is green" });
+		await lead.bus.stop();
+		await owner.bus.stop();
+	});
+
+	test("name refuses a label another live session holds", async () => {
+		const dir = busDir();
+		const lead = session(dir, "/repo/mono", "s1", "mono");
+		const owner = session(dir, "/repo/mono", "s2", "billing-core");
+		await lead.bus.start(lead.ctx);
+		await owner.bus.start(owner.ctx);
+
+		const taken = await lead.tool.execute(
+			"call",
+			{ action: "name", label: "billing-core" },
+			undefined,
+			undefined,
+			lead.ctx,
+		);
+		expect(taken.isError).toBe(true);
+		expect(taken.content[0]?.text).toContain('the label "billing-core" is already in use');
+		expect(lead.pi.getSessionName()).toBe("mono");
+		await lead.bus.stop();
+		await owner.bus.stop();
+	});
+
+	test("name refuses a blank label instead of keeping the old one", async () => {
+		const dir = busDir();
+		const lead = session(dir, "/repo/mono", "s1", "mono");
+		await lead.bus.start(lead.ctx);
+
+		const blank = await lead.tool.execute("call", { action: "name", label: "   " }, undefined, undefined, lead.ctx);
+		expect(blank.isError).toBe(true);
+		expect(blank.content[0]?.text).toContain("name requires a label");
+		const status = await lead.tool.execute("call", { action: "status" }, undefined, undefined, lead.ctx);
+		expect(status.details.status.me.label).toBe("mono");
+		await lead.bus.stop();
+	});
+
+	test("the name transcript lines name the label", () => {
+		const lead = session(busDir(), "/repo/mono", "s1", "mono");
+		const call = lead.tool
+			.renderCall({ action: "name", label: "billing-lead" }, fakeTheme, { lastComponent: undefined })
+			.render(80)
+			.join("\n");
+		expect(call).toContain("session name billing-lead");
+		const rendered = lead.tool.renderResult(
+			{ content: [], details: { action: "name", label: "billing-lead" } },
+			{ expanded: false },
+			fakeTheme,
+		);
+		expect(rendered.render(80).join("\n")).toContain('Named this session "billing-lead"');
 	});
 
 	test("an invalid action returns a model-readable error", async () => {

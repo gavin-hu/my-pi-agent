@@ -195,7 +195,14 @@ Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
   core: enter_worktree core · /sessions name core · /sessions watch wake
     session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
   merge order: contract → core · your unit: contract
+  your label: none — name this session: session({action:"name", label:"contract"})
 ```
+
+That last line is the lead's own label. The lines above it are for the sessions
+you start; this one names the session you approved from, or prints the rename to
+run when it has no label yet. Once it is set the line reads
+`your label: billing-lead — owners send their report there`, which is what each
+owner addresses its completion report to.
 
 Then you open one session per owner and paste its line. Each owner joins its unit
 once — `session({action:"join"})` claims every path the unit owns — works one
