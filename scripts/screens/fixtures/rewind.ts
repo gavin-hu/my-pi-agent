@@ -85,8 +85,8 @@ export const REWIND_POINTS: RewindPoint[] = [
 
 /** The changed files the review screen shows after a documentation turn. */
 export const REVIEW_ENTRIES: ReviewEntry[] = [
-	{ path: "extensions/rewind/review.ts", change: "modified", added: 42, removed: 3 },
-	{ path: "extensions/rewind/review-tui.ts", change: "added", added: 180, removed: 0 },
-	{ path: "extensions/rewind/commands.ts", change: "modified", added: 6, removed: 1 },
+	{ path: "extensions/rewind/commands/review.ts", change: "modified", added: 42, removed: 3 },
+	{ path: "extensions/rewind/view/review-tui.ts", change: "added", added: 180, removed: 0 },
+	{ path: "extensions/rewind/commands/commands.ts", change: "modified", added: 6, removed: 1 },
 	{ path: "assets/review.png", change: "added", added: null, removed: null },
 ];
