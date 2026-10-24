@@ -18,9 +18,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that claims a shared file are refused by name. Off by default.
 - `session-bus`: `session({action:"join"})` claims every path of one unit of an
   approved split, reading the unit from the plan's `## Team` table through the
-  same module that wrote it, and `leave` releases them. `status` reports
-  `units n/m` with each unit's holder. Off while `plan.split` is off; `leave` and
-  `release` are never gated.
+  same module that wrote it, and `leave` releases them. A claim belongs to the
+  live session and not to the branch: an owner that exits releases its unit, a
+  restarted owner joins the same unit again, and a crashed one frees it when its
+  record goes stale. `status` reports `units n/m` with each unit's holder, which
+  is how a lead answers "has everyone started?" without messaging anyone. Off
+  while `plan.split` is off; `leave` and `release` are never gated.
 - `session-bus`: `/sessions` opens a live board in the TUI — a counts summary,
   session rows with their unread and claim counts, a focus block, and a pane of one
   session's identity and claims — with `w` arming or disarming this session's inbox
