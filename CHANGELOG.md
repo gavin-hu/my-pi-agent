@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `skills`: the `changelog` skill works on any project's changelog instead of this
+  package's. It finds the file, its category names and order, the scope prefixes, the
+  bullet shape, and the release document, states that profile in one line, and keeps
+  each mode's detail in a `references/` file — `SKILL.md` is a router at 77 lines
+  rather than a manual at 148. The new `scripts/state.ts` prints the tag, the commits
+  in the window, the `[Unreleased]` categories, the empty and duplicate headings, and
+  the link refs, so an audit starts from facts instead of a hand-run `git log`.
+  `tsconfig.json` now typechecks `skills/` for the script it ships.
+
 ## [0.18.0] - 2026-10-24
 
 ### Added

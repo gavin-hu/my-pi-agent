@@ -381,14 +381,20 @@ pick one:
 A recorded change is one bullet for one user-visible change, under `[Unreleased]`,
 scoped by the extension or area it touches, and written in the same commit as the
 change itself — a changelog that trails the work is a changelog nobody trusts. The
-skill reads the project's own preamble, scope prefixes, and release document first
-and follows those rather than a generic template.
+skill works on any project: before it writes anything it finds the changelog file,
+its category names and order, the scope prefixes, the bullet shape, and the release
+document, states that profile in one line, and follows those rather than a generic
+template. In this package the answers live in the changelog preamble, `AGENTS.md`,
+and Development, and the skill names them as its worked example.
 
 `audit` is read-only: it lists the commits since the last tag and names the ones
 with no entry or a weak one, so a change that shipped without a bullet is visible
-before a release rather than after it. `release` runs only when you ask for a
-specific version, and the steps it follows are this package's, in
-[Development](../development.md#release) — the version bump, the link references,
+before a release rather than after it. A bundled `state` script prints the file, the
+tag, the commits in the window, the `[Unreleased]` categories with their counts, and
+the empty or duplicated headings, so the audit starts from facts rather than a
+hand-run `git log`. `release` runs only when you ask for a specific version, and the
+steps it follows are the project's release document — this package's is
+[Development](../development.md#release), with the version bump, the link references,
 and the tag-and-`main` push order. Never treat an audit as a release.
 
 ## Checking your work
