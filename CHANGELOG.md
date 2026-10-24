@@ -150,6 +150,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a label bound to a link rather than a name two people can share. The
   update-channel item is deleted rather than deferred, because the release path
   accepts `X.Y.Z` only and publishes to `latest`, so no channel exists to select.
+- `docs`: the settings screen is counted as the thirteen rows it builds — eleven
+  of them in Project scope — in both entry READMEs, the extension README (its
+  prose, its sample frame, and both image alt texts), the configuration
+  reference, and the guide. `assets/bytefly-settings.png` is recaptured from the
+  current screen, whose header reads `Global · 13 settings`.
 - `plan`: an open browser review follows its plan file, so an edit this review did
   not make — the model rewriting the plan while `/plan review` is open in normal
   mode, or an editor saving it — repaints every reader within about a second

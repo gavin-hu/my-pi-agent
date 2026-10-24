@@ -3222,7 +3222,7 @@ describe("PanelComponent settings frame", () => {
 		expect(text).toContain("Session budget");
 	});
 
-	test("fits all twelve settings on a 24-row terminal with no range row", () => {
+	test("fits all thirteen settings on a 24-row terminal with no range row", () => {
 		const { component } = build({ items: [], section: "settings", rows: 24 });
 		const lines = component.render(80);
 
