@@ -41,6 +41,9 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   // Set once the server has bound a name to this link, which makes it final.
   var reviewerBound = typeof data.author === "string" && !!data.author;
   var DRAFT_REFUSAL = "Add or discard the comment you are writing.";
+  // What a body-less conflict says. A 409 the server explained is reported in its
+  // own words: a plan that moved and a link bound to another name both land here.
+  var PLAN_MOVED = "The plan changed on disk \u2014 reload to review again.";
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
   var approved = false;
@@ -300,12 +303,16 @@ ${WEB_MARKDOWN_JS}
         }, function () {});
       }
       if (response.status === 409) {
-        setStatus("The plan changed on disk \u2014 reload to review again.", "error");
+        // A conflict is either a plan that moved under the page or a link already
+        // bound to another name; a reload fixes both, and the server names which.
         if (approveButton) approveButton.disabled = true;
         if (saveButton) saveButton.disabled = true;
         if (postButton) postButton.disabled = true;
         offerReload();
-        return;
+        return response.json().then(
+          function (payload) { setStatus(payload && payload.error ? payload.error : PLAN_MOVED, "error"); },
+          function () { setStatus(PLAN_MOVED, "error"); }
+        );
       }
       // Surface the server's own reason (a malformed comment, a stale body)
       // rather than a bare status code.

@@ -657,6 +657,10 @@ revokes the token and closes that listener; closing the review does both.
 - Feedback stripping follows fenced code blocks; an unterminated fence makes the
   rest of the file code, so a marker-looking line after it is treated as content
   rather than stored feedback.
+- A comment is one line. Stored feedback is a single blockquote line, so newlines
+  and runs of spaces collapse before it is written; a pasted multi-line
+  instruction reaches the model as one sentence, which is what keeps the marker
+  grammar valid markdown.
 
 ## Non-goals
 

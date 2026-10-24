@@ -650,6 +650,19 @@ describe("review client", () => {
 		expect(save).toContain("saved = true");
 	});
 
+	test("shows the server's own reason when a post conflicts", () => {
+		// A 409 is either a plan that moved or a link already bound to a name; the
+		// server's sentence says which, so the page must not assume the first.
+		const start = REVIEW_CLIENT_JS.indexOf("function submit(url");
+		const submit = start < 0 ? "" : REVIEW_CLIENT_JS.slice(start, REVIEW_CLIENT_JS.indexOf("\n  }", start));
+		expect(submit).toContain("function submit(");
+		expect(submit).toContain("payload.error");
+		expect(submit).toContain("offerReload()");
+		expect(submit).toContain("PLAN_MOVED");
+		// The plan-changed sentence is the fallback now, not the only thing said.
+		expect(submit).not.toContain('setStatus("The plan changed');
+	});
+
 	test("puts the tab stop back after it rebuilds the block it was in", () => {
 		// Focus is restored only when the reviewer's own action destroyed it, never on
 		// a repaint the stream caused, and the status region says what happened.
