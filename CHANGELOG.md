@@ -78,6 +78,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the front door's hero is recaptured on the raised floor, so it names
+  `Pi v1.4.0` instead of `v1.1.0`; the catalog now says its groups are the
+  promises the [roadmap](./ROADMAP.md) tracks and that the
+  [guide](./docs/user-guide/) covers the same ground chapter by chapter; and the
+  Documentation table gains the [documentation index](./docs/README.md). The
+  capture rule moves to
+  [`docs/development.md`](./docs/development.md#screenshots), which now says the
+  hero prints the floor `bun.lock` resolved and not the `pi` on `PATH`. The
+  `worktree` catalogue row's unescaped pipes, which split it into four columns
+  wherever the table is rendered, are escaped in both entry READMEs.
 - `test`: the dev floor is raised to Pi 1.4.0 (`typebox` 1.4.3, `bun.lock`
   refreshed), so `bun run check` proves the package against the newest published
   peers instead of 1.1.0. The peers keep their `"*"` range; nothing a consumer

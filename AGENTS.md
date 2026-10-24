@@ -144,7 +144,7 @@ A surface is verified by rendering it. A terminal frame:
 browser page: `bun run screenshot:plan <plan.md>` or `screenshot:file-browse`,
 each driving the shipped page. `bun run check` renders every screen at three
 widths, so an overflowing frame fails there. Re-capture an `assets/` file only
-when its surface changed; `chrome.png` only in a release.
+when its surface or a printed version is behind.
 
 ## Documentation
 

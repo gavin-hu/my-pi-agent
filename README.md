@@ -15,7 +15,7 @@ This page is the catalog and the setup instructions. For how to use a feature �
 the keys, the commands, and what you should see — start with the
 [user guide](./docs/user-guide/).
 
-![A terminal window running the Pi TUI with the bytefly header, hint row, context and loaded extensions, a turn separator, and the status bar](assets/chrome.png)
+![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, the key-hint row, a nameplated question and its answer, the turn rule, the input box, and the two-line footer](assets/chrome.png)
 
 ## Contents
 
@@ -101,9 +101,10 @@ and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-19 extensions, 5 packaged skills, and 2 themes, grouped by what you are trying
-to do. Each extension's own page in `docs/extensions/` has the full tool and
-command surface, opening with its capabilities.
+19 extensions, 5 packaged skills, and 2 themes, grouped by the promises the
+[roadmap](./ROADMAP.md) tracks; the [guide](./docs/user-guide/) covers the same
+ground chapter by chapter. Each extension's own page in `docs/extensions/` has
+the full tool and command surface, opening with its capabilities.
 
 ### Plan and delegate
 
@@ -124,7 +125,7 @@ command surface, opening with its capabilities.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter|exit|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
+| [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
 | [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 
@@ -235,6 +236,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |
+| [Documentation index](./docs/README.md) | The map of everything: the guides, and the deep contracts behind them, by audience. |
 
 ## Contributing
 
