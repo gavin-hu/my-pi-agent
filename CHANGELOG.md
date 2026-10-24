@@ -139,6 +139,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: `ROADMAP.md` is re-derived from the tree rather than the last tag. The
+  three `Now` items are the gaps this window left — a split's shared-file rule
+  that stops at approval, a WeChat turn that goes silent when it is abandoned,
+  and a memory store that can miss a same-size edit — with the update action and
+  structured fetch queued behind them, the rest of `Later` re-ranked, and the
+  *Deliberately left thin* table rebuilt row by row from each extension README.
+  Two claims that the tree had outgrown are gone: delegation is no longer
+  described as synchronous now that background runs ship, and a reviewer's name
+  is a label bound to a link rather than a name two people can share. The
+  update-channel item is deleted rather than deferred, because the release path
+  accepts `X.Y.Z` only and publishes to `latest`, so no channel exists to select.
 - `plan`: an open browser review follows its plan file, so an edit this review did
   not make — the model rewriting the plan while `/plan review` is open in normal
   mode, or an editor saving it — repaints every reader within about a second
