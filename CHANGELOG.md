@@ -194,6 +194,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a rejected comment post says why. A `409` is either a plan that moved
+  under the page or a shared link already bound to another name, and the review now
+  shows the server's own sentence instead of always reporting that the plan changed
+  on disk.
 - `plan`: a shared link can no longer post under another reviewer's name. The name
   a link's first post signs is bound to its token, every later post from it is
   stored under that name whatever the payload says, and a page that signs a
