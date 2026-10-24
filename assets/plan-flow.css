@@ -18,8 +18,15 @@
 	--canvas: #0d1117;
 	--surface: #161b22;
 	--raised: #17273a;
-	--line: rgba(110, 118, 129, 0.32);
-	--line-strong: rgba(110, 118, 129, 0.52);
+	/* The theme's `border`, `blue`, `purple`, and `green` as channels, so a tint
+	 * below is one alpha away from the colour it belongs to rather than a
+	 * hand-copied triple that can quietly stop matching it. */
+	--border-rgb: 110, 118, 129;
+	--accent-rgb: 88, 166, 255;
+	--accent-alt-rgb: 188, 140, 255;
+	--success-rgb: 63, 185, 80;
+	--line: rgba(var(--border-rgb), 0.32);
+	--line-strong: rgba(var(--border-rgb), 0.52);
 	--text: #c9d1d9;
 	--muted: #8b949e;
 	--dim: #7d8590;
@@ -243,14 +250,14 @@ body {
 
 .chip--accent {
 	color: var(--accent);
-	border-color: rgba(88, 166, 255, 0.34);
-	background: rgba(88, 166, 255, 0.1);
+	border-color: rgba(var(--accent-rgb), 0.34);
+	background: rgba(var(--accent-rgb), 0.1);
 }
 
 .chip--success {
 	color: var(--success);
-	border-color: rgba(63, 185, 80, 0.34);
-	background: rgba(63, 185, 80, 0.1);
+	border-color: rgba(var(--success-rgb), 0.34);
+	background: rgba(var(--success-rgb), 0.1);
 }
 
 .line {
@@ -304,15 +311,15 @@ body {
 }
 
 .lane {
-	fill: rgba(88, 166, 255, 0.055);
-	stroke: rgba(88, 166, 255, 0.34);
+	fill: rgba(var(--accent-rgb), 0.055);
+	stroke: rgba(var(--accent-rgb), 0.34);
 	stroke-width: 1.5;
 	stroke-dasharray: 5 7;
 }
 
 .lane--write {
-	fill: rgba(63, 185, 80, 0.06);
-	stroke: rgba(63, 185, 80, 0.36);
+	fill: rgba(var(--success-rgb), 0.06);
+	stroke: rgba(var(--success-rgb), 0.36);
 }
 
 .lane-label {
@@ -350,7 +357,7 @@ body {
 }
 
 .gate {
-	fill: rgba(188, 140, 255, 0.09);
+	fill: rgba(var(--accent-alt-rgb), 0.09);
 	stroke: var(--accent-alt);
 	stroke-width: 1.6;
 }
@@ -410,8 +417,8 @@ body {
 
 /* The plan file is the one thing written inside the read-only lane. */
 .only-write {
-	fill: rgba(88, 166, 255, 0.12);
-	stroke: rgba(88, 166, 255, 0.4);
+	fill: rgba(var(--accent-rgb), 0.12);
+	stroke: rgba(var(--accent-rgb), 0.4);
 	stroke-width: 1;
 }
 
