@@ -12,8 +12,8 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { WechatClient, WechatClientOptions } from "../../../extensions/wechat/client.ts";
-import type { PeerSession, PeerSessionOptions } from "../../../extensions/wechat/peer-session.ts";
+import type { WechatClient, WechatClientOptions } from "../../../extensions/wechat/transport/client.ts";
+import type { PeerSession, PeerSessionOptions } from "../../../extensions/wechat/peer/peer-session.ts";
 import type { BotCredentials, UpdatesResponse, WeixinMessage } from "../../../extensions/wechat/types.ts";
 
 /** A stored account, as the login flow would have saved it. */

@@ -18,21 +18,27 @@ import {
 	type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
-import { writeConfigValue } from "../../lib/config.ts";
-import { sanitizeLine } from "../../lib/format.ts";
-import { supportsCustomUI } from "../../lib/interaction.ts";
-import { isAllowedPeer, type Bridge } from "./bridge.ts";
-import type { WechatClient } from "./client.ts";
-import type { WechatConfig } from "./config.ts";
+import { writeConfigValue } from "../../../lib/config.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { supportsCustomUI } from "../../../lib/interaction.ts";
+import { isAllowedPeer, type Bridge } from "../bridge.ts";
+import type { WechatClient } from "../transport/client.ts";
+import type { WechatConfig } from "../config.ts";
 import { doctorReport } from "./doctor.ts";
-import { messageOf } from "./errors.ts";
-import { peerLabel, peerKey } from "./format.ts";
+import { messageOf } from "../errors.ts";
+import { peerLabel, peerKey } from "../text/format.ts";
 import { waitForLogin, type LoginOutcome } from "./login.ts";
-import { defaultSleep } from "./timer.ts";
-import { LoginScreenComponent, type LoginViewState } from "./login-screen.ts";
-import { qrLines } from "../../lib/qr.ts";
-import { statusLine, statusView, StatusScreenComponent, type StatusAction, type StatusView } from "./status-screen.ts";
-import type { BotCredentials } from "./types.ts";
+import { defaultSleep } from "../timer.ts";
+import { LoginScreenComponent, type LoginViewState } from "../view/login-screen.ts";
+import { qrLines } from "../../../lib/qr.ts";
+import {
+	statusLine,
+	statusView,
+	StatusScreenComponent,
+	type StatusAction,
+	type StatusView,
+} from "../view/status-screen.ts";
+import type { BotCredentials } from "../types.ts";
 
 export interface CommandDeps {
 	getBridge: () => Bridge | undefined;

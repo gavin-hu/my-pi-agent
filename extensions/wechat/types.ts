@@ -6,7 +6,7 @@
  * the persisted credentials, cursor, and peer state.
  */
 
-import type { PeerLanguage } from "./format.ts";
+import type { PeerLanguage } from "./text/format.ts";
 
 /** One content item inside a message (`type` 1 = text). */
 export interface MessageItem {

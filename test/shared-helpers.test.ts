@@ -57,7 +57,7 @@ const SAME_NAME_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 		"strips the ANSI resets truncation emits so the caller can colorize; lib clip preserves them",
 	],
 	[
-		"extensions/wechat/state.ts:emptyState",
+		"extensions/wechat/state/state.ts:emptyState",
 		"returns the extension's state shape, not the TUI empty-state block lib exports",
 	],
 	["extensions/worktree/git.ts:currentBranch", "wraps the shared runner with the extension's ExtensionAPI seam"],
@@ -254,7 +254,7 @@ const TEST_HELPER_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 		"registers the directory for per-test cleanup; delegates to env.tempDir",
 	],
 	[
-		"extensions/wechat/client.test.ts:jsonResponse",
+		"extensions/wechat/transport/client.test.ts:jsonResponse",
 		"returns the wechat client's { status, headers, text } shape, not web-access's body",
 	],
 ]);

@@ -14,9 +14,15 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { SessionManager, type SessionEntry } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { tempDir } from "../../test/helpers/env.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { clearCredentials, primaryAccount, readCredentials, saveAccount, writeCredentials } from "./credentials.ts";
+import { tempDir } from "../../../test/helpers/env.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import {
+	clearCredentials,
+	primaryAccount,
+	readCredentials,
+	saveAccount,
+	writeCredentials,
+} from "../state/credentials.ts";
 import {
 	encodeClientVersion,
 	encodeUin,
@@ -28,9 +34,15 @@ import {
 	WechatClient,
 	WechatError,
 } from "./client.ts";
-import { formatHistory, HISTORY_LINE_CHARS, readPeerHistory } from "./history.ts";
-import { classifyStatus, credentialsFromStatus, type LoginOptions, type StatusKind, waitForLogin } from "./login.ts";
-import { LoginScreenComponent, loginBody, statusLabel } from "./login-screen.ts";
+import { formatHistory, HISTORY_LINE_CHARS, readPeerHistory } from "../commands/history.ts";
+import {
+	classifyStatus,
+	credentialsFromStatus,
+	type LoginOptions,
+	type StatusKind,
+	waitForLogin,
+} from "../commands/login.ts";
+import { LoginScreenComponent, loginBody, statusLabel } from "../view/login-screen.ts";
 import {
 	aesEcbPaddedSize,
 	buildUploadUrl,
@@ -44,9 +56,9 @@ import {
 	uploadUrlOf,
 } from "./media.ts";
 import { sendLocalFile, UPLOAD_MEDIA_TYPE_FILE } from "./outbound.ts";
-import { peerSessionDir } from "./peer-session.ts";
-import { qrLines, qrMatrix } from "../../lib/qr.ts";
-import type { BotCredentials, QrResponse, QrStatus } from "./types.ts";
+import { peerSessionDir } from "../peer/peer-session.ts";
+import { qrLines, qrMatrix } from "../../../lib/qr.ts";
+import type { BotCredentials, QrResponse, QrStatus } from "../types.ts";
 
 const account: BotCredentials = {
 	botToken: "tok",

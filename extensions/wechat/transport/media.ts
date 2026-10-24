@@ -10,8 +10,8 @@
 import { createCipheriv, createDecipheriv } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { stripControlChars } from "../../lib/format.ts";
-import type { CDNMedia } from "./types.ts";
+import { stripControlChars } from "../../../lib/format.ts";
+import type { CDNMedia } from "../types.ts";
 
 /** Decode a Weixin media AES key from 32 hex chars or base64 to 16 bytes. */
 export function decodeMediaKey(value: string): Buffer {

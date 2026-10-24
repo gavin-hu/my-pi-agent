@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { rejectionOf, type WechatClient } from "./client.ts";
 import { aesEcbPaddedSize, encryptEcb, sanitizeFileName, uploadUrlOf } from "./media.ts";
-import type { BotCredentials, CDNMedia } from "./types.ts";
+import type { BotCredentials, CDNMedia } from "../types.ts";
 
 /** `UploadMediaType.FILE` from the protocol. */
 export const UPLOAD_MEDIA_TYPE_FILE = 3;

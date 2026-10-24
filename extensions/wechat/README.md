@@ -509,38 +509,40 @@ status, which is what the old start/stop guidance used to do.
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge, open peer sessions from the host context. |
 | `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle, slash dispatch, the status snapshot, and `sendToOwner`. |
-| `poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence, and the expiry stop. |
-| `deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
-| `presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
-| `admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain. |
-| `inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
-| `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
-| `channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
-| `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
-| `reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
-| `commands.ts` | `/wechat login|new|status|stop|reset|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login/logout, and the per-peer stop/reset; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
-| `client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
-| `media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
-| `outbound.ts` | Upload and send a local file: hash, encrypt, `getUploadUrl`, upload, `sendFileMessage`. |
-| `login.ts` | QR login state machine. |
-| `login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
-| `status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list with stop/reset/history keys, and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
-| `credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
-| `state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids). |
-| `lock.ts` | Poller lockfile. |
-| `format.ts` | Sanitize, chunk, and label helpers (text only). |
-| `notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
+| `types.ts` | Wire and domain types. |
 | `errors.ts` | Re-exports `messageOf` from `lib/errors.ts`, the one error-to-line helper every notice and tool error uses. |
 | `timer.ts` | The timer seam: the cancellable one-shot `ArmTimer`, `defaultTimer`, and the abortable `defaultSleep`. |
-| `interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
-| `prompt.ts` | Pure prompt formatting and reply parsing. |
-| `remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
-| `slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
-| `history.ts` | Read-only `/history`: opens the peer's newest session, formats the last user/assistant messages, and never writes. |
-| `doctor.ts` | The plain-text `/wechat doctor` report: connection/token age, poll, lock, peer sessions, recent failures, and config. |
-| `types.ts` | Wire and domain types. |
+| `transport/client.ts` | iLink HTTP client (QR, getupdates, sendmessage, file sendmessage, getuploadurl, getconfig, sendtyping, CDN download/upload) with an injected runner. |
+| `transport/poll.ts` | The long-poll loop: `getupdates`, the watchdog and retry, backoff, cursor persistence, and the expiry stop. |
+| `transport/deliver.ts` | The one outbound text path (reply, dialog preface, `send_wechat`) plus file delivery: flatten, split, number, expiry, rejection, and the once-per-outage notice. |
+| `transport/outbound.ts` | Upload and send a local file: hash, encrypt, `getUploadUrl`, upload, `sendFileMessage`. |
+| `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
+| `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, MIME sniff, filename sanitize, and save helpers. |
+| `state/state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids). |
+| `state/credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
+| `state/lock.ts` | Poller lockfile. |
+| `peer/peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
+| `peer/peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
+| `peer/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain. |
+| `peer/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
+| `peer/presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
+| `commands/commands.ts` | `/wechat login|new|status|stop|reset|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login/logout, and the per-peer stop/reset; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
+| `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
+| `commands/doctor.ts` | The plain-text `/wechat doctor` report: connection/token age, poll, lock, peer sessions, recent failures, and config. |
+| `commands/login.ts` | QR login state machine. |
+| `commands/history.ts` | Read-only `/history`: opens the peer's newest session, formats the last user/assistant messages, and never writes. |
+| `text/format.ts` | Sanitize, chunk, and label helpers (text only). |
+| `text/notices.ts` | The peer-facing notice catalog: one line per kind, in the peer's language. |
+| `text/channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
+| `dialog/interaction.ts` | The WeChat `InteractionChannel`: pending-prompt state machine and reply routing. |
+| `dialog/prompt.ts` | Pure prompt formatting and reply parsing. |
+| `dialog/remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
+| `view/login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
+| `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list with stop/reset/history keys, and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
+
+Modules are grouped by the role they play: `transport/` is the only place that talks to iLink, `state/` owns the three files a session leaves on disk, `peer/` runs one peer's session and its queue, `commands/` holds a slash verb, `text/` words everything a peer reads, `dialog/` asks a question over WeChat, and `view/` draws a full-screen surface. `index.ts`, `bridge.ts`, `tools.ts`, `config.ts`, `types.ts`, `errors.ts`, and `timer.ts` stay at the root — the factory, the composition root, the public surface, and the seams the directories import.
 
 ## Testing
 

@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { asNumber } from "../../lib/config.ts";
+import { asNumber } from "../../../lib/config.ts";
 import { mediaDownloadUrl } from "./media.ts";
 import type {
 	BotCredentials,
@@ -21,7 +21,7 @@ import type {
 	SendTypingResponse,
 	UpdatesResponse,
 	WeixinMessage,
-} from "./types.ts";
+} from "../types.ts";
 
 /** Fixed public API base used for QR login. */
 export const DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com";

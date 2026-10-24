@@ -23,10 +23,10 @@ import {
 	updates,
 	writeAccount,
 } from "../../test/helpers/fixtures/wechat.ts";
-import { saveAccount } from "./credentials.ts";
+import { saveAccount } from "./state/credentials.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import wechat, { wechatChip } from "./index.ts";
-import type { PeerSession } from "./peer-session.ts";
+import type { PeerSession } from "./peer/peer-session.ts";
 
 describe("wechat registration", () => {
 	test("registers the /wechat command and the send_wechat tool", () => {

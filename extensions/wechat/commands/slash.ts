@@ -10,8 +10,8 @@
  * Value-only: no module-level state.
  */
 
-import { type PeerLanguage } from "./format.ts";
-import { notice } from "./notices.ts";
+import { type PeerLanguage } from "../text/format.ts";
+import { notice } from "../text/notices.ts";
 
 /** The two command kinds. */
 export type SlashKind = "snippet" | "action";

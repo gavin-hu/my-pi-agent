@@ -16,24 +16,24 @@
  * The model may message the owner proactively through {@link Bridge.sendToOwner}.
  */
 
-import { WechatError, type WechatClient } from "./client.ts";
-import { createAdmissionQueue, createTurnBudget } from "./admission.ts";
-import { createDeliverer, type MessageTarget } from "./deliver.ts";
-import { createInboundAdmission } from "./inbound.ts";
-import { createPollLoop, defaultPollTimeout } from "./poll.ts";
+import { WechatError, type WechatClient } from "./transport/client.ts";
+import { createAdmissionQueue, createTurnBudget } from "./peer/admission.ts";
+import { createDeliverer, type MessageTarget } from "./transport/deliver.ts";
+import { createInboundAdmission } from "./transport/inbound.ts";
+import { createPollLoop, defaultPollTimeout } from "./transport/poll.ts";
 import { messageOf } from "./errors.ts";
-import { parseInbound, peerKey, peerLabel, peerLanguage, sanitizeInbound, type PeerLanguage } from "./format.ts";
-import { notice } from "./notices.ts";
-import { createPresence } from "./presence.ts";
+import { parseInbound, peerKey, peerLabel, peerLanguage, sanitizeInbound, type PeerLanguage } from "./text/format.ts";
+import { notice } from "./text/notices.ts";
+import { createPresence } from "./peer/presence.ts";
 import {
 	createWechatInteractionChannel,
 	type PendingPromptInfo,
 	type WechatInteractionChannel,
-} from "./interaction.ts";
+} from "./dialog/interaction.ts";
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
-import { createPeerWorker, type PeerState, type PeerWorker } from "./peer-worker.ts";
-import type { PeerSession } from "./peer-session.ts";
-import { emptyState, findPeer, recordInbound, rememberMessage, seenMessage } from "./state.ts";
+import { createPeerWorker, type PeerState, type PeerWorker } from "./peer/peer-worker.ts";
+import type { PeerSession } from "./peer/peer-session.ts";
+import { emptyState, findPeer, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
 import {
 	expandSnippet,
 	findSlashCommand,
@@ -41,7 +41,7 @@ import {
 	SLASH_COMMANDS,
 	type SlashCommand,
 	type SlashContext,
-} from "./slash.ts";
+} from "./commands/slash.ts";
 import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
 

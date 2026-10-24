@@ -28,11 +28,11 @@
  */
 
 import type { ImageContent } from "@earendil-works/pi-ai";
-import { messageOf } from "./errors.ts";
-import type { NoticeKind } from "./notices.ts";
+import { messageOf } from "../errors.ts";
+import type { NoticeKind } from "../text/notices.ts";
 import type { PeerSession } from "./peer-session.ts";
 import { createReplyPipeline, type ReplyPipeline } from "./reply-pipeline.ts";
-import { defaultTimer, type ArmTimer } from "./timer.ts";
+import { defaultTimer, type ArmTimer } from "../timer.ts";
 
 /** One admitted, media-resolved inbound message. */
 export interface PeerItem {

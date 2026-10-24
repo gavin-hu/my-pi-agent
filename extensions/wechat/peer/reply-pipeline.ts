@@ -11,7 +11,7 @@
  * drive it.
  */
 
-import type { ArmTimer } from "./timer.ts";
+import type { ArmTimer } from "../timer.ts";
 
 export interface ReplyPipelineDeps {
 	/** Send one part to the peer. Parts arrive strictly in order. */

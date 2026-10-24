@@ -9,12 +9,12 @@
  * notice is bounded to one per wait episode.
  */
 
-import type { BotCredentials } from "./types.ts";
-import type { WechatClient } from "./client.ts";
+import type { BotCredentials } from "../types.ts";
+import type { WechatClient } from "../transport/client.ts";
 import type { PeerState } from "./peer-worker.ts";
-import type { PeerLanguage } from "./format.ts";
-import { notice } from "./notices.ts";
-import { createTimerMap, type ArmTimer } from "./timer.ts";
+import type { PeerLanguage } from "../text/format.ts";
+import { notice } from "../text/notices.ts";
+import { createTimerMap, type ArmTimer } from "../timer.ts";
 
 /** How long a fetched typing ticket is reused. */
 const TYPING_TTL_MS = 5 * 60 * 1000;

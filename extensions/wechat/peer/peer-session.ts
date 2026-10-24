@@ -32,8 +32,8 @@ import {
 	SessionManager,
 } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
-import { WECHAT_CHANNEL_PROMPT } from "./channel.ts";
-import { peerKey } from "./format.ts";
+import { WECHAT_CHANNEL_PROMPT } from "../text/channel.ts";
+import { peerKey } from "../text/format.ts";
 
 /** The SDK pieces a peer session needs; injected so tests never load resources. */
 export interface PeerSessionSeams {

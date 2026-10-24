@@ -9,8 +9,8 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { DEFAULT_BASE_URL } from "./client.ts";
-import type { BotCredentials, CredentialsFile } from "./types.ts";
+import { DEFAULT_BASE_URL } from "../transport/client.ts";
+import type { BotCredentials, CredentialsFile } from "../types.ts";
 
 /** The bridge's directory under the agent dir. */
 export function wechatDir(): string {

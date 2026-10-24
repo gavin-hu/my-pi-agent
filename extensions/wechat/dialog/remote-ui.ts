@@ -24,7 +24,7 @@ import {
 	type InteractionAnswer,
 	type InteractionChannel,
 	type InteractionRequest,
-} from "../../lib/interaction.ts";
+} from "../../../lib/interaction.ts";
 
 function valueOf(answer: InteractionAnswer): string | undefined {
 	return answer.kind === "value" ? answer.value : undefined;
