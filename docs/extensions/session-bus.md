@@ -11,17 +11,25 @@ a running turn settles. There is no network service and no hidden context.
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Session naming | `session name`, `/sessions name <label>` | A stable label peers address, and the name Pi's footer and `/resume` show. |
-| Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read. |
-| Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. |
-| Short messages | `session send` | One message per recipient, addressed by label or id, with a broadcast for events. |
-| Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. |
-| Inbox watch | `session watch`, `/sessions watch [off\|wake]` | New mail reported at the next turn, or one raised turn once the agent is idle. |
-| Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. |
-| Unit joining | `session join`, `session leave` | One call claims every path an approved split's unit owns. |
-| Usage help | `/sessions help` | The command's usage lines, printed in the transcript. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Session naming | `session name`, `/sessions name <label>` | A stable label peers address, and the name Pi's footer and `/resume` show. | Shipped |
+| Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read. | Shipped |
+| Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
+| Board actions | `/sessions` (`w`, `x`) | Arm or disarm the inbox watch, or release an own claim behind a confirmation, without leaving the board. | Shipped |
+| Short messages | `session send` | One message per recipient, addressed by label or id, with a broadcast for events. | Shipped |
+| Message kinds | `session send` with `kind` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender. | Shipped |
+| Message paths | `session send` with `paths` | A message can name the repository paths it concerns, echoed in the inbox row. | Shipped |
+| Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
+| Inbox watch | `session watch`, `/sessions watch [off\|wake]` | New mail reported at the next turn, or one raised turn once the agent is idle. | Shipped |
+| Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. | Shipped |
+| Unit joining | `session join`, `session leave`; `plan.split` | One call claims every path an approved split's unit owns. | Shipped |
+| Joined-unit report | `session status` (`units n/m`) | The newest split's joined units, their holder, and the lead are visible without opening the plan. | Shipped |
+| Leave everything | `session leave` with no unit | Releases every claim this session holds, not only one unit's paths. | Shipped |
+| Automatic TUI join | automatic: `session_start` | A TUI session joins the bus without a `session` call, so peers see it immediately. | Shipped |
+| Usage help | `/sessions help` | The command's usage lines, printed in the transcript. | Shipped |
 
 ## Quickstart
 

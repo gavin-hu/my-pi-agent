@@ -7,15 +7,20 @@ untouched.
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Window headline | `/context` | Pi's own estimate: tokens, window, percentage, free space, and the auto-compaction threshold with the headroom left before it. |
-| Composition breakdown | `/context` | Where the window went — system prompt, active tool definitions, the conversation by role, injected pack context, summaries, and shell output. |
-| Honest drift | `/context` | The difference between Pi's total and the composition estimate, named instead of hidden by forcing the parts to add up. |
-| Compaction history | `/context` | How many compactions the branch has, what the newest one cut from and to, and what its summary costs. |
-| Largest messages | `/context` | The five largest single messages, so a report that is mostly one tool result says so. |
-| Guarded compaction | `/context compact [instructions]`, `c` on the screen | Compact from the report without interrupting a streaming turn or a running compaction. |
-| Mode coverage | `/context` | A scrollable screen in the TUI, the same facts as plain text in `rpc`, `json`, and `print`. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Window headline | `/context` | Pi's own estimate: tokens, window, percentage, free space, and the auto-compaction threshold with the headroom left before it. | Shipped |
+| Composition breakdown | `/context` | Where the window went — system prompt, active tool definitions, the conversation by role, injected pack context, summaries, and shell output. | Shipped |
+| Guarded compaction | `/context compact [instructions]`, `c` on the screen | Compact from the report without interrupting a streaming turn or a running compaction. | Shipped |
+| Compact result | `/context compact` result | The before and after token counts are reported, so the effect of the compaction is visible. | Shipped |
+| Honest drift | `/context` | The difference between Pi's total and the composition estimate, named instead of hidden by forcing the parts to add up. | Shipped |
+| Compaction history | `/context` | How many compactions the branch has, what the newest one cut from and to, and what its summary costs. | Shipped |
+| Largest messages | `/context` | The five largest single messages, so a report that is mostly one tool result says so. | Shipped |
+| Gauge rendering | the `/context` screen | The window and composition bars show ten or eight cells, colored by role, instead of leaving the reader to infer the shape. | Shipped |
+| Pending total | `/context` after a compaction | The report shows a pending total instead of a fabricated estimate while Pi recalculates the window. | Shipped |
+| Mode coverage | `/context` | A scrollable screen in the TUI, the same facts as plain text in `rpc`, `json`, and `print`. | Shipped |
 
 ## Quickstart
 

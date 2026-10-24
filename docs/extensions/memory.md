@@ -11,17 +11,22 @@ reminded of twice.
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Automatic recall | the `[MEMORY]` context message | Stored notes arrive before each run, bounded by a byte cap, without the user asking. |
-| Durable notes | `memory` | The model adds, updates, forgets, or lists short facts that outlive the session branch. |
-| Two scopes | the `scope` parameter, `/memory path` | Notes are global or per-project, each a plain markdown file you can edit by hand. |
-| Duplicate guard | `memory` `add` | Re-stating a stored fact in new words is a no-op that names the existing note. |
-| Note picker | `/memory` | Add, edit, forget, merge, or move a note in the TUI, with a scope filter and a reload. |
-| Store health | `/memory doctor` | Counts, file bytes, the injection budget with its omissions, and near-duplicate pairs. |
-| Whole-file editing | `/memory edit`, `/memory clear` | The file in the multi-line editor, or a scope cleared behind a confirm. |
-| Store freshness | `memory`, `/memory reload` | A hand edit is picked up on the next read, and `reload` forces it. |
-| Trust-gated project store | the `project` scope | The project file is read and written only when the project is trusted. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Automatic recall | the `[MEMORY]` context message | Stored notes arrive before each run, bounded by a byte cap, without the user asking. | Shipped |
+| Durable notes | `memory` | The model adds, updates, forgets, or lists short facts that outlive the session branch. | Shipped |
+| Two scopes | the `scope` parameter, `/memory path` | Notes are global or per-project, each a plain markdown file you can edit by hand. | Shipped |
+| Repo-root anchor | the `project` store | The project store is anchored at the repository root, so a subdirectory and every worktree read the same file. | Shipped |
+| Note picker | `/memory` | Add, edit, forget, merge, or move a note in the TUI, with a scope filter and a reload. | Shipped |
+| Whole-file editing | `/memory edit`, `/memory clear` | The file in the multi-line editor, or a scope cleared behind a confirm. | Shipped |
+| Duplicate guard | `memory` `add` | Re-stating a stored fact in new words is a no-op that names the existing note. | Shipped |
+| Store health | `/memory doctor` | Counts, file bytes, the injection budget with its omissions, and near-duplicate pairs. | Shipped |
+| Store freshness | `memory`, `/memory reload` | A hand edit is picked up on the next read, and `reload` forces it. | Shipped |
+| Recall off switch | `memory.inject` | Injection can be turned off without deleting the notes, for a session that must not receive them. | Shipped |
+| Trust-gated project store | the `project` scope | The project file is read and written only when the project is trusted. | Shipped |
+| Headless coverage | `list`, `path`, `reload`, `doctor` outside `tui` | Read-only verbs notify everywhere; picker, edit, and clear require an interactive session. | Shipped |
 
 ## Quickstart
 

@@ -9,29 +9,35 @@ root changes. It is one of two sibling git extensions in this package
 
 ## Capabilities
 
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
 ### Isolating work
 
-| Capability | How | What you get |
-|---|---|---|
-| Isolated checkout | `enter_worktree`, `/worktree enter`, `--worktree` | A new checkout at `<repo>/.pi/worktrees/<name>` on branch `worktree-<name>`, cut from `origin/main`. |
-| Root-following built-ins | `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls` | The built-in tools keep taking ordinary relative paths, resolved inside the worktree. |
-| Escape refusal | `guard.blockFileEscapes`, `guard.blockGitRedirects`, `guard.blockSymlinkEscapes` | Writes, `cd`, and `git` redirects that reach the main checkout are refused, symlink escapes included. |
-| Seeded working copy | `.worktreeinclude`, `include` | Gitignored files such as `.env` are copied into each new worktree. |
-| PR/MR checkout | `enter_worktree` `name`, `--worktree` | A pull or merge request's head is fetched and checked out as `pr-<n>`. |
-| Child sessions | `PI_WORKTREE_ROOT`, `PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN` | A `pi` started from a tool binds to the same worktree, read-only for lifecycle. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Isolated checkout | `enter_worktree`, `/worktree enter`, `--worktree` | A new checkout at `<repo>/.pi/worktrees/<name>` on branch `worktree-<name>`, cut from `origin/main`. | Shipped |
+| Root-following built-ins | `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls` | The built-in tools keep taking ordinary relative paths, resolved inside the worktree. | Shipped |
+| Escape refusal | `guard.blockFileEscapes`, `guard.blockGitRedirects`, `guard.blockSymlinkEscapes` | Writes, `cd`, and `git` redirects that reach the main checkout are refused, symlink escapes included. | Shipped |
+| Plan-mode refusal | `/worktree`, `enter_worktree` | In plan mode the screen opens read-only and every verb refuses until the plan is approved. | Shipped |
+| PowerShell refusal | `powershell` while isolated | The unparseable shell is refused instead of becoming an unguarded escape. | Shipped |
+| Seeded working copy | `.worktreeinclude`, `include` | Gitignored files such as `.env` are copied into each new worktree. | Shipped |
+| Ignore bootstrap | `enter_worktree` | The first worktree offers to add `.pi/worktrees` to `.gitignore`, so the checkout does not pollute status. | Shipped |
+| PR/MR checkout | `enter_worktree` `name`, `--worktree` | A pull or merge request's head is fetched and checked out as `pr-<n>`. | Shipped |
+| Child sessions | `PI_WORKTREE_ROOT`, `PI_WORKTREE_BRANCH`, `PI_WORKTREE_MAIN` | A `pi` started from a tool binds to the same worktree, read-only for lifecycle. | Shipped |
 
 ### Returning and managing
 
-| Capability | How | What you get |
-|---|---|---|
-| Return with a handoff | `exit_worktree`, `/worktree exit` | Back in the main checkout, with the branch, its commits, and the merge or PR command that finishes them. |
-| Work that survives | `exit_worktree`, `worktree.onExit` | A worktree holding changes or commits is asked about or kept, never force-deleted. |
-| Status inventory | `list_worktrees`, `/worktree` | The active root, the gaps isolation does not cover, and every managed worktree with its state. |
-| Worktree screen | `/worktree` | One list screen with the focused worktree's path, base, and gaps, and the verbs to act on it. |
-| Cleanup | `prune_worktrees`, `/worktree prune` | Clean, unused, old worktrees are removed; every other one is kept with a reason. |
-| Concurrent-session safety | `enter_worktree`, `prune_worktrees` | A worktree in use is locked, so another session's sweep cannot remove it. |
-| Extension signal | `worktree:changed` | Another extension follows the active root without polling. |
-| Session restore | `/resume`, `--continue` | An active worktree is restored from the branch, or reported gone. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Return with a handoff | `exit_worktree`, `/worktree exit` | Back in the main checkout, with the branch, its commits, and the merge or PR command that finishes them. | Shipped |
+| Work that survives | `exit_worktree`, `worktree.onExit` | A worktree holding changes or commits is asked about or kept, never force-deleted. | Shipped |
+| Status inventory | `list_worktrees`, `/worktree` | The active root, the gaps isolation does not cover, and every managed worktree with its state. | Shipped |
+| Worktree screen | `/worktree` | One list screen with the focused worktree's path, base, and gaps, and the verbs to act on it. | Shipped |
+| Cleanup | `prune_worktrees`, `/worktree prune` | Clean, unused, old worktrees are removed; every other one is kept with a reason. | Shipped |
+| Concurrent-session safety | `enter_worktree`, `prune_worktrees` | A worktree in use is locked, so another session's sweep cannot remove it. | Shipped |
+| Session restore | `/resume`, `--continue` | An active worktree is restored from the branch, or reported gone. | Shipped |
+| Extension signal | `worktree:changed` | Another extension follows the active root without polling. | Shipped |
+| Doctor finding | `run_doctor` | A degraded `guard.blockPowershell` setting is named in the health report instead of only at use. | Shipped |
 
 ## Quickstart
 
