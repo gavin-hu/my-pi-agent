@@ -183,15 +183,16 @@ opts its own team in while the global default stays off.
 With it on, the assistant may approve a plan **with a split**: units, each with a
 name, the path prefixes it owns, the command that proves it done, and the units it
 depends on. The split is validated before the review screen opens, so a bad one
-costs no review at all, and the screen shows it as a read-only `Split` section —
+costs no review at all, and the screen shows it as a read-only `## Team` section —
 the same table the plan file will carry. On approval the table is written into the
 plan as `## Team` and the result prints a roster card:
 
 ```text
 Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
   You start and switch every session; nothing here can.
-  core: enter_worktree core · /sessions name core · /sessions watch wake
+  core: enter_worktree core · git rebase main · /sessions name core · /sessions watch wake
     session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
+    start after: contract
   merge order: contract → core · your unit: contract
   your label: none — name this session: session({action:"name", label:"contract"})
 ```

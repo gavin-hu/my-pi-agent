@@ -317,6 +317,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: the roster card says the two things a fresh pane cannot know. Each
+  owner's command line now carries `git rebase main`, because `enter_worktree`
+  cuts from `origin/main`, which lags the branch the lead merges into; and a unit
+  with dependencies gets a `start after: <units>` line, because `dependsOn`
+  reached the card only as merge order, so the owner of a dependent unit opened
+  its pane, joined, and built against an interface that was not on its branch
+  yet. A unit with no dependencies gets no such line.
+
 - `plan`: an owner unit that lists a shared file anywhere but first is refused.
   The gate asked which shared file a unit claims with
   `unit.paths.flatMap(...).at(0)`, which reads the first element of a list whose

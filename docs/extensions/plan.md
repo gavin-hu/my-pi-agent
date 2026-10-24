@@ -534,11 +534,19 @@ it cannot start — and the one line it can act on for the session it is in:
 ```text
 Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
   You start and switch every session; nothing here can.
-  core: enter_worktree core · /sessions name core · /sessions watch wake
+  core: enter_worktree core · git rebase main · /sessions name core · /sessions watch wake
     session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
+    start after: contract
   merge order: contract → core · your unit: contract
   your label: none — name this session: session({action:"name", label:"contract"})
 ```
+
+Each owner's commands are one line because the user types them into a fresh pane,
+and they carry the two facts a pane cannot know: the worktree is cut from
+`origin/main` and so is rebased before the first turn, and a unit with dependencies
+waits for them to land — `core` builds on an interface `contract` owns, which is
+not on its branch until `contract` merges. A unit with no `dependsOn` gets no
+`start after` line.
 
 The last line is the lead's own label. The card's other lines are for the sessions
 the user starts; this one is the lead's own, so it names the label when the session

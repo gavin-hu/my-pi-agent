@@ -662,6 +662,21 @@ describe("exit_plan_mode with a split", () => {
 		expect(result.content[0].text).not.toContain("name this session");
 	});
 
+	test("gives an independent unit no start-after line", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+		const REPORT = { name: "report", paths: ["src/report"], test: "bun test src/report" };
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, REPORT] }, ctx);
+
+		expect(result.details.approved).toBe(true);
+		expect(result.content[0].text).toContain("enter_worktree report · git rebase main");
+		expect(result.content[0].text).not.toContain("start after:");
+	});
+
 	test("refuses a single unit with the skeleton advice", async () => {
 		enableSplit();
 		const { enter, exit, write, runtime, root } = setup();
@@ -689,6 +704,9 @@ describe("exit_plan_mode with a split", () => {
 		expect(result.content[0].text).toContain("Split: 2 units");
 		expect(result.content[0].text).toContain("You start and switch every session");
 		expect(result.content[0].text).toContain('session({action:"join"');
+		// The two facts a fresh pane cannot know: its base lags, and its unit waits.
+		expect(result.content[0].text).toContain("enter_worktree core · git rebase main · /sessions name core");
+		expect(result.content[0].text).toContain("start after: contract");
 		expect(result.content[0].text).toContain("merge order: contract → core");
 		expect(result.content[0].text).toContain("Work only your own unit (contract)");
 		expect(result.content[0].text).toContain(

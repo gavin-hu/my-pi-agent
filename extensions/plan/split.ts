@@ -51,13 +51,23 @@ export function decideSplit(
  * A lead cannot start, name, or prompt a peer session, so the card is the whole of
  * what step 3 can do — and its first line says so, because the rest of the flow
  * depends on the user believing it.
+ *
+ * Two facts every owner needs, and only the card can give them: a worktree is cut
+ * from `origin/main`, which lags the branch the lead merges into, so it is rebased
+ * before the first turn; and a unit with dependencies cannot start until they
+ * land, because the interface it builds on is theirs and is not on its branch yet.
  */
 export function rosterCard(team: PlanTeam, planPath: string, sessionLabel?: string): string {
 	const lead = team.units.find((unit) => unit.lead)?.name ?? team.lead;
 	const owners = team.units.filter((unit) => !unit.lead);
-	const rows = owners.map((unit) => {
+	const rows = owners.flatMap((unit) => {
 		const join = `session({action:"join", team:"${teamName(planPath)}", unit:"${unit.name}"})`;
-		return `  ${unit.name}: enter_worktree ${unit.name} · /sessions name ${unit.name} · /sessions watch wake\n    ${join}`;
+		const commands = `  ${unit.name}: enter_worktree ${unit.name} · git rebase main · /sessions name ${unit.name} · /sessions watch wake`;
+		return [
+			commands,
+			`    ${join}`,
+			...(unit.dependsOn.length === 0 ? [] : [`    start after: ${unit.dependsOn.join(", ")}`]),
+		];
 	});
 	const order = mergeOrderLine(team);
 	// The lead's own label is the one line of the card it cannot get itself until
