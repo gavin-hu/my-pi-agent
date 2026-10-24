@@ -343,7 +343,9 @@ describe("live folder revision", () => {
 		expect(missing.status).toBe(404);
 	});
 
-	test("escapes the folder name it puts in the attribute", async () => {
+	// A double quote is not a legal Windows filename character, so the folder this
+	// pins cannot exist there; the escaping is proved from a POSIX host.
+	test.skipIf(process.platform === "win32")("escapes the folder name it puts in the attribute", async () => {
 		fixture = makeFixture();
 		mkdirSync(join(fixture.root, 'we"ird'));
 		const page = text(await handleRequest({ ...context(), live: idleStatus() }, "GET", "/browse/we%22ird", {}));
@@ -873,10 +875,17 @@ describe("loopback server", () => {
 			config: { ...DEFAULT_CONFIG, autoOpen: false },
 			handler: async () => stream,
 		});
+		const firstFrames: Promise<unknown>[] = [];
 		for (let page = 0; page < LIVE_MAX_CLIENTS; page++) {
 			const reply = await fetch(`${server.url}events`);
 			expect(reply.status).toBe(200);
+			const reader = reply.body?.getReader();
+			expect(reader).toBeDefined();
+			if (reader) firstFrames.push(reader.read());
 		}
+		// A frame reaches only an attached page: a response nobody reads can be torn
+		// down by the client before the next request, which frees the slot it counted.
+		await Promise.all(firstFrames);
 		const refused = await fetch(`${server.url}events`);
 		expect(refused.status).toBe(204);
 		expect(await refused.text()).toBe("");
