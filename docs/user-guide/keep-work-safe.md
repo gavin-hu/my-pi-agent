@@ -1,9 +1,8 @@
-# 3. Keep your work safe
+# Keep your work safe
 
-The features in this chapter answer three different worries: *I do not want this
-experiment in my working copy*, *I want to undo a turn*, and *I do not want to
-explain this again next week*. Worktrees isolate a task, rewind and review undo
-one, and memory carries a fact across sessions.
+The features in this chapter answer two worries: *I do not want this experiment
+in my working copy*, and *I want to undo a turn*. Worktrees isolate a task, and
+rewind and review undo one.
 
 **Use this chapter when** a task might leave a half-finished branch, when you are
 about to let the assistant edit several files, or when you keep repeating the
@@ -16,7 +15,6 @@ same project fact in every new session.
 | A turn changed code you do not want | [Rewind](#undoing-a-turn) | The code, the conversation, or both, as they were before that prompt | Gitignored files are never captured |
 | Keep most of the last turn, discard a file or hunk | [Review](#reviewing-the-last-turn) | Only the files or hunks you select | It does not remove a commit you already made |
 | Uncommitted work must leave your checkout | [A worktree](#working-on-a-branch-safely) | The worktree and any branch holding work, plus the handoff commands | Choosing Remove at the exit prompt discards uncommitted changes |
-| A fact must survive the session | [Memory](#remembering-between-sessions) | Notes for later sessions | It is not an undo |
 
 A commit that already exists is git history, not a snapshot: rewind and review
 rewrite the working tree and leave the commit. Plan mode refuses `/review`, and
@@ -200,12 +198,16 @@ keep most of a turn and discard only some files or hunks.
   visible from the main checkout; the timeline filters to the current root by
   default.
 
-### Reviewing the last turn
+## Reviewing the last turn
 
-**What it is.** `/review` shows what the latest turn changed without opening the
+### What it is
+
+`/review` shows what the latest turn changed without opening the
 rewind timeline. It compares the working tree with the snapshot taken before the
 latest prompt on this branch, so you can read the diff and keep or discard each
 file or hunk.
+
+### Walkthrough
 
 1. After a turn, run:
 
@@ -243,7 +245,7 @@ file or hunk.
 5. A revert asks for confirmation and takes one safety snapshot for the whole
    batch, so `/rewind` can undo it.
 
-**Good to know.**
+### Good to know
 
 - Hunk selection covers modified text files. Added, deleted, renamed, and binary
   files revert whole. A renamed file is one `R` row; reverting it restores the old
@@ -256,93 +258,13 @@ file or hunk.
 - Plan mode refuses `/review` until the plan is approved, because a revert writes
   the working tree.
 
-## Remembering between sessions
-
-### What it is
-
-**Memory** holds short notes that carry from one session to the next. Notes are
-ordinary Markdown with one bullet per note, so you can read and edit them
-yourself. Two scopes exist: **project** notes for this repository and **global**
-notes for everything you do. Stored notes are injected into each run as a hidden
-reminder, up to a size budget.
-
-### When to use it
-
-Use memory for durable facts that are not obvious from the code: a staging server
-that must be running, a naming convention, a command that is not in the README.
-Do not use it as a scratchpad or a substitute for project documentation.
-
-### Walkthrough: let the assistant remember
-
-1. Ask for something to be remembered:
-
-   ```text
-   remember that the API tests need the staging server to be up
-   ```
-
-   The note is saved and injected into every later run.
-
-2. Review and tidy the notes:
-
-   ```text
-   /memory
-   ```
-
-   A picker lists the notes, grouped by scope.
-
-   | Key | What it does |
-   |---|---|
-   | `Enter` or `e` | Edit the focused note |
-   | `a` | Add a note to the active scope |
-   | `m` | Mark a note to merge; `m` on a second note in the same scope opens an editor prefilled with both |
-   | `p` | Move the note to the other scope |
-   | `d` | Delete the focused note, after a yes/no confirmation |
-   | `s` or `Tab` | Cycle the scope filter |
-   | `r` | Re-read the notes from disk |
-   | `Esc` | Cancel the current action, or close the picker |
-
-   <img src="../../assets/memory.png" alt="The /memory picker: a scope summary, notes tagged by scope, and the key hints" width="100%">
-
-   *The picker: filter by scope, then add, edit, merge, move, or delete.*
-
-3. A deleted note is gone; the picker has no undo. Use `d` deliberately.
-
-### Commands
-
-| Command | What it does |
-|---|---|
-| `/memory list` | Show every stored note and the counts |
-| `/memory path` | Show the two file locations and whether the project store is trusted |
-| `/memory edit [project\|global]` | Open one store in an editor |
-| `/memory reload` | Re-read the files after you change them by hand |
-| `/memory doctor` | Report counts, sizes, notes omitted by the size budget, and near-duplicates |
-| `/memory clear [project\|global]` | Clear a whole scope after a confirmation |
-
-### Good to know
-
-- A note is a single line of at most 500 characters. That keeps the reminder
-  short and the file readable.
-- Notes are injected only up to a byte budget (8 KiB by default). `/memory doctor`
-  names any note that does not fit.
-- The stores are `<repo-root>/.pi/memory.md` for the project and
-  `<agent-dir>/memory.md` for global notes. The project store is anchored at the
-  repository root, so it is the same when Pi runs from a subdirectory and across
-  worktrees.
-- Project notes are read and written only when Pi trusts the project. A move into
-  an untrusted project is refused rather than silently dropping the note.
-- `add` will not store a near-duplicate of an existing note under a conservative
-  comparison (case, whitespace, and trailing punctuation do not matter). The
-  result names the existing note so the assistant can update it instead.
-- A merge is one write, and a move writes the destination before removing the
-  source. A failed move can leave the note in both scopes; `/memory doctor`
-  reports it, and merging removes the duplicate.
-
 ## Related
 
-- [Plan and delegate](./plan-and-delegate.md) — the workflows these safeguards protect.
+- [Plan and verify](./plan-and-verify.md) — the workflows these safeguards protect.
+- [Track and remember](./track-and-remember.md) — the notes that survive a session.
 - [Reference](./reference.md#files-on-disk) — where snapshots, notes, and worktrees live.
 - [Security](../security.md) — what the isolation boundary does and does not cover.
 
 ---
 
-[← Previous: 2. Plan and delegate](./plan-and-delegate.md) · [Guide home](./README.md) · [Next: 4. Web and files →](./web-and-files.md)
+[← Previous: Packaged workflows](./packaged-workflows.md) · [Guide home](./README.md) · [Next: Web and files →](./web-and-files.md)

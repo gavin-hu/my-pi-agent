@@ -1,4 +1,4 @@
-# 6. Settings and customization
+# Settings and customization
 
 The pack's visible layer — the control centre, the settings screen, the footer,
 the theme, notifications, and the health report — is one extension called
@@ -236,4 +236,4 @@ package, use Pi's `--no-extensions`.
 
 ---
 
-[← Previous: 5. Using it from WeChat](./wechat.md) · [Guide home](./README.md) · [Next: 7. Troubleshooting →](./troubleshooting.md)
+[← Previous: Using it from WeChat](./wechat.md) · [Guide home](./README.md) · [Next: Troubleshooting →](./troubleshooting.md)

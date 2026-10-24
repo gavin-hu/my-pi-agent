@@ -1,4 +1,4 @@
-# 1. Getting started
+# Getting started
 
 This chapter takes you from a working Pi installation to a loaded pack you can
 trust: what the pack adds, how to install it from the source that suits you, how
@@ -290,10 +290,10 @@ bytefly chrome, not a separate command.
 
 ## Related
 
-- [Plan and delegate](./plan-and-delegate.md) — the first workflow most people adopt.
+- [Plan and delegate](./plan-and-verify.md) — the first workflow most people adopt.
 - [Settings and customization](./settings-and-customization.md#health-checks) — the doctor report in detail.
 - [Security](../security.md) — the trust boundaries behind the network table.
 
 ---
 
-[← Guide home](./README.md) · [Next: 2. Plan and delegate →](./plan-and-delegate.md)
+[← Guide home](./README.md) · [Next: Plan and verify →](./plan-and-verify.md)

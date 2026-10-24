@@ -1,4 +1,4 @@
-# 7. Troubleshooting
+# Troubleshooting
 
 Most problems with the pack are one of five things: an extension is disabled, a
 runtime requirement is missing, a screen needs the interactive terminal, a
@@ -168,4 +168,4 @@ what is already planned.
 
 ---
 
-[← Previous: 6. Settings and customization](./settings-and-customization.md) · [Guide home](./README.md) · [Next: 8. Reference →](./reference.md)
+[← Previous: Settings and customization](./settings-and-customization.md) · [Guide home](./README.md) · [Next: Reference →](./reference.md)
