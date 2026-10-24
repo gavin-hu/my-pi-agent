@@ -8,10 +8,10 @@
  * token is forgotten so the next inbound message can replace it.
  */
 
-import type { BotCredentials } from "./types.ts";
+import type { BotCredentials } from "../types.ts";
 import { isSessionExpired, rejectionOf, WechatError, type WechatClient } from "./client.ts";
-import { messageOf } from "./errors.ts";
-import { chunkText, toWechatText } from "./format.ts";
+import { messageOf } from "../errors.ts";
+import { chunkText, toWechatText } from "../text/format.ts";
 import { sendLocalFile } from "./outbound.ts";
 
 /** One addressed text destination. */

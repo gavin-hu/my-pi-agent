@@ -8,8 +8,8 @@
  * budget is in memory; a reload starts a fresh hour.
  */
 
-import type { InboundItem } from "./types.ts";
-import { peerKey } from "./format.ts";
+import type { InboundItem } from "../types.ts";
+import { peerKey } from "../text/format.ts";
 
 /** A rolling-hour turn budget per peer. */
 export interface TurnBudget {

@@ -8,7 +8,7 @@
  */
 
 import { SessionManager, type SessionEntry, type SessionMessageEntry } from "@earendil-works/pi-coding-agent";
-import { peerSessionDir } from "./peer-session.ts";
+import { peerSessionDir } from "../peer/peer-session.ts";
 
 /** Longest text one history line carries before it is elided. */
 export const HISTORY_LINE_CHARS = 160;

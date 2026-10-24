@@ -21,19 +21,23 @@ import {
 	INTERACTION_OTHER_LABEL,
 	isRemoteTurn,
 	remoteChannel,
-} from "../../lib/interaction.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir } from "../../test/helpers/env.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
-import type { Bridge, BridgeStatus } from "./bridge.ts";
-import type { WechatClient } from "./client.ts";
+} from "../../../lib/interaction.ts";
+import { fakeCtx } from "../../../test/helpers/context.ts";
+import { tempDir } from "../../../test/helpers/env.ts";
+import { createFakePi } from "../../../test/helpers/fakes.ts";
+import type { Bridge, BridgeStatus } from "../bridge.ts";
+import type { WechatClient } from "../transport/client.ts";
 import { finishLogin, registerCommands, runNew, WECHAT_COMMANDS, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
-import { DEFAULT_CONFIG } from "./config.ts";
-import type { PeerLanguage } from "./format.ts";
-import { createWechatInteractionChannel, PROMPT_TIMEOUT_MS, type WechatInteractionDeps } from "./interaction.ts";
-import { notice, NOTICE_KINDS } from "./notices.ts";
-import { formatPrompt, parsePromptAnswer, RETRY_NOTICE } from "./prompt.ts";
-import { createPeerUIContext } from "./remote-ui.ts";
+import { DEFAULT_CONFIG } from "../config.ts";
+import type { PeerLanguage } from "../text/format.ts";
+import {
+	createWechatInteractionChannel,
+	PROMPT_TIMEOUT_MS,
+	type WechatInteractionDeps,
+} from "../dialog/interaction.ts";
+import { notice, NOTICE_KINDS } from "../text/notices.ts";
+import { formatPrompt, parsePromptAnswer, RETRY_NOTICE } from "../dialog/prompt.ts";
+import { createPeerUIContext } from "../dialog/remote-ui.ts";
 import {
 	expandSnippet,
 	findSlashCommand,
@@ -44,8 +48,8 @@ import {
 	type SlashContext,
 	type SlashPeerState,
 } from "./slash.ts";
-import type { ArmTimer } from "./timer.ts";
-import type { BotCredentials } from "./types.ts";
+import type { ArmTimer } from "../timer.ts";
+import type { BotCredentials } from "../types.ts";
 
 const account: BotCredentials = {
 	botToken: "t",

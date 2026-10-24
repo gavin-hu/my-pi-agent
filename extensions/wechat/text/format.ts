@@ -3,9 +3,9 @@
  * and shorten peer ids for display. The peer-facing notices live in `notices.ts`.
  */
 
-import { stripControlChars } from "../../lib/format.ts";
-import { sanitizeFileName } from "./media.ts";
-import type { CDNMedia, MediaRef, MessageItem } from "./types.ts";
+import { stripControlChars } from "../../../lib/format.ts";
+import { sanitizeFileName } from "../transport/media.ts";
+import type { CDNMedia, MediaRef, MessageItem } from "../types.ts";
 
 /**
  * Prepare inbound WeChat text before it becomes a user turn: strip terminal

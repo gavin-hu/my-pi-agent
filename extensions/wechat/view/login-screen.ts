@@ -8,10 +8,10 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, visibleWidth } from "@earendil-works/pi-tui";
-import { screenFooter, screenHint } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { isCloseKey } from "../../lib/tui/cursor.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
+import { screenFooter, screenHint } from "../../../lib/tui/chrome.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { isCloseKey } from "../../../lib/tui/cursor.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
 
 export interface LoginViewState {
 	/** Raw `get_qrcode_status` value, or `wait` before the first poll. */

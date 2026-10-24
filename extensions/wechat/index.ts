@@ -19,18 +19,18 @@ import { isPidAlive } from "../../lib/spawn.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
-import { createFetchRunner, WechatClient, type WechatClientOptions } from "./client.ts";
-import { registerCommands, type CommandDeps } from "./commands.ts";
+import { createFetchRunner, WechatClient, type WechatClientOptions } from "./transport/client.ts";
+import { registerCommands, type CommandDeps } from "./commands/commands.ts";
 import { messageOf } from "./errors.ts";
 import { loadWechatConfig } from "./config.ts";
-import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./credentials.ts";
-import { acquireLock, lockPath, readLock, refreshLock, releaseLock } from "./lock.ts";
-import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer-session.ts";
-import { createPeerUIContext } from "./remote-ui.ts";
-import { peerKey } from "./format.ts";
-import { readPeerHistory } from "./history.ts";
-import { SLASH_COMMANDS } from "./slash.ts";
-import { readState, statePath, writeState } from "./state.ts";
+import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./state/credentials.ts";
+import { acquireLock, lockPath, readLock, refreshLock, releaseLock } from "./state/lock.ts";
+import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer/peer-session.ts";
+import { createPeerUIContext } from "./dialog/remote-ui.ts";
+import { peerKey } from "./text/format.ts";
+import { readPeerHistory } from "./commands/history.ts";
+import { SLASH_COMMANDS } from "./commands/slash.ts";
+import { readState, statePath, writeState } from "./state/state.ts";
 import { registerTools } from "./tools.ts";
 
 /**

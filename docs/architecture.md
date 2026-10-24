@@ -134,7 +134,9 @@ in flat modules — [`../extensions/todo/`](../extensions/todo/) is one tool, on
 command, one widget, and branch replay. Past roughly twenty modules a role earns
 a directory, the way [`../extensions/bytefly/`](../extensions/bytefly/) groups
 `footer/`, `notice/`, `header/`, and `separator/`, and `plan` keeps its tool
-surface in `tools/`. Five extensions are still flat at that size — gap `F4`.
+surface in `tools/`. One extension is still flat at that size, and
+[`../extensions/wechat/`](../extensions/wechat/) is the worked example of the
+rule — seven role directories around the wiring — while `rewind` is gap `F4`.
 
 ## One turn
 
@@ -377,7 +379,7 @@ work in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
 | Gap | The rule above | What the tree does today |
 |---|---|---|
 | `F3` | One loopback lifecycle in `lib/http/` | `plan` and `file-browse` each build and close their own server around `lib/http`'s pieces |
-| `F4` | A role earns a directory past roughly twenty modules | `wechat` and `rewind` are flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
+| `F4` | A role earns a directory past roughly twenty modules | `rewind` is flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
 | `F5` | Promote on a second user or a contract | `lib/claims/overlap.ts` and `lib/pi-invocation.ts` have one consumer each |
 
 The list shrinks and never grows: when a gap ships, its row is deleted from both

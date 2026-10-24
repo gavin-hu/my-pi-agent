@@ -7,11 +7,11 @@
  * the wording and the age math are unit-tested without a bridge.
  */
 
-import { formatDuration } from "../../lib/format.ts";
-import type { BridgeStatus } from "./bridge.ts";
-import type { WechatConfig } from "./config.ts";
-import type { BotCredentials } from "./types.ts";
-import { peerLabel } from "./format.ts";
+import { formatDuration } from "../../../lib/format.ts";
+import type { BridgeStatus } from "../bridge.ts";
+import type { WechatConfig } from "../config.ts";
+import type { BotCredentials } from "../types.ts";
+import { peerLabel } from "../text/format.ts";
 
 export interface DoctorInput {
 	/** Undefined when the bridge has never been built in this runtime. */

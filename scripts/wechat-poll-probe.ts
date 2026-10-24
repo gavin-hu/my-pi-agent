@@ -16,11 +16,11 @@
  * not processed, and the stored cursor is left untouched.
  */
 
-import { createFetchRunner, WechatClient } from "../extensions/wechat/client.ts";
+import { createFetchRunner, WechatClient } from "../extensions/wechat/transport/client.ts";
 import { loadWechatConfig } from "../extensions/wechat/config.ts";
-import { primaryAccount } from "../extensions/wechat/credentials.ts";
-import { isLocked, lockPath } from "../extensions/wechat/lock.ts";
-import { readState, statePath } from "../extensions/wechat/state.ts";
+import { primaryAccount } from "../extensions/wechat/state/credentials.ts";
+import { isLocked, lockPath } from "../extensions/wechat/state/lock.ts";
+import { readState, statePath } from "../extensions/wechat/state/state.ts";
 
 const requested = Number.parseInt(process.argv[2] ?? "3000", 10);
 if (!Number.isFinite(requested) || requested < 1000 || requested > 120_000) {

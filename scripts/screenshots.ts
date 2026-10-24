@@ -50,7 +50,7 @@ import { TodoListComponent } from "../extensions/todo/tui.ts";
 import { WatchListComponent } from "../extensions/watch/tui.ts";
 import { SessionListComponent } from "../extensions/session-bus/tui.ts";
 import { WorktreeListComponent } from "../extensions/worktree/screen.ts";
-import { StatusScreenComponent } from "../extensions/wechat/status-screen.ts";
+import { StatusScreenComponent } from "../extensions/wechat/view/status-screen.ts";
 import { GLYPHS, STATUS_KEYS } from "../lib/tui/glyphs.ts";
 import { sleep } from "./poll.ts";
 import { pageColors, repo, setThemeInstance, theme } from "./theme.ts";

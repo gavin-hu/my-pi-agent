@@ -11,17 +11,17 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import { formatDuration, sanitizeLine } from "../../lib/format.ts";
-import { screenFooter, screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { formatRange, IdCursor, isCloseKey, navIntent } from "../../lib/tui/cursor.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { keyValueRow, listRow } from "../../lib/tui/rows.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
-import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
-import type { BridgeStatus } from "./bridge.ts";
-import { peerLabel } from "./format.ts";
-import type { BotCredentials } from "./types.ts";
+import { formatDuration, sanitizeLine } from "../../../lib/format.ts";
+import { screenFooter, screenHint, type ScreenHint } from "../../../lib/tui/chrome.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { formatRange, IdCursor, isCloseKey, navIntent } from "../../../lib/tui/cursor.ts";
+import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { keyValueRow, listRow } from "../../../lib/tui/rows.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
+import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
+import type { BridgeStatus } from "../bridge.ts";
+import { peerLabel } from "../text/format.ts";
+import type { BotCredentials } from "../types.ts";
 
 /** User-facing connection word; the internal `BridgeState` stays running/stopped. */
 export type StatusConnection = "open" | "expired" | "paused" | "closed";

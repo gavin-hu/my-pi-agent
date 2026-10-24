@@ -37,7 +37,16 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	watch: ["runtime", "tools", "ui"],
 	"session-bus": ["format", "protocol", "store", "runtime", "tui", "tools", "extension"],
 	"web-access": ["fetch/fetch", "search/search", "http"],
-	wechat: ["bridge", "client", "commands", "config", "peer", "status", "tools", "extension"],
+	wechat: [
+		"bridge",
+		"config",
+		"tools",
+		"extension",
+		"transport/client",
+		"commands/commands",
+		"peer/peer",
+		"view/status",
+	],
 	worktree: ["git", "flow", "ui"],
 };
 

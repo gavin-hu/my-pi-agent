@@ -1,11 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme, fakeTheme } from "../../test/helpers/fakes.ts";
-import { settle } from "../../test/helpers/process.ts";
-import type { BridgeStatus } from "./bridge.ts";
-import { DEFAULT_CONFIG } from "./config.ts";
-import { doctorReport } from "./doctor.ts";
-import { chunkText, parseInbound, peerKey, peerLabel, peerLanguage, sanitizeInbound, toWechatText } from "./format.ts";
+import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { settle } from "../../../test/helpers/process.ts";
+import type { BridgeStatus } from "../bridge.ts";
+import { DEFAULT_CONFIG } from "../config.ts";
+import { doctorReport } from "../commands/doctor.ts";
+import {
+	chunkText,
+	parseInbound,
+	peerKey,
+	peerLabel,
+	peerLanguage,
+	sanitizeInbound,
+	toWechatText,
+} from "../text/format.ts";
 import {
 	connectionOf,
 	type StatusAction,
@@ -16,7 +24,7 @@ import {
 	statusView,
 	type StatusView,
 } from "./status-screen.ts";
-import type { BotCredentials } from "./types.ts";
+import type { BotCredentials } from "../types.ts";
 
 const screenAccount: BotCredentials = {
 	botToken: "t",

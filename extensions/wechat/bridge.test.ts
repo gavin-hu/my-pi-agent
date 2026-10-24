@@ -18,7 +18,7 @@ import {
 } from "../../test/helpers/fixtures/wechat-bridge.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { type BridgeState, createBridge, isAllowedPeer, isInboundMessage } from "./bridge.ts";
-import type { WechatClient } from "./client.ts";
+import type { WechatClient } from "./transport/client.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import type { BotCredentials, UpdatesResponse, WechatState } from "./types.ts";
 

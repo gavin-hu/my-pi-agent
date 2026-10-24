@@ -8,10 +8,10 @@
  * stops the loop.
  */
 
-import type { BotCredentials, WeixinMessage } from "./types.ts";
+import type { BotCredentials, WeixinMessage } from "../types.ts";
 import { isSessionExpired, rejectionOf, type WechatClient } from "./client.ts";
-import { messageOf } from "./errors.ts";
-import { defaultTimer } from "./timer.ts";
+import { messageOf } from "../errors.ts";
+import { defaultTimer } from "../timer.ts";
 
 const BACKOFF_MS = 2000;
 /** Poll watchdog when the server has not told us its long-poll hold yet. */

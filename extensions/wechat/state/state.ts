@@ -8,9 +8,9 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { PeerState, SeenMessage, WechatState } from "./types.ts";
+import type { PeerState, SeenMessage, WechatState } from "../types.ts";
 import { wechatDir } from "./credentials.ts";
-import { peerKey } from "./format.ts";
+import { peerKey } from "../text/format.ts";
 
 /** How long a handled message id is remembered for a replay. */
 export const SEEN_TTL_MS = 60 * 60 * 1000;

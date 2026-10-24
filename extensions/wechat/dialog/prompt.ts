@@ -9,8 +9,8 @@
  * the {@link INTERACTION_OTHER_LABEL} option so the caller can collect it once.
  */
 
-import { INTERACTION_OTHER_LABEL, type InteractionRequest } from "../../lib/interaction.ts";
-import { sanitizeInbound, type PeerLanguage } from "./format.ts";
+import { INTERACTION_OTHER_LABEL, type InteractionRequest } from "../../../lib/interaction.ts";
+import { sanitizeInbound, type PeerLanguage } from "../text/format.ts";
 
 /** A parsed reply: a resolved answer, the "other" choice, or a retry. */
 export type PromptParse =

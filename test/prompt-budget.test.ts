@@ -8,7 +8,7 @@
 import { describe, expect, test } from "bun:test";
 import { GOAL_CONTEXT_MARKER, buildGoalContext } from "../extensions/goal/index.ts";
 import { planModeContext, PLAN_MODE_MARKER } from "../extensions/plan/index.ts";
-import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/channel.ts";
+import { WECHAT_CHANNEL_PROMPT } from "../extensions/wechat/text/channel.ts";
 import { formatWorktreeSection } from "../extensions/worktree/index.ts";
 import type { WorktreeState } from "../extensions/worktree/state.ts";
 

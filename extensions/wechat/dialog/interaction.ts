@@ -18,11 +18,11 @@ import {
 	type InteractionAnswer,
 	type InteractionChannel,
 	type InteractionRequest,
-} from "../../lib/interaction.ts";
-import { type PeerLanguage } from "./format.ts";
-import { notice } from "./notices.ts";
+} from "../../../lib/interaction.ts";
+import { type PeerLanguage } from "../text/format.ts";
+import { notice } from "../text/notices.ts";
 import { formatPrompt, parsePromptAnswer } from "./prompt.ts";
-import { defaultTimer, type ArmTimer } from "./timer.ts";
+import { defaultTimer, type ArmTimer } from "../timer.ts";
 
 /** How long a forwarded prompt waits before it is cancelled. */
 export const PROMPT_TIMEOUT_MS = 180_000;

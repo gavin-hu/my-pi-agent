@@ -2,15 +2,15 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import type { AgentSession, CreateAgentSessionOptions, LoadExtensionsResult } from "@earendil-works/pi-coding-agent";
-import { tempDir } from "../../test/helpers/env.ts";
-import { makeClock, type Clock } from "../../test/helpers/clock.ts";
-import { account, updates } from "../../test/helpers/fixtures/wechat-bridge.ts";
-import { settle, waitFor } from "../../test/helpers/process.ts";
+import { tempDir } from "../../../test/helpers/env.ts";
+import { makeClock, type Clock } from "../../../test/helpers/clock.ts";
+import { account, updates } from "../../../test/helpers/fixtures/wechat-bridge.ts";
+import { settle, waitFor } from "../../../test/helpers/process.ts";
 import { createAdmissionQueue, createTurnBudget, type TurnBudget } from "./admission.ts";
-import { createDeliverer } from "./deliver.ts";
-import { WECHAT_CHANNEL_PROMPT } from "./channel.ts";
-import type { WechatClient } from "./client.ts";
-import { acquireLock, isLocked, releaseLock, type LockDeps } from "./lock.ts";
+import { createDeliverer } from "../transport/deliver.ts";
+import { WECHAT_CHANNEL_PROMPT } from "../text/channel.ts";
+import type { WechatClient } from "../transport/client.ts";
+import { acquireLock, isLocked, releaseLock, type LockDeps } from "../state/lock.ts";
 import {
 	buildPeerLoader,
 	isWechatExtensionPath,
@@ -19,7 +19,7 @@ import {
 	withoutWechatExtensions,
 } from "./peer-session.ts";
 import { createPeerWorker, type PeerItem, type PeerState } from "./peer-worker.ts";
-import { createPollLoop, defaultPollTimeout } from "./poll.ts";
+import { createPollLoop, defaultPollTimeout } from "../transport/poll.ts";
 import { createPresence, type PresenceDeps } from "./presence.ts";
 import { createReplyPipeline } from "./reply-pipeline.ts";
 import {
@@ -32,9 +32,9 @@ import {
 	SEEN_TTL_MS,
 	seenMessage,
 	writeState,
-} from "./state.ts";
-import { createTimerMap, defaultSleep, type ArmTimer } from "./timer.ts";
-import type { BotCredentials, InboundItem, UpdatesResponse, WeixinMessage } from "./types.ts";
+} from "../state/state.ts";
+import { createTimerMap, defaultSleep, type ArmTimer } from "../timer.ts";
+import type { BotCredentials, InboundItem, UpdatesResponse, WeixinMessage } from "../types.ts";
 
 const robot: BotCredentials = {
 	botToken: "t",

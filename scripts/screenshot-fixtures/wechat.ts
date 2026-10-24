@@ -4,7 +4,7 @@
  */
 
 import type { BridgeStatus } from "../../extensions/wechat/bridge.ts";
-import { statusView } from "../../extensions/wechat/status-screen.ts";
+import { statusView } from "../../extensions/wechat/view/status-screen.ts";
 import type { BotCredentials } from "../../extensions/wechat/types.ts";
 import { now } from "./shared.ts";
 

@@ -22,6 +22,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: the extension's 34 modules are grouped into seven role directories —
+  `transport/` (the only place that talks to iLink), `state/` (the three files a
+  session leaves on disk), `peer/` (one peer's session and its queue),
+  `commands/` (a slash verb), `text/` (what a peer reads), `dialog/` (a question
+  asked over WeChat), and `view/` (a full-screen surface) — with `index.ts`,
+  `bridge.ts`, `tools.ts`, `config.ts`, and the shared seams left at the root as
+  the wiring, the public surface, and the modules every directory imports. This
+  is wechat's half of the roadmap's `F4`, so `rewind` is the only extension still
+  flat past the size: behaviour, the manifest entry, and every test are unchanged,
+  and the count the roadmap states is still the tree's 34, held by
+  `test/roadmap.test.ts`.
 - `docs`: [`docs/architecture.md`](./docs/architecture.md) is rewritten as the target
   architecture rather than a snapshot of the tree: what the host loads, the four
   moments of an extension's life, the hook families, state and derived views, the

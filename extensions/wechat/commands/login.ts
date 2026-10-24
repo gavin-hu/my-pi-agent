@@ -6,9 +6,9 @@
  * without a real timer, and the caller owns displaying the QR.
  */
 
-import { DEFAULT_BASE_URL, type WechatClient } from "./client.ts";
-import { messageOf } from "./errors.ts";
-import type { BotCredentials, QrResponse, QrStatus } from "./types.ts";
+import { DEFAULT_BASE_URL, type WechatClient } from "../transport/client.ts";
+import { messageOf } from "../errors.ts";
+import type { BotCredentials, QrResponse, QrStatus } from "../types.ts";
 
 /** Categorical meaning of a `get_qrcode_status` value. */
 export type StatusKind = "pending" | "confirmed" | "expired" | "verify" | "blocked" | "binded";
