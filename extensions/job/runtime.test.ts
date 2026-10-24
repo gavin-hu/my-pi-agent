@@ -804,7 +804,7 @@ describe("job runtime — start", () => {
 		h.runtime.load(ctx);
 		h.runtime.start({ command: "sleep 1", timeoutMs: 10 }, ctx);
 		const pid = h.children[0].pid;
-		await waitFor(() => h.kills.some((kill) => kill.pid === pid && kill.signal === "SIGTERM"), 100);
+		await waitFor(() => h.kills.some((kill) => kill.pid === pid && kill.signal === "SIGTERM"));
 	});
 
 	test("escalates the timeout kill to SIGKILL after the grace period", async () => {
