@@ -431,11 +431,13 @@ Nothing here makes a false promise today.
 - **F4 — Role directories past twenty modules.** The architecture page names the
   roles a module can play and lets a role earn a directory past roughly twenty
   modules, the way `bytefly/` groups `footer/`, `notice/`, and `separator/` and
-  `web-access/` groups `fetch/` and `search/`. Five extensions are flat past that
-  size: `job` (24 modules), `wechat` (39), `rewind` (28), `worktree` (23), and
-  `subagent` (22). *Done when* each of the five holds role subdirectories plus
-  `index.ts`, its imports are updated, and the page's layout rule describes the
-  tree without an exception.
+  `web-access/` groups `fetch/` and `search/`. Counting modules and not files —
+  a co-located suite is not a module — two flat extensions are past that size,
+  `wechat` (34 modules) and `rewind` (25 modules), and `job` (20 modules),
+  `worktree` (20 modules), and `subagent` (17 modules) stay flat until they cross
+  it. *Done when* `wechat` and `rewind` hold role subdirectories plus `index.ts`,
+  their imports are updated, and the page's layout rule describes the tree
+  without an exception.
 - **F5 — `lib/` names a contract.** Shared code is promoted on a second consumer
   or on a contract two sides must agree on, but `lib/claims/overlap.ts` has one
   consumer (`session-bus`, which re-exports it) and `lib/pi-invocation.ts` has

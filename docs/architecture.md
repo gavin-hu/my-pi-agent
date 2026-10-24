@@ -377,7 +377,7 @@ work in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
 | Gap | The rule above | What the tree does today |
 |---|---|---|
 | `F3` | One loopback lifecycle in `lib/http/` | `plan` and `file-browse` each build and close their own server around `lib/http`'s pieces |
-| `F4` | A role earns a directory past roughly twenty modules | `job`, `wechat`, `rewind`, `worktree`, and `subagent` are flat |
+| `F4` | A role earns a directory past roughly twenty modules | `wechat` and `rewind` are flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
 | `F5` | Promote on a second user or a contract | `lib/claims/overlap.ts` and `lib/pi-invocation.ts` have one consumer each |
 
 The list shrinks and never grows: when a gap ships, its row is deleted from both
