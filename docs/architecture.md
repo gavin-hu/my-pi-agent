@@ -135,9 +135,10 @@ in flat modules — [`../extensions/todo/`](../extensions/todo/) is one tool, on
 command, one widget, and branch replay. Past roughly twenty modules a role earns
 a directory, the way [`../extensions/bytefly/`](../extensions/bytefly/) groups
 `footer/`, `notice/`, `header/`, and `separator/`, and `plan` keeps its tool
-surface in `tools/`. One extension is still flat at that size, and
+surface in `tools/`. Two extensions are still flat at that size, and
 [`../extensions/wechat/`](../extensions/wechat/) is the worked example of the
-rule — seven role directories around the wiring — while `rewind` is gap `F3`.
+rule — seven role directories around the wiring — while `rewind` and
+`file-browse` are gap `F3`.
 
 ## One turn
 
@@ -379,7 +380,7 @@ in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
 
 | Gap | The rule above | What the tree does today |
 |---|---|---|
-| `F3` | A role earns a directory past roughly twenty modules | `rewind` is flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
+| `F3` | A role earns a directory past roughly twenty modules | `rewind` (25) and `file-browse` (23) are flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
 
 The list shrinks and never grows: when a gap ships, its row is deleted from both
 files. A new rule reaches this page first and the roadmap second, because the
