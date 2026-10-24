@@ -18,7 +18,7 @@ import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { blockAt, codeBody, contentBlockAt, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
-import { changedSections, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
+import { changedSections, type SectionDigest, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
 import { parseFeedback, stripFeedback } from "./feedback.ts";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
@@ -1254,70 +1254,69 @@ describe("plan text — sanitizing and review comparison", () => {
 
 describe("plan text — changed sections", () => {
 	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
+	/** Just the flags, in document order; the section each one belongs to is pinned below. */
+	const flags = (baseline: SectionDigest[] | undefined, current: string): boolean[] =>
+		changedSections(baseline, current).map((mark) => mark.changed);
+
+	test("hands each flag back with its own section", () => {
+		const marks = changedSections(sectionDigests(before), before.replace("Ship it.", "Ship it well."));
+		expect(marks.map((mark) => [mark.section.title, mark.changed])).toEqual([
+			["Plan", false],
+			["Goal", true],
+			["Steps", false],
+		]);
+	});
 
 	test("returns nothing for an identical plan", () => {
-		expect(changedSections(sectionDigests(before), before)).toEqual([false, false, false]);
+		expect(flags(sectionDigests(before), before)).toEqual([false, false, false]);
 	});
 
 	test("marks a section whose text changed", () => {
-		expect(changedSections(sectionDigests(before), before.replace("Ship it.", "Ship it well."))).toEqual([
-			false,
-			true,
-			false,
-		]);
+		expect(flags(sectionDigests(before), before.replace("Ship it.", "Ship it well."))).toEqual([false, true, false]);
 	});
 
 	test("marks a new section but not a removed one", () => {
-		expect(changedSections(sectionDigests(before), `${before}\n## Risks\n- stale reads`)).toEqual([
-			false,
-			false,
-			false,
-			true,
-		]);
+		expect(flags(sectionDigests(before), `${before}\n## Risks\n- stale reads`)).toEqual([false, false, false, true]);
 		// The array follows the current plan, so a dropped section only shortens it.
-		expect(changedSections(sectionDigests(before), ["# Plan", "## Goal", "Ship it."].join("\n"))).toEqual([
-			false,
-			false,
-		]);
+		expect(flags(sectionDigests(before), ["# Plan", "## Goal", "Ship it."].join("\n"))).toEqual([false, false]);
 	});
 
 	test("flags a duplicate title by occurrence, not by title", () => {
 		const previous = ["## Steps", "- One", "## Steps", "- Two"].join("\n");
 		// Only the second occurrence changed, so only it is flagged.
-		expect(
-			changedSections(sectionDigests(previous), ["## Steps", "- One", "## Steps", "- Two more"].join("\n")),
-		).toEqual([false, true]);
+		expect(flags(sectionDigests(previous), ["## Steps", "- One", "## Steps", "- Two more"].join("\n"))).toEqual([
+			false,
+			true,
+		]);
 	});
 
 	test("normalizes an emphasized heading", () => {
-		expect(changedSections(sectionDigests(["## **Goal**", "Old"].join("\n")), ["## Goal", "New"].join("\n"))).toEqual([
-			true,
-		]);
+		expect(flags(sectionDigests(["## **Goal**", "Old"].join("\n")), ["## Goal", "New"].join("\n"))).toEqual([true]);
 	});
 
 	test("flags a renamed heading even when its body is unchanged", () => {
 		// The baseline is keyed by heading text, which is why write_plan asks a
 		// refinement to keep its headings: a rename has no digest to compare against.
-		expect(
-			changedSections(sectionDigests(["## Approach", "Ship it."].join("\n")), ["## Design", "Ship it."].join("\n")),
-		).toEqual([true]);
+		expect(flags(sectionDigests(["## Approach", "Ship it."].join("\n")), ["## Design", "Ship it."].join("\n"))).toEqual(
+			[true],
+		);
 	});
 
 	test("flags nothing on a first review", () => {
 		// A plan this branch never showed has no baseline; every section is new, and
 		// marking them all would claim the whole plan changed.
-		expect(changedSections(undefined, before)).toEqual([false, false, false]);
+		expect(flags(undefined, before)).toEqual([false, false, false]);
 	});
 
 	test("a tab and its four spaces are the same content", () => {
 		const tabbed = ["## Steps", "- [ ] one", "- [ ] two"].join("\n").replace("- [ ] ", "-\t");
-		expect(changedSections(sectionDigests(tabbed), tabbed.replace(/\t/g, "    "))).toEqual([false]);
+		expect(flags(sectionDigests(tabbed), tabbed.replace(/\t/g, "    "))).toEqual([false]);
 	});
 
 	test("a stored review comment is not an edit", () => {
 		const plan = ["# Plan", "## Goal", "Ship it."].join("\n");
 		const commented = ["# Plan", "## Goal", "Ship it.", "> [!REVIEW] make it concrete"].join("\n");
-		expect(changedSections(sectionDigests(commented), plan)).toEqual([false, false]);
+		expect(flags(sectionDigests(commented), plan)).toEqual([false, false]);
 	});
 });
 

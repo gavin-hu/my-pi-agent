@@ -16,7 +16,7 @@
 import { createHash } from "node:crypto";
 import { stripControlChars } from "../../lib/format.ts";
 import { displayFeedback, stripFeedback } from "./feedback.ts";
-import { extractPlanSections, sectionKeys } from "./steps.ts";
+import { extractPlanSections, sectionKeys, type PlanSection } from "./steps.ts";
 
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
@@ -83,17 +83,28 @@ export function sameSections(a: readonly SectionDigest[], b: readonly SectionDig
 	return a.every((section, index) => section.title === b[index].title && section.digest === b[index].digest);
 }
 
+/** One section of the text as it reads now, and whether it differs from the baseline. */
+export interface SectionMark {
+	/** The section, in the order the document lists it. */
+	section: PlanSection;
+	/** Whether its content differs from the baseline's section in the same place. */
+	changed: boolean;
+}
+
 /**
- * Per-section change flags for a second review: `boolean[]` aligned with
- * `extractPlanSections(reviewText(current))`, so duplicate headings are flagged
- * by occurrence rather than by title. An absent baseline flags nothing, which is
- * what a first review of a plan looks like; `stripFeedback` only ever drops
- * quote-marker lines, so the flags stay aligned with the sections a screen
- * renders from the same content.
+ * Per-section change marks for a second review: every section of `current` with
+ * whether its content differs from the baseline's section in the same place.
+ *
+ * The marks carry their sections, so a caller cannot pair the flags with a list it
+ * parsed separately — the section list and its marks come out of one scan, in
+ * document order. Duplicate headings are told apart by occurrence rather than by
+ * title. An absent baseline marks nothing, which is what a first review of a plan
+ * looks like; `stripFeedback` only ever drops quote-marker lines, so the marks stay
+ * aligned with the sections a screen renders from the same content.
  */
-export function changedSections(baseline: readonly SectionDigest[] | undefined, current: string): boolean[] {
+export function changedSections(baseline: readonly SectionDigest[] | undefined, current: string): SectionMark[] {
 	const sections = extractPlanSections(reviewText(current));
-	if (baseline === undefined) return sections.map(() => false);
+	if (baseline === undefined) return sections.map((section) => ({ section, changed: false }));
 
 	// Same section across two reviews: `sectionKeys` tells a second `## Notes` from
 	// the first, so a duplicate heading is never compared with the wrong digest.
@@ -106,6 +117,6 @@ export function changedSections(baseline: readonly SectionDigest[] | undefined, 
 	const keys = sectionKeys(sections);
 	return sections.map((section, at) => {
 		const prior = before.get(keys[at] ?? "");
-		return prior === undefined || prior !== digestOf(section.text);
+		return { section, changed: prior === undefined || prior !== digestOf(section.text) };
 	});
 }

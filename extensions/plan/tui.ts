@@ -46,7 +46,6 @@ import { emptyState, checkbox } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { planTitle, type StoredPlan } from "./plans.ts";
 import { changedSections, planDisplayText, type SectionDigest } from "./plan-text.ts";
-import { extractPlanSections } from "./steps.ts";
 
 /** What the user chose from the read/review screen. */
 export type PlanViewAction = "approve" | "refine" | "keep" | "browser" | "cancel";
@@ -207,11 +206,10 @@ export class PlanViewComponent implements Component {
 		const base = this.options.markdownTheme ?? getMarkdownTheme();
 		const theme = planMarkdownTheme(this.theme, base);
 		const current = planDisplayText(this.options.plan.content);
-		const changed = changedSections(this.options.baseline, current);
-		const chunks = extractPlanSections(current);
+		const marks = changedSections(this.options.baseline, current);
 		const lines: string[] = [];
 		const sections: SectionOffset[] = [];
-		chunks.forEach((chunk, index) => {
+		marks.forEach(({ section: chunk, changed }, index) => {
 			// Markdown pads every line to the full width for backgrounds; this screen
 			// draws no background, so the padding is dropped.
 			const rendered = new Markdown(chunk.text, padding, 0, theme)
@@ -220,12 +218,12 @@ export class PlanViewComponent implements Component {
 			sections.push({
 				title: chunk.title,
 				offset: lines.length,
-				...(changed[index] ? { changed: true } : {}),
+				...(changed ? { changed: true } : {}),
 			});
 			lines.push(...rendered);
 			// Sections render independently, so restore the blank line a heading-only
 			// chunk omits before the next section.
-			if (index < chunks.length - 1 && lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
+			if (index < marks.length - 1 && lines.length > 0 && lines[lines.length - 1] !== "") lines.push("");
 		});
 		const split = this.splitSection();
 		if (split !== undefined) {
@@ -236,7 +234,7 @@ export class PlanViewComponent implements Component {
 			sections.push({ title: "Split", offset: lines.length });
 			lines.push(...rendered);
 		}
-		this.cache = { width, lines, sections, changedCount: changed.filter(Boolean).length };
+		this.cache = { width, lines, sections, changedCount: marks.filter((mark) => mark.changed).length };
 		return this.cache;
 	}
 
