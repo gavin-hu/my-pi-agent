@@ -264,7 +264,7 @@ Follow this section order, omitting an empty optional section:
 
 1. `# <name> — <tagline>`, a 1–3 sentence intro, then the hero image when the
    extension has one.
-2. `## Capabilities` — the key section, a three-column table.
+2. `## Capabilities` — the key section, a capability table.
 3. `## Quickstart` — `pi --extension ./extensions/<name>`, `pi -e .`,
    `pi install ./`, then a first command.
 4. Surface — `## Tool` / `## Tools` / `## Commands` / `## Commands and flags` /
@@ -294,18 +294,21 @@ the rest of the page elaborates, so it comes first and is a table:
 |---|---|---|
 | Whole-list tracking | `todo`, `/todos` | The model replaces the list in one call; the list follows the session branch. |
 
-- One row per capability, ordered as a user meets them; `Capability` is a two-
-  or three-word noun phrase.
+- One row per capability, ordered by user value, highest first; `Capability` is
+  a two- or three-word noun phrase.
 - `How` names the exact tool, command, route, or key in backticks, comma
   separated when several deliver it. Every tool and command the extension
   registers appears in that column, which `test/extension-docs.test.ts` holds by
   loading the factory. A capability with no trigger — one that happens on its own
   — opens the cell with `automatic:` and names what sets it off.
 - `What you get` is one sentence of outcome, not mechanism.
+- A page may add a fourth `Status` column when some capabilities are not in a
+  tagged release: `Shipped`, `Unreleased`, or `Partial`. The guard accepts the
+  three-column form or this four-column form.
 - The surface sections below elaborate the rows, and a deep dive with no row is
   either missing from the table or not worth a section.
 - A page with many capabilities groups the rows under `###` headings — one table
-  per group, always the same three columns.
+  per group, always the same columns.
 
 **An image is not a capability.** There is no `## Screens` and no
 `## Tool rendering`: the hero image goes under the intro, a tool-rendering image

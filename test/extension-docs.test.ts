@@ -119,6 +119,8 @@ const SURFACE = new Set(["Tool", "Tools", "Commands", "Commands and flags", "Rou
 const FRONT = new Set([...SURFACE, "Behaviour by mode", "Configuration", "Security", "Limitations", "Non-goals"]);
 const SUFFIX = ["Limitations", "Non-goals", "Pi integration", "Design notes", "Files", "Testing"];
 const REQUIRED = ["Capabilities", "Quickstart", "Pi integration", "Design notes", "Files"];
+/** An optional fourth column; a page uses it only when a capability is unreleased. */
+const STATUSES = new Set(["Shipped", "Unreleased", "Partial"]);
 
 /** The index page, and a Markdown-free extension tree. */
 describe("the extension doc set", () => {
@@ -200,13 +202,20 @@ describe("the capabilities table", () => {
 			expect(tables.length, "no capabilities table").toBeGreaterThan(0);
 
 			for (const [at, table] of tables.entries()) {
-				expect(table[0], `table ${at + 1}: the header`).toEqual(["Capability", "How", "What you get"]);
+				const header = table[0] ?? [];
+				const hasStatus = header.length === 4 && header[3] === "Status";
+				expect(header, `table ${at + 1}: the header`).toEqual(
+					hasStatus ? ["Capability", "How", "What you get", "Status"] : ["Capability", "How", "What you get"],
+				);
 				const rows = table.slice(1);
 				expect(rows.length, `table ${at + 1}: no rows`).toBeGreaterThan(0);
 				for (const [row, cells] of rows.entries()) {
-					expect([name, at + 1, row + 1, cells.length]).toEqual([name, at + 1, row + 1, 3]);
+					expect([name, at + 1, row + 1, cells.length]).toEqual([name, at + 1, row + 1, header.length]);
 					const how = cells[1] ?? "";
 					expect(how, `${name}: row ${row + 1} names no surface in backticks`).toMatch(/^automatic:|`[^`]+`/);
+					if (hasStatus) {
+						expect(STATUSES, `${name}: row ${row + 1} has an unknown status`).toContain(cells[3] ?? "");
+					}
 				}
 			}
 		});

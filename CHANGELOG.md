@@ -78,7 +78,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   order, the three-column table, the Markdown-free `extensions/` tree, and the
   rule that every tool and command an extension registers is named in it.
   `package.json` ships `docs/extensions/**`, so the pages travel with the
-  published package.
+  published package. WeChat's capability table ranks rows by user value and adds
+  a `Status` column for shipped, unreleased, and partial capabilities.
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by
