@@ -42,12 +42,17 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 };
 
 export const LIB_SUITES: readonly string[] = [
+	"claims/overlap",
 	"core",
 	"format",
 	"lines",
 	"process",
 	"report",
+	"repo-key",
 	"state",
+	"plans/sections",
+	"plans/split",
+	"plans/team",
 	"requirements",
 	"screen-session",
 	"timer",

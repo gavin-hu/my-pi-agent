@@ -215,7 +215,6 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 		notes: ["Runs the project's detected command through a shell; a stack with no detector needs `check.command`."],
 	},
 	plan: {
-		optional: [gitCheck("project-local `.pi/plans` (otherwise plans land in the agent directory)")],
 		notes: ["Needs an interactive UI to enter plan mode."],
 	},
 	subagent: {

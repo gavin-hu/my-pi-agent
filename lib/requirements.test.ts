@@ -64,7 +64,6 @@ describe("binary checks", () => {
 		const expected: Record<string, string> = {
 			worktree: "worktree isolation",
 			rewind: "rewind snapshots",
-			plan: "project-local `.pi/plans` (otherwise plans land in the agent directory)",
 			"file-browse": "the branch chip and the diff view",
 			memory: "project-scope memory under the repository root",
 		};
@@ -264,7 +263,7 @@ describe("the report shape", () => {
 		const reports = await probeAll(seams({ exec: async () => ({ code: 1 }) }));
 		const names = new Set(missingFindings(reports).map((finding) => finding.extension));
 		expect(names.has("rewind")).toBe(true);
-		// `plan` needs git only for project-local plans, so it stays out of the warning set.
+		// `plan` stores plans in the agent directory and needs no git at all.
 		expect(names.has("plan")).toBe(false);
 	});
 

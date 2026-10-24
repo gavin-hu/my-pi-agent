@@ -25,8 +25,8 @@ export const PLAN_ENTER_REQUEST = "my-pi-agent/plan-mode/enter";
 /** One clause describing the read-only guarantee, reused across prompts. */
 export const READ_ONLY_SUMMARY =
 	"write and edit are disabled, bash is limited to read-only git commands, and other mutating tools are blocked; " +
-	"subagent delegation is forced read-only, and the only file write is write_plan (under .pi/plans, or the agent " +
-	"directory outside a repository)";
+	"subagent delegation is forced read-only, and the only file write is write_plan (a plan file in the agent " +
+	"directory)";
 
 /**
  * The consent question, as the user sees it. Shown by `enter_plan_mode` and by
