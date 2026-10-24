@@ -29,12 +29,16 @@ surface arrives with its limitation written in the same breath.
   three-OS CI, a shared `lib/tui/` and `lib/web/` design system, budgeted prompt
   context, and package-level guards that hold the docs, the catalog, the release
   window, and this file to the tree.
-- The last tag is `0.17.0`. The tree already carries the next release body:
-  `session-bus` with its live board, inbox watch, session naming, and slice
-  joining; plans stored per repository and split into a team at approval;
-  reviewer links that bind a name and follow the plan file live; the `plan.split`
-  settings row; and the browse page's `path:line` reference copy with its reload
-  hint. The changelog says which release that body lands in.
+- The last tag is `0.18.0`, and it shipped the body the previous review listed
+  as pending: `session-bus` with its live board and slice joining, plans split
+  into a team at approval, reviewer links that follow the plan file live, and the
+  browse page's `path:line` reference copy. The window since it changes no
+  behaviour — `docs/architecture.md` now states the target architecture rather
+  than a snapshot, with the three rules the code has not reached carried here as
+  `F3`–`F5`; the `refactor` skill measures a scope with a shipped
+  `scripts/inventory.ts`; the `changelog` skill works on any project's changelog
+  through its own `scripts/state.ts`; and `AGENTS.md` names its four rules, the
+  fourth enforced by review alone.
 
 ## How items are ordered
 
