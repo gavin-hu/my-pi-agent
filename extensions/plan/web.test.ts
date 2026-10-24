@@ -706,6 +706,15 @@ describe("review client", () => {
 		expect(clientFunction("closeComposer")).toContain("if (open) saveDraft();");
 	});
 
+	test("keeps the selection a composer was quoting", () => {
+		// The text alone restores a different note: the quote is what the comment is
+		// about, so the chip's value travels with the draft and comes back on reopen.
+		expect(clientFunction("openComposer")).toContain('composer.setAttribute("data-quote", quote)');
+		expect(clientFunction("typingOf")).toContain('composer.getAttribute("data-quote")');
+		expect(clientFunction("restoreDraft")).toContain('quote: typeof stored.quote === "string"');
+		expect(clientFunction("reopenComposer")).toContain('typing.quote || ""');
+	});
+
 	test("closes the review only for its owner and reads a terminal frame", () => {
 		expect(REVIEW_CLIENT_JS).toContain('if (role !== "owner" || saved || approved || closed) return;');
 		expect(REVIEW_CLIENT_JS).toContain('kind === "closed"');

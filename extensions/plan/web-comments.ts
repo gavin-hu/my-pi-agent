@@ -48,13 +48,18 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   var DRAFT_KEY = "bf-review-draft";
   var DRAFT_LIMIT = 131072;
 
-  /** The open composer's block line and text, or null when nothing is being typed. */
+  /**
+   * The open composer's block line, text, and the selection it quotes, or null when
+   * nothing is being typed. The quote is half of what the comment will say, so a
+   * draft that keeps the text and drops the quote would restore a different note.
+   */
   function typingOf() {
     var area = draftTextarea();
     var wrap = area && area.closest ? area.closest(".bf-block") : null;
     var anchor = wrap ? Number(wrap.getAttribute("data-line")) : -1;
     if (!area || !(anchor >= 0) || area.value === "") return null;
-    return { anchor: anchor, text: area.value };
+    var composer = area.closest ? area.closest(".bf-composer") : null;
+    return { anchor: anchor, text: area.value, quote: (composer && composer.getAttribute("data-quote")) || "" };
   }
 
   function saveDraft() {
@@ -88,7 +93,13 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     var draft = null;
     try { draft = JSON.parse(raw); } catch (error) { draft = null; }
     var mine = draft && Array.isArray(draft.mine) ? draft.mine : [];
-    var typing = draft && draft.typing && typeof draft.typing.text === "string" ? draft.typing : null;
+    var stored = draft && draft.typing && typeof draft.typing.text === "string" ? draft.typing : null;
+    // Rebuilt field by field: storage is hand-editable, and a chip rendered from a
+    // non-string quote would read as [object Object].
+    var typing =
+      stored && typeof stored.anchor === "number"
+        ? { anchor: stored.anchor, text: stored.text, quote: typeof stored.quote === "string" ? stored.quote : "" }
+        : null;
     if (!draft || draft.rev !== String(data.rev || "") || (mine.length === 0 && !typing)) {
       clearDraft();
       return null;
@@ -108,6 +119,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       var chip = el("div", "bf-quote-chip");
       chip.textContent = "\u201c" + quote + "\u201d";
       composer.appendChild(chip);
+      // The chip is the quote's only record; the draft reads it back from here.
+      composer.setAttribute("data-quote", quote);
     }
     var area = el("textarea", "bf-textarea");
     area.placeholder = "Leave feedback on this part of the plan (Enter to add)";
