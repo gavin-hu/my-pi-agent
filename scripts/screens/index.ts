@@ -236,7 +236,7 @@ export const SCREENS: Record<string, Screen> = {
 				entries: REVIEW_ENTRIES,
 				prompt: "Refresh the README screenshots",
 				theme,
-				initialSelected: ["extensions/rewind/review.ts", "extensions/rewind/commands.ts"],
+				initialSelected: ["extensions/rewind/commands/review.ts", "extensions/rewind/commands/commands.ts"],
 				onClose: noop,
 				requestRender: noop,
 				viewportRows: () => rows,
