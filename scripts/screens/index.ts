@@ -172,6 +172,11 @@ export const SCREENS: Record<string, Screen> = {
 	rewind: {
 		asset: "rewind",
 		title: "π - my-pi-agent · /rewind",
+		// The frame is its header, summary, five prompts, the detail line and the hint:
+		// 13 rows, so the window is sized to it rather than leaving a third of the
+		// poster empty below the closing rule.
+		bounds: { left: 80, top: 80, right: 920, bottom: 350 },
+		size: { width: 100, rows: 13 },
 		render: (width, rows) =>
 			new RewindListComponent({
 				points: REWIND_POINTS,

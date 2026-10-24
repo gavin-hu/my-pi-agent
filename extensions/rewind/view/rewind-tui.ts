@@ -139,6 +139,12 @@ export class RewindListComponent implements Component {
 
 	/** The key-hint row, with the primary action in the accent role. */
 	private hint(width: number): string {
-		return screenHint(this.theme, width, ["Esc close", { text: "Enter choose", color: "accent" }, "↑/↓ or k/j select"]);
+		return screenHint(this.theme, width, [
+			"Esc close",
+			{ text: "Enter choose", color: "accent" },
+			"↑/↓ or k/j select",
+			"PgUp/PgDn",
+			"g/G or Home/End",
+		]);
 	}
 }
