@@ -56,7 +56,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   policy — with the maintainer. Nothing in it assumes this package: the branch is `HEAD`
   rather than a name, several per-package changelogs are a scope question, and a
   changelog a tool generates is refused rather than hand-edited, with the entry sent
-  upstream to the commit message, a changeset fragment, or the generator's config.
+  upstream to the commit message, a changeset fragment, or the generator's config. Every
+  mode was then walked against a project it had never seen — `master`, no tags, a
+  changeset-generated changelog, a roadmap without ids — which added the contributor
+  path's commands to the audit's cross-document face, made `release` hand a generated
+  file to its generator, and stopped an absent link reference from being read as a
+  defect.
 
 ### Changed
 

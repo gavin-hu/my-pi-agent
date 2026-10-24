@@ -26,7 +26,8 @@ decides whether the promise is met, the maintainer decides whether it shipped.
 Then, for every item in the file, open the code it names. Three outcomes:
 
 - **The tree does it.** Delete the item, and record the reason where it was — one line
-  is enough, and it is what stops the same item being re-added next review.
+  is enough, and it is what stops the same item being re-added next review. A file with
+  its own history or "previous `Now`" section gets the note there instead.
 - **The tree does part of it.** Rewrite the item down to the part still missing. A
   condensed item is a finding; a deleted one that was not done is a lost promise.
 - **The tree contradicts it** — the approach changed, or the problem was solved another

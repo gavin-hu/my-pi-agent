@@ -22,6 +22,12 @@ A project that keeps no changelog file — only GitHub or GitLab releases, or re
 notes a tool generates — has nothing to move: say so and stop, and do not create the
 file as part of a release. The rest of this section assumes one exists.
 
+A file a tool generates is moved by that tool, not here: `changeset version`,
+`git-cliff --tag`, `release-please`, `semantic-release`, or whatever the project's
+release document names. In that case this mode's job is to check the result — the
+version, the dated heading, the category order, the link refs — and to report the step
+that is still owed, never to edit the generated file.
+
 - Read `[Unreleased]` and check it is what the release contains: everything since
   the last tag, nothing that already shipped.
 - Move every entry under `## [X.Y.Z] - YYYY-MM-DD`, categories in the file's own

@@ -37,6 +37,10 @@ default — and name where it disagrees.
 - **The mirror** — a translated README carries the original's sections, table rows, and
   links. A row that exists in one and not the other is a finding even when the prose is
   deliberately translated.
+- **The contributor path** — the commands `CONTRIBUTING.md` tells a newcomer to run,
+  against the manifest's `scripts` and the CI workflow's steps. A command the docs promise
+  and the manifest does not define is the one stale claim a new contributor hits first,
+  and a step CI runs that the docs never mention is the one they skip.
 
 ## 3. The changelog's commit window
 
@@ -74,7 +78,10 @@ Report separately:
   user-visible changes.
 - An entry for something already shipped under a dated heading: the same outcome twice,
   which reads as a second change.
-- A stale link reference pointing at an older tag than the newest dated heading.
+- A stale link reference pointing at an older tag than the newest dated heading — where
+  the file uses link references at all. A generated or non-Keep-a-Changelog file may have
+  none, and the state script reports that absence as a missing reference without it being
+  a defect.
 
 ## 4. The roadmap's own ids and caps
 
