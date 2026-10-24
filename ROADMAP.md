@@ -185,8 +185,6 @@ item went the same way: both modules it named have a second consumer inside
 
 **Now**
 
-**Now**
-
 Nothing here is queued: the split, the bus, and the shared-file rule shipped
 together, so approval and claiming read one list and cannot disagree.
 
