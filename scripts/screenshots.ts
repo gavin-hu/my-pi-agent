@@ -2,9 +2,9 @@
  * Capture the docs screenshots (dev tooling).
  *
  * `render <name>` prints one frame as ANSI on any OS and needs no window; naming
- * screens captures only those, and with no argument every frame is captured and
- * then the hero. macOS only for a capture, because it drives Terminal.app. The
- * frames are in `screens/`, and the two capture mechanisms in `capture/`.
+ * screens captures only those, and with no argument every frame is captured — the
+ * `chrome` hero is one of them. macOS only for a capture, because it drives
+ * Terminal.app. The frames are in `screens/`, the capture mechanisms in `capture/`.
  */
 
 import { writeFileSync } from "node:fs";

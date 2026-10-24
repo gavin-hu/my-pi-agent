@@ -8,7 +8,7 @@ judged by `bun run check` and by the assets it writes under `assets/`.
 
 | Path | What it is |
 |---|---|
-| [`screenshots.ts`](./screenshots.ts) | The capture command: `render <name>` prints one frame as ANSI on any OS, a named screen captures only it, and no argument captures every frame and then the hero. |
+| [`screenshots.ts`](./screenshots.ts) | The capture command: `render <name>` prints one frame as ANSI on any OS, a named screen captures only it, and no argument captures every frame, the hero among them. |
 | [`screens/`](./screens/) | The frames: `index.ts` is the registry — the `Screen` type and `SCREENS`, which holds every capturable frame including the `chrome` hero — and `fixtures/` is the data they draw around, one module per surface. |
 | [`capture/`](./capture/) | The two mechanisms. `terminal.ts` drives Terminal.app and `screencapture`; `chrome.ts` and `page.ts` drive Playwright against the local Chrome; `crop-title-bar.js` is the JXA crop, run by `osascript`. |
 | [`shots/`](./shots/) | One CLI per captured page — `file-browse`, `plan-review`, `plan-flow` — plus `plan-review-capture.ts` for the review page's state. |

@@ -78,6 +78,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the `/context` screen is captured like every other screen — it joins
+  `SCREENS`, so the suite renders it at three widths — and the guide embeds the
+  image in place of the pasted report, which no longer had to stand in for one.
 - `docs`: `assets/chrome.png` is drawn from a fixture like every other asset
   instead of a live `pi -e .` turn, so a recapture is byte-identical for the same
   code and the frame names no machine's model or spend. The `chrome` frame joins

@@ -13,6 +13,7 @@
 
 export { AGENT_RUNS } from "./agents.ts";
 export { CHECK_RESULT } from "./check.ts";
+export { CONTEXT_REPORT } from "./context.ts";
 export { JOBS } from "./jobs.ts";
 export { MEMORY_CALLBACKS, MEMORY_ENTRIES } from "./memory.ts";
 export {
