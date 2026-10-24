@@ -273,6 +273,71 @@ function blockKey(block: PlanBlock): string {
 }
 
 /**
+ * Words a block is compared by when it may merely have been reworded: lowercased,
+ * with the list marker and task checkbox dropped. Every step of a `## Steps`
+ * section would otherwise match every other one through its `- [ ]` alone.
+ */
+function blockWords(block: PlanBlock): Set<string> {
+	const text = block.lines
+		.join(" ")
+		.toLowerCase()
+		.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, " ")
+		.replace(/\[[ x]\]/g, " ");
+	return new Set(text.split(/[^\p{L}\p{N}]+/u).filter((word) => word !== ""));
+}
+
+/** Share of the longer block's words that both blocks have. */
+function sharedShare(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
+	if (a.size === 0 || b.size === 0) return 0;
+	let shared = 0;
+	for (const word of a) if (b.has(word)) shared += 1;
+	return shared / Math.max(a.size, b.size);
+}
+
+/** Share of its words a block keeps, at or above which it is the same block reworded. */
+const MATCH_SHARE = 0.5;
+
+/**
+ * Which block of `next` each block of `old` became, keeping both lists in
+ * document order: the longest set of pairs whose wording overlaps enough to be one
+ * block reworded. A block left without a pair is `-1` — deleted, or replaced by
+ * text that shares nothing — which is the gap its comment belongs in.
+ */
+function alignBlocks(old: readonly PlanBlock[], next: readonly PlanBlock[]): number[] {
+	const before = old.map(blockWords);
+	const after = next.map(blockWords);
+	const matches = before.map((words) => after.map((other) => (sharedShare(words, other) >= MATCH_SHARE ? 1 : 0)));
+	// A longest common subsequence over the match grid, so a block that moved keeps
+	// its own pairing instead of pulling the blocks around it along.
+	const width = next.length + 1;
+	const counts = new Array<number>((old.length + 1) * width).fill(0);
+	for (let row = old.length - 1; row >= 0; row--) {
+		for (let column = next.length - 1; column >= 0; column--) {
+			const paired = matches[row][column] === 1 ? 1 + counts[(row + 1) * width + column + 1] : 0;
+			counts[row * width + column] = Math.max(
+				paired,
+				counts[(row + 1) * width + column],
+				counts[row * width + column + 1],
+			);
+		}
+	}
+	const aligned = new Array<number>(old.length).fill(-1);
+	let row = 0;
+	let column = 0;
+	while (row < old.length && column < next.length) {
+		if (matches[row][column] === 1 && counts[row * width + column] === 1 + counts[(row + 1) * width + column + 1]) {
+			aligned[row] = column;
+			row += 1;
+			column += 1;
+			continue;
+		}
+		if (counts[(row + 1) * width + column] >= counts[row * width + column + 1]) row += 1;
+		else column += 1;
+	}
+	return aligned;
+}
+
+/**
  * A plan's heading sections, keyed by `sectionKeys`, each with the blocks a
  * comment can hang on and the last line of that content. Blank lines are left out
  * on purpose: a position among them would move when one is added or removed
@@ -303,7 +368,8 @@ function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, {
  * Comments are not plan content, so `next` is stripped of any marker it carries,
  * and every old one is re-attached by the strongest evidence that survives: the
  * block's text (per occurrence, so two identical steps keep their own comments),
- * then the same section and ordinal, then the last line of that section's
+ * then the block the alignment says it became when the wording changed, then the
+ * gap it left between the blocks that survived, then the end of that section's
  * content. A comment whose section is gone too moves to the plan's last content
  * block, so the page keeps showing it under a block rather than listing it as
  * unattached; only a plan with no block at all leaves it in that list.
@@ -331,15 +397,31 @@ export function carryFeedback(previous: string, next: string): string {
 	// block, never after the blank line a trailing newline leaves.
 	const tail = contentBlockAt(nextBlocks, lastLine)?.end ?? lastLine;
 
-	/** The block at the same position in the same section, else that section's end. */
+	/** One alignment per section, reused by every comment that lands in it. */
+	const alignments = new Map<string, number[]>();
+
+	/**
+	 * Where a comment goes when its own block's text is gone: the block the alignment
+	 * says it became, else the gap it left, else its section's end.
+	 */
 	const bySection = (block: PlanBlock): number | undefined => {
-		for (const [key, old] of oldSections) {
-			const ordinal = old.blocks.indexOf(block);
-			if (ordinal < 0) continue;
-			const section = nextSections.get(key);
-			if (section === undefined) return undefined;
-			const same = section.blocks[ordinal];
-			return same ? same.end : section.end;
+		for (const [key, before] of oldSections) {
+			const index = before.blocks.indexOf(block);
+			if (index < 0) continue;
+			const after = nextSections.get(key);
+			if (after === undefined) return undefined;
+			let aligned = alignments.get(key);
+			if (aligned === undefined) {
+				aligned = alignBlocks(before.blocks, after.blocks);
+				alignments.set(key, aligned);
+			}
+			const became = aligned[index];
+			if (became >= 0) return after.blocks[became].end;
+			// The gap it left is right after the block before its nearest surviving
+			// successor: for the first block of a section, that is the heading.
+			const successor = aligned.findIndex((at, from) => from > index && at >= 0);
+			const gap = successor >= 0 ? after.blocks[aligned[successor] - 1] : undefined;
+			return gap?.end ?? after.end;
 		}
 		return undefined;
 	};

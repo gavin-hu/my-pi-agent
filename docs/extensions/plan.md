@@ -681,8 +681,10 @@ file and returns them to the model.
 - **A revision keeps the review.** `write_plan` passes the file it is replacing
   through `carryFeedback`, which re-attaches each comment by the strongest evidence
   that survived: the anchored block's text, per occurrence, so a plan that repeats
-  a step keeps the comments apart; then the same section at the same position, so a
-  reworded step keeps its note; then the last block that section still has. A
+  a step keeps the comments apart; then the block whose wording still overlaps it —
+  half the longer block's words — so a reworded step keeps its note, and a step
+  that shifted down under an inserted one keeps it too; then the gap it left
+  between the steps that survived; then the last block that section still has. A
   comment whose section is gone too moves to the plan's last block rather than
   disappearing, and every one of those placements lands beside a block, never after
   a blank line, so the page keeps the thread under its block. Only a plan with no

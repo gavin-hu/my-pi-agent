@@ -189,6 +189,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a comment a refinement carries stays on its own step when a step is
+  inserted or deleted above it. Placement fell back to the comment's position
+  among the section's blocks, so anything added above shifted every comment below
+  it onto its neighbour — a note on a reworded step attached to the step above it.
+  Carry now aligns the old and new blocks by their wording, a reword keeping half
+  the longer block's words counting as the same block, and a comment whose text is
+  gone sits in the gap it left: where the deleted step stood, rather than at the
+  section's end.
 - `plan`: a comment `write_plan` carries onto a revised plan stays attached to a
   block, instead of the review page listing it under "Comments not attached to a
   current block". A carried comment was written after the blank line before the
