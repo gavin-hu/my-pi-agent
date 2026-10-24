@@ -29,7 +29,7 @@ const BUN_RUN = /bun run ([A-Za-z0-9:_./-]+)/g;
 
 /** Every doc that describes this project: the root, the doc trees, and the package's own. */
 function docs(): string[] {
-	const trees = ["docs", "extensions", "lib", "test", ".github"].map((dir) => join(repo, dir));
+	const trees = ["docs", "extensions", "lib", "scripts", "test", ".github"].map((dir) => join(repo, dir));
 	const rootDocs = readdirSync(repo)
 		.filter((name) => name.endsWith(".md"))
 		.map((name) => join(repo, name));
