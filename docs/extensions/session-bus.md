@@ -238,7 +238,14 @@ characters.
   team a newer plan replaced is unguarded until it joins again.
 - **Bounded by TTL.** An idle session with a stopped heartbeat is pruned after
   ten minutes; its record, its claims, and an inbox directory left empty go with
-  it, and its unread mail expires after 24 hours.
+  it, and its unread mail expires after 24 hours. A claim belongs to a record
+  that was read from disk, not to the reader's idea of who is active, so a peer
+  that claimed in the middle of someone else's prune keeps it.
+- **One session id, one record.** Resuming a session in a second pane gives two
+  processes the same id, and the record names the process that owns it: the older
+  pane's shutdown leaves the record and the claims to the newer one instead of
+  releasing them. Arming is still per process, so the survivor's watch is the
+  survivor's.
 - **A message file that does not parse is dropped.** The board's read never
   consumes mail, but it does delete a file it cannot validate, so a truncated
   message cannot linger on the bus.

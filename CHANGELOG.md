@@ -296,6 +296,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: pruning no longer deletes a claim that a peer took after the
+  pruning session read the session list. `store.prune` decided which claims to
+  keep from the caller's active set, and that set is a snapshot: a peer that
+  registered and claimed in the window kept its record and lost its claims, and
+  nothing told it. The store now derives liveness from its own read of the
+  records and treats the caller's set as a floor, so a claim belongs to whoever
+  the disk says is alive. A regression test writes a live peer's claim and prunes
+  with an active set that does not name it.
+
+- `session-bus`: a second `/resume` of one session no longer costs the first
+  pane its claims. Two panes share a session id, and the older process's
+  shutdown released every claim under that id and deleted the record the newer
+  one had just written. `stop` reads the record and releases only when it owns it,
+  which is what the stored `pid` is for — written since the first release and
+  never read until now, so the record finally names its process. The runtime
+  takes a `pid` seam for the test that registers one id from two processes.
+
 - dev: the posting cards' one stylesheet stops declaring `.label` twice, once for the
   SVG diagram's node names and once for the terminal card's section labels, which is a
   single global namespace: the diagram's nodes lost the `650` weight their own block

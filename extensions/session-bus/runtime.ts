@@ -48,6 +48,8 @@ export interface SessionBusOptions {
 	now?: () => number;
 	/** Test seam: use this bus directory instead of the agent-dir layout. */
 	dir?: string;
+	/** Test seam: the process id this runtime registers as, so two can share one session id. */
+	pid?: number;
 	/** Test seam: skip git and use this repository identity. */
 	repo?: { root: string; key: string };
 	/** Test seam: read teams from this plan store instead of the agent-dir layout. */
@@ -154,6 +156,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
 	const watchMs = options.watchMs ?? DEFAULT_WATCH_MS;
 	const interval = options.interval ?? defaultInterval;
+	const pid = options.pid ?? process.pid;
 	const sessionTtlMs = options.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS;
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
@@ -187,7 +190,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			record = {
 				id,
 				label: defaultLabel(sessionName(context), cwd, id),
-				pid: process.pid,
+				pid,
 				cwd,
 				repoRoot: repo.root,
 				mode,
@@ -399,8 +402,15 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			stopHeartbeat = undefined;
 			mailWatch.stop();
 			if (store && record && joined) {
-				await store.releaseAll(record.id).catch(() => {});
-				await store.removeSession(record.id).catch(() => {});
+				// A `/resume` in a second pane registers the same session id twice; the record
+				// names the process that owns it, so this one releases and removes only its
+				// own. Releasing unconditionally would strip the survivor of the claims it is
+				// still working under.
+				const owner = await store.session(record.id).catch(() => undefined);
+				if (owner === undefined || owner.pid === pid) {
+					await store.releaseAll(record.id).catch(() => {});
+					await store.removeSession(record.id).catch(() => {});
+				}
 			}
 			joined = false;
 			starting = undefined;
