@@ -112,6 +112,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `rewind`: the `/rewind` list's footer names the keys it already answered — `PgUp`/`PgDn`
+  and `g`/`G` or `Home`/`End` — instead of only `↑/↓` and `k`/`j`. The cursor has always
+  jumped on those keys, `docs/extensions/rewind.md` already said so, and `watch`, `todo`
+  and `check` print the same two hints for the same list primitive, so the screen was the
+  one place the whole key set was not visible. `assets/screens/rewind.png` is recaptured
+  in a window sized to its 13 rows, which takes the poster from 23% empty below the
+  closing rule to 7%, like `watch` and `memory`.
 - dev: `assets/` is grouped by what writes it — `cards/` the three posting posters with
   their stylesheets, `screens/` every captured frame (the terminal surfaces, the two
   browser pages, and the tool gallery), `tools/` the one-PNG-per-tool files — so the
