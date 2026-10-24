@@ -93,8 +93,17 @@ body.palette-open{overflow:hidden}
 .browse-measure .bf-md>*{max-width:var(--browse-measure);margin-inline:auto}
 /* Tables start at the prose column and take only the gutter to its right, so a
    wide window widens them without a dead band on their left. Code stays inside
-   the measure with the rest of the prose. */
-.browse-measure .bf-md>.md-table-frame{max-width:none;padding-left:var(--browse-gutter)}
+   the measure with the rest of the prose. The frame is also the container a
+   squeezed table asks about: it is the pane, not the window, that narrows one. */
+.browse-measure .bf-md>.md-table-frame{max-width:none;padding-left:var(--browse-gutter);container-type:inline-size}
+/* In a pane this narrow, auto layout gives the prose cell whatever an unbreakable
+   code span leaves — one word per line, and a four-column table read as a
+   300px-tall row. A floor on the cells makes the table wider than the pane
+   instead, so every column keeps a readable width and the wrapper scrolls them;
+   a table that still fits is left as it was. */
+@container (max-width:600px){
+.browse-measure .bf-md .md-table-frame td{min-width:14em}
+}
 /* A table wider than the pane scrolls, but an overlay scrollbar is invisible
    until it moves; a gradient on the frame marks the columns still out of view.
    It has to be the frame: the scroller clips its own content, so a pseudo-element

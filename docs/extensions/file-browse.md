@@ -252,12 +252,14 @@ with a one-click **raw** view (`?raw=1`). The page fills the card, so the scroll
 bar sits at the card edge; headings, prose, and images keep a centred reading
 measure of at most 1012px. Code blocks stay inside that column; tables start at
 it and take the free gutter to its right, and a table wider than the pane
-scrolls, its right edge fading until the last column is reached. A task list's
-checkbox is drawn by the page, so a done item carries the success colour in both
-themes. Tables size their columns to the content, and named and numeric
-character references are decoded. Headings get stable anchor ids, so
-in-document `#anchor` links work. Fenced code blocks are syntax-highlighted when
-the fence names a supported language.
+scrolls, its right edge fading until the last column is reached. Columns size to
+the content, and in a pane narrower than 600px they stop shrinking: each cell
+keeps a readable width, so the table scrolls instead of stacking one word per
+line. A task list's checkbox is drawn by the page, so a done item carries the
+success colour in both themes. Named and numeric character references are
+decoded. Headings get stable anchor ids, so in-document `#anchor` links work.
+Fenced code blocks are syntax-highlighted when the fence names a supported
+language.
 
 A README's raw HTML is re-emitted through an allowlist (`<details>`,
 `<summary>`, tables, `<kbd>`, images), so it renders without becoming an
