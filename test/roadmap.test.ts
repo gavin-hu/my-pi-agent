@@ -172,9 +172,9 @@ describe("roadmap horizons", () => {
 		expect(over).toEqual([]);
 	});
 
-	test("names the top three items the file ranks first", () => {
-		const section = roadmap.slice(roadmap.indexOf("## If only three things ship"), roadmap.indexOf("## Horizons"));
+	test("names the top two items the file ranks first", () => {
+		const section = roadmap.slice(roadmap.indexOf("## If only two things ship"), roadmap.indexOf("## Horizons"));
 		const named = [...section.matchAll(/\*\*([PSWCF]\d+) — /g)].map((match) => match[1]);
-		expect(named).toEqual(["P1", "W1", "S1"]);
+		expect(named).toEqual(["P1", "S1"]);
 	});
 });

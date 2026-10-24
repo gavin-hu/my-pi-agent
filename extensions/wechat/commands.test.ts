@@ -31,7 +31,7 @@ import { finishLogin, registerCommands, runNew, WECHAT_COMMANDS, WECHAT_USAGE, t
 import { DEFAULT_CONFIG } from "./config.ts";
 import type { PeerLanguage } from "./format.ts";
 import { createWechatInteractionChannel, PROMPT_TIMEOUT_MS, type WechatInteractionDeps } from "./interaction.ts";
-import { notice, type NoticeKind } from "./notices.ts";
+import { notice, NOTICE_KINDS } from "./notices.ts";
 import { formatPrompt, parsePromptAnswer, RETRY_NOTICE } from "./prompt.ts";
 import { createPeerUIContext } from "./remote-ui.ts";
 import {
@@ -948,28 +948,11 @@ describe("helpText", () => {
 });
 
 describe("notices", () => {
-	// Every kind the bridge can send, so a new one is covered by these checks.
-	const KINDS: NoticeKind[] = [
-		"ack",
-		"busy",
-		"stillWorking",
-		"overflow",
-		"media",
-		"unsupported",
-		"stopped",
-		"noText",
-		"compacted",
-		"budget",
-		"promptWaiting",
-		"timeout",
-		"withdrawn",
-		"failed",
-		"newBusy",
-	];
-
+	// Derived from the catalogue, so a new kind is covered by these checks the day
+	// it is added.
 	test("renders the peer's language only", () => {
 		const cjk = /[\u3400-\u4dbf\u4e00-\u9fff]/;
-		for (const kind of KINDS) {
+		for (const kind of NOTICE_KINDS) {
 			expect(cjk.test(notice(kind, "zh"))).toBe(true);
 			expect(cjk.test(notice(kind, "en"))).toBe(false);
 		}
@@ -981,7 +964,7 @@ describe("notices", () => {
 	});
 
 	test("keeps every notice to one line", () => {
-		for (const kind of KINDS) {
+		for (const kind of NOTICE_KINDS) {
 			for (const lang of ["en", "zh"] as const) expect(notice(kind, lang)).not.toContain("\n");
 		}
 	});

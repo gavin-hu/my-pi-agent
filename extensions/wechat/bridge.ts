@@ -225,8 +225,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	}
 
 	/** Send one bubble to a peer and report whether it was delivered. */
-	async function reply(target: MessageTarget, text: string): Promise<boolean> {
-		return deliverer.reply(target, text, abort?.signal);
+	async function reply(target: MessageTarget, text: string, signal?: AbortSignal): Promise<boolean> {
+		return deliverer.reply(target, text, signal ?? abort?.signal);
 	}
 
 	/** The outbound surface, reading the live client and account at call time. */
@@ -555,7 +555,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				openSession: (peer, options) => deps.openSession(peer, { fresh: options.fresh, channel: interaction }),
 				// Each part is delivered as its own bubble; the worker puts the
 				// attachment line on the first one. A false result stops the stream.
-				send: (item, text) => reply(item, text),
+				send: (item, text, options) => reply(item, text, options?.signal),
 				fallback: (item, reason) => notice(reason, item.language),
 				onStart: (item) => {
 					presence.cancelAck(item.peer);
@@ -602,7 +602,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				// worker, so close it unconditionally rather than leaking the sessions.
 				const closing = worker;
 				worker = undefined;
-				await closing?.close();
+				await closing?.close({ abandon: true });
 				resetEphemeral();
 				publishState();
 				releaseSafe();

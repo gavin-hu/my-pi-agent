@@ -188,6 +188,7 @@ needs. Per action:
 | Sends the same message twice (a server replay) | Answered once: the WeChat message id is remembered for an hour, across a reconnect or reload. |
 | Pastes a very long message | The first `maxInboundChars` characters reach the model, followed by a truncation marker, instead of an unbounded prompt. |
 | Gets an aborted turn | `已停止。` / “Stopped.” |
+| Exits, reloads, or forks mid-turn | One line: `会话已停止，这条还没答完。恢复后再发一次即可。` / “The session stopped before this answer finished — send it again when it's back.”, sent to every peer that still had work before the connection closes. |
 | Gets a turn that produced no text | `这条处理完了，但没有文字输出。` / “That turn finished without any text to send.” |
 | Gets a turn that could not start | `处理失败，请稍后重试。` / “Something went wrong — please try again.”, and the terminal says why. |
 | Keeps messaging an expired or logged-out bridge | Nothing — the bot goes quiet, and only the terminal chip says why. |
@@ -239,9 +240,10 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   dialog cannot freeze the session. A dialog uses three minutes; the plan review
   uses ten. A timed-out plan review is treated like a dismissal: plan mode ends
   without approval, and the plan file remains.
-- A prompt that goes away before it is answered — a pause, a `/stop`, a shutdown —
-  says so (`问题已撤回。` / “That question was withdrawn.”) instead of reusing the
-  timeout line: the peer was not slow, the question left.
+- A prompt that goes away before it is answered says so: a pause withdraws it with
+  `问题已撤回。` / “That question was withdrawn.”, a `/stop` ends its turn with
+  `已停止。`, and a shutdown reports the abandoned turn — the peer was not slow, the
+  question or the session left.
 
 Each peer session is created with its own UI context (`bindExtensions` with
 `mode: "rpc"`), so its dialogs go to that peer by construction rather than by
@@ -389,8 +391,13 @@ never touches the stored cursor.
 - Parts are flushed at a paragraph boundary, after two silent seconds, or at 400
   characters, so an answer that stalls mid-paragraph still arrives in pieces. A
   part that is itself longer than `maxReplyChars` is numbered.
-- A `/wechat new`, `/reload`, fork, or process exit during a WeChat turn abandons
-  that turn's reply: the shutdown aborts the send, and the peer gets nothing.
+- An abandoned turn's notice is one attempt, not a queue. Any close — `/wechat
+  new`, `/reload`, a fork, a logout, or a process exit — sends one short line per
+  peer that still had work, and a queued message shares its peer's line rather
+  than earning its own bubble. It needs a live connection: a notice the transport
+  cannot deliver within five seconds is reported on the terminal and dropped, not
+  retried. The one close that stays silent is the worker an expired connection
+  replaces on reconnect, whose token is already dead.
 - Inbound **video** is not handled, and there is no group-chat support. Voice is
   handled only through the server-provided transcript. Both are answered with a
   one-line notice rather than being dropped silently, and a voice note the
@@ -422,7 +429,7 @@ sessions are in-process).
 | Tools | `send_wechat` — owner-only proactive text; registered at factory time with direct exposure (the default), `executionMode: "sequential"`, `openWorldHint: true`. |
 | Events | `session_start` (record the live context, auto-start the bridge when an account exists); `session_shutdown` (idempotent stop). No host run events: peer turns are not the host session's runs. |
 | Sessions | `openPeerSession` creates one SDK `AgentSession` per peer (`createAgentSession`, `SessionManager.continueRecent` under `<agent-dir>/wechat/sessions/<peer>/`), inheriting the host's model and thinking level. `DefaultResourceLoader` standard discovery minus this bridge (`withoutWechatExtensions`), so a peer session cannot start a second poller, plus a short channel contract appended to the system prompt so the model knows it is answering in a phone chat window. When `peers[<id>].tools` is set, only those names stay active. |
-| Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, and one idle sweep per session. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
+| Turn ownership | `peer-worker.ts`: a serial queue per peer, `session.prompt()`/`session.abort()`, `getLastAssistantText()` for the answer, one idle sweep per session, and the one notice an abandoning close sends per peer. `concurrency` defaults to 1 so a forwarded dialog has one owner. |
 | Slash commands | Admitted inbound text is matched against `SLASH_COMMANDS` in `handleMessage`; a snippet is expanded into the turn, an action runs out-of-band and replies, and an unknown command falls through. Actions act on the sender through `SlashSessionControls` (`newSession` → worker reset, `stop` → worker abort, `status` → worker state, `history` → a read-only read of that peer's newest session). |
 | Peer dialogs | `bindExtensions({ mode: "rpc", uiContext })` on each peer session, with `createPeerUIContext(channel)` routing `select`/`confirm`/`input`/`editor` to that peer and marking the context for `askHuman`'s file/text preface. The terminal's shared `ctx.ui` is deliberately not adapted: a host turn is never answered remotely, so its dialogs stay local even while a peer turn runs. |
 | Status | The bridge's connection state (`running` / `paused` / `expired` / `stopped`) is published through `onStateChange` to `ctx.ui.setStatus(STATUS_KEYS.wechat, …)`; an expiry keeps a persistent error chip, pause keeps a warning chip, and the status bar renders it on line 2. |
@@ -509,7 +516,7 @@ status, which is what the old start/stop guidance used to do.
 | `inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
 | `peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
 | `channel.ts` | The phone-chat contract appended to a peer session's system prompt. |
-| `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep. |
+| `peer-worker.ts` | Per-peer queue, one turn at a time (`concurrency`), prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
 | `reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `commands.ts` | `/wechat login|new|status|stop|reset|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login/logout, and the per-peer stop/reset; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
 | `tools.ts` | The `send_wechat` tool (owner-only proactive text). |
