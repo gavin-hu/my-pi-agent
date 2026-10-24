@@ -26,6 +26,7 @@ import { DEFAULT_CONFIG as DEFAULT_FILE_BROWSE_CONFIG } from "../extensions/file
 import { DEFAULT_GOAL_CONFIG } from "../extensions/goal/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_JOB_CONFIG } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG } from "../extensions/memory/config.ts";
+import { DEFAULT_SPLIT_CONFIG } from "../lib/plans/setting.ts";
 import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/config.ts";
 import { DEFAULT_SUBAGENT_CONFIG } from "../extensions/subagent/config.ts";
 import { DEFAULT_TODO_CONFIG } from "../extensions/todo/config.ts";
@@ -65,6 +66,7 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	job: DEFAULT_JOB_CONFIG,
 	watch: DEFAULT_WATCH_CONFIG,
 	memory: DEFAULT_MEMORY_CONFIG,
+	plan: DEFAULT_SPLIT_CONFIG,
 	rewind: DEFAULT_REWIND_CONFIG,
 	subagent: DEFAULT_SUBAGENT_CONFIG,
 	todo: DEFAULT_TODO_CONFIG,
@@ -203,6 +205,6 @@ describe("configuration reference", () => {
 	});
 
 	test("leaves no section unchecked", () => {
-		expect(Object.keys(SECTIONS)).toHaveLength(17);
+		expect(Object.keys(SECTIONS)).toHaveLength(18);
 	});
 });

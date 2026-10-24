@@ -19,6 +19,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
+import { DEFAULT_SPLIT_CONFIG, normalizeSplitConfig } from "../lib/plans/setting.ts";
 import { withLeaf } from "./helpers/config.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../extensions/bytefly/chrome.ts";
 import {
@@ -144,6 +145,13 @@ const SECTIONS: readonly SectionCase[] = [
 			live: "a browser-surface switch, not agent behaviour",
 			liveIntervalMs: "a refresh interval, tuned once",
 		},
+	},
+	{
+		// Off unless a project turns it on, so the panel row starts from the loader.
+		section: "plan",
+		defaults: DEFAULT_SPLIT_CONFIG,
+		normalize: (raw) => normalizeSplitConfig(raw, DEFAULT_SPLIT_CONFIG),
+		jsonOnly: {},
 	},
 	{
 		section: "goal",

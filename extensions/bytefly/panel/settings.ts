@@ -25,6 +25,7 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
+import { SPLIT_KEY, SPLIT_SECTION, SPLIT_SETTING_ID, SPLIT_SETTING_LABEL } from "../../../lib/plans/setting.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
@@ -38,7 +39,7 @@ import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.t
 import type { Settings, WriteScope } from "../picker/types.ts";
 
 /** Where a preference is stored. */
-type SettingSource = "app" | "bytefly";
+type SettingSource = "app" | "bytefly" | "plan";
 
 /** The row control a preference uses. */
 type SettingKind = "boolean" | "enum" | "text";
@@ -61,7 +62,7 @@ interface TextRule {
 }
 
 /** The `bytefly.json` sections a row still reaches. */
-export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job";
+export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "plan";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -295,14 +296,31 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		text: amountRule(0, MAX_BUDGET),
 		config: { section: "price", path: ["budget"] },
 	},
+	{
+		// The split's switch, with the label, id, and default taken from the module
+		// that reads it, so this row cannot describe a key nothing honours.
+		id: SPLIT_SETTING_ID,
+		label: SPLIT_SETTING_LABEL,
+		description:
+			"Let an approved plan carry a team of slices, which separate sessions join by name. Off keeps every plan one flow.",
+		source: "plan",
+		kind: "boolean",
+		fallback: "false",
+		json: "boolean",
+		options: ON_OFF,
+		config: { section: SPLIT_SECTION, path: [SPLIT_KEY] },
+	},
 ];
 
 /** The one refusal for a Project write while the project is untrusted. */
 export const UNTRUSTED_SETTINGS_NOTE = "Project is not trusted; settings can only be changed in Global scope.";
 
-/** The rows a scope can write: app rows are personal-file only. */
+/**
+ * The rows a scope can write: app rows are personal-file only, and Project shows
+ * the rows backed by `bytefly.json` — whichever extension owns the section.
+ */
 export function rowsForScope(scope: WriteScope): readonly SettingDescriptor[] {
-	return scope === "global" ? SETTING_ROWS : SETTING_ROWS.filter((row) => row.source === "bytefly");
+	return scope === "global" ? SETTING_ROWS : SETTING_ROWS.filter((row) => row.config !== undefined);
 }
 
 /**

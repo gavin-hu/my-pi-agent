@@ -867,7 +867,7 @@ has a keyboard path.
 | rewind | `git` | — |
 | document | — | — |
 | subagent | a runnable nested `pi` | project-local agents need a trusted project |
-| plan | — | `git` for project-local `.pi/plans`; an interactive UI |
+| plan | — | an interactive UI |
 | memory | — | `git` for the project-scope root |
 | file-browse | — | `git` for the branch chip; the browser opener is best-effort |
 | web-access | — | `unpdf` |
