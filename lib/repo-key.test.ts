@@ -3,7 +3,9 @@
  * worktrees, and the working directory when git cannot answer.
  *
  * No git process starts: `repoKeyFor` takes any `exec` seam, so the double here
- * answers by argument. The paths that must be real are temp directories.
+ * answers by argument. The paths that must be real are temp directories, resolved
+ * with `realpathSync.native` because that is the spelling `repoRoot` returns: the
+ * non-native call keeps Windows' 8.3 short name, which never compares equal.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -47,7 +49,7 @@ describe("repoKeyOf", () => {
 
 describe("repoKeyFor", () => {
 	test("keys on the common git directory, so worktrees share one key", async () => {
-		const main = realpathSync(tempDir("repo-key-main-"));
+		const main = realpathSync.native(tempDir("repo-key-main-"));
 		temps.track(main);
 		const seam = gitSeam("/repo/.git", main);
 		const fromMain = await repoKeyFor({ exec: seam } as never, "/repo");
@@ -59,7 +61,7 @@ describe("repoKeyFor", () => {
 	});
 
 	test("keys on the root when git reports no common directory", async () => {
-		const root = realpathSync(tempDir("repo-key-root-"));
+		const root = realpathSync.native(tempDir("repo-key-root-"));
 		temps.track(root);
 		const identity = await repoKeyFor({ exec: gitSeam("", root) } as never, root);
 		expect(identity).toMatchObject({ root, key: repoKeyOf(root), fromGit: true });
@@ -77,7 +79,7 @@ describe("repoKeyFor", () => {
 	});
 
 	test("asks git for both the common directory and the root", async () => {
-		const root = realpathSync(tempDir("repo-key-asks-"));
+		const root = realpathSync.native(tempDir("repo-key-asks-"));
 		temps.track(root);
 		const calls: string[][] = [];
 		await repoKeyFor({ exec: gitSeam("/repo/.git", root, calls) } as never, root);
@@ -86,7 +88,7 @@ describe("repoKeyFor", () => {
 	});
 
 	test("a nested path still keys the repository", async () => {
-		const root = realpathSync(tempDir("repo-key-nested-"));
+		const root = realpathSync.native(tempDir("repo-key-nested-"));
 		temps.track(root);
 		const identity = await repoKeyFor({ exec: gitSeam("/repo/.git", root) } as never, join(root, "src", "deep"));
 		expect(identity.key).toBe(repoKeyOf("/repo/.git"));
