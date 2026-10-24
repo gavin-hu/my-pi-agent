@@ -78,9 +78,9 @@ report; the full failure list and the tail stay in `details`.
 `/check [target]` runs one target, or every detected command, with the same
 timeout, bounded log, and failure list as `run_check`.
 
-<img src="../../assets/check.png" alt="The /check screen: a failed run with failure rows and the focused failure's message" width="100%">
+<img src="../../assets/screens/check.png" alt="The /check screen: a failed run with failure rows and the focused failure's message" width="100%">
 
-<img src="../../assets/check-detail.png" alt="The /check failure detail: the location and message over a source excerpt with the failing line marked by >" width="100%">
+<img src="../../assets/screens/check-detail.png" alt="The /check failure detail: the location and message over a source excerpt with the failing line marked by >" width="100%">
 
 | Command | What it does |
 |---|---|

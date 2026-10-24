@@ -71,7 +71,7 @@ describe precisely.
    many sections changed. A scroll gauge names the section and line range you are
    looking at.
 
-   <img src="../../assets/plan.png" alt="The terminal plan review: a title rule, changed-section notice, plan headings and step checkboxes, a scroll gauge, and the approve, refine, and keep hints" width="100%">
+   <img src="../../assets/screens/plan.png" alt="The terminal plan review: a title rule, changed-section notice, plan headings and step checkboxes, a scroll gauge, and the approve, refine, and keep hints" width="100%">
 
    *The terminal review: the plan's sections and step checkboxes, with the
    approve, refine, and keep keys at the bottom.*
@@ -89,7 +89,7 @@ describe precisely.
    button approves. A page opened later with `/plan review` is comment-only and
    has no approve action.
 
-   <img src="../../assets/plan-review.png" alt="The browser plan review: a sticky header with Share and Approve & run, a step-progress panel, the plan as one measured column, and a comment rail with a teammate's comment" width="100%">
+   <img src="../../assets/screens/plan-review.png" alt="The browser plan review: a sticky header with Share and Approve & run, a step-progress panel, the plan as one measured column, and a comment rail with a teammate's comment" width="100%">
 
    *The browser review: step progress, a comment rail holding a teammate's
    comment, and the approval action when the page was opened from the terminal
@@ -251,7 +251,7 @@ something works. It is the fastest way to turn "should be fine" into evidence.
 
    The output streams live. `Esc` cancels the run and stops the process tree.
 
-   <img src="../../assets/check.png" alt="The /check screen: a failed run with failure rows and the focused failure's message" width="100%">
+   <img src="../../assets/screens/check.png" alt="The /check screen: a failed run with failure rows and the focused failure's message" width="100%">
 
    *A failed check; `Enter` opens the focused failure.*
 
@@ -261,7 +261,7 @@ something works. It is the fastest way to turn "should be fine" into evidence.
    of the command output and says why. `j` / `k` and the arrows scroll; `Esc`
    goes back. `r` reruns. `Esc` from the list closes it.
 
-   <img src="../../assets/check-detail.png" alt="The /check failure detail: the location and message over a source excerpt with the failing line marked by >" width="100%">
+   <img src="../../assets/screens/check-detail.png" alt="The /check failure detail: the location and message over a source excerpt with the failing line marked by >" width="100%">
 
    *The failure detail: the excerpt marks the failing line, and the header keeps the run's counts.*
 
@@ -326,7 +326,7 @@ ask me which database to use before you start
 4. `Esc` cancels the whole question. The assistant is told you cancelled, and can
    continue or ask again in ordinary prose.
 
-   <img src="../../assets/question.png" alt="The question dialog: tabs for each question, four labelled options, and the navigation hint" width="100%">
+   <img src="../../assets/screens/question.png" alt="The question dialog: tabs for each question, four labelled options, and the navigation hint" width="100%">
 
    *A question with labelled options; the tabs show how many questions are still
    open.*

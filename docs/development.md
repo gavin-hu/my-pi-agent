@@ -31,15 +31,21 @@ repositories.
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
 | `bun run probe:wechat [holdMs]` | Hold one WeChat poll open for the stated milliseconds (default 3000) and report what the server did with it, so a stalled bridge can be diagnosed without a phone; [`extensions/wechat.md`](./extensions/wechat.md) says when to reach for it. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
-| `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/` (macOS only); naming screens captures only those. |
+| `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/screens/` (macOS only); naming screens captures only those. |
 | `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot, and `--as owner\|reviewer` picks the owner's page or the one a shared link opens. `--post <name>` posts one comment as that reviewer before the capture, so the frame shows the name bound to her link, and `--draft <text>` starts the tab with one unsaved comment, the state a reload restores; `--share` opens the owner's Share dialog with two links instead of the plan, so the per-person list is what the frame shows. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:plan-flow [flow\|graphic\|parallel]` | Capture the posting cards at 1200×675, 2× by default: `assets/plan-flow.html` and `assets/plan-flow-graphic.html` — the plan-then-execute flow, one prose-led and one graphic-led — plus `assets/parallel-dev.html`, which titles itself `Plan, then parallel execute` over one terminal frame that draws the lead-and-team split. Naming one card captures only it and honours `-o`; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:plan-flow [flow\|graphic\|parallel]` | Capture the posting cards at 1200×675, 2× by default: `assets/cards/plan-flow.html` and `assets/cards/plan-flow-graphic.html` — the plan-then-execute flow, one prose-led and one graphic-led — plus `assets/cards/parallel-dev.html`, which titles itself `Plan, then parallel execute` over one terminal frame that draws the lead-and-team split. Naming one card captures only it and honours `-o`; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run tools:render <list\|render\|html\|gallery\|tools>` | The tool-renderings CLI: `list` names every rendering, `render <name> --width n` prints one block as ANSI on any OS, `html <out>` writes the gallery page, and `gallery <out>` / `tools <dir>` capture PNGs with Playwright driving the local Chrome. `screenshot:tools` and `screenshot:tool-pngs` are the last two with their asset paths filled in. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run tools:render gallery assets/tool-renderings.png`. |
+| `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/screens/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run tools:render gallery assets/screens/tool-renderings.png`. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
 
 ## Screenshots
+
+`assets/` holds three directories, one per thing that writes them: `screens/`
+every captured frame — the terminal surfaces, the browser pages, and the tool
+gallery — `cards/` the three posting posters with their stylesheets, and
+`tools/` the one-PNG-per-tool files. A file belongs where its writer puts it,
+which is also the command in the table above that regenerates it.
 
 `bun run screenshots` captures the terminal surfaces and the `chrome.png` hero on
 macOS: each frame is drawn by the shipped component with the `bytefly-dark`
@@ -67,8 +73,8 @@ window is photographed at its own layout. Both page captures have a fixture or a
 fixture project, so a refresh reproduces the same examples:
 
 ```bash
-bun run screenshot:plan scripts/examples/plan-review.md -o assets/plan-review.png --width 1280 --scale 1 --theme dark
-bun run screenshot:file-browse -o assets/file-browse.png --theme dark
+bun run screenshot:plan scripts/examples/plan-review.md -o assets/screens/plan-review.png --width 1280 --scale 1 --theme dark
+bun run screenshot:file-browse -o assets/screens/file-browse.png --theme dark
 ```
 
 `file-browse` serves a generated project in a temporary directory unless given
@@ -76,19 +82,19 @@ bun run screenshot:file-browse -o assets/file-browse.png --theme dark
 own checkout out of the image. Both scripts set the theme through the page's own
 toggle, which keeps the header glyph and the page in step.
 
-Not every headless capture is a screenshot of the product. `assets/plan-flow.html`
-and `assets/plan-flow-graphic.html` are the bilingual cards for posting the
+Not every headless capture is a screenshot of the product. `assets/cards/plan-flow.html`
+and `assets/cards/plan-flow-graphic.html` are the bilingual cards for posting the
 plan-then-execute flow — one prose-led, one graphic-led — and
-`assets/parallel-dev.html` is the lead-and-team card: the poster title
+`assets/cards/parallel-dev.html` is the lead-and-team card: the poster title
 `Plan, then parallel execute` and one caption line, then a tmux split of five pi
 panes — one large lead pane and four peers. Each pane draws itself the way the
-terminal captures under `assets/` are: its name in the accent, a rule running to
+terminal captures under `assets/screens/` are: its name in the accent, a rule running to
 the state at the right edge, muted metadata, glyph rows. There is no window
 chrome and no frame of its own; the hint footer along the bottom is the only
 strip the panes do not own. All three are captured at 1200×675 by
-`screenshot:plan-flow`. The two plan-flow cards share `assets/plan-flow.css`, and
+`screenshot:plan-flow`. The two plan-flow cards share `assets/cards/plan-flow.css`, and
 its shell — palette, `.card`, `.title`, `.foot` — is what keeps the set from
-drifting apart: `assets/terminal.css` adds only the terminal frame, and its page
+drifting apart: `assets/cards/terminal.css` adds only the terminal frame, and its page
 links it second. A card whose content outgrows its box fails the capture rather
 than being clipped.
 
@@ -418,7 +424,7 @@ authenticates with npm trusted publishing (OIDC). See
    pin in the [getting-started chapter](./user-guide/getting-started.md#install)
    in the same commit — that is the one place that offers a pin;
    `test/release.test.ts` fails on a stale pin. Recapture the hero in the same
-   step: `bun run screenshots chrome` re-renders `assets/chrome.png` from the new
+   step: `bun run screenshots chrome` re-renders `assets/screens/chrome.png` from the new
    `package.json`, and nothing else can, because the capture needs macOS and
    Terminal.app — see [Screenshots](#screenshots). Bump the pack version in the
    edition line on the [user guide home](./user-guide/README.md) in the same

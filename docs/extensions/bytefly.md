@@ -531,7 +531,7 @@ only remove its fill — `customMessageBg` is the terminal default — and paint
 rest of the transcript. Pi's branch summaries and skill invocations share the
 same tokens.
 
-<img src="../../assets/compaction.png" alt="The /compact summary block: a [compaction] label, the compacted token count, and the summary Markdown on the terminal canvas, with no background band" width="100%">
+<img src="../../assets/screens/compaction.png" alt="The /compact summary block: a [compaction] label, the compacted token count, and the summary Markdown on the terminal canvas, with no background band" width="100%">
 
 ## Tool blocks
 
@@ -618,7 +618,7 @@ in [`working/config.ts`](../../extensions/bytefly/working/config.ts).
 
 ## The control center
 
-<img src="../../assets/bytefly.png" alt="The /bytefly control center: the Extensions, Skills, and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
+<img src="../../assets/screens/bytefly.png" alt="The /bytefly control center: the Extensions, Skills, and Settings section bar with the `Global · 10 extensions · 2 off · 1 missing` counts, one checkbox row per extension with its verdict, the focused extension's report, and the key hints" width="100%">
 
 `/bytefly [extension] [refresh]` opens the control center on **Extensions**: a
 keyboard-driven dock list of every extension Pi resolves for the session, so the
@@ -736,7 +736,7 @@ Bytefly ────────────────────────
 ──────────────────────────────────────────────────────────────────────
 ```
 
-<img src="../../assets/bytefly-settings.png" alt="The /bytefly Settings section: one flat list of thirteen preferences with each value beside its label, the `Global · 13 settings` counts, and a three-row detail pane naming the focused row's source, description, and file" width="100%">
+<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly Settings section: one flat list of thirteen preferences with each value beside its label, the `Global · 13 settings` counts, and a three-row detail pane naming the focused row's source, description, and file" width="100%">
 
 | Row | Source | Values |
 |---|---|---|

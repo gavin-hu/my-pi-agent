@@ -60,7 +60,7 @@ server, a test run in another window.
    scroll. The view follows the newest line until you scroll up; the header says
    `following` or `paused`. `Esc`, `Backspace`, or `q` returns to the list.
 
-   <img src="../../assets/job.png" alt="The /jobs screen: a counts summary, job rows with status glyphs and elapsed times, and the focused job's last output line" width="100%">
+   <img src="../../assets/screens/job.png" alt="The /jobs screen: a counts summary, job rows with status glyphs and elapsed times, and the focused job's last output line" width="100%">
 
    */jobs: running jobs first, and the focused job's last output line.*
 
@@ -89,7 +89,7 @@ server, a test run in another window.
    keys ask for confirmation. `g` / `G` and `PgUp` / `PgDn` scroll the matches
    pane.
 
-   <img src="../../assets/watch.png" alt="The /watch screen: a summary line, a running file watcher and a finished command watcher, the focused watcher's path and pattern, and the key hints" width="100%">
+   <img src="../../assets/screens/watch.png" alt="The /watch screen: a summary line, a running file watcher and a finished command watcher, the focused watcher's path and pattern, and the key hints" width="100%">
 
    */watch: the watcher's source, pattern, and recent matches.*
 
@@ -206,7 +206,7 @@ planner writes nothing, and a worker cannot start more helpers.
    The detail pane follows the latest output while the run is live, keeping only
    a bounded preview. A finished run is collected later from the same board.
 
-   <img src="../../assets/agents.png" alt="The /agents screen: running and finished background helpers with status, task, elapsed time, and usage" width="100%">
+   <img src="../../assets/screens/agents.png" alt="The /agents screen: running and finished background helpers with status, task, elapsed time, and usage" width="100%">
 
    */agents: background helpers, newest first; `c` collects, `x` cancels.*
 
@@ -277,7 +277,7 @@ repository act as a team without sharing a conversation.
   any file below it; `release` gives it back. A crash releases it when the
   session expires.
 
-<img src="../../assets/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, the focused session's cwd, claims, and identity, and the Tab scope and watch hints" width="100%">
+<img src="../../assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, the focused session's cwd, claims, and identity, and the Tab scope and watch hints" width="100%">
 
 */sessions: the sessions on this repository, their unread counts and claims, and the focused session's identity.*
 

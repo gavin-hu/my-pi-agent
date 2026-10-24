@@ -2,7 +2,8 @@
 
 The dev tooling: the commands `package.json` exposes and the modules they share.
 Nothing here ships — `files` in `package.json` decides that — so a change is
-judged by `bun run check` and by the assets it writes under `assets/`.
+judged by `bun run check` and by the assets it writes under `assets/screens/`
+and `assets/tools/`.
 
 ## Layout
 
@@ -47,7 +48,7 @@ that draws it.
 ## When an asset is recaptured
 
 - When its surface changed, or when a version it prints is behind. Nothing else.
-- `assets/chrome.png` prints two versions: the pack's, from `package.json`, and
+- `assets/screens/chrome.png` prints two versions: the pack's, from `package.json`, and
   the host's, `VERSION` from `@earendil-works/pi-coding-agent`, which resolves
   through `bun.lock`. The hero therefore names the **compatibility floor**, not
   the `pi` on `PATH`, so a release recaptures it — and so does a floor raise.

@@ -86,6 +86,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- dev: `assets/` is grouped by what writes it — `cards/` the three posting posters with
+  their stylesheets, `screens/` every captured frame (the terminal surfaces, the two
+  browser pages, and the tool gallery), `tools/` the one-PNG-per-tool files — so the
+  directory a file lives in is also the command that regenerates it, and no image sits
+  loose beside a stylesheet it has nothing to do with. No image changed: the captures
+  reproduce byte for byte, and `package.json`'s preview `image` URL follows `chrome.png`.
+  The rewinds' screen fixture keeps its own `assets/review.png`, which is text a
+  fictional repository shows rather than a path in this one.
 - `docs`: the `/context` screen is captured like every other screen — it joins
   `SCREENS`, so the suite renders it at three widths — and the guide embeds the
   image in place of the pasted report, which no longer had to stand in for one.

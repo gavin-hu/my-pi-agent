@@ -133,7 +133,7 @@ TUI and prints the list everywhere else.
 | `/watch stop <id>` | Stop a watcher. |
 | `/watch clear [all]` | Remove stopped watchers, or every watcher with `all`. |
 
-<img src="../../assets/watch.png" alt="The /watch screen: a Watch title rule, a `2 watchers · 1 running · 3 matches` summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern with its line and match counts, and the key hints" width="100%">
+<img src="../../assets/screens/watch.png" alt="The /watch screen: a Watch title rule, a `2 watchers · 1 running · 3 matches` summary, a selected file watcher and a finished command watcher, the focused watcher's path and pattern with its line and match counts, and the key hints" width="100%">
 
 A bare `/watch` opens a dock screen listing watchers. `j`/`k` (and the wheel)
 move, `Enter`/`l` opens a watcher's matches, `x`/`K` stops a running watcher

@@ -34,7 +34,7 @@ provides.
 
 This feature needs `git` on `PATH` and a project folder that git tracks.
 
-<img src="../../assets/worktree.png" alt="The /worktree screen: a Worktrees title rule with a `4 worktrees · 1 dirty · 1 ahead` summary, the current dark-mode row carrying its ahead count, a dirty row, a merged row, and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="100%">
+<img src="../../assets/screens/worktree.png" alt="The /worktree screen: a Worktrees title rule with a `4 worktrees · 1 dirty · 1 ahead` summary, the current dark-mode row carrying its ahead count, a dirty row, a merged row, and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="100%">
 
 ### When to use it
 
@@ -148,7 +148,7 @@ keep most of a turn and discard only some files or hunks.
    A timeline opens, newest prompt first. A diamond marks prompts that have a
    code snapshot.
 
-   <img src="../../assets/rewind.png" alt="The /rewind screen: prompts newest first, a diamond marking a code snapshot, and the focused prompt's detail" width="100%">
+   <img src="../../assets/screens/rewind.png" alt="The /rewind screen: prompts newest first, a diamond marking a code snapshot, and the focused prompt's detail" width="100%">
 
    *The timeline, newest first; diamonds mark prompts you can restore code from.*
 
@@ -218,7 +218,7 @@ file or hunk.
    A file list opens. Each file is marked `M` (modified), `A` (added), `D`
    (deleted), or `R` (renamed), with added and removed line counts.
 
-   <img src="../../assets/review.png" alt="The /review screen: changed files with M, A, and D marks, line counts, and the focused file's detail" width="100%">
+   <img src="../../assets/screens/review.png" alt="The /review screen: changed files with M, A, and D marks, line counts, and the focused file's detail" width="100%">
 
    *The changed files from the latest prompt.*
 

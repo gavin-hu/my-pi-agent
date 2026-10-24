@@ -1,7 +1,7 @@
 /**
  * Capture the plan-flow cards with headless Chrome (dev tooling).
  *
- * The two pages under `assets/` are posters, not app surfaces: a fixed 1200×675
+ * The pages under `assets/cards/` are posters, not app surfaces: a fixed 1200×675
  * box, no server, no script, and no webfont, so they open from `file://` and
  * post to X as a pair. This finds the Chrome the machine already has
  * (`PI_CHROME` first, then the usual bundles) and writes the PNG a card is
@@ -25,9 +25,9 @@ const CARD_HEIGHT = 675;
 
 /** One card: the page to open and the PNG it is published as. */
 interface Card {
-	/** File name under `assets/`. */
+	/** File name under `assets/cards/`. */
 	page: string;
-	/** Default output file name under `assets/`. */
+	/** Default output file name under `assets/cards/`. */
 	png: string;
 	/**
 	 * The element the image is, for a page whose document is taller than its card.
@@ -44,8 +44,8 @@ const CARDS: Record<string, Card> = {
 	parallel: { page: "parallel-dev.html", png: "parallel-dev.png", clip: ".card" },
 };
 
-/** `assets/`, anchored to this script so a capture does not depend on the cwd. */
-const ASSETS = new URL("../../assets/", import.meta.url);
+/** `assets/cards/`, anchored to this script so a capture does not depend on the cwd. */
+const ASSETS = new URL("../../assets/cards/", import.meta.url);
 
 /** The options after parsing; the card names are already validated. */
 export interface ShotOptions {

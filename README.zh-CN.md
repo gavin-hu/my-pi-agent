@@ -13,7 +13,7 @@
 本页是目录与安装说明。要了解某个功能怎么用 —— 按键、命令以及应有的效果 ——
 请先看[用户指南](./docs/user-guide/)。
 
-![一个运行 Pi TUI 的终端窗口：bytefly 头部标出 Pi 与 bytefly 的版本、三行按键提示、带名板的消息及其工具调用与结果（位于竖线内）、后台任务完成通知、回合分隔线，以及两行页脚](assets/chrome.png)
+![一个运行 Pi TUI 的终端窗口：bytefly 头部标出 Pi 与 bytefly 的版本、三行按键提示、带名板的消息及其工具调用与结果（位于竖线内）、后台任务完成通知、回合分隔线，以及两行页脚](assets/screens/chrome.png)
 
 ## 目录
 
@@ -154,16 +154,16 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 <table>
 <tr>
-<td width="50%"><img src="assets/todo.png" alt="/todos 屏幕：Todos 标题线、3/7 完成摘要，以及带对勾、进行中和圆圈字形的列表" width="100%"></td>
-<td width="50%"><img src="assets/question.png" alt="ask_user_question 对话框：Auth 与 Scope 标签页、问题、四个带说明的编号选项，以及导航提示" width="100%"></td>
+<td width="50%"><img src="assets/screens/todo.png" alt="/todos 屏幕：Todos 标题线、3/7 完成摘要，以及带对勾、进行中和圆圈字形的列表" width="100%"></td>
+<td width="50%"><img src="assets/screens/question.png" alt="ask_user_question 对话框：Auth 与 Scope 标签页、问题、四个带说明的编号选项，以及导航提示" width="100%"></td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/job.png" alt="/jobs 屏幕：摘要行、带状态字形和耗时的任务行，以及焦点任务的命令、工作目录和最后一行输出" width="100%"></td>
-<td width="50%"><img src="assets/rewind.png" alt="/rewind 屏幕：从新到旧的提示行、标记有代码快照的菱形，以及焦点提示的快照详情" width="100%"></td>
+<td width="50%"><img src="assets/screens/job.png" alt="/jobs 屏幕：摘要行、带状态字形和耗时的任务行，以及焦点任务的命令、工作目录和最后一行输出" width="100%"></td>
+<td width="50%"><img src="assets/screens/rewind.png" alt="/rewind 屏幕：从新到旧的提示行、标记有代码快照的菱形，以及焦点提示的快照详情" width="100%"></td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/session.png" alt="/sessions 屏幕：计数摘要、带未读数和路径声明数的会话行、焦点会话的工作目录、声明和身份，以及 Tab 范围与监视提示" width="100%"></td>
-<td width="50%"><img src="assets/watch.png" alt="/watch 屏幕：摘要行和带实时匹配数的监视行，以及焦点监视的模式与来源" width="100%"></td>
+<td width="50%"><img src="assets/screens/session.png" alt="/sessions 屏幕：计数摘要、带未读数和路径声明数的会话行、焦点会话的工作目录、声明和身份，以及 Tab 范围与监视提示" width="100%"></td>
+<td width="50%"><img src="assets/screens/watch.png" alt="/watch 屏幕：摘要行和带实时匹配数的监视行，以及焦点监视的模式与来源" width="100%"></td>
 </tr>
 </table>
 
@@ -174,7 +174,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 （每个工具自身的渲染器或 bytefly 的通用回退）——用户铭牌与通知、Pi 内置工具，以及本包注册的每个工具。
 侧栏字形由 `chrome.rail` 设置。
 
-![每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、session、plan 工具与 worktree 工具](assets/tool-renderings.png)
+![每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、session、plan 工具与 worktree 工具](assets/screens/tool-renderings.png)
 
 `bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
 [`assets/tools/`](./assets/tools) 下为每个工具输出一张图。

@@ -193,9 +193,9 @@ export async function captureScreen(name: string, screen: Screen): Promise<void>
 		// Capture only once the frame has replaced the shell's command echo.
 		await waitForFile(ready, 15_000);
 		id = await waitForWindow(screen.title, 5_000);
-		const out = join(repo, "assets", `${screen.asset}.png`);
+		const out = join(repo, "assets", "screens", `${screen.asset}.png`);
 		await captureWindow(id, out);
-		console.log(`assets/${screen.asset}.png`);
+		console.log(`assets/screens/${screen.asset}.png`);
 	} finally {
 		killRender(name);
 		await sleep(300);

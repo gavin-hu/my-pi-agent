@@ -4,7 +4,7 @@ A single model-facing tool, `ask_user_question`, that lets the model ask the
 human one or more structured questions mid-turn and wait for typed answers.
 Modelled on Claude Code's `AskUserQuestion`.
 
-<img src="../../assets/question.png" alt="The ask_user_question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%">
+<img src="../../assets/screens/question.png" alt="The ask_user_question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%">
 
 ## Capabilities
 

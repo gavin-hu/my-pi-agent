@@ -65,7 +65,7 @@ refused with the resolved roster.
 
 ## Commands
 
-<img src="../../assets/agents.png" alt="The /agents screen: running and finished background helpers with status, task, elapsed time, and usage" width="100%">
+<img src="../../assets/screens/agents.png" alt="The /agents screen: running and finished background helpers with status, task, elapsed time, and usage" width="100%">
 
 | Command | What it does |
 |---|---|

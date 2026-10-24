@@ -7,7 +7,7 @@ arm an inbox watch to be told about new mail — a report at its next turn, or,
 with `wake`, one raised turn as soon as the agent is idle, including right after
 a running turn settles. There is no network service and no hidden context.
 
-<img src="../../assets/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, and the focused session's cwd, claims, and identity" width="100%">
+<img src="../../assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, and the focused session's cwd, claims, and identity" width="100%">
 
 ## Capabilities
 

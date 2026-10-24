@@ -1,6 +1,6 @@
 /**
  * The terminal frame of `parallel-dev.html`: the third posting card, drawn as
- * the TUI captures under `assets/` are — no window chrome, an accent title with
+ * the TUI captures under `assets/screens/` are — no window chrome, an accent title with
  * a rule running to the edge, a muted metadata line, glyph-led rows, and an
  * accent-key hint footer.
  *
@@ -113,7 +113,7 @@
 	grid-row: span 2;
 }
 
-/* A pane's own title row, as a screen under `assets/` draws it. */
+/* A pane's own title row, as a screen under `assets/screens/` draws it. */
 .pane__bar {
 	flex: 0 0 26px;
 	display: flex;

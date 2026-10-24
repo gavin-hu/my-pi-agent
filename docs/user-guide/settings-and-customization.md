@@ -42,7 +42,7 @@ description — and `→` again for **Settings**, or open either directly with
 Mouse scrolling works, and clicking a row focuses it. Every action also has a
 keyboard path.
 
-<img src="../../assets/bytefly.png" alt="The /bytefly control centre: the Extensions, Skills, and Settings sections, one row per extension with its checkbox and health verdict, the missing-prerequisite badge on `worktree`, and the focused row's resource path" width="100%">
+<img src="../../assets/screens/bytefly.png" alt="The /bytefly control centre: the Extensions, Skills, and Settings sections, one row per extension with its checkbox and health verdict, the missing-prerequisite badge on `worktree`, and the focused row's resource path" width="100%">
 
 *The control centre: switch an extension off with `Space`, and read the selected
 row's report underneath when it has one.*
@@ -66,7 +66,7 @@ mounting the screen.
 
 ## Settings
 
-<img src="../../assets/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of thirteen preferences with each value beside its label, and a three-row detail pane" width="100%">
+<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of thirteen preferences with each value beside its label, and a three-row detail pane" width="100%">
 
 `/bytefly settings` is a shortlist: thirteen preferences on one flat list, each
 with its value beside the label. Choose a row and press `Space` or `Enter`: a

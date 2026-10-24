@@ -89,7 +89,7 @@ doing and what is queued behind it.
 | `r` | Refresh |
 | `Esc` | Close the screen |
 
-<img src="../../assets/wechat.png" alt="The /wechat control screen: account and connection at the top, peer and queued rows, conversation rows, and the key hints" width="100%">
+<img src="../../assets/screens/wechat.png" alt="The /wechat control screen: account and connection at the top, peer and queued rows, conversation rows, and the key hints" width="100%">
 
 *The control screen while a peer turn runs; the footer names each key.*
 
