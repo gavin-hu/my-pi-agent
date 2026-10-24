@@ -173,6 +173,27 @@ describe("roadmap horizons", () => {
 			.map(([bucket, count]) => `${bucket} holds ${count} items (cap ${BUCKET_CAP[bucket]})`);
 		expect(over).toEqual([]);
 	});
+
+	test("never opens the same bucket twice in a row", () => {
+		// Two `**Now**` headings with only blank lines between them is a heading left
+		// behind while the items moved, and the cap check cannot see it: both read as
+		// one bucket that happens to be empty.
+		const repeated: string[] = [];
+		let open: { bucket: string; line: number } | undefined;
+		lines.forEach((text, index) => {
+			const heading = BUCKET.exec(text);
+			if (heading) {
+				if (open?.bucket === heading[1]) {
+					repeated.push(`${heading[1]} opens again at line ${index + 1}, after line ${open.line}`);
+				}
+				open = { bucket: heading[1], line: index + 1 };
+				return;
+			}
+			// Blank lines hold a bucket open; content or a section heading closes it.
+			if (text.trim() !== "") open = undefined;
+		});
+		expect(repeated).toEqual([]);
+	});
 });
 
 describe("roadmap sizes", () => {
