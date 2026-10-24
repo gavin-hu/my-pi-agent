@@ -7,7 +7,15 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { formatClaim, formatInbox, formatRelease, formatSend, formatStatus, formatWatch } from "./format.ts";
+import {
+	formatClaim,
+	formatInbox,
+	formatJoin,
+	formatRelease,
+	formatSend,
+	formatStatus,
+	formatWatch,
+} from "./format.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
 
 type ListedSession = SessionRecord & { unread: number };
@@ -49,7 +57,45 @@ function message(overrides: Partial<BusMessage> = {}): BusMessage {
 	};
 }
 
+/** A claim conflict as the tool reports it. */
+function conflict(path: string, ownerLabel: string) {
+	return { path, owner: "abcdef123456", ownerLabel };
+}
+
+describe("join", () => {
+	test("names the unit and the paths it claimed", () => {
+		expect(formatJoin("billing", "core", ["src/core"], [])).toBe("Joined billing/core: claimed src/core.");
+	});
+
+	test("says nothing was claimed rather than trailing a colon", () => {
+		expect(formatJoin("billing", "core", [], [])).toBe("Joined billing/core: nothing to claim.");
+	});
+
+	test("a conflict names its holder and claims nothing", () => {
+		const text = formatJoin("billing", "core", [], [conflict("src/core", "frontend")]);
+		expect(text).toContain("Could not join billing/core.");
+		expect(text).toContain("src/core is owned by frontend");
+		expect(text).not.toContain("Claimed:");
+	});
+});
+
 describe("status", () => {
+	test("reports the newest split, its progress, and who holds each unit", () => {
+		const listed = {
+			...status([session()], [claim()]),
+			units: {
+				team: "2026-11-04-1802-billing",
+				joined: 1,
+				total: 2,
+				rows: [{ unit: "contract", lead: true, holder: "contract" }, { unit: "core" }],
+			},
+		};
+		const text = formatStatus(listed);
+		expect(text).toContain("Units 1/2 joined · 2026-11-04-1802-billing");
+		expect(text).toContain("- contract (lead) · contract");
+		expect(text).toContain("- core · —");
+	});
+
 	test("lists sessions with unread counts, claims, and this session", () => {
 		const out = formatStatus(
 			status([session(), session({ id: "fedcba654321", label: "backend", unread: 2 })], [claim()]),

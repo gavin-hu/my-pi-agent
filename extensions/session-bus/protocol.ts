@@ -17,10 +17,10 @@ export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
-export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "watch";
+export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join" | "leave" | "watch";
 export type MessageKind = "message" | "event" | "ask" | "handoff";
 
-const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "watch"];
+const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "join", "leave", "watch"];
 const KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 
 /** Only a terminal session is visible on the bus before it asks to join. */
@@ -95,10 +95,13 @@ export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { p
 	return { paths };
 }
 
-/** Whether one claim covers the other path in either direction. */
-export function claimsConflict(a: string, b: string): boolean {
-	return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
-}
+/**
+ * Whether one claim covers the other path in either direction.
+ *
+ * The predicate is `lib/claims/overlap.ts`, because plan approval validates a
+ * split with the same question; a second copy here is how the two answers drift.
+ */
+export { claimsConflict } from "../../lib/claims/overlap.ts";
 
 /** Resolve `to` to active sessions; `*` is broadcast and excludes the sender. */
 export function resolveRecipients(

@@ -15,12 +15,14 @@
  * the model did not read.
  */
 
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { join, relative, sep } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { createExecRunner, gitCommonDir, repoRoot } from "../../lib/git/index.ts";
 import { isInside, realPathOfNearest } from "../../lib/path.ts";
+import { SPLIT_OFF_NOTE, splitEnabled } from "../../lib/plans/setting.ts";
+import { plansDir } from "../../lib/plans/store.ts";
+import { repoKeyFor } from "../../lib/repo-key.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
 	defaultLabel,
@@ -34,9 +36,11 @@ import {
 	normalizeText,
 	resolveRecipients,
 	sessionMode,
+	claimsConflict,
 	shortId,
 } from "./protocol.ts";
 import { createBusStore, type BusStore } from "./store.ts";
+import { newestTeam, resolveUnit, unitHolder } from "./team.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
 
 export interface SessionBusOptions {
@@ -45,6 +49,8 @@ export interface SessionBusOptions {
 	dir?: string;
 	/** Test seam: skip git and use this repository identity. */
 	repo?: { root: string; key: string };
+	/** Test seam: read teams from this plan store instead of the agent-dir layout. */
+	plans?: string;
 	/** Heartbeat interval; 0 disables it (tests). */
 	heartbeatMs?: number;
 	/** Inbox-watch poll interval; 0 disables it (tests). */
@@ -74,6 +80,13 @@ export interface SessionBus {
 	inbox(limit?: number): Promise<BusMessage[]>;
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
+	/** Claim every path of one unit in a split plan. */
+	join(input: {
+		team?: string;
+		unit?: string;
+	}): Promise<{ team: string; unit: string; claimed: string[]; conflicts: ClaimConflict[] }>;
+	/** Release the paths of one unit, or every claim this session holds. */
+	leave(input: { team?: string; unit?: string }): Promise<{ released: string[]; notOwned: string[] }>;
 	rename(label: string): Promise<string>;
 	/** Arm or disarm this session's inbox watch. */
 	watch(input: { wake?: boolean; stop?: boolean }): Promise<{ armed: boolean; wake: boolean }>;
@@ -92,12 +105,6 @@ const DEFAULT_HEARTBEAT_MS = 10_000;
 const DEFAULT_WATCH_MS = 2_000;
 const DEFAULT_SESSION_TTL_MS = 10 * 60_000;
 const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
-const MAX_KEY = 12;
-
-function keyFor(value: string): string {
-	return createHash("sha256").update(value).digest("hex").slice(0, MAX_KEY);
-}
-
 function messageId(now: number): string {
 	return `${now}-${randomBytes(4).toString("hex")}`;
 }
@@ -150,6 +157,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
 	let store: BusStore | undefined;
+	let plansRoot: string | undefined;
 	let record: SessionRecord | undefined;
 	let joined = false;
 	let stopHeartbeat: (() => void) | undefined;
@@ -169,8 +177,9 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// Canonical once, here: the root git reports is a real path, so an unresolved
 			// cwd does not contain the paths a caller resolves against it.
 			const cwd = realPathOfNearest(context.cwd);
-			const repo = options.repo ?? (await resolveRepo(cwd));
+			const repo = options.repo ?? (await repoKeyFor(pi, cwd));
 			const dir = options.dir ?? join(getAgentDir(), "session-bus", repo.key);
+			plansRoot = options.plans ?? plansDir(getAgentDir(), repo.key);
 			store = createBusStore({ dir });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
@@ -194,18 +203,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			throw error;
 		}
 	};
-
-	async function resolveRepo(cwd: string): Promise<{ root: string; key: string }> {
-		try {
-			const run = createExecRunner(pi);
-			const [common, root] = await Promise.all([gitCommonDir(run, cwd), repoRoot(run, cwd)]);
-			if (root) return { root, key: keyFor(common ?? root) };
-		} catch {
-			// No git: fall back to the working directory below.
-		}
-		const root = cwd;
-		return { root, key: keyFor(root) };
-	}
 
 	async function joinBus(): Promise<void> {
 		if (!store || !record) throw new Error("session bus is not started.");
@@ -282,6 +279,23 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	}
 
 	/** The stored form of the paths a caller passed: validated, then keyed by target. */
+	/**
+	 * The stored form of paths a plan wrote relative to the repository.
+	 *
+	 * A unit's paths are repository-relative by construction, so they resolve
+	 * against the repo root and not the session's cwd: a session started in a
+	 * subdirectory would otherwise claim `packages/web/src/core` for a unit that
+	 * owns `src/core`.
+	 */
+	function rootedPaths(me: SessionRecord, paths: readonly string[]): string[] {
+		const keyed = canonicalPaths(
+			me.repoRoot,
+			paths.map((path) => path.replace(/^\/+/, "")),
+		);
+		if ("error" in keyed) throw new Error(keyed.error);
+		return keyed.paths;
+	}
+
 	function storedPaths(me: SessionRecord, raw: unknown): string[] {
 		const normalized = normalizePaths(me.repoRoot, me.cwd, raw);
 		if ("error" in normalized) throw new Error(normalized.error);
@@ -310,10 +324,30 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			: records;
 		const live = new Set(sessions.map((session) => session.id));
 		const claims = (await store.claims()).filter((claim) => !liveOnly || live.has(claim.owner));
+		// The team line is a file read plus a claim scan, so the board's repaint does
+		// not pay for it: only an explicit status call reports units.
+		const board = liveOnly || plansRoot === undefined ? undefined : newestTeam(plansRoot);
+		const units =
+			board === undefined
+				? undefined
+				: {
+						team: board.team,
+						joined: board.units.filter((unit) => unitHolder(unit, claims, claimsConflict) !== undefined).length,
+						total: board.units.length,
+						rows: board.units.map((unit) => {
+							const holder = unitHolder(unit, claims, claimsConflict);
+							return {
+								unit: unit.name,
+								...(unit.lead ? { lead: true } : {}),
+								...(holder === undefined ? {} : { holder }),
+							};
+						}),
+					};
 		return {
 			me,
 			sessions: await withUnread(sessions),
 			claims,
+			...(units ? { units } : {}),
 			...(armed ? { watching: { armed, wake } } : {}),
 		};
 	}
@@ -505,6 +539,31 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const released: string[] = [];
 			const notOwned: string[] = [];
 			for (const path of storedPaths(me, rawPaths)) {
+				if (await store.release(path, me.id)) released.push(path);
+				else notOwned.push(path);
+			}
+			return { released, notOwned };
+		},
+
+		async join(input) {
+			const me = await currentRecord();
+			if (!store) throw new Error("session bus is not started.");
+			if (!splitEnabled(me.cwd)) throw new Error(SPLIT_OFF_NOTE);
+			const unit = resolveUnit(plansRoot ?? "", input, "join");
+			const claimed = await store.claimAll(rootedPaths(me, unit.paths), me.id, me.label, now());
+			return { team: unit.team, unit: unit.name, ...claimed };
+		},
+
+		async leave(input) {
+			const me = await currentRecord();
+			if (!store) throw new Error("session bus is not started.");
+			const paths =
+				input.team === undefined && input.unit === undefined
+					? (await store.claims()).filter((claim) => claim.owner === me.id).map((claim) => claim.path)
+					: rootedPaths(me, resolveUnit(plansRoot ?? "", input, "leave").paths);
+			const released: string[] = [];
+			const notOwned: string[] = [];
+			for (const path of paths) {
 				if (await store.release(path, me.id)) released.push(path);
 				else notOwned.push(path);
 			}

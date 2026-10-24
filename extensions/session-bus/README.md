@@ -54,11 +54,13 @@ named session comes back under the same label after a resume.
 
 | Action | Inputs | Result |
 |---|---|---|
-| `status` | — | Active sessions with unread counts, claims, and this session’s identity. Prunes stale records. |
+| `status` | — | Active sessions with unread counts, claims, and this session’s identity, plus `units n/m` for the newest split in this repository. Prunes stale records. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. |
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
+| `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.split` on. Idempotent: joining twice is the same claims. |
+| `leave` | optional `team`, `unit` | Releases that unit's paths, or every claim this session holds when neither is given. Never gated by the switch. |
 | `watch` | optional `wake`, optional `stop` | Arms this session’s inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch’s mode. |
 
 Message kinds are `message` (default), `event`, `ask`, and `handoff`. An `ask` is
@@ -81,7 +83,9 @@ a plain watch; set `wake` with the command or the tool. Nothing arms on
 
 1. The user names each session (`/sessions name`), and the contract (OpenAPI,
    schema, or types) is written before parallel work starts.
-2. Each session claims its paths, then implements its side.
+2. When the plan was approved with a split, each session `join`s its unit once —
+   that claims every path the unit owns, so nobody types a path list by hand.
+   Otherwise each session claims its paths. Then it implements its side.
 3. A contract, build, or test change goes out as an event:
    `session({action:"send", to:"*", kind:"event", text:"contract v2: ..."})`.
 4. Other sessions consume `inbox` at the start of their next turn, or arm
@@ -92,6 +96,24 @@ a plain watch; set `wake` with the command or the tool. Nothing arms on
 
 The bus carries coordination, not authority. The plan, todo list, contract, and
 git branch remain the source of truth.
+
+### Joining a split
+
+A plan approval can write a `## Team` table into the plan file, which is where a
+joining session reads its unit from:
+
+```text
+session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
+→ Joined 2026-11-04-1802-billing/core: claimed src/billing/core.
+```
+
+`team` is the plan file's stem, so two plans in one repository never share a team.
+The unit's paths come from the table the same module wrote, so a hand-edited or
+stale section is refused rather than half-read; an unknown unit names the units
+that exist; a taken unit names its holder; and with `plan.split` off `join`
+refuses and names the settings row. `status` reports `units 1/2 joined` with the
+holder of each unit, which is how a lead answers "has everyone started?" without
+messaging anyone.
 
 ## Behaviour by mode
 

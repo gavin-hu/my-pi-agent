@@ -26,15 +26,31 @@ export function formatStatus(status: SessionStatus): string {
 	});
 	const claims = status.claims.map((claim) => `- ${claimLine(claim)}`);
 	const alerts = status.watching ? [`Alerts: inbox watch on${status.watching.wake ? " (wake)" : ""}`] : [];
+	const units = status.units ? [unitLine(status.units)] : [];
 	return [
 		`Sessions (${status.sessions.length})`,
 		...(sessions.length > 0 ? sessions : ["- none"]),
 		"",
 		`Claims (${status.claims.length})`,
 		...(claims.length > 0 ? claims : ["- none"]),
+		...(units.length > 0 ? ["", ...units] : []),
 		...(alerts.length > 0 ? ["", ...alerts] : []),
 		"",
 		`You: ${sanitizeLine(status.me.label)} (${shortId(status.me.id)})`,
+	].join("\n");
+}
+
+/**
+ * The newest split in this repository: joined over total, then each unit with
+ * its holder. Peer-supplied labels are sanitized like every other field.
+ */
+function unitLine(units: NonNullable<SessionStatus["units"]>): string {
+	const rows = units.rows.map(
+		(row) => `${sanitizeLine(row.unit)}${row.lead ? " (lead)" : ""} · ${row.holder ? sanitizeLine(row.holder) : "—"}`,
+	);
+	return [
+		`Units ${units.joined}/${units.total} joined · ${sanitizeLine(units.team)}`,
+		...rows.map((row) => `- ${row}`),
 	].join("\n");
 }
 
@@ -77,6 +93,21 @@ export function formatClaim(claimed: readonly string[], conflicts: readonly Clai
 		lines.push(`${sanitizeLine(conflict.path)} is owned by ${owner} (${shortId(conflict.owner)}).`);
 	}
 	return lines.length > 0 ? lines.join("\n") : "Nothing claimed.";
+}
+
+/** Join result: which unit, and what it claimed or could not. */
+export function formatJoin(
+	team: string,
+	unit: string,
+	claimed: readonly string[],
+	conflicts: readonly ClaimConflict[],
+): string {
+	const where = `${sanitizeLine(team)}/${sanitizeLine(unit)}`;
+	if (conflicts.length > 0) {
+		return [`Could not join ${where}.`, ...formatClaim([], conflicts).split("\n").filter(Boolean)].join("\n");
+	}
+	const paths = claimed.map((path) => sanitizeLine(path)).join(", ");
+	return claimed.length > 0 ? `Joined ${where}: claimed ${paths}.` : `Joined ${where}: nothing to claim.`;
 }
 
 /** Release result. */

@@ -49,6 +49,13 @@ export interface SessionStatus {
 	me: { id: string; label: string };
 	sessions: Array<SessionRecord & { unread: number }>;
 	claims: ClaimRecord[];
+	/** The newest split in this repository, and who holds each unit, on an explicit status call. */
+	units?: {
+		team: string;
+		joined: number;
+		total: number;
+		rows: Array<{ unit: string; lead?: boolean; holder?: string }>;
+	};
 	/** Present only when this session armed its inbox watch. */
 	watching?: { armed: boolean; wake: boolean };
 }
@@ -71,7 +78,10 @@ export interface BoardSnapshot {
 
 /** Structured result carried in the `session` tool's details. */
 export interface SessionDetails {
-	action: "status" | "send" | "inbox" | "claim" | "release" | "watch";
+	action: "status" | "send" | "inbox" | "claim" | "release" | "join" | "leave" | "watch";
+	/** With join/leave: the split and the unit, so a resumed transcript still says which. */
+	team?: string;
+	unit?: string;
 	status?: SessionStatus;
 	delivered?: string[];
 	messageId?: string;
