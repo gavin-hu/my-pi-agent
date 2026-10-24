@@ -8,17 +8,22 @@ reads a URL as text. Both are `direct`, active on registration, and read the
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Web search | `web_search` | Titles, URLs, snippets, and a direct answer when the provider has one. |
-| Provider choice | `search.provider`, `search.endpoint`, `search.apiKeyEnv` | The keyless default works with no configuration; SearXNG or Brave add full result lists. |
-| Page reading | `web_fetch` | A URL's readable text, with links kept as `[text](url)`. |
-| Paged output | `web_fetch`, `startIndex`, `maxChars` | A long page arrives in budgeted slices and names the offset that continues it. |
-| Passage search | `web_fetch`, `find`, `contextChars` | Matching passages instead of the whole page, with a note when a cap hid the rest. |
-| Charset-aware decoding | `web_fetch` | A GBK/GB18030 or `<meta charset>` page reads as text instead of replacement characters. |
-| Private-address refusal | `web_fetch`, `fetch.allowPrivateHosts` | Loopback, private, link-local, and metadata targets are refused on the first request and on every redirect hop. |
-| Page cache | `web_fetch`, `refresh`, `fetch.cacheEnabled` | Paging and `find` reuse one fetch, and `refresh: true` bypasses a stale entry. |
-| PDF extraction | `web_fetch`, `fetch.pdfEnabled` | A PDF becomes text once the optional `unpdf` package is installed. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Web search | `web_search` | Titles, URLs, snippets, and a direct answer when the provider has one. | Shipped |
+| Page reading | `web_fetch` | A URL's readable text, with links kept as `[text](url)`. | Shipped |
+| Write-style fetch | `web_fetch` (`method`, `headers`, `body`) | POST with custom headers and a bounded body, so form and GraphQL endpoints are reachable; a body implies POST. | Shipped |
+| Paged output | `web_fetch`, `startIndex`, `maxChars` | A long page arrives in budgeted slices and names the offset that continues it. | Shipped |
+| Passage search | `web_fetch`, `find`, `contextChars` | Matching passages instead of the whole page, with a note when a cap hid the rest. | Shipped |
+| Private-address refusal | `web_fetch`, `fetch.allowPrivateHosts` | Loopback, private, link-local, and metadata targets are refused on the first request and on every redirect hop. | Shipped |
+| Charset-aware decoding | `web_fetch` | A GBK/GB18030 or `<meta charset>` page reads as text instead of replacement characters. | Shipped |
+| Page cache | `web_fetch`, `refresh`, `fetch.cacheEnabled` | Paging and `find` reuse one fetch, and `refresh: true` bypasses a stale entry. | Shipped |
+| PDF extraction | `web_fetch`, `fetch.pdfEnabled` | A PDF becomes text once the optional `unpdf` package is installed. | Shipped |
+| Provider choice | `search.provider`, `search.endpoint`, `search.apiKeyEnv` | The keyless default works with no configuration; SearXNG or Brave add full result lists. | Shipped |
+| Structured result | `nextIndex`, `matchesTruncated`, `cached` | A caller can continue paging and tell a capped match set from a complete one without parsing the text. | Shipped |
+| Politeness throttle | `minIntervalMs` | Search requests are spaced instead of hammering a provider on a rapid series of calls. | Shipped |
 
 ## Quickstart
 

@@ -10,16 +10,20 @@ path tools use.
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Document extraction | `read_doc` | Plain text from a document or workbook whose bytes the built-in `read` cannot decode. |
-| Paged reading | `read_doc` (`startIndex`, `maxChars`) | A long file arrives in slices, and a truncated result names the offset to ask for next. |
-| Code-point slicing | `read_doc` (`startIndex`, `maxChars`) | CJK and emoji stay well-formed across a page boundary. |
-| Workbook text | `read_doc` on `.xlsx` | One `[Sheet]` heading per worksheet followed by tab-separated rows, so the shape of the file survives. |
-| Confined reads | `read_doc` | A path outside the effective working directory is refused, symlinks resolved, before any parser runs. |
-| Per-format switches | `file-read.formats` | Any of the six formats can be turned off, and a disabled read names the key that did it. |
-| Bounded extraction | `file-read.maxFileBytes`, `file-read.extractTimeoutMs` | An over-size file or a parser past its deadline fails the read instead of parking the turn. |
-| Lazy parsers | `read_doc` | Only the format you read loads a library, so registration costs nothing at startup. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Document extraction | `read_doc` | Plain text from a document or workbook whose bytes the built-in `read` cannot decode. | Shipped |
+| Paged reading | `read_doc` (`startIndex`, `maxChars`) | A long file arrives in slices, and a truncated result names the offset to ask for next. | Shipped |
+| Workbook text | `read_doc` on `.xlsx` | One `[Sheet]` heading per worksheet followed by tab-separated rows, so the shape of the file survives. | Shipped |
+| Confined reads | `read_doc` | A path outside the effective working directory is refused, symlinks resolved, before any parser runs. | Shipped |
+| Progress and cancellation | `startToolProgress`, the abort signal | A slow extraction shows `Reading... <elapsed>` and can be cancelled instead of looking dead. | Shipped |
+| Bounded extraction | `file-read.maxFileBytes`, `file-read.extractTimeoutMs` | An over-size file or a parser past its deadline fails the read instead of parking the turn. | Shipped |
+| Per-format switches | `file-read.formats` | Any of the six formats can be turned off, and a disabled read names the key that did it. | Shipped |
+| Unsupported-format hint | `read_doc` on another extension | The refusal names the supported formats and the legacy `.xls` conversion hint instead of a generic read error. | Shipped |
+| Lazy parsers | `read_doc` | Only the format you read loads a library, so registration costs nothing at startup. | Shipped |
+| Code-point slicing | `read_doc` (`startIndex`, `maxChars`) | CJK and emoji stay well-formed across a page boundary. | Shipped |
 
 ## Quickstart
 

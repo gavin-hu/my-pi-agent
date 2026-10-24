@@ -7,14 +7,17 @@ effective working directory.
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Native open | `/open`, `open_path` | The file or directory opens in the application the OS associates with its type. |
-| Reveal in the file manager | `/open -r`, `open_path` with `reveal: true` | The target is selected in the file manager instead of opened. |
-| Working-directory resolution | `/open`, `open_path` | A relative path resolves against the effective working directory, so under [`worktree`](./worktree.md) `/open .` opens the isolated worktree. |
-| Pasted-path cleanup | `/open`, `open_path` | The editor's `@` mention prefix and surrounding quotes are unwrapped before the path is used. |
-| Failure reporting | `/open`, `open_path` | A missing path and a launcher that cannot start are both reported rather than silently dropped. |
-| Session-outliving launch | `/open`, `open_path` | The handler runs detached, so the application outlives the Pi session. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Native open | `/open`, `open_path` | The file or directory opens in the application the OS associates with its type. | Shipped |
+| Reveal in the file manager | `/open -r`, `open_path` with `reveal: true` | The target is selected in the file manager instead of opened. | Shipped |
+| Working-directory resolution | `/open`, `open_path` | A relative path resolves against the effective working directory, so under [`worktree`](./worktree.md) `/open .` opens the isolated worktree. | Shipped |
+| Codemode-only exposure | `exposure: "codemode"` | The model cannot call `open_path` directly unless a codemode script asks for it; the table does not promise otherwise. | Shipped |
+| Pasted-path cleanup | `/open`, `open_path` | The editor's `@` mention prefix, surrounding quotes, and control characters are stripped before the path is used. | Shipped |
+| Failure reporting | `/open`, `open_path` | A missing path, a launcher that cannot start, and a non-zero exit after a successful start on macOS/Linux are reported. | Shipped |
+| Session-outliving launch | `/open`, `open_path` | The handler runs detached, so the application outlives the Pi session. | Shipped |
 
 ## Quickstart
 

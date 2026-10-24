@@ -93,7 +93,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   outcome/transcript/sanitization capabilities; and session-bus, context,
   worktree, rewind, and memory name their board units and verbs, compact result
   and gauge, plan and PowerShell guards, busy-git and root/untracked bounds, and
-  root anchor, recall switch, and headless surfaces.
+  root anchor, recall switch, and headless surfaces; and web-access, file-browse,
+  file-read, and file-open name their write-style fetch, printing and live chip,
+  extraction progress, and codemode-only exposure.
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by
