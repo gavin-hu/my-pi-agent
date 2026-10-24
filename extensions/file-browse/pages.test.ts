@@ -243,6 +243,15 @@ describe("page chrome", () => {
 		expect(diff).toContain('<th scope="col" class="browse-diff-word">');
 	});
 
+	test("spans the card with every table instead of leaving a ragged band", () => {
+		// A shrink-wrapped table stops at its own content, which leaves card beside it —
+		// 254px at 2560px wide, 300px beside the three-column tables at 1440 — and a
+		// reader cannot tell that from a column that failed to draw. Below the floor's
+		// threshold the table's min-content wins, so it still scrolls.
+		const prose = filePage("sub/b.md", markdownView(["# hi"]));
+		expect(prose).toContain(".browse-measure .bf-md .md-table-frame table{width:100%;max-width:var(--browse-measure)}");
+	});
+
 	test("prints the page without its clipping", () => {
 		// The base layer drops the chrome; a browse page is also a card with an
 		// inner scroller and a pinned hunk header, and neither belongs on paper.

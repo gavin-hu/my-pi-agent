@@ -183,6 +183,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   entry, and gave a changed path 140px while the word `modified` held 130. Below 520px
   those two columns are dropped: the diff keeps its change letter on the badge, and
   the listing's names now fit whole at 360px too.
+- `file-browse`: every rendered Markdown table spans the reading column instead of
+  stopping at its own content. A shrink-wrapped table left a ragged band beside
+  itself — 254px on a 2560px screen, and 300px beside the three-column tables at
+  1440 — which reads as a column that failed to draw next to one that ends on the
+  text's edge. A table now takes its column's width and never more than the 1012px
+  measure, so a document's tables all end where the prose does; below the narrow-pane
+  floor the minimum still wins, so a squeezed table scrolls as it did.
 - `memory`: a same-size edit to a store is picked up inside one millisecond instead
   of a whole one. The freshness stamp is the nanosecond field a bigint `stat`
   returns, compared with the size as before, so an editor that rewrites a line in

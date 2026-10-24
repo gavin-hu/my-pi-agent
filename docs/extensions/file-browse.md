@@ -255,8 +255,9 @@ lists, tables, code, inline and reference links, bare-URL autolinks, and images,
 with a one-click **raw** view (`?raw=1`). The page fills the card, so the scroll
 bar sits at the card edge; headings, prose, and images keep a centred reading
 measure of at most 1012px. Code blocks stay inside that column; tables start at
-it and take the free gutter to its right, and a table wider than the pane
-scrolls, its right edge fading until the last column is reached. Columns size to
+it and are never wider than it, so every table in a document ends on the same
+line as the prose above it, and one wider than the pane scrolls, its right edge
+fading until the last column is reached. Columns size to
 the content, and in a pane narrower than 600px they stop shrinking: each cell
 keeps a readable width, so the table scrolls instead of stacking one word per
 line. A task list's checkbox is drawn by the page, so a done item carries the
