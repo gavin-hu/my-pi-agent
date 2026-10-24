@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	carryFeedback,
+	claimAuthor,
 	coerceAnnotations,
 	displayFeedback,
 	feedbackSummary,
@@ -204,11 +205,29 @@ describe("authored review comments", () => {
 		expect(carryFeedback(previous, rewritten)).toContain("- [ ] one\n> [!REVIEW] @alice: keep me\n- [ ] two");
 	});
 
-	test("keeps a comment whose block was rewritten at the end", () => {
+	test("keeps a comment on a step whose text was reworded", () => {
 		const previous = "- [ ] one\n> [!REVIEW] @alice: about one\n- [ ] two";
 		const rewritten = "- [ ] one, restated differently\n- [ ] two";
-		const carried = carryFeedback(previous, rewritten);
-		expect(carried).toBe(`${rewritten}\n> [!REVIEW] @alice: about one`);
+		expect(carryFeedback(previous, rewritten)).toBe(
+			"- [ ] one, restated differently\n> [!REVIEW] @alice: about one\n- [ ] two",
+		);
+	});
+
+	test("keeps two comments on two identical steps apart", () => {
+		const previous = "- [ ] same\n> [!REVIEW] first\n- [ ] same\n> [!REVIEW] second";
+		expect(carryFeedback(previous, "- [ ] same\n- [ ] same")).toBe(previous);
+	});
+
+	test("moves a comment to its section's end when the step is gone", () => {
+		const previous = "## Steps\n- [ ] one\n> [!REVIEW] about one\n- [ ] two";
+		const rewritten = "## Steps\n- [ ] two";
+		expect(carryFeedback(previous, rewritten)).toBe("## Steps\n- [ ] two\n> [!REVIEW] about one");
+	});
+
+	test("falls back to the end of the plan when the section is gone", () => {
+		const previous = "## Steps\n- [ ] one\n> [!REVIEW] @alice: about one";
+		const rewritten = "# Plan\n\nBody only";
+		expect(carryFeedback(previous, rewritten)).toBe(`${rewritten}\n> [!REVIEW] @alice: about one`);
 	});
 
 	test("never duplicates a marker the rewritten plan carried itself", () => {
@@ -219,6 +238,41 @@ describe("authored review comments", () => {
 
 	test("a plan with no comments is returned stripped of any marker", () => {
 		expect(carryFeedback("- [ ] one", "- [ ] one\n> [!REVIEW] stale")).toBe("- [ ] one");
+	});
+});
+
+describe("who a reviewer write is signed by", () => {
+	test("the first post claims the name it signs", () => {
+		expect(claimAuthor({ taken: [] }, [{ anchor: 1, comment: "c", author: "@Alice" }])).toEqual({ name: "Alice" });
+	});
+
+	test("a bound link keeps its name, even for a post that signs nothing", () => {
+		expect(claimAuthor({ bound: "alice" }, [])).toEqual({ name: "alice" });
+		expect(claimAuthor({ bound: "alice" }, [{ anchor: 1, comment: "c" }])).toEqual({ name: "alice" });
+	});
+
+	test("a bound link refuses a post signed with someone else's name", () => {
+		const claim = claimAuthor({ bound: "alice" }, [{ anchor: 1, comment: "c", author: "priya" }]);
+		expect(claim).toMatchObject({ status: 409 });
+		expect("message" in claim ? claim.message : "").toContain("@alice");
+	});
+
+	test("a name another live link holds cannot be claimed", () => {
+		expect(claimAuthor({ taken: ["alice"] }, [{ anchor: 1, comment: "c", author: "alice" }])).toMatchObject({
+			status: 400,
+		});
+	});
+
+	test("an unsigned post claims nothing", () => {
+		expect(claimAuthor({ taken: [] }, [{ anchor: 1, comment: "c" }])).toMatchObject({ status: 400 });
+	});
+
+	test("one post cannot sign two names", () => {
+		const claim = claimAuthor({ taken: [] }, [
+			{ anchor: 1, comment: "c", author: "alice" },
+			{ anchor: 2, comment: "d", author: "priya" },
+		]);
+		expect(claim).toMatchObject({ status: 409 });
 	});
 });
 

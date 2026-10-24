@@ -34,8 +34,12 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var limits = data.limits || fallback.limits;
   // Who the server says is looking: the owner approves, a reviewer comments.
   var role = data.role === "reviewer" ? "reviewer" : "owner";
-  var reviewerName = "";
-  try { reviewerName = window.localStorage.getItem("bf-review-name") || ""; } catch (error) { reviewerName = ""; }
+  var reviewerName = typeof data.author === "string" ? data.author : "";
+  if (!reviewerName) {
+    try { reviewerName = window.localStorage.getItem("bf-review-name") || ""; } catch (error) { reviewerName = ""; }
+  }
+  // Set once the server has bound a name to this link, which makes it final.
+  var reviewerBound = typeof data.author === "string" && !!data.author;
   var DRAFT_REFUSAL = "Add or discard the comment you are writing.";
   var annotations = Array.isArray(data.annotations) ? data.annotations.slice() : [];
   var saved = false;
@@ -204,6 +208,11 @@ ${WEB_MARKDOWN_JS}
 
   function renderPlan() {
     if (!planEl) return;
+    // The DOM below is thrown away and rebuilt. Focus is only put back when it was
+    // inside this document to begin with: a repaint the stream caused must never
+    // pull the keyboard away from the page the reviewer is working in.
+    var focused = document.activeElement;
+    var keepFocus = !!(focused && focused !== planEl && planEl.contains(focused));
     closeComposer();
     pendingQuote = null;
     var scrollTop = planEl.scrollTop;
@@ -255,6 +264,12 @@ ${WEB_MARKDOWN_JS}
     // place rather than scrolling, so j/k resume where the reviewer was.
     var active = activeIndex >= 0 ? blockElements()[activeIndex] : null;
     if (active) active.classList.add("bf-block--active");
+    // The focused element went with the old DOM, so put the tab stop back on the
+    // block's comment control: that is where adding, editing, or deleting left it.
+    if (keepFocus && active) {
+      var stop = active.querySelector(".bf-block__add");
+      if (stop) stop.focus();
+    }
     renderFacts();
     observeSections();
     updateState();
@@ -274,10 +289,15 @@ ${WEB_MARKDOWN_JS}
     }).then(function (response) {
       if (response.ok) {
         dirty = false;
+        clearDraft();
         setStatus(okText, "saved");
         if (onOk) onOk();
         updateState();
-        return;
+        // The server binds a reviewer's name to her link on the first post; adopt it
+        // so a second tab of the same link posts under the same name.
+        return response.json().then(function (payload) {
+          if (role === "reviewer" && payload && typeof payload.author === "string" && payload.author) adoptName(payload.author);
+        }, function () {});
       }
       if (response.status === 409) {
         setStatus("The plan changed on disk \u2014 reload to review again.", "error");
@@ -476,6 +496,8 @@ ${WEB_MARKDOWN_JS}
 
   ${THEME_TOGGLE_JS}
 
+  // A reload during a review keeps the comments this tab has not saved yet.
+  restoreDraft();
   renderHeader();
   renderName();
   renderOutline();

@@ -28,6 +28,7 @@ import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { type ArmTimer, defaultTimer } from "../../lib/timer.ts";
 import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
 import {
+	claimAuthor,
 	MAX_ANNOTATIONS,
 	MAX_COMMENT_LENGTH,
 	MAX_QUOTE_LENGTH,
@@ -37,9 +38,9 @@ import {
 	type PlanAnnotation,
 } from "./feedback.ts";
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
-import { changedSections, type SectionDigest } from "./plan-text.ts";
+import { changedSections, planDigest, type SectionDigest } from "./plan-text.ts";
 import { extractPlanSections, extractPlanSteps } from "./steps.ts";
-import type { ReviewFrame, ReviewRole } from "./types.ts";
+import type { ReviewCaller, ReviewFrame, ReviewRole } from "./types.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 import { createShareSession, type ShareSession } from "./web-share-session.ts";
@@ -73,6 +74,12 @@ export interface PlanReviewOptions {
 	note?: string;
 	/** The section digests the previous review showed, so this page can mark changed sections. */
 	baseline?: SectionDigest[];
+	/**
+	 * Called when a shared reviewer's post lands, so the owner's terminal can say so:
+	 * an open page updates itself, and whoever is waiting in the TUI is told nothing
+	 * until this fires.
+	 */
+	onReviewerComment?: (author: string, count: number) => void;
 }
 
 /** Starts and tracks review sessions. */
@@ -170,8 +177,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const canApprove = options.canApprove === true;
 		const maxBody = deps.maxBodyBytes ?? MAX_BODY_BYTES;
 		// One token per holder: the owner's is minted here and never shared, and a
-		// reviewer token is minted by `share()`. The role travels with the token.
-		const tokens = new Map<string, ReviewRole>();
+		// reviewer token is minted by `share()`. The role travels with the token, and
+		// a reviewer's name is added to it the first time that link writes.
+		const tokens = new Map<string, ReviewCaller>();
 		const mint = (role: ReviewRole): string => {
 			const next = deps.token ?? (() => randomBytes(16).toString("hex"));
 			// A role is keyed by its token, so two roles may never share one: a
@@ -180,7 +188,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			let value = next();
 			for (let attempt = 0; tokens.has(value) && attempt < 8; attempt++) value = next();
 			if (tokens.has(value)) value = `${value}-${tokens.size}`;
-			tokens.set(value, role);
+			tokens.set(value, { role });
 			return value;
 		};
 		const token = mint("owner");
@@ -260,7 +268,16 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			}
 		};
 
-		const page = async (role: ReviewRole): Promise<ReviewPageData> => {
+		/**
+		 * The names every other live link has bound, so one review cannot hold two
+		 * reviewers called `alice`: the marker carries only the name, so a shared name
+		 * is a shared marker.
+		 */
+		const takenNames = (self: ReviewCaller): string[] =>
+			[...tokens.values()].flatMap((entry) => (entry !== self && entry.name ? [entry.name] : []));
+
+		const page = async (caller: ReviewCaller): Promise<ReviewPageData> => {
+			const { role } = caller;
 			const stored = await refreshPageText();
 			const current = pageText;
 			const blocks = planBlocks(current);
@@ -307,6 +324,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				limits: { comments: MAX_ANNOTATIONS, comment: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
 				token,
 				role,
+				// What the page keys this tab's unsaved draft on: same plan text, same draft.
+				rev: planDigest(current),
+				...(caller.name === undefined ? {} : { author: caller.name }),
 				canApprove: role === "owner" && canApprove,
 				...(role === "owner" && options.note !== undefined ? { note: options.note } : {}),
 				share: role === "owner" ? shareSession.state() : undefined,
@@ -315,12 +335,13 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 
 		/**
 		 * The owner's save decides the review; a reviewer's post only writes.
-		 * Both replace the comments of the writers they carry — the owner's are
-		 * untagged, a reviewer's are tagged with the name that browser chose — so
+		 * Both replace the comments of the writer they carry — the owner's are
+		 * untagged, a reviewer's are tagged with the name bound to that link — so
 		 * neither touches another writer's markers, and both refuse a plan that
 		 * changed since the page was rendered.
 		 */
-		const save = async (annotations: PlanAnnotation[], role: ReviewRole): Promise<SaveResult> => {
+		const save = async (annotations: PlanAnnotation[], caller: ReviewCaller): Promise<SaveResult> => {
+			const { role } = caller;
 			const current = await store.read(cwd, plan.path);
 			if (!current) return { ok: false, status: 404, message: "The plan file is gone." };
 			if (stripFeedback(current.content) !== pageText) {
@@ -332,28 +353,19 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					broadcast("comment");
 					return { ok: true };
 				}
-				// The page sends every comment it shows, so a reviewer's post is grouped by
-				// name and each name replaces only its own markers. An untagged entry is
-				// somebody else's comment echoed back, never re-signed.
-				const groups = new Map<string, PlanAnnotation[]>();
-				let signed = 0;
-				for (const annotation of annotations) {
-					const author = normalizeAuthor(annotation.author);
-					if (!author) continue;
-					signed += 1;
-					groups.set(author, [...(groups.get(author) ?? []), annotation]);
-				}
-				// Nothing signed at all means the reviewer has not chosen a name yet.
-				if (annotations.length > 0 && signed === 0) {
-					return { ok: false, status: 400, message: "Choose a display name before commenting." };
-				}
+				// The link, not the payload, decides whose markers this post replaces: the name
+				// is bound to the token on its first write, and a page that signs another one
+				// is a stale tab rather than an authorized writer.
+				const claim = claimAuthor({ bound: caller.name, taken: takenNames(caller) }, annotations);
+				if (!("name" in claim)) return { ok: false, status: claim.status, message: claim.message };
+				const own = annotations.filter((annotation) => normalizeAuthor(annotation.author) === claim.name);
 				// The saved plan is deliberately not recorded here: a post is not a result
 				// the session can return, so there is nothing for a later flush to resolve.
-				for (const [author, group] of groups) {
-					await store.saveFeedback(cwd, plan.path, group, { author });
-				}
-				if (groups.size > 0) broadcast("comment");
-				return { ok: true };
+				await store.saveFeedback(cwd, plan.path, own, { author: claim.name });
+				caller.name ??= claim.name;
+				broadcast("comment");
+				if (own.length > 0) options.onReviewerComment?.(claim.name, own.length);
+				return { ok: true, author: claim.name };
 			} catch (error) {
 				return { ok: false, status: 500, message: error instanceof Error ? error.message : String(error) };
 			}
@@ -374,7 +386,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const hosts = (): readonly string[] => shareSession.hosts();
 
 		const context: ReviewContext = {
-			roleOf: (value) => tokens.get(value),
+			caller: (value) => tokens.get(value),
 			hosts,
 			canApprove,
 			page,
@@ -440,7 +452,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					// A page that walks away mid-frame must not take the session down.
 					response.on("error", () => {});
 					const token = parseRequestUrl(request.url ?? "/")?.search.get("token") ?? "";
-					const streamRole = context.roleOf(token);
+					const streamRole = context.caller(token)?.role;
 					if (streamRole !== undefined) clients.set(response, streamRole);
 					if (streamRole === "owner") {
 						hadOwner = true;

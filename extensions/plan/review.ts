@@ -138,6 +138,11 @@ export interface BrowserReviewOptions {
 	signal?: AbortSignal;
 	/** Called once the server is listening and the browser was opened. */
 	onOpened?: (session: PlanReviewSession) => void;
+	/**
+	 * Called when a shared reviewer's post lands, so the owner learns about it where
+	 * they are waiting: the page updates itself, the terminal has to be told.
+	 */
+	onReviewerComment?: (author: string, count: number) => void;
 	/** A line the page shows the owner, such as why approval belongs in the terminal. */
 	note?: string;
 }
@@ -159,6 +164,7 @@ export async function runBrowserReview(
 			baseline: options.baseline,
 			signal: options.signal,
 			...(options.note === undefined ? {} : { note: options.note }),
+			...(options.onReviewerComment === undefined ? {} : { onReviewerComment: options.onReviewerComment }),
 		})
 		.catch(() => undefined);
 	if (!session) return undefined;
@@ -214,6 +220,8 @@ export async function reviewPlan(options: ReviewPlanOptions): Promise<ReviewDeci
 			baseline,
 			signal,
 			onOpened: (session) => ctx.ui.notify(`Plan review: opened ${session.url}`, "info"),
+			onReviewerComment: (author, count) =>
+				ctx.ui.notify(`Plan review: @${author} posted ${count === 1 ? "a comment" : `${count} comments`}.`, "info"),
 		});
 		if (!result) {
 			ctx.ui.notify("Plan review: could not start the browser review server.", "error");

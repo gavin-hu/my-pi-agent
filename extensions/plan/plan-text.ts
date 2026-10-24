@@ -60,6 +60,15 @@ function digestOf(text: string): string {
 	return createHash("sha256").update(text.trim()).digest("hex");
 }
 
+/**
+ * A short, stable id for one plan text. The review page keys this tab's unsaved
+ * draft on it, so a draft is restored for the plan it was written against and
+ * dropped for a plan that changed underneath it.
+ */
+export function planDigest(text: string): string {
+	return digestOf(text).slice(0, 12);
+}
+
 /** One digest per heading section, in document order, for a persisted baseline. */
 export function sectionDigests(content: string): SectionDigest[] {
 	return extractPlanSections(reviewText(content)).map((section) => ({
