@@ -378,14 +378,16 @@ body {
 	stroke-dasharray: 6 6;
 }
 
-.label {
+/* A node's name, beside `lane-label` and `edge-label`; not `.label`, which is
+ * the terminal card's section label and sets a colour, not a fill. */
+.node-label {
 	font-size: 17px;
 	font-weight: 650;
 	fill: var(--text);
 	text-anchor: middle;
 }
 
-.label--zh {
+.node-label--zh {
 	font-size: 14px;
 	font-weight: 500;
 	fill: var(--muted);
@@ -619,10 +621,6 @@ body {
 
 .bad {
 	color: var(--danger);
-}
-
-.gate {
-	color: var(--accent-alt);
 }
 
 .warn {
