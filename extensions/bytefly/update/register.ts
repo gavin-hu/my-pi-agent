@@ -17,6 +17,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import pkg from "../../../package.json";
+import { messageOf } from "../../../lib/errors.ts";
 import { isOffline } from "../../../lib/env.ts";
 import {
 	isFresh,
@@ -26,7 +27,7 @@ import {
 	writeUpdateCache,
 	type UpdateCacheEntry,
 } from "./cache.ts";
-import { fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
+import { applyUpdates, fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
 import { isOwnPackage, updateNotice } from "./format.ts";
 import { paintLatest, type UpdateOutcome, type UpdateSource } from "./state.ts";
 import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
@@ -45,6 +46,8 @@ export interface UpdateCache {
 export interface UpdateHandle {
 	/** Read the package list now, ignoring the cache window. Never throws. */
 	recheck(): Promise<UpdateOutcome>;
+	/** Apply the update, then re-read it. Never throws. */
+	apply(): Promise<UpdateOutcome>;
 }
 
 /** Test seams; production uses Pi's package manager, its cache, and the agent dir. */
@@ -53,6 +56,8 @@ export interface UpdateDeps {
 	readUpdates?: (ctx: ExtensionContext, check: PackageUpdateCheck) => Promise<PackageUpdate[] | undefined>;
 	/** Replace the registry read that names this package's new version. */
 	fetchLatest?: () => Promise<string | undefined>;
+	/** Replace the package-manager update; defaults to Pi's own manager. */
+	applyUpdates?: (ctx: ExtensionContext) => Promise<void>;
 	/** Replace the `PI_OFFLINE` check. */
 	isOffline?: () => boolean;
 	/** Replace the disk cache. */
@@ -94,6 +99,16 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 				checkForAvailableUpdates: check,
 			}));
 	const readLatest = deps.fetchLatest ?? (() => fetchLatestVersion());
+	const applyUpdate =
+		deps.applyUpdates ??
+		((ctx: ExtensionContext) =>
+			applyUpdates({
+				cwd: ctx.cwd,
+				agentDir: getAgentDir(),
+				projectTrusted: ctx.isProjectTrusted(),
+				// Pi's manager reports one line per source; a slow install is otherwise silent.
+				onProgress: (message) => ctx.ui.notify(message, "info"),
+			}));
 	const offline = deps.isOffline ?? isOffline;
 	const cache = deps.cache ?? diskCache();
 	const now = deps.now ?? Date.now;
@@ -220,26 +235,45 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 		context = undefined;
 	});
 
-	return {
-		async recheck() {
-			if (offline()) return { kind: "offline" };
-			if (!context) return { kind: "failed" };
-			let list: PackageUpdate[];
-			try {
-				const found = await readUpdates(context, activeCheck());
-				if (found === undefined) return { kind: "failed" };
-				list = found;
-			} catch {
-				return { kind: "failed" };
-			}
-			const entry = await buildSnapshot(context, list);
-			writeCache(entry);
-			// The caller prints the answer, so this path never posts a notice.
-			paintLatest(updates, ownLatestOf(entry), deps.onUpdate);
-			const ownLatest = ownLatestOf(entry);
-			return list.length > 0
-				? { kind: "available", updates: list, ...(ownLatest ? { ownLatest } : {}) }
-				: { kind: "current" };
-		},
+	/** Re-read the published state on demand; `/bytefly update` prints the answer. */
+	const recheck = async (): Promise<UpdateOutcome> => {
+		if (offline()) return { kind: "offline" };
+		if (!context) return { kind: "failed" };
+		let list: PackageUpdate[];
+		try {
+			const found = await readUpdates(context, activeCheck());
+			if (found === undefined) return { kind: "failed" };
+			list = found;
+		} catch {
+			return { kind: "failed" };
+		}
+		const entry = await buildSnapshot(context, list);
+		writeCache(entry);
+		// The caller prints the answer, so this path never posts a notice.
+		const ownLatest = ownLatestOf(entry);
+		paintLatest(updates, ownLatest, deps.onUpdate);
+		return list.length > 0
+			? { kind: "available", updates: list, ...(ownLatest ? { ownLatest } : {}) }
+			: { kind: "current" };
 	};
+
+	/**
+	 * Apply the update through Pi's manager, then re-read it: the snapshot on disk and
+	 * on screen described the version that was just replaced, so leaving it would keep
+	 * a marker for code this session no longer runs. `pending` is the manager reporting
+	 * success over a package that is still behind, which is worth saying out loud.
+	 */
+	const apply = async (): Promise<UpdateOutcome> => {
+		if (offline()) return { kind: "offline" };
+		if (!context) return { kind: "failed" };
+		try {
+			await applyUpdate(context);
+		} catch (error) {
+			return { kind: "update-failed", reason: messageOf(error) };
+		}
+		const after = await recheck();
+		return { kind: "updated", pending: after.kind === "available" };
+	};
+
+	return { recheck, apply };
 }

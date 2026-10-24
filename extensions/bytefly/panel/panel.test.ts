@@ -96,6 +96,7 @@ import {
 	settingsSummary,
 } from "./tui/settings-view.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
+import type { UpdateHandle } from "../update/register.ts";
 import type { UpdateOutcome } from "../update/state.ts";
 
 const packageItem = (name: string, enabled = true): ResourceItem => packageExtension(name, enabled) as ResourceItem;
@@ -3317,6 +3318,10 @@ function fakeUpdate(outcome: UpdateOutcome = { kind: "current" }, checks: number
 			checks.push(1);
 			return outcome;
 		},
+		apply: async (): Promise<UpdateOutcome> => {
+			checks.push(1);
+			return { kind: "updated", pending: false };
+		},
 	};
 }
 
@@ -3348,7 +3353,7 @@ function bootPanel(options: {
 	reports?: ExtensionReport[];
 	settings?: (deps: SettingsRuntimeDeps) => SettingsRuntime;
 	skills?: (paths: readonly string[], cwd: string, agentDir: string) => ReadonlyMap<string, SkillInfo>;
-	update?: { recheck: () => Promise<UpdateOutcome> };
+	update?: UpdateHandle;
 }) {
 	const { pi, commands } = makeFakePi();
 	registerPanel(pi, {
@@ -3759,6 +3764,51 @@ describe("bytefly update command", () => {
 			(entry: { label: string }) => entry.label,
 		);
 		expect(first).toContain("update");
+	});
+});
+
+describe("bytefly upgrade command", () => {
+	async function runUpgrade(confirm: boolean) {
+		const applies: number[] = [];
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: fakeDoctor([]),
+			update: {
+				recheck: async () => ({ kind: "current" }),
+				apply: async (): Promise<UpdateOutcome> => {
+					applies.push(1);
+					return { kind: "updated", pending: false };
+				},
+			},
+			discover: async () => {
+				throw new Error("should not resolve extensions");
+			},
+			settings: () => fakeSettings(),
+		});
+		const { ctx, notifications, confirms } = fakeCtx({ mode: "tui", confirm, extra: { isProjectTrusted: () => true } });
+		await commands.get("bytefly").handler("upgrade", ctx);
+		return { applies, notifications, confirms };
+	}
+
+	test("asks first, then prints what the update did", async () => {
+		const { applies, notifications, confirms } = await runUpgrade(true);
+		expect(confirms).toHaveLength(1);
+		expect(confirms[0].title).toContain("Update packages?");
+		expect(applies).toEqual([1]);
+		expect(notifications.at(-1)).toContain("reload");
+	});
+
+	test("writes nothing when the confirmation is declined", async () => {
+		const { applies, notifications, confirms } = await runUpgrade(false);
+		expect(confirms).toHaveLength(1);
+		expect(applies).toEqual([]);
+		expect(notifications.at(-1)).toContain("cancelled");
+	});
+
+	test("is offered as a first token and takes no second one", () => {
+		const { commands } = bootPanel({});
+		expect(commands.get("bytefly").getArgumentCompletions("upg")).toEqual([{ value: "upgrade ", label: "upgrade" }]);
+		expect(commands.get("bytefly").getArgumentCompletions("upgrade ")).toBeNull();
 	});
 });
 

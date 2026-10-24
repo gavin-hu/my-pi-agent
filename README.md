@@ -143,7 +143,7 @@ the full tool and command surface, opening with its capabilities.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly` (with the `doctor`, `settings`, `skills`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and skills and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you, and Pi's own startup update blocks become themed notices and header markers. `bytefly.json` is the config document every extension reads. |
+| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly` (with the `doctor`, `settings`, `skills`, `update`, and `upgrade` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and skills and holds the curated settings, and `/bytefly upgrade` installs a pending update through Pi's own package manager behind a confirmation; opt-in `notify` raises OS notifications when a run, a job, or a question needs you, and Pi's own startup update blocks become themed notices and header markers. `bytefly.json` is the config document every extension reads. |
 
 ### Skills
 

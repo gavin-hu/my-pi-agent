@@ -40,7 +40,10 @@ surface arrives with its limitation written in the same breath.
   notice a close sends when it abandons a turn; moves every extension doc to
   `docs/extensions/`, capabilities first; fits the browse page to a phone; and adds
   the `refactor` and `project-docs` skills, with the changelog's `scripts/state.ts`
-  moved under the latter. `docs/architecture.md` now states the
+  moved under the latter. It also closes the daily loop this file ranked first:
+  `web_fetch` renders a JSON, CSV, or XML body as a table or a tree, and the
+  control center installs an update through Pi's own package manager behind a
+  confirmation. `docs/architecture.md` now states the
   target architecture rather than a snapshot, and `AGENTS.md` names its four rules,
   the fourth enforced by review alone.
 
@@ -82,31 +85,19 @@ screenshots.
 | Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
-| Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W5 |
-| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F2 |
+| Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |
+| Optional and upgradeable | Strong; the package updates through Pi's own package manager | C1, F1–F2 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
 The column is *Open items*, not the `Next` tier, because a ledger row can be
 closed by work parked in any horizon.
 
-## If only two things ship
-
-1. **W1 — Structured fetch.** `web_fetch` hands a JSON, CSV, or XML body back as
-   the raw blob it downloaded, which is a page a reader has to parse in their
-   head.
-2. **C1 — Update action.** The control center can report a stale package but not
-   update it, so the one remaining surface of "the package upgrades with Pi" is a
-   shell command the user has to know.
-
-These are the two `Now` items: the rest of this file can wait for a later
-release, and the changelog, not this list, records what did.
-
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the daily loop feel finished? | `W1` and `C1` land, or are demoted with the reason recorded. |
+| **Now** | Does the daily loop feel finished? | Closed by the structured fetch and the update action; the next review reopens it with a candidate. |
 | **Next** | Does the pack keep what it promised? | `S1` is spiked or demoted, with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
@@ -311,12 +302,8 @@ not work that is ready to start.
 
 **Now**
 
-- **W1 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
-  readable text — indented keys, aligned columns, one record per block — instead
-  of a raw blob. No model call and no new dependency, and the HTML heuristic
-  path is untouched. *Done when* a fixture of each renders as text, a malformed
-  document still returns its raw body, and the web-access page says which
-  formats are rendered.
+Nothing here is queued: `web_fetch` renders JSON, CSV, and XML bodies, so this
+section's daily-loop question is answered.
 
 **Next**
 
@@ -325,13 +312,13 @@ peer's turn off says so in one line. The rest of this section is a decision.
 
 **Later**
 
-- **W2 — Group chats.** A separate admission and routing model, not a flag on
+- **W1 — Group chats.** A separate admission and routing model, not a flag on
   the current bridge.
-- **W3 — OCR.** Only if a local, dependency-light engine earns its install size;
+- **W2 — OCR.** Only if a local, dependency-light engine earns its install size;
   otherwise keep the explicit non-goal.
-- **W4 — Readability engine.** Replace the heuristic extractor only with a
+- **W3 — Readability engine.** Replace the heuristic extractor only with a
   measured improvement on a fixture set.
-- **W5 — PPTX and EPUB.** Add both to the `file-read` registry using libraries
+- **W4 — PPTX and EPUB.** Add both to the `file-read` registry using libraries
   already present where possible (`fflate`, `fast-xml-parser`), lazily imported.
   This reverses a documented non-goal; approve before building.
 
@@ -374,11 +361,8 @@ runs, an update check, and two themes.
 
 **Now**
 
-- **C1 — Update action.** Offer `pi update --extensions` from the control center
-  behind a confirmation — but only if a spike finds a host path that updates
-  through Pi's own package manager instead of a shell. Start with the spike; if
-  Pi exposes nothing safe, delete the item and leave the notice as the whole
-  surface, which is what it is today.
+Nothing here is queued: the control center updates the configured packages
+through Pi's own package manager, so this row's remaining surface is closed.
 
 **Next**
 
@@ -388,7 +372,7 @@ did not follow.
 
 **Later**
 
-- **C2 — More currencies.** Generalize the rates table beyond CNY and USD only
+- **C1 — More currencies.** Generalize the rates table beyond CNY and USD only
   when a user actually needs a third unit.
 
 The update-channel item that used to sit here is deleted, not deferred: the
@@ -517,7 +501,7 @@ These stay out unless a roadmap item says otherwise:
 - An OS sandbox, a general branch manager, or a Pi fork.
 - Semantic memory, embeddings, or automatic fact extraction.
 - OCR, PPTX, EPUB, or writing and converting documents (PPTX and EPUB are
-  proposed reversals in `W5`, not current scope).
+  proposed reversals in `W4`, not current scope).
 - Cron and scheduling, a durable job queue, or persisting watchers across
   sessions.
 - Group chats, outbound video or voice, or model-callable sends to arbitrary

@@ -116,6 +116,7 @@ const NOT_TOOLS: ReadonlyMap<string, string> = new Map([
 	["settings", "the `/bytefly settings` subcommand, named in the `/bytefly` row"],
 	["skills", "the `/bytefly skills` subcommand, named in the `/bytefly` row"],
 	["update", "the `/bytefly update` subcommand, named in the `/bytefly` row"],
+	["upgrade", "the `/bytefly upgrade` subcommand, named in the `/bytefly` row"],
 ]);
 
 /** The tool-shaped tokens in the second column of each markdown table in `markdown`. */

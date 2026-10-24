@@ -11,6 +11,7 @@
  */
 
 import { DefaultPackageManager, getAgentDir, SettingsManager } from "@earendil-works/pi-coding-agent";
+import type { ProgressEvent } from "@earendil-works/pi-coding-agent";
 import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
 import { parseVersion } from "./version.ts";
 
@@ -49,6 +50,44 @@ export interface AvailableUpdatesDeps {
 	projectTrusted: boolean;
 	/** The real check captured before suppression; defaults to the manager method. */
 	checkForAvailableUpdates?: PackageUpdateCheck;
+}
+
+/** What applying an update needs: the same manager the check builds, plus a source. */
+export interface ApplyUpdatesDeps {
+	/** Session working directory. */
+	cwd: string;
+	/** Pi agent directory; defaults to `getAgentDir()`. */
+	agentDir?: string;
+	/** Whether project-local packages may be read. */
+	projectTrusted: boolean;
+	/** One source to update; every configured package when omitted. */
+	source?: string;
+	/** Called as Pi's manager reports progress, so a surface can show one line. */
+	onProgress?: (message: string) => void;
+}
+
+/**
+ * Apply the update through Pi's own package manager.
+ *
+ * This is deliberately not a shell: `pi update --extensions` is a command a human
+ * types, while `update()` is the manager that owns the install root, the settings
+ * that name each package, and the npm command a project configured. It resolves
+ * nothing interactively, honors `PI_OFFLINE` by returning early, and skips a
+ * pinned npm version — so the caller's job is the confirmation and the report, not
+ * the mechanics. It throws when a named source matches no configured package or
+ * when the install command fails, and returns nothing on success.
+ */
+export async function applyUpdates(deps: ApplyUpdatesDeps): Promise<void> {
+	const agentDir = deps.agentDir ?? getAgentDir();
+	const settingsManager = SettingsManager.create(deps.cwd, agentDir, { projectTrusted: deps.projectTrusted });
+	const manager = new DefaultPackageManager({ cwd: deps.cwd, agentDir, settingsManager });
+	const report = deps.onProgress;
+	if (report) {
+		manager.setProgressCallback((event: ProgressEvent) => {
+			if (event.message) report(event.message);
+		});
+	}
+	await manager.update(deps.source);
 }
 
 /**

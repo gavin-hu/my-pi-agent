@@ -8,6 +8,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly`: `/bytefly upgrade` installs a pending update through Pi's own package
+  manager instead of a command the user has to type. The action confirms first,
+  then calls `DefaultPackageManager.update()` — the manager that already names each
+  configured package, owns the install root, and honours a project's `npmCommand` —
+  so no shell is involved and a pinned npm version or a `PI_OFFLINE` session is
+  skipped by Pi itself. The manager reports progress per source, which a TUI
+  session shows as it runs, and returns nothing, so the answer is a re-read of what
+  is left: `every configured package is updated — reload to use the new version`, a
+  warning when a package is still behind, or the manager's own message when the
+  install fails. The snapshot, the marker, and the cache are rebuilt from that
+  re-read, because the entry they held described the version just replaced. The
+  update handle gained `apply()` beside `recheck()`, `/bytefly upgrade` is a
+  reserved first argument, and the two copies that assembled a snapshot are now
+  one.
+
 - `web-access`: `web_fetch` renders a JSON, CSV, or XML body as text instead of the
   blob it downloaded — an array of records as an aligned table over the union of
   their keys, an object as indented `key: value` lines, comma-separated rows by
