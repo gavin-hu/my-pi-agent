@@ -95,6 +95,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   peers working at the same moment — with no window chrome, in the palette, glyphs
   and key-hint footer the terminal captures use, in the same 1200×675 box as the
   plan-flow cards it shares a stylesheet with.
+- `file-browse`: a code view can copy a reference to the lines you selected —
+  `path:12-30`, or `path:12` for one line — from a `copy reference` control beside
+  `copy path` or with `y`. The numbered `<pre>` now names its file, the selection
+  is captured when the pointer comes up (a button click collapses it), and the
+  status region says what landed on the clipboard. Rendered Markdown and the diff
+  view have no source-line spans, so neither offers it.
 - `file-browse`: a page that lists a folder now offers `⟳ reload` once a file has
   appeared or gone on disk since it drew its rows, instead of leaving you to
   wonder whether the page is current. The check covers the page's own folder by

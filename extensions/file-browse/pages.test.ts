@@ -21,11 +21,11 @@ import { localTimeMs } from "../../test/helpers/fixtures/file-browse.ts";
 import { CLIENT_JS } from "./client.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 import { changeDirs, type ChangedFile } from "./diff.ts";
+import { renderDiffLines } from "./diff-html.ts";
 import type { DirEntry, FileView, Listing, TreeNode } from "./files.ts";
 import {
 	formatDate,
 	renderBreadcrumbs,
-	renderDiffLines,
 	renderDiffPage,
 	renderDirectoryPage,
 	renderErrorPage,
@@ -380,10 +380,43 @@ describe("file page", () => {
 
 	test("renders raw Markdown with a wrap toggle and a rendered link", () => {
 		const html = filePage("sub/b.md", markdownView(["# hi"]), { markdownRaw: true });
-		expect(html).toContain('<pre class="bf-code bf-code--numbered">');
+		expect(html).toContain('<pre class="bf-code bf-code--numbered" data-path="sub/b.md">');
 		expect(html).toContain('id="wrap-toggle"');
 		expect(html).toContain('href="/view/sub/b.md"');
 		expect(html).not.toContain('class="bf-md"');
+	});
+
+	test("offers a code reference where lines are numbered", () => {
+		// The button and the key both need the file's path and its line spans, which is
+		// why the numbered pre names the file and the sheet lists `y`.
+		const text = filePage("a.txt", textView(["hello", "world"]));
+		expect(text).toContain('data-path="a.txt"');
+		expect(text).toContain('id="copy-reference"');
+		expect(text).toContain("Copy a reference to the selected lines");
+
+		const raw = filePage("sub/b.md", markdownView(["# hi"]), { markdownRaw: true });
+		expect(raw).toContain('id="copy-reference"');
+	});
+
+	test("offers no reference where no line is numbered", () => {
+		const rendered = filePage("sub/b.md", markdownView(["# hi", "text"]));
+		expect(rendered).not.toContain('id="copy-reference"');
+		expect(rendered).not.toContain("Copy a reference");
+		// The tree rows carry data-path too, so the absence to assert is the numbered pre.
+		expect(rendered).not.toContain('<pre class="bf-code bf-code--numbered"');
+
+		const image = filePage("image.png", { kind: "image", size: 68, mtimeMs: MTIME_MS, mime: "image/png" });
+		expect(image).not.toContain('id="copy-reference"');
+	});
+
+	test("ships the reference copy as one client function set", () => {
+		// The range is read from the DOM's own line spans, so the client source is the
+		// only place the mapping exists; a broken selector would copy nothing.
+		expect(CLIENT_JS).toContain("function captureReference()");
+		expect(CLIENT_JS).toContain("function copyReference()");
+		expect(CLIENT_JS).toContain('from.closest("pre[data-path]")');
+		expect(CLIENT_JS).toContain('event.key === "y"');
+		expect(CLIENT_JS).toContain("Select lines in the code to copy a reference.");
 	});
 
 	test("renders an image through the raw route", () => {

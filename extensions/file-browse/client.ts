@@ -148,6 +148,65 @@ ${TREE_CLIENT_JS}
 
 ${PALETTE_CLIENT_JS}
 
+	// A code reference: the file's path and the lines the reader selected. A click on
+	// the button collapses the selection before its click handler runs, so a new
+	// selection replaces the stored one and a collapse leaves it alone.
+	var reference = null;
+
+	function lineNode(node) {
+		var element = node && node.nodeType === 3 ? node.parentElement : node;
+		return element && element.closest ? element.closest(".bf-code__line") : null;
+	}
+
+	function referenceText() {
+		if (!reference || !reference.path) return "";
+		var span = reference.start === reference.end ? String(reference.start) : reference.start + "-" + reference.end;
+		return reference.path + ":" + span;
+	}
+
+	function captureReference() {
+		var button = document.getElementById("copy-reference");
+		if (!button) return;
+		var selection = window.getSelection && window.getSelection();
+		if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+		var range = selection.getRangeAt(0);
+		var from = lineNode(range.startContainer);
+		var to = lineNode(range.endContainer);
+		if (!from || !to) return;
+		var pre = from.closest("pre[data-path]");
+		if (!pre || pre !== to.closest("pre[data-path]")) return;
+		var lines = Array.prototype.slice.call(pre.querySelectorAll(".bf-code__line"));
+		var first = lines.indexOf(from);
+		var last = lines.indexOf(to);
+		if (first < 0 || last < 0) return;
+		reference = {
+			path: pre.getAttribute("data-path") || "",
+			start: Math.min(first, last) + 1,
+			end: Math.max(first, last) + 1
+		};
+		button.disabled = false;
+		button.title = "Copy " + referenceText();
+	}
+
+	function copyReference() {
+		var text = referenceText();
+		var button = document.getElementById("copy-reference");
+		if (!text) {
+			var status = document.getElementById("copy-status");
+			if (status) status.textContent = "Select lines in the code to copy a reference.";
+			return;
+		}
+		copyText(text)
+			.then(function () { if (button) flash(button, "copied", "Copied " + text); })
+			.catch(function () { if (button) flash(button, "failed", "Copy failed"); });
+	}
+
+	if (document.getElementById("copy-reference")) {
+		document.getElementById("copy-reference").addEventListener("click", copyReference);
+		document.addEventListener("mouseup", captureReference);
+		document.addEventListener("keyup", captureReference);
+	}
+
 	// Keyboard: the shared shortcut sheet, the per-page actions the server
 	// rendered, and hunk-to-hunk navigation through a diff.
 	${keysDialogScript("keys-open")}
@@ -256,6 +315,9 @@ ${PALETTE_CLIENT_JS}
 		} else if (event.key === "u" && wrapButton) {
 			event.preventDefault();
 			wrapButton.click();
+		} else if (event.key === "y" && document.getElementById("copy-reference")) {
+			event.preventDefault();
+			copyReference();
 		} else if (event.key === "r" && document.querySelector(".bf-card__actions .bf-segmented")) {
 			event.preventDefault();
 			toggleRaw();

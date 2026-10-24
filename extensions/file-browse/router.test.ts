@@ -115,11 +115,11 @@ describe("request routing", () => {
 		expect(text(rendered)).toContain('href="/view/sub/b.md?raw=1"');
 
 		const raw = await handleRequest(context(), "GET", "/view/sub/b.md?raw=1", {});
-		expect(text(raw)).toContain('<pre class="bf-code bf-code--numbered">');
+		expect(text(raw)).toContain('<pre class="bf-code bf-code--numbered" data-path="sub/b.md">');
 		expect(text(raw)).not.toContain('<h2 id="hi">');
 
 		const disabled = await handleRequest(context({ markdown: false }), "GET", "/view/sub/b.md", {});
-		expect(text(disabled)).toContain('<pre class="bf-code bf-code--numbered">');
+		expect(text(disabled)).toContain('<pre class="bf-code bf-code--numbered" data-path="sub/b.md">');
 		expect(text(disabled)).not.toContain('<h2 id="hi">');
 	});
 
