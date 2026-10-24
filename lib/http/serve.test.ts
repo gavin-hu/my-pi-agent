@@ -13,7 +13,7 @@ import { createConnection } from "node:net";
 import { eventHeaders, jsonHeaders, textResponse } from "./index.ts";
 import { type LoopbackServer, serveLoopback } from "./serve.ts";
 import type { ArmTimer } from "../timer.ts";
-import { settle } from "../../test/helpers/process.ts";
+import { waitFor } from "../../test/helpers/process.ts";
 
 const running: LoopbackServer[] = [];
 const blockers: Server[] = [];
@@ -133,7 +133,9 @@ describe("serveLoopback", () => {
 		const first = await reader?.read();
 		expect(new TextDecoder().decode(first?.value)).toStartWith("retry: 2000\n\ndata: one");
 		controller.abort();
-		await settle();
+		// The client's departure reaches the server's socket asynchronously, so a fixed
+		// number of turns is a race on a loaded runner: wait for the fact, not for time.
+		await waitFor(() => detached === 1);
 		expect(detached).toBe(1);
 	});
 
@@ -206,7 +208,7 @@ describe("serveLoopback", () => {
 		await fetch(`${server.origin}/events`, { signal: controller.signal });
 		expect(timer.armed).toBe(0);
 		controller.abort();
-		await settle();
+		await waitFor(() => timer.armed === 1);
 		expect(timer.armed).toBe(1);
 		timer.fire();
 		expect(idled).toBe(1);
