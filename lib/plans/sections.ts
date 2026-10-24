@@ -96,8 +96,29 @@ export function extractSections(plan: string): PlanSection[] {
 }
 
 /**
+ * One key per section that tells two identically titled headings apart: the title
+ * and which occurrence of it this is, in document order. The review pairs a
+ * baseline digest with the section it belongs to by it, and the feedback codec
+ * matches a comment's section across a rewrite, so a second `## Notes` never
+ * collects the first one's lines.
+ */
+export function sectionKeys(sections: readonly { title: string }[]): string[] {
+	const seen = new Map<string, number>();
+	return sections.map((section) => {
+		const occurrence = seen.get(section.title) ?? 0;
+		seen.set(section.title, occurrence + 1);
+		return `${occurrence}\u0000${section.title}`;
+	});
+}
+
+/**
  * The index one past a section's last line: the next heading at its level or
  * shallower, outside a fence, or the end of the document.
+ *
+ * Level-aware on purpose, and not the review's notion of a section: the outline
+ * lists every heading at its own level, while a rewrite of `## Team` must take
+ * its `###` subsections with it. Flattening the two would move the split's
+ * sections and the review's comments; they answer different questions.
  */
 function sectionEnd(lines: readonly string[], start: number): number {
 	const level = lines[start].match(HEADING)?.[1].length ?? 2;

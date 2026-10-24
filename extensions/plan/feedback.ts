@@ -22,7 +22,7 @@
 
 import { sanitizeLine } from "../../lib/format.ts";
 import { blockAt, contentBlockAt, planBlocks, type PlanBlock } from "./blocks.ts";
-import { extractPlanSections } from "./steps.ts";
+import { extractPlanSections, sectionKeys } from "./steps.ts";
 
 /** Marker that opens every stored feedback line. */
 export const REVIEW_MARKER = "[!REVIEW]";
@@ -273,25 +273,17 @@ function blockKey(block: PlanBlock): string {
 }
 
 /**
- * A plan's heading sections, keyed by title and occurrence, each with the blocks
- * a comment can hang on and the last line of that content. Two `## Notes`
- * sections are told apart by which one they are, the way `changedSections` does
- * it, so a duplicate heading never collects both sections' blocks. Blank lines
- * are left out on purpose: a position among them would move when one is added or
- * removed above, and a reworded step would lose its comment to the next block. A
- * section with no content block ends at its own heading, which the page renders.
+ * A plan's heading sections, keyed by `sectionKeys`, each with the blocks a
+ * comment can hang on and the last line of that content. Blank lines are left out
+ * on purpose: a position among them would move when one is added or removed
+ * above, and a reworded step would lose its comment to the next block. A section
+ * with no content block ends at its own heading, which the page renders.
  */
 function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, { blocks: PlanBlock[]; end: number }> {
 	const sections = extractPlanSections(plan);
-	const seen = new Map<string, number>();
 	const index = new Map<string, { blocks: PlanBlock[]; end: number }>();
-	const keys = sections.map((section) => {
-		const occurrence = seen.get(section.title) ?? 0;
-		seen.set(section.title, occurrence + 1);
-		const key = `${occurrence}\u0000${section.title}`;
-		index.set(key, { blocks: [], end: section.line });
-		return key;
-	});
+	const keys = sectionKeys(sections);
+	keys.forEach((key, at) => index.set(key, { blocks: [], end: sections[at]?.line ?? 0 }));
 
 	let position = 0;
 	for (const block of blocks) {
