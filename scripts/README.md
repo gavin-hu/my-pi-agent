@@ -1,0 +1,69 @@
+# scripts
+
+The dev tooling: the commands `package.json` exposes and the modules they share.
+Nothing here ships — `files` in `package.json` decides that — so a change is
+judged by `bun run check` and by the assets it writes under `assets/`.
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| [`screenshots.ts`](./screenshots.ts) | The capture command: `render <name>` prints one frame as ANSI on any OS, a named screen captures only it, and no argument captures every frame and then the hero. |
+| [`screens/`](./screens/) | The frames: `index.ts` is the registry — the `Screen` type, `SCREENS`, `CHROME_SCREEN` — and `fixtures/` is the data they draw around, one module per surface. |
+| [`capture/`](./capture/) | The two mechanisms. `terminal.ts` drives Terminal.app and `screencapture`; `chrome.ts` and `page.ts` drive Playwright against the local Chrome; `crop-title-bar.js` is the JXA crop, run by `osascript`. |
+| [`shots/`](./shots/) | One CLI per captured page — `file-browse`, `plan-review`, `plan-flow` — plus `plan-review-capture.ts` for the review page's state. |
+| [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. |
+| [`examples/`](./examples/) | Sample inputs a documented command takes, such as `plan-review.md` for `screenshot:plan`. |
+| [`cli.ts`](./cli.ts), [`theme.ts`](./theme.ts), [`poll.ts`](./poll.ts), [`ansi-html.ts`](./ansi-html.ts), [`transcript-fixture.ts`](./transcript-fixture.ts) | Shared: flag parsing, the capture theme and page palette, sleep and polling, the ANSI-to-HTML bridge, the transcript fixture. |
+| `wechat-poll.ts`, `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts` | One command each, under [`docs/development.md#scripts`](../docs/development.md#scripts). |
+
+## The two capture mechanisms
+
+A **terminal frame** is macOS-only: it is drawn by the shipped component with the
+`bytefly-dark` theme inside a real Terminal.app window and captured with
+`screencapture`, so the docs show the product rather than a mock. `bun run check`
+renders every frame at three widths and fails when one leaves the terminal or
+outgrows its `rows`, so a layout break is caught in CI even though no window can
+be opened there.
+
+A **browser page** is headless: Playwright drives the Chrome the machine already
+has — `PI_CHROME`, else the usual bundles — sizes the window to the document
+before capturing, and sets the theme through the page's own toggle so the header
+glyph and the page stay in step. Each page capture has a fixture or a fixture
+project, so a refresh reproduces the same example.
+
+Which mechanism an asset uses follows where it is drawn: a TUI component is a
+frame in `screens/`, a page the package serves is a CLI in `shots/`, and the tool
+galleries are `tools/`.
+
+## Fixtures
+
+`screens/fixtures/` and `tools/fixtures/` hold hand-written data for a real
+component, so a capture is reproducible and a test can render a frame without a
+window. `examples/` differs in kind: it holds an input a command is given, not a
+fixture the code imports. A new fixture goes in the directory of the mechanism
+that draws it.
+
+## When an asset is recaptured
+
+- When its surface changed, or when a version it prints is behind. Nothing else.
+- `assets/chrome.png` prints two versions: the pack's, from `package.json`, and
+  the host's, `VERSION` from `@earendil-works/pi-coding-agent`, which resolves
+  through `bun.lock`. The hero therefore names the **compatibility floor**, not
+  the `pi` on `PATH`, so a release recaptures it — and so does a floor raise.
+- The hero is the one asset drawn from a live session: `pi -e .` answers one
+  fixed question in a throwaway repository, so the reply sentence and the
+  footer's model name and usage numbers change with the machine that captured it.
+  Its agent dir is seeded from an allowlist — `auth.json`, `settings.json`,
+  `models.json`, `bytefly.json` — so the paths, the session history, the bridge
+  lock, the trust decisions, the MCP servers, and the caches of the capture
+  machine stay out of the frame.
+- A hero capture needs a real Terminal.app window, which is why CI cannot produce
+  one and the release step names it.
+
+## A script a doc names
+
+A doc may only say `bun run <name>`: give the script a `package.json` entry and a
+row in the `#Scripts` table of [`docs/development.md`](../docs/development.md#scripts).
+A raw `bun run scripts/x.ts` is refused by `test/scripts-surface.test.ts`, so a
+command cannot be documented without being discoverable and renameable.

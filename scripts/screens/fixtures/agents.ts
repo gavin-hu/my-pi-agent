@@ -2,9 +2,9 @@
  * The background runs the `/agents` board shows: two settled, one still going.
  */
 
-import type { BackgroundRun } from "../../extensions/subagent/background.ts";
+import type { BackgroundRun } from "../../../extensions/subagent/background.ts";
 import { now } from "./shared.ts";
-import { repo } from "../theme.ts";
+import { repo } from "../../theme.ts";
 
 /** The background runs the `/agents` board shows. */
 export const AGENT_RUNS: BackgroundRun[] = [

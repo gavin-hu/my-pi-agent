@@ -27,7 +27,7 @@ import { DEFAULT_BYTEFLY_CONFIG } from "../extensions/bytefly/footer/price/confi
 import { createPricer } from "../extensions/bytefly/footer/price/price.ts";
 import type { ByteflyConfig, ModelRates } from "../extensions/bytefly/footer/price/types.ts";
 import type { UsageRecord } from "../extensions/bytefly/footer/types.ts";
-import { renderingComponents } from "./tool-renderings.ts";
+import { renderingComponents } from "./tools/index.ts";
 
 /** One measured transcript shape. */
 export interface BenchCase {

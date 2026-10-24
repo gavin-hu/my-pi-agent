@@ -7,17 +7,17 @@
  * (`PI_CHROME` first, then the usual bundles) and writes the PNG a card is
  * posted as — 2× by default, so the text stays crisp where X scales it.
  *
- *   bun run scripts/plan-flow-shot.ts             # every card
- *   bun run scripts/plan-flow-shot.ts graphic     # one card
- *   bun run scripts/plan-flow-shot.ts flow -o /tmp/flow.png --scale 3
+ *   bun run screenshot:plan-flow             # every card
+ *   bun run screenshot:plan-flow graphic     # one card
+ *   bun run screenshot:plan-flow flow -o /tmp/flow.png --scale 3
  *
  * A card that outgrows its own 1200×675 box fails the run with the measured
  * size instead of being captured clipped, because one page is the whole promise.
  */
 
 import { fileURLToPath } from "node:url";
-import { captureFullPage, readyWhen } from "./chrome-shot.ts";
-import { parseShotArgs, runCli } from "./cli.ts";
+import { captureFullPage, readyWhen } from "../capture/chrome.ts";
+import { parseShotArgs, runCli } from "../cli.ts";
 
 /** The box both cards declare in `plan-flow.css`; the image is exactly this. */
 const CARD_WIDTH = 1200;
@@ -39,7 +39,7 @@ const CARDS: Record<string, Card> = {
 };
 
 /** `assets/`, anchored to this script so a capture does not depend on the cwd. */
-const ASSETS = new URL("../assets/", import.meta.url);
+const ASSETS = new URL("../../assets/", import.meta.url);
 
 /** The options after parsing; the card names are already validated. */
 export interface ShotOptions {
@@ -111,7 +111,7 @@ async function capture(name: string, options: ShotOptions): Promise<void> {
 	console.log(out);
 }
 
-const USAGE = `usage: bun run scripts/plan-flow-shot.ts [${Object.keys(CARDS).join("|")}] [-o out.png] [--scale 2] [--wait 8000]`;
+const USAGE = `usage: bun run screenshot:plan-flow [${Object.keys(CARDS).join("|")}] [-o out.png] [--scale 2] [--wait 8000]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

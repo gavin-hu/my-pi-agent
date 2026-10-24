@@ -78,6 +78,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `test`: `scripts/` is re-cut around the four jobs it does: `capture/` holds the
+  two mechanisms (Terminal.app and Playwright, with the JXA crop beside its
+  caller), `screens/` the frames and their fixtures, `shots/` one CLI per
+  captured page, `tools/` the gallery, `examples/` the sample inputs. Documented
+  commands keep their names; module paths, the `SCREENS` export, and the WeChat
+  probe's invocation break — it is now `bun run probe:wechat`. Two guards land
+  with it: the third shot CLI's argument contract is pinned like its siblings',
+  and the hero's agent dir is seeded from an allowlist rather than copying every
+  config of the capturing machine.
 - `docs`: the front door's hero is recaptured on the raised floor, so it names
   `Pi v1.4.0` instead of `v1.1.0`; the catalog now says its groups are the
   promises the [roadmap](./ROADMAP.md) tracks and that the

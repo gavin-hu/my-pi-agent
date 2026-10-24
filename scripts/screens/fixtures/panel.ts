@@ -6,12 +6,12 @@
  * `settings.json`.
  */
 
-import { settingViews, type SettingsSnapshot } from "../../extensions/bytefly/panel/settings.ts";
-import type { SettingsSurface } from "../../extensions/bytefly/panel/settings-runtime.ts";
-import type { ResourceItem, Settings } from "../../extensions/bytefly/picker/types.ts";
-import type { ExtensionReport } from "../../lib/requirements.ts";
-import { makeFinding, makeReport } from "../../test/helpers/fixtures/doctor.ts";
-import { packageExtension } from "../../test/helpers/fixtures/picker.ts";
+import { settingViews, type SettingsSnapshot } from "../../../extensions/bytefly/panel/settings.ts";
+import type { SettingsSurface } from "../../../extensions/bytefly/panel/settings-runtime.ts";
+import type { ResourceItem, Settings } from "../../../extensions/bytefly/picker/types.ts";
+import type { ExtensionReport } from "../../../lib/requirements.ts";
+import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
+import { packageExtension } from "../../../test/helpers/fixtures/picker.ts";
 
 /**
  * The extension list the `/bytefly` panel shows: this package, half of it

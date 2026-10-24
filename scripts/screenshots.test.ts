@@ -9,20 +9,22 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ansiLinesToHtml, ansiToHtml, cssFor, parseAnsi } from "./ansi-html.ts";
-import { parseArgs as parseFileBrowseArgs } from "./file-browse-shot.ts";
-import { parseArgs as parsePlanReviewArgs } from "./plan-review-shot.ts";
-import { draftSeed } from "./plan-review-capture.ts";
+import { parseArgs as parseFileBrowseArgs } from "./shots/file-browse.ts";
+import { parseArgs as parseFlowArgs } from "./shots/plan-flow.ts";
+import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
+import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
 import { planDigest } from "../extensions/plan/plan-text.ts";
-import { CHROME_SCREEN, SCREENS } from "./screenshots.ts";
+import { CHROME_SCREEN, SCREENS } from "./screens/index.ts";
 import { pageColors, readPageColors, repo } from "./theme.ts";
-import { FIXTURES } from "./tool-fixtures/index.ts";
-import { galleryHtml, registeredToolNames, renderings } from "./tool-renderings.ts";
+import { seedAgentDir } from "./capture/terminal.ts";
+import { FIXTURES } from "./tools/fixtures/index.ts";
+import { galleryHtml, registeredToolNames, renderings } from "./tools/index.ts";
 
 /** Every capturable frame: the named screens plus the whole-chrome preview. */
 const FRAMES = { ...SCREENS, chrome: CHROME_SCREEN };
@@ -59,6 +61,47 @@ describe("docs screenshots", () => {
 			const lines = screen.render(screen.size.width, screen.size.rows);
 			expect(lines.length, `${name} (${screen.size.width}x${screen.size.rows})`).toBeLessThanOrEqual(screen.size.rows);
 		}
+	});
+});
+
+describe("hero agent dir", () => {
+	/** A live agent dir holding every config Pi keeps, only four of which the hero may have. */
+	function liveAgentDir(): string {
+		const dir = mkdtempSync(join(tmpdir(), "hero-live-"));
+		for (const name of [
+			"auth.json",
+			"settings.json",
+			"models.json",
+			"bytefly.json",
+			"mcp.json",
+			"trust.json",
+			"crashes.json",
+			"models-store.json",
+		]) {
+			writeFileSync(join(dir, name), `{"from":"${name}"}`);
+		}
+		// A directory is not a config file, whatever it is called.
+		mkdirSync(join(dir, "sessions.json"), { recursive: true });
+		return dir;
+	}
+
+	test("copies the four configs a turn needs and no live state", () => {
+		const target = mkdtempSync(join(tmpdir(), "hero-agent-"));
+		const copied = seedAgentDir(liveAgentDir(), target);
+		expect(copied).toEqual(["auth.json", "settings.json", "models.json", "bytefly.json"]);
+		for (const name of copied) expect(readFileSync(join(target, name), "utf-8"), name).toContain(name);
+		// A server to start, a trust decision, a crash report, a cache, and a directory
+		// that merely ends in `.json` must not reach the frame's agent dir.
+		for (const name of ["mcp.json", "trust.json", "crashes.json", "models-store.json", "sessions.json"]) {
+			expect(existsSync(join(target, name)), name).toBe(false);
+		}
+	});
+
+	test("skips an optional config the live dir does not have", () => {
+		const live = mkdtempSync(join(tmpdir(), "hero-live-"));
+		writeFileSync(join(live, "auth.json"), "{}");
+		const copied = seedAgentDir(live, mkdtempSync(join(tmpdir(), "hero-agent-")));
+		expect(copied).toEqual(["auth.json"]);
 	});
 });
 
@@ -113,6 +156,40 @@ describe("file-browse shot arguments", () => {
 		];
 		for (const [argv, message] of invalid) {
 			expect(() => parseFileBrowseArgs(argv), argv.join(" ")).toThrow(message);
+		}
+	});
+});
+
+describe("plan flow shot arguments", () => {
+	test("captures every card at 2x by default", () => {
+		const options = parseFlowArgs([]);
+		expect(options.cards).toEqual(["flow", "graphic", "parallel"]);
+		expect(options.out).toBe("");
+		expect(options.scale).toBe(2);
+		expect(options.waitMs).toBe(8000);
+	});
+
+	test("naming a card captures only it, and the flags override the defaults", () => {
+		const options = parseFlowArgs(["graphic", "-o", "shot.png", "--scale", "1", "--wait", "100"]);
+		expect(options.cards).toEqual(["graphic"]);
+		expect(basename(options.out)).toBe("shot.png");
+		expect(options.scale).toBe(1);
+		expect(options.waitMs).toBe(100);
+	});
+
+	test("rejects a fixed width, an unknown card, and one output for two cards", () => {
+		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
+			[["--width", "900"], "--width is fixed: a card is a 1200×675 box"],
+			[["poster"], 'unknown card "poster"; expected flow or graphic or parallel'],
+			// Only the default set can hold more than one card: a second positional is
+			// already an error, so `-o` with no card named is the reachable mistake.
+			[["-o", "shot.png"], "-o names one file; capture one card at a time"],
+			[["flow", "graphic"], "unexpected argument graphic"],
+			[["--theme", "sepia"], "--theme must be light or dark"],
+			[["--nope"], "unknown option --nope"],
+		];
+		for (const [argv, message] of invalid) {
+			expect(() => parseFlowArgs(argv), argv.join(" ")).toThrow(message);
 		}
 	});
 });

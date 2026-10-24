@@ -5,7 +5,7 @@
  * status paths a real run writes.
  */
 
-import type { JobRecord } from "../../extensions/job/types.ts";
+import type { JobRecord } from "../../../extensions/job/types.ts";
 import { now } from "./shared.ts";
 import { DEMO_CWD } from "./workspace.ts";
 

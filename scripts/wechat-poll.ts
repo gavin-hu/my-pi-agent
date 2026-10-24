@@ -13,7 +13,7 @@
  * This is a manual experiment, so it refuses to run while a bridge is polling: two
  * clients on one account can steal each other's messages.
  *
- * Usage: `bun scripts/wechat-poll-probe.ts [holdMs]` (default 3000)
+ * Usage: `bun run probe:wechat [holdMs]` (default 3000)
  *
  * Run it with `pi` stopped. A message that arrives during the probe is printed,
  * not processed, and the stored cursor is left untouched.
@@ -27,7 +27,7 @@ import { readState, statePath } from "../extensions/wechat/state/state.ts";
 
 const requested = Number.parseInt(process.argv[2] ?? "3000", 10);
 if (!Number.isFinite(requested) || requested < 1000 || requested > 120_000) {
-	console.error("Usage: bun scripts/wechat-poll-probe.ts [holdMs]  (1000–120000)");
+	console.error("Usage: bun run probe:wechat [holdMs]  (1000–120000)");
 	process.exit(2);
 }
 

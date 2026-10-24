@@ -3,7 +3,7 @@
  * unread message, and the inbox watch armed.
  */
 
-import type { BoardSnapshot } from "../../extensions/session-bus/types.ts";
+import type { BoardSnapshot } from "../../../extensions/session-bus/types.ts";
 import { now } from "./shared.ts";
 
 /** The board one frame of `/sessions` draws. */

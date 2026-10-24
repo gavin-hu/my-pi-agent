@@ -12,7 +12,7 @@
  * condition, and nothing else about how a page is prepared.
  */
 
-import { captureFullPage, readyWhen } from "./chrome-shot.ts";
+import { captureFullPage, readyWhen } from "./chrome.ts";
 
 /** Expression that lets the app shell grow to its content; returns the new height. */
 export const EXPAND_SHELL_EXPRESSION = `(function () {

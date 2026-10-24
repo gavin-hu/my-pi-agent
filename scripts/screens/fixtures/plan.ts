@@ -5,8 +5,8 @@
  * changed against the baseline.
  */
 
-import { sectionDigests } from "../../extensions/plan/plan-text.ts";
-import type { StoredPlan } from "../../extensions/plan/plans.ts";
+import { sectionDigests } from "../../../extensions/plan/plan-text.ts";
+import type { StoredPlan } from "../../../extensions/plan/plans.ts";
 
 /** The plan the review screen shows; its `Steps` section changed on this review. */
 export const PLAN_PATH = "/home/u/repo/.pi/plans/2026-10-18-1430-plan-review-change-marks.md";

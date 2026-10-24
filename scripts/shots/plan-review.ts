@@ -7,7 +7,7 @@
  * without opening a browser by hand. It is macOS-friendly (it finds Google
  * Chrome's bundle) and honours `PI_CHROME` for another Chrome or Chromium.
  *
- *   bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280]
+ *   bun run screenshot:plan <plan.md> [-o out.png] [--width 1280]
  *     [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer]
  *     [--post <name>] [--draft <text>] [--share]
  *
@@ -21,11 +21,11 @@
 
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { createPlanWebReview, type PlanReviewSession, type PlanWebReview } from "../extensions/plan/web.ts";
-import type { NetworkInterfaces } from "../extensions/plan/web-share.ts";
-import { parseShotArgs, runCli } from "./cli.ts";
+import { createPlanWebReview, type PlanReviewSession, type PlanWebReview } from "../../extensions/plan/web.ts";
+import type { NetworkInterfaces } from "../../extensions/plan/web-share.ts";
+import { parseShotArgs, runCli } from "../cli.ts";
 import { anchorOf, captureStore, draftSeed, postAsReviewer, storedPlan } from "./plan-review-capture.ts";
-import { type PageShotOptions, capturePage } from "./web-shot.ts";
+import { type PageShotOptions, capturePage } from "../capture/page.ts";
 
 /** Which role's page to capture. */
 export type ShotRole = "owner" | "reviewer";
@@ -191,7 +191,7 @@ async function mintShareLinks(
 	if (!response.ok) throw new Error(`the review refused a second link: ${response.status}`);
 }
 
-const USAGE = `usage: bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer] [--post <name>] [--draft <text>] [--share]`;
+const USAGE = `usage: bun run screenshot:plan <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer] [--post <name>] [--draft <text>] [--share]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {
