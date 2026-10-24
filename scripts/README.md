@@ -53,10 +53,14 @@ that draws it.
   through `bun.lock`. The hero therefore names the **compatibility floor**, not
   the `pi` on `PATH`, so a release recaptures it — and so does a floor raise.
 - Every asset, the hero included, is drawn from a fixture by the shipped
-  component, so a capture is reproducible: the same code renders the same bytes,
-  and a diff in the image is a diff in the product. The hero is the `chrome`
-  frame — the header, the key-hint rows, a nameplated message with its tool block
-  and notice, the turn rule, and the footer — padded to the window a session fills.
+  component, so a capture is reproducible: the same code renders the same frame,
+  and a diff in the image is a diff in the product. Read the diff, not the
+  checksum — two captures of one page sit 22 pixels apart at 1/255 each, which is
+  rounding — and a diff in a word, a number, or a layout is a real one. A page
+  that changed leaves its card behind until it is captured again. The hero is
+  the `chrome` frame — the header, the key-hint rows, a nameplated message with
+  its tool block and notice, the turn rule, and the footer — padded to the window
+  a session fills.
 - A capture needs a real Terminal.app window, which is why CI cannot produce one
   and the release step names it.
 
