@@ -155,6 +155,22 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 		return latest && isNewerVersion(latest, pkg.version) ? latest : undefined;
 	};
 
+	/**
+	 * One snapshot from a package list: this package's version label, the cache key,
+	 * and the clock. The background check and the panel's recheck differ only in what
+	 * they do with a snapshot, so the assembly lives here once instead of being
+	 * copied wherever something new needs to record a reading.
+	 */
+	const buildSnapshot = async (ctx: ExtensionContext, list: PackageUpdate[]): Promise<UpdateCacheEntry> => {
+		const latest = await resolveOwnLatest(list.find(isOwnPackage));
+		return {
+			key: keyFor(ctx),
+			checkedAt: now(),
+			updates: list,
+			...(latest ? { latest } : {}),
+		};
+	};
+
 	const check = async (ctx: ExtensionContext, token: number): Promise<void> => {
 		try {
 			const list = await readUpdates(ctx, activeCheck());
@@ -163,14 +179,8 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 			// the next session "up to date" for a day and clear a marker that may still
 			// be right, so leave both alone and try again next time.
 			if (list === undefined) return;
-			const latest = await resolveOwnLatest(list.find(isOwnPackage));
+			const entry = await buildSnapshot(ctx, list);
 			if (token !== generation) return;
-			const entry: UpdateCacheEntry = {
-				key: keyFor(ctx),
-				checkedAt: now(),
-				updates: list,
-				...(latest ? { latest } : {}),
-			};
 			writeCache(entry);
 			record(entry);
 		} catch {
@@ -222,18 +232,13 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 			} catch {
 				return { kind: "failed" };
 			}
-			const latest = await resolveOwnLatest(list.find(isOwnPackage));
-			const entry: UpdateCacheEntry = {
-				key: keyFor(context),
-				checkedAt: now(),
-				updates: list,
-				...(latest ? { latest } : {}),
-			};
+			const entry = await buildSnapshot(context, list);
 			writeCache(entry);
 			// The caller prints the answer, so this path never posts a notice.
-			paintLatest(updates, latest, deps.onUpdate);
+			paintLatest(updates, ownLatestOf(entry), deps.onUpdate);
+			const ownLatest = ownLatestOf(entry);
 			return list.length > 0
-				? { kind: "available", updates: list, ...(latest ? { ownLatest: latest } : {}) }
+				? { kind: "available", updates: list, ...(ownLatest ? { ownLatest } : {}) }
 				: { kind: "current" };
 		},
 	};
