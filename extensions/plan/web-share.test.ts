@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { lanAddresses, NO_SHARE_REASON, shareUrls, type NetworkInterfaces } from "./web-share.ts";
+import {
+	createLinkTable,
+	lanAddresses,
+	MAX_SHARE_LINKS,
+	NO_SHARE_REASON,
+	shareUrl,
+	type NetworkInterfaces,
+} from "./web-share.ts";
 
 /** One IPv4 interface entry, with the fields the selector reads. */
 function entry(address: string, options: { internal?: boolean } = {}) {
@@ -52,15 +59,80 @@ describe("lanAddresses", () => {
 	});
 });
 
-describe("shareUrls", () => {
-	test("builds a tokenized link for each address", () => {
-		expect(shareUrls(["192.168.1.24"], 51789, "abc")).toEqual([
-			{ address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" },
-		]);
+describe("shareUrl", () => {
+	test("builds a tokenized link for one address", () => {
+		expect(shareUrl("192.168.1.24", 51789, "abc")).toBe("http://192.168.1.24:51789/?token=abc");
+	});
+});
+
+/** A table whose tokens are countable, so a link's identity is visible in a failure. */
+function table(names: Record<string, string> = {}) {
+	let minted = 0;
+	const revoked: string[] = [];
+	const links = createLinkTable({
+		mint: () => {
+			minted += 1;
+			return `tok-${minted}`;
+		},
+		revoke: (token) => revoked.push(token),
+		nameOf: (token) => names[token],
+	});
+	return { links, revoked, minted: () => minted };
+}
+
+describe("createLinkTable", () => {
+	test("names each link once and builds its URL from the bound port and address", () => {
+		const { links } = table();
+		expect(links.add()).toEqual({ id: "link-1", token: "tok-1" });
+		expect(links.add()).toEqual({ id: "link-2", token: "tok-2" });
+		expect(links.state(51789, "192.168.1.24")).toEqual({
+			sharing: true,
+			port: 51789,
+			links: [
+				{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=tok-1" },
+				{ id: "link-2", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=tok-2" },
+			],
+		});
 	});
 
-	test("builds nothing when there is no address", () => {
-		expect(shareUrls([], 51789, "abc")).toEqual([]);
+	test("releases one link's token without touching the others", () => {
+		const { links, revoked } = table();
+		links.add();
+		links.add();
+		expect(links.remove("link-1")).toBe(true);
+		expect(revoked).toEqual(["tok-1"]);
+		expect(links.list().map((link) => link.id)).toEqual(["link-2"]);
+	});
+
+	test("refuses an id it does not hold, and never reuses one", () => {
+		const { links } = table();
+		links.add();
+		expect(links.remove("link-9")).toBe(false);
+		links.remove("link-1");
+		expect(links.add()?.id).toBe("link-2");
+	});
+
+	test("reports nothing shared once the last link is gone", () => {
+		const { links } = table();
+		links.add();
+		links.remove("link-1");
+		expect(links.state(51789, "192.168.1.24")).toEqual({ sharing: false, port: 51789, links: [] });
+	});
+
+	test("reports each link's bound name, so the owner can see who holds it", () => {
+		const { links } = table({ "tok-2": "priya" });
+		links.add();
+		links.add();
+		const [first, second] = links.state(51789, "192.168.1.24").links;
+		expect(first).not.toHaveProperty("name");
+		expect(second?.name).toBe("priya");
+	});
+
+	test("stops minting at the cap, because every link is a live credential", () => {
+		const { links } = table();
+		for (let index = 0; index < MAX_SHARE_LINKS; index++) expect(links.add()).toBeDefined();
+		expect(links.add()).toBeUndefined();
+		expect(links.list()).toHaveLength(MAX_SHARE_LINKS);
 	});
 });
 

@@ -95,12 +95,17 @@ async function shareReview(web: PlanWebReview, prompt: string, ctx: ExtensionCon
 		ctx.ui.notify("Plan share: reviewers can no longer open this review.", "info");
 		return;
 	}
-	const link = result.state.links[0];
+	const link = result.state.links.at(-1);
 	if (!result.state.sharing || !link) {
 		ctx.ui.notify(`Plan share: ${result.state.reason ?? "no link is available"}.`, "warning");
 		return;
 	}
-	ctx.ui.notify(["Review link: " + link.url, ...(await qrLines(link.url))].join("\n"), "info");
+	const lines = ["Review link: " + link.url, ...(await qrLines(link.url))];
+	// One link is one person, so more than one is the team the page can list.
+	if (result.state.links.length > 1) {
+		lines.push(`${result.state.links.length} links shared — the page lists every link and who each one posts as.`);
+	}
+	ctx.ui.notify(lines.join("\n"), "info");
 }
 
 /**

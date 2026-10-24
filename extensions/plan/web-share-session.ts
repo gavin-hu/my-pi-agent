@@ -13,9 +13,12 @@ import { bindHost, createCloser, LOOPBACK_HOSTS } from "../../lib/http/index.ts"
 import { qrSvg } from "../../lib/qr.ts";
 import type { ReviewFrame, ReviewRole } from "./types.ts";
 import {
+	AT_CAP_REASON,
+	createLinkTable,
 	lanAddresses,
 	NO_SHARE_REASON,
-	shareUrls,
+	shareUrl,
+	type LinkTable,
 	type NetworkInterfaces,
 	type ShareResult,
 	type ShareState,
@@ -33,17 +36,23 @@ export interface ShareSessionDeps {
 	mintReviewer: () => string;
 	/** Remove a reviewer token from the session's role map. */
 	revokeReviewer: (token: string) => void;
-	/** Tell the open pages something changed. */
+	/** The name a reviewer token has bound, or undefined before its first post. */
+	nameOf: (token: string) => string | undefined;
+	/** Tell the open pages something changed, optionally only one role or link. */
 	broadcast: (kind: ReviewFrame, only?: ReviewRole) => void;
-	/** End every reviewer stream with a last frame, before the listener closes. */
-	endReviewerStreams: (kind: ReviewFrame) => void;
+	/** End streams with a last frame: every reviewer, or one link's. */
+	endStreams: (kind: ReviewFrame, only?: { role?: ReviewRole; token?: string }) => void;
 }
 
 /** The share surface one running review exposes. */
 export interface ShareSession {
-	/** Start sharing, or report why it cannot; idempotent while on. */
+	/** Start sharing with the first link, or report why it cannot; idempotent while on. */
 	share(): Promise<ShareResult>;
-	/** Revoke the reviewer token, tell the reviewers, and close the listener. */
+	/** Mint one more link, so each teammate holds their own. */
+	invite(): Promise<ShareResult>;
+	/** Revoke one link, or undefined when this review does not hold that id. */
+	revoke(id: string): Promise<ShareResult | undefined>;
+	/** Revoke every link, tell the reviewers, and close the listener. */
 	stop(): Promise<ShareResult>;
 	/** The current state, without changing it. */
 	state(): ShareState;
@@ -58,9 +67,23 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 	let port = 0;
 	let server: Server | undefined;
 	let closeServer: (() => Promise<void>) | undefined;
-	let reviewerToken: string | undefined;
-	let state: ShareState = { sharing: false, port: 0, links: [] };
+	const links: LinkTable = createLinkTable({
+		mint: deps.mintReviewer,
+		revoke: deps.revokeReviewer,
+		nameOf: deps.nameOf,
+	});
+	let reason: string | undefined;
 	const hosts = (): readonly string[] => (address ? [...LOOPBACK_HOSTS, address] : [...LOOPBACK_HOSTS]);
+
+	/**
+	 * The share surface as it is now, read rather than cached: a link's bound name
+	 * changes when its reviewer posts, and the owner's page has to see that without
+	 * another share action.
+	 */
+	const snapshot = (): ShareState => {
+		const base: ShareState = server === undefined ? { sharing: false, port: 0, links: [] } : links.state(port, address);
+		return reason === undefined ? base : { ...base, reason };
+	};
 
 	/** Bind the shared listener on `chosen`, reusing the owner's port when it is free. */
 	const bind = async (chosen: string): Promise<void> => {
@@ -84,44 +107,83 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 		port = bound;
 	};
 
-	const share = async (): Promise<ShareResult> => {
-		if (server === undefined) {
-			const chosen = lanAddresses(deps.networkInterfaces())[0];
-			if (chosen === undefined) {
-				state = { sharing: false, port: 0, links: [], reason: NO_SHARE_REASON };
-				return { state };
-			}
-			await bind(chosen);
-			if (server === undefined) {
-				state = { sharing: false, port: 0, links: [], reason: NO_SHARE_REASON };
-				return { state };
-			}
+	/**
+	 * Bind the one shared listener the first time a link needs it, or report why
+	 * there is nothing to bind to. Every link answers on this same listener, so this
+	 * runs once per share and the rest is bookkeeping.
+	 */
+	const ensureListener = async (): Promise<boolean> => {
+		if (server !== undefined) return true;
+		const chosen = lanAddresses(deps.networkInterfaces())[0];
+		if (chosen === undefined) {
+			reason = NO_SHARE_REASON;
+			return false;
 		}
-		// One link per share: a second click re-reads it rather than minting another.
-		reviewerToken ??= deps.mintReviewer();
-		const links = shareUrls([address], port, reviewerToken);
-		state = { sharing: true, port, links };
+		await bind(chosen);
+		if (server === undefined) {
+			reason = NO_SHARE_REASON;
+			return false;
+		}
+		reason = undefined;
+		return true;
+	};
+
+	/** Announce the change and hand back the state, plus the QR of a link just minted. */
+	const settle = async (minted?: string): Promise<ShareResult> => {
 		deps.broadcast("share", "owner");
-		return { state, svg: await qrSvg(links[0].url) };
+		const state = snapshot();
+		if (minted === undefined) return { state };
+		return { state, svg: await qrSvg(shareUrl(address, port, minted)) };
+	};
+
+	const share = async (): Promise<ShareResult> => {
+		reason = undefined;
+		if (!(await ensureListener())) return { state: snapshot() };
+		// One link per share, so a second click re-reads the link it already minted
+		// rather than making another one the owner has to revoke.
+		const added = links.list().length === 0 ? links.add() : undefined;
+		return settle(added?.token ?? links.list().at(-1)?.token);
+	};
+
+	const invite = async (): Promise<ShareResult> => {
+		reason = undefined;
+		if (!(await ensureListener())) return { state: snapshot() };
+		const added = links.add();
+		if (added === undefined) {
+			// At the cap: the page keeps rendering the links it holds and says why.
+			reason = AT_CAP_REASON;
+			return { state: snapshot() };
+		}
+		return settle(added.token);
+	};
+
+	const revoke = async (id: string): Promise<ShareResult | undefined> => {
+		reason = undefined;
+		const link = links.find(id);
+		if (link === undefined) return undefined;
+		// The link is told before its token goes away, so its page reads the reason
+		// rather than falling back to "Offline".
+		deps.endStreams("revoked", { token: link.token });
+		links.remove(id);
+		// The last link leaving is the same thing as stopping: there is nothing left to
+		// answer on the shared listener.
+		if (links.list().length === 0) return stop();
+		return settle();
 	};
 
 	const stop = async (): Promise<ShareResult> => {
-		if (reviewerToken !== undefined) {
-			deps.revokeReviewer(reviewerToken);
-			reviewerToken = undefined;
-		}
+		for (const link of links.list()) links.remove(link.id);
 		// The reviewers are told before their listener goes away; the review itself
 		// stays open for its owner.
-		deps.endReviewerStreams("revoked");
-		server = undefined;
+		deps.endStreams("revoked", { role: "reviewer" });
 		const closer = closeServer;
+		server = undefined;
 		closeServer = undefined;
 		address = "";
 		port = 0;
-		state = { sharing: false, port: 0, links: [] };
+		reason = undefined;
 		if (closer) await closer();
-		deps.broadcast("share", "owner");
-		return { state };
+		return settle();
 	};
 
 	const close = async (): Promise<void> => {
@@ -131,5 +193,5 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 		if (closer) await closer();
 	};
 
-	return { share, stop, state: () => state, hosts, close };
+	return { share, invite, revoke, stop, state: snapshot, hosts, close };
 }

@@ -105,16 +105,22 @@ describe precisely.
 
    **Review with someone else.** **Share** in the page header mints a link (and a
    QR a phone can scan) that a teammate on the same network opens to read the plan
-   and comment under their own name. Their comments arrive in the same file as
-   `> [!REVIEW] @alice: …`, appear under the block they refer to on your page as
-   they post them, and stay when you revise the plan. They cannot approve, save the
-   review, or close it: **Approve & run**, **Save feedback**, and **Back to Pi**
-   are yours alone, and the reviewer's page renders only **Post comments**. Her
-   posting never ends your review — only your own decision, or your page going
-   away, does that. **Stop sharing** — or closing the review — revokes the link,
-   and her page is told so rather than left guessing. From a phone-owned
-   or remote session, `/plan share` prints the link and QR and `/plan share stop`
-   revokes it, because there is no page to click.
+   and comment under their own name. **New link** in the same dialog mints one more,
+   so each reviewer holds their own: the dialog lists every link with the name it
+   has bound, and **Revoke** takes one back without touching the others. Their
+   comments arrive in the same file as `> [!REVIEW] @alice: …`, appear under the
+   block they refer to on your page as they post them, and stay when you revise the
+   plan. They cannot approve, save the review, or close it: **Approve & run**,
+   **Save feedback**, and **Back to Pi** are yours alone, and the reviewer's page
+   renders only **Post comments**. Her posting never ends your review — only your
+   own decision, or your page going away, does that. **Revoking a link** (or
+   **Stop sharing**, or closing the review) tells that reviewer's page so rather
+   than leaving it guessing. From a phone-owned or remote session, `/plan share`
+   prints the newest link and QR and `/plan share stop` revokes them all, because
+   there is no page to click.
+
+   The page also follows the plan file: a revision that reaches the file while the
+   page is open is repainted within about a second, so nobody reviews stale text.
 
 4. After approval, the plan's steps become your to-do list. Watch the widget tick
    them off. The assistant updates the plan file as it goes; you can reopen the
@@ -137,11 +143,14 @@ describe precisely.
 - `/plan review [path]` opens the browser page for the newest plan, or for the
   path you give it. It is for comments only; approve from the terminal review or
   from the page opened with `w`.
-- A shared link is a credential: anyone who has it can read the plan and comment
-  under any name. The page says so, the link is generated per review, and it is
-  revoked by **Stop sharing**. The server binds one address on this network, never
-  a wildcard, and a machine with no reachable address says so instead of printing
-  a link that cannot work. Nothing leaves the machine.
+- A shared link is a credential: anyone who holds it can read the plan, and a
+  comment made through it is signed with the one name that link binds on its first
+  post, so a second person on the same link is the same writer. Each teammate
+  therefore gets a link of her own — **New link** in the Share dialog — and a link
+  is revoked alone, or all at once with **Stop sharing**. The server binds one
+  address on this network, never a wildcard, and a machine with no reachable
+  address says so instead of printing a link that cannot work. Nothing leaves the
+  machine.
 - `/plan cancel` leaves plan mode without approving. The plan file stays, no todo
   items or goal are recorded, and write access returns immediately. The phone
   review reaches the same outcome through **Exit plan mode** or a cancel phrase;

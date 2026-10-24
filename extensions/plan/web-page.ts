@@ -100,7 +100,13 @@ export const REVIEW_CSS = `${WEB_BASE_CSS}
 ${WEB_THEME_CSS}
 ${WEB_LAYOUT_CSS}
 ${WEB_COMPONENTS_CSS}
-.review-share__link{margin:0 0 var(--space-3);font:var(--fs-sm) var(--font-mono);word-break:break-all;color:var(--text)}
+.review-share__list{list-style:none;margin:0 0 var(--space-3);padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.review-share__row{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md)}
+.review-share__url{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--fs-sm) var(--font-mono);color:var(--text)}
+.review-share__who{flex:0 0 auto;font:var(--fs-xs) var(--font-mono);color:var(--muted)}
+.review-share__who--bound{color:var(--accent)}
+.review-share__actions{display:flex;flex:0 0 auto;gap:4px}
+.review-share__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
 .review-share__qr{display:flex;justify-content:center;margin:0 0 var(--space-3)}
 .review-share__qr svg{width:168px;height:168px;background:#fff;border-radius:var(--radius-md);padding:var(--space-1)}
 .bf-review{--review-measure:1012px;--review-rail:26px;--review-gutter:34px;flex:1 1 auto;padding:var(--space-5) var(--space-6) 120px}
@@ -275,16 +281,17 @@ function approveDialog(): string {
 }
 
 /**
- * The owner's Share dialog: the reviewer link, its QR, and the revoke action.
- * The markup is empty on purpose — the client fills it after the server mints a
- * token, so a link never travels in the page source.
+ * The owner's Share dialog: one row per reviewer link, the QR of the link just
+ * minted, and the two actions that change the set. The list is empty on purpose —
+ * the client fills it after the server mints a token, so a link never travels in
+ * the page source.
  */
 function shareDialog(): string {
 	return `<div class="bf-dialog" id="share-dialog" hidden>
 <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="share-title">
 <div class="bf-dialog__head"><h2 id="share-title">Share this review</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="share-close">Close</button></div>
-<div class="bf-dialog__body"><p class="review-share__link" id="share-link">Minting a link\u2026</p><div class="review-share__qr" id="share-qr"></div><p class="bf-dialog__hint" id="share-note"></p></div>
-<div class="bf-dialog__actions"><button type="button" class="bf-btn" id="share-stop">Stop sharing</button><button type="button" class="bf-btn bf-btn--primary" id="share-copy">Copy link</button></div>
+<div class="bf-dialog__body"><ul class="review-share__list" id="share-links"></ul><div class="review-share__qr" id="share-qr"></div><p class="bf-dialog__hint" id="share-note"></p></div>
+<div class="bf-dialog__actions"><button type="button" class="bf-btn" id="share-stop">Stop sharing</button><button type="button" class="bf-btn bf-btn--primary" id="share-new">New link</button></div>
 </div>
 </div>`;
 }

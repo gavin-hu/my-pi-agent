@@ -429,23 +429,17 @@ ${WEB_MARKDOWN_JS}
   // is the wiring, which needs the page's own element handles.
   var shareButton = document.getElementById("share");
   var shareDialogNode = document.getElementById("share-dialog");
-  var shareLinkEl = document.getElementById("share-link");
+  var shareLinksEl = document.getElementById("share-links");
   var shareQrEl = document.getElementById("share-qr");
-  var shareCopy = document.getElementById("share-copy");
   var shareStop = document.getElementById("share-stop");
+  var shareNew = document.getElementById("share-new");
   var shareNote = document.getElementById("share-note");
   var nameButton = document.getElementById("reviewer-name");
   var nameInput = document.getElementById("name-input");
 
   if (shareButton) shareButton.addEventListener("click", shareNow);
   if (shareStop) shareStop.addEventListener("click", stopSharing);
-  if (shareCopy) shareCopy.addEventListener("click", function () {
-    if (!shareLinkEl) return;
-    var text = shareLinkEl.textContent || "";
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(function () { setStatus("Link copied."); }, function () {});
-    }
-  });
+  if (shareNew) shareNew.addEventListener("click", newLink);
   ${dialogScript({ dialogId: "share-dialog", closeId: "share-close", globalName: "bfShare" })}
 
   if (nameButton) nameButton.addEventListener("click", askName);

@@ -167,7 +167,7 @@ describe("/plan share", () => {
 			state: {
 				sharing: true,
 				port: 51789,
-				links: [{ address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" }],
+				links: [{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" }],
 			},
 			svg: "<svg/>",
 		});
@@ -207,10 +207,39 @@ describe("/plan share", () => {
 		expect(notifications.join("\n")).toContain("no browser review is open");
 	});
 
+	test("names the newest link and the count once a team holds several", async () => {
+		const { runtime } = fakeRuntime({ file: plan() });
+		const web = shareWeb({
+			state: {
+				sharing: true,
+				port: 51789,
+				links: [
+					{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" },
+					{ id: "link-2", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=def" },
+				],
+			},
+		});
+		const pi = makeFakePi();
+		registerCommands(pi.pi, runtime, web);
+		const { ctx, notifications } = fakeCtx({ cwd: "/repo" });
+
+		await pi.commands.get("plan").handler("share", ctx);
+
+		const notice = notifications.join("\n");
+		expect(notice).toContain("token=def");
+		expect(notice).toContain("2 links shared");
+	});
+
 	test("stops sharing and says reviewers can no longer join", async () => {
 		const { runtime } = fakeRuntime({ file: plan() });
 		const web = shareWeb(
-			{ state: { sharing: true, port: 51789, links: [{ address: "192.168.1.24", url: "http://x/?token=abc" }] } },
+			{
+				state: {
+					sharing: true,
+					port: 51789,
+					links: [{ id: "link-1", address: "192.168.1.24", url: "http://x/?token=abc" }],
+				},
+			},
 			{ state: { sharing: false, port: 0, links: [] } },
 		);
 		const pi = makeFakePi();

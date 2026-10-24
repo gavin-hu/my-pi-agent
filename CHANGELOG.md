@@ -116,8 +116,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   selection it quoted, and dropped when the plan changed underneath them; nothing
   is written to the server, and another writer's comment is never part of the
   draft.
+- `plan`: a shared review holds **one reviewer link per person**. **New link** in
+  the page's Share dialog mints another, the dialog lists every link with the name
+  it has bound, and **Revoke** drops one link alone — its page is told, its token
+  stops answering, and the others keep working. A review holds at most eight. The
+  terminal's `/plan share` prints the newest link and says how many are shared.
 
 ### Changed
+
+- `plan`: an open browser review follows its plan file, so an edit this review did
+  not make — the model rewriting the plan while `/plan review` is open in normal
+  mode, or an editor saving it — repaints every reader within about a second
+  instead of waiting for one of them to reload. It is a once-a-second read rather
+  than a file watcher, and a save that changed nothing but comments stays quiet;
+  the save-side `409` remains the guard when a page is stale.
 
 - `skills`: `init` targets the instruction file Pi actually reads — editing a root
   `AGENTS.override.md` when it shadows `AGENTS.md` instead of writing a file Pi

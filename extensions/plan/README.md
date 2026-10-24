@@ -597,30 +597,39 @@ file and returns them to the model.
 | `POST /api/feedback?token=…` | owner only: write the owner's comments and return to the model |
 | `POST /api/approve?token=…` | owner only: save, then approve |
 | `POST /api/cancel?token=…` | owner only: end the session without saving |
-| `POST /api/share?token=…` | owner only: mint a reviewer link and its QR |
-| `POST /api/share/stop?token=…` | owner only: revoke every reviewer token |
+| `POST /api/share?token=…` | owner only: mint the first reviewer link and its QR |
+| `POST /api/share/link?token=…` | owner only: mint one more reviewer link, so each teammate holds their own |
+| `POST /api/share/revoke?token=…` | owner only: revoke one link by `{ id }`, leaving the others answering |
+| `POST /api/share/stop?token=…` | owner only: revoke every reviewer link |
 
 ## Shared review
 
 A review is not only the owner's. **Share** in the review header (or `/plan share`)
-mints one reviewer token, binds a second listener on the machine's first reachable
-IPv4 address, and shows the link with a QR a phone can scan. **Stop sharing**
-revokes the token and closes that listener; closing the review does both.
+mints a reviewer link, binds a second listener on the machine's first reachable
+IPv4 address, and shows the link with a QR a phone can scan. **New link** in the
+same dialog mints one more, so each teammate holds a link of their own. **Stop
+sharing** revokes every link and closes that listener; closing the review does
+both.
 
-- **Two roles, two tokens.** The owner's token — the one the browser opened with —
-  decides: it may comment, save (which returns to the model), approve, cancel, and
-  share. A reviewer token may read and comment, and its one write route is
-  `POST /api/comment`: `/api/feedback`, `/api/approve`, `/api/cancel`, and
-  `/api/share` answer `403`, and the page renders only the name control and
-  **Post comments** for it — and once that link has posted, the control shows the
-  bound name instead of offering the dialog. Anything the reviewer holds is
-  reachable only while the share is on.
+- **Two roles, one token each.** The owner's token — the one the browser opened
+  with — decides: it may comment, save (which returns to the model), approve,
+  cancel, mint links, and revoke them. A reviewer token may read and comment, and
+  its one write route is `POST /api/comment`: `/api/feedback`, `/api/approve`,
+  `/api/cancel`, and the `/api/share` family answer `403`, and the page renders
+  only the name control and **Post comments** for it — and once that link has
+  posted, the control shows the bound name instead of offering the dialog.
+  Anything the reviewer holds is reachable only while its link is shared.
+- **One link is one person.** The dialog lists every link with the name it has
+  bound, and the two things an owner does with one: **Copy**, and **Revoke**, which
+  drops that link alone — its page is told `revoked` and its token stops
+  answering, while the others keep working. Revoking the last link stops sharing.
+  A review holds at most eight links, because each is a live credential.
 - **The owner's page is the review's lifetime.** A reviewer's tab opening or
   closing changes nothing; the review ends when the owner saves, approves, or
   closes it, or when the owner's own page goes away. A reviewer's post writes the
   plan and updates every open page, and leaves the review waiting. A page that is
-  still open when the review ends is told why — `closed`, or `revoked` when sharing
-  was stopped — and keeps the plan readable.
+  still open when the review ends is told why — `closed`, or `revoked` when its
+  link was revoked or sharing was stopped — and keeps the plan readable.
 - **Signed comments.** A reviewer names herself once, on the page, and that name
   is bound to her link on its first post: the link stores under it from then on,
   a second tab of the same link that picked another name is refused (`409`) rather
@@ -629,22 +638,26 @@ revokes the token and closes that listener; closing the review does both.
   edit or withdraw her own notes and nobody else's, and her second post replaces
   rather than duplicates the first. The name is a label on a bearer link, not an
   account, which is why the owner still makes the only decision.
-- **One link, one machine.** Sharing opens exactly the address the dialog printed —
-  never `0.0.0.0` — and the `Host` allowlist becomes loopback plus that address.
-  A machine with no reachable IPv4 address reports why instead of printing a link
-  that cannot work. There is no tunnel, no relay, and no cross-machine sync: this
-  is the same Wi-Fi.
+- **One listener, one machine.** Sharing opens exactly the address the dialog
+  printed — never `0.0.0.0` — and the `Host` allowlist becomes loopback plus that
+  address, however many links answer on it. A machine with no reachable IPv4
+  address reports why instead of printing a link that cannot work. There is no
+  tunnel, no relay, and no cross-machine sync: this is the same Wi-Fi.
 - **Live.** Every open page follows the stream, so a reviewer's post appears on the
-  owner's page without a reload, and a revision saved on disk reaches the
-  reviewers. A page with a draft open refuses to repaint and says what arrived
-  instead. The owner's terminal is told too — `Plan review: @alice posted 2
-  comments.` — because whoever is waiting in the TUI is not looking at the page.
+  owner's page without a reload. The review also polls its own plan file once a
+  second, so an edit this review did not make — the model rewriting the plan while
+  `/plan review` is open in normal mode, or a teammate's editor — repaints every
+  reader instead of waiting for the next request, and a save that changed nothing
+  but comments stays quiet. A page with a draft open refuses to repaint and says
+  what arrived instead. The owner's terminal is told too — `Plan review: @alice
+  posted 2 comments.` — because whoever is waiting in the TUI is not looking at
+  the page.
 - **What a shared link is.** A bearer credential: anyone who has it reads the plan
   and can comment, under the one name it binds on its first post. The dialog says
-  so, `Referrer-Policy: no-referrer` keeps a click from leaking it, and **Stop
-  sharing** is the revocation. The plan file is the record — a comment arrives as
-  an author-tagged marker, so `/resume` and the terminal show the same review the
-  page did.
+  so, `Referrer-Policy: no-referrer` keeps a click from leaking it, and **Revoke**
+  (or **Stop sharing**) is the revocation. The plan file is the record — a comment
+  arrives as an author-tagged marker, so `/resume` and the terminal show the same
+  review the page did.
 
 ## Limitations
 
@@ -675,6 +688,14 @@ revokes the token and closes that listener; closing the review does both.
   and runs of spaces collapse before it is written; a pasted multi-line
   instruction reaches the model as one sentence, which is what keeps the marker
   grammar valid markdown.
+- The plan-file poll runs once a second, so an edit made elsewhere reaches an open
+  page within about that long, and a write that leaves the plan's text identical —
+  another process appending only a comment — is not announced; the next save still
+  refuses a file it did not render (`409`). It is a poll rather than a file
+  watcher, so a change on a filesystem that reports nothing at all is still seen
+  at the next request, because every page read re-compares the file.
+- A shared review holds at most eight links. Each is a live bearer credential, so
+  a ninth is refused with the cap named rather than minted.
 
 ## Non-goals
 
@@ -808,6 +829,25 @@ revokes the token and closes that listener; closing the review does both.
   so annotating never moves the text. That removes the two-column grid, the
   `bf-review--no-rail` collapse, and the breakpoint ladder, and matches the TUI,
   where neither review header carries a progress counter.
+- **A poll, not a file watcher.** An open review re-reads its plan once a second
+  and announces when the text stopped matching what the page rendered, because the
+  review owns the page and not the file: `/plan review` runs in normal mode, so the
+  model can rewrite the plan underneath it. The house rule is a poll (see
+  `file-browse`'s note): `fs.watch` is the one part of `node:fs` whose availability
+  and event semantics differ per platform, and it would add a long-lived resource
+  to start and release. The check only announces — it never writes `pageText`,
+  which stays the anchor a save is validated against — so a save through the routes
+  says nothing, and an announced edit can be announced once more by the read that
+  repaints: that read is what updates `pageText`, so it converges instead of
+  looping, at the cost of one extra refetch.
+- **One link is one person, and the token table is the roster.** A shared review's
+  unit of access is a link, not a room: a token names a role and binds the name its
+  owner posts under, so two people on one link are one writer and the second name
+  is refused. The owner hands out one link per teammate and takes one back without
+  disturbing the rest, and the exit of a link is the exit of one token, one stream,
+  and one marker author — which is why the streams are addressed by token rather
+  than by role, and why the link table is pure and separate from the listener that
+  answers on it.
 
 ## Files
 
@@ -831,14 +871,16 @@ revokes the token and closes that listener; closing the review does both.
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `parseFeedback`, `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `resolveAnchor`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the body cap, settle-after-flush, abort) over the shared bind, writer, and close. |
-| `web-router.ts` | Pure request handler: token role, `Host` allowlist, origin, and method checks, then the page, comment, owner-save, approve, cancel, and share routes. |
+| `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over the shared bind, writer, and close. |
+| `web-tokens.ts` | The token table: the role each token names, the collision rule that keeps two roles off one token, and the names the other live links have bound. |
+| `web-streams.ts` | The event streams: who is listening, what a frame is addressed to, and the closed-tab grace that ends the review when the owner's page goes away. |
+| `web-router.ts` | Pure request handler: token role, `Host` allowlist, origin, and method checks through one POST-and-role guard, then the page, comment, owner-save, approve, cancel, and the four share routes. |
 | `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation, share and name dialogs), its data island, and inline CSS. |
-| `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, and the tokenized links built from them. |
-| `web-share-session.ts` | The shared listener's lifecycle: its reviewer token, bound address, `ShareState`, and stop/close, injected with the request handler, role map, and frame hooks. |
+| `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, one tokenized URL, the link table (mint, find, revoke, list, state) with its cap, and the reasons a share is unavailable. |
+| `web-share-session.ts` | The shared listener's lifecycle: its bound address, the link table over the session's tokens, `ShareState`, and invite/revoke/stop/close, injected with the request handler, role map, and frame hooks. |
 | `web-client.ts` | The `/client.js` source: state and wiring (comment rail, save/approve/back, keyboard nav, the stream's lifetime) over the three fragments below. |
 | `web-comments.ts` | The client's comment half: selection quotes, the composer, authored cards and who may edit them, delete-with-undo. |
-| `web-collab.ts` | The client's collaboration half: the share dialog, the reviewer's name, and the island refetch a stream frame triggers. |
+| `web-collab.ts` | The client's collaboration half: the link list with copy and per-link revoke, the reviewer's name, and the island refetch a stream frame triggers. |
 | `web-markdown.ts` | The client's document half: `safeHref` and the inline/table/code/list rendering (interpolated into `web-client.ts`). |
 | `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, and reading progress (interpolated into `web-client.ts`). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |

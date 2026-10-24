@@ -10,7 +10,6 @@
  * and it takes injected seams so tests can run one on `127.0.0.1:0`.
  */
 
-import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { networkInterfaces } from "node:os";
 import { basename } from "node:path";
@@ -25,7 +24,7 @@ import {
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
-import { type ArmTimer, defaultTimer } from "../../lib/timer.ts";
+import { type ArmTimer, defaultInterval, defaultTimer, type RepeatTimer } from "../../lib/timer.ts";
 import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
 import {
 	claimAuthor,
@@ -40,10 +39,12 @@ import {
 import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
 import { changedSections, planDigest, type SectionDigest } from "./plan-text.ts";
 import { extractPlanSections, extractPlanSteps } from "./steps.ts";
-import type { ReviewCaller, ReviewFrame, ReviewRole } from "./types.ts";
+import type { ReviewCaller } from "./types.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import type { ReviewPageData } from "./web-page.ts";
 import { createShareSession, type ShareSession } from "./web-share-session.ts";
+import { createStreams } from "./web-streams.ts";
+import { createTokens } from "./web-tokens.ts";
 import type { NetworkInterfaces, ShareResult, ShareState } from "./web-share.ts";
 
 /** How a browser review ended. */
@@ -116,6 +117,15 @@ export interface PlanWebReviewDeps {
 	schedule?: ArmTimer;
 	/** Override the accepted body size; a test keeps it small. */
 	maxBodyBytes?: number;
+	/**
+	 * Override the repeating timer that polls the plan file.
+	 *
+	 * A poll is a race against an edit made elsewhere, so a test drives it by hand
+	 * rather than waiting for a tick that makes a busy machine fail.
+	 */
+	tick?: RepeatTimer;
+	/** How often to check the plan file for an edit this review did not make. */
+	pollMs?: number;
 	/** Override the machine's network interfaces (tests), never read live in a test. */
 	networkInterfaces?: () => NetworkInterfaces;
 }
@@ -124,6 +134,14 @@ export interface PlanWebReviewDeps {
 const MAX_BODY_BYTES = 1024 * 1024;
 /** Grace period before an empty client set counts as a closed tab. */
 const DROP_GRACE_MS = 1500;
+/**
+ * How often a running review checks the plan file.
+ *
+ * One stat and one read of a small markdown file, only while a page is open: a
+ * second is fast enough that an edit under an open page reaches it while the
+ * reader is still looking, and slow enough to be free.
+ */
+const PLAN_POLL_MS = 1000;
 
 /** A request body, or the fact that it was too large to read. */
 type BodyResult = { ok: true; body: string } | { ok: false };
@@ -177,21 +195,10 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const canApprove = options.canApprove === true;
 		const maxBody = deps.maxBodyBytes ?? MAX_BODY_BYTES;
 		// One token per holder: the owner's is minted here and never shared, and a
-		// reviewer token is minted by `share()`. The role travels with the token, and
-		// a reviewer's name is added to it the first time that link writes.
-		const tokens = new Map<string, ReviewCaller>();
-		const mint = (role: ReviewRole): string => {
-			const next = deps.token ?? (() => randomBytes(16).toString("hex"));
-			// A role is keyed by its token, so two roles may never share one: a
-			// generator that repeats would otherwise let a reviewer token displace the
-			// owner's and hand a reviewer the approval route.
-			let value = next();
-			for (let attempt = 0; tokens.has(value) && attempt < 8; attempt++) value = next();
-			if (tokens.has(value)) value = `${value}-${tokens.size}`;
-			tokens.set(value, { role });
-			return value;
-		};
-		const token = mint("owner");
+		// reviewer token is minted by `share()`. The table owns the collision rule and
+		// the name each link has bound.
+		const tokens = createTokens(deps.token);
+		const token = tokens.mint("owner");
 		// The owner's bound port, so a shared listener can reuse it for the same URL shape.
 		let currentPort = 0;
 		let settled = false;
@@ -199,18 +206,25 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const done = new Promise<PlanReviewResult>((resolve) => {
 			resolveDone = resolve;
 		});
-		let cancelDrop: (() => void) | undefined;
-		const clearDrop = (): void => {
-			cancelDrop?.();
-			cancelDrop = undefined;
-		};
+		// Live event streams, used only to notice a closed owner tab: a reviewer's
+		// tab is not the review's lifetime. The explicit Cancel button and the abort
+		// signal are the deterministic paths.
+		const streams = createStreams({
+			onAbandoned: () => finish({ status: "cancelled" }),
+			graceMs: deps.dropGraceMs ?? DROP_GRACE_MS,
+			schedule: deps.schedule ?? defaultTimer,
+			settled: () => settled,
+		});
+
+		let stopTicker: () => void = () => {};
 		const finish = (result: PlanReviewResult): void => {
 			if (settled) return;
 			settled = true;
-			clearDrop();
+			streams.cancelDrop();
+			stopTicker();
 			// A page still open has no decision to make, so it is told why it stops
 			// updating, and its stream is ended with that frame rather than after it.
-			endStreams("closed");
+			streams.end("closed");
 			resolveDone(result);
 		};
 
@@ -239,42 +253,28 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// Set below, once the stream set exists; a page load before that has no
 		// reader to notify and nothing to notify it about.
 		let notifyPlanChange: () => void = () => {};
+		notifyPlanChange = () => streams.broadcast("plan");
 
 		/**
-		 * Tell the open pages something changed. The frame carries only a kind: the
-		 * page re-reads the island, so there is one update path and no second copy of
-		 * the review state travelling over the stream. A role narrows the listener
-		 * (revocation is the reviewers' news, not the owner's), and a socket already
-		 * in teardown is skipped rather than written to.
+		 * Notice a plan file this review did not write.
+		 *
+		 * A review owns the page, not the file: `/plan review` runs in normal mode, and
+		 * the plan is a markdown file a user or another tool can rewrite while the page
+		 * is open. The check compares the stripped text with what the page rendered and
+		 * only announces — it never writes `pageText`, which is the anchor a save is
+		 * validated against. So an edit under an open page reaches every reader, and the
+		 * review's own save, whose text is unchanged, says nothing.
+		 *
+		 * A poll rather than an `fs.watch`: the house rule, and one stat plus one read
+		 * per interval costs less than the watcher's platform-dependent event
+		 * semantics (see `file-browse`'s note). It stops with the session.
 		 */
-		const broadcast = (kind: ReviewFrame, only?: ReviewRole): void => {
-			for (const [client, role] of clients) {
-				if (only !== undefined && role !== only) continue;
-				if (client.writableEnded || client.destroyed) continue;
-				client.write(`data: ${kind}\n\n`);
-			}
+		const checkPlanFile = async (): Promise<void> => {
+			const current = await store.read(cwd, plan.path);
+			if (!current) return;
+			if (stripFeedback(current.content) !== pageText) notifyPlanChange();
 		};
-		notifyPlanChange = () => broadcast("plan");
-
-		/**
-		 * Send one last frame and end the stream with it, so the page reads the reason
-		 * before the socket goes away instead of falling back to "Offline".
-		 */
-		const endStreams = (kind: ReviewFrame, only?: ReviewRole): void => {
-			for (const [client, role] of clients) {
-				if (only !== undefined && role !== only) continue;
-				if (client.writableEnded || client.destroyed) continue;
-				client.end(`data: ${kind}\n\n`);
-			}
-		};
-
-		/**
-		 * The names every other live link has bound, so one review cannot hold two
-		 * reviewers called `alice`: the marker carries only the name, so a shared name
-		 * is a shared marker.
-		 */
-		const takenNames = (self: ReviewCaller): string[] =>
-			[...tokens.values()].flatMap((entry) => (entry !== self && entry.name ? [entry.name] : []));
+		stopTicker = (deps.tick ?? defaultInterval)(deps.pollMs ?? PLAN_POLL_MS, () => void checkPlanFile());
 
 		const page = async (caller: ReviewCaller): Promise<ReviewPageData> => {
 			const { role } = caller;
@@ -350,20 +350,20 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			try {
 				if (role === "owner") {
 					savedPlan = await store.saveFeedback(cwd, plan.path, annotations);
-					broadcast("comment");
+					streams.broadcast("comment");
 					return { ok: true };
 				}
 				// The link, not the payload, decides whose markers this post replaces: the name
 				// is bound to the token on its first write, and a page that signs another one
 				// is a stale tab rather than an authorized writer.
-				const claim = claimAuthor({ bound: caller.name, taken: takenNames(caller) }, annotations);
+				const claim = claimAuthor({ bound: caller.name, taken: tokens.namesExcept(caller) }, annotations);
 				if (!("name" in claim)) return { ok: false, status: claim.status, message: claim.message };
 				const own = annotations.filter((annotation) => normalizeAuthor(annotation.author) === claim.name);
 				// The saved plan is deliberately not recorded here: a post is not a result
 				// the session can return, so there is nothing for a later flush to resolve.
 				await store.saveFeedback(cwd, plan.path, own, { author: claim.name });
 				caller.name ??= claim.name;
-				broadcast("comment");
+				streams.broadcast("comment");
 				if (own.length > 0) options.onReviewerComment?.(claim.name, own.length);
 				return { ok: true, author: claim.name };
 			} catch (error) {
@@ -378,10 +378,11 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			handleRequest,
 			ownerPort: () => currentPort,
 			networkInterfaces: deps.networkInterfaces ?? networkInterfaces,
-			mintReviewer: () => mint("reviewer"),
-			revokeReviewer: (value) => tokens.delete(value),
-			broadcast,
-			endReviewerStreams: (kind) => endStreams(kind, "reviewer"),
+			mintReviewer: () => tokens.mint("reviewer"),
+			revokeReviewer: (value) => tokens.revoke(value),
+			nameOf: (value) => tokens.get(value)?.name,
+			broadcast: (kind, only) => streams.broadcast(kind, only === undefined ? undefined : { role: only }),
+			endStreams: (kind, only) => streams.end(kind, only),
 		});
 		const hosts = (): readonly string[] => shareSession.hosts();
 
@@ -392,6 +393,8 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			page,
 			save,
 			share: () => shareSession.share(),
+			invite: () => shareSession.invite(),
+			revoke: (id) => shareSession.revoke(id),
 			stopShare: () => shareSession.stop(),
 			onSaved: (annotations) => {
 				pendingResult = savedPlan ? { status: "saved", plan: savedPlan, annotations } : { status: "cancelled" };
@@ -407,23 +410,6 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// Live event streams, used only to notice a closed owner tab: a reviewer's
 		// tab is not the review's lifetime. The explicit Cancel button and the abort
 		// signal are the deterministic paths.
-		const clients = new Map<ServerResponse, ReviewRole>();
-		let hadOwner = false;
-		const ownerStreams = (): number => {
-			let open = 0;
-			for (const role of clients.values()) if (role === "owner") open += 1;
-			return open;
-		};
-		const dropGrace = deps.dropGraceMs ?? DROP_GRACE_MS;
-		const schedule = deps.schedule ?? defaultTimer;
-		const scheduleDrop = (): void => {
-			if (ownerStreams() > 0 || !hadOwner || settled || cancelDrop) return;
-			cancelDrop = schedule(dropGrace, () => {
-				cancelDrop = undefined;
-				if (ownerStreams() === 0) finish({ status: "cancelled" });
-			});
-		};
-
 		const server = createServer(handleRequest);
 		/** One request, on either listener: the loopback page or a shared one. */
 		function handleRequest(request: IncomingMessage, response: ServerResponse): void {
@@ -452,16 +438,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 					// A page that walks away mid-frame must not take the session down.
 					response.on("error", () => {});
 					const token = parseRequestUrl(request.url ?? "/")?.search.get("token") ?? "";
-					const streamRole = context.caller(token)?.role;
-					if (streamRole !== undefined) clients.set(response, streamRole);
-					if (streamRole === "owner") {
-						hadOwner = true;
-						clearDrop();
-					}
-					request.on("close", () => {
-						clients.delete(response);
-						if (streamRole === "owner" && ownerStreams() === 0) scheduleDrop();
-					});
+					const streamCaller = context.caller(token);
+					if (streamCaller !== undefined) streams.add(response, { role: streamCaller.role, token });
+					request.on("close", () => streams.remove(response));
 					return;
 				}
 				// A save or cancel only resolves the session after its response is on the
@@ -516,7 +495,8 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			// `finish` ends every open stream with its last frame, so it runs before
 			// the set is cleared rather than after it.
 			finish({ status: "cancelled" });
-			clients.clear();
+			stopTicker();
+			streams.clear();
 			await shareSession.close();
 			await closeServer();
 		};

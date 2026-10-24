@@ -13,6 +13,8 @@ lookup, not a tutorial: every entry here is explained in an earlier chapter.
 | `/plan <task>` | Turn plan mode on and send the task |
 | `/plan list` | List saved plans, newest first |
 | `/plan review [path]` | Review a plan in the browser (comments only) |
+| `/plan share` | Print the newest reviewer link and its QR while a browser review is open |
+| `/plan share stop` | Revoke every reviewer link and stop sharing |
 | `/skill:init` | Create or update the effective instruction file (`AGENTS.md` or `AGENTS.override.md`) through a built-in interview and reviewed plan |
 | `Ctrl+Alt+P` | Toggle plan mode where the terminal sends the chord |
 | `/check` | Run every detected check |
@@ -245,7 +247,7 @@ tools so they follow the active root; those are replacements, not additions.
 
 | Extension | Tools | Commands and flags |
 |---|---|---|
-| `plan` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps` | `/plan`, `/plan list`, `/plan review`, `/plan cancel`, `--plan` |
+| `plan` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps` | `/plan`, `/plan list`, `/plan review`, `/plan share`, `/plan cancel`, `--plan` |
 | `check` | `run_check` | `/check` |
 | `todo` | `todo` | `/todos` |
 | `goal` | `goal` | `/goal` |

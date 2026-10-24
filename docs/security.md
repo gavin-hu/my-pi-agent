@@ -26,10 +26,10 @@ Two surfaces serve local HTTP:
   tokenized, and closes its server on the owner's save or cancel, the owner's page
   going away, or session shutdown. Sharing adds a second listener on one address
   this machine has, only while the owner has sharing on; it serves the same routes
-  under a reviewer token that may comment and nothing else, and that token binds
-  the one name its comments are signed with on its first post, so a link cannot
-  write under another reviewer's markers. **Stop sharing** closes it and revokes
-  that token.
+  under reviewer tokens that may comment and nothing else. Each token is one link
+  and binds the one name its comments are signed with on its first post, so a link
+  cannot write under another reviewer's markers. A link is revoked alone, and
+  **Stop sharing** closes the listener and revokes every link.
 
 The loopback listeners never leave `127.0.0.1`; the only wider bind is the share
 listener the owner starts and can revoke, and it answers only the one address the

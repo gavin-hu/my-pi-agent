@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createServer } from "node:http";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
-import type { ArmTimer } from "../../lib/timer.ts";
+import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import { THEME_JS, WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../lib/web/index.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import {
@@ -31,7 +31,7 @@ import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, type PlanWebReviewDeps } from "./web.ts";
-import type { NetworkInterfaces } from "./web-share.ts";
+import { MAX_SHARE_LINKS, type NetworkInterfaces, type ShareLink, type ShareState } from "./web-share.ts";
 
 const PLAN = "# Title\n\n## Steps\n- [ ] one\n- [ ] two\n";
 const PATH = "~/.pi/agent/plans/a1f9c02/2026-10-14-1600-demo.md";
@@ -206,7 +206,13 @@ function router(overrides: Partial<ReviewContext> = {}) {
 			saved.push(annotations);
 			return nextSave;
 		},
-		share: async () => ({ state: { sharing: true, port: 1, links: [{ address: "192.168.1.24", url: "http://x" }] } }),
+		share: async () => ({
+			state: { sharing: true, port: 1, links: [{ id: "link-1", address: "192.168.1.24", url: "http://x" }] },
+		}),
+		invite: async () => ({
+			state: { sharing: true, port: 1, links: [{ id: "link-2", address: "192.168.1.24", url: "http://y" }] },
+		}),
+		revoke: async () => ({ state: { sharing: false, port: 0, links: [] } }),
 		stopShare: async () => ({ state: { sharing: false, port: 0, links: [] } }),
 		onSaved: (annotations) => ownerSaves.push(annotations),
 		onApprove: (annotations) => approved.push(annotations),
@@ -456,11 +462,15 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 }
 
 describe("review page roles", () => {
-	test("gives the owner Share and the matching dialog", () => {
+	test("gives the owner Share, the link list, and the matching dialog", () => {
 		const html = page();
 		expect(html).toContain('id="share"');
 		expect(html).toContain('id="share-dialog"');
 		expect(html).toContain('id="share-qr"');
+		// One row per teammate: the list is filled on request, and New link adds one.
+		expect(html).toContain('id="share-links"');
+		expect(html).toContain('id="share-new"');
+		expect(html).toContain('id="share-stop"');
 		expect(html).not.toContain('id="name-dialog"');
 	});
 
@@ -799,6 +809,14 @@ describe("review client", () => {
 		expect(REVIEW_CLIENT_JS).not.toContain(">= 200");
 	});
 
+	test("mints and revokes single links from the owner's dialog", () => {
+		expect(REVIEW_CLIENT_JS).toContain('shareAction("/api/share/link"');
+		expect(REVIEW_CLIENT_JS).toContain('shareAction("/api/share/revoke", { id: id }');
+		expect(REVIEW_CLIENT_JS).toContain("shareLinksEl.appendChild(row)");
+		// A row's name is the bound one, so the owner can tell two links apart.
+		expect(REVIEW_CLIENT_JS).toContain('"@" + link.name');
+	});
+
 	test("settles on a terminal state instead of Offline", () => {
 		expect(REVIEW_CLIENT_JS).toContain('label = "Approved"');
 		expect(REVIEW_CLIENT_JS).toContain('label = "Saved"');
@@ -828,6 +846,24 @@ function apiOf(link: string, route: string): string {
 	const url = new URL(link);
 	url.pathname = route;
 	return url.toString();
+}
+
+/** One owner action on the share surface, as the page's own buttons drive it. */
+function ownerShares(session: PlanReviewSession, route: string, body?: unknown): Promise<Response> {
+	return fetch(`http://127.0.0.1:${session.port}${route}?token=tok`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(body ?? {}),
+	});
+}
+
+/** A reviewer's comment through her own link's route. */
+function reviewerPost(link: ShareLink, author: string, comment: string): Promise<Response> {
+	return fetch(apiOf(link.url, "/api/comment"), {
+		method: "POST",
+		headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+		body: JSON.stringify({ annotations: [{ anchor: 1, comment, author }] }),
+	});
 }
 
 /** A machine that reports one reachable IPv4 address, as a LAN laptop does. */
@@ -890,6 +926,74 @@ describe("review stream", () => {
 
 		await review.share();
 		expect(await frame).toBe("share");
+	});
+});
+
+/** A repeating timer a test fires by hand, so a poll tick is never a race. */
+function manualTick() {
+	let fire: (() => void) | undefined;
+	let stopped = false;
+	const tick: RepeatTimer = (_ms, fn) => {
+		fire = fn;
+		return () => {
+			stopped = true;
+			fire = undefined;
+		};
+	};
+	return {
+		tick,
+		fire: () => fire?.(),
+		stopped: () => stopped,
+		armed: () => fire !== undefined,
+	};
+}
+
+describe("plan poll", () => {
+	test("reaches an open page when the plan is rewritten on disk", async () => {
+		const manual = manualTick();
+		const { session, content, rewrite } = await startShared({ networkInterfaces: LAN, tick: manual.tick });
+		const stream = await fetch(eventsUrl(session));
+		const frame = nextFrame(stream.body);
+
+		rewrite(`${content()}\n- [ ] three\n`);
+		manual.fire();
+
+		expect(await frame).toBe("plan");
+	});
+
+	test("says nothing when the file changed only in its stored comments", async () => {
+		const manual = manualTick();
+		const { session, store } = await startShared({ networkInterfaces: LAN, tick: manual.tick });
+		const stream = await fetch(eventsUrl(session));
+		const frame = nextFrame(stream.body);
+
+		// Another writer's save is a comment, not an edit to the plan text.
+		await store.saveFeedback("/repo", PATH, [{ anchor: 1, comment: "a note", author: "alice" }]);
+		manual.fire();
+
+		expect(await Promise.race([frame, settle(60).then(() => "silent")])).toBe("silent");
+	});
+
+	test("treats a deleted plan as no news rather than a failure", async () => {
+		const manual = manualTick();
+		const { session, remove } = await startShared({ networkInterfaces: LAN, tick: manual.tick });
+		const stream = await fetch(eventsUrl(session));
+		const frame = nextFrame(stream.body);
+
+		remove();
+		manual.fire();
+
+		expect(await Promise.race([frame, settle(60).then(() => "silent")])).toBe("silent");
+	});
+
+	test("stops polling when the review closes", async () => {
+		const manual = manualTick();
+		const { session } = await startShared({ networkInterfaces: LAN, tick: manual.tick });
+		expect(manual.armed()).toBe(true);
+
+		await session.close();
+
+		expect(manual.stopped()).toBe(true);
 	});
 });
 
@@ -1186,6 +1290,108 @@ describe("shared review", () => {
 		expect(content()).toBe(before);
 	});
 
+	test("mints one link per person, while sharing again re-reads the first", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const first = (await review.share())?.state.links[0];
+		if (!first) throw new Error("no share link");
+
+		const invited = (await (await ownerShares(session, "/api/share/link")).json()) as { share: ShareState };
+
+		expect(invited.share.links.map((link) => link.id)).toEqual(["link-1", "link-2"]);
+		expect(invited.share.links[1]?.url).not.toBe(first.url);
+		// Share still re-reads what is already shared, so a stray click mints nothing.
+		expect((await review.share())?.state.links[0]?.url).toBe(first.url);
+	});
+
+	test("two links post under their own names in one review", async () => {
+		const { review, session, content } = await startShared({ networkInterfaces: LAN });
+		const first = (await review.share())?.state.links[0];
+		if (!first) throw new Error("no share link");
+		const invited = (await (await ownerShares(session, "/api/share/link")).json()) as { share: ShareState };
+		const second = invited.share.links[1];
+		if (!second) throw new Error("no second share link");
+
+		expect((await reviewerPost(first, "alice", "mine")).status).toBe(200);
+		expect((await reviewerPost(second, "bob", "theirs")).status).toBe(200);
+
+		const text = content();
+		expect(text).toContain("> [!REVIEW] @alice: mine");
+		expect(text).toContain("> [!REVIEW] @bob: theirs");
+		// The owner can see who holds each link without asking anyone.
+		expect(review.shareState()?.links.map((link) => link.name)).toEqual(["alice", "bob"]);
+	});
+
+	test("revoking one link ends only that link, and the others keep posting", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const first = (await review.share())?.state.links[0];
+		if (!first) throw new Error("no share link");
+		const invited = (await (await ownerShares(session, "/api/share/link")).json()) as { share: ShareState };
+		const second = invited.share.links[1];
+		if (!second) throw new Error("no second share link");
+		const surviving = await fetch(apiOf(second.url, "/events"));
+		const frame = nextFrame(surviving.body);
+
+		const revoked = await ownerShares(session, "/api/share/revoke", { id: "link-1" });
+		expect(revoked.status).toBe(200);
+
+		// The revoked link stops answering and its reviewer's post is refused.
+		expect((await fetch(first.url)).status).toBe(403);
+		expect((await reviewerPost(first, "alice", "stale")).status).toBe(403);
+		// The link that was not revoked is told nothing and can still post.
+		expect(await Promise.race([frame, settle(60).then(() => "silent")])).toBe("silent");
+		expect((await reviewerPost(second, "bob", "still here")).status).toBe(200);
+	});
+
+	test("revoking the last link stops sharing and closes the listener", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		const result = (await (await ownerShares(session, "/api/share/revoke", { id: link.id })).json()) as {
+			share: ShareState;
+		};
+
+		expect(result.share).toEqual({ sharing: false, port: 0, links: [] });
+		expect(review.shareState()?.sharing).toBe(false);
+		// The shared listener is gone, so even a remembered token cannot reach it.
+		await expect(fetch(link.url)).rejects.toThrow();
+	});
+
+	test("refuses a link id the review does not hold, and a body that names none", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN });
+		await review.share();
+
+		expect((await ownerShares(session, "/api/share/revoke", { id: "link-9" })).status).toBe(404);
+		expect((await ownerShares(session, "/api/share/revoke", {})).status).toBe(400);
+	});
+
+	test("refuses a ninth link, and says why", async () => {
+		const { review, session } = await startShared({ networkInterfaces: LAN });
+		await review.share();
+		for (let index = 1; index < MAX_SHARE_LINKS; index++) await ownerShares(session, "/api/share/link");
+
+		const capped = (await (await ownerShares(session, "/api/share/link")).json()) as { share: ShareState };
+
+		expect(capped.share.links).toHaveLength(MAX_SHARE_LINKS);
+		expect(capped.share.reason).toContain(`${MAX_SHARE_LINKS} links`);
+	});
+
+	test("a reviewer cannot mint, revoke, or stop sharing", async () => {
+		const { review } = await startShared({ networkInterfaces: LAN });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		for (const route of ["/api/share/link", "/api/share/revoke", "/api/share/stop"]) {
+			const response = await fetch(apiOf(link.url, route), {
+				method: "POST",
+				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+				body: JSON.stringify({ id: link.id }),
+			});
+			expect(response.status).toBe(403);
+		}
+		expect(review.shareState()?.links).toHaveLength(1);
+	});
+
 	test("a second share reuses the link instead of minting another", async () => {
 		const { review } = await startShared({ networkInterfaces: LAN });
 		const first = (await review.share())?.state.links[0]?.url;
@@ -1209,8 +1415,9 @@ function stored(content: string): StoredPlan {
 /** An in-memory plan store, so the session tests never touch the filesystem. */
 function fakeStore(initial: string) {
 	let content = initial;
+	let gone = false;
 	const store = {
-		read: async (): Promise<StoredPlan> => stored(content),
+		read: async (): Promise<StoredPlan | undefined> => (gone ? undefined : stored(content)),
 		saveFeedback: async (
 			_cwd: string,
 			_path: string,
@@ -1221,7 +1428,18 @@ function fakeStore(initial: string) {
 			return stored(content);
 		},
 	} as unknown as PlanStore;
-	return { store, content: () => content };
+	return {
+		store,
+		content: () => content,
+		/** Rewrite the plan as another writer would, without announcing anything. */
+		rewrite: (next: string) => {
+			content = next;
+		},
+		/** Treat the plan as deleted, as a reader would see it. */
+		remove: () => {
+			gone = true;
+		},
+	};
 }
 
 const reviews: ReturnType<typeof createPlanWebReview>[] = [];
@@ -1258,12 +1476,12 @@ async function startShared(
 	options: PlanReviewOptions = {},
 	plan = "# Plan\n- [ ] one\n- [ ] two\n",
 ) {
-	const { store, content } = fakeStore(plan);
+	const { store, content, rewrite, remove } = fakeStore(plan);
 	const review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, ...deps });
 	reviews.push(review);
 	const session = await review.start("/repo", stored(content()), options);
 	if (!session) throw new Error("the review server did not start");
-	return { review, session, content };
+	return { review, session, content, store, rewrite, remove };
 }
 
 /** A review that shares one remembered port across turns, as the extension does. */

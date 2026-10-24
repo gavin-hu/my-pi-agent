@@ -10,39 +10,93 @@
  */
 
 export const WEB_COLLAB_JS = String.raw`  /**
-   * Sharing: the owner mints a reviewer link here, and the same dialog revokes
-   * it. The QR is the server's inline SVG, parsed and imported rather than
-   * pasted, so the page keeps its one rule: no text ever becomes HTML.
+   * Sharing: the owner mints one link per person, re-reads the set, and revokes a
+   * single link without touching the others. The QR is the server's inline SVG,
+   * parsed and imported rather than pasted, so the page keeps its one rule: no
+   * text ever becomes HTML.
    */
+  function setQr(svg) {
+    if (!shareQrEl) return;
+    while (shareQrEl.firstChild) shareQrEl.removeChild(shareQrEl.firstChild);
+    if (!svg) return;
+    var parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
+    var root = parsed && parsed.documentElement;
+    if (root && root.nodeName === "svg") shareQrEl.appendChild(document.importNode(root, true));
+  }
+
+  /** One row per link: its URL, who holds it, and the two things to do with it. */
+  function renderShareLinks(state) {
+    if (!shareLinksEl) return;
+    while (shareLinksEl.firstChild) shareLinksEl.removeChild(shareLinksEl.firstChild);
+    var links = state && state.links ? state.links : [];
+    links.forEach(function (link) {
+      var row = el("li", "review-share__row");
+      var url = el("span", "review-share__url");
+      url.textContent = link.url;
+      url.title = link.url;
+      var who = el("span", link.name ? "review-share__who review-share__who--bound" : "review-share__who");
+      who.textContent = link.name ? "@" + link.name : "unnamed";
+      var actions = el("span", "review-share__actions");
+      actions.appendChild(rowButton("Copy", function () { copyLink(link.url); }));
+      actions.appendChild(rowButton("Revoke", function () { revokeLink(link.id); }));
+      row.appendChild(url);
+      row.appendChild(who);
+      row.appendChild(actions);
+      shareLinksEl.appendChild(row);
+    });
+  }
+
+  function rowButton(label, onClick) {
+    var button = el("button", "bf-btn");
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function copyLink(url) {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) return;
+    navigator.clipboard.writeText(url).then(function () { setStatus("Link copied."); }, function () {});
+  }
+
   function showShare(state, svg) {
     if (!shareDialogNode) return;
-    var link = state && state.links && state.links[0];
-    if (shareLinkEl) {
-      shareLinkEl.textContent = link ? link.url : (state && state.reason) || "Sharing is unavailable.";
-    }
-    if (shareQrEl) {
-      while (shareQrEl.firstChild) shareQrEl.removeChild(shareQrEl.firstChild);
-      if (link && svg) {
-        var parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
-        var root = parsed && parsed.documentElement;
-        if (root && root.nodeName === "svg") shareQrEl.appendChild(document.importNode(root, true));
-      }
-    }
-    if (shareCopy) shareCopy.disabled = !link;
-    if (shareStop) shareStop.disabled = !link;
+    renderShareLinks(state);
+    setQr(svg);
+    if (shareStop) shareStop.disabled = !(state && state.sharing);
     if (shareNote) {
-      shareNote.textContent = link
-        ? "Anyone with this link can read the plan and comment. Only you can approve."
-        : "";
+      shareNote.textContent = state && state.reason
+        ? state.reason
+        : "One link per person: each link posts under the name it binds. Only you can approve.";
     }
     if (window.bfShare) window.bfShare.open();
   }
 
+  /** POST one share action, then render whatever set the server answered with. */
+  function shareAction(route, body, failText) {
+    fetch(route + "?token=" + encodeURIComponent(token), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
+    }).then(function (response) {
+      return response.json().then(function (payload) {
+        if (!response.ok) throw new Error(payload && payload.error ? payload.error : "server returned " + response.status);
+        if (payload && payload.share) showShare(payload.share, payload.svg);
+        return payload;
+      });
+    }).catch(function (error) { setStatus(failText + error.message, "error"); });
+  }
+
   function shareNow() {
-    fetch("/api/share?token=" + encodeURIComponent(token), { method: "POST" })
-      .then(function (response) { return response.json(); })
-      .then(function (payload) { if (payload && payload.share) showShare(payload.share, payload.svg); })
-      .catch(function () { setStatus("Could not share: the server did not answer.", "error"); });
+    shareAction("/api/share", null, "Could not share: ");
+  }
+
+  function newLink() {
+    shareAction("/api/share/link", null, "Could not mint a link: ");
+  }
+
+  function revokeLink(id) {
+    shareAction("/api/share/revoke", { id: id }, "Could not revoke that link: ");
   }
 
   function stopSharing() {
