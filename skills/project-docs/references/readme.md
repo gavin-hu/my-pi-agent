@@ -23,6 +23,7 @@ not let the row become a summary of a summary.
 
 ## Rows and counts belong to the tree
 
+Where the project has a catalog of capabilities, each row follows the tree:
 - Every row names something that exists and is spelled the way the code spells it: the
   tool, the command, the flag, the file. A renamed tool with an unchanged row is a
   broken promise to the reader who types it.
@@ -40,11 +41,12 @@ the reader the whole document. Then check the worked example — an import, a
 configuration snippet, a call — against the current surface, and prefer the shortest
 form that still runs.
 
-## The mirror
+## The mirror, where the project has one
 
 A translated front door is the same document in another language: the same sections,
 the same table rows in the same order, the same relative links. Prose is translated;
-structure is not. A row added to one and not the other is a finding, and the count on
+structure is not. A project with one language has no mirror to check, and adding one is
+not this mode's job. A row added to one and not the other is a finding, and the count on
 both sides is the tree's.
 
 ## Screenshots and assets
@@ -74,5 +76,5 @@ result; say what you verified — the command you ran, the counts you derived �
 - Deep detail lives in `extensions/<name>/README.md`, `lib/README.md`, and `docs/`; the
   front door links there and does not restate them.
 
-The paths are named, not linked, because this skill also ships in an npm package where
-`docs/`, `test/`, and `assets/` are not included.
+The paths are named, not linked: a skill is installed into projects that do not
+contain them, so a link would point nowhere from the place it is read.

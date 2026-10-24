@@ -18,6 +18,10 @@ steps and the order they fit into, not a competing one.
 
 ## Move the entries
 
+A project that keeps no changelog file — only GitHub or GitLab releases, or release
+notes a tool generates — has nothing to move: say so and stop, and do not create the
+file as part of a release. The rest of this section assumes one exists.
+
 - Read `[Unreleased]` and check it is what the release contains: everything since
   the last tag, nothing that already shipped.
 - Move every entry under `## [X.Y.Z] - YYYY-MM-DD`, categories in the file's own

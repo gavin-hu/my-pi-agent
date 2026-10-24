@@ -5,7 +5,10 @@ It does not decide whether something shipped, and it does not curate a release �
 is the `release` mode, and only for a version the user named.
 
 Read [`discovery.md`](./discovery.md) first for the file, the categories, their order,
-the scope spelling, and whether the entry ships with the change.
+the scope spelling, and whether the entry ships with the change. Where a tool owns the
+file — `semantic-release`, `changesets`, `git-cliff`, or a step in the release workflow —
+this mode does not write it: the entry belongs upstream, in the commit message's
+convention, a changeset fragment, or the generator's config.
 
 ## Where the bullet goes
 

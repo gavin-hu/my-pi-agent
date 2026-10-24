@@ -43,6 +43,10 @@ default — and name where it disagrees.
 Run `scripts/state.ts` (see the skill's *Start here*). It gives the file, the last tag,
 the commits since it, the `[Unreleased]` categories, and the scopes in use.
 
+When discovery says a tool generates the file, the window's entries live in that tool's
+input — the changeset queue, the commit-message convention — so audit those, and report
+a missing fragment rather than a missing bullet.
+
 Read every commit it lists: `git show <sha>` for the diff, or the pull request when the
 repository squashes. A subject line is not enough — `fix bug` and `wip` hide
 user-visible changes, and `feat: rewrite the config loader` is often invisible to users.
@@ -74,7 +78,7 @@ Report separately:
 
 ## 4. The roadmap's own ids and caps
 
-Re-derive the window before judging an item: `git log --oneline <last-tag>..main` plus
+Re-derive the window before judging an item: `git log --oneline <last-tag>..HEAD` plus
 the changelog's newest dated heading. A roadmap describes the tree, so work that landed
 but has not shipped is already part of what it should describe.
 

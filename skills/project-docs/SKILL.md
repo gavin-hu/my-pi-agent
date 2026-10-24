@@ -47,8 +47,9 @@ bun <skill>/scripts/state.ts <project-root>
 It prints the changelog file it found, the last tag and the commits since it, the
 `[Unreleased]` categories with counts and line numbers, the empty and duplicate
 headings, the scope prefixes in use, and the link refs. That is the state; read the
-diffs for judgement, not for counting. When it finds no changelog or no repository,
-say so and fall back to discovery by hand.
+diffs for judgement, not for counting. When it finds no changelog, no repository, or no
+Bun to run it with, say so and fall back to discovery by hand. The git commands these
+references give are git's; use the project's VCS where it differs.
 
 ## Non-negotiables
 
@@ -87,9 +88,9 @@ say so and fall back to discovery by hand.
 
 - **A changelog entry, an audit, or a release** is this skill: do not look for
   another one.
-- **What to do next** is `next`: it triages loose work and broken promises across the
-  project, and its candidates are not a doc audit's findings.
-- **A structural change to the docs or the code** is `refactor`.
+- **What to do next** is `next`, where it is installed: it triages loose work and
+  broken promises across the project, and its candidates are not a doc audit's findings.
+- **A structural change to the docs or the code** is `refactor`, where it is installed.
 - **Who may contribute, and how** is a decision for the maintainer: ask, and edit
   nothing until it is answered.
 
@@ -120,8 +121,11 @@ one that finds nothing.
 
 ## Stop conditions
 
-- The project has no document beyond a README and no roadmap: say so. Whether to
+- The project has only a README, no roadmap, and no changelog: say so. Whether to
   adopt one is the maintainer's decision, not an edit.
+- The changelog is generated — by `semantic-release`, `changesets`, `git-cliff`, or a
+  step in the release workflow: the entry lands upstream, in the commit message, a
+  changeset fragment, or the generator's config. Never hand-edit the file.
 - Two sources disagree — two changelogs, a version in two places, a roadmap item the
   changelog contradicts: ask instead of averaging them.
 - The change would reverse a documented non-goal: it is a decision, and the item is

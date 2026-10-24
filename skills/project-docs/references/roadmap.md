@@ -6,18 +6,22 @@ tree already does differently. This mode re-derives it and deletes what is done.
 never decides what matters.
 
 Read [`discovery.md`](./discovery.md) first for the file, the item form, the buckets
-and their caps, the ledger, and the stated rule for a shipped item.
+and their caps, the ledger, and the stated rule for a shipped item. A file with no ids
+and no buckets is not a defect to fix: it gets the deletion pass below, and no invented
+id scheme.
 
 ## Re-derive before editing
 
 ```bash
-git log --oneline <last-tag>..main
+git log --oneline <last-tag>..HEAD
 ```
 
-Read the changelog's newest dated heading beside it: the window is everything that
-landed, and the release is what a reader has. An item is not "shipped" because a
-branch merged — the tree decides whether the promise is met, the maintainer decides
-whether it shipped.
+Use `HEAD`, or the branch the project documents as its default — a project's branch is
+not always `main`. Read the changelog's newest dated heading beside it: the window is
+everything that landed, and the release is what a reader has. A project with no tags has
+no window at all: re-derive from the newest dated heading and the tree instead, and say
+that is what you did. An item is not "shipped" because a branch merged — the tree
+decides whether the promise is met, the maintainer decides whether it shipped.
 
 Then, for every item in the file, open the code it names. Three outcomes:
 
@@ -84,5 +88,5 @@ look thorough.
   is why the file states that rule in prose.
 - `AGENTS.md` requires the deletion or renumbering in the same commit as the change.
 
-The paths are named, not linked, because this skill also ships in an npm package where
-`test/` is not included.
+The paths are named, not linked: a skill is installed into projects that do not
+contain them, so a link would point nowhere from the place it is read.

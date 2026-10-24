@@ -9,18 +9,21 @@ Find these five things, in this order. The first one locates the rest.
 
 ## 1. The document set
 
-The four documents this skill maintains, and where the project keeps them:
+The documents this skill looks for, in the order it looks, and where a project keeps
+them. A project that has only some of them is normal: the skill maintains what exists,
+and whether to adopt a missing one is the maintainer's decision rather than an edit.
 
 - **The front door** — `README.md` first, then `README.rst`, `README`, or `docs/README.md`.
   A mirror (`README.zh-CN.md`, `README.ja.md`) is part of the front door, not a
   separate document: it carries the same sections, table rows, and links.
 - **The plan of record** — `ROADMAP.md`, then `ROADMAP`, `docs/roadmap.md`, a
   `ROADMAP` section in the front door, or an issue tracker label the project's docs
-  name. A project with none is maintained from the changelog and the tree alone; say
-  so, and do not create one.
+  name. A project with none is maintained from the changelog and the tree alone; say so.
 - **The record of what shipped** — `CHANGELOG.md`, then `CHANGELOG`, `CHANGES.md`,
-  `HISTORY.md`, `NEWS.md`, `docs/CHANGELOG.md`, `docs/changelog.md`. If several
-  exist, the one the project's own docs link to wins; failing that, the largest.
+  `HISTORY.md`, `NEWS.md`, `docs/CHANGELOG.md`, `docs/changelog.md`. The bundled script
+  takes the first name in that order. Several changelogs belonging to several packages
+  are a scope question, not a choice: ask which package is in scope, and never treat one
+  package's file as a copy of another's.
 - **The contributor path** — `CONTRIBUTING.md`, then `.github/CONTRIBUTING.md`,
   `docs/contributing.md`, and the instruction file the project's agent reads
   (`AGENTS.md`, `CLAUDE.md`), which usually states the rules the other three obey.
@@ -28,6 +31,12 @@ The four documents this skill maintains, and where the project keeps them:
 Deep guides (`docs/`, `documentation/`) are where detail belongs. Their existence is
 the reason the front door can stay short: it summarizes and links, and the skill must
 not move a guide's content up into it, or copy the front door's catalog down.
+
+These rules are written in Markdown's vocabulary because most projects write their docs
+in it. Read the format the project actually uses — reStructuredText, AsciiDoc, plain
+text — and fix it in that format: a heading anchor, a link reference, and a fenced
+example are spelled differently in each, and converting a document is not this skill's
+job.
 
 ## 2. The version's single source
 
@@ -39,6 +48,12 @@ release leaves behind.
 
 ## 3. The changelog's local conventions
 
+- **Who writes the file** — a preamble that says "generated", a `.changeset/` or
+  `.changes/` directory, a release workflow step that writes the changelog, or a
+  generator named in the manifest or its config: `semantic-release`, `release-please`,
+  `changesets`, `git-cliff`, `goreleaser`, `cargo-release`, `standard-version`. Where a
+  tool owns the file, the entry is written upstream — in the commit message's
+  convention, in a changeset fragment, or in the generator's config — and never by hand.
 - **The preamble** — whether it names Keep a Changelog, Semantic Versioning, a
   different convention, and whether unreleased entries are kept in the file at all.
 - **The category names and their order** — Keep a Changelog's set is `Added`,
@@ -108,5 +123,5 @@ When you are in this repository, the answers are already written down:
   version pin against the newest tag.
 - `bun run check` — the finish line; `bun test test/roadmap.test.ts` for one guard alone.
 
-The paths are named, not linked, because this skill also ships in an npm package where
-`docs/` and `test/` are not included.
+The paths are named, not linked: a skill is installed into projects that do not
+contain them, so a link would point nowhere from the place it is read.
