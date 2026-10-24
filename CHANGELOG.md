@@ -139,6 +139,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- dev: `test/docs-parity.test.ts` derives the catalog the front door advertises —
+  the extension, skill, and theme counts — from `extensions/`, `skills/*/SKILL.md`,
+  and `themes/*.json`, and holds both entry READMEs to it, so a twentieth
+  extension fails by naming the sentence that still says nineteen.
+- `docs`: the front door carries the pack's hardest promise. The "Delegate and
+  parallelize" bullet now says several sessions can run on one repository through
+  a shared bus, each owning its slice, instead of leaving `session-bus` to the
+  catalog table. The packaging sentence says no installed Pi file is *written
+  to* rather than "modified", which is what `bytefly`'s update shim actually
+  does — it patches a prototype in memory and restores it — and the `/skill:init`
+  bullet wraps like its neighbours.
 - `docs`: `ROADMAP.md` is re-derived from the tree rather than the last tag. The
   three `Now` items are the gaps this window left — a split's shared-file rule
   that stops at approval, a WeChat turn that goes silent when it is abandoned,

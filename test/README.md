@@ -275,7 +275,7 @@ test/
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, boundary, line bar, and doc-link guards
   drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
-  docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links
+  docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links, catalog counts
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export
   prompt-budget.test.ts    # injected-context size ceilings
