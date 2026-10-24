@@ -99,9 +99,21 @@ describe("init question bank", () => {
 
 	test("names every question the skill's default sets reference", () => {
 		const headers = new Set(rows.map((row) => row.header));
-		const missing = ["Verify", "Rules", "Isolation", "Priorities", "Done", "Existing file"].filter(
-			(header) => !headers.has(header),
-		);
+		const missing = [
+			"Purpose",
+			"Priorities",
+			"Verify",
+			"Done",
+			"Rules",
+			"Isolation",
+			"Existing file",
+			"Preserve",
+			"Related docs",
+			"Target",
+			"Stack",
+			"Commands",
+			"External changes",
+		].filter((header) => !headers.has(header));
 		expect(missing, "a default set names a question the bank does not define").toEqual([]);
 	});
 });

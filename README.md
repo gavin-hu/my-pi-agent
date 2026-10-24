@@ -86,7 +86,7 @@ Then, from inside Pi:
 - `/bytefly update` re-runs the package update check now and reports the
   updateable packages, this package's version and release URL, or a skip.
 - `/plan <task>` starts a task in read-only planning mode.
-- `/skill:init` creates or updates `AGENTS.md` through a short built-in interview and a plan you review first.
+- `/skill:init` creates or updates the instruction file Pi reads through a short built-in interview and a plan you review first.
 
 One thing the pack does on its own: once per interactive session, `bytefly`
 asks Pi's package manager which configured packages are behind, suppresses Pi's
@@ -149,7 +149,7 @@ advertised to the model, and its instructions load only when the task matches
 
 | Skill | What it does |
 |---|---|
-| [`init`](./skills/init/SKILL.md) | Creates or updates a project's `AGENTS.md` through a built-in interactive interview and plan review, from repository evidence. |
+| [`init`](./skills/init/SKILL.md) | Creates or updates the instruction file Pi actually reads (`AGENTS.md`, or `AGENTS.override.md` when it shadows it) through a built-in interactive interview and plan review, deriving commands, generated paths, packages, and purpose from repository evidence. |
 | [`refactor`](./skills/refactor/SKILL.md) | Audits a project or path for refactoring opportunities: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. Returns a ranked shortlist with evidence and verification commands; discovery is read-only. |
 | [`changelog`](./skills/changelog/SKILL.md) | Records one user-visible bullet in the same commit as the change, audits commits since the last tag for missing or weak entries, and curates a release section from the project's own rules. |
 | [`parallel-dev`](./skills/parallel-dev/SKILL.md) | Runs parallel development as a lead and a team: a lead accountable for the contract, shared files, merge order and a green baseline who also owns a workstream, one owner per disjoint workstream, a walking skeleton first, advisory path claims, a turn-boundary protocol, and independent verification. |

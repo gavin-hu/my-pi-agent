@@ -109,6 +109,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `skills`: `init` targets the instruction file Pi actually reads — editing a root
+  `AGENTS.override.md` when it shadows `AGENTS.md` instead of writing a file Pi
+  ignores — and derives commands, generated and vendored paths, packages, and
+  purpose from a sourced evidence sheet before asking, so the interview only fills
+  unknown fields. Its plan now uses the canonical `## Steps` and `## Verification`
+  sections, so approval seeds the apply actions rather than the draft's bullets.
 - `plan`: the review re-attaches a comment onto a rewritten plan by the strongest
   evidence that survived — the anchored block's text, matched per occurrence, then
   the same section at the same position, then the end of that section — instead of

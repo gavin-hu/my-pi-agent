@@ -204,40 +204,49 @@ review.
 
 ### Initializing AGENTS.md with /skill:init
 
-`/skill:init` creates or updates the project's `AGENTS.md` through a short built-in
-interview and the same plan review. The skill enters plan mode, reconnoiters the
-repository, asks up to four questions, and prepares a proposal. Nothing is written
-until you approve the plan.
+`/skill:init` creates or updates the project's effective instruction file
+(`AGENTS.md`, or `AGENTS.override.md` when it shadows `AGENTS.md`) through a short
+built-in interview and the same plan review. The skill enters plan mode,
+reconnoiters the repository, asks up to four questions, and prepares a proposal.
+Nothing is written until you approve the plan.
 
 ```text
 /skill:init
   └─> plan mode (read-only)
-        └─> recon: manifests, docs, CI, tests, existing instructions
-        └─> interview: built-in bank, one call of at most 4 questions
+        └─> recon: effective instruction file, sourced evidence, existing instructions
+        └─> interview: built-in bank, one call of at most 4 questions, minus resolved facts
               ├─ answered ───────────────> reconcile with evidence
               └─ unavailable/cancelled ──> evidence + assumptions
         └─> draft: new file, exact edits, or an honest no-op
         └─> quality gate
         └─> write_plan ──> exit_plan_mode
                              ├─ not approved ──> refine the same plan
-                             └─ approved ──────> write/edit AGENTS.md
+                             └─ approved ──────> write/edit the target
                                                  └─ read back + quality checklist
 ```
 
 The skill uses a packaged question bank, so the whole workflow is explicit rather
 than an improvised prompt. The built-in bank covers purpose, verification commands,
 non-obvious rules, isolation, completion, sensitive paths, and dependency or
-network limits, with state-specific questions for an existing `AGENTS.md`, an
-empty repository, and related instruction files. The first call uses a
-deterministic four-question set for the repository state; a second call is allowed
-only for a material ambiguity. If the question tool is inactive, there is no UI,
-or you cancel, the skill records the unanswered gaps as assumptions and continues
-from evidence instead of stalling.
+network limits, with state-specific questions for an existing instruction file, an
+empty repository, related instruction files, and a shadowing override. Recon
+builds a sourced evidence sheet — commands with their definer, generated and
+vendored paths from `.gitignore`, workspace packages, and purpose from the README
+or manifest — and the first call uses the bank's deterministic set for the state
+minus every field it resolved; a second call is allowed only for a material
+ambiguity. If the question tool is inactive, there is no UI, or you cancel, the
+skill records the unanswered gaps as assumptions and continues from evidence
+instead of stalling.
+
+The target is the instruction file Pi actually reads: a root `AGENTS.override.md`
+replaces `AGENTS.md` and is edited in place, or the plan consolidates it into
+`AGENTS.md` and removes the override. The plan uses the canonical outline,
+including `## Steps` and `## Verification`, so approval seeds the apply actions.
 
 The skill's quality checklist requires every command and path to come from a file
 that defines it, keeps the file short and specific, and preserves correct
-instructions in an existing `AGENTS.md`. An accurate file can produce a no-op plan
-instead of rewriting it. Both an existing repository and an empty one are
+instructions in an existing instruction file. An accurate file can produce a no-op
+plan instead of rewriting it. Both an existing repository and an empty one are
 supported; an empty repository gets only known facts, with no invented commands.
 `/skill:init` needs plan mode, so it is unavailable when the `plan` extension is
 disabled. It ships with the full package; loading only `extensions/plan` makes

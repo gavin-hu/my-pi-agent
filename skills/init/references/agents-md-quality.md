@@ -29,12 +29,24 @@ invented command.
       plan, with the chosen resolution.
 - [ ] The plan names which questions were asked and what the user answered.
 
+## Target file
+
+- [ ] The plan names the instruction file Pi reads in the target directory.
+- [ ] A root `AGENTS.override.md` is the target, or the plan removes or renames it
+      while consolidating its instructions into `AGENTS.md`.
+- [ ] The written file is not an `AGENTS.md` that a root override shadows.
+- [ ] An override above the project root or in the agent directory is reported,
+      not edited.
+
 ## Evidence accuracy
 
-- [ ] Every command is copied from a manifest, script, Makefile, CI file, or docs
-      page that defines it. No command is guessed.
+- [ ] Every command is paired with the file that defines it in the evidence sheet.
 - [ ] Every path and package name exists in the repository as written.
 - [ ] Every claimed convention is visible in the code or contributor docs.
+- [ ] Generated and vendored exclusions name paths that exist and are backed by
+      `.gitignore` or build output.
+- [ ] Purpose came from the README lead or manifest description, or was asked.
+- [ ] No field marked `resolved` was asked again in the interview.
 - [ ] Unknown facts are omitted or named as unknown. They are never filled with
       plausible-sounding placeholders.
 - [ ] An answer that contradicts the code is treated as intent, not as evidence
@@ -78,12 +90,20 @@ invented command.
       `AGENTS.md`; the relationship is stated instead.
 - [ ] Two sections do not give the same instruction.
 
+## Plan and review
+
+- [ ] The plan uses `## Steps` and `## Verification`.
+- [ ] Each top-level step is an apply action, not a bullet from the draft.
+- [ ] An existing-file change is shown as a before/after diff, not prose edits.
+
 ## Existing files
 
 - [ ] Correct existing instructions are preserved.
 - [ ] Stale instructions are changed only when the replacement is supported by
       repository evidence or an explicit answer.
 - [ ] The plan lists exact edits, not a wholesale rewrite.
+- [ ] An override that is consolidated is removed or renamed in the same step, and
+      its instructions are preserved.
 - [ ] A rewrite records what is being removed and why.
 - [ ] A genuinely accurate file produces a no-op plan instead of churn.
 

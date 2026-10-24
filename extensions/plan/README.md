@@ -256,15 +256,15 @@ approval. Its workflow is:
 ```text
 /skill:init
   └─> plan mode (read-only)
-        └─> recon: manifests, docs, CI, tests, existing instructions
-        └─> interview: built-in bank, one call of at most 4 questions
+        └─> recon: effective instruction file, sourced evidence, existing instructions
+        └─> interview: built-in bank, one call of at most 4 questions, minus resolved facts
               ├─ answered ───────────────> reconcile with evidence
               └─ unavailable/cancelled ──> evidence + assumptions
         └─> draft: new file, exact edits, or an honest no-op
         └─> quality gate
         └─> write_plan ──> exit_plan_mode
                              ├─ not approved ──> refine the same plan
-                             └─ approved ──────> write/edit AGENTS.md
+                             └─ approved ──────> write/edit the target
                                                  └─ read back + quality checklist
 ```
 
@@ -272,15 +272,26 @@ The interview comes from a built-in bank in
 [`skills/init/references/interview-questions.md`](../../skills/init/references/interview-questions.md):
 core questions cover purpose, verification, non-obvious rules, isolation,
 completion, sensitive paths, and dependency or network limits, with state-specific
-entries for an existing file, an empty repository, and related instruction files.
-The first call uses a deterministic four-question set for the repository state;
-a second call is allowed only for a material ambiguity. If the tool is inactive,
-there is no UI, or the user cancels, the skill records the gaps as assumptions
-and continues from repository evidence.
+entries for an existing file, an empty repository, related instruction files, and
+a shadowing override. The first call uses the bank's deterministic set for the
+state, minus every field the evidence sheet resolved; a second call is allowed
+only for a material ambiguity. If the tool is inactive, there is no UI, or the
+user cancels, the skill records the gaps as assumptions and continues from
+repository evidence.
+
+Recon resolves the effective instruction file first: a root `AGENTS.override.md`
+replaces `AGENTS.md` and becomes the target, while an override above the project
+root is reported rather than edited. Recon also builds a sourced evidence sheet —
+commands with the file that defines them, generated and vendored paths from
+`.gitignore`, workspace packages and boundaries, and purpose from the README or
+manifest — and the interview asks only what it could not resolve. The plan uses
+the canonical outline, including `## Steps` and `## Verification`, so approval
+seeds the apply actions rather than the draft's bullets.
 
 The quality reference is
 [`skills/init/references/agents-md-quality.md`](../../skills/init/references/agents-md-quality.md).
-An existing `AGENTS.md` is reviewed and updated only after approval, an accurate
+An existing instruction file is reviewed and updated only after approval, a root
+override is edited in place or removed explicitly when consolidating, an accurate
 file can produce a no-op plan, and an empty repository gets only known facts.
 The skill needs the plan extension for its review gate. It also ships with the
 package, so load the whole package (`pi -e .`) or install it; loading only
