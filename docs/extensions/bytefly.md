@@ -50,6 +50,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Desktop notifications | `notify.enabled`, `notify.turnFinished`, `notify.needsInput`, `notify.jobFinished`, `notify.matchFound` | An OS notification when a run settles, the agent needs you, a job finishes, or a watcher matches. | Shipped |
 | Proactive health check | `doctor.proactive` | At session start, when the startup header is on, a hard requirement is probed once and reported before the first turn. | Shipped |
 | Update check | `/bytefly update` | One notice per session lists every package behind, and the header marks a new version. | Shipped |
+| Update action | `/bytefly upgrade` | Pi's own package manager installs the configured packages behind a confirmation, clearing the marker and naming the reload the new version needs. | Unreleased |
 | Pi release notice | `automatic: Pi's release notice` | Pi's own newer version gets the same themed notice and header marker, without a second check. | Shipped |
 
 ## Quickstart
@@ -97,9 +98,11 @@ One command runs the screen, prints the report, and re-checks updates:
 | `/bytefly skills` | Open the control center on Skills. Outside `tui` it prints the grouped skills listing with one row per skill. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
 | `/bytefly update` | Re-run the package update check now, ignoring the cache window, and report what it found — the updateable packages, this package's version and release URL when known, `PI_OFFLINE`, or an unreadable list. It resolves no packages and probes no extension. |
+| `/bytefly upgrade` | Install what the check found, behind a confirmation: Pi's own package manager updates every configured package, the marker is re-read, and one line reports the result and the reload it needs. `PI_OFFLINE` and a pinned npm version skip the work. It resolves no packages and mounts no screen. |
 
 Tab completes the subcommands, extension names after `doctor`, and `refresh`;
-`/bytefly settings`, `/bytefly skills`, and `/bytefly update` take no name.
+`/bytefly settings`, `/bytefly skills`, `/bytefly update`, and `/bytefly upgrade`
+take no name.
 
 ## Behaviour by mode
 
@@ -1043,6 +1046,17 @@ release without a restart. Opening the control center never checks: the screen h
 no update surface, and the only request paths are `session_start` and this
 command.
 
+`/bytefly upgrade` is the half that writes. It asks for a confirmation and then
+calls the package manager's own `update()`: the same manager that reads the
+packages configured in `settings.json`, owns the install root, and honours a
+project's `npmCommand`, so no shell and no `pi update` command is involved. Pi
+skips a pinned npm version, and `PI_OFFLINE` skips the whole path. The manager
+returns nothing, so the answer is a re-read of what is left: `every configured
+package is updated — reload to use the new version`, or a warning when a package
+is still behind after a successful run; a failed install prints the manager's own
+message. The running session keeps the old code loaded until it reloads, which is
+why the line says so, and each source the manager reports is shown while it runs.
+
 ## Limitations
 
 - **Bytefly startup TUI is the startup surface only.** It installs or removes
@@ -1074,16 +1088,18 @@ command.
   because a two-column glyph would push every railed body one cell right; the
   loader drops anything else, and the former four-glyph menu is the
   configuration reference's example list.
-- **`doctor`, `settings`, `skills`, and `update` are reserved first arguments.**
-  `/bytefly doctor` always selects the report, so an extension literally named
-  `doctor` cannot be narrowed to by name; `settings`, `skills`, and `update` are
-  reserved the same way.
+- **`doctor`, `settings`, `skills`, `update`, and `upgrade` are reserved first
+  arguments.** `/bytefly doctor` always selects the report, so an extension
+  literally named `doctor` cannot be narrowed to by name; `settings`, `skills`,
+  `update`, and `upgrade` are reserved the same way.
 - **The picker manages the `extensions` and `skills` resource types.** Prompts
   and themes stay with Pi's own `pi config`.
 - **Built-in extensions are not listed** (`builtin:mcp`, `builtin:codemode`, …):
   their authoritative names are not exposed to extensions. Use `pi config`.
-- **Packages are not installed, removed, or updated here**; use `pi install`,
-  `pi remove`, and `pi update`.
+- **Nothing is installed or removed here.** `/bytefly upgrade` runs Pi's own
+  update for the packages configured in `settings.json`; adding a package is
+  still `pi install`, removing one is `pi remove`, and Pi itself is still
+  `pi update`.
 - **The update list is Pi's.** Only packages configured in `settings.json` are
   checked; `pi -e .`, a temporary checkout, and other unmanaged loads get no
   update prompt. The version arrow and release URL still come from npm's
@@ -1102,7 +1118,9 @@ command.
   restores both on shutdown. A future Pi that changes either method shape makes
   that shim inert, and Pi's own block can come back.
 - **No auto-update, and the release URL is text only.** The notice names a
-  command instead of running one, and the notice renderer cannot open a link, so
+  command instead of running one; the only path that writes is `/bytefly
+  upgrade`, and it waits for a confirmation. The notice renderer cannot open a
+  link, so
   the release row prints the URL and nothing more — no changelog body, no way to
   click through from the transcript. Pi's optional release note arrives as one
   sanitized `release notes` row, so a multi-paragraph note is flattened and
@@ -1217,7 +1235,7 @@ rather than showing a wrong value.
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |
 | Release notice | `session_start` in `tui` mode patches `InteractiveMode.prototype.showNewVersionNotification` through the shared `patchPrototypeMethod`, so the release Pi resolved becomes `pi.sendMessage(piReleaseNotice(...))` under the shared notice type and `paintLatest` records its version for the agent line's marker (`onUpdate` re-installs the header). The callback posts once per load and only while the session is live; a throw calls the captured original, so Pi's own box is the fallback. `session_shutdown` restores the method and clears the marker. |
-| Update check | `session_start` in `tui` mode installs a suppression on `DefaultPackageManager.prototype.checkForAvailableUpdates`, then reads `<agentDir>/bytefly/update.json`. A fresh entry whose key matches the cwd and effective package sources is recorded without a package-manager call; otherwise bytefly fires `fetchAvailableUpdates()` without awaiting, resolves this package's version through `fetchLatestVersion()` when Pi reports it, writes the snapshot, and records it. `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice with its version arrow and release URL. `PI_OFFLINE` paints the cached marker only. `/bytefly update` calls the returned `UpdateHandle.recheck()`, which bypasses the window and returns an `UpdateOutcome`; a generation counter drops a background reply that lands after `session_shutdown`, a per-load flag keeps it to one announcement, and shutdown restores Pi's method. |
+| Update check | `session_start` in `tui` mode installs a suppression on `DefaultPackageManager.prototype.checkForAvailableUpdates`, then reads `<agentDir>/bytefly/update.json`. A fresh entry whose key matches the cwd and effective package sources is recorded without a package-manager call; otherwise bytefly fires `fetchAvailableUpdates()` without awaiting, resolves this package's version through `fetchLatestVersion()` when Pi reports it, writes the snapshot, and records it. `onUpdate` re-installs the header, and `pi.sendMessage(updateNotice(...))` posts the one notice with its version arrow and release URL. `PI_OFFLINE` paints the cached marker only. `/bytefly update` calls the returned `UpdateHandle.recheck()`, which bypasses the window and returns an `UpdateOutcome`; `/bytefly upgrade` calls `UpdateHandle.apply()`, which runs `applyUpdates()` — Pi's `DefaultPackageManager.update()`, with its progress passed to `ctx.ui.notify` — and then re-reads the snapshot so the marker cannot outlive the version it named. A generation counter drops a background reply that lands after `session_shutdown`, a per-load flag keeps it to one announcement, and shutdown restores Pi's method. |
 | Config | `bytefly.json` from the agent directory and `<cwd>/.pi`; the `price` section is read once per footer install (a new session or a session-tree change), the `notify` and `doctor` sections at `session_start`, and the `chrome` section's rail glyph at `session_start`/`session_tree`. Nothing watches the document. The update check has no section: it is on whenever `PI_OFFLINE` is off, and its 24 h window is not configurable. |
 | Data sources | `footerData.getGitBranch()`, `footerData.getAvailableProviderCount()`, `ctx.getContextUsage()`, `ctx.sessionManager.getEntries()`, `ctx.sessionManager.getSessionName()`, `ctx.model`; subscribes to `footerData.onBranchChange` to repaint. |
 | State storage | None besides the inert separator entries. The footer reads session entries and the price config (a memoized scan) and writes no tool-result `details`; it appends `bytefly-separator` entries excluded from LLM context. The screen derives its view from the picker runtime, the current reports, and the skill index, and persists extension and skill toggles through `settings.json`. The Settings section derives from a snapshot of the personal `settings.json` and both `bytefly.json` documents, and persists through the same `SettingsManager` setters or the per-leaf `bytefly.json` writer. Doctor's findings are session-scoped in memory only — cached for the session, never written to the session or a file. Notify holds only the config and the run-active flag in its closure. The update check holds this package's version in the per-load `UpdateSource` and one project-scoped snapshot in `<agentDir>/bytefly/update.json`. |

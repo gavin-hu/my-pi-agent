@@ -441,6 +441,8 @@ interface BootOptions {
 	mode?: string;
 	cache?: ReturnType<typeof memoryCache>;
 	packages?: string[];
+	/** Pi's manager rejects, as a failed install command does. */
+	applyFails?: boolean;
 }
 
 /** Boot the update surface over a fixed package list and version answer. */
@@ -453,6 +455,7 @@ function boot(options: BootOptions = {}) {
 	const latestReads: number[] = [];
 	const updates: number[] = [];
 	const restores: number[] = [];
+	const applies: number[] = [];
 	const suppression: UpdateSuppression = {
 		check: async () => options.updates ?? [],
 		restore: () => restores.push(1),
@@ -475,6 +478,10 @@ function boot(options: BootOptions = {}) {
 			return options.latest;
 		},
 		isOffline: () => options.offline ?? false,
+		applyUpdates: async () => {
+			applies.push(1);
+			if (options.applyFails) throw new Error("npm exited 1");
+		},
 		cache,
 		now: () => NOW,
 		onUpdate: () => updates.push(1),
@@ -497,6 +504,7 @@ function boot(options: BootOptions = {}) {
 		latestReads,
 		updates,
 		restores,
+		applies,
 		suppression,
 		suppressCalls: () => suppressCalls,
 		handle,
@@ -1109,5 +1117,60 @@ describe("parseVersion and isNewerVersion", () => {
 		expect(isNewerVersion("", "0.11.4")).toBe(false);
 		expect(isNewerVersion("0.12.0", "")).toBe(false);
 		expect(isNewerVersion("0.12.0", "not-a-version")).toBe(false);
+	});
+});
+
+describe("update action", () => {
+	test("applies through Pi's manager, then re-reads what is left", async () => {
+		const list: PackageUpdate[] = [OWN];
+		const booted = boot({ updates: list, latest: NEWER });
+		await booted.start();
+		expect(booted.state.latest()).toBe(NEWER);
+
+		// The install replaced the version the snapshot described.
+		list.length = 0;
+		expect(await booted.handle.apply()).toEqual({ kind: "updated", pending: false });
+		expect(booted.applies).toHaveLength(1);
+		expect(booted.state.latest()).toBeUndefined();
+		expect(booted.cache.read()?.updates).toEqual([]);
+	});
+
+	test("says a package is still behind when the manager succeeded over it", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER });
+		await booted.start();
+		expect(await booted.handle.apply()).toEqual({ kind: "updated", pending: true });
+	});
+
+	test("reports a failed install with the manager's own message", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER, applyFails: true });
+		await booted.start();
+		expect(await booted.handle.apply()).toEqual({ kind: "update-failed", reason: "npm exited 1" });
+	});
+
+	test("does nothing while offline", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER, offline: true });
+		await booted.start();
+		expect(await booted.handle.apply()).toEqual({ kind: "offline" });
+		expect(booted.applies).toHaveLength(0);
+	});
+
+	test("refuses before a session start gave it a context", async () => {
+		const booted = boot({ updates: [OWN], latest: NEWER });
+		expect(await booted.handle.apply()).toEqual({ kind: "failed" });
+		expect(booted.applies).toHaveLength(0);
+	});
+
+	test("prints the reload line, the pending case, and the failure", () => {
+		const updated = updateOutcomeText({ kind: "updated", pending: false }, "0.18.0");
+		expect(updated.severity).toBe("info");
+		expect(updated.text).toContain("reload");
+
+		const pending = updateOutcomeText({ kind: "updated", pending: true }, "0.18.0");
+		expect(pending.severity).toBe("warning");
+		expect(pending.text).toContain("/bytefly update");
+
+		const failed = updateOutcomeText({ kind: "update-failed", reason: "npm exited 1" }, "0.18.0");
+		expect(failed.severity).toBe("warning");
+		expect(failed.text).toContain("npm exited 1");
 	});
 });

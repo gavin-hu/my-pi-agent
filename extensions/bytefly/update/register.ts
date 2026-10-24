@@ -17,6 +17,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import pkg from "../../../package.json";
+import { messageOf } from "../../../lib/errors.ts";
 import { isOffline } from "../../../lib/env.ts";
 import {
 	isFresh,
@@ -26,7 +27,7 @@ import {
 	writeUpdateCache,
 	type UpdateCacheEntry,
 } from "./cache.ts";
-import { fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
+import { applyUpdates, fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
 import { isOwnPackage, updateNotice } from "./format.ts";
 import { paintLatest, type UpdateOutcome, type UpdateSource } from "./state.ts";
 import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
@@ -45,6 +46,8 @@ export interface UpdateCache {
 export interface UpdateHandle {
 	/** Read the package list now, ignoring the cache window. Never throws. */
 	recheck(): Promise<UpdateOutcome>;
+	/** Apply the update, then re-read it. Never throws. */
+	apply(): Promise<UpdateOutcome>;
 }
 
 /** Test seams; production uses Pi's package manager, its cache, and the agent dir. */
@@ -53,6 +56,8 @@ export interface UpdateDeps {
 	readUpdates?: (ctx: ExtensionContext, check: PackageUpdateCheck) => Promise<PackageUpdate[] | undefined>;
 	/** Replace the registry read that names this package's new version. */
 	fetchLatest?: () => Promise<string | undefined>;
+	/** Replace the package-manager update; defaults to Pi's own manager. */
+	applyUpdates?: (ctx: ExtensionContext) => Promise<void>;
 	/** Replace the `PI_OFFLINE` check. */
 	isOffline?: () => boolean;
 	/** Replace the disk cache. */
@@ -94,6 +99,16 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 				checkForAvailableUpdates: check,
 			}));
 	const readLatest = deps.fetchLatest ?? (() => fetchLatestVersion());
+	const applyUpdate =
+		deps.applyUpdates ??
+		((ctx: ExtensionContext) =>
+			applyUpdates({
+				cwd: ctx.cwd,
+				agentDir: getAgentDir(),
+				projectTrusted: ctx.isProjectTrusted(),
+				// Pi's manager reports one line per source; a slow install is otherwise silent.
+				onProgress: (message) => ctx.ui.notify(message, "info"),
+			}));
 	const offline = deps.isOffline ?? isOffline;
 	const cache = deps.cache ?? diskCache();
 	const now = deps.now ?? Date.now;
@@ -155,6 +170,22 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 		return latest && isNewerVersion(latest, pkg.version) ? latest : undefined;
 	};
 
+	/**
+	 * One snapshot from a package list: this package's version label, the cache key,
+	 * and the clock. The background check and the panel's recheck differ only in what
+	 * they do with a snapshot, so the assembly lives here once instead of being
+	 * copied wherever something new needs to record a reading.
+	 */
+	const buildSnapshot = async (ctx: ExtensionContext, list: PackageUpdate[]): Promise<UpdateCacheEntry> => {
+		const latest = await resolveOwnLatest(list.find(isOwnPackage));
+		return {
+			key: keyFor(ctx),
+			checkedAt: now(),
+			updates: list,
+			...(latest ? { latest } : {}),
+		};
+	};
+
 	const check = async (ctx: ExtensionContext, token: number): Promise<void> => {
 		try {
 			const list = await readUpdates(ctx, activeCheck());
@@ -163,14 +194,8 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 			// the next session "up to date" for a day and clear a marker that may still
 			// be right, so leave both alone and try again next time.
 			if (list === undefined) return;
-			const latest = await resolveOwnLatest(list.find(isOwnPackage));
+			const entry = await buildSnapshot(ctx, list);
 			if (token !== generation) return;
-			const entry: UpdateCacheEntry = {
-				key: keyFor(ctx),
-				checkedAt: now(),
-				updates: list,
-				...(latest ? { latest } : {}),
-			};
 			writeCache(entry);
 			record(entry);
 		} catch {
@@ -210,31 +235,45 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 		context = undefined;
 	});
 
-	return {
-		async recheck() {
-			if (offline()) return { kind: "offline" };
-			if (!context) return { kind: "failed" };
-			let list: PackageUpdate[];
-			try {
-				const found = await readUpdates(context, activeCheck());
-				if (found === undefined) return { kind: "failed" };
-				list = found;
-			} catch {
-				return { kind: "failed" };
-			}
-			const latest = await resolveOwnLatest(list.find(isOwnPackage));
-			const entry: UpdateCacheEntry = {
-				key: keyFor(context),
-				checkedAt: now(),
-				updates: list,
-				...(latest ? { latest } : {}),
-			};
-			writeCache(entry);
-			// The caller prints the answer, so this path never posts a notice.
-			paintLatest(updates, latest, deps.onUpdate);
-			return list.length > 0
-				? { kind: "available", updates: list, ...(latest ? { ownLatest: latest } : {}) }
-				: { kind: "current" };
-		},
+	/** Re-read the published state on demand; `/bytefly update` prints the answer. */
+	const recheck = async (): Promise<UpdateOutcome> => {
+		if (offline()) return { kind: "offline" };
+		if (!context) return { kind: "failed" };
+		let list: PackageUpdate[];
+		try {
+			const found = await readUpdates(context, activeCheck());
+			if (found === undefined) return { kind: "failed" };
+			list = found;
+		} catch {
+			return { kind: "failed" };
+		}
+		const entry = await buildSnapshot(context, list);
+		writeCache(entry);
+		// The caller prints the answer, so this path never posts a notice.
+		const ownLatest = ownLatestOf(entry);
+		paintLatest(updates, ownLatest, deps.onUpdate);
+		return list.length > 0
+			? { kind: "available", updates: list, ...(ownLatest ? { ownLatest } : {}) }
+			: { kind: "current" };
 	};
+
+	/**
+	 * Apply the update through Pi's manager, then re-read it: the snapshot on disk and
+	 * on screen described the version that was just replaced, so leaving it would keep
+	 * a marker for code this session no longer runs. `pending` is the manager reporting
+	 * success over a package that is still behind, which is worth saying out loud.
+	 */
+	const apply = async (): Promise<UpdateOutcome> => {
+		if (offline()) return { kind: "offline" };
+		if (!context) return { kind: "failed" };
+		try {
+			await applyUpdate(context);
+		} catch (error) {
+			return { kind: "update-failed", reason: messageOf(error) };
+		}
+		const after = await recheck();
+		return { kind: "updated", pending: after.kind === "available" };
+	};
+
+	return { recheck, apply };
 }

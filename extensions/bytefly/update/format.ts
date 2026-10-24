@@ -174,6 +174,21 @@ export function updateOutcomeText(
 			};
 		case "current":
 			return { text: "bytefly: up to date — no configured package has an update.", severity: "info" };
+		case "update-failed":
+			return {
+				text: `bytefly: the update did not finish — ${sanitizeLine(outcome.reason)}`,
+				severity: "warning",
+			};
+		case "updated":
+			return outcome.pending
+				? {
+						text: `bytefly: the update ran, but a package is still behind — run ${UPDATE_COMMAND} or /bytefly update.`,
+						severity: "warning",
+					}
+				: {
+						text: "bytefly: every configured package is updated — reload to use the new version.",
+						severity: "info",
+					};
 		case "available": {
 			const own = outcome.updates.some(isOwnPackage);
 			const release = own ? ownRelease(outcome.ownLatest) : undefined;

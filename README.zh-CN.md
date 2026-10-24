@@ -117,7 +117,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | 搜索网络（默认无密钥的 DuckDuckGo，可选 SearXNG 或 Brave），并把页面抓取为可读文本，支持分页、`find`、逐跳 SSRF 检查以及可选的 PDF 支持。 |
+| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | 搜索网络（默认无密钥的 DuckDuckGo，可选 SearXNG 或 Brave），并把页面抓取为可读文本，支持分页、`find`、逐跳 SSRF 检查、把 JSON/CSV/XML 正文渲染为表格或树状结构，以及可选的 PDF 支持。 |
 | [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | 启动一个以工作目录为根的本地回环、只读文件浏览器，带 Markdown 预览、模糊快速打开面板、从选区复制 `path:12-30` 引用、为常开页面提供的实时状态，以及所列目录变化时的重新加载提示。 |
 | [`file-read`](./docs/extensions/file-read.md) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
 | [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
@@ -127,7 +127,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly`（`doctor`、`settings`、`skills`、`update` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展与技能，并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
+| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly`（`doctor`、`settings`、`skills`、`update`、`upgrade` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展与技能，并集中存放精选设置；`/bytefly upgrade` 在确认后通过 Pi 自己的包管理器安装待更新版本；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
 
 ### 技能
 

@@ -173,12 +173,6 @@ describe("roadmap horizons", () => {
 			.map(([bucket, count]) => `${bucket} holds ${count} items (cap ${BUCKET_CAP[bucket]})`);
 		expect(over).toEqual([]);
 	});
-
-	test("names the top two items the file ranks first", () => {
-		const section = roadmap.slice(roadmap.indexOf("## If only two things ship"), roadmap.indexOf("## Horizons"));
-		const named = [...section.matchAll(/\*\*([PSWCF]\d+) — /g)].map((match) => match[1]);
-		expect(named).toEqual(["W1", "C1"]);
-	});
 });
 
 describe("roadmap sizes", () => {

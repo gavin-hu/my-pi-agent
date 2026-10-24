@@ -637,6 +637,51 @@ describe("runFetch PDF", () => {
 	});
 });
 
+function textResponse(body: string, contentType: string): HttpResponse {
+	return { status: 200, body, contentType, finalUrl: "https://1.1.1.1/data", sizeBytes: body.length };
+}
+
+/**
+ * The textual arm is the one a structured renderer changes, so it has a baseline
+ * before it moves: a body that is not JSON, CSV, or XML passes through untouched,
+ * and the declared content type survives.
+ */
+describe("runFetch textual bodies", () => {
+	test("passes a body through when it is not JSON", async () => {
+		const body = "not json at all";
+		const runner: HttpRunner = () => Promise.resolve(textResponse(body, "application/json"));
+		const page = await runFetch("https://1.1.1.1/data", baseRequest(), CONFIG, undefined, { http: runner });
+		expect(page.text).toBe(body);
+		expect(page.contentType).toBe("application/json");
+	});
+
+	test("passes prose through unchanged", async () => {
+		const body = "Plain prose, with a comma and no columns.";
+		const runner: HttpRunner = () => Promise.resolve(textResponse(body, "text/plain; charset=utf-8"));
+		const page = await runFetch("https://1.1.1.1/data", baseRequest(), CONFIG, undefined, { http: runner });
+		expect(page.text).toBe(body);
+	});
+
+	test("passes a malformed XML body through", async () => {
+		const body = "<a><b></a>";
+		const runner: HttpRunner = () => Promise.resolve(textResponse(body, "application/xml"));
+		const page = await runFetch("https://1.1.1.1/data", baseRequest(), CONFIG, undefined, { http: runner });
+		expect(page.text).toBe(body);
+	});
+
+	test("renders a structured body through the whole fetch", async () => {
+		const body = JSON.stringify([{ id: 1, name: "Ada" }]);
+		const runner: HttpRunner = () => Promise.resolve(textResponse(body, "application/json"));
+		const page = await runFetch("https://1.1.1.1/data", baseRequest(), CONFIG, undefined, { http: runner });
+		// The padding itself is `structured.test.ts`'s subject; this only proves the
+		// arm is wired, so it asserts the fields and the header, not the columns.
+		expect(page.text.split("\n")[0]).toBe("id  name");
+		expect(page.text).toContain("Ada");
+		expect(page.text).not.toContain("[{");
+		expect(page.contentType).toBe("application/json");
+	});
+});
+
 const SCHEMA_CONFIG = { ...DEFAULT_FETCH_CONFIG, maxOutputChars: 5000 };
 
 describe("resolveRequest", () => {

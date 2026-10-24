@@ -20,13 +20,16 @@ export interface UpdateSource {
 }
 
 /**
- * What one explicit re-check found. The background check reports nothing — nobody
- * asked — so this vocabulary exists only for `/bytefly update`, where a failure or
- * a skip is an answer rather than silence.
+ * What one explicit update reported. The background check reports nothing — nobody
+ * asked — so this vocabulary exists only for `/bytefly update` and
+ * `/bytefly upgrade`, where a failure, a skip, or a refusal is an answer rather
+ * than silence.
  */
 export type UpdateOutcome =
 	| { kind: "offline" }
 	| { kind: "failed" }
+	| { kind: "update-failed"; reason: string }
+	| { kind: "updated"; pending: boolean }
 	| { kind: "current" }
 	| { kind: "available"; updates: readonly PackageUpdate[]; ownLatest?: string };
 

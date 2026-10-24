@@ -1,12 +1,14 @@
 /**
- * The `/bytefly` surface: one command, `/bytefly [doctor] [settings] [skills] [update] [extension] [refresh]`.
+ * The `/bytefly` surface: one command, `/bytefly [doctor] [settings] [skills] [update] [upgrade] [extension] [refresh]`.
  *
  * Without a section word it opens the extension screen: the dock in `tui`, the
  * grouped listing elsewhere. `settings` opens the Settings section, or prints
  * its grouped listing outside `tui` without resolving packages. `skills` opens
  * the Skills section and lists the resolved skills in text modes. `update`
  * re-runs the published-version check and reports what it found, which is the
- * one place a request is made on demand. With `doctor` it produces the doctor
+ * one place a request is made on demand; `upgrade` asks Pi's own package manager
+ * to install what that check found, behind a confirmation, so the two verbs stay
+ * one job each — ask, and act. With `doctor` it produces the doctor
  * report — the same text `run_doctor` returns — for the whole set or one named
  * extension; in `tui` the report is the dock screen. Discovery, the doctor
  * probe, and the dirty-to-reload confirm all live here. The doctor runtime and
@@ -63,14 +65,22 @@ function selectableNames(discovery: Discovery): Set<string> {
 }
 
 /** The values a bare `/bytefly <tab>` offers, in screen order. */
-const FIRST_TOKENS = ["doctor", "settings", "skills", "update", ...Object.keys(REQUIREMENTS), "refresh"] as const;
+const FIRST_TOKENS = [
+	"doctor",
+	"settings",
+	"skills",
+	"update",
+	"upgrade",
+	...Object.keys(REQUIREMENTS),
+	"refresh",
+] as const;
 
 /**
  * Argument completions. The host replaces the whole argument text with the
  * returned `value`, so a second token returns the full `doctor <name>` or
  * `<name> refresh` argument rather than just the word. `/bytefly settings`,
- * `/bytefly skills`, and `/bytefly update` take no name, and `refresh` is never
- * followed by another token.
+ * `/bytefly skills`, `/bytefly update`, and `/bytefly upgrade` take no name, and
+ * `refresh` is never followed by another token.
  */
 function completions(prefix: string): Array<{ value: string; label: string }> | null {
 	const [first = "", second, ...rest] = prefix.trimStart().split(/\s+/);
@@ -79,7 +89,8 @@ function completions(prefix: string): Array<{ value: string; label: string }> | 
 		const options = FIRST_TOKENS.filter((option) => option.startsWith(first));
 		return options.length > 0 ? options.map((option) => ({ value: `${option} `, label: option })) : null;
 	}
-	if (first === "settings" || first === "skills" || first === "refresh" || first === "update") return null;
+	if (first === "settings" || first === "skills" || first === "refresh" || first === "update" || first === "upgrade")
+		return null;
 	const options = (first === "doctor" ? [...Object.keys(REQUIREMENTS), "refresh"] : ["refresh"]).filter((option) =>
 		option.startsWith(second),
 	);
@@ -87,7 +98,7 @@ function completions(prefix: string): Array<{ value: string; label: string }> | 
 }
 
 /** Which bytefly surface the arguments select. */
-type PanelMode = "screen" | "doctor" | "update";
+type PanelMode = "screen" | "doctor" | "update" | "upgrade";
 
 /** `/bytefly [doctor] [settings] [extension] [refresh]`, parsed. */
 interface PanelArgs {
@@ -109,6 +120,10 @@ function parseArgs(args: string): PanelArgs {
 	// `update` is already a refresh of the published version, so a stray `refresh`
 	// beside it is accepted and ignored rather than refused.
 	if (rest[0] === "update") return { mode: "update", section: "extensions", refresh };
+	// `upgrade` is the same subject as `update`, one verb further: it installs what a
+	// check found. Refusing to fold them into one word is what keeps a command that
+	// writes behind a confirmation instead of behind an argument.
+	if (rest[0] === "upgrade") return { mode: "upgrade", section: "extensions", refresh };
 	if (rest[0] === "settings") return { mode: "screen", section: "settings", name: rest[1], refresh };
 	if (rest[0] === "skills") return { mode: "screen", section: "skills", name: rest[1], refresh };
 	return { mode: "screen", section: "extensions", name: rest[0], refresh };
@@ -185,6 +200,24 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// takes on demand, so the request happens here and nowhere else.
 		if (mode === "update") {
 			const outcome = await deps.update.recheck();
+			const { text, severity } = updateOutcomeText(outcome, pkg.version);
+			ctx.ui.notify(text, severity);
+			return;
+		}
+
+		// `/bytefly upgrade` is the only path here that writes, and it writes outside
+		// the session: Pi's package manager replaces the installed files, so the
+		// confirmation and the reload line are part of the answer, not decoration.
+		if (mode === "upgrade") {
+			const confirmed = await ctx.ui.confirm(
+				"Update packages?",
+				`Run Pi's package manager for every configured package, then reload to use it.`,
+			);
+			if (!confirmed) {
+				ctx.ui.notify("bytefly: update cancelled.", "info");
+				return;
+			}
+			const outcome = await deps.update.apply();
 			const { text, severity } = updateOutcomeText(outcome, pkg.version);
 			ctx.ui.notify(text, severity);
 			return;

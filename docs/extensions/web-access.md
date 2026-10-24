@@ -14,6 +14,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 |---|---|---|---|
 | Web search | `web_search` | Titles, URLs, snippets, and a direct answer when the provider has one. | Shipped |
 | Page reading | `web_fetch` | A URL's readable text, with links kept as `[text](url)`. | Shipped |
+| Structured bodies | `web_fetch` | A JSON, CSV, or XML body arrives as an aligned table or an indented tree instead of the raw blob. | Unreleased |
 | Write-style fetch | `web_fetch` (`method`, `headers`, `body`) | POST with custom headers and a bounded body, so form and GraphQL endpoints are reachable; a body implies POST. | Shipped |
 | Paged output | `web_fetch`, `startIndex`, `maxChars` | A long page arrives in budgeted slices and names the offset that continues it. | Shipped |
 | Passage search | `web_fetch`, `find`, `contextChars` | Matching passages instead of the whole page, with a note when a cap hid the rest. | Shipped |
@@ -203,9 +204,11 @@ web_search({ query: "python list comprehension", maxResults: 3 })
 ## `web_fetch`
 
 GETs (or POSTs) an http(s) URL and returns readable text. HTML becomes
-plain text with links kept as `[text](url)`; JSON/text/XML is returned as-is;
-PDFs are text-extracted when the optional `unpdf` package is installed; other
-binary content is reported by type and size. Bodies are decoded by the
+plain text with links kept as `[text](url)`; a JSON, CSV, or XML body becomes a
+table or an indented tree ([Structured bodies](#structured-bodies)); other textual
+content is returned as-is; PDFs are text-extracted when the optional `unpdf`
+package is installed; other binary content is reported by type and size. Bodies
+are decoded by the
 byte-order mark, the declared `Content-Type` charset, or the page's own
 `<meta charset>`, so a GBK/GB18030 page reads as text instead of replacement
 characters. Redirects are followed manually and **every hop is re-validated**, so
@@ -244,6 +247,32 @@ web_fetch({ url: "https://pi.dev/", find: ["documentation", "extensions"] })
 web_fetch({ url: "https://api.example/graphql", method: "POST", headers: { "Content-Type": "application/json" }, body: '{"query":"{ viewer { login } }"}' })
 ```
 
+### Structured bodies
+
+A JSON, CSV, or XML body is rendered as text instead of the blob it downloaded: an
+array of records becomes a table with the union of their keys and padded columns,
+an object becomes indented `key: value` lines, comma-separated rows become the same
+table, and XML becomes an indented tree with attributes as `@name`. The declared
+content type decides first; a body that declares nothing usable (`text/plain`) is
+sniffed only when it has a shape — an opening brace, a uniform comma count, a root
+tag — and anything that does not parse keeps its raw form, so a malformed document
+is never made harder to read than it already was.
+
+```text
+URL: https://api.example/users
+Status: 200 (application/json)
+
+id  name   role
+1   Ada    admin
+2   Grace  user
+```
+
+Rendering happens once per fetch, before the result is cached, so `startIndex`,
+`find`, and a second call all read the same string. Two bounds keep it honest: a
+body past `MAX_SOURCE_CHARS` is returned raw, because a paged raw body beats a
+rendered one, and the rendered text stops at `MAX_RENDERED_CHARS` with a note saying
+so — both constants live in `fetch/structured.ts`.
+
 ### Optional dependencies
 
 PDF extraction needs a package that is not installed by default; it is loaded
@@ -266,6 +295,11 @@ the content type and size.
 - **Heuristic extraction**: `web_fetch` strips scripts/styles/nav/footer and
   prefers `<main>`/`<article>`, but is not a full readability engine. PDF
   extraction is optional (`unpdf`) and off unless installed.
+- **A structured body is rendered by a reader, not a parser.** JSON, CSV, and XML
+  are read well enough to show a shape — CSV by RFC 4180 quoting, XML by balancing
+  tags — but a body it cannot parse keeps its raw form rather than a partial one,
+  and the `text/plain` sniff is a heuristic: a page of prose with a uniform comma
+  in every line reads as a one-row table.
 - **`find` output is budgeted.** With `maxMatches: 50` and `contextChars: 2000`
   the passages alone would exceed `maxOutputChars`; the result shows the passages
   that fit and names the knob to change.
@@ -377,6 +411,7 @@ the content type and size.
 | `fetch/config.ts` | Fetch config type, defaults, clamping |
 | `fetch/schema.ts` | Params/output schema, `resolveRequest()` |
 | `fetch/page.ts` | Fetch + redirect-following + content-type routing; PDF extraction is injected via `FetchDeps` from the shared `lib/pdf.ts` |
+| `fetch/structured.ts` | JSON/CSV/XML body → readable text, or `undefined` to keep the raw body |
 | `fetch/ssrf.ts` | URL/host validation and private-address blocking |
 | `fetch/extract.ts` | HTML → title + readable text |
 | `fetch/find.ts` | Passage search (exact/insensitive/fuzzy) |
@@ -393,7 +428,8 @@ charset decoding (declared, `<meta>`, and BOM precedence), a streamed body over
 the byte cap, redirect re-validation (per-hop SSRF with literal IPs),
 method/header/body validation, the nested config merge and section isolation,
 extraction, formatting/paging through the tool (including a regression test that
-a truncated page keeps its `startIndex` hint), find and its cap/budget notices,
+a truncated page keeps its `startIndex` hint), structured rendering per format and
+its malformed fallbacks, find and its cap/budget notices,
 the per-registration cache, the SSRF guard, the injected PDF dependency, and both
 tools' registration/execution. Tests inject the runner, throttle, and PDF extractor
 through the tools' dependencies, so no network or PDF library is needed; the
