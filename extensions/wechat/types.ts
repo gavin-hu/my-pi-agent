@@ -68,6 +68,15 @@ export interface WeixinMessage {
 	message_id?: number;
 	from_user_id?: string;
 	to_user_id?: string;
+	/**
+	 * A group message's room, declared by the protocol as "when applicable".
+	 *
+	 * Nothing routes on it: the bridge keys a conversation by sender. The poll
+	 * probe prints it so a probe can tell whether rooms are delivered at all.
+	 */
+	group_id?: string;
+	/** The conversation the message belongs to, when the protocol supplies one. */
+	session_id?: string;
 	message_type?: number;
 	message_state?: number;
 	item_list?: MessageItem[];

@@ -65,6 +65,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `wechat`: the poll probe also reports the `group_id` and `session_id` a message
+  carries, and `WeixinMessage` declares both, so one run with `pi` stopped answers
+  whether a message posted in a group is delivered at all — the question the
+  roadmap's group-chat item turns on. Nothing in the bridge routes on either field:
+  a conversation is still keyed by its sender.
 - `wechat`: the extension's 34 modules are grouped into seven role directories —
   `transport/` (the only place that talks to iLink), `state/` (the three files a
   session leaves on disk), `peer/` (one peer's session and its queue),

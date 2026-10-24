@@ -319,6 +319,12 @@ then says whether the request was honoured. It refuses to run while a bridge is
 polling (two clients on one account can steal each other's messages), and it
 never touches the stored cursor.
 
+The same run answers a second question: every message it receives is printed with
+the `group_id` and `session_id` the protocol supplied, when it supplied them.
+Nothing in the bridge routes on either — a conversation is keyed by sender — so a
+message posted in a group is the only way to learn whether rooms are delivered at
+all, which is what the roadmap's group-chat item turns on.
+
 ## Security
 
 - WeChat text is **untrusted**, and in this design it becomes a turn in your live
