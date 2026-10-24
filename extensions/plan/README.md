@@ -146,14 +146,14 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
   and the review screen shows it as a read-only `Split` section. On approval the
   team is written into the plan as a `## Team` table — a sentence naming the lead's
   unit, then one row per unit — and the result carries a roster card: the exact
-  commands for the sessions this package cannot start, the merge order, and which
-  unit is the lead's own. The team section is what a joining session reads, so it
-  appears only after approval; a refinement rewrites the plan, and with it the team
-  ceases to exist until the plan is approved again. Refusals name the pair: fewer
-  than two units (with the skeleton advice), overlapping prefixes, a `dependsOn`
-  cycle, more than two owners plus the lead, a unit with no test, an owner unit
-  that claims a shared file, and a value that would break the table. See
-  [Splitting a plan](#splitting-a-plan).
+  commands for the sessions this package cannot start, the merge order, which unit
+  is the lead's own, and the lead's own label or the rename that sets it. The team
+  section is what a joining session reads, so it appears only after approval; a
+  refinement rewrites the plan, and with it the team ceases to exist until the plan
+  is approved again. Refusals name the pair: fewer than two units (with the
+  skeleton advice), overlapping prefixes, a `dependsOn` cycle, more than two owners
+  plus the lead, a unit with no test, an owner unit that claims a shared file, and a
+  value that would break the table. See [Splitting a plan](#splitting-a-plan).
 - **Branch-aware.** The enabled flag and the review baseline are custom session
   entries, so `/resume` and `/tree` restore the right mode and keep the
   changed-section markers.
@@ -174,8 +174,8 @@ exit_plan_mode({
 })
 ```
 
-The result prints the roster card, which is all the package can do about sessions
-it cannot start:
+The result prints the roster card, which is all the package can do for the sessions
+it cannot start — and the one line it can act on for the session it is in:
 
 ```text
 Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
