@@ -75,15 +75,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [`docs/development.md`](./docs/development.md#one-doc-per-extension) is rebuilt
   around that section, the `README.md` beside each extension's code is gone, so
   the page is its only doc, and `test/extension-docs.test.ts` holds the heading
-  order, the three-column table, the Markdown-free `extensions/` tree, and the
+  order, the capability table, the Markdown-free `extensions/` tree, and the
   rule that every tool and command an extension registers is named in it.
   `package.json` ships `docs/extensions/**`, so the pages travel with the
-  published package. WeChat, bytefly, and plan rank their capability rows by user
-  value and add a `Status` column for shipped, unreleased, and partial
+  published package. WeChat, bytefly, plan, and check rank their capability rows
+  by user value and add a `Status` column for shipped, unreleased, and partial
   capabilities; bytefly also names its theme, status-chip, delegated-cost,
-  tariff, proactive health, Pi-release, and reload capabilities, and plan names
-  its git-shell, delegation, goal, split-gate, stale-step, path, and store
-  safeguards.
+  tariff, proactive health, Pi-release, and reload capabilities; plan names its
+  git-shell, delegation, goal, split-gate, stale-step, path, and store
+  safeguards; and check names its plan-mode refusal, single-run guard, target
+  selection, rerun, and detection families.
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by
