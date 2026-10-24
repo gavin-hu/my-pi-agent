@@ -1,6 +1,6 @@
 ---
 name: init
-description: "Initialize or refresh AGENTS.md through a built-in interactive interview and a reviewed plan. Use when the user runs /skill:init or asks to set up project agent instructions."
+description: "Initialize or refresh AGENTS.md through a built-in interactive interview and a reviewed plan. Run /skill:init to start it."
 disable-model-invocation: true
 ---
 

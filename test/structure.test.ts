@@ -507,7 +507,7 @@ describe("prerequisite declarations", () => {
 describe("doc links", () => {
 	/** Every Markdown doc a user or contributor reads, from the root and the doc trees. */
 	function docFiles(): string[] {
-		const trees = ["docs", "extensions", "lib", "test", ".github"].map((dir) => docPath(repo, dir));
+		const trees = ["docs", "extensions", "lib", "skills", "test", ".github"].map((dir) => docPath(repo, dir));
 		const rootDocs = readdirSync(repo)
 			.filter((name) => name.endsWith(".md"))
 			.map((name) => docPath(repo, name));
