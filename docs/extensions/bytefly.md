@@ -10,41 +10,47 @@ default, and from `bytefly.json` otherwise.
 
 ## Capabilities
 
-Three groups: the terminal chrome, the control center `/bytefly` opens, and the
-upkeep that runs on its own.
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
 
 ### Chrome
 
-| Capability | How | What you get |
-|---|---|---|
-| Startup header | `quietStartup` | One two-tone nameplate with the agent and chrome versions and the live help keys, in place of Pi's startup header and resource listing. |
-| Two-line footer | every `tui` session | Location, branch, context, spend, and model on two lines that shed parts rather than clip. |
-| Priced session total | the `price` section of `bytefly.json` | The session's spend in yuan or dollars, with DeepSeek priced out of the box. |
-| User-message nameplate | every `tui` session | Each user message opens with a two-row `You` label and rule. |
-| Turn receipt | the `bytefly-separator` entry | One rule per completed turn, recording its number, duration, tool count, and outcome. |
-| Shared notices | the `my-pi-agent/notice` type | Any extension's notice renders at the transcript margin with a severity-coloured rail. |
-| Compaction canvas | the shipped `themes/` palettes | Pi's `/compact` block keeps its content and loses its fill, so it sits on the canvas. |
-| Tool-block frame | `registerToolRenderer` | Every tool block leads with its own call line and hangs its result from the transcript rail. |
-| Working line | `ctx.ui.setWorkingMessage` | The working row counts seconds, then names the running tool and how many tools the run has started. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Startup header | `quietStartup` | One two-tone nameplate with the agent and chrome versions and the live help keys, in place of Pi's startup header and resource listing. | Shipped |
+| Two-line footer | every `tui` session | Location, branch, context, spend, and model on two lines that shed parts rather than clip. | Shipped |
+| Extension status chips | `footerData.getExtensionStatuses()` | Worktree, browse, plan, and alert statuses appear in the footer, using each extension's own colour. | Shipped |
+| Priced session total | the `price` section of `bytefly.json` | The session's spend in yuan or dollars, with DeepSeek priced out of the box. | Shipped |
+| Delegated-run cost roll-up | the `↳` footer segment | A finished subagent's cost appears beside the session total, without merging the two ledgers. | Shipped |
+| User-message nameplate | every `tui` session | Each user message opens with a two-row `You` label and rule. | Shipped |
+| Turn receipt | the `bytefly-separator` entry | One rule per completed turn, recording its number, duration, tool count, and outcome. | Shipped |
+| Shared notices | the `my-pi-agent/notice` type | Any extension's notice renders at the transcript margin with a severity-coloured rail. | Shipped |
+| Compaction canvas | the shipped `themes/` palettes | Pi's `/compact` block keeps its content and loses its fill, so it sits on the canvas. | Shipped |
+| Tool-block frame | `registerToolRenderer` | Every tool block leads with its own call line and hangs its result from the transcript rail. | Shipped |
+| Working line | `ctx.ui.setWorkingMessage` | The working row counts seconds, then names the running tool and how many tools the run has started. | Shipped |
 
 ### Control center
 
-| Capability | How | What you get |
-|---|---|---|
-| Extension list | `/bytefly` | Every resolved extension with an enable checkbox, one health verdict, and its findings. |
-| Skill list | `/bytefly skills` | Every resolved skill with the same checkbox and the description its `SKILL.md` declares. |
-| Settings list | `/bytefly settings` | The curated preferences with each value beside its label, editable in place. |
-| Scoped writes | `Tab`, `Space`, `x` | A toggle lands in the personal or project `settings.json`, and `x` clears a project override. |
-| Health report | `run_doctor`, `/bytefly doctor` | Prerequisites, parse errors, and aged rate tables as text and typed data. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Extension list | `/bytefly` | Every resolved extension with an enable checkbox, one health verdict, and its findings. | Shipped |
+| Settings list | `/bytefly settings` | The curated preferences with each value beside its label, editable in place. | Shipped |
+| Theme selection | the `Theme` row in `/bytefly settings` | `system` and the package's `bytefly-dark` and `bytefly-light` palettes are one selection; a reload applies it. | Shipped |
+| Skill list | `/bytefly skills` | Every resolved skill with the same checkbox and the description its `SKILL.md` declares. | Shipped |
+| Scoped writes | `Tab`, `Space`, `x` | A toggle lands in the personal or project `settings.json`, and `x` clears a project override. | Shipped |
+| Reload after changes | `/bytefly` after a pending write | The screen offers the reload that applies extension, skill, or setting changes instead of leaving the session to be restarted by hand. | Shipped |
+| Health report | `run_doctor`, `/bytefly doctor` | Prerequisites, parse errors, and aged rate tables as text and typed data. | Shipped |
 
 ### Upkeep
 
-| Capability | How | What you get |
-|---|---|---|
-| Session budget alert | `price.budget` | One notice, and one OS notification, when the session total reaches the threshold. |
-| Unpriced-record notice | `price.currency.code` | A `CNY` session names the records it could not price, and the two ways to fix it. |
-| Desktop notifications | `notify.enabled`, `notify.turnFinished`, `notify.needsInput`, `notify.jobFinished`, `notify.matchFound` | An OS notification when a run settles, the agent needs you, a job finishes, or a watcher matches. |
-| Update check | `/bytefly update` | One notice per session lists every package behind, and the header marks a new version. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Currency and peak tariff | `price.currency.code`, `price.peak` | `CNY` and `USD` are separate pricing methods with published rates; DeepSeek's peak windows apply per token record. | Shipped |
+| Session budget alert | `price.budget` | One notice, and one OS notification, when the session total reaches the threshold. | Shipped |
+| Unpriced-record notice | `price.currency.code` | A `CNY` session names the records it could not price, and the two ways to fix it. | Shipped |
+| Desktop notifications | `notify.enabled`, `notify.turnFinished`, `notify.needsInput`, `notify.jobFinished`, `notify.matchFound` | An OS notification when a run settles, the agent needs you, a job finishes, or a watcher matches. | Shipped |
+| Proactive health check | `doctor.proactive` | At session start, when the startup header is on, a hard requirement is probed once and reported before the first turn. | Shipped |
+| Update check | `/bytefly update` | One notice per session lists every package behind, and the header marks a new version. | Shipped |
+| Pi release notice | `automatic: Pi's release notice` | Pi's own newer version gets the same themed notice and header marker, without a second check. | Shipped |
 
 ## Quickstart
 
