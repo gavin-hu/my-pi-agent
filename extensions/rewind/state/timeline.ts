@@ -9,8 +9,8 @@
  */
 
 import type { SessionEntry, SessionMessageEntry } from "@earendil-works/pi-coding-agent";
-import { summarizePrompt } from "./format.ts";
-import type { Snapshot } from "./types.ts";
+import { summarizePrompt } from "../text/format.ts";
+import type { Snapshot } from "../types.ts";
 
 /** What a rewind can restore for one point. */
 export type RewindScope = "both" | "conversation" | "code";

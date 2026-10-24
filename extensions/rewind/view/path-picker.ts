@@ -13,14 +13,14 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
-import { screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { checkbox, listRow } from "../../lib/tui/rows.ts";
-import { paint } from "../../lib/tui/tokens.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { checkbox, listRow } from "../../../lib/tui/rows.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
 import { ChecklistScreen } from "./checklist.ts";
-import { baseName, expandGroup, groupPaths, SELECTION_MARKS, type ChangedPath, type PathGroup } from "./paths.ts";
+import { baseName, expandGroup, groupPaths, SELECTION_MARKS, type ChangedPath, type PathGroup } from "../text/paths.ts";
 
 export interface PathPickerOptions {
 	/** The changed paths the snapshot differs on. */

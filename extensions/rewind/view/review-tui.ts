@@ -13,18 +13,18 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TuiMouseEvent, TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { clip } from "../../lib/tui/columns.ts";
-import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { sanitizeLine } from "../../lib/format.ts";
-import { fitRows, formatRange, isCloseKey, wheelDelta } from "../../lib/tui/cursor.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { LinePane } from "../../lib/tui/line-pane.ts";
-import { checkbox, emptyState, listRow } from "../../lib/tui/rows.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
-import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { fitRows, formatRange, isCloseKey, wheelDelta } from "../../../lib/tui/cursor.ts";
+import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { LinePane } from "../../../lib/tui/line-pane.ts";
+import { checkbox, emptyState, listRow } from "../../../lib/tui/rows.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
+import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
 import { ChecklistScreen } from "./checklist.ts";
-import { formatReviewDetail, formatReviewEntryCounts, formatReviewSummary } from "./format.ts";
-import { SELECTION_MARKS, type PathChange, type ReviewEntry } from "./paths.ts";
+import { formatReviewDetail, formatReviewEntryCounts, formatReviewSummary } from "../text/format.ts";
+import { SELECTION_MARKS, type PathChange, type ReviewEntry } from "../text/paths.ts";
 
 /** Rows a diff screen shows when the terminal height is unknown. */
 const DIFF_DEFAULT_ITEMS = 20;

@@ -7,7 +7,7 @@
  */
 
 import { commitMessages, deleteRef, listRefs, type RunGit } from "./git.ts";
-import type { Snapshot, SnapshotReason } from "./types.ts";
+import type { Snapshot, SnapshotReason } from "../types.ts";
 
 /** Prefix of the metadata line in a snapshot commit body. */
 export const META_MARKER = "pi-rewind: ";

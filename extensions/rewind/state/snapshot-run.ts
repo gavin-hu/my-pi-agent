@@ -10,7 +10,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { summarizePrompt } from "./format.ts";
+import { summarizePrompt } from "../text/format.ts";
 import { createSnapshotPolicy, type SnapshotPolicy } from "./policy.ts";
 import type { RewindRuntime } from "./runtime.ts";
 

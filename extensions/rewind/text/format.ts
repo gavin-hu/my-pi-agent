@@ -7,10 +7,10 @@
  */
 
 import { sliceByColumn, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { sanitizeLine, stripControlChars } from "../../lib/format.ts";
-import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { sanitizeLine, stripControlChars } from "../../../lib/format.ts";
+import { GLYPHS, SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { SELECTION_MARKS, type ReviewEntry } from "./paths.ts";
-import type { RestoreSummary } from "./types.ts";
+import type { RestoreSummary } from "../types.ts";
 
 /** Longest prompt summary shown before truncation. */
 const LABEL_WIDTH = 48;

@@ -9,9 +9,9 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createReadOnlyPolicy } from "../../lib/policy.ts";
-import { ASK_USER_QUESTION_TOOL, GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
-import type { RewindConfig } from "./config.ts";
+import { createReadOnlyPolicy } from "../../../lib/policy.ts";
+import { ASK_USER_QUESTION_TOOL, GOAL_TOOL, TODO_TOOL } from "../../../lib/tool-names.ts";
+import type { RewindConfig } from "../config/config.ts";
 
 /** Tools that only read files or track session state, so they never snapshot. */
 const READER_TOOLS = ["read", "grep", "find", "ls", TODO_TOOL, GOAL_TOOL];

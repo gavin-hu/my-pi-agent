@@ -31,7 +31,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	memory: ["store", "format", "tools", "tui"],
 	plan: ["plans", "feedback", "tools", "review-prompt", "web", "web-share", "commands", "runtime", "tui", "extension"],
 	question: ["tools", "tui", "extension"],
-	rewind: ["store", "review", "runtime", "extension"],
+	rewind: ["commands/review", "state/runtime", "transport/store", "extension"],
 	subagent: ["agents", "run", "render", "extension"],
 	todo: ["tools", "runtime", "ui"],
 	watch: ["runtime", "tools", "ui"],

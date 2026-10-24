@@ -2,10 +2,10 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { isoTime } from "../../test/helpers/entries.ts";
-import { tempDir, useEnv, withAgentDir } from "../../test/helpers/env.ts";
-import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { isoTime } from "../../../test/helpers/entries.ts";
+import { tempDir, useEnv, withAgentDir } from "../../../test/helpers/env.ts";
+import { createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
 import {
 	answerScope as answer,
 	branchWithUser,
@@ -22,9 +22,9 @@ import {
 	setupRewind,
 	snapshotInput,
 	WRITE_TOOL,
-} from "../../test/helpers/fixtures/rewind.ts";
-import { runSlowSuites } from "../../test/helpers/slow-suite.ts";
-import { DEFAULT_CONFIG } from "./config.ts";
+} from "../../../test/helpers/fixtures/rewind.ts";
+import { runSlowSuites } from "../../../test/helpers/slow-suite.ts";
+import { DEFAULT_CONFIG } from "../config/config.ts";
 import {
 	boundDiff,
 	formatChangeSummary,
@@ -47,7 +47,7 @@ import {
 	previewDiffText,
 	PROMPT_WIDTH,
 	summarizePrompt,
-} from "./format.ts";
+} from "../text/format.ts";
 import {
 	applyPatchReverse,
 	busyGitState,
@@ -57,14 +57,14 @@ import {
 	nameStatus,
 	restorePaths,
 	treeFromWorkingTree,
-} from "./git.ts";
-import { buildHunkPatch, parseFilePatch } from "./patch.ts";
-import type { ReviewEntry } from "./paths.ts";
-import { applyRestore, planRestore } from "./restore.ts";
-import { choosePaths } from "./rewind.ts";
-import { RewindListComponent, type RewindListOptions } from "./rewind-tui.ts";
+} from "../transport/git.ts";
+import { buildHunkPatch, parseFilePatch } from "../text/patch.ts";
+import type { ReviewEntry } from "../text/paths.ts";
+import { applyRestore, planRestore } from "../transport/restore.ts";
+import { choosePaths } from "../commands/rewind.ts";
+import { RewindListComponent, type RewindListOptions } from "../view/rewind-tui.ts";
 import { createRuntime, type RewindRuntime } from "./runtime.ts";
-import { createSnapshot } from "./snapshot.ts";
+import { createSnapshot } from "../transport/snapshot.ts";
 import {
 	buildRewindPoints,
 	lastUserEntryId,

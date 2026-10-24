@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { registerRewind } from "../../../extensions/rewind/index.ts";
-import type { RunGit } from "../../../extensions/rewind/git.ts";
-import type { SnapshotInput } from "../../../extensions/rewind/snapshot.ts";
-import { META_MARKER } from "../../../extensions/rewind/store.ts";
+import type { RunGit } from "../../../extensions/rewind/transport/git.ts";
+import type { SnapshotInput } from "../../../extensions/rewind/transport/snapshot.ts";
+import { META_MARKER } from "../../../extensions/rewind/transport/store.ts";
 import type { Snapshot } from "../../../extensions/rewind/types.ts";
 import { useEnv } from "../env.ts";
 import { createFakePi, emit, type FakePi } from "../fakes.ts";

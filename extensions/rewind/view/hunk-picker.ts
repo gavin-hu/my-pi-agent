@@ -11,15 +11,15 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine } from "../../lib/format.ts";
-import { screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { checkbox, listRow } from "../../lib/tui/rows.ts";
-import { paint } from "../../lib/tui/tokens.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { checkbox, listRow } from "../../../lib/tui/rows.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
 import { ChecklistScreen } from "./checklist.ts";
-import { formatReviewEntryCounts } from "./format.ts";
-import type { Hunk } from "./patch.ts";
+import { formatReviewEntryCounts } from "../text/format.ts";
+import type { Hunk } from "../text/patch.ts";
 
 export interface HunkPickerOptions {
 	/** The file the hunks belong to. */

@@ -49,7 +49,7 @@ const SAME_NAME_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
 		"the Markdown renderer stays free of TUI imports; its blank test is a local one-liner",
 	],
 	[
-		"extensions/rewind/timeline.ts:messageText",
+		"extensions/rewind/state/timeline.ts:messageText",
 		"flattens an unknown session content value; lib messageText takes a tool result",
 	],
 	[

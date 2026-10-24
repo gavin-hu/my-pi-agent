@@ -9,13 +9,13 @@
  */
 
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../../lib/rails.ts";
+import { withRailsSuppressed } from "../../../lib/rails.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { formatChangeSummary, formatRestoreText, previewDiffText } from "./format.ts";
-import { PathPickerComponent } from "./path-picker.ts";
-import type { ChangedPath } from "./paths.ts";
-import type { RewindRuntime } from "./runtime.ts";
-import { rewindScopes, type RewindPoint, type RewindScope } from "./timeline.ts";
+import { formatChangeSummary, formatRestoreText, previewDiffText } from "../text/format.ts";
+import { PathPickerComponent } from "../view/path-picker.ts";
+import type { ChangedPath } from "../text/paths.ts";
+import type { RewindRuntime } from "../state/runtime.ts";
+import { rewindScopes, type RewindPoint, type RewindScope } from "../state/timeline.ts";
 
 /** Human labels for the scope picker, in menu order. */
 const SCOPE_LABELS: Record<RewindScope, string> = {
