@@ -37,7 +37,6 @@ ${WEB_COMPONENTS_CSS}
 .browse-dotfile .bf-table__name a{opacity:.72}
 .browse-broken{color:var(--muted);text-decoration:line-through}
 .browse-link-mark{color:var(--muted);font-size:var(--fs-xs)}
-.browse-when{display:none}
 body.palette-open{overflow:hidden}
 .browse-diff{font-family:var(--font-mono);gap:5px}
 .browse-diff:hover{color:var(--accent);text-decoration:none}
@@ -134,6 +133,10 @@ body.palette-open{overflow:hidden}
    keeps its own width — shrunk, a label wraps and a segmented control clips. */
 .bf-card__actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}
 .bf-card__actions>*{flex:0 0 auto}
+/* A trailing date or one-word change state costs the column a reader is choosing
+   between: at 390px the listing gave the name 106px and every entry truncated,
+   and the diff gave a path 140px while "modified" held 130. */
+.browse-listing .bf-table__when,.browse-diff .browse-diff-word{display:none}
 }
 /* A printed page scrolls nothing: the card and its body open up, the pinned hunk
    header stops pinning, and the progress hairline belongs to the screen. */

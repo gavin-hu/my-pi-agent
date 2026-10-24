@@ -177,6 +177,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one scrolling row. The download moves into the action group the diff head already
   had, so a control keeps its own width on the way: shrunk, `copy contents` wrapped
   onto two lines and the `rendered`/`raw` control lost its second half.
+- `file-browse`: the listing and the diff index give their name and path columns a
+  phone's width. Both fix their trailing columns in pixels — `Modified` at 140 and
+  `Changes` at 130 — so at 390px a 342px table gave the name 106px and truncated every
+  entry, and gave a changed path 140px while the word `modified` held 130. Below 520px
+  those two columns are dropped: the diff keeps its change letter on the badge, and
+  the listing's names now fit whole at 360px too.
 - `memory`: a same-size edit to a store is picked up inside one millisecond instead
   of a whole one. The freshness stamp is the nanosecond field a bigint `stat`
   returns, compared with the size as before, so an editor that rewrites a line in

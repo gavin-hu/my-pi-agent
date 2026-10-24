@@ -225,6 +225,24 @@ describe("page chrome", () => {
 		expect(BROWSE_CSS).not.toContain("direction:ltr");
 	});
 
+	test("drops a phone's trailing table column so the name keeps the room", () => {
+		// The listing's Modified and the diff's Changes are the widest fixed columns
+		// and the least of what a reader is choosing between: at 390px the name had
+		// 106px of 342 and every entry truncated. The diff keeps its change letter on
+		// the badge, which carries the same label.
+		expect(BROWSE_CSS).toContain(".browse-listing .bf-table__when,.browse-diff .browse-diff-word{display:none}");
+		const rows = [entry({ name: "CHANGELOG.md", rel: "CHANGELOG.md" })];
+		expect(directoryPage({ listing: listing(rows) })).toContain('<th scope="col" class="bf-table__when">');
+		const diff = renderDiffPage({
+			rootLabel: ROOT_LABEL,
+			mode: "head",
+			files: [changed({ rel: "src/config.ts" })],
+			stat: " src/config.ts | 2 +-",
+			tree: TREE,
+		});
+		expect(diff).toContain('<th scope="col" class="browse-diff-word">');
+	});
+
 	test("prints the page without its clipping", () => {
 		// The base layer drops the chrome; a browse page is also a card with an
 		// inner scroller and a pinned hunk header, and neither belongs on paper.

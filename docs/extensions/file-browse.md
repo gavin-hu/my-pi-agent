@@ -242,9 +242,11 @@ stylesheet colours. It backs both the plain text view and fenced code blocks in
 the rendered Markdown view.
 
 The Name / Size / Modified headers sort the current directory, directories
-first, and the choice is remembered per browser. Copy a file's root-relative
-path or its contents, copy a `path:12-30` reference for the lines you selected,
-and toggle line wrapping for text and raw views.
+first, and the choice is remembered per browser. Below 520px the Modified column
+is dropped, so the name keeps the row instead of truncating to the first few
+characters. Copy a file's root-relative path or its contents, copy a
+`path:12-30` reference for the lines you selected, and toggle line wrapping for
+text and raw views.
 
 ## Markdown preview
 
@@ -314,11 +316,13 @@ changes at all.
 
 A `● N changes +A −D` chip links to `/diff`, a change overview with
 `git diff --stat` and a per-file status table, and `/diff/<rel>` renders one
-file's unified diff, whose head carries its own `+A −D` and hunk count. Changed
-lines are syntax-highlighted with the file's language, and dirty files and their
-directories carry a marker in the listing and the tree. The scope is switchable
-between `head` / `staged` / `worktree`; untracked files show as all-add, an
-unborn `HEAD` falls back to the index, and a non-repository is a plain empty
+file's unified diff, whose head carries its own `+A −D` and hunk count. Below
+520px that table's change word is dropped, where the badge already carries the
+same letter and the path needs the room. Changed lines are syntax-highlighted
+with the file's language, and dirty files and their directories carry a marker
+in the listing and the tree. The scope is switchable between `head` / `staged` /
+`worktree`; untracked files show as all-add, an unborn `HEAD` falls back to the
+index, and a non-repository is a plain empty
 state. Read-only, capped, and rendered with the shared diff colours. A diff's
 hunk headers pin to the top of the code viewport while its body scrolls.
 
