@@ -17,6 +17,10 @@
  * - A turn's answer is the text it produced. A requested `/stop` says `stopped`
  *   and drops the partial answer, a finished turn with no text says `noText`,
  *   and a thrown turn says `failed` — never silence.
+ * - A close that abandons the session says `abandoned` once per peer that still
+ *   had work, after its turn stops and before its session goes. The turn's own
+ *   line is suppressed then, and each notice carries its own deadline, so a
+ *   connection that never answers cannot hold the exit.
  * - The session is opened lazily, reset on request, and disposed after an idle
  *   timeout, so a peer who stops writing does not keep a context alive.
  *
@@ -25,6 +29,7 @@
 
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { messageOf } from "./errors.ts";
+import type { NoticeKind } from "./notices.ts";
 import type { PeerSession } from "./peer-session.ts";
 import { createReplyPipeline, type ReplyPipeline } from "./reply-pipeline.ts";
 import { defaultTimer, type ArmTimer } from "./timer.ts";
@@ -45,13 +50,13 @@ export interface PeerItem {
 }
 
 /** What the worker says to the peer when a turn ends without text of its own. */
-export type TurnFallback = "stopped" | "noText" | "failed" | "compacted";
+export type TurnFallback = Extract<NoticeKind, "stopped" | "abandoned" | "noText" | "failed" | "compacted">;
 
 export interface PeerWorkerDeps {
 	/** Open (or resume) one peer's session; the bridge owns the directory layout. */
 	openSession: (peer: string, options: { fresh: boolean }) => Promise<PeerSession>;
-	/** Deliver one turn's text to the peer; false stops the rest of a stream. */
-	send: (item: PeerItem, text: string) => Promise<boolean>;
+	/** Deliver one line to the peer; false stops the rest of a stream. */
+	send: (item: PeerItem, text: string, options?: { signal?: AbortSignal }) => Promise<boolean>;
 	/** The fallback line for a turn that produced no text. */
 	fallback: (item: PeerItem, reason: TurnFallback) => string;
 	/** A turn started / finished for this item, for typing and notices. */
@@ -102,10 +107,13 @@ export interface PeerWorker {
 	state(peer: string): PeerState;
 	snapshot(): PeerSnapshot[];
 	/** Drop every session; queued messages are dropped with them. */
-	close(): Promise<void>;
+	close(options?: { abandon?: boolean }): Promise<void>;
 }
 
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+/** How long a shutdown waits for its one notice per peer before giving up. */
+const ABANDON_NOTICE_MS = 5000;
 
 interface PeerEntry {
 	queue: PeerItem[];
@@ -280,6 +288,8 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			unsubscribe();
 			pipelines.delete(item.peer);
 		}
+		// A closing worker has already said, once, that the session ended.
+		if (closed) return;
 		if (reason) await sendPart(deps.fallback(item, reason));
 		if (compacted) await sendPart(deps.fallback(item, "compacted"));
 	}
@@ -311,7 +321,9 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					await runTurn(item, opened);
 				} catch (error) {
 					deps.notify?.(`WeChat session failed for ${item.peer}: ${messageOf(error)}`, "error");
-					await deps.send(item, deps.fallback(item, "failed"));
+					// A closing worker says one line of its own instead: the peer does not need
+					// two reasons, and the second send may well fail on the dying connection.
+					if (!closed) await deps.send(item, deps.fallback(item, "failed"));
 				} finally {
 					target.running = undefined;
 					target.startedAt = undefined;
@@ -322,6 +334,43 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 					wake();
 				}
 			})();
+		}
+	}
+
+	/** One abandon notice; true when the deadline, not the transport, gave up on it. */
+	async function announce(item: PeerItem): Promise<boolean> {
+		const controller = new AbortController();
+		const cancel = armTimer(ABANDON_NOTICE_MS, () => controller.abort());
+		try {
+			await deps.send(item, deps.fallback(item, "abandoned"), { signal: controller.signal });
+			return controller.signal.aborted;
+		} catch (error) {
+			// A send the deadline cancelled rejects like any aborted request; that is the
+			// deadline's report. Anything else is the transport's own failure.
+			if (controller.signal.aborted) return true;
+			deps.notify?.(`WeChat could not tell ${item.peer} the session ended: ${messageOf(error)}`, "warning");
+			return false;
+		} finally {
+			cancel();
+		}
+	}
+
+	/**
+	 * Tell every peer that still had work that the session ended.
+	 *
+	 * One line per peer, sent after the turns have stopped and before the sessions
+	 * go. Each send carries its own deadline, so a connection that never answers
+	 * cannot hold the exit; a deadline is reported here because the deliverer keeps
+	 * an aborted send quiet — an abort is normally the peer's own `/stop`.
+	 */
+	async function announceAbandoned(items: readonly PeerItem[]): Promise<void> {
+		const gaveUp = await Promise.all(items.map((item) => announce(item)));
+		for (const [index, timedOut] of gaveUp.entries()) {
+			if (!timedOut) continue;
+			deps.notify?.(
+				`WeChat could not tell ${items[index]?.peer ?? ""} the session ended: no reply in ${ABANDON_NOTICE_MS / 1000} s.`,
+				"warning",
+			);
 		}
 	}
 
@@ -370,8 +419,17 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			return [...peers.keys()].map((peer) => ({ peer, state: stateOf(peer) }));
 		},
 
-		async close(): Promise<void> {
+		async close(options?: { abandon?: boolean }): Promise<void> {
 			closed = true;
+			// Captured before the teardown forgets it: a running turn and a queue that
+			// never started are both an answer the peer will not get.
+			const abandoned: PeerItem[] = [];
+			if (options?.abandon) {
+				for (const target of peers.values()) {
+					const item = target.running ?? target.queue[0];
+					if (item) abandoned.push(item);
+				}
+			}
 			pipelines.clear();
 			const runningAborts = [...peers.values()]
 				.filter((target) => target.session)
@@ -383,6 +441,7 @@ export function createPeerWorker(deps: PeerWorkerDeps): PeerWorker {
 			}
 			aborted.clear();
 			fresh.clear();
+			await announceAbandoned(abandoned);
 		},
 	};
 }

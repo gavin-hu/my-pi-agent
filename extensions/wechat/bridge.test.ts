@@ -1239,3 +1239,50 @@ describe("bridge remote prompts", () => {
 		expect(await answer).toEqual({ kind: "cancelled" });
 	});
 });
+
+describe("abandoned turns", () => {
+	const NOTICE = "The session stopped before this answer finished — send it again when it's back.";
+
+	test("tells the peer when a close cuts its turn off", async () => {
+		// `respectSignal` makes the transport refuse an already-aborted send, as `fetch`
+		// does, so a notice that inherited the poll's controller would be lost here.
+		const { client, sent } = controllableClient({ respectSignal: true });
+		const { deps, injected } = makeDeps(client, {}, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		await bridge.close();
+		expect(sent.map((message) => message.text)).toEqual([NOTICE]);
+	});
+
+	test("says nothing once the answer has arrived", async () => {
+		const { client, sent } = controllableClient({ respectSignal: true });
+		const { deps, injected } = makeDeps(client);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+		await waitFor(() => sent.length === 1);
+
+		await bridge.close();
+		expect(sent.map((message) => message.text)).toEqual(["pong"]);
+	});
+
+	test("reports an abandon notice the transport could not deliver, once", async () => {
+		const { client } = controllableClient();
+		const notices: string[] = [];
+		const failing = {
+			...client,
+			sendMessage: async () => {
+				throw new Error("network down");
+			},
+		} as unknown as WechatClient;
+		const { deps, injected } = makeDeps(failing, { notify: (message) => notices.push(message) }, { hold: true });
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+
+		await bridge.close();
+		expect(notices.filter((message) => message.includes("network down"))).toHaveLength(1);
+	});
+});

@@ -882,6 +882,8 @@ describe("peer worker", () => {
 			concurrency?: number;
 			/** Whether the transport accepts a part; defaults to yes. */
 			accept?: (text: string) => boolean;
+			/** How a send ends: accepted, thrown, or held until its signal aborts. */
+			send?: "accept" | "throw" | "untilAborted";
 		} = {},
 	) {
 		const sent: Array<{ peer: string; text: string }> = [];
@@ -896,8 +898,18 @@ describe("peer worker", () => {
 				sessions.push(fake);
 				return fake.peerSession;
 			},
-			send: async (target, text) => {
+			send: async (target, text, sendOptions) => {
 				sent.push({ peer: target.peer, text });
+				if (options.send === "throw") throw new Error("transport down");
+				if (options.send === "untilAborted") {
+					await new Promise<void>((resolve, reject) => {
+						if (!sendOptions?.signal) {
+							resolve();
+							return;
+						}
+						sendOptions.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+					});
+				}
 				return options.accept?.(text) ?? true;
 			},
 			fallback: (_target, reason) => `fallback:${reason}`,
@@ -1229,6 +1241,63 @@ describe("peer worker", () => {
 		worker.enqueue(peerItem("after close"));
 		await settle();
 		expect(worker.state("alice@im.wechat")).toEqual({ status: "idle", queued: 0 });
+	});
+
+	test("tells each peer that still had work when an abandoning close ends its turn", async () => {
+		const { worker, sent } = workerHarness({ holdFirst: true });
+		worker.enqueue(peerItem("first"));
+		worker.enqueue(peerItem("second"));
+		worker.enqueue(peerItem("theirs", "bob@im.wechat"));
+		await settle();
+		await worker.close({ abandon: true });
+
+		// One line per peer, not per message: alice's running turn and her queued one
+		// share the one bubble, and bob's never-started turn gets his own.
+		expect(sent.map((message) => `${message.peer} ${message.text}`).sort()).toEqual([
+			"alice@im.wechat fallback:abandoned",
+			"bob@im.wechat fallback:abandoned",
+		]);
+	});
+
+	test("says nothing on an abandoning close once the answer has arrived", async () => {
+		const { worker, sent } = workerHarness({ answers: ["pong"] });
+		worker.enqueue(peerItem("ping"));
+		await waitFor(() => sent.length === 1);
+		await worker.close({ abandon: true });
+		expect(sent.map((message) => message.text)).toEqual(["pong"]);
+	});
+
+	test("says nothing when the close is not an abandonment", async () => {
+		// The expiry reconnect closes the old worker and opens a new one; its token is
+		// dead, so a notice there could only fail.
+		const { worker, sent } = workerHarness({ holdFirst: true });
+		worker.enqueue(peerItem("one"));
+		await settle();
+		await worker.close();
+		expect(sent).toEqual([]);
+	});
+
+	test("reports an abandon notice the transport threw, once", async () => {
+		const { worker, notices } = workerHarness({ holdFirst: true, send: "throw" });
+		worker.enqueue(peerItem("one"));
+		await settle();
+		await worker.close({ abandon: true });
+		expect(notices).toHaveLength(1);
+		expect(notices[0]).toContain("could not tell alice@im.wechat");
+	});
+
+	test("gives up on an abandon notice that never settles, and says so once", async () => {
+		const { worker, notices, timers } = workerHarness({ holdFirst: true, send: "untilAborted" });
+		worker.enqueue(peerItem("one"));
+		await settle();
+		const closing = worker.close({ abandon: true });
+		// The shutdown waits on the notice until its own deadline, then reports it.
+		await settle();
+		expect(timers.find((timer) => timer.ms === 5000)).toBeDefined();
+		timers.find((timer) => timer.ms === 5000)?.fn();
+		await closing;
+		expect(notices).toHaveLength(1);
+		expect(notices[0]).toContain("no reply in 5 s");
 	});
 });
 

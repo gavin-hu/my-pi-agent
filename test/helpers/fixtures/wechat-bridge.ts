@@ -91,6 +91,8 @@ export interface ClientOptions {
 	media?: Record<string, Uint8Array>;
 	/** Omit the typing ticket, disabling the indicator. */
 	noTicket?: boolean;
+	/** Refuse a send whose signal is already aborted, as `fetch` would. */
+	respectSignal?: boolean;
 }
 
 export function makeClient(
@@ -118,7 +120,9 @@ export function makeClient(
 		sendMessage: async (
 			_account: BotCredentials,
 			args: { to: string; text: string; contextToken?: string },
+			signal?: AbortSignal,
 		): Promise<{ ret?: number }> => {
+			if (options.respectSignal && signal?.aborted) throw new Error("aborted");
 			sent.push({ to: args.to, text: args.text, contextToken: args.contextToken });
 			return { ret: 0 };
 		},
@@ -243,7 +247,7 @@ export function makeDeps(client: WechatClient, overrides: Partial<BridgeDeps> = 
  * A client that delivers one inbound message, then holds the poll open until the
  * test pushes the next one, so a prompt can be answered deterministically.
  */
-export function controllableClient(): {
+export function controllableClient(options: ClientOptions = {}): {
 	client: WechatClient;
 	sent: Array<{ to: string; text: string; contextToken?: string }>;
 	sentFiles: Array<{ to: string; fileName: string; len: string }>;
@@ -264,7 +268,12 @@ export function controllableClient(): {
 				signal?.addEventListener("abort", () => resolve({ ret: 0, msgs: [], buf: "c" }), { once: true });
 			});
 		},
-		sendMessage: async (_account: BotCredentials, args: { to: string; text: string; contextToken?: string }) => {
+		sendMessage: async (
+			_account: BotCredentials,
+			args: { to: string; text: string; contextToken?: string },
+			signal?: AbortSignal,
+		) => {
+			if (options.respectSignal && signal?.aborted) throw new Error("aborted");
 			sent.push(args);
 			return { ret: 0 };
 		},

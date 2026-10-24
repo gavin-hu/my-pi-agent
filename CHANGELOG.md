@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `wechat`: a turn abandoned by a close now tells the peer instead of going silent.
+  `/wechat new`, `/reload`, a fork, a logout, and a process exit all stop the
+  peer's running turn, and the shutdown now sends one short line per peer that
+  still had work — “the session stopped before this answer finished” — after the
+  turns stop and before the connection is released. A peer whose messages were
+  only queued gets that same one line rather than a bubble per message, the
+  aborted turn no longer adds its own `failed` line beside it, and each notice is
+  cancelled on its own five-second deadline so a hung connection cannot hold the
+  exit: a notice that could not be delivered is reported on the terminal once and
+  not retried. A reconnect after an expired session keeps the silent path, where
+  the token is already dead.
+
 ### Changed
 
 - `docs`: [`docs/architecture.md`](./docs/architecture.md) is rewritten as the target

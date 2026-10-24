@@ -78,7 +78,7 @@ screenshots.
 | Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | P1 |
 | Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
 | Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
-| Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W8 |
+| Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W7 |
 | Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F5 |
 
 The last row is a paraphrase: the README says "Everything is optional and
@@ -86,26 +86,24 @@ independently toggleable" and "the package upgrades with Pi like any other."
 The column is *Open items*, not the `Next` tier, because a ledger row can be
 closed by work parked in any horizon.
 
-## If only three things ship
+## If only two things ship
 
 1. **P1 — A split's shared files stay the lead's after approval.** Approval
    refuses an owner unit that claims `package.json`; nothing stops that edit once
    the sessions are running.
-2. **W1 — An abandoned WeChat turn tells the peer.** A reload, a fork, or an exit
-   during a turn aborts the reply and leaves the other person waiting in silence.
-3. **S1 — Memory notices a same-size edit in the same tick.** The store compares
+2. **S1 — Memory notices a same-size edit in the same tick.** The store compares
    a millisecond stamp, so an edit that keeps the size and lands inside one tick
    is invisible until `/memory reload`.
 
-These are the three `Now` items: the rest of this file can wait for a later
+These are the two `Now` items: the rest of this file can wait for a later
 release, and the changelog, not this list, records what did.
 
 ## Horizons
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the pack keep what it promised? | `P1`, `W1`, and `S1` ship, each with its test and its README line. |
-| **Next** | Does the daily loop feel finished? | `W2` and `C1` land, or are demoted with the reason recorded. |
+| **Now** | Does the pack keep what it promised? | `P1` and `S1` ship, each with its test and its README line. |
+| **Next** | Does the daily loop feel finished? | `W1` and `C1` land, or are demoted with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -307,23 +305,18 @@ its own health, and the remaining gaps are documented behavior.
   (`file-open` README).
 - WeChat answers one turn at a time across peers; there is no group chat and no
   outbound image, video, or voice; a peer must message first; a full-screen
-  `ctx.ui.custom` dialog cannot be answered from the phone; and a `/wechat new`,
-  `/reload`, fork, or exit during a turn abandons the reply (`wechat` README).
+  `ctx.ui.custom` dialog cannot be answered from the phone; and a turn abandoned
+  by a close ends in one notice rather than an answer (`wechat` README).
 
 **Now**
 
-- **W1 — An abandoned WeChat turn tells the peer.** A `/wechat new`, `/reload`, a
-  fork, or a process exit during a turn aborts the reply, and the peer gets
-  nothing at all. Send one short notice — the session stopped before this answer
-  finished — on the shutdown path, once, best-effort, before the send is aborted;
-  a notice that cannot be delivered is reported in the terminal rather than
-  retried. *Done when* a test through a fake bridge shows exactly one notice per
-  abandoned turn, none when the answer already arrived, and a failed send
-  reported and not repeated.
+Nothing here is queued: the abandoned-turn notice shipped, so a close that cuts a
+peer's turn off says so in one line. The rest of this section is `Next` work or a
+decision.
 
 **Next**
 
-- **W2 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
+- **W1 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
   readable text — indented keys, aligned columns, one record per block — instead
   of a raw blob. No model call and no new dependency, and the HTML heuristic
   path is untouched. *Done when* a fixture of each renders as text, a malformed
@@ -332,19 +325,19 @@ its own health, and the remaining gaps are documented behavior.
 
 **Later**
 
-- **W3 — Per-peer WeChat concurrency.** Give each peer its own interaction
+- **W2 — Per-peer WeChat concurrency.** Give each peer its own interaction
   channel and a fair queue, so two peers can run at once while each peer's own
   turns stay serial. *Done when* a forwarded dialog still has exactly one owner.
-- **W4 — Outbound images.** Send images such as plan screenshots or generated
+- **W3 — Outbound images.** Send images such as plan screenshots or generated
   plots to a peer, not only text and files. This reverses a non-goal; confirm the
   API shape first.
-- **W5 — Group chats.** A separate admission and routing model, not a flag on
+- **W4 — Group chats.** A separate admission and routing model, not a flag on
   the current bridge.
-- **W6 — OCR.** Only if a local, dependency-light engine earns its install size;
+- **W5 — OCR.** Only if a local, dependency-light engine earns its install size;
   otherwise keep the explicit non-goal.
-- **W7 — Readability engine.** Replace the heuristic extractor only with a
+- **W6 — Readability engine.** Replace the heuristic extractor only with a
   measured improvement on a fixture set.
-- **W8 — PPTX and EPUB.** Add both to the `file-read` registry using libraries
+- **W7 — PPTX and EPUB.** Add both to the `file-read` registry using libraries
   already present where possible (`fflate`, `fast-xml-parser`), lazily imported.
   This reverses a documented non-goal; approve before building.
 
@@ -498,6 +491,7 @@ it. A limitation an item owns is named in that section instead, never here.
 | `file-read`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
 | `file-browse`: live status patches only the rows already drawn | A snapshot plus one reload control is honest; making every subfolder live is a different server. |
 | `open_path`: Windows reports only that the launcher started | `explorer` exits non-zero after a successful open and reports nothing for a hidden window. Revisit with a platform API that answers. |
+| `wechat`: an abandoned turn's notice is one attempt and needs a live connection | A notice the transport cannot deliver in five seconds is reported on the terminal, not retried: the session is gone, so there is nothing left to retry from. Revisit if a notice must outlive the session. |
 | `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. |
 | `bytefly`: themes and prompts are not picker sections | A theme is one active selection — a scalar, global setting — and a prompt template is a file Pi discovers; neither is the scoped enable list this screen writes. A decision, not a deferral: revisit if Pi exposes a scoped theme or prompt setting. |
@@ -522,7 +516,7 @@ above.
 - Every number a doc states about the code is derived by a test; the settings
   count is the first, and a count without a guard is a promise waiting to rot.
 - No known path loses work: worktree cleanup, plan approval, job reattachment, a
-  partial rewind, a WeChat turn that is abandoned (`W1`), and a message the bus
+  partial rewind, a WeChat turn that is abandoned, and a message the bus
   cannot read each either preserve the work or say what was lost.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan mode,
   worktree binding, the rewind timeline, and a plan's team — each a session entry
@@ -547,7 +541,7 @@ These stay out unless a roadmap item says otherwise:
 - An OS sandbox, a general branch manager, or a Pi fork.
 - Semantic memory, embeddings, or automatic fact extraction.
 - OCR, PPTX, EPUB, or writing and converting documents (PPTX and EPUB are
-  proposed reversals in `W8`, not current scope).
+  proposed reversals in `W7`, not current scope).
 - Cron and scheduling, a durable job queue, or persisting watchers across
   sessions.
 - Group chats, outbound media other than text and files, or model-callable sends

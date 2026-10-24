@@ -17,6 +17,7 @@ export type NoticeKind =
 	| "media"
 	| "unsupported"
 	| "stopped"
+	| "abandoned"
 	| "noText"
 	| "compacted"
 	| "budget"
@@ -46,6 +47,10 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 		en: "Voice without a transcript and video aren't supported — please send text or an image.",
 	},
 	stopped: { zh: "已停止。", en: "Stopped." },
+	abandoned: {
+		zh: "会话已停止，这条还没答完。恢复后再发一次即可。",
+		en: "The session stopped before this answer finished — send it again when it's back.",
+	},
 	noText: {
 		zh: "这条处理完了，但没有文字输出。",
 		en: "That turn finished without any text to send.",
@@ -70,6 +75,9 @@ const NOTICES: Record<NoticeKind, Record<PeerLanguage, string>> = {
 		en: "Still working on your last message — send /new again after it finishes.",
 	},
 };
+
+/** Every kind the bridge can send, so a check over the catalogue cannot miss one. */
+export const NOTICE_KINDS = Object.keys(NOTICES) as NoticeKind[];
 
 /** Render one notice, with `{n}` replaced when a count applies. */
 export function notice(kind: NoticeKind, lang: PeerLanguage, count?: number): string {
