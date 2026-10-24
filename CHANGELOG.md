@@ -150,6 +150,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is a label bound to a link rather than a name two people can share. The
   update-channel item is deleted rather than deferred, because the release path
   accepts `X.Y.Z` only and publishes to `latest`, so no channel exists to select.
+  The north star is now the end state the file can be checked against — every
+  promise is behavior, a named limitation, or a `doctor` finding — instead of a
+  restatement of the window's items.
 - `docs`: the settings screen is counted as the thirteen rows it builds — eleven
   of them in Project scope — in both entry READMEs, the extension README (its
   prose, its sample frame, and both image alt texts), the configuration
