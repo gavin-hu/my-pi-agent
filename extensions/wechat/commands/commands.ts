@@ -158,9 +158,11 @@ function resetMessage(bridge: Bridge, peer: string): VerbOutcome {
 		: { message: `${label} is running; stop it before starting a new conversation.`, kind: "info" };
 }
 
-function cancelPromptMessage(bridge: Bridge): VerbOutcome {
-	if (!bridge.status().promptPending) return { message: "No prompt is waiting.", kind: "info" };
-	void bridge.channel().cancel();
+function cancelPromptMessage(bridge: Bridge, peer: string): VerbOutcome {
+	if (!bridge.status().prompts.some((prompt) => prompt.peer === peer)) {
+		return { message: "No prompt is waiting.", kind: "info" };
+	}
+	void bridge.channel(peer).cancel();
 	return { message: "Cancelled the waiting prompt.", kind: "info" };
 }
 
@@ -370,9 +372,9 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 						const bridge = deps.getBridge();
 						return bridge ? resetMessage(bridge, peer).message : "WeChat bridge is not running.";
 					},
-					cancelPrompt: () => {
+					cancelPrompt: (focused) => {
 						const bridge = deps.getBridge();
-						return bridge ? cancelPromptMessage(bridge).message : "No prompt is waiting.";
+						return bridge ? cancelPromptMessage(bridge, focused).message : "No prompt is waiting.";
 					},
 					togglePause: async () => {
 						const bridge = deps.getBridge();

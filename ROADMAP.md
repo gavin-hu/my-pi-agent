@@ -78,7 +78,7 @@ screenshots.
 | Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | P1 |
 | Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
 | Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
-| Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W7 |
+| Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W6 |
 | Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F5 |
 
 The last row is a paraphrase: the README says "Everything is optional and
@@ -282,7 +282,8 @@ its own health, and the remaining gaps are documented behavior.
 - `file-read`: in-process PDF/DOCX/DOC/ODT/RTF/XLSX extraction, paged.
 - `file-open`: native open and reveal on three operating systems.
 - `wechat`: one Pi session per peer, inbound text, images, and files, remote
-  dialogs, one message per turn, and serialized replies.
+  dialogs, one message per turn, serialized replies per peer, and two peers'
+  turns at once with a per-peer dialog channel and a fair slot queue.
 
 **Where the promise is thin**
 
@@ -303,8 +304,8 @@ its own health, and the remaining gaps are documented behavior.
   Linux meaning; Windows `explorer` can exit non-zero after a successful open and
   a hidden window is undetected, so only "the launcher started" is known
   (`file-open` README).
-- WeChat answers one turn at a time across peers; there is no group chat and no
-  outbound image, video, or voice; a peer must message first; a full-screen
+- WeChat answers two peers at once, and a third waits; there is no group chat and
+  no outbound image, video, or voice; a peer must message first; a full-screen
   `ctx.ui.custom` dialog cannot be answered from the phone; and a turn abandoned
   by a close ends in one notice rather than an answer (`wechat` README).
 
@@ -325,19 +326,16 @@ decision.
 
 **Later**
 
-- **W2 — Per-peer WeChat concurrency.** Give each peer its own interaction
-  channel and a fair queue, so two peers can run at once while each peer's own
-  turns stay serial. *Done when* a forwarded dialog still has exactly one owner.
-- **W3 — Outbound images.** Send images such as plan screenshots or generated
+- **W2 — Outbound images.** Send images such as plan screenshots or generated
   plots to a peer, not only text and files. This reverses a non-goal; confirm the
   API shape first.
-- **W4 — Group chats.** A separate admission and routing model, not a flag on
+- **W3 — Group chats.** A separate admission and routing model, not a flag on
   the current bridge.
-- **W5 — OCR.** Only if a local, dependency-light engine earns its install size;
+- **W4 — OCR.** Only if a local, dependency-light engine earns its install size;
   otherwise keep the explicit non-goal.
-- **W6 — Readability engine.** Replace the heuristic extractor only with a
+- **W5 — Readability engine.** Replace the heuristic extractor only with a
   measured improvement on a fixture set.
-- **W7 — PPTX and EPUB.** Add both to the `file-read` registry using libraries
+- **W6 — PPTX and EPUB.** Add both to the `file-read` registry using libraries
   already present where possible (`fflate`, `fast-xml-parser`), lazily imported.
   This reverses a documented non-goal; approve before building.
 
@@ -432,7 +430,7 @@ Nothing here makes a false promise today.
   roles a module can play and lets a role earn a directory past roughly twenty
   modules, the way `bytefly/` groups `footer/`, `notice/`, and `separator/` and
   `web-access/` groups `fetch/` and `search/`. Counting modules and not files —
-  a co-located suite is not a module — `wechat` (34 modules) shipped its seven
+  a co-located suite is not a module — `wechat` (35 modules) shipped its seven
   role directories, so `rewind` (25 modules) is the one flat extension past that
   size, and `job` (20 modules), `worktree` (20 modules), and `subagent` (17
   modules) stay flat until they cross it. *Done when* `rewind` holds role
@@ -494,6 +492,7 @@ it. A limitation an item owns is named in that section instead, never here.
 | `file-browse`: live status patches only the rows already drawn | A snapshot plus one reload control is honest; making every subfolder live is a different server. |
 | `open_path`: Windows reports only that the launcher started | `explorer` exits non-zero after a successful open and reports nothing for a hidden window. Revisit with a platform API that answers. |
 | `wechat`: an abandoned turn's notice is one attempt and needs a live connection | A notice the transport cannot deliver in five seconds is reported on the terminal, not retried: the session is gone, so there is nothing left to retry from. Revisit if a notice must outlive the session. |
+| `wechat`: two peers' turns run at once, not more | Every concurrent turn is a full model run on the user's budget, and a phone chat rarely has more than two conversations in flight; the rest wait in a fair queue and are acknowledged. Revisit if `PEER_CONCURRENCY` needs to follow the hardware instead of the conversation. |
 | `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. |
 | `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. |
 | `bytefly`: themes and prompts are not picker sections | A theme is one active selection — a scalar, global setting — and a prompt template is a file Pi discovers; neither is the scoped enable list this screen writes. A decision, not a deferral: revisit if Pi exposes a scoped theme or prompt setting. |
@@ -543,7 +542,7 @@ These stay out unless a roadmap item says otherwise:
 - An OS sandbox, a general branch manager, or a Pi fork.
 - Semantic memory, embeddings, or automatic fact extraction.
 - OCR, PPTX, EPUB, or writing and converting documents (PPTX and EPUB are
-  proposed reversals in `W7`, not current scope).
+  proposed reversals in `W6`, not current scope).
 - Cron and scheduling, a durable job queue, or persisting watchers across
   sessions.
 - Group chats, outbound media other than text and files, or model-callable sends

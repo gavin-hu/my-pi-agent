@@ -48,6 +48,7 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 		refusedPeers: [],
 		mediaDropped: 0,
 		promptPending: false,
+		prompts: [],
 		...overrides,
 	};
 }
@@ -63,6 +64,7 @@ function view(overrides: Partial<StatusView> = {}): StatusView {
 		refusedPeers: [],
 		mediaDropped: 0,
 		promptPending: false,
+		prompts: [],
 		...overrides,
 	};
 }
@@ -199,7 +201,7 @@ describe("statusView", () => {
 				peerCount: 2,
 				queued: 1,
 				promptPending: true,
-				prompt: { peer: "alice@im.wechat", kind: "select", title: "Pick", startedAt: 10 },
+				prompts: [{ peer: "alice@im.wechat", kind: "select", title: "Pick", startedAt: 10 }],
 			}),
 			1000,
 		);
@@ -211,7 +213,7 @@ describe("statusView", () => {
 			peers: 2,
 			queued: 1,
 			promptPending: true,
-			prompt: { peer: "alice", title: "Pick", startedAt: 10 },
+			prompts: [{ peer: "alice", title: "Pick", startedAt: 10 }],
 			now: 1000,
 		});
 	});
@@ -323,19 +325,26 @@ describe("statusBody", () => {
 		expect(body).toContain("waiting for a reply");
 	});
 
-	test("shows the waiting prompt's peer, title, and age", () => {
+	test("shows each waiting prompt's peer, title, and age", () => {
 		const built = view({
 			bridge: true,
 			account: "owner",
 			connection: "open",
 			promptPending: true,
-			prompt: { peer: "alice", title: "Pick one", startedAt: 1_000 },
+			prompts: [
+				{ peer: "alice", title: "Pick one", startedAt: 1_000 },
+				{ peer: "bob", title: "Continue?", startedAt: 41_000 },
+			],
 			now: 43_000,
 		});
 		const body = statusBody(built, fakeTheme, 60).join("\n");
+		// Two peers run at once, so two questions can wait: one line each.
 		expect(body).toContain("alice");
 		expect(body).toContain("Pick one");
 		expect(body).toContain("42.0s");
+		expect(body).toContain("bob");
+		expect(body).toContain("Continue?");
+		expect(body).toContain("2.0s");
 	});
 
 	test("shows the paused state and how to resume", () => {
@@ -437,20 +446,23 @@ describe("peer actions", () => {
 				bridge: true,
 				connection: "open",
 				promptPending: true,
-				prompt: { peer: "alice", title: "Pick one", startedAt: 1_000 },
+				prompts: [{ peer: "alice", title: "Pick one", startedAt: 1_000 }],
+				// A prompt implies the peer's own turn is running, so it has a row.
+				peerRows: [{ id: "alice@im.wechat", label: "alice", status: "running", queued: 0 }],
 			}),
 			{
 				stop: () => "",
 				reset: () => "",
-				cancelPrompt: () => {
-					cancels.push("cancel");
+				cancelPrompt: (peer) => {
+					cancels.push(peer);
 					return "Cancelled the waiting prompt.";
 				},
 				togglePause: () => "Paused polling.",
 			},
 		);
 		screen.handleInput("c");
-		expect(cancels).toEqual(["cancel"]);
+		// The focused peer's own prompt is withdrawn, never the other peer's.
+		expect(cancels).toEqual(["alice@im.wechat"]);
 		expect(screen.render(60).join("\n")).toContain("Cancelled the waiting prompt.");
 	});
 
@@ -610,6 +622,7 @@ function doctorStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 		refusedPeers: ["bob"],
 		mediaDropped: 2,
 		promptPending: false,
+		prompts: [],
 		startedAt: doctorNow - 1000,
 		lastPollAt: doctorNow - 3200,
 		pollHoldMs: 18_000,

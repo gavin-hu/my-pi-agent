@@ -235,7 +235,7 @@ describe("bridge lifecycle", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
 		expect(await bridge.pause()).toBe(true);
 		expect(await answer).toEqual({ kind: "cancelled" });
 		expect(sent.at(-1)?.text).toBe("That question was withdrawn.");
@@ -467,7 +467,7 @@ describe("bridge admission", () => {
 
 	test("reports each peer's conversation state for the control screen", async () => {
 		const other = "friend@im.wechat";
-		const { client } = makeClient([updates([inbound("mine"), inbound("theirs", other)])]);
+		const { client } = makeClient([updates([inbound("mine"), inbound("theirs", other), inbound("more", other)])]);
 		const { deps } = makeDeps(
 			client,
 			{ config: { ...DEFAULT_CONFIG, allowedPeers: [other] } },
@@ -475,11 +475,12 @@ describe("bridge admission", () => {
 		);
 		const bridge = createBridge(deps);
 		bridge.open();
-		await waitFor(() => bridge.status().queued === 1);
+		await waitFor(() => bridge.status().peerStates.length === 2);
 
+		// Both peers run at once now; the extra message waits its own peer's turn.
 		const states = bridge.status().peerStates;
 		expect(states.find((entry) => entry.peer === owner)?.state).toMatchObject({ status: "running" });
-		expect(states.find((entry) => entry.peer === other)?.state).toMatchObject({ status: "queued", queued: 1 });
+		expect(states.find((entry) => entry.peer === other)?.state).toMatchObject({ status: "running", queued: 1 });
 		await bridge.close();
 	});
 });
@@ -735,14 +736,14 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
 		deliver(inbound("/status"));
 		// The command reached its handler instead of being parsed as an answer.
 		await waitFor(() => sent.some((item) => item.text.includes("Proceed?")));
 		expect(sent.some((item) => item.text.includes("didn't recognize"))).toBe(false);
-		expect(bridge.channel().hasPending()).toBe(true);
+		expect(bridge.channel(owner).hasPending()).toBe(true);
 
-		bridge.channel().cancel();
+		bridge.channel(owner).cancel();
 		expect(await answer).toEqual({ kind: "cancelled" });
 		await bridge.close();
 	});
@@ -754,13 +755,13 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel().request({ kind: "confirm", title: "Proceed?" });
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Proceed?" });
 		deliver(inbound("/stop"));
 		await waitFor(() => sent.some((item) => item.text === "Stopped."));
 		// Only the tool's own signal settles the dialog; the command stops the turn.
-		expect(bridge.channel().hasPending()).toBe(true);
+		expect(bridge.channel(owner).hasPending()).toBe(true);
 
-		bridge.channel().reset();
+		bridge.channel(owner).reset();
 		expect(await answer).toEqual({ kind: "cancelled" });
 		await bridge.close();
 	});
@@ -772,7 +773,7 @@ describe("bridge slash commands", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A", "B"] });
+		const answer = bridge.channel(owner).request({ kind: "select", title: "Pick", options: ["A", "B"] });
 		deliver(inbound("1"));
 		expect(await answer).toEqual({ kind: "value", value: "A" });
 		await bridge.close();
@@ -1149,7 +1150,7 @@ describe("bridge remote prompts", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A", "B"] });
+		const answer = bridge.channel(owner).request({ kind: "select", title: "Pick", options: ["A", "B"] });
 		await waitFor(() => sent.length >= 1 && bridge.status().promptPending);
 		expect(sent[0]?.text).toContain("Pick");
 
@@ -1169,7 +1170,7 @@ describe("bridge remote prompts", () => {
 
 		const path = join(tempDir("wechat-bridge-file-"), "plan.md");
 		writeFileSync(path, "plan");
-		expect(await bridge.channel().postFile(path, "plan.md")).toBe(true);
+		expect(await bridge.channel(owner).postFile(path, "plan.md")).toBe(true);
 		expect(sentFiles[0]).toMatchObject({ to: owner, fileName: "plan.md", len: "4" });
 		await bridge.close();
 	});
@@ -1188,8 +1189,8 @@ describe("bridge remote prompts", () => {
 
 		// A dialog preface (or the plan digest) that cannot be sent must not look like
 		// a preface that never existed: the peer would be left with only the choices.
-		await bridge.channel().post("plan digest");
-		await bridge.channel().post("second try");
+		await bridge.channel(owner).post("plan digest");
+		await bridge.channel(owner).post("second try");
 		const failures = notifications.filter((message) => message.includes("message delivery failed"));
 		expect(failures).toHaveLength(1);
 		await bridge.close();
@@ -1206,7 +1207,7 @@ describe("bridge remote prompts", () => {
 
 		const path = join(tempDir("wechat-bridge-file-"), "plan.md");
 		writeFileSync(path, "plan");
-		expect(await bridge.channel().postFile(path, "plan.md")).toBe(false);
+		expect(await bridge.channel(owner).postFile(path, "plan.md")).toBe(false);
 		expect(notifications.some((message) => message.includes("file delivery failed for plan.md"))).toBe(true);
 		await bridge.close();
 	});
@@ -1218,11 +1219,11 @@ describe("bridge remote prompts", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel().request({ kind: "select", title: "Pick", options: ["A"] });
-		expect(bridge.status().prompt).toMatchObject({ peer: owner, kind: "select", title: "Pick" });
-		bridge.channel().cancel();
+		const answer = bridge.channel(owner).request({ kind: "select", title: "Pick", options: ["A"] });
+		expect(bridge.status().prompts[0]).toMatchObject({ peer: owner, kind: "select", title: "Pick" });
+		bridge.channel(owner).cancel();
 		expect(await answer).toEqual({ kind: "cancelled" });
-		expect(bridge.status().prompt).toBeUndefined();
+		expect(bridge.status().prompts[0]).toBeUndefined();
 		await bridge.close();
 	});
 
@@ -1233,10 +1234,67 @@ describe("bridge remote prompts", () => {
 		bridge.open();
 		await waitFor(() => injected.length === 1);
 
-		const answer = bridge.channel().request({ kind: "confirm", title: "Sure?" });
+		const answer = bridge.channel(owner).request({ kind: "confirm", title: "Sure?" });
 		await waitFor(() => sent.length >= 1 && bridge.status().promptPending);
 		await bridge.close();
 		expect(await answer).toEqual({ kind: "cancelled" });
+	});
+});
+
+describe("two peers at once", () => {
+	const OTHER = "friend@im.wechat";
+
+	/** Open a bridge with the owner's turn and one other peer's turn both in flight. */
+	async function twoPeers() {
+		const { client, sent, deliver } = controllableClient();
+		const { deps, injected } = makeDeps(
+			client,
+			{ config: { ...DEFAULT_CONFIG, allowedPeers: [OTHER] } },
+			{ hold: true },
+		);
+		const bridge = createBridge(deps);
+		bridge.open();
+		await waitFor(() => injected.length === 1);
+		deliver(inbound("hello", OTHER));
+		await waitFor(() => injected.length === 2);
+		return { bridge, sent };
+	}
+
+	test("gives each peer's dialog its own owner", async () => {
+		const { bridge, sent } = await twoPeers();
+
+		const mine = bridge.channel(owner).request({ kind: "confirm", title: "For the owner?" });
+		const theirs = bridge.channel(OTHER).request({ kind: "confirm", title: "For the friend?" });
+		await waitFor(() => bridge.status().prompts.length === 2);
+		// Each question went to the phone that was asked.
+		await waitFor(() => sent.filter((message) => message.text.includes("For the")).length === 2);
+		expect(sent.some((message) => message.to === owner && message.text.includes("For the owner?"))).toBe(true);
+		expect(sent.some((message) => message.to === OTHER && message.text.includes("For the friend?"))).toBe(true);
+
+		// Each reply answers its own peer's prompt and leaves the other waiting.
+		expect(bridge.channel(owner).handleInbound("yes")).toBe(true);
+		expect(await mine).toEqual({ kind: "confirmed", confirmed: true });
+		expect(bridge.status().prompts.map((prompt) => prompt.peer)).toEqual([OTHER]);
+
+		expect(bridge.channel(OTHER).handleInbound("no")).toBe(true);
+		expect(await theirs).toEqual({ kind: "confirmed", confirmed: false });
+		expect(bridge.status().prompts).toEqual([]);
+		await bridge.close();
+	});
+
+	test("aborting one peer's dialog leaves the other's waiting", async () => {
+		const { bridge } = await twoPeers();
+		const controller = new AbortController();
+		const mine = bridge.channel(owner).request({ kind: "confirm", title: "For the owner?" }, controller.signal);
+		const theirs = bridge.channel(OTHER).request({ kind: "select", title: "For the friend?", options: ["A"] });
+		await waitFor(() => bridge.status().prompts.length === 2);
+
+		controller.abort();
+		expect(await mine).toEqual({ kind: "cancelled" });
+		expect(bridge.channel(OTHER).hasPending()).toBe(true);
+		expect(bridge.channel(OTHER).handleInbound("1")).toBe(true);
+		expect(await theirs).toEqual({ kind: "value", value: "A" });
+		await bridge.close();
 	});
 });
 

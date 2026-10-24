@@ -1053,28 +1053,36 @@ describe("peer worker", () => {
 		expect(disposed).toHaveLength(1);
 	});
 
-	test("runs one turn at a time across peers, then hands the slot on", async () => {
+	test("runs two peers at once, keeps each peer serial, and gives a freed slot to the oldest wait", async () => {
 		const { worker, sessions } = workerHarness({ holdFirst: true });
 		worker.enqueue(peerItem("alice task", "alice@im.wechat"));
 		worker.enqueue(peerItem("bob task", "bob@im.wechat"));
+		worker.enqueue(peerItem("carol task", "carol@im.wechat"));
 		await settle();
-		// One turn at a time by default, so a forwarded dialog has one owner.
-		expect(worker.current()?.text).toBe("alice task");
+		// Two turns at once, each on its own peer's session; the third waits.
+		expect(sessions).toHaveLength(2);
+		expect(worker.state("carol@im.wechat")).toMatchObject({ status: "queued", queued: 1 });
+
+		// Carol queued hers before alice queued a second, so carol takes the free slot:
+		// the queue is fair across peers, not first-peer-wins.
+		worker.enqueue(peerItem("alice again", "alice@im.wechat"));
+		await sessions[0]?.session.abort();
+		await settle();
+		await settle();
+		expect(sessions[2]?.prompts).toEqual(["carol task"]);
+		expect(worker.state("alice@im.wechat")).toMatchObject({ status: "queued", queued: 1 });
+	});
+
+	test("serializes the turn when the concurrency is one", async () => {
+		const { worker, sessions } = workerHarness({ holdFirst: true, concurrency: 1 });
+		worker.enqueue(peerItem("alice task", "alice@im.wechat"));
+		worker.enqueue(peerItem("bob task", "bob@im.wechat"));
+		await settle();
 		expect(sessions).toHaveLength(1);
 
 		await sessions[0]?.session.abort();
 		await settle();
 		await settle();
-		expect(sessions[1]?.prompts).toEqual(["bob task"]);
-		expect(worker.current()?.text).toBe("bob task");
-	});
-
-	test("runs peers in parallel when the concurrency allows it", async () => {
-		const { worker, sessions } = workerHarness({ holdFirst: true, concurrency: 2 });
-		worker.enqueue(peerItem("alice task", "alice@im.wechat"));
-		worker.enqueue(peerItem("bob task", "bob@im.wechat"));
-		await settle();
-		expect(sessions).toHaveLength(2);
 		expect(sessions[1]?.prompts).toEqual(["bob task"]);
 	});
 

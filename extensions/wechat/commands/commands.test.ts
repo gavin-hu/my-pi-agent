@@ -73,6 +73,7 @@ function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
 		refusedPeers: [],
 		mediaDropped: 0,
 		promptPending: false,
+		prompts: [],
 		...overrides,
 	};
 }
@@ -1141,15 +1142,15 @@ const SELECT: InteractionRequest = {
 const INPUT: InteractionRequest = { kind: "input", title: "Name" };
 const CONFIRM: InteractionRequest = { kind: "confirm", title: "Sure?" };
 
-/** One interaction channel over recording senders and a mutable active peer. */
+/** One peer's interaction channel over recording senders and a mutable "turn runs". */
 function setupChannel(
-	initialPeer: string | undefined = "owner",
-	options: { timer?: ArmTimer; language?: PeerLanguage; now?: () => number } = {},
+	options: { timer?: ArmTimer; language?: PeerLanguage; now?: () => number; active?: boolean } = {},
 ) {
 	const sent: string[] = [];
 	const files: Array<{ path: string; name: string }> = [];
-	let peer: string | undefined = initialPeer;
+	let active = options.active ?? true;
 	const deps: WechatInteractionDeps = {
+		peer: "alice@im.wechat",
 		send: async (text) => {
 			sent.push(text);
 			return true;
@@ -1158,13 +1159,13 @@ function setupChannel(
 			files.push({ path, name });
 			return true;
 		},
-		activePeer: () => peer,
+		active: () => active,
 		language: () => options.language ?? "en",
 		armTimer: options.timer,
 		now: options.now,
 	};
 	const channel = createWechatInteractionChannel(deps);
-	return { channel, sent, files, setPeer: (value: string | undefined) => (peer = value) };
+	return { channel, sent, files, setActive: (value: boolean) => (active = value) };
 }
 
 describe("interaction channel", () => {
@@ -1176,10 +1177,10 @@ describe("interaction channel", () => {
 		expect(files).toEqual([{ path: "/tmp/plan.md", name: "plan.md" }]);
 	});
 
-	test("isActive follows the active peer", () => {
-		const { channel, setPeer } = setupChannel();
+	test("isActive follows whether this peer's turn runs", () => {
+		const { channel, setActive } = setupChannel();
 		expect(channel.isActive()).toBe(true);
-		setPeer(undefined);
+		setActive(false);
 		expect(channel.isActive()).toBe(false);
 	});
 
@@ -1188,21 +1189,21 @@ describe("interaction channel", () => {
 		expect(channel.hasPending()).toBe(false);
 		const answer = channel.request(SELECT);
 		expect(channel.hasPending()).toBe(true);
-		channel.handleInbound("owner", "1");
+		channel.handleInbound("1");
 		await answer;
 		expect(channel.hasPending()).toBe(false);
 	});
 
 	test("pendingInfo exposes the peer, kind, title, and start time", async () => {
-		const { channel } = setupChannel("alice", { now: () => 1_000 });
+		const { channel } = setupChannel({ now: () => 1_000 });
 		const answer = channel.request(SELECT);
 		expect(channel.pendingInfo()).toEqual({
-			peer: "alice",
+			peer: "alice@im.wechat",
 			kind: "select",
 			title: "Pick",
 			startedAt: 1_000,
 		});
-		expect(channel.handleInbound("alice", "2")).toBe(true);
+		expect(channel.handleInbound("2")).toBe(true);
 		expect(await answer).toEqual({ kind: "value", value: "B" });
 		expect(channel.pendingInfo()).toBeUndefined();
 	});
@@ -1229,13 +1230,12 @@ describe("interaction channel", () => {
 		const { channel, sent } = setupChannel();
 		const answer = channel.request(SELECT);
 		expect(sent).toHaveLength(1);
-		expect(channel.handleInbound("owner", "2")).toBe(true);
+		expect(channel.handleInbound("2")).toBe(true);
 		expect(await answer).toEqual({ kind: "value", value: "B" });
 	});
 
-	test("cancels immediately without an active peer", async () => {
-		const { channel, setPeer } = setupChannel();
-		setPeer(undefined);
+	test("cancels immediately when this peer has no running turn", async () => {
+		const { channel } = setupChannel({ active: false });
 		expect(await channel.request(SELECT)).toEqual({ kind: "cancelled" });
 	});
 
@@ -1243,7 +1243,7 @@ describe("interaction channel", () => {
 		const { channel } = setupChannel();
 		const first = channel.request(SELECT);
 		expect(await channel.request(SELECT)).toEqual({ kind: "cancelled" });
-		channel.handleInbound("owner", "1");
+		channel.handleInbound("1");
 		await first;
 	});
 
@@ -1257,9 +1257,10 @@ describe("interaction channel", () => {
 
 	test("cancels when the send fails", async () => {
 		const deps: WechatInteractionDeps = {
+			peer: "alice@im.wechat",
 			send: async () => false,
 			sendFile: async () => false,
-			activePeer: () => "owner",
+			active: () => true,
 			language: () => "en",
 		};
 		const channel = createWechatInteractionChannel(deps);
@@ -1268,7 +1269,7 @@ describe("interaction channel", () => {
 
 	test("reminds once and then cancels an unanswered prompt", async () => {
 		const timers = timerSeam();
-		const { channel, sent } = setupChannel("owner", { timer: timers.arm });
+		const { channel, sent } = setupChannel({ timer: timers.arm });
 		const answer = channel.request(CONFIRM);
 		expect(sent).toHaveLength(1); // the prompt itself
 
@@ -1284,9 +1285,9 @@ describe("interaction channel", () => {
 
 	test("cancels the timeout timers once the peer answers", async () => {
 		const timers = timerSeam();
-		const { channel, sent } = setupChannel("owner", { timer: timers.arm });
+		const { channel, sent } = setupChannel({ timer: timers.arm });
 		const answer = channel.request(CONFIRM);
-		expect(channel.handleInbound("owner", "yes")).toBe(true);
+		expect(channel.handleInbound("yes")).toBe(true);
 		expect(await answer).toEqual({ kind: "confirmed", confirmed: true });
 		expect(timers.armed()).toBe(0);
 
@@ -1296,7 +1297,7 @@ describe("interaction channel", () => {
 
 	test("speaks the peer's language in the timeout notices", async () => {
 		const timers = timerSeam();
-		const { channel, sent } = setupChannel("owner", { timer: timers.arm, language: "zh" });
+		const { channel, sent } = setupChannel({ timer: timers.arm, language: "zh" });
 		const answer = channel.request(CONFIRM);
 
 		timers.fire(PROMPT_TIMEOUT_MS / 2);
@@ -1308,7 +1309,7 @@ describe("interaction channel", () => {
 
 	test("honours a scoped bound and restores the default when it ends", async () => {
 		const timers = timerSeam();
-		const { channel, sent } = setupChannel("owner", { timer: timers.arm });
+		const { channel, sent } = setupChannel({ timer: timers.arm });
 		const restore = channel.setPromptTimeout(600_000);
 		const answer = channel.request(CONFIRM);
 
@@ -1327,40 +1328,32 @@ describe("interaction channel", () => {
 		expect(sent.at(-1)).toBe("That question timed out.");
 	});
 
-	test("handleInbound ignores a reply from another peer", async () => {
-		const { channel } = setupChannel();
-		const answer = channel.request(SELECT);
-		expect(channel.handleInbound("stranger", "1")).toBe(false);
-		expect(channel.handleInbound("owner", "1")).toBe(true);
-		await answer;
-	});
-
 	test("handleInbound ignores an inbound message with no pending prompt", () => {
 		const { channel } = setupChannel();
-		expect(channel.handleInbound("owner", "hi")).toBe(false);
+		expect(channel.handleInbound("hi")).toBe(false);
 	});
 
 	test("handleInbound re-prompts with a notice on a retry and keeps waiting", async () => {
 		const { channel, sent } = setupChannel();
 		const answer = channel.request(CONFIRM);
-		expect(channel.handleInbound("owner", "maybe")).toBe(true);
+		expect(channel.handleInbound("maybe")).toBe(true);
 		expect(sent).toHaveLength(2);
 		expect(sent[1]).toContain("didn't recognize");
-		expect(channel.handleInbound("owner", "是")).toBe(true);
+		expect(channel.handleInbound("是")).toBe(true);
 		expect(await answer).toEqual({ kind: "confirmed", confirmed: true });
 	});
 
 	test("handleInbound maps a cancel word to cancelled", async () => {
 		const { channel } = setupChannel();
 		const answer = channel.request(SELECT);
-		channel.handleInbound("owner", "取消");
+		channel.handleInbound("取消");
 		expect(await answer).toEqual({ kind: "cancelled" });
 	});
 
 	test("a select free text becomes Other and the next input returns it", async () => {
 		const { channel, sent } = setupChannel();
 		const select = channel.request(SELECT);
-		channel.handleInbound("owner", "custom value");
+		channel.handleInbound("custom value");
 		expect(await select).toEqual({ kind: "value", value: INTERACTION_OTHER_LABEL });
 
 		const before = sent.length;
@@ -1375,39 +1368,48 @@ describe("interaction channel", () => {
 		expect(await answer).toEqual({ kind: "cancelled" });
 
 		const select = channel.request(SELECT);
-		channel.handleInbound("owner", "custom value");
+		channel.handleInbound("custom value");
 		await select;
 		channel.reset();
 		// The stash is gone, so the next input is a fresh prompt rather than a replay.
 		const input = channel.request(INPUT);
-		expect(channel.handleInbound("owner", "typed")).toBe(true);
+		expect(channel.handleInbound("typed")).toBe(true);
 		expect(await input).toEqual({ kind: "value", value: "typed" });
 	});
 });
 
 /**
- * Free text from an "Other" answer belongs to the peer who typed it. One prompt
- * runs at a time, but a stash keyed globally would hand peer A's text to peer B's
- * next input.
+ * Free text from an "Other" answer belongs to the peer who typed it: one channel
+ * serves one peer, so the stash has nowhere else to go. What remains to pin is
+ * that it answers the very next input and does not outlive a different question.
  */
 describe("other-answer ownership", () => {
-	test("returns free text to the peer who typed it, and to nobody else", async () => {
-		const { channel, sent, setPeer } = setupChannel("alice");
-		const aliceSelect = channel.request(SELECT);
-		expect(channel.handleInbound("alice", "something else")).toBe(true);
-		expect(await aliceSelect).toEqual({ kind: "value", value: INTERACTION_OTHER_LABEL });
+	test("returns free text to the next input for this peer, without a round-trip", async () => {
+		const { channel, sent } = setupChannel();
+		const select = channel.request(SELECT);
+		expect(channel.handleInbound("something else")).toBe(true);
+		expect(await select).toEqual({ kind: "value", value: INTERACTION_OTHER_LABEL });
 
-		// Another peer asks for input first: Alice's text must not leak into it.
-		setPeer("bob");
-		const bobInput = channel.request(INPUT);
-		expect(channel.handleInbound("bob", "bob answer")).toBe(true);
-		expect(await bobInput).toEqual({ kind: "value", value: "bob answer" });
-
-		// Alice's own next input still gets her stashed text, without a round-trip.
-		setPeer("alice");
 		expect(await channel.request(INPUT)).toEqual({ kind: "value", value: "something else" });
-		// The stashed answer costs no prompt; only the two real prompts were sent.
-		expect(sent).toHaveLength(2);
+		// The stashed answer costs no prompt; only the one real prompt was sent.
+		expect(sent).toHaveLength(1);
+	});
+
+	test("drops free text when a different kind of question is asked", async () => {
+		const { channel } = setupChannel();
+		const select = channel.request(SELECT);
+		channel.handleInbound("something else");
+		await select;
+
+		const confirm = channel.request(CONFIRM);
+		expect(channel.hasPending()).toBe(true);
+		channel.handleInbound("yes");
+		expect(await confirm).toEqual({ kind: "confirmed", confirmed: true });
+
+		// The next input reads what the peer types now, not the abandoned "Other" text.
+		const input = channel.request(INPUT);
+		expect(channel.handleInbound("typed")).toBe(true);
+		expect(await input).toEqual({ kind: "value", value: "typed" });
 	});
 });
 

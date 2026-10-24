@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `wechat`: two peers' turns run at once, each with its own interaction channel, so a
+  forwarded dialog has one owner per conversation instead of one in the whole
+  bridge. `dialog/channels.ts` builds a channel per peer, routes a reply only to the
+  prompt that peer is waiting on, and aggregates the waiting prompts so the control
+  screen shows one `Prompt` line per peer and `/wechat status`'s dismiss withdraws
+  only the sender's. `PEER_CONCURRENCY` is 2 — not a setting, because every
+  concurrent turn is a full model run on the user's budget — and the free slot goes
+  to the peer whose message has waited longest, so a talkative conversation cannot
+  starve a quiet one; a third peer is queued and acknowledged as before. The
+  bridge's single-turn accessor is gone with it: `send_wechat` asks whether the
+  owner's own turn is running, and presence suppresses its "still working" line
+  only for the peer that is waiting on a dialog.
 - `wechat`: a turn abandoned by a close now tells the peer instead of going silent.
   `/wechat new`, `/reload`, a fork, a logout, and a process exit all stop the
   peer's running turn, and the shutdown now sends one short line per peer that

@@ -44,7 +44,8 @@ export interface PresenceDeps {
 	/** Send one stock line to the peer (chunked by the bridge). */
 	send: (peer: string, contextToken: string | undefined, text: string) => Promise<unknown>;
 	/** A forwarded dialog is waiting; its own reminder covers the wait. */
-	promptPending: () => boolean;
+	/** Whether that peer is waiting on a dialog, so "still working" would be noise. */
+	promptPending: (peer: string) => boolean;
 }
 
 /** One message a notice refers to. */
@@ -180,7 +181,7 @@ export function createPresence(deps: PresenceDeps): Presence {
 			if (!isRunning(peer)) return;
 			// A turn waiting on an unanswered dialog is not "still working": the
 			// prompt itself nudges, and saying both reads as noise.
-			if (deps.promptPending()) return;
+			if (deps.promptPending(peer)) return;
 			void deps.send(peer, contextToken, notice("stillWorking", deps.languageOf(peer)));
 		});
 	}
