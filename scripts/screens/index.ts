@@ -89,6 +89,8 @@ export const SCREENS: Record<string, Screen> = {
 	compaction: {
 		asset: "compaction",
 		title: "π - my-pi-agent · /compact",
+		bounds: { left: 80, top: 80, right: 920, bottom: 333 },
+		size: { width: 100, rows: 12 },
 		render: (width) => {
 			setThemeInstance(theme);
 			const message = {
@@ -122,6 +124,8 @@ export const SCREENS: Record<string, Screen> = {
 	todo: {
 		asset: "todo",
 		title: "π - my-pi-agent · /todos",
+		bounds: { left: 80, top: 80, right: 920, bottom: 350 },
+		size: { width: 100, rows: 13 },
 		render: (width, rows) =>
 			new TodoListComponent(
 				() => TODOS,
@@ -189,6 +193,8 @@ export const SCREENS: Record<string, Screen> = {
 	agents: {
 		asset: "agents",
 		title: "π - my-pi-agent · /agents",
+		bounds: { left: 80, top: 80, right: 920, bottom: 281 },
+		size: { width: 100, rows: 9 },
 		render: (width, rows) =>
 			new AgentsBoardComponent({
 				runs: () => AGENT_RUNS,
@@ -221,6 +227,8 @@ export const SCREENS: Record<string, Screen> = {
 	check: {
 		asset: "check",
 		title: "π - my-pi-agent · /check",
+		bounds: { left: 80, top: 80, right: 920, bottom: 315 },
+		size: { width: 100, rows: 11 },
 		render: (width, rows) =>
 			new CheckResultComponent({
 				result: CHECK_RESULT,
@@ -236,7 +244,8 @@ export const SCREENS: Record<string, Screen> = {
 		asset: "check-detail",
 		title: "π - my-pi-agent · /check · failure",
 		// Tall enough for the whole excerpt: the target line sits in the middle.
-		bounds: { left: 80, top: 80, right: 900, bottom: 500 },
+		bounds: { left: 80, top: 80, right: 920, bottom: 385 },
+		size: { width: 100, rows: 15 },
 		render: (width, rows) => {
 			const component = new CheckResultComponent({
 				result: CHECK_RESULT,
@@ -255,6 +264,8 @@ export const SCREENS: Record<string, Screen> = {
 	review: {
 		asset: "review",
 		title: "π - my-pi-agent · /review",
+		bounds: { left: 80, top: 80, right: 920, bottom: 350 },
+		size: { width: 100, rows: 13 },
 		render: (width, rows) =>
 			new ReviewListComponent({
 				entries: REVIEW_ENTRIES,
