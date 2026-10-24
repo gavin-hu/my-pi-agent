@@ -41,18 +41,31 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     saveDraft();
   }
 
-  // The draft is this tab's own: only the comments this writer added and has not
-  // saved, keyed by the plan revision the server rendered. It never travels to the
-  // server, and nothing another writer added is kept here.
+  // The draft is this tab's own: the comments this writer added and has not saved,
+  // and the text in a composer that has not become a comment yet, keyed by the plan
+  // revision the server rendered. It never travels to the server, and nothing
+  // another writer added is kept here.
   var DRAFT_KEY = "bf-review-draft";
   var DRAFT_LIMIT = 131072;
+
+  /** The open composer's block line and text, or null when nothing is being typed. */
+  function typingOf() {
+    var area = draftTextarea();
+    var wrap = area && area.closest ? area.closest(".bf-block") : null;
+    var anchor = wrap ? Number(wrap.getAttribute("data-line")) : -1;
+    if (!area || !(anchor >= 0) || area.value === "") return null;
+    return { anchor: anchor, text: area.value };
+  }
 
   function saveDraft() {
     if (saved || approved || closed) return;
     var mine = annotations.filter(isMine);
-    if (mine.length === 0) { clearDraft(); return; }
+    var typing = typingOf();
+    if (mine.length === 0 && !typing) { clearDraft(); return; }
     try {
-      var text = JSON.stringify({ rev: String(data.rev || ""), mine: mine });
+      var record = { rev: String(data.rev || ""), mine: mine };
+      if (typing) record.typing = typing;
+      var text = JSON.stringify(record);
       if (text.length > DRAFT_LIMIT) return;
       window.sessionStorage.setItem(DRAFT_KEY, text);
     } catch (error) {}
@@ -63,25 +76,31 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   }
 
   /**
-   * Put this tab's unsaved comments back: after a reload of the same plan, and
-   * after another writer's comment arrived and the island was re-read. A draft for
-   * a different plan revision is stale, so it is dropped rather than re-anchored.
+   * Put this tab's unsaved work back: after a reload of the same plan, and after
+   * another writer's comment arrived and the island was re-read. A draft for a
+   * different plan revision is stale, so it is dropped rather than re-anchored.
+   * Returns the composer text to reopen, which needs the blocks to have rendered.
    */
   function restoreDraft() {
     var raw = null;
     try { raw = window.sessionStorage.getItem(DRAFT_KEY); } catch (error) { raw = null; }
-    if (!raw) return;
+    if (!raw) return null;
     var draft = null;
     try { draft = JSON.parse(raw); } catch (error) { draft = null; }
-    if (!draft || draft.rev !== String(data.rev || "") || !Array.isArray(draft.mine) || draft.mine.length === 0) {
+    var mine = draft && Array.isArray(draft.mine) ? draft.mine : [];
+    var typing = draft && draft.typing && typeof draft.typing.text === "string" ? draft.typing : null;
+    if (!draft || draft.rev !== String(data.rev || "") || (mine.length === 0 && !typing)) {
       clearDraft();
-      return;
+      return null;
     }
-    annotations = annotations.filter(function (annotation) { return !isMine(annotation); }).concat(draft.mine);
-    dirty = true;
+    if (mine.length > 0) {
+      annotations = annotations.filter(function (annotation) { return !isMine(annotation); }).concat(mine);
+      dirty = true;
+    }
+    return typing;
   }
 
-  function openComposer(wrap, block, quote) {
+  function openComposer(wrap, block, quote, initial) {
     closeComposer();
     wrap.classList.add("bf-block--composing");
     var composer = el("div", "bf-composer");
@@ -94,6 +113,9 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     area.placeholder = "Leave feedback on this part of the plan (Enter to add)";
     area.setAttribute("aria-label", "Comment");
     area.maxLength = limits.comment;
+    if (initial) area.value = initial;
+    // Every keystroke is this tab's draft, so a reload while typing costs nothing.
+    area.addEventListener("input", function () { saveDraft(); });
     composer.appendChild(area);
     var row = el("div", "bf-composer__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
@@ -108,6 +130,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         var entry = quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment };
       if (role === "reviewer") entry.author = reviewerName;
       annotations.push(entry);
+      // Close first: the text is now a comment, so the draft keeps one or the other.
+      closeComposer();
       markDirty();
       setStatus("Comment added.");
       renderPlan();
@@ -117,6 +141,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     row.appendChild(cancel); row.appendChild(add); composer.appendChild(row);
     commentsBoxAfter(wrap).appendChild(composer);
     area.focus();
+    // A restored draft resumes where it left off, with the caret at its end.
+    if (initial) area.setSelectionRange(area.value.length, area.value.length);
   }
 
   function startEdit(card, index) {

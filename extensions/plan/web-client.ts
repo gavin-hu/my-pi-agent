@@ -89,6 +89,9 @@ ${WEB_MARKDOWN_JS}
     // The only status a composer leaves behind is the refusal to leave it; once
     // the draft is gone that sentence is stale.
     if (statusEl && statusEl.textContent === DRAFT_REFUSAL) setStatus("");
+    // Closing is how a half-typed comment is discarded, so the stored draft follows
+    // it. A close with nothing open must not rewrite — and so drop — a restored one.
+    if (open) saveDraft();
   }
 
   function observeSections() {
@@ -198,15 +201,27 @@ ${WEB_MARKDOWN_JS}
     setActive(activeIndex + delta);
   }
 
+  /** The rendered block and its island block for a source line, when both exist. */
+  function blockAtLine(line) {
+    var wrap = planEl ? planEl.querySelector('.bf-block[data-line="' + line + '"]') : null;
+    var block = (data.blocks || []).filter(function (item) { return item.start === line; })[0];
+    return wrap && block ? { wrap: wrap, block: block } : null;
+  }
+
+  /** Reopen the composer a reload interrupted, once its block has rendered. */
+  function reopenComposer(typing) {
+    if (!typing || saved || approved || closed) return;
+    var target = blockAtLine(typing.anchor);
+    if (target) openComposer(target.wrap, target.block, "", typing.text);
+  }
+
   function commentOnActive() {
-    var blocks = blockElements();
-    if (blocks.length === 0) return;
+    if (blockElements().length === 0) return;
     if (activeIndex < 0) setActive(0);
     var wrap = blockElements()[Math.max(0, activeIndex)];
     if (!wrap) return;
-    var line = Number(wrap.getAttribute("data-line"));
-    var block = (data.blocks || []).filter(function (item) { return item.start === line; })[0];
-    if (block) openComposer(wrap, block, "");
+    var target = blockAtLine(Number(wrap.getAttribute("data-line")));
+    if (target) openComposer(target.wrap, target.block, "");
   }
 
   function renderPlan() {
@@ -503,12 +518,14 @@ ${WEB_MARKDOWN_JS}
 
   ${THEME_TOGGLE_JS}
 
-  // A reload during a review keeps the comments this tab has not saved yet.
-  restoreDraft();
+  // A reload during a review keeps this tab's unsaved work: the comments it added
+  // and the composer it was typing into, which needs the blocks rendered first.
+  var restoredTyping = restoreDraft();
   renderHeader();
   renderName();
   renderOutline();
   renderPlan();
+  reopenComposer(restoredTyping);
   updateProgress();
 })();
 `;

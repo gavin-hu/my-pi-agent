@@ -16,6 +16,9 @@ import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ansiLinesToHtml, ansiToHtml, cssFor, parseAnsi } from "./ansi-html.ts";
 import { parseArgs as parseFileBrowseArgs } from "./file-browse-shot.ts";
 import { parseArgs as parsePlanReviewArgs } from "./plan-review-shot.ts";
+import { draftSeed } from "./plan-review-capture.ts";
+import { stripFeedback } from "../extensions/plan/feedback.ts";
+import { planDigest } from "../extensions/plan/plan-text.ts";
 import { CHROME_SCREEN, SCREENS } from "./screenshots.ts";
 import { pageColors, readPageColors, repo } from "./theme.ts";
 import { FIXTURES } from "./tool-fixtures/index.ts";
@@ -151,6 +154,32 @@ describe("plan review shot arguments", () => {
 		expect(parsePlanReviewArgs(["plan.md", "--as", "reviewer"]).role).toBe("reviewer");
 	});
 
+	test("--post binds a reviewer link before the capture", () => {
+		// The frame shows the state after a teammate's first post, which is what binds
+		// her name to the link.
+		expect(parsePlanReviewArgs(["plan.md", "--as", "reviewer", "--post", "alice"]).post).toBe("alice");
+		expect(parsePlanReviewArgs(["plan.md"]).post).toBeUndefined();
+	});
+
+	test("--draft starts the tab with an unsaved comment", () => {
+		expect(parsePlanReviewArgs(["plan.md", "--draft", "tighten this"]).draft).toBe("tighten this");
+		expect(parsePlanReviewArgs(["plan.md"]).draft).toBeUndefined();
+	});
+
+	test("a draft seed writes the record the client itself would have", () => {
+		// A seed is only faithful if the client would have written the same thing: the
+		// same storage key, the plan's own revision, and the first block as the anchor.
+		const content = "# Plan\n\nBody\n";
+		const written: Record<string, string> = {};
+		const fakeWindow = { sessionStorage: { setItem: (key: string, value: string) => void (written[key] = value) } };
+		new Function("window", draftSeed(content, "tighten this step"))(fakeWindow);
+
+		expect(JSON.parse(written["bf-review-draft"] ?? "null")).toEqual({
+			rev: planDigest(stripFeedback(content)),
+			mine: [{ anchor: 0, comment: "tighten this step" }],
+		});
+	});
+
 	test("rejects a missing plan, an unknown flag, and bad values", () => {
 		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
 			[[], "a plan path is required"],
@@ -161,6 +190,10 @@ describe("plan review shot arguments", () => {
 			[["plan.md", "--wait", "-1"], "--wait must not be negative"],
 			[["plan.md", "--width"], "--width needs a value"],
 			[["plan.md", "--as", "admin"], "--as must be owner or reviewer"],
+			[["plan.md", "--post", "alice"], "--post needs --as reviewer"],
+			[["plan.md", "--as", "reviewer", "--post", "  "], "--post needs a reviewer name"],
+			[["plan.md", "--draft", "  "], "--draft needs the comment text"],
+			[["plan.md", "--as", "reviewer", "--post", "alice", "--draft", "x"], "--draft cannot be combined with --post"],
 		];
 		for (const [argv, message] of invalid) {
 			expect(() => parsePlanReviewArgs(argv), argv.join(" ")).toThrow(message);

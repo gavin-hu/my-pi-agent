@@ -601,14 +601,26 @@ describe("review page", () => {
 const REVIEW_ORIGIN = "http://127.0.0.1:1234/?token=t";
 
 /**
+ * The source of one function in the served client, from its `function name(` to
+ * its closing brace. The page is one script, so a test that inspects one function
+ * slices it here instead of keeping a regex per arity.
+ */
+function clientFunction(name: string): string {
+	const start = REVIEW_CLIENT_JS.indexOf(`function ${name}(`);
+	if (start < 0) return "";
+	const end = REVIEW_CLIENT_JS.indexOf("\n  }", start);
+	return end < 0 ? "" : REVIEW_CLIENT_JS.slice(start, end + 4);
+}
+
+/**
  * The `safeHref` the page actually ships, evaluated out of the client source: a
  * string assertion cannot tell a fixed rule from a broken one.
  */
 function shippedSafeHref(): (url: string, base: string) => string | null {
-	const start = REVIEW_CLIENT_JS.indexOf("function safeHref(");
-	const end = REVIEW_CLIENT_JS.indexOf("\n  }", start);
-	const source = start >= 0 && end > start ? REVIEW_CLIENT_JS.slice(start, end + 4) : "";
-	return new Function(`${source}\nreturn safeHref;`)() as (url: string, base: string) => string | null;
+	return new Function(`${clientFunction("safeHref")}\nreturn safeHref;`)() as (
+		url: string,
+		base: string,
+	) => string | null;
 }
 
 const linkFor = (url: string): string | null => shippedSafeHref()(url, REVIEW_ORIGIN);
@@ -637,24 +649,21 @@ describe("review client", () => {
 	test("a reviewer's post keeps the page live and an owner's save settles it", () => {
 		// The bodies are read apart because the difference is which flags they touch:
 		// posting is transient, saving ends the review.
-		const body = (name: string): string =>
-			new RegExp(`function ${name}\\(\\) \\{([\\s\\S]*?)\\n  \\}`).exec(REVIEW_CLIENT_JS)?.[1] ?? "";
-		const post = body("postComments");
-		expect(post).toContain('"/api/comment"');
+		const post = clientFunction("postComments");
+		expect(post).toContain('submit("/api/comment"');
 		expect(post).not.toContain("saved = true");
 		expect(post).not.toContain("settleStream");
 		expect(post).not.toContain("lockActions");
 
-		const save = body("save");
-		expect(save).toContain('"/api/feedback"');
+		const save = clientFunction("save");
+		expect(save).toContain('submit("/api/feedback"');
 		expect(save).toContain("saved = true");
 	});
 
 	test("shows the server's own reason when a post conflicts", () => {
 		// A 409 is either a plan that moved or a link already bound to a name; the
 		// server's sentence says which, so the page must not assume the first.
-		const start = REVIEW_CLIENT_JS.indexOf("function submit(url");
-		const submit = start < 0 ? "" : REVIEW_CLIENT_JS.slice(start, REVIEW_CLIENT_JS.indexOf("\n  }", start));
+		const submit = clientFunction("submit");
 		expect(submit).toContain("function submit(");
 		expect(submit).toContain("payload.error");
 		expect(submit).toContain("offerReload()");
@@ -675,13 +684,26 @@ describe("review client", () => {
 	});
 
 	test("keys its unsaved draft on the plan revision and this tab", () => {
-		// A draft is this tab's own comments for this plan text: never another writer's,
+		// A draft is this tab's own work for this plan text: never another writer's,
 		// and never restored onto a plan that changed underneath it.
 		expect(REVIEW_CLIENT_JS).toContain('var DRAFT_KEY = "bf-review-draft"');
 		expect(REVIEW_CLIENT_JS).toContain("window.sessionStorage.setItem(DRAFT_KEY");
 		expect(REVIEW_CLIENT_JS).toContain('draft.rev !== String(data.rev || "")');
 		expect(REVIEW_CLIENT_JS).toContain("var mine = annotations.filter(isMine);");
-		expect(REVIEW_CLIENT_JS).toContain("restoreDraft();");
+		expect(REVIEW_CLIENT_JS).toContain("var restoredTyping = restoreDraft();");
+	});
+
+	test("keeps a half-typed comment in the same draft record", () => {
+		// The composer's text is not a comment yet, so it is the draft's second half:
+		// written on every keystroke, dropped when the composer closes, and reopened
+		// with its caret at the end after a reload.
+		expect(clientFunction("typingOf")).toContain('area.closest(".bf-block")');
+		expect(clientFunction("saveDraft")).toContain("record.typing = typing");
+		expect(clientFunction("openComposer")).toContain('area.addEventListener("input"');
+		expect(clientFunction("reopenComposer")).toContain("blockAtLine(typing.anchor)");
+		expect(clientFunction("restoreDraft")).toContain("return typing;");
+		// A close with nothing open must not rewrite, and so drop, a restored draft.
+		expect(clientFunction("closeComposer")).toContain("if (open) saveDraft();");
 	});
 
 	test("closes the review only for its owner and reads a terminal frame", () => {

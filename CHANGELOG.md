@@ -58,7 +58,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Tooling: `bun run screenshot:plan --as reviewer` captures the page a shared
   review link opens, so the reviewer's action set can be rendered without a second
   machine; it shares to a loopback-as-LAN snapshot and never binds a real
-  interface.
+  interface. `--post <name>` posts one comment as that reviewer first, so the
+  bound name renders, and `--draft <text>` starts the tab with one unsaved comment,
+  which is the state a reload restores.
 - `session-bus`: a session can arm its own inbox watch — `session({action:"watch"})`
   or `/sessions watch [off|wake]` — so new mail previews at its next turn, or raises
   one turn when `wake` is set, as soon as the session is idle. `wake` is a mode:
@@ -101,11 +103,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: a shared reviewer's post reaches the owner's terminal, not just the open
   page: `Plan review: @alice posted 2 comments.` lands where whoever started the
   review is waiting, so a review is not silent until it is saved.
-- `plan`: an open browser review keeps the comments you have not saved yet across a
-  reload. They are held in that tab's `sessionStorage`, keyed by a digest of the
-  plan text the page rendered, restored only onto that same text, and dropped when
-  the plan changed underneath them; nothing is written to the server, and another
-  writer's comment is never part of the draft.
+- `plan`: an open browser review keeps the comments you have not saved yet — and
+  the text still in a composer — across a reload. They are held in that tab's
+  `sessionStorage`, keyed by a digest of the plan text the page rendered, restored
+  only onto that same text with the composer reopened at the caret, and dropped
+  when the plan changed underneath them; nothing is written to the server, and
+  another writer's comment is never part of the draft.
 
 ### Changed
 
