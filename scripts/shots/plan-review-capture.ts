@@ -5,7 +5,7 @@
  * store that keeps a post in memory instead of on disk, a reviewer who has
  * already posted so the page shows the name bound to its link, and a draft that
  * is in the tab before the client boots. Chrome, the arg parsing, and the
- * readiness condition stay in `plan-review-shot.ts`; this module is the state the
+ * readiness condition stay in `plan-review.ts`; this module is the state the
  * frame needs.
  *
  * A capture's store is not a test double: it accepts one write and serves the
@@ -14,10 +14,10 @@
  */
 
 import { basename } from "node:path";
-import { planBlocks } from "../extensions/plan/blocks.ts";
-import { formatFeedback, stripFeedback, type PlanAnnotation } from "../extensions/plan/feedback.ts";
-import { planDigest } from "../extensions/plan/plan-text.ts";
-import type { PlanStore, StoredPlan } from "../extensions/plan/plans.ts";
+import { planBlocks } from "../../extensions/plan/blocks.ts";
+import { formatFeedback, stripFeedback, type PlanAnnotation } from "../../extensions/plan/feedback.ts";
+import { planDigest } from "../../extensions/plan/plan-text.ts";
+import type { PlanStore, StoredPlan } from "../../extensions/plan/plans.ts";
 
 /** The comment a `--post` capture writes, so the frame names what it shows. */
 export const POST_COMMENT = "Posted from this link.";

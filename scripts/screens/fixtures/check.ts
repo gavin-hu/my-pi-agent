@@ -2,7 +2,7 @@
  * The failed check the `/check` screen draws, with the locations it parsed.
  */
 
-import { CheckResult } from "../../extensions/check/types.ts";
+import { CheckResult } from "../../../extensions/check/types.ts";
 
 export const CHECK_RESULT: CheckResult = {
 	target: "all",

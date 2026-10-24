@@ -29,6 +29,7 @@ repositories.
 | `bun run config:migrate [--project <dir>]` | Move each per-extension `<name>.json` into the shared `bytefly.json`, once per machine and repository; `--dry-run` previews and `--keep` leaves the old files. How it behaves is in [`configuration.md`](./configuration.md#migrating-from-older-versions). |
 | `bun run compat:versions` | Print the Pi peer versions this tree resolves to; the compat job records them, and it writes a markdown table to `$GITHUB_STEP_SUMMARY` when GitHub sets one. |
 | `bun run bench:render` | Render 500 and 2000 tool blocks at 80 and 120 columns through the real renderers and report lines, median/p95 frame time, heap per frame, and memo hits. Gates determinism; the timings are a pre-release reading. |
+| `bun run probe:wechat [holdMs]` | Hold one WeChat poll open for the stated milliseconds (default 3000) and report what the server did with it, so a stalled bridge can be diagnosed without a phone; [`extensions/wechat.md`](./extensions/wechat.md) says when to reach for it. |
 | `bun run release:notes X.Y.Z` | Print one changelog section for `gh release create`. |
 | `bun run screenshots [name…]` | Regenerate the screenshots and hero under `assets/` (macOS only); naming screens captures only those. |
 | `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
@@ -45,26 +46,9 @@ macOS: each frame is drawn by the shipped component with the `bytefly-dark`
 theme inside a real Terminal.app window, then captured with `screencapture`, so
 the docs show the product rather than a mock. Naming screens captures only
 those; with no argument it captures every entry in the `SCREENS` map of
-`scripts/screenshots.ts` and then the hero. To check a layout without a
+`scripts/screens/index.ts` and then the hero. To check a layout without a
 capture, `bun run screenshots render <name>` prints one frame as ANSI
 on any OS; `--width` and `--rows` override the terminal.
-
-The hero is the one asset tied to the version: `ByteflyHeader` draws
-`HEADER_CONFIG.chromeVersion`, read from `package.json`, so `assets/chrome.png`
-shows the release it was captured in and goes stale with every bump. It also
-prints the host's own version — `VERSION`, imported from
-`@earendil-works/pi-coding-agent`, which resolves through `bun.lock`, so the
-hero names the compatibility floor rather than the `pi` on `PATH`. A capture is
-therefore due in a release **and** when that floor is raised; a surface that did
-not change is no reason to recapture, and a version that fell behind is. That
-makes the capture part of the release step rather than a documentation chore,
-and it is why CI cannot help — the capture needs a real Terminal.app window.
-
-The hero is also the one asset drawn from a live session rather than a fixture:
-`pi -e .` answers one fixed question in a throwaway repository, so the reply
-sentence and the footer's numbers change with the model that answered it. The
-window, the path, and the chrome do not — the question, the theme, and the frame
-size are fixed.
 
 A screen is an asset stem, a window title, and a `render(width, rows)` that
 builds its real component around fixtures. It may also set `bounds` and `size`,
@@ -76,14 +60,14 @@ a frame leaves the terminal or outgrows its `rows`.
 
 Four assets come from a headless browser instead of the terminal: the two
 browser pages and the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`).
-`scripts/chrome-shot.ts` drives Playwright against the Chrome the machine already
+`scripts/capture/chrome.ts` drives Playwright against the Chrome the machine already
 has — `PI_CHROME`, else the usual bundles — so a refresh downloads no browser,
 and it sizes the window to the document before capturing, so a page wider than the
 window is photographed at its own layout. Both page captures have a fixture or a
 fixture project, so a refresh reproduces the same examples:
 
 ```bash
-bun run screenshot:plan scripts/fixtures/plan-review.md -o assets/plan-review.png --width 1280 --scale 1 --theme dark
+bun run screenshot:plan scripts/examples/plan-review.md -o assets/plan-review.png --width 1280 --scale 1 --theme dark
 bun run screenshot:file-browse -o assets/file-browse.png --theme dark
 ```
 
@@ -109,6 +93,11 @@ rather than being clipped.
 The screenshot grid in the root `README.md` is a curated set rather than the
 full list; each screen is shown on its extension's page under
 [`docs/extensions/`](./extensions/).
+
+[`../scripts/README.md`](../scripts/README.md) owns the rest: the layout of the
+directory, which mechanism a new asset uses, who owns which fixture directory, and
+when an asset is recaptured — including why the hero prints the pack's version and
+the compatibility floor, and what a live session does and does not put in the frame.
 
 ## Tests
 

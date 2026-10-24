@@ -128,13 +128,14 @@
     "config:migrate": "bun run scripts/migrate-config.ts",
     "compat:versions": "bun run scripts/peer-versions.ts",
     "bench:render": "bun run scripts/render-bench.ts",
-    "screenshot:file-browse": "bun run scripts/file-browse-shot.ts",
-    "screenshot:plan": "bun run scripts/plan-review-shot.ts",
-    "screenshot:plan-flow": "bun run scripts/plan-flow-shot.ts",
+    "screenshot:file-browse": "bun run scripts/shots/file-browse.ts",
+    "screenshot:plan": "bun run scripts/shots/plan-review.ts",
+    "screenshot:plan-flow": "bun run scripts/shots/plan-flow.ts",
     "screenshot:tools": "bun run tools:render gallery assets/tool-renderings.png",
     "screenshot:tool-pngs": "bun run tools:render tools assets/tools",
+    "probe:wechat": "bun run scripts/wechat-poll.ts",
     "screenshots": "bun run scripts/screenshots.ts",
-    "tools:render": "bun run scripts/tool-renderings.ts"
+    "tools:render": "bun run scripts/tools/index.ts"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

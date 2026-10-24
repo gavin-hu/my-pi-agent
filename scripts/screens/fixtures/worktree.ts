@@ -7,8 +7,8 @@
  * within the frame.
  */
 
-import type { CheckoutStatus } from "../../extensions/worktree/registry.ts";
-import type { ManagedRow, WorktreeSnapshot } from "../../extensions/worktree/status.ts";
+import type { CheckoutStatus } from "../../../extensions/worktree/registry.ts";
+import type { ManagedRow, WorktreeSnapshot } from "../../../extensions/worktree/status.ts";
 import { now } from "./shared.ts";
 import { DEMO_CWD } from "./workspace.ts";
 

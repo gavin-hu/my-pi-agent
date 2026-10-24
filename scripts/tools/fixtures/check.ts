@@ -5,8 +5,8 @@
  * failure that parsed into no location leads with its tail instead.
  */
 
-import { formatCheckReport } from "../../extensions/check/format.ts";
-import type { CheckResult } from "../../extensions/check/types.ts";
+import { formatCheckReport } from "../../../extensions/check/format.ts";
+import type { CheckResult } from "../../../extensions/check/types.ts";
 import type { ToolFixture } from "./types.ts";
 
 /** A failing run whose output parsed into locations. */

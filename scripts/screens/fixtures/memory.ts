@@ -2,8 +2,8 @@
  * The notes the `/memory` picker lists, project scope first, and the callbacks it needs.
  */
 
-import type { MemoryEntries } from "../../extensions/memory/format.ts";
-import type { MemoryPickerCallbacks } from "../../extensions/memory/tui.ts";
+import type { MemoryEntries } from "../../../extensions/memory/format.ts";
+import type { MemoryPickerCallbacks } from "../../../extensions/memory/tui.ts";
 
 /** Notes the `/memory` picker lists, project scope first. */
 export const MEMORY_ENTRIES: MemoryEntries = {

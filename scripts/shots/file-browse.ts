@@ -11,7 +11,7 @@
  * image must not name a real checkout or someone's files. `PI_CHROME` selects a
  * Chrome or Chromium other than the macOS default.
  *
- *   bun run scripts/file-browse-shot.ts [--root <dir>] [--file <rel>] [-o out.png]
+ *   bun run screenshot:file-browse [--root <dir>] [--file <rel>] [-o out.png]
  *     [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]
  *
  * Output defaults to `file-browse.png` in the working directory.
@@ -22,12 +22,12 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "n
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { DEFAULT_CONFIG } from "../extensions/file-browse/config.ts";
-import { createGitDiff, createGitStatus } from "../extensions/file-browse/git.ts";
-import { encodePath } from "../extensions/file-browse/paths.ts";
-import { createFileServer } from "../extensions/file-browse/server.ts";
-import { parseShotArgs, runCli } from "./cli.ts";
-import { type PageShotOptions, capturePage } from "./web-shot.ts";
+import { DEFAULT_CONFIG } from "../../extensions/file-browse/config.ts";
+import { createGitDiff, createGitStatus } from "../../extensions/file-browse/git.ts";
+import { encodePath } from "../../extensions/file-browse/paths.ts";
+import { createFileServer } from "../../extensions/file-browse/server.ts";
+import { parseShotArgs, runCli } from "../cli.ts";
+import { type PageShotOptions, capturePage } from "../capture/page.ts";
 
 /** CLI options after parsing. */
 export interface ShotOptions extends PageShotOptions {
@@ -237,7 +237,7 @@ async function capture(options: ShotOptions): Promise<void> {
 	}
 }
 
-const USAGE = `usage: bun run scripts/file-browse-shot.ts [--root <dir>] [--file <rel>] [-o out.png] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]`;
+const USAGE = `usage: bun run screenshot:file-browse [--root <dir>] [--file <rel>] [-o out.png] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

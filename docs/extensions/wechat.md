@@ -402,7 +402,7 @@ different value is not documented, so it is opt-in and unset by default. To find
 out on your account, quit `pi` and run this from a repository checkout:
 
 ```bash
-bun scripts/wechat-poll-probe.ts 3000
+bun run probe:wechat 3000
 ```
 
 It prints the requested hold, the measured one, and the value the server echoed,

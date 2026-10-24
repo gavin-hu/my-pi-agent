@@ -8,13 +8,13 @@
  * resolved through bytefly's own `registerToolBlocks` resolver — so the rail,
  * its status colour, and the generic fallback are the ones a session shows.
  *
- *   tool-renderings.ts list                     one line per rendering
- *   tool-renderings.ts render <name> [--width]  print one block's ANSI
- *   tool-renderings.ts html <out.html>          write the gallery page
- *   tool-renderings.ts gallery <out.png>        capture the gallery full-page
- *   tool-renderings.ts tools <dir>              one PNG per rendering
+ *   bun run tools:render list                     one line per rendering
+ *   bun run tools:render render <name> [--width]  print one block's ANSI
+ *   bun run tools:render html <out.html>          write the gallery page
+ *   bun run tools:render gallery <out.png>        capture the gallery full-page
+ *   bun run tools:render tools <dir>              one PNG per rendering
  *
- * Fixtures live in `tool-fixtures/`, one module per tool family; this module is
+ * Fixtures live in `fixtures/`, one module per tool family; this module is
  * the plumbing.
  */
 
@@ -35,31 +35,31 @@ import {
 	type ToolRenderers,
 } from "@earendil-works/pi-coding-agent";
 import { Markdown, type Component } from "@earendil-works/pi-tui";
-import { NoticeComponent } from "../extensions/bytefly/notice/component.ts";
-import { SeparatorComponent } from "../extensions/bytefly/separator/component.ts";
-import { nameplate } from "../extensions/bytefly/message/format.ts";
-import bytefly from "../extensions/bytefly/index.ts";
-import check from "../extensions/check/index.ts";
-import fileRead from "../extensions/file-read/index.ts";
-import goal from "../extensions/goal/index.ts";
-import jobs from "../extensions/job/index.ts";
-import memory from "../extensions/memory/index.ts";
-import planMode from "../extensions/plan/index.ts";
-import question from "../extensions/question/index.ts";
-import sessionBus from "../extensions/session-bus/index.ts";
-import subagent from "../extensions/subagent/index.ts";
-import todo from "../extensions/todo/index.ts";
-import watch from "../extensions/watch/index.ts";
-import webAccess from "../extensions/web-access/index.ts";
-import wechat from "../extensions/wechat/index.ts";
-import { createFakePi } from "../test/helpers/fakes.ts";
-import { escapeHtml } from "../lib/escape.ts";
-import { ansiLinesToHtml } from "./ansi-html.ts";
-import { captureFullPage } from "./chrome-shot.ts";
-import { numberArg } from "./cli.ts";
-import { setThemeInstance, pageColors, theme as baseTheme } from "./theme.ts";
-import { TRANSCRIPT_NOTICE } from "./transcript-fixture.ts";
-import { FIXTURES, type ToolFixture } from "./tool-fixtures/index.ts";
+import { NoticeComponent } from "../../extensions/bytefly/notice/component.ts";
+import { SeparatorComponent } from "../../extensions/bytefly/separator/component.ts";
+import { nameplate } from "../../extensions/bytefly/message/format.ts";
+import bytefly from "../../extensions/bytefly/index.ts";
+import check from "../../extensions/check/index.ts";
+import fileRead from "../../extensions/file-read/index.ts";
+import goal from "../../extensions/goal/index.ts";
+import jobs from "../../extensions/job/index.ts";
+import memory from "../../extensions/memory/index.ts";
+import planMode from "../../extensions/plan/index.ts";
+import question from "../../extensions/question/index.ts";
+import sessionBus from "../../extensions/session-bus/index.ts";
+import subagent from "../../extensions/subagent/index.ts";
+import todo from "../../extensions/todo/index.ts";
+import watch from "../../extensions/watch/index.ts";
+import webAccess from "../../extensions/web-access/index.ts";
+import wechat from "../../extensions/wechat/index.ts";
+import { createFakePi } from "../../test/helpers/fakes.ts";
+import { escapeHtml } from "../../lib/escape.ts";
+import { ansiLinesToHtml } from "../ansi-html.ts";
+import { captureFullPage } from "../capture/chrome.ts";
+import { numberArg } from "../cli.ts";
+import { setThemeInstance, pageColors, theme as baseTheme } from "../theme.ts";
+import { TRANSCRIPT_NOTICE } from "../transcript-fixture.ts";
+import { FIXTURES, type ToolFixture } from "./fixtures/index.ts";
 
 /**
  * The theme wrapped so the terminal's SGR decorations survive the capture.
@@ -398,7 +398,7 @@ async function main(): Promise<void> {
 		}
 		return;
 	}
-	throw new Error("usage: tool-renderings.ts <list|render|html|gallery|tools> [name|out] [--width n]");
+	throw new Error("usage: bun run tools:render <list|render|html|gallery|tools> [name|out] [--width n]");
 }
 
 if (import.meta.main) {

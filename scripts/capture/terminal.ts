@@ -12,23 +12,13 @@
  */
 
 import { execFileSync } from "node:child_process";
-import {
-	copyFileSync,
-	existsSync,
-	mkdtempSync,
-	readFileSync,
-	readdirSync,
-	rmSync,
-	statSync,
-	symlinkSync,
-	writeFileSync,
-} from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { pollUntil, sleep } from "./poll.ts";
-import { repo } from "./theme.ts";
-import { WINDOW_BOUNDS } from "./screenshot-fixtures/index.ts";
-import type { Screen } from "./screenshots.ts";
+import { pollUntil, sleep } from "../poll.ts";
+import { repo } from "../theme.ts";
+import { WINDOW_BOUNDS } from "../screens/fixtures/index.ts";
+import type { Screen } from "../screens/index.ts";
 
 /** The hero is a real `pi -e .` run, so it gets its own size. */
 const CHROME_BOUNDS = { left: 80, top: 80, right: 886, bottom: 673 };
@@ -208,7 +198,7 @@ function cropTitleBar(source: string, out: string, windowWidth: number): void {
 		[
 			"-l",
 			"JavaScript",
-			join(repo, "scripts", "crop-title-bar.js"),
+			join(import.meta.dir, "crop-title-bar.js"),
 			source,
 			out,
 			String(windowWidth),
@@ -242,13 +232,41 @@ async function waitForTurn(session: string, timeoutMs: number): Promise<void> {
 }
 
 /**
+ * The agent config a hero capture needs: enough to run one turn and draw the
+ * configured chrome, and nothing else. Anything absent from the live dir is
+ * skipped rather than treated as an error, so a minimal install still captures.
+ *
+ * Deliberately left out, because each is live state that has no business in a
+ * published image: `mcp.json` (servers to start), `trust.json` (a trust decision
+ * made on this machine), `crashes.json` (this machine's failures), and
+ * `models-store.json` (a cache that the model definitions already cover).
+ */
+const HERO_CONFIG_FILES = ["auth.json", "settings.json", "models.json", "bytefly.json"] as const;
+
+/** Copy the hero's allowlisted config from `liveDir` into `tempDir`; returns what was copied. */
+export function seedAgentDir(liveDir: string, tempDir: string): string[] {
+	const copied: string[] = [];
+	for (const name of HERO_CONFIG_FILES) {
+		const from = join(liveDir, name);
+		if (!existsSync(from)) continue;
+		copyFileSync(from, join(tempDir, name));
+		copied.push(name);
+	}
+	return copied;
+}
+
+/**
  * Capture the hero: a real `pi -e .` session in a Terminal window, so the bytefly
  * chrome is the shipped code rather than a mock. `-ne` isolates the package from
  * anything else installed, `--offline` drops the startup update check (so an
  * outdated local `pi` cannot put an "Update Available" box in the hero),
- * `--no-themes` avoids a collision with an installed copy, the worktree env is
- * cleared so no banner line is printed, and the hero runs on its own agent dir so
- * no line about the capturing machine's live state can reach the frame.
+ * `--no-themes` avoids a collision with an installed copy, and the worktree env
+ * is cleared so no banner line is printed.
+ *
+ * The hero runs on an agent dir seeded by `seedAgentDir`, so the capture machine's
+ * paths, history, trust decisions, MCP servers, and cache stay out of the frame.
+ * Two things in the frame are still live, because the turn is: the model's reply
+ * sentence and the footer's model name and usage line.
  */
 export async function captureChrome(): Promise<void> {
 	const session = join(tmpdir(), "pi-screenshot-chrome.jsonl");
@@ -260,17 +278,14 @@ export async function captureChrome(): Promise<void> {
 	// is left alone and a fresh temp one is used instead.
 	const named = join(homedir(), "retry-policy");
 	const demo = existsSync(named) ? mkdtempSync(join(homedir(), "pi-hero-")) : named;
-	// The hero's own agent dir, seeded with the live one's top-level JSON: auth,
-	// model definitions, and bytefly's config, so the turn still runs and the
-	// chrome is the configured one. No directory is copied — a live WeChat bridge
-	// would otherwise put "another session is already polling" in the frame, and
-	// no session history belongs in a screenshot.
+	// The hero's own agent dir, seeded from an allowlist: auth, model definitions,
+	// settings, and bytefly's config, so the turn still runs and the chrome is the
+	// configured one. No directory is copied — a live WeChat bridge would otherwise
+	// put "another session is already polling" in the frame, and no session history
+	// belongs in a screenshot.
 	const agentDir = mkdtempSync(join(tmpdir(), "pi-hero-agent-"));
 	const liveAgentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
-	for (const entry of readdirSync(liveAgentDir)) {
-		const from = join(liveAgentDir, entry);
-		if (entry.endsWith(".json") && statSync(from).isFile()) copyFileSync(from, join(agentDir, entry));
-	}
+	seedAgentDir(liveAgentDir, agentDir);
 	// Pi keeps the helper binaries it downloads (`fd`, `rg`) in `<agentDir>/bin` and
 	// warns when they are missing, so the hero gets that directory by reference.
 	// It is a link, not a copy: unlinking it in the cleanup below leaves the live

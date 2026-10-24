@@ -2,7 +2,7 @@
  * The question dialog's fixtures: one picker, one multi-select.
  */
 
-import type { Question } from "../../extensions/question/types.ts";
+import type { Question } from "../../../extensions/question/types.ts";
 
 export const QUESTIONS: Question[] = [
 	{

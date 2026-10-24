@@ -160,12 +160,12 @@ when its surface or a printed version is behind.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/structure.test.ts` resolves them.
 - One doc per audience: per-area contracts live in
-  `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`, and
-  `test/README.md`.
+  `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,
+  `scripts/README.md`, and `test/README.md`.
 
 ## How to work
 
-- Be short and direct: answer before editing, and state agreement or disagreement.
+- Be short and direct: answer before editing, state agreement or disagreement.
 - Ask before removing functionality that looks intentional; add no backward
   compatibility unless asked.
 - If an instruction conflicts with this file, ask before overriding it.

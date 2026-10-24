@@ -3,9 +3,9 @@
  * one of them mid-turn, and the view built from the two.
  */
 
-import type { BridgeStatus } from "../../extensions/wechat/bridge.ts";
-import { statusView } from "../../extensions/wechat/view/status-screen.ts";
-import type { BotCredentials } from "../../extensions/wechat/types.ts";
+import type { BridgeStatus } from "../../../extensions/wechat/bridge.ts";
+import { statusView } from "../../../extensions/wechat/view/status-screen.ts";
+import type { BotCredentials } from "../../../extensions/wechat/types.ts";
 import { now } from "./shared.ts";
 
 /** A stored account and an open bridge serving three peers, one of them mid-turn. */

@@ -3,7 +3,7 @@
  */
 
 import { now } from "./shared.ts";
-import type { WatchRecord } from "../../extensions/watch/types.ts";
+import type { WatchRecord } from "../../../extensions/watch/types.ts";
 
 /** The `/watch` screen's watchers: one live file tail with matches, one finished command. */
 export const WATCHES: WatchRecord[] = [

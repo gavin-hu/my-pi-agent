@@ -2,7 +2,7 @@
  * The todo list the `/todo` widget draws: one completed, one in progress, four open.
  */
 
-import type { Todo } from "../../extensions/todo/types.ts";
+import type { Todo } from "../../../extensions/todo/types.ts";
 
 export const TODOS: Todo[] = [
 	{ content: "Extract the shared design system into lib/tui", status: "completed" },

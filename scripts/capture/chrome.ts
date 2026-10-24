@@ -1,8 +1,8 @@
 /**
  * Full-page PNG capture with headless Chrome (dev tooling).
  *
- * Shared by `plan-review-shot.ts`, `file-browse-shot.ts`, and
- * `tool-renderings.ts`: it drives the Chrome or Chromium this machine already
+ * Shared by `shots/plan-review.ts`, `shots/file-browse.ts`, and
+ * `tools/index.ts`: it drives the Chrome or Chromium this machine already
  * has through Playwright and captures the whole document — beyond the viewport —
  * in one shot, so a page taller than the window (a plan, a gallery of tool
  * blocks) is not clipped. The binary is still found the way it always was,
