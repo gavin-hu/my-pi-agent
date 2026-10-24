@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: [`docs/architecture.md`](./docs/architecture.md) is rewritten as the target
+  architecture rather than a snapshot of the tree: what the host loads, the four
+  moments of an extension's life, the hook families, state and derived views, the
+  three cooperation mechanisms, the four layers, the process shapes, the trust
+  boundaries, and where a change belongs. It owns no inventory — each list belongs
+  to the doc that already has it — and the three rules the code has not reached yet
+  are named there and carried as `F3`–`F5` in
+  [`ROADMAP.md`](./ROADMAP.md#5-foundations). `test/architecture-doc.test.ts` holds
+  the page's own claims: every path it names exists, every `lib/` directory is
+  named, and every roadmap id it cites resolves.
 - `skills`: the `refactor` skill measures a scope instead of asking the model to eyeball
   it. `scripts/inventory.ts` prints the languages it read, the size distribution, fan-in
   from resolvable imports, churn over a stated window, test proximity, and the files

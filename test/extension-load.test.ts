@@ -180,7 +180,7 @@ type Noun = "extensions" | "tools" | "skills" | "themes";
 
 describe("the documented footprint", () => {
 	/** The pages that state how big the pack is, where a reader weighs it. */
-	const pages = [join(root, "README.md"), join(root, "README.zh-CN.md")]
+	const pages = [join(root, "README.md"), join(root, "README.zh-CN.md"), join(root, "docs", "architecture.md")]
 		.concat(walkFiles(join(root, "docs", "user-guide")).filter((file) => file.endsWith(".md")))
 		.map((file) => ({ file: relative(root, file), text: readFileSync(file, "utf-8") }));
 

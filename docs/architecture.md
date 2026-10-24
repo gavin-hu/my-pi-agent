@@ -1,46 +1,47 @@
 # Architecture
 
-This page is the map a contributor needs before changing this package: what Pi
+This page is the map a contributor holds while changing the package: what Pi
 loads, what an extension is made of, what a turn does, where state lives, how
 extensions cooperate without importing each other, and which shape new code
-should take.
+takes.
 
-It is deliberately not the rulebook. The normative invariants, the code-quality
-bar, and the workflow live in [`../AGENTS.md`](../AGENTS.md); the shared module
-tables in [`../lib/README.md`](../lib/README.md); the terminal design system in
-[`../lib/tui/README.md`](../lib/tui/README.md); the test tiers in
-[`../test/README.md`](../test/README.md); and one extension's full surface in its
-own `README.md`. Where this page states a reason, the rule itself is one link
-away.
+It describes the shape this package commits to, not a snapshot of the tree. A
+rule is written in the present tense because it is meant to hold; where the tree
+has not caught up, the section names the gap and [`../ROADMAP.md`](../ROADMAP.md)
+carries the work. The rulebook that is *enforced today* — the invariants, the
+code-quality bar, the workflow — is [`../AGENTS.md`](../AGENTS.md). This page
+explains those rules and is deliberately ahead of the code in the three places
+listed at [the end](#where-the-tree-has-not-caught-up).
+
+It is not a second rulebook. Every rule has one owner and its reasoning sits next
+to it: invariants in [`../AGENTS.md`](../AGENTS.md), the shared module table in
+[`../lib/README.md`](../lib/README.md), the terminal design system in
+[`../lib/tui/README.md`](../lib/tui/README.md), the browser design system in
+[`../lib/web/README.md`](../lib/web/README.md), the threat model in
+[`./security.md`](./security.md), the test tiers in [`../test/README.md`](../test/README.md),
+and one extension's full surface in its own `README.md`.
 
 ## Contents
 
-- [What this page is for](#what-this-page-is-for)
-- [The package Pi loads](#the-package-pi-loads)
-- [The load path](#the-load-path)
-- [An extension from the inside](#an-extension-from-the-inside)
-- [A turn, end to end](#a-turn-end-to-end)
-- [State: what survives, and where](#state-what-survives-and-where)
-- [How extensions cooperate without importing each other](#how-extensions-cooperate-without-importing-each-other)
-- [Shared layers underneath](#shared-layers-underneath)
-- [Long-lived work and who stops it](#long-lived-work-and-who-stops-it)
+- [Vocabulary](#vocabulary)
+- [The shape in one picture](#the-shape-in-one-picture)
+- [What the host loads](#what-the-host-loads)
+- [The extension contract](#the-extension-contract)
+- [One turn](#one-turn)
+- [State: authoritative and derived](#state-authoritative-and-derived)
+- [Cooperation without imports](#cooperation-without-imports)
+- [The layers](#the-layers)
+- [Long-lived work](#long-lived-work)
 - [Trust boundaries](#trust-boundaries)
-- [Where new code belongs](#where-new-code-belongs)
+- [Where a change belongs](#where-a-change-belongs)
 - [Reading the code](#reading-the-code)
+- [Where the tree has not caught up](#where-the-tree-has-not-caught-up)
 - [Related docs](#related-docs)
 
-## What this page is for
+## Vocabulary
 
-It answers three questions:
-
-1. **How does the thing fit together?** The load path, the module roles, the
-   turn, and the stores below.
-2. **Why are the rails where they are?** One paragraph of reasoning per
-   invariant, instead of a second copy of the rule.
-3. **Where does my change belong?** The decision tree in [Where new code
-   belongs](#where-new-code-belongs).
-
-The vocabulary is Pi's, so a short glossary is worth the lines:
+The words below are Pi's, and the rest of this page uses them in exactly this
+sense.
 
 | Term | What it means here |
 |---|---|
@@ -49,120 +50,102 @@ The vocabulary is Pi's, so a short glossary is worth the lines:
 | Session branch | The ordered entries of the current conversation. It is the authoritative state store. |
 | Session entry | One record on the branch: a message, a tool result, or a custom entry an extension wrote. |
 | Tool result `details` | Structured data attached to a tool result, persisted with it on the branch. |
-| `customType` | A string an extension puts on injected context or custom entries so it can recognise its own records later. |
+| `customType` | A string an extension puts on injected context or a custom entry so it can recognise its own records later. |
 | Renderer | The component that draws one tool call or result in the transcript. |
-| Status key | A named slot in the footer, e.g. the plan badge. The key and its glyph are one shared contract. |
 | Widget | A line above the editor, derived on each render from branch state. |
+| Rail | A widget that shares the above-editor stack with another and therefore needs a stable order. |
 
-## The package Pi loads
-
-One npm package, no build step. Pi does not scan a directory: it reads the `pi`
-manifest in [`../package.json`](../package.json), which lists every extension
-entrypoint, the theme glob, and the header image. Loading an entrypoint is
-`jiti` compiling TypeScript on demand, so there is no bundling, no transpiled
-output, and no build artefact to keep in sync.
-
-**What the manifest wires up.**
+## The shape in one picture
 
 ```mermaid
 flowchart TD
   M["package.json · pi manifest"] --> P["Pi · jiti, no build step"]
-  P --> X["extensions/todo/index.ts"]
-  P --> Y["extensions/plan/index.ts"]
-  X --> L1["lib/ · a copy for todo"]
-  Y --> L2["lib/ · a copy for plan"]
-  R["themes/*.json · header image URL"] --- P
+  P --> EA["extensions/todo · its own module graph"]
+  P --> EB["extensions/plan · its own module graph"]
+  EA --> LA["lib/ · one copy"]
+  EB --> LB["lib/ · another copy"]
+  EA --> BR["session branch · authoritative"]
+  EB --> BR
+  BR --> D["widgets, footer, transcript · derived each render"]
 ```
 
-Each extension gets its own module graph, so the `lib/` box is drawn twice on
-purpose; [The load path](#the-load-path) explains why that is not a detail.
+Six facts about that picture carry the rest of this page.
 
-The package splits its dependencies by who supplies them. Pi and its UI packages
-are `peerDependencies` with a `"*"` range: the host provides them, so the package
-never pins a second copy of the agent loop. Real `dependencies` exist only where
-the package itself does the work — the document parsers behind `read_doc`, and
-the QR encoder behind the WeChat login. `files` ships `extensions/`, `lib/`, and
-`themes/`, minus the grouped tests; `assets/` stays in the repository, and the
-manifest's header image is a raw URL rather than a packaged file.
+1. **Pi loads the manifest, not a directory.** The `pi` section of
+   [`../package.json`](../package.json) is the complete load list; there is no
+   scanning and no build output.
+2. **Every extension gets its own module graph**, `lib/` included. A module-level
+   value in shared code is therefore one value *per extension*, which is why
+   shared code stays value-only. See [The layers](#the-layers).
+3. **Registering and running are separate.** The factory declares; the session
+   starts, restores, and releases.
+4. **The branch is the store.** State that survives `/resume` and `/tree` is a
+   session entry; nothing else qualifies.
+5. **Everything on screen is derived.** A widget or footer segment is computed
+   from state on each render and never becomes the memory of it.
+6. **Extensions never import each other.** They agree through `lib/`, an event
+   channel, or a shared name — [Cooperation without imports](#cooperation-without-imports).
 
-## The load path
+## What the host loads
 
-**Registration and lifetime are separate steps.** The factory registers; the
-session owns everything else.
+One npm package, no build step. Loading an extension entrypoint is `jiti`
+compiling TypeScript on demand, so there is no bundle, no transpiled tree, and no
+artefact that can lag the source. The manifest also names the skills directory,
+the theme glob, and the header image; a file that is not in the manifest is not
+loaded, however correct it is.
 
-1. **Factory.** Pi calls the default export with the host API. The factory reads
-   its extension's name from the shared disable list
-   ([`../lib/env.ts`](../lib/env.ts)) and returns early when disabled, then
-   registers tools, commands, flags, shortcuts, renderers, and event handlers.
-   It does not open a server, spawn a process, or start a timer.
-2. **`session_start`.** Anything long-lived starts here: the file browser, the
-   WeChat poller, watchers, the doctor probe, widget restoration. The startup
-   event also carries the context each extension needs to rebuild its state from
-   the branch.
-3. **`session_tree`.** A `/tree` switch reloads the branch, so extensions that
-   derive widgets or read published state rebuild here too.
-4. **`session_shutdown`.** Everything started in step 2 is released, idempotently
-   — a shutdown may arrive twice, and after a failed start.
+Dependencies split by who supplies them. Pi and its UI packages are
+`peerDependencies` with a `"*"` range, because the host provides them and a
+second pinned copy of the agent loop would be a second host. Real `dependencies`
+exist only where this package does the work itself — the document parsers behind
+`read_doc`, the QR encoder behind the WeChat login — and each is imported lazily
+by the module that needs it, so loading an unrelated extension costs nothing.
 
-That split is what lets `/resume`, `/tree`, RPC, and print modes rebuild the same
-state: no extension holds state the branch does not, and no factory carries a
-resource the session cannot release.
+## The extension contract
 
-The second consequence is the module cache. Pi gives **each extension its own**
-instantiation of every module it imports, including `lib/`. A module-level value
-in `lib/` would therefore exist once per extension rather than once shared, so
-`lib/` stays value-only: pure functions, constants, and classes. A test enforces it,
-[`../test/structure.test.ts`](../test/structure.test.ts). The one shared-state
-pattern is the event bus in [`../lib/rails.ts`](../lib/rails.ts), where the state
-lives in the caller's closure rather than in `lib/`.
+One wiring point, six code roles, one lifetime.
 
-## An extension from the inside
+**Four moments, one owner each.** An extension is not a process; it is a
+participation in a session's lifetime, and each moment permits exactly one kind
+of work.
 
-**One wiring point, five code roles, grouped tests.** `index.ts` is the only
-place that touches the host API; every other module is a unit with a single job,
-and the capability suites beside the extension cover their public surface.
+| Moment | Where | Its one job | It may not |
+|---|---|---|---|
+| Register | the factory | Declare tools, commands, flags, shortcuts, renderers, and handlers. | Open a server, spawn a process, start a timer, read the branch. |
+| Restore | `session_start`, `session_tree` | Rebuild this extension's view from the branch, then start what outlives a turn. | Assume another extension is loaded, or keep state the branch cannot rebuild. |
+| Participate | the current turn's hooks | Gate a call, observe a result, extend a run, settle a turn. | Mutate another extension's state, or write a branch record it does not own. |
+| Release | `session_shutdown` | Release everything Restore started, idempotently. | Throw on a second call, or depend on a start that failed. |
 
-```mermaid
-flowchart LR
-  I["index.ts · wiring"] --> T["tools + schema"]
-  I --> R["runtime · state"]
-  I --> C["config"]
-  I --> CMD["commands"]
-  I --> V["tui / render"]
-  I --> H["host API"]
-```
+`index.ts` is the only module that touches the host API. Every other module is a
+leaf that takes the seams it needs as parameters — a git runner, an HTTP runner,
+a spawner — which is what makes it testable without a runtime. The roles are:
 
-| Module | Job |
-|---|---|
-| `tools.ts`, `schema.ts` | The model-facing surface: the tool definition, its TypeBox schema, and the transcript renderers. |
-| `runtime.ts`, `state.ts` | In-memory state for one session, rebuilt from the branch, plus the pure functions that read it. |
-| `config.ts` | Load and normalise this extension's section of the shared config document. |
-| `commands.ts` | Slash-command entry points and their argument completions. |
-| `tui.ts`, `render.ts` | Full-screen components, dialogs, and tool renderers, drawn from `lib/tui/`. |
-| `*.test.ts` | The declared capability suites for this extension or `lib/` subsystem. |
+| Role | What lives there | Reads |
+|---|---|---|
+| Surface | The tool definition, its TypeBox schema, its renderers. | `lib/tui/tool.ts` |
+| State | In-memory state for one session, plus the pure functions that read it. | the branch, via Restore |
+| Config | Load and normalise this extension's section of the shared document. | `lib/config.ts` |
+| Commands | Slash-command entry points and their argument completions. | State |
+| View | Full-screen components, dialogs, widgets. | `lib/tui/`, `lib/web/` |
+| Transport | A socket, a child process, a bridge — the only role that owns I/O. | the owning extension |
 
-Two shapes show why the roles exist. `todo` is the smallest complete extension: a
-tool that replaces a list, one command, and a widget derived from tool-result
-`details` ([`../extensions/todo/index.ts`](../extensions/todo/index.ts)). `plan`
-is the largest: a read-only policy, four tools, a web review server, a shortcut,
-and injected context, all coordinated through one runtime
-([`../extensions/plan/index.ts`](../extensions/plan/index.ts)).
+The filenames are not the contract; the roles are. A small extension keeps them
+in flat modules — [`../extensions/todo/`](../extensions/todo/) is one tool, one
+command, one widget, and branch replay. Past roughly twenty modules a role earns
+a directory, the way [`../extensions/bytefly/`](../extensions/bytefly/) groups
+`footer/`, `notice/`, `header/`, and `separator/`, and `plan` keeps its tool
+surface in `tools/`. Five extensions are still flat at that size — gap `F4`.
 
-No extension imports another extension's modules. The boundary is not stylistic:
-the module cache makes such an import a second copy of state the other extension
-believes it owns. Sharing happens through `lib/`, event channels, and replayed
-state — the next two sections.
+## One turn
 
-## A turn, end to end
-
-The hook order is the whole runtime in one picture. Each hook may change one
-narrow thing, and the branch records the result.
+The hook order is the runtime in one picture. Each hook may change one narrow
+thing, and the branch records the result.
 
 ```mermaid
 sequenceDiagram
   participant U as User
   participant P as Pi
-  participant X as Ext
+  participant X as Extension
   participant M as Model
   U->>P: prompt
   P->>X: before_agent_start
@@ -170,168 +153,210 @@ sequenceDiagram
   P->>M: messages + tools
   M->>P: tool call
   P->>X: tool_call gate
-  X-->>P: allow or block
+  X-->>P: allow, block, or rewrite
   P->>X: execute tool
   X-->>P: result + details
   Note over P: the branch stores the entries
   P->>X: tool_execution_end
-  P->>P: render from the branch
-  P-->>U: transcript + widgets
+  P->>X: agent_before_settle
+  P->>X: agent_settled
+  P-->>U: transcript and widgets, derived from the branch
 ```
 
-The hooks an extension uses most:
+The hooks group by the question they answer, and a hook is only ever registered
+by the extension that owns the side effect.
 
-| Hook | What it may do |
-|---|---|
-| `before_agent_start` | Add injected context, tagged with a `customType` so it can be removed later, or write a system-prompt section (`worktree` adds its facts, `plan` marks plan mode). |
-| `tool_call` | Block a call with a reason, or rewrite its input. Plan mode's policy gate and the shell guard live here. |
-| `tool_execution_end` | Observe a finished call: mark work done, nudge the model, publish an event. |
-| `agent_before_settle` | Add one more request before the run settles. `todo` uses it to remind the model to update the list. |
-| `context` | Filter or dedupe injected context before it reaches the model, so repeated instructions do not accumulate. |
-| `agent_settled` | One inert entry per settled turn, drawn by a registered entry renderer; the pending-report channel also retries a wake a running turn suppressed, unless the run was aborted. `bytefly` appends its turn receipt, so the registration order decides the reading order. |
+| Family | Hooks | What it may do | Exemplar |
+|---|---|---|---|
+| Lifecycle | `session_start`, `session_tree`, `session_shutdown` | Restore, start, release. | `plan` rebuilds plan mode from the branch. |
+| Gate | `tool_call` | Block with a reason, or rewrite input. | `plan`'s policy, `worktree`'s shell guard. |
+| Observe | `tool_execution_start`, `tool_execution_end` | Mark work done and publish an event. | `todo` closes the loop on its own tool. |
+| Extend | `before_agent_start`, `context`, `agent_before_settle` | Add injected context, dedupe it, ask once more before settling. | `memory` injects notes; `context` reports it. |
+| Settle | `agent_start`, `agent_end`, `agent_settled` | Draw the run's frame, post one inert entry per settled turn. | `bytefly`'s separator and footer. |
 
-A tool definition carries four contract fields this package relies on, and this
-page names them rather than restating them: `annotations` (including
-`readOnlyHint` and `openWorldHint`), `executionMode`, `exposure`/`defaultActive`,
-and `outputSchema`. [`../AGENTS.md`](../AGENTS.md) states the rules; three
-consumers depend on them — plan mode's default-deny policy
-([`../lib/policy.ts`](../lib/policy.ts)), rewind's snapshot classification, and
-`todo`'s work nudge all read `readOnlyHint`.
+One hook registration that three extensions need is a `lib/` channel, not three
+copies: [`../lib/report.ts`](../lib/report.ts) registers the pending-outcome
+channel that `job`, `watch`, and `session-bus` all publish through, so a finished
+job and a matched watch reach the transcript by one path. That is the test for
+whether a hook belongs in `lib/`.
 
-## State: what survives, and where
+## State: authoritative and derived
 
-**The branch is authoritative; everything else is either configuration or a
-derived view.** A widget or a footer segment that does not replay from the branch
-is a bug, because `/resume` and `/tree` rebuild from it.
+**The branch is authoritative; everything else is configuration or a view.** A
+widget, chip, or footer segment that does not replay from the branch is a bug,
+because `/resume` and `/tree` rebuild from it.
 
 | Store | Holds | Read back by |
 |---|---|---|
-| Session branch | Messages, tool results with `details`, custom entries (plan mode, goals, notices) | `ctx.sessionManager.getBranch()`, on `session_start` and `session_tree` |
-| `bytefly.json` | Configuration, one section per owner | Each extension's `config.ts`, global then project ([`../lib/config.ts`](../lib/config.ts)) |
-| Project `.pi/` | Plans, worktrees, subagent transcripts, memory notes, project config | The owning extension, by path |
-| Agent directory | Global memory and config, job registry and logs, WeChat state | The owning extension, by path |
+| Session branch | Messages, tool results with `details`, custom entries (plan mode, goals, notices) | `getBranch()`, on `session_start` and `session_tree` |
+| The config document | Configuration, one section per owner | Each extension's `config.ts`, global then project |
+| Project `.pi/` | Plans, worktrees, subagent transcripts, notes, project config | The owning extension, by path |
+| Agent directory | Global notes and config, the plan store, job logs, session-bus state, WeChat state | The owning extension, by path |
 | Git refs | Rewind snapshots under `refs/pi/rewind` | `rewind`, by ref name |
-| Environment | `PI_WORKTREE_*` and `PI_DISABLED_EXTENSIONS` | Process-wide seams in [`../lib/env.ts`](../lib/env.ts) |
+| Environment | `PI_WORKTREE_*` and `PI_DISABLED_EXTENSIONS` | The process-wide seams in [`../lib/env.ts`](../lib/env.ts) |
 
-Two rules follow from the table. First, state that must survive a resume is a
-session entry or tool-result `details`, never a module variable. Second, a
-derived surface — widget, chip, footer segment — is computed on each render from
-live state and calls for a repaint only after a change; it is never the thing
-that remembers.
+Three rules follow from the table.
 
-## How extensions cooperate without importing each other
+- **Surviving state is a branch record.** A session entry or a tool result's
+  `details`, never a module variable, never the config document.
+- **A derived surface is computed, then repainted.** It remembers nothing and
+  asks for one repaint after a change, rather than rebuilding per frame.
+- **The config document is input.** No extension writes configuration at runtime;
+  a change goes through the owning command, so the file stays a thing a user can
+  read. The key list and the resolution order are owned by
+  [`./configuration.md`](./configuration.md).
 
-Three mechanisms, each for a different kind of dependency:
+Published state is the one exception to "no shared state", and it is a
+convention rather than a store: an extension that publishes a session fact writes
+a `lib/<name>-state.ts` module of pure readers over the branch, which is how
+`goal`, `todo`, and `plan` replay the same fact without importing each other
+([`../lib/goal-state.ts`](../lib/goal-state.ts),
+[`../lib/todo-state.ts`](../lib/todo-state.ts),
+[`../lib/plan-entry.ts`](../lib/plan-entry.ts)).
 
-| Mechanism | Used when | Examples |
+## Cooperation without imports
+
+No extension imports another extension's modules. The reason is mechanical, not
+stylistic: the per-extension module cache would make such an import a second copy
+of state the other extension believes it owns. Three mechanisms cover every real
+dependency.
+
+| Mechanism | Use it when | Examples |
 |---|---|---|
-| Event channels | One side needs to *announce* something and must not know the consumer | `job`, `watch`, and `subagent` publish finished work; bytefly's notify and footer consume it ([`../lib/events.ts`](../lib/events.ts)) |
-| Published state replay | Both sides must read the *same session fact* | `goal` and `todo` publish state through [`../lib/goal-state.ts`](../lib/goal-state.ts) and [`../lib/todo-state.ts`](../lib/todo-state.ts); `plan` replays it without importing either extension |
-| Shared names | The two sides must *agree on an identifier* | Tool and parameter names in [`../lib/tool-names.ts`](../lib/tool-names.ts); glyphs and status keys in [`../lib/tui/glyphs.ts`](../lib/tui/glyphs.ts) |
+| Event channel | One side needs to *announce* something and must not know the consumer. | `job`, `watch`, and `subagent` publish finished work; `bytefly`'s notify and footer consume it ([`../lib/events.ts`](../lib/events.ts)) |
+| Published-state replay | Both sides must read the *same session fact*. | `goal`, `todo`, and `plan` replay through [`../lib/goal-state.ts`](../lib/goal-state.ts) and [`../lib/todo-state.ts`](../lib/todo-state.ts) |
+| Shared name | The two sides must *agree on an identifier* and nothing more. | Tool and parameter names in [`../lib/tool-names.ts`](../lib/tool-names.ts); glyphs and status keys in [`../lib/tui/glyphs.ts`](../lib/tui/glyphs.ts) |
 
-The choice is a rule of thumb, not a preference. An event carries no state and is
-fire-and-forget; replaying the branch carries state but no notification; a shared
-name carries neither. The above-editor rails in [`../lib/rails.ts`](../lib/rails.ts)
-are the small event channel that orders the goal and todo widgets, which is why
-the ordering can change without either widget importing the other.
+The choice is a rule of thumb, not a preference: an event carries no state and
+sends no reply, replay carries state but no notification, and a shared name
+carries neither. The above-editor rails show the smallest version of an event
+channel ([`../lib/rails.ts`](../lib/rails.ts)): the goal widget and the todo
+widget share a stack whose order Pi decides by insertion, so each announces and
+re-asserts through the caller's bus and neither imports the other.
 
-## Shared layers underneath
+## The layers
 
-Three layers sit below the extensions, each with its own contract:
+Four layers sit below the extensions, each with one contract.
 
-- **`lib/`** — code used by two or more extensions. The promotion rule is the
-  second user, not the first: a helper with one consumer stays in that extension,
-  where it can change freely. [`../lib/README.md`](../lib/README.md) is the module
-  table and the seam conventions; a module that needs the host takes a function
-  (`RunGit`, an HTTP runner) rather than the whole API, so it is testable without
-  a runtime.
-- **`lib/tui/`** — the terminal design system: semantic colour roles, rules,
-  rows, columns, gauges, the tool-transcript kit, the render cache, and the
-  navigation math. Its own doc is normative
-  ([`../lib/tui/README.md`](../lib/tui/README.md)); this page only notes that every
-  interactive surface draws through it, so the transcript can change once.
-- **`lib/web/`** — the same idea for the two browser surfaces (the file browser
-  and the plan review): tokens, base CSS, components, and markup helpers shared so
-  the pages do not grow two brands.
+| Layer | Job | Contract |
+|---|---|---|
+| `lib/` core | configuration, environment, paths, formatting, errors, spawning, timers, and the two subsystems with their own seam: [`../lib/git/`](../lib/git/) and [`../lib/plans/`](../lib/plans/) | [`../lib/README.md`](../lib/README.md) |
+| [`../lib/tui/`](../lib/tui/) | the terminal design system: roles, rules, rows, columns, gauges, the transcript kit, the render cache | [`../lib/tui/README.md`](../lib/tui/README.md) |
+| [`../lib/web/`](../lib/web/) | the browser design system: tokens, base CSS, components, markup atoms | [`../lib/web/README.md`](../lib/web/README.md) |
+| [`../lib/http/`](../lib/http/) | the loopback policy every served page obeys: binding, `Host` check, page headers, responses, event streams, the idempotent closer | [`../lib/README.md`](../lib/README.md) |
+
+Two rules keep the layers honest.
+
+- **A module is promoted on the second user, or on a contract.** Shared code
+  exists when a second extension uses it, or when two sides must agree on
+  something without importing each other — a name, a wire format, a policy. A
+  helper with one consumer stays in that extension, where it can change freely.
+- **`lib/` is value-only.** Constants, pure functions, classes, no module-level
+  mutable state, because the cache gives each extension its own copy. The one
+  shared-state pattern is an event bus whose state lives in the caller's closure.
 
 Two shared services are worth naming because they cut across extensions rather
-than sitting in the layer stack. The **notice** contract
-([`../lib/notice.ts`](../lib/notice.ts)) lets `job`, `watch`, and bytefly's doctor
-post one transcript block that bytefly renders, instead of three ad-hoc messages.
-The **requirements** table ([`../lib/requirements.ts`](../lib/requirements.ts))
-declares what each extension needs at runtime, and the doctor probes it through
+than sitting in the stack. The **notice** contract
+([`../lib/notice.ts`](../lib/notice.ts)) lets a producer post one transcript
+block that `bytefly` renders, instead of three ad-hoc messages. The
+**requirements** table ([`../lib/requirements.ts`](../lib/requirements.ts))
+declares what each extension needs at runtime, and `doctor` probes it through
 injected seams, so a missing binary is a report rather than a crash.
 
-## Long-lived work and who stops it
+Size is the other half of the layer rule: one job per module, and a module past
+600 lines is named with the responsibility that keeps it whole. The list and its
+height budget live in [`../AGENTS.md`](../AGENTS.md#code-quality).
 
-**Four process shapes, one rule: whoever starts one stops it, or records enough
+## Long-lived work
+
+**Four process shapes, one rule: whoever starts one stops it, or writes enough
 for the next session to reconcile it.**
 
 ```mermaid
 flowchart TD
-  S["one Pi session"]
-  S --> A["this process · HTTP, jobs"]
-  S --> B["child · subagent"]
-  S --> C["peer · WeChat"]
-  A --> Z["owner stops or reconciles it"]
+  S["one Pi session"] --> A["this process · a loopback server, a job"]
+  S --> B["child · a subagent, a verification run"]
+  S --> C["peer · a WeChat conversation"]
+  A --> Z["the owner stops it, or reconciles and prunes it"]
   B --> Z
   C --> Z
 ```
 
-| Shape | Owner and stop path | What it avoids |
+| Shape | Owner and stop path | What it must leave behind |
 |---|---|---|
-| Loopback HTTP | The extension starts it on `session_start`, closes it on shutdown; the port is fixed for the session | A page outliving the session it describes |
-| Background job or watcher | Started by a tool call, tracked in a registry with its own log, reconciled on shutdown | A detached process nobody can list or stop |
-| Child `pi` process | `subagent` spawns, enforces a deadline, and reports the exit | A delegation that hangs the turn |
-| Peer session | The WeChat bridge opens one per admitted sender; logout or shutdown stops the bridge, and each peer's history stays on disk | Two conversations sharing one context |
+| Loopback server | Started on `session_start`, closed on shutdown, on the owner's command, and on idle. | Nothing: the page describes a session that is still running. |
+| Background job or watcher | Started by a tool call, tracked in a registry with its own log, reconciled on shutdown. | The log and the registry entry, so a restarted session can list and stop what is still running. |
+| Child `pi` process | `subagent` spawns it, enforces a deadline, escalates and reports the exit. | The transcript, if the user asked for one. |
+| Peer session | The bridge opens one per admitted sender; logout or shutdown stops the bridge. | Each peer's history, on disk, apart from the host session. |
 
-Two rules keep this honest. A one-runtime resource takes a lock, so a second Pi
-cannot drive the same account or directory (the WeChat poller is the example). A
-resource whose state outlives the process — a job's log, a snapshot ref — is
-written where the next session can find it, and pruned by its owner (a cap, or an
-`/worktree prune`-style command) rather than on exit.
+Three rules keep that honest.
+
+- **A one-runtime resource takes a lock.** A second Pi cannot drive the same
+  account or the same directory; the WeChat poller's lock is the example.
+- **A loopback server has one lifecycle.** Binding, the accept path, the close
+  path, and idle grace live in [`../lib/http/`](../lib/http/), and an extension
+  supplies routes rather than building a `node:http` server of its own. `plan` and
+  `file-browse` each still assemble their own around those pieces — gap `F3`.
+- **What outlives the process is pruned by its owner, not on exit.** A cap, or a
+  command in the shape of `/worktree prune`.
 
 ## Trust boundaries
 
-Five boundaries, with the guard for each. The guards are named here so a change
-that moves one is visible; the threat model itself is
+Six boundaries, one guard module each. The guard is named here so that a change
+which moves one is visible; the threat model and the policy for each are
 [`./security.md`](./security.md).
 
-| Boundary | Guard |
-|---|---|
-| Model or file text reaching the terminal | Sanitize at the boundary: [`../lib/format.ts`](../lib/format.ts) for single lines, [`../lib/escape.ts`](../lib/escape.ts) for HTML |
-| A shell command or a path escaping its root | [`../lib/shell.ts`](../lib/shell.ts) and the path guards; `worktree` re-roots the file tools and refuses what it cannot re-root |
-| A tool mutating the tree while planning | Default-deny classification in [`../lib/policy.ts`](../lib/policy.ts), plus the path backstop in `plan` |
-| A local page reaching beyond its session | Loopback binding, `Host` checks, and read-only routes |
-| A remote chat reaching the terminal's session | Admission of senders, owner-only proactive messages, and peer sessions that never inject into the host session |
+| Boundary | One guard | Policy |
+|---|---|---|
+| Model or file text reaching the terminal | [`../lib/format.ts`](../lib/format.ts) for a line, [`../lib/escape.ts`](../lib/escape.ts) for HTML | [`./security.md`](./security.md#model--and-file-authored-text) |
+| A path escaping its root | [`../lib/path.ts`](../lib/path.ts), and the re-rooting in `worktree` | [`./security.md`](./security.md#local-file-confinement) |
+| A shell command escaping its root | [`../lib/shell.ts`](../lib/shell.ts), and the guards in `worktree` and `plan` | [`./security.md`](./security.md#worktree-and-shell-isolation) |
+| A tool mutating the tree while planning | Default-deny classification in [`../lib/policy.ts`](../lib/policy.ts), plus the path backstop in `plan` | [`./security.md`](./security.md#read-only-plan-mode) |
+| A local page reaching beyond its session | [`../lib/http/`](../lib/http/): loopback binding, `Host` checks, page headers, read-only routes | [`./security.md`](./security.md#loopback-http-servers) |
+| A remote chat reaching the terminal's session | Admission, owner-only proactive messages, and a peer session per sender | [`./security.md`](./security.md#child-processes-and-remote-control) |
 
-## Where new code belongs
+A boundary that two extensions answer has exactly one policy module, in `lib/`.
+Two copies are how a header, a `Host` rule, or an allowlist drifts apart, which
+is why the two served pages share `lib/http/` and the two design systems are
+`lib/tui/` and `lib/web/`.
+
+## Where a change belongs
 
 **Ask three questions in order: who uses it, who triggers it, and what the user
 sees.**
 
 ```mermaid
 flowchart TD
-  Q1{"Used by 2+ extensions?"} -->|yes| L["lib/ helper"]
+  Q1{"Used by 2+ extensions, or a contract two sides agree on?"} -->|yes| L["a lib/ module"]
   Q1 -->|no| Q2{"Model-triggered?"}
   Q2 -->|yes| TOOL["a tool"]
   Q2 -->|no| Q3{"User-typed?"}
-  Q3 -->|yes| CMD["command, flag, or shortcut"]
+  Q3 -->|yes| CMD["a command, flag, or shortcut"]
   Q3 -->|no| Q4{"Drawn on screen?"}
-  Q4 -->|yes| UI["renderer or widget"]
-  Q4 -->|no| MOD["a plain module"]
+  Q4 -->|yes| UI["a renderer, widget, or component in lib/tui or lib/web"]
+  Q4 -->|no| MOD["a plain module in the owning extension"]
 ```
 
-Then place it in the right extension, or make a new one. A new extension means,
-in this order: the factory, its declared suites, its `README.md`, the `pi`
-manifest, the catalog table in both entry READMEs, and
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md) has the checklist. A config key means
-a section in the shared document, a normaliser in the owner's `config.ts`, and a
-row in the settings catalogue if a person is expected to change it.
+Then place it, or make a new extension. Each kind of change has one owner for its
+checklist, and an answer here is a link rather than a second copy:
+
+| Change | Where the steps live |
+|---|---|
+| A new extension | [`../CONTRIBUTING.md`](../CONTRIBUTING.md#adding-an-extension) |
+| A new tool or a rename | [`../AGENTS.md`](../AGENTS.md#tool-and-prompt-surface) and [`../lib/tool-names.ts`](../lib/tool-names.ts) |
+| A new surface that needs a screenshot | [`./development.md`](./development.md#screenshots) |
+| A new extension doc | [`./development.md`](./development.md#one-doc-per-extension) |
+
+A config key is the one change with no checklist of its own: it needs a section in
+the shared document, a normaliser in the owner's `config.ts`, and a row in the
+settings catalogue if a person is expected to change it. [`./configuration.md`](./configuration.md)
+documents the result and [`../test/config-docs.test.ts`](../test/config-docs.test.ts)
+holds that document to the loaders, so a key the code reads and the page does not
+name fails the suite.
 
 ## Reading the code
 
-If you are new to the tree, this order teaches one idea per stop:
+If you are new to the tree, this order teaches one idea per stop.
 
 | Path | What it teaches |
 |---|---|
@@ -344,16 +369,32 @@ If you are new to the tree, this order teaches one idea per stop:
 | [`../extensions/bytefly/`](../extensions/bytefly/) | Chrome and renderers: one extension that draws the others |
 | [`../lib/tui/`](../lib/tui/) | The design system every surface above draws through |
 
+## Where the tree has not caught up
+
+This page states the target. Three rules in it are ahead of the code, and each is
+work in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
+
+| Gap | The rule above | What the tree does today |
+|---|---|---|
+| `F3` | One loopback lifecycle in `lib/http/` | `plan` and `file-browse` each build and close their own server around `lib/http`'s pieces |
+| `F4` | A role earns a directory past roughly twenty modules | `job`, `wechat`, `rewind`, `worktree`, and `subagent` are flat |
+| `F5` | Promote on a second user or a contract | `lib/claims/overlap.ts` and `lib/pi-invocation.ts` have one consumer each |
+
+The list shrinks and never grows: when a gap ships, its row is deleted from both
+files. A new rule reaches this page first and the roadmap second, because the
+page is what a contributor reads before deciding where a change belongs.
+
 ## Related docs
 
 | Topic | Document |
 |---|---|
-| Normative invariants, code quality, workflow | [`../AGENTS.md`](../AGENTS.md) |
+| Invariants, code quality, workflow | [`../AGENTS.md`](../AGENTS.md) |
 | Shared modules and host seams | [`../lib/README.md`](../lib/README.md) |
 | The terminal design system | [`../lib/tui/README.md`](../lib/tui/README.md) |
+| The browser design system | [`../lib/web/README.md`](../lib/web/README.md) |
 | Test tiers and determinism | [`../test/README.md`](../test/README.md) |
 | Config resolution and the section index | [`./configuration.md`](./configuration.md) |
-| Trust boundaries | [`./security.md`](./security.md) |
-| Local setup, checks, and the release process | [`./development.md`](./development.md) |
+| Trust boundaries and the threat model | [`./security.md`](./security.md) |
+| Scripts, checks, and the release process | [`./development.md`](./development.md) |
 | What every feature does, for a user | [`./user-guide/`](./user-guide/) |
-| Adding an extension, tool, or document | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) |
+| What comes next | [`../ROADMAP.md`](../ROADMAP.md) |

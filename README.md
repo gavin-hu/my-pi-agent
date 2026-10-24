@@ -228,7 +228,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 |---|---|
 | [User guide](./docs/user-guide/) | A chaptered manual: install, every feature, settings, troubleshooting, and a command reference. |
 | [Configuration](./docs/configuration.md) | Resolution, the settings screen, and every `bytefly.json` key with its default and bounds. |
-| [Architecture](./docs/architecture.md) | The load path, runtime model, state, process shapes, and where new code belongs. |
+| [Architecture](./docs/architecture.md) | The target shape: the load path, the extension contract, the turn, state, layers, lifetimes, and where a change belongs. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |

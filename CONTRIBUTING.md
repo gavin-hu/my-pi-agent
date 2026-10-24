@@ -8,7 +8,8 @@ point; the repo's rules live in [`AGENTS.md`](./AGENTS.md), their detail in
 ## Before you start
 
 - Install [Bun](https://bun.sh) and make sure `git` is on `PATH`.
-- Read [`docs/architecture.md`](./docs/architecture.md) for the package model,
+- Read [`docs/architecture.md`](./docs/architecture.md) for the package model
+  and where a change belongs,
   [`AGENTS.md`](./AGENTS.md) for the rules and their gates, and
   [`docs/development.md`](./docs/development.md#extension-conventions) for the
   conventions.
