@@ -307,16 +307,17 @@ misreading is visible instead of silently swapping one source for the other.
 
 A project triage reads the working tree, the commits since the last tag, the
 changelog's unreleased section, the roadmap or issue list, and the plans
-directory, and quotes the project's own check command without running it. A
-conversation read takes that command's last result, the session's diff, the todo
-list, the goal, the approved plan and its ticked steps, and what subagents and
-jobs returned, then lists what it left open. Either way the tree is evidence, so
-a candidate is checked against the code before it is suggested, and a
-conversation that ended cleanly returns an empty list rather than the project's
-backlog. An imperative — `/skill:next fix the failing test` — is treated as one
-item: the skill answers with its evidence and starting command, and asks before
-starting. A request already scoped to a refactor audit or a changelog entry goes
-to the `refactor` or `changelog` skill instead of being answered twice.
+directory — whichever of those the project has — and quotes the project's own
+check command without running it. A conversation read takes that command's last
+result, the session's diff, the todo list, the goal, the approved plan and its
+ticked steps, and what subagents and jobs returned, then lists what it left open.
+Either way the tree is evidence, so a candidate is checked against the code
+before it is suggested, and a conversation that ended cleanly returns an empty
+list rather than the project's backlog. An imperative — `/skill:next fix the
+failing test` — is treated as one item: the skill answers with its evidence and
+starting command, and asks before starting. A request already scoped to a
+refactor audit or a changelog entry goes to the `refactor` or `changelog` skill
+instead of being answered twice.
 
 The report is a numbered list of suggested next todos in priority order, so the
 first item is the one to start. Priority is what it would cost to lose: loose
