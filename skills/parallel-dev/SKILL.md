@@ -19,8 +19,10 @@ disabled, stop: keep the ownership table by hand and do not invent bus commands.
 - **No session starts another.** A peer advances when the user starts a turn in
   it, or when it armed `/sessions watch wake` and the lead messaged it. Plan every
   workstream as if its owner is asleep until the user switches to it.
-- **The user starts, names, and switches every session.** You cannot start, name,
-  prompt, or stop a peer — and a pane opened from a shell that is already inside a
+- **The user starts, names, and switches every session.** Naming is what joins the
+  bus, so a pane nobody has named is not a peer yet: `/sessions` is empty until
+  each one takes its unit's name. You cannot start, name, prompt, or stop a peer —
+  and a pane opened from a shell that is already inside a
   worktree inherits that worktree (`PI_WORKTREE_ROOT` and its siblings,
   `lib/env.ts`), so the peer binds the lead's tree and `enter_worktree` refuses it
   as inherited. Have the user start the pane from the main checkout, or clear those

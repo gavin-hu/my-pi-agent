@@ -38,7 +38,7 @@ function claim(overrides: Partial<ClaimRecord> = {}): ClaimRecord {
 }
 
 function status(sessions: ListedSession[], claims: ClaimRecord[] = []): SessionStatus {
-	return { me: { id: "abcdef123456", label: "frontend" }, sessions, claims };
+	return { me: { id: "abcdef123456", label: "frontend" }, onBus: true, sessions, claims };
 }
 
 function message(overrides: Partial<BusMessage> = {}): BusMessage {
@@ -320,13 +320,18 @@ describe("the /sessions screen", () => {
 		expect(recorded.closed).toBe(true);
 	});
 
-	test("names each scope's empty state", () => {
+	test("names each scope's empty state, and says how to join", () => {
 		const view = screen(snapshot(status([])), events());
-		expect(view.render(80).join("\n")).toContain("No sessions on this bus.");
+		expect(view.render(80).join("\n")).toContain("No sessions on this bus. Name this session to join.");
 		view.handleInput("\t");
 		expect(view.render(80).join("\n")).toContain("No unread mail.");
 		view.handleInput("\t");
 		expect(view.render(80).join("\n")).toContain("No claims.");
+	});
+
+	test("a reader that has not named itself says it is not on the bus", () => {
+		const view = screen(snapshot({ ...status([]), onBus: false }), events());
+		expect(view.render(80).join("\n")).toContain("not on the bus");
 	});
 
 	test("keeps the scope key and the action in a narrow hint row", () => {

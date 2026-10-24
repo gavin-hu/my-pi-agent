@@ -31,19 +31,37 @@ function bus(dir: string, root: string, now: () => number, watchMs = 0): Session
 	return runtime(dir, { repo: { root, key: "shared" }, now, watchMs });
 }
 
+/**
+ * Join by acting: arming and disarming the inbox watch is an addressable action,
+ * so it puts the session on the bus under its own name — yielding a suffix when
+ * that name is taken — and leaves no state behind.
+ */
+async function acting(session: SessionBus, ctx: ExtensionContext): Promise<void> {
+	await session.start(ctx);
+	await session.watch({ stop: true });
+}
+
 describe("registration", () => {
-	test("a TUI session joins on start; a JSON session waits for a tool", async () => {
+	test("no mode joins on start; a name joins, and a reader stays off the bus", async () => {
 		const dir = busDir();
 		const now = () => 1_000;
 		const terminal = bus(dir, "/repo/frontend", now);
-		await terminal.start(context("/repo/frontend", "s1", "frontend"));
+		const terminalCtx = context("/repo/frontend", "s1", "frontend");
+		await terminal.start(terminalCtx);
 		const worker = bus(dir, "/repo/backend", now);
-		await worker.start(context("/repo/backend", "s2", "backend", "json"));
+		const workerCtx = context("/repo/backend", "s2", "backend", "json");
+		await worker.start(workerCtx);
 		const store = createBusStore({ dir });
-		expect((await store.sessions()).map((session) => session.id)).toEqual(["s1"]);
-		// Status is the lazy join path for a non-terminal session.
-		await worker.status();
-		expect((await store.sessions()).map((session) => session.label).sort()).toEqual(["backend", "frontend"]);
+		// Neither a terminal nor a headless session is on the bus because it started.
+		expect(await store.sessions()).toEqual([]);
+		// Reading is not joining either: the board lists a bus this session is not on.
+		const read = await terminal.status();
+		expect(read.onBus).toBe(false);
+		expect(read.sessions).toEqual([]);
+		expect(await store.sessions()).toEqual([]);
+		// A name joins, in any mode.
+		await worker.rename("backend");
+		expect((await store.sessions()).map((session) => session.label)).toEqual(["backend"]);
 		await terminal.stop();
 		await worker.stop();
 	});
@@ -53,8 +71,8 @@ describe("registration", () => {
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
-		await first.start(context("/repo/frontend", "s1", "frontend"));
-		await second.start(context("/repo/backend", "s2", "backend"));
+		await acting(first, context("/repo/frontend", "s1", "frontend"));
+		await acting(second, context("/repo/backend", "s2", "backend"));
 		expect((await first.claim(["src/api"])).claimed).toEqual(["src/api"]);
 		await first.stop();
 		const store = createBusStore({ dir });
@@ -70,7 +88,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			const joined = await owner.join({ team, unit: "core" });
 			expect(joined).toMatchObject({ team, unit: "core", claimed: ["src/core"], conflicts: [] });
 			await owner.stop();
@@ -84,7 +102,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			await owner.join({ team, unit: "core" });
 			const again = await owner.join({ team, unit: "core" });
 			expect(again.conflicts).toEqual([]);
@@ -101,8 +119,8 @@ describe("joining a unit of an approved split", () => {
 		try {
 			const first = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			const second = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await first.start(context("/repo", "s1", "core"));
-			await second.start(context("/repo", "s2", "core-two"));
+			await acting(first, context("/repo", "s1", "core"));
+			await acting(second, context("/repo", "s2", "core-two"));
 			await first.join({ team, unit: "core" });
 			const refused = await second.join({ team, unit: "core" });
 			expect(refused.conflicts).toEqual([expect.objectContaining({ path: "src/core", ownerLabel: "core" })]);
@@ -122,7 +140,7 @@ describe("joining a unit of an approved split", () => {
 			mkdirSync(join(root, ".pi"), { recursive: true });
 			writeFileSync(join(root, ".pi", "bytefly.json"), JSON.stringify({ plan: { split: true } }));
 			const nested = runtime(dir, { repo: { root, key: "shared" }, plans });
-			await nested.start(context(join(root, "packages", "web"), "s1", "core"));
+			await acting(nested, context(join(root, "packages", "web"), "s1", "core"));
 			const joined = await nested.join({ team, unit: "core" });
 			expect(joined.claimed).toEqual(["src/core"]);
 			await nested.stop();
@@ -136,7 +154,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps, SPLIT_TEAM, { on: false });
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			await expect(owner.join({ team, unit: "core" })).rejects.toThrow(/plan\.split/);
 			await owner.stop();
 		} finally {
@@ -149,7 +167,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			await expect(owner.join({ team, unit: "report" })).rejects.toThrow(/contract, core/);
 			await expect(owner.join({ team: "nope", unit: "core" })).rejects.toThrow(/No split plan named/);
 			await owner.stop();
@@ -165,7 +183,7 @@ describe("joining a unit of an approved split", () => {
 		});
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			await expect(owner.join({ team, unit: "core" })).rejects.toThrow(/no team section/);
 			await owner.stop();
 		} finally {
@@ -178,7 +196,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			await owner.join({ team, unit: "core" });
 			expect(await owner.leave({ team, unit: "core" })).toEqual({ released: ["src/core"], notOwned: [] });
 			await owner.join({ team, unit: "core" });
@@ -196,7 +214,7 @@ describe("joining a unit of an approved split", () => {
 		try {
 			// A session started below the top: its cwd is not the repo root.
 			const nested = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await nested.start(context("/repo/packages/web", "s1", "core"));
+			await acting(nested, context("/repo/packages/web", "s1", "core"));
 			const joined = await nested.join({ team, unit: "core" });
 			expect(joined.claimed).toEqual(["src/core"]);
 			await nested.stop();
@@ -210,7 +228,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const first = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await first.start(context("/repo", "s1", "contract"));
+			await acting(first, context("/repo", "s1", "contract"));
 			await first.join({ team, unit: "contract" });
 			const status = await first.status();
 			expect(status.units).toMatchObject({
@@ -230,7 +248,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			await owner.join({ team, unit: "core" });
 			await expect(owner.claim(["package.json"])).rejects.toThrow(
 				'package.json is a shared file; only the lead "contract" may claim it.',
@@ -250,8 +268,8 @@ describe("joining a unit of an approved split", () => {
 		try {
 			const lead = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await lead.start(context("/repo", "s1", "contract"));
-			await owner.start(context("/repo", "s2", "core"));
+			await acting(lead, context("/repo", "s1", "contract"));
+			await acting(owner, context("/repo", "s2", "core"));
 			await lead.join({ team, unit: "contract" });
 			await owner.join({ team, unit: "core" });
 			expect((await lead.claim(["package.json"])).claimed).toEqual(["package.json"]);
@@ -268,7 +286,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, restore } = splitStore(temps);
 		try {
 			const solo = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await solo.start(context("/repo", "s1", "solo"));
+			await acting(solo, context("/repo", "s1", "solo"));
 			expect((await solo.claim(["package.json"])).claimed).toEqual(["package.json"]);
 			await solo.stop();
 		} finally {
@@ -281,7 +299,7 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await owner.start(context("/repo", "s1", "core"));
+			await acting(owner, context("/repo", "s1", "core"));
 			await owner.join({ team, unit: "core" });
 			await owner.leave({ team, unit: "core" });
 			expect((await owner.claim(["package.json"])).claimed).toEqual(["package.json"]);
@@ -296,12 +314,12 @@ describe("joining a unit of an approved split", () => {
 		const { plans, team, restore } = splitStore(temps);
 		try {
 			const first = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await first.start(context("/repo", "s1", "core"));
+			await acting(first, context("/repo", "s1", "core"));
 			await first.join({ team, unit: "core" });
 			// A fresh worker for the same session: no in-memory membership survives it,
 			// but its claims did, so the rule has to be read from them.
 			const restored = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
-			await restored.start(context("/repo", "s1", "core"));
+			await acting(restored, context("/repo", "s1", "core"));
 			await expect(restored.claim(["package.json"])).rejects.toThrow(/only the lead "contract" may claim it/);
 			await restored.stop();
 		} finally {
@@ -316,8 +334,8 @@ describe("messages", () => {
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
-		await first.start(context("/repo/frontend", "s1", "frontend"));
-		await second.start(context("/repo/backend", "s2", "backend"));
+		await acting(first, context("/repo/frontend", "s1", "frontend"));
+		await acting(second, context("/repo/backend", "s2", "backend"));
 
 		const sent = await first.send({ to: "backend", text: "contract v2", kind: "message", paths: ["src/api"] });
 		expect(sent.delivered).toEqual(["backend"]);
@@ -334,8 +352,8 @@ describe("messages", () => {
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
-		await first.start(context("/repo/frontend", "s1", "frontend"));
-		await second.start(context("/repo/backend", "s2", "backend"));
+		await acting(first, context("/repo/frontend", "s1", "frontend"));
+		await acting(second, context("/repo/backend", "s2", "backend"));
 		expect(await first.send({ to: "*", text: "build failed", kind: "event" })).toMatchObject({
 			delivered: ["backend"],
 		});
@@ -351,8 +369,8 @@ describe("claims and labels", () => {
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
-		await first.start(context("/repo/frontend", "s1", "frontend"));
-		await second.start(context("/repo/backend", "s2", "backend"));
+		await acting(first, context("/repo/frontend", "s1", "frontend"));
+		await acting(second, context("/repo/backend", "s2", "backend"));
 		expect((await first.claim(["src/api"])).claimed).toEqual(["src/api"]);
 		const conflict = await second.claim(["src/api"]);
 		expect(conflict.claimed).toEqual([]);
@@ -367,8 +385,8 @@ describe("claims and labels", () => {
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
-		await first.start(context("/repo/frontend", "s1", "frontend"));
-		await second.start(context("/repo/backend", "s2", "backend"));
+		await acting(first, context("/repo/frontend", "s1", "frontend"));
+		await acting(second, context("/repo/backend", "s2", "backend"));
 		expect(await first.rename("ui")).toBe("ui");
 		await expect(second.rename("ui")).rejects.toThrow("already in use");
 		await first.stop();
@@ -382,8 +400,8 @@ describe("the inbox watch", () => {
 		const now = () => 1_000;
 		const frontend = bus(dir, "/repo/frontend", now);
 		const backend = bus(dir, "/repo/backend", now);
-		await frontend.start(context("/repo/frontend", "s1", "frontend"));
-		await backend.start(context("/repo/backend", "s2", "backend", "json"));
+		await acting(frontend, context("/repo/frontend", "s1", "frontend"));
+		await acting(backend, context("/repo/backend", "s2", "backend", "json"));
 		// A non-TUI session opts into the bus on its first use, so it is addressable.
 		await backend.status();
 		const calls: number[] = [];
@@ -436,7 +454,7 @@ describe("the inbox watch", () => {
 		const dir = busDir();
 		const { frontend, backend } = await pair(dir);
 		const third = bus(dir, "/repo/third", () => 1_000);
-		await third.start(context("/repo/third", "s3", "third"));
+		await acting(third, context("/repo/third", "s3", "third"));
 		await backend.watch({ wake: true });
 		await frontend.send({ to: "*", kind: "event", text: "build failed" });
 		await backend.poll();
@@ -494,7 +512,7 @@ describe("the inbox watch", () => {
 				};
 			},
 		});
-		await backend.start(context("/repo/backend", "s2", "backend"));
+		await acting(backend, context("/repo/backend", "s2", "backend"));
 		await backend.watch({});
 		expect(ticks).toHaveLength(1);
 		await backend.watch({ stop: true });
@@ -539,8 +557,8 @@ describe("pruning", () => {
 		let now = 1_000;
 		const first = bus(dir, "/repo/frontend", () => now);
 		const second = bus(dir, "/repo/backend", () => now);
-		await first.start(context("/repo/frontend", "s1", "frontend"));
-		await second.start(context("/repo/backend", "s2", "backend"));
+		await acting(first, context("/repo/frontend", "s1", "frontend"));
+		await acting(second, context("/repo/backend", "s2", "backend"));
 		now = 1_000_000;
 		const status = await first.status();
 		expect(status.sessions.map((session) => session.id)).toEqual(["s1"]);
@@ -555,8 +573,8 @@ describe("board reads", () => {
 		const now = () => 1_000;
 		const frontend = bus(dir, "/repo/frontend", now);
 		const backend = bus(dir, "/repo/backend", now);
-		await frontend.start(context("/repo/frontend", "s1", "frontend"));
-		await backend.start(context("/repo/backend", "s2", "backend"));
+		await acting(frontend, context("/repo/frontend", "s1", "frontend"));
+		await acting(backend, context("/repo/backend", "s2", "backend"));
 		await backend.watch({});
 		await frontend.send({ to: "backend", text: "preview me" });
 
@@ -573,7 +591,7 @@ describe("board reads", () => {
 		const dir = busDir();
 		const root = "/repo/frontend";
 		const frontend = bus(dir, root, () => 1_000);
-		await frontend.start(context(`${root}/src`, "s1", "frontend"));
+		await acting(frontend, context(`${root}/src`, "s1", "frontend"));
 		const store = createBusStore({ dir });
 		await store.claimAll(["src/api"], "s1", "frontend", 1_000);
 
@@ -588,8 +606,8 @@ describe("board reads", () => {
 		const dir = busDir();
 		const frontend = bus(dir, "/repo/frontend", () => 1_000);
 		const backend = bus(dir, "/repo/backend", () => 1_000);
-		await frontend.start(context("/repo/frontend", "s1", "frontend"));
-		await backend.start(context("/repo/backend", "s2", "backend"));
+		await acting(frontend, context("/repo/frontend", "s1", "frontend"));
+		await acting(backend, context("/repo/backend", "s2", "backend"));
 		await frontend.claim(["src/api"]);
 
 		expect(await backend.releaseStored("src/api")).toBe(false);
@@ -605,8 +623,8 @@ describe("snapshot", () => {
 		let now = 1_000;
 		const first = bus(dir, "/repo/frontend", () => now);
 		const second = bus(dir, "/repo/backend", () => now);
-		await first.start(context("/repo/frontend", "s1", "frontend"));
-		await second.start(context("/repo/backend", "s2", "backend"));
+		await acting(first, context("/repo/frontend", "s1", "frontend"));
+		await acting(second, context("/repo/backend", "s2", "backend"));
 		await second.claim(["src/api"]);
 		await first.watch({ wake: true });
 		await second.send({ to: "frontend", text: "notice me" });
@@ -659,11 +677,11 @@ describe("labels", () => {
 		await store.writeSession(stale("gone", "lead"));
 
 		const lead = runtime(dir, { repo: { root: "/repo", key: "shared" } });
-		await lead.start(context("/repo", "s9", "lead"));
+		await acting(lead, context("/repo", "s9", "lead"));
 		expect((await lead.status()).me.label).toBe("lead");
 
 		const peer = runtime(dir, { repo: { root: "/repo", key: "shared" } });
-		await peer.start(context("/repo", "s10", "peer"));
+		await acting(peer, context("/repo", "s10", "peer"));
 		expect((await peer.send({ to: "lead", text: "hi" })).delivered).toEqual(["lead"]);
 		await lead.stop();
 		await peer.stop();
@@ -676,7 +694,7 @@ describe("labels", () => {
 		await store.writeSession(stale("gone", "lead"));
 
 		const session = runtime(dir, { repo: { root: "/repo", key: "shared" } });
-		await session.start(context("/repo", "s1", "mine"));
+		await acting(session, context("/repo", "s1", "mine"));
 		expect(await session.rename("lead")).toBe("lead");
 		await session.stop();
 	});
@@ -685,7 +703,7 @@ describe("labels", () => {
 		const dir = busDir();
 		const first = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
-		await Promise.all([first.start(context("/repo", "s1", "lead")), second.start(context("/repo", "s2", "lead"))]);
+		await Promise.all([acting(first, context("/repo", "s1", "lead")), acting(second, context("/repo", "s2", "lead"))]);
 		const labels = (await createBusStore({ dir }).sessions()).map((session) => session.label).sort();
 		// A canary for the race, not a proof of it: whichever session the scheduler lets
 		// in second yields, so the property is distinctness rather than order.
@@ -701,8 +719,8 @@ describe("labels", () => {
 		const name = "l".repeat(40);
 		const first = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
-		await first.start(context("/repo", "s1", name));
-		await second.start(context("/repo", "s2", name));
+		await acting(first, context("/repo", "s1", name));
+		await acting(second, context("/repo", "s2", name));
 		const labels = (await createBusStore({ dir }).sessions()).map((session) => session.label).sort();
 		expect(labels).toEqual([`${"l".repeat(37)}-s2`, name]);
 		await first.stop();
@@ -713,8 +731,8 @@ describe("labels", () => {
 		const dir = busDir();
 		const first = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
-		await first.start(context("/repo", "s1", "one"));
-		await second.start(context("/repo", "s2", "two"));
+		await acting(first, context("/repo", "s1", "one"));
+		await acting(second, context("/repo", "s2", "two"));
 		// Either rename may be refused or yield; neither may leave two sessions named lead.
 		await Promise.all([first.rename("lead").catch(() => "refused"), second.rename("lead").catch(() => "refused")]);
 		const labels = (await createBusStore({ dir }).sessions()).map((session) => session.label);
@@ -732,7 +750,7 @@ describe.skipIf(!canCreateSymlinks())("symlinked paths", () => {
 		symlinkSync(real, link, "dir");
 
 		const session = runtime(real);
-		await session.start(context(link, "s1", "linked"));
+		await acting(session, context(link, "s1", "linked"));
 		expect((await session.status()).sessions[0]?.cwd).toBe(realpathSync.native(link));
 		expect((await session.claim(["src/api"])).claimed).toEqual(["src/api"]);
 		await session.stop();
@@ -744,11 +762,11 @@ describe.skipIf(!canCreateSymlinks())("symlinked paths", () => {
 		symlinkSync(join(dir, "target"), join(dir, "link"), "dir");
 
 		const first = runtime(dir);
-		await first.start(context(dir, "s1", "one"));
+		await acting(first, context(dir, "s1", "one"));
 		expect((await first.claim(["link/src/api.ts"])).claimed).toEqual(["target/src/api.ts"]);
 
 		const second = runtime(dir);
-		await second.start(context(dir, "s2", "two"));
+		await acting(second, context(dir, "s2", "two"));
 		const blocked = await second.claim(["target/src/api.ts"]);
 		expect(blocked.claimed).toEqual([]);
 		expect(blocked.conflicts[0]?.ownerLabel).toBe("one");
@@ -801,8 +819,8 @@ describe("heartbeat", () => {
 			heartbeatMs: 10,
 			interval: () => () => {},
 		});
-		await live.start(context("/repo", "h1", "live"));
-		await silent.start(context("/repo", "h2", "silent"));
+		await acting(live, context("/repo", "h1", "live"));
+		await acting(silent, context("/repo", "h2", "silent"));
 
 		now += 1_000;
 		const store = createBusStore({ dir });
@@ -812,7 +830,7 @@ describe("heartbeat", () => {
 		);
 
 		const reader = runtime(dir, { repo: { root: "/repo", key: "shared" }, now: () => now, sessionTtlMs: 50 });
-		await reader.start(context("/repo", "h3", "reader"));
+		await acting(reader, context("/repo", "h3", "reader"));
 		expect((await reader.status()).sessions.map((session) => session.label).sort()).toEqual(["live", "reader"]);
 		await live.stop();
 		await silent.stop();
@@ -832,7 +850,7 @@ describe("heartbeat", () => {
 				return () => {};
 			},
 		});
-		await revived.start(context("/repo", "s1", "lead"));
+		await acting(revived, context("/repo", "s1", "lead"));
 
 		// A peer took the label while this session slept past its TTL.
 		const store = createBusStore({ dir });
@@ -853,6 +871,29 @@ describe("heartbeat", () => {
 		expect((await store.sessions()).map((session) => session.label).sort()).toEqual(["lead", "lead-s1"]);
 		await revived.stop();
 	});
+
+	test("a session that names itself instead of acting still heartbeats, once", async () => {
+		const dir = busDir();
+		const ticks: Array<() => void> = [];
+		const named = runtime(dir, {
+			repo: { root: "/repo", key: "shared" },
+			now: () => 1_000,
+			heartbeatMs: 10,
+			interval: (_ms, callback) => {
+				ticks.push(callback);
+				return () => {};
+			},
+		});
+		// A headless session joins by naming itself, which is not the join-bus path,
+		// so the heartbeat has to be armed here too or it goes stale while idle.
+		await named.start(context("/repo", "s1", "lead", "json"));
+		await named.rename("lead");
+		expect(ticks).toHaveLength(1);
+		// A later reader must not arm a second ticker.
+		await named.status();
+		expect(ticks).toHaveLength(1);
+		await named.stop();
+	});
 });
 
 // The runtime reaches git only through `exec`, so this fake needs nothing else.
@@ -869,8 +910,8 @@ describe.skipIf(!runSlowSuites)("a real repository", () => {
 		const dir = busDir();
 		const main = createSessionBus(realGit, { dir, heartbeatMs: 0, watchMs: 0 });
 		const side = createSessionBus(realGit, { dir, heartbeatMs: 0, watchMs: 0 });
-		await main.start(context(repo, "w1", "frontend"));
-		await side.start(context(worktree, "w2", "backend"));
+		await acting(main, context(repo, "w1", "frontend"));
+		await acting(side, context(worktree, "w2", "backend"));
 		expect((await main.status()).sessions.map((session) => session.label).sort()).toEqual(["backend", "frontend"]);
 
 		expect((await side.claim(["src/api"])).claimed).toEqual(["src/api"]);
@@ -890,7 +931,7 @@ describe.skipIf(!runSlowSuites)("a real repository", () => {
 
 		const dir = busDir();
 		const linked = createSessionBus(realGit, { dir, heartbeatMs: 0, watchMs: 0 });
-		await linked.start(context(link, "l1", "linked"));
+		await acting(linked, context(link, "l1", "linked"));
 		expect((await linked.claim(["src/api"])).claimed).toEqual(["src/api"]);
 		await linked.stop();
 	});

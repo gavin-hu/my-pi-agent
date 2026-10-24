@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import {
 	claimsConflict,
 	defaultLabel,
-	isAutoJoinMode,
 	normalizeAction,
 	normalizeKind,
 	normalizeLabel,
@@ -31,11 +30,6 @@ describe("labels and actions", () => {
 		expect(normalizeAction("nope")).toBeUndefined();
 		expect(normalizeKind(undefined)).toBe("message");
 		expect(normalizeKind("handoff")).toBe("handoff");
-	});
-	test("auto-joins only a terminal session", () => {
-		expect(isAutoJoinMode("tui")).toBe(true);
-		expect(isAutoJoinMode("rpc")).toBe(false);
-		expect(isAutoJoinMode("json")).toBe(false);
 	});
 	test("records the session mode, and unknown for anything else", () => {
 		expect(["tui", "rpc", "json", "print"].map((mode) => sessionMode(mode))).toEqual(["tui", "rpc", "json", "print"]);

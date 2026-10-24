@@ -40,7 +40,7 @@ function claim(overrides: Partial<ClaimRecord> = {}): ClaimRecord {
 }
 
 function status(sessions: ListedSession[], claims: ClaimRecord[] = []): SessionStatus {
-	return { me: { id: "abcdef123456", label: "frontend" }, sessions, claims };
+	return { me: { id: "abcdef123456", label: "frontend" }, onBus: true, sessions, claims };
 }
 
 function message(overrides: Partial<BusMessage> = {}): BusMessage {

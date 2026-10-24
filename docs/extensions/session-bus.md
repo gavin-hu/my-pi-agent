@@ -2,7 +2,8 @@
 
 A local coordination bus for Pi sessions on the same machine and repository:
 sessions discover each other, exchange short messages and events, consume an
-inbox, and claim paths before editing. Delivery is pull-based, and a session can
+inbox, and claim paths before editing. A session joins by naming itself, so the
+board opens empty and a peer never appears because the package loaded. Delivery is pull-based, and a session can
 arm an inbox watch to be told about new mail — a report at its next turn, or,
 with `wake`, one raised turn as soon as the agent is idle, including right after
 a running turn settles. There is no network service and no hidden context.
@@ -15,7 +16,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 | Capability | How | What you get | Status |
 |---|---|---|---|
-| Session naming | `session name`, `/sessions name <label>` | A stable label peers address, and the name Pi's footer and `/resume` show. | Shipped |
+| Session naming | `session name`, `/sessions name <label>` | The join, and a stable label peers address — also the name Pi's footer and `/resume` show. | Shipped |
 | Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read. | Shipped |
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
 | Board actions | `/sessions` (`w`, `x`) | Arm or disarm the inbox watch, or release an own claim behind a confirmation, without leaving the board. | Shipped |
@@ -28,7 +29,6 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Unit joining | `session join`, `session leave`; `plan.split` | One call claims every path an approved split's unit owns. | Shipped |
 | Joined-unit report | `session status` (`units n/m`) | The newest split's joined units, their holder, and the lead are visible without opening the plan. | Shipped |
 | Leave everything | `session leave` with no unit | Releases every claim this session holds, not only one unit's paths. | Shipped |
-| Automatic TUI join | automatic: `session_start` | A TUI session joins the bus without a `session` call, so peers see it immediately. | Shipped |
 | Usage help | `/sessions help` | The command's usage lines, printed in the transcript. | Shipped |
 
 ## Quickstart
@@ -40,12 +40,14 @@ pi install ./                             # install the package for a user
 ```
 
 ```text
-/sessions name billing-core                # name this session for the bus and for Pi
-/sessions                                  # open the board, or print the listing
+/sessions                                  # open the board: empty until this session joins
+/sessions name billing-core                # join the bus, and name this session for Pi
 ```
 
-A TUI session joins on `session_start`, so the board lists it without any
-`session` call.
+Nothing joins on `session_start`, in any mode: the board and `status` only read, so
+a fresh session sees an empty board and a peer's session is not listed until it
+names itself. Naming is the join; so is the first action that needs you to be
+addressable — `send`, `claim`, `release`, `join`, `leave`, or `watch`.
 
 ## Tool
 
@@ -56,7 +58,7 @@ collapsed line that expands to the board's rows.
 
 | Action | Inputs | Result |
 |---|---|---|
-| `status` | — | Active sessions with unread counts, claims, and this session's identity, plus `units n/m` for the newest split in this repository. Prunes stale records. |
+| `status` | — | Active sessions with unread counts, claims, and this session's identity, plus `units n/m` for the newest split in this repository. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. |
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. An owner unit of a split may not claim a shared file — the refusal names the lead. |
@@ -64,7 +66,7 @@ collapsed line that expands to the board's rows.
 | `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.split` on. Idempotent: joining twice is the same claims. The unit it claims is what `claim` reads to keep shared files with the lead. |
 | `leave` | optional `team`, `unit` | Releases that unit's paths, or every claim this session holds when neither is given. Never gated by the switch. |
 | `watch` | optional `wake`, optional `stop` | Arms this session's inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch's mode. |
-| `name` | `label` | Renames this session on the bus and in Pi — the same path as `/sessions name`, with the same uniqueness rule, so the footer and `/resume` agree with the record peers address. An empty label is refused rather than keeping the old one, and a label a live session holds is refused with its owner named. The result reports the label the bus settled on. |
+| `name` | `label` | Joins the bus, and renames this session on it and in Pi — the same path as `/sessions name`, with the same uniqueness rule, so the footer and `/resume` agree with the record peers address. An empty label is refused rather than keeping the old one, and a label a live session holds is refused with its owner named. The result reports the label the bus settled on. |
 
 A claim is all-or-nothing: if one path conflicts, nothing is claimed. A claim on
 a directory conflicts with claims below it and above it, so `src/api` and
@@ -105,7 +107,7 @@ listing. The sub-commands name this session and manage its inbox watch.
 
 | Command | Effect |
 |---|---|
-| `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` arms or disarms this session's inbox watch, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing and joins. |
+| `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` arms or disarms this session's inbox watch, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing. Neither joins the bus. |
 | `/sessions name <label>` | Name this session for the bus and for Pi. The label is unique among active sessions, and it becomes the session name the footer shows and `/resume` lists. |
 | `/sessions watch` | Report new mail at this session's next turn. |
 | `/sessions watch wake` | Report new mail, and raise one turn as soon as the agent is idle — including right after a running turn settles. |
@@ -128,8 +130,8 @@ cannot get any other way.
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Joins automatically on `session_start`. `/sessions` opens the board: sessions, this session's unread mail, and every claim, with `Tab` between them. |
-| `rpc`, `json`, `print` | Does not join automatically. The first `session` call or `/sessions` joins; this is how a subagent or an RPC-driven session opts in. |
+| `tui` | Does not join on start. `/sessions` opens the board: sessions, this session's unread mail, and every claim, with `Tab` between them, and lists nobody in this session until it names itself. |
+| `rpc`, `json`, `print` | Same rule: `/sessions` and `status` are reads, and the first addressable action joins. This is how a subagent or an RPC-driven session opts in. |
 | WeChat peer | Same as `rpc`: the peer is a separate AgentSession in the bridge process and joins only on explicit use. Messages are read by that peer’s model; the bridge does not forward them to the phone. |
 
 Every mode can arm the inbox watch; the notice is a visible transcript message, so
@@ -214,6 +216,9 @@ characters.
   read or write the bus; there is no authentication between sessions.
 - **Pull-based by default.** A message does not wake a session that did not arm
   its inbox watch. Agents must call `inbox` at coordination points.
+- **A reader is not a member.** `/sessions` and `session status` never add this
+  session to the bus, so an unnamed session reads a board it is not on until it
+  names itself or acts.
 - **Arming is per session and session-only.** It survives neither a resume nor a
   new process; unread mail is previewed once more after `/resume`.
 - **The board acts on your own state only.** `w` arms or disarms this session's
@@ -246,7 +251,7 @@ characters.
 | Tools | `session` — one action-shaped tool; `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: false`, `executionMode: "sequential"`. |
 | Commands | `/sessions` (board in `tui`, listing elsewhere), `/sessions name <label>`, `/sessions watch [off\|wake]`, `/sessions help`. |
 | UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so the watch never changes the footer. |
-| Events | `session_start` resolves the repository and joins a TUI session and arms the mail trigger; `before_agent_start` reports queued non-wake mail at the next turn, `agent_settled` retries a wake the run suppressed, and `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
+| Events | `session_start` resolves the repository and arms the mail trigger, without joining; `before_agent_start` reports queued non-wake mail at the next turn, `agent_settled` retries a wake the run suppressed, and `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
 | State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. The armed watch is session-only. `/resume` re-registers the same session id. |
 | Lifecycle | The factory only registers. The runtime starts on `session_start`; heartbeat, watch ticker, and cleanup belong to it. Disabling `session-bus` through `PI_DISABLED_EXTENSIONS` registers nothing. |
 | Mode | Uses `ctx.mode` to decide auto-join and whether `/sessions` mounts the board; `askHuman` is not involved and no status chip is published. |
@@ -299,7 +304,8 @@ characters.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
-| `runtime.ts` | Lifecycle, repo key, lazy join, heartbeat, inbox watch and its poll, operations. |
+| `runtime.ts` | Lifecycle, repo key, joining, heartbeat, claims, and the operations that join. |
+| `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |
 | `team.ts` | Reads one unit out of the newest split plan, or the plan a `join` named. |

@@ -48,7 +48,7 @@ const SCOPE_TITLE: Readonly<Record<BoardScope, string>> = {
 };
 
 const SCOPE_EMPTY: Readonly<Record<BoardScope, string>> = {
-	sessions: "No sessions on this bus.",
+	sessions: "No sessions on this bus. Name this session to join.",
 	inbox: "No unread mail.",
 	claims: "No claims.",
 };
@@ -229,7 +229,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 		switch (this.scope) {
 			case "sessions": {
 				const sessions = rows.flatMap((row) => (row.kind === "session" ? [row.row] : []));
-				return summaryCells(this.theme, sessions, watching);
+				return summaryCells(this.theme, sessions, watching, this.board?.status.onBus !== false);
 			}
 			case "inbox": {
 				const cells = [paint(this.theme, "meta", count(rows.length, "unread message"))];

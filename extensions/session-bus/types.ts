@@ -47,6 +47,8 @@ export interface ClaimRecord {
 /** What `session status` returns. */
 export interface SessionStatus {
 	me: { id: string; label: string };
+	/** False while this session has only read the bus: it joins by naming itself. */
+	onBus: boolean;
 	sessions: Array<SessionRecord & { unread: number }>;
 	claims: ClaimRecord[];
 	/** The newest split in this repository, and who holds each unit, on an explicit status call. */

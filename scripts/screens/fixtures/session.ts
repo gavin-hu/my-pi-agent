@@ -10,6 +10,7 @@ import { now } from "./shared.ts";
 export const BUS_BOARD: BoardSnapshot = {
 	status: {
 		me: { id: "3f9a2c1b7d40", label: "billing-core" },
+		onBus: true,
 		watching: { armed: true, wake: false },
 		sessions: [
 			{

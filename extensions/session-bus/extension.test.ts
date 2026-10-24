@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import sessionBus from "./index.ts";
-import { createSessionBus } from "./runtime.ts";
+import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { createBusStore } from "./store.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
@@ -18,6 +18,12 @@ afterAll(() => temps.flush());
 
 function busDir(): string {
 	return temps.track(tempDir("pi-session-bus-"));
+}
+
+/** A named session is a joined one: starting the bus puts nobody on it. */
+async function joined(bus: SessionBus, ctx: ExtensionContext, label: string): Promise<void> {
+	await bus.start(ctx);
+	await bus.rename(label);
 }
 
 function setup(dir: string) {
@@ -50,11 +56,14 @@ describe("session-bus extension", () => {
 		});
 	});
 
-	test("joins on session_start and leaves on shutdown", async () => {
+	test("session_start alone lists nobody; naming joins, and shutdown leaves", async () => {
 		const dir = busDir();
-		const { pi, ctx } = setup(dir);
+		const { pi, bus, ctx } = setup(dir);
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		const store = createBusStore({ dir });
+		// A terminal session is not on the bus because it started.
+		expect(await store.sessions()).toEqual([]);
+		await bus.rename("frontend");
 		expect((await store.sessions()).map((session) => session.label)).toEqual(["frontend"]);
 		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		expect(await store.sessions()).toEqual([]);
@@ -65,14 +74,19 @@ describe("session-bus extension", () => {
 		const { pi, bus, ctx, notices, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 		await bus.start(ctx);
-		// Outside the TUI there is no dock, so the command prints the listing.
+		// Outside the TUI there is no dock, so the command prints the listing, and
+		// reading is not joining: it lists a bus this session is not on.
 		ctx.mode = "json";
 		await command.handler("", ctx);
-		expect(notices.at(-1)?.message).toContain("Sessions (1)");
+		expect(notices.at(-1)?.message).toContain("Sessions (0)");
+		expect(notices.at(-1)?.message).toContain("not on the bus yet");
 		await command.handler("name backend", ctx);
 		expect(notices.at(-1)?.message).toContain("backend");
 		// The label is also Pi's session name, so the footer and /resume agree.
 		expect(pi.getSessionName()).toBe("backend");
+		// Naming is the join, so the listing now shows this session.
+		await command.handler("", ctx);
+		expect(notices.at(-1)?.message).toContain("Sessions (1)");
 		await command.handler("name", ctx);
 		expect(notices.at(-1)?.message).toContain("Usage:");
 		await command.handler("nope", ctx);
@@ -108,6 +122,7 @@ describe("session-bus extension", () => {
 		});
 		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s2", sessionName: "taken" }).ctx as ExtensionContext;
 		await peer.start(peerCtx);
+		await peer.rename("taken");
 
 		await command.handler("name taken", ctx);
 		expect(notices.at(-1)?.message).toContain("already in use");
@@ -120,7 +135,7 @@ describe("session-bus extension", () => {
 		const dir = busDir();
 		const { pi, bus, ctx, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
-		await bus.start(ctx);
+		await joined(bus, ctx, "frontend");
 
 		let mounted: SessionListComponent | undefined;
 		ctx.ui.custom = async (factory: any) => {
@@ -339,7 +354,9 @@ describe("session-bus extension", () => {
 		});
 		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s5", sessionName: "integrator" }).ctx as ExtensionContext;
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
+		await bus.rename("frontend");
 		await peer.start(peerCtx);
+		await peer.rename("integrator");
 		await peer.send({ to: "frontend", text: "already here" });
 
 		// The tool call that arms the watch always runs inside a turn.
