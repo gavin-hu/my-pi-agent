@@ -125,10 +125,15 @@ body.palette-open{overflow:hidden}
 .browse-side .bf-tree{flex:1 1 auto;min-height:0;overflow:auto}
 }
 @media (max-width:820px){
-.browse-root{order:9;flex:1 1 100%;direction:ltr;text-align:left}
+.browse-root{order:9;flex:1 1 100%}
 }
 @media (max-width:520px){
 .bf-toolbar .bf-theme-toggle{margin-left:auto}
+/* A phone has no room for four button rows above the file: the actions keep one
+   line and scroll instead, so the document starts where it should. A control
+   keeps its own width — shrunk, a label wraps and a segmented control clips. */
+.bf-card__actions{max-width:100%;flex-wrap:nowrap;overflow-x:auto}
+.bf-card__actions>*{flex:0 0 auto}
 }
 /* A printed page scrolls nothing: the card and its body open up, the pinned hunk
    header stops pinning, and the progress hairline belongs to the screen. */

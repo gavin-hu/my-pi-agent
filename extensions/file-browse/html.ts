@@ -286,8 +286,9 @@ function numberedLines(page: FilePage): boolean {
 	return page.file.kind === "text" || (page.file.kind === "markdown" && page.markdownRaw === true);
 }
 
-/** The card-head controls: Markdown mode, line wrapping, and copy actions. */
-function renderFileActions(page: FilePage): string {
+/** The card-head controls: Markdown mode, line wrapping, and the copy actions,
+ * plus the download the diff head keeps in the same group. */
+function renderFileActions(page: FilePage, download: string): string {
 	const isMarkdown = page.file.kind === "markdown";
 	const rawHref = `/raw/${encodePath(page.rel)}`;
 	const viewHref = `/view/${encodePath(page.rel)}`;
@@ -324,7 +325,7 @@ function renderFileActions(page: FilePage): string {
 			`<button type="button" class="bf-btn" id="copy-reference" disabled title="Select lines in the file first">copy reference</button>`,
 		);
 	}
-	return `<span class="bf-card__actions">${groups.join("")}</span>`;
+	return `<span class="bf-card__actions">${groups.join("")}${download}</span>`;
 }
 
 /** Render a file page (text, Markdown, image, binary, or over-size). */
@@ -336,7 +337,7 @@ export function renderFilePage(page: FilePage): string {
 	// about the file; the language label, size, and date are the useful metadata.
 	const meta = `${spec.label} · ${formatSize(page.file.size)} · ${formatDate(page.file.mtimeMs)}`;
 	const download = `<a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a>`;
-	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(meta)}</span><span class="bf-spacer"></span>${renderFileActions(page)}${download}</div>`;
+	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(meta)}</span><span class="bf-spacer"></span>${renderFileActions(page, download)}</div>`;
 
 	const isMarkdown = page.file.kind === "markdown";
 	const rendered = isMarkdown && !page.markdownRaw;
