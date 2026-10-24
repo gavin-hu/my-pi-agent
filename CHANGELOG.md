@@ -230,6 +230,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- dev: the posting cards' one stylesheet stops declaring `.label` twice, once for the
+  SVG diagram's node names and once for the terminal card's section labels, which is a
+  single global namespace: the diagram's nodes lost the `650` weight their own block
+  declares to the terminal rule's `600`, and `parallel-dev.html`'s `Team`, `Claims` and
+  `Shared` labels took the diagram's `17px` and its `text-anchor: middle` instead of the
+  `14px` mono the panes around them set. The diagram's side is now `.node-label` and
+  `.node-label--zh`, beside the `lane-label` and `edge-label` it already had, and both
+  cards render what their own block says, and the second `.gate` — the same mistake,
+  setting a colour for a class no page uses — is gone.
 - `plan`: a comment a refinement carries stays on its own step when a step is
   inserted or deleted above it. Placement fell back to the comment's position
   among the section's blocks, so anything added above shifted every comment below
