@@ -74,6 +74,7 @@
   },
   "files": [
     "extensions/**",
+    "docs/extensions/**",
     "lib/**",
     "skills/**",
     "themes/**",

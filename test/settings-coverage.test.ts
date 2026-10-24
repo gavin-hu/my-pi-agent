@@ -428,12 +428,12 @@ const zhCount = (n: number): string => (n < 10 ? ZH_DIGITS[n] : `十${n % 10 ===
 const STATED: readonly { file: string; phrase: string }[] = [
 	{ file: "README.md", phrase: `the ${count(ROW_COUNT)} preferences a session changes` },
 	{ file: "README.zh-CN.md", phrase: `${zhCount(ROW_COUNT)}项设置` },
-	{ file: "extensions/bytefly/README.md", phrase: `a session changes: ${count(ROW_COUNT)} preferences` },
-	{ file: "extensions/bytefly/README.md", phrase: `Global · ${ROW_COUNT} settings` },
-	{ file: "extensions/bytefly/README.md", phrase: `capped at ${count(ROW_COUNT)} rows` },
-	{ file: "extensions/bytefly/README.md", phrase: `the ${count(PROJECT_ROW_COUNT)} \`bytefly.json\` rows` },
-	{ file: "extensions/bytefly/README.md", phrase: `at ${count(ROW_COUNT)} rows so the screen fits` },
-	{ file: "extensions/bytefly/README.md", phrase: `catalogue: the ${count(ROW_COUNT)} descriptors` },
+	{ file: "docs/extensions/bytefly.md", phrase: `a session changes: ${count(ROW_COUNT)} preferences` },
+	{ file: "docs/extensions/bytefly.md", phrase: `Global · ${ROW_COUNT} settings` },
+	{ file: "docs/extensions/bytefly.md", phrase: `capped at ${count(ROW_COUNT)} rows` },
+	{ file: "docs/extensions/bytefly.md", phrase: `the ${count(PROJECT_ROW_COUNT)} \`bytefly.json\` rows` },
+	{ file: "docs/extensions/bytefly.md", phrase: `at ${count(ROW_COUNT)} rows so the screen fits` },
+	{ file: "docs/extensions/bytefly.md", phrase: `catalogue: the ${count(ROW_COUNT)} descriptors` },
 	{ file: "docs/configuration.md", phrase: `${count(ROW_COUNT)} flat rows` },
 	{ file: "docs/user-guide/settings-and-customization.md", phrase: `${count(ROW_COUNT)} preferences` },
 ];

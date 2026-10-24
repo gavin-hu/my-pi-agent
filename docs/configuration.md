@@ -564,4 +564,4 @@ lists everything else the package writes.
 | Changing settings on screen, for a user | [User guide](./user-guide/) |
 | Where configuration sits in the runtime | [Architecture](./architecture.md) |
 | Trust boundaries around state and credentials | [Security](./security.md) |
-| One extension's own configuration section | [`extensions/<name>/README.md`](../extensions/) |
+| One extension's own configuration section | [`docs/extensions/<name>.md`](./extensions/) |

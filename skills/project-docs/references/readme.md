@@ -73,7 +73,7 @@ result; say what you verified â€” the command you ran, the counts you derived â€
   entry READMEs for every packaged skill.
 - `assets/` holds the frames the pages show; `bun run screenshots` recaptures one, and a
   frame is only recaptured when its surface changed.
-- Deep detail lives in `extensions/<name>/README.md`, `lib/README.md`, and `docs/`; the
+- Deep detail lives in `docs/extensions/<name>.md`, `lib/README.md`, and `docs/`; the
   front door links there and does not restate them.
 
 The paths are named, not linked: a skill is installed into projects that do not

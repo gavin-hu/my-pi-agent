@@ -56,8 +56,8 @@ pi install npm:@gavin-hu/my-pi-agent
 [用户指南](./docs/user-guide/) 介绍其余安装方式——git、固定版本、
 仅项目本地安装，以及不写入任何内容的试用——还有适用性判断、首个工作流和移除方式。
 
-`git` 需在 `PATH` 上，供 [`worktree`](./extensions/worktree/) 与
-[`rewind`](./extensions/rewind/) 使用；其余部分会优雅降级或禁用，
+`git` 需在 `PATH` 上，供 [`worktree`](./docs/extensions/worktree.md) 与
+[`rewind`](./docs/extensions/rewind.md) 使用；其余部分会优雅降级或禁用，
 `/bytefly doctor` 会指出缺少什么，包括可选的运行时组件。
 Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都会执行。
 
@@ -86,47 +86,47 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 ## 包含内容
 
-19 个扩展、5 个随包技能，以及 2 个主题，按你想达成的目标分组。每个扩展自己的 `README.md`
-提供完整的工具与命令说明。
+19 个扩展、5 个随包技能，以及 2 个主题，按你想达成的目标分组。每个扩展在
+`docs/extensions/` 下的页面提供完整的工具与命令说明，并以能力表开头。
 
 ### 规划与委派
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | 只读规划：模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准；开启 `plan.split` 后，批准时还可以把计划拆成切片，由独立会话按名字加入。可在 TUI 中审阅，或在浏览器中打开以留下行内评论：页面会跟随计划文件实时更新，你也可以给每位同事各一个审阅链接，各自以绑定的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
-| [`check`](./extensions/check/) | `run_check`, `/check` | 检测项目的测试、lint 或类型检查命令（或使用 `check.command`），在受监管的进程中运行，并把失败整理成可导航的 `file:line` 列表。 |
-| [`subagent`](./extensions/subagent/) | `subagent`, `/agents` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`、`researcher`、`tester`、`debugger`、`documenter`），运行在它自己的 Pi 进程中 —— 单个、并行、链式或在后台运行；后台运行时在页脚显示数量，完成后发出提示。 |
-| [`todo`](./extensions/todo/) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |
-| [`goal`](./extensions/goal/) | `goal`, `/goal` | 持久会话目标，保存在 widget 中，并在每个回合前重述。 |
-| [`question`](./extensions/question/) | `ask_user_question` | 向你提出一个或多个结构化问题（带标签的选项外加自由填写的“其他”）并等待回答。 |
-| [`job`](./extensions/job/) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
-| [`watch`](./extensions/watch/) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
-| [`session-bus`](./extensions/session-bus/) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、加入已批准拆分中的一个切片或编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；会话可以自行开启收件箱监视，在空闲时唤起本会话的一轮，从不创建智能体。 |
-| [`context`](./extensions/context/) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
+| [`plan`](./docs/extensions/plan.md) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | 只读规划：模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准；开启 `plan.split` 后，批准时还可以把计划拆成切片，由独立会话按名字加入。可在 TUI 中审阅，或在浏览器中打开以留下行内评论：页面会跟随计划文件实时更新，你也可以给每位同事各一个审阅链接，各自以绑定的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
+| [`check`](./docs/extensions/check.md) | `run_check`, `/check` | 检测项目的测试、lint 或类型检查命令（或使用 `check.command`），在受监管的进程中运行，并把失败整理成可导航的 `file:line` 列表。 |
+| [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`、`researcher`、`tester`、`debugger`、`documenter`），运行在它自己的 Pi 进程中 —— 单个、并行、链式或在后台运行；后台运行时在页脚显示数量，完成后发出提示。 |
+| [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |
+| [`goal`](./docs/extensions/goal.md) | `goal`, `/goal` | 持久会话目标，保存在 widget 中，并在每个回合前重述。 |
+| [`question`](./docs/extensions/question.md) | `ask_user_question` | 向你提出一个或多个结构化问题（带标签的选项外加自由填写的“其他”）并等待回答。 |
+| [`job`](./docs/extensions/job.md) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
+| [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
+| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、加入已批准拆分中的一个切片或编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；会话可以自行开启收件箱监视，在空闲时唤起本会话的一轮，从不创建智能体。 |
+| [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
 
 ### 保护你的工作
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter|exit|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
-| [`rewind`](./extensions/rewind/) | `/rewind`, `/review`, `↺ N` 状态标记 | 每次提示时在 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者，并在还原文件前审阅本轮改动。 |
-| [`memory`](./extensions/memory/) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
+| [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter|exit|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` 状态标记 | 每次提示时在 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者，并在还原文件前审阅本轮改动。 |
+| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
 
 ### 连通外部世界
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`web-access`](./extensions/web-access/) | `web_search`, `web_fetch` | 搜索网络（默认无密钥的 DuckDuckGo，可选 SearXNG 或 Brave），并把页面抓取为可读文本，支持分页、`find`、逐跳 SSRF 检查以及可选的 PDF 支持。 |
-| [`file-browse`](./extensions/file-browse/) | `/browse` | 启动一个以工作目录为根的本地回环、只读文件浏览器，带 Markdown 预览、模糊快速打开面板、从选区复制 `path:12-30` 引用、为常开页面提供的实时状态，以及所列目录变化时的重新加载提示。 |
-| [`file-read`](./extensions/file-read/) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
-| [`file-open`](./extensions/file-open/) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
-| [`wechat`](./extensions/wechat/) | `/wechat`, `send_wechat` | 通过微信 iLink 机器人 API 把微信聊天桥接到实时会话；入站文本、图片和文件会变成回合。 |
+| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | 搜索网络（默认无密钥的 DuckDuckGo，可选 SearXNG 或 Brave），并把页面抓取为可读文本，支持分页、`find`、逐跳 SSRF 检查以及可选的 PDF 支持。 |
+| [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | 启动一个以工作目录为根的本地回环、只读文件浏览器，带 Markdown 预览、模糊快速打开面板、从选区复制 `path:12-30` 引用、为常开页面提供的实时状态，以及所列目录变化时的重新加载提示。 |
+| [`file-read`](./docs/extensions/file-read.md) | `read_doc` | 在进程内从本地 PDF、DOCX、DOC、ODT、RTF 或 XLSX 提取文本，支持分页。 |
+| [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | 用操作系统原生应用打开或定位文件/目录。 |
+| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | 通过微信 iLink 机器人 API 把微信聊天桥接到实时会话；入站文本、图片和文件会变成回合。 |
 
 ### 界面与维护
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly`（`doctor`、`settings`、`skills`、`update` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展与技能，并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
+| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly`（`doctor`、`settings`、`skills`、`update` 子命令）、`run_doctor` | 可见的那一层：主题化头部配宽度自适应页脚，Pi 工作行上实时显示工具、调用次数与计时，转录中每个工具块以调用行为标题、结果正文挂在其下方。`/bytefly` 可开关扩展与技能，并集中存放精选设置；可选的 `notify` 会在一次运行、后台任务或待回答的问题需要你时发出系统通知，Pi 自己的启动更新块也会变成主题化 notice 与头部标记。`bytefly.json` 是每个扩展都会读取的配置文档。 |
 
 ### 技能
 
@@ -185,7 +185,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 大多数扩展无需配置。所有设置都在一个共享文档 `bytefly.json` 中，从
 `<agent-dir>/bytefly.json` 读取，并与 `<cwd>/.pi/bytefly.json` 合并（项目优先），
-位于一个以扩展名命名的顶层 section 下。每个扩展的 `README.md` 说明其键位的行为，
+位于一个以扩展名命名的顶层 section 下。每个扩展在 `docs/extensions/` 下的页面说明其键位的行为，
 [`docs/configuration.md`](./docs/configuration.md) 则给出解析规则、设置界面操作方式，
 以及每个 section 的键、类型、默认值和取值范围。
 
@@ -207,6 +207,7 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 | [用户指南](./docs/user-guide/) | 分章手册：安装、每项功能、设置、故障排查与命令参考。 |
 | [配置](./docs/configuration.md) | 解析规则、设置界面，以及 `bytefly.json` 每个键的默认值与取值范围。 |
 | [架构](./docs/architecture.md) | 目标形态：加载路径、扩展契约、一次回合、状态、分层、长生命周期，以及改动应放在哪里。 |
+| [扩展文档](./docs/extensions/) | 每个扩展一页，以能力表开头：工具与命令面、集成契约，以及设计说明。 |
 | [开发](./docs/development.md) | 本地设置、检查、测试、跨平台注意事项与发布流程。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |
 | [路线图](./ROADMAP.md) | 包的下一步方向，按 README 的承诺分组，并列出每条事项的依据。 |

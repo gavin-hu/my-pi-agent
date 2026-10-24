@@ -28,7 +28,7 @@ These are the authoritative references the guides summarize:
 |---|---|
 | [`../AGENTS.md`](../AGENTS.md) | Repo invariants, the worktree branch flow, and the AI-agent workflow. |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | The contributor entry point. |
-| [`../extensions/<name>/README.md`](../extensions/) | One doc per extension: full tool surface, Pi integration, and design notes. |
+| [`./extensions/<name>.md`](./extensions/) | One page per extension: its capabilities table, full tool surface, Pi integration, and design notes. The extension's own `README.md` is a signpost to it. |
 | [`../lib/README.md`](../lib/README.md) | Shared helpers and the host seams. |
 | [`../lib/tui/README.md`](../lib/tui/README.md) | The terminal design system: host-before-custom, block grammar, primitives, width, focus, and the render rules. |
 | [`../test/README.md`](../test/README.md) | Test principles, tiers, and helper conventions. |
