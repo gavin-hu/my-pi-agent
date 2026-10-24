@@ -11,6 +11,7 @@
 
 import type { WebFetchConfig } from "./config.ts";
 import { extractReadable } from "./extract.ts";
+import { renderStructured } from "./structured.ts";
 import { extractPdfText, type PdfExtractor } from "../../../lib/pdf.ts";
 import { createFetchRunner, type HttpRunner, type HttpResponse } from "../http.ts";
 import { decodeHtml } from "../charset.ts";
@@ -157,7 +158,9 @@ export async function runFetch(
 		title = page.title;
 		text = page.text;
 	} else if (isTextualType(response.contentType)) {
-		text = response.body;
+		// Rendered here, once per fetch, because the result is what the cache stores:
+		// paging and `find` then read one stable string instead of a fresh rendering.
+		text = renderStructured(response.body, response.contentType) ?? response.body;
 	} else {
 		text = `(binary content: ${response.contentType || "unknown"}, ${response.sizeBytes} bytes; web_fetch returns text only)`;
 	}

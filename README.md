@@ -133,7 +133,7 @@ the full tool and command surface, opening with its capabilities.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | Search the web (keyless DuckDuckGo by default, optional SearXNG or Brave) and fetch a page as readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support. |
+| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | Search the web (keyless DuckDuckGo by default, optional SearXNG or Brave) and fetch a page as readable text, with paging, `find`, per-hop SSRF checks, a JSON/CSV/XML body rendered as a table or a tree, and optional PDF support. |
 | [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | Start a loopback, read-only file browser rooted at the working directory, with Markdown preview, a fuzzy quick-open palette, a `path:12-30` reference copied from a selection, live status for a page left open, and a reload hint when the folder it lists changes. |
 | [`file-read`](./docs/extensions/file-read.md) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
 | [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | Open or reveal a file or directory in the OS-native application. |

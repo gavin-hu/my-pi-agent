@@ -36,7 +36,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	todo: ["tools", "runtime", "ui"],
 	watch: ["runtime", "tools", "ui"],
 	"session-bus": ["format", "protocol", "store", "runtime", "tui", "tools", "membership", "extension"],
-	"web-access": ["fetch/fetch", "search/search", "http"],
+	"web-access": ["fetch/fetch", "fetch/structured", "search/search", "http"],
 	wechat: [
 		"bridge",
 		"config",

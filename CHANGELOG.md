@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `web-access`: `web_fetch` renders a JSON, CSV, or XML body as text instead of the
+  blob it downloaded — an array of records as an aligned table over the union of
+  their keys, an object as indented `key: value` lines, comma-separated rows by
+  RFC 4180 quoting, and XML as an indented tree with attributes as `@name`. The
+  declared content type decides first, a `text/plain` body is sniffed only when it
+  has a shape, and anything that does not parse keeps its raw form, so a malformed
+  document is never made harder to read than it already was. Rendering happens once
+  per fetch, before the cache stores the result, so `startIndex` and `find` page one
+  stable string; a body past `MAX_SOURCE_CHARS` stays raw, and the rendered text
+  stops at `MAX_RENDERED_CHARS` with a note saying so.
+
 - `plan`: `/plan list` says how big the plan store is. Its header now carries the
   bytes this repository's plans hold and how old the oldest one is —
   `Plans (7) — 24.8 kB — oldest 3mo ago — …` — in both the notice and the docked
