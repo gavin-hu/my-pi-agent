@@ -112,6 +112,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- dev: the six screens that drew a short frame into a tall window now ask for the window their
+  frame needs — `agents` (46% empty below the closing rule), `check` (35), `check-detail` (34),
+  `compaction` (33), `review` (23) and `todo` (23) — with the `bounds`/`size` pair `rewind` and
+  `watch` already used, which takes them to 7–13% and flushes the right edge. Only the posters
+  moved: no frame gained or lost a line, and the 100-column window `watch` has replaces the
+  95-column default, so a few long lines now end five columns further right instead of clipped.
+  `question` (11%) and `job` (17%) were measured and left.
 - `rewind`: the `/rewind` list's footer names the keys it already answered — `PgUp`/`PgDn`
   and `g`/`G` or `Home`/`End` — instead of only `↑/↓` and `k`/`j`. The cursor has always
   jumped on those keys, `docs/extensions/rewind.md` already said so, and `watch`, `todo`
