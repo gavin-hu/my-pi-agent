@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { captureFullPage, readyWhen } from "../capture/chrome.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
 
-/** The box both cards declare in `plan-flow.css`; the image is exactly this. */
+/** The box every card declares in `plan-flow.css`; the image is exactly this. */
 const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 675;
 
@@ -29,13 +29,19 @@ interface Card {
 	page: string;
 	/** Default output file name under `assets/`. */
 	png: string;
+	/**
+	 * The element the image is, for a page whose document is taller than its card.
+	 * `parallel-dev.html` centres the card in the viewport, so measuring the document
+	 * would put the empty margin above and below it in the image.
+	 */
+	clip?: string;
 }
 
 /** The cards, keyed by the name the command line takes. */
 const CARDS: Record<string, Card> = {
 	flow: { page: "plan-flow.html", png: "plan-flow.png" },
 	graphic: { page: "plan-flow-graphic.html", png: "plan-flow-graphic.png" },
-	parallel: { page: "parallel-dev.html", png: "parallel-dev.png" },
+	parallel: { page: "parallel-dev.html", png: "parallel-dev.png", clip: ".card" },
 };
 
 /** `assets/`, anchored to this script so a capture does not depend on the cwd. */
@@ -106,6 +112,7 @@ async function capture(name: string, options: ShotOptions): Promise<void> {
 		out,
 		width: CARD_WIDTH,
 		scale: options.scale,
+		clip: card.clip,
 		before: [{ expression: readyExpression(options.waitMs) }, { expression: FITS_CARD }],
 	});
 	console.log(out);
