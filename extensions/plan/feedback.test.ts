@@ -256,6 +256,24 @@ describe("authored review comments", () => {
 		expect(carryFeedback(previous, "# Plan\n\nBody only\n")).toBe("# Plan\n\nBody only\n> [!REVIEW] about one\n");
 	});
 
+	test("keeps a reworded step's comment when a blank line above it moved", () => {
+		// A blank line is a block too, so counting positions across every block moved
+		// a comment onto the step below it as soon as one was added or removed above.
+		const previous = "## Steps\n- [ ] one\n\n- [ ] two\n> [!REVIEW] about two\n- [ ] three";
+		const rewritten = "## Steps\n- [ ] one\n- [ ] two, restated\n- [ ] three";
+		expect(carryFeedback(previous, rewritten)).toBe(
+			"## Steps\n- [ ] one\n- [ ] two, restated\n> [!REVIEW] about two\n- [ ] three",
+		);
+	});
+
+	test("writes a comment anchored to a blank line beside the block above it", () => {
+		// An anchor can name blank space: an older marker, or a hand-edited file.
+		// Saving places it beside the block, so the page reads it back as a thread.
+		const saved = formatFeedback("## Steps\n- [ ] one\n\n## Notes\nx", [{ anchor: 2, comment: "c" }]);
+		expect(saved).toBe("## Steps\n- [ ] one\n> [!REVIEW] c\n\n## Notes\nx");
+		expect(parseFeedback(saved)).toEqual([{ anchor: 1, comment: "c" }]);
+	});
+
 	test("reads a marker that follows a blank line onto the block above it", () => {
 		expect(parseFeedback("## Steps\n- [ ] one\n\n> [!REVIEW] about one\n## Notes\nx")).toEqual([
 			{ anchor: 1, comment: "about one" },

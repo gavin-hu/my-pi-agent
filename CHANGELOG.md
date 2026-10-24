@@ -186,6 +186,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   start: a marker already stored after a blank line resolves to the block above it
   on the next page load without a file write, and the page's blocks and its
   comments now come out of one parse of the file instead of two.
+- `plan`: a comment a refinement carries stays on the step at the same position
+  when a blank line above it moves. The fallback that finds a reworded step by
+  position counted blank lines as blocks, so adding or removing one earlier in the
+  section pushed every comment below it onto a different step — a note on a
+  reworded step showed up under the step that followed it. Positions now count
+  content blocks on both sides, so a blank line cannot move a comment.
 - `file-browse`: a rendered Markdown table keeps a readable column width in a pane
   narrower than 600px. Auto layout was handing the prose cell whatever a nowrapped
   code span beside it left, so a four-column table stacked one word per line — a

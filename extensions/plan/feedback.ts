@@ -274,10 +274,12 @@ function blockKey(block: PlanBlock): string {
 
 /**
  * A plan's heading sections, keyed by title and occurrence, each with the blocks
- * inside it and the last line of its content. Two `## Notes` sections are told
- * apart by which one they are, the way `changedSections` does it, so a duplicate
- * heading never collects both sections' blocks. A section with no content block
- * ends at its own heading, which is still a line the page renders.
+ * a comment can hang on and the last line of that content. Two `## Notes`
+ * sections are told apart by which one they are, the way `changedSections` does
+ * it, so a duplicate heading never collects both sections' blocks. Blank lines
+ * are left out on purpose: a position among them would move when one is added or
+ * removed above, and a reworded step would lose its comment to the next block. A
+ * section with no content block ends at its own heading, which the page renders.
  */
 function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, { blocks: PlanBlock[]; end: number }> {
 	const sections = extractPlanSections(plan);
@@ -296,11 +298,10 @@ function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, {
 		while (position + 1 < sections.length && (sections[position + 1]?.line ?? 0) <= block.start) position += 1;
 		const key = keys[position];
 		if (key === undefined) continue;
-		index.get(key)?.blocks.push(block);
-	}
-	for (const entry of index.values()) {
-		const last = entry.blocks.filter((block) => block.kind !== "blank").at(-1);
-		if (last) entry.end = last.end;
+		const entry = index.get(key);
+		if (!entry || block.kind === "blank") continue;
+		entry.blocks.push(block);
+		entry.end = block.end;
 	}
 	return index;
 }
@@ -338,7 +339,7 @@ export function carryFeedback(previous: string, next: string): string {
 	// block, never after the blank line a trailing newline leaves.
 	const tail = contentBlockAt(nextBlocks, lastLine)?.end ?? lastLine;
 
-	/** The block at the same ordinal in the same section, else that section's end. */
+	/** The block at the same position in the same section, else that section's end. */
 	const bySection = (block: PlanBlock): number | undefined => {
 		for (const [key, old] of oldSections) {
 			const ordinal = old.blocks.indexOf(block);
@@ -346,9 +347,7 @@ export function carryFeedback(previous: string, next: string): string {
 			const section = nextSections.get(key);
 			if (section === undefined) return undefined;
 			const same = section.blocks[ordinal];
-			// The block that slid into that position may be a blank line, which no
-			// comment can hang on; the section's last content line is the answer then.
-			return same && same.kind !== "blank" ? same.end : section.end;
+			return same ? same.end : section.end;
 		}
 		return undefined;
 	};
