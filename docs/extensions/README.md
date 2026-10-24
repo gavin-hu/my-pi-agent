@@ -28,6 +28,5 @@ sections behind them.
 | `wechat` | A WeChat bridge with one Pi conversation per peer | [`wechat.md`](./wechat.md) |
 | `bytefly` | The header, footer, turn rule, control center, notices, and update check | [`bytefly.md`](./bytefly.md) |
 
-Each extension's own `README.md` is a signpost to its page here; the template
-both follow is
+The template every page follows is
 [`docs/development.md#one-doc-per-extension`](../development.md#one-doc-per-extension).

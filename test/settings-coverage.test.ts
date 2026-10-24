@@ -17,7 +17,7 @@
  * normalizer with an extreme value, not by exporting the limits for the test.
  *
  * The same catalogue is the source of truth for the prose that counts the
- * screen: the two entry READMEs, the extension README, the reference, and the
+ * screen: the two entry READMEs, the extension page, the reference, and the
  * guide state how many rows it holds, and every count below is built from
  * `SETTING_ROWS`, so a fourteenth row fails here until the prose follows.
  */

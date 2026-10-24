@@ -73,11 +73,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one row per capability, the tool, command, or key that delivers it, and what
   you get. The template in
   [`docs/development.md`](./docs/development.md#one-doc-per-extension) is rebuilt
-  around that section, `extensions/<name>/README.md` is a signpost rather than a
-  second copy, and `test/extension-docs.test.ts` holds the heading order, the
-  three-column table, and the rule that every tool and command an extension
-  registers is named in it. `package.json` ships `docs/extensions/**`, so the
-  signposts in a published package resolve.
+  around that section, the `README.md` beside each extension's code is gone, so
+  the page is its only doc, and `test/extension-docs.test.ts` holds the heading
+  order, the three-column table, the Markdown-free `extensions/` tree, and the
+  rule that every tool and command an extension registers is named in it.
+  `package.json` ships `docs/extensions/**`, so the pages travel with the
+  published package.
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by

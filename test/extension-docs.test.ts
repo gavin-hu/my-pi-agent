@@ -8,8 +8,8 @@
  *   for — the capabilities — is no longer first;
  * - a capability the extension ships but the page never names, because a tool was
  *   added and its row was not;
- * - a second copy of the doc creeping back into `extensions/<name>/README.md`,
- *   which is a signpost and must stay one line of prose.
+ * - a second copy of the doc creeping back beside the code: the `extensions/`
+ *   tree holds code and tests only, and this file is what keeps it that way.
  *
  * It loads every factory through the fake runtime for the same reason
  * `extension-load.test.ts` does: the registered surface is the fact a doc has to
@@ -120,7 +120,7 @@ const FRONT = new Set([...SURFACE, "Behaviour by mode", "Configuration", "Securi
 const SUFFIX = ["Limitations", "Non-goals", "Pi integration", "Design notes", "Files", "Testing"];
 const REQUIRED = ["Capabilities", "Quickstart", "Pi integration", "Design notes", "Files"];
 
-/** The index page and one signpost per extension. */
+/** The index page, and a Markdown-free extension tree. */
 describe("the extension doc set", () => {
 	test("has one page per manifest extension, and no orphan page", () => {
 		const pages = [...new Bun.Glob("*.md").scanSync(docsDir)]
@@ -136,19 +136,9 @@ describe("the extension doc set", () => {
 		expect(missing, "a doc the index does not list").toEqual([]);
 	});
 
-	test("leaves a signpost in the extension directory, not a second copy", () => {
-		const offenders = names.flatMap((name) => {
-			const path = join(root, "extensions", name, "README.md");
-			const text = readFileSync(path, "utf-8");
-			const lines = text.split("\n").filter((line) => line.trim() !== "");
-			const problems: string[] = [];
-			if (lines.length > 3)
-				problems.push(`${name}: ${lines.length} non-empty lines; the doc belongs in docs/extensions/`);
-			if (/^##\s/m.test(text)) problems.push(`${name}: a section heading in the signpost`);
-			if (!text.includes(`](../../docs/extensions/${name}.md)`)) problems.push(`${name}: no link to its doc`);
-			return problems;
-		});
-		expect(offenders).toEqual([]);
+	test("keeps the extension tree free of Markdown", () => {
+		const pages = [...new Bun.Glob("**/*.md").scanSync(join(root, "extensions"))].sort();
+		expect(pages, "an extension's doc is docs/extensions/<name>.md, not a file beside the code").toEqual([]);
 	});
 });
 

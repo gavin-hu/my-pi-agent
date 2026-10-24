@@ -96,7 +96,8 @@ cannot drift apart, and a card whose content outgrows its box fails the capture
 rather than being clipped.
 
 The screenshot grid in the root `README.md` is a curated set rather than the
-full list; each screen is shown in its own extension README.
+full list; each screen is shown on its extension's page under
+[`docs/extensions/`](./extensions/).
 
 ## Tests
 
@@ -257,10 +258,9 @@ when it outgrows a line.
 ### One doc per extension
 
 Each extension has one doc, `docs/extensions/<name>.md`, listed in
-[`./extensions/README.md`](./extensions/README.md). Its
-`extensions/<name>/README.md` is a three-line signpost — title, one sentence,
-the link — so the extension directory still leads to the doc. There is no
-`DESIGN.md`. Follow this section order, omitting an empty optional section:
+[`./extensions/README.md`](./extensions/README.md). The extension directory
+holds code and tests only: no `README.md` beside the code, and no `DESIGN.md`.
+Follow this section order, omitting an empty optional section:
 
 1. `# <name> — <tagline>`, a 1–3 sentence intro, then the hero image when the
    extension has one.
@@ -336,8 +336,7 @@ Do not duplicate across these:
 - `AGENTS.md` — the machine-facing entry point: the four rules, the gates that
   hold them, and the traps with no other home.
 - `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,
-  `test/README.md` — the deep per-area contracts. The extension's own
-  `README.md` is a signpost, not a second copy.
+  `test/README.md` — the deep per-area contracts, with no copy beside the code.
 
 ## Tool and prompt surface
 

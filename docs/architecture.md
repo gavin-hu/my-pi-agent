@@ -19,7 +19,8 @@ to it: invariants in [`../AGENTS.md`](../AGENTS.md), the shared module table in
 [`../lib/tui/README.md`](../lib/tui/README.md), the browser design system in
 [`../lib/web/README.md`](../lib/web/README.md), the threat model in
 [`./security.md`](./security.md), the test tiers in [`../test/README.md`](../test/README.md),
-and one extension's full surface in its own `README.md`.
+and one extension's full surface on its page under
+[`./extensions/`](./extensions/).
 
 ## Contents
 

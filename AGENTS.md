@@ -152,7 +152,7 @@ when its surface changed; `chrome.png` only in a release.
   `test/docs-parity.test.ts` compares headings, table rows, and links.
 - An extension's doc is `docs/extensions/<name>.md` (capabilities first, per
   [`docs/development.md#one-doc-per-extension`](./docs/development.md#one-doc-per-extension));
-  `README.md` is a signpost, and no `DESIGN.md`.
+  no Markdown beside the code.
 - A behaviour change updates the catalog in both entry READMEs, the
   relevant `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
 - `ROADMAP.md` is hand-maintained: `test/roadmap.test.ts` pins its ids, links,
