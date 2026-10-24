@@ -10,10 +10,11 @@
  * the digest is computed over.
  *
  * Only top-level list items become steps: nested sub-bullets are notes, and the
- * shallowest list level is treated as the plan. When the plan has a `Steps`
- * section (the canonical outline's heading), only that section's list items are
- * steps, so prose bullets elsewhere never seed the todo list or consume the
- * step cap. List items inside fenced code blocks are ignored. A `- [ ]` / `- [x]`
+ * shallowest list level is treated as the plan. An indented, marker-less line
+ * continues the item above it, so a wrapped step keeps its full text. When the
+ * plan has a `Steps` section (the canonical outline's heading), only that
+ * section's list items are steps, so prose bullets elsewhere never seed the todo
+ * list or consume the step cap. List items inside fenced code blocks are ignored. A `- [ ]` / `- [x]`
  * checkbox or a `[DONE:n]` marker sets the status.
  */
 
@@ -105,12 +106,15 @@ export interface PlanStep {
 
 /** A top-level list item located in the source. */
 interface PlanListItem {
-	/** Zero-based source line index. */
+	/** Zero-based source line index of the item's first line. */
 	line: number;
 	indent: number;
 	/** The list marker with its trailing whitespace, e.g. `1. ` or `- `. */
 	lead: string;
-	/** Item text after the marker, right-trimmed (an optional checkbox included). */
+	/**
+	 * Item text after the marker on its first line; indented continuation lines
+	 * are folded into {@link step}, so a checkbox edit rewrites only this line.
+	 */
 	raw: string;
 	step: PlanStep;
 }
@@ -140,27 +144,67 @@ function parseStep(raw: string): PlanStep {
 	return { content: cleanLabel(text), status: done ? "completed" : "pending" };
 }
 
+/** Leading whitespace width of a line, for continuation indent checks. */
+function indentOf(line: string): number {
+	return line.length - line.trimStart().length;
+}
+
 /** Every top-level list item, in order, before de-duplication and capping. */
 function scanListItems(plan: string): PlanListItem[] {
 	const items: PlanListItem[] = [];
 	// Fences hide example lists (`- name: foo` in a YAML block) from extraction.
 	let fence: string | undefined;
+	// The item still collecting indented continuation lines, and those lines.
+	let current: { item: PlanListItem; continuation: string[] } | undefined;
+
+	/** Fold the collected continuation into the item, then close it. */
+	const finish = (): void => {
+		if (current === undefined) return;
+		if (current.continuation.length > 0) {
+			current.item.step = parseStep(`${current.item.raw} ${current.continuation.join(" ")}`);
+		}
+		current = undefined;
+	};
 
 	plan.split("\n").forEach((line, index) => {
 		const fenceMatch = line.match(FENCE);
 		if (fenceMatch) {
+			finish();
 			if (fence === undefined) fence = fenceMatch[1][0];
 			else if (fence === fenceMatch[1][0]) fence = undefined;
 			return;
 		}
 		if (fence !== undefined) return;
 
+		if (line.trim() === "") {
+			finish();
+			return;
+		}
+
 		const match = line.match(LIST_ITEM);
-		if (!match) return;
-		const step = parseStep(match[3]);
-		if (!step.content) return;
-		items.push({ line: index, indent: match[1].length, lead: match[2], raw: match[3], step });
+		if (match) {
+			finish();
+			const step = parseStep(match[3]);
+			if (!step.content) return;
+			const item: PlanListItem = { line: index, indent: match[1].length, lead: match[2], raw: match[3], step };
+			items.push(item);
+			current = { item, continuation: [] };
+			return;
+		}
+
+		// A deeper, marker-less line continues the step's paragraph; a heading,
+		// a shallow line, or a blank line ends it. `raw` stays the first line so
+		// `setStepStatuses` edits the checkbox without touching these lines.
+		if (current !== undefined && indentOf(line) > current.item.indent && !HEADING.test(line)) {
+			const text = line.trim();
+			if (text) current.continuation.push(text);
+			return;
+		}
+
+		finish();
 	});
+
+	finish();
 	return items;
 }
 

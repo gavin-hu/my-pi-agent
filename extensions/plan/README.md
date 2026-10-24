@@ -118,10 +118,11 @@ How the `write_plan` and `exit_plan_mode` calls and their results look in the tr
 - **Steps become todos.** On approval, the top-level numbered/bulleted items of
   the plan's `Steps` section are recorded with the `todo` tool (via
   `ctx.executeTool`); steps marked `- [x]` (or `[DONE:n]`) seed as completed, and
-  nested sub-bullets are treated as notes. The list is a merge, not a
-  replacement: existing items keep their place and status, a step whose text is
-  already there is skipped, and the tool's item cap defers the rest instead of
-  dropping anything. The plan's `## Verification` section follows as the **last**
+  nested sub-bullets are treated as notes while an indented line continues its
+  step. The list is a merge, not a replacement: existing items keep their place
+  and status, a step whose text is already there is skipped, and the tool's item
+  cap defers the rest instead of dropping anything. The plan's `## Verification`
+  section follows as the **last**
   todo item, summarized on one line (`Verify: …`) — a fenced block contributes its
   commands, not its fence lines. It is not a plan step, so it is ticked in the todo
   list rather than with `set_plan_steps`, and it never counts against the 50-step
@@ -733,8 +734,9 @@ revokes the token and closes that listener; closing the review does both.
   `ctx`, so a listener could not refresh the todo widget; calling the real tool
   runs its validation and widget sync and needs no change to `todo`. Only the
   top-level list items of the `Steps` section become steps (the whole document
-  is the fallback when that heading is absent), so the outline's prose lists
-  never seed the list. The list is whole-list replacement, so the current items
+  is the fallback when that heading is absent), and an indented line continues
+  its step, so the outline's prose lists never seed the list. The list is
+  whole-list replacement, so the current items
   are read back from the branch's last `todo` result (the published state
   channel; no import from that extension) and the steps are merged into them.
   A rejected seed reports the nested tool's own reason in the approval message

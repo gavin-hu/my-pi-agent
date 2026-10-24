@@ -815,6 +815,30 @@ describe("step extraction", () => {
 		expect(extractPlanSteps("1. Same\n2. same\n3. Other")).toEqual([pending("Same"), pending("Other")]);
 	});
 
+	test("joins indented continuation lines to their step", () => {
+		const plan = [
+			"- [ ] Replace the body of the file, keeping the",
+			"  opening notice and the commit rule",
+			"- [ ] Read it back and re-check it against the",
+			"  checklist",
+		].join("\n");
+		expect(extractPlanSteps(plan)).toEqual([
+			pending("Replace the body of the file, keeping the opening notice and the commit rule"),
+			pending("Read it back and re-check it against the checklist"),
+		]);
+	});
+
+	test("ends a step at a nested marker, a blank line, or a shallow line", () => {
+		const nested = ["- [ ] Add the lexer", "  handles tokens", "  - nested note", "- [ ] Update tests"].join("\n");
+		expect(extractPlanSteps(nested)).toEqual([pending("Add the lexer handles tokens"), pending("Update tests")]);
+
+		const blank = ["- [ ] First step", "  continued", "", "  prose after a blank line", "- [ ] Second"].join("\n");
+		expect(extractPlanSteps(blank)).toEqual([pending("First step continued"), pending("Second")]);
+
+		const shallow = ["- [ ] Only real step", "  continued", "Done."].join("\n");
+		expect(extractPlanSteps(shallow)).toEqual([pending("Only real step continued")]);
+	});
+
 	test("elides very long steps and caps the list", () => {
 		const [step] = extractPlanSteps(`1. ${"x".repeat(MAX_STEP_LENGTH + 50)}`);
 		expect(step.content.length).toBe(MAX_STEP_LENGTH);
@@ -1039,6 +1063,16 @@ describe("step status edits", () => {
 		const plan = ["1. Same", "2. same", "3. Other"].join("\n");
 		expect(extractPlanSteps(plan)).toEqual([pending("Same"), pending("Other")]);
 		expect(setStepStatuses(plan, [{ step: 2, status: "completed" }])).toBe("1. Same\n2. same\n3. [x] Other");
+	});
+
+	test("keeps a wrapped step's continuation when the checkbox changes", () => {
+		const plan = ["- [ ] First step", "  continues here", "- [ ] Second"].join("\n");
+		expect(setStepStatuses(plan, [{ step: 1, status: "completed" }])).toBe(
+			["- [x] First step", "  continues here", "- [ ] Second"].join("\n"),
+		);
+		expect(setStepStatuses(plan, [{ step: 2, status: "completed" }])).toBe(
+			["- [ ] First step", "  continues here", "- [x] Second"].join("\n"),
+		);
 	});
 
 	test("ignores steps inside fences", () => {

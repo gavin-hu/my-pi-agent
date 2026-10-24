@@ -154,9 +154,10 @@ describe precisely.
   to say, while `Steps` and `Verification` stay, because the steps are read from
   that section and its check becomes the last todo item; any Markdown is accepted.
   Steps are the top-level `- [ ]` items in the `## Steps` section; nested bullets
-  are notes. A plan with more than 50 top-level steps is refused at write time,
-  because approval could not track them all. A refinement keeps its section
-  headings, so the review marks only the sections that changed.
+  are notes, and a line indented under a step continues its text. A plan with
+  more than 50 top-level steps is refused at write time, because approval could
+  not track them all. A refinement keeps its section headings, so the review
+  marks only the sections that changed.
 - While plan mode is on, mutating tools are hidden or refused: file writes,
   edits, most shell commands, worktree mutations, and MCP tools that do not
   declare themselves read-only. `/check` and `/review` refuse until the plan is

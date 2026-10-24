@@ -204,6 +204,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a step that wraps onto an indented continuation line keeps its full text
+  when the plan is reviewed, seeded into todos, and updated by `set_plan_steps`;
+  a checkbox edit still rewrites only the first line, so the continuation stays.
 - `plan`: a rejected comment post says why. A `409` is either a plan that moved
   under the page or a shared link already bound to another name, and the review now
   shows the server's own sentence instead of always reporting that the plan changed

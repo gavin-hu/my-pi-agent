@@ -51,7 +51,8 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 			"The outline is a guide, not a form: drop Context, Approach, Visual, or Risks when there is nothing to say. " +
 			"Keep Steps and Verification — the steps are read from that section (without it, the shallowest list " +
 			"anywhere becomes the steps), and Verification becomes the last todo item. " +
-			"In Steps, each top-level bullet is one outcome in the order you will do them, and deeper bullets are notes. " +
+			"In Steps, each top-level bullet is one outcome in the order you will do them; " +
+			"an indented line continues that outcome, and a deeper bullet is a note. " +
 			"Returns the path to pass to exit_plan_mode; plan_path overwrites an existing file when refining. " +
 			`A plan with more than ${MAX_STEPS} top-level steps in its Steps section is refused, so approval never drops steps it cannot track.`,
 		promptSnippet: "Save the designed plan as a markdown file in the plans directory.",
