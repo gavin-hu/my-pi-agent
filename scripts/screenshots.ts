@@ -10,15 +10,15 @@
 import { writeFileSync } from "node:fs";
 import { numberArg } from "./cli.ts";
 import { sleep } from "./poll.ts";
-import { CHROME_SCREEN, frame, SCREENS } from "./screens/index.ts";
-import { captureChrome, captureScreen, createProfile, deleteProfile } from "./capture/terminal.ts";
+import { frame, SCREENS } from "./screens/index.ts";
+import { captureScreen, createProfile, deleteProfile } from "./capture/terminal.ts";
 
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	if (args[0] === "render") {
 		const width = numberArg(args, "--width") ?? process.stdout.columns ?? 100;
 		const rows = numberArg(args, "--rows") ?? process.stdout.rows ?? 30;
-		const screen = args[1] === "chrome" ? CHROME_SCREEN : SCREENS[args[1]];
+		const screen = SCREENS[args[1]];
 		if (!screen) {
 			console.error(`Unknown screen "${args[1]}". Known: chrome, ${Object.keys(SCREENS).join(", ")}`);
 			process.exit(1);
@@ -40,14 +40,10 @@ async function main(): Promise<void> {
 		console.error("Capture needs macOS (Terminal.app + screencapture). Use `render <name>` to preview.");
 		process.exit(1);
 	}
-	const names = args.length > 0 ? args : [...Object.keys(SCREENS), "chrome"];
+	const names = args.length > 0 ? args : Object.keys(SCREENS);
 	createProfile();
 	try {
 		for (const name of names) {
-			if (name === "chrome") {
-				await captureChrome();
-				continue;
-			}
 			const screen = SCREENS[name];
 			if (!screen) {
 				console.error(`Unknown screen "${name}". Known: ${Object.keys(SCREENS).join(", ")}`);

@@ -363,6 +363,16 @@ export const SCREENS: Record<string, Screen> = {
 				requestRender: noop,
 			}).render(width),
 	},
+	chrome: {
+		asset: "chrome",
+		title: "π - my-pi-agent · chrome",
+		// The bounds give 98x32 cells in the capture profile; the pinned size keeps a
+		// hint row from wrapping, and the two spare columns keep the footer off the
+		// window edge where the crop can shave it.
+		bounds: { left: 80, top: 80, right: 886, bottom: 673 },
+		size: { width: 96, rows: 30 },
+		render: (width, rows) => renderChrome(width, rows),
+	},
 };
 
 /** Render the question dialog by capturing the component `ctx.ui.custom` builds. */
@@ -409,8 +419,8 @@ const CHROME_SNAPSHOT: StatusSnapshot = {
 		[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
 		[STATUS_KEYS.worktree, `${GLYPHS.worktree} smoke`],
 	]),
-	model: { id: "opus-4.5", provider: "anthropic", reasoning: true },
-	thinkingLevel: "high",
+	model: { id: "opus-4.5", provider: "anthropic", reasoning: false },
+	thinkingLevel: "off",
 	context: { tokens: 124000, contextWindow: 200000, percent: 62 },
 	usage: { input: 42000, output: 8000, cacheRead: 96000, cacheWrite: 0, cost: 0.31 },
 	currency: { code: "USD", decimals: 2 },
@@ -471,14 +481,19 @@ function renderTranscript(width: number, rows?: number): string[] {
 }
 
 /** Draw the whole chrome as one frame: the header above the transcript body. */
-function renderChrome(width: number): string[] {
+function renderChrome(width: number, rows: number): string[] {
 	setThemeInstance(theme);
+	// The header resolves its help chords through these, so they are installed
+	// before it renders rather than inside the transcript below.
+	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
 	const lines = new ByteflyHeader(
 		() => theme,
 		() => ({ showVersion: true, halfBlocks: true, pad: DEFAULT_HOST_PAD }),
 		VERSION,
 	).render(width);
-	lines.push(...renderTranscript(width));
+	// A session draws the header, the transcript, and the footer at the window's
+	// bottom; the fixture pads to that shape so the frame is the window's height.
+	lines.push(...renderTranscript(width, Math.max(1, rows - lines.length)));
 	return lines;
 }
 
@@ -490,9 +505,3 @@ export function frame(screen: Screen, width: number, rows: number): string {
 	const background = `\u001b]11;${pageColors.background}\u0007\u001b]10;${pageColors.text}\u0007`;
 	return `\u001b[2J\u001b[H${background}\u001b]0;${screen.title}\u0007${lines.join("\n")}\u001b[J\u001b[?25l`;
 }
-
-export const CHROME_SCREEN: Screen = {
-	asset: "chrome",
-	title: "π - my-pi-agent · chrome",
-	render: (width) => renderChrome(width),
-};

@@ -78,6 +78,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: `assets/chrome.png` is drawn from a fixture like every other asset
+  instead of a live `pi -e .` turn, so a recapture is byte-identical for the same
+  code and the frame names no machine's model or spend. The `chrome` frame joins
+  `SCREENS`; `captureChrome`, the agent-dir seeding, and the session polling that
+  waited on a real turn are gone.
 - `test`: the docs table check moves into `test/structure.test.ts` and covers every
   Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
   trees the link check reads. It immediately found two more rows that split

@@ -9,7 +9,7 @@ judged by `bun run check` and by the assets it writes under `assets/`.
 | Path | What it is |
 |---|---|
 | [`screenshots.ts`](./screenshots.ts) | The capture command: `render <name>` prints one frame as ANSI on any OS, a named screen captures only it, and no argument captures every frame and then the hero. |
-| [`screens/`](./screens/) | The frames: `index.ts` is the registry — the `Screen` type, `SCREENS`, `CHROME_SCREEN` — and `fixtures/` is the data they draw around, one module per surface. |
+| [`screens/`](./screens/) | The frames: `index.ts` is the registry — the `Screen` type and `SCREENS`, which holds every capturable frame including the `chrome` hero — and `fixtures/` is the data they draw around, one module per surface. |
 | [`capture/`](./capture/) | The two mechanisms. `terminal.ts` drives Terminal.app and `screencapture`; `chrome.ts` and `page.ts` drive Playwright against the local Chrome; `crop-title-bar.js` is the JXA crop, run by `osascript`. |
 | [`shots/`](./shots/) | One CLI per captured page — `file-browse`, `plan-review`, `plan-flow` — plus `plan-review-capture.ts` for the review page's state. |
 | [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. |
@@ -51,15 +51,13 @@ that draws it.
   the host's, `VERSION` from `@earendil-works/pi-coding-agent`, which resolves
   through `bun.lock`. The hero therefore names the **compatibility floor**, not
   the `pi` on `PATH`, so a release recaptures it — and so does a floor raise.
-- The hero is the one asset drawn from a live session: `pi -e .` answers one
-  fixed question in a throwaway repository, so the reply sentence and the
-  footer's model name and usage numbers change with the machine that captured it.
-  Its agent dir is seeded from an allowlist — `auth.json`, `settings.json`,
-  `models.json`, `bytefly.json` — so the paths, the session history, the bridge
-  lock, the trust decisions, the MCP servers, and the caches of the capture
-  machine stay out of the frame.
-- A hero capture needs a real Terminal.app window, which is why CI cannot produce
-  one and the release step names it.
+- Every asset, the hero included, is drawn from a fixture by the shipped
+  component, so a capture is reproducible: the same code renders the same bytes,
+  and a diff in the image is a diff in the product. The hero is the `chrome`
+  frame — the header, the key-hint rows, a nameplated message with its tool block
+  and notice, the turn rule, and the footer — padded to the window a session fills.
+- A capture needs a real Terminal.app window, which is why CI cannot produce one
+  and the release step names it.
 
 ## A script a doc names
 
