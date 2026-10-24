@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { checkSplit, MAX_OWNERS, mergeOrder, SHARED_FILES } from "./split.ts";
+import { checkSplit, MAX_OWNERS, mergeOrder, SHARED_FILES, sharedFileFor } from "./split.ts";
 import type { PlanUnit } from "./team.ts";
 
 function unit(name: string, overrides: Partial<PlanUnit> = {}): PlanUnit {
@@ -134,6 +134,15 @@ describe("checkSplit", () => {
 		const shared = [...SHARED_FILES, "docs/"];
 		const result = checkSplit([LEAD, unit("core", { paths: ["docs/guide"] })], shared);
 		expect(result.ok).toBe(false);
+	});
+
+	test("names the shared file a path covers, for the bus to refuse the same one", () => {
+		expect(sharedFileFor("package.json")).toBe("package.json");
+		expect(sharedFileFor(".")).toBe("package.json");
+		expect(sharedFileFor("docs/extensions/plan.md")).toBeUndefined();
+		// A project's own list is a parameter here and nowhere else.
+		expect(sharedFileFor("docs/guide", [...SHARED_FILES, "docs/"])).toBe("docs/");
+		expect(sharedFileFor("docs/guide")).toBeUndefined();
 	});
 
 	test("a dependency on a unit that does not exist is refused", () => {

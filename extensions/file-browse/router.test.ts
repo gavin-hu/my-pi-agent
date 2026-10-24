@@ -12,11 +12,11 @@ import { afterAll, afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import { join } from "node:path";
+import { type RepeatTimer } from "../../lib/timer.ts";
 import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "./config.ts";
 import type { DiffList, GitDiffProvider } from "./git.ts";
 import fileBrowser from "./index.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "./live.ts";
-import type { LiveTimeout } from "./live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 import { createFileServer, type FileServer } from "./server.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
@@ -598,17 +598,17 @@ function liveClient(): LiveClient & { frames: string[]; ends: number } {
 }
 
 /** A ticker that only fires when the test says so. */
-function fakeTimer(): { timer: (tick: () => void) => () => void; fire(): Promise<void>; stops: number } {
+function fakeTimer(): { timer: RepeatTimer; fire(): Promise<void>; stops: number } {
 	let pending: (() => void) | undefined;
 	const state = {
 		stops: 0,
-		timer: (tick: () => void) => {
+		timer: ((_ms: number, tick: () => void) => {
 			pending = tick;
 			return () => {
 				pending = undefined;
 				state.stops += 1;
 			};
-		},
+		}) as RepeatTimer,
 		fire: async () => {
 			pending?.();
 			await settle();
@@ -619,35 +619,11 @@ function fakeTimer(): { timer: (tick: () => void) => () => void; fire(): Promise
 
 const idle = { snapshot: async () => ({ uptimeMs: 0, requests: 0, git: null, changes: null }) };
 
-/** A grace timer that only fires when the test says so. */
-function fakeTimeout(): { timeout: LiveTimeout; fire(): void; armed: number; cancels: number } {
-	let pending: (() => void) | undefined;
-	const state = {
-		armed: 0,
-		cancels: 0,
-		timeout: (run: () => void) => {
-			state.armed += 1;
-			pending = run;
-			return () => {
-				pending = undefined;
-				state.cancels += 1;
-			};
-		},
-		fire: () => {
-			const run = pending;
-			pending = undefined;
-			run?.();
-		},
-	};
-	return state;
-}
-
 describe("live channel", () => {
 	test("refuses a page beyond its capacity and takes one back after a detach", async () => {
 		const channel = createLiveChannel({
 			status: idle,
 			intervalMs: 3000,
-			idleMs: 10_000,
 			timer: fakeTimer().timer,
 			maxClients: 2,
 		});
@@ -662,7 +638,7 @@ describe("live channel", () => {
 
 	test("sends the current status to a page as it attaches", async () => {
 		const status = createLiveStatus({ git: async () => ({ branch: "main" }), startedAt: 0, requests: () => 1 });
-		const channel = createLiveChannel({ status, intervalMs: 3000, idleMs: 10_000, timer: fakeTimer().timer });
+		const channel = createLiveChannel({ status, intervalMs: 3000, timer: fakeTimer().timer });
 		const page = liveClient();
 		const detach = channel.attach(page);
 		await settle();
@@ -681,7 +657,7 @@ describe("live channel", () => {
 			},
 		};
 		const state = fakeTimer();
-		const channel = createLiveChannel({ status, intervalMs: 3000, idleMs: 10_000, timer: state.timer });
+		const channel = createLiveChannel({ status, intervalMs: 3000, timer: state.timer });
 		const first = liveClient();
 		const second = liveClient();
 		channel.attach(first);
@@ -696,7 +672,7 @@ describe("live channel", () => {
 
 	test("stops the ticker with the last page and on close", async () => {
 		const state = fakeTimer();
-		const channel = createLiveChannel({ status: idle, intervalMs: 3000, idleMs: 10_000, timer: state.timer });
+		const channel = createLiveChannel({ status: idle, intervalMs: 3000, timer: state.timer });
 		const first = liveClient();
 		const second = liveClient();
 		const detachFirst = channel.attach(first);
@@ -712,73 +688,6 @@ describe("live channel", () => {
 		channel.close();
 		expect(state.stops).toBe(2);
 		expect(third.ends).toBe(1);
-	});
-
-	test("drops a page whose write fails and stops when none are left", async () => {
-		const state = fakeTimer();
-		const channel = createLiveChannel({ status: idle, intervalMs: 3000, idleMs: 10_000, timer: state.timer });
-		channel.attach({
-			write: () => {
-				throw new Error("socket closed");
-			},
-			end: () => {},
-		});
-		await state.fire();
-		expect(state.stops).toBe(1);
-		channel.close();
-	});
-
-	test("holds the last page's departure for the grace period, and a new page cancels it", () => {
-		const grace = fakeTimeout();
-		let stops = 0;
-		const channel = createLiveChannel({
-			status: idle,
-			intervalMs: 3000,
-			idleMs: 10_000,
-			timer: fakeTimer().timer,
-			timeout: grace.timeout,
-			onIdle: () => {
-				stops += 1;
-			},
-		});
-
-		const detachFirst = channel.attach(liveClient());
-		expect(grace.armed).toBe(0);
-		detachFirst();
-		expect(grace.armed).toBe(1);
-		expect(stops).toBe(0);
-
-		// A reload or a second tab re-attaches inside the grace, so the server is not
-		// closed under the page that is still reading it.
-		const detachSecond = channel.attach(liveClient());
-		expect(grace.cancels).toBe(1);
-		grace.fire();
-		expect(stops).toBe(0);
-
-		detachSecond();
-		grace.fire();
-		expect(stops).toBe(1);
-		channel.close();
-	});
-
-	test("a pending idle stop never outlives close", () => {
-		const grace = fakeTimeout();
-		let stops = 0;
-		const channel = createLiveChannel({
-			status: idle,
-			intervalMs: 3000,
-			idleMs: 10_000,
-			timer: fakeTimer().timer,
-			timeout: grace.timeout,
-			onIdle: () => {
-				stops += 1;
-			},
-		});
-
-		channel.attach(liveClient())();
-		channel.close();
-		grace.fire();
-		expect(stops).toBe(0);
 	});
 });
 

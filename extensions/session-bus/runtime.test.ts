@@ -3,7 +3,8 @@ import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir, useEnv } from "../../test/helpers/env.ts";
+import { tempDir } from "../../test/helpers/env.ts";
+import { splitStore, SPLIT_TEAM } from "../../test/helpers/fixtures/split.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { settle } from "../../test/helpers/process.ts";
@@ -64,36 +65,9 @@ describe("registration", () => {
 });
 
 describe("joining a unit of an approved split", () => {
-	const TEAM = [
-		"# Split plan",
-		"",
-		"## Steps",
-		"",
-		"- [ ] contract",
-		"",
-		"## Team",
-		"",
-		"Lead: contract",
-		"",
-		"| unit | paths | test | depends on |",
-		"| --- | --- | --- | --- |",
-		"| contract | src/contract | bun test src/contract | — |",
-		"| core | src/core | bun test src/core | contract |",
-	].join("\n");
-
-	/** A plan store holding one split plan, and an agent dir with the switch on. */
-	function splitStore(team = "2026-10-24-0820-split", options: { on?: boolean; content?: string } = {}) {
-		const plans = temps.track(tempDir("pi-split-plans-"));
-		writeFileSync(join(plans, `${team}.md`), options.content ?? TEAM);
-		const agent = temps.track(tempDir("pi-split-agent-"));
-		writeFileSync(join(agent, "bytefly.json"), JSON.stringify({ plan: { split: options.on ?? true } }));
-		const scoped = useEnv({ PI_CODING_AGENT_DIR: agent });
-		return { plans, team, restore: scoped.restore };
-	}
-
 	test("claims every path the unit owns", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			await owner.start(context("/repo", "s1", "core"));
@@ -107,7 +81,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("joining twice is idempotent", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			await owner.start(context("/repo", "s1", "core"));
@@ -123,7 +97,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("a second session on a taken unit is told who holds it", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		try {
 			const first = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			const second = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
@@ -141,7 +115,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("honours a project switch set at the repository root, from a nested cwd", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		const root = temps.track(tempDir("pi-split-root-"));
 		try {
 			// The switch is off globally and only the repository root turns it on.
@@ -159,7 +133,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("refuses while the switch is off, naming it", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore("2026-10-24-0820-split", { on: false });
+		const { plans, team, restore } = splitStore(temps, SPLIT_TEAM, { on: false });
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			await owner.start(context("/repo", "s1", "core"));
@@ -172,7 +146,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("names the units a plan actually has", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			await owner.start(context("/repo", "s1", "core"));
@@ -186,7 +160,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("refuses a plan with no team section", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore("2026-10-24-0820-split", {
+		const { plans, team, restore } = splitStore(temps, SPLIT_TEAM, {
 			content: "# Plain\n\n## Steps\n\n- [ ] one",
 		});
 		try {
@@ -201,7 +175,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("leaving releases the unit's paths, and everything when no unit is named", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		try {
 			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			await owner.start(context("/repo", "s1", "core"));
@@ -218,7 +192,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("claims the unit's paths from the repository root, not the session cwd", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		try {
 			// A session started below the top: its cwd is not the repo root.
 			const nested = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
@@ -233,7 +207,7 @@ describe("joining a unit of an approved split", () => {
 
 	test("status reports the newest split and who holds each unit", async () => {
 		const dir = busDir();
-		const { plans, team, restore } = splitStore();
+		const { plans, team, restore } = splitStore(temps);
 		try {
 			const first = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
 			await first.start(context("/repo", "s1", "contract"));
@@ -246,6 +220,90 @@ describe("joining a unit of an approved split", () => {
 				rows: [{ unit: "contract", lead: true, holder: "contract" }, { unit: "core" }],
 			});
 			await first.stop();
+		} finally {
+			restore();
+		}
+	});
+
+	test("refuses an owner's claim on a shared file, names the lead, and writes nothing", async () => {
+		const dir = busDir();
+		const { plans, team, restore } = splitStore(temps);
+		try {
+			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			await owner.start(context("/repo", "s1", "core"));
+			await owner.join({ team, unit: "core" });
+			await expect(owner.claim(["package.json"])).rejects.toThrow(
+				'package.json is a shared file; only the lead "contract" may claim it.',
+			);
+			// All or nothing: the session still holds exactly what it joined.
+			const status = await owner.status();
+			expect(status.claims.map((claim) => claim.path)).toEqual(["src/core"]);
+			await owner.stop();
+		} finally {
+			restore();
+		}
+	});
+
+	test("the lead keeps the shared files, and an owner keeps its own paths", async () => {
+		const dir = busDir();
+		const { plans, team, restore } = splitStore(temps);
+		try {
+			const lead = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			await lead.start(context("/repo", "s1", "contract"));
+			await owner.start(context("/repo", "s2", "core"));
+			await lead.join({ team, unit: "contract" });
+			await owner.join({ team, unit: "core" });
+			expect((await lead.claim(["package.json"])).claimed).toEqual(["package.json"]);
+			expect((await owner.claim(["src/core/routes.ts"])).claimed).toEqual(["src/core/routes.ts"]);
+			await lead.stop();
+			await owner.stop();
+		} finally {
+			restore();
+		}
+	});
+
+	test("leaves a session that never joined a unit alone", async () => {
+		const dir = busDir();
+		const { plans, restore } = splitStore(temps);
+		try {
+			const solo = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			await solo.start(context("/repo", "s1", "solo"));
+			expect((await solo.claim(["package.json"])).claimed).toEqual(["package.json"]);
+			await solo.stop();
+		} finally {
+			restore();
+		}
+	});
+
+	test("a shared file is claimable again after leaving the unit", async () => {
+		const dir = busDir();
+		const { plans, team, restore } = splitStore(temps);
+		try {
+			const owner = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			await owner.start(context("/repo", "s1", "core"));
+			await owner.join({ team, unit: "core" });
+			await owner.leave({ team, unit: "core" });
+			expect((await owner.claim(["package.json"])).claimed).toEqual(["package.json"]);
+			await owner.stop();
+		} finally {
+			restore();
+		}
+	});
+
+	test("a restored session is still held to the rule, because the claims are the record", async () => {
+		const dir = busDir();
+		const { plans, team, restore } = splitStore(temps);
+		try {
+			const first = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			await first.start(context("/repo", "s1", "core"));
+			await first.join({ team, unit: "core" });
+			// A fresh worker for the same session: no in-memory membership survives it,
+			// but its claims did, so the rule has to be read from them.
+			const restored = runtime(dir, { repo: { root: "/repo", key: "shared" }, plans });
+			await restored.start(context("/repo", "s1", "core"));
+			await expect(restored.claim(["package.json"])).rejects.toThrow(/only the lead "contract" may claim it/);
+			await restored.stop();
 		} finally {
 			restore();
 		}

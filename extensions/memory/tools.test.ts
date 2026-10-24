@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { withEnv } from "../../test/helpers/env.ts";
@@ -17,6 +17,21 @@ beforeEach(() => {
 afterEach(() => {
 	suite.dispose();
 });
+
+/**
+ * Whether this filesystem's stamp can tell two writes in one millisecond apart,
+ * measured on a scratch file rather than through the store's own stamp.
+ */
+function subMillisecondStamps(): boolean {
+	const probe = join(suite.base, "stamp-probe");
+	writeFileSync(probe, "x");
+	utimesSync(probe, 1_000, 1_000);
+	const before = statSync(probe, { bigint: true }).mtimeNs;
+	utimesSync(probe, 1_000.0002, 1_000.0002);
+	const after = statSync(probe, { bigint: true }).mtimeNs;
+	if (before === after) return false;
+	return Math.floor(Number(after / 1_000_000n)) === Math.floor(Number(before / 1_000_000n));
+}
 
 function tool() {
 	return suite.pi.tools.get(TOOL_NAME);
@@ -142,6 +157,30 @@ describe("memory context lifecycle", () => {
 		utimesSync(suite.projectPath, 1_000, 1_000);
 		const [result] = await suite.emit("before_agent_start", {});
 		expect(result.message.content).toContain("- b");
+	});
+
+	test("picks up a same-size edit inside one millisecond", async () => {
+		// The case a millisecond stamp cannot see: the size is unchanged, and the write
+		// lands in the same millisecond the store was last read in. A clean base time is
+		// set first so both writes really do share one millisecond, and the expectation
+		// comes from the filesystem, never from the code under test.
+		const fine = subMillisecondStamps();
+		const path = suite.projectPath;
+		const base = 1_000_000;
+		suite.write("project", "- a\n");
+		// `utimesSync` treats a number as seconds since the epoch.
+		utimesSync(path, base, base);
+		await suite.start();
+		const [loaded] = await suite.emit("before_agent_start", {});
+		expect(loaded.message.content).toContain("- a");
+
+		suite.write("project", "- b\n");
+		utimesSync(path, base + 0.0002, base + 0.0002);
+		const [result] = await suite.emit("before_agent_start", {});
+		// A filesystem whose stamp is no finer than a millisecond cannot tell these two
+		// writes apart, and then the caveat the memory page documents is the honest
+		// answer: reload is the only way in, so assert that instead of nothing.
+		expect(result.message.content).toContain(fine ? "- b" : "- a");
 	});
 
 	test("picks up an external edit through the tool", async () => {

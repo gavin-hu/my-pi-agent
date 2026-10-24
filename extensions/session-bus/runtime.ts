@@ -39,6 +39,7 @@ import {
 	claimsConflict,
 	shortId,
 } from "./protocol.ts";
+import { heldUnits, sharedClaimRefusal } from "./membership.ts";
 import { createBusStore, type BusStore } from "./store.ts";
 import { newestTeam, resolveUnit, unitHolder } from "./team.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
@@ -278,7 +279,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return record;
 	}
 
-	/** The stored form of the paths a caller passed: validated, then keyed by target. */
 	/**
 	 * The stored form of paths a plan wrote relative to the repository.
 	 *
@@ -530,7 +530,17 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		async claim(rawPaths) {
 			const me = await currentRecord();
 			if (!store) throw new Error("session bus is not started.");
-			return store.claimAll(storedPaths(me, rawPaths), me.id, me.label, now());
+			const paths = storedPaths(me, rawPaths);
+			// A session that holds an owner unit leaves the shared files to the lead, the
+			// same rule approval enforces. Read from the claims rather than remembered, so
+			// a restored session is still held to it; nothing is written before the check.
+			const claims = await store.claims();
+			if (claims.some((claim) => claim.owner === me.id)) {
+				const team = plansRoot === undefined ? undefined : newestTeam(plansRoot);
+				const refusal = sharedClaimRefusal(heldUnits(team?.units ?? [], claims, me.id), paths);
+				if (refusal !== undefined) throw new Error(refusal);
+			}
+			return store.claimAll(paths, me.id, me.label, now());
 		},
 
 		async release(rawPaths) {

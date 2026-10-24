@@ -65,6 +65,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   heading, the link refs, the version stamped in the guides, the release body against
   the section the project's tooling prints, and the publish run still awaiting its
   approval — which is how this window found 0.18.0 half-published.
+- `session-bus`: a session that holds an owner unit of a split can no longer claim
+  a shared file — `package.json`, the changelog, the test manifests, or the shared
+  name modules — and the refusal names the lead whose unit keeps them. The
+  predicate is the one approval already applies (`lib/plans/split.ts`'s
+  `sharedFileFor`), so the rule outlives approval instead of only refusing the
+  split; it is read from the session's claims and the newest split, which is why
+  `/resume` and `/tree` keep it, and it refuses nothing when the session holds no
+  owner unit, when the path is not shared, or when the lead itself is claiming. A
+  project-extended shared list stays approval-only: the bus reads no
+  configuration.
 
 ### Changed
 
@@ -167,6 +177,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one scrolling row. The download moves into the action group the diff head already
   had, so a control keeps its own width on the way: shrunk, `copy contents` wrapped
   onto two lines and the `rendered`/`raw` control lost its second half.
+- `memory`: a same-size edit to a store is picked up inside one millisecond instead
+  of a whole one. The freshness stamp is the nanosecond field a bigint `stat`
+  returns, compared with the size as before, so an editor that rewrites a line in
+  place is seen on the next injection or tool call rather than waiting for
+  `/memory reload`. A filesystem whose own stamp is no finer than the last one read
+  keeps the documented caveat — reload is still the way in there — because the
+  alternative is reading the file on every run.
 
 ## [0.18.0] - 2026-10-24
 

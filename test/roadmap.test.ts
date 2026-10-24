@@ -11,7 +11,7 @@
  * - every id mentioned anywhere resolves, including the endpoints of a
  *   `P1–P3` range (contiguity covers the middle);
  * - no `Now` or `Next` bucket holds more than the documented cap;
- * - every extension size `F4` states is the module count the tree has.
+ * - every extension size `F3` states is the module count the tree has.
  *
  * It cannot tell that an item has already shipped — that is a judgement made
  * against `git log <last-tag>..main` when the roadmap is reviewed, which is why
@@ -177,7 +177,7 @@ describe("roadmap horizons", () => {
 	test("names the top two items the file ranks first", () => {
 		const section = roadmap.slice(roadmap.indexOf("## If only two things ship"), roadmap.indexOf("## Horizons"));
 		const named = [...section.matchAll(/\*\*([PSWCF]\d+) — /g)].map((match) => match[1]);
-		expect(named).toEqual(["P1", "S1"]);
+		expect(named).toEqual(["W1", "C1"]);
 	});
 });
 
@@ -191,9 +191,9 @@ describe("roadmap sizes", () => {
 
 	test("states each extension's module count as the tree counts it", () => {
 		// A number this file states about the code is derived here rather than
-		// remembered: F4 sizes extensions by module count, and a split, a new module,
+		// remembered: F3 sizes extensions by module count, and a split, a new module,
 		// or a relocated suite moves every figure it quotes.
-		const start = roadmap.indexOf("- **F4 — ");
+		const start = roadmap.indexOf("- **F3 — ");
 		const end = roadmap.indexOf("- **", start + 1);
 		const item = roadmap.slice(start, end === -1 ? undefined : end);
 		const stated = [...item.matchAll(/`([a-z-]+)` \((\d+) modules\)/g)].map((match) => ({
@@ -203,7 +203,7 @@ describe("roadmap sizes", () => {
 		expect(stated.length).toBeGreaterThan(0);
 		const drift = stated
 			.filter((entry) => countModules(entry.extension) !== entry.modules)
-			.map((entry) => `${entry.extension}: F4 states ${entry.modules}, the tree has ${countModules(entry.extension)}`);
+			.map((entry) => `${entry.extension}: F3 states ${entry.modules}, the tree has ${countModules(entry.extension)}`);
 		expect(drift).toEqual([]);
 	});
 });

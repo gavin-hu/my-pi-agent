@@ -30,7 +30,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
 | Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
 | Parallel slices | `exit_plan_mode` `units`, `plan.split` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
-| Split validation gate | `checkSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens. | Shipped |
+| Split validation gate | `checkSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens — and the same shared list refuses an owner's `claim` once the team is running. | Shipped |
 | Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. | Shipped |
 
 ### Review
@@ -546,7 +546,7 @@ What the gate enforces, and why each rule is a refusal rather than a warning:
 | a `dependsOn` cycle | No unit can start. |
 | more than two owner units | The user switches to every owner each round; three means the split is wrong. |
 | a unit with no test | The unit's definition of done would be undocumented. |
-| an owner unit claiming a shared file | `package.json`, the changelog, the test manifests, and the shared name modules belong to the lead. |
+| an owner unit claiming a shared file | `package.json`, the changelog, the test manifests, and the shared name modules belong to the lead. The same list refuses that owner's `claim` through `session-bus`, so the rule outlives approval. |
 | no unit marked lead | The approving session needs a unit of its own, or it is a queue. |
 
 Refusals name the pair they caught, and a value that would break the `## Team`
@@ -980,13 +980,13 @@ both.
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `parseFeedback`, `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `resolveAnchor`, `feedbackSummary`, and payload validation. |
-| `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over the shared bind, writer, and close. |
+| `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over `lib/http`'s one loopback server. |
 | `web-tokens.ts` | The token table: the role each token names, the collision rule that keeps two roles off one token, and the names the other live links have bound. |
 | `web-streams.ts` | The event streams: who is listening, what a frame is addressed to, and the closed-tab grace that ends the review when the owner's page goes away. |
 | `web-router.ts` | Pure request handler: token role, `Host` allowlist, origin, and method checks through one POST-and-role guard, then the page, comment, owner-save, approve, cancel, and the four share routes. |
 | `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation, share and name dialogs), its data island, and inline CSS. |
 | `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, one tokenized URL, the link table (mint, find, revoke, list, state) with its cap, and the reasons a share is unavailable. |
-| `web-share-session.ts` | The shared listener's lifecycle: its bound address, the link table over the session's tokens, `ShareState`, and invite/revoke/stop/close, injected with the request handler, role map, and frame hooks. |
+| `web-share-session.ts` | The shared listener: its bound address, the link table over the session's tokens, `ShareState`, and invite/revoke/stop/close, injected with the request handler, role map, and frame hooks. |
 | `web-client.ts` | The `/client.js` source: state and wiring (comment rail, save/approve/back, keyboard nav, the stream's lifetime) over the three fragments below. |
 | `web-comments.ts` | The client's comment half: selection quotes, the composer, authored cards and who may edit them, delete-with-undo. |
 | `web-collab.ts` | The client's collaboration half: the link list with copy and per-link revoke, the reviewer's name, and the island refetch a stream frame triggers. |
@@ -999,7 +999,7 @@ both.
 | [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer (shared with `file-browse`). |
 | [`../../lib/qr.ts`](../../lib/qr.ts) | QR matrix, terminal half-blocks, and inline SVG for the share link (shared with `wechat`). |
-| [`../../lib/http/`](../../lib/http/) | The bind, `Host` allowlist, header sets, and response kit both browser surfaces serve through. |
+| [`../../lib/http/`](../../lib/http/) | The one loopback server entry, the bind, `Host` allowlist, header sets, and response kit both browser surfaces serve through. |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, the shortcut sheet (`keysSheet`, `keysDialogScript`), and shared markup. |
 | [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `file-browse`: the page policy and header sets, `ServeResponse`, the request-envelope helpers, bind/respond/close. |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |

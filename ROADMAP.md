@@ -74,12 +74,12 @@ screenshots.
 
 | README promise | Today | Open items |
 |---|---|---|
-| Plan, then execute | Strong; one plan store per repository, a split at approval, and a review that follows its file | P1–P2 |
-| Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | P1 |
-| Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
-| Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
+| Plan, then execute | Strong; one plan store per repository, a split at approval that its owners are held to, and a review that follows its file | P1 |
+| Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | — |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
+| Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W5 |
-| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F5 |
+| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F3 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -88,12 +88,12 @@ closed by work parked in any horizon.
 
 ## If only two things ship
 
-1. **P1 — A split's shared files stay the lead's after approval.** Approval
-   refuses an owner unit that claims `package.json`; nothing stops that edit once
-   the sessions are running.
-2. **S1 — Memory notices a same-size edit in the same tick.** The store compares
-   a millisecond stamp, so an edit that keeps the size and lands inside one tick
-   is invisible until `/memory reload`.
+1. **W1 — Structured fetch.** `web_fetch` hands a JSON, CSV, or XML body back as
+   the raw blob it downloaded, which is a page a reader has to parse in their
+   head.
+2. **C1 — Update action.** The control center can report a stale package but not
+   update it, so the one remaining surface of "the package upgrades with Pi" is a
+   shell command the user has to know.
 
 These are the two `Now` items: the rest of this file can wait for a later
 release, and the changelog, not this list, records what did.
@@ -102,8 +102,8 @@ release, and the changelog, not this list, records what did.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the pack keep what it promised? | `P1` and `S1` ship, each with its test and its page line. |
-| **Next** | Does the daily loop feel finished? | `W1`, `C1`, and `F3`–`F5` land, or are demoted with the reason recorded. |
+| **Now** | Does the daily loop feel finished? | `W1` and `C1` land, or are demoted with the reason recorded. |
+| **Next** | Does the pack keep what it promised? | `F3` lands and `S1` is spiked or demoted, each with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -111,12 +111,17 @@ whatever is ready; this project releases often and treats the changelog, not
 this file, as the record of what shipped.
 
 The previous `Now` — a stale-doc sweep, every isolation gap visible in the
-session, a named Pi range, and a long-session benchmark — closed with `0.13.0`.
+session, a named Pi range, and a long-session benchmark — closed with `0.13.0`,
+and the one after it — a split's shared files and memory's same-tick edit —
+shipped unreleased, which is why this tier now asks the daily-loop question and
+the promise question waits behind it.
 The two items that used to head this file are gone for a reason worth keeping:
 the provider table would only price *below* Pi's per-model catalog, and the
 picker's scope decision is made — themes and prompts stay out, because neither is
 a scoped enable list. The update-channel item is gone for the third kind of
-reason: the tree contradicts it (see *Chrome and upkeep*).
+reason: the tree contradicts it (see *Chrome and upkeep*). The `lib/` promotion
+item went the same way: both modules it named have a second consumer inside
+`lib/`, so moving either into an extension would make `lib/` import one.
 
 ## 1. Plan and delegate
 
@@ -151,9 +156,13 @@ reason: the tree contradicts it (see *Chrome and upkeep*).
 
 **Where the promise is thin**
 
-- A split's shared-file rule is a refusal at approval and nothing else: after
-  `join`, an owner session can still claim or edit `package.json`, the changelog,
-  the test manifests, and the shared name modules (`P1`).
+- A split's shared-file rule is a refusal, twice: approval refuses an owner unit
+  that covers `package.json`, the changelog, the test manifests, or the shared
+  name modules, and `session-bus` refuses that owner's `claim` on one. It is
+  advisory in both places — an owner that edits a shared file without claiming it
+  is stopped by the merge, not by the bus — and the claiming half reads the newest
+  split, so a team a newer plan replaced is unguarded until its sessions join
+  again.
 - A split can be approved only in the terminal review. The browser cannot approve
   one, because the `## Team` section is written at approval and has no source
   lines for a comment to anchor to (`plan` page).
@@ -163,7 +172,7 @@ reason: the tree contradicts it (see *Chrome and upkeep*).
   name is a label on a bearer link rather than an account (`plan` page).
 - The plans directory is the only index: `/plan list` walks it on demand, there
   is no cross-repository history, and nothing reports how large a repository's
-  store has grown (`P2`).
+  store has grown (`P1`).
 - Approval caps a plan at 50 top-level steps, and a step over 200 characters is
   shortened in the todo list and the approval listing; the plan file keeps the
   full text.
@@ -181,24 +190,19 @@ reason: the tree contradicts it (see *Chrome and upkeep*).
 
 **Now**
 
-- **P1 — A split's shared files stay the lead's after approval.** Approval
-  refuses an owner unit whose prefixes cover a shared file, and nothing applies
-  that rule once the sessions are working. A session joined to an owner unit
-  refuses a `claim` on any path `SHARED_FILES` covers, or is covered by, and the
-  refusal names the lead; the lead's own claim is untouched. One list
-  (`lib/plans/split.ts`) drives approval and claiming, so the two cannot
-  disagree. *Done when* an owner's claim on `package.json` is refused with the
-  lead named, the plan page says the rule holds at claiming time, and a
-  project-extended shared list is still approval-only by name.
+**Now**
+
+Nothing here is queued: the split, the bus, and the shared-file rule shipped
+together, so approval and claiming read one list and cannot disagree.
 
 **Next**
 
-Nothing here is queued: the split and the bus shipped with this window, and `P1`
-is the one gap they left.
+Nothing here is queued either; the next work in this area is `P1`, the plan
+store's own size.
 
 **Later**
 
-- **P2 — The plan store says how big it is.** The store moved into the agent
+- **P1 — The plan store says how big it is.** The store moved into the agent
   directory, so it grows with every repository and nothing reports it. `/plan
   list` names how many plans the repository holds and how old the oldest is;
   nothing deletes a plan, because a plan is the user's record of an approval.
@@ -237,33 +241,28 @@ is the one gap they left.
   plan mode is on (`rewind` page).
 - Memory injects a large store truncated with a tail note, `forget` is an exact
   match, one note is one line, and the near-duplicate key is conservative by
-  design (`memory` page). A same-size edit inside one filesystem timestamp
-  tick is invisible until `/memory reload`; `S1` narrows that to a filesystem
-  whose mtime is coarser than the write.
+  design (`memory` page). A same-size edit is picked up inside a millisecond now;
+  on a filesystem whose own stamp is coarser than that, `/memory reload` is still
+  the way in.
 
 **Now**
 
-- **S1 — Memory notices a same-size edit in the same tick.** The store cache keys
-  on `(mtimeMs, size)`, so an edit that keeps the size and lands inside one
-  timestamp tick is invisible until `/memory reload`. Compare the nanosecond
-  stamp a bigint `stat` gives; where the filesystem reports no finer stamp than
-  the cached one, keep the documented caveat rather than reading the file on
-  every run. *Done when* a sub-millisecond, same-size edit is picked up without
-  a reload, the existing mtime-jump test still passes, and the memory page
-  states the residual case.
+Nothing here is queued: cleanup refuses what it cannot verify, the store reports
+its own health and notices a same-size edit inside a millisecond, and the
+remaining gaps are documented behavior.
 
 **Next**
 
-Nothing here is queued: cleanup refuses what it cannot verify, the store reports
-its own health, and the remaining gaps are documented behavior.
+Nothing here is queued either: both items left are decisions a spike has to earn,
+not work that is ready to start.
 
 **Later**
 
-- **S2 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
+- **S1 — Sandbox spike.** Evaluate `sandbox-exec` (macOS), `bubblewrap` (Linux),
   and a Windows job or AppContainer equivalent behind an optional setting. The
   documented non-goal stands until a spike proves the ergonomics, because it also
   decides what "guarded" means for the user's own shell.
-- **S3 — Snapshot visibility.** Surface storage per root and a "keep the last N"
+- **S2 — Snapshot visibility.** Surface storage per root and a "keep the last N"
   recommendation. `max` and `autoPrune` already prune, so this is visibility,
   not a new mechanism.
 
@@ -311,18 +310,17 @@ its own health, and the remaining gaps are documented behavior.
 
 **Now**
 
-Nothing here is queued: the abandoned-turn notice shipped, so a close that cuts a
-peer's turn off says so in one line. The rest of this section is `Next` work or a
-decision.
-
-**Next**
-
 - **W1 — Structured fetch.** Teach `web_fetch` to render JSON, CSV, and XML as
   readable text — indented keys, aligned columns, one record per block — instead
   of a raw blob. No model call and no new dependency, and the HTML heuristic
   path is untouched. *Done when* a fixture of each renders as text, a malformed
   document still returns its raw body, and the web-access page says which
   formats are rendered.
+
+**Next**
+
+Nothing here is queued: the abandoned-turn notice shipped, so a close that cuts a
+peer's turn off says so in one line. The rest of this section is a decision.
 
 **Later**
 
@@ -375,17 +373,17 @@ runs, an update check, and two themes.
 
 **Now**
 
-Nothing here is queued: the count every doc states is the catalogue's, and a test
-derives it from `SETTING_ROWS`, so a fourteenth row fails by naming the file that
-did not follow.
-
-**Next**
-
 - **C1 — Update action.** Offer `pi update --extensions` from the control center
   behind a confirmation — but only if a spike finds a host path that updates
   through Pi's own package manager instead of a shell. Start with the spike; if
   Pi exposes nothing safe, delete the item and leave the notice as the whole
   surface, which is what it is today.
+
+**Next**
+
+Nothing here is queued: the count every doc states is the catalogue's, and a test
+derives it from `SETTING_ROWS`, so a fourteenth row fails by naming the file that
+did not follow.
 
 **Later**
 
@@ -410,20 +408,13 @@ These are not a README pillar, but every promise depends on them.
 
 **Now**
 
-Nothing here makes a false promise today.
+Nothing here makes a false promise today: binding, the accept path, the close
+path, and idle grace are one server entry, and a page cannot outlive the session
+it describes.
 
 **Next**
 
-- **F3 — One loopback lifecycle.** Binding, the `Host` check, page headers, and
-  the response writer live in `lib/http/`, but `plan` and `file-browse` each
-  build their own `node:http` server around those pieces and close it
-  themselves, so the close path exists twice and idle grace exists once
-  (`extensions/file-browse/server.ts`, `extensions/plan/web.ts`). Give
-  `lib/http/` one server entry that owns bind → accept → close → idle, and let an
-  extension supply routes and an idle policy only. *Done when* neither extension
-  imports `node:http` for its own server, idle grace is asserted by a `lib/http/`
-  test, and a page cannot outlive the session it describes.
-- **F4 — Role directories past twenty modules.** The architecture page names the
+- **F3 — Role directories past twenty modules.** The architecture page names the
   roles a module can play and lets a role earn a directory past roughly twenty
   modules, the way `bytefly/` groups `footer/`, `notice/`, and `separator/` and
   `web-access/` groups `fetch/` and `search/`. Counting modules and not files —
@@ -433,13 +424,6 @@ Nothing here makes a false promise today.
   modules) stay flat until they cross it. *Done when* `rewind` holds role
   subdirectories plus `index.ts`, its imports are updated, and the page's layout
   rule describes the tree without an exception.
-- **F5 — `lib/` names a contract.** Shared code is promoted on a second consumer
-  or on a contract two sides must agree on, but `lib/claims/overlap.ts` has one
-  consumer (`session-bus`, which re-exports it) and `lib/pi-invocation.ts` has
-  one (`subagent`). Move each into the extension that uses it, and keep
-  `lib/requirements.ts` — a declaration table whose whole point is being one
-  list. *Done when* neither module is in `lib/`, both extensions' suites cover
-  them, and `lib/README.md`'s conventions name the single-table exception.
 
 **Later**
 
@@ -461,10 +445,10 @@ it. A limitation an item owns is named in that section instead, never here.
 
 | Limitation | Why it has no item |
 |---|---|
-| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S2`. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S1`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file. Revisit if an approval surface must show a full step. |
-| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. `P2` reports a store's size without becoming one. |
+| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. `P1` reports a store's size without becoming one. |
 | `plan`: a shared review reaches one network, one address, and at most eight links | A tunnel, relay, or hosted review service is a product to operate, not a page to serve; the non-goal names it. Revisit with a hosted deployment. |
 | `plan`: a reviewer's name is a label bound to a link, not an account | The owner still makes the only decision, so an account would add identity without adding a decision. Revisit if reviewers must be authenticated across restarts. |
 | `plan`: the browser cannot approve a split | The `## Team` section is written at approval, so it has no source lines for a comment to anchor to. Revisit if a split is ever authored inside the page. |
@@ -472,12 +456,12 @@ it. A limitation an item owns is named in that section instead, never here.
 | `subagent`: background is single mode, and a background child is session-owned | Making a child resumable is a durable job queue, which the non-goals exclude. Revisit if a run must outlive its session. |
 | `watch`: a **wake** match raises a notification once the running turn settles | A match found mid-turn is raised when that run settles, so a long turn delays it but never drops it. Revisit if a turn must be interrupted mid-flight. |
 | `watch`: watcher state is memory-only | A watcher tails a live process or file; a resumed session cannot re-attach to a pipe it no longer has. Revisit if a watcher is given a durable source. |
-| `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S2`, which changes what "guarded" means. |
+| `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S1`, which changes what "guarded" means. |
 | `worktree`: `--merged` calls a never-committed worktree landed | `git branch --merged` compares branches, not working trees; prune refuses that worktree and `list_worktrees` shows the clean flag beside the merged one. Revisit if the status line grows a "no commits" state. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
 | `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |
 | `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. |
-| `memory`: a store on a filesystem with coarse mtime can still hide a same-size edit | `S1` closes the case every APFS/ext4 write hits; a one-second stamp cannot be beaten without reading the file each run. Revisit if a store lives on such a filesystem. |
+| `memory`: a store on a filesystem with coarse mtime can still hide a same-size edit | The stamp is nanoseconds, so every APFS/ext4 write is caught; a filesystem that reports one-second mtime cannot be beaten without reading the file on every run. Revisit if a store lives on such a filesystem. |
 | `job`: `exec cmd` and Windows can settle a job with no exit code | The shell owns the exit path there; the job reports `unknown` rather than guessing. Revisit if a wrapper can always observe the code. |
 | `job`: stdin is a pipe, a detached log is not rotated, and Windows cannot detach | Each is the price of a process that outlives its turn; the job page names all three where the option is offered. |
 | `question`: there is no timeout, and RPC multi-select degrades to an editor | A prompt exists to wait for a person, and RPC cannot forward the component. Revisit if a host adds a component channel. |

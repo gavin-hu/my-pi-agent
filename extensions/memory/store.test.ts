@@ -85,9 +85,16 @@ describe("store files", () => {
 
 	test("sameStamp compares missing and present stamps", () => {
 		expect(sameStamp(undefined, undefined)).toBe(true);
-		expect(sameStamp({ mtimeMs: 1, size: 1 }, undefined)).toBe(false);
-		expect(sameStamp({ mtimeMs: 1, size: 1 }, { mtimeMs: 1, size: 1 })).toBe(true);
-		expect(sameStamp({ mtimeMs: 1, size: 1 }, { mtimeMs: 1, size: 2 })).toBe(false);
+		expect(sameStamp({ mtimeNs: 1n, size: 1 }, undefined)).toBe(false);
+		expect(sameStamp({ mtimeNs: 1n, size: 1 }, { mtimeNs: 1n, size: 1 })).toBe(true);
+		expect(sameStamp({ mtimeNs: 1n, size: 1 }, { mtimeNs: 1n, size: 2 })).toBe(false);
+	});
+
+	test("sameStamp sees a change inside one millisecond", () => {
+		// The whole point of the nanosecond stamp: two writes in the same millisecond
+		// are two states, and a same-size edit is only a change here.
+		expect(sameStamp({ mtimeNs: 1_000_000n, size: 4 }, { mtimeNs: 1_000_001n, size: 4 })).toBe(false);
+		expect(sameStamp({ mtimeNs: 999_999n, size: 4 }, { mtimeNs: 1_000_000n, size: 4 })).toBe(false);
 	});
 
 	test("mutateMemoryFile writes the store and returns the parsed notes", async () => {

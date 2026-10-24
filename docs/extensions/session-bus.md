@@ -59,9 +59,9 @@ collapsed line that expands to the board's rows.
 | `status` | — | Active sessions with unread counts, claims, and this session's identity, plus `units n/m` for the newest split in this repository. Prunes stale records. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. |
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
-| `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
+| `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. An owner unit of a split may not claim a shared file — the refusal names the lead. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
-| `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.split` on. Idempotent: joining twice is the same claims. |
+| `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.split` on. Idempotent: joining twice is the same claims. The unit it claims is what `claim` reads to keep shared files with the lead. |
 | `leave` | optional `team`, `unit` | Releases that unit's paths, or every claim this session holds when neither is given. Never gated by the switch. |
 | `watch` | optional `wake`, optional `stop` | Arms this session's inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch's mode. |
 | `name` | `label` | Renames this session on the bus and in Pi — the same path as `/sessions name`, with the same uniqueness rule, so the footer and `/resume` agree with the record peers address. An empty label is refused rather than keeping the old one, and a label a live session holds is refused with its owner named. The result reports the label the bus settled on. |
@@ -70,6 +70,23 @@ A claim is all-or-nothing: if one path conflicts, nothing is claimed. A claim on
 a directory conflicts with claims below it and above it, so `src/api` and
 `src/api/routes.ts` cannot be held by different sessions. There is no `force`
 takeover; wait for the owner, ask it to release, or let the session expire.
+
+A session that holds an owner unit of a split may not claim a shared file —
+`package.json`, the changelog, the test manifests, the shared name modules — and
+the refusal names the lead whose unit keeps them:
+
+```text
+session({action:"claim", paths:["package.json"]})
+→ Error: package.json is a shared file; only the lead "contract" may claim it.
+```
+
+The rule is the one approval applies, read from [`lib/plans/split.ts`](../../lib/plans/split.ts)
+by both sides, and it holds for as long as the session holds the unit: leaving
+releases the paths and with them the rule. It is read from the claims and the
+newest split rather than remembered, so `/resume` and `/tree` do not lose it, and
+a split a newer plan replaced is out of scope until the session joins again. Like
+every claim rule it is advisory: it refuses a `claim`, not an edit. A shared list
+a project extends is passed to approval by name and is not enforced here.
 
 Paths resolve against the caller's working directory and are stored relative to
 its repository root; a path outside the repository is refused.
@@ -171,6 +188,9 @@ a crashed one frees the unit when its record goes stale. That is why the roster
 card asks you to name each session — an unnamed one joins under its working
 directory's name, which says nothing about the unit it holds.
 
+Joining also decides who may claim the shared files: an owner's `claim` on one is
+refused, and the lead's own unit keeps them (see [`claim`](#tool)).
+
 ## The /sessions board
 
 The TUI opens the board; RPC, JSON, and print print the compact listing. `Tab`
@@ -207,6 +227,10 @@ characters.
   a session that joins later does not receive it.
 - **No forced claims.** A crashed owner blocks its paths until the session TTL
   expires. This is deliberate; stealing a claim is worse than waiting.
+- **A shared file is refused, not locked.** The split's shared-file rule refuses a
+  `claim`; an owner that edits `package.json` without claiming it is stopped by
+  the merge, not by the bus. It also reads the newest split, so a session whose
+  team a newer plan replaced is unguarded until it joins again.
 - **Bounded by TTL.** An idle session with a stopped heartbeat is pruned after
   ten minutes; its record, its claims, and an inbox directory left empty go with
   it, and its unread mail expires after 24 hours.
@@ -279,6 +303,7 @@ characters.
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |
 | `team.ts` | Reads one unit out of the newest split plan, or the plan a `join` named. |
+| `membership.ts` | Which unit this session holds, read from the claims, and the shared-file claim that follows from it. |
 | `types.ts` | The stored shapes — session record, message, claim — and the tool's `details`. |
 | `tui.ts` | The `/sessions` board, its scopes, and the pane over one row; the row grammar is in `rows.ts`. |
 | `rows.ts` | The session/claim/message row builders and summaries shared by the board and the transcript. |
@@ -291,7 +316,7 @@ characters.
 ## Testing
 
 The capability suites — `format`, `protocol`, `store`, `runtime`, `tui`, `tools`,
-and `extension` — are declared in `test/suite-manifest.ts`. They build a bus in a
+`membership`, and `extension` — are declared in `test/suite-manifest.ts`. They build a bus in a
 temp directory with a fixed clock, so none needs a live peer; `runtime.test.ts`
 puts its real-repository cases behind `runSlowSuites`, which skips unless `CI` or
 `PI_SLOW_TESTS=1` is set.

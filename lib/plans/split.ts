@@ -48,8 +48,14 @@ function unitAt(units: readonly PlanUnit[], index: number): string {
 	return units[index]?.name ?? `unit ${index + 1}`;
 }
 
-/** Whether `path` covers, or is covered by, any shared file. */
-function sharedHit(path: string, shared: readonly string[]): string | undefined {
+/**
+ * Whether `path` covers, or is covered by, any shared file, and which one.
+ *
+ * Exported because it is the one shared-file rule: approval refuses an owner unit
+ * whose paths cover one, and `session-bus` refuses the same file at claiming time
+ * through `sharedFileFor`, so the two cannot disagree about what "shared" means.
+ */
+export function sharedFileFor(path: string, shared: readonly string[] = SHARED_FILES): string | undefined {
 	return shared.find((file) => claimsConflict(path, file));
 }
 
@@ -173,7 +179,7 @@ export function checkSplit(
 
 	for (const unit of units) {
 		if (unit.lead) continue;
-		const hit = unit.paths.flatMap((path) => sharedHit(path, shared)).at(0);
+		const hit = unit.paths.flatMap((path) => sharedFileFor(path, shared)).at(0);
 		if (hit !== undefined) {
 			return {
 				ok: false,
