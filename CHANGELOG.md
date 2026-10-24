@@ -121,9 +121,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
-- `plan`: the goal prompt can no longer be turned off. Approving a plan in a
-  session with no goal always asks before recording it, and `/bytefly settings`
-  drops the **Offer the session goal** row, so the screen is twelve preferences.
+- `plan`: the goal prompt is gone. Approving a plan in a session with no goal
+  records the plan's objective without asking, `/bytefly settings` drops the
+  **Offer the session goal** row, so the screen is twelve preferences, and
   `plan.goalPrompt` and the `plan` section of `bytefly.json` are no longer read;
   delete the section if you set it.
 

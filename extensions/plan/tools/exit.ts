@@ -3,7 +3,7 @@
  *
  * It presents the saved plan for approval, then seeds the approved steps into
  * the todo list and finalizes the session goal: a `planning` goal becomes the
- * plan's own `## Goal`, and a session with no goal is offered the same. The
+ * plan's own `## Goal`, and a session with no goal is given the same. The
  * review loop and the browser lifecycle belong to `review.ts`; the nested writes
  * belong to `todo-seed.ts` and the goal tool.
  */
@@ -12,7 +12,6 @@ import { basename } from "node:path";
 import type { ExtensionAPI, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { sanitizeLine } from "../../../lib/format.ts";
-import { isRemoteTurn } from "../../../lib/interaction.ts";
 import { lastGoal } from "../../../lib/goal-state.ts";
 import { GOAL_TOOL } from "../../../lib/tool-names.ts";
 import { reuseText, toolDetails } from "../../../lib/tui/chrome.ts";
@@ -52,21 +51,16 @@ interface GoalOutcome {
 /**
  * Finalise the session goal from the approved plan.
  *
- * A `planning` goal needs no dialog — approving the plan *is* the decision — and a
- * session with no goal at all gets one confirm. A final goal (`active` or
- * `achieved`) is the user's own: approving ordinary work never rewrites it.
- * Recording runs through the goal tool, so validation and the widget stay goal's,
- * and no model turn is spent.
+ * Approving the plan *is* the decision, so neither a `planning` goal nor a
+ * session with none is asked again. A final goal (`active` or `achieved`) is the
+ * user's own: approving ordinary work never rewrites it. Recording runs through
+ * the goal tool, so validation and the widget stay goal's, and no model turn is
+ * spent.
  */
 async function finalizeGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOutcome> {
 	const objective = planObjective(plan);
 	const current = lastGoal(ctx.sessionManager.getBranch());
 	if (current !== null && current.status !== "planning") return { objective };
-	if (current === null && !isRemoteTurn(ctx)) {
-		if (!ctx.hasUI) return { objective };
-		const approved = await ctx.ui.confirm("Record this plan as the session goal?", objective);
-		if (!approved) return { objective };
-	}
 	const outcome = await ctx.executeTool(GOAL_TOOL, { objective, status: "active" });
 	const action = current === null ? "recorded" : "promoted";
 	return outcome.isError ? { objective, action, error: firstTextLine(outcome) } : { objective, action };

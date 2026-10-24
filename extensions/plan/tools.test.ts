@@ -1166,18 +1166,14 @@ describe("exit_plan_mode", () => {
 		]);
 	});
 
-	describe("the session-goal offer", () => {
+	describe("the session goal", () => {
 		/** Approve `content` through the dialog path with the given fake ctx options. */
-		async function approve(
-			content: string,
-			options: { confirm?: boolean; branch?: unknown[]; executeError?: string } = {},
-		) {
+		async function approve(content: string, options: { branch?: unknown[]; executeError?: string } = {}) {
 			const { enter, exit, write, runtime, root } = setup();
 			await enterPlan(enter, runtime, root);
 			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, content);
 			const fake = fakeCtx({
 				editor: "1",
-				confirm: options.confirm ?? true,
 				branch: options.branch,
 				executeError: options.executeError,
 				cwd: root,
@@ -1186,23 +1182,16 @@ describe("exit_plan_mode", () => {
 			return { ...fake, result };
 		}
 
-		test("offers the plan's title and records it as the goal when accepted", async () => {
+		test("records the plan's title without asking", async () => {
 			const { confirms, toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One");
 
-			expect(confirms.map((entry) => entry.message)).toEqual(["Add rate limiting"]);
+			expect(confirms).toEqual([]);
 			expect(
 				toolCalls.some(
 					(entry) => entry.name === "goal" && (entry.args as { objective: string }).objective === "Add rate limiting",
 				),
 			).toBe(true);
 			expect(result.content[0].text).toContain("Recorded the session goal: Add rate limiting.");
-		});
-
-		test("records nothing when the offer is declined", async () => {
-			const { toolCalls, result } = await approve("# Add rate limiting\n\n## Steps\n- [ ] One", { confirm: false });
-
-			expect(toolCalls.some((entry) => entry.name === "goal")).toBe(false);
-			expect(result.content[0].text).not.toContain("Recorded the session goal");
 		});
 
 		test("leaves an existing goal alone without asking", async () => {
