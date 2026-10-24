@@ -27,6 +27,8 @@ export interface BusStore {
 	ensure(): Promise<void>;
 	writeSession(record: SessionRecord): Promise<void>;
 	sessions(): Promise<SessionRecord[]>;
+	/** One session's record, or undefined when it is not on disk. */
+	session(id: string): Promise<SessionRecord | undefined>;
 	removeSession(id: string): Promise<void>;
 	writeMessage(target: string, message: BusMessage): Promise<void>;
 	/** Read a recipient's messages without consuming them, oldest first. */
@@ -270,6 +272,8 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 
 		sessions: readSessions,
 
+		session: async (id) => readTyped(sessionFile(id), isSession),
+
 		async removeSession(id) {
 			await rm(sessionFile(id), { force: true });
 			await dropIfEmpty(inboxDir(id));
@@ -306,15 +310,21 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		},
 
 		async prune({ now: at, activeIds, sessionTtlMs, messageTtlMs }) {
+			// The caller's set can lag: a peer that joined and claimed since that read is
+			// live on disk, and its claims are its own. This read is the answer, so the
+			// set only adds to what it found rather than deciding who survives.
+			const live = new Set(activeIds);
 			for (const session of await readSessions()) {
 				if (at - session.lastSeen > sessionTtlMs) {
 					await rm(sessionFile(session.id), { force: true });
 					await dropIfEmpty(inboxDir(session.id));
-					activeIds = new Set([...activeIds].filter((id) => id !== session.id));
+					live.delete(session.id);
+				} else {
+					live.add(session.id);
 				}
 			}
 			for (const claim of await readClaims()) {
-				if (!activeIds.has(claim.owner)) await rm(claimFile(claim.path), { force: true });
+				if (!live.has(claim.owner)) await rm(claimFile(claim.path), { force: true });
 			}
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
 				const directory = join(inboxRoot, name);

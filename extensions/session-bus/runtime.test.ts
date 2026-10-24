@@ -80,6 +80,25 @@ describe("registration", () => {
 		expect(await store.claims()).toEqual([]);
 		await second.stop();
 	});
+
+	test("stopping one process of a resumed session leaves the survivor its claims", async () => {
+		const dir = busDir();
+		const now = () => 1_000;
+		// `/resume` in a second pane registers one session id from two processes.
+		const first = runtime(dir, { repo: { root: "/repo/frontend", key: "shared" }, now, pid: 100 });
+		const second = runtime(dir, { repo: { root: "/repo/frontend", key: "shared" }, now, pid: 200 });
+		const both = context("/repo/frontend", "s1", "frontend");
+		await acting(first, both);
+		await acting(second, both);
+		expect((await second.claim(["src/api"])).claimed).toEqual(["src/api"]);
+		await first.stop();
+		// The record names the process that owns it, so the older one leaves both alone.
+		expect((await second.status()).claims.map((claim) => claim.path)).toEqual(["src/api"]);
+		await second.stop();
+		const store = createBusStore({ dir });
+		expect(await store.sessions()).toEqual([]);
+		expect(await store.claims()).toEqual([]);
+	});
 });
 
 describe("joining a unit of an approved split", () => {

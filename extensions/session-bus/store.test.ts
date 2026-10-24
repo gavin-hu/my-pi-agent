@@ -191,6 +191,16 @@ describe("prune", () => {
 		expect(await store.claims()).toHaveLength(1);
 	});
 
+	test("keeps a live peer's claim that the caller's active set had not seen yet", async () => {
+		const { store } = fixture();
+		// A peer joined and claimed after the caller read the session list, so its id is
+		// missing from the set the caller passes; its claim is still its own.
+		await store.writeSession(session("s2", 900));
+		await store.claimAll(["src/api"], "s2", "peer", 900);
+		await store.prune({ now: 1_000, activeIds: new Set(["s1"]), sessionTtlMs: 500, messageTtlMs: 500 });
+		expect((await store.claims()).map((claim) => claim.path)).toEqual(["src/api"]);
+	});
+
 	test("drops the inbox directory whose mail expired and keeps one that is still fresh", async () => {
 		const { dir, store } = fixture();
 		await store.writeMessage("s2", message("100-a", "s2", 100));
