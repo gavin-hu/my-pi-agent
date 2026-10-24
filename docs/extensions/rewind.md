@@ -8,7 +8,7 @@ conversation rewind moves Pi's session tree without erasing the branch you leave
 `/review` uses the same snapshot to show the latest turn's changes and revert a
 file, a selection, or the whole turn.
 
-<img src="../../assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%">
+<img src="../../assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and a detail line naming the snapshot the focused prompt holds" width="100%">
 
 ## Capabilities
 

@@ -112,6 +112,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `rewind`: the `/rewind` list answers `Enter` only. `r` chose the focused point as well, was
+  never hinted, and means the opposite one screen later, where it reverts — so the shortcut is
+  removed rather than taught twice. The poster's fixture alternates its snapshot marks
+  (`◆–◆–◆`) so the frame shows both answers instead of a two-then-one run that reads as a
+  rendering fault, and its alt text now says "a detail line naming the snapshot the focused
+  prompt holds" in place of "focused prompt's snapshot detail", which promised more than the one
+  line the screen draws.
 - dev: the six screens that drew a short frame into a tall window now ask for the window their
   frame needs — `agents` (46% empty below the closing rule), `check` (35), `check-detail` (34),
   `compaction` (33), `review` (23) and `todo` (23) — with the `bounds`/`size` pair `rewind` and
