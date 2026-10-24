@@ -7,7 +7,7 @@ live as human-editable markdown, not in the session branch, so they survive
 `AGENTS.md`; `memory` is for the one-liners the model should not have to be
 reminded of twice.
 
-<img src="../../assets/memory.png" alt="The /memory picker: a Memory title rule, an `All · 3 project, 2 global` summary, five notes tagged by scope with the focused one marked, and the key hints" width="100%">
+<img src="../../assets/screens/memory.png" alt="The /memory picker: a Memory title rule, an `All · 3 project, 2 global` summary, five notes tagged by scope with the focused one marked, and the key hints" width="100%">
 
 ## Capabilities
 

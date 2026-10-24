@@ -16,7 +16,7 @@ This edition was checked against my-pi-agent 0.18.0 and Pi 1.4.0. Run
 `pi --version` and `pi list` if a key or screen differs; the
 [changelog](../../CHANGELOG.md) lists what changed since this edition.
 
-<img src="../../assets/transcript.png" alt="A Pi transcript with the You nameplate, a tool call and its result behind the rail, a notice, the turn rule, and the footer status chips" width="100%">
+<img src="../../assets/screens/transcript.png" alt="A Pi transcript with the You nameplate, a tool call and its result behind the rail, a notice, the turn rule, and the footer status chips" width="100%">
 
 *A turn with the pack loaded: your nameplate, a tool call with its result indented
 behind the rail, a notice, the turn rule, and the footer.*

@@ -156,7 +156,7 @@ job status j1
 `/jobs` opens an interactive list in the TUI, and prints a text summary
 elsewhere.
 
-<img src="../../assets/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%">
+<img src="../../assets/screens/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%">
 
 | Command | What it does |
 |---|---|

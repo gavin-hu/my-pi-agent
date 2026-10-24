@@ -15,7 +15,7 @@ This page is the catalog and the setup instructions. For how to use a feature �
 the keys, the commands, and what you should see — start with the
 [user guide](./docs/user-guide/).
 
-![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, three key-hint rows, a nameplated message with a tool call and its result behind the rail, a finished-jobs notice, the turn rule, and the two-line footer](assets/chrome.png)
+![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, three key-hint rows, a nameplated message with a tool call and its result behind the rail, a finished-jobs notice, the turn rule, and the two-line footer](assets/screens/chrome.png)
 
 ## Contents
 
@@ -173,16 +173,16 @@ README use `bytefly-dark`.
 
 <table>
 <tr>
-<td width="50%"><img src="assets/todo.png" alt="The /todos screen: a Todos title rule, a 3/7 completed summary, and the list with check, spinner, and circle glyphs" width="100%"></td>
-<td width="50%"><img src="assets/question.png" alt="The ask_user_question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%"></td>
+<td width="50%"><img src="assets/screens/todo.png" alt="The /todos screen: a Todos title rule, a 3/7 completed summary, and the list with check, spinner, and circle glyphs" width="100%"></td>
+<td width="50%"><img src="assets/screens/question.png" alt="The ask_user_question dialog: Auth and Scope tabs, a question, four numbered options with descriptions, and the navigation hint" width="100%"></td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%"></td>
-<td width="50%"><img src="assets/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%"></td>
+<td width="50%"><img src="assets/screens/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%"></td>
+<td width="50%"><img src="assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%"></td>
 </tr>
 <tr>
-<td width="50%"><img src="assets/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, the focused session's cwd, claims, and identity, and the Tab scope and watch hints" width="100%"></td>
-<td width="50%"><img src="assets/watch.png" alt="The /watch screen: a summary line and watcher rows with live match counts and the focused watcher's pattern and source" width="100%"></td>
+<td width="50%"><img src="assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, the focused session's cwd, claims, and identity, and the Tab scope and watch hints" width="100%"></td>
+<td width="50%"><img src="assets/screens/watch.png" alt="The /watch screen: a summary line and watcher rows with live match counts and the focused watcher's pattern and source" width="100%"></td>
 </tr>
 </table>
 
@@ -194,7 +194,7 @@ each tool's own renderer (or bytefly's generic fallback): the user nameplate and
 a notice, Pi's built-ins, and every tool this package registers. The rail glyph
 is the `chrome.rail` setting.
 
-![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, the plan tools, and the worktree tools](assets/tool-renderings.png)
+![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, the plan tools, and the worktree tools](assets/screens/tool-renderings.png)
 
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).

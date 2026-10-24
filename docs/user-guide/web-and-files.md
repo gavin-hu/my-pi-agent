@@ -167,7 +167,7 @@ fuzzy quick-open palette, and a read-only git diff view.
    `http://127.0.0.1:4820`, and an `◉` chip in the footer shows the port while
    the server is running.
 
-   <img src="../../assets/file-browse.png" alt="The loopback file browser: a path filter and file tree on the left, and a rendered Markdown page on the right" width="100%">
+   <img src="../../assets/screens/file-browse.png" alt="The loopback file browser: a path filter and file tree on the left, and a rendered Markdown page on the right" width="100%">
 
    *The file browser: a read-only tree, a searchable path filter, and rendered
    Markdown for the selected file.*

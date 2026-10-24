@@ -173,7 +173,7 @@ polling. `l` logs in or reconnects, `n` starts a new session, `o` logs out,
 actions and the only route outside the TUI; an unknown subcommand reports the
 valid ones.
 
-<img src="../../assets/wechat.png" alt="The /wechat control screen: account and an open connection, peer, queued, and refused rows, one waiting-prompt row per peer that was asked a question, three conversation rows showing two running peers with one queued behind them and an idle peer, and the key hints" width="100%">
+<img src="../../assets/screens/wechat.png" alt="The /wechat control screen: account and an open connection, peer, queued, and refused rows, one waiting-prompt row per peer that was asked a question, three conversation rows showing two running peers with one queued behind them and an idle peer, and the key hints" width="100%">
 
 ### Admission
 

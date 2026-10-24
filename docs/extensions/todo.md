@@ -6,7 +6,7 @@ no add/toggle bookkeeping. The list follows the active session branch and is
 rebuilt on `/resume` and `/tree`, and the extension keeps it honest by asking for
 one update when work lands without one.
 
-<img src="../../assets/todo.png" alt="The /todos screen: a Todos title rule, a 3/7 completed summary, and the list with check, spinner, and circle glyphs" width="100%">
+<img src="../../assets/screens/todo.png" alt="The /todos screen: a Todos title rule, a 3/7 completed summary, and the list with check, spinner, and circle glyphs" width="100%">
 
 ## Capabilities
 

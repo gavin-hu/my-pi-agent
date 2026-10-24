@@ -50,7 +50,7 @@ debugging hunt. Neither is a project-management tool; they are session memory.
    In the terminal it opens a scrollable screen; elsewhere it posts the list as a
    notification.
 
-   <img src="../../assets/todo.png" alt="The /todos screen: a completed summary, then each item with its status glyph" width="100%">
+   <img src="../../assets/screens/todo.png" alt="The /todos screen: a completed summary, then each item with its status glyph" width="100%">
 
    */todos: the summary, then each item's status at a glance.*
 
@@ -132,7 +132,7 @@ The report separates the parts that are easy to confuse:
 1. Run `/context`. The screen opens with Pi's own number, then the composition it
    adds up to, the history, and the messages taking the most room:
 
-   <img src="../../assets/context.png" alt="The /context screen: a gauge reading 124k of 200k at 62%, the composition rows with their bars, the estimate drift, the compaction history, the largest messages, and the key hints" width="100%">
+   <img src="../../assets/screens/context.png" alt="The /context screen: a gauge reading 124k of 200k at 62%, the composition rows with their bars, the estimate drift, the compaction history, the largest messages, and the key hints" width="100%">
 
    *The report after one compaction: tool results take four fifths of the
    estimate, and the largest single message is named.*
@@ -217,7 +217,7 @@ Do not use it as a scratchpad or a substitute for project documentation.
    | `r` | Re-read the notes from disk |
    | `Esc` | Cancel the current action, or close the picker |
 
-   <img src="../../assets/memory.png" alt="The /memory picker: a scope summary, notes tagged by scope, and the key hints" width="100%">
+   <img src="../../assets/screens/memory.png" alt="The /memory picker: a scope summary, notes tagged by scope, and the key hints" width="100%">
 
    *The picker: filter by scope, then add, edit, merge, move, or delete.*
 

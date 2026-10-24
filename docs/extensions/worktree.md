@@ -133,7 +133,7 @@ being ignored.
 
 ### The /worktree screen
 
-<img src="../../assets/worktree.png" alt="The /worktree screen: a Worktrees title rule with a `4 worktrees · 1 dirty · 1 ahead` summary, the current dark-mode row carrying its ahead count, a dirty row, a merged row, and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="100%">
+<img src="../../assets/screens/worktree.png" alt="The /worktree screen: a Worktrees title rule with a `4 worktrees · 1 dirty · 1 ahead` summary, the current dark-mode row carrying its ahead count, a dirty row, a merged row, and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="100%">
 
 `/worktree` on its own opens a list screen: one row per managed worktree with its
 state (current, dirty, ahead, behind, merged, locked, last used), the active

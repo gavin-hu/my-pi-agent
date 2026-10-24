@@ -8,7 +8,7 @@ highlighted code, per-language icons, a fuzzy quick-open palette, and a
 read-only git diff view. It is bound to `127.0.0.1` and ships no dependencies —
 the shared loopback layer plus one small vanilla script.
 
-<img src="../../assets/file-browse.png" alt="The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview" width="100%">
+<img src="../../assets/screens/file-browse.png" alt="The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview" width="100%">
 
 ## Capabilities
 
