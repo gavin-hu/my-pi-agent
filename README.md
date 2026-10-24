@@ -178,7 +178,7 @@ README use `bytefly-dark`.
 </tr>
 <tr>
 <td width="50%"><img src="assets/screens/job.png" alt="The /jobs screen: a summary line, the job rows with status glyphs and elapsed times, and the focused job's command, cwd, and last output line" width="100%"></td>
-<td width="50%"><img src="assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and the focused prompt's snapshot detail" width="100%"></td>
+<td width="50%"><img src="assets/screens/rewind.png" alt="The /rewind screen: prompt rows newest first, a diamond marking prompts with a code snapshot, and a detail line naming the snapshot the focused prompt holds" width="100%"></td>
 </tr>
 <tr>
 <td width="50%"><img src="assets/screens/session.png" alt="The /sessions screen: a counts summary, session rows with unread and claim counts, the focused session's cwd, claims, and identity, and the Tab scope and watch hints" width="100%"></td>

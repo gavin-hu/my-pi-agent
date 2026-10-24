@@ -159,7 +159,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 </tr>
 <tr>
 <td width="50%"><img src="assets/screens/job.png" alt="/jobs 屏幕：摘要行、带状态字形和耗时的任务行，以及焦点任务的命令、工作目录和最后一行输出" width="100%"></td>
-<td width="50%"><img src="assets/screens/rewind.png" alt="/rewind 屏幕：从新到旧的提示行、标记有代码快照的菱形，以及焦点提示的快照详情" width="100%"></td>
+<td width="50%"><img src="assets/screens/rewind.png" alt="/rewind 屏幕：从新到旧的提示行、标记有代码快照的菱形，以及一行标明焦点提示所持快照的详情" width="100%"></td>
 </tr>
 <tr>
 <td width="50%"><img src="assets/screens/session.png" alt="/sessions 屏幕：计数摘要、带未读数和路径声明数的会话行、焦点会话的工作目录、声明和身份，以及 Tab 范围与监视提示" width="100%"></td>

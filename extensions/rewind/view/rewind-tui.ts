@@ -57,7 +57,7 @@ export class RewindListComponent implements Component {
 		}
 		const count = this.points.length;
 		if (navigateList(data, this.cursor, count)) return;
-		if (matchesKey(data, Key.enter) || data === "r") {
+		if (matchesKey(data, Key.enter)) {
 			const point = this.points[this.cursor.selected];
 			if (point) this.options.onClose(point);
 		}
