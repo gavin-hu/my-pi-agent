@@ -613,7 +613,7 @@ status, which is what the old start/stop guidance used to do.
 | `peer/admission.ts` | The rolling-hour turn budget and the per-peer serial admission chain. |
 | `peer/reply-pipeline.ts` | Where a streamed answer is split (paragraph, quiet period, size), sent in order, and finished without duplicating a part. |
 | `peer/presence.ts` | Typing, acknowledgement, and the slow/busy lines; all per-peer wait timers in one registry. |
-| `commands/commands.ts` | `/wechat login|new|status|stop|reset|logout|help`: the verb table that drives the help text and completions, the dispatch, the panel, login/logout, and the per-peer stop/reset; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
+| `commands/commands.ts` | `/wechat login\|new\|status\|stop\|reset\|logout\|help`: the verb table that drives the help text and completions, the dispatch, the panel, login/logout, and the per-peer stop/reset; `login`/`new`/`logout` decline and `status` degrades to the summary while a peer turn runs. |
 | `commands/slash.ts` | Inbound slash commands: the built-in registry (`/new`, `/stop`, `/status`, `/history`, `/help`), the session controls an action may invoke, and the pure parse/lookup/expand helpers. |
 | `commands/doctor.ts` | The plain-text `/wechat doctor` report: connection/token age, poll, lock, peer sessions, recent failures, and config. |
 | `commands/login.ts` | QR login state machine. |

@@ -508,7 +508,9 @@ describe("prerequisite declarations", () => {
 describe("doc links", () => {
 	/** Every Markdown doc a user or contributor reads, from the root and the doc trees. */
 	function docFiles(): string[] {
-		const trees = ["docs", "extensions", "lib", "skills", "test", ".github"].map((dir) => docPath(repo, dir));
+		const trees = ["docs", "extensions", "lib", "scripts", "skills", "test", ".github"].map((dir) =>
+			docPath(repo, dir),
+		);
 		const rootDocs = readdirSync(repo)
 			.filter((name) => name.endsWith(".md"))
 			.map((name) => docPath(repo, name));
@@ -557,6 +559,51 @@ describe("doc links", () => {
 	test("hyphenates each space, so an em dash between words leaves two", () => {
 		// GitHub replaces every space, it does not collapse a run of them.
 		expect(anchorOf("`price` — cost calculation")).toBe("price--cost-calculation");
+	});
+
+	/** A table's `|---|:--:|` separator row, which fixes the column count its header opens. */
+	function isSeparator(line: string): boolean {
+		return line.trim().startsWith("|") && /^[\s|:-]+$/.test(line) && line.includes("-");
+	}
+
+	/** The unescaped `|` runs in a row: a `\|` is content, not a cell boundary. */
+	function cellPipes(line: string): number {
+		let count = 0;
+		for (let at = 0; at < line.length; at++) {
+			if (line[at] === "\\") at++;
+			else if (line[at] === "|") count++;
+		}
+		return count;
+	}
+
+	test("every table row has as many cells as its header, fences excepted", () => {
+		// A raw `|` inside a cell splits it, so the row renders with an extra column and
+		// the text meant for the last one lands where a reader does not expect it. The
+		// separator row fixes the count; one `\|` keeps a literal pipe inside the cell.
+		const offenders: string[] = [];
+		for (const file of docFiles()) {
+			const relative = file.slice(repo.length + 1);
+			const lines = textOf(file).split("\n");
+			let fenced = false;
+			for (const [index, line] of lines.entries()) {
+				if (FENCE.test(line)) {
+					fenced = !fenced;
+					continue;
+				}
+				if (fenced || !line.trim().startsWith("|")) continue;
+				if (!isSeparator(lines[index + 1] ?? "")) continue;
+				const cells = cellPipes(line);
+				for (let row = index + 1; row < lines.length && lines[row].trim().startsWith("|"); row++) {
+					const got = cellPipes(lines[row]);
+					if (got !== cells) {
+						offenders.push(
+							`${relative}:${row + 1}: ${got} pipes in a ${cells}-column row; escape a literal one as \\|`,
+						);
+					}
+				}
+			}
+		}
+		expect(offenders).toEqual([]);
 	});
 
 	test("every relative doc link resolves, anchor included", () => {
