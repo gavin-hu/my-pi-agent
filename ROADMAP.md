@@ -32,18 +32,17 @@ surface arrives with its limitation written in the same breath.
 - The last tag is `0.18.0`, and it shipped the body the previous review listed
   as pending: `session-bus` with its live board and slice joining, plans split
   into a team at approval, reviewer links that follow the plan file live, and the
-  browse page's `path:line` reference copy. The window since it changes no
-  behaviour — `docs/architecture.md` now states the target architecture rather
-  than a snapshot, with the three rules the code has not reached carried here as
-  `F3`–`F5`; the `refactor` skill measures a scope with a shipped
-  `scripts/inventory.ts`; the `project-docs` skill keeps the front door, the roadmap,
-  and the changelog honest from one five-mode workflow, with the changelog's
-  `scripts/state.ts` moved under it; and `AGENTS.md` names its four rules, the fourth
-  enforced by review alone.
+  browse page's `path:line` reference copy. The window since then adds outbound
+  images, two peers' turns at once, and the notice a close sends when it abandons
+  a turn; moves every extension doc to `docs/extensions/`, capabilities first;
+  and adds the `refactor` and `project-docs` skills, with the changelog's
+  `scripts/state.ts` moved under the latter. `docs/architecture.md` now states the
+  target architecture rather than a snapshot, and `AGENTS.md` names its four rules,
+  the fourth enforced by review alone.
 
 ## How items are ordered
 
-1. **Make a promise true.** Fix a place where the README or an extension README
+1. **Make a promise true.** Fix a place where the README or an extension page
    says something the code does not do, or where a documented limitation can be
    removed.
 2. **Never lose work.** A path that can discard a change, a plan, a goal, a
@@ -64,7 +63,7 @@ Two rules keep this file honest:
   A tier is a priority, so a bucket that keeps growing stops being one. Demote an
   item rather than widening the cap.
 
-Every item ships with the same contract: behavior, tests, the extension README,
+Every item ships with the same contract: behavior, tests, the extension page,
 the catalog and config reference where relevant, a `CHANGELOG.md` bullet, and a
 `doctor` finding if it adds a runtime prerequisite. **A number a doc states about
 the code is derived by a test** — the settings count is the pattern, and every
@@ -103,8 +102,8 @@ release, and the changelog, not this list, records what did.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the pack keep what it promised? | `P1` and `S1` ship, each with its test and its README line. |
-| **Next** | Does the daily loop feel finished? | `W1` and `C1` land, or are demoted with the reason recorded. |
+| **Now** | Does the pack keep what it promised? | `P1` and `S1` ship, each with its test and its page line. |
+| **Next** | Does the daily loop feel finished? | `W1`, `C1`, and `F3`–`F5` land, or are demoted with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -157,11 +156,11 @@ reason: the tree contradicts it (see *Chrome and upkeep*).
   the test manifests, and the shared name modules (`P1`).
 - A split can be approved only in the terminal review. The browser cannot approve
   one, because the `## Team` section is written at approval and has no source
-  lines for a comment to anchor to (`plan` README).
+  lines for a comment to anchor to (`plan` page).
 - A shared review reaches one network and one address: there is no tunnel or
   relay, so a distributed team cannot open the link, and a laptop that changes
   network changes its link. A review holds at most eight links, and a reviewer's
-  name is a label on a bearer link rather than an account (`plan` README).
+  name is a label on a bearer link rather than an account (`plan` page).
 - The plans directory is the only index: `/plan list` walks it on demand, there
   is no cross-repository history, and nothing reports how large a repository's
   store has grown (`P2`).
@@ -172,13 +171,13 @@ reason: the tree contradicts it (see *Chrome and upkeep*).
   deliberately never added to the parent session's total, and the roll-up starts
   from zero after `/resume`. Background is single mode only: parallel and chain
   still wait, and a background child is session-owned, so `/tree` does not move
-  it and a restart cannot resume it (`subagent` README).
+  it and a restart cannot resume it (`subagent` page).
 - The bus is one machine and one OS user, with no authentication between
   sessions; delivery is pull-based unless a session arms its watch; a claim is
   advisory and a crashed owner keeps its paths until the ten-minute TTL; two
-  armed peers can ping-pong (`session-bus` README).
+  armed peers can ping-pong (`session-bus` page).
 - A `watch` match raises its notification or its wake once a running turn
-  settles, not in the middle of it (`watch` README).
+  settles, not in the middle of it (`watch` page).
 
 **Now**
 
@@ -189,7 +188,7 @@ reason: the tree contradicts it (see *Chrome and upkeep*).
   refusal names the lead; the lead's own claim is untouched. One list
   (`lib/plans/split.ts`) drives approval and claiming, so the two cannot
   disagree. *Done when* an owner's claim on `package.json` is refused with the
-  lead named, the plan README says the rule holds at claiming time, and a
+  lead named, the plan page says the rule holds at claiming time, and a
   project-extended shared list is still approval-only by name.
 
 **Next**
@@ -227,18 +226,18 @@ is the one gap they left.
   `skipOverrides` leaves the skipped tool unguarded for relative paths. Shell
   escape detection is best-effort, so `eval`, `sh -c`, and command substitution
   are covered only behind `blockUnparsableCommands`, and Windows `powershell` is
-  refused rather than parsed (`worktree` README).
+  refused rather than parsed (`worktree` page).
 - `git branch --merged main` calls a worktree branch merged whenever it matches
   its base, so a worktree that never committed looks landed while its uncommitted
   work is still there; prune itself refuses that worktree, and `list_worktrees`
-  reports the clean and merged flags beside each other (`worktree` README).
+  reports the clean and merged flags beside each other (`worktree` page).
 - Rewind captures no ignored file; the path checklist needs a TUI, so RPC,
   `print`, and `json` restore the whole tree; hunk selection covers modified text
   files only; `/review` targets the latest prompt's snapshot and refuses while
-  plan mode is on (`rewind` README).
+  plan mode is on (`rewind` page).
 - Memory injects a large store truncated with a tail note, `forget` is an exact
   match, one note is one line, and the near-duplicate key is conservative by
-  design (`memory` README). A same-size edit inside one filesystem timestamp
+  design (`memory` page). A same-size edit inside one filesystem timestamp
   tick is invisible until `/memory reload`; `S1` narrows that to a filesystem
   whose mtime is coarser than the write.
 
@@ -250,8 +249,8 @@ is the one gap they left.
   stamp a bigint `stat` gives; where the filesystem reports no finer stamp than
   the cached one, keep the documented caveat rather than reading the file on
   every run. *Done when* a sub-millisecond, same-size edit is picked up without
-  a reload, the existing mtime-jump test still passes, and the README states the
-  residual case.
+  a reload, the existing mtime-jump test still passes, and the memory page
+  states the residual case.
 
 **Next**
 
@@ -291,24 +290,24 @@ its own health, and the remaining gaps are documented behavior.
 - `read_doc` has no OCR; its extraction deadline cannot preempt a parser that
   never yields to the event loop; formatting, tables, and images are flattened;
   it reads one file per call, and a legacy `.xls` gets a hint rather than a read
-  (`file-read` README).
+  (`file-read` page).
 - Web search quality depends on the provider, and the keyless default returns
   answers and related topics rather than a result list; there is no provider
   failover. `web_fetch`'s extraction is a heuristic rather than a readability
   engine, PDF text needs the optional `unpdf`, and its page cache lives and dies
-  with the registration (`web-access` README).
+  with the registration (`web-access` page).
 - A browse page's live status patches the rows it already drew: a new file needs
   `⟳ reload`, and subfolders, `/diff`, and `changes` stay snapshots. The server
   has no authentication, and it is loopback-only by design (`file-browse`
-  README).
+  page).
 - `open_path` is codemode-exposed and inactive by default; reveal has no native
   Linux meaning; Windows `explorer` can exit non-zero after a successful open and
   a hidden window is undetected, so only "the launcher started" is known
-  (`file-open` README).
+  (`file-open` page).
 - WeChat answers two peers at once, and a third waits; there is no group chat and
   no outbound video or voice; a peer must message first; a full-screen
   `ctx.ui.custom` dialog cannot be answered from the phone; and a turn abandoned
-  by a close ends in one notice rather than an answer (`wechat` README).
+  by a close ends in one notice rather than an answer (`wechat` page).
 
 **Now**
 
@@ -322,8 +321,8 @@ decision.
   readable text — indented keys, aligned columns, one record per block — instead
   of a raw blob. No model call and no new dependency, and the HTML heuristic
   path is untouched. *Done when* a fixture of each renders as text, a malformed
-  document still returns its raw body, and the README says which formats are
-  rendered.
+  document still returns its raw body, and the web-access page says which
+  formats are rendered.
 
 **Later**
 
@@ -362,13 +361,13 @@ runs, an update check, and two themes.
 
 - The screen covers scalars and booleans only: `doctor.skip` (a list), the
   `rates` table, `price.peak` (a nested object), and the tuning numbers and
-  labels that left the screen stay JSON (`bytefly` README).
+  labels that left the screen stay JSON (`bytefly` page).
 - The picker manages the `extensions` and `skills` resource types; themes and
   prompts stay with `pi config`, and built-in extensions are not listed.
 - The update check asks npm's `latest` for this package's version, keeps a
   fixed 24-hour cache, and prompts only for packages Pi's manager knows about, so
   `pi -e .` and temporary checkouts are not checked; suppressing Pi's own startup
-  block depends on host shims a future Pi can invalidate (`bytefly` README).
+  block depends on host shims a future Pi can invalidate (`bytefly` page).
 - Only DeepSeek has a built-in rate table, there is no FX conversion, and a
   `(auto)` or `(sub)` indicator cannot be reproduced.
 - `doctor` checks declared requirements only, and a probe proves a binary runs,
@@ -480,7 +479,7 @@ it. A limitation an item owns is named in that section instead, never here.
 | `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. |
 | `memory`: a store on a filesystem with coarse mtime can still hide a same-size edit | `S1` closes the case every APFS/ext4 write hits; a one-second stamp cannot be beaten without reading the file each run. Revisit if a store lives on such a filesystem. |
 | `job`: `exec cmd` and Windows can settle a job with no exit code | The shell owns the exit path there; the job reports `unknown` rather than guessing. Revisit if a wrapper can always observe the code. |
-| `job`: stdin is a pipe, a detached log is not rotated, and Windows cannot detach | Each is the price of a process that outlives its turn; the README names all three where the option is offered. |
+| `job`: stdin is a pipe, a detached log is not rotated, and Windows cannot detach | Each is the price of a process that outlives its turn; the job page names all three where the option is offered. |
 | `question`: there is no timeout, and RPC multi-select degrades to an editor | A prompt exists to wait for a person, and RPC cannot forward the component. Revisit if a host adds a component channel. |
 | `context`: composition is an estimate, and no message can be trimmed or pinned | The report reads Pi's own bookkeeping; trimming is compaction's job. Revisit if Pi exposes a per-message API. |
 | `web-access`: the keyless search returns answers and related topics rather than a result list | That is the provider's shape, not a parsing gap; SearXNG and Brave return a list. |
@@ -510,7 +509,7 @@ above.
 
 - Every README promise has shipped behavior, a named limitation, or a `doctor`
   finding, and every limitation with no item has a row in *Deliberately left
-  thin*. A review rule, not a test: read the extension READMEs against this file
+  thin*. A review rule, not a test: read the extension pages against this file
   at each release.
 - Every number a doc states about the code is derived by a test; the settings
   count is the first, and a count without a guard is a promise waiting to rot.

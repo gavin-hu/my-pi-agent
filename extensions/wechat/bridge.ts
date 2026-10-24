@@ -11,7 +11,7 @@
  * The peer only has the chat window, so the bridge carries the signals the phone
  * needs: typing starts as soon as a message is picked up, a message waiting on
  * another conversation is acknowledged once and told why, a slow turn says so,
- * and a burst that arrives before its turn starts is answered once, in order.
+ * and every queued message is answered in its own turn, in order.
  *
  * The model may message the owner proactively through {@link Bridge.sendToOwner}.
  */

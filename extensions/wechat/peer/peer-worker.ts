@@ -92,7 +92,7 @@ export interface PeerSnapshot {
 }
 
 export interface PeerWorker {
-	/** Queue one message; resolves as soon as it is queued or merged. */
+	/** Queue one message; it is never merged into another. */
 	enqueue(item: PeerItem): void;
 	/** Stop the running turn for `peer`; false when nothing was running. */
 	abort(peer: string): boolean;

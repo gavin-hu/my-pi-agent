@@ -28,7 +28,7 @@ subprocess per peer.
 | Isolated terminal | automatic: an inbound message | A WeChat turn runs in the peer's session, so the terminal transcript never sees the exchange. |
 | Inbound media | automatic: an inbound image or file | Images arrive as model image content, files are saved and referenced by path, and voice uses the server's transcript. |
 | Typing indicator | `typingIndicator` | The phone can tell a long turn from a dead bridge. |
-| Peer feedback | automatic: the wait timers | A burst is answered once, a wait is acknowledged once, and an empty or failed turn says so. |
+| Peer feedback | automatic: the wait timers | Each message gets its own turn and answer, a wait is acknowledged once, and an empty or failed turn says so. |
 | Peer language | automatic: a message written in Chinese | Notices and `/help` answer in the peer's language, and a neutral reply does not switch it back. |
 | Peer slash commands | `/new`, `/stop`, `/status`, `/history`, `/help` | The peer restarts, stops, inspects, or asks for help without spending a turn. |
 | Fresh host session | `/wechat new` | A new terminal session starts; every peer conversation keeps running and stays on disk. |
@@ -279,7 +279,7 @@ needs. Per action:
 | Peer action | What they see |
 |---|---|
 | Sends a message | The native typing indicator starts as soon as the message is picked up; the answer is sent when the run settles. |
-| Sends several messages quickly | At most one acknowledgement, then a single answer that covers the burst in order. |
+| Sends several messages quickly | Each message is its own turn; one acknowledgement per wait, then the answers in order. |
 | Waits behind two running peers | One line after four seconds, then one more at a minute (`前面还有一条正在处理…` / “Your message is queued behind another conversation…”), and the answer when a slot frees. The next free slot goes to whoever has been waiting longest. |
 | Waits behind a long turn | The indicator keeps refreshing, and after four seconds one short `收到，正在排队，轮到就回你。` / “Got it — queued; I’ll answer when it’s my turn.”; a turn still running at 30 seconds adds one `还在处理这条，发送 /stop 可取消。` / “Still working — send /stop to cancel.”, so the way out is named when it is wanted. |
 | Sends while another peer's turn runs | Both conversations are answered in parallel, each with its own typing indicator and its own place in a dialog. |
