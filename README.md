@@ -36,7 +36,8 @@ want the agent to *think first and work safely*:
   plan file that the agent then follows step by step.
 - **Delegate and parallelize.** Run specialist subagents in their own Pi
   processes, push a long build into a background job, and let a watcher tail a
-  log until it matters — all while you keep the thread.
+  log until it matters — then run several sessions on one repository through a
+  shared bus, each owning its slice, all while you keep the thread.
 - **Never wreck the checkout.** Isolation is one command: the task moves onto its
   own branch in a `git worktree`, and every prompt is snapshotted so a bad turn
   is one `/rewind` away.
@@ -47,7 +48,7 @@ want the agent to *think first and work safely*:
   through a bridge to the live session.
 
 Everything is optional and independently toggleable. Nothing is forked, and no
-installed Pi file is modified: Pi discovers the resources through the `pi`
+installed Pi file is written to: Pi discovers the resources through the `pi`
 manifest in [`package.json`](./package.json), so the package upgrades with Pi
 like any other.
 
@@ -86,7 +87,8 @@ Then, from inside Pi:
 - `/bytefly update` re-runs the package update check now and reports the
   updateable packages, this package's version and release URL, or a skip.
 - `/plan <task>` starts a task in read-only planning mode.
-- `/skill:init` creates or updates the instruction file Pi reads through a short built-in interview and a plan you review first.
+- `/skill:init` creates or updates the instruction file Pi reads through a short
+  built-in interview and a plan you review first.
 
 One thing the pack does on its own: once per interactive session, `bytefly`
 asks Pi's package manager which configured packages are behind, suppresses Pi's
