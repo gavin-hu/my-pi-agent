@@ -215,4 +215,10 @@ describe("mergeOrder", () => {
 	test("ignores a dependency that is not a unit", () => {
 		expect(mergeOrder([unit("a", { lead: true }), unit("b", { dependsOn: ["ghost"] })])).toEqual(["a", "b"]);
 	});
+
+	test("refuses to order a table that loops, naming the loop", () => {
+		const looping = [unit("a", { lead: true, dependsOn: ["b"] }), unit("b", { dependsOn: ["a"] })];
+		expect(() => mergeOrder(looping)).toThrow("Dependencies loop: a → b → a.");
+		expect(() => mergeOrder([unit("a", { lead: true, dependsOn: ["a"] })])).toThrow("Dependencies loop: a → a.");
+	});
 });

@@ -219,19 +219,29 @@ export function readSplit(plan: string): PlanTeam | { error: string } | undefine
 /**
  * Merge order: the units in dependency order, ties broken by their place in the
  * table, so the lead merges what everything else builds on first.
+ *
+ * A unit is placed after everything it depends on, and a dependency outside the
+ * table is skipped rather than waited for. Approval refuses a cycle and `readSplit`
+ * re-checks it, so a table that reaches here is ordered — but the check is repeated
+ * rather than assumed, because the fallback it replaces was a silent one: an order
+ * for a table that loops is not an order, and table order pretending to be one is
+ * how a lead merges in the wrong sequence.
  */
 export function mergeOrder(units: readonly PlanUnit[]): string[] {
+	const cycle = findCycle(units);
+	if (cycle !== undefined) throw new Error(`Dependencies loop: ${cycle.join(" → ")}.`);
+	const byName = new Map(units.map((unit) => [unit.name, unit]));
 	const placed: string[] = [];
 	const done = new Set<string>();
-	const remaining = [...units];
-	const names = new Set(units.map((unit) => unit.name));
-	while (remaining.length > 0) {
-		// The first unit whose dependencies are all placed. Approval refuses a cycle,
-		// so a search that finds nothing falls back to table order rather than looping.
-		const index = remaining.findIndex((unit) => unit.dependsOn.every((name) => done.has(name) || !names.has(name)));
-		const [next] = remaining.splice(index < 0 ? 0 : index, 1);
-		placed.push(next.name);
-		done.add(next.name);
-	}
+	const place = (unit: PlanUnit): void => {
+		if (done.has(unit.name)) return;
+		for (const dependency of unit.dependsOn) {
+			const next = byName.get(dependency);
+			if (next !== undefined) place(next);
+		}
+		done.add(unit.name);
+		placed.push(unit.name);
+	};
+	for (const unit of units) place(unit);
 	return placed;
 }
