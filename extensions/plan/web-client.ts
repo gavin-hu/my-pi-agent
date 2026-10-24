@@ -212,7 +212,7 @@ ${WEB_MARKDOWN_JS}
   function reopenComposer(typing) {
     if (!typing || saved || approved || closed) return;
     var target = blockAtLine(typing.anchor);
-    if (target) openComposer(target.wrap, target.block, "", typing.text);
+    if (target) openComposer(target.wrap, target.block, typing.quote || "", typing.text);
   }
 
   function commentOnActive() {

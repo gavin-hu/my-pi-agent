@@ -106,9 +106,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: an open browser review keeps the comments you have not saved yet — and
   the text still in a composer — across a reload. They are held in that tab's
   `sessionStorage`, keyed by a digest of the plan text the page rendered, restored
-  only onto that same text with the composer reopened at the caret, and dropped
-  when the plan changed underneath them; nothing is written to the server, and
-  another writer's comment is never part of the draft.
+  only onto that same text with the composer reopened at the caret and the
+  selection it quoted, and dropped when the plan changed underneath them; nothing
+  is written to the server, and another writer's comment is never part of the
+  draft.
 
 ### Changed
 

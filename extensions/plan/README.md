@@ -515,10 +515,10 @@ file and returns them to the model.
   unsaved work survives a reload: the comments it added and the text still in its
   composer are kept in `sessionStorage` under a digest of the plan text the page
   rendered, then restored on the next load of that same text with the composer
-  reopened at the caret, and dropped when the plan changed underneath them. A
-  composer closed with `Esc` or **Cancel** discards its text, so only an abandoned
-  tab gets it back. Nothing is stored on the server, and another writer's comment
-  is never part of the draft.
+  reopened at the caret and the selection it quoted, and dropped when the plan
+  changed underneath them. A composer closed with `Esc` or **Cancel** discards its
+  text, so only an abandoned tab gets it back. Nothing is stored on the server, and
+  another writer's comment is never part of the draft.
 - **Prints as a document.** Printing uses the light palette whatever the screen
   shows, drops the header, panel, rail, and progress bar, and lets the comments
   stay with the blocks they belong to.
