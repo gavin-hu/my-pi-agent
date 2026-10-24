@@ -13,7 +13,7 @@
 本页是目录与安装说明。要了解某个功能怎么用 —— 按键、命令以及应有的效果 ——
 请先看[用户指南](./docs/user-guide/)。
 
-![一个运行 Pi TUI 的终端窗口，包含 bytefly 头部、提示行、上下文与已加载扩展、回合分隔线以及状态栏](assets/chrome.png)
+![一个运行 Pi TUI 的终端窗口：bytefly 头部标出 Pi 与 bytefly 的版本、按键提示行、带名板的提问与回答、回合分隔线、输入框，以及两行页脚](assets/chrome.png)
 
 ## 目录
 
@@ -86,8 +86,9 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 ## 包含内容
 
-19 个扩展、5 个随包技能，以及 2 个主题，按你想达成的目标分组。每个扩展在
-`docs/extensions/` 下的页面提供完整的工具与命令说明，并以能力表开头。
+19 个扩展、5 个随包技能，以及 2 个主题，按 [路线图](./ROADMAP.md) 追踪的承诺分组；
+[用户指南](./docs/user-guide/) 按章节讲述同样的内容。每个扩展在 `docs/extensions/`
+下的页面提供完整的工具与命令说明，并以能力表开头。
 
 ### 规划与委派
 
@@ -108,7 +109,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter|exit|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
+| [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
 | [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` 状态标记 | 每次提示时在 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者，并在还原文件前审阅本轮改动。 |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
 
@@ -211,6 +212,7 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 | [开发](./docs/development.md) | 本地设置、检查、测试、跨平台注意事项与发布流程。 |
 | [安全](./docs/security.md) | 回环与远程界面的信任边界。 |
 | [路线图](./ROADMAP.md) | 包的下一步方向，按 README 的承诺分组，并列出每条事项的依据。 |
+| [文档索引](./docs/README.md) | 全部文档的地图：各份指南，以及它们背后的深度契约，按读者归类。 |
 
 ## 参与贡献
 

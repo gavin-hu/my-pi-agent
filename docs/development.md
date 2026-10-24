@@ -51,9 +51,20 @@ on any OS; `--width` and `--rows` override the terminal.
 
 The hero is the one asset tied to the version: `ByteflyHeader` draws
 `HEADER_CONFIG.chromeVersion`, read from `package.json`, so `assets/chrome.png`
-shows the release it was captured in and goes stale with every bump. That makes
-the capture part of the release step rather than a documentation chore, and it is
-why CI cannot help — the capture needs a real Terminal.app window.
+shows the release it was captured in and goes stale with every bump. It also
+prints the host's own version — `VERSION`, imported from
+`@earendil-works/pi-coding-agent`, which resolves through `bun.lock`, so the
+hero names the compatibility floor rather than the `pi` on `PATH`. A capture is
+therefore due in a release **and** when that floor is raised; a surface that did
+not change is no reason to recapture, and a version that fell behind is. That
+makes the capture part of the release step rather than a documentation chore,
+and it is why CI cannot help — the capture needs a real Terminal.app window.
+
+The hero is also the one asset drawn from a live session rather than a fixture:
+`pi -e .` answers one fixed question in a throwaway repository, so the reply
+sentence and the footer's numbers change with the model that answered it. The
+window, the path, and the chrome do not — the question, the theme, and the frame
+size are fixed.
 
 A screen is an asset stem, a window title, and a `render(width, rows)` that
 builds its real component around fixtures. It may also set `bounds` and `size`,
@@ -193,7 +204,7 @@ tests.
 
 ### Compatibility floor
 
-The dev dependencies pin a floor (`^1.0.4`, resolved by `bun.lock`); `bun run
+The dev dependencies pin a floor (`^1.4.0`, resolved by `bun.lock`); `bun run
 check` proves the package against exactly that. The floor is not the ceiling: the
 `compat` CI job installs the **newest published** peers and runs `typecheck` and
 the serial suite against them, so a Pi release that breaks the package is visible
@@ -421,7 +432,9 @@ authenticates with npm trusted publishing (OIDC). See
    Terminal.app — see [Screenshots](#screenshots). Bump the pack version in the
    edition line on the [user guide home](./user-guide/README.md) in the same
    commit, and the Pi version there if the guide was rechecked against a newer
-   one, so the stamp does not lag the package.
+   one, so the stamp does not lag the package. The two Pi numbers are separate
+   claims: the hero prints the floor `bun.lock` resolved, so it can name a newer
+   Pi than the edition line, which records the version the guide was checked on.
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:
