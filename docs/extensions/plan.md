@@ -682,9 +682,11 @@ file and returns them to the model.
   through `carryFeedback`, which re-attaches each comment by the strongest evidence
   that survived: the anchored block's text, per occurrence, so a plan that repeats
   a step keeps the comments apart; then the same section at the same position, so a
-  reworded step keeps its note; then the end of that section. A comment whose
-  section is gone too moves to the end of the file, where the page shows it as
-  unattached, rather than disappearing.
+  reworded step keeps its note; then the last block that section still has. A
+  comment whose section is gone too moves to the plan's last block rather than
+  disappearing, and every one of those placements lands beside a block, never after
+  a blank line, so the page keeps the thread under its block. Only a plan with no
+  block at all leaves a comment in the unattached list.
 - **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
   source-line ranges; a comment is placed after the whole anchored block, so a
   fenced code block is never split. A save re-checks the file against what the
@@ -978,8 +980,8 @@ both.
 | `commands.ts` | `/plan` (enter, optional task), `/plan review [path]`, `/plan list`, `/plan share [stop]`, and `/plan cancel`. |
 | `tui.ts` | `PlanViewComponent` (sectioned Markdown body, changed-section summary and marker, section jump, scroll gauge, the approve `y/N` question, approve/refine/browser/keep). |
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (title, step progress, age, focused path; Enter reviews). |
-| `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks). |
-| `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `parseFeedback`, `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `resolveAnchor`, `feedbackSummary`, and payload validation. |
+| `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
+| `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |
 | `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over `lib/http`'s one loopback server. |
 | `web-tokens.ts` | The token table: the role each token names, the collision rule that keeps two roles off one token, and the names the other live links have bound. |
 | `web-streams.ts` | The event streams: who is listening, what a frame is addressed to, and the closed-tab grace that ends the review when the owner's page goes away. |

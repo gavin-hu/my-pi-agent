@@ -16,9 +16,10 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { blockAt, codeBody, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
+import { blockAt, codeBody, contentBlockAt, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
 import { changedSections, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
+import { parseFeedback, stripFeedback } from "./feedback.ts";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
 import { createPlanPolicy, PLAN_ALLOWED_TOOLS, PLAN_SAFE_TOOLS } from "./policy.ts";
@@ -735,6 +736,22 @@ describe("plan store — authored review comments", () => {
 		expect(readFileSync(path, "utf-8")).toBe(rewritten.content);
 	});
 
+	test("a refinement keeps a carried comment on a block the page renders", async () => {
+		const { root, store, path } = await seeded();
+		await store.saveFeedback(root, path, [{ anchor: 2, comment: "about two" }]);
+		// The step the comment hung on is gone; the section it lived in is not.
+		await store.write(root, { title: "Review", planPath: path, content: "# Plan\n- [ ] one\n\n## Notes\nGreen.\n" });
+
+		const stored = readFileSync(path, "utf-8");
+		expect(stored).toContain("- [ ] one\n> [!REVIEW] about two\n");
+		const starts = planBlocks(stripFeedback(stored))
+			.filter((block) => block.kind !== "blank")
+			.map((block) => block.start);
+		const annotations = parseFeedback(stored);
+		expect(annotations.length).toBe(1);
+		for (const annotation of annotations) expect(starts).toContain(annotation.anchor);
+	});
+
 	test("a new plan never inherits markers from the content it is given", async () => {
 		const root = tempDir();
 		const store = repoStore(root);
@@ -1370,6 +1387,21 @@ describe("plan block model", () => {
 		expect(blockAt(blocks, 1)?.kind).toBe("paragraph");
 		expect(blockAt(blocks, 2)).toMatchObject({ kind: "list", start: 2 });
 		expect(blockAt(blocks, 99)?.start).toBe(3);
+	});
+
+	test("contentBlockAt skips a blank line for the block a comment belongs to", () => {
+		const blocks = planBlocks("# Title\n- one\n\n- two\n");
+		// Line 2 is the blank between the steps: a comment there belongs to `- one`.
+		expect(contentBlockAt(blocks, 2)).toMatchObject({ kind: "list", start: 1 });
+		// Above the plan's own first block, the answer is that block.
+		expect(contentBlockAt(blocks, -1)).toMatchObject({ kind: "heading", start: 0 });
+		expect(contentBlockAt(blocks, 99)).toMatchObject({ kind: "list", start: 3 });
+		expect(contentBlockAt(blocks, 1)).toMatchObject({ kind: "list", start: 1 });
+	});
+
+	test("contentBlockAt has nothing to name in a plan of blank lines", () => {
+		expect(contentBlockAt(planBlocks("\n\n"), 1)).toBeUndefined();
+		expect(contentBlockAt(planBlocks(""), 0)).toBeUndefined();
 	});
 
 	test("codeBody drops the fence lines and keeps a non-code block unchanged", () => {

@@ -12,6 +12,7 @@ import {
 	parseFeedback,
 	stripFeedback,
 } from "./feedback.ts";
+import { planBlocks } from "./blocks.ts";
 
 describe("plan feedback codec", () => {
 	const plan = "# Title\n\n## Steps\n- [ ] one\n- [ ] two\n";
@@ -238,6 +239,45 @@ describe("authored review comments", () => {
 
 	test("a plan with no comments is returned stripped of any marker", () => {
 		expect(carryFeedback("- [ ] one", "- [ ] one\n> [!REVIEW] stale")).toBe("- [ ] one");
+	});
+
+	test("keeps a carried comment beside the block, not the blank line after it", () => {
+		// A plan as a refinement reads it: a blank line between sections and a
+		// trailing newline, so a placement at "the section's end" lands on neither.
+		const previous = "# Plan\n\n## Steps\n- [ ] one\n- [ ] two\n> [!REVIEW] about two\n\n## Notes\nGreen.\n";
+		const rewritten = "# Plan\n\n## Steps\n- [ ] one\n\n## Notes\nGreen.\n";
+		expect(carryFeedback(previous, rewritten)).toBe(
+			"# Plan\n\n## Steps\n- [ ] one\n> [!REVIEW] about two\n\n## Notes\nGreen.\n",
+		);
+	});
+
+	test("keeps a carried comment beside the plan's last block when its section is gone", () => {
+		const previous = "# Plan\n\n## Steps\n- [ ] one\n> [!REVIEW] about one\n\n## Notes\nGreen.\n";
+		expect(carryFeedback(previous, "# Plan\n\nBody only\n")).toBe("# Plan\n\nBody only\n> [!REVIEW] about one\n");
+	});
+
+	test("reads a marker that follows a blank line onto the block above it", () => {
+		expect(parseFeedback("## Steps\n- [ ] one\n\n> [!REVIEW] about one\n## Notes\nx")).toEqual([
+			{ anchor: 1, comment: "about one" },
+		]);
+	});
+
+	test("reads a marker above the plan's leading blanks onto its first block", () => {
+		expect(parseFeedback("> [!REVIEW] top\n\n# Title\n")).toEqual([{ anchor: 1, comment: "top" }]);
+	});
+
+	test("reads back only anchors the page can attach a thread to", () => {
+		const stored = [
+			"# Plan\n\n## Steps\n- [ ] one\n> [!REVIEW] first\n- [ ] two\n\n> [!REVIEW] second\n\n",
+			"## Notes\nthe end\n\n> [!REVIEW] third\n",
+		].join("");
+		const attachable = planBlocks(stripFeedback(stored))
+			.filter((block) => block.kind !== "blank")
+			.map((block) => block.start);
+		const annotations = parseFeedback(stored);
+
+		expect(annotations.length).toBe(3);
+		for (const annotation of annotations) expect(attachable).toContain(annotation.anchor);
 	});
 });
 
