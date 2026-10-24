@@ -148,7 +148,7 @@ function amountRule(min: number, max: number): TextRule {
 /**
  * The catalogue, in screen order.
  *
- * Global scope lists all twelve; Project lists the ten `bytefly.json` rows,
+ * Global scope lists all thirteen; Project lists the eleven `bytefly.json` rows,
  * because Pi's setters write the personal `settings.json` only. The list is
  * capped so the screen keeps fitting a 24-row terminal.
  */

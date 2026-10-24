@@ -151,7 +151,7 @@ the file for the scope you want, and the next session reads it.
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — twelve
+`/bytefly settings` is a shortlist of the preferences a session changes — thirteen
 flat rows, named in bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the rest of this page is the full list.

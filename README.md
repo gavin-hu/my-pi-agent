@@ -74,7 +74,7 @@ Then, from inside Pi:
   every loaded extension with its runtime health, enables or disables one, and
   clears a project override with `x`.
 - `/bytefly settings` opens the control center's Settings section: one flat list
-  of the twelve preferences a session changes, each with its value beside the
+  of the thirteen preferences a session changes, each with its value beside the
   label, `Space`/`Enter` to change one and `Tab` for Global/Project scope. Every
   other key is a `bytefly.json` edit, listed in the configuration reference.
 - `/bytefly skills` opens the control center's Skills section: one row per Pi
