@@ -10,14 +10,21 @@ one update when work lands without one.
 
 ## Capabilities
 
-| Capability | How | What you get |
-|---|---|---|
-| Whole-list tracking | `todo` | One call replaces the list; an empty list clears it. |
-| Live progress rail | the `todo` widget | Progress and the active item, one line above the editor. |
-| Full list on demand | `/todos` | A scrollable screen in the order the model submitted. |
-| Branch-following state | tool-result `details` | The list survives `/resume` and `/tree`, and abandoned branches never leak in. |
-| Lag reminder | the `agent_before_settle` nudge | One hidden reminder and one forced continuation when mutating work lands without a todo update. |
-| Structured result | `structuredContent` | Codemode scripts read the list as data. |
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Whole-list tracking | `todo` | One call replaces the list; an empty list clears it. | Shipped |
+| Live progress rail | the `todo` widget | Progress and the active item, one line above the editor. | Shipped |
+| Atomic validation | `todo` validation | At most one `in_progress`, at most 50 items, unique non-empty content, and a known status; a violation returns an error with the unchanged list. | Shipped |
+| Terminal-safe normalization | sanitized `content` and `activeForm` | Control characters, newlines, tabs, and repeated spaces collapse to one terminal-safe line before the list is stored. | Shipped |
+| Compact model result | the `todo` result | The model gets progress and the active item, not an echo of the whole list, so every update does not repeat the table. | Shipped |
+| Transcript rendering | the `todo` transcript block | The call line carries progress; the collapsed rows lead with active work, the expanded rows keep submission order, and a cap ends with `… N more`. | Shipped |
+| Full list on demand | `/todos` | A scrollable screen in the order the model submitted. | Shipped |
+| Headless listing | `/todos` outside `tui` | RPC, print, and JSON modes get the same list as a notification, with no terminal screen. | Shipped |
+| Branch-following state | tool-result `details` | The list survives `/resume` and `/tree`, and abandoned branches never leak in. | Shipped |
+| Lag reminder | the `agent_before_settle` nudge | One hidden reminder and one forced continuation when mutating work lands without a todo update. | Shipped |
+| Structured result | `structuredContent` | Codemode scripts read the list as data. | Shipped |
 
 ## Quickstart
 
