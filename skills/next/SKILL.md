@@ -15,10 +15,10 @@ project wins.
 The conversation decides where the candidates come from (section 3); the request
 decides only what to ask and where to look.
 
-Two sibling skills own a narrower question: an audit of *where to refactor* is
-`refactor`, and *what the last tag owes the changelog* is `changelog`. When the
-request is already scoped to one of those, name the skill that answers it and
-hand over, instead of returning a generic list.
+Two sibling skills, where they are installed, own a narrower question: an audit
+of *where to refactor* is `refactor`, and *what the last tag owes the changelog*
+is `changelog`. When the request is already scoped to one of those, name the
+skill that answers it and hand over, instead of returning a generic list.
 
 A next-steps block that the host draws itself is not this skill's output: that is
 the reply's suggested follow-up, a turn-level hint. This skill inspects state, so
@@ -69,8 +69,9 @@ With the request read, find:
 - the release path: what a tag, a version bump, or an unreleased entry owes;
 - the VCS, its branch model, and the last tag if there is one.
 
-State the profile in one or two lines. Do not invent a source the project does
-not have; a project with no roadmap is triaged from git and the check alone.
+Do not invent a source the project does not have; a project with no roadmap is
+triaged from version control and the check alone. These profile facts decide
+which evidence rows apply, and section 7's report states them.
 
 ## 3. Choose the source
 
@@ -78,7 +79,7 @@ There are two sources, and the conversation picks one:
 
 - **This conversation** — the source once it has done work. Read its own record:
   the todo list, the goal, the approved plan and its ticked steps, what subagents
-  and jobs returned, the paths it claimed, and the diff it produced. The
+  and jobs returned, the paths it recorded, and the diff it produced. The
   candidates are the loose ends it left: uncommitted files, an unapproved plan, a
   check that was never run, a documented behavior that changed without a doc or
   changelog edit.
@@ -88,14 +89,14 @@ There are two sources, and the conversation picks one:
 
 Empty means the conversation has done no work yet, not that it has no messages:
 there is no todo list, no goal, no approved plan or ticked step, no subagent or
-job result, no claimed path, and no edit or commit from this session. The request
-itself never counts, or `/skill:next` could never reach the tree.
+job result, no path it recorded, and no edit or commit from this session. The
+request itself never counts, or `/skill:next` could never reach the tree.
 
 The tree is evidence in both sources. Verify every candidate against the code
-before recommending it, and read `git status`, the session's diff, the
-changelog's unreleased section, and the last check result whichever source chose
-the candidates. A conversation that ended cleanly has an empty list; do not fall
-back to the tree to fill it.
+before recommending it, and read the tree's status, the session's diff, the
+changelog's unreleased section where the project has one, and the last check
+result whichever source chose the candidates. A conversation that ended cleanly
+has an empty list; do not fall back to the tree to fill it.
 
 Scope is independent of the source: a path narrows either one, and a topic keeps
 only the sources that can answer it. State the source, the scope, and the prompt
@@ -104,16 +105,18 @@ as read, at the top of the report.
 ## 4. Gather evidence
 
 Read only; nothing in this stage writes. Follow the project's own tool
-discipline, and say what you could not read.
+discipline, and say what you could not read. The commands below are git's — use
+the project's VCS for a project that is not on git — and read the rows its
+profile says exist.
 
 | Source | What it proves |
 |---|---|
 | `git status --short`, `git diff --stat` | Work in flight, and whose it is |
-| `git log --oneline <last-tag>..HEAD` | What has landed unreleased |
+| `git log --oneline <last-tag>..HEAD` | What has landed unreleased, if the project tags |
 | `git worktree list`, `git branch --no-merged` | An isolated tree left behind, a branch never merged |
-| The changelog's `[Unreleased]` | Whether a landed change is recorded, and whether the window is empty |
+| The changelog's unreleased section (`[Unreleased]` under Keep a Changelog) | Whether a landed change is recorded, and whether the window is empty |
 | The roadmap, issue tracker, or `TODO` docs | The project's stated priorities, and which are already done |
-| The plans directory (`~/.pi/agent/plans/<repo-key>`) | An approved plan whose steps remain |
+| The plan files the host's plan tool records (`~/.pi/agent/plans/<repo-key>` here) | An approved plan whose steps remain |
 | The todo list, the goal, job and subagent results | What the session promised and did not finish |
 | The check command | Whether the tree is green — cite the session's last result, and make running it the item's starting command rather than running it here |
 
@@ -139,7 +142,7 @@ order is the suggestion: the first item is the one to start, and a later item is
 not an alternative to an earlier one. Order by that cost:
 
 - **Loose work** — a dirty tree, an unapproved plan, a check that has not been
-  run, an unmerged branch, a worktree left behind, a stopped job.
+  run, an unmerged branch, a scratch tree or branch left behind, a stopped job.
 - **A broken promise** — a README, roadmap, or doc claim the code no longer
   meets, a released behavior with no test.
 - **An unfinished promise** — a stated roadmap item, the remaining steps of an
@@ -164,8 +167,9 @@ Do not invent a score beyond that; the reason must be readable.
 
 - **State** — one paragraph: the source and why it was chosen (a conversation
   with work in it, or an empty one), the scope and how the prompt was read, the
-  branch or worktree, what is dirty, what is unreleased, and whether the check
-  passes. Name anything you could not read.
+  branch or tree, what is dirty, what is unreleased, whether the check passes,
+  and the profile facts the list rests on — VCS, check command, and where work
+  is tracked. Name anything you could not read.
 - **The list** — the suggested next todos, numbered in priority order, each with
   its label, the action, the evidence at `path:line` or the command output that
   proves it, the command that starts it, and effort (S/M/L). Link the file the
@@ -194,8 +198,9 @@ When the user picks an item, the audit is over:
 - Nothing worth doing: say so, with what was checked, instead of inventing work.
 - The tree is mid-rebase, mid-merge, mid-bisect, or has a conflict: reconciling it
   is the only next item; nothing else is safe to suggest.
-- The project has no work tracking: say the list is derived from git and the check
-  only, and suggest recording the plan or roadmap the project is missing.
+- The project has no work tracking: say the list is derived from version control
+  and the check only, and suggest recording the plan or roadmap the project is
+  missing.
 - A candidate needs a destructive command (a branch delete, a worktree prune, a
   history rewrite) to start: name it as a decision for the user, not as a step.
 

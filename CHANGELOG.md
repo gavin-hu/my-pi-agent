@@ -113,6 +113,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   numbered list of suggested next todos in priority order, with cost of loss as
   the ladder and the **Do next** / **Worth planning** / **Later** label for
   effort rather than rank.
+- `skills`: `next` reads a project's conventions instead of assuming them — the
+  evidence table names git as the command form to translate to the project's VCS,
+  treats tags and the changelog's unreleased section as optional, and reads the
+  host's plan store — so a project without tags, without Keep a Changelog, or on
+  another VCS is still triaged.
 - `job`, `watch`, `session-bus`: a wake outcome that arrives while a turn is
   running now raises one turn as soon as that run settles, instead of waiting for
   the next turn; an aborted run leaves it queued. The shared pending reporter gates
