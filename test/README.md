@@ -277,6 +277,7 @@ test/
   drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links, catalog counts
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
+  changelog-skill.test.ts  # the `changelog` skill's state script: parse, report, and file lookup
   shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
@@ -314,3 +315,4 @@ Rules:
 | `extensions/<name>/<capability>.test.ts` | `./<module>.ts` or `./<sub>/<module>.ts` | `../../test/helpers/<module>.ts` | `../../test/helpers/fixtures/<name>.ts` |
 | `lib/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<name>.ts` |
 | `scripts/<area>.test.ts` | `./<module>.ts` | `../test/helpers/<module>.ts` | `../test/helpers/fixtures/<name>.ts` |
+| `test/<name>.test.ts` | `skills/<name>/scripts/<module>.ts` | `./helpers/<module>.ts` | `./helpers/fixtures/<name>.ts` |
