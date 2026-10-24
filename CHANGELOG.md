@@ -68,6 +68,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: every extension's doc is one page under
+  [`docs/extensions/`](./docs/extensions/), and it opens with its capabilities —
+  one row per capability, the tool, command, or key that delivers it, and what
+  you get. The template in
+  [`docs/development.md`](./docs/development.md#one-doc-per-extension) is rebuilt
+  around that section, `extensions/<name>/README.md` is a signpost rather than a
+  second copy, and `test/extension-docs.test.ts` holds the heading order, the
+  three-column table, and the rule that every tool and command an extension
+  registers is named in it. `package.json` ships `docs/extensions/**`, so the
+  signposts in a published package resolve.
 - `wechat`: the poll probe also reports the `group_id` and `session_id` a message
   carries, and `WeixinMessage` declares both, so one run with `pi` stopped answers
   whether a message posted in a group is delivered at all — the question the

@@ -253,18 +253,24 @@ when it outgrows a line.
 
 ### One doc per extension
 
-Each extension has one doc, `extensions/<name>/README.md`; there is no separate
-`DESIGN.md`. Follow this section order, omitting empty optional sections:
+Each extension has one doc, `docs/extensions/<name>.md`, listed in
+[`./extensions/README.md`](./extensions/README.md). Its
+`extensions/<name>/README.md` is a three-line signpost — title, one sentence,
+the link — so the extension directory still leads to the doc. There is no
+`DESIGN.md`. Follow this section order, omitting an empty optional section:
 
-1. `# <name> — <tagline>`, then a 1–3 sentence intro.
-2. Quickstart: `pi --extension ./extensions/<name>`, `pi -e .`, `pi install ./`.
-3. `## What it does` — capability bullets.
+1. `# <name> — <tagline>`, a 1–3 sentence intro, then the hero image when the
+   extension has one.
+2. `## Capabilities` — the key section, a three-column table.
+3. `## Quickstart` — `pi --extension ./extensions/<name>`, `pi -e .`,
+   `pi install ./`, then a first command.
 4. Surface — `## Tool` / `## Tools` / `## Commands` / `## Commands and flags` /
    `## Routes`.
 5. `## Behaviour by mode` (optional) — `tui`, RPC, JSON, print.
-6. `## Configuration` (optional).
+6. `## Configuration` (optional) — the keys this extension answers to, and a
+   link to `../configuration.md` for resolution.
 7. `## Security` (optional) — only with a real trust boundary.
-8. Extension-specific deep dives (optional).
+8. Deep dives (optional) — one section per capability that needs the detail.
 9. `## Limitations` (optional).
 10. `## Non-goals` (optional).
 11. `## Pi integration` — the contract, derived from source: integration
@@ -273,6 +279,35 @@ Each extension has one doc, `extensions/<name>/README.md`; there is no separate
 12. `## Design notes` — a short why, not a design doc.
 13. `## Files` — module responsibility table.
 14. `## Testing` (optional).
+
+`## Pi integration`, `## Design notes`, `## Files`, and `## Testing` come last,
+in that order, after every deep dive: user-facing content stays above the
+contributor sections.
+
+**Capabilities is the key section.** It is what a reader arrives for and what
+the rest of the page elaborates, so it comes first and is a table:
+
+| Capability | How | What you get |
+|---|---|---|
+| Whole-list tracking | `todo`, `/todos` | The model replaces the list in one call; the list follows the session branch. |
+
+- One row per capability, ordered as a user meets them; `Capability` is a two-
+  or three-word noun phrase.
+- `How` names the exact tool, command, route, or key in backticks, comma
+  separated when several deliver it. Every tool and command the extension
+  registers appears in that column, which `test/extension-docs.test.ts` holds by
+  loading the factory. A capability with no trigger — one that happens on its own
+  — opens the cell with `automatic:` and names what sets it off.
+- `What you get` is one sentence of outcome, not mechanism.
+- The surface sections below elaborate the rows, and a deep dive with no row is
+  either missing from the table or not worth a section.
+- A page with many capabilities groups the rows under `###` headings — one table
+  per group, always the same three columns.
+
+**An image is not a capability.** There is no `## Screens` and no
+`## Tool rendering`: the hero image goes under the intro, a tool-rendering image
+in that tool's surface section, a screen image in the section that documents the
+screen.
 
 Use Pi's vocabulary from Pi's own `docs/extensions.md`, account for every mode,
 and keep user-facing content above the contributor sections.
@@ -297,8 +332,9 @@ Do not duplicate across these:
   renumbering or removing it in the same commit.
 - `AGENTS.md` — the machine-facing entry point: the four rules, the gates that
   hold them, and the traps with no other home.
-- `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`,
-  `test/README.md` — the deep per-area contracts.
+- `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,
+  `test/README.md` — the deep per-area contracts. The extension's own
+  `README.md` is a signpost, not a second copy.
 
 ## Tool and prompt surface
 

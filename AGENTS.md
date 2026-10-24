@@ -89,8 +89,9 @@ Not caught by types, and easy to get wrong.
 - Host packages (`@earendil-works/pi-*`, `typebox`) stay in `peerDependencies`
   with a `"*"` range.
 - Adding an extension touches the `pi` manifest, `package.json`, `REQUIREMENTS`
-  in `lib/requirements.ts`, its suites in `test/suite-manifest.ts`, the catalog
-  and stated size in both READMEs, and `test/naming.test.ts` for a tool name.
+  in `lib/requirements.ts`, its suites in `test/suite-manifest.ts`, its page in
+  `docs/extensions/`, the catalog in both READMEs, and
+  `test/naming.test.ts` for a tool name.
 - Adding a packaged skill is a `skills/<name>/SKILL.md` whose frontmatter carries
   `name` and `description`, plus its row in both entry READMEs' skill tables;
   `test/extension-load.test.ts` holds both.
@@ -149,17 +150,17 @@ when its surface changed; `chrome.png` only in a release.
 
 - `README.md` is the user front door and `README.zh-CN.md` mirrors it;
   `test/docs-parity.test.ts` compares headings, table rows, and links.
-- An extension's only doc is `extensions/<name>/README.md`, in the section order
-  of [`docs/development.md#one-doc-per-extension`](./docs/development.md#one-doc-per-extension);
-  there is no `DESIGN.md`.
-- A behaviour change updates the catalog table in both entry READMEs, the
+- An extension's doc is `docs/extensions/<name>.md` (capabilities first, per
+  [`docs/development.md#one-doc-per-extension`](./docs/development.md#one-doc-per-extension));
+  `README.md` is a signpost, and no `DESIGN.md`.
+- A behaviour change updates the catalog in both entry READMEs, the
   relevant `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
 - `ROADMAP.md` is hand-maintained: `test/roadmap.test.ts` pins its ids, links,
   and caps, and a shipped item is renumbered or deleted in the same commit.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/structure.test.ts` resolves them.
 - One doc per audience: per-area contracts live in
-  `extensions/<name>/README.md`, `lib/README.md`, `lib/tui/README.md`, and
+  `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`, and
   `test/README.md`.
 
 ## How to work
@@ -177,5 +178,5 @@ when its surface changed; `chrome.png` only in a release.
 - [`docs/architecture.md`](./docs/architecture.md) — the target architecture, state,
   and where code belongs.
 - [`test/README.md`](./test/README.md) — test tiers, helpers, determinism.
-- [`extensions/worktree/README.md`](./extensions/worktree/README.md) — the
+- [`docs/extensions/worktree.md`](./docs/extensions/worktree.md) — the
   worktree flow above.

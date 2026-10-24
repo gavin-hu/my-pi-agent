@@ -139,7 +139,7 @@ input box is empty.
 | Guide | What it covers |
 |---|---|
 | [The catalog in the entry README](../../README.md#what-you-get) | Every extension and theme, grouped, with its exact tools and commands |
-| [`extensions/<name>/README.md`](../../extensions/) | One page per extension: full tool surface, Pi integration, design notes |
+| [`docs/extensions/<name>.md`](../../docs/extensions/) | One page per extension: its capabilities table, full tool surface, Pi integration, design notes |
 | [Changelog](../../CHANGELOG.md) | What changed in each release |
 
 The [entry README's Documentation table](../../README.md#documentation) covers the

@@ -278,6 +278,7 @@ test/
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links, catalog counts
   architecture-doc.test.ts # docs/architecture.md: the paths and roadmap ids it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
+  extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, and the registered surface in it
   project-docs-skill.test.ts # the `project-docs` skill's changelog state script: parse, report, and file lookup
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
   shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export
@@ -302,8 +303,9 @@ Rules:
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
   `structure.test.ts`, `docs-parity.test.ts`,
-  `extension-load.test.ts`, `shared-helpers.test.ts`, `prompt-budget.test.ts`,
-  `theme.test.ts`, and the other package-level contracts listed above.
+  `extension-load.test.ts`, `extension-docs.test.ts`, `shared-helpers.test.ts`,
+  `prompt-budget.test.ts`, `theme.test.ts`, and the other package-level contracts
+  listed above.
 - A test that asserts platform behaviour pins it through the injectable seam
   (`isWindows: () => false`) rather than the ambient `process.platform`: the
   suite runs on all three OSes and the seam is how the other two are simulated.

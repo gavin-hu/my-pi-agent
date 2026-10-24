@@ -64,8 +64,8 @@ pi install npm:@gavin-hu/my-pi-agent
 pinned release, a project-local install, and a trial that writes nothing — plus
 the fit decision, the first workflows, and how to remove the pack.
 
-`git` on `PATH` is needed by [`worktree`](./extensions/worktree/) and
-[`rewind`](./extensions/rewind/); everything else degrades or disables cleanly,
+`git` on `PATH` is needed by [`worktree`](./docs/extensions/worktree.md) and
+[`rewind`](./docs/extensions/rewind.md); everything else degrades or disables cleanly,
 and `/bytefly doctor` names what is missing, including optional runtime pieces.
 Windows, macOS, and Linux all work, and the full check suite runs on each in CI.
 
@@ -102,46 +102,47 @@ and `PI_OFFLINE` skips the check;
 ## What you get
 
 19 extensions, 5 packaged skills, and 2 themes, grouped by what you are trying
-to do. Each extension's own `README.md` has the full tool and command surface.
+to do. Each extension's own page in `docs/extensions/` has the full tool and
+command surface, opening with its capabilities.
 
 ### Plan and delegate
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`plan`](./extensions/plan/) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `~/.pi/agent/plans/<repo-key>` — one store per repository, shared by its worktrees — and you approve it before anything is written; with `plan.split` on, the approval can also split it into slices that separate sessions join by name. Review in the TUI, or open it in a browser to leave inline comments: the page follows the plan file live, and you can hand one reviewer link per teammate so each comments under their own name. The `init` skill uses the same review to create or update a project's `AGENTS.md`. |
-| [`check`](./extensions/check/) | `run_check`, `/check` | Detect the project's test, lint, or typecheck command (or take `check.command`), run it in a supervised process, and turn failures into a navigable `file:line` list. |
-| [`subagent`](./extensions/subagent/) | `subagent`, `/agents` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, chained, or in the background, with a footer chip while it runs and a finish notice. |
-| [`todo`](./extensions/todo/) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
-| [`goal`](./extensions/goal/) | `goal`, `/goal` | A persistent session objective, kept in a widget and restated before each turn. |
-| [`question`](./extensions/question/) | `ask_user_question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
-| [`job`](./extensions/job/) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
-| [`watch`](./extensions/watch/) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
-| [`session-bus`](./extensions/session-bus/) | `session`, `/sessions` (screen) | Coordinate parallel Pi sessions on one repository: discover peers, exchange short messages/events, consume an inbox, join a slice of an approved split or claim paths before editing, with `/sessions` as a live board of peers, unread mail, and claims. Local, pull-based by default, with an opt-in inbox watch that raises this session's turn once it is idle; it never spawns an agent. |
-| [`context`](./extensions/context/) | `/context` | Show where the context window goes — system prompt, tool definitions, conversation by role, injected notes — and compact from the report with the before and after numbers. |
+| [`plan`](./docs/extensions/plan.md) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `~/.pi/agent/plans/<repo-key>` — one store per repository, shared by its worktrees — and you approve it before anything is written; with `plan.split` on, the approval can also split it into slices that separate sessions join by name. Review in the TUI, or open it in a browser to leave inline comments: the page follows the plan file live, and you can hand one reviewer link per teammate so each comments under their own name. The `init` skill uses the same review to create or update a project's `AGENTS.md`. |
+| [`check`](./docs/extensions/check.md) | `run_check`, `/check` | Detect the project's test, lint, or typecheck command (or take `check.command`), run it in a supervised process, and turn failures into a navigable `file:line` list. |
+| [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, chained, or in the background, with a footer chip while it runs and a finish notice. |
+| [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
+| [`goal`](./docs/extensions/goal.md) | `goal`, `/goal` | A persistent session objective, kept in a widget and restated before each turn. |
+| [`question`](./docs/extensions/question.md) | `ask_user_question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
+| [`job`](./docs/extensions/job.md) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
+| [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
+| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel Pi sessions on one repository: discover peers, exchange short messages/events, consume an inbox, join a slice of an approved split or claim paths before editing, with `/sessions` as a live board of peers, unread mail, and claims. Local, pull-based by default, with an opt-in inbox watch that raises this session's turn once it is idle; it never spawns an agent. |
+| [`context`](./docs/extensions/context.md) | `/context` | Show where the context window goes — system prompt, tool definitions, conversation by role, injected notes — and compact from the report with the before and after numbers. |
 
 ### Keep your work safe
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`worktree`](./extensions/worktree/) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter|exit|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
-| [`rewind`](./extensions/rewind/) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
-| [`memory`](./extensions/memory/) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
+| [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter|exit|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
+| [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 
 ### Reach the world
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`web-access`](./extensions/web-access/) | `web_search`, `web_fetch` | Search the web (keyless DuckDuckGo by default, optional SearXNG or Brave) and fetch a page as readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support. |
-| [`file-browse`](./extensions/file-browse/) | `/browse` | Start a loopback, read-only file browser rooted at the working directory, with Markdown preview, a fuzzy quick-open palette, a `path:12-30` reference copied from a selection, live status for a page left open, and a reload hint when the folder it lists changes. |
-| [`file-read`](./extensions/file-read/) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
-| [`file-open`](./extensions/file-open/) | `/open`, `open_path` | Open or reveal a file or directory in the OS-native application. |
-| [`wechat`](./extensions/wechat/) | `/wechat`, `send_wechat` | Bridge a WeChat chat to the live session over the Weixin iLink bot API; inbound text, images, and files become turns. |
+| [`web-access`](./docs/extensions/web-access.md) | `web_search`, `web_fetch` | Search the web (keyless DuckDuckGo by default, optional SearXNG or Brave) and fetch a page as readable text, with paging, `find`, per-hop SSRF checks, and optional PDF support. |
+| [`file-browse`](./docs/extensions/file-browse.md) | `/browse` | Start a loopback, read-only file browser rooted at the working directory, with Markdown preview, a fuzzy quick-open palette, a `path:12-30` reference copied from a selection, live status for a page left open, and a reload hint when the folder it lists changes. |
+| [`file-read`](./docs/extensions/file-read.md) | `read_doc` | Extract text from a local PDF, DOCX, DOC, ODT, RTF, or XLSX in process, paged. |
+| [`file-open`](./docs/extensions/file-open.md) | `/open`, `open_path` | Open or reveal a file or directory in the OS-native application. |
+| [`wechat`](./docs/extensions/wechat.md) | `/wechat`, `send_wechat` | Bridge a WeChat chat to the live session over the Weixin iLink bot API; inbound text, images, and files become turns. |
 
 ### Chrome and upkeep
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`bytefly`](./extensions/bytefly/) | `/bytefly` (with the `doctor`, `settings`, `skills`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and skills and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you, and Pi's own startup update blocks become themed notices and header markers. `bytefly.json` is the config document every extension reads. |
+| [`bytefly`](./docs/extensions/bytefly.md) | `/bytefly` (with the `doctor`, `settings`, `skills`, and `update` subcommands), `run_doctor` | The visible layer: a themed header with a width-adaptive footer, a live run line on Pi's working row (tool, tool count, and elapsed time), and a transcript where every tool block leads with its call line and rails its result under it. `/bytefly` switches extensions and skills and holds the curated settings; opt-in `notify` raises OS notifications when a run, a job, or a question needs you, and Pi's own startup update blocks become themed notices and header markers. `bytefly.json` is the config document every extension reads. |
 
 ### Skills
 
@@ -205,7 +206,8 @@ each: the first run, the keys that matter, and what to expect on screen.
 Most extensions need no configuration. Every setting lives in one shared
 document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and merged with
 `<cwd>/.pi/bytefly.json` (project wins), under a top-level section named for the
-extension. Each extension's `README.md` covers the behaviour around its keys, and
+extension. Each extension's page under `docs/extensions/` covers the behaviour
+around its keys, and
 [`docs/configuration.md`](./docs/configuration.md) has the resolution rules, the
 settings screen walkthrough, and every section's keys with their type, default,
 and bounds.
@@ -229,6 +231,7 @@ stops the factories from registering; to drop the whole package, use Pi's
 | [User guide](./docs/user-guide/) | A chaptered manual: install, every feature, settings, troubleshooting, and a command reference. |
 | [Configuration](./docs/configuration.md) | Resolution, the settings screen, and every `bytefly.json` key with its default and bounds. |
 | [Architecture](./docs/architecture.md) | The target shape: the load path, the extension contract, the turn, state, layers, lifetimes, and where a change belongs. |
+| [Extension docs](./docs/extensions/) | One page per extension, opening with its capabilities: the tool and command surface, the integration contract, and the design notes. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
 | [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |

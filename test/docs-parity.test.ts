@@ -7,7 +7,7 @@
  * structure, table rows, and the relative links and images a reader is sent to.
  *
  * Policy: the two entry READMEs stay in sync; deep docs (`docs/`,
- * `extensions/<name>/README.md`, `lib/`, `test/`) stay English until a
+ * `docs/extensions/<name>.md`, `lib/`, `test/`) stay English until a
  * translation owner exists. `test/config-docs.test.ts` pins the configuration
  * reference against the loaders, `test/naming.test.ts` pins the tool names, and
  * this file pins the translation against its original.

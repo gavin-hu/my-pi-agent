@@ -112,8 +112,9 @@ and [`docs/development.md`](./docs/development.md#extension-conventions):
    [`package.json`](./package.json)'s `pi` manifest.
 2. Add the capability suites to [`test/suite-manifest.ts`](./test/suite-manifest.ts)
    and write them (see [`test/README.md`](./test/README.md)).
-3. Write `extensions/<name>/README.md` in the section order documented in
-   [`docs/development.md`](./docs/development.md#one-doc-per-extension).
+3. Write `docs/extensions/<name>.md` in the section order documented in
+   [`docs/development.md`](./docs/development.md#one-doc-per-extension), and leave
+   `extensions/<name>/README.md` as its signpost.
 4. Add the extension to the catalog table in both entry READMEs — `README.zh-CN.md`
    mirrors `README.md` row by row and `test/docs-parity.test.ts` compares them —
    then update [`test/naming.test.ts`](./test/naming.test.ts) and the

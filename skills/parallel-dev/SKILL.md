@@ -7,8 +7,8 @@ description: "Lead a team of independent Pi sessions through one approved plan: 
 
 This is the judgment half of a mechanism the package already has. The mechanism —
 the `## Team` table, its refusals, and `session({action:"join"})` — is documented
-in [`extensions/plan/README.md`](../../extensions/plan/README.md) and
-[`extensions/session-bus/README.md`](../../extensions/session-bus/README.md). Read
+in [`docs/extensions/plan.md`](../../docs/extensions/plan.md) and
+[`docs/extensions/session-bus.md`](../../docs/extensions/session-bus.md). Read
 those for *how*; this is *whether*, and *in what order*.
 
 Read the project's instructions first; they win. If `session-bus` is absent or
