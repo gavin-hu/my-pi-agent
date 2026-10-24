@@ -20,7 +20,6 @@ import { join, relative, sep } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { isInside, realPathOfNearest } from "../../lib/path.ts";
-import { SPLIT_OFF_NOTE, splitEnabled } from "../../lib/plans/setting.ts";
 import { plansDir } from "../../lib/plans/store.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
@@ -35,13 +34,11 @@ import {
 	normalizeText,
 	resolveRecipients,
 	sessionMode,
-	claimsConflict,
 	shortId,
 } from "./protocol.ts";
-import { heldUnits, sharedClaimRefusal } from "./membership.ts";
 import { createMailWatch } from "./mail-watch.ts";
-import { createBusStore, type BusStore } from "./store.ts";
-import { newestTeam, resolveUnit, unitHolder } from "./team.ts";
+import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
+import { createTeamRuntime } from "./team-runtime.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
 
 export interface SessionBusOptions {
@@ -323,6 +320,24 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return keyed.paths;
 	}
 
+	/** The store, for a closure that cannot see the check its caller made. */
+	function requireStore(): BusStore {
+		if (store === undefined) throw new Error("session bus is not started.");
+		return store;
+	}
+
+	// The team operations need the bus's own reads and writes; `team-runtime.ts` has
+	// the policy, and this hands it the session, the claims, and path resolution.
+	const team = createTeamRuntime({
+		plansRoot: () => plansRoot,
+		me: currentRecord,
+		stored: storedPaths,
+		rooted: rootedPaths,
+		claims: () => requireStore().claims(),
+		claimAll: (me, paths) => requireStore().claimAll(paths, me.id, me.label, now()),
+		releaseStored: (me, path) => requireStore().release(path, me.id),
+	});
+
 	async function withUnread(rows: readonly SessionRecord[]): Promise<Array<SessionRecord & { unread: number }>> {
 		return Promise.all(rows.map(async (session) => ({ ...session, unread: (await store?.unread(session.id)) ?? 0 })));
 	}
@@ -348,23 +363,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		const claims = (await store.claims()).filter((claim) => !liveOnly || live.has(claim.owner));
 		// The team line is a file read plus a claim scan, so the board's repaint does
 		// not pay for it: only an explicit status call reports units.
-		const board = liveOnly || plansRoot === undefined ? undefined : newestTeam(plansRoot);
-		const units =
-			board === undefined
-				? undefined
-				: {
-						team: board.team,
-						joined: board.units.filter((unit) => unitHolder(unit, claims, claimsConflict) !== undefined).length,
-						total: board.units.length,
-						rows: board.units.map((unit) => {
-							const holder = unitHolder(unit, claims, claimsConflict);
-							return {
-								unit: unit.name,
-								...(unit.lead ? { lead: true } : {}),
-								...(holder === undefined ? {} : { holder }),
-							};
-						}),
-					};
+		const units = liveOnly ? undefined : team.units(claims);
 		return {
 			me: { id: me.id, label: me.label },
 			onBus: me.onBus,
@@ -506,58 +505,17 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			return messages;
 		},
 
-		async claim(rawPaths) {
-			const me = await currentRecord();
-			if (!store) throw new Error("session bus is not started.");
-			const paths = storedPaths(me, rawPaths);
-			// A session that holds an owner unit leaves the shared files to the lead, the
-			// same rule approval enforces. Read from the claims rather than remembered, so
-			// a restored session is still held to it; nothing is written before the check.
-			const claims = await store.claims();
-			if (claims.some((claim) => claim.owner === me.id)) {
-				const team = plansRoot === undefined ? undefined : newestTeam(plansRoot);
-				const refusal = sharedClaimRefusal(heldUnits(team?.units ?? [], claims, me.id), paths);
-				if (refusal !== undefined) throw new Error(refusal);
-			}
-			return store.claimAll(paths, me.id, me.label, now());
-		},
+		claim: (rawPaths) => team.claim(rawPaths),
 
 		async release(rawPaths) {
 			const me = await currentRecord();
-			if (!store) throw new Error("session bus is not started.");
-			const released: string[] = [];
-			const notOwned: string[] = [];
-			for (const path of storedPaths(me, rawPaths)) {
-				if (await store.release(path, me.id)) released.push(path);
-				else notOwned.push(path);
-			}
-			return { released, notOwned };
+			const bus = requireStore();
+			return releaseClaimed(storedPaths(me, rawPaths), (path) => bus.release(path, me.id));
 		},
 
-		async join(input) {
-			const me = await currentRecord();
-			if (!store) throw new Error("session bus is not started.");
-			if (!splitEnabled(me.cwd, me.repoRoot)) throw new Error(SPLIT_OFF_NOTE);
-			const unit = resolveUnit(plansRoot ?? "", input, "join");
-			const claimed = await store.claimAll(rootedPaths(me, unit.paths), me.id, me.label, now());
-			return { team: unit.team, unit: unit.name, ...claimed };
-		},
+		join: (input) => team.join(input),
 
-		async leave(input) {
-			const me = await currentRecord();
-			if (!store) throw new Error("session bus is not started.");
-			const paths =
-				input.team === undefined && input.unit === undefined
-					? (await store.claims()).filter((claim) => claim.owner === me.id).map((claim) => claim.path)
-					: rootedPaths(me, resolveUnit(plansRoot ?? "", input, "leave").paths);
-			const released: string[] = [];
-			const notOwned: string[] = [];
-			for (const path of paths) {
-				if (await store.release(path, me.id)) released.push(path);
-				else notOwned.push(path);
-			}
-			return { released, notOwned };
-		},
+		leave: (input) => team.leave(input),
 
 		rename,
 	};

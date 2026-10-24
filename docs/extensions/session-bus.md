@@ -312,9 +312,10 @@ characters.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
-| `runtime.ts` | Lifecycle, repo key, joining, heartbeat, claims, and the operations that join. |
+| `runtime.ts` | Lifecycle, repo key, joining, heartbeat, and the session's own reads and writes. |
+| `team-runtime.ts` | The team operations: `claim`'s shared-file gate, `join`, `leave`, and the units line `status` reports. |
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
-| `store.ts` | Atomic JSON files, inbox, peek, claims, pruning. |
+| `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and one release loop shared by `release` and `leave`. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |
 | `team.ts` | Reads one unit out of the newest split plan, or the plan a `join` named. |
 | `membership.ts` | Which unit this session holds, read from the claims, and the shared-file claim that follows from it. |

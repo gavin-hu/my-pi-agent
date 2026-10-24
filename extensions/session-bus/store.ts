@@ -52,6 +52,24 @@ export interface BusStore {
 	}): Promise<void>;
 }
 
+/**
+ * Release each path through `release`, reporting the ones this session did not
+ * hold. One copy, because `release` and `leave` answer the same two lists, and a
+ * second loop is how the two answers drift.
+ */
+export async function releaseClaimed(
+	paths: readonly string[],
+	release: (path: string) => Promise<boolean>,
+): Promise<{ released: string[]; notOwned: string[] }> {
+	const released: string[] = [];
+	const notOwned: string[] = [];
+	for (const path of paths) {
+		if (await release(path)) released.push(path);
+		else notOwned.push(path);
+	}
+	return { released, notOwned };
+}
+
 const SHA = (value: string): string => createHash("sha256").update(value).digest("hex").slice(0, 32);
 
 function isSession(value: unknown): value is SessionRecord {
