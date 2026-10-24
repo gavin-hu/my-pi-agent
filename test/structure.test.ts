@@ -76,6 +76,7 @@ const ROOT_TEST_FILES = new Set([
 	"shared-helpers.test.ts",
 	"skill-bank.test.ts",
 	"structure.test.ts",
+	"team-flow.test.ts",
 	"theme.test.ts",
 	"tool-render.test.ts",
 	"wait-budget.test.ts",

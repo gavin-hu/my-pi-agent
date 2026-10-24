@@ -292,6 +292,7 @@ test/
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame
   wait-budget.test.ts      # no test waits on `waitFor` for a literal budget under a second
+  team-flow.test.ts        # the plan-with-a-team workflow end to end: the table approval writes, the join that claims it, the shared-file rule, and leaving
 ```
 
 Rules:
