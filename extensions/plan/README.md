@@ -499,17 +499,24 @@ file and returns them to the model.
   labelled and indented as a thread, so it reads in place and the plan keeps one
   measure at every width. There is no separate column to reflow.
 - **Nothing typed is lost.** **Save feedback**, **Approve & run**, and **Back to
-  Pi** refuse while a composer holds text and put the cursor back in it, and a
-  deleted comment is offered back in the header for a few seconds. The page keeps
-  no draft of its own — these are the three ways an open comment could disappear.
+  Pi** refuse while a composer holds text and put the cursor back in it, a
+  deleted comment is offered back in the header for a few seconds, and the
+  comments this tab has not saved yet survive a reload: they are kept in
+  `sessionStorage` under a digest of the plan text the page rendered, restored on
+  the next load of that same text, and dropped when the plan changed underneath
+  them. Nothing is stored on the server, and another writer's comment is never
+  part of the draft.
 - **Prints as a document.** Printing uses the light palette whatever the screen
   shows, drops the header, panel, rail, and progress bar, and lets the comments
   stay with the blocks they belong to.
 - **Keyboard first.** `j`/`k` move to the next or previous block, `c` comments
   on the current block, `a` approves (the approval flow only), `s` saves, `Esc`
   closes the composer or the sheet and then the review, and `?` opens a shortcut
-  sheet; the header's `?` button opens the same sheet. Either dialog traps
-  `Tab` and hands focus back to whatever opened it.
+  sheet; the header's `?` button opens the same sheet. Adding, editing, or
+  deleting a comment rebuilds the document, so the tab stop returns to that
+  block's comment control instead of being dropped, and the status line says
+  which change landed; a repaint the stream caused never moves focus. Either
+  dialog traps `Tab` and hands focus back to whatever opened it.
 - **Decision in place.** A review opened for approval (`w` on the review screen)
   shows **Approve & run** beside Save feedback: it persists the current comments,
   ends plan mode, restores write access, seeds `todo`, and hands control back to
@@ -535,11 +542,15 @@ file and returns them to the model.
   idempotent per writer: that writer's previous markers are replaced and everyone
   else's are kept, so two people reviewing the same plan cannot erase each other.
   Stripping is fence-aware: a `> [!REVIEW]` line inside a code block is
-  documentation, not feedback. The browser keeps no copy of its own.
+  documentation, not feedback. The file is the only copy of a saved comment; the
+  ones this tab has not saved yet live in its own `sessionStorage` and nowhere else.
 - **A revision keeps the review.** `write_plan` passes the file it is replacing
-  through `carryFeedback`, which re-attaches each comment to the block whose text
-  survived the rewrite. A comment whose block is gone moves to the end of the
-  file, where the page shows it as unattached, rather than disappearing.
+  through `carryFeedback`, which re-attaches each comment by the strongest evidence
+  that survived: the anchored block's text, per occurrence, so a plan that repeats
+  a step keeps the comments apart; then the same section at the same position, so a
+  reworded step keeps its note; then the end of that section. A comment whose
+  section is gone too moves to the end of the file, where the page shows it as
+  unattached, rather than disappearing.
 - **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
   source-line ranges; a comment is placed after the whole anchored block, so a
   fenced code block is never split. A save re-checks the file against what the
@@ -587,20 +598,23 @@ revokes the token and closes that listener; closing the review does both.
   share. A reviewer token may read and comment, and its one write route is
   `POST /api/comment`: `/api/feedback`, `/api/approve`, `/api/cancel`, and
   `/api/share` answer `403`, and the page renders only the name control and
-  **Post comments** for it. Anything the reviewer holds is reachable only while the
-  share is on.
+  **Post comments** for it — and once that link has posted, the control shows the
+  bound name instead of offering the dialog. Anything the reviewer holds is
+  reachable only while the share is on.
 - **The owner's page is the review's lifetime.** A reviewer's tab opening or
   closing changes nothing; the review ends when the owner saves, approves, or
   closes it, or when the owner's own page goes away. A reviewer's post writes the
   plan and updates every open page, and leaves the review waiting. A page that is
   still open when the review ends is told why — `closed`, or `revoked` when sharing
   was stopped — and keeps the plan readable.
-- **Signed comments.** A reviewer names themselves once, on the page; the name is
-  kept in that browser, signs each comment, and is what a post replaces — so a
-  reviewer can edit or withdraw their own notes and nobody else's, and her second
-  post replaces rather than duplicates the first. A name is a
-  claim, not an account: whoever holds the link can type it, which is why the
-  owner still makes the only decision.
+- **Signed comments.** A reviewer names herself once, on the page, and that name
+  is bound to her link on its first post: the link stores under it from then on,
+  a second tab of the same link that picked another name is refused (`409`) rather
+  than silently re-signing, and a name another live link already holds is refused
+  when it is first claimed. A bound name is shown, not offered, so a reviewer can
+  edit or withdraw her own notes and nobody else's, and her second post replaces
+  rather than duplicates the first. The name is a label on a bearer link, not an
+  account, which is why the owner still makes the only decision.
 - **One link, one machine.** Sharing opens exactly the address the dialog printed —
   never `0.0.0.0` — and the `Host` allowlist becomes loopback plus that address.
   A machine with no reachable IPv4 address reports why instead of printing a link
@@ -609,12 +623,14 @@ revokes the token and closes that listener; closing the review does both.
 - **Live.** Every open page follows the stream, so a reviewer's post appears on the
   owner's page without a reload, and a revision saved on disk reaches the
   reviewers. A page with a draft open refuses to repaint and says what arrived
-  instead.
+  instead. The owner's terminal is told too — `Plan review: @alice posted 2
+  comments.` — because whoever is waiting in the TUI is not looking at the page.
 - **What a shared link is.** A bearer credential: anyone who has it reads the plan
-  and can comment under any name. The dialog says so, `Referrer-Policy:
-  no-referrer` keeps a click from leaking it, and **Stop sharing** is the
-  revocation. The plan file is the record — a comment arrives as an author-tagged
-  marker, so `/resume` and the terminal show the same review the page did.
+  and can comment, under the one name it binds on its first post. The dialog says
+  so, `Referrer-Policy: no-referrer` keeps a click from leaking it, and **Stop
+  sharing** is the revocation. The plan file is the record — a comment arrives as
+  an author-tagged marker, so `/resume` and the terminal show the same review the
+  page did.
 
 ## Limitations
 

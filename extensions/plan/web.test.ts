@@ -41,6 +41,10 @@ interface ReviewIsland {
 	title: string;
 	token: string;
 	role: "owner" | "reviewer";
+	/** The reviewer's bound name, once this link has posted. */
+	author?: string;
+	/** Digest of the plan text the page rendered, which keys a tab's draft. */
+	rev: string;
 	canApprove: boolean;
 	annotations: PlanAnnotation[];
 	steps: { done: number; total: number };
@@ -183,6 +187,7 @@ const PAGE_DATA: ReviewPageData = {
 	canApprove: true,
 	role: "owner",
 	token: "tok",
+	rev: "rev-1",
 };
 
 /** A router context that records its callbacks and can fail a save on demand. */
@@ -193,7 +198,7 @@ function router(overrides: Partial<ReviewContext> = {}) {
 	const cancelled: number[] = [];
 	let nextSave: SaveResult = { ok: true };
 	const ctx: ReviewContext = {
-		roleOf: (token) => (token === "tok" ? "owner" : undefined),
+		caller: (token) => (token === "tok" ? { role: "owner" } : undefined),
 		hosts: () => [...LOOPBACK_HOSTS],
 		canApprove: true,
 		page: async () => PAGE_DATA,
@@ -362,7 +367,7 @@ describe("review router", () => {
 
 	test("a reviewer posts comments but never saves, approves, or closes the review", async () => {
 		const { ctx, saved, approved, ownerSaves, cancelled } = router({
-			roleOf: (token) => (token === "tok" ? "reviewer" : undefined),
+			caller: (token) => (token === "tok" ? { role: "reviewer" } : undefined),
 		});
 		const posted = await post(ctx, "/api/comment?token=tok", JSON.stringify({ annotations: [] }));
 		expect(posted.status).toBe(200);
@@ -445,6 +450,7 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 		canApprove: true,
 		role: "owner",
 		token: "secret-token",
+		rev: "rev-1",
 		...overrides,
 	});
 }
@@ -642,6 +648,27 @@ describe("review client", () => {
 		const save = body("save");
 		expect(save).toContain('"/api/feedback"');
 		expect(save).toContain("saved = true");
+	});
+
+	test("puts the tab stop back after it rebuilds the block it was in", () => {
+		// Focus is restored only when the reviewer's own action destroyed it, never on
+		// a repaint the stream caused, and the status region says what happened.
+		expect(REVIEW_CLIENT_JS).toContain(
+			"var keepFocus = !!(focused && focused !== planEl && planEl.contains(focused));",
+		);
+		expect(REVIEW_CLIENT_JS).toContain('active.querySelector(".bf-block__add")');
+		expect(REVIEW_CLIENT_JS).toContain("Comment added.");
+		expect(REVIEW_CLIENT_JS).toContain("Comment updated.");
+	});
+
+	test("keys its unsaved draft on the plan revision and this tab", () => {
+		// A draft is this tab's own comments for this plan text: never another writer's,
+		// and never restored onto a plan that changed underneath it.
+		expect(REVIEW_CLIENT_JS).toContain('var DRAFT_KEY = "bf-review-draft"');
+		expect(REVIEW_CLIENT_JS).toContain("window.sessionStorage.setItem(DRAFT_KEY");
+		expect(REVIEW_CLIENT_JS).toContain('draft.rev !== String(data.rev || "")');
+		expect(REVIEW_CLIENT_JS).toContain("var mine = annotations.filter(isMine);");
+		expect(REVIEW_CLIENT_JS).toContain("restoreDraft();");
 	});
 
 	test("closes the review only for its owner and reads a terminal frame", () => {
@@ -937,6 +964,8 @@ describe("shared review", () => {
 
 		const anonymous = await post("/api/comment", JSON.stringify({ annotations: [{ anchor: 1, comment: "hi" }] }));
 		expect(anonymous.status).toBe(400);
+		// An empty post claims nothing either, so it cannot bind a name by accident.
+		expect((await post("/api/comment", JSON.stringify({ annotations: [] }))).status).toBe(400);
 		expect((await post("/api/feedback")).status).toBe(403);
 		expect((await post("/api/approve")).status).toBe(403);
 		expect((await post("/api/cancel")).status).toBe(403);
@@ -962,6 +991,36 @@ describe("shared review", () => {
 		expect(refused).toBe("refused");
 	});
 
+	test("a reviewer's post tells the owner's terminal, and the owner's own save does not", async () => {
+		const told: Array<[string, number]> = [];
+		const { review, session } = await startShared(
+			{ networkInterfaces: LAN },
+			{ canApprove: true, onReviewerComment: (author, count) => told.push([author, count]) },
+		);
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+
+		const posted = await fetch(apiOf(link.url, "/api/comment"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+			body: JSON.stringify({
+				annotations: [
+					{ anchor: 1, comment: "one", author: "alice" },
+					{ anchor: 2, comment: "two", author: "alice" },
+				],
+			}),
+		});
+		expect(posted.status).toBe(200);
+		expect(told).toEqual([["alice", 2]]);
+
+		await fetch(feedbackUrl(session), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(session.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "owner's" }] }),
+		});
+		expect(told).toEqual([["alice", 2]]);
+	});
+
 	test("a reviewer re-posting the page's comments does not duplicate them", async () => {
 		const seeded = "# Plan\n- [ ] one\n> [!REVIEW] mine\n> [!REVIEW] @bob: theirs\n- [ ] two";
 		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true }, seeded);
@@ -972,9 +1031,12 @@ describe("shared review", () => {
 		const response = await fetch(apiOf(link.url, "/api/comment"), {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-			// What a reviewer's page posts: everyone's comments, plus their own new one.
+			// What a reviewer's page posts: her own comments, including the new one.
 			body: JSON.stringify({
-				annotations: [...page.annotations, { anchor: 1, comment: "mine too", author: "priya" }],
+				annotations: [
+					...page.annotations.filter((annotation) => annotation.author === "priya"),
+					{ anchor: 1, comment: "mine too", author: "priya" },
+				],
 			}),
 		});
 
@@ -984,6 +1046,70 @@ describe("shared review", () => {
 		expect(text.match(/@bob: theirs/g)?.length).toBe(1);
 		expect(text).toContain("> [!REVIEW] @bob: theirs");
 		expect(text).toContain("> [!REVIEW] @priya: mine too");
+	});
+
+	test("a link posts under its own bound name, and the page learns it", async () => {
+		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+		const comment = (author: string, text: string) =>
+			fetch(apiOf(link.url, "/api/comment"), {
+				method: "POST",
+				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment: text, author }] }),
+			});
+
+		const first = await comment("alice", "first note");
+		expect(first.status).toBe(200);
+		expect(await first.json()).toEqual({ ok: true, author: "alice" });
+		// The island carries the bound name, which is what stops the name dialog.
+		expect(islandOf(await (await fetch(link.url)).text()).author).toBe("alice");
+	});
+
+	test("a bound link cannot post under another reviewer's name", async () => {
+		const seeded = "# Plan\n- [ ] one\n> [!REVIEW] @bob: theirs\n- [ ] two";
+		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true }, seeded);
+		const link = (await review.share())?.state.links[0];
+		if (!link) throw new Error("no share link");
+		const post = (author: string, text: string) =>
+			fetch(apiOf(link.url, "/api/comment"), {
+				method: "POST",
+				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment: text, author }] }),
+			});
+
+		expect((await post("alice", "alice's note")).status).toBe(200);
+		// A second tab of this link chose another name: it is stale, not authorized.
+		const spoofed = await post("bob", "not mine");
+		expect(spoofed.status).toBe(409);
+		expect(await spoofed.json()).toMatchObject({ error: expect.stringContaining("@alice") });
+
+		const text = content();
+		expect(text).toContain("> [!REVIEW] @bob: theirs");
+		expect(text).not.toContain("not mine");
+	});
+
+	test("a re-shared link may claim a name the revoked one released", async () => {
+		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const first = (await review.share())?.state.links[0];
+		if (!first) throw new Error("no share link");
+		await fetch(apiOf(first.url, "/api/comment"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(first.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "a", author: "alice" }] }),
+		});
+		await review.stopSharing();
+		const second = (await review.share())?.state.links[0];
+		if (!second) throw new Error("no second share link");
+
+		const response = await fetch(apiOf(second.url, "/api/comment"), {
+			method: "POST",
+			headers: { "content-type": "application/json", origin: new URL(second.url).origin },
+			body: JSON.stringify({ annotations: [{ anchor: 1, comment: "b", author: "alice" }] }),
+		});
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ ok: true, author: "alice" });
 	});
 
 	test("a repeating token generator cannot turn the owner's page into a reviewer's", async () => {
@@ -1003,15 +1129,16 @@ describe("shared review", () => {
 		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
+		const post = () =>
+			fetch(apiOf(link.url, "/api/comment"), {
+				method: "POST",
+				headers: { "content-type": "application/json", origin: new URL(link.url).origin },
+				body: JSON.stringify({ annotations: [{ anchor: 1, comment: "note", author: "priya" }] }),
+			});
+
+		expect((await post()).status).toBe(200);
 		const before = content();
-
-		const response = await fetch(apiOf(link.url, "/api/comment"), {
-			method: "POST",
-			headers: { "content-type": "application/json", origin: new URL(link.url).origin },
-			body: JSON.stringify({ annotations: [] }),
-		});
-
-		expect(response.status).toBe(200);
+		expect((await post()).status).toBe(200);
 		expect(content()).toBe(before);
 	});
 
@@ -1170,6 +1297,17 @@ describe("review session", () => {
 
 		const untitled = await start("Just prose, no heading.\n");
 		expect(islandOf(await (await fetch(untitled.url)).text()).title).toBe("demo");
+	});
+
+	test("keys a tab's draft on the plan text it rendered", async () => {
+		const session = await start("# Plan\n\nbody\n");
+		const rev = islandOf(await (await fetch(session.url)).text()).rev;
+		expect(rev).toBeTruthy();
+		// The same text keeps the same key, so a reload restores the draft.
+		expect(islandOf(await (await fetch(session.url)).text()).rev).toBe(rev);
+
+		const rewritten = await start("# Plan\n\nother body\n");
+		expect(islandOf(await (await fetch(rewritten.url)).text()).rev).not.toBe(rev);
 	});
 
 	test("rejects a request without the session token", async () => {

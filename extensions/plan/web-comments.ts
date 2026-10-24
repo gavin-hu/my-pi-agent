@@ -34,6 +34,53 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     });
   }
 
+  // One seam for "this writer changed a comment": the unsaved marker now, and the
+  // draft this tab keeps across a reload beside it.
+  function markDirty() {
+    dirty = true;
+    saveDraft();
+  }
+
+  // The draft is this tab's own: only the comments this writer added and has not
+  // saved, keyed by the plan revision the server rendered. It never travels to the
+  // server, and nothing another writer added is kept here.
+  var DRAFT_KEY = "bf-review-draft";
+  var DRAFT_LIMIT = 131072;
+
+  function saveDraft() {
+    if (saved || approved || closed) return;
+    var mine = annotations.filter(isMine);
+    if (mine.length === 0) { clearDraft(); return; }
+    try {
+      var text = JSON.stringify({ rev: String(data.rev || ""), mine: mine });
+      if (text.length > DRAFT_LIMIT) return;
+      window.sessionStorage.setItem(DRAFT_KEY, text);
+    } catch (error) {}
+  }
+
+  function clearDraft() {
+    try { window.sessionStorage.removeItem(DRAFT_KEY); } catch (error) {}
+  }
+
+  /**
+   * Put this tab's unsaved comments back: after a reload of the same plan, and
+   * after another writer's comment arrived and the island was re-read. A draft for
+   * a different plan revision is stale, so it is dropped rather than re-anchored.
+   */
+  function restoreDraft() {
+    var raw = null;
+    try { raw = window.sessionStorage.getItem(DRAFT_KEY); } catch (error) { raw = null; }
+    if (!raw) return;
+    var draft = null;
+    try { draft = JSON.parse(raw); } catch (error) { draft = null; }
+    if (!draft || draft.rev !== String(data.rev || "") || !Array.isArray(draft.mine) || draft.mine.length === 0) {
+      clearDraft();
+      return;
+    }
+    annotations = annotations.filter(function (annotation) { return !isMine(annotation); }).concat(draft.mine);
+    dirty = true;
+  }
+
   function openComposer(wrap, block, quote) {
     closeComposer();
     wrap.classList.add("bf-block--composing");
@@ -61,7 +108,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         var entry = quote ? { anchor: block.start, quote: quote, comment: comment } : { anchor: block.start, comment: comment };
       if (role === "reviewer") entry.author = reviewerName;
       annotations.push(entry);
-      dirty = true;
+      markDirty();
+      setStatus("Comment added.");
       renderPlan();
     };
     add.addEventListener("click", submit);
@@ -87,7 +135,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }
       annotation.comment = comment;
-      dirty = true;
+      markDirty();
+      setStatus("Comment updated.");
       renderPlan();
     });
     submitOnEnter(area, function () { apply.click(); });
@@ -115,7 +164,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     button.textContent = "Undo delete";
     button.addEventListener("click", function () {
       annotations.splice(Math.min(index, annotations.length), 0, annotation);
-      dirty = true;
+      markDirty();
       clearUndo();
       renderPlan();
       setStatus("Comment restored.", "saved");
@@ -128,7 +177,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     var annotation = annotations[index];
     if (!annotation) return;
     annotations.splice(index, 1);
-    dirty = true;
+    markDirty();
     renderPlan();
     offerUndo(index, annotation);
     setStatus("Comment deleted.");

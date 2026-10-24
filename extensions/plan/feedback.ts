@@ -22,6 +22,7 @@
 
 import { sanitizeLine } from "../../lib/format.ts";
 import { blockAt, planBlocks, type PlanBlock } from "./blocks.ts";
+import { extractPlanSections } from "./steps.ts";
 
 /** Marker that opens every stored feedback line. */
 export const REVIEW_MARKER = "[!REVIEW]";
@@ -47,6 +48,9 @@ export const MAX_QUOTE_LENGTH = 500;
 /** Longest stored author name. */
 export const MAX_AUTHOR_LENGTH = 40;
 
+/** The name a reviewer write is stored under, or why it cannot be decided. */
+export type AuthorClaim = { name: string } | { status: number; message: string };
+
 /** A stored feedback line, capturing its author and comment. */
 const MARKER_LINE = /^\s*>\s*\[!REVIEW\]\s?(.*)$/;
 /** The author prefix inside a marker body (`@alice: note`). */
@@ -65,6 +69,39 @@ export function normalizeAuthor(raw: unknown): string {
 		.replace(/\s+/g, " ")
 		.trim();
 	return text.slice(0, MAX_AUTHOR_LENGTH).trim();
+}
+
+/**
+ * Decide the name a reviewer's write is stored under.
+ *
+ * A bound link keeps its name: a payload that signs a different one is a stale or
+ * foreign page — a second tab of the same link, or a script — and re-signing it
+ * would move markers that belong to whoever picked that name. Before the first
+ * write the payload's own signature claims the name, unless another live link
+ * already holds it. An unsigned post claims nothing, so it is refused rather than
+ * binding a name to an accidental save.
+ */
+export function claimAuthor(
+	input: { bound?: string; taken?: readonly string[] },
+	annotations: readonly PlanAnnotation[],
+): AuthorClaim {
+	const signed = [...new Set(annotations.map((annotation) => normalizeAuthor(annotation.author)))].filter(Boolean);
+	if (input.bound !== undefined) {
+		if (signed.some((name) => name !== input.bound)) {
+			return {
+				status: 409,
+				message: `This link posts as @${input.bound}; reload the page to comment as @${input.bound}.`,
+			};
+		}
+		return { name: input.bound };
+	}
+	if (signed.length === 0) return { status: 400, message: "Choose a display name before commenting." };
+	if (signed.length > 1) return { status: 409, message: "A post signs one name; reload the page and post again." };
+	const name = signed[0] ?? "";
+	if ((input.taken ?? []).includes(name)) {
+		return { status: 400, message: "That name is already in use in this review." };
+	}
+	return { name };
 }
 
 /** Source lines inside a fenced code block. A marker-looking line there is
@@ -210,11 +247,42 @@ function blockKey(block: PlanBlock): string {
 }
 
 /**
+ * A plan's heading sections, keyed by title and occurrence, each with the blocks
+ * inside it and its last source line. Two `## Notes` sections are told apart by
+ * which one they are, the way `changedSections` does it, so a duplicate heading
+ * never collects both sections' blocks.
+ */
+function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, { blocks: PlanBlock[]; end: number }> {
+	const sections = extractPlanSections(plan);
+	const lineCount = plan === "" ? 0 : plan.split("\n").length;
+	const seen = new Map<string, number>();
+	const index = new Map<string, { blocks: PlanBlock[]; end: number }>();
+	const keys = sections.map((section, position) => {
+		const occurrence = seen.get(section.title) ?? 0;
+		seen.set(section.title, occurrence + 1);
+		const key = `${occurrence}\u0000${section.title}`;
+		index.set(key, { blocks: [], end: (sections[position + 1]?.line ?? lineCount) - 1 });
+		return key;
+	});
+
+	let position = 0;
+	for (const block of blocks) {
+		while (position + 1 < sections.length && (sections[position + 1]?.line ?? 0) <= block.start) position += 1;
+		const key = keys[position];
+		if (key === undefined) continue;
+		index.get(key)?.blocks.push(block);
+	}
+	return index;
+}
+
+/**
  * Carry the comments in `previous` onto `next`, the plan as it was rewritten.
- * Comments are not plan content, so `next` is stripped of any marker it carries
- * and every old marker is re-attached to the block whose text still matches; a
- * comment whose block was rewritten or removed is placed at the end rather than
- * dropped, where the review page shows it as unattached.
+ * Comments are not plan content, so `next` is stripped of any marker it carries,
+ * and every old one is re-attached by the strongest evidence that survives: the
+ * block's text (per occurrence, so two identical steps keep their own comments),
+ * then the same section and ordinal, then the end of that section. A comment
+ * whose section is gone too is placed at the end rather than dropped, where the
+ * review page shows it as unattached.
  */
 export function carryFeedback(previous: string, next: string): string {
 	const { clean: oldClean, markers } = scanMarkers(previous);
@@ -222,16 +290,42 @@ export function carryFeedback(previous: string, next: string): string {
 	if (markers.length === 0) return cleanNext;
 	const oldBlocks = planBlocks(oldClean);
 	const nextBlocks = planBlocks(cleanNext);
-	const byKey = new Map<string, PlanBlock>();
-	for (const block of nextBlocks) byKey.set(blockKey(block), block);
+	// Identical blocks queue up in document order, so the first unclaimed one takes
+	// the next comment rather than every comment landing on the last of them.
+	const queues = new Map<string, PlanBlock[]>();
+	for (const block of nextBlocks) {
+		if (block.kind === "blank") continue;
+		const key = blockKey(block);
+		const queue = queues.get(key);
+		if (queue) queue.push(block);
+		else queues.set(key, [block]);
+	}
+	const oldSections = sectionIndex(oldClean, oldBlocks);
+	const nextSections = sectionIndex(cleanNext, nextBlocks);
 	const lastLine = cleanNext === "" ? -1 : cleanNext.split("\n").length - 1;
+
+	/** The block at the same ordinal in the same section, else that section's end. */
+	const bySection = (block: PlanBlock): number | undefined => {
+		for (const [key, old] of oldSections) {
+			const ordinal = old.blocks.indexOf(block);
+			if (ordinal < 0) continue;
+			const section = nextSections.get(key);
+			if (section === undefined) return undefined;
+			const same = section.blocks[ordinal];
+			return same ? same.end : section.end;
+		}
+		return undefined;
+	};
+
 	const placed = markers.map((marker) => {
 		const block = blockAt(oldBlocks, marker.at);
-		const match = block ? byKey.get(blockKey(block)) : undefined;
-		return {
-			at: match ? match.end : lastLine,
-			line: markerLine(marker.author, marker.comment),
-		};
+		const line = markerLine(marker.author, marker.comment);
+		if (block === undefined) return { at: lastLine, line };
+		if (block.kind !== "blank") {
+			const match = queues.get(blockKey(block))?.shift();
+			if (match !== undefined) return { at: match.end, line };
+		}
+		return { at: bySection(block) ?? lastLine, line };
 	});
 	return compose(cleanNext, placed);
 }

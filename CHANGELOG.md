@@ -98,9 +98,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   wonder whether the page is current. The check covers the page's own folder by
   name, once per frame interval, paused while the tab is hidden; a truncated
   folder and a page that lists nothing show no control.
+- `plan`: a shared reviewer's post reaches the owner's terminal, not just the open
+  page: `Plan review: @alice posted 2 comments.` lands where whoever started the
+  review is waiting, so a review is not silent until it is saved.
+- `plan`: an open browser review keeps the comments you have not saved yet across a
+  reload. They are held in that tab's `sessionStorage`, keyed by a digest of the
+  plan text the page rendered, restored only onto that same text, and dropped when
+  the plan changed underneath them; nothing is written to the server, and another
+  writer's comment is never part of the draft.
 
 ### Changed
 
+- `plan`: the review re-attaches a comment onto a rewritten plan by the strongest
+  evidence that survived — the anchored block's text, matched per occurrence, then
+  the same section at the same position, then the end of that section — instead of
+  exact block text alone. A reworded step keeps its comment, two identical steps
+  keep theirs apart, and only a comment whose section is gone falls to the end of
+  the file. In the page, adding, editing, or deleting a comment puts the tab stop
+  back on that block's comment control, the status line says which change landed,
+  and a repaint caused by someone else's comment never moves focus.
 - `plan`: plans now live in `<agent-dir>/plans/<repo-key>`, keyed by the
   repository's common git directory, so a plan approved in one worktree is the
   same plan from the main checkout and from every other session; they are no
@@ -178,6 +194,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a shared link can no longer post under another reviewer's name. The name
+  a link's first post signs is bound to its token, every later post from it is
+  stored under that name whatever the payload says, and a page that signs a
+  different one is refused (`409`) instead of rewriting that reviewer's markers; a
+  name another live link already holds is refused when it is first claimed. The
+  page shows a bound name rather than offering the dialog again.
 - `skills`: the `init` interview stays inside the question tool's four-option cap —
   no question offers a fifth label, or spends one on the free-form escape the tool
   already adds — and the written `AGENTS.md` is verified with the project's own check
@@ -206,6 +228,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `session-bus`: two sessions that join in the same instant under the same name end
   with distinct labels — whichever notices the other yields to a short id suffix —
   and a name at the 40-character limit no longer swallows that suffix.
+
 
 ## [0.17.0] - 2026-10-22
 

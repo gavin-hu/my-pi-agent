@@ -14,6 +14,17 @@ import type { StepUpdate } from "./steps.ts";
 export type ReviewRole = "owner" | "reviewer";
 
 /**
+ * What a review token names: its role, and — for a reviewer — the name it posts
+ * under, bound the first time that link writes.
+ */
+export interface ReviewCaller {
+	role: ReviewRole;
+	/** The reviewer's name, once this link has written; absent for the owner and
+	 * for a reviewer that has not commented yet. */
+	name?: string;
+}
+
+/**
  * One frame on the review's event stream. `comment`, `plan`, and `share` say a
  * page should re-read the island; `closed` ends the review for everyone, and
  * `revoked` tells a reviewer the owner stopped sharing. The frame carries no

@@ -73,6 +73,12 @@ export interface ReviewPageData {
 	/** Who is looking: `owner` may approve, `reviewer` may only comment. */
 	role: ReviewRole;
 	/**
+	 * The name a reviewer's link posts under, once it has been bound. Absent for the
+	 * owner and for a reviewer that has not written yet, which is what tells the page
+	 * whether its name control is still a choice.
+	 */
+	author?: string;
+	/**
 	 * One line the owner needs before acting, such as why approval happens in the
 	 * terminal; absent when the page needs no caveat.
 	 */
@@ -81,6 +87,12 @@ export interface ReviewPageData {
 	share?: ShareState;
 	/** Per-session secret the client echoes on every request. */
 	token: string;
+	/**
+	 * A short digest of the plan text the page rendered. It keys the unsaved draft a
+	 * tab keeps for itself, so a reload restores the comments this writer has not
+	 * saved yet, and a plan that changed underneath drops them instead.
+	 */
+	rev: string;
 }
 
 /** Page styles: the shared base + theme + shell + components, then the review. */
@@ -277,12 +289,12 @@ function shareDialog(): string {
 </div>`;
 }
 
-/** The reviewer's name dialog: one line, kept in this browser. */
+/** The reviewer's name dialog: one line, which the link keeps after the first post. */
 function nameDialog(): string {
 	return `<div class="bf-dialog" id="name-dialog" hidden>
 <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="name-title">
 <div class="bf-dialog__head"><h2 id="name-title">Your name</h2></div>
-<div class="bf-dialog__body"><p>Your comments are signed with this name. It stays in this browser.</p><p class="bf-field"><input class="bf-input" id="name-input" maxlength="40" placeholder="alice" aria-labelledby="name-title"></p></div>
+<div class="bf-dialog__body"><p>Your comments are signed with this name, and this link keeps it after your first post.</p><p class="bf-field"><input class="bf-input" id="name-input" maxlength="40" placeholder="alice" aria-labelledby="name-title"></p></div>
 <div class="bf-dialog__actions"><button type="button" class="bf-btn" id="name-cancel">Cancel</button><button type="button" class="bf-btn bf-btn--primary" id="name-save">Save name</button></div>
 </div>
 </div>`;

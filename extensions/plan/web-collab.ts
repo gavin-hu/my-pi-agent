@@ -56,23 +56,39 @@ export const WEB_COLLAB_JS = String.raw`  /**
   }
 
   /**
-   * A reviewer names themselves once. The name is local to this browser and is
-   * what their comments are signed with; it is a label, not an account.
+   * A reviewer names herself once. The server binds that name to her link on the
+   * first post, and a bound link cannot rename itself, so the page shows the name
+   * it posts under and stops offering the dialog.
    */
   function renderName() {
     if (!nameButton) return;
     if (role !== "reviewer") { nameButton.hidden = true; return; }
     nameButton.hidden = false;
     nameButton.textContent = reviewerName ? "Reviewing as " + reviewerName : "Set your name";
+    nameButton.disabled = reviewerBound;
+  }
+
+  /** Take the name the server bound to this link, and stop offering the dialog. */
+  function adoptName(name) {
+    var value = String(name || "").trim().slice(0, 40);
+    if (!value) return;
+    reviewerBound = true;
+    if (value === reviewerName) { renderName(); return; }
+    reviewerName = value;
+    try { window.localStorage.setItem("bf-review-name", reviewerName); } catch (error) {}
+    renderName();
+    renderPlan();
   }
 
   function askName() {
+    if (reviewerBound) { setStatus("This link already posts as @" + reviewerName + "."); return; }
     if (nameInput) nameInput.value = reviewerName;
     if (window.bfName) window.bfName.open();
     if (nameInput) nameInput.focus();
   }
 
   function saveName() {
+    if (reviewerBound) return;
     reviewerName = nameInput ? nameInput.value.trim().slice(0, 40) : "";
     try { window.localStorage.setItem("bf-review-name", reviewerName); } catch (error) {}
     if (window.bfName) window.bfName.close();
@@ -93,6 +109,7 @@ export const WEB_COLLAB_JS = String.raw`  /**
     if (kind === "closed") {
       if (saved || approved || closed) return;
       closed = true;
+      clearDraft();
       settleStream();
       lockActions();
       setStatus("The review is closed.", "info");
@@ -102,6 +119,7 @@ export const WEB_COLLAB_JS = String.raw`  /**
     if (kind === "revoked") {
       if (closed) return;
       closed = true;
+      clearDraft();
       settleStream();
       lockActions();
       setStatus("The owner stopped sharing this review \u2014 your comments stay in the plan.", "info");
@@ -122,6 +140,9 @@ export const WEB_COLLAB_JS = String.raw`  /**
         var next = JSON.parse(node.textContent);
         data = next;
         annotations = Array.isArray(next.annotations) ? next.annotations.slice() : [];
+        if (typeof next.author === "string" && next.author) adoptName(next.author);
+        // This tab's own unsaved comments belong on top of what just arrived.
+        restoreDraft();
         renderPlan();
         renderFacts();
         updateState();

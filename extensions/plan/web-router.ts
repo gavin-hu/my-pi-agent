@@ -7,9 +7,9 @@
  * keeps that response open as a Server-Sent Events stream.
  *
  * The token is a per-session secret carried in the page URL, and on a shared
- * review it is the only credential a reviewer has: it says which role the
- * caller holds, and the router refuses an owner-only route for a reviewer
- * however the request was built.
+ * review it is the only credential a reviewer has: it names the caller — the
+ * role it holds, and the name it posts under — and the router refuses an
+ * owner-only route for a reviewer however the request was built.
  */
 
 import {
@@ -28,24 +28,25 @@ import { THEME_JS, THEME_JS_PATH } from "../../lib/web/index.ts";
 import { coerceAnnotations, type PlanAnnotation } from "./feedback.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { renderReviewPage, type ReviewPageData } from "./web-page.ts";
-import type { ReviewRole } from "./types.ts";
+import type { ReviewCaller } from "./types.ts";
 import type { ShareResult } from "./web-share.ts";
 
-/** What a save callback reports back. */
-export type SaveResult = { ok: true } | { ok: false; status: number; message: string };
+/** What a save callback reports back. A reviewer's post reports the name it was
+ * stored under, so a page created before the first write can adopt it. */
+export type SaveResult = { ok: true; author?: string } | { ok: false; status: number; message: string };
 
 /** Everything the router needs from the running session. */
 export interface ReviewContext {
-	/** The role a token grants, or undefined when it is not one of this session's. */
-	roleOf: (token: string) => ReviewRole | undefined;
+	/** The caller a token names, or undefined when it is not one of this session's. */
+	caller: (token: string) => ReviewCaller | undefined;
 	/** The host names this server answers to now, so a rebound page is refused. */
 	hosts: () => readonly string[];
 	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
 	canApprove: boolean;
-	/** Build the page data for the caller's role (recomputed per request). */
-	page: (role: ReviewRole) => Promise<ReviewPageData>;
+	/** Build the page data for the caller (recomputed per request). */
+	page: (caller: ReviewCaller) => Promise<ReviewPageData>;
 	/** Persist the annotations as the caller and report the outcome. */
-	save: (annotations: PlanAnnotation[], role: ReviewRole) => Promise<SaveResult>;
+	save: (annotations: PlanAnnotation[], caller: ReviewCaller) => Promise<SaveResult>;
 	/** Start sharing the review, or report why it cannot be shared. */
 	share: () => Promise<ShareResult>;
 	/** Revoke reviewer tokens and stop accepting reviewers. */
@@ -148,24 +149,25 @@ export async function handleReviewRequest(
 	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 	if (pathname === "/client.js") return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
 
-	const role = ctx.roleOf(search.get("token") ?? "");
-	if (role === undefined) return jsonError(403, "Invalid or missing token.");
+	const token = search.get("token") ?? "";
+	const caller = ctx.caller(token);
+	if (caller === undefined) return jsonError(403, "Invalid or missing token.");
 
 	if (pathname === "/" || pathname === "/index.html") {
-		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page(role)) };
+		return { status: 200, headers: pageHeaders(), body: renderReviewPage(await ctx.page(caller)) };
 	}
 	if (pathname === "/events") return { status: 200, headers: eventHeaders(), stream: true };
 	if (pathname === "/api/cancel") {
 		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to cancel.");
 		// Ending the review is the owner's decision; a reviewer closes their tab.
-		if (role !== "owner") return jsonError(403, "Only the plan owner can close this review.");
+		if (caller.role !== "owner") return jsonError(403, "Only the plan owner can close this review.");
 		ctx.onCancel();
 		return jsonResponse(200, { ok: true });
 	}
 	if (pathname === "/api/share" || pathname === "/api/share/stop") {
 		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to share or stop sharing.");
 		// A shared link must never be able to mint another one.
-		if (role !== "owner") return jsonError(403, "Only the plan owner can share this review.");
+		if (caller.role !== "owner") return jsonError(403, "Only the plan owner can share this review.");
 		const result = pathname === "/api/share" ? await ctx.share() : await ctx.stopShare();
 		return jsonResponse(200, { ok: true, share: result.state, svg: result.svg });
 	}
@@ -173,21 +175,22 @@ export async function handleReviewRequest(
 		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to post comments.");
 		// A reviewer's whole surface: persist the comments they wrote and end
 		// nothing. Only the owner's own save decides the review.
-		if (role !== "reviewer") return jsonError(403, "Only a shared reviewer posts comments.");
+		if (caller.role !== "reviewer") return jsonError(403, "Only a shared reviewer posts comments.");
 		const annotations = parseAnnotations(body);
 		if (isResponse(annotations)) return annotations;
-		const result = await ctx.save(annotations, role);
+		const result = await ctx.save(annotations, caller);
 		if (!result.ok) return jsonError(result.status, result.message);
-		return jsonResponse(200, { ok: true });
+		return jsonResponse(200, { ok: true, ...(result.author === undefined ? {} : { author: result.author }) });
 	}
 	if (pathname === "/api/feedback") {
 		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to save feedback.");
 		// Returning to the model is the owner's decision; a reviewer posts to
 		// `/api/comment`, so this route can never settle a shared review.
-		if (role !== "owner") return jsonError(403, "Only the plan owner saves this review; a reviewer posts comments.");
+		if (caller.role !== "owner")
+			return jsonError(403, "Only the plan owner saves this review; a reviewer posts comments.");
 		const annotations = parseAnnotations(body);
 		if (isResponse(annotations)) return annotations;
-		const result = await ctx.save(annotations, role);
+		const result = await ctx.save(annotations, caller);
 		if (!result.ok) return jsonError(result.status, result.message);
 		ctx.onSaved(annotations);
 		return jsonResponse(200, { ok: true });
@@ -196,11 +199,11 @@ export async function handleReviewRequest(
 		if (method.toUpperCase() !== "POST") return jsonError(405, "Use POST to approve.");
 		// Only the owner's own page approves, and only the exit_plan_mode flow owns
 		// the side effects: a reviewer token is refused whatever it posts.
-		if (role !== "owner") return jsonError(403, "A shared review cannot approve the plan.");
+		if (caller.role !== "owner") return jsonError(403, "A shared review cannot approve the plan.");
 		if (!ctx.canApprove) return jsonError(403, "This review cannot be approved from the browser.");
 		const annotations = parseAnnotations(body);
 		if (isResponse(annotations)) return annotations;
-		const result = await ctx.save(annotations, role);
+		const result = await ctx.save(annotations, caller);
 		if (!result.ok) return jsonError(result.status, result.message);
 		ctx.onApprove(annotations);
 		return jsonResponse(200, { ok: true });
