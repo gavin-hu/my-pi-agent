@@ -31,7 +31,6 @@ import {
 	contentTypeFor,
 	createFileIndex,
 	directoryView,
-	formatSize,
 	isImageName,
 	isMarkdownName,
 	isProbablyText,
@@ -85,13 +84,6 @@ describe("file classification", () => {
 		expect(isProbablyText(Buffer.alloc(0))).toBe(true);
 		expect(isProbablyText(Buffer.from([0, 1, 2, 3]))).toBe(false);
 		expect(isProbablyText(Buffer.from([1, 2, 3, 4]))).toBe(false);
-	});
-
-	test("formats byte sizes compactly", () => {
-		expect(formatSize(0)).toBe("0 B");
-		expect(formatSize(68)).toBe("68 B");
-		expect(formatSize(12_400)).toBe("12 kB");
-		expect(formatSize(5 * 1024 * 1024)).toBe("5.0 MB");
 	});
 
 	test("maps image MIME types and defaults everything else to octet-stream", () => {

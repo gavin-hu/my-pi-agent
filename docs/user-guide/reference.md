@@ -13,7 +13,7 @@ Every command the pack adds, with what it does and where its walkthrough is.
 |---|---|---|
 | `/plan` | Turn plan mode on or off | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
 | `/plan <task>` | Turn plan mode on and send the task | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
-| `/plan list` | List saved plans, newest first | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `/plan list` | List saved plans with the store's size and its oldest plan, newest first | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
 | `/plan review [path]` | Review a plan in the browser (comments only) | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
 | `/plan share` | Print the newest reviewer link and its QR while a browser review is open | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
 | `/plan share stop` | Revoke every reviewer link and stop sharing | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |

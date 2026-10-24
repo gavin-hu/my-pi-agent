@@ -1458,6 +1458,23 @@ describe("plan index — age and notice", () => {
 		expect(lines[2]).toContain("Older plan — 0/2 steps");
 	});
 
+	test("names the store's footprint and its oldest plan", () => {
+		const text = formatPlanIndex(
+			[summary(), summary({ title: "Older plan", modified: NOW - 40 * DAY, bytes: 2 * 1024 })],
+			"~/.pi/agent/plans/a1f9c02",
+			NOW,
+		);
+		const header = text.split("\n")[0] ?? "";
+		// 512 B plus 2 kB, and the older of the two mtimes sets the age.
+		expect(header).toContain("2.5 kB");
+		expect(header).toContain("oldest 1mo ago");
+	});
+
+	test("reports a single plan's own size", () => {
+		const header = formatPlanIndex([summary({ bytes: 68 })], "~/.pi/agent/plans/a1f9c02", NOW).split("\n")[0] ?? "";
+		expect(header).toContain("Plans (1) — 68 B — oldest 2d ago");
+	});
+
 	test("says where plans go when there are none", () => {
 		expect(formatPlanIndex([], "~/.pi/agent/plans/a1f9c02")).toBe(
 			"No plans in ~/.pi/agent/plans/a1f9c02 yet; write_plan saves one there.",
@@ -1533,6 +1550,12 @@ describe("plan index — screen", () => {
 		// The path is long enough to clip the tail at 80 columns; the row still carries
 		// the modified time.
 		expect(h.text()).toContain("modified 202");
+	});
+
+	test("names the store's footprint in the summary line", () => {
+		const text = harness().text();
+		expect(text).toContain("1.0 kB");
+		expect(text).toContain("oldest 1mo ago");
 	});
 
 	test("shows an empty state", () => {
