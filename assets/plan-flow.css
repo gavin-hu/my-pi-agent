@@ -597,12 +597,6 @@ body {
 	flex: 0 0 2ch;
 }
 
-.row__end {
-	margin-left: auto;
-	padding-left: 12px;
-	color: var(--muted);
-}
-
 .muted {
 	color: var(--muted);
 }
@@ -649,12 +643,6 @@ body {
 
 .label .count {
 	font-weight: 400;
-}
-
-/* plan → approve → execute, as the lead pane's own history. */
-.phase__name {
-	flex: 0 0 10ch;
-	font-weight: 700;
 }
 
 .team {
