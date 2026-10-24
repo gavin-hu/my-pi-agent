@@ -46,7 +46,7 @@ macOS: each frame is drawn by the shipped component with the `bytefly-dark`
 theme inside a real Terminal.app window, then captured with `screencapture`, so
 the docs show the product rather than a mock. Naming screens captures only
 those; with no argument it captures every entry in the `SCREENS` map of
-`scripts/screens/index.ts` and then the hero. To check a layout without a
+`scripts/screens/index.ts`, the `chrome` hero among them. To check a layout without a
 capture, `bun run screenshots render <name>` prints one frame as ANSI
 on any OS; `--width` and `--rows` override the terminal.
 
@@ -97,7 +97,7 @@ full list; each screen is shown on its extension's page under
 [`../scripts/README.md`](../scripts/README.md) owns the rest: the layout of the
 directory, which mechanism a new asset uses, who owns which fixture directory, and
 when an asset is recaptured — including why the hero prints the pack's version and
-the compatibility floor, and what a live session does and does not put in the frame.
+the compatibility floor.
 
 ## Tests
 

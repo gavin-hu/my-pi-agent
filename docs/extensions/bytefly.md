@@ -1527,7 +1527,7 @@ columns, gauge), so the look follows the active theme.
 | `working/config.ts` | Counter tuning (`WORKING_CONFIG`): the words, the tool singular/plural, and the tick interval. |
 | `working/format.ts` | Pure `formatElapsed` (whole seconds) and the working-message shape: the plain count and the `tool · N tools · elapsed` run line. |
 | `working/register.ts` | Starts the tick on `turn_start`, tracks top-level tools on `tool_execution_start`, and cancels on `agent_end`/`session_shutdown`. |
-| `panel/types.ts` | `PanelSection` (`extensions` | `skills` | `settings`), `PanelRow` with its optional skill info, `SkillInfo`, and `PanelModel`, the merged row model. |
+| `panel/types.ts` | `PanelSection` (`extensions` \| `skills` \| `settings`), `PanelRow` with its optional skill info, `SkillInfo`, and `PanelModel`, the merged row model. |
 | `panel/join.ts` | The item/report union with the unambiguous-name health rule and unique row keys, groups, and ordering; the skills model that labels rows from `SKILL.md`. |
 | `panel/format.ts` | Non-TUI text: the resource headline and grouped listing with a per-row verdict, the section segments and their order, the Settings counts/headline, and the flat Settings listing. |
 | `panel/settings.ts` | The curated Settings catalogue: the thirteen descriptors in screen order, snapshot views and origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |

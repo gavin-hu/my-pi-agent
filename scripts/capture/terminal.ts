@@ -12,16 +12,14 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pollUntil, sleep } from "../poll.ts";
 import { repo } from "../theme.ts";
 import { WINDOW_BOUNDS } from "../screens/fixtures/index.ts";
 import type { Screen } from "../screens/index.ts";
 
-/** The hero is a real `pi -e .` run, so it gets its own size. */
-const CHROME_BOUNDS = { left: 80, top: 80, right: 886, bottom: 673 };
 /** A temporary Terminal profile that matches the theme's canvas, deleted after. */
 const PROFILE = "PiScreenshot";
 /**
@@ -55,12 +53,15 @@ function openWindow(name: string, ready: string, screen: Screen): void {
 	const bounds = screen.bounds ?? WINDOW_BOUNDS;
 	const size = screen.size ? ` --width ${screen.size.width} --rows ${screen.size.rows}` : "";
 	const command = `cd ${shellQuote(repo)} && ${shellQuote(process.execPath)} ${shellQuote(join(repo, "scripts", "screenshots.ts"))} render ${name}${size} --hold --ready ${shellQuote(ready)}`;
+	// The bounds are set before the render starts: the frame is drawn to the
+	// terminal's own columns and rows, so a window resized after it would clip or
+	// wrap a frame that had already measured the old geometry.
 	const script = `tell application "Terminal"
 		activate
 		set w to do script ""
 		set current settings of w to settings set "${PROFILE}"
-		do script ${JSON.stringify(command)} in w
 		set bounds of front window to {${bounds.left}, ${bounds.top}, ${bounds.right}, ${bounds.bottom}}
+		do script ${JSON.stringify(command)} in w
 	end tell`;
 	osascript(script);
 }
@@ -98,31 +99,6 @@ function closeWindow(id: number): void {
 
 function shellQuote(value: string): string {
 	return `'${value.replaceAll("'", `'\\''`)}'`;
-}
-
-/** Window ids Terminal currently has open. */
-function windowIds(): number[] {
-	const list = osascript('tell application "Terminal" to get id of every window');
-	return list
-		.split(",")
-		.map((id) => Number(id.trim()))
-		.filter((id) => Number.isFinite(id));
-}
-
-/** Poll for a window id that was not open before, so restores are ignored. */
-async function waitForNewWindow(before: Set<number>, timeoutMs: number): Promise<number> {
-	const id = await pollUntil(
-		() =>
-			windowIds()
-				.filter((candidate) => !before.has(candidate))
-				.at(-1),
-		{
-			timeoutMs,
-			intervalMs: 100,
-		},
-	);
-	if (id === undefined) throw new Error("Timed out waiting for a new Terminal window");
-	return id;
 }
 
 /** Stop the held render for `name`, so its Terminal window is no longer busy. */
@@ -206,149 +182,6 @@ function cropTitleBar(source: string, out: string, windowWidth: number): void {
 		],
 		{ stdio: ["ignore", "ignore", "pipe"] },
 	);
-}
-
-/** Whether a session file has an assistant message that ended the turn. */
-function turnComplete(session: string): boolean {
-	if (!existsSync(session)) return false;
-	try {
-		for (const line of readFileSync(session, "utf8").split("\n")) {
-			if (!line.trim()) continue;
-			const entry = JSON.parse(line) as { message?: { role?: string; stopReason?: string } };
-			const message = entry.message;
-			if (message?.role !== "assistant") continue;
-			if (message.stopReason && message.stopReason !== "toolUse") return true;
-		}
-	} catch {
-		// The file is mid-write; try again on the next poll.
-	}
-	return false;
-}
-
-/** Wait for the seeded `pi` turn to finish, then let the TUI settle. */
-async function waitForTurn(session: string, timeoutMs: number): Promise<void> {
-	const done = await pollUntil(() => turnComplete(session) || undefined, { timeoutMs, intervalMs: 250 });
-	if (done === undefined) throw new Error("Timed out waiting for the hero turn");
-}
-
-/**
- * The agent config a hero capture needs: enough to run one turn and draw the
- * configured chrome, and nothing else. Anything absent from the live dir is
- * skipped rather than treated as an error, so a minimal install still captures.
- *
- * Deliberately left out, because each is live state that has no business in a
- * published image: `mcp.json` (servers to start), `trust.json` (a trust decision
- * made on this machine), `crashes.json` (this machine's failures), and
- * `models-store.json` (a cache that the model definitions already cover).
- */
-const HERO_CONFIG_FILES = ["auth.json", "settings.json", "models.json", "bytefly.json"] as const;
-
-/** Copy the hero's allowlisted config from `liveDir` into `tempDir`; returns what was copied. */
-export function seedAgentDir(liveDir: string, tempDir: string): string[] {
-	const copied: string[] = [];
-	for (const name of HERO_CONFIG_FILES) {
-		const from = join(liveDir, name);
-		if (!existsSync(from)) continue;
-		copyFileSync(from, join(tempDir, name));
-		copied.push(name);
-	}
-	return copied;
-}
-
-/**
- * Capture the hero: a real `pi -e .` session in a Terminal window, so the bytefly
- * chrome is the shipped code rather than a mock. `-ne` isolates the package from
- * anything else installed, `--offline` drops the startup update check (so an
- * outdated local `pi` cannot put an "Update Available" box in the hero),
- * `--no-themes` avoids a collision with an installed copy, and the worktree env
- * is cleared so no banner line is printed.
- *
- * The hero runs on an agent dir seeded by `seedAgentDir`, so the capture machine's
- * paths, history, trust decisions, MCP servers, and cache stay out of the frame.
- * Two things in the frame are still live, because the turn is: the model's reply
- * sentence and the footer's model name and usage line.
- */
-export async function captureChrome(): Promise<void> {
-	const session = join(tmpdir(), "pi-screenshot-chrome.jsonl");
-	rmSync(session, { force: true });
-	const pi = execFileSync("which", ["pi"], { encoding: "utf8" }).trim();
-	// A throwaway git repo under the home directory, so the bar shows a short,
-	// plausible path and a branch instead of this checkout's own worktree path.
-	// The name is fixed when it is free; a stray existing directory of that name
-	// is left alone and a fresh temp one is used instead.
-	const named = join(homedir(), "retry-policy");
-	const demo = existsSync(named) ? mkdtempSync(join(homedir(), "pi-hero-")) : named;
-	// The hero's own agent dir, seeded from an allowlist: auth, model definitions,
-	// settings, and bytefly's config, so the turn still runs and the chrome is the
-	// configured one. No directory is copied — a live WeChat bridge would otherwise
-	// put "another session is already polling" in the frame, and no session history
-	// belongs in a screenshot.
-	const agentDir = mkdtempSync(join(tmpdir(), "pi-hero-agent-"));
-	const liveAgentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
-	seedAgentDir(liveAgentDir, agentDir);
-	// Pi keeps the helper binaries it downloads (`fd`, `rg`) in `<agentDir>/bin` and
-	// warns when they are missing, so the hero gets that directory by reference.
-	// It is a link, not a copy: unlinking it in the cleanup below leaves the live
-	// one alone.
-	const liveBin = join(liveAgentDir, "bin");
-	const agentBin = join(agentDir, "bin");
-	if (existsSync(liveBin)) symlinkSync(liveBin, agentBin, "dir");
-	execFileSync("git", ["init", "-q", "-b", "feature/retry-policy", demo]);
-	writeFileSync(join(demo, "retry.ts"), "export const retries = 3;\n");
-	execFileSync("git", ["-C", demo, "add", "-A"]);
-	execFileSync("git", [
-		"-C",
-		demo,
-		"-c",
-		"user.name=Hero",
-		"-c",
-		"user.email=hero@example.com",
-		"commit",
-		"-qm",
-		"Add the retry budget",
-	]);
-	const command =
-		`cd ${shellQuote(demo)} && export PI_CODING_AGENT_DIR=${shellQuote(agentDir)} && ` +
-		"unset PI_WORKTREE_ROOT PI_WORKTREE_BRANCH PI_WORKTREE_MAIN; " +
-		`for n in \${(k)parameters}; do case \${n:u} in *KEY*|*TOKEN*|*SECRET*|*PASSWORD*) unset $n ;; esac; done; ` +
-		`${shellQuote(pi)} -ne --offline -e ${shellQuote(repo)} --no-themes ` +
-		`--theme ${shellQuote(join(repo, "themes", "bytefly-dark.json"))} --use-theme bytefly-dark ` +
-		`--thinking off -n my-pi-agent 'how are you today?' --session ${shellQuote(session)} -a`;
-	const before = new Set(windowIds());
-	osascript('tell application "Terminal" to do script ""');
-	const id = await waitForNewWindow(before, 5_000);
-	osascript(`tell application "Terminal"
-		set w to window id ${id}
-		set current settings of tab 1 of w to settings set "${PROFILE}"
-		set bounds of w to {${CHROME_BOUNDS.left}, ${CHROME_BOUNDS.top}, ${CHROME_BOUNDS.right}, ${CHROME_BOUNDS.bottom}}
-		do script ${JSON.stringify(command)} in w
-	end tell`);
-	try {
-		await waitForTurn(session, 120_000);
-		// Let the turn rule and footer settle, and bring the window forward so its
-		// traffic lights are drawn active, before the capture.
-		await sleep(1200);
-		osascript(`tell application "Terminal"
-			activate
-			set index of window id ${id} to 1
-		end tell`);
-		await sleep(400);
-		const out = join(repo, "assets", "chrome.png");
-		await captureWindow(id, out);
-		console.log("assets/chrome.png");
-	} finally {
-		try {
-			execFileSync("pkill", ["-f", session], { stdio: "ignore" });
-		} catch {
-			// Already gone.
-		}
-		await sleep(300);
-		closeWindow(id);
-		rmSync(session, { force: true });
-		rmSync(demo, { recursive: true, force: true });
-		rmSync(agentBin, { force: true });
-		rmSync(agentDir, { recursive: true, force: true });
-	}
 }
 
 export async function captureScreen(name: string, screen: Screen): Promise<void> {

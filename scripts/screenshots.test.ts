@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
@@ -20,14 +20,13 @@ import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
 import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
 import { planDigest } from "../extensions/plan/plan-text.ts";
-import { CHROME_SCREEN, SCREENS } from "./screens/index.ts";
+import { SCREENS } from "./screens/index.ts";
 import { pageColors, readPageColors, repo } from "./theme.ts";
-import { seedAgentDir } from "./capture/terminal.ts";
 import { FIXTURES } from "./tools/fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderings } from "./tools/index.ts";
 
-/** Every capturable frame: the named screens plus the whole-chrome preview. */
-const FRAMES = { ...SCREENS, chrome: CHROME_SCREEN };
+/** Every capturable frame, the whole-chrome preview included. */
+const FRAMES = SCREENS;
 
 /** Widths a capture has to survive: a narrow terminal, the default, a wide one. */
 const WIDTHS = [46, 80, 120];
@@ -61,47 +60,6 @@ describe("docs screenshots", () => {
 			const lines = screen.render(screen.size.width, screen.size.rows);
 			expect(lines.length, `${name} (${screen.size.width}x${screen.size.rows})`).toBeLessThanOrEqual(screen.size.rows);
 		}
-	});
-});
-
-describe("hero agent dir", () => {
-	/** A live agent dir holding every config Pi keeps, only four of which the hero may have. */
-	function liveAgentDir(): string {
-		const dir = mkdtempSync(join(tmpdir(), "hero-live-"));
-		for (const name of [
-			"auth.json",
-			"settings.json",
-			"models.json",
-			"bytefly.json",
-			"mcp.json",
-			"trust.json",
-			"crashes.json",
-			"models-store.json",
-		]) {
-			writeFileSync(join(dir, name), `{"from":"${name}"}`);
-		}
-		// A directory is not a config file, whatever it is called.
-		mkdirSync(join(dir, "sessions.json"), { recursive: true });
-		return dir;
-	}
-
-	test("copies the four configs a turn needs and no live state", () => {
-		const target = mkdtempSync(join(tmpdir(), "hero-agent-"));
-		const copied = seedAgentDir(liveAgentDir(), target);
-		expect(copied).toEqual(["auth.json", "settings.json", "models.json", "bytefly.json"]);
-		for (const name of copied) expect(readFileSync(join(target, name), "utf-8"), name).toContain(name);
-		// A server to start, a trust decision, a crash report, a cache, and a directory
-		// that merely ends in `.json` must not reach the frame's agent dir.
-		for (const name of ["mcp.json", "trust.json", "crashes.json", "models-store.json", "sessions.json"]) {
-			expect(existsSync(join(target, name)), name).toBe(false);
-		}
-	});
-
-	test("skips an optional config the live dir does not have", () => {
-		const live = mkdtempSync(join(tmpdir(), "hero-live-"));
-		writeFileSync(join(live, "auth.json"), "{}");
-		const copied = seedAgentDir(live, mkdtempSync(join(tmpdir(), "hero-agent-")));
-		expect(copied).toEqual(["auth.json"]);
 	});
 });
 
