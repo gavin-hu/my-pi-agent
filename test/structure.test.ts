@@ -66,6 +66,7 @@ const ROOT_TEST_FILES = new Set([
 	"extension-load.test.ts",
 	"naming.test.ts",
 	"prompt-budget.test.ts",
+	"refactor-skill.test.ts",
 	"release.test.ts",
 	"roadmap.test.ts",
 	"settings-coverage.test.ts",
