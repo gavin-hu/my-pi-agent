@@ -10,7 +10,8 @@
  * - every relative link in the file resolves;
  * - every id mentioned anywhere resolves, including the endpoints of a
  *   `P1–P3` range (contiguity covers the middle);
- * - no `Now` or `Next` bucket holds more than the documented cap.
+ * - no `Now` or `Next` bucket holds more than the documented cap;
+ * - every extension size `F4` states is the module count the tree has.
  *
  * It cannot tell that an item has already shipped — that is a judgement made
  * against `git log <last-tag>..main` when the roadmap is reviewed, which is why
@@ -21,6 +22,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { walkFiles } from "./helpers/files.ts";
 
 const root = join(import.meta.dir, "..");
 const roadmapPath = join(root, "ROADMAP.md");
@@ -176,5 +178,32 @@ describe("roadmap horizons", () => {
 		const section = roadmap.slice(roadmap.indexOf("## If only two things ship"), roadmap.indexOf("## Horizons"));
 		const named = [...section.matchAll(/\*\*([PSWCF]\d+) — /g)].map((match) => match[1]);
 		expect(named).toEqual(["P1", "S1"]);
+	});
+});
+
+describe("roadmap sizes", () => {
+	/** One extension's source modules: every `.ts` under it, never a co-located suite. */
+	function countModules(extension: string): number {
+		return walkFiles(join(root, "extensions", extension)).filter(
+			(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
+		).length;
+	}
+
+	test("states each extension's module count as the tree counts it", () => {
+		// A number this file states about the code is derived here rather than
+		// remembered: F4 sizes extensions by module count, and a split, a new module,
+		// or a relocated suite moves every figure it quotes.
+		const start = roadmap.indexOf("- **F4 — ");
+		const end = roadmap.indexOf("- **", start + 1);
+		const item = roadmap.slice(start, end === -1 ? undefined : end);
+		const stated = [...item.matchAll(/`([a-z-]+)` \((\d+) modules\)/g)].map((match) => ({
+			extension: match[1] ?? "",
+			modules: Number(match[2]),
+		}));
+		expect(stated.length).toBeGreaterThan(0);
+		const drift = stated
+			.filter((entry) => countModules(entry.extension) !== entry.modules)
+			.map((entry) => `${entry.extension}: F4 states ${entry.modules}, the tree has ${countModules(entry.extension)}`);
+		expect(drift).toEqual([]);
 	});
 });
