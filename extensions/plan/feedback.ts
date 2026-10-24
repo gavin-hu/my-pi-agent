@@ -21,7 +21,7 @@
  */
 
 import { sanitizeLine } from "../../lib/format.ts";
-import { blockAt, planBlocks, type PlanBlock } from "./blocks.ts";
+import { blockAt, contentBlockAt, planBlocks, type PlanBlock } from "./blocks.ts";
 import { extractPlanSections } from "./steps.ts";
 
 /** Marker that opens every stored feedback line. */
@@ -191,19 +191,43 @@ export function stripFeedback(plan: string): string {
 }
 
 /**
- * Read stored feedback back. The anchor is the block ending just before each
- * marker in the stripped plan, so a comment keeps its place across reloads.
+ * A plan read the way the review reads it: its body, its blocks, and its
+ * comments, out of one parse.
  */
-export function parseFeedback(plan: string): PlanAnnotation[] {
+export interface FeedbackRead {
+	/** The plan body with every stored marker removed. */
+	body: string;
+	/** The body split into source-line blocks: the shape an anchor names. */
+	blocks: PlanBlock[];
+	/** The comments the markers carried, each anchored to a content block's start. */
+	annotations: PlanAnnotation[];
+}
+
+/**
+ * Read a plan once. An anchor is the start of the block the marker follows, so a
+ * comment keeps its place across reloads — and it is always a block with
+ * content, because the page renders no line for a blank one and so can never
+ * attach a thread to it. A plan whose every line is blank has no such block: its
+ * comments keep anchor `0` and the page lists them as unattached, which is the
+ * truth there.
+ */
+export function readFeedback(plan: string): FeedbackRead {
 	const { clean, markers } = scanMarkers(plan);
-	if (markers.length === 0) return [];
 	const blocks = planBlocks(clean);
-	return markers.map((marker) => {
-		const block = blockAt(blocks, marker.at);
-		const annotation: PlanAnnotation = { anchor: block ? block.start : 0, comment: marker.comment };
+	const annotations = markers.map((marker) => {
+		const annotation: PlanAnnotation = {
+			anchor: contentBlockAt(blocks, marker.at)?.start ?? 0,
+			comment: marker.comment,
+		};
 		if (marker.author) annotation.author = marker.author;
 		return annotation;
 	});
+	return { body: clean, blocks, annotations };
+}
+
+/** The comments a plan carries, in the order they were written. */
+export function parseFeedback(plan: string): PlanAnnotation[] {
+	return readFeedback(plan).annotations;
 }
 
 /** Sanitized, non-empty comments with the anchor they land on. */
@@ -230,7 +254,9 @@ export function formatFeedback(plan: string, annotations: PlanAnnotation[], opti
 		.map((marker) => ({ at: marker.at, line: markerLine(marker.author, marker.comment) }));
 	const blocks = planBlocks(clean);
 	const added = storableComments(annotations).map((item) => ({
-		at: blockAt(blocks, item.anchor)?.end ?? -1,
+		// A marker beside a block, never after a blank line: an anchor that names
+		// blank space is written where the page can read it back as a thread.
+		at: contentBlockAt(blocks, item.anchor)?.end ?? -1,
 		line: markerLine(author, item.comment),
 	}));
 	return compose(clean, [...kept, ...added]);
@@ -248,20 +274,20 @@ function blockKey(block: PlanBlock): string {
 
 /**
  * A plan's heading sections, keyed by title and occurrence, each with the blocks
- * inside it and its last source line. Two `## Notes` sections are told apart by
- * which one they are, the way `changedSections` does it, so a duplicate heading
- * never collects both sections' blocks.
+ * inside it and the last line of its content. Two `## Notes` sections are told
+ * apart by which one they are, the way `changedSections` does it, so a duplicate
+ * heading never collects both sections' blocks. A section with no content block
+ * ends at its own heading, which is still a line the page renders.
  */
 function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, { blocks: PlanBlock[]; end: number }> {
 	const sections = extractPlanSections(plan);
-	const lineCount = plan === "" ? 0 : plan.split("\n").length;
 	const seen = new Map<string, number>();
 	const index = new Map<string, { blocks: PlanBlock[]; end: number }>();
-	const keys = sections.map((section, position) => {
+	const keys = sections.map((section) => {
 		const occurrence = seen.get(section.title) ?? 0;
 		seen.set(section.title, occurrence + 1);
 		const key = `${occurrence}\u0000${section.title}`;
-		index.set(key, { blocks: [], end: (sections[position + 1]?.line ?? lineCount) - 1 });
+		index.set(key, { blocks: [], end: section.line });
 		return key;
 	});
 
@@ -272,6 +298,10 @@ function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, {
 		if (key === undefined) continue;
 		index.get(key)?.blocks.push(block);
 	}
+	for (const entry of index.values()) {
+		const last = entry.blocks.filter((block) => block.kind !== "blank").at(-1);
+		if (last) entry.end = last.end;
+	}
 	return index;
 }
 
@@ -280,9 +310,10 @@ function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, {
  * Comments are not plan content, so `next` is stripped of any marker it carries,
  * and every old one is re-attached by the strongest evidence that survives: the
  * block's text (per occurrence, so two identical steps keep their own comments),
- * then the same section and ordinal, then the end of that section. A comment
- * whose section is gone too is placed at the end rather than dropped, where the
- * review page shows it as unattached.
+ * then the same section and ordinal, then the last line of that section's
+ * content. A comment whose section is gone too moves to the plan's last content
+ * block, so the page keeps showing it under a block rather than listing it as
+ * unattached; only a plan with no block at all leaves it in that list.
  */
 export function carryFeedback(previous: string, next: string): string {
 	const { clean: oldClean, markers } = scanMarkers(previous);
@@ -303,6 +334,9 @@ export function carryFeedback(previous: string, next: string): string {
 	const oldSections = sectionIndex(oldClean, oldBlocks);
 	const nextSections = sectionIndex(cleanNext, nextBlocks);
 	const lastLine = cleanNext === "" ? -1 : cleanNext.split("\n").length - 1;
+	// Where a comment goes when nothing about it survived: beside the plan's last
+	// block, never after the blank line a trailing newline leaves.
+	const tail = contentBlockAt(nextBlocks, lastLine)?.end ?? lastLine;
 
 	/** The block at the same ordinal in the same section, else that section's end. */
 	const bySection = (block: PlanBlock): number | undefined => {
@@ -312,7 +346,9 @@ export function carryFeedback(previous: string, next: string): string {
 			const section = nextSections.get(key);
 			if (section === undefined) return undefined;
 			const same = section.blocks[ordinal];
-			return same ? same.end : section.end;
+			// The block that slid into that position may be a blank line, which no
+			// comment can hang on; the section's last content line is the answer then.
+			return same && same.kind !== "blank" ? same.end : section.end;
 		}
 		return undefined;
 	};
@@ -320,12 +356,12 @@ export function carryFeedback(previous: string, next: string): string {
 	const placed = markers.map((marker) => {
 		const block = blockAt(oldBlocks, marker.at);
 		const line = markerLine(marker.author, marker.comment);
-		if (block === undefined) return { at: lastLine, line };
+		if (block === undefined) return { at: tail, line };
 		if (block.kind !== "blank") {
 			const match = queues.get(blockKey(block))?.shift();
 			if (match !== undefined) return { at: match.end, line };
 		}
-		return { at: bySection(block) ?? lastLine, line };
+		return { at: bySection(block) ?? tail, line };
 	});
 	return compose(cleanNext, placed);
 }

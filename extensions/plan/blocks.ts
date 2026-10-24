@@ -176,7 +176,7 @@ export function planBlocks(plan: string): PlanBlock[] {
 }
 
 /** The block containing source line `line`, or the nearest block before it. */
-export function blockAt(blocks: PlanBlock[], line: number): PlanBlock | undefined {
+export function blockAt(blocks: readonly PlanBlock[], line: number): PlanBlock | undefined {
 	let candidate: PlanBlock | undefined;
 	for (const block of blocks) {
 		if (block.start <= line && line <= block.end) return block;
@@ -184,6 +184,27 @@ export function blockAt(blocks: PlanBlock[], line: number): PlanBlock | undefine
 		candidate = block;
 	}
 	return candidate;
+}
+
+/**
+ * The nearest block with content at or before `line`, else the first one after
+ * it: what a comment in blank space belongs to.
+ *
+ * A blank line is a block, so {@link blockAt} may name one, but a comment cannot
+ * hang on nothing: the review page renders no line for a blank block, so an
+ * anchor there is one it can never attach a thread to.
+ */
+export function contentBlockAt(blocks: readonly PlanBlock[], line: number): PlanBlock | undefined {
+	let before: PlanBlock | undefined;
+	for (const block of blocks) {
+		const content = block.kind !== "blank";
+		if (block.start <= line) {
+			if (content) before = block;
+			continue;
+		}
+		if (content) return before ?? block;
+	}
+	return before;
 }
 
 /** The source inside a fenced code block, without its opening and closing fence lines. */

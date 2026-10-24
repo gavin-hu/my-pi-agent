@@ -175,6 +175,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a comment `write_plan` carries onto a revised plan stays attached to a
+  block, instead of the review page listing it under "Comments not attached to a
+  current block". A carried comment was written after the blank line before the
+  next heading — the section's "end" as the codec measured it — and the page reads
+  an anchor back as the block that line belongs to, so the marker anchored the
+  blank line itself, which the page never renders. Re-saving from the page
+  round-tripped the same anchor, so only Delete cleared it. Carrying now names the
+  last block the section still has, and an anchor is always a content block's
+  start: a marker already stored after a blank line resolves to the block above it
+  on the next page load without a file write, and the page's blocks and its
+  comments now come out of one parse of the file instead of two.
 - `file-browse`: a rendered Markdown table keeps a readable column width in a pane
   narrower than 600px. Auto layout was handing the prose cell whatever a nowrapped
   code span beside it left, so a four-column table stacked one word per line — a

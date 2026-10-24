@@ -24,14 +24,14 @@ import {
 } from "../../lib/http/index.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { type ArmTimer, defaultInterval, defaultTimer, type RepeatTimer } from "../../lib/timer.ts";
-import { codeBody, fenceInfo, planBlocks } from "./blocks.ts";
+import { codeBody, fenceInfo } from "./blocks.ts";
 import {
 	claimAuthor,
 	MAX_ANNOTATIONS,
 	MAX_COMMENT_LENGTH,
 	MAX_QUOTE_LENGTH,
 	normalizeAuthor,
-	parseFeedback,
+	readFeedback,
 	stripFeedback,
 	type PlanAnnotation,
 } from "./feedback.ts";
@@ -246,8 +246,12 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const page = async (caller: ReviewCaller): Promise<ReviewPageData> => {
 			const { role } = caller;
 			const stored = await refreshPageText();
-			const current = pageText;
-			const blocks = planBlocks(current);
+			// The body, its blocks, and the comments out of one read of the file: an
+			// anchor names a block from this same parse, so the island cannot mark a
+			// comment onto a line the page never rendered.
+			const read = readFeedback(stored.content);
+			const current = read.body;
+			const blocks = read.blocks;
 			const sections = extractPlanSections(current);
 			// Per-occurrence change flags, aligned with the sections list: the same shape
 			// the terminal review renders, so duplicate headings cannot both light up.
@@ -281,7 +285,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				// slug is still the fallback for a plan that starts with something else.
 				title: sections.find((section) => section.level === 1)?.title || planTitle(basename(plan.path)),
 				blocks,
-				annotations: parseFeedback(stored.content),
+				annotations: read.annotations,
 				outline,
 				steps: {
 					done: stepList.filter((step) => step.status === "completed").length,
