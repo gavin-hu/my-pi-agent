@@ -564,10 +564,14 @@ What the gate enforces, and why each rule is a refusal rather than a warning:
 | more than two owner units | The user switches to every owner each round; three means the split is wrong. |
 | a unit with no test | The unit's definition of done would be undocumented. |
 | an owner unit claiming a shared file | `package.json`, the changelog, the test manifests, and the shared name modules belong to the lead. The same list refuses that owner's `claim` through `session-bus`, so the rule outlives approval. |
+| a path outside the repository, an absolute one, or the root itself | Units are claimed by repository-relative path, so `join` resolves each one and refuses what is not in the repository — and a split approved outside a repository has no root to share. Validating here is what makes an unjoinable unit impossible to approve. |
 | no unit marked lead | The approving session needs a unit of its own, or it is a queue. |
 
 Refusals name the pair they caught, and a value that would break the `## Team`
-table is refused with them.
+table is refused with them. Each unit's paths are resolved before the rules run,
+through the function a `join` claims through ([`lib/claims/`](../../lib/claims/)),
+so the table records the canonical path — `./src//core/` is written as
+`src/core` — and what the file says is exactly what a session will hold.
 
 The table itself is a wire format: [`session-bus`](./session-bus.md) reads it
 through `readSplit`, which parses it with the module that writes it and then runs

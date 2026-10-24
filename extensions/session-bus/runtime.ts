@@ -16,10 +16,11 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { join, relative, sep } from "node:path";
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { isInside, realPathOfNearest } from "../../lib/path.ts";
+import { claimPathMessage, resolveClaimPaths } from "../../lib/claims/resolve.ts";
+import { realPathOfNearest } from "../../lib/path.ts";
 import { plansDir } from "../../lib/plans/store.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
@@ -118,26 +119,6 @@ function isLive(session: SessionRecord, at: number, ttlMs: number): boolean {
 function suffixLabel(label: string, id: string): string {
 	const suffix = `-${shortId(id)}`;
 	return `${label.slice(0, MAX_LABEL - suffix.length)}${suffix}`;
-}
-
-/**
- * Re-key accepted paths by their real target, so a symlinked spelling inside the
- * repository and the file it names are one claim. The paths arrive relative and
- * already inside the root; a link that leaves it is refused here.
- */
-function canonicalPaths(root: string, paths: readonly string[]): { paths: string[] } | { error: string } {
-	const realRoot = realPathOfNearest(root);
-	const canonical: string[] = [];
-	for (const path of paths) {
-		const target = realPathOfNearest(join(root, path));
-		const rel = relative(realRoot, target);
-		if (rel === "" || !isInside(realRoot, target)) {
-			return { error: `path "${path}" does not resolve to a file in the repository.` };
-		}
-		const normalized = rel.split(sep).join("/");
-		if (!canonical.includes(normalized)) canonical.push(normalized);
-	}
-	return { paths: canonical };
 }
 
 function sessionName(ctx: ExtensionContext): string | undefined {
@@ -304,19 +285,16 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	 * owns `src/core`.
 	 */
 	function rootedPaths(me: SessionRecord, paths: readonly string[]): string[] {
-		const keyed = canonicalPaths(
-			me.repoRoot,
-			paths.map((path) => path.replace(/^\/+/, "")),
-		);
-		if ("error" in keyed) throw new Error(keyed.error);
+		const keyed = resolveClaimPaths(me.repoRoot, paths);
+		if ("error" in keyed) throw new Error(claimPathMessage(keyed.error));
 		return keyed.paths;
 	}
 
 	function storedPaths(me: SessionRecord, raw: unknown): string[] {
 		const normalized = normalizePaths(me.repoRoot, me.cwd, raw);
 		if ("error" in normalized) throw new Error(normalized.error);
-		const keyed = canonicalPaths(me.repoRoot, normalized.paths);
-		if ("error" in keyed) throw new Error(keyed.error);
+		const keyed = resolveClaimPaths(me.repoRoot, normalized.paths);
+		if ("error" in keyed) throw new Error(claimPathMessage(keyed.error));
 		return keyed.paths;
 	}
 

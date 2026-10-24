@@ -317,6 +317,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: an approved split's unit paths are paths a `join` can actually claim.
+  Each one is resolved against the repository root by `lib/claims/resolve.ts` —
+  the single function the bus claims and joins through, previously a copy inside
+  `session-bus` — before the rules run, so a `../` escape, an absolute path, the
+  root itself, or a symlink that leaves the repository is refused at approval
+  instead of by an owner's `join` that then claims nothing, leaves that unit
+  unjoined, and quietly escapes the shared-file rule. The `## Team` table records
+  the canonical path, so `./src//core/` is written as `src/core`, and the split's
+  overlap check compares what will be claimed. A split approved outside a
+  repository is refused with them: there is no root for its units to be relative
+  to, so no session could join it.
+
 - `plan`: the roster card says the two things a fresh pane cannot know. Each
   owner's command line now carries `git rebase main`, because `enter_worktree`
   cuts from `origin/main`, which lags the branch the lead merges into; and a unit

@@ -10,6 +10,7 @@
  * the bus reads the same section.
  */
 
+import { resolveClaimPaths } from "../../lib/claims/resolve.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { teamEnabled } from "../../lib/plans/setting.ts";
 import { checkSplit, mergeOrder } from "../../lib/plans/split.ts";
@@ -30,6 +31,12 @@ export type SplitDecision =
  * The switch is checked first: with it off the units are ignored entirely rather
  * than validated, so a user who never enabled the feature cannot be blocked by a
  * rule about it.
+ *
+ * The paths are resolved before any rule looks at them, with the function `join`
+ * claims through, so an approved unit is one a session can actually hold: what the
+ * table records is the canonical repository-relative path, and a unit that lists a
+ * path outside the repository — or a session outside any repository — is refused
+ * here, where the user can still fix it, rather than by an owner's failed join.
  */
 export function decideSplit(
 	cwd: string,
@@ -38,7 +45,27 @@ export function decideSplit(
 ): SplitDecision {
 	if (units === undefined || units.length === 0) return { kind: "none" };
 	if (!teamEnabled(cwd, root)) return { kind: "off" };
-	const check = checkSplit(units);
+	// A unit is claimed by repository-relative path, against a root every session
+	// shares. Outside a repository there is no such root, so nothing could join it.
+	if (root === undefined) {
+		return {
+			kind: "refused",
+			reason:
+				"A team needs a repository: units are claimed by repository-relative path, and this session is outside one.",
+		};
+	}
+	const resolved: PlanUnit[] = [];
+	for (const unit of units) {
+		const keyed = resolveClaimPaths(root, unit.paths);
+		if ("error" in keyed) {
+			return {
+				kind: "refused",
+				reason: `Unit "${unit.name}" claims "${keyed.error.path}", which ${keyed.error.reason}.`,
+			};
+		}
+		resolved.push({ ...unit, paths: keyed.paths });
+	}
+	const check = checkSplit(resolved);
 	if (!check.ok) return { kind: "refused", reason: check.reason };
 	// `checkSplit` answers "serial" only for no units at all, which the guard above
 	// already answered with `none`, so what is left is a team.

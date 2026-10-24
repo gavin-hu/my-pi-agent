@@ -53,6 +53,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 
 export const LIB_SUITES: readonly string[] = [
 	"claims/overlap",
+	"claims/resolve",
 	"core",
 	"format",
 	"lines",

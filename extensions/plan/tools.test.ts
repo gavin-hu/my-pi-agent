@@ -16,6 +16,7 @@ import type { ExistingTodo } from "../../lib/todo-state.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
+import type { ExecResult } from "../../test/helpers/git.ts";
 import { fakeCtx, makeFakePi } from "../../test/helpers/fixtures/plan.ts";
 import { useEnv } from "../../test/helpers/env.ts";
 import { repoKeyOf } from "../../lib/repo-key.ts";
@@ -64,11 +65,17 @@ function repoExec(root: string) {
 			: { stdout: "", stderr: "", code: 1 };
 }
 
-function setup(web?: PlanWebReview, options: { allTools?: unknown[] } = {}) {
+/** The exec seam the fake `pi` calls; `killed` is optional there, so it is left out. */
+type FakeExec = (command: string, args: string[]) => Promise<Omit<ExecResult, "killed">>;
+
+/** A git that answers nothing, which is how a directory outside a repository looks. */
+const noGit: FakeExec = async () => ({ stdout: "", stderr: "not a git repository", code: 128 });
+
+function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: FakeExec } = {}) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
 	const fake = makeFakePi({
 		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
-		exec: repoExec(root),
+		exec: options.exec ?? repoExec(root),
 		allTools: options.allTools,
 	});
 	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
@@ -660,6 +667,50 @@ describe("exit_plan_mode with a split", () => {
 
 		expect(result.content[0].text).toContain("your label: billing-lead — owners send their report there");
 		expect(result.content[0].text).not.toContain("name this session");
+	});
+
+	test("refuses a unit whose path leaves the repository, and writes nothing", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const escaping = { ...CORE, paths: ["../elsewhere"] };
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, escaping] }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain('Unit "core" claims "../elsewhere"');
+		expect(result.content[0].text).toContain("does not resolve to a file in the repository");
+		expect(result.details.approved).toBe(false);
+		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
+	});
+
+	test("writes the paths a join will claim, not the spelling that was proposed", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, { ...CORE, paths: ["./src//core/"] }] }, ctx);
+
+		expect(result.details.approved).toBe(true);
+		expect(readFileSync(planPath, "utf-8")).toContain("| core | src/core | bun test src/core | contract |");
+	});
+
+	test("refuses a split where there is no repository to claim against", async () => {
+		enableSplit();
+		const { enter, exit, write, runtime, root } = setup(undefined, { exec: noGit });
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+
+		const { ctx } = fakeCtx({ editor: "1", cwd: root });
+		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
+
+		expect(result.isError).toBe(true);
+		expect(result.content[0].text).toContain("A team needs a repository");
+		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
 	});
 
 	test("gives an independent unit no start-after line", async () => {

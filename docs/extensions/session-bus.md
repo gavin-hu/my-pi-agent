@@ -179,7 +179,9 @@ session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
 The unit's paths come from the table the same module wrote, and the read runs
 approval's own rules (`readSplit`), so a hand-edited or stale section is refused
 rather than half-read — and a table approval would have refused, such as an owner
-unit listing `package.json`, cannot be joined either; an unknown unit names the units
+unit listing `package.json`, cannot be joined either. Each path is then resolved by
+[`lib/claims/`](../../lib/claims/), the same function approval validated it with, so
+a unit's paths and its claims are the same strings; an unknown unit names the units
 that exist; a taken unit names its holder; and with `plan.team` off `join`
 refuses and names the settings row. `status` reports `units 1/2 joined` with the
 holder of each unit, which is how a lead answers "has everyone started?" without
