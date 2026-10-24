@@ -65,5 +65,6 @@ that draws it.
 
 A doc may only say `bun run <name>`: give the script a `package.json` entry and a
 row in the `#Scripts` table of [`docs/development.md`](../docs/development.md#scripts).
-A raw `bun run scripts/x.ts` is refused by `test/scripts-surface.test.ts`, so a
-command cannot be documented without being discoverable and renameable.
+A `bun run` aimed at a file path rather than a declared script is refused by
+`test/scripts-surface.test.ts`, so a command cannot be documented without being
+discoverable and renameable.

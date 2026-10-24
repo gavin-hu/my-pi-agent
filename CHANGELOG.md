@@ -78,6 +78,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the user guide's edition stamp moves to Pi 1.4.0 after a recheck against
+  it: every Pi command and flag the guide names is confirmed against `pi --help`
+  on 1.4.0, a real 1.4.0 session loads the pack, and the plan, to-do, rewind, and
+  session key tables match the frames `bun run screenshots render` draws on it.
+- `test`: the scripts-surface guard reads `scripts/` as well as the doc trees, so
+  `scripts/README.md` — the page that states the rule — is covered by it rather
+  than exempt from it.
 - `docs`: [`scripts/README.md`](./scripts/README.md) is the tooling contract — the
   two capture mechanisms, fixture ownership, and when an asset is recaptured,
   including the hero's live session and the `bun.lock` floor it prints.

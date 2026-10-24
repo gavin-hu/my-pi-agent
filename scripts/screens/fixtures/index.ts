@@ -4,8 +4,8 @@
  *
  * Each one is hand-written data for a real component: the todo list, a job
  * table, a rewind timeline, a plan, a check result, a watch list, the picker
- * panel. They live here so `screenshots.ts` is the frames and the capture is a
- * separate module, and so a test can render every frame without either.
+ * panel. They live here so `index.ts` one level up is the frames and the capture
+ * is a separate module, and so a test can render every frame without either.
  *
  * Nothing here touches a host surface or this machine: every path, domain, and
  * name is invented, so no capture prints a real checkout.
