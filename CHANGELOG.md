@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `skills`: the `parallel-dev` skill's turn rule and recipe now release claims when
+  the work merges instead of at the end of every turn, which is what its own
+  integrate step already said and what `status`'s `units n/m` holder count assumes;
+  it also records that a peer pane started inside a worktree inherits that worktree
+  and cannot enter its own, and why an owner runs its unit test rather than the full
+  check on its branch.
 - `session-bus`: `session({action:"name", label})` sets this session's bus label and
   Pi session name — the tool-side twin of `/sessions name`, sharing its validation,
   its uniqueness rule, and its settle when two renames race. An empty label is
