@@ -56,8 +56,9 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   external images are shown as links rather than fetched.
 - **Sortable listings.** The Name / Size / Modified headers sort the current
   directory, directories first, and the choice is remembered per browser.
-- **Copy and wrap.** Copy a file's root-relative path or its contents, and
-  toggle line wrapping for text and raw views.
+- **Copy and wrap.** Copy a file's root-relative path or its contents, copy a
+  `path:12-30` reference for the lines you selected, and toggle line wrapping for
+  text and raw views.
 - **Theme toggle.** A header button switches between the dark and light
   palettes and remembers the choice per browser; until it is used, the palette
   follows the system `prefers-color-scheme`.
@@ -66,7 +67,8 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   highlighted match; Enter opens the file.
 - **Keyboard.** `/` or `Ctrl/Cmd+K` opens quick open, `-` folds or expands
   every folder in the tree, `u` toggles line wrapping, `r` switches rendered and
-  raw Markdown, `n`/`p` step between a diff's hunks, and `?` opens a shortcut
+  raw Markdown, `y` copies a reference to the selected lines, `n`/`p` step
+  between a diff's hunks, and `?` opens a shortcut
   sheet. A diff's hunk headers pin to the top of the code viewport while its
   body scrolls.
 - **Read-only and loopback-scoped.** No editing, no writing, no LAN exposure.
