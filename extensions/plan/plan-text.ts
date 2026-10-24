@@ -16,7 +16,7 @@
 import { createHash } from "node:crypto";
 import { stripControlChars } from "../../lib/format.ts";
 import { displayFeedback, stripFeedback } from "./feedback.ts";
-import { extractPlanSections } from "./steps.ts";
+import { extractPlanSections, sectionKeys } from "./steps.ts";
 
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
@@ -95,18 +95,17 @@ export function changedSections(baseline: readonly SectionDigest[] | undefined, 
 	const sections = extractPlanSections(reviewText(current));
 	if (baseline === undefined) return sections.map(() => false);
 
-	const before = new Map<string, string[]>();
-	for (const section of baseline) {
-		const digests = before.get(section.title);
-		if (digests) digests.push(section.digest);
-		else before.set(section.title, [section.digest]);
-	}
+	// Same section across two reviews: `sectionKeys` tells a second `## Notes` from
+	// the first, so a duplicate heading is never compared with the wrong digest.
+	const before = new Map<string, string>();
+	sectionKeys(baseline).forEach((key, at) => {
+		const digest = baseline[at]?.digest;
+		if (digest !== undefined) before.set(key, digest);
+	});
 
-	const seen = new Map<string, number>();
-	return sections.map((section) => {
-		const index = seen.get(section.title) ?? 0;
-		seen.set(section.title, index + 1);
-		const prior = before.get(section.title)?.[index];
+	const keys = sectionKeys(sections);
+	return sections.map((section, at) => {
+		const prior = before.get(keys[at] ?? "");
 		return prior === undefined || prior !== digestOf(section.text);
 	});
 }

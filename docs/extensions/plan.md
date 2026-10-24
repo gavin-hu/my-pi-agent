@@ -995,7 +995,7 @@ both.
 | `web-markdown.ts` | The client's document half: `safeHref` and the inline/table/code/list rendering (interpolated into `web-client.ts`). |
 | `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, and reading progress (interpolated into `web-client.ts`). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
-| [`../../lib/plans/`](../../lib/plans/) | The plan document's shared shape: `sections.ts` (the one fence-aware scan), `team.ts` (the `## Team` codec), `split.ts` (`checkSplit` and its refusals), `store.ts` (`plansDir`), and `setting.ts` (the `plan.split` key), so approval and `session-bus` cannot disagree. |
+| [`../../lib/plans/`](../../lib/plans/) | The plan document's shared shape: `sections.ts` (the one fence-aware scan, and the occurrence key that tells two identically titled sections apart), `team.ts` (the `## Team` codec), `split.ts` (`checkSplit` and its refusals), `store.ts` (`plansDir`), and `setting.ts` (the `plan.split` key), so approval and `session-bus` cannot disagree. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |
 | [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |

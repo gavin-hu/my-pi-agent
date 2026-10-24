@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { extractSections, replaceSection, teamSectionBody } from "./sections.ts";
+import { extractSections, replaceSection, sectionKeys, teamSectionBody } from "./sections.ts";
 
 const PLAN = `# Title
 
@@ -42,6 +42,24 @@ describe("extractSections", () => {
 	test("keeps each section's raw lines", () => {
 		const team = extractSections(PLAN).find((section) => section.title === "Team");
 		expect(team?.text).toStartWith("## Team\n\nLead: contract");
+	});
+});
+
+describe("sectionKeys", () => {
+	test("keys a repeated heading by which occurrence it is", () => {
+		const sections = extractSections("## Notes\na\n\n## Steps\nb\n\n## Notes\nc");
+		expect(sectionKeys(sections)).toEqual(["0\u0000Notes", "0\u0000Steps", "1\u0000Notes"]);
+	});
+
+	test("counts the preamble's empty title like any other", () => {
+		const sections = extractSections("intro\n\n## Notes\na");
+		expect(sectionKeys(sections)).toEqual(["0\u0000", "0\u0000Notes"]);
+	});
+
+	test("gives every section its own key, in document order", () => {
+		const sections = extractSections(PLAN);
+		expect(sectionKeys(sections)).toHaveLength(sections.length);
+		expect(new Set(sectionKeys(sections)).size).toBe(sections.length);
 	});
 });
 

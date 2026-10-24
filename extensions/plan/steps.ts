@@ -36,6 +36,7 @@ export {
 	HEADING,
 	normalizeHeadingText,
 	replaceSection,
+	sectionKeys,
 } from "../../lib/plans/sections.ts";
 export type { PlanSection } from "../../lib/plans/sections.ts";
 

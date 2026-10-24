@@ -274,6 +274,27 @@ describe("authored review comments", () => {
 		expect(parseFeedback(saved)).toEqual([{ anchor: 1, comment: "c" }]);
 	});
 
+	// Two `## Notes` are two sections: a comment belongs to the one it was written in,
+	// which is the occurrence rule the codec and the review's digest comparison share.
+	test("keeps two same-titled sections' comments apart", () => {
+		const previous = "## Notes\nfirst\n> [!REVIEW] on the first\n\n## Notes\nsecond\n> [!REVIEW] on the second";
+		const rewritten = "## Notes\nfirst, restated\n\n## Notes\nsecond, restated";
+		expect(carryFeedback(previous, rewritten)).toBe(
+			"## Notes\nfirst, restated\n> [!REVIEW] on the first\n\n## Notes\nsecond, restated\n> [!REVIEW] on the second",
+		);
+	});
+
+	test("moves a deleted same-titled section's comments onto the survivor", () => {
+		// Occurrence 0 of the new plan is a different section from occurrence 0 of the
+		// old, so a section that disappears hands its comments to the one that took its
+		// place. Recorded as today's behaviour, not endorsed: changing it is a
+		// behaviour change, so this test is here to notice one.
+		const previous = "## Notes\nfirst\n> [!REVIEW] on the first\n\n## Notes\nsecond\n> [!REVIEW] on the second";
+		expect(carryFeedback(previous, "## Notes\nsecond")).toBe(
+			"## Notes\nsecond\n> [!REVIEW] on the first\n> [!REVIEW] on the second",
+		);
+	});
+
 	test("reads a marker that follows a blank line onto the block above it", () => {
 		expect(parseFeedback("## Steps\n- [ ] one\n\n> [!REVIEW] about one\n## Notes\nx")).toEqual([
 			{ anchor: 1, comment: "about one" },
