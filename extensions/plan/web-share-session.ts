@@ -3,13 +3,12 @@
  * network, and the state the owner's page and `/plan share` read.
  *
  * Separate from `web.ts` because the review session's job is its own lifecycle —
- * open, settle, close — while this module owns the socket that exists only while
- * the owner has sharing on. It is handed the one request handler, the token
+ * open, settle, close — while this module owns the address, the links, and the
+ * listener's lifetime. It is handed the one request handler, the token
  * hooks, and the frame hooks, so it never reaches into the session's maps.
  */
 
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { bindHost, createCloser, LOOPBACK_HOSTS } from "../../lib/http/index.ts";
+import { LOOPBACK_HOSTS, type LoopbackHandler, type LoopbackServer, serveLoopback } from "../../lib/http/index.ts";
 import { qrSvg } from "../../lib/qr.ts";
 import type { ReviewFrame, ReviewRole } from "./types.ts";
 import {
@@ -27,7 +26,9 @@ import {
 /** What the share listener needs from the review session it belongs to. */
 export interface ShareSessionDeps {
 	/** The one request handler: a loopback page and a shared page are the same page. */
-	handleRequest: (request: IncomingMessage, response: ServerResponse) => void;
+	handleRequest: LoopbackHandler;
+	/** The body cap both listeners read under, so a shared page is not read differently. */
+	maxBodyBytes: number;
 	/** The owner's bound port, reused for the link when it is free. */
 	ownerPort: () => number;
 	/** The machine's interfaces, or a snapshot a test injected. */
@@ -65,8 +66,7 @@ export interface ShareSession {
 export function createShareSession(deps: ShareSessionDeps): ShareSession {
 	let address = "";
 	let port = 0;
-	let server: Server | undefined;
-	let closeServer: (() => Promise<void>) | undefined;
+	let server: LoopbackServer | undefined;
 	const links: LinkTable = createLinkTable({
 		mint: deps.mintReviewer,
 		revoke: deps.revokeReviewer,
@@ -87,24 +87,20 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 
 	/** Bind the shared listener on `chosen`, reusing the owner's port when it is free. */
 	const bind = async (chosen: string): Promise<void> => {
-		const candidate = createServer(deps.handleRequest);
-		let bound: number | undefined;
-		for (const attempt of [deps.ownerPort(), 0]) {
-			try {
-				bound = await bindHost(candidate, chosen, attempt);
-				break;
-			} catch {
-				bound = undefined;
-			}
+		try {
+			const bound = await serveLoopback({
+				host: chosen,
+				ports: [deps.ownerPort(), 0],
+				maxBodyBytes: deps.maxBodyBytes,
+				handler: deps.handleRequest,
+			});
+			server = bound;
+			address = chosen;
+			port = bound.port;
+		} catch {
+			// Neither the owner's port nor a free one answered: the caller reports it.
+			server = undefined;
 		}
-		if (bound === undefined) {
-			candidate.close();
-			return;
-		}
-		server = candidate;
-		closeServer = createCloser(candidate);
-		address = chosen;
-		port = bound;
 	};
 
 	/**
@@ -176,21 +172,19 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 		// The reviewers are told before their listener goes away; the review itself
 		// stays open for its owner.
 		deps.endStreams("revoked", { role: "reviewer" });
-		const closer = closeServer;
+		const closer = server;
 		server = undefined;
-		closeServer = undefined;
 		address = "";
 		port = 0;
 		reason = undefined;
-		if (closer) await closer();
+		if (closer) await closer.close();
 		return settle();
 	};
 
 	const close = async (): Promise<void> => {
-		const closer = closeServer;
+		const closer = server;
 		server = undefined;
-		closeServer = undefined;
-		if (closer) await closer();
+		if (closer) await closer.close();
 	};
 
 	return { share, invite, revoke, stop, state: snapshot, hosts, close };

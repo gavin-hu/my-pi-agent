@@ -3,9 +3,11 @@
  * when a closed tab ends the review.
  *
  * A frame carries only a kind, so the registry is the only thing that knows who
- * is connected. It is keyed by response — a page may hold more than one stream —
- * and records the caller it belongs to, so an owner-only frame, or one revoked
- * link, can be addressed without the caller reaching into the map.
+ * is connected. It is keyed by sink — a page may hold more than one stream — and
+ * records the caller it belongs to, so an owner-only frame, or one revoked link,
+ * can be addressed without the caller reaching into the map. Liveness is the
+ * sink's own (a write after the end is a no-op), so the registry never asks the
+ * socket whether it is still writable.
  *
  * The closed-tab rule lives here because it is a fact about streams: a reviewer's
  * tab opening or closing changes nothing, while the owner's own page going away
@@ -13,7 +15,7 @@
  * against that reload, so it takes the timer as a seam a test can drive by hand.
  */
 
-import type { ServerResponse } from "node:http";
+import type { EventSink } from "../../lib/http/index.ts";
 import type { ArmTimer } from "../../lib/timer.ts";
 import type { ReviewFrame, ReviewRole } from "./types.ts";
 
@@ -44,9 +46,9 @@ export interface StreamRegistryDeps {
 /** The stream set one running review holds. */
 export interface StreamRegistry {
 	/** Register a stream, and stand down a pending closed-tab grace. */
-	add(response: ServerResponse, record: StreamRecord): void;
+	add(sink: EventSink, record: StreamRecord): void;
 	/** Forget a stream, arming the grace when it was the owner's last one. */
-	remove(response: ServerResponse): void;
+	remove(sink: EventSink): void;
 	/** Tell the open pages something changed. */
 	broadcast(kind: ReviewFrame, only?: StreamFilter): void;
 	/** Send one last frame and end the stream with it. */
@@ -60,7 +62,7 @@ export interface StreamRegistry {
 }
 
 export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
-	const clients = new Map<ServerResponse, StreamRecord>();
+	const clients = new Map<EventSink, StreamRecord>();
 	let sawOwner = false;
 	let cancelDrop: (() => void) | undefined;
 
@@ -91,29 +93,27 @@ export function createStreams(deps: StreamRegistryDeps): StreamRegistry {
 	};
 
 	return {
-		add(response, record) {
-			clients.set(response, record);
+		add(sink, record) {
+			clients.set(sink, record);
 			if (record.role === "owner") {
 				sawOwner = true;
 				cancel();
 			}
 		},
-		remove(response) {
-			const record = clients.get(response);
-			clients.delete(response);
+		remove(sink) {
+			const record = clients.get(sink);
+			clients.delete(sink);
 			if (record?.role === "owner") scheduleDrop();
 		},
 		broadcast(kind, only) {
 			for (const [client, record] of clients) {
 				if (!matches(record, only)) continue;
-				if (client.writableEnded || client.destroyed) continue;
 				client.write(`data: ${kind}\n\n`);
 			}
 		},
 		end(kind, only) {
 			for (const [client, record] of clients) {
 				if (!matches(record, only)) continue;
-				if (client.writableEnded || client.destroyed) continue;
 				client.end(`data: ${kind}\n\n`);
 			}
 		},

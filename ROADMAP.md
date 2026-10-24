@@ -79,7 +79,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S2–S3 |
 | Remember across sessions | Works; the store reports its own health, and a same-tick edit is next | S1 |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W5 |
-| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F4 |
+| Optional and upgradeable | Strong; the update action is the remaining surface | C1–C2, F1–F3 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -103,7 +103,7 @@ release, and the changelog, not this list, records what did.
 | Horizon | Question | Exit condition |
 |---|---|---|
 | **Now** | Does the pack keep what it promised? | `P1` and `S1` ship, each with its test and its page line. |
-| **Next** | Does the daily loop feel finished? | `W1`, `C1`, and `F3`–`F4` land, or are demoted with the reason recorded. |
+| **Next** | Does the daily loop feel finished? | `W1`, `C1`, and `F3` land, or are demoted with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
 Horizons are priority tiers, not dated commitments. A minor release ships
@@ -412,20 +412,13 @@ These are not a README pillar, but every promise depends on them.
 
 **Now**
 
-Nothing here makes a false promise today.
+Nothing here makes a false promise today: binding, the accept path, the close
+path, and idle grace are one server entry, and a page cannot outlive the session
+it describes.
 
 **Next**
 
-- **F3 — One loopback lifecycle.** Binding, the `Host` check, page headers, and
-  the response writer live in `lib/http/`, but `plan` and `file-browse` each
-  build their own `node:http` server around those pieces and close it
-  themselves, so the close path exists twice and idle grace exists once
-  (`extensions/file-browse/server.ts`, `extensions/plan/web.ts`). Give
-  `lib/http/` one server entry that owns bind → accept → close → idle, and let an
-  extension supply routes and an idle policy only. *Done when* neither extension
-  imports `node:http` for its own server, idle grace is asserted by a `lib/http/`
-  test, and a page cannot outlive the session it describes.
-- **F4 — Role directories past twenty modules.** The architecture page names the
+- **F3 — Role directories past twenty modules.** The architecture page names the
   roles a module can play and lets a role earn a directory past roughly twenty
   modules, the way `bytefly/` groups `footer/`, `notice/`, and `separator/` and
   `web-access/` groups `fetch/` and `search/`. Counting modules and not files —

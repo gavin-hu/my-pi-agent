@@ -137,7 +137,7 @@ a directory, the way [`../extensions/bytefly/`](../extensions/bytefly/) groups
 `footer/`, `notice/`, `header/`, and `separator/`, and `plan` keeps its tool
 surface in `tools/`. One extension is still flat at that size, and
 [`../extensions/wechat/`](../extensions/wechat/) is the worked example of the
-rule — seven role directories around the wiring — while `rewind` is gap `F4`.
+rule — seven role directories around the wiring — while `rewind` is gap `F3`.
 
 ## One turn
 
@@ -246,7 +246,7 @@ Four layers sit below the extensions, each with one contract.
 | `lib/` core | configuration, environment, paths, formatting, errors, spawning, timers, and the two subsystems with their own seam: [`../lib/git/`](../lib/git/) and [`../lib/plans/`](../lib/plans/) | [`../lib/README.md`](../lib/README.md) |
 | [`../lib/tui/`](../lib/tui/) | the terminal design system: roles, rules, rows, columns, gauges, the transcript kit, the render cache | [`../lib/tui/README.md`](../lib/tui/README.md) |
 | [`../lib/web/`](../lib/web/) | the browser design system: tokens, base CSS, components, markup atoms | [`../lib/web/README.md`](../lib/web/README.md) |
-| [`../lib/http/`](../lib/http/) | the loopback policy every served page obeys: binding, `Host` check, page headers, responses, event streams, the idempotent closer | [`../lib/README.md`](../lib/README.md) |
+| [`../lib/http/`](../lib/http/) | the loopback policy every served page obeys: one server entry, binding, `Host` check, page headers, responses, event streams, the idempotent closer | [`../lib/README.md`](../lib/README.md) |
 
 Two rules keep the layers honest.
 
@@ -298,8 +298,7 @@ Three rules keep that honest.
   account or the same directory; the WeChat poller's lock is the example.
 - **A loopback server has one lifecycle.** Binding, the accept path, the close
   path, and idle grace live in [`../lib/http/`](../lib/http/), and an extension
-  supplies routes rather than building a `node:http` server of its own. `plan` and
-  `file-browse` each still assemble their own around those pieces — gap `F3`.
+  supplies routes rather than building a `node:http` server of its own.
 - **What outlives the process is pruned by its owner, not on exit.** A cap, or a
   command in the shape of `/worktree prune`.
 
@@ -375,13 +374,12 @@ If you are new to the tree, this order teaches one idea per stop.
 
 ## Where the tree has not caught up
 
-This page states the target. Two rules in it are ahead of the code, and each is
-work in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
+This page states the target. One rule in it is ahead of the code, and it is work
+in [`../ROADMAP.md`](../ROADMAP.md) §5 rather than a rule to enforce:
 
 | Gap | The rule above | What the tree does today |
 |---|---|---|
-| `F3` | One loopback lifecycle in `lib/http/` | `plan` and `file-browse` each build and close their own server around `lib/http`'s pieces |
-| `F4` | A role earns a directory past roughly twenty modules | `rewind` is flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
+| `F3` | A role earns a directory past roughly twenty modules | `rewind` is flat past it; `job`, `worktree`, and `subagent` stay flat until they cross it |
 
 The list shrinks and never grows: when a gap ships, its row is deleted from both
 files. A new rule reaches this page first and the roadmap second, because the

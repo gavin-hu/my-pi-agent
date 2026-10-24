@@ -6,7 +6,7 @@ two-pane file browser: a collapsible path tree on the left, directory listings
 and file views on the right, with image thumbnails, rendered Markdown,
 highlighted code, per-language icons, a fuzzy quick-open palette, and a
 read-only git diff view. It is bound to `127.0.0.1` and ships no dependencies —
-`node:http` plus one small vanilla script.
+the shared loopback layer plus one small vanilla script.
 
 <img src="../../assets/file-browse.png" alt="The loopback file browser, showing the path filter, the file tree, and a rendered Markdown preview" width="100%">
 
@@ -381,11 +381,12 @@ and the server then waits for `/browse stop` or the end of the session.
 index, the server's uptime, and its request count — and `frameOf` serializes it
 as one `status` event. `createLiveChannel` holds the attached pages and starts
 the ticker on the first attach, so an idle server does no work; it shares a
-single in-flight snapshot between pages, drops a page whose write fails, and
-stops on the last detach and on `close()`, which `server.ts` calls before
-closing the socket. The last detach also arms one idle-stop timer — a reload
-re-attaches and cancels it — and `server.ts` turns that into the extension's
-`close()` and a cleared chip. Both providers are already TTL-cached, so a tick
+single in-flight snapshot between pages and stops the ticker on the last detach
+and on `close()`, which `server.ts` calls before closing the socket. The idle
+stop is one layer down: `lib/http` arms a single timer when a server's last
+stream ends, a reload re-attaches and cancels it, and `server.ts` turns that into
+the extension's `close()` and a cleared chip. Both providers are already
+TTL-cached, so a tick
 re-reads at most one `git status`, and every read failure degrades to `null`
 rather than a failed frame. The event-stream headers and the `retry:` preamble
 live in `lib/http` with the rest of the loopback policy, shared with plan's
@@ -463,7 +464,8 @@ stops at the first difference because the control, not the checker, is the fix.
 - **Pure routing.** `handleRequest(context, method, rawUrl, headers)` validates
   method and `Host`, parses the URL, matches a route, and runs every path
   through `paths.ts`. It returns a plain `ServeResponse`, so routing is tested
-  without a socket; `server.ts` is the only part that binds a port.
+  without a socket; `server.ts` is the only part that hands those routes to
+  `lib/http`'s loopback server.
 - **One snapshot, one frame.** The status source is shared by every attached
   page, so a tick costs one `git status`, one `git diff --stat`, and one
   serialization however many tabs are open. The frame carries a revision of the
@@ -514,8 +516,8 @@ stops at the first difference because the control, not the checker, is the fix.
 | `html.ts` | Page renderers: the shared shell, the two-pane layout, the listing, and the cards |
 | `diff-html.ts` | The unified-diff body: the gutter, the sign, the hunk sections, and per-hunk highlighting |
 | `router.ts` | Pure request handler: routes, the `/raw` sandbox policy, and the error page |
-| `server.ts` | `node:http` server: this extension's handler over the shared bind, writer, and close |
-| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, bind/respond/close, and `openEventStream` |
+| `server.ts` | This extension's routes over `lib/http`'s loopback server: the request count, the stream cap, and the idle policy |
+| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: one server entry (`serveLoopback`), page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, the event-stream sink and its idle grace |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |
 
 ## Testing
@@ -541,8 +543,7 @@ parsing, mode filtering, untracked all-add, unborn-HEAD fallback, literal
 pathspec, and TTL cache), the diff renderers (highlighted changed lines, marker
 sets, and chip totals), the live status feed (snapshot fields, degraded
 providers, the frame, and the channel's ticker driven by an injected timer, plus
-the idle stop armed on the last detach and cancelled by the next page or by
-`close()`), the `/events` route and its 404 when the channel is off, a real
+the ticker parking on the last detach and on `close()`), the `/events` route and its 404 when the channel is off, a real
 socket that reads a page's first frame and the ticker's next one and sees the
 stream end when the server closes, the live chrome a page renders when on and
 not when off, and the command lifecycle with injected seams.

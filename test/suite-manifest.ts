@@ -68,6 +68,8 @@ export const LIB_SUITES: readonly string[] = [
 	"timer",
 	"git/index",
 	"http/http",
+	"http/serve",
+	"http/sink",
 	"tui/layout",
 	"tui/components",
 	"tui/interaction",

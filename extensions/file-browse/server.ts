@@ -1,27 +1,19 @@
 /**
  * The HTTP server for the browse extension.
  *
- * Wraps `node:http` around the pure `handleRequest`: it resolves the root once,
- * binds `127.0.0.1`, streams `/raw` responses from disk, feeds the live status
- * channel, and exposes an idempotent `close()`. The request handler is injectable
- * so tests can avoid a socket when they only need routing.
+ * Wraps the pure `handleRequest` in `lib/http`'s loopback server: it resolves the
+ * root once, feeds the live status channel, and exposes an idempotent `close()`.
+ * The request handler is injectable so tests can avoid a socket when they only
+ * need routing.
  *
- * The bind, the response writer, the event-stream head, and the close come from
- * `lib/http`, which `plan` shares; what stays here is this server's own request
- * handler, its request count, and the catch that turns a thrown handler into a
- * plain-text 500.
+ * What stays here is this extension's own policy: the request handler, its
+ * request count, the catch that turns a thrown handler into a plain-text 500, the
+ * cap that refuses a page rather than opening a stream for it, and how long a
+ * server with nobody reading it is worth keeping.
  */
 
 import { realpathSync } from "node:fs";
-import { createServer } from "node:http";
-import {
-	bindLoopback,
-	createCloser,
-	openEventStream,
-	respond,
-	textResponse,
-	type ServeResponse,
-} from "../../lib/http/index.ts";
+import { type ServeResponse, serveLoopback, textResponse } from "../../lib/http/index.ts";
 import { IDLE_STOP_MS, type ServeConfig } from "./config.ts";
 import { createFileIndex } from "./files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "./git.ts";
@@ -69,14 +61,7 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 				requests: () => requests,
 			})
 		: undefined;
-	const live = status
-		? createLiveChannel({
-				status,
-				intervalMs: config.liveIntervalMs,
-				idleMs: options.idleStopMs ?? IDLE_STOP_MS,
-				onIdle: options.onIdle,
-			})
-		: undefined;
+	const live = status ? createLiveChannel({ status, intervalMs: config.liveIntervalMs }) : undefined;
 	const context: ServeContext = {
 		root,
 		config,
@@ -87,55 +72,39 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 	};
 	const handler = options.handler ?? handleRequest;
 
-	const server = createServer((request, response) => {
-		requests += 1;
-		const answer = async (): Promise<ServeResponse> => {
+	const server = await serveLoopback({
+		ports: [config.port],
+		idle: options.onIdle === undefined ? undefined : { ms: options.idleStopMs ?? IDLE_STOP_MS, onIdle: options.onIdle },
+		handler: async (request) => {
+			requests += 1;
+			let result: ServeResponse;
 			try {
-				return await handler(context, request.method ?? "GET", request.url ?? "/", request.headers);
+				result = await handler(context, request.method, request.url, request.headers);
 			} catch {
-				return textResponse(500, "Internal error");
+				return { result: textResponse(500, "Internal error") };
 			}
-		};
-		void answer().then((result) => {
-			// A HEAD of the stream is answered as a plain response: there is no body to
-			// hold open, and the client would otherwise wait on frames it asked not to get.
-			if (!result.stream || !live || (request.method ?? "GET").toUpperCase() === "HEAD") {
-				respond(request, response, result);
-				return;
-			}
+			if (!result.stream || !live || request.method.toUpperCase() === "HEAD") return { result };
 			// Checked before the head is written: a refusal must not leave a stream the
 			// client would wait on. `204` is the one status an event source does not
 			// reconnect after, so a page beyond the cap goes quiet instead of retrying.
 			if (live.atCapacity()) {
-				respond(request, response, { status: 204, headers: { "Cache-Control": "no-store" }, body: "" });
-				return;
+				return { result: { status: 204, headers: { "Cache-Control": "no-store" }, body: "" } };
 			}
-			openEventStream(response, result);
-			const detach = live.attach({
-				write: (frame) => {
-					response.write(frame);
-				},
-				end: () => {
-					if (!response.writableEnded) response.end();
-				},
-			});
-			request.on("close", () => {
-				detach();
-				if (!response.writableEnded) response.end();
-			});
-		});
+			return {
+				result,
+				openSink: (sink) => live.attach({ write: (frame) => sink.write(frame), end: () => sink.end() }),
+			};
+		},
 	});
 
-	const port = await bindLoopback(server, config.port);
-	const closeServer = createCloser(server);
 	return {
-		url: `http://127.0.0.1:${port}/`,
-		port,
+		url: `${server.origin}/`,
+		port: server.port,
 		root,
 		close: async () => {
 			// End the streams first, so a connected page does not hold the close open.
 			live?.close();
-			await closeServer();
+			await server.close();
 		},
 	};
 }

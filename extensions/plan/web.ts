@@ -6,21 +6,20 @@
  * for one plan, opens the default browser at a tokenized URL, and resolves
  * `done` when the user saves feedback, cancels, closes the tab (detected by the
  * event stream dropping), or aborts the turn. The route logic lives in the pure
- * `web-router.ts`; this module is the only part that owns a socket and timers,
- * and it takes injected seams so tests can run one on `127.0.0.1:0`.
+ * `web-router.ts`; this module owns the routes and the timers, `lib/http` owns
+ * the socket, and it takes injected seams so tests can run one on `127.0.0.1:0`.
  */
 
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { networkInterfaces } from "node:os";
 import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
 import {
-	bindLoopback,
-	createCloser,
 	jsonHeaders,
-	openEventStream,
+	type LoopbackRequest,
+	type LoopbackReply,
+	type LoopbackServer,
 	parseRequestUrl,
-	respond,
+	serveLoopback,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
@@ -143,40 +142,6 @@ const DROP_GRACE_MS = 1500;
  */
 const PLAN_POLL_MS = 1000;
 
-/** A request body, or the fact that it was too large to read. */
-type BodyResult = { ok: true; body: string } | { ok: false };
-
-/**
- * Read a request body, stopping at {@link MAX_BODY_BYTES}. An oversize body is
- * reported rather than destroyed here, so the handler can still answer 413 over
- * the open socket instead of the client seeing a dropped connection.
- */
-function readBody(request: IncomingMessage, limit: number): Promise<BodyResult> {
-	return new Promise((resolve) => {
-		const chunks: Buffer[] = [];
-		let size = 0;
-		let done = false;
-		const settle = (result: BodyResult): void => {
-			if (done) return;
-			done = true;
-			resolve(result);
-		};
-		request.on("data", (chunk: Buffer) => {
-			if (done) return;
-			size += chunk.length;
-			if (size > limit) {
-				chunks.length = 0;
-				request.pause();
-				settle({ ok: false });
-				return;
-			}
-			chunks.push(chunk);
-		});
-		request.on("end", () => settle({ ok: true, body: Buffer.concat(chunks).toString("utf-8") }));
-		request.on("error", () => settle({ ok: false }));
-	});
-}
-
 export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = {}): PlanWebReview {
 	const sessions = new Set<PlanReviewSession>();
 	// What each running review can do about sharing; the session itself stays the
@@ -193,7 +158,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 	): Promise<PlanReviewSession | undefined> => {
 		const { signal } = options;
 		const canApprove = options.canApprove === true;
-		const maxBody = deps.maxBodyBytes ?? MAX_BODY_BYTES;
+		// One cap for both listeners: a reviewer's page posts the same bodies as the
+		// owner's, so the shared one cannot be the stricter or the looser of the two.
+		const bodyLimit = deps.maxBodyBytes ?? MAX_BODY_BYTES;
 		// One token per holder: the owner's is minted here and never shared, and a
 		// reviewer token is minted by `share()`. The table owns the collision rule and
 		// the name each link has bound.
@@ -376,6 +343,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// frame hooks, so sharing stays one concern instead of five fields here.
 		const shareSession = createShareSession({
 			handleRequest,
+			maxBodyBytes: bodyLimit,
 			ownerPort: () => currentPort,
 			networkInterfaces: deps.networkInterfaces ?? networkInterfaces,
 			mintReviewer: () => tokens.mint("reviewer"),
@@ -410,78 +378,56 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// Live event streams, used only to notice a closed owner tab: a reviewer's
 		// tab is not the review's lifetime. The explicit Cancel button and the abort
 		// signal are the deterministic paths.
-		const server = createServer(handleRequest);
 		/** One request, on either listener: the loopback page or a shared one. */
-		function handleRequest(request: IncomingMessage, response: ServerResponse): void {
-			void (async () => {
-				const method = request.method ?? "GET";
-				const read =
-					method.toUpperCase() === "POST" ? await readBody(request, maxBody) : { ok: true as const, body: "" };
-				if (!read.ok) {
-					response.writeHead(413, { ...jsonHeaders(), Connection: "close" });
-					response.end(JSON.stringify({ error: "The request body is too large." }));
-					return;
-				}
-				const body = read.body;
-				let result: ServeResponse;
-				try {
-					result = await handleReviewRequest(context, method, request.url ?? "/", request.headers, body);
-				} catch {
-					result = {
-						status: 500,
-						headers: jsonHeaders(),
-						body: JSON.stringify({ error: "Internal error" }),
-					};
-				}
-				if (result.stream) {
-					openEventStream(response, result);
-					// A page that walks away mid-frame must not take the session down.
-					response.on("error", () => {});
-					const token = parseRequestUrl(request.url ?? "/")?.search.get("token") ?? "";
-					const streamCaller = context.caller(token);
-					if (streamCaller !== undefined) streams.add(response, { role: streamCaller.role, token });
-					request.on("close", () => streams.remove(response));
-					return;
-				}
-				// A save or cancel only resolves the session after its response is on the
-				// wire; otherwise `close()` would force-close the socket mid-reply. The
-				// `close` path covers a client that walks away before the flush callback
-				// runs, so a settle cannot be lost with the socket.
-				const settlePending = (): void => {
-					const terminal = pendingResult;
-					if (!terminal) return;
-					pendingResult = undefined;
-					finish(terminal);
+		async function handleRequest(request: LoopbackRequest): Promise<LoopbackReply> {
+			let result: ServeResponse;
+			try {
+				result = await handleReviewRequest(context, request.method, request.url, request.headers, request.body);
+			} catch {
+				result = {
+					status: 500,
+					headers: jsonHeaders(),
+					body: JSON.stringify({ error: "Internal error" }),
 				};
-				respond(request, response, result, settlePending);
-				response.on("close", settlePending);
-			})();
+			}
+			// A save or cancel only resolves the session after its response is on the
+			// wire; otherwise `close()` would force-close the socket mid-reply. The same
+			// hook covers a client that walks away before the flush, so a settle cannot be
+			// lost with the socket.
+			const settlePending = (): void => {
+				const terminal = pendingResult;
+				if (!terminal) return;
+				pendingResult = undefined;
+				finish(terminal);
+			};
+			if (!result.stream) return { result, afterResponse: settlePending };
+			const token = parseRequestUrl(request.url)?.search.get("token") ?? "";
+			const streamCaller = context.caller(token);
+			return {
+				result,
+				openSink: (sink) => {
+					if (streamCaller !== undefined) streams.add(sink, { role: streamCaller.role, token });
+					return () => streams.remove(sink);
+				},
+			};
 		}
 
-		// The accept-level `error` listener lives in `bindHost`, so a transient
-		// failure cannot take the host down; the review still ends through its own
-		// paths: cancel, abort, drop, or shutdown.
 		const preferred = deps.port ?? ports.get(plan.path) ?? 0;
-		let port: number | undefined;
+		let server: LoopbackServer;
 		try {
-			port = await bindLoopback(server, preferred);
+			server = await serveLoopback({
+				ports: preferred === 0 ? [0] : [preferred, 0],
+				maxBodyBytes: bodyLimit,
+				handler: handleRequest,
+			});
 		} catch {
-			// The remembered port may have been taken between turns; fall back once.
-			if (preferred !== 0) {
-				try {
-					port = await bindLoopback(server, 0);
-				} catch {
-					port = undefined;
-				}
-			}
-		}
-		if (port === undefined) {
-			server.close();
+			// The remembered port may have been taken between turns; the fallback above
+			// covers that, so reaching here means neither port answered.
 			return undefined;
 		}
+		const port = server.port;
 		ports.set(plan.path, port);
 		currentPort = port;
-		const closeServer = createCloser(server);
 
 		const url = `http://127.0.0.1:${port}/?token=${token}`;
 		let closed = false;
@@ -498,7 +444,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			stopTicker();
 			streams.clear();
 			await shareSession.close();
-			await closeServer();
+			await server.close();
 		};
 
 		const session: PlanReviewSession = { url, port, done, close };

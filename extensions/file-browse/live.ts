@@ -12,7 +12,8 @@
  * pair — so the whole feed is tested without one.
  */
 
-import { defaultInterval, defaultTimer } from "../../lib/timer.ts";
+import type { EventSink } from "../../lib/http/index.ts";
+import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import { LIVE_MAX_CLIENTS } from "./config.ts";
 import { changeDirs } from "./diff.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
@@ -141,48 +142,25 @@ export function frameOf(snapshot: LiveSnapshot): string {
 	return `event: status\ndata: ${JSON.stringify(snapshot)}\n\n`;
 }
 
-/** A connected page: the two things a server can do to its stream. */
-export interface LiveClient {
-	/** Write one frame. */
-	write(frame: string): void;
-	/** End the stream. */
-	end(): void;
-}
-
-/** Starts a repeating tick and returns its cancel. */
-export type LiveTimer = (tick: () => void, intervalMs: number) => () => void;
-
-/** Starts a one-shot delay and returns its cancel. */
-export type LiveTimeout = (run: () => void, delayMs: number) => () => void;
-
-/** The default ticker: a repeating timer that cannot hold the process open. */
-const defaultTicker: LiveTimer = (tick, intervalMs) => defaultInterval(intervalMs, tick);
-
-/** The default grace timer: one shot, and it cannot hold the process open either. */
-const defaultTimeout: LiveTimeout = (run, delayMs) => defaultTimer(delayMs, run);
+/** A connected page, as the channel writes it: the sink's two verbs. */
+export type LiveClient = EventSink;
 
 export interface LiveChannelOptions {
 	/** What each frame carries. */
 	status: LiveStatusSource;
 	/** How far apart the frames are, in ms. */
 	intervalMs: number;
-	/** How long the last page's departure is held before `onIdle` is called, in ms. */
-	idleMs: number;
 	/** How many pages may attach at once; defaults to `LIVE_MAX_CLIENTS`. */
 	maxClients?: number;
-	/** Called once the last page has been gone for `idleMs`; omitted, the channel only idles. */
-	onIdle?: () => void;
 	/** Timer seam; defaults to an unref'd interval. */
-	timer?: LiveTimer;
-	/** Grace seam; defaults to an unref'd timeout. */
-	timeout?: LiveTimeout;
+	timer?: RepeatTimer;
 }
 
 /** The fan-out for one server: pages attach, ticks publish, close ends them. */
 export interface LiveChannel {
 	/** Add a connected page, send it the current status, and return its detach. */
 	attach(client: LiveClient): () => void;
-	/** End every connected page, stop the ticker, and drop a pending idle stop. */
+	/** End every connected page, and stop the ticker. */
 	close(): void;
 	/**
 	 * Whether another page must be refused. The caller asks before it opens the
@@ -192,18 +170,18 @@ export interface LiveChannel {
 }
 
 /**
- * Build a channel for one server. The ticker runs only while at least one page
- * is attached, so an idle server does no status work at all; the idle stop is one
- * timer armed when the last page leaves and cancelled by the next page, so a
- * reload keeps the server and a closed window releases it.
+ * Build a channel for one server. The ticker runs only while at least one page is
+ * attached, so an idle server does no status work at all; the last page leaving
+ * parks it and the next page starts it again. What happens to a server nobody is
+ * reading — the idle grace and the close it leads to — is the server's policy, so
+ * the caller hands it to `lib/http`'s `serveLoopback` instead of configuring it
+ * here.
  */
 export function createLiveChannel(options: LiveChannelOptions): LiveChannel {
-	const timer = options.timer ?? defaultTicker;
-	const timeout = options.timeout ?? defaultTimeout;
+	const timer = options.timer ?? defaultInterval;
 	const maxClients = options.maxClients ?? LIVE_MAX_CLIENTS;
 	const clients = new Set<LiveClient>();
 	let cancel: (() => void) | undefined;
-	let cancelIdle: (() => void) | undefined;
 	let inFlight = false;
 
 	const stop = (): void => {
@@ -211,34 +189,9 @@ export function createLiveChannel(options: LiveChannelOptions): LiveChannel {
 		cancel = undefined;
 	};
 
-	const cancelIdleStop = (): void => {
-		cancelIdle?.();
-		cancelIdle = undefined;
-	};
-
-	const armIdleStop = (): void => {
-		if (!options.onIdle || cancelIdle) return;
-		cancelIdle = timeout(() => {
-			cancelIdle = undefined;
-			options.onIdle?.();
-		}, options.idleMs);
-	};
-
-	/** Nobody is reading a frame any more: park the ticker and start the grace. */
-	const pageLeft = (): void => {
-		stop();
-		armIdleStop();
-	};
-
 	const send = (frame: string): void => {
-		for (const client of clients) {
-			try {
-				client.write(frame);
-			} catch {
-				clients.delete(client);
-			}
-		}
-		if (clients.size === 0) pageLeft();
+		for (const client of clients) client.write(frame);
+		if (clients.size === 0) stop();
 	};
 
 	// One snapshot serves every attached page, so a tick is one git read and one
@@ -255,17 +208,15 @@ export function createLiveChannel(options: LiveChannelOptions): LiveChannel {
 
 	return {
 		attach(client) {
-			cancelIdleStop();
 			clients.add(client);
-			cancel ??= timer(() => void publish(), options.intervalMs);
+			cancel ??= timer(options.intervalMs, () => void publish());
 			void publish();
 			return () => {
 				if (!clients.delete(client)) return;
-				if (clients.size === 0) pageLeft();
+				if (clients.size === 0) stop();
 			};
 		},
 		close() {
-			cancelIdleStop();
 			stop();
 			for (const client of clients) client.end();
 			clients.clear();

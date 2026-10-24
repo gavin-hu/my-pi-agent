@@ -1,15 +1,17 @@
 /**
- * The socket seam shared by the browser servers: bind, write a response out,
- * and close.
+ * The socket primitives `serveLoopback` is built from: bind, write a response
+ * out, and close.
  *
- * Everything here is behavior a caller cannot get right by accident: a bind on
- * an address the caller names (loopback unless it asked for more), an
- * accept-level `error` listener so a transient failure cannot take the host
- * down, a `HEAD` that sends headers and no body, a `filePath` response streamed
- * instead of buffered, a `stream` response opened as an event stream, and a
- * close that is safe to call twice and drops keep-alive connections. What each
- * server does *around* this — which frames an event stream carries, request
- * bodies, session settling — stays with that server.
+ * Internal to the layer: an extension starts a server through
+ * `serveLoopback`, which composes these, so this module is reached from `lib/http`
+ * and its own suite — not from the barrel. Everything here is behavior a caller
+ * cannot get right by accident: a bind on an address the caller names (loopback
+ * unless it asked for more), an accept-level `error` listener so a transient
+ * failure cannot take the host down, a `HEAD` that sends headers and no body, a
+ * `filePath` response streamed instead of buffered, a `stream` response opened as
+ * an event stream, and a close that is safe to call twice and drops keep-alive
+ * connections. What a server does *around* this — which frames an event stream
+ * carries, request bodies, session settling — stays with `serve.ts`.
  */
 
 import { createReadStream } from "node:fs";
