@@ -9,19 +9,19 @@
  *
  *   bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280]
  *     [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer]
- *     [--post <name>] [--draft <text>]
+ *     [--post <name>] [--draft <text>] [--share]
  *
  * The plan path is any Markdown file; the review page, not the CLI, decides how
  * it renders. Output defaults to `<plan-stem>.png` in the working directory.
  * `--as reviewer` captures the page a shared link opens, `--post <name>` posts one
  * comment as that reviewer first (so the frame shows the name bound to the link),
- * and `--draft <text>` starts the tab with one unsaved comment, the state a reload
- * produces.
+ * `--draft <text>` starts the tab with one unsaved comment, the state a reload
+ * produces, and `--share` captures the owner's Share dialog with two links.
  */
 
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { createPlanWebReview } from "../extensions/plan/web.ts";
+import { createPlanWebReview, type PlanReviewSession, type PlanWebReview } from "../extensions/plan/web.ts";
 import type { NetworkInterfaces } from "../extensions/plan/web-share.ts";
 import { parseShotArgs, runCli } from "./cli.ts";
 import { anchorOf, captureStore, draftSeed, postAsReviewer, storedPlan } from "./plan-review-capture.ts";
@@ -29,6 +29,9 @@ import { type PageShotOptions, capturePage } from "./web-shot.ts";
 
 /** Which role's page to capture. */
 export type ShotRole = "owner" | "reviewer";
+
+/** The token every capture uses, so a minted link's URL is stable in a frame. */
+const TOKEN = "screenshot";
 
 /** CLI options after parsing. */
 export interface ShotOptions extends PageShotOptions {
@@ -40,6 +43,8 @@ export interface ShotOptions extends PageShotOptions {
 	post?: string;
 	/** Unsaved comment to seed the tab with, which the client restores on boot. */
 	draft?: string;
+	/** Capture the owner's Share dialog instead of the plan, with two links on it. */
+	share?: boolean;
 }
 
 /** Parse the command line; throws a message the caller prints as usage. */
@@ -49,15 +54,20 @@ export function parseArgs(argv: string[]): ShotOptions {
 		scale: 2,
 		maxPositional: 1,
 		extraFlags: ["--as", "--post", "--draft"],
+		extraBooleans: ["--share"],
 	});
 	const plan = parsed.positional[0] ?? "";
 	if (!plan) throw new Error("a plan path is required");
 	const role = parsed.values["--as"] ?? "owner";
 	if (role !== "owner" && role !== "reviewer") throw new Error("--as must be owner or reviewer");
-	// Only a shared link binds a name, so posting belongs to that page alone.
+	const share = parsed.flags.has("--share");
+	// The dialog is the owner's own surface: a reviewer's page has no Share button.
+	if (share && role !== "owner") throw new Error("--share captures the owner's Share dialog, not a reviewer's page");
+	// A name is bound by posting through a reviewer link, which a reviewer page and a
+	// shared dialog both have; nothing else binds one.
 	const post = parsed.values["--post"];
 	if (post !== undefined) {
-		if (role !== "reviewer") throw new Error("--post needs --as reviewer");
+		if (role !== "reviewer" && !share) throw new Error("--post needs --as reviewer or --share");
 		if (post.trim() === "") throw new Error("--post needs a reviewer name");
 	}
 	// A bound link already has its name, so the two states cannot share a frame.
@@ -75,6 +85,7 @@ export function parseArgs(argv: string[]): ShotOptions {
 		role,
 		...(post === undefined ? {} : { post }),
 		...(draft === undefined ? {} : { draft }),
+		...(!share ? {} : { share }),
 	};
 }
 
@@ -83,6 +94,21 @@ const READY = `(function () {
 	var state = document.getElementById("review-state");
 	return document.querySelectorAll("#plan .bf-block").length > 0 &&
 		!!state && /Connected|Saved|Offline/.test(state.textContent || "");
+})()`;
+
+/**
+ * The Share dialog opens on request, not on load, so the capture opens it through
+ * the page's own button and waits for the per-person list to render. The click is
+ * made once: the poll runs again on every frame until the list arrives.
+ */
+const SHARE_READY = `(function () {
+	if (document.querySelectorAll("#share-links .review-share__row").length > 1) return true;
+	if (!window.__shareShot) {
+		window.__shareShot = true;
+		var button = document.getElementById("share");
+		if (button) button.click();
+	}
+	return false;
 })()`;
 
 /**
@@ -111,7 +137,7 @@ async function capture(options: ShotOptions): Promise<void> {
 	// browser opener is suppressed, and the token is fixed so the URL is stable.
 	const review = createPlanWebReview(capture.store, {
 		open: () => {},
-		token: () => "screenshot",
+		token: () => TOKEN,
 		port: 0,
 		networkInterfaces: () => LOOPBACK_AS_LAN,
 	});
@@ -128,7 +154,10 @@ async function capture(options: ShotOptions): Promise<void> {
 		}
 		// A posted comment is what binds the name to the link, so the frame shows the
 		// state a teammate's page reaches after writing once.
-		if (options.post !== undefined) await postAsReviewer(url, options.post, anchorOf(capture.content()));
+		if (options.post !== undefined && options.role === "reviewer") {
+			await postAsReviewer(url, options.post, anchorOf(capture.content()));
+		}
+		if (options.share) await mintShareLinks(review, session, options.post, anchorOf(capture.content()));
 		await capturePage({
 			url,
 			out: options.out,
@@ -136,7 +165,7 @@ async function capture(options: ShotOptions): Promise<void> {
 			scale: options.scale,
 			theme: options.theme,
 			waitMs: options.waitMs,
-			ready: READY,
+			ready: options.share ? `(${READY}) && (${SHARE_READY})` : READY,
 			...(options.draft === undefined ? {} : { init: [draftSeed(capture.content(), options.draft)] }),
 		});
 	} finally {
@@ -144,7 +173,25 @@ async function capture(options: ShotOptions): Promise<void> {
 	}
 }
 
-const USAGE = `usage: bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer] [--post <name>] [--draft <text>]`;
+/**
+ * Two links on the dialog, because a one-row list is the single-link state the page
+ * already had: the first is bound when `--post` named a reviewer, and the second is
+ * minted the way **New link** mints one.
+ */
+async function mintShareLinks(
+	review: PlanWebReview,
+	session: PlanReviewSession,
+	name: string | undefined,
+	anchor: number,
+): Promise<void> {
+	const first = (await review.share())?.state.links[0];
+	if (!first) throw new Error("could not mint a reviewer link");
+	if (name !== undefined) await postAsReviewer(first.url, name, anchor);
+	const response = await fetch(`http://127.0.0.1:${session.port}/api/share/link?token=${TOKEN}`, { method: "POST" });
+	if (!response.ok) throw new Error(`the review refused a second link: ${response.status}`);
+}
+
+const USAGE = `usage: bun run scripts/plan-review-shot.ts <plan.md> [-o out.png] [--width 1280] [--theme light|dark] [--scale 2] [--wait 8000] [--as owner|reviewer] [--post <name>] [--draft <text>] [--share]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {

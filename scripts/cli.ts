@@ -23,6 +23,8 @@ export interface ShotArgs {
 	positional: string[];
 	/** The caller's own value-flags, keyed as written (`"--root"`). */
 	values: Record<string, string>;
+	/** The caller's own bare flags that were given, e.g. `--share`. */
+	flags: Set<string>;
 }
 
 export interface ShotArgOptions {
@@ -32,6 +34,8 @@ export interface ShotArgOptions {
 	scale: number;
 	/** The caller's own value-taking flags, e.g. `["--root", "--file"]`. */
 	extraFlags?: readonly string[];
+	/** The caller's own bare flags, which take no value, e.g. `["--share"]`. */
+	extraBooleans?: readonly string[];
 	/** Positionals accepted before one is an error; default is unlimited. */
 	maxPositional?: number;
 }
@@ -49,7 +53,9 @@ export function parseShotArgs(argv: string[], options: ShotArgOptions): ShotArgs
 	let waitMs = 8000;
 	const positional: string[] = [];
 	const values: Record<string, string> = {};
+	const flags = new Set<string>();
 	const extra = new Set(options.extraFlags ?? []);
+	const booleans = new Set(options.extraBooleans ?? []);
 	const maxPositional = options.maxPositional ?? Number.POSITIVE_INFINITY;
 	for (let index = 0; index < argv.length; index++) {
 		const arg = argv[index];
@@ -68,6 +74,7 @@ export function parseShotArgs(argv: string[], options: ShotArgOptions): ShotArgs
 			theme = chosen;
 		} else if (arg === "-h" || arg === "--help") throw new Error("");
 		else if (extra.has(arg)) values[arg] = value();
+		else if (booleans.has(arg)) flags.add(arg);
 		else if (arg.startsWith("-")) throw new Error(`unknown option ${arg}`);
 		else if (positional.length >= maxPositional) throw new Error(`unexpected argument ${arg}`);
 		else positional.push(arg);
@@ -75,7 +82,7 @@ export function parseShotArgs(argv: string[], options: ShotArgOptions): ShotArgs
 	if (!Number.isFinite(width) || width < 320) throw new Error("--width must be at least 320");
 	if (!Number.isFinite(scale) || scale <= 0) throw new Error("--scale must be positive");
 	if (!Number.isFinite(waitMs) || waitMs < 0) throw new Error("--wait must not be negative");
-	return { out, width: Math.round(width), scale, theme, waitMs, positional, values };
+	return { out, width: Math.round(width), scale, theme, waitMs, positional, values, flags };
 }
 
 /** A positive numeric `--flag value`, or `fallback` when it is absent or unusable. */

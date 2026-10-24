@@ -130,6 +130,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   instead of waiting for one of them to reload. It is a once-a-second read rather
   than a file watcher, and a save that changed nothing but comments stays quiet;
   the save-side `409` remains the guard when a page is stale.
+- `lib`: a dialog body that outgrows its panel now scrolls, instead of pushing the
+  panel's own action buttons out of the clipped area — the plan review's Share
+  dialog is the first body that can grow with the number of links on it.
 
 - `skills`: `init` targets the instruction file Pi actually reads — editing a root
   `AGENTS.override.md` when it shadows `AGENTS.md` instead of writing a file Pi

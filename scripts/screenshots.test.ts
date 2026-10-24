@@ -161,6 +161,14 @@ describe("plan review shot arguments", () => {
 		expect(parsePlanReviewArgs(["plan.md"]).post).toBeUndefined();
 	});
 
+	test("--share captures the owner's dialog, where a name may also be bound", () => {
+		// The dialog is the owner's own surface, and binding one of its links needs a
+		// post through that link rather than through the page being captured.
+		expect(parsePlanReviewArgs(["plan.md"]).share).toBeUndefined();
+		expect(parsePlanReviewArgs(["plan.md", "--share"]).share).toBe(true);
+		expect(parsePlanReviewArgs(["plan.md", "--share", "--post", "alice"]).post).toBe("alice");
+	});
+
 	test("--draft starts the tab with an unsaved comment", () => {
 		expect(parsePlanReviewArgs(["plan.md", "--draft", "tighten this"]).draft).toBe("tighten this");
 		expect(parsePlanReviewArgs(["plan.md"]).draft).toBeUndefined();
@@ -190,7 +198,8 @@ describe("plan review shot arguments", () => {
 			[["plan.md", "--wait", "-1"], "--wait must not be negative"],
 			[["plan.md", "--width"], "--width needs a value"],
 			[["plan.md", "--as", "admin"], "--as must be owner or reviewer"],
-			[["plan.md", "--post", "alice"], "--post needs --as reviewer"],
+			[["plan.md", "--post", "alice"], "--post needs --as reviewer or --share"],
+			[["plan.md", "--as", "reviewer", "--share"], "--share captures the owner's Share dialog"],
 			[["plan.md", "--as", "reviewer", "--post", "  "], "--post needs a reviewer name"],
 			[["plan.md", "--draft", "  "], "--draft needs the comment text"],
 			[["plan.md", "--as", "reviewer", "--post", "alice", "--draft", "x"], "--draft cannot be combined with --post"],

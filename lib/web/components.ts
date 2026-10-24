@@ -60,7 +60,7 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-dialog mark{background:transparent;color:var(--warn);font-weight:var(--fw-semibold)}
 .bf-dialog__head{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border)}
 .bf-dialog__head h2{margin:0;font-size:var(--fs-lg)}
-.bf-dialog__body{padding:var(--space-3) var(--space-4);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
+.bf-dialog__body{padding:var(--space-3) var(--space-4);font-size:var(--fs-sm);line-height:var(--lh-relaxed);overflow:auto;min-height:0}
 .bf-dialog__body p{margin:0 0 var(--space-2)}
 .bf-dialog__body p:last-child{margin:0}
 .bf-dialog__hint{color:var(--muted)}
