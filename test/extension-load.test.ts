@@ -54,6 +54,11 @@ function skillFiles(): string[] {
 	return walkFiles(join(root, "skills")).filter((file) => file.endsWith("/SKILL.md"));
 }
 
+/** The skill directory a `SKILL.md` sits in, as the README links it. */
+function skillName(file: string): string {
+	return file.slice(posix(join(root, "skills")).length + 1).split("/")[0];
+}
+
 /** Every theme the package ships. */
 function themeFiles(): string[] {
 	return readdirSync(join(root, "themes")).filter((name) => name.endsWith(".json"));
@@ -98,11 +103,6 @@ describe("skill manifest", () => {
 		files?: string[];
 		pi?: { skills?: string[] };
 	};
-
-	/** The skill directory a `SKILL.md` sits in, as the README links it. */
-	function skillName(file: string): string {
-		return file.slice(posix(join(root, "skills")).length + 1).split("/")[0];
-	}
 
 	test("declares and publishes the packaged skills", () => {
 		expect(pkg.pi?.skills).toContain("./skills");
@@ -178,6 +178,20 @@ function registeredSurface(): Promise<{ tools: Set<string>; commands: Set<string
 /** The kinds of thing a page can say the pack has. */
 type Noun = "extensions" | "tools" | "skills" | "themes";
 
+/**
+ * The names a guide page's feature index lists: the backticked first cell of each
+ * row under `## Find a feature`, up to the next `##`.
+ */
+function featureIndex(text: string): Set<string> {
+	const section = text.split(/^## Find a feature$/m)[1]?.split(/^## /m)[0] ?? "";
+	const names = new Set<string>();
+	for (const line of section.split("\n")) {
+		const cell = /^\|\s*`([^`]+)`\s*\|/.exec(line);
+		if (cell?.[1] !== undefined) names.add(cell[1]);
+	}
+	return names;
+}
+
 describe("the documented footprint", () => {
 	/** The pages that state how big the pack is, where a reader weighs it. */
 	const pages = [join(root, "README.md"), join(root, "README.zh-CN.md"), join(root, "docs", "architecture.md")]
@@ -229,6 +243,17 @@ describe("the documented footprint", () => {
 
 		// A noun no page states would make the assertions above vacuous for it.
 		expect([...claimed].sort(), "a size fact no page states").toEqual(["extensions", "skills", "themes", "tools"]);
+	});
+
+	// The guide home is where a reader who does not know a name looks one up, so a
+	// feature with no row is a workflow nobody finds. The anchor each row carries is
+	// checked by `structure.test.ts`; this holds the row set itself.
+	test("the user guide's feature index lists every extension and skill", () => {
+		const index = featureIndex(readFileSync(join(root, "docs", "user-guide", "README.md"), "utf-8"));
+		// A page without the section would make the comparison below vacuous.
+		expect(index.size).toBeGreaterThan(0);
+		const expected = [...extensionNames(), ...skillFiles().map(skillName)].sort();
+		expect([...index].sort(), "docs/user-guide/README.md's feature index").toEqual(expected);
 	});
 });
 

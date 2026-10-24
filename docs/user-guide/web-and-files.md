@@ -1,4 +1,4 @@
-# 4. Web and files
+# Web and files
 
 This chapter covers the material that lives outside the conversation: pages on
 the web, documents in the project, the project tree in a browser, and the
@@ -99,9 +99,11 @@ The pack offers three ways to get at material on your computer:
 | Look around the project, preview Markdown, or inspect a diff | `/browse` | A page on `127.0.0.1` |
 | Open or reveal something in its normal application | `/open` | Your desktop |
 
-### Reading a document
+## Reading a document
 
-**What it is.** The `read_doc` tool extracts plain text from a local document or
+### What it is
+
+The `read_doc` tool extracts plain text from a local document or
 workbook inside the session. Nothing is uploaded, and no external executable is
 needed; the parsers are ordinary package dependencies loaded only when that
 format is read. The extension is called `file-read`.
@@ -110,7 +112,7 @@ Supported formats: PDF, DOCX, DOC, ODT, RTF, and XLSX. A workbook reads as one
 `[Sheet]` heading per worksheet followed by tab-separated rows. Legacy `.xls` is
 not supported; the error names the limitation and points at the supported format.
 
-**Walkthrough.**
+### Walkthrough
 
 1. Ask for the document:
 
@@ -129,7 +131,7 @@ not supported; the error names the limitation and points at the supported format
 3. A long file comes back in parts. The reply says where to continue; ask to
    continue or request a later section.
 
-**Good to know.**
+### Good to know
 
 - Reads are confined to the effective working directory, with the same
   symlink-aware guard as Pi's path tools. A path or symlink that resolves outside
@@ -143,15 +145,17 @@ not supported; the error names the limitation and points at the supported format
 - In a worktree, the effective working directory is the worktree, so documents
   and workbooks are read from there.
 
-### Browsing a project
+## Browsing a project
 
-**What it is.** `/browse` starts a read-only HTTP server rooted at the effective
+### What it is
+
+`/browse` starts a read-only HTTP server rooted at the effective
 working directory and opens the default browser at it. The page is a two-pane
 file browser: a collapsible tree on the left, directory listings and file views
 on the right, with image thumbnails, rendered Markdown, highlighted code, a
 fuzzy quick-open palette, and a read-only git diff view.
 
-**Walkthrough.**
+### Walkthrough
 
 1. Start it:
 
@@ -205,8 +209,9 @@ fuzzy quick-open palette, and a read-only git diff view.
    and per-file diffs. The comparison scope can be the last commit, the staged
    changes, or the working folder.
 
-**Start, stop, and status.** The command takes a path and the usual lifecycle
-subcommands:
+### Commands
+
+The command takes a path and the usual lifecycle subcommands:
 
 | Command | What it does |
 |---|---|
@@ -214,7 +219,7 @@ subcommands:
 | `/browse status` | Print the root and URL, or say it is not running |
 | `/browse stop` | Stop the server |
 
-**Good to know.**
+### Good to know
 
 - The browser is read-only: it cannot edit, save, or delete anything.
 - It binds `127.0.0.1` only, with no authentication and no LAN exposure. A `Host`
@@ -239,13 +244,15 @@ subcommands:
   chip clears. A reload or a new tab within those ten seconds keeps it, and
   `/browse` starts it again — on the same port — whenever you want it back.
 
-### Opening a file in its usual application
+## Opening a file in its usual application
 
-**What it is.** `/open` hands a file or folder to the operating system's default
+### What it is
+
+`/open` hands a file or folder to the operating system's default
 handler. `/open -r` reveals it in the file manager instead. The application runs
 detached, so it stays open after Pi closes.
 
-**Walkthrough.**
+### Walkthrough
 
 1. Open a file, a folder, or the current project:
 
@@ -263,7 +270,7 @@ detached, so it stays open after Pi closes.
 3. A missing path is reported and nothing is launched. A launcher that starts but
    then fails adds an error notification on macOS and Linux.
 
-**Good to know.**
+### Good to know
 
 - The command needs the interactive terminal interface. The underlying
   `open_path` tool is available to codemode scripts and extensions, but is not
@@ -284,4 +291,4 @@ detached, so it stays open after Pi closes.
 
 ---
 
-[← Previous: 3. Keep your work safe](./keep-work-safe.md) · [Guide home](./README.md) · [Next: 5. Using it from WeChat →](./wechat.md)
+[← Previous: Keep your work safe](./keep-work-safe.md) · [Guide home](./README.md) · [Next: Using it from WeChat →](./wechat.md)

@@ -332,7 +332,14 @@ Do not duplicate across these:
 - `docs/` — repo-level guides: `user-guide/` (the chaptered end-user manual),
   `configuration` (resolution, the settings screen, and every key with its
   default), `architecture`, `development`, and `security`. The catalog lives in
-  `README.md`.
+  `README.md`. Inside the guide, a chapter owns its walkthrough and the keys of
+  the screen it describes, and `user-guide/reference.md` owns the one-line
+  description of every command — a chapter repeats that sentence only in a
+  table a reader is standing in, so the two never disagree. A page is one job
+  and stays near 200–400 lines; its title carries no number, so inserting one
+  costs the map and the two footers and nothing else; and every extension and
+  skill has exactly one page, listed in the guide home's index, which
+  `test/extension-load.test.ts` holds against the manifest and `skills/`.
 - `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
   its ids, links, citations, and bucket caps, and shipping an item means
   renumbering or removing it in the same commit.

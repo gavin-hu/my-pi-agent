@@ -1,149 +1,137 @@
-# 8. Reference
+# Reference
 
 Use this chapter when you know what you want and need the exact name. It is a
 lookup, not a tutorial: every entry here is explained in an earlier chapter.
 
 ## Commands
 
+Every command the pack adds, with what it does and where its walkthrough is.
+
 ### Planning and verification
 
-| Command | What it does |
-|---|---|
-| `/plan` | Turn plan mode on or off |
-| `/plan <task>` | Turn plan mode on and send the task |
-| `/plan list` | List saved plans, newest first |
-| `/plan review [path]` | Review a plan in the browser (comments only) |
-| `/plan share` | Print the newest reviewer link and its QR while a browser review is open |
-| `/plan share stop` | Revoke every reviewer link and stop sharing |
-| `/skill:init` | Create or update the effective instruction file (`AGENTS.md` or `AGENTS.override.md`) through a built-in interview and reviewed plan |
-| `Ctrl+Alt+P` | Toggle plan mode where the terminal sends the chord |
-| `/check` | Run every detected check |
-| `/check test` | Run the detected test command |
-| `/check lint` | Run the detected lint command |
-| `/check typecheck` | Run the detected typecheck command |
-| `/check all` | Same as `/check` |
+| Command | What it does | Where explained |
+|---|---|---|
+| `/plan` | Turn plan mode on or off | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `/plan <task>` | Turn plan mode on and send the task | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `/plan list` | List saved plans, newest first | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `/plan review [path]` | Review a plan in the browser (comments only) | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `/plan share` | Print the newest reviewer link and its QR while a browser review is open | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `/plan share stop` | Revoke every reviewer link and stop sharing | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `Ctrl+Alt+P` | Toggle plan mode where the terminal sends the chord | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `/check` | Run every detected check | [Checking your work](./plan-and-verify.md#checking-your-work) |
+| `/check test` | Run the detected test command | [Checking your work](./plan-and-verify.md#checking-your-work) |
+| `/check lint` | Run the detected lint command | [Checking your work](./plan-and-verify.md#checking-your-work) |
+| `/check typecheck` | Run the detected typecheck command | [Checking your work](./plan-and-verify.md#checking-your-work) |
+| `/check all` | Same as `/check` | [Checking your work](./plan-and-verify.md#checking-your-work) |
+
+### Skills
+
+Every packaged skill is model-invoked, so a matching request loads it;
+`/skill:<name>` forces it, and the words after the command are the request.
+
+| Command | What it does | Where explained |
+|---|---|---|
+| `/skill:init` | Create or update the effective instruction file (`AGENTS.md` or `AGENTS.override.md`) through a built-in interview and reviewed plan | [Initializing AGENTS.md with /skill:init](./packaged-workflows.md#initializing-agentsmd-with-skillinit) |
+| `/skill:next` | Suggest the next todos by priority, with the evidence and the starting command for each | [Choosing what to do next](./packaged-workflows.md#choosing-what-to-do-next) |
+| `/skill:parallel-dev` | Lead a team of sessions through one approved plan: contract first, one owner per slice | [Coordinating a team with parallel-dev](./packaged-workflows.md#coordinating-a-team-with-parallel-dev) |
+| `/skill:project-docs` | Audit a project's documents against the tree, then record a changelog bullet, curate a release, renumber the roadmap, or sync the front door | [Keeping the docs honest](./packaged-workflows.md#keeping-the-docs-honest) |
+| `/skill:refactor` | Audit a project or path for refactoring opportunities, without editing anything | [Finding refactoring opportunities](./packaged-workflows.md#finding-refactoring-opportunities) |
 
 ### Session memory and delegation
 
-| Command | What it does |
-|---|---|
-| `/todos` | Show the to-do list |
-| `/goal` | Show the current goal, or the usage when none is set |
-| `/goal <text>` | Run the understanding and confirmation loop, then start |
-| `/goal raw <text>` | Record exactly your words and start |
-| `/goal set <text>` / `/goal edit <text>` | Change the goal without starting a run |
-| `/goal set` / `/goal edit` | Edit the current goal without starting a run |
-| `/goal done` / `/goal achieved` | Mark the goal achieved |
-| `/goal clear` | Clear the goal |
-| `/goal help` | Show the command usage |
-| `/agents` | Inspect, collect, or cancel background helpers |
-| `/jobs` | Open the job list |
-| `/watch` | Open the watcher list |
-| `/watch list` | List watchers |
-| `/watch matches <id>` | Print one watcher's matching lines |
-| `/watch logs <id>` | Print the raw output tail |
-| `/watch stop <id>` | Stop one watcher |
-| `/watch clear [all]` | Remove stopped watchers, or all with `all` |
-| `/context` | Show where the context window goes; `c` compacts from the report |
-| `/context compact [instructions]` | Compact from the report; refused while a turn is running |
-| `/sessions` | Open the bus board: `Tab` between sessions, unread mail, and path claims; `w` toggles the watch, `x` releases your own claim |
-| `/sessions name <label>` | Name this session for other sessions and set Pi's session name (footer, `/resume`) |
-| `/sessions watch [off\|wake]` | Report new mail at this session's next turn, or raise one (`wake`) as soon as it is idle; `off` stops it |
+| Command | What it does | Where explained |
+|---|---|---|
+| `/todos` | Show the to-do list | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal` | Show the current goal, or the usage when none is set | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal <text>` | Run the understanding and confirmation loop, then start | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal raw <text>` | Record exactly your words and start, skipping the loop | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal set <text>` / `/goal edit <text>` | Change the goal without starting a run | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal set` / `/goal edit` | Open the editor prefilled with the current goal | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal done` / `/goal achieved` | Mark the goal achieved | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal clear` | Clear the goal | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/goal help` | Show the command usage | [A to-do list and a goal](./track-and-remember.md#a-to-do-list-and-a-goal) |
+| `/agents` | Inspect, collect, or cancel background helpers | [Delegating to specialist helpers](./delegate-and-background.md#delegating-to-specialist-helpers) |
+| `/jobs` | Open the job list | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
+| `/watch` | Open the watcher list | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
+| `/watch list` | List watchers | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
+| `/watch matches <id>` | Print one watcher's matching lines | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
+| `/watch logs <id>` | Print the raw output tail | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
+| `/watch stop <id>` | Stop one watcher | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
+| `/watch clear [all]` | Remove stopped watchers, or every watcher with `all` | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
+| `/context` | Show where the context window goes; `c` compacts from the report | [Seeing where the context goes](./track-and-remember.md#seeing-where-the-context-goes) |
+| `/context compact [instructions]` | Compact from the report; refused while a turn is running | [Seeing where the context goes](./track-and-remember.md#seeing-where-the-context-goes) |
+| `/sessions` | Open the bus board: `Tab` between sessions, unread mail, and path claims; `w` toggles the watch, `x` releases your own claim | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
+| `/sessions name <label>` | Name this session for other sessions and set Pi's session name (footer, `/resume`) | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
+| `/sessions watch [off\|wake]` | Report new mail at this session's next turn, or raise one (`wake`) as soon as it is idle; `off` stops it | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
 
 ### Worktrees, rewind, and memory
 
-| Command | What it does |
-|---|---|
-| `/worktree` | Open the worktree screen: managed worktrees, their state, and their gaps |
-| `/worktree enter [name]` | Enter a worktree, creating it if needed |
-| `/worktree exit` | Leave the worktree; a clean one is removed, one holding work asks |
-| `/worktree prune` | Remove clean worktrees older than seven days |
-| `/rewind` | Open the rewind timeline |
-| `/review` | Review the latest turn's changes and revert files or hunks |
-| `/memory` | Open the note picker |
-| `/memory list` | Show every note and the counts |
-| `/memory path` | Show the two store paths and the trust state |
-| `/memory edit [project\|global]` | Open one store in the editor |
-| `/memory reload` | Re-read the stores from disk |
-| `/memory doctor` | Report counts, sizes, budget, and near-duplicates |
-| `/memory clear [project\|global]` | Clear a scope after a confirmation |
+| Command | What it does | Where explained |
+|---|---|---|
+| `/worktree` | Open the worktree screen: managed worktrees, their state, and their gaps | [Working on a branch safely](./keep-work-safe.md#working-on-a-branch-safely) |
+| `/worktree enter [name]` | Enter a worktree, creating it if needed | [Working on a branch safely](./keep-work-safe.md#working-on-a-branch-safely) |
+| `/worktree exit` | Leave the worktree; a clean one is removed, one holding work asks | [Working on a branch safely](./keep-work-safe.md#working-on-a-branch-safely) |
+| `/worktree prune` | Remove clean worktrees older than seven days | [Working on a branch safely](./keep-work-safe.md#working-on-a-branch-safely) |
+| `/rewind` | Open the rewind timeline | [Undoing a turn](./keep-work-safe.md#undoing-a-turn) |
+| `/review` | Review the latest turn's changes and revert files or hunks | [Reviewing the last turn](./keep-work-safe.md#reviewing-the-last-turn) |
+| `/memory` | Open the note picker | [Remembering between sessions](./track-and-remember.md#remembering-between-sessions) |
+| `/memory list` | Show every note and the counts | [Remembering between sessions](./track-and-remember.md#remembering-between-sessions) |
+| `/memory path` | Show the two store paths and the trust state | [Remembering between sessions](./track-and-remember.md#remembering-between-sessions) |
+| `/memory edit [project\|global]` | Open one store in the editor | [Remembering between sessions](./track-and-remember.md#remembering-between-sessions) |
+| `/memory reload` | Re-read the stores from disk | [Remembering between sessions](./track-and-remember.md#remembering-between-sessions) |
+| `/memory doctor` | Report counts, sizes, budget, and near-duplicates | [Remembering between sessions](./track-and-remember.md#remembering-between-sessions) |
+| `/memory clear [project\|global]` | Clear a scope after a confirmation | [Remembering between sessions](./track-and-remember.md#remembering-between-sessions) |
 
 ### Web and files
 
-| Command | What it does |
-|---|---|
-| `/browse [path]` | Start the read-only file browser, optionally at a subdirectory |
-| `/browse status` | Print the root and URL, or say it is not running |
-| `/browse stop` | Stop the browser server |
-| `/open [path]` | Open a file, folder, or the working directory in its default app |
-| `/open -r [path]` | Reveal a path in the file manager |
+| Command | What it does | Where explained |
+|---|---|---|
+| `/browse [path]` | Start the read-only file browser, optionally at a subdirectory | [Browsing a project](./web-and-files.md#browsing-a-project) |
+| `/browse status` | Print the root and URL, or say it is not running | [Browsing a project](./web-and-files.md#browsing-a-project) |
+| `/browse stop` | Stop the browser server | [Browsing a project](./web-and-files.md#browsing-a-project) |
+| `/open [path]` | Open a file, folder, or the working directory in its default app | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |
+| `/open -r [path]` | Reveal a path in the file manager | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |
 
 ### WeChat
 
-| Command | What it does |
-|---|---|
-| `/wechat` | Open the control screen, or print a one-line summary |
-| `/wechat login` | Scan a QR code and start the bridge |
-| `/wechat new` | Start a fresh terminal session |
-| `/wechat status` | Show the control screen or the one-line summary |
-| `/wechat pause` | Stop polling new messages |
-| `/wechat resume` | Reacquire the account lock and poll again |
-| `/wechat doctor` | Print the connection and queue report |
-| `/wechat stop <peer>` | Stop that peer's running turn |
-| `/wechat reset <peer>` | Start a fresh conversation for that peer |
-| `/wechat history <peer> [n]` | Print recent messages (default 10, maximum 20) |
-| `/wechat allow [peer]` | Add a refused sender to the project allow list |
-| `/wechat logout` | Clear credentials and stop polling |
-| `/wechat help` | List the subcommands |
+| Command | What it does | Where explained |
+|---|---|---|
+| `/wechat` | Open the control screen, or print a one-line summary | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat login` | Scan a QR code and start the bridge | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat new` | Start a fresh terminal session; peer conversations survive | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat status` | Show the control screen or the one-line summary | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat pause` | Stop polling new messages | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat resume` | Reacquire the account lock and poll again | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat doctor` | Print the connection and queue report | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat stop <peer>` | Stop that peer's running turn | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat reset <peer>` | Start a fresh conversation for that peer | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat history <peer> [n]` | Print recent messages (default 10, maximum 20) | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat allow [peer]` | Add a refused sender to the project allow list | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat logout` | Confirm, then clear credentials and stop polling | [The control screen](./wechat.md#the-control-screen) |
+| `/wechat help` | List the subcommands | [The control screen](./wechat.md#the-control-screen) |
 
 ### Control centre
 
-| Command | What it does |
-|---|---|
-| `/bytefly` | Open the control centre on Extensions |
-| `/bytefly <extension>` | Open it filtered to one extension |
-| `/bytefly [extension] refresh` | Open the Extensions section and re-probe health |
-| `/bytefly settings` | Open the Settings section |
-| `/bytefly skills` | Open the Skills section |
-| `/bytefly doctor [extension] [refresh]` | Print the health report |
-| `/bytefly update` | Re-run the package update check |
+| Command | What it does | Where explained |
+|---|---|---|
+| `/bytefly` | Open the control centre on Extensions | [The control centre](./settings-and-customization.md#the-control-centre) |
+| `/bytefly <extension>` | Open it filtered to one extension | [The control centre](./settings-and-customization.md#the-control-centre) |
+| `/bytefly [extension] refresh` | Open the Extensions section and re-probe health | [The control centre](./settings-and-customization.md#the-control-centre) |
+| `/bytefly settings` | Open the Settings section | [The control centre](./settings-and-customization.md#the-control-centre) |
+| `/bytefly skills` | Open the Skills section | [The control centre](./settings-and-customization.md#the-control-centre) |
+| `/bytefly doctor [extension] [refresh]` | Print the health report | [Health checks](./settings-and-customization.md#health-checks) |
+| `/bytefly update` | Re-run the package update check | [Update checks](./settings-and-customization.md#update-checks) |
 
 ### Launch flags and environment
 
-| Entry | What it does |
-|---|---|
-| `pi --plan` | Start Pi in plan mode |
-| `pi --worktree <name>` | Start Pi inside a worktree |
-| `PI_DISABLED_EXTENSIONS=todo,job` | Load without the named extensions for one run |
-| `PI_OFFLINE=1` | Skip the session's automatic update check |
+| Entry | What it does | Where explained |
+|---|---|---|
+| `pi --plan` | Start Pi in plan mode | [Plan first, then write](./plan-and-verify.md#plan-first-then-write) |
+| `pi --worktree <name>` | Start Pi inside a worktree | [Working on a branch safely](./keep-work-safe.md#working-on-a-branch-safely) |
+| `PI_DISABLED_EXTENSIONS=todo,job` | Load without the named extensions for one run | [One run only](./settings-and-customization.md#one-run-only) |
+| `PI_OFFLINE=1` | Skip the session's automatic update check | [Update checks](./settings-and-customization.md#update-checks) |
 
-## Command index
-
-Alphabetical, for lookup. Each subcommand is explained in its parent section.
-
-| Name | Where explained |
-|---|---|
-| `/agents` | [Delegating to specialist helpers](./plan-and-delegate.md#delegating-to-specialist-helpers) |
-| `/browse` | [Browsing a project](./web-and-files.md#browsing-a-project) |
-| `/bytefly` | [The control centre](./settings-and-customization.md#the-control-centre) |
-| `/check` | [Checking your work](./plan-and-delegate.md#checking-your-work) |
-| `/context` | [Seeing where the context goes](./plan-and-delegate.md#seeing-where-the-context-goes) |
-| `/goal` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
-| `/jobs` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
-| `/memory` | [Remembering between sessions](./keep-work-safe.md#remembering-between-sessions) |
-| `/open` | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |
-| `/plan` | [Plan first, then write](./plan-and-delegate.md#plan-first-then-write) |
-| `/review` | [Reviewing the last turn](./keep-work-safe.md#reviewing-the-last-turn) |
-| `/rewind` | [Undoing a turn](./keep-work-safe.md#undoing-a-turn) |
-| `/sessions` | [Coordinating parallel sessions](./plan-and-delegate.md#coordinating-parallel-sessions) |
-| `/todos` | [A to-do list and a goal](./plan-and-delegate.md#a-to-do-list-and-a-goal) |
-| `/watch` | [Background jobs and watchers](./plan-and-delegate.md#background-jobs-and-watchers) |
-| `/wechat` | [The control screen](./wechat.md#the-control-screen) |
-| `/worktree` | [Working on a branch safely](./keep-work-safe.md#working-on-a-branch-safely) |
-| `--plan` | [Launch flags and environment](#launch-flags-and-environment) |
-| `--worktree` | [Launch flags and environment](#launch-flags-and-environment) |
-| `PI_DISABLED_EXTENSIONS` | [One run only](./settings-and-customization.md#one-run-only) |
-| `PI_OFFLINE` | [Update checks](./settings-and-customization.md#update-checks) |
+### Pi's own commands
 
 Pi's own commands are documented by Pi. The guide uses them here:
 
@@ -152,19 +140,6 @@ Pi's own commands are documented by Pi. The guide uses them here:
 | `/help`, `/resume`, `/settings`, `/tree` | [Getting started](./getting-started.md) and [Themes](./settings-and-customization.md#themes) |
 | `pi install`, `pi list`, `pi update`, `pi remove` | [Install](./getting-started.md#install) and [Update and remove](./getting-started.md#update-and-remove) |
 | `pi --version` | [Prerequisites](./getting-started.md#prerequisites) |
-
-### Skills
-
-Every packaged skill is model-invoked, so a matching request loads it;
-`/skill:<name>` forces it, and the words after the command are the request.
-
-| Skill | Where explained |
-|---|---|
-| `/skill:init` | [Initializing AGENTS.md with /skill:init](./plan-and-delegate.md#initializing-agentsmd-with-skillinit) |
-| `/skill:next` | [Choosing what to do next](./plan-and-delegate.md#choosing-what-to-do-next) |
-| `/skill:parallel-dev` | [Coordinating parallel sessions](./plan-and-delegate.md#coordinating-parallel-sessions) |
-| `/skill:project-docs` | [Keeping the docs honest](./plan-and-delegate.md#keeping-the-docs-honest) |
-| `/skill:refactor` | [Finding refactoring opportunities](./plan-and-delegate.md#finding-refactoring-opportunities) |
 
 ## Keys
 
@@ -283,4 +258,4 @@ callable from a script.
 
 ---
 
-[← Previous: 7. Troubleshooting](./troubleshooting.md) · [Guide home](./README.md)
+[← Previous: Troubleshooting](./troubleshooting.md) · [Guide home](./README.md)

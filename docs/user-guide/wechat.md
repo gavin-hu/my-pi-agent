@@ -1,4 +1,4 @@
-# 5. Using it from WeChat
+# Using it from WeChat
 
 This chapter connects the live Pi session to a WeChat bot account, so you can
 send a message from your phone and get an answer from the same assistant, with
@@ -195,4 +195,4 @@ one.
 
 ---
 
-[← Previous: 4. Web and files](./web-and-files.md) · [Guide home](./README.md) · [Next: 6. Settings and customization →](./settings-and-customization.md)
+[← Previous: Web and files](./web-and-files.md) · [Guide home](./README.md) · [Next: Settings and customization →](./settings-and-customization.md)

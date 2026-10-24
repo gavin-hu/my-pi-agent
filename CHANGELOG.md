@@ -78,6 +78,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the [user guide](./docs/user-guide/) is re-cut so a page is one job —
+  nine chapters and two lookup pages instead of eight chapters whose middle held
+  a third of the manual. `plan-and-delegate` becomes `plan-and-verify`,
+  `track-and-remember`, and `delegate-and-background`; the five packaged skills
+  get `packaged-workflows`, out of four subsections and a closing paragraph;
+  memory moves to `track-and-remember` with the rest of the state that outlives a
+  turn. Page titles and footers drop their numbers, so a page can be inserted
+  without renumbering its neighbours, and the home indexes all 19 extensions and
+  5 skills — a row set `test/extension-load.test.ts` now holds. `reference.md`
+  folds its command table and alphabetical index into one three-column table,
+  which also settles the five descriptions the two copies had drifted on.
 - `docs`: every extension's doc is one page under
   [`docs/extensions/`](./docs/extensions/), and it opens with its capabilities —
   one row per capability, the tool, command, or key that delivers it, and what
