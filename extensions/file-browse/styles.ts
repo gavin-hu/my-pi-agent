@@ -47,6 +47,8 @@ body.palette-open{overflow:hidden}
    swap only changes the colour, and the footer line reads as one muted clause. */
 .browse-live{font-family:var(--font-mono);border:1px solid currentColor;border-radius:var(--radius-pill);padding:2px 10px}
 .browse-live__glyph{font-size:9px;line-height:1}
+.browse-reload{border:1px solid currentColor;border-radius:var(--radius-pill);padding:2px 10px;cursor:pointer;font-family:var(--font-mono)}
+.browse-reload:hover{text-decoration:underline}
 .browse-live-line{color:var(--muted);font-variant-numeric:tabular-nums}
 .browse-live-line::after{content:" · "}
 .browse-diff-totals{font-family:var(--font-mono)}

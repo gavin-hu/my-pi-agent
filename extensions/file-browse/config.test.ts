@@ -52,7 +52,7 @@ describe("normalizeConfig defaults", () => {
 			diffContext: 3,
 			maxDiffLines: 4000,
 			live: true,
-			liveIntervalMs: 3000,
+			liveIntervalMs: 5000,
 		});
 	});
 });

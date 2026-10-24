@@ -93,6 +93,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   peers working at the same moment — with no window chrome, in the palette, glyphs
   and key-hint footer the terminal captures use, in the same 1200×675 box as the
   plan-flow cards it shares a stylesheet with.
+- `file-browse`: a page that lists a folder now offers `⟳ reload` once a file has
+  appeared or gone on disk since it drew its rows, instead of leaving you to
+  wonder whether the page is current. The check covers the page's own folder by
+  name, once per frame interval, paused while the tab is hidden; a truncated
+  folder and a page that lists nothing show no control.
 
 ### Changed
 
@@ -159,6 +164,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mode and starts the work, and `n`, `q`, or `Esc` returns to the plan where it
   was left. The browser page already asked, and the phone's one editor prompt is
   unchanged.
+- `file-browse`: live status sends a frame every five seconds instead of three,
+  each frame carries a revision so an unchanged change set repaints nothing, and
+  at most eight pages may hold the stream at once — a ninth reads `offline`
+  instead of retrying for a slot that will not open.
 
 ### Removed
 

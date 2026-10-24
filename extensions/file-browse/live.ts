@@ -3,17 +3,20 @@
  *
  * A page that stays open holds one event stream; this module builds the snapshot
  * it is sent, the frame that carries it, and the channel that fans it out on a
- * tick. The git and diff providers already memoize, so a tick re-reads at most
- * one `git status`, and every read failure degrades to `null`: a status feed
- * must never be able to fail a page or the server that serves it.
+ * tick. A tick costs one `git status` and one `git diff --stat`: the providers'
+ * 2 s memo only coalesces a tick with a page render in the same window, so the
+ * cadence is what bounds the reads. Every read failure degrades to `null`: a
+ * status feed must never be able to fail a page or the server that serves it.
  *
  * The channel opens no socket of its own — the caller hands it a `write`/`end`
  * pair — so the whole feed is tested without one.
  */
 
 import { defaultInterval, defaultTimer } from "../../lib/timer.ts";
+import { LIVE_MAX_CLIENTS } from "./config.ts";
 import { changeDirs } from "./diff.ts";
 import type { DiffList, GitDiffProvider, GitStatus, GitStatusProvider } from "./git.ts";
+import { changeRevision } from "./rev.ts";
 
 /**
  * The changed-path index the pages render from: the totals the changes chip
@@ -50,12 +53,27 @@ export interface LiveChanges {
 	deletions: number;
 	files: string[];
 	dirs: string[];
+	/**
+	 * Identity of this change set, counts included. A page that painted the same
+	 * revision repaints nothing when the next frame arrives.
+	 */
+	rev: string;
+}
+
+/** A change index as it goes over the wire, with its revision. */
+function changesOf(index: ChangeIndex): LiveChanges {
+	const changes = {
+		count: index.count,
+		insertions: index.insertions,
+		deletions: index.deletions,
+		files: [...index.files].sort(),
+		dirs: [...index.dirs].sort(),
+	};
+	return { ...changes, rev: changeRevision(changes) };
 }
 
 /** One status frame's payload. */
 export interface LiveSnapshot {
-	/** Server wall clock when the snapshot was taken, in ms. */
-	at: number;
 	/** How long the server has been listening, in ms. */
 	uptimeMs: number;
 	/** Requests the server has answered so far, this one included. */
@@ -112,15 +130,7 @@ export function createLiveStatus(options: LiveStatusOptions): LiveStatusSource {
 				uptimeMs: Math.max(0, at - options.startedAt),
 				requests: options.requests(),
 				git,
-				changes: index
-					? {
-							count: index.count,
-							insertions: index.insertions,
-							deletions: index.deletions,
-							files: [...index.files].sort(),
-							dirs: [...index.dirs].sort(),
-						}
-					: null,
+				changes: index ? changesOf(index) : null,
 			};
 		},
 	};
@@ -158,6 +168,8 @@ export interface LiveChannelOptions {
 	intervalMs: number;
 	/** How long the last page's departure is held before `onIdle` is called, in ms. */
 	idleMs: number;
+	/** How many pages may attach at once; defaults to `LIVE_MAX_CLIENTS`. */
+	maxClients?: number;
 	/** Called once the last page has been gone for `idleMs`; omitted, the channel only idles. */
 	onIdle?: () => void;
 	/** Timer seam; defaults to an unref'd interval. */
@@ -172,6 +184,11 @@ export interface LiveChannel {
 	attach(client: LiveClient): () => void;
 	/** End every connected page, stop the ticker, and drop a pending idle stop. */
 	close(): void;
+	/**
+	 * Whether another page must be refused. The caller asks before it opens the
+	 * stream, so a refusal never has to take back a head it already wrote.
+	 */
+	atCapacity(): boolean;
 }
 
 /**
@@ -183,6 +200,7 @@ export interface LiveChannel {
 export function createLiveChannel(options: LiveChannelOptions): LiveChannel {
 	const timer = options.timer ?? defaultTicker;
 	const timeout = options.timeout ?? defaultTimeout;
+	const maxClients = options.maxClients ?? LIVE_MAX_CLIENTS;
 	const clients = new Set<LiveClient>();
 	let cancel: (() => void) | undefined;
 	let cancelIdle: (() => void) | undefined;
@@ -251,6 +269,9 @@ export function createLiveChannel(options: LiveChannelOptions): LiveChannel {
 			stop();
 			for (const client of clients) client.end();
 			clients.clear();
+		},
+		atCapacity() {
+			return clients.size >= maxClients;
 		},
 	};
 }

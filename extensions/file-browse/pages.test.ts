@@ -1271,10 +1271,21 @@ describe("browser script", () => {
 	test("names the live state instead of counting it", () => {
 		// The chip is a state, not a stopwatch: no label carries an elapsed time, and
 		// nothing repaints it between frames. Staleness is one timeout armed per
-		// frame, so a page sitting open is not re-rendered every second.
+		// frame, and the fragment's one interval checks the folder's revision — it
+		// never paints the chip.
 		expect(LIVE_CLIENT_JS).toContain('setLiveTone("success", "live")');
 		expect(LIVE_CLIENT_JS).toContain('setLiveTone("warn", "stale")');
-		expect(LIVE_CLIENT_JS).not.toContain("setInterval");
+		expect(LIVE_CLIENT_JS).not.toMatch(/setInterval\([^)]*paint/);
+	});
+
+	test("asks the server about the folder it drew before offering a reload", () => {
+		// A page that lists a folder carries what it drew; a difference is the only
+		// thing that reveals the control, and the control is what fixes the page.
+		expect(LIVE_CLIENT_JS).toContain('getAttribute("data-dir")');
+		expect(LIVE_CLIENT_JS).toContain('getAttribute("data-rev")');
+		expect(LIVE_CLIENT_JS).toContain("/api/dir-rev?path=");
+		expect(LIVE_CLIENT_JS).toContain('getElementById("reload-hint")');
+		expect(LIVE_CLIENT_JS).toContain("window.location.reload()");
 	});
 
 	test("serves the client as a no-store script and the theme bootstrap before paint", async () => {

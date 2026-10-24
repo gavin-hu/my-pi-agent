@@ -57,7 +57,7 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	diffContext: 3,
 	maxDiffLines: 4000,
 	live: true,
-	liveIntervalMs: 3000,
+	liveIntervalMs: 5000,
 };
 
 /** Base of the per-session port range. */
@@ -66,8 +66,8 @@ export const PORT_BASE = 4780;
 /** Number of ports in the per-session range. */
 export const PORT_RANGE = 1000;
 
-/** Fastest live-status cadence a page may be given, short enough to watch and
- * long enough that the 2 s provider caches absorb most ticks. */
+/** Fastest live-status cadence a page may be given: short enough to watch, and a
+ * floor so a page cannot outrun the git reads behind each frame. */
 export const LIVE_INTERVAL_MIN = 250;
 
 /** Slowest live-status cadence, so a page cannot look abandoned. */
@@ -80,6 +80,15 @@ export const LIVE_INTERVAL_MAX = 60_000;
  * instead of listening for nobody until the session ends.
  */
 export const IDLE_STOP_MS = 10_000;
+
+/**
+ * How many pages may hold the status stream at once. One snapshot serves them
+ * all, but every attached page keeps the ticker — and the git read behind each
+ * frame — running, so a local page cannot open a thousand streams and pin the
+ * server alive. The refusal is a `204`, which tells an event source to stop
+ * reconnecting instead of retrying for a slot that will not open.
+ */
+export const LIVE_MAX_CLIENTS = 8;
 
 /** A random port in the per-session range `PORT_BASE`–`PORT_BASE + PORT_RANGE - 1`. */
 export function randomPort(): number {

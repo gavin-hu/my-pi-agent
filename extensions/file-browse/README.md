@@ -88,11 +88,13 @@ pi -e .                                    # load the whole @gavin-hu/my-pi-agen
   connecting (accent), stalled (amber, after three missed frames), or offline
   (red); the branch chip, the `● N changes +A −D` chip, and the change markers in
   the tree and the listing update in place; and the footer line reports `up 2m
-  14s · 37 requests`. The chip names its state and never counts, so nothing is
-  repainted between frames. One Server-Sent Events stream per page carries it, on
-  the same loopback server, so nothing extra is opened and nothing is written;
-  that stream is also how the server notices the last page closing its window,
-  after which it stops listening.
+  14s · 37 requests`. The chip names its state and never counts, and a frame
+  whose change set did not move repaints nothing at all. One Server-Sent Events
+  stream per page carries it, on the same loopback server, so nothing extra is
+  opened and nothing is written; that stream is also how the server notices the
+  last page closing its window, after which it stops listening. A page that lists
+  a folder also checks that folder, and offers a `⟳ reload` control when a file
+  has appeared or gone on disk since it drew its rows.
 - **No dependencies.** `node:http` plus the inline sprite, CSS, and client
   script.
 
@@ -136,10 +138,24 @@ errors. The chip names its state rather than counting, so it is repainted only
 when that state changes. The same frame carries the branch (or detached head), the
 uncommitted-change totals and paths, the server's uptime, and the requests it
 has answered, so the branch chip, the changes chip, the markers, and the footer
-line are painted from one snapshot rather than four requests. Losing the stream
-leaves everything the page last showed in place: it is read-only, so a stale
-label is never a stale action. `"live": false` turns the whole surface off — no
-chip, no stream, no `/events` route — and so does JavaScript off.
+line are painted from one snapshot rather than four requests. Each change set
+also carries a short revision, and a frame whose revision the page already
+painted does no work at all — so an idle tree costs no DOM, however many rows the
+page drew. Losing the stream leaves everything the page last showed in place: it
+is read-only, so a stale label is never a stale action. `"live": false` turns the
+whole surface off — no chip, no stream, no `/events` route — and so does
+JavaScript off.
+
+A page that lists a folder carries the revision of the names it drew, and asks
+`/api/dir-rev` for the folder's current one on the frame cadence — one directory
+read every five seconds by default, skipped while the tab is hidden and stopped
+for good once it has an answer. A difference reveals `⟳ reload` beside the live
+chip, which reloads the page; the rows themselves are never touched, because a
+page that could grow a row is a page that writes. A folder whose listing was
+truncated, and a file, `/diff`, or error page, has nothing to compare and shows
+no control. At most eight pages may hold the stream at once: a ninth is refused
+and its chip reads `offline`, which keeps one local page from pinning the server
+— and the git read behind each frame — alive.
 
 The stream is also how the server knows a page is still there: when the last one
 leaves, the port is released after ten seconds and the chip is cleared, because
@@ -212,7 +228,7 @@ document and the project document (project wins):
   "diffContext": 3,          // unified diff context lines
   "maxDiffLines": 4000,      // diff lines rendered before truncation
   "live": true,              // stream live status to open pages
-  "liveIntervalMs": 3000     // ms between status frames while a page is connected
+  "liveIntervalMs": 5000     // ms between status frames while a page is connected
 }
 ```
 
@@ -249,11 +265,18 @@ document and the project document (project wins):
   attributes; only the fixed `tok-*` class names reach the page.
 - **Event stream.** `/events` is a `GET` on the same loopback server, behind
   the same method and `Host` checks, and it only reads: the frame is the branch,
-  the change paths, an uptime, and a request count, all of which the page it
-  feeds already renders. It carries no page policy (`text/event-stream` is not a
-  document), sends `Cache-Control: no-store`, and cannot be cached or replayed.
-  A tick runs only while a page is attached, and the timer is `unref`ed, so an
-  idle server does no work and a forgotten tab cannot hold the process open.
+  the change paths and their revision, an uptime, and a request count, all of
+  which the page it feeds already renders. It carries no page policy
+  (`text/event-stream` is not a document), sends `Cache-Control: no-store`, and
+  cannot be cached or replayed. A tick runs only while a page is attached, and
+  the timer is `unref`ed, so an idle server does no work and a forgotten tab
+  cannot hold the process open. At most eight pages may attach; a ninth is
+  answered `204`, the one status an event source never reconnects after.
+- **Directory check.** `/api/dir-rev` answers one folder's listing revision, so
+  the page can tell whether its rows are stale. It goes through the same path
+  guard as every other route and reads one directory; its answer is a hash of the
+  names, not the names themselves, so it discloses nothing the page above it does
+  not already show.
 - **Caps.** `maxFileBytes` (inline rendering), `maxTextLines` (rendered lines),
   `maxThumbBytes` (thumbnails), and `maxDirEntries` (listings) bound every read.
 - **Git reads.** The header chip and the diff view run read-only git
@@ -271,9 +294,11 @@ document and the project document (project wins):
   approximated rather than parsed.
 - Live status updates what the page already contains: the header chips, the
   markers on the rows it rendered, and the footer line. A file that appears on
-  disk joins the listing on the next reload, the `/diff` table and a file page's
-  `changes` action stay page-load snapshots, and the branch chip is only patched
-  when the page was served inside a repository.
+  disk does not join the listing by itself — the page offers `⟳ reload` instead —
+  and the check covers the folder the page lists, by name, not the folders inside
+  it, a listed file's contents, the `/diff` table, or a file page's `changes`
+  action, which stay page-load snapshots. The branch chip is only patched when
+  the page was served inside a repository.
 - `/browse` has no auth; a malicious local page could probe the port. The `Host`
   allowlist and the absence of CORS headers mitigate reads, and the server is
   read-only.
@@ -314,6 +339,18 @@ document and the project document (project wins):
   method and `Host`, parses the URL, matches a route, and runs every path
   through `paths.ts`. It returns a plain `ServeResponse`, so routing is tested
   without a socket; `server.ts` is the only part that binds a port.
+- **One snapshot, one frame.** The status source is shared by every attached
+  page, so a tick costs one `git status`, one `git diff --stat`, and one
+  serialization however many tabs are open. The frame carries a revision of the
+  change set, and the client compares it before painting, which is why an idle
+  page does no DOM work. The cadence is what bounds those reads, so the default
+  is five seconds rather than matching the providers' two-second render cache.
+- **A poll, not a watcher.** The folder check is one request from the page to
+  `/api/dir-rev`, not an `fs.watch`: recursive watching is the one part of
+  `node:fs` whose availability and event semantics differ per platform, and it
+  would add a long-lived resource to start and release around `close()`. The
+  check compares names, so it is a directory read rather than a stat pass, and it
+  stops at the first difference because the control, not the checker, is the fix.
 - **Progressive UI.** The page is server-rendered HTML with an inline style
   block and inline SVG icons. `client.ts` enhances it: the filter hides
   non-matching rows while keeping ancestors, disclosure triangles lazily

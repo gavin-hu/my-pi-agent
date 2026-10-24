@@ -21,7 +21,7 @@ Two surfaces serve local HTTP:
 - [`file-browse`](../extensions/file-browse/) binds `127.0.0.1` only, is
   read-only, and is rooted at the working directory. Its `/events` stream carries
   the same status the page already renders — a branch, changed paths, an uptime,
-  a request count — and can only be read.
+  a request count — and can only be read; at most eight pages may hold it.
 - [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
   tokenized, and closes its server on the owner's save or cancel, the owner's page
   going away, or session shutdown. Sharing adds a second listener on one address

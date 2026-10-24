@@ -8,9 +8,9 @@
  * the page-only `browse-*` rules from `styles.ts`.
  */
 
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { brandLockup, docHead, type KeyHint, keysSheet, themeToggle } from "../../lib/web/index.ts";
 import { escapeHtml } from "../../lib/escape.ts";
+import { renderChanges, renderGit, renderLiveChrome, renderLiveStatus, type LivePage } from "./chrome.ts";
 import { formatSize, type DirEntry, type FileView, type Listing, type TreeNode } from "./files.ts";
 import { DIFF_MODES, statusLetter, type ChangedFile, type DiffLine, type DiffMode } from "./diff.ts";
 import type { DiffFileView, GitStatus } from "./git.ts";
@@ -36,16 +36,6 @@ function iconMarkup(spec: IconSpec, hidden = false): string {
 	return `<svg class="browse-cat ${spec.colorClass}"${hidden ? " hidden" : ""} aria-hidden="true" title="${escapeHtml(spec.label)}"><use href="${iconHref(spec.icon)}"/></svg>`;
 }
 
-/** The header's git chip: the branch, or the detached head; changes are the changes chip's job. */
-function renderGit(git: GitStatus | undefined): string {
-	if (!git) return "";
-	const name = git.branch ?? git.head;
-	if (!name) return "";
-	const glyph = git.branch ? GLYPHS.branch : GLYPHS.detached;
-	const aria = git.branch ? `git branch ${git.branch}` : `git detached at ${git.head ?? ""}`;
-	return `<span class="bf-chip browse-git" title="${escapeHtml(aria)}" aria-label="${escapeHtml(aria)}"><span class="browse-git__glyph" aria-hidden="true">${escapeHtml(glyph)}</span><span class="browse-git__name">${escapeHtml(name)}</span></span>`;
-}
-
 /**
  * The changed-path index for markers, plus the totals shown in the chip. It is
  * the same index the live status feed sends, so the page and its updates agree
@@ -64,55 +54,6 @@ function changeMark(summary: ChangeSummary | undefined, rel: string, isDir: bool
 	return isChanged(summary, rel, isDir)
 		? `<span class="browse-change" title="uncommitted changes" aria-label="uncommitted changes">●</span>`
 		: "";
-}
-
-/** The live chrome a page renders: how often its stream is sent a frame. */
-export interface LivePage {
-	intervalMs: number;
-}
-
-/**
- * The header's connection chip. It starts hidden and says "connecting": the
- * client reveals and paints it from the event stream, so a page with JS off — or
- * with live status disabled — never shows a state it cannot keep true.
- *
- * It is deliberately not a `role="status"` region: the header is where a reader
- * looks for the page's state, not a place to announce every change to it.
- */
-function renderLiveChip(live: LivePage | undefined): string {
-	if (!live) return "";
-	return `<span class="bf-chip bf-chip--accent browse-live" id="live-state" title="Live status from the browse server" data-interval="${live.intervalMs}" hidden><span class="browse-live__glyph" aria-hidden="true">${escapeHtml(GLYPHS.browse)}</span><span class="browse-live__text">connecting</span></span>`;
-}
-
-/**
- * The footer's live line, hidden until the first frame: uptime and requests are
- * server facts the rendered page does not know at build time.
- */
-function renderLiveStatus(): string {
-	return `<span class="browse-live-line" id="live-status" hidden></span>`;
-}
-
-/**
- * The header's changes chip, linking to the diff overview. With live status on,
- * a hidden shell is always rendered so the chip can appear and disappear as the
- * working tree changes, without the client inserting elements into the header.
- */
-function renderChanges(summary: ChangeSummary | undefined, live: LivePage | undefined): string {
-	const count = summary?.count ?? 0;
-	if (count <= 0) {
-		return live
-			? `<a class="bf-chip browse-diff" id="browse-changes" href="/diff" title="View uncommitted changes" hidden></a>`
-			: "";
-	}
-	const label = `${count} change${count === 1 ? "" : "s"}`;
-	const insertions = summary?.insertions ?? 0;
-	const deletions = summary?.deletions ?? 0;
-	const totals =
-		insertions + deletions > 0
-			? ` <span class="browse-diff-totals"><span class="browse-diff-add">+${insertions}</span> <span class="browse-diff-del">−${deletions}</span></span>`
-			: "";
-	const aria = `${label} against HEAD${insertions + deletions > 0 ? `, ${insertions} insertions and ${deletions} deletions` : ""}`;
-	return `<a class="bf-chip browse-diff" id="browse-changes" href="/diff" title="View uncommitted changes" aria-label="${escapeHtml(aria)}"><span class="browse-diff__dot" aria-hidden="true">●</span>${escapeHtml(label)}${totals}</a>`;
 }
 
 function hrefFor(entry: { rel: string; isDir: boolean }): string {
@@ -157,7 +98,7 @@ ${SPRITE}
   ${renderGit(layout.git)}
   ${renderChanges(layout.summary, layout.live)}
   <span class="bf-chip bf-chip--accent">read-only</span>
-  ${renderLiveChip(layout.live)}
+  ${renderLiveChrome(layout.live)}
   <button type="button" class="bf-btn bf-btn--icon browse-keys-btn" id="keys-open" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
   ${themeToggle()}
 </div><div class="browse-progress" aria-hidden="true"><span class="browse-progress__fill" id="progress-fill"></span></div></header>
