@@ -8,43 +8,52 @@ executes.
 
 ## Capabilities
 
+Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
+
 ### Planning lifecycle
 
-| Capability | How | What you get |
-|---|---|---|
-| Read-only planning | `enter_plan_mode`, `/plan`, `Ctrl+Alt+P`, `--plan` | The session keeps only its readers, so the model investigates and proposes without touching the tree. |
-| Confirmed model entry | `enter_plan_mode` | The model asks before it takes write access away, and the user answers first. |
-| One writable artifact | `write_plan` | The plan lands as markdown under the agent directory, one store per repository, shared by its worktrees. |
-| Approval gate | `exit_plan_mode` | The plan is read back and presented; nothing is written until the user approves it. |
-| Steps as todos | `exit_plan_mode` | Approval seeds the plan's steps into the todo list, with the verification section as the last item. |
-| Plan kept current | `set_plan_steps` | Ticking a step rewrites its checkbox in the file and its todo item in one call. |
-| Cancel without a plan | `cancel_plan_mode`, `/plan cancel` | Write access returns, and no todo items or goal are recorded. |
-| Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first. |
-| Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. |
-| Parallel slices | `exit_plan_mode` `units`, `plan.split` | An approval can name the units a team of sessions joins, with a roster card for the lead. |
-| Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Read-only planning | `enter_plan_mode`, `/plan`, `Ctrl+Alt+P`, `--plan` | The session keeps only its readers, so the model investigates and proposes without touching the tree. | Shipped |
+| Confirmed model entry | `enter_plan_mode` | The model asks before it takes write access away, and the user answers first. | Shipped |
+| Read-only git shell | `bash` with the read-only git allowlist | Plan mode can inspect `git status`, `diff`, `log`, and `show`; pipes, redirects, and non-git commands are refused. | Shipped |
+| Read-only delegation | `subagent` with forced `readOnly: true` | A delegated agent can read and search but cannot write, edit, or run a shell while the plan is being researched. | Shipped |
+| Absolute-path guard | `path-guard.ts` | A path outside the project is refused unless it is a known plan-safe reader, so planning cannot write through an absolute path. | Shipped |
+| One writable artifact | `write_plan` | The plan lands as markdown under the agent directory, one store per repository, shared by its worktrees. | Shipped |
+| Approval gate | `exit_plan_mode` | The plan is read back and presented; nothing is written until the user approves it. | Shipped |
+| Session goal at approval | `goal` at approval | A `planning` goal is promoted to the plan's objective, and a session with none gets it, without a second dialog; an active goal is left alone. | Shipped |
+| Steps as todos | `exit_plan_mode` | Approval seeds the plan's steps into the todo list, with the verification section as the last item. | Shipped |
+| Plan kept current | `set_plan_steps` | Ticking a step rewrites its checkbox in the file and its todo item in one call. | Shipped |
+| Stale-step protection | `expected` in `set_plan_steps` | A step whose number moved, is out of range, or no longer matches its text refuses the whole batch instead of ticking the wrong line. | Shipped |
+| Cancel without a plan | `cancel_plan_mode`, `/plan cancel` | Write access returns, and no todo items or goal are recorded. | Shipped |
+| Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first. | Shipped |
+| Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
+| Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
+| Parallel slices | `exit_plan_mode` `units`, `plan.split` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
+| Split validation gate | `checkSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens. | Shipped |
+| Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. | Shipped |
 
 ### Review
 
-| Capability | How | What you get |
-|---|---|---|
-| Review screen | `exit_plan_mode` | A scrollable, themed plan with approve, refine, browser, and exit in the footer. |
-| Section navigation | the review screen, `n`/`p` | The screen names the section you are in and jumps between headings. |
-| Changed sections | the `exit_plan_mode` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked. |
-| Browser page | `/plan review`, `w` on the review screen | The plan opens in a local browser as a reading-first page with live section and step progress. |
-| Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. |
-| Approval in the browser | the `/plan review` page's **Approve & run** | The plan is approved without returning to the terminal, and the steps are seeded. |
-| Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. |
-| Remote review | `exit_plan_mode` on a WeChat turn | The plan file is sent, then one compact prompt to approve, keep planning, or exit. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Review screen | `exit_plan_mode` | A scrollable, themed plan with approve, refine, keep, browser, and exit in the footer. | Shipped |
+| Browser page | `/plan review`, `w` on the review screen | The plan opens in a local browser as a reading-first page with live section and step progress. | Shipped |
+| Approval in the browser | the `/plan review` page's **Approve & run** | The plan is approved without returning to the terminal, and the steps are seeded. | Shipped |
+| Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. | Shipped |
+| Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. | Shipped |
+| Changed sections | the `exit_plan_mode` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked. | Shipped |
+| Section navigation | the review screen, `n`/`p` | The screen names the section you are in and jumps between headings. | Shipped |
+| Remote review | `exit_plan_mode` on a WeChat turn | The plan file is sent, then one compact prompt to approve, keep planning, or exit. | Shipped |
 
 ### Collaboration
 
-| Capability | How | What you get |
-|---|---|---|
-| Shared review | `/plan share`, **Share** | A reviewer link, with a QR a phone can scan, opens the same plan from another machine on this Wi-Fi. |
-| One link per teammate | **New link**, **Revoke**, `/plan share stop` | Each teammate holds a link of their own, and one is revoked without disturbing the rest. |
-| Two roles | the owner's `token`, a reviewer's link | Only the owner saves, approves, cancels, and manages links; a reviewer reads and comments. |
-| Signed comments | the page's `name` control | A reviewer's name binds to her link on its first post, so her notes are hers and the file records who wrote them. |
+| Capability | How | What you get | Status |
+|---|---|---|---|
+| Shared review | `/plan share`, **Share** | A reviewer link, with a QR a phone can scan, opens the same plan from another machine on this Wi-Fi. | Shipped |
+| One link per teammate | **New link**, **Revoke**, `/plan share stop` | Each teammate holds a link of their own, and one is revoked without disturbing the rest. | Shipped |
+| Two roles | the owner's `token`, a reviewer's link | Only the owner saves, approves, cancels, and manages links; a reviewer reads and comments. | Shipped |
+| Signed comments | the page's `name` control | A reviewer's name binds to her link on its first post, so her notes are hers and the file records who wrote them. | Shipped |
 
 ## Quickstart
 

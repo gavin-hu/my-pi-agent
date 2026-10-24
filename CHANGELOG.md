@@ -78,10 +78,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   order, the three-column table, the Markdown-free `extensions/` tree, and the
   rule that every tool and command an extension registers is named in it.
   `package.json` ships `docs/extensions/**`, so the pages travel with the
-  published package. WeChat and bytefly rank their capability rows by user value
-  and add a `Status` column for shipped, unreleased, and partial capabilities;
-  bytefly also names its theme, status-chip, delegated-cost, tariff, proactive
-  health, Pi-release, and reload capabilities.
+  published package. WeChat, bytefly, and plan rank their capability rows by user
+  value and add a `Status` column for shipped, unreleased, and partial
+  capabilities; bytefly also names its theme, status-chip, delegated-cost,
+  tariff, proactive health, Pi-release, and reload capabilities, and plan names
+  its git-shell, delegation, goal, split-gate, stale-step, path, and store
+  safeguards.
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by
