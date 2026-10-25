@@ -171,7 +171,19 @@ export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boo
 		.some((line) => line.startsWith("worktree ") && realPathOfNearest(line.slice("worktree ".length).trim()) === want);
 }
 
-/** Whether a local branch exists. */
+/**
+ * `rev-list --count` for one range, e.g. `main..HEAD`; 0 when git cannot answer.
+ *
+ * The three counts below are the same command with a different range, and a caller that
+ * reads a count as "no work here" must not have a failed read look like zero work.
+ */
+async function revListCount(pi: ExtensionAPI, dir: string, range: string): Promise<number> {
+	const result = await git(pi, ["rev-list", "--count", range], dir);
+	if (result.code !== 0) return 0;
+	const count = Number.parseInt(result.stdout.trim(), 10);
+	return Number.isFinite(count) ? count : 0;
+}
+
 /**
  * Count of commits on `branch` that `base` does not contain.
  *
@@ -179,10 +191,7 @@ export async function worktreeExists(pi: ExtensionAPI, dir: string): Promise<boo
  * after the worktree may already be gone while its branch refs outlive it.
  */
 export async function commitsAheadOf(pi: ExtensionAPI, dir: string, branch: string, base: string): Promise<number> {
-	const result = await git(pi, ["rev-list", "--count", `${base}..${branch}`], dir);
-	if (result.code !== 0) return 0;
-	const count = Number.parseInt(result.stdout.trim(), 10);
-	return Number.isFinite(count) ? count : 0;
+	return revListCount(pi, dir, `${base}..${branch}`);
 }
 
 /** Whether `ref` resolves here: a branch, a remote-tracking ref, or a tag. */
@@ -190,6 +199,7 @@ export async function refExists(pi: ExtensionAPI, dir: string, ref: string): Pro
 	return (await revParse(createExecRunner(pi), dir, ref)) !== undefined;
 }
 
+/** Whether a local branch exists. */
 export async function branchExists(pi: ExtensionAPI, repoRoot: string, branch: string): Promise<boolean> {
 	const result = await git(pi, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], repoRoot);
 	return result.code === 0;
@@ -257,18 +267,12 @@ export async function statusEntries(pi: ExtensionAPI, dir: string): Promise<stri
 
 /** Count of commits reachable from HEAD but not from `base`. */
 export async function commitsAhead(pi: ExtensionAPI, dir: string, base: string): Promise<number> {
-	const result = await git(pi, ["rev-list", "--count", `${base}..HEAD`], dir);
-	if (result.code !== 0) return 0;
-	const count = Number.parseInt(result.stdout.trim(), 10);
-	return Number.isFinite(count) ? count : 0;
+	return revListCount(pi, dir, `${base}..HEAD`);
 }
 
 /** Count of commits reachable from `base` but not from HEAD. */
 export async function commitsBehind(pi: ExtensionAPI, dir: string, base: string): Promise<number> {
-	const result = await git(pi, ["rev-list", "--count", `HEAD..${base}`], dir);
-	if (result.code !== 0) return 0;
-	const count = Number.parseInt(result.stdout.trim(), 10);
-	return Number.isFinite(count) ? count : 0;
+	return revListCount(pi, dir, `HEAD..${base}`);
 }
 
 /** Whether `branch` is fully contained in `ref` (already merged). */
