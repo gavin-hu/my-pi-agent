@@ -13,14 +13,13 @@
  */
 
 import {
+	envelopeRefusal,
 	eventHeaders,
-	hostHeaderName,
-	isAllowedHostHeader,
 	jsonError,
-	jsonHeaders,
 	jsonResponse,
 	pageHeaders,
 	parseRequestUrl,
+	postOnly,
 	scriptHeaders,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
@@ -84,12 +83,6 @@ function isResponse(value: PlanAnnotation[] | ServeResponse): value is ServeResp
 	return !Array.isArray(value);
 }
 
-/** The 405 for a route that only accepts POST, or nothing when the method is right. */
-function postOnly(method: string, what: string): ServeResponse | undefined {
-	if (method.toUpperCase() === "POST") return undefined;
-	return jsonError(405, `Use POST to ${what}.`);
-}
-
 /**
  * The 403 for a route the caller's role may not use, or nothing when it may. Each
  * route keeps its own sentence, because the reason differs: a reviewer posts
@@ -111,53 +104,6 @@ function linkIdOf(body: string): string | undefined {
 	return typeof id === "string" && id !== "" ? id : undefined;
 }
 
-/** Validate method and `Host`; returns an error response to send instead. */
-function checkEnvelope(
-	ctx: ReviewContext,
-	method: string,
-	headers: Record<string, string | string[] | undefined>,
-): ServeResponse | undefined {
-	const upper = method.toUpperCase();
-	if (upper !== "GET" && upper !== "HEAD" && upper !== "POST") {
-		return {
-			...jsonError(405, "Only GET, HEAD, and POST are served."),
-			headers: { ...jsonHeaders(), Allow: "GET, HEAD, POST" },
-		};
-	}
-	// Fail closed: a missing or non-string Host is rejected too, not just a
-	// foreign one, so the DNS-rebinding guard cannot be skipped.
-	if (!isAllowedHostHeader(headers, { hosts: ctx.hosts(), required: true })) {
-		return jsonError(403, "Unexpected Host header.");
-	}
-	return upper === "POST" ? checkOrigin(headers) : undefined;
-}
-
-/**
- * Refuse a state-changing request another site made. A browser sends `Origin`
- * on every POST and `Sec-Fetch-Site` with its own classification; a request
- * with neither is a script or a test, which has no ambient credential to abuse.
- */
-function checkOrigin(headers: Record<string, string | string[] | undefined>): ServeResponse | undefined {
-	const site = headers["sec-fetch-site"];
-	if (typeof site === "string" && site !== "" && site !== "same-origin" && site !== "none") {
-		return jsonError(403, "Cross-origin request refused.");
-	}
-	const origin = headers.origin;
-	if (origin === undefined) return undefined;
-	if (typeof origin !== "string" || origin === "") return jsonError(403, "Unexpected Origin header.");
-	let parsed: URL;
-	try {
-		parsed = new URL(origin);
-	} catch {
-		return jsonError(403, "Unexpected Origin header.");
-	}
-	const host = headers.host;
-	if (typeof host !== "string" || hostHeaderName(parsed.host) !== hostHeaderName(host)) {
-		return jsonError(403, "Cross-origin request refused.");
-	}
-	return undefined;
-}
-
 /**
  * Handle one request. `method`, `rawUrl`, and `headers` are the raw HTTP
  * values; `body` is the request body for a POST.
@@ -169,7 +115,7 @@ export async function handleReviewRequest(
 	headers: Record<string, string | string[] | undefined> = {},
 	body = "",
 ): Promise<ServeResponse> {
-	const envelope = checkEnvelope(ctx, method, headers);
+	const envelope = envelopeRefusal({ method, headers, hosts: ctx.hosts() });
 	if (envelope) return envelope;
 
 	const parsed = parseRequestUrl(rawUrl);

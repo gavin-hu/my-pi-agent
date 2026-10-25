@@ -1,11 +1,8 @@
 /**
- * Per-extension runtime prerequisites.
- *
- * One place that says what each extension needs in order to actually work, plus
- * a pure probe over injected seams. `doctor` reports on this table, and the
- * extensions that own an external dependency format their error text from the
- * same entries, so the hint a model sees in a tool error and the hint `doctor`
- * prints cannot drift apart.
+ * Per-extension runtime prerequisites: one place that says what each extension needs
+ * in order to actually work, plus a pure probe over injected seams. `doctor` reports
+ * on this table, and the extensions that own an external dependency format their error
+ * text from the same entries, so a tool error and a `doctor` line cannot drift apart.
  *
  * The table is data: no module state, no I/O, no host access. Everything a probe
  * needs (running a command, reading a file, loading an optional package, the
@@ -211,6 +208,8 @@ export const REQUIREMENTS: Readonly<Record<string, ExtensionRequirements>> = {
 	},
 	todo: {},
 	goal: {},
+	board: {},
+	team: { notes: ["`assign` needs `session-bus` loaded to deliver a handoff; without it the card is untouched."] },
 	check: {
 		notes: ["Runs the project's detected command through a shell; a stack with no detector needs `check.command`."],
 	},

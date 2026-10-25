@@ -17,7 +17,7 @@ import { type DetailContents, DockListScreen } from "../../lib/tui/dock-screen.t
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { keyValueRow } from "../../lib/tui/rows.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { shortId } from "./format.ts";
+import { idSuffix } from "./format.ts";
 import {
 	type SessionRow,
 	claimRowLine,
@@ -76,7 +76,7 @@ function paneFacts(theme: Theme, row: SessionRow, now: number, width: number): s
 	const labelWidth = 10;
 	return [
 		keyValueRow(theme, width, { label: "mode", labelWidth, value: sanitizeLine(row.session.mode) }),
-		keyValueRow(theme, width, { label: "id", labelWidth, value: shortId(row.session.id) }),
+		keyValueRow(theme, width, { label: "id", labelWidth, value: idSuffix(row.session.id) }),
 		keyValueRow(theme, width, {
 			label: "last seen",
 			labelWidth,

@@ -12,8 +12,8 @@ and `assets/tools/`.
 | [`screenshots.ts`](./screenshots.ts) | The capture command: `render <name>` prints one frame as ANSI on any OS, a named screen captures only it, and no argument captures every frame, the hero among them. |
 | [`screens/`](./screens/) | The frames: `index.ts` is the registry — the `Screen` type and `SCREENS`, which holds every capturable frame including the `chrome` hero — and `fixtures/` is the data they draw around, one module per surface. |
 | [`capture/`](./capture/) | The two mechanisms. `terminal.ts` drives Terminal.app and `screencapture`; `chrome.ts` and `page.ts` drive Playwright against the local Chrome; `crop-title-bar.js` is the JXA crop, run by `osascript`. |
-| [`shots/`](./shots/) | One CLI per captured page — `file-browse`, `plan-review`, `plan-flow` — plus `plan-review-capture.ts` for the review page's state. |
-| [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. |
+| [`shots/`](./shots/) | One CLI per captured page — `board`, `file-browse`, `plan-review`, `plan-flow` — plus `plan-review-capture.ts` for the review page's state. |
+| [`tools/`](./tools/) | The tool-renderings CLI (`list`, `render`, `html`, `gallery`, `tools`) and `fixtures/`, one fixture per registered tool. `fixtures/board-store.ts` is the one module that is not a fixture: it seeds a board in a temp directory for the page's screenshot, which is why the gallery and the page describe the same cards. |
 | [`examples/`](./examples/) | Sample inputs a documented command takes, such as `plan-review.md` for `screenshot:plan`. |
 | [`cli.ts`](./cli.ts), [`theme.ts`](./theme.ts), [`poll.ts`](./poll.ts), [`ansi-html.ts`](./ansi-html.ts), [`transcript-fixture.ts`](./transcript-fixture.ts) | Shared: flag parsing, the capture theme and page palette, sleep and polling, the ANSI-to-HTML bridge, the transcript fixture. |
 | `wechat-poll.ts`, `migrate-config.ts`, `release-notes.ts`, `peer-versions.ts`, `render-bench.ts` | One command each, under [`docs/development.md#scripts`](../docs/development.md#scripts). |

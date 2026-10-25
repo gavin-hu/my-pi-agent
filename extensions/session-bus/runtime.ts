@@ -22,6 +22,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
+import { sessionNameOf } from "../../lib/session-label.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
 	defaultLabel,
@@ -110,14 +111,6 @@ function suffixLabel(label: string, id: string): string {
 	return `${label.slice(0, MAX_LABEL - suffix.length)}${suffix}`;
 }
 
-function sessionName(ctx: ExtensionContext): string | undefined {
-	try {
-		return ctx.sessionManager.getSessionName();
-	} catch {
-		return undefined;
-	}
-}
-
 export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = {}): SessionBus {
 	const now = options.now ?? Date.now;
 	const heartbeatMs = options.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
@@ -154,7 +147,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const mode = sessionMode(context.mode);
 			record = {
 				id,
-				label: defaultLabel(sessionName(context), cwd, id),
+				label: defaultLabel(sessionNameOf(context), cwd, id),
 				pid,
 				cwd,
 				repoRoot: repo.root,

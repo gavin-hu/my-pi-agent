@@ -126,8 +126,8 @@ function createContext(baseDir: string, defs: Map<string, LinkDefinition>, html:
 	};
 }
 
-/** Fold a reference label the way CommonMark does: trim, collapse, case-fold. */
-function normalizeLabel(label: string): string {
+/** Fold a reference label the way CommonMark does: trim, collapse, case-fold. Not `lib/session-label.ts`, which names a session. */
+function referenceLabel(label: string): string {
 	return label.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
@@ -180,7 +180,7 @@ function collectDefinitions(lines: string[], html: boolean): { defs: Map<string,
 			body.push(line);
 			continue;
 		}
-		const key = normalizeLabel(match[1]);
+		const key = referenceLabel(match[1]);
 		if (!defs.has(key)) {
 			const dest = match[2].startsWith("<") && match[2].endsWith(">") ? match[2].slice(1, -1) : match[2];
 			defs.set(key, { dest, title: match[3] });
@@ -630,11 +630,11 @@ function parseReferenceLink(text: string, start: number, ctx: Context): ParsedLi
 		const end = matchBracket(text, close + 1);
 		if (end !== -1) {
 			const raw = text.slice(close + 2, end);
-			const def = ctx.defs.get(normalizeLabel(raw === "" ? label : raw));
+			const def = ctx.defs.get(referenceLabel(raw === "" ? label : raw));
 			if (def) return { label, dest: def.dest, title: def.title, end: end + 1 };
 		}
 	}
-	const def = ctx.defs.get(normalizeLabel(label));
+	const def = ctx.defs.get(referenceLabel(label));
 	if (def) return { label, dest: def.dest, title: def.title, end: close + 1 };
 	return undefined;
 }

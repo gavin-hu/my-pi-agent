@@ -13,6 +13,7 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ToolCallText } from "../lib/tui/tool.ts";
+import board from "../extensions/board/index.ts";
 import bytefly from "../extensions/bytefly/index.ts";
 import check from "../extensions/check/index.ts";
 import fileRead from "../extensions/file-read/index.ts";
@@ -22,6 +23,7 @@ import memory from "../extensions/memory/index.ts";
 import planMode from "../extensions/plan/index.ts";
 import question from "../extensions/question/index.ts";
 import sessionBus from "../extensions/session-bus/index.ts";
+import team from "../extensions/team/index.ts";
 import subagent from "../extensions/subagent/index.ts";
 import todo from "../extensions/todo/index.ts";
 import watch from "../extensions/watch/index.ts";
@@ -45,6 +47,8 @@ const EXTENSIONS: Array<(pi: any) => void> = [
 	watch,
 	webAccess,
 	wechat,
+	board,
+	team,
 ];
 
 /** The widths the transcript is exercised at: wide, split, and narrow. */

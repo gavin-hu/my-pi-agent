@@ -38,6 +38,7 @@ import { Markdown, type Component } from "@earendil-works/pi-tui";
 import { NoticeComponent } from "../../extensions/bytefly/notice/component.ts";
 import { SeparatorComponent } from "../../extensions/bytefly/separator/component.ts";
 import { nameplate } from "../../extensions/bytefly/message/format.ts";
+import board from "../../extensions/board/index.ts";
 import bytefly from "../../extensions/bytefly/index.ts";
 import check from "../../extensions/check/index.ts";
 import fileRead from "../../extensions/file-read/index.ts";
@@ -48,6 +49,7 @@ import planMode from "../../extensions/plan/index.ts";
 import question from "../../extensions/question/index.ts";
 import sessionBus from "../../extensions/session-bus/index.ts";
 import subagent from "../../extensions/subagent/index.ts";
+import team from "../../extensions/team/index.ts";
 import todo from "../../extensions/todo/index.ts";
 import watch from "../../extensions/watch/index.ts";
 import webAccess from "../../extensions/web-access/index.ts";
@@ -102,6 +104,8 @@ const EXTENSIONS = [
 	watch,
 	webAccess,
 	wechat,
+	board,
+	team,
 ];
 
 /** Pi's built-in definitions, which carry the built-in renderers. */

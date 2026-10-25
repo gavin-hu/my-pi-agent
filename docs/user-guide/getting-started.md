@@ -172,7 +172,7 @@ do lose work. To disable one feature rather than remove the whole pack, see
 ## What an install changes
 
 - **The model's tool list.** Each extension adds its tools with a one-line
-  description, so the assistant can choose them. The pack adds 24 tools that were
+  description, so the assistant can choose them. The pack adds 26 tools that were
   not in Pi before; `worktree` also re-registers Pi's path tools so they follow
   the active root instead of replacing them with new names.
 - **The transcript.** The pack draws a `You` nameplate above your messages, a

@@ -216,7 +216,7 @@ Snapshots and their limits are configured in
 
 ## Extensions and tools
 
-The pack adds 19 extensions and 24 tools. `worktree` also re-registers Pi's path
+The pack adds 21 extensions and 26 tools. `worktree` also re-registers Pi's path
 tools so they follow the active root; those are replacements, not additions.
 
 | Extension | Tools | Commands and flags |
@@ -234,6 +234,8 @@ tools so they follow the active root; those are replacements, not additions.
 | `memory` | `memory` | `/memory` |
 | `context` | — | `/context` |
 | `session-bus` | `session` | `/sessions` |
+| `board` | `board` | `/board` |
+| `team` | `team` | — |
 | `web-access` | `web_search`, `web_fetch` | — |
 | `file-read` | `read_doc` | — |
 | `file-browse` | — | `/browse` |

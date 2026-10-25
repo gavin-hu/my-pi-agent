@@ -24,7 +24,7 @@ surface arrives with its limitation written in the same breath.
 
 ## Where we are
 
-- 19 extensions, 4 packaged skills, 2 themes, one shared `bytefly.json`.
+- 21 extensions, 4 packaged skills, 2 themes, one shared `bytefly.json`.
 - Foundations that hold: no build step, no fork, every extension optional,
   three-OS CI, a shared `lib/tui/` and `lib/web/` design system, budgeted prompt
   context, and package-level guards that hold the docs, the catalog, the release
