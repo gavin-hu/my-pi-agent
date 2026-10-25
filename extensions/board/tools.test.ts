@@ -124,6 +124,23 @@ describe("list", () => {
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["2"]);
 	});
 
+	test("shows only what this session holds, and nothing for one that holds nothing", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		await lead.call({ action: "add", title: "Mine" });
+		await lead.call({ action: "add", title: "Theirs" });
+		await lead.call({ action: "claim", card: "1" });
+		await peer.call({ action: "claim", card: "2" });
+		expect((await lead.call({ action: "list", mine: true })).details.cards?.map((card) => card.id)).toEqual(["1"]);
+		// The same rule a claim is checked against: a lane filter narrows it, it does not
+		// widen it, and a session holding nothing gets an empty list rather than the board.
+		expect((await lead.call({ action: "list", mine: true, status: "todo" })).details.cards).toEqual([]);
+		const stranger = harness({ cwd, agentDir, sessionId: "s-other", sessionName: "billing-other" });
+		expect((await stranger.call({ action: "list", mine: true })).details.cards).toEqual([]);
+	});
+
 	test("filters by a query over the title, a path hint, or the holder", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "Billing webhook", paths: ["src/billing"] });

@@ -30,6 +30,7 @@ decision.
 | Record what a card waits for | `board` action `edit` with `dependsOn` | An unfinished dependency refuses a claim and a move to `doing` or `done`, and the reason line names it |
 | Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to To do, without the page and without `team` |
 | Find a card without reading every lane | `board` action `list` with `query` | The cards whose title, path hint, or holder matches — the same rule the page's filter uses |
+| See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
 | Delete a card | `board` action `drop` | The card and its notes are gone; nothing else ever deletes one, and one that a card waits on cannot leave |
 | A live page for the same cards | `/board` | A loopback page with a **Board** tab and a **Team** tab, following the store live |
 | See the lead's round at a glance | `/board team` | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
@@ -60,7 +61,7 @@ prints the port and whether the page is running, and `/board stop` closes it.
 
 | Action | Parameters | Result |
 |---|---|---|
-| `list` | `status?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query matches; `round: true` adds the rollup, which always covers the whole board |
+| `list` | `status?`, `mine?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query or `mine` matches; `round: true` adds the rollup, which always covers the whole board |
 | `add` | `title`, `paths?`, `priority?`, `note?` | the new `todo` card |
 | `claim` | `card` | the card, now `doing` and owned by this session |
 | `release` | `card` | the card, back in `todo` |

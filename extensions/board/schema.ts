@@ -58,6 +58,9 @@ export const BoardParams = Type.Object({
 				"`edit`: the cards this one waits for, as ids. It cannot be claimed or moved to doing or done while one of them is unfinished; `[]` removes every link.",
 		}),
 	),
+	mine: Type.Optional(
+		Type.Boolean({ description: "`list`: show only the cards this session holds — the queue a teammate works from." }),
+	),
 	query: Type.Optional(
 		Type.String({
 			description:

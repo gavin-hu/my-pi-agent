@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: `list` takes `mine: true` — the cards this session holds, filtered by the same
+  `holds` rule a claim is checked against, so the queue a teammate works from cannot list
+  a card they could not release. It combines with `status` and `query`.
 - `team`: `/team` prints the lead's round in the terminal — no page, no browser, and no
   bus required. It is the rollup `board list --round` returns, plus a line saying who is
   live and who has gone quiet, capped at ten lines so a long round says how many it left
