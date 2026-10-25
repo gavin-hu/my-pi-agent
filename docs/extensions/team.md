@@ -7,7 +7,7 @@ it a handoff, and `reclaim` takes a card back when its owner has gone quiet.
 Nothing starts a process. The handoff lands in the peer's inbox, and an armed
 `session watch` is what raises its turn — so `assign` is a message, not a launch.
 
-<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and a Reclaim or Claim action on the row edge; on the right, a Teammates list with a state dot, label, you chip, mail badge and a line of what each holds; and one muted Done line under both" width="100%">
+<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and a Reclaim or Claim action on the row edge, or no action on a card that waits; on the right, a Teammates list with a state dot, label, you chip, mail badge and a line of what each holds; and one muted Done line under both" width="100%">
 
 *The Team tab: the cards that need the lead, then who is on the team — including an
 owner whose label nothing answers to.*
@@ -51,7 +51,7 @@ lists them — a label that is not live cannot be handed a card, and the send sa
 
 | What failed | What the card is | What the lead reads |
 |---|---|---|
-| the card is missing, `done`, or held by a third session | untouched | the refusal, with no message sent at all |
+| the card is missing, `done`, held by a third session, or waiting on unfinished work | untouched | the refusal, with no message sent at all |
 | the send | untouched — `todo`, no owner | `#4 was not handed off to billing-core: …`, plus `The card is unchanged.` |
 | the assignment, after a successful send | whatever the other writer left | `#4 was handed off to billing-core, but the card changed before it could be assigned: …`, and the peer is told to `board claim` it |
 
@@ -115,9 +115,10 @@ plans, works, notes, and moves it to `done` or `blocked`.
   folds back in.
 - **Send first.** A card assigned without a message is a card nobody knows about,
   while a message for a card that then changed is one the peer can still claim.
-- **`reclaim` lives here, not in `board`.** It is the compensation for a dispatch that
-  did not land, so it belongs in the lead's context — and the page offers it too,
-  because a card whose owner died has no other way back.
+- **`reclaim` is here, and in `board`.** It is the compensation for a dispatch that did
+  not land, so it belongs in the lead's context — and it is the same operation `board`
+  and its page offer, because a card whose owner went away must not need a second
+  extension to come back. `assign` is the part that needs the bus; `reclaim` never did.
 
 ## Files
 
