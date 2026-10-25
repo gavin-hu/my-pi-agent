@@ -56,9 +56,15 @@ ${WEB_COMPONENTS_CSS}
 .board-banner{margin:0 0 var(--space-4)}
 .board-no-cards{max-width:32rem;margin:auto;padding:var(--space-8) var(--space-6)}
 
-/* Lanes: four trays of cards, each with a head that sticks while the pane scrolls. */
-.board-lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4);align-items:start}
-.board-lane{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;padding:0 var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+/* Lanes: trays of cards, each with a head that sticks while the pane scrolls. A lane is
+   sized by the work it holds rather than by its share of the row, so one holding nothing
+   narrows to a rail and hands the width to the lanes carrying cards. */
+.board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:start}
+.board-lane{display:flex;flex:1 1 0;flex-direction:column;gap:var(--space-2);min-width:0;padding:0 var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+/* The rail: a dot, a word, and a count — the fact that the lane is showing nothing, not a
+   tray. A lane is a rail when it holds no cards and when it is folded, because both say
+   the same thing: there is nothing here to read. */
+.board-lane[data-empty="true"],.board-lane[data-folded="true"]{flex:0 0 8.5rem}
 .board-lane__head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:var(--space-2);margin:0 calc(-1 * var(--space-2)) var(--space-1);padding:var(--space-2) var(--space-2);background:var(--surface);border-bottom:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0;font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-lane__toggle{appearance:none;display:flex;align-items:center;gap:var(--space-2);border:0;background:none;padding:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer}
 .board-lane__toggle:hover{color:var(--accent)}
@@ -180,13 +186,17 @@ ${WEB_COMPONENTS_CSS}
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 
 @media (max-width:1180px){
-  .board-lanes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .board-lanes{flex-wrap:wrap}
+  .board-lane{flex:1 1 calc(50% - var(--space-4))}
   .board-progress{display:none}
   /* Two panels need a wide window; below this the queue comes first, the roster after. */
   .board-team__grid{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:860px){
-  .board-lanes{grid-template-columns:minmax(0,1fr)}
+  .board-lanes{flex-direction:column;align-items:stretch}
+  .board-lane{flex:1 1 auto}
+  /* One lane at a time, so a rail buys nothing: the shown lane takes the column. */
+  .board-lane[data-empty="true"],.board-lane[data-folded="true"]{flex:1 1 auto}
   .board-lane[hidden]{display:none}
   .board-picker{display:flex}
   .board-toolbar{gap:var(--space-2)}

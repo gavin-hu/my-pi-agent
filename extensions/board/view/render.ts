@@ -26,6 +26,14 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   var LANE_EMPTY = { todo: "nothing waiting", doing: "nothing in flight", blocked: "nothing blocked", done: "nothing finished yet" };
   /** Path chips a lane card shows before it counts the rest. */
   var PATH_CHIPS = 3;
+  /**
+   * Finished cards a lane may hold before it starts folded.
+   *
+   * A board of 26 cards is 19 of them finished, and an open Done lane is four times the
+   * height of the three that carry work. Three or four is work a reader still checks;
+   * past this it is history, and the count in the head says how much.
+   */
+  var DONE_FOLD_AT = 6;
 
   /** One element with optional class and text. */
   function el(tag, className, text) {
@@ -251,10 +259,11 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       // in it is not worth opening.
       actions.appendChild(actionButton("Move", function () { board.openCard(card.id, "move"); }, "plain"));
     }
-    // A note is a write, and a viewer's dialog has no field for one.
-    if (canWrite()) actions.appendChild(actionButton("Note", function () { board.openCard(card.id, "note"); }));
-    actions.appendChild(actionButton("Open", function () { board.openCard(card.id); }));
-    item.appendChild(actions);
+    // One verb, or none. The title above is the way into a card, and the dialog it opens
+    // already holds the note field and the move controls, so a face that repeated them
+    // put three doors to one room in every card — 59 buttons on a 26-card board. A card
+    // with no verb draws no row: an empty one would still take its gap.
+    if (actions.childNodes.length > 0) item.appendChild(actions);
     return item;
   }
 
@@ -360,6 +369,17 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       var lane = view.lanes[i];
       var section = laneNode(lane);
       if (section.parentNode !== lanes) lanes.appendChild(section);
+      // Finished work starts folded, once: the default is what the page opens with, and
+      // toggleLane writes a boolean from then on, so a reader who unfolds Done keeps it
+      // unfolded through every frame a peer's write causes.
+      if (lane.status === "done" && lane.cards.length >= DONE_FOLD_AT) {
+        board.collapsed = board.collapsed || {};
+        if (board.collapsed[lane.status] === undefined) board.collapsed[lane.status] = true;
+      }
+      // A lane holding nothing is a rail: its dot, its word, and its count, in the width
+      // the fact deserves. The filter never does this — filtering is a view of the cards,
+      // not a statement that the lane has none.
+      section.setAttribute("data-empty", lane.cards.length === 0 ? "true" : "false");
       var shown = lane.cards.filter(function (card) { return matches(card, query); });
       var sig = lane.cards.map(function (card) { return card.id + ":" + card.rev; }).join(",") + "|" + query;
       if (section.getAttribute("data-sig") !== sig) {
@@ -382,6 +402,10 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       var collapsed = board.collapsed && board.collapsed[lane.status] === true;
       var list = section.querySelector(".board-lane__list");
       if (list) list.hidden = collapsed;
+      // A folded lane shows nothing, so it takes the rail's width the way an empty one
+      // does: the count in its head is the whole fact, and the lanes with cards keep the
+      // width that would otherwise be a tray of nothing.
+      section.setAttribute("data-folded", collapsed ? "true" : "false");
       var toggle = section.querySelector(".board-lane__toggle");
       if (toggle) toggle.setAttribute("aria-expanded", String(!collapsed));
     }
