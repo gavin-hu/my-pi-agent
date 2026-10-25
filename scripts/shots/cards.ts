@@ -1,15 +1,15 @@
 /**
- * Capture the plan-flow cards with headless Chrome (dev tooling).
+ * Capture the posting cards with headless Chrome (dev tooling).
  *
  * The pages under `assets/cards/` are posters, not app surfaces: a fixed 1200×675
- * box, no server, no script, and no webfont, so they open from `file://` and
- * post to X as a pair. This finds the Chrome the machine already has
- * (`PI_CHROME` first, then the usual bundles) and writes the PNG a card is
- * posted as — 2× by default, so the text stays crisp where X scales it.
+ * box, no server, no script, and no webfont, so they open from `file://` and post
+ * to X as a set. This finds the Chrome the machine already has (`PI_CHROME`
+ * first, then the usual bundles) and writes the PNG a card is posted as — 2× by
+ * default, so the text stays crisp where X scales it.
  *
- *   bun run screenshot:plan-flow             # every card
- *   bun run screenshot:plan-flow graphic     # one card
- *   bun run screenshot:plan-flow flow -o /tmp/flow.png --scale 3
+ *   bun run screenshot:cards              # every card
+ *   bun run screenshot:cards board        # one card
+ *   bun run screenshot:cards flow -o /tmp/flow.png --scale 3
  *
  * A card that outgrows its own 1200×675 box fails the run with the measured
  * size instead of being captured clipped, because the image is the whole page.
@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { captureFullPage, readyWhen } from "../capture/chrome.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
 
-/** The box every card declares in `plan-flow.css`; the image is exactly this. */
+/** The box every card declares in `cards.css`; the image is exactly this. */
 const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 675;
 
@@ -35,6 +35,8 @@ interface Card {
 const CARDS: Record<string, Card> = {
 	flow: { page: "plan-flow.html", png: "plan-flow.png" },
 	graphic: { page: "plan-flow-graphic.html", png: "plan-flow-graphic.png" },
+	board: { page: "board.html", png: "board.png" },
+	team: { page: "board-team.html", png: "board-team.png" },
 };
 
 /** `assets/cards/`, anchored to this script so a capture does not depend on the cwd. */
@@ -42,7 +44,7 @@ const ASSETS = new URL("../../assets/cards/", import.meta.url);
 
 /** The options after parsing; the card names are already validated. */
 export interface ShotOptions {
-	/** Cards to capture, in the order given, or both. */
+	/** Cards to capture, in the order given, or every card. */
 	cards: string[];
 	/** One output path for one card, or an empty string for the defaults. */
 	out: string;
@@ -52,13 +54,19 @@ export interface ShotOptions {
 	waitMs: number;
 }
 
+/** `a`, `a and b`, or `a, b, and c` — the card names as the usage line reads them. */
+function listNames(names: string[]): string {
+	if (names.length <= 2) return names.join(" and ");
+	return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
 /** Parse the command line; throws a message the caller prints as usage. */
 export function parseArgs(argv: string[]): ShotOptions {
-	const parsed = parseShotArgs(argv, { out: "", scale: 2, maxPositional: 1 });
+	const parsed = parseShotArgs(argv, { out: "", scale: 2, maxPositional: Object.keys(CARDS).length });
 	if (argv.includes("--width")) throw new Error("--width is fixed: a card is a 1200×675 box");
 	const cards = parsed.positional.length > 0 ? parsed.positional : Object.keys(CARDS);
 	for (const name of cards) {
-		if (!(name in CARDS)) throw new Error(`unknown card "${name}"; expected ${Object.keys(CARDS).join(" or ")}`);
+		if (!(name in CARDS)) throw new Error(`unknown card "${name}"; expected ${listNames(Object.keys(CARDS))}`);
 	}
 	if (cards.length > 1 && parsed.out) throw new Error("-o names one file; capture one card at a time");
 	return { cards, out: parsed.out, scale: parsed.scale, waitMs: parsed.waitMs };
@@ -110,7 +118,7 @@ async function capture(name: string, options: ShotOptions): Promise<void> {
 	console.log(out);
 }
 
-const USAGE = `usage: bun run screenshot:plan-flow [${Object.keys(CARDS).join("|")}] [-o out.png] [--scale 2] [--wait 8000]`;
+const USAGE = `usage: bun run screenshot:cards [${Object.keys(CARDS).join("|")}] [-o out.png] [--scale 2] [--wait 8000]`;
 
 if (import.meta.main) {
 	runCli(USAGE, async () => {
