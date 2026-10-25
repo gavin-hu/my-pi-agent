@@ -19,7 +19,13 @@ import {
 import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
 import type { BoardView } from "../../../lib/board/view.ts";
 import type { PageView } from "../view/page.ts";
-import { type BoardRouterContext, handleBoardRequest, type PageResult, type PageWrite } from "./router.ts";
+import {
+	type Authority,
+	type BoardRouterContext,
+	handleBoardRequest,
+	type PageResult,
+	type PageWrite,
+} from "./router.ts";
 
 /** How often the page is offered a frame; a frame is sent only when the signature moved. */
 export const PUSH_MS = 1_000;
@@ -31,9 +37,11 @@ export const MAX_BODY_BYTES = 64 * 1_024;
 export interface BoardServerOptions {
 	/** Ports tried in order: the session's remembered port, then an OS-chosen one. */
 	ports: readonly number[];
-	/** Mint a token here, or reuse the one a restart kept. */
+	/** The credential that may change a card; minted here when the caller has none. */
 	token?: string;
-	page: (view: PageView) => Promise<string>;
+	/** The credential a viewer carries: every read, and no write. */
+	viewToken?: string;
+	page: (view: PageView, authority: Authority) => Promise<string>;
 	script: string;
 	view: () => Promise<BoardView>;
 	write: (request: PageWrite) => Promise<PageResult>;
@@ -48,8 +56,12 @@ export interface BoardServerOptions {
 /** A running page. */
 export interface BoardServer {
 	port: number;
-	/** The URL to open, token included. */
+	/** The URL the lead opens: the page, with the credential that may change it. */
 	url: string;
+	/** The URL a teammate opens: the same page, read-only. */
+	viewUrl: string;
+	/** How many tabs are attached, which is what `/board status` reports. */
+	watchers: () => number;
 	/** The signature of the last frame pushed, so a caller can tell it is live. */
 	pushed: () => string;
 	close: () => Promise<void>;
@@ -57,14 +69,19 @@ export interface BoardServer {
 
 export async function createBoardServer(options: BoardServerOptions): Promise<BoardServer> {
 	const token = options.token ?? mintToken();
+	const viewToken = options.viewToken ?? mintToken();
 	const clients = new Set<EventSink>();
 	const interval = options.interval ?? defaultInterval;
 	let pushed = "";
 
 	const ctx: BoardRouterContext = {
-		// One credential today: the page's own. The view token a teammate would carry is
-		// the page lifecycle's to mint, and this is where it becomes an authority.
-		authority: (given) => (tokenMatches(token, given ?? "") ? "write" : undefined),
+		// Two credentials, one page: the lead's may change a card, a teammate's may only
+		// read it. Which of the two a request carries is the whole authorisation story.
+		authority: (given) => {
+			const value = given ?? "";
+			if (tokenMatches(token, value)) return "write";
+			return tokenMatches(viewToken, value) ? "view" : undefined;
+		},
 		hosts: () => LOOPBACK_HOSTS,
 		page: options.page,
 		script: options.script,
@@ -124,6 +141,8 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 	return {
 		port: server.port,
 		url: `http://127.0.0.1:${server.port}/?token=${token}`,
+		viewUrl: `http://127.0.0.1:${server.port}/?token=${viewToken}`,
+		watchers: () => clients.size,
 		pushed: () => pushed,
 		close,
 	};

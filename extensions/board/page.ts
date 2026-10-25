@@ -19,6 +19,17 @@ import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
+import {
+	clearPointer,
+	createPointer,
+	PAGE_FILE,
+	type PagePointer,
+	type ProbeFetch,
+	probePage,
+	readPointer,
+	viewUrlOf,
+} from "../../lib/board/page-pointer.ts";
+import { mintToken } from "../../lib/http/index.ts";
 import { pageActor } from "./seat.ts";
 import { viewOf } from "./snapshot.ts";
 import { writeOf } from "./writes.ts";
@@ -43,11 +54,15 @@ export const IDLE_STOP_MS = 60_000;
 /** What `/board status` prints. */
 export interface BoardPageStatus {
 	running: boolean;
+	/** True when this session opened somebody else's page instead of serving one. */
+	attached?: boolean;
 	/** The name the page serves as: a seat, not the session that opened it. */
 	seat?: string;
 	port?: number;
 	url?: string;
 	where?: string;
+	/** How many tabs are attached, while this session serves the page. */
+	watchers?: number;
 }
 
 /**
@@ -59,6 +74,7 @@ export interface BoardPageStatus {
  */
 export type PageStart =
 	| { kind: "served"; seat: string; port: number; url: string; where: string }
+	| { kind: "attached"; seat: string; port: number; url: string; where: string }
 	| { kind: "failed"; reason: string };
 
 /** Test seams and the one place a caller may redirect the browser. */
@@ -68,6 +84,8 @@ export interface BoardPageDeps {
 	interval?: RepeatTimer;
 	/** Grace after the last tab leaves; defaults to {@link IDLE_STOP_MS}. */
 	idleMs?: number;
+	/** Whether a page another session left a note about is answering; a test drives it. */
+	probe?: ProbeFetch;
 }
 
 /** The page as `/board` and `session_shutdown` drive it. */
@@ -79,7 +97,9 @@ export interface BoardPage {
 }
 
 export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {}): BoardPage {
-	let running: { server: BoardServer; store: BoardStore } | undefined;
+	let running: { server: BoardServer; store: BoardStore; viewToken: string } | undefined;
+	/** The page another session serves, when this session opened that one instead. */
+	let attachedTo: PagePointer | undefined;
 	let sessionPort: number | undefined;
 	// The page is a seat, not a session: one name and one id for its whole life, so a card
 	// a browser claimed is still the seat's after the session that served it ends.
@@ -89,9 +109,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 
 	const stop = async (ctx: ExtensionContext): Promise<boolean> => {
 		if (!running) return false;
-		const { server } = running;
+		const { server, store, viewToken } = running;
 		running = undefined;
 		await server.close();
+		// The note is the page's, so it leaves with it: a viewer that reads a note nobody
+		// answers wastes a probe, and the next `/board` would attach to a dead port.
+		await clearPointer(store.dir, viewToken);
 		clearChip(ctx);
 		return true;
 	};
@@ -100,17 +123,37 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		if (running) return describe(running);
 		const store = await storeOf(ctx);
 		await store.ensure();
+		const open = (url: string) => (deps.open ?? openInBrowser)(view === "board" ? url : `${url}&view=team`);
+		// Somebody may already serve this repository: a note beside the cards says so, and
+		// only the page answering it is one to attach to.
+		const existing = await readPointer(store.dir);
+		if (existing !== undefined && (await probePage(existing, deps.probe))) {
+			attachedTo = existing;
+			open(viewUrlOf(existing));
+			return {
+				kind: "attached",
+				seat: existing.seat.label,
+				port: existing.port,
+				url: viewUrlOf(existing),
+				where: store.where(),
+			};
+		}
+		attachedTo = undefined;
 		const actor = () => seat;
 		const now = () => runtime.now();
 		const preferred = sessionPort ?? (deps.pickPort ?? randomPort)();
+		// The viewer's credential is minted here rather than by the server, because the note
+		// this session leaves has to carry it: that is what a teammate reads to attach.
+		const viewToken = mintToken();
 		let server: BoardServer;
 		try {
 			server = await createBoardServer({
 				ports: [preferred, 0],
+				viewToken,
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
 				onIdle: () => void stopIdle(ctx),
-				page: async (view) => renderBoardPage({ view }),
+				page: async (view, authority) => renderBoardPage({ view, writes: authority === "write" }),
 				script: BOARD_CLIENT_JS,
 				view: () =>
 					viewOf({
@@ -127,10 +170,37 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
 			return { kind: "failed", reason };
 		}
+		// The note is written last, on the port the server actually bound, and only if no
+		// other session got there first: the loser of that race becomes a viewer of the
+		// page that won rather than a second page nobody can find.
+		const wrote = await createPointer(store.dir, {
+			port: server.port,
+			viewToken,
+			seat: { id: seat.id, label: seat.label },
+			startedAt: runtime.now(),
+		});
+		if (!wrote) {
+			await server.close();
+			const winner = await readPointer(store.dir);
+			if (winner !== undefined && (await probePage(winner, deps.probe))) {
+				attachedTo = winner;
+				open(viewUrlOf(winner));
+				return {
+					kind: "attached",
+					seat: winner.seat.label,
+					port: winner.port,
+					url: viewUrlOf(winner),
+					where: store.where(),
+				};
+			}
+			const reason = `another session is serving ${PAGE_FILE} on this board`;
+			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
+			return { kind: "failed", reason };
+		}
 		sessionPort = server.port;
-		running = { server, store };
+		running = { server, store, viewToken };
 		setChip(ctx, server.port);
-		(deps.open ?? openInBrowser)(view === "board" ? server.url : `${server.url}&view=team`);
+		open(server.url);
 		return describe(running);
 	};
 
@@ -147,10 +217,34 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		where: state.store.where(),
 	});
 
+	/** What `/board status` answers, wherever the page is: served here, watched, or absent. */
+	const statusOf = (): BoardPageStatus => {
+		if (running) {
+			return {
+				running: true,
+				seat: seat.label,
+				port: running.server.port,
+				url: running.server.url,
+				where: running.store.where(),
+				watchers: running.server.watchers(),
+			};
+		}
+		if (attachedTo !== undefined) {
+			return {
+				running: false,
+				attached: true,
+				seat: attachedTo.seat.label,
+				port: attachedTo.port,
+				url: viewUrlOf(attachedTo),
+			};
+		}
+		return { running: false };
+	};
+
 	return {
 		start,
 		stop,
-		status: () => (running ? { running: true, ...describe(running) } : { running: false }),
+		status: statusOf,
 		closeAll: async () => {
 			if (!running) return;
 			const { server } = running;

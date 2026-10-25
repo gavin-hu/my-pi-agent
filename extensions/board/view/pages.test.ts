@@ -28,9 +28,17 @@ describe("the document", () => {
 	test("is a complete page under the shared head", () => {
 		const page = renderBoardPage({ view: "board" });
 		expect(page.startsWith("<!doctype html>")).toBe(true);
-		expect(page).toContain('<html lang="en" data-view="board">');
+		expect(page).toContain('<html lang="en" data-view="board" data-writes="1">');
 		expect(page).toContain("/app.js");
 		expect(page.trimEnd().endsWith("</html>")).toBe(true);
+	});
+
+	test("a viewer's document says so, and the client asks it", () => {
+		// The attribute is the whole difference between the lead's page and a teammate's:
+		// the server renders it per request, and every affordance reads it.
+		expect(renderBoardPage({ view: "board", writes: false })).toContain('data-writes="0"');
+		expect(renderBoardPage({ view: "team", writes: true })).toContain('data-writes="1"');
+		expect(BOARD_CLIENT_JS).toContain('getAttribute("data-writes") !== "0"');
 	});
 
 	test("opens on the tab it was asked for, with the other one hidden", () => {

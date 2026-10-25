@@ -10,8 +10,10 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
+import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
+import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/board/page-pointer.ts";
 import { createBoardPage, IDLE_STOP_MS, type PageStart } from "./page.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 
@@ -21,16 +23,32 @@ afterAll(() => temps.flush());
 const NOW = 50_000;
 
 /** A page over a temp store, with a recorded browser open and an OS-chosen port. */
-function harness() {
-	const board = boardHarness({ now: NOW, track: temps.track });
+function harness(options: { cwd?: string; agentDir?: string; probe?: ProbeFetch; sessionName?: string } = {}) {
+	const board = boardHarness({ now: NOW, track: temps.track, ...options });
 	const opened: string[] = [];
-	const page = createBoardPage(board.runtime, { pickPort: () => 0, open: (url) => opened.push(url), idleMs: 40 });
+	const page = createBoardPage(board.runtime, {
+		pickPort: () => 0,
+		open: (url) => opened.push(url),
+		idleMs: 40,
+		...(options.probe === undefined ? {} : { probe: options.probe }),
+	});
 	return { page, ctx: board.ctx, opened, notifications: board.notifications, cwd: board.cwd, runtime: board.runtime };
 }
 
-/** The started page, or a failure that says why it did not start. */
-function served(start: PageStart): { port: number; url: string } {
-	if (start.kind !== "served") throw new Error(`the page did not start: ${start.reason}`);
+/** The note a page leaves beside this board's cards. */
+async function noteOf(runtime: BoardSession, cwd: string): Promise<PagePointer | undefined> {
+	return readPointer((await runtime.store(cwd)).dir);
+}
+
+/** The page this session served, or a failure that says why there is none. */
+function served(start: PageStart): { port: number; url: string; seat: string } {
+	if (start.kind !== "served") throw new Error(`the page was not served here: ${start.kind}`);
+	return start;
+}
+
+/** The page another session served, or a failure that says why there is none. */
+function attached(start: PageStart): { port: number; url: string; seat: string } {
+	if (start.kind !== "attached") throw new Error(`the page was not attached to: ${start.kind}`);
 	return start;
 }
 
@@ -145,6 +163,75 @@ describe("start", () => {
 		expect(await page.stop(ctx)).toBe(true);
 		expect(await page.stop(ctx)).toBe(false);
 		expect(page.status().running).toBe(false);
+	});
+});
+
+describe("the page this repository already serves", () => {
+	test("a second session attaches to it read-only instead of serving a second one", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const lead = harness({ cwd, agentDir });
+		const servedFirst = served(await lead.page.start(lead.ctx));
+		const note = await noteOf(lead.runtime, cwd);
+		expect(note?.port).toBe(servedFirst.port);
+		// The note carries the view token, which is the only credential a teammate gets.
+		expect(note?.viewToken).not.toBe(new URL(servedFirst.url).searchParams.get("token"));
+
+		const peer = harness({ cwd, agentDir });
+		const joined = attached(await peer.page.start(peer.ctx));
+		expect(joined).toMatchObject({ seat: "team-lead", port: servedFirst.port });
+		expect(peer.opened[0]).toBe(`http://127.0.0.1:${servedFirst.port}/?token=${note?.viewToken}`);
+		// The viewer's own page is not a server: nothing to stop, and status says whose it is.
+		expect(await peer.page.stop(peer.ctx)).toBe(false);
+		expect(peer.page.status()).toMatchObject({ running: false, attached: true, seat: "team-lead" });
+		await lead.page.stop(lead.ctx);
+	});
+
+	test("a note nobody answers is replaced by this session's page", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const dead = harness({ cwd, agentDir, probe: async () => ({ ok: false }) });
+		const status = served(await dead.page.start(dead.ctx));
+		expect((await noteOf(dead.runtime, cwd))?.port).toBe(status.port);
+		await dead.page.stop(dead.ctx);
+	});
+
+	test("losing the race for the note makes this session a viewer of the winner", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const lead = harness({ cwd, agentDir });
+		const first = served(await lead.page.start(lead.ctx));
+		// Somebody else's note is there, but the page is not answering yet: this session
+		// serves, loses the exclusive write, and then finds the winner answering.
+		let answers = 0;
+		const peer = harness({
+			cwd,
+			agentDir,
+			probe: async () => {
+				answers++;
+				return { ok: answers > 1 };
+			},
+		});
+		const joined = attached(await peer.page.start(peer.ctx));
+		expect(joined.port).toBe(first.port);
+		expect(peer.notifications.join("\n")).not.toContain("did not start");
+		await lead.page.stop(lead.ctx);
+	});
+
+	test("the note leaves with the page, and only for its own page", async () => {
+		const { page, ctx, cwd, runtime } = harness();
+		await page.start(ctx);
+		expect(await noteOf(runtime, cwd)).toBeDefined();
+		await page.stop(ctx);
+		expect(await noteOf(runtime, cwd)).toBeUndefined();
+		expect(PAGE_FILE).toBe("page.json");
+	});
+
+	test("status reports the seat and the tabs watching it", async () => {
+		const { page, ctx } = harness();
+		const status = served(await page.start(ctx));
+		expect(page.status()).toMatchObject({ running: true, seat: "team-lead", port: status.port, watchers: 0 });
+		await page.stop(ctx);
 	});
 });
 

@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: one page per repository, and a teammate can watch it. `/board` reads the note
+  the serving session left beside the board's cards: when a page answers, this session
+  opens that one instead of serving a second, and the toolbar and `/board status` say
+  whose page it is. A viewer's page is read-only — the note carries a credential that
+  satisfies every read and no write, the document says `data-writes="0"`, and the client
+  draws no **+ New card**, `Claim`, `Move`, `Edit`, `Drop` or note field, so a teammate
+  sees the board without a button the server would refuse. `/board stop` on a watching
+  session says who serves it instead of stopping somebody else's page.
 - `board`: the page serves as a seat — one fixed name, `team-lead`, with an id derived
   from it — instead of as the session that opened it. A card a browser claims stays the
   seat's after that session ends or `/resume`s, and `/board status` names the seat. The

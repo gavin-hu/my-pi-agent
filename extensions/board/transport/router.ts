@@ -64,8 +64,8 @@ export interface BoardRouterContext {
 	authority: (given: string | null) => Authority | undefined;
 	/** The names this server answers to. */
 	hosts: () => readonly string[];
-	/** The document for one tab. */
-	page: (view: PageView) => Promise<string>;
+	/** The document for one tab, as the authority that asked for it may see it. */
+	page: (view: PageView, authority: Authority) => Promise<string>;
 	/** The client script. */
 	script: string;
 	/** The snapshot the page renders, and the body of `/api/board`. */
@@ -102,7 +102,7 @@ export async function handleBoardRequest(
 	if (pathname === "/api/board") return jsonResponse(200, await ctx.view());
 	if (pathname === "/" || pathname === "/index.html") {
 		const view = viewOf(search.get("view"));
-		return { status: 200, headers: pageHeaders(), body: await ctx.page(view) };
+		return { status: 200, headers: pageHeaders(), body: await ctx.page(view, authority) };
 	}
 	if (pathname === "/events") return { status: 200, headers: eventHeaders(), stream: true };
 
