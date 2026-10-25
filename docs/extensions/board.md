@@ -95,7 +95,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Band | What it holds |
 |---|---|
 | Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
-| New card dialog | the modal the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards, and a draft survives `Esc` or a backdrop click |
+| New card dialog | the modal the toolbar's button (or `n`) opens: **Title** on its own line, the loudest field on the page, with a `n/120` count once you type; **Paths** under it, space-separated hints; the hint line; and one closer, `Cancel`, beside **Add card**. The title is focused on open, the dialog stays open after an add so a lead can publish several cards, and a draft survives `Esc`, the backdrop, and `Cancel` is the only thing that discards it |
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
 | Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line in one voice — a blocked card's last note, `no plan recorded`, or `planned` — clamped, with the whole sentence as its tooltip, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | two panels and a strip. **Needs a decision** is one row per card: its kind as a left edge (`--danger` blocked, `--warn` idle, `--muted` unplanned, a dashed grey edge for nobody's), the reason on its own line with the whole sentence as its tooltip, and the way out on the row's edge — `Reclaim` when someone holds it, `Claim` when nobody does. **Teammates** is one row per person — a state dot, the label, a `you` chip, a mail badge, then `live · 3 held · 1 done · oldest 21m` — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
@@ -185,7 +185,9 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   this holds", never "force this state".
 - **The page is a dumb renderer** over one snapshot built on the server, pushed
   only when a card's revision moves.
-- **The new card is a dialog, not a fixture.** The page opens on the board; a card
+- **The new card is a dialog, not a fixture.** The page opens on the board, and an
+  empty board leaves its own explanation in place rather than covering it with the
+  dialog — the empty state's **Add the first card** is what opens it. A card
   is something you ask to write. It is the kit's modal, so `Tab` stays inside it and
   closing returns focus to the button that opened it; a draft survives `Esc` or a
   backdrop click, and `Cancel` is the one way to throw it away.

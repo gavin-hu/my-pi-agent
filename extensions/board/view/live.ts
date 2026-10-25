@@ -97,7 +97,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     if (input) input.focus();
   };
 
-  /** Close it, draft and all: only Cancel throws the draft away. */
+  /** Close it and keep the draft: only Cancel throws one away. */
   board.closeComposer = function () {
     if (window.bfNew) window.bfNew.close();
   };
@@ -181,16 +181,12 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     return view.lanes[0] ? view.lanes[0].status : "todo";
   }
 
-  /** One frame: paint, record when it arrived, and put the caret where a reader acts. */
+  /** One frame: paint and record when it arrived. */
   function paint(view) {
     board.lastFrame = Date.now();
     board.lane = board.lane || laneWithWork(view);
     badge("live", board.lastFrame);
     board.render(view);
-    if (!board.focused && view.counts.total === 0) {
-      board.focused = true;
-      board.focusComposer();
-    }
   }
 
   /** The live channel: a reconnect is the browser's own retry, not a second request. */
@@ -217,6 +213,18 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   function wireComposer() {
     var form = document.getElementById("board-composer");
     if (!form) return;
+    // The field is capped at 120 characters, and a cap nobody can see reads as a bug the
+    // first time typing stops; the count appears with the first character.
+    var titleField = document.getElementById("new-title");
+    var count = document.getElementById("new-title-count");
+    var titleMax = titleField ? Number(titleField.getAttribute("maxlength")) : 0;
+    function showCount() {
+      if (!titleField || !count || !titleMax) return;
+      var used = titleField.value.length;
+      count.textContent = used + "/" + titleMax;
+      count.hidden = used === 0;
+    }
+    if (titleField) titleField.addEventListener("input", showCount);
     form.addEventListener("submit", function (event) {
       event.preventDefault();
       var title = document.getElementById("new-title");
@@ -231,6 +239,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
         if (!payload) return;
         // The dialog stays open: a lead publishes several cards in a row.
         form.reset();
+        showCount();
         title.focus();
       });
     });
@@ -241,7 +250,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
         else board.openComposer();
       });
     }
-    // A dialog that keeps its draft on Esc needs one button that does not.
+    // The dialog's single closer: Esc and the backdrop keep the draft, this does not.
     var cancel = document.getElementById("board-cancel");
     if (cancel) {
       cancel.addEventListener("click", function () {

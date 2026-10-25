@@ -79,17 +79,17 @@ ${docHead({ title: "board", css: BOARD_CSS })}
   <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="board-new-title">
     <div class="bf-dialog__head">
       <h2 id="board-new-title">New card</h2>
-      <span class="bf-spacer"></span>
-      <button type="button" class="bf-btn bf-btn--icon" id="new-dialog-close" aria-label="Close">×</button>
     </div>
     <form class="board-composer" id="board-composer" autocomplete="off">
       <div class="bf-dialog__body">
         <div class="board-composer__fields">
-          <label class="bf-field"><span>Title</span>
-            <input class="bf-input" id="new-title" name="title" placeholder="the feature's outcome, one line" maxlength="120" required>
+          <label class="board-composer__field board-composer__field--title">
+            <span class="board-composer__label">Title<span class="board-composer__count" id="new-title-count" hidden></span></span>
+            <span class="bf-field"><input class="bf-input" id="new-title" name="title" placeholder="what it delivers, in one line" maxlength="120" required></span>
           </label>
-          <label class="bf-field"><span>Paths</span>
-            <input class="bf-input" id="new-paths" name="paths" placeholder="src/… src/…" aria-describedby="composer-hint">
+          <label class="board-composer__field">
+            <span class="board-composer__label">Paths</span>
+            <span class="bf-field"><input class="bf-input" id="new-paths" name="paths" placeholder="extensions/board  lib/web" aria-describedby="composer-hint"></span>
           </label>
         </div>
         <p class="bf-dialog__hint" id="composer-hint">one card per feature — its steps live in the owner's plan and todo</p>

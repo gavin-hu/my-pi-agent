@@ -34,6 +34,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   recorded`, `planned`, or the blocked card's note), a teammate's mail badge sits beside
   its name, the Done strip's ids carry a dotted line, and a dialog focuses its panel
   rather than its close button — so the ring lands on the window, not in a corner.
+  The New card dialog then took the shape its job asks for: **Title** and **Paths** are
+  stacked with their labels above the boxes, the title is the loudest field on the page
+  and shows a `n/120` count once you type, the path hints no longer sit in a 197px
+  column, the field box takes the focus ring instead of the input inside it, `Cancel` is
+  the dialog's one closer, and an empty board keeps its own explanation instead of
+  opening the dialog over it.
   Its modals are the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the

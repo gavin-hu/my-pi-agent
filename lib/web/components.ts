@@ -38,6 +38,9 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-segmented__item[aria-current="page"],.bf-segmented__item[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 .bf-input{border:0;background:transparent;color:var(--text);font:var(--fs-sm) var(--font-mono);width:100%;outline:none}
 .bf-field{display:flex;align-items:center;gap:var(--space-1);background:var(--canvas);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-1) var(--space-2);color:var(--muted);font-size:var(--fs-sm)}
+/* The field is the control: ringing the input inside it drew a border within a border. */
+.bf-field:focus-within{outline:var(--focus-ring) solid var(--accent);outline-offset:2px}
+.bf-field .bf-input:focus-visible{outline:none}
 .bf-textarea{width:100%;min-height:72px;padding:var(--space-2);font:inherit;color:var(--text);background:var(--canvas);border:1px solid var(--border);border-radius:var(--radius-md);resize:vertical}
 .bf-panel{min-width:0;overflow:auto;overscroll-behavior:contain}
 .bf-panel__summary{display:none}

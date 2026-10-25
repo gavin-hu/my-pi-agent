@@ -53,7 +53,7 @@ describe("the document", () => {
 			"board-new",
 			"board-new-dialog",
 			"board-new-title",
-			"new-dialog-close",
+			"new-title-count",
 			"keys-open",
 			"board-banner",
 			"board-composer",
