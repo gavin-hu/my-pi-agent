@@ -27,7 +27,8 @@ decision.
 | Record the plan | `board` action `plan` | The plan file the card is executing, so "unplanned" work is visible |
 | Delete a card | `board` action `drop` | The card and its notes are gone; nothing else ever deletes one |
 | A live page for the same cards | `/board` | A loopback page with a **Board** tab and a **Team** tab, following the store live |
-| See the lead's rollup at a glance | `/board team` | One panel per owner, then unassigned, unplanned, blocked, idle, and done |
+| See the lead's round at a glance | `/board team` | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
+| See who is around | `/board team` | The Teammates list: every session this repository's bus has recorded, plus every owner a card names, each stating `live`, `quiet`, `no record`, or `—` when no bus is loaded |
 
 ## Quickstart
 
@@ -97,7 +98,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Composer | a drawer the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards |
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
 | Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line (clamped, with the whole sentence as its tooltip), and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
-| Team | a table of owners (`Owner · Live · Done · Oldest`, where an owner who finished keeps its row), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line. Both tables honour the toolbar's filter, and their headings read `shown/total` the way a lane head does |
+| Team | two panels and a strip. **Needs a decision** is one row per card: its kind as a left edge (`--danger` blocked, `--warn` idle, `--muted` unplanned, a dashed grey edge for nobody's), the reason on its own line with the whole sentence as its tooltip, and the way out on the row's edge — `Reclaim` when someone holds it, `Claim` when nobody does. **Teammates** is one row per person — a state dot, the label, a `you` chip, a mail badge, then `live · 3 held · 1 done · oldest 21m` — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
 | Card dialog | the lane as a dot and a word beside the title, a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline (who and when above the sentence, a rule between them), a note field, and `Move to` only the lanes the card can reach, then `Release`, `Drop`, `Close` |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
@@ -131,15 +132,23 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 - A write is made **as the serving session** — a browser is not an identity — so
   the toolbar names the session and claim/reclaim ask first.
 - The page writes only the board store under the agent directory. It never writes
-  your repository.
+  your repository, and it reads the session bus's own records read-only — labels,
+  modes, heartbeats, and message counts — to draw the Teammates list.
 
 ## Limitations
 
 - **Ownership is advisory.** Two sessions can still edit the same file; only
   `session-bus`'s path claims are a lock.
 - **The board does not know whether a session is alive.** "Idle" means a `doing`
-  card nobody has touched for 30 minutes, not that its process is gone; liveness is
-  `session status`'s answer, and the board works with `session-bus` disabled.
+  card nobody has touched for 30 minutes, not that its process is gone; and the
+  Teammates list reads the bus's records, where `live` is a heartbeat inside ten
+  minutes, `quiet` is a record whose heartbeat has aged, and `no record` means only
+  that the bus holds no record of that label — never that a session is dead. With
+  `session-bus` unloaded, or before any session has joined here, every state reads
+  `—` and the board works exactly as before.
+- **The serving session may not be in its own list.** A session joins the bus when
+  it first acts, so the page can be open under a label the bus has not recorded
+  yet; `you` marks the label when it is there.
 - **Nothing prunes.** A `done` card stays until someone drops it; the page shows
   how many bytes the store occupies.
 - **A page claim is the serving session's claim.** Opening the page in two browsers

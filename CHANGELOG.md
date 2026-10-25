@@ -19,9 +19,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the first lane that holds a card. The card dialog names its lane with the same dot and
   word a lane head wears, separates its notes with who and when on their own line, and
   offers `Move to` only the lanes the card can reach, so the lane it is already in is
-  never a disabled button that looks selected. The Team tab's owners table counts live
-  and finished cards apart, and an owner whose last card is done keeps its row instead
-  of vanishing from the rollup the moment the work ends.
+  never a disabled button that looks selected. The Team tab is a dashboard now: a
+  **Needs a decision** queue of rows whose left edge carries the kind, with the reason
+  on its own line and `Reclaim` — or `Claim` when nobody holds it — on the row's edge,
+  beside a **Teammates** list read from the session bus's own records, where each
+  session states `live`, `quiet`, or `no record`, shows its `you` chip, its waiting
+  mail, and what it holds; an owner whose label nothing answers to keeps its row, and
+  with `session-bus` unloaded every state reads `—` and the tab behaves as it did.
+  An owner whose last card is done keeps its row instead of vanishing from the rollup
+  the moment the work ends.
   Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the
