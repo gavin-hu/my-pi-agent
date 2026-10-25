@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
-import type { BoardPage, BoardPageStatus } from "./page.ts";
+import type { BoardPage, BoardPageStatus, PageStart } from "./page.ts";
 
 /** A page that records every call and answers with a fixed status. */
 function fakePage(): { page: BoardPage; calls: string[] } {
@@ -22,12 +22,18 @@ function fakePage(): { page: BoardPage; calls: string[] } {
 		url: "http://127.0.0.1:4812/?token=abc",
 		where: "~/.pi/agent/board/k",
 	};
+	const served: PageStart = {
+		kind: "served",
+		port: 4812,
+		url: "http://127.0.0.1:4812/?token=abc",
+		where: "~/.pi/agent/board/k",
+	};
 	let isRunning = false;
 	const page: BoardPage = {
 		start: async (_ctx, view) => {
 			calls.push(`start ${view ?? "board"}`);
 			isRunning = true;
-			return running;
+			return served;
 		},
 		stop: async () => {
 			calls.push("stop");
@@ -110,7 +116,7 @@ describe("/board", () => {
 /** A page with no recording, for the completion cases. */
 function page(): BoardPage {
 	return {
-		start: async () => ({ running: false }),
+		start: async () => ({ kind: "failed", reason: "not started" }),
 		stop: async () => false,
 		status: () => ({ running: false }),
 		closeAll: async () => {},

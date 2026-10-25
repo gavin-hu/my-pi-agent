@@ -15,6 +15,8 @@ import type { BoardRouterContext, PageWrite } from "./router.ts";
 import { handleBoardRequest } from "./router.ts";
 
 const TOKEN = "0123456789abcdef0123456789abcdef";
+/** A viewer's token: the shape the feature's pointer will carry, exercised here directly. */
+const VIEW_TOKEN = "fedcba9876543210fedcba9876543210";
 
 /** A card that passes, so a case can change one thing. */
 function card(overrides: Partial<Card> = {}): Card {
@@ -57,7 +59,9 @@ function context() {
 	const writes: PageWrite[] = [];
 	const pages: string[] = [];
 	const ctx: BoardRouterContext = {
-		token: TOKEN,
+		// The page's own credential is the write authority; a viewer's is added by the
+		// feature that mints one, and the cases below supply it directly.
+		authority: (given) => (given === TOKEN ? "write" : given === VIEW_TOKEN ? "view" : undefined),
 		hosts: () => LOOPBACK_HOSTS,
 		page: async (named) => {
 			pages.push(named);
@@ -141,6 +145,27 @@ describe("the token", () => {
 			);
 			expect(response.status, `${method} ${path}`).toBe(403);
 		}
+	});
+
+	test("a viewer's token reads everything and writes nothing", async () => {
+		// The credential a watching session will hold: the same reads, and a refusal on
+		// every route that changes a card — before the body is even parsed.
+		const { ctx, writes } = context();
+		const viewer = (path: string) => `${path}${path.includes("?") ? "&" : "?"}token=${VIEW_TOKEN}`;
+		for (const path of ["/", "/api/board", "/events"]) {
+			expect((await handleBoardRequest(ctx, "GET", viewer(path), SAME_ORIGIN)).status, path).toBe(200);
+		}
+		const headers = { ...SAME_ORIGIN, "content-type": "application/json" };
+		const refused = [
+			await handleBoardRequest(ctx, "POST", viewer("/api/cards"), headers, '{"title":"One"}'),
+			await handleBoardRequest(ctx, "POST", viewer("/api/cards/4/claim"), headers, "{}"),
+			await handleBoardRequest(ctx, "DELETE", viewer("/api/cards/4"), SAME_ORIGIN),
+		];
+		for (const response of refused) {
+			expect(response.status).toBe(403);
+			expect(JSON.parse(String(response.body ?? "{}"))).toEqual({ error: "This page is read-only for a viewer." });
+		}
+		expect(writes).toEqual([]);
 	});
 
 	test("refuses a wrong token, a missing one, and the empty string", async () => {

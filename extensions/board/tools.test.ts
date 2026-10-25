@@ -9,12 +9,11 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { boardHarness } from "../../test/helpers/board.ts";
 import { tempDir } from "../../test/helpers/env.ts";
-import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
-import { openBoardSession } from "../../lib/board/session.ts";
 import { registerTools } from "./tools.ts";
 import type { BoardDetails } from "./types.ts";
 
@@ -25,21 +24,17 @@ const NOW = 100_000;
 
 /** A registered tool plus the context it will be called with. */
 function harness(options: FakeCtxOptions & { agentDir?: string } = {}) {
-	const { agentDir: shared, ...ctxOptions } = options;
-	const agentDir = shared ?? temps.track(tempDir("pi-agent-"));
-	const cwd = ctxOptions.cwd ?? temps.track(tempDir("pi-repo-"));
-	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
-	const runtime = openBoardSession(fake.pi, { now: () => NOW, agentDir });
-	registerTools(fake.pi, runtime);
-	const tool = fake.tools.get("board");
+	const { agentDir, ...ctxOptions } = options;
+	const board = boardHarness({ agentDir, now: NOW, track: temps.track, ...ctxOptions });
+	registerTools(board.fake.pi, board.runtime);
+	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
-	const { ctx } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead", ...ctxOptions });
 	return {
 		tool,
-		ctx,
+		ctx: board.ctx,
 		/** Run one action. */
 		async call(args: Record<string, unknown>) {
-			return (await tool.execute("call-1", args, undefined, undefined, ctx)) as {
+			return (await tool.execute("call-1", args, undefined, undefined, board.ctx)) as {
 				content: Array<{ text: string }>;
 				details: BoardDetails;
 				isError?: boolean;

@@ -13,8 +13,8 @@ import { type Card, cardRef } from "../../lib/board/card.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { TailResult, type TailResultInput, type TailSection } from "../../lib/tui/tool.ts";
+import { plural } from "../../lib/board/round-text.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { plural } from "./format.ts";
 import { boardRowLine } from "./rows.ts";
 import type { BoardDetails } from "./types.ts";
 

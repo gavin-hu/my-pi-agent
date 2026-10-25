@@ -1,0 +1,37 @@
+/**
+ * The page's snapshot: the one shape the browser is allowed to know, assembled from
+ * what this session can read.
+ *
+ * `lib/board/view.ts` builds the shape; this module is the wiring that feeds it — the
+ * cards, the bus's records when they are there, the store's size, and the clock. The
+ * bus is read as data in its own directory, so the page lists teammates when the bus
+ * has recorded them and draws exactly what it drew before when it has not.
+ */
+
+import type { Actor } from "../../lib/board/rules.ts";
+import type { BoardStore } from "../../lib/board/store.ts";
+import { buildView, type BoardView } from "../../lib/board/view.ts";
+import { readRoster } from "../../lib/session-roster.ts";
+
+/** What a snapshot needs, all of it supplied by the page's lifecycle. */
+export interface SnapshotContext {
+	store: BoardStore;
+	/** The actor every request is made and reported as. */
+	actor: () => Actor;
+	now: () => number;
+	/** Where this repository's bus files its records. */
+	busDir: () => Promise<string>;
+}
+
+/** The snapshot the page renders, and the body of `/api/board`. */
+export async function viewOf(context: SnapshotContext): Promise<BoardView> {
+	const roster = await readRoster(await context.busDir());
+	return buildView({
+		me: context.actor(),
+		cards: await context.store.list(),
+		now: context.now(),
+		bytes: await context.store.bytes(),
+		where: context.store.where(),
+		...(roster === undefined ? {} : { roster }),
+	});
+}

@@ -165,7 +165,7 @@ describe("the client bundle", () => {
 	test("offers an unowned card the action it is waiting for, and keeps ages honest", () => {
 		// A todo card's dialog used to offer only Drop and Close; a quiet board's
 		// ages used to freeze at the last frame.
-		expect(BOARD_CLIENT_JS).toContain('card.owner === undefined && card.status !== "done"');
+		expect(BOARD_CLIENT_JS).toContain('board.may(card, view, "claim")');
 		expect(BOARD_CLIENT_JS).toContain("data-at");
 		expect(BOARD_CLIENT_JS).toContain("board.refreshAges()");
 	});
@@ -244,6 +244,16 @@ describe("the client bundle", () => {
 	test("opens one stream, with the token it was served with", () => {
 		expect(BOARD_CLIENT_JS).toContain('new EventSource("/events?token=');
 		expect(BOARD_CLIENT_JS).toContain('new URLSearchParams(window.location.search).get("token")');
+	});
+
+	test("asks one permission table on all three surfaces", () => {
+		// A card face, the dialog's footer, and a queue row each draw a different subset of
+		// the same verbs, and the answer to "may this reader" is one function — otherwise the
+		// same card offers `Claim` in one place and refuses it in another.
+		expect(BOARD_CLIENT_JS).toContain("board.may = may");
+		for (const verb of ["claim", "move", "release", "edit", "drop", "reclaim"]) {
+			expect(BOARD_CLIENT_JS, verb).toContain(`board.may(card, view, "${verb}")`);
+		}
 	});
 
 	test("asks before a claim, a reclaim, and a deletion, and never uses alert", () => {

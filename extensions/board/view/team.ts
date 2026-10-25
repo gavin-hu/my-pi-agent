@@ -93,7 +93,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   }
 
   /** One decision: the card, why it is here, who holds it, and the way out. */
-  function decision(entry) {
+  function decision(entry, view) {
     var card = entry.card;
     var node = el("article", "board-team__decision");
     node.setAttribute("data-kind", entry.kind);
@@ -110,13 +110,16 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     node.appendChild(open);
 
     var foot = el("div", "board-team__foot");
-    if (card.owner) {
-      foot.appendChild(chip(card.owner.label, "accent"));
+    if (card.owner) foot.appendChild(chip(card.owner.label, "accent"));
+    // The same permission table the card face and the dialog ask: a row offers the way out
+    // that this reader may actually take, and a card that waits offers none because a
+    // claim on it would be refused.
+    if (board.may(card, view, "reclaim")) {
       var reclaim = actionButton("Reclaim", function () { board.act("reclaim", card); });
       // Six identical buttons read as six identical buttons; the card is the name.
       reclaim.setAttribute("aria-label", "Reclaim #" + card.id);
       foot.appendChild(reclaim);
-    } else if (entry.kind !== "waiting") {
+    } else if (board.may(card, view, "claim")) {
       var claim = actionButton("Claim", function () { board.act("claim", card); });
       claim.setAttribute("aria-label", "Claim #" + card.id);
       foot.appendChild(claim);
@@ -244,7 +247,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       queue.appendChild(el("p", "board-team__empty", filtering ? noMatch : "nothing needs you: no blockers, nothing idle, every card planned and held"));
     } else {
       var list = el("div", "board-team__queue");
-      for (var i = 0; i < decisions.length; i++) list.appendChild(decision(decisions[i]));
+      for (var i = 0; i < decisions.length; i++) list.appendChild(decision(decisions[i], view));
       queue.appendChild(list);
     }
     grid.appendChild(queue);

@@ -14,6 +14,7 @@ import {
 	type LoopbackServer,
 	mintToken,
 	serveLoopback,
+	tokenMatches,
 } from "../../../lib/http/index.ts";
 import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
 import type { BoardView } from "../../../lib/board/view.ts";
@@ -61,7 +62,9 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 	let pushed = "";
 
 	const ctx: BoardRouterContext = {
-		token,
+		// One credential today: the page's own. The view token a teammate would carry is
+		// the page lifecycle's to mint, and this is where it becomes an authority.
+		authority: (given) => (tokenMatches(token, given ?? "") ? "write" : undefined),
 		hosts: () => LOOPBACK_HOSTS,
 		page: options.page,
 		script: options.script,

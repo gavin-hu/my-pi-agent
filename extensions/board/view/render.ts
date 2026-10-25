@@ -126,6 +126,27 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       .join(", ");
   }
 
+  /**
+   * Whether this reader may do one verb to one card.
+   *
+   * The one table behind three surfaces: a card face, the dialog's footer, and a queue
+   * row each draw a different subset — a face offers two actions, the dialog five — but
+   * a verb is allowed for the same reader on all of them, and it is the same rule the
+   * server applies in lib/board/rules.ts. Open is always allowed: reading is not a write.
+   */
+  function may(card, view, verb) {
+    var isMine = mine(card, view.me);
+    var waiting = blockersOf(card, view).length > 0;
+    var finished = card.status === "done";
+    if (verb === "claim") return card.status === "todo" && !waiting;
+    if (verb === "move") return isMine && !finished;
+    if (verb === "release") return isMine && !finished;
+    if (verb === "edit") return card.owner === undefined || isMine;
+    if (verb === "drop") return card.status === "todo" || finished || isMine;
+    if (verb === "reclaim") return card.owner !== undefined && !finished;
+    return verb === "open";
+  }
+
   /** The one line under a card's meta: why it sits where it does. */
   function reasonOf(card, view) {
     var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
@@ -202,10 +223,10 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     }
 
     var actions = el("div", "board-card__actions");
-    var waiting = blockersOf(card, view).length > 0;
     // A card that waits cannot be claimed, so the card face does not offer it: the reason
-    // line above is what it says instead, and the same rule holds in the dialog.
-    if (card.status === "todo" && !waiting) {
+    // line above is what it says instead. Move is not a permission but the way into the
+    // dialog, so it is drawn for any card still in flight, whoever holds it.
+    if (may(card, view, "claim")) {
       actions.appendChild(actionButton("Claim", function () { board.act("claim", card); }, "plain"));
     } else if (card.status !== "todo" && card.status !== "done") {
       actions.appendChild(actionButton("Move", function () { board.openCard(card.id, "move"); }, "plain"));
@@ -436,6 +457,7 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   board.priorityOf = priorityOf;
   board.blockersOf = blockersOf;
   board.waitingText = waitingText;
+  board.may = may;
   board.fillDialog = fillDialog;
   board.refreshAges = refreshAges;
   board.plural = plural;
