@@ -2,9 +2,9 @@
 
 `board` owns the cards. `team` owns the lead's three actions: `assign` hands a card to a
 session that is **already running**, `offer` hands one to whoever is free, and `reclaim`
-takes one back when its owner has gone quiet. The first two are a write on the board and a
-message on the session bus; `reclaim` writes the card alone, so it needs no bus at all. The
-report says what the peer will actually do with it.
+takes one back when its owner is gone or has gone quiet. The first two are a write on the
+board and a message on the session bus; `reclaim` writes the card alone, so it needs no bus
+at all. The report says what the peer will actually do with it.
 
 Nothing starts a process. A message lands in the peer's inbox and is reported at its next
 turn, so `assign` and `offer` are messages, not launches.
@@ -25,7 +25,7 @@ owner whose label nothing answers to, and a teammate that is not listening.*
 | Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
 | Take a card back | `team` action `reclaim` | The owner clears, the card returns to To do, and its notes stay |
 | Keep the round to the team | `team` | Only `assign`, `offer`, and `reclaim`: no card is created, moved, planned, or finished here — that is `board`'s surface |
-| See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one presence line for who is live, who is not listening, and who has gone quiet. Ten lines at most, then `… N more`; an empty board is one line |
+| See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one line naming the cards a dead owner left behind, and one presence line for who is live, who is not listening, who has gone quiet, and who is gone. Ten lines at most, then `… N more`; an empty board is one line |
 
 ## Quickstart
 
