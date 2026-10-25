@@ -256,6 +256,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: `done` is terminal for `release` too. It was the one transition without a
+  finished-card guard, so a card its holder released went back to To do — reopening the
+  order every dependency had already been recorded against. A card finished by mistake is
+  dropped and added again, and the "a link is an order, not a lock" caveat it created is
+  gone with it.
 - `session-bus`: `name` and `watch` are one action, `join`. Nothing joins on
   `session_start` in any mode, so a fresh session's `/sessions` board is empty and a peer
   appears only once it joins; `/sessions` and `session status` are reads that never add

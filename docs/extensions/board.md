@@ -179,9 +179,10 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 
 - **Ownership is advisory.** Two sessions can still edit the same file; only
   `session-bus`'s path claims are a lock.
-- **A link is an order, not a lock.** It is checked when a card is taken and when it
-  is finished, so a `done` card released back to To do leaves the card that already
-  finished — the board says the order once, it does not reopen history.
+- **A finished card stays finished.** `done` is terminal for every transition — claim,
+  assign, release, move, and plan all refuse it — so a card a dependency was recorded
+  against cannot un-finish and reopen the order after the fact. A card finished by
+  mistake is dropped and added again; its notes do not come with it.
 - **Links are recorded by the tool.** A link names an id, so the page shows what a
   card waits for but does not edit it; `board edit` records it while the card is being
   planned, and `board drop` refuses to strand one.

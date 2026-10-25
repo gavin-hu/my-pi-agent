@@ -173,6 +173,15 @@ describe("release", () => {
 		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
 		expect(refusal(applyOp(created, { kind: "release" }, LEAD, NOW, indexOf([created])))).toBe("#4 is not claimed.");
 	});
+
+	test("refuses a finished card, so done cannot be undone", () => {
+		// The one transition that could have reopened history: a released done card would put
+		// a dependency back in To do under a card that already finished against it.
+		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		expect(refusal(applyOp(done, { kind: "release" }, CORE, NOW, indexOf([done])))).toBe(
+			"#4 is done; it cannot be released.",
+		);
+	});
 });
 
 describe("move", () => {

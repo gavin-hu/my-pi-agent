@@ -166,6 +166,10 @@ function assign(card: Card, to: Actor, rawNote: unknown, actor: Actor, now: numb
 }
 
 function release(card: Card, actor: Actor, now: number): OpResult {
+	// Finished work is history: every other transition refuses it, and a release that did
+	// not would be the one way a `done` card could go backwards — reopening the order a
+	// dependency was recorded against.
+	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { ok: false, error: `${cardRef(card.id)} is not claimed.` };
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Release is the owner's decision.` };
 	return { ok: true, card: write(card, actor, now, { status: "todo", owner: undefined }), changed: true };
