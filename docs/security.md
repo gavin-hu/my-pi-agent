@@ -24,14 +24,17 @@ Three surfaces serve local HTTP:
   a request count — and can only be read; at most eight pages may hold it.
 - [`board`](../extensions/board/)'s page binds `127.0.0.1` and is the one that
   **writes** — to the board store under the agent directory, never to the
-  repository. Every route needs the 128-bit token minted when the page starts, and
-  a state-changing request also has to pass the origin check, name
-  `application/json`, and stay inside the body cap. There is no cookie and no CORS,
-  so the token in the URL is the whole credential; a write is made as the page's
-  seat — a fixed name such as `team-lead`, not the session that opened it — and
-  claim, reclaim, and drop confirm in the page first because a browser is not an
-  identity. The page closes on `/board stop`, a minute after
-  its last tab leaves, or at session shutdown.
+  repository. It mints two 128-bit tokens when it starts: the lead's, which satisfies
+  every route, and a viewer's, which satisfies the reads and is refused on every write.
+  A state-changing request also has to pass the origin check, name
+  `application/json`, and stay inside the body cap. There is no cookie and no CORS, so
+  the token in the URL is the whole credential — and because a page is one per
+  repository, a viewer reaches it through the note the serving session leaves beside
+  the cards (`page.json`, owner-only): the port, the seat, and the viewer's token, never
+  the lead's. A write is made as the page's seat — a fixed name such as `team-lead`, not
+  the session that opened it — and claim, reclaim, drop, and assign confirm in the page
+  first because a browser is not an identity. The page closes on `/board stop`, a minute
+  after its last tab leaves (a viewer's tab counts), or at session shutdown.
 - [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
   tokenized, and closes its server on the owner's save or cancel, the owner's page
   going away, or session shutdown. Sharing adds a second listener on one address
