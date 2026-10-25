@@ -29,8 +29,8 @@ Three surfaces serve local HTTP:
   `application/json`, and stay inside the body cap. There is no cookie and no CORS,
   so the token in the URL is the whole credential; a write is made as the session
   that serves the page, and claim, reclaim, and drop confirm in the page first
-  because a browser is not an identity. The page lives until `/board stop` or
-  session shutdown.
+  because a browser is not an identity. The page closes on `/board stop`, a minute after
+  its last tab leaves, or at session shutdown.
 - [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
   tokenized, and closes its server on the owner's save or cancel, the owner's page
   going away, or session shutdown. Sharing adds a second listener on one address

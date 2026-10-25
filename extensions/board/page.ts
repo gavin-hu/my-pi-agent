@@ -1,10 +1,7 @@
 /**
  * The page's lifecycle: one server per session, started by `/board` and closed by
- * `/board stop` or by `session_shutdown`.
- *
- * `idleMs` is a seam, not a shipped default: a caller that supplies it gets the
- * grace `transport/server.ts` already knows how to arm, and the extension itself
- * supplies none, so a page left open answers until it is stopped.
+ * `/board stop`, by the idle grace once the last tab has been gone for a minute, or
+ * by `session_shutdown`.
  *
  * The server is built from three things this module owns: the store (through the
  * runtime), the snapshot (`buildView` over the cards it reads), and the write path
@@ -36,6 +33,15 @@ export function randomPort(): number {
 	return 4780 + Math.floor(Math.random() * 1000);
 }
 
+/**
+ * How long the page waits for a tab after the last one leaves.
+ *
+ * Long enough to survive closing the tab to run a command and coming back, short
+ * enough that an abandoned page does not answer a port for the rest of the session.
+ * `/board` starts it again on the same port.
+ */
+export const IDLE_STOP_MS = 60_000;
+
 /** What `/board status` prints. */
 export interface BoardPageStatus {
 	running: boolean;
@@ -49,7 +55,7 @@ export interface BoardPageDeps {
 	open?: (url: string) => void;
 	pickPort?: () => number;
 	interval?: RepeatTimer;
-	/** Grace after the last tab leaves; absent waits for `/board stop`. */
+	/** Grace after the last tab leaves; defaults to {@link IDLE_STOP_MS}. */
 	idleMs?: number;
 }
 
@@ -139,7 +145,8 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			server = await createBoardServer({
 				ports: [preferred, 0],
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
-				...(deps.idleMs === undefined ? {} : { idleMs: deps.idleMs, onIdle: () => void stopIdle(ctx) }),
+				idleMs: deps.idleMs ?? IDLE_STOP_MS,
+				onIdle: () => void stopIdle(ctx),
 				page: async (view) => renderBoardPage({ view }),
 				script: BOARD_CLIENT_JS,
 				view: () => viewOf(store, ctx),
