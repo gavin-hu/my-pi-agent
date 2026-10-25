@@ -3,29 +3,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { claimsConflict, normalizeClaimPath } from "./overlap.ts";
-
-describe("normalizeClaimPath", () => {
-	test("keeps a repository-relative posix path as written", () => {
-		expect(normalizeClaimPath("src/api")).toBe("src/api");
-		expect(normalizeClaimPath("a.md")).toBe("a.md");
-	});
-
-	test("strips a leading ./, a trailing slash, and doubled slashes", () => {
-		expect(normalizeClaimPath("./src/api/")).toBe("src/api");
-		expect(normalizeClaimPath("src//api")).toBe("src/api");
-	});
-
-	test("reads a Windows spelling as the same path", () => {
-		expect(normalizeClaimPath("src\\api\\route.ts")).toBe("src/api/route.ts");
-	});
-
-	test("trims padding and treats the root as empty", () => {
-		expect(normalizeClaimPath("  src/api  ")).toBe("src/api");
-		expect(normalizeClaimPath(".")).toBe("");
-		expect(normalizeClaimPath("./")).toBe("");
-	});
-});
+import { claimsConflict } from "./overlap.ts";
 
 describe("claimsConflict", () => {
 	test("a claim covers itself", () => {
@@ -47,11 +25,22 @@ describe("claimsConflict", () => {
 	});
 
 	test("compares the normalized spelling, not the raw one", () => {
+		// A path is data: `./x/`, `x//y`, and a Windows spelling name the same file.
 		expect(claimsConflict("./src/api/", "src/api/route.ts")).toBe(true);
 		expect(claimsConflict("src\\api", "src/api/route.ts")).toBe(true);
+		expect(claimsConflict("src//api", "src/api/route.ts")).toBe(true);
+		expect(claimsConflict("  src/api  ", "src/api/route.ts")).toBe(true);
+		expect(claimsConflict("./src/api/", "src/apiv2")).toBe(false);
 	});
 
-	test("the root claim covers everything", () => {
+	test("a plain file claim covers itself and nothing beside it", () => {
+		expect(claimsConflict("a.md", "a.md")).toBe(true);
+		expect(claimsConflict("a.md", "b.md")).toBe(false);
+	});
+
+	test("the root claim covers everything, however the root is spelled", () => {
 		expect(claimsConflict("", "src/api")).toBe(true);
+		expect(claimsConflict(".", "src/api")).toBe(true);
+		expect(claimsConflict("./", "src/api")).toBe(true);
 	});
 });

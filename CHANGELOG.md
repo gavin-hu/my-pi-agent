@@ -301,9 +301,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `plan`: the `plan.team` row is gone from `/bytefly settings`, and the key is no
   longer read from `bytefly.json`. A project that still sets it keeps an inert
-  key; `chrome`, `goal`, `watch`, `worktree`, and `memory` are now the only
-  sections with no row at all, and the screen lists twelve preferences instead of
-  thirteen.
+  key, and the screen lists twelve preferences instead of thirteen.
 
 - `skills`: the `parallel-dev` skill is withdrawn: `/skill:parallel-dev` no
   longer resolves, and nothing replaces it. Its mechanism — a lead and a team of
