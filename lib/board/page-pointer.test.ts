@@ -129,6 +129,23 @@ describe("settling the note for a page that is starting", () => {
 		expect(await readPointer(dir)).toEqual(winner);
 	});
 
+	test("two sessions starting together never both serve", async () => {
+		// The window a read-then-unlink leaves open: one caller proves the old note dead
+		// and removes the name, deleting the note a faster caller had just written. Both
+		// then serve, and only one of the two pages is findable.
+		for (let round = 0; round < 40; round++) {
+			const dir = scratch();
+			await createPointer(dir, pointer({ port: 4783, viewToken: "d".repeat(32) }));
+			const probe = async (url: string) => ({ ok: !url.includes(":4783/") });
+			const outcomes = await Promise.all([
+				settlePointer(dir, pointer({ port: 4790, viewToken: "a".repeat(32) }), probe),
+				settlePointer(dir, pointer({ port: 4791, viewToken: "b".repeat(32) }), probe),
+			]);
+			const served = outcomes.filter((outcome) => outcome.kind === "written");
+			expect(served.length, `round ${round}: ${JSON.stringify(outcomes)}`).toBe(1);
+		}
+	});
+
 	test("names an unreadable note instead of blaming a session", async () => {
 		const dir = scratch();
 		writeFileSync(join(dir, PAGE_FILE), "{ not a pointer");

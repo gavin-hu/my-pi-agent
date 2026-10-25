@@ -19,7 +19,7 @@
  * Pure I/O, no state: one call answers one caller, and the caller owns the path it hands in.
  */
 
-import { access, link, readFile, rm, writeFile } from "node:fs/promises";
+import { access, link, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
 
@@ -67,9 +67,14 @@ export async function noteExists(dir: string): Promise<boolean> {
 
 /** The pointer written for one board directory, or nothing when there is none to trust. */
 export async function readPointer(dir: string): Promise<PagePointer | undefined> {
+	return readPointerAt(join(dir, PAGE_FILE));
+}
+
+/** The pointer a file holds, by path: the same read, for a note that has been moved aside. */
+async function readPointerAt(path: string): Promise<PagePointer | undefined> {
 	let text: string;
 	try {
-		text = await readFile(join(dir, PAGE_FILE), "utf-8");
+		text = await readFile(path, "utf-8");
 	} catch {
 		return undefined;
 	}
@@ -113,12 +118,47 @@ export async function createPointer(dir: string, pointer: PagePointer): Promise<
  * token is what decides — a restart of the same seat has the same seat and a new token,
  * so a note that no longer names a live page never takes the live one's place away.
  * Returns whether the file was the one named.
+ *
+ * The note is moved aside before it is removed, and the token is checked again on what was
+ * moved. A read followed by an unlink is two instants, and a session that judged the old
+ * note dead acts on the first one: if it removed the name, it could delete the note a
+ * faster session had written in between, and both would serve a page, only one of them
+ * findable. The move is atomic, so the file this call holds is the file that was there;
+ * a note that is not the one proved dead goes back where it came from.
  */
 export async function clearPointer(dir: string, viewToken: string): Promise<boolean> {
 	const pointer = await readPointer(dir);
 	if (pointer === undefined || pointer.viewToken !== viewToken) return false;
-	await rm(join(dir, PAGE_FILE), { force: true });
+	const target = join(dir, PAGE_FILE);
+	const held = `${target}.gone-${process.pid}-${Math.random().toString(16).slice(2, 10)}`;
+	try {
+		await rename(target, held);
+	} catch {
+		// It left while this call was looking, which is somebody else having cleared it.
+		return false;
+	}
+	const moved = await readPointerAt(held);
+	if (moved === undefined || moved.viewToken !== viewToken) {
+		await putBack(held, target);
+		return false;
+	}
+	await rm(held, { force: true });
 	return true;
+}
+
+/**
+ * Put a note this call moved aside but did not earn the right to remove back in place.
+ *
+ * A newer note may have taken the name in the same instant; that one stays, and this one
+ * was already superseded by it.
+ */
+async function putBack(held: string, target: string): Promise<void> {
+	try {
+		await link(held, target);
+	} catch {
+		// The name is taken again: whatever holds it now is newer than what this call moved.
+	}
+	await rm(held, { force: true });
 }
 
 /** How many times a caller tries to own the note before it gives up for good. */

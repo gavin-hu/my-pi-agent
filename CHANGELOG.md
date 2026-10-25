@@ -506,6 +506,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: two sessions starting at the same instant no longer both serve the page. A
+  session that had judged a note dead removed the name without reading it again, so it could
+  delete the note a faster session had just written — both then served, and only one page
+  was findable. The note is moved aside, read again, and put back when it is not the one the
+  caller proved dead. `check (ubuntu-latest)` found it: the same run passed on macOS and
+  Windows, where the two reads do not interleave.
+
 - `board`: a second `/board` that lost the race for the page note attaches to the session
   that won it instead of reporting `the page did not start (another session is serving
   page.json on this board)`. The ladder that settles the note — write, attach to a winner
