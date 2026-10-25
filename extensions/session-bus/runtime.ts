@@ -40,6 +40,7 @@ import {
 import { createMailWatch } from "./mail-watch.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
+import { BUS_DIR_NAME, SESSION_TTL_MS } from "../../lib/session-roster.ts";
 
 export interface SessionBusOptions {
 	now?: () => number;
@@ -94,7 +95,6 @@ export interface SessionBus {
 
 const DEFAULT_HEARTBEAT_MS = 10_000;
 const DEFAULT_WATCH_MS = 2_000;
-const DEFAULT_SESSION_TTL_MS = 10 * 60_000;
 const DEFAULT_MESSAGE_TTL_MS = 24 * 60 * 60_000;
 function messageId(now: number): string {
 	return `${now}-${randomBytes(4).toString("hex")}`;
@@ -117,7 +117,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const watchMs = options.watchMs ?? DEFAULT_WATCH_MS;
 	const interval = options.interval ?? defaultInterval;
 	const pid = options.pid ?? process.pid;
-	const sessionTtlMs = options.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS;
+	const sessionTtlMs = options.sessionTtlMs ?? SESSION_TTL_MS;
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
 	let store: BusStore | undefined;
@@ -140,7 +140,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// cwd does not contain the paths a caller resolves against it.
 			const cwd = realPathOfNearest(context.cwd);
 			const repo = options.repo ?? (await repoKeyFor(pi, cwd));
-			const dir = options.dir ?? join(getAgentDir(), "session-bus", repo.key);
+			const dir = options.dir ?? join(getAgentDir(), BUS_DIR_NAME, repo.key);
 			store = createBusStore({ dir });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();

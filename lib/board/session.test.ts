@@ -7,7 +7,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -78,6 +78,25 @@ describe("store", () => {
 		const one = await runtime.store(temps.track(tempDir("pi-cwd-")));
 		const other = await runtime.store(temps.track(tempDir("pi-cwd-")));
 		expect(one.dir).not.toBe(other.dir);
+	});
+});
+
+describe("busDir", () => {
+	test("names the bus directory beside the board's, keyed by the same repository", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-cwd-"));
+		const runtime = runtimeFor(agentDir);
+		const store = await runtime.store(cwd);
+		// The bus keys on the same repository key the board used, so the two never drift.
+		expect(await runtime.busDir(cwd)).toBe(join(agentDir, "session-bus", basename(store.dir)));
+	});
+
+	test("resolves once per working directory", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const runtime = runtimeFor(agentDir);
+		const first = runtime.busDir("/repo/billing");
+		expect(runtime.busDir("/repo/billing")).toBe(first);
+		await first;
 	});
 });
 

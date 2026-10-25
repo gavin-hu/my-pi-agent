@@ -85,18 +85,48 @@ ${WEB_COMPONENTS_CSS}
 .board-card__reason--unplanned{color:var(--warn)}
 .board-card__actions{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-1)}
 
-/* The Team tab: two tables and one muted line, not five equal panels. */
-.board-team{display:flex;flex-direction:column;gap:var(--space-6);min-width:0}
-.board-team__group{display:flex;flex-direction:column;min-width:0}
-.board-team__caption{margin:0 0 var(--space-2);font:var(--fw-semibold) var(--fs-sm) var(--font-ui);color:var(--muted);display:flex;align-items:center;gap:var(--space-2)}
-.board-team__caption .bf-chip{margin-left:var(--space-2)}
-.board-team__oldest,.board-team__why{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.board-team__why{color:var(--muted);font-size:var(--fs-sm)}
+/* The Team tab: a queue and a roster side by side, then one quiet strip. */
+.board-team{display:grid;gap:var(--space-5);min-width:0}
+.board-team__grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(18rem,1fr);gap:var(--space-6);align-items:start;min-width:0}
+/* Each panel is its own grid, so both captions land on one line and both lists start on the next. */
+.board-team__group{display:grid;grid-template-rows:auto 1fr;gap:var(--space-3);align-content:start;min-width:0}
+.board-team__caption{margin:0;padding-bottom:var(--space-2);border-bottom:1px solid var(--border);font:var(--fw-semibold) var(--fs-md) var(--font-ui);color:var(--text);display:flex;align-items:center;gap:var(--space-2)}
+.board-team__caption .bf-chip{margin-left:auto;font-variant-numeric:tabular-nums}
+/* The queue: one row per card, its kind as an edge, its way out in the foot. */
+.board-team__queue{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+.board-team__decision{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3) var(--space-4);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
+.board-team__decision:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.board-team__decision[data-kind="blocked"]{border-left-color:var(--danger)}
+.board-team__decision[data-kind="idle"]{border-left-color:var(--warn)}
+/* Nobody holds it, so the edge is drawn but not filled: a shape, not a claim. */
+.board-team__decision[data-kind="unassigned"]{border-left-style:dashed}
+.board-team__open{display:flex;align-items:baseline;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;text-align:left;cursor:pointer;color:var(--text);font:var(--fw-medium) var(--fs-md) var(--font-ui);min-width:0}
+.board-team__open:hover .board-team__title{color:var(--accent)}
+.board-team__ref{font:var(--fs-xs) var(--font-mono);color:var(--muted);flex:0 0 auto}
+.board-team__title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 /* Two lines, then a tooltip: the "why" is the reason the row is on this tab. */
-.board-team__needs .board-team__why{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden}
+.board-team__why{margin:0;color:var(--muted);font:var(--fs-sm)/var(--lh-snug) var(--font-ui);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-team__why--blocked{color:var(--danger)}
-.board-team__action{text-align:right}
-.board-done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
+.board-team__foot{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+/* A row with no owner chip still puts its one action on the row's edge. */
+.board-team__foot>.bf-btn:only-child{margin-left:auto}
+/* The roster: who is here and what they hold. No hover fill — nothing to open. */
+.board-team__roster{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;min-width:0}
+.board-team__mate{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);padding:var(--space-3) 0;border-bottom:1px solid var(--border);min-width:0}
+.board-team__mate:last-child{border-bottom:0}
+.board-team__dot{width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted);flex:0 0 auto;align-self:center}
+.board-team__mate[data-state="live"] .board-team__dot{background:var(--success)}
+.board-team__mate[data-state="quiet"] .board-team__dot{background:var(--warn)}
+/* A record that is not there is a hollow ring, never a colour that claims it is. */
+.board-team__mate[data-state="absent"] .board-team__dot,.board-team__mate[data-state="unknown"] .board-team__dot{background:transparent;box-shadow:inset 0 0 0 1px var(--border-strong)}
+.board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text)}
+.board-team__mate .bf-chip--accent{margin-left:auto}
+.board-team__mets{flex:1 0 100%;margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+.board-team__empty{margin:0;color:var(--muted);font:var(--fs-sm) var(--font-ui)}
+/* Done stays quiet; its ids are buttons only because they open their card. */
+.board-team__done,.board-done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
+.board-team__id{appearance:none;border:0;background:none;padding:0;margin:0;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted)}
+.board-team__id:hover{color:var(--accent);text-decoration:underline}
 
 /* The card dialog: a meta line, the notes as a timeline, and the actions at its foot. */
 .board-dialog__meta,.board-dialog__owner{margin:0 0 var(--space-2);font:var(--fs-sm) var(--font-ui);color:var(--muted)}
@@ -117,23 +147,14 @@ ${WEB_COMPONENTS_CSS}
 .board-dialog__state[data-status="blocked"]::before{background:var(--danger)}
 .board-dialog__state[data-status="done"]::before{background:var(--success)}
 .board-dialog__note-composer .bf-field{margin:0}
-/* A summary of one owner should read as a group, not as three fragments across a page. */
-.board-team__owners,.board-team__needs{max-width:60rem}
-.board-team__owners th:nth-child(1){width:44%}
-.board-team__owners th:nth-child(2){width:14%}
-.board-team__owners th:nth-child(3){width:14%}
-.board-team__owners th:nth-child(4){width:28%}
-.board-team__needs{table-layout:fixed}
-.board-team__needs th:nth-child(1){width:44%}
-.board-team__needs th:nth-child(2){width:32%}
-.board-team__needs th:nth-child(3){width:16%}
-.board-team__needs th:nth-child(4){width:8%}
 .board-confirm__body{margin:0}
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 
 @media (max-width:1180px){
   .board-lanes{grid-template-columns:repeat(2,minmax(0,1fr))}
   .board-progress{display:none}
+  /* Two panels need a wide window; below this the queue comes first, the roster after. */
+  .board-team__grid{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:860px){
   .board-lanes{grid-template-columns:minmax(0,1fr)}
@@ -146,13 +167,14 @@ ${WEB_COMPONENTS_CSS}
   .board-controls{width:100%;justify-content:flex-start}
   .board-filter{order:9;width:100%}
   .board-composer__fields{grid-template-columns:minmax(0,1fr)}
+  .board-team__foot{flex-wrap:wrap}
 }
 @media (prefers-reduced-motion: reduce){
-  .board-card{transition:none}
-  .board-card:hover{transform:none}
+  .board-card,.board-team__decision{transition:none}
+  .board-card:hover,.board-team__decision:hover{transform:none}
 }
 @media print{
-  .board-lanes{grid-template-columns:minmax(0,1fr)}
+  .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}
   .board-card{break-inside:avoid}
   /* The disclosure affordance goes; the lane's name stays with its count. */
   .board-card__actions,.board-composer,.board-filter,.board-picker,.board-done{display:none!important}

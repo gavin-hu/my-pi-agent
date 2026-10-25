@@ -18,6 +18,7 @@ import { normalizeCardId, normalizeNote, normalizePathHints, normalizeTitle } fr
 import type { CardOp } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
+import { readRoster } from "../../lib/session-roster.ts";
 import { openInBrowser } from "../../lib/browser.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
@@ -74,14 +75,19 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 	const storeOf = async (ctx: ExtensionContext): Promise<BoardStore> => runtime.store(ctx.cwd);
 
 	/** The snapshot the page renders. */
-	const viewOf = async (store: BoardStore, ctx: ExtensionContext): Promise<BoardView> =>
-		buildView({
+	const viewOf = async (store: BoardStore, ctx: ExtensionContext): Promise<BoardView> => {
+		// The bus's records are read as data, so the page lists teammates when they are
+		// there and draws exactly what it drew before when they are not.
+		const roster = await readRoster(await runtime.busDir(ctx.cwd));
+		return buildView({
 			me: runtime.who(ctx, ctx.cwd),
 			cards: await store.list(),
 			now: runtime.now(),
 			bytes: await store.bytes(),
 			where: store.where(),
+			...(roster === undefined ? {} : { roster }),
 		});
+	};
 
 	/**
 	 * One write from the page, made as the serving session.

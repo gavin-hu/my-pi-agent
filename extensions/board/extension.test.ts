@@ -24,6 +24,9 @@ function stubSession(): BoardSession {
 		},
 		who: () => ({ label: "billing-lead" }),
 		now: () => 0,
+		busDir: async () => {
+			throw new Error("the factory must not read the bus");
+		},
 	};
 }
 

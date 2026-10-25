@@ -13,7 +13,10 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { basename, join } from "node:path";
 import { defaultLabel, sessionNameOf } from "../session-label.ts";
+import { BUS_DIR_NAME } from "../session-roster.ts";
 import type { Actor } from "./rules.ts";
 import { type BoardStore, openBoard } from "./store.ts";
 
@@ -25,6 +28,14 @@ export interface BoardSession {
 	who(ctx: ExtensionContext, cwd: string): Actor;
 	/** The clock, so a test drives a deadline instead of waiting on one. */
 	now(): number;
+	/**
+	 * Where this repository's session bus files its records, for the page's roster.
+	 *
+	 * A path, not a dependency: the board reads those files when they are there and
+	 * behaves exactly as before when they are not, which is what keeps the page working
+	 * with `session-bus` unloaded.
+	 */
+	busDir(cwd: string): Promise<string>;
 }
 
 /** Test seams and the one place a caller may redirect the store. */
@@ -42,8 +53,9 @@ export interface BoardSessionOptions {
  */
 export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions = {}): BoardSession {
 	const stores = new Map<string, Promise<BoardStore>>();
+	const busDirs = new Map<string, Promise<string>>();
 	const agentDir = options.agentDir;
-	return {
+	const session: BoardSession = {
 		store(cwd) {
 			const cached = stores.get(cwd);
 			if (cached) return cached;
@@ -57,7 +69,20 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			return id === undefined ? { label } : { id, label };
 		},
 		now: options.now ?? Date.now,
+		// The board's own directory is `<agentDir>/board/<key>` and the bus's is
+		// `<agentDir>/session-bus/<key>`, both keyed by the same repository, so the key is
+		// read back off the board rather than resolved a second time through git.
+		busDir(cwd) {
+			const cached = busDirs.get(cwd);
+			if (cached) return cached;
+			const resolved = session
+				.store(cwd)
+				.then((store) => join(agentDir ?? getAgentDir(), BUS_DIR_NAME, basename(store.dir)));
+			busDirs.set(cwd, resolved);
+			return resolved;
+		},
 	};
+	return session;
 }
 
 /** The session id, or undefined when the host does not report one. */

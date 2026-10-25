@@ -96,6 +96,53 @@ describe("buildView", () => {
 		expect(view.where).toBe(WHERE);
 	});
 
+	test("carries the bus's sessions, marks the serving one, and states each liveness", () => {
+		const view = buildView({
+			me: ME,
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+			roster: [
+				{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000, mail: 2 },
+				{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 },
+				{ id: "s-old", label: "ops-helper", mode: "print", lastSeen: NOW - 20 * 60_000, mail: 0 },
+			],
+		});
+		expect(view.teammates).toEqual([
+			{ label: "billing-core", state: "live", seen: NOW - 1_000, mail: 2, you: false },
+			{ label: "billing-lead", state: "live", seen: NOW, mail: 0, you: true },
+			{ label: "ops-helper", state: "quiet", seen: NOW - 20 * 60_000, mail: 0, you: false },
+		]);
+	});
+
+	test("leaves the roster out when there is no bus, which is not the same as an empty one", () => {
+		const absent = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
+		expect(absent.teammates).toBeUndefined();
+		const empty = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, roster: [] });
+		expect(empty.teammates).toEqual([]);
+		// A bus appearing is news — the State column stops saying "unknown" — so the two
+		// must not share a signature and leave the page without a frame.
+		expect(absent.sig).not.toBe(empty.sig);
+	});
+
+	test("signature moves on a join, a quiet, and mail, and not on a heartbeat", () => {
+		const at = (roster: Parameters<typeof buildView>[0]["roster"]) =>
+			buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, roster }).sig;
+		const base = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000, mail: 0 }]);
+		const heartbeat = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 }]);
+		expect(heartbeat).toBe(base);
+		const joined = at([
+			{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 },
+			{ id: "s-new", label: "api", mode: "tui", lastSeen: NOW, mail: 0 },
+		]);
+		expect(joined).not.toBe(base);
+		const mailed = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 1 }]);
+		expect(mailed).not.toBe(base);
+		const quiet = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 20 * 60_000, mail: 0 }]);
+		expect(quiet).not.toBe(base);
+	});
+
 	test("an empty board is four empty lanes", () => {
 		const view = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
 		expect(view.lanes.map((lane) => lane.cards)).toEqual([[], [], [], []]);
