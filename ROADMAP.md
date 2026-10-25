@@ -40,10 +40,10 @@ surface arrives with its limitation written in the same breath.
   `parallel-dev` skill — because a lead who cannot start a peer's turn spent more
   of the user's attention than the split saved. The round comes back without that
   premise: `board` is a per-repository feature board that any session reads and
-  writes, served as a page that follows the store live, and `team` is the lead's two
+  writes, served as a page that follows the store live, and `team` is the lead's three
   bus-dependent actions over the same cards — `assign` hands one to a session that is
-  already running, `reclaim` takes one back — so a handoff is a message and never a
-  launch. It adds outbound images, two peers' turns at once, and the
+  already running, `offer` hands one to whoever is free, and `reclaim` takes one back —
+  so a handoff is a message and never a launch. It adds outbound images, two peers' turns at once, and the
   notice a close sends when it abandons a turn; moves every extension doc to
   `docs/extensions/`, capabilities first; fits the browse page to a phone; and adds
   the `refactor` and `project-docs` skills, with the changelog's `scripts/state.ts`
@@ -139,11 +139,12 @@ item went the same way: both modules it named have a second consumer inside
   live, and only the owner's own page saves, approves, or closes. Plans live in
   `<agent-dir>/plans/<repo-key>` — one store per repository, keyed by the common
   git directory, so every worktree sees the same plan.
-- `session-bus`: one `session` tool (`send`, `inbox`, `claim`, `release`, `name`,
-  `watch`, `status`) and `/sessions`, a live board with Sessions, Inbox, and
-  Claims scopes, and an opt-in inbox watch. State lives under the agent directory
-  and is keyed by the common git directory, so every worktree of a repository is
-  on one bus; no server starts.
+- `session-bus`: one `session` tool (`status`, `send`, `inbox`, `claim`, `release`,
+  `join`) and `/sessions`, a live board with Sessions, Inbox, and Claims scopes.
+  `join` is the one way in — it puts a session on the bus, names it, and starts
+  listening unless told not to — and `wake`, which raises a turn, stays opt-in.
+  State lives under the agent directory and is keyed by the common git directory,
+  so every worktree of a repository is on one bus; no server starts.
 - `subagent`: eight built-in agents, single, parallel, chain, and background
   runs with `/agents`, a per-run deadline, read-only mode, and opt-in
   transcripts.
@@ -419,11 +420,11 @@ it. A limitation an item owns is named in that section instead, never here.
 | `board`: the seat and the terminal are two actors | The page writes as `team-lead`, so a page claim is released from the page or `reclaim`ed; sharing one id would let a browser claim impersonate the session that serves it. Revisit if a page can name the session that asked. |
 | `board`: the note a page leaves carries a read-only token, so the lead's URL is a write credential | A browser is not an identity: the note is what a teammate is given, and `/board status` prints the page rather than the lead's URL. Revisit with a per-session write grant. |
 | `board`: a page stops a minute after its last tab leaves | An abandoned page must not answer a port for the rest of the session; `/board` starts it again on the same port. Revisit if a page must outlive its tabs. |
-| `board`: a page's note is believed only while it answers | A crash leaves the note behind; the next `/board` probes it and serves its own page when nothing replies, so a dead note costs one probe rather than a second page. Revisit if a note must be reaped by something other than its page. |
+| `board`: a page's note is believed only while it answers | A crash leaves the note behind; the next `/board` probes it, takes it over when nothing replies, and attaches to the page that won when two sessions start at once, so a dead note costs one probe rather than a second page. Revisit if a note must be reaped by something other than its page. |
 | `board`: nothing prunes, so finished cards accumulate | `drop` is the only deletion and the page shows the store's size. Revisit when the store's size is itself a reason to archive. |
-| `team`: dispatch cannot start a peer's turn | A handoff waits in the peer's inbox until it reads mail or its armed watch raises a turn, and nothing spawns a session. Revisit if the bus can raise a turn directly. |
-| `team`: `to` must be live, and a label-only owner is fragile | A shut-down session cannot be handed a card, and a label recorded without an id needs a `reclaim` after a rename. Revisit if the bus keeps a record of retired labels. |
-| `team`: plan mode makes `assign` unavailable | The nested `session` call is a mutating tool, which plan mode refuses; assigning waits for approval. Revisit if a read-only bus call can dispatch. |
+| `team`: nothing here can start a peer's turn | A handoff or an offer waits in the recipient's inbox until its next turn, where a listening session reports it; no turn is raised on a peer's behalf, and nothing spawns a session. Revisit if the bus can raise a turn directly. |
+| `team`: `to` must be on the team, and a label-only owner is fragile | A session that never opened the board, joined, or worked a card cannot be handed one, and a label recorded without an id needs a `reclaim` after a rename. Revisit if the bus keeps a record of retired labels. |
+| `team`: plan mode makes `assign` and `offer` unavailable | The `session` call behind them is a mutating tool, which plan mode refuses; handing work over waits for approval. Revisit if a read-only bus call can dispatch. |
 | `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S1`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file. Revisit if an approval surface must show a full step. |
