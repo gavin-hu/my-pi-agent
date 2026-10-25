@@ -89,8 +89,8 @@ screenshots.
 | README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; one plan store per repository, a step list approval seeds into `todo`, and a review that follows its file | — |
-| Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | — |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
+| Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | P1–P2 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |
 | Optional and upgradeable | Strong; the package updates through Pi's own package manager | C1, F1–F2 |
@@ -104,7 +104,7 @@ closed by work parked in any horizon.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the daily loop feel finished? | Closed by the structured fetch and the update action; the next review reopens it with a candidate. |
+| **Now** | Does the daily loop feel finished? | Closed by the structured fetch and the update action; reopened by the team and doc-truth items each section now holds, and the next review reopens it again with a candidate. |
 | **Next** | Does the pack keep what it promised? | `S1` is spiked or demoted, with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
@@ -177,8 +177,23 @@ item went the same way: both modules it named have a second consumer inside
 
 **Now**
 
-Nothing here is queued. The bus and the review shipped; the split that shipped
-with them is withdrawn, so a plan is one flow and a session claims its own paths.
+- **P1 — A dead session says so.** `lib/session-roster.ts` answers `gone` when a
+  record's `pid` is no longer running, not only `live` or `quiet` from an aged
+  heartbeat, and every surface that says who is on the team reads it: `session
+  status`, `/sessions`, the board's Team tab, and the `/team` round. A `gone`
+  owner's path claims are reclaimable at once instead of after `SESSION_TTL_MS`,
+  and its `doing` cards come back in the round instead of reading idle for half
+  an hour. `lib/spawn.ts` already proves a pid is alive, and `job`'s registry
+  already carries a start token against pid reuse, so the change is one rule
+  where the roster is computed, plus the rows that print it.
+- **P2 — A card's links are set from the page.** The card dialog records what a
+  card waits for, as a picker over the board's ids, instead of leaving
+  `dependsOn` to `board edit`: the page already shows the links and already
+  edits the title, the path hints, and the priority, so this is parity rather
+  than a new surface.
+
+The split that shipped with the review is withdrawn: a plan is one flow, and a
+session claims its own paths.
 
 **Next**
 
@@ -229,9 +244,16 @@ cross-repository history to build.
 
 **Now**
 
-Nothing here is queued: cleanup refuses what it cannot verify, the store reports
-its own health and notices a same-size edit inside a millisecond, and the
-remaining gaps are documented behavior.
+- **S3 — A worktree with no commits stops looking landed.** `git branch
+  --merged` compares branches, not working trees, so a worktree that never
+  committed matches its base while its uncommitted work is still there. The
+  status line gains the commit count `extensions/worktree/git.ts` already
+  computes (`rev-list --count base..branch`), so "no commits" sits beside `clean`
+  and `merged` and the two flags stop contradicting each other.
+
+Cleanup refuses what it cannot verify, the store reports its own health and
+notices a same-size edit inside a millisecond, and the remaining gaps are
+documented behavior.
 
 **Next**
 
@@ -351,8 +373,14 @@ runs, an update check, and two themes.
 
 **Now**
 
-Nothing here is queued: the control center updates the configured packages
-through Pi's own package manager, so this row's remaining surface is closed.
+- **C2 — A model the session cannot price is named.** The footer and `/bytefly`
+  say which models this session priced nothing for and which `price.rates` key
+  would price them, so an unpriced run stops reading as a free one. It adds no
+  rate table and no FX conversion: the published numbers stay the user's to
+  supply.
+
+The control center updates the configured packages through Pi's own package
+manager, so this row's remaining surface is closed.
 
 **Next**
 
@@ -383,9 +411,14 @@ These are not a README pillar, but every promise depends on them.
 
 **Now**
 
-Nothing here makes a false promise today: binding, the accept path, the close
-path, and idle grace are one server entry, and a page cannot outlive the session
-it describes.
+- **F3 — Every count a doc states is derived.** One root test derives the
+  extension, skill, theme, and tool counts that both READMEs and this file
+  state, from the `pi` manifest, `skills/`, `assets/`, and the registered tool
+  names. The settings count is the first such guard and the only one today, and
+  a count without one is a promise waiting to rot.
+
+Binding, the accept path, the close path, and idle grace are one server entry,
+and a page cannot outlive the session it describes.
 
 **Next**
 
@@ -415,8 +448,7 @@ it. A limitation an item owns is named in that section instead, never here.
 |---|---|
 | `board`: ownership is advisory | A card names an owner; the lock on a file is `session-bus`'s path claim, and two sessions editing one file is a conflict the board cannot see. Revisit if the board issued claims of its own. |
 | `board`: a link is checked when a card is taken and when it is finished | It never re-opens work that finished before the link was recorded, and `done` is terminal, so a dependency cannot un-finish. Revisit if a link must reorder completed work. |
-| `board`: links are recorded by the tool, not the page | A link names an id a reader has to know, so the page shows what a card waits for and does not edit it. Revisit if the page can offer a picker over the board. |
-| `board`: the board does not know whether a session is alive | "Idle" is a `doing` card untouched for 30 minutes, and the roster's `quiet` is an aged heartbeat; neither is a statement that the process is gone. Revisit if the bus exposes liveness beyond a heartbeat. |
+
 | `board`: the seat and the terminal are two actors | The page writes as `team-lead`, so a page claim is released from the page or `reclaim`ed; sharing one id would let a browser claim impersonate the session that serves it. Revisit if a page can name the session that asked. |
 | `board`: the note a page leaves carries a read-only token, so the lead's URL is a write credential | A browser is not an identity: the note is what a teammate is given, and `/board status` prints the page rather than the lead's URL. Revisit with a per-session write grant. |
 | `board`: a page stops a minute after its last tab leaves | An abandoned page must not answer a port for the rest of the session; `/board` starts it again on the same port. Revisit if a page must outlive its tabs. |
@@ -436,7 +468,6 @@ it. A limitation an item owns is named in that section instead, never here.
 | `watch`: a **wake** match raises a notification once the running turn settles | A match found mid-turn is raised when that run settles, so a long turn delays it but never drops it. Revisit if a turn must be interrupted mid-flight. |
 | `watch`: watcher state is memory-only | A watcher tails a live process or file; a resumed session cannot re-attach to a pipe it no longer has. Revisit if a watcher is given a durable source. |
 | `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit with `S1`, which changes what "guarded" means. |
-| `worktree`: `--merged` calls a never-committed worktree landed | `git branch --merged` compares branches, not working trees; prune refuses that worktree and `list_worktrees` shows the clean flag beside the merged one. Revisit if the status line grows a "no commits" state. |
 | `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no item. |
 | `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |
 | `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. |
