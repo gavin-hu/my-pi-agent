@@ -7,14 +7,13 @@
  * module exists to prevent, since no type checker sees the bundle.
  *
  * The vocabulary is the TUI's where it means the same thing (`j`/`k`, `?`, `Esc`);
- * `n`, `/` and `t` are this page's own.
+ * `/` and `t` are this page's own. There is no key that changes a card: the page reads.
  */
 
 import type { KeyHint } from "../../../lib/web/index.ts";
 
 /** One binding: the key or keys, and what pressing it does. */
 export const BOARD_KEYS: readonly KeyHint[] = [
-	{ keys: "n", label: "New card — open the dialog and focus the title field" },
 	{ keys: "/", label: "Filter the cards" },
 	{ keys: ["j", "k"], label: "Next or previous card" },
 	{ keys: "Enter", label: "Open the focused card" },
@@ -93,17 +92,10 @@ export const BOARD_KEYS_JS = String.raw`(function () {
         return;
       }
       if (typing(target)) {
-        if (event.key === "Enter" && target.id === "card-dialog-note") board.addNote();
         if (event.key === "Enter" && target.id === "board-filter") board.applyFilter();
         return;
       }
-      if (event.key === "n") {
-        // Two modals over one board is a trap whose edge the reader cannot see, and a
-        // viewer's page has no composer to open at all.
-        if (!board.canWrite() || board.dialogOpen() || board.composerOpen()) return;
-        event.preventDefault();
-        board.focusComposer();
-      } else if (event.key === "/") {
+      if (event.key === "/") {
         event.preventDefault();
         board.focusFilter();
       } else if (event.key === "j") {

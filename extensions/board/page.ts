@@ -119,7 +119,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		const { server, store, token } = running;
 		running = undefined;
 		await server.close();
-		// The note is the page's, so it leaves with it: a viewer that reads a note nobody
+		// The note is the page's, so it leaves with it: a session that reads a note nobody
 		// answers wastes a probe, and the next `/board` would attach to a dead port.
 		await clearPointer(store.dir, token);
 		clearChip(ctx);
@@ -154,8 +154,8 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		const config = (deps.config ?? loadBoardConfig)(ctx.cwd);
 		const pinned = config.port > 0 ? config.port : undefined;
 		const preferred = pinned ?? sessionPort ?? (deps.pickPort ?? randomPort)();
-		// The viewer's credential is minted here rather than by the server, because the note
-		// this session leaves has to carry it: that is what a teammate reads to attach.
+		// The token is minted here rather than by the server, because the note this session
+		// leaves has to carry it: that is what a second session reads to attach.
 		// Minted here rather than by the server: the note this session leaves has to carry it,
 		// and that is what a second session reads to attach instead of serving its own page.
 		const token = mintToken();
@@ -186,8 +186,8 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			return { kind: "failed", reason };
 		}
 		// The note is written last, on the port the server actually bound, and only if no
-		// other session got there first: the loser of that race becomes a viewer of the
-		// page that won rather than a second page nobody can find. A note that answers
+		// other session got there first: the loser of that race attaches to the page that
+		// won rather than serving a second page nobody can find. A note that answers
 		// nobody is taken over, so a page that died between its note and its server does not
 		// hold the name forever, and a note this build cannot read is named rather than
 		// blamed on a session that does not exist.

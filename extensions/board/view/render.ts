@@ -95,13 +95,6 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     return undefined;
   }
 
-  /** Whether this session holds the card. */
-  function mine(card, me) {
-    if (!card.owner) return false;
-    if (card.owner.id !== undefined && me.id !== undefined) return card.owner.id === me.id;
-    return String(card.owner.label).toLowerCase() === String(me.label).toLowerCase();
-  }
-
   /** A card's priority; an older card that never recorded one is ordinary. */
   function priorityOf(card) {
     return card.priority || "normal";
@@ -132,45 +125,6 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     return blockersOf(card, view)
       .map(function (blocker) { return "#" + blocker.id + " (" + blocker.status + ")"; })
       .join(", ");
-  }
-
-  /**
-   * Whether this reader may do one verb to one card.
-   *
-   * The one table behind three surfaces: a card face, the dialog's footer, and a queue
-   * row each draw a different subset — a face offers two actions, the dialog five — but
-   * a verb is allowed for the same reader on all of them, and it is the same rule the
-   * server applies in lib/board/rules.ts. Open is always allowed: reading is not a write.
-   */
-  function may(card, view, verb) {
-    // Reading is not a write, so it survives a viewer's page; everything else is what
-    // the document's authority says it may be.
-    if (verb === "open") return true;
-    if (!canWrite()) return false;
-    var isMine = mine(card, view.me);
-    var waiting = blockersOf(card, view).length > 0;
-    var finished = card.status === "done";
-    if (verb === "claim") return card.status === "todo" && !waiting;
-    if (verb === "move") return isMine && !finished;
-    if (verb === "release") return isMine && !finished;
-    if (verb === "edit") return card.owner === undefined || isMine;
-    if (verb === "drop") return card.status === "todo" || finished || isMine;
-    if (verb === "reclaim") return card.owner !== undefined && !finished;
-    // Recording an owner is what a page can do where it cannot message: an unowned card
-    // that is not waiting for another, which is the same card a claim is offered.
-    if (verb === "assign") return card.owner === undefined && !finished && !waiting;
-    return false;
-  }
-
-  /**
-   * Whether this page may change a card at all.
-   *
-   * The document is rendered per request, so a viewer's shell says data-writes="0":
-   * one attribute decides every affordance, and the server refuses anyway — a page
-   * that offered what it would be turned down for teaches a reader the wrong thing.
-   */
-  function canWrite() {
-    return document.documentElement.getAttribute("data-writes") !== "0";
   }
 
   /** The one line under a card's meta: why it sits where it does. */
@@ -248,22 +202,6 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       item.appendChild(line);
     }
 
-    var actions = el("div", "board-card__actions");
-    // A card that waits cannot be claimed, so the card face does not offer it: the reason
-    // line above is what it says instead. Move is not a permission but the way into the
-    // dialog, so it is drawn for any card still in flight, whoever holds it.
-    if (may(card, view, "claim")) {
-      actions.appendChild(actionButton("Claim", function () { board.act("claim", card); }, "plain"));
-    } else if (canWrite() && card.status !== "todo" && card.status !== "done") {
-      // Move is the way into the dialog, not a permission, but a dialog with no actions
-      // in it is not worth opening.
-      actions.appendChild(actionButton("Move", function () { board.openCard(card.id, "move"); }, "plain"));
-    }
-    // One verb, or none. The title above is the way into a card, and the dialog it opens
-    // already holds the note field and the move controls, so a face that repeated them
-    // put three doors to one room in every card — 59 buttons on a 26-card board. A card
-    // with no verb draws no row: an empty one would still take its gap.
-    if (actions.childNodes.length > 0) item.appendChild(actions);
     return item;
   }
 
@@ -272,7 +210,7 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     var me = document.getElementById("board-me");
     if (me) {
       me.textContent = view.me.label;
-      me.title = "Writes from this page are made as " + view.me.label;
+      me.title = "This page is served as " + view.me.label + ", and it cannot change a card";
     }
     var progress = document.getElementById("board-progress");
     if (progress) {
@@ -284,12 +222,6 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       var text = document.getElementById("board-progress-text");
       if (text) text.textContent = view.counts.done + "/" + total + " done";
     }
-    // A viewer gets the board, not the chance to make one: the composer and the empty
-    // state's way into it belong to whoever serves the page.
-    var create = document.getElementById("board-new");
-    if (create) create.hidden = !canWrite();
-    var first = document.getElementById("board-first-card");
-    if (first) first.hidden = !canWrite();
     var where = document.getElementById("board-where");
     if (where) {
       where.textContent = "store " + view.where + " · " + plural(view.counts.total, "card") + " · " + size(view.bytes);
@@ -482,11 +414,6 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     earlier.hidden = card.notesDropped === 0;
     earlier.textContent = card.notesDropped === 0 ? "" : card.notesDropped + " earlier notes dropped";
 
-    // A note is a write, so a viewer's dialog carries none — and its actions are what
-    // board.may leaves, which for a viewer is Close alone.
-    var noteComposer = document.getElementById("card-dialog-note-composer");
-    if (noteComposer) noteComposer.hidden = !canWrite();
-    board.fillDialogActions(card, view);
   }
 
   /** Paint a whole snapshot. */
@@ -507,13 +434,10 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   board.actionButton = actionButton;
   board.ago = ago;
   board.findCard = findCard;
-  board.mine = mine;
   board.matches = matches;
-  board.canWrite = canWrite;
   board.priorityOf = priorityOf;
   board.blockersOf = blockersOf;
   board.waitingText = waitingText;
-  board.may = may;
   board.fillDialog = fillDialog;
   board.refreshAges = refreshAges;
   board.plural = plural;

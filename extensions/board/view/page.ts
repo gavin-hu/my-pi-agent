@@ -23,15 +23,14 @@ export type PageView = "board" | "team";
 /**
  * Render the document for one initial view.
  *
- * Both panels are rendered and one is `hidden`, so switching tabs costs no request
- * and a shared link opens the tab it names. `writes` is the credential's authority:
- * a viewer's document says `data-writes="0"`, which is what makes the client draw a
- * page with no button the server would refuse.
+ * Both panels are rendered and one is `hidden`, so switching tabs costs no request and a
+ * shared link opens the tab it names. The document has no form and no write affordance:
+ * a page that cannot change a card cannot offer a button the server would refuse.
  */
-export function renderBoardPage(input: { view: PageView; writes?: boolean }): string {
+export function renderBoardPage(input: { view: PageView }): string {
 	const team = input.view === "team";
 	return `<!doctype html>
-<html lang="en" data-view="${team ? "team" : "board"}" data-writes="${input.writes === false ? "0" : "1"}">
+<html lang="en" data-view="${team ? "team" : "board"}">
 <head>
 ${docHead({ title: "board", css: BOARD_CSS })}
 </head>
@@ -40,7 +39,7 @@ ${docHead({ title: "board", css: BOARD_CSS })}
 <a class="skip" href="#main">Skip to the cards</a>
 <header class="bf-app__header"><div class="bf-toolbar board-toolbar">
   ${brandLockup("board")}
-  <span class="bf-chip bf-chip--accent" id="board-me" title="Writes from this page are made as this session">board</span>
+  <span class="bf-chip bf-chip--accent" id="board-me" title="This page is served as this session, and it cannot change a card">board</span>
   <p class="bf-status board-status" id="board-status" data-state="connecting" aria-live="polite">connecting…</p>
   <span class="bf-spacer"></span>
   <div class="board-controls">
@@ -55,20 +54,18 @@ ${docHead({ title: "board", css: BOARD_CSS })}
     <label class="bf-field board-filter"><span class="sr-only">Filter cards</span>
       <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
     </label>
-    ${button({ label: "+ New card", id: "board-new", title: "New card — n", attrs: { "aria-haspopup": "dialog" } })}
     ${button({ label: "?", variant: "icon", id: "keys-open", title: "Keyboard shortcuts", attrs: { "aria-haspopup": "dialog" } })}
     ${themeToggle()}
   </div>
 </div></header>
 <main class="bf-app__main board-main" id="main" tabindex="-1">
-  <p class="bf-note board-banner" id="board-banner" role="status" hidden></p>
   <section class="board-panel" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
     <div class="bf-segmented board-picker" id="board-picker" role="tablist" aria-label="Lane"></div>
     <div class="board-lanes" id="board-lanes"></div>
     <div class="bf-empty board-no-cards" id="board-no-cards" hidden>
       <p class="bf-empty__title">No cards yet</p>
       <p class="bf-empty__sub">One card per feature: what it delivers, who holds it, and where to start.</p>
-      <button class="bf-btn bf-btn--primary" type="button" id="board-first-card">Add the first card</button>
+      <p class="bf-empty__sub"><code>board add</code> makes one — this page reads, and the tools write.</p>
     </div>
   </section>
   <section class="board-panel" id="panel-team" role="tabpanel" aria-labelledby="tab-team"${team ? "" : " hidden"}>
@@ -76,41 +73,6 @@ ${docHead({ title: "board", css: BOARD_CSS })}
   </section>
 </main>
 <footer class="bf-app__footer"><span id="board-where"></span></footer>
-
-<div class="bf-dialog" id="board-new-dialog" hidden>
-  <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="board-new-title">
-    <div class="bf-dialog__head">
-      <h2 id="board-new-title">New card</h2>
-    </div>
-    <form class="board-composer" id="board-composer" autocomplete="off">
-      <div class="bf-dialog__body">
-        <div class="board-composer__fields">
-          <label class="board-composer__field board-composer__field--title">
-            <span class="board-composer__label">Title<span class="board-composer__count" id="new-title-count" hidden></span></span>
-            <span class="bf-field"><input class="bf-input" id="new-title" name="title" placeholder="what it delivers, in one line" maxlength="120" required></span>
-          </label>
-          <label class="board-composer__field">
-            <span class="board-composer__label">Paths</span>
-            <span class="bf-field"><input class="bf-input" id="new-paths" name="paths" placeholder="extensions/board  lib/web" aria-describedby="composer-hint"></span>
-          </label>
-          <label class="board-composer__field">
-            <span class="board-composer__label">Priority</span>
-            <span class="bf-field"><select class="bf-input board-composer__select" id="new-priority" name="priority">
-              <option value="high">high</option>
-              <option value="normal" selected>normal</option>
-              <option value="low">low</option>
-            </select></span>
-          </label>
-        </div>
-        <p class="bf-dialog__hint" id="composer-hint">one card per feature — its steps live in the owner's plan and todo</p>
-      </div>
-      <div class="bf-dialog__actions">
-        <button class="bf-btn" type="button" id="board-cancel">Cancel</button>
-        <button class="bf-btn bf-btn--primary" type="submit" id="new-submit">Add card</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <div class="bf-dialog" id="board-card-dialog" hidden>
   <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="card-dialog-title" tabindex="-1">
@@ -128,24 +90,6 @@ ${docHead({ title: "board", css: BOARD_CSS })}
       <p class="board-dialog__plan" id="card-dialog-plan" hidden></p>
       <ol class="board-dialog__notes" id="card-dialog-notes"></ol>
       <p class="bf-dialog__hint" id="card-dialog-earlier" hidden></p>
-      <div class="bf-composer board-dialog__note-composer" id="card-dialog-note-composer">
-        <label class="bf-field"><span class="sr-only">Add a note</span>
-          <input class="bf-input" id="card-dialog-note" placeholder="add a note" maxlength="1000">
-        </label>
-        <div class="bf-composer__row"><button type="button" class="bf-btn" id="card-dialog-note-add">Note</button></div>
-      </div>
-    </div>
-    <div class="bf-dialog__actions" id="card-dialog-actions"></div>
-  </div>
-</div>
-
-<div class="bf-dialog board-confirm" id="board-confirm" hidden>
-  <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1">
-    <div class="bf-dialog__head"><h2 id="confirm-title"></h2></div>
-    <div class="bf-dialog__body"><p class="board-confirm__body" id="confirm-body"></p></div>
-    <div class="bf-dialog__actions">
-      <button type="button" class="bf-btn" id="confirm-cancel">Cancel</button>
-      <button type="button" class="bf-btn bf-btn--primary" id="confirm-ok">Confirm</button>
     </div>
   </div>
 </div>
