@@ -437,9 +437,8 @@ body {
 }
 
 /* A strip of small facts under the drawing: the flow card's two loops, the board
- * card's keys. One body, because both are the card saying "there is a way back
+ * card's keys. One row, because both are the card saying "there is a way back
  * into this". */
-.loops,
 .strip {
 	display: flex;
 	gap: 40px;
@@ -450,13 +449,11 @@ body {
 	color: var(--muted);
 }
 
-.loops b,
 .strip b {
 	color: var(--accent-alt);
 	font-weight: 600;
 }
 
-.loops span,
 .strip span {
 	color: var(--dim);
 }

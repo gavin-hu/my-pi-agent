@@ -89,7 +89,7 @@ plan pair — `plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic
 and the board pair — `board.html`, the lanes, one card's atoms and the lead's round,
 and `board-team.html`, `assign`, `offer`, and `reclaim` as three bands. All four are
 captured at 1200×675 by `screenshot:cards`, and they share `assets/cards/cards.css`,
-whose shell — palette, `.card`, `.title`, the `.loops`/`.strip` row, `.foot` — is what
+whose shell — palette, `.card`, `.title`, the `.strip` row, `.foot` — is what
 keeps the set from drifting apart; the board pair adds its own atoms under a banner of
 its own. A card whose content outgrows its box fails the capture rather than being
 clipped.
