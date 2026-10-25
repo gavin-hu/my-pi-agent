@@ -1,6 +1,7 @@
 /**
- * The shell the two posting cards share: the prose-led `plan-flow.html` and the
- * graphic-led `plan-flow-graphic.html`.
+ * The shell every posting card shares: the plan pair — `plan-flow.html`, prose-led,
+ * and `plan-flow-graphic.html`, graphic-led — and the board pair — `board.html` and
+ * `board-team.html`. All four are captured at 1200×675 by `screenshot:cards`.
  *
  * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
  * README hero, and the browser pages all draw from — copied here because a page
@@ -17,13 +18,15 @@
 	--canvas: #0d1117;
 	--surface: #161b22;
 	--raised: #17273a;
-	/* The theme's `border`, `blue`, `purple`, and `green` as channels, so a tint
-	 * below is one alpha away from the colour it belongs to rather than a
-	 * hand-copied triple that can quietly stop matching it. */
+	/* The theme's `border`, `blue`, `purple`, `green`, `yellow`, and `red` as
+	 * channels, so a tint below is one alpha away from the colour it belongs to
+	 * rather than a hand-copied triple that can quietly stop matching it. */
 	--border-rgb: 110, 118, 129;
 	--accent-rgb: 88, 166, 255;
 	--accent-alt-rgb: 188, 140, 255;
 	--success-rgb: 63, 185, 80;
+	--warn-rgb: 210, 153, 34;
+	--danger-rgb: 248, 81, 73;
 	--line: rgba(var(--border-rgb), 0.32);
 	--line-strong: rgba(var(--border-rgb), 0.52);
 	--text: #c9d1d9;
@@ -89,7 +92,8 @@ body {
 	color: var(--accent);
 }
 
-/* `≡ plan` is the footer chip plan mode shows, kept as it is typed. */
+/* The one chip on the brand row: plan mode's `≡ plan` as the footer shows it, or the
+ * board page's seat. */
 .brand__state {
 	padding: 3px 10px;
 	border: 1px solid var(--line-strong);
@@ -277,25 +281,6 @@ body {
 	color: var(--dim);
 }
 
-.loops {
-	display: flex;
-	gap: 40px;
-	margin-top: 20px;
-	padding-top: 12px;
-	border-top: 1px solid var(--line);
-	font-size: 15px;
-	color: var(--muted);
-}
-
-.loops b {
-	color: var(--accent-alt);
-	font-weight: 600;
-}
-
-.loops span {
-	color: var(--dim);
-}
-
 /* ------------------------------------------------------------- graphic card */
 
 .diagram {
@@ -438,4 +423,332 @@ body {
 
 .tip--loop {
 	fill: var(--accent-alt);
+}
+
+/* The card's one wash: a soft light behind the title, so the flat canvas reads as a
+ * surface rather than a void. A background on the card itself, never an overlay, so
+ * it cannot tint the text above it. */
+.card--glow {
+	background-image: radial-gradient(
+		620px 620px at 6% -16%,
+		rgba(var(--accent-rgb), 0.11),
+		rgba(var(--accent-rgb), 0) 70%
+	);
+}
+
+/* A strip of small facts under the drawing: the flow card's two loops, the board
+ * card's keys. One body, because both are the card saying "there is a way back
+ * into this". */
+.loops,
+.strip {
+	display: flex;
+	gap: 40px;
+	margin-top: 20px;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+	font-size: 15px;
+	color: var(--muted);
+}
+
+.loops b,
+.strip b {
+	color: var(--accent-alt);
+	font-weight: 600;
+}
+
+.loops span,
+.strip span {
+	color: var(--dim);
+}
+
+/* A key on the board's strip: the letter as the page types it. */
+.strip kbd {
+	padding: 0 5px;
+	border: 1px solid var(--line-strong);
+	border-radius: 5px;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--accent-alt);
+}
+
+/* ---------------------------------------------------------------- board card */
+
+/* The board card reads one board three ways — the lanes, one card, the round — so
+ * a dashed rule separates the facets instead of the flow card's arrow. The band
+ * grows, which is what lets the three glosses end on one line. */
+.facets {
+	display: flex;
+	flex: 1 1 auto;
+	margin-top: 18px;
+}
+
+.facets > .stage {
+	padding: 0 20px;
+	border-left: 1px dashed var(--line);
+}
+
+.facets > .stage:first-child {
+	padding-left: 0;
+	border-left: 0;
+}
+
+.facets > .stage:last-child {
+	padding-right: 0;
+}
+
+/* A lane's tray head: its dot, its name, the count as a pill, and the fold. */
+.tray {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	background: var(--surface);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	color: var(--text);
+}
+
+.tray__fold {
+	margin-left: auto;
+	color: var(--dim);
+}
+
+.dot {
+	flex: 0 0 auto;
+	width: 9px;
+	height: 9px;
+	border-radius: 999px;
+	background: var(--muted);
+}
+
+.dot--doing {
+	background: var(--accent);
+}
+
+.dot--blocked {
+	background: var(--danger);
+}
+
+.dot--done {
+	background: var(--success);
+}
+
+.pill {
+	padding: 0 6px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1.4;
+	color: var(--muted);
+}
+
+/* One card drawn small: the atoms the page's own cards carry, in reading order. */
+.mini {
+	width: 100%;
+	padding: 13px 13px;
+	border: 1px solid var(--line-strong);
+	border-radius: 10px;
+	background: var(--surface);
+	font-size: 15px;
+	line-height: 1.32;
+}
+
+.mini__id {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--dim);
+}
+
+.mini__title {
+	font-weight: 650;
+	color: var(--text);
+}
+
+.mini__meta,
+.mini__paths,
+.mini__actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	margin-top: 7px;
+}
+
+.mini__meta {
+	margin-top: 6px;
+	font-size: 12px;
+	color: var(--dim);
+}
+
+.mini__reason {
+	margin-top: 7px;
+	font-size: 13px;
+	color: var(--muted);
+}
+
+/* The owner and the priority, the two chips a card carries beside its id. */
+.chip--owner {
+	color: var(--accent-alt);
+	border-color: rgba(var(--accent-alt-rgb), 0.34);
+	background: rgba(var(--accent-alt-rgb), 0.09);
+}
+
+.chip--priority {
+	color: var(--warn);
+	border-color: rgba(var(--warn-rgb), 0.34);
+	background: rgba(var(--warn-rgb), 0.09);
+}
+
+/* An action: bordered for the one the card is inviting, quiet for the rest. */
+.act {
+	padding: 2px 8px;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1.5;
+	color: var(--muted);
+	background: var(--canvas);
+}
+
+.act--loud {
+	color: var(--accent);
+	border-color: rgba(var(--accent-rgb), 0.42);
+	background: rgba(var(--accent-rgb), 0.09);
+}
+
+/* The lead's rollup: one line per owner, then the counts a lead acts on. */
+.roll {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 100%;
+	font-size: 15px;
+	color: var(--muted);
+}
+
+.roll__row {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+}
+
+.roll__num {
+	margin-left: auto;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--dim);
+}
+
+/* The counts are the loudest thing in the round, so they lead as numerals and the
+ * word under each is the label. */
+.tally {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 12px 10px;
+	width: 100%;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+}
+
+.tally span {
+	display: flex;
+	flex-direction: column;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1.3;
+	color: var(--dim);
+}
+
+.tally b {
+	font-size: 24px;
+	font-weight: 650;
+	font-variant-numeric: tabular-nums;
+	color: var(--text);
+}
+
+/* The page's seat and its live badge, as the toolbar types them. */
+.brand__right {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.live {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	color: var(--success);
+}
+
+/* An LED, not a glyph: one dot inside a ring, the page's `live` state. */
+.live__dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background: var(--success);
+	box-shadow: 0 0 0 3px rgba(var(--success-rgb), 0.18);
+}
+
+/* ----------------------------------------------------------- team card */
+
+/* The three verbs, one band each: the verb itself, then what it does to the card. */
+.verb-label {
+	font-family: var(--font-mono);
+	font-size: 16px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	fill: var(--accent);
+}
+
+.verb-label--write {
+	fill: var(--success);
+}
+
+.verb-label--quiet {
+	fill: var(--accent-alt);
+}
+
+.verb-label--dim {
+	fill: var(--muted);
+}
+
+/* The team card's three bands are drawn at their own scale, taller than the flow
+ * diagram's single lane. */
+.diagram--team {
+	height: 424px;
+}
+
+.node-label--mono {
+	font-family: var(--font-mono);
+	font-size: 15px;
+}
+
+.verb-note {
+	font-size: 13px;
+	fill: var(--dim);
+}
+
+/* A note that has to be read, not skimmed: the thing the drawing cannot label. */
+.verb-note--hi {
+	fill: var(--muted);
+}
+
+.band {
+	fill: var(--surface);
+	stroke: var(--line);
+	stroke-width: 1.2;
+}
+
+.band--quiet {
+	fill: none;
+	stroke: var(--line);
+	stroke-dasharray: 5 7;
 }

@@ -402,6 +402,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   root anchor, recall switch, and headless surfaces; and web-access, file-browse,
   file-read, and file-open name their write-style fetch, printing and live chip,
   extraction progress, and codemode-only exposure.
+- Tooling: the posting cards cover the board and the team — `assets/cards/board.html`
+  draws the lanes' trays, one card's atoms, and the lead's round beside the page's seat
+  and live badge, and `board-team.html` draws `assign`, `offer`, and `reclaim` as three
+  bands — so a capability can be posted without a screenshot of a live page. The
+  capture command is `screenshot:cards` (it was `screenshot:plan-flow`, which now names
+  only half of what it captures), it takes several card names at once, and the four
+  posters share `assets/cards/cards.css` (was `plan-flow.css`).
 - Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by

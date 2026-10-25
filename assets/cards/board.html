@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1200" />
+		<title>One board, every session — @gavin-hu/my-pi-agent</title>
+		<link rel="stylesheet" href="./cards.css" />
+	</head>
+	<body>
+		<main class="card card--glow">
+			<div class="brand">
+				<span><span class="brand__chip">@gavin-hu/my-pi-agent</span> · board</span>
+				<span class="brand__right">
+					<span class="brand__state">team-lead</span>
+					<span class="live"><span class="live__dot"></span>live · 3m</span>
+				</span>
+			</div>
+
+			<h1 class="title title--compact">One board, every session <span class="title__zh">一块看板，所有会话共享</span></h1>
+			<p class="lede">
+				Every session on a repository reads and writes the same cards, and the repository has one
+				page: the session that serves it holds the seat, and the rest open it read-only.<br />
+				<span class="lede__zh">同一仓库上的每个会话读写同一批卡片；仓库只有一张页面，启动它的会话持有席位，其余会话只读打开。</span>
+			</p>
+
+			<div class="facets">
+				<section class="stage">
+					<div class="stage__head"><span class="stage__no">①</span>Lanes<span class="stage__zh">车道</span></div>
+					<div class="stage__body">
+						<span class="tray"><span class="dot"></span>todo<span class="pill">2</span><span class="tray__fold">⌄</span></span>
+						<span class="tray"
+							><span class="dot dot--doing"></span>doing<span class="pill">1</span><span class="tray__fold"
+								>⌄</span
+							></span
+						>
+						<span class="tray"
+							><span class="dot dot--blocked"></span>blocked<span class="pill">1</span><span
+								class="tray__fold">⌄</span
+							></span
+						>
+						<span class="tray"
+							><span class="dot dot--done"></span>done<span class="pill">4</span><span class="tray__fold"
+								>⌄</span
+							></span
+						>
+						<span class="note">trays, not a bare list</span>
+						<span class="note">the head sticks, the count is a pill</span>
+					</div>
+					<div class="gloss">四列托盘，随时折叠</div>
+				</section>
+
+				<section class="stage">
+					<div class="stage__head"><span class="stage__no">②</span>A card<span class="stage__zh">一张卡片</span></div>
+					<div class="stage__body">
+						<div class="mini">
+							<div><span class="mini__id">#4</span> <span class="mini__title">Retry branches merge cleanly</span></div>
+							<div class="mini__meta">
+								<span>unowned</span>
+								<span>21m</span>
+								<span class="chip chip--priority">high</span>
+							</div>
+							<div class="mini__paths"><span class="chip">src/billing</span></div>
+							<div class="mini__reason">no plan recorded</div>
+							<div class="mini__actions">
+								<span class="act act--loud">Claim</span>
+								<span class="act">Note</span>
+								<span class="act">Open</span>
+							</div>
+						</div>
+						<span class="note">one reason line, in one voice</span>
+						<span class="note">nobody holds it, so Claim is the invitation</span>
+					</div>
+					<div class="gloss">功能，不是步骤</div>
+				</section>
+
+				<section class="stage">
+					<div class="stage__head"><span class="stage__no">③</span>The round<span class="stage__zh">全局汇总</span></div>
+					<div class="stage__body">
+						<div class="roll">
+							<div class="roll__row">
+								<span class="dot dot--doing"></span><span class="chip chip--owner">billing-core</span
+								><span class="roll__num">2 live, 1 done</span>
+							</div>
+							<div class="roll__row">
+								<span class="dot"></span><span class="chip chip--owner">api-core</span
+								><span class="roll__num">quiet for 2h</span>
+							</div>
+						</div>
+						<div class="tally">
+							<span><b>2</b>unassigned</span>
+							<span><b>1</b>unplanned</span>
+							<span><b>1</b>blocked</span>
+							<span><b>1</b>idle</span>
+							<span><b>4</b>done</span>
+						</div>
+						<span class="note">read from the cards alone — no bus needed</span>
+					</div>
+					<div class="gloss">谁在做什么，一眼看完</div>
+				</section>
+			</div>
+
+			<div class="strip">
+				<div><kbd>n</kbd> new card</div>
+				<div><kbd>/</kbd> filter</div>
+				<div><kbd>j</kbd> <kbd>k</kbd> next card</div>
+				<div><kbd>Enter</kbd> open</div>
+				<div><kbd>t</kbd> board ⇄ team</div>
+				<div><kbd>?</kbd> keys</div>
+			</div>
+
+			<div class="foot">
+				<div>
+					A card is one feature, not one step.<br /><span class="foot__zh">卡片是一个功能，不是一个步骤。</span>
+				</div>
+				<div class="foot__right">
+					Ownership is advisory — a path claim is the lock.<br /><span class="foot__zh">归属只是约定，路径声明才是锁。</span>
+				</div>
+			</div>
+		</main>
+	</body>
+</html>

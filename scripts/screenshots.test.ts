@@ -16,7 +16,7 @@ import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ansiLinesToHtml, ansiToHtml, cssFor, parseAnsi } from "./ansi-html.ts";
 import { parseArgs as parseBoardArgs } from "./shots/board.ts";
 import { parseArgs as parseFileBrowseArgs } from "./shots/file-browse.ts";
-import { parseArgs as parseFlowArgs } from "./shots/plan-flow.ts";
+import { parseArgs as parseCardArgs } from "./shots/cards.ts";
 import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
 import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
@@ -187,36 +187,40 @@ describe("file-browse shot arguments", () => {
 	});
 });
 
-describe("plan flow shot arguments", () => {
+describe("posting card shot arguments", () => {
 	test("captures every card at 2x by default", () => {
-		const options = parseFlowArgs([]);
-		expect(options.cards).toEqual(["flow", "graphic"]);
+		const options = parseCardArgs([]);
+		expect(options.cards).toEqual(["flow", "graphic", "board", "team"]);
 		expect(options.out).toBe("");
 		expect(options.scale).toBe(2);
 		expect(options.waitMs).toBe(8000);
 	});
 
 	test("naming a card captures only it, and the flags override the defaults", () => {
-		const options = parseFlowArgs(["graphic", "-o", "shot.png", "--scale", "1", "--wait", "100"]);
+		const options = parseCardArgs(["graphic", "-o", "shot.png", "--scale", "1", "--wait", "100"]);
 		expect(options.cards).toEqual(["graphic"]);
 		expect(basename(options.out)).toBe("shot.png");
 		expect(options.scale).toBe(1);
 		expect(options.waitMs).toBe(100);
 	});
 
+	test("several cards may be named at once, in the order given", () => {
+		// The board pair is captured together in practice; the default set is no longer
+		// the only way to ask for more than one card.
+		expect(parseCardArgs(["board", "team"]).cards).toEqual(["board", "team"]);
+	});
+
 	test("rejects a fixed width, an unknown card, and one output for two cards", () => {
 		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
 			[["--width", "900"], "--width is fixed: a card is a 1200×675 box"],
-			[["poster"], 'unknown card "poster"; expected flow or graphic'],
-			// Only the default set can hold more than one card: a second positional is
-			// already an error, so `-o` with no card named is the reachable mistake.
+			[["poster"], 'unknown card "poster"; expected flow, graphic, board, and team'],
 			[["-o", "shot.png"], "-o names one file; capture one card at a time"],
-			[["flow", "graphic"], "unexpected argument graphic"],
+			[["board", "team", "-o", "shot.png"], "-o names one file; capture one card at a time"],
 			[["--theme", "sepia"], "--theme must be light or dark"],
 			[["--nope"], "unknown option --nope"],
 		];
 		for (const [argv, message] of invalid) {
-			expect(() => parseFlowArgs(argv), argv.join(" ")).toThrow(message);
+			expect(() => parseCardArgs(argv), argv.join(" ")).toThrow(message);
 		}
 	});
 });

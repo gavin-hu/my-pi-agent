@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1200" />
+		<title>assign · offer · reclaim — @gavin-hu/my-pi-agent</title>
+		<link rel="stylesheet" href="./cards.css" />
+	</head>
+	<body>
+		<main class="card card--glow">
+			<div class="brand">
+				<span><span class="brand__chip">@gavin-hu/my-pi-agent</span> · team</span>
+				<span class="brand__right">
+					<span class="brand__state">team-lead</span>
+					<span class="live"><span class="live__dot"></span>live · 3m</span>
+				</span>
+			</div>
+
+			<h1 class="title title--compact">assign · offer · reclaim <span class="title__zh">派发 · 招标 · 收回</span></h1>
+
+			<svg
+				class="diagram diagram--team"
+				viewBox="0 0 1104 406"
+				role="img"
+				aria-label="Three bands, one per verb. Assign: the lead sends a handoff to a named peer, who claims the card. Offer: the lead broadcasts a card to every other live session as one event and nothing is written, so the first claim wins. Reclaim: the card returns to To do on its own, with its notes kept and no handoff sent."
+			>
+				<defs>
+					<marker
+						id="tip"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+					<marker
+						id="tip-go"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip tip--go" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+					<marker
+						id="tip-loop"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip tip--loop" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+				</defs>
+
+				<!-- ① assign: one named peer, a handoff in its inbox, then the claim. -->
+				<rect class="band" x="0" y="0" width="1104" height="120" rx="16" />
+				<text class="verb-label" x="26" y="38">assign</text>
+				<text class="verb-note" x="26" y="60">派发</text>
+				<rect class="node" x="170" y="26" width="176" height="44" rx="10" />
+				<text class="node-label" x="258" y="54">the lead</text>
+				<line class="edge" x1="346" y1="48" x2="424" y2="48" marker-end="url(#tip)" />
+				<text class="edge-label" x="385" y="34">handoff</text>
+				<rect class="node" x="430" y="26" width="190" height="44" rx="10" />
+				<text class="node-label" x="525" y="54">billing-core</text>
+				<line class="edge edge--go" x1="620" y1="48" x2="706" y2="48" marker-end="url(#tip-go)" />
+				<text class="edge-label edge-label--go" x="663" y="34">claims</text>
+				<rect class="node" x="712" y="26" width="196" height="44" rx="10" />
+				<text class="node-label node-label--mono" x="810" y="54">#4 · doing</text>
+				<text class="verb-note verb-note--hi" x="930" y="54">owned by the peer</text>
+				<text class="verb-note" x="26" y="104">the handoff lands in the peer's inbox; the turn it raises starts the card</text>
+
+				<!-- ② offer: nothing written, so the first claim is what takes the card. -->
+				<rect class="band" x="0" y="140" width="1104" height="120" rx="16" />
+				<text class="verb-label verb-label--quiet" x="26" y="178">offer</text>
+				<text class="verb-note" x="26" y="200">招标</text>
+				<rect class="node" x="170" y="166" width="176" height="44" rx="10" />
+				<text class="node-label" x="258" y="194">the lead</text>
+				<line class="edge edge--loop" x1="346" y1="188" x2="424" y2="188" marker-end="url(#tip-loop)" />
+				<text class="edge-label edge-label--loop" x="385" y="174">event</text>
+				<rect class="node" x="430" y="166" width="150" height="44" rx="10" />
+				<text class="node-label" x="505" y="194">billing-core</text>
+				<rect class="node" x="590" y="166" width="130" height="44" rx="10" />
+				<text class="node-label" x="655" y="194">api-core</text>
+				<line class="edge edge--go" x1="720" y1="188" x2="790" y2="188" marker-end="url(#tip-go)" />
+				<text class="edge-label edge-label--go" x="755" y="174">first claim</text>
+				<rect class="node" x="796" y="166" width="196" height="44" rx="10" />
+				<text class="node-label node-label--mono" x="894" y="194">#4 · doing</text>
+				<text class="verb-note" x="26" y="244">no owner is recorded and nothing is sent to one peer, so two claims are settled by the store</text>
+
+				<!-- ③ reclaim: the card alone, the notes kept, no bus involved. -->
+				<rect class="band band--quiet" x="0" y="280" width="1104" height="126" rx="16" />
+				<text class="verb-label verb-label--dim" x="26" y="318">reclaim</text>
+				<text class="verb-note" x="26" y="340">收回</text>
+				<rect class="node" x="170" y="306" width="196" height="44" rx="10" />
+				<text class="node-label node-label--mono" x="268" y="334">#4 · doing</text>
+				<line class="edge" x1="366" y1="328" x2="446" y2="328" marker-end="url(#tip)" />
+				<text class="edge-label" x="406" y="314">returns</text>
+				<rect class="node" x="452" y="306" width="150" height="44" rx="10" />
+				<text class="node-label" x="527" y="334">To do</text>
+				<text class="verb-note" x="630" y="334">the notes stay · no handoff sent · no bus needed</text>
+				<text class="verb-note" x="26" y="386">the owner clears, and the card is anyone's to claim again</text>
+			</svg>
+
+			<div class="foot">
+				<div>
+					assign and offer reach the bus; reclaim writes the card alone.<br /><span class="foot__zh"
+						>派发与招标走消息总线，收回只写卡片。</span
+					>
+				</div>
+				<div class="foot__right">
+					Nothing here starts a peer's turn.<br /><span class="foot__zh">这里没有任何一步会启动对端的一轮。</span>
+				</div>
+			</div>
+		</main>
+	</body>
+</html>
