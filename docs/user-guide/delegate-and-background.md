@@ -281,6 +281,52 @@ repository act as a team without sharing a conversation.
 
 */sessions: the sessions on this repository, their unread counts and claims, and the focused session's identity.*
 
+## Sharing a board
+
+`session-bus` carries messages; `board` carries the work. A repository has **one
+board**, filed under the repository's common git directory, so every session and
+every worktree sees the same cards.
+
+- A card is one **feature**, not one step: the steps of the work live in the
+  owner's plan and in `todo`. A card carries the feature's outcome, the session
+  holding it, path hints, the plan file it is executing, and its notes.
+- `board` `action: "list"` reads the board, `add` creates a `todo` card, `claim`
+  takes one for this session, `move` changes lane, `note` appends to its history,
+  `plan` records the plan file, `release` gives it back, and `drop` deletes a
+  `todo`, a `done`, or one you hold. `round: true` adds the lead's rollup: who
+  holds what, what is unassigned, unplanned, blocked, or has gone quiet.
+- `/board` serves the same cards as a page in your browser and opens it: a
+  **Board** tab with the four lanes, and a **Team** tab with one panel per owner.
+  The page scrolls as one document with the toolbar pinned, and it follows the
+  store live — a card another session moves appears within a second, and an open
+  card dialog updates in place. Writes from the page are made as the serving
+  session, and claim, reclaim, and delete ask first.
+- Ownership is advisory. Two sessions can still edit the same file; a path claim
+  in `session-bus` is what protects it.
+
+The board records who wrote a revision and refuses a write it can no longer
+justify — a card someone else claimed, or one finished a moment ago — instead of
+overwriting it. Nothing prunes a finished card: `drop` is the only deletion.
+
+## Running a round
+
+`team` is the lead's half of the board: the two actions that reach the session bus.
+
+- `team` `action: "assign"` hands a card to a session that is **already running**.
+  The peer gets a handoff in its inbox — the card, its paths, its plan, and a line
+  from you — and then the card becomes `doing`, owned by that peer. Nothing is
+  started: a peer that has not armed `session watch` reads the message at its next
+  turn, and `session status` lists the labels a handoff can go to.
+- The order is deliberate. If the send fails, the card is untouched, and the answer
+  says so; if the card changed between the send and the assignment, the answer says
+  the peer should `board claim` it.
+- `team` `action: "reclaim"` takes a card back to To do when its owner has gone
+  quiet. The notes stay, so the next owner reads what happened.
+
+A round, end to end: `board list --round` to see who holds what, `team assign` for
+each unassigned card, then `board list --round` again once the peers settle. A
+blocked card is your next decision, not theirs.
+
 ## Related
 
 - [Plan and verify](./plan-and-verify.md) — the plan a task starts from.

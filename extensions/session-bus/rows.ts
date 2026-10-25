@@ -14,7 +14,7 @@ import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { shortId } from "./format.ts";
+import { idSuffix } from "./format.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
 
 /** Claim paths the focus block lists before it points at the pane. */
@@ -164,7 +164,7 @@ export function sessionDetailBlock(row: SessionRow, now: number): string[] {
 		lines.push(`claims: ${shown.join(", ")}${hidden > 0 ? ` +${hidden} more` : ""}`);
 	}
 	lines.push(
-		`mode: ${sanitizeLine(row.session.mode)}${SEPARATORS.item}id: ${shortId(row.session.id)}` +
+		`mode: ${sanitizeLine(row.session.mode)}${SEPARATORS.item}id: ${idSuffix(row.session.id)}` +
 			`${SEPARATORS.item}last seen: ${formatDuration(Math.max(0, now - row.session.lastSeen))} ago`,
 	);
 	return lines;

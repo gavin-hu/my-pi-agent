@@ -48,7 +48,7 @@ function createBoardReader(bus: SessionBus): (screen: SessionListComponent) => P
 }
 
 /** Open the TUI board, and resolve when it closes. */
-async function openBoard(pi: ExtensionAPI, ctx: ExtensionCommandContext, bus: SessionBus): Promise<void> {
+async function openSessionsScreen(pi: ExtensionAPI, ctx: ExtensionCommandContext, bus: SessionBus): Promise<void> {
 	await bus.start(ctx);
 	const [status, messages] = await Promise.all([bus.snapshot(), bus.peek()]);
 	const first = { status, messages };
@@ -92,7 +92,7 @@ async function openBoard(pi: ExtensionAPI, ctx: ExtensionCommandContext, bus: Se
 async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: SessionBus): Promise<void> {
 	try {
 		if (ctx.mode === "tui") {
-			await openBoard(pi, ctx, bus);
+			await openSessionsScreen(pi, ctx, bus);
 			return;
 		}
 		await bus.start(ctx);

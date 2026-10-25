@@ -1,7 +1,7 @@
 # my-pi-agent user guide
 
 `my-pi-agent` is an add-on for [Pi](https://pi.dev), the assistant you talk to in
-a terminal. It adds 19 extensions, 4 packaged skills, and 2 colour themes to the
+a terminal. It adds 21 extensions, 4 packaged skills, and 2 colour themes to the
 Pi you already use: planning, verification, background work, isolation, memory,
 web access, a WeChat bridge, and a themed control centre. Nothing in Pi is
 forked or modified, and every extension can be switched off.
@@ -135,6 +135,8 @@ Every row names the page that owns it.
 | `watch` | Tails a file or command and alerts on a match | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
 | `subagent` | Hands work to a specialist helper in its own process | [Delegating to specialist helpers](./delegate-and-background.md#delegating-to-specialist-helpers) |
 | `session-bus` | Lets independent sessions on one repository act as a team | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
+| `board` | The shared feature list for one repository, and its live page | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
+| `team` | Hands a card to a running session, and takes one back | [Running a round](./delegate-and-background.md#running-a-round) |
 
 **Packaged skills**
 

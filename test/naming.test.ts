@@ -23,6 +23,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { TODO_TOOL as todo } from "../lib/tool-names.ts";
+import { BOARD_TOOL as board } from "../extensions/board/types.ts";
+import { TEAM_TOOL as team } from "../extensions/team/types.ts";
 import { TOOL_NAME as askUserQuestion } from "../extensions/question/tools.ts";
 import { TOOL_NAME as runCheck } from "../extensions/check/tools.ts";
 import { TOOL_NAME as readDoc } from "../extensions/file-read/schema.ts";
@@ -74,6 +76,8 @@ const LEADING_VERBS = new Set([
 
 /** Every tool this package registers, with the extension that owns it. */
 const REGISTERED: Array<{ extension: string; name: string }> = [
+	{ extension: "board", name: board },
+	{ extension: "team", name: team },
 	{ extension: "question", name: askUserQuestion },
 	{ extension: "check", name: runCheck },
 	{ extension: "file-read", name: readDoc },
@@ -160,6 +164,7 @@ describe("extension tool naming", () => {
 	test("the full registered set matches the reviewed snapshot", () => {
 		expect([...names].sort()).toEqual([
 			"ask_user_question",
+			"board",
 			"cancel_plan_mode",
 			"enter_plan_mode",
 			"enter_worktree",
@@ -178,6 +183,7 @@ describe("extension tool naming", () => {
 			"session",
 			"set_plan_steps",
 			"subagent",
+			"team",
 			"todo",
 			"watch",
 			"web_fetch",

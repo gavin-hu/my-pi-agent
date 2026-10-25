@@ -15,7 +15,7 @@
  *   carries only the name, so a shared name is a shared marker.
  */
 
-import { randomBytes } from "node:crypto";
+import { mintToken } from "../../lib/http/index.ts";
 import type { ReviewCaller, ReviewRole } from "./types.ts";
 
 /** The token → caller table one running review holds. */
@@ -38,7 +38,7 @@ export interface TokenTable {
 const COLLISION_ATTEMPTS = 8;
 
 /** A 128-bit token; the one credential a reviewer holds. */
-const defaultToken = (): string => randomBytes(16).toString("hex");
+const defaultToken = (): string => mintToken();
 
 /** Build the table for one review. `mint` is the generator a test replaces. */
 export function createTokens(mint: () => string = defaultToken): TokenTable {

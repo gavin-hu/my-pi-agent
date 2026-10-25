@@ -6,13 +6,20 @@
  */
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import { sanitizeLine } from "../../lib/format.ts";
+import { SESSION_TOOL } from "../../lib/tool-names.ts";
 
-export const TOOL_NAME = "session";
+/**
+ * The label rules live in `lib/` because a label is shared vocabulary: the board
+ * records one on a card it claims, and `session-bus` settles the one it is
+ * addressed by. Re-exported here so every module in this extension keeps
+ * importing its rules from the protocol they belong to.
+ */
+export { defaultLabel, MAX_LABEL, normalizeLabel, shortId } from "../../lib/session-label.ts";
+
+export const TOOL_NAME = SESSION_TOOL;
 export const COMMAND_NAME = "sessions";
 export const MAX_TEXT = 4_000;
 export const MAX_PATHS = 20;
-export const MAX_LABEL = 40;
 export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
@@ -26,26 +33,6 @@ const KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 /** The session mode as the record stores it. */
 export function sessionMode(mode: string | undefined): SessionMode {
 	return mode === "tui" || mode === "rpc" || mode === "json" || mode === "print" ? mode : "unknown";
-}
-
-/** A safe label, used both for display and as a target. */
-export function normalizeLabel(raw: string | undefined, fallback: string): string {
-	const text = sanitizeLine(raw ?? "")
-		.replace(/\s+/g, " ")
-		.trim();
-	return (text || fallback).slice(0, MAX_LABEL);
-}
-
-/** A short, display-only suffix for a session id. */
-export function shortId(id: string): string {
-	const clean = id.replace(/[^a-zA-Z0-9]/g, "");
-	return (clean || id).slice(-6);
-}
-
-/** The automatic label before uniqueness is applied. */
-export function defaultLabel(sessionName: string | undefined, cwd: string, id: string): string {
-	const base = normalizeLabel(sessionName, normalizeLabel(cwd.split(/[\\/]/).filter(Boolean).at(-1), "session"));
-	return normalizeLabel(base, `session-${shortId(id)}`);
 }
 
 /** An action, or undefined when the model sent an unknown one. */

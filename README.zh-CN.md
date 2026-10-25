@@ -86,7 +86,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 ## 包含内容
 
-19 个扩展、4 个随包技能，以及 2 个主题，按 [路线图](./ROADMAP.md) 追踪的承诺分组；
+21 个扩展、4 个随包技能，以及 2 个主题，按 [路线图](./ROADMAP.md) 追踪的承诺分组；
 [用户指南](./docs/user-guide/) 按章节讲述同样的内容。每个扩展在 `docs/extensions/`
 下的页面提供完整的工具与命令说明，并以能力表开头。
 
@@ -103,6 +103,8 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
 | [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、加入已批准拆分中的一个切片或编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；会话可以自行开启收件箱监视，在空闲时唤起本会话的一轮，从不创建智能体。 |
+| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature，任何 session 都可以认领、移动、加注、完成它；同一个看板在浏览器里以 **Board** 和 **Team** 两个 tab 实时显示。步骤留在 owner 的 plan 和 `todo` 里，卡片就是 feature、它的 owner，以及解释它的历史。 |
+| [`team`](./docs/extensions/team.md) | `team` | 同一块看板上的 lead 轮次：`assign` 把一个 feature 交给**已经运行**的 session——handoff 留在它的收件箱里，由它已武装的 `session watch` 唤醒这一轮；`reclaim` 把卡片收回 To do。不启动任何进程，也不在这里新建或完成卡片。 |
 | [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
 
 ### 保护你的工作
@@ -173,7 +175,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 （每个工具自身的渲染器或 bytefly 的通用回退）——用户铭牌与通知、Pi 内置工具，以及本包注册的每个工具。
 侧栏字形由 `chrome.rail` 设置。
 
-![每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、session、plan 工具与 worktree 工具](assets/screens/tool-renderings.png)
+![每个工具块的全页参考图：用户铭牌、通知、回合分隔线，Pi 的 read、write、edit、bash、grep、find、ls 渲染器，以及每个包内工具——todo、goal、memory、job、watch、subagent、web_search、web_fetch、read_doc、open_path、run_doctor、send_wechat、ask_user_question、session、board、team、plan 工具与 worktree 工具](assets/screens/tool-renderings.png)
 
 `bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
 [`assets/tools/`](./assets/tools) 下为每个工具输出一张图。

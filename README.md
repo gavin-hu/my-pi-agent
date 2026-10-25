@@ -101,7 +101,7 @@ and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-19 extensions, 4 packaged skills, and 2 themes, grouped by the promises the
+21 extensions, 4 packaged skills, and 2 themes, grouped by the promises the
 [roadmap](./ROADMAP.md) tracks; the [guide](./docs/user-guide/) covers the same
 ground chapter by chapter. Each extension's own page in `docs/extensions/` has
 the full tool and command surface, opening with its capabilities.
@@ -118,7 +118,9 @@ the full tool and command surface, opening with its capabilities.
 | [`question`](./docs/extensions/question.md) | `ask_user_question` | Ask you one or more structured questions (labelled options plus free-form "Other") and wait. |
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | Run long-lived shell commands in the background; inspect logs, wait, or kill them. |
 | [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
-| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel Pi sessions on one repository: discover peers, exchange short messages/events, consume an inbox, join a slice of an approved split or claim paths before editing, with `/sessions` as a live board of peers, unread mail, and claims. Local, pull-based by default, with an opt-in inbox watch that raises this session's turn once it is idle; it never spawns an agent. |
+| [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel Pi sessions on one repository: discover peers, exchange short messages/events, consume an inbox, or claim paths before editing, with `/sessions` as a live board of peers, unread mail, and claims. Local, pull-based by default, with an opt-in inbox watch that raises this session's turn once it is idle; it never spawns an agent. |
+| [`board`](./docs/extensions/board.md) | `board`, `/board` | One shared feature board per repository: a card per feature, which any session claims, moves, notes, and finishes, and a loopback page that shows the same cards live in a **Board** and a **Team** tab. Steps stay in the owner's plan and `todo`; a card is the feature, its owner, and the history that explains it. |
+| [`team`](./docs/extensions/team.md) | `team` | The lead's round over the same board: `assign` hands a feature to a session that is already running — the handoff waits in its inbox, and an armed `session watch` raises that turn — and `reclaim` takes a card back to To do. Nothing is spawned, and no card is created or finished here. |
 | [`context`](./docs/extensions/context.md) | `/context` | Show where the context window goes — system prompt, tool definitions, conversation by role, injected notes — and compact from the report with the before and after numbers. |
 
 ### Keep your work safe
@@ -193,7 +195,7 @@ each tool's own renderer (or bytefly's generic fallback): the user nameplate and
 a notice, Pi's built-ins, and every tool this package registers. The rail glyph
 is the `chrome.rail` setting.
 
-![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, the plan tools, and the worktree tools](assets/screens/tool-renderings.png)
+![A full-page reference of every tool block: the user nameplate, a notice, the turn rule, Pi's read, write, edit, bash, grep, find, and ls renderers, and every package tool — todo, goal, memory, job, watch, subagent, web_search, web_fetch, read_doc, open_path, run_doctor, run_check, send_wechat, ask_user_question, session, board, team, the plan tools, and the worktree tools](assets/screens/tool-renderings.png)
 
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).

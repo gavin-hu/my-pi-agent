@@ -8,6 +8,29 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `team`: the lead's round over the board — `assign` and `reclaim`, the two actions
+  that need the session bus. `assign` hands a card to a session that is already
+  running: it checks the card's preconditions, sends a handoff through `session send`
+  (`kind: "handoff"`, carrying the card, its paths, its plan, and the lead's note),
+  and only then records the owner. A failed send leaves the card untouched and says
+  so; a card that changed between the send and the assignment is reported with the
+  peer told to claim it. Nothing is spawned — the handoff waits in the recipient's
+  inbox, and its armed watch is what raises the turn — so `team` is a message, not a
+  launch. `reclaim` returns a card to To do and keeps its notes. The call goes through
+  `SESSION_TOOL` in `lib/tool-names.ts`, so a tool rename breaks both sides.
+- `board`: one shared feature board per repository. A card is one feature — its
+  outcome, the session holding it, path hints, the plan it is executing, and the
+  notes that explain it — and each repository has one board, filed under its common
+  git directory so every worktree sees the same cards. The `board` tool lists,
+  adds, claims, releases, moves, notes, plans, and drops them, and `list` with
+  `round` returns the lead's rollup of owners, unassigned, unplanned, blocked, and
+  idle cards. A card file is created exclusively and updated by re-checking the
+  operation's preconditions, so two sessions cannot share an id and a card that
+  changed underneath is refused rather than overwritten. Steps stay in the owner's
+  plan and `todo`; ownership is advisory, and `session-bus`'s path claims remain the
+  lock. `/board` serves the same cards as a loopback page with a Board tab and a
+  Team tab; writes from it are made as the serving session and never touch the
+  repository.
 - `bytefly`: `/bytefly upgrade` installs a pending update through Pi's own package
   manager instead of a command the user has to type. The action confirms first,
   then calls `DefaultPackageManager.update()` — the manager that already names each

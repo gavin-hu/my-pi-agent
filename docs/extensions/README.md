@@ -17,6 +17,8 @@ sections behind them.
 | `job` | Long-lived shell commands in the background, with logs and a wait | [`job.md`](./job.md) |
 | `watch` | Tailing a file or command and matching new lines | [`watch.md`](./watch.md) |
 | `session-bus` | Coordination between parallel Pi sessions on one repository | [`session-bus.md`](./session-bus.md) |
+| `board` | One shared feature board per repository, read and written by every session and shown live in a browser | [`board.md`](./board.md) |
+| `team` | The lead's round: hand a card to a running session, or take one back | [`team.md`](./team.md) |
 | `context` | Where the context window went, and compacting from the report | [`context.md`](./context.md) |
 | `worktree` | An isolated `git worktree` per task, and the built-in tools following it | [`worktree.md`](./worktree.md) |
 | `rewind` | Prompt-anchored snapshots, restoring code, conversation, or both | [`rewind.md`](./rewind.md) |

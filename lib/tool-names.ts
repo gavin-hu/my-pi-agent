@@ -32,6 +32,12 @@ export const SUBAGENT_TOOL = "subagent";
 export const ASK_USER_QUESTION_TOOL = "ask_user_question";
 
 /**
+ * The `session` tool. `session-bus` registers it, and `team` calls it through
+ * `ctx.executeTool` to send a handoff, so a rename breaks both sides.
+ */
+export const SESSION_TOOL = "session";
+
+/**
  * Parameter on the `subagent` tool that forces every spawned agent to a
  * read-only tool set. Plan mode sets it on every call while planning, and
  * refuses a `subagent` whose schema does not declare it.

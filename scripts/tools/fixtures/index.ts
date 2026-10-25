@@ -7,6 +7,7 @@
  * joins its family's module rather than the end of this list.
  */
 
+import { BOARD_FIXTURES } from "./board.ts";
 import { BUILTIN_FIXTURES } from "./builtin.ts";
 import { CHECK_FIXTURES } from "./check.ts";
 import { DELEGATION_FIXTURES } from "./delegation.ts";
@@ -35,4 +36,5 @@ export const FIXTURES: ToolFixture[] = [
 	...INTERACTION_FIXTURES,
 	...PLAN_FIXTURES,
 	...WORKTREE_FIXTURES,
+	...BOARD_FIXTURES,
 ];

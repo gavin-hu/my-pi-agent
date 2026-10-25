@@ -191,7 +191,8 @@ because `/resume` and `/tree` rebuild from it.
 | Session branch | Messages, tool results with `details`, custom entries (plan mode, goals, notices) | `getBranch()`, on `session_start` and `session_tree` |
 | The config document | Configuration, one section per owner | Each extension's `config.ts`, global then project |
 | Project `.pi/` | Plans, worktrees, subagent transcripts, notes, project config | The owning extension, by path |
-| Agent directory | Global notes and config, the plan store, job logs, session-bus state, WeChat state | The owning extension, by path |
+| Agent directory | Global notes and config, the plan store, job logs, session-bus state, the board store, WeChat state | The owning extension, by path |
+| A repository-keyed directory | One board: `cards/*.json` under `<agentDir>/board/<repo-key>/`, written only by [`../lib/board/store.ts`](../lib/board/store.ts) | `board`, and `team` through it |
 | Git refs | Rewind snapshots under `refs/pi/rewind` | `rewind`, by ref name |
 | Environment | `PI_WORKTREE_*` and `PI_DISABLED_EXTENSIONS` | The process-wide seams in [`../lib/env.ts`](../lib/env.ts) |
 
@@ -316,9 +317,11 @@ which moves one is visible; the threat model and the policy for each are
 
 A boundary that two extensions answer has exactly one policy module, in `lib/`.
 Two copies are how a header, a `Host` rule, or an allowlist drifts apart, which
-is why the two served pages share `lib/http/`, the two design systems are
-`lib/tui/` and `lib/web/`, and the two readers of a repository's storage key ask
-`repoKeyFor` of one module, [`../lib/repo-key.ts`](../lib/repo-key.ts).
+is why the served pages share [`../lib/http/`](../lib/http/) — including its
+`envelopeRefusal` / `requireJsonBody` guards and the page token — the two design
+systems are `lib/tui/` and `lib/web/`, and the three readers of a repository's
+storage key ask `repoKeyFor` of one module,
+[`../lib/repo-key.ts`](../lib/repo-key.ts).
 
 ## Where a change belongs
 
