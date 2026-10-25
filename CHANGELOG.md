@@ -357,6 +357,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `bytefly`: the Settings section finished losing the two app rows that left the
+  catalogue for `/settings`. `applyAppSetting` still switched on `outputPad` and
+  `showHardwareCursor` — unreachable branches, kept alive by two `SettingsStore`
+  setters nothing called — and the module still called the catalogue "thirteen"
+  rows while describing a delivery-method row that has been `bytefly.json`-only
+  since it left the screen. The detail pane's description now wraps to the width
+  it actually has instead of stopping two columns short, and both the extension
+  page and `docs/configuration.md` name only the app rows the screen carries.
+
 - `plan`: `/plan list` keeps its footer. The docked index budgeted seven rows
   around the list while its own frame spends eight — header, summary, blank, the
   focused plan, the closing hint, and the rule — so a list that filled the

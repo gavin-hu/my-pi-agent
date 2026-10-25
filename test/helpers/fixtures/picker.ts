@@ -73,8 +73,6 @@ export interface StoreCalls {
 	setProjectSkillPaths: string[][];
 	setProjectPackages: PackageSource[][];
 	setQuietStartup: QuietStartup[];
-	setOutputPad: Array<0 | 1>;
-	setShowHardwareCursor: boolean[];
 	setTheme: string[];
 }
 
@@ -111,8 +109,6 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 		setProjectSkillPaths: [],
 		setProjectPackages: [],
 		setQuietStartup: [],
-		setOutputPad: [],
-		setShowHardwareCursor: [],
 		setTheme: [],
 	};
 
@@ -156,14 +152,6 @@ export function makeStore(options: StoreOptions = {}): FakeStore {
 			setQuietStartup: (quiet) => {
 				calls.setQuietStartup.push(quiet);
 				globalSettings = { ...globalSettings, quietStartup: quiet };
-			},
-			setOutputPad: (padding) => {
-				calls.setOutputPad.push(padding);
-				globalSettings = { ...globalSettings, outputPad: padding };
-			},
-			setShowHardwareCursor: (enabled) => {
-				calls.setShowHardwareCursor.push(enabled);
-				globalSettings = { ...globalSettings, showHardwareCursor: enabled };
 			},
 			setTheme: (theme) => {
 				calls.setTheme.push(theme);

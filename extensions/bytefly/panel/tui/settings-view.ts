@@ -129,7 +129,7 @@ export function settingDetail(options: {
 	if (budget === 0) return saved;
 
 	const lines = [headLine];
-	const descriptionWidth = Math.max(1, width - BODY_INDENT * 2);
+	const descriptionWidth = Math.max(1, width - BODY_INDENT);
 	const description = wrapTextWithAnsi(sanitizeLine(view.description), descriptionWidth).slice(
 		0,
 		Math.max(0, Math.min(2, budget - 2 - saved.length)),

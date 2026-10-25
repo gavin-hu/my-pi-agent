@@ -124,8 +124,6 @@ const ON_OFF: readonly SettingOption[] = [
 	{ value: "true", label: "On" },
 ];
 
-/** The notify section's delivery methods, labeled by the surface each reaches. */
-
 /**
  * A text rule for a money amount inside an inclusive range: a whole number or a
  * decimal with up to four places, matching the loader's clamp for `price.budget`.
@@ -147,7 +145,7 @@ function amountRule(min: number, max: number): TextRule {
 /**
  * The catalogue, in screen order.
  *
- * Global scope lists all thirteen; Project lists the eleven `bytefly.json` rows,
+ * Global scope lists all twelve; Project lists the ten `bytefly.json` rows,
  * because Pi's setters write the personal `settings.json` only. The list is
  * capped so the screen keeps fitting a 24-row terminal.
  */
