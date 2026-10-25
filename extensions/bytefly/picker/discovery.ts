@@ -46,8 +46,6 @@ export function createSettingsStore(manager: SettingsManager): SettingsStore {
 		setProjectSkillPaths: (paths) => manager.setProjectSkillPaths(paths),
 		setProjectPackages: (packages) => manager.setProjectPackages(packages),
 		setQuietStartup: (quiet) => manager.setQuietStartup(quiet),
-		setOutputPad: (padding) => manager.setOutputPad(padding),
-		setShowHardwareCursor: (enabled) => manager.setShowHardwareCursor(enabled),
 		setTheme: (theme) => manager.setTheme(theme),
 		isProjectTrusted: () => manager.isProjectTrusted(),
 		flush: () => manager.flush(),

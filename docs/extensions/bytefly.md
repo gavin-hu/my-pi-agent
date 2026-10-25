@@ -1063,11 +1063,10 @@ why the line says so, and each source the manager reports is shown while it runs
   bytefly's startup header and the proactive doctor notice; the footer, turn
   rule, and transcript renderers stay on. Use `PI_DISABLED_EXTENSIONS=bytefly`
   (or `pi config`) to turn off all of bytefly.
-- **App settings are Global only.** Pi's setters for preferences such as
-  `quietStartup` (the **Bytefly startup TUI** row), `outputPad`,
-  `showHardwareCursor`, and `theme` write the personal `settings.json`; the
-  screen hides those rows in Project scope rather than writing a file Pi cannot
-  manage.
+- **App settings are Global only.** Pi's setters for the two app preferences
+  the screen carries — `quietStartup` (the **Bytefly startup TUI** row) and
+  `theme` — write the personal `settings.json`; the screen hides those rows in
+  Project scope rather than writing a file Pi cannot manage.
 - **The Theme row offers only this package's palettes.** `system`,
   `bytefly-dark`, and `bytefly-light` are the whole cycle; Pi's built-ins and any
   user, project, or other package's theme stay in Pi's `/settings` → **Theme**,
@@ -1230,7 +1229,7 @@ rather than showing a wrong value.
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
-| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setOutputPad`, `setShowHardwareCursor`, `setTheme`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValuesAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer, and a row that also writes a companion leaf (the currency and its default precision) applies both in one document pass; and `u` calls `unsetConfigValueAt` with the same path. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
+| Settings writes | App rows call `SettingsManager` setters (`setQuietStartup`, `setTheme`) on the global store and `flush()`, then surface `drainErrors()`; `bytefly.json` rows call `writeConfigValuesAt` on the selected scope's document with the row's leaf path, so a nested key (`price.currency.decimals`) and a flat one (`notify.method`) share one writer, and a row that also writes a companion leaf (the currency and its default precision) applies both in one document pass; and `u` calls `unsetConfigValueAt` with the same path. A failed or refused write shows a notice in the screen's hint row and leaves the displayed value unchanged; a successful one marks the screen dirty. |
 | Doctor tool | `pi.registerTool("run_doctor")`, read-only (`readOnlyHint: true`, `openWorldHint: false`), direct exposure and active on registration (the defaults, so not declared), with a typed `outputSchema` mirroring `structuredContent`. Its `readOnlyHint` is what the shared default-deny policy in `lib/policy.ts` reads to allow it in plan mode. |
 | Doctor probes | `run_doctor` and the screen share the session cache created by `registerDoctor`; the screen mounts on that cache and probes on the first Extensions view (the command's `refresh` forces it), while the text modes probe before printing, and `/bytefly refresh` and `refresh: true` re-probe. Probes spawn `<binary> --version`, lazily import optional packages, and read config files through `lib/requirements.ts`; nothing is ever written. |
 | Status routing | Reads `footerData.getExtensionStatuses()` (a custom footer replaces the built-in one entirely); `worktree` routes to line 1, plan/alert statuses to line 2's trailing slot. |

@@ -74,9 +74,10 @@ whichever file the scope selector names.
 
 Three exceptions are worth knowing:
 
-- **Pi's own settings.** The Startup and Terminal rows, and output padding, write
-  Pi's `settings.json` rather than `bytefly.json`, and are Global only because Pi
-  exposes no project scope for them.
+- **Pi's own settings.** The **Bytefly startup TUI** and **Theme** rows write Pi's
+  `settings.json` rather than `bytefly.json`, and are Global only because Pi
+  exposes no project scope for them. The other Pi preferences the screen once
+  carried — output padding and the hardware cursor — stay in Pi's own `/settings`.
 - **One key at a time.** The screen writes only the key you changed, preserving
   every sibling, other section, and metadata key.
 - **Metadata.** `$schema` is ignored by the loaders; `version` defaults to `1` and

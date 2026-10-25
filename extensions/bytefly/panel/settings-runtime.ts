@@ -88,12 +88,6 @@ function applyAppSetting(store: SettingsStore, row: SettingDescriptor, raw: stri
 		case "byteflyUi":
 			store.setQuietStartup(value as QuietStartup);
 			return;
-		case "outputPad":
-			store.setOutputPad(value as 0 | 1);
-			return;
-		case "showHardwareCursor":
-			store.setShowHardwareCursor(value as boolean);
-			return;
 		case "theme":
 			store.setTheme(value as string);
 			return;
