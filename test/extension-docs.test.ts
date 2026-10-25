@@ -8,6 +8,8 @@
  *   for — the capabilities — is no longer first;
  * - a capability the extension ships but the page never names, because a tool was
  *   added and its row was not;
+ * - a Files row the tree has outgrown: a module with no row, or a row naming a file
+ *   that is gone, which is how a page keeps describing a tree that no longer exists;
  * - a second copy of the doc creeping back beside the code: the `extensions/`
  *   tree holds code and tests only, and this file is what keeps it that way.
  *
@@ -16,8 +18,8 @@
  * match, not a list a contributor maintains twice.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
@@ -60,16 +62,43 @@ function headingsOf(text: string): string[] {
 	return headings;
 }
 
-/** One page's `## Capabilities` section, from its heading to the next `##`. */
-function capabilitiesOf(text: string): string {
+/** One page's `## <heading>` section, from its heading to the next `##`. */
+function sectionOf(text: string, heading: string): string {
 	const lines = text.split("\n");
-	const start = lines.findIndex((line) => HEADING.exec(line)?.[1] === "Capabilities");
+	const start = lines.findIndex((line) => HEADING.exec(line)?.[1] === heading);
 	if (start === -1) return "";
 	const end = lines.findIndex((line, at) => at > start && /^##\s/.test(line));
 	return lines.slice(start + 1, end === -1 ? undefined : end).join("\n");
 }
 
-/** One table inside the capabilities section, as its rows of cells. */
+/** The paths a Files row's first cell names: a link's target, else its files. */
+function fileTargetsOf(cell: string): string[] {
+	const linked = /\[[^\]]*\]\(([^)]+)\)/.exec(cell)?.[1];
+	if (linked !== undefined) return [linked];
+	// A page groups rows two ways — `a.ts / b.ts`, and `` `a.ts`, `b.ts` `` — so a
+	// path with a directory in it (`search/tool.ts`) is never split.
+	return cell
+		.split(/\s*,\s*|\s+\/\s+/)
+		.map((part) => part.replaceAll("`", "").trim())
+		.filter((part) => part !== "");
+}
+
+/**
+ * Whether a Files row names something on disk.
+ *
+ * An extension's own module is written bare and resolves inside `extensions/<name>/`,
+ * while the shared module it leans on is written as a link or a `lib/` path and
+ * resolves from the repository root.
+ */
+function namesAFile(target: string, name: string): boolean {
+	const fromRoot = target.startsWith("../") || target.startsWith("lib/") || target.startsWith("extensions/");
+	const candidates = fromRoot
+		? [resolve(docsDir, target), resolve(root, target)]
+		: [resolve(root, "extensions", name, target), resolve(root, target)];
+	return candidates.some((path) => existsSync(path));
+}
+
+/** One table inside a section, as its rows of cells. */
 function tablesOf(section: string): string[][][] {
 	const blocks: string[][] = [];
 	let current: string[] = [];
@@ -197,7 +226,7 @@ describe("the template every page follows", () => {
 describe("the capabilities table", () => {
 	for (const name of names) {
 		test(`${name}.md`, () => {
-			const section = capabilitiesOf(pageOf(name));
+			const section = sectionOf(pageOf(name), "Capabilities");
 			const tables = tablesOf(section);
 			expect(tables.length, "no capabilities table").toBeGreaterThan(0);
 
@@ -226,12 +255,32 @@ describe("the registered surface is in the capabilities", () => {
 	for (const entry of manifest) {
 		test(entry, async () => {
 			const name = nameOf(entry);
-			const section = capabilitiesOf(pageOf(name));
+			const section = sectionOf(pageOf(name), "Capabilities");
 			const { tools, commands } = await surfaceOf(entry);
 
 			const missingTools = tools.filter((tool) => !new RegExp(`\`[^\`]*\\b${tool}\\b[^\`]*\``).test(section));
 			const missingCommands = commands.filter((command) => !section.includes(`\`/${command}`));
 			expect({ tools: missingTools, commands: missingCommands }).toEqual({ tools: [], commands: [] });
+		});
+	}
+});
+
+describe("the Files table", () => {
+	for (const name of names) {
+		test(`${name}.md`, () => {
+			const rows = (tablesOf(sectionOf(pageOf(name), "Files"))[0] ?? []).slice(1);
+			// Only the first column: a module named in a responsibility sentence is
+			// not a row, and would hide the one next to it that is missing.
+			const named = rows.map((row) => row[0] ?? "").join("\n");
+
+			const modules = readdirSync(join(root, "extensions", name)).filter(
+				(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
+			);
+			const unnamed = modules.filter((file) => !new RegExp(`\\b${file.replaceAll(".", "\\.")}\\b`).test(named));
+			expect(unnamed, "a module with no Files row").toEqual([]);
+
+			const broken = rows.flatMap((row) => fileTargetsOf(row[0] ?? "")).filter((target) => !namesAFile(target, name));
+			expect(broken, "a Files row naming no file or directory").toEqual([]);
 		});
 	}
 });

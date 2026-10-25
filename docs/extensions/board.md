@@ -285,8 +285,8 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 |---|---|
 | `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the page, register both, close on shutdown |
 | `config.ts` | The board's one setting: the port its page is pinned to, clamped, from the `bytefly.json` `board` section |
-| `runtime.ts` | Which store a call uses, and who it writes as |
 | `schema.ts` | The tool's parameters |
+| `types.ts` | The shapes the tool registers and reports: the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
 | `tools.ts` | Action dispatch and the refusal shape |
 | `input.ts` | A card body as both surfaces read it: the `add` fields normalized once, so the tool and the page cannot disagree |
 | `format.ts` | The model-facing text |
@@ -297,6 +297,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `writes.ts` | The page's write path: one request to one store call, 422 for a field and 409 for a card somebody else moved |
 | `commands.ts` | `/board`, its three words, and the one line `/board status` prints |
 | `seat.ts` | The seat the page serves as: one name, and an id derived from it, so the page is one actor across restarts |
+| `join.ts` | The board's side of the team: the one request that joins for the user, the label it lands on, and how the outcome reads on a `/board` line |
 | `transport/router.ts` | The routes, what a credential may do, and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push, and the close |
 | `view/page.ts` | The document: an inert shell the client fills |

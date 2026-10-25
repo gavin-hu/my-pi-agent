@@ -288,6 +288,10 @@ Follow this section order, omitting an empty optional section:
 in that order, after every deep dive: user-facing content stays above the
 contributor sections.
 
+A `## Files` row names something that exists, and every non-test module under
+`extensions/<name>/` has one; `test/extension-docs.test.ts` holds both
+directions, so a page cannot keep describing a file the tree has dropped.
+
 **Capabilities is the key section.** It is what a reader arrives for and what
 the rest of the page elaborates, so it comes first and is a table:
 
