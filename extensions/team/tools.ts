@@ -15,6 +15,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
+import { indexOf } from "../../lib/board/links.ts";
 import { type Actor, applyOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
@@ -123,7 +124,9 @@ async function assignCard(
 	const card = await store.read(id);
 	if (!card) return refusal("assign", `${cardRef(id)} does not exist.`);
 	const owner: Actor = { label: to };
-	const dry = applyOp(card, { kind: "assign", to: owner }, me, now);
+	// The board, not just the card: a card that waits on unfinished work is refused here,
+	// so a handoff for it is never sent.
+	const dry = applyOp(card, { kind: "assign", to: owner }, me, now, indexOf(await store.list()));
 	if (!dry.ok) return refusal("assign", dry.error, card);
 
 	let delivered: string[];

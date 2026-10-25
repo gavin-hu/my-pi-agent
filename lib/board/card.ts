@@ -36,6 +36,18 @@ export const MAX_NOTE = 1000;
 /** How many notes one card keeps; the oldest drops past this, counted in `notesDropped`. */
 export const MAX_NOTES = 8;
 
+/** How many other cards one card may wait on. */
+export const MAX_DEPENDS = 6;
+
+/** The priorities a card may carry, most urgent first — the order a lane sorts by. */
+export const PRIORITIES = ["high", "normal", "low"] as const;
+
+/** One priority a card can carry. */
+export type Priority = (typeof PRIORITIES)[number];
+
+/** What an absent priority means: a card is ordinary until somebody says otherwise. */
+export const DEFAULT_PRIORITY: Priority = "normal";
+
 /** The lanes, in the order the page and the rollup read them. */
 export const CARD_STATUSES = ["todo", "doing", "blocked", "done"] as const;
 
@@ -71,6 +83,10 @@ export interface Card {
 	paths: string[];
 	/** The plan file being executed, once one is recorded. */
 	plan?: string;
+	/** How urgent the feature is; absent reads as {@link DEFAULT_PRIORITY}. */
+	priority?: Priority;
+	/** Ids of the cards this one waits for; absent reads as none. */
+	dependsOn?: string[];
 	/** The last {@link MAX_NOTES} notes, oldest first. */
 	notes: CardNote[];
 	/** How many notes dropped off the front, so a reader knows history was elided. */
@@ -120,6 +136,50 @@ export function normalizePathHints(raw: unknown): { paths: string[] } | FieldErr
 		if (!paths.includes(cleaned)) paths.push(cleaned);
 	}
 	return { paths };
+}
+
+/**
+ * The priority as stored: one of {@link PRIORITIES}, or the reason it cannot be.
+ *
+ * Anything absent is `normal`, so `add` needs no default of its own and an older
+ * card file reads as the ordinary feature it was.
+ */
+export function normalizePriority(raw: unknown): { priority: Priority } | FieldError {
+	const allowed = PRIORITIES.join(", ");
+	if (raw === undefined) return { priority: DEFAULT_PRIORITY };
+	if (typeof raw !== "string") return { error: `priority must be one of ${allowed}.` };
+	const priority = sanitizeLine(raw).trim().toLowerCase();
+	const known = PRIORITIES.find((entry) => entry === priority);
+	return known === undefined ? { error: `priority must be one of ${allowed}.` } : { priority: known };
+}
+
+/** A card's priority, with the absent field read as its meaning. */
+export function priorityOf(card: Card): Priority {
+	return card.priority ?? DEFAULT_PRIORITY;
+}
+
+/** A card's dependencies, with the absent field read as its meaning. */
+export function dependsOf(card: Card): readonly string[] {
+	return card.dependsOn ?? [];
+}
+
+/** Where a card's priority sits in {@link PRIORITIES}: the lane sort's first key after the lane. */
+export function priorityRank(card: Card): number {
+	return PRIORITIES.indexOf(priorityOf(card));
+}
+
+/**
+ * Whether `query` names `card`: its title, one of its path hints, or its holder.
+ *
+ * The page's filter and `board list`'s `query` are the same question, so they are the
+ * same rule here — a reader who finds a card in the browser finds it in the tool.
+ */
+export function matchesQuery(card: Card, query: string): boolean {
+	const needle = query.trim().toLowerCase();
+	if (needle === "") return true;
+	if (card.title.toLowerCase().includes(needle)) return true;
+	if (card.owner !== undefined && card.owner.label.toLowerCase().includes(needle)) return true;
+	return card.paths.some((path) => path.toLowerCase().includes(needle));
 }
 
 /** One note's text: a single sanitized line, or the reason it cannot be one. */
@@ -190,6 +250,8 @@ export function isCard(value: unknown): value is Card {
 	if (!Array.isArray(card.paths) || card.paths.length > MAX_PATHS) return false;
 	if (!card.paths.every((path) => typeof path === "string")) return false;
 	if (card.plan !== undefined && typeof card.plan !== "string") return false;
+	if (card.priority !== undefined && !PRIORITIES.includes(card.priority as Priority)) return false;
+	if (card.dependsOn !== undefined && !isDepends(card.dependsOn)) return false;
 	if (!Array.isArray(card.notes) || card.notes.length > MAX_NOTES) return false;
 	if (!card.notes.every(isNote)) return false;
 	if (typeof card.notesDropped !== "number") return false;
@@ -205,6 +267,20 @@ function isOwner(value: unknown): boolean {
 	const owner = value as Record<string, unknown>;
 	if (typeof owner.label !== "string" || owner.label === "") return false;
 	return owner.id === undefined || typeof owner.id === "string";
+}
+
+/**
+ * Whether `value` is a dependency list this build can trust: card ids, unowned ids,
+ * and no repeats — a set, because waiting twice on one card means nothing.
+ */
+function isDepends(value: unknown): boolean {
+	if (!Array.isArray(value) || value.length > MAX_DEPENDS) return false;
+	const seen = new Set<string>();
+	for (const id of value) {
+		if (typeof id !== "string" || !/^[0-9]+$/.test(id) || seen.has(id)) return false;
+		seen.add(id);
+	}
+	return true;
 }
 
 function isNote(value: unknown): boolean {

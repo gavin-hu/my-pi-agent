@@ -12,18 +12,26 @@ import {
 	CARD_VERSION,
 	type Card,
 	cardRef,
+	DEFAULT_PRIORITY,
+	dependsOf,
 	isCard,
+	MAX_DEPENDS,
 	MAX_NOTE,
 	MAX_NOTES,
 	MAX_PATHS,
 	MAX_PATH,
 	MAX_PLAN,
 	MAX_TITLE,
+	matchesQuery,
 	normalizeCardId,
 	normalizeNote,
 	normalizePathHints,
 	normalizePlanPath,
+	normalizePriority,
 	normalizeTitle,
+	PRIORITIES,
+	priorityOf,
+	priorityRank,
 } from "./card.ts";
 
 /** A card that passes, so each refusal case changes exactly one field. */
@@ -127,6 +135,50 @@ describe("normalizeNote and normalizePlanPath", () => {
 	});
 });
 
+describe("normalizePriority and its accessors", () => {
+	test("an absent priority is the ordinary one", () => {
+		expect(normalizePriority(undefined)).toEqual({ priority: DEFAULT_PRIORITY });
+		expect(priorityOf(card())).toBe(DEFAULT_PRIORITY);
+	});
+
+	test("accepts a known priority, spelled any way a person writes it", () => {
+		expect(normalizePriority("high")).toEqual({ priority: "high" });
+		expect(normalizePriority(" HIGH ")).toEqual({ priority: "high" });
+	});
+
+	test("refuses anything else, naming the ones allowed", () => {
+		const error = { error: `priority must be one of ${PRIORITIES.join(", ")}.` };
+		expect(normalizePriority("urgent")).toEqual(error);
+		expect(normalizePriority(1)).toEqual(error);
+	});
+
+	test("orders a lane most urgent first", () => {
+		expect(priorityRank(card({ priority: "high" }))).toBeLessThan(priorityRank(card()));
+		expect(priorityRank(card())).toBeLessThan(priorityRank(card({ priority: "low" })));
+	});
+
+	test("an absent dependency list is none", () => {
+		expect(dependsOf(card())).toEqual([]);
+		expect(dependsOf(card({ dependsOn: ["2", "3"] }))).toEqual(["2", "3"]);
+	});
+});
+
+describe("matchesQuery", () => {
+	test("matches a title, a path hint, or the holder, case-insensitively", () => {
+		expect(matchesQuery(card(), "WEBHOOK")).toBe(true);
+		expect(matchesQuery(card(), "src/bill")).toBe(true);
+		expect(matchesQuery(card({ status: "doing", owner: { label: "billing-core" } }), "CORE")).toBe(true);
+	});
+
+	test("matches everything when the query is blank", () => {
+		expect(matchesQuery(card(), "  ")).toBe(true);
+	});
+
+	test("does not match a card it does not name", () => {
+		expect(matchesQuery(card(), "retry branches")).toBe(false);
+	});
+});
+
 describe("normalizeCardId", () => {
 	test("accepts a bare or hashed id", () => {
 		expect(normalizeCardId("4")).toBe("4");
@@ -182,6 +234,22 @@ describe("isCard", () => {
 		const notes = Array.from({ length: MAX_NOTES + 1 }, (_, at) => ({ by: "x", at, text: "n" }));
 		expect(isCard(card({ notes }))).toBe(false);
 		expect(isCard(card({ notes: [{ by: "x", at: 1, text: 2 } as unknown as Card["notes"][number]] }))).toBe(false);
+	});
+
+	test("accepts a priority and a dependency list, and an older card with neither", () => {
+		expect(isCard(card({ priority: "high" }))).toBe(true);
+		expect(isCard(card({ dependsOn: ["2", "3"] }))).toBe(true);
+	});
+
+	test("refuses a priority it does not know, and a dependency list that is not one", () => {
+		expect(isCard({ ...card(), priority: "urgent" })).toBe(false);
+		expect(isCard({ ...card(), priority: 1 })).toBe(false);
+		expect(isCard({ ...card(), dependsOn: "2" })).toBe(false);
+		expect(isCard({ ...card(), dependsOn: ["2", "2"] })).toBe(false);
+		expect(isCard({ ...card(), dependsOn: ["#2"] })).toBe(false);
+		expect(isCard({ ...card(), dependsOn: Array.from({ length: MAX_DEPENDS + 1 }, (_, at) => String(at)) })).toBe(
+			false,
+		);
 	});
 
 	test("refuses a revision or a clock that is not one", () => {
