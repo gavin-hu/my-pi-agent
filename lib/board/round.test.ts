@@ -36,6 +36,24 @@ function doing(id: string, overrides: Partial<Card> = {}): Card {
 }
 
 describe("buildRound", () => {
+	test("keeps an owner whose every card is done, and counts each kind once", () => {
+		const round = buildRound(
+			[
+				doing("1"),
+				card("2", { status: "done", owner: { id: "s-ben", label: "ben" } }),
+				card("3", { status: "done", owner: { id: "s-ben", label: "ben" } }),
+			],
+			NOW,
+		);
+		// A teammate who finished has not left: the group stays, holding no live card.
+		const ben = round.owners.find((group) => group.label === "ben");
+		expect(ben?.cards).toEqual([]);
+		expect(ben?.done.map((entry) => entry.id)).toEqual(["2", "3"]);
+		// The live tally still reads what the lanes read: a done card is counted in `done`.
+		expect(round.owners.flatMap((group) => group.cards).map((entry) => entry.id)).toEqual(["1"]);
+		expect(round.done.map((entry) => entry.id)).toEqual(["2", "3"]);
+	});
+
 	test("groups unfinished cards by owner, ordered by label", () => {
 		const round = buildRound(
 			[

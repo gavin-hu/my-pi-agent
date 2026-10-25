@@ -18,7 +18,7 @@ decision.
 | Capability | How | What you get |
 |---|---|---|
 | A shared feature list for one repository | `board` action `list` | Every card in lane order — `todo`, `doing`, `blocked`, `done` — or one card, or one lane |
-| The lead's rollup | `board` action `list` with `round: true` | Owners and their live cards, then unassigned, unplanned, blocked, idle, and done |
+| The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned, unplanned, blocked, idle, and done |
 | Publish a feature | `board` action `add` | A `todo` card with path hints and a first note |
 | Take a feature | `board` action `claim` | The card is `doing` and owned by this session |
 | Hand it back | `board` action `release` | The card is `todo` again, with no owner |
@@ -97,7 +97,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Composer | a drawer the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards |
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
 | Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line (clamped, with the whole sentence as its tooltip), and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
-| Team | a table of owners (`Owner · Cards · Oldest`), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line. Both tables honour the toolbar's filter, and their headings read `shown/total` the way a lane head does |
+| Team | a table of owners (`Owner · Live · Done · Oldest`, where an owner who finished keeps its row), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line. Both tables honour the toolbar's filter, and their headings read `shown/total` the way a lane head does |
 | Card dialog | the lane as a dot and a word beside the title, a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline (who and when above the sentence, a rule between them), a note field, and `Move to` only the lanes the card can reach, then `Release`, `Drop`, `Close` |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for

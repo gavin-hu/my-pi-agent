@@ -135,8 +135,13 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     var owners = el("section", "board-team__group");
     var ownerGroups = [];
     for (var i = 0; i < round.owners.length; i++) {
+      // Live and finished both count as this owner's, so a teammate whose last card is
+      // done keeps its row instead of vanishing from the table the moment it finishes.
       var cards = round.owners[i].cards.filter(keep);
-      if (cards.length > 0) ownerGroups.push({ label: round.owners[i].label, cards: cards });
+      var finished = round.owners[i].done.filter(keep);
+      if (cards.length > 0 || finished.length > 0) {
+        ownerGroups.push({ label: round.owners[i].label, cards: cards, done: finished });
+      }
     }
     owners.appendChild(heading("Owners", ownerGroups.length, round.owners.length));
     if (ownerGroups.length === 0) {
@@ -144,9 +149,16 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     } else {
       var ownerRows = [];
       for (var j = 0; j < ownerGroups.length; j++) {
-        ownerRows.push(row([chip(ownerGroups[j].label, "accent"), String(ownerGroups[j].cards.length), oldest(ownerGroups[j].cards)]));
+        var group = ownerGroups[j];
+        var held = group.cards.length;
+        ownerRows.push(row([
+          chip(group.label, "accent"),
+          String(held),
+          group.done.length > 0 ? String(group.done.length) : "\u2014",
+          held > 0 ? oldest(group.cards) : "\u2014",
+        ]));
       }
-      owners.appendChild(table(["Owner", "Cards", "Oldest"], ownerRows, "board-team__owners"));
+      owners.appendChild(table(["Owner", "Live", "Done", "Oldest"], ownerRows, "board-team__owners"));
     }
     root.appendChild(owners);
 

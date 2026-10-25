@@ -19,7 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the first lane that holds a card. The card dialog names its lane with the same dot and
   word a lane head wears, separates its notes with who and when on their own line, and
   offers `Move to` only the lanes the card can reach, so the lane it is already in is
-  never a disabled button that looks selected.
+  never a disabled button that looks selected. The Team tab's owners table counts live
+  and finished cards apart, and an owner whose last card is done keeps its row instead
+  of vanishing from the rollup the moment the work ends.
   Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the
