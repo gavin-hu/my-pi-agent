@@ -231,6 +231,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `runtime.ts` | Which store a call uses, and who it writes as |
 | `schema.ts` | The tool's parameters |
 | `tools.ts` | Action dispatch and the refusal shape |
+| `input.ts` | A card body as both surfaces read it: the `add` fields normalized once, so the tool and the page cannot disagree |
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |

@@ -14,13 +14,7 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import {
-	normalizeCardId,
-	normalizeNote,
-	normalizePathHints,
-	normalizePriority,
-	normalizeTitle,
-} from "../../lib/board/card.ts";
+import { normalizeCardId } from "../../lib/board/card.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
@@ -32,6 +26,7 @@ import type { RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { PageResult, PageWrite } from "./transport/router.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
+import { createInput } from "./input.ts";
 import { BOARD_CLIENT_JS } from "./view/client.ts";
 import { type PageView, renderBoardPage } from "./view/page.ts";
 
@@ -105,28 +100,9 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 	const writeOf = async (store: BoardStore, ctx: ExtensionContext, request: PageWrite): Promise<PageResult> => {
 		const me = runtime.who(ctx, ctx.cwd);
 		if (request.kind === "add") {
-			const title = normalizeTitle(request.body.title);
-			if ("error" in title) return { ok: false, status: 422, error: title.error };
-			const paths = normalizePathHints(request.body.paths);
-			if ("error" in paths) return { ok: false, status: 422, error: paths.error };
-			const priority = normalizePriority(request.body.priority);
-			if ("error" in priority) return { ok: false, status: 422, error: priority.error };
-			let note: string | undefined;
-			if (request.body.note !== undefined) {
-				const parsed = normalizeNote(request.body.note);
-				if ("error" in parsed) return { ok: false, status: 422, error: parsed.error };
-				note = parsed.text;
-			}
-			const card = await store.create(
-				{
-					title: title.title,
-					paths: paths.paths,
-					priority: priority.priority,
-					...(note === undefined ? {} : { note }),
-				},
-				me,
-				runtime.now(),
-			);
+			const parsed = createInput(request.body);
+			if ("error" in parsed) return { ok: false, status: 422, error: parsed.error };
+			const card = await store.create(parsed.input, me, runtime.now());
 			return { ok: true, card };
 		}
 

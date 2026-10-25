@@ -21,7 +21,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"working/working",
 		"extension",
 	],
-	board: ["tools", "page", "commands", "extension", "transport/router", "view/pages"],
+	board: ["input", "tools", "page", "commands", "extension", "transport/router", "view/pages"],
 	check: ["check", "surface", "extension"],
 	context: ["report", "tui", "extension"],
 	"file-read": ["extract/extract", "tool"],

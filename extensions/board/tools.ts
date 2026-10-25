@@ -14,15 +14,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import {
-	cardRef,
-	matchesQuery,
-	normalizeCardId,
-	normalizeNote,
-	normalizePathHints,
-	normalizePriority,
-	normalizeTitle,
-} from "../../lib/board/card.ts";
+import { cardRef, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
@@ -33,6 +25,7 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { formatCard, formatCards, formatDropped, formatRound } from "./format.ts";
 import { BoardResult, collapsedLine, resultInput } from "./result.ts";
+import { createInput } from "./input.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { BoardParams } from "./schema.ts";
 import { BOARD_ACTIONS, BOARD_TOOL, type BoardAction, type BoardDetails, normalizeBoardAction } from "./types.ts";
@@ -231,28 +224,9 @@ async function add(
 	args: BoardArgs,
 	now: number,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	const title = normalizeTitle(args.title);
-	if ("error" in title) return refusal("add", me, title.error);
-	const paths = normalizePathHints(args.paths);
-	if ("error" in paths) return refusal("add", me, paths.error);
-	const priority = normalizePriority(args.priority);
-	if ("error" in priority) return refusal("add", me, priority.error);
-	let note: string | undefined;
-	if (args.note !== undefined) {
-		const parsed = normalizeNote(args.note);
-		if ("error" in parsed) return refusal("add", me, parsed.error);
-		note = parsed.text;
-	}
-	const card = await store.create(
-		{
-			title: title.title,
-			paths: paths.paths,
-			priority: priority.priority,
-			...(note === undefined ? {} : { note }),
-		},
-		me,
-		now,
-	);
+	const parsed = createInput({ title: args.title, paths: args.paths, priority: args.priority, note: args.note });
+	if ("error" in parsed) return refusal("add", me, parsed.error);
+	const card = await store.create(parsed.input, me, now);
 	return textResult(formatCard(card), { action: "add", me, card });
 }
 
