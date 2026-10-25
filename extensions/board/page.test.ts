@@ -7,6 +7,8 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -29,8 +31,44 @@ function harness(options: { view?: "board" | "team" } = {}) {
 	const opened: string[] = [];
 	const page = createBoardPage(runtime, { pickPort: () => 0, open: (url) => opened.push(url), idleMs: 40 });
 	const { ctx, notifications } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead" });
-	return { page, ctx, opened, notifications, cwd, options };
+	return { page, ctx, opened, notifications, cwd, options, runtime };
 }
+
+describe("the roster", () => {
+	/** The bus directory this page reads, laid out the way `session-bus` lays one out. */
+	async function seedBus(runtime: ReturnType<typeof openBoardSession>, cwd: string, records: object[]): Promise<void> {
+		const dir = join(await runtime.busDir(cwd), "sessions");
+		mkdirSync(dir, { recursive: true });
+		for (const [index, record] of records.entries()) writeFileSync(join(dir, `s${index}.json`), JSON.stringify(record));
+	}
+
+	test("names the bus's sessions on the snapshot", async () => {
+		const { page, ctx, cwd, runtime } = harness();
+		await seedBus(runtime, cwd, [
+			{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000 },
+			{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW },
+		]);
+		const status = await page.start(ctx);
+		const snapshot = JSON.parse(
+			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
+		);
+		expect(snapshot.teammates).toEqual([
+			{ label: "billing-core", state: "live", seen: NOW - 1_000, mail: 0, you: false },
+			{ label: "billing-lead", state: "live", seen: NOW, mail: 0, you: true },
+		]);
+		await page.stop(ctx);
+	});
+
+	test("says nothing about the roster when no session has ever joined here", async () => {
+		const { page, ctx } = harness();
+		const status = await page.start(ctx);
+		const snapshot = JSON.parse(
+			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
+		);
+		expect(snapshot.teammates).toBeUndefined();
+		await page.stop(ctx);
+	});
+});
 
 describe("start", () => {
 	test("serves the document, the snapshot, and a write", async () => {
