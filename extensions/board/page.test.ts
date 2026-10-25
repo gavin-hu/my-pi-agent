@@ -9,13 +9,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir } from "../../test/helpers/env.ts";
-import { fakeCtx } from "../../test/helpers/context.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
+import { boardHarness } from "../../test/helpers/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { createBoardPage, IDLE_STOP_MS } from "./page.ts";
-import { openBoardSession } from "../../lib/board/session.ts";
+import type { BoardSession } from "../../lib/board/session.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -23,20 +21,16 @@ afterAll(() => temps.flush());
 const NOW = 50_000;
 
 /** A page over a temp store, with a recorded browser open and an OS-chosen port. */
-function harness(options: { view?: "board" | "team" } = {}) {
-	const agentDir = temps.track(tempDir("pi-agent-"));
-	const cwd = temps.track(tempDir("pi-repo-"));
-	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
-	const runtime = openBoardSession(fake.pi, { now: () => NOW, agentDir });
+function harness() {
+	const board = boardHarness({ now: NOW, track: temps.track });
 	const opened: string[] = [];
-	const page = createBoardPage(runtime, { pickPort: () => 0, open: (url) => opened.push(url), idleMs: 40 });
-	const { ctx, notifications } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead" });
-	return { page, ctx, opened, notifications, cwd, options, runtime };
+	const page = createBoardPage(board.runtime, { pickPort: () => 0, open: (url) => opened.push(url), idleMs: 40 });
+	return { page, ctx: board.ctx, opened, notifications: board.notifications, cwd: board.cwd, runtime: board.runtime };
 }
 
 describe("the roster", () => {
 	/** The bus directory this page reads, laid out the way `session-bus` lays one out. */
-	async function seedBus(runtime: ReturnType<typeof openBoardSession>, cwd: string, records: object[]): Promise<void> {
+	async function seedBus(runtime: BoardSession, cwd: string, records: object[]): Promise<void> {
 		const dir = join(await runtime.busDir(cwd), "sessions");
 		mkdirSync(dir, { recursive: true });
 		for (const [index, record] of records.entries()) writeFileSync(join(dir, `s${index}.json`), JSON.stringify(record));
