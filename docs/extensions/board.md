@@ -9,6 +9,10 @@ The steps of the work are deliberately *not* on the board. They live in the
 owner's plan and in `todo`; the board answers who is doing what, and what needs a
 decision.
 
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the serving session, a live badge, Board and Team tabs, done-of-total progress and a filter; a one-row composer; and four lanes of cards, each with a status edge, owner chip, path hints, a reason line, and its actions" width="100%">
+
+*`/board`: the four lanes, with the composer above them and the round one tab away.*
+
 ## Capabilities
 
 | Capability | How | What you get |
@@ -82,6 +86,41 @@ POST   /api/cards/:id/…      claim, release, reclaim, move, note, plan
 DELETE /api/cards/:id        drop a card
 ```
 
+## Layout
+
+One page, two tabs, one lifecycle. The kit shell keeps the toolbar and the footer
+pinned and makes the main pane the only scroll box; the page adds no second one.
+
+| Band | What it holds |
+|---|---|
+| Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), the Board\|Team switch, done-of-total progress, a filter, the keys button, and the theme toggle |
+| Composer | one row: a title and space-separated path hints, the hint line under them, and **Add card** |
+| Lanes | four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860; each head sticks while the pane scrolls and folds its cards away |
+| Cards | a status edge in the lane's role colour, the id and a two-line title, an owner chip and an age, path chips, one reason line, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open` |
+| Team | a table of owners (`Owner · Cards · Oldest`), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line |
+| Card dialog | a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline, a note field, and the lane buttons, `Release`, `Drop`, `Close` |
+
+Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
+`blocked` and destructive choices, `--success` for `done`. The page states a lane
+and a card with `data-status`, so a theme change repaints it without a rule of its
+own.
+
+## Keys
+
+| Key | What it does |
+|---|---|
+| `n` | New card: focus the title field |
+| `/` | Filter the cards by title, path, or owner |
+| `j` / `k` | Next or previous card |
+| `Enter` | Open the focused card |
+| `t` | Switch Board and Team |
+| `Esc` | Close a dialog, or clear the filter |
+| `?` | The keyboard sheet |
+
+A dialog traps `Tab`, closes on `Esc` or a backdrop click, and returns focus to
+whatever opened it — the kit's `dialogScript`, shared with the review and browse
+pages. A field keeps its keys: `n` inside the note input types an `n`.
+
 ## Security
 
 - The page binds loopback only, answers only its own host names, and refuses a
@@ -145,6 +184,18 @@ DELETE /api/cards/:id        drop a card
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
+| `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, `/board stop`, the idle grace |
+| `commands.ts` | `/board` and its three words |
+| `transport/router.ts` | The routes, the token, and the guards in front of them |
+| `transport/server.ts` | The loopback listener, the frame push, and the close |
+| `view/page.ts` | The document: an inert shell the client fills |
+| `view/styles.ts` | The page's `board-*` layout rules |
+| `view/render.ts` | The client's snapshot → DOM renderer: toolbar, lanes, cards, the dialog's contents |
+| `view/team.ts` | The client's round: the two tables and the Done line |
+| `view/actions.ts` | The client's writes and its two kit dialogs |
+| `view/keys.ts` | The key table, and the bindings that make it true |
+| `view/live.ts` | The client's tabs, composer, filter, and frame stream |
+| `view/client.ts` | The one script served at `/app.js` |
 | `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, `/board stop`, the idle grace |
 | `commands.ts` | `/board` and its three words |
 | `transport/router.ts` | The routes, the token, and the guards in front of them |

@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: the page is rebuilt on the shared kit, with the reading of the board put
+  first. The toolbar carries the serving session, a live badge, the Board|Team
+  switch, done-of-total progress, a filter and a keys button; the composer is one row
+  of title and path hints; four lanes with sticky, foldable heads hold cards that show
+  a status edge, an owner and an age, path chips, and one line saying why the card is
+  where it is; and the Team tab is two tables — owners, then the cards that need a
+  decision — instead of five equal panels. `n`, `/`, `j`/`k`, `Enter`, `t`, and `?`
+  drive it from the keyboard, and a filter matches a card by title, path, or holder.
+  Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
+  `Esc`, the backdrop click, and the focus return the shared contract promises),
+  replacing the page's own native-dialog implementation.
 - `team`: the lead's round over the board — `assign` and `reclaim`, the two actions
   that need the session bus. `assign` hands a card to a session that is already
   running: it checks the card's preconditions, sends a handoff through `session send`

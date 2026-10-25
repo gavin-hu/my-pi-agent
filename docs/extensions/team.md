@@ -7,6 +7,10 @@ it a handoff, and `reclaim` takes a card back when its owner has gone quiet.
 Nothing starts a process. The handoff lands in the peer's inbox, and an armed
 `session watch` is what raises its turn — so `assign` is a message, not a launch.
 
+<img src="../../assets/screens/team.png" alt="The Team tab: a table of owners with their card counts and oldest card, a table of cards that need a decision with the reason and a Reclaim action, and one muted Done line" width="100%">
+
+*The Team tab: who holds what, then the cards that need the lead.*
+
 ## Capabilities
 
 | Capability | How | What you get |
