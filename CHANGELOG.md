@@ -628,6 +628,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `context`: the largest-messages rows pad the role column to twelve cells, so
   "tool result" — the longest role — no longer runs into its label as
   "tool resultread".
+- Tooling: the hero capture asks "how are you today?" under the `You` nameplate and
+  names `deepseek-flash` in the footer, so the window reads as a session rather than
+  an empty one; `assets/screens/chrome.png` is refreshed.
 
 ## [0.18.0] - 2026-10-24
 

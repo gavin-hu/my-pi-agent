@@ -5,7 +5,8 @@
  * render CLI, waits for the frame to replace the shell's echo, captures the
  * window with `screencapture`, and crops Terminal's title bar off — whose last
  * segment is the capture command's own argv, which no profile switch covers.
- * The `chrome` hero is the same machinery around a real `pi -e .` session.
+ * The `chrome` hero is the same machinery around the fixture's whole window,
+ * header and footer included.
  *
  * The frames themselves stay in `screenshots.ts`; this module takes the screen
  * it is given, so `render <name>` keeps working on any OS.

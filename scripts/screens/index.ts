@@ -454,7 +454,7 @@ const CHROME_SNAPSHOT: StatusSnapshot = {
 		[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
 		[STATUS_KEYS.worktree, `${GLYPHS.worktree} smoke`],
 	]),
-	model: { id: "opus-4.5", provider: "anthropic", reasoning: false },
+	model: { id: "deepseek-flash", provider: "deepseek", reasoning: false },
 	thinkingLevel: "off",
 	context: { tokens: 124000, contextWindow: 200000, percent: 62 },
 	usage: { input: 42000, output: 8000, cacheRead: 96000, cacheWrite: 0, cost: 0.31 },
@@ -471,9 +471,11 @@ const CHROME_SNAPSHOT: StatusSnapshot = {
 /**
  * Draw the transcript body as one frame: the user nameplate, a tool block, a
  * notice, the turn rule, and the two-line footer. No header, so the frame carries
- * no version string; `renderChrome` puts the header above it.
+ * no version string; `renderChrome` puts the header above it. The prompt is the
+ * text under the nameplate; the hero passes a question, so the plate reads as a
+ * message rather than an empty window.
  */
-function renderTranscript(width: number, rows?: number): string[] {
+function renderTranscript(width: number, rows?: number, prompt = "Ready when you are."): string[] {
 	setThemeInstance(theme);
 	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
 	// Draw at Pi's default output pad, so the frame has a real session's margins.
@@ -483,7 +485,7 @@ function renderTranscript(width: number, rows?: number): string[] {
 	// The transformer sees the Markdown's content width, not the padded frame.
 	const plate = nameplate(width - pad * 2);
 	if (plate) lines.push(...new Markdown(plate, pad, 0, getMarkdownTheme()).render(width));
-	lines.push("", `${" ".repeat(pad)}${theme.fg("text", "Ready when you are.")}`, "");
+	lines.push("", `${" ".repeat(pad)}${theme.fg("text", prompt)}`, "");
 
 	// A tool block: the call leads as the headline, the result rails under it.
 	lines.push(
@@ -528,7 +530,7 @@ function renderChrome(width: number, rows: number): string[] {
 	).render(width);
 	// A session draws the header, the transcript, and the footer at the window's
 	// bottom; the fixture pads to that shape so the frame is the window's height.
-	lines.push(...renderTranscript(width, Math.max(1, rows - lines.length)));
+	lines.push(...renderTranscript(width, Math.max(1, rows - lines.length), "how are you today?"));
 	return lines;
 }
 
