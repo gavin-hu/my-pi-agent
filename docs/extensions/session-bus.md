@@ -2,7 +2,7 @@
 
 A local coordination bus for Pi sessions on the same machine and repository:
 sessions discover each other, exchange short messages and events, consume an
-inbox, and claim paths before editing. A session joins by joining, so the
+inbox, and claim paths before editing. A session joins explicitly, so the
 board opens empty and a peer never appears because the package loaded. Delivery is pull-based, and a session that
 joined listens for new mail — a report at its next turn, or,
 with `wake`, one raised turn as soon as the agent is idle, including right after
@@ -16,7 +16,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 | Capability | How | What you get | Status |
 |---|---|---|---|
-| Membership | `session join [label]`, `/team join [<label>]`, the board's `w` | The join: this session is on the bus under a stable label peers address — also the name Pi's footer and `/resume` show — and listens for mail unless told not to. | Unreleased |
+| Membership | `session join [label]`, `/team join [<label>]`, the board's `w` | The join: this session is on the bus under a stable label peers address, and listens for mail unless told not to. A label given to `session join` or `/team join` is also Pi's session name, so the footer and `/resume` agree with the record; `w` joins under the name the bus derives and writes nothing to Pi. | Unreleased |
 | Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read. | Shipped |
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
 | Board actions | `/sessions` (`w`, `x`) | Start or stop listening from the board, or release an own claim behind a confirmation, without leaving it. | Shipped |
@@ -113,7 +113,7 @@ a `wake` raises that session’s own turn, not a phone notification.
 ## Configuration
 
 None in v1. The heartbeat (10 s), watch poll (2 s), session TTL (10 min), message
-TTL (24 h), text cap, inbox limit, and preview cap are constants in the extension.
+TTL (24 h), text cap, inbox limit, and preview cap are fixed, not configurable.
 The bus lives under the agent directory, not the project, so it is never committed.
 
 ## Parallel workflow
@@ -260,6 +260,7 @@ listening watch is what raises the turn.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
+| `join-request.ts` | The `board`/`team` join request: one `bus.join` answer, and the label it settles becomes Pi's session name. |
 | `runtime.ts` | Lifecycle, repo key, joining, heartbeat, and the session's own reads and writes. |
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and the one release loop. |
