@@ -69,6 +69,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/card",
 	"board/links",
 	"board/round",
+	"board/round-text",
 	"board/rules",
 	"board/session",
 	"board/store",
