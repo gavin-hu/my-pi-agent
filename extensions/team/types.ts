@@ -13,8 +13,8 @@ import type { CardOwner } from "../../lib/board/card.ts";
 /** The tool's name. `board` owns the cards; `team` owns the round. */
 export const TEAM_TOOL = "team";
 
-/** The two actions: the lead's whole surface. */
-export const TEAM_ACTIONS = ["assign", "reclaim"] as const;
+/** The three actions: the lead's whole surface — hand out, offer, take back. */
+export const TEAM_ACTIONS = ["assign", "offer", "reclaim"] as const;
 
 /** One action. */
 export type TeamAction = (typeof TEAM_ACTIONS)[number];
@@ -26,8 +26,16 @@ export interface TeamDetails {
 	card?: Card;
 	/** Who the card was assigned to, when the assignment happened. */
 	assigned?: CardOwner;
-	/** The labels `session send` wrote a message file for, when it landed. */
+	/**
+	 * The labels a message file was written for, when the send landed: the one peer for
+	 * `assign`, every other live session for `offer`.
+	 */
 	delivered?: string[];
+	/**
+	 * The peers the message reached whose record says they are not listening, so it waits
+	 * for their next turn instead of being raised as one. Absent when every peer listens.
+	 */
+	notListening?: string[];
 	/** Why the handoff was not sent; the card is untouched when this is set. */
 	messageError?: string;
 	/** A refusal's reason, which the renderer draws instead of the details. */

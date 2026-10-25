@@ -13,18 +13,44 @@ import type { Card } from "../../lib/board/card.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import { formatRound, plural } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
+import { createTeamJoin, type JoinResult, type TeamJoin } from "../../lib/session-tool.ts";
 import { readRoster, type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
+import { formatJoined, formatNotJoined } from "./format.ts";
 
 /** The command's name, which is also the word a user types. */
 export const TEAM_COMMAND = "team";
 
+/** The words the command accepts besides the round itself. */
+export const TEAM_WORDS = ["join"] as const;
+
 /** How many lines a round may print before it says how many it left out. */
 export const MAX_ROUND_LINES = 10;
 
-export function registerCommands(pi: ExtensionAPI, session: BoardSession): void {
+export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: { team?: TeamJoin } = {}): void {
+	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(TEAM_COMMAND, {
-		description: "The lead's round: who holds what, and what needs a decision",
-		handler: async (_args: string, ctx: ExtensionCommandContext) => {
+		description: "The lead's round: who holds what, and what needs a decision; `/team join [<label>]` joins the team",
+		getArgumentCompletions: (prefix: string) => {
+			const text = prefix.trimStart();
+			if (text.includes(" ")) return null;
+			const items = TEAM_WORDS.filter((word) => word.startsWith(text));
+			return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
+		},
+		handler: async (args: string, ctx: ExtensionCommandContext) => {
+			const [word = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+			if (word === "join") {
+				const label = rest.join(" ").trim();
+				const joined = await team.join(ctx, label === "" ? undefined : label);
+				ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
+				return;
+			}
+			if (word !== "") {
+				ctx.ui.notify(
+					`team: "${word}" is not a word this command knows — try /team, or /team join [<label>]`,
+					"warning",
+				);
+				return;
+			}
 			const store = await session.store(ctx.cwd);
 			const cards = await store.list();
 			// The roster is read as data, so a repository with no bus prints the round and
@@ -33,6 +59,11 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession): void 
 			ctx.ui.notify(roundText(cards, session.now(), roster), "info");
 		},
 	});
+}
+
+/** `/team join`'s line: who this session is on the team, or why it is on none. */
+export function joinedLine(result: JoinResult): string {
+	return result.ok ? formatJoined(result.label, result.watching) : formatNotJoined(result.error);
 }
 
 /**
@@ -51,16 +82,30 @@ export function roundText(cards: readonly Card[], now: number, roster?: readonly
 	return shown.join("\n");
 }
 
-/** `live: a, b · quiet: c`, or nothing when the bus has not recorded anyone here. */
+/**
+ * `live: a, b · not listening: b · quiet: c`, or nothing when nobody is here.
+ *
+ * Three facts, and the middle one is the one a lead can act on: a live session that is
+ * not listening reads mail at its next turn rather than being woken for it. It is only
+ * named when its record says so — a session that never wrote the field is not accused of
+ * ignoring anything.
+ */
 function presenceLine(roster: readonly RosterSession[] | undefined, now: number): string | undefined {
 	if (roster === undefined || roster.length === 0) return undefined;
 	const live: string[] = [];
 	const quiet: string[] = [];
+	const silent: string[] = [];
 	for (const session of roster) {
-		(rosterStateOf(session, now) === "live" ? live : quiet).push(session.label);
+		if (rosterStateOf(session, now) !== "live") {
+			quiet.push(session.label);
+			continue;
+		}
+		live.push(session.label);
+		if (session.watching?.armed === false) silent.push(session.label);
 	}
 	const parts = [
 		live.length > 0 ? `live: ${live.join(", ")}` : "",
+		silent.length > 0 ? `not listening: ${silent.join(", ")}` : "",
 		quiet.length > 0 ? `quiet: ${quiet.join(", ")}` : "",
 	];
 	return parts.filter((part) => part !== "").join(" · ");

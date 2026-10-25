@@ -14,18 +14,16 @@ export const TeamParams = Type.Object({
 		TEAM_ACTIONS.map((action) => Type.Literal(action)),
 		{
 			description:
-				"`assign` hands a card to a running session and sends it a handoff; `reclaim` takes a card back to To do. " +
-				"A lead's two actions — use `board` to create, claim, move, note, and finish the cards themselves.",
+				"`assign` hands a card to a running session and sends it a handoff; `offer` broadcasts an unclaimed card to " +
+				"every other live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back " +
+				"to To do. A lead's three actions — use `board` to create, claim, move, note, and finish the cards themselves.",
 		},
 	),
 	card: Type.String({ description: 'The card to act on, e.g. "4" or "#4".' }),
 	to: Type.Optional(
 		Type.String({
-			description:
-				"`assign`: the peer to hand the card to — a live session's label or id, as `session status` lists them.",
+			description: "`assign`: the peer to hand the card to, as `/team` lists them — a teammate's label or id.",
 		}),
 	),
-	note: Type.Optional(
-		Type.String({ description: "`assign`: a line to include in the handoff, e.g. what to do first." }),
-	),
+	note: Type.Optional(Type.String({ description: "`assign` or `offer`: a line to include, e.g. what to do first." })),
 });

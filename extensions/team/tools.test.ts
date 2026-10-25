@@ -12,6 +12,7 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { openBoardSession } from "../../lib/board/session.ts";
+import type { Peer } from "../../lib/session-tool.ts";
 import type { Dispatch } from "./dispatch.ts";
 import { registerTools } from "./tools.ts";
 import type { TeamDetails } from "./types.ts";
@@ -22,21 +23,22 @@ afterAll(() => temps.flush());
 const NOW = 90_000;
 
 /** A tool, its context, and the dispatch it records into. */
-function harness(options: { fail?: string } = {}) {
+function harness(options: { fail?: string; peers?: Peer[] } = {}) {
 	const agentDir = temps.track(tempDir("pi-agent-"));
 	const cwd = temps.track(tempDir("pi-repo-"));
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const session = openBoardSession(fake.pi, { now: () => NOW, agentDir });
-	const sent: Array<{ to: string; text: string }> = [];
+	const sent: Array<{ kind: "handoff" | "event"; to: string; text: string }> = [];
 	const dispatch: Dispatch = {
-		async send(to, text) {
+		async send(input) {
 			if (options.fail !== undefined) throw new Error(options.fail);
-			sent.push({ to, text });
-			return { delivered: [to] };
+			sent.push(input);
+			return { delivered: input.to === "*" ? ["billing-core", "billing-web"] : [input.to] };
 		},
-		// A stub that resolves, so the assign path records the id a rename would keep.
-		async resolve(to) {
-			return { id: `s-${to}`, label: to };
+		// A stub that lists the peers the sends reached, so the assign path records the id
+		// a rename would keep; a case that needs a state passes its own list.
+		async peers() {
+			return options.peers ?? sent.map((input) => ({ id: `s-${input.to}`, label: input.to, listening: true }));
 		},
 	};
 	registerTools(fake.pi, session, { dispatch: () => dispatch });
@@ -111,6 +113,16 @@ describe("assign", () => {
 		});
 		expect(result.details.delivered).toEqual(["billing-core"]);
 		expect(text(result)).toContain("#1 handed off to billing-core.");
+		// Listening is the default the stub reports, so no warning line is added.
+		expect(text(result)).not.toContain("Not listening");
+	});
+
+	test("names the peer when its record says it is not listening", async () => {
+		const { call, seed } = harness({ peers: [{ id: "s-billing-core", label: "billing-core", listening: false }] });
+		const id = await seed();
+		const result = await call({ action: "assign", card: id, to: "billing-core" });
+		expect(text(result)).toContain("Not listening: billing-core — it reads this at its next turn.");
+		expect(result.details.notListening).toEqual(["billing-core"]);
 	});
 
 	test("names the peer it must be told about, and sends nothing without one", async () => {
@@ -153,6 +165,71 @@ describe("assign", () => {
 		expect(sent).toEqual([]);
 		expect(result.details.card).toMatchObject({ status: "todo" });
 		expect(result.details.card?.owner).toBeUndefined();
+	});
+});
+
+describe("offer", () => {
+	test("broadcasts the card as an event and writes nothing", async () => {
+		const { call, seed, sent, store } = harness();
+		const id = await seed();
+		const before = await (await store()).read(id);
+		const result = await call({ action: "offer", card: id, note: "whoever is free" });
+		expect(result.isError).toBeFalsy();
+		expect(sent).toHaveLength(1);
+		expect(sent[0]).toMatchObject({ kind: "event", to: "*" });
+		expect(sent[0]?.text).toContain("is unclaimed");
+		expect(sent[0]?.text).toContain("Note: whoever is free");
+		// Nothing half-applied is possible: the card is exactly as the rules read it.
+		expect(result.details.card?.rev).toBe(before?.rev);
+		expect(result.details.card?.owner).toBeUndefined();
+		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
+		expect(text(result)).toContain("#1 offered to billing-core, billing-web.");
+		expect(text(result)).toContain("unowned until one of them claims it");
+	});
+
+	test("refuses a card somebody holds, and one that waits, without broadcasting", async () => {
+		const { call, seed, sent, store } = harness();
+		const first = await seed("First");
+		const board = await store();
+		await board.mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
+		const held = await call({ action: "offer", card: first });
+		expect(held.isError).toBe(true);
+		expect(text(held)).toContain("is held by billing-core");
+
+		const second = await seed("Second");
+		await board.mutate(
+			second,
+			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [first] },
+			{ label: "billing-core" },
+			NOW,
+		);
+		const waiting = await call({ action: "offer", card: second });
+		expect(waiting.isError).toBe(true);
+		expect(text(waiting)).toContain("waits on");
+		expect(sent).toEqual([]);
+	});
+
+	test("reports a broadcast that reached nobody, and leaves the card alone", async () => {
+		const { call, seed, store } = harness({ fail: "no other active sessions." });
+		const id = await seed();
+		const before = await (await store()).read(id);
+		const result = await call({ action: "offer", card: id });
+		expect(result.isError).toBe(true);
+		expect(text(result)).toContain("#1 was not offered: no other active sessions.");
+		expect(text(result)).toContain("The card is unchanged.");
+		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
+	});
+
+	test("names the peers it reached that are not listening", async () => {
+		const peers = [
+			{ id: "s-billing-core", label: "billing-core", listening: true },
+			{ id: "s-billing-web", label: "billing-web", listening: false },
+		];
+		const { call, seed } = harness({ peers });
+		const id = await seed();
+		const result = await call({ action: "offer", card: id });
+		expect(text(result)).toContain("Not listening: billing-web");
+		expect(result.details.notListening).toEqual(["billing-web"]);
 	});
 });
 

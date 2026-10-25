@@ -19,6 +19,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   chip whose tooltip says mail waits for its next turn. The fact comes from the session's
   own record, so a peer that never wrote it is not accused of ignoring anything, and the
   page's signature includes it — arming a watch is news, not a heartbeat.
+- `team`: `/team join [<label>]` puts this session on the team — under that label, or the
+  one the bus already derived — and starts listening; `/team` with no argument still prints
+  the round, and a label another session holds is refused with its owner named.
+- `team`: `offer` is the third verb — a card nobody has taken is broadcast to every other
+  live session as an event and **nothing is written**, so the first `board claim` takes it
+  and two claimants are settled by the store's compare-and-set. `offer` checks the claim's
+  own preconditions through `applyOp`, so a card somebody holds, or one that waits on
+  unfinished work, is refused before anything is sent.
+- `team`: `assign` and `offer` say whether the message will be woken for. `Not listening:
+  <labels>` names the peers the message reached whose record says they are not listening,
+  so the lead reads "it waits for that peer's next turn" instead of "delivered"; `/team`
+  gains the same clause between who is live and who has gone quiet, and the details carry
+  `notListening`.
 - `board`: the card dialog can hand an unowned card to a teammate. `Assign to` picks a
   name from the roster (your own session excluded) and records the owner; the page cannot
   message a peer — a command context has no tool calls — so the assignment lands in the

@@ -25,6 +25,8 @@ function stubSession(): BoardSession {
 		busDir: async () => {
 			throw new Error("the factory must not read the bus");
 		},
+		joined: () => false,
+		markJoined: () => {},
 	};
 }
 

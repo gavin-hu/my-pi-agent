@@ -2,36 +2,32 @@
  * The handoff: what `team assign` tells the peer, and how it tells it.
  *
  * The peer is a session that is already running, so this is a message and not a
- * process: `session send` writes it into the recipient's inbox, and its armed watch
- * is what raises the turn. Nothing here starts anything, and a send that fails leaves
- * the card exactly as it was — the order is deliberate, because a card assigned
- * without a message is a card nobody knows about.
+ * process: `session send` writes it into the recipient's inbox, and its armed watch is
+ * what raises the turn. Nothing here starts anything, and a send that fails leaves the
+ * card exactly as it was — the order is deliberate, because a card assigned without a
+ * message is a card nobody knows about.
  *
  * The transport is a seam (`Dispatch`), so the tool's ordering is testable without a
- * bus, and the one production implementation is a nested tool call.
+ * bus, and the one production implementation is `lib/session-tool.ts`'s.
  */
 
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import type { Card } from "../../lib/board/card.ts";
 import { cardRef, type CardOwner } from "../../lib/board/card.ts";
-import { SESSION_TOOL } from "../../lib/tool-names.ts";
+import { listPeers, MAX_MESSAGE_TEXT, type Peer, send as sendTo } from "../../lib/session-tool.ts";
 
-/** The `session send` text limit; a handoff is one paragraph and must fit. */
-const MAX_HANDOFF = 4_000;
-
-/** How a handoff reaches a peer. */
+/** How a handoff reaches a peer, and what the bus can say about the peers there are. */
 export interface Dispatch {
-	/** Send the text, and report the labels a message file was written for. Throws on failure. */
-	send: (to: string, text: string) => Promise<{ delivered: string[] }>;
+	/** Send the text as `kind`, and report the labels a message file was written for. Throws on failure. */
+	send(input: { kind: "handoff" | "event"; to: string; text: string }): Promise<{ delivered: string[] }>;
 	/**
-	 * The live session `to` names, when the bus can say.
+	 * Every session the bus lists, when it can say.
 	 *
-	 * Its id is what makes an assignment survive a rename — `holds` compares ids
-	 * before labels — so `assign` asks before it writes the owner, and falls back to
-	 * the label when the bus cannot answer. It never throws: a resolve that fails must
-	 * not undo a handoff that landed.
+	 * Its record is what makes an assignment survive a rename — `holds` compares ids
+	 * before labels — and what makes the report able to name a peer that cannot be
+	 * woken. It never throws: a resolve that fails must not undo a handoff that landed.
 	 */
-	resolve?: (to: string) => Promise<CardOwner | undefined>;
+	peers(): Promise<Peer[] | undefined>;
 }
 
 /**
@@ -50,51 +46,81 @@ export function handoffText(card: Card, to: string, note?: string): string {
 		note === undefined ? undefined : `Note: ${note}`,
 		`It is already assigned to you — record the plan with board action "plan" if it has none, then note each phase and move it to done or blocked.`,
 	].filter((line): line is string => line !== undefined);
-	const text = lines.join("\n");
-	return text.length > MAX_HANDOFF ? `${text.slice(0, MAX_HANDOFF - 1)}…` : text;
+	return withinLimit(lines.join("\n"));
 }
 
 /**
- * The production dispatch: one nested `session send` as `kind: "handoff"`.
+ * What every live session reads when the lead offers a card instead of assigning it.
  *
- * A nested call never rejects, so the outcome's `isError` is the failure, and the
- * text of a failed result is the sentence the model would have read anyway.
+ * An offer names no owner: the first peer to claim the card takes it, so the text says
+ * what the card is and that claiming is the next step, and it never implies the work is
+ * already somebody's.
  */
+export function offerText(card: Card, note?: string): string {
+	const lines = [
+		`Offer: ${cardRef(card.id)} "${card.title}" is unclaimed.`,
+		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
+		card.plan === undefined ? undefined : `Plan: ${card.plan}`,
+		note === undefined ? undefined : `Note: ${note}`,
+		`First to claim it takes it: run board action "claim" with card "${card.id}", then note each phase and move it to done or blocked.`,
+	].filter((line): line is string => line !== undefined);
+	return withinLimit(lines.join("\n"));
+}
+
+/**
+ * Trim to the bus's text limit, which is also this message's limit.
+ *
+ * Not `lib/tui/columns.ts`'s `clip`: that one measures terminal columns, and this one
+ * counts characters, because the bus's limit is characters. The number arrives from
+ * `lib/session-tool.ts` — one copy for the two extensions that send through it.
+ */
+function withinLimit(text: string): string {
+	return text.length > MAX_MESSAGE_TEXT ? `${text.slice(0, MAX_MESSAGE_TEXT - 1)}…` : text;
+}
+
+/** The production dispatch: `lib/session-tool.ts`, with a failure turned into a throw. */
 export function sessionDispatch(ctx: ExtensionToolContext): Dispatch {
 	return {
-		async send(to, text) {
-			const outcome = await ctx.executeTool(SESSION_TOOL, { action: "send", to, kind: "handoff", text });
-			if (outcome.isError) throw new Error(nestedMessage(outcome.result));
-			const delivered = (outcome.result.details as { delivered?: unknown } | undefined)?.delivered;
-			return {
-				delivered: Array.isArray(delivered)
-					? delivered.filter((label): label is string => typeof label === "string")
-					: [],
-			};
+		async send(input) {
+			const result = await sendTo(ctx, input);
+			// `assign` and `offer` branch on a failed send, so this seam reports it the way
+			// they read it: the bus's sentence, as the reason the card was not handed over.
+			if (!result.ok) throw new Error(result.error);
+			return { delivered: result.delivered };
 		},
-		async resolve(to) {
-			const outcome = await ctx.executeTool(SESSION_TOOL, { action: "status" }).catch(() => undefined);
-			if (!outcome || outcome.isError) return undefined;
-			const status = (outcome.result.details as { status?: unknown } | undefined)?.status;
-			const sessions = (status as { sessions?: unknown } | undefined)?.sessions;
-			if (!Array.isArray(sessions)) return undefined;
-			const target = to.trim().toLowerCase();
-			for (const entry of sessions) {
-				const session = entry as { id?: unknown; label?: unknown };
-				if (typeof session.id !== "string" || typeof session.label !== "string") continue;
-				if (session.id === to.trim() || session.label.toLowerCase() === target) {
-					return { id: session.id, label: session.label };
-				}
-			}
-			return undefined;
-		},
+		peers: () => listPeers(ctx),
 	};
 }
 
-/** The message a failed nested call carries, or a sentence that says only that it failed. */
-function nestedMessage(result: { content?: Array<{ type: string; text?: string }> } | undefined): string {
-	const text = result?.content?.find((block) => block.type === "text")?.text;
-	return text !== undefined && text !== "" ? text.replace(/^Error:\s*/, "") : "the handoff was not delivered.";
+/**
+ * The peer `to` names: an id exactly, else a label ignoring case.
+ *
+ * The send has already proved exactly one session answers to it, so the first match is
+ * the recipient; a miss means the bus could not say, which is why the caller falls back
+ * to the label alone.
+ */
+export function peerFor(peers: readonly Peer[] | undefined, to: string): Peer | undefined {
+	if (peers === undefined) return undefined;
+	const target = to.trim();
+	const byId = peers.find((peer) => peer.id === target);
+	if (byId) return byId;
+	const wanted = target.toLowerCase();
+	return peers.find((peer) => peer.label.toLowerCase() === wanted);
+}
+
+/**
+ * The labels a message reached that cannot be woken: their record says they are not
+ * listening.
+ *
+ * A label the bus could not answer for is left out — "the record does not say" is not
+ * "nobody will read it" — and so is a peer the bus lists as listening.
+ */
+export function notListening(peers: readonly Peer[] | undefined, labels: readonly string[]): string[] {
+	if (peers === undefined) return [];
+	return labels.filter((label) => {
+		const peer = peerFor(peers, label);
+		return peer !== undefined && peer.listening === false;
+	});
 }
 
 /**

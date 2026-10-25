@@ -23,8 +23,16 @@ import { messageOf } from "../../lib/errors.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
-import { type Dispatch, handoffText, ownerFor, sessionDispatch } from "./dispatch.ts";
-import { formatHandoff, formatHandoffFailure, formatRacedAssignment, formatReclaimed } from "./format.ts";
+import { plural } from "../../lib/board/round-text.ts";
+import { type Dispatch, handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
+import {
+	formatHandoff,
+	formatHandoffFailure,
+	formatOffer,
+	formatOfferFailure,
+	formatRacedAssignment,
+	formatReclaimed,
+} from "./format.ts";
 import { TeamParams } from "./schema.ts";
 import { normalizeTeamAction, TEAM_ACTIONS, TEAM_TOOL, type TeamAction, type TeamDetails } from "./types.ts";
 
@@ -57,13 +65,15 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 		label: "Team",
 		description:
 			"Run a round of work over the shared board: `assign` hands a card to a running session and sends it a handoff " +
-			"(`to` is a live session's label or id, as `session status` lists them), and `reclaim` takes a card back to To do. " +
-			"Only `assign` and `reclaim` need the session bus; use `board` for everything else. Dispatch cannot start a peer's " +
-			"turn: the handoff waits in its inbox, and an armed `session watch` is what raises it.",
-		promptSnippet: "Run a round over the board: assign a card to a running session, or reclaim one.",
+			"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
+			"live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back to To do. " +
+			"All three need the team; use `board` for everything else. Nothing here starts a peer's turn: a message waits " +
+			"in its inbox, and a peer that is listening reports it at its next turn.",
+		promptSnippet: "Run a round over the board: assign a card to a running session, offer one, or reclaim one.",
 		promptGuidelines: [
-			"Find live peers with the `session` tool before assigning; a label that is not live cannot be handed a card.",
-			"A peer must have armed `session watch` for a handoff to raise its turn — say so when a handoff matters.",
+			"Open the board with `/board` or work a card first, so this session and its peers are on the team.",
+			"Offer a card nobody has taken; assign one you mean a particular peer to hold.",
+			"When a result says `Not listening`, say so: the message waits for that peer's next turn.",
 			"Reclaim a card whose owner has gone quiet rather than editing someone else's work.",
 		],
 		parameters: TeamParams,
@@ -83,6 +93,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
 				if (action === "reclaim") return await reclaimCard(store, me, id, now);
+				if (action === "offer") return await offerCard(store, id, args.note, now, dispatchFor(ctx));
 				const to = typeof args.to === "string" ? args.to.trim() : "";
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
 				return await assignCard(store, me, id, to, args.note, now, dispatchFor(ctx));
@@ -131,22 +142,77 @@ async function assignCard(
 
 	let delivered: string[];
 	try {
-		delivered = (await dispatch.send(to, handoffText(card, to, note))).delivered;
+		delivered = (await dispatch.send({ kind: "handoff", to, text: handoffText(card, to, note) })).delivered;
 	} catch (error) {
 		return refusal("assign", formatHandoffFailure(card, to, messageOf(error)), card);
 	}
 
-	// Ask the bus for the session behind the label: an owner recorded with its id
-	// survives the peer renaming itself, which a label alone does not.
-	const resolved = await dispatch.resolve?.(to).catch(() => undefined);
-	const applied = await store.mutate(id, { kind: "assign", to: resolved ?? ownerFor(to, delivered) }, me, now);
+	// Ask the bus which session answers to the label: an owner recorded with its id
+	// survives the peer renaming itself, which a label alone does not — and the same read
+	// says whether that peer will be woken by the message it just got.
+	const peers = await dispatch.peers().catch(() => undefined);
+	const peer = peerFor(peers, to);
+	const applied = await store.mutate(
+		id,
+		{ kind: "assign", to: peer === undefined ? ownerFor(to, delivered) : { id: peer.id, label: peer.label } },
+		me,
+		now,
+	);
 	if (!applied.ok)
 		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
-	return textResult(formatHandoff(applied.card, to, delivered), {
+	const silent = notListening(peers, delivered);
+	return textResult(formatHandoff(applied.card, to, delivered, silent), {
 		action: "assign",
 		card: applied.card,
 		assigned: applied.card.owner,
 		delivered,
+		...(silent.length === 0 ? {} : { notListening: silent }),
+	});
+}
+
+/**
+ * The actor an offer's preconditions are judged as: nobody in particular.
+ *
+ * `claim` is what the offer asks a peer to do, so the dry run is a claim by someone who
+ * holds nothing — the rules' own refusals decide whether a card may be offered at all,
+ * without a second copy of the sentences.
+ */
+const OFFER_CLAIMANT: Actor = { label: "*" };
+
+/**
+ * `offer`: check the claim's preconditions, broadcast the card, and write nothing.
+ *
+ * The order matters less here than in `assign`, because nothing is written: a failed
+ * broadcast leaves the card exactly as it was, and the first peer to claim is what makes
+ * an offer into work. Two peers racing are settled by the store's compare-and-set.
+ */
+async function offerCard(
+	store: BoardStore,
+	id: string,
+	note: string | undefined,
+	now: number,
+	dispatch: Dispatch,
+): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
+	const card = await store.read(id);
+	if (!card) return refusal("offer", `${cardRef(id)} does not exist.`);
+	// The board, not just the card: a card that waits on unfinished work, or one somebody
+	// holds, is refused here, so a broadcast for it is never sent.
+	const dry = applyOp(card, { kind: "claim" }, OFFER_CLAIMANT, now, indexOf(await store.list()));
+	if (!dry.ok) return refusal("offer", dry.error, card);
+
+	let delivered: string[];
+	try {
+		delivered = (await dispatch.send({ kind: "event", to: "*", text: offerText(card, note) })).delivered;
+	} catch (error) {
+		return refusal("offer", formatOfferFailure(card, messageOf(error)), card);
+	}
+	const peers = await dispatch.peers().catch(() => undefined);
+	const silent = notListening(peers, delivered);
+	return textResult(formatOffer(card, delivered, silent), {
+		action: "offer",
+		card,
+		delivered,
+		...(silent.length === 0 ? {} : { notListening: silent }),
 	});
 }
 
@@ -170,6 +236,10 @@ async function reclaimCard(
 function summaryOf(details: TeamDetails): string {
 	const card = details.card;
 	if (!card) return details.action === "reclaim" ? "reclaimed" : "handed off";
+	if (details.action === "offer") {
+		const count = details.delivered?.length ?? 0;
+		return `${cardRef(card.id)} offered to ${plural(count, "session")}`;
+	}
 	const who = details.assigned?.label ?? card.owner?.label;
 	const target = details.action === "assign" && who !== undefined ? ` → ${who}` : "";
 	return `${cardRef(card.id)} ${card.status}${target}`;
