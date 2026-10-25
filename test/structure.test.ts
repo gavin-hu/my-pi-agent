@@ -284,7 +284,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 		why: "the bridge's composition root, connection lifecycle, and status snapshot",
 	},
 	"extensions/worktree/guard.ts": {
-		lines: 612,
+		lines: 610,
 		why: "the five isolation guards over one shell-escape predicate",
 	},
 	"lib/highlight.ts": {
@@ -301,7 +301,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 4959;
+const LONG_MODULE_TOTAL = 4957;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {

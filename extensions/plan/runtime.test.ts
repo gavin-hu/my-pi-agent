@@ -181,41 +181,46 @@ describe("plan runtime — persistence and status", () => {
 	});
 });
 
-describe("plan runtime — control-tool identity", () => {
-	test("recognizes only the known control tool names", () => {
+describe("plan runtime — plan-tool identity", () => {
+	test("recognizes only the plan-owned tool names", () => {
 		const { runtime } = setup();
-		expect(runtime.isControlTool(EXIT_TOOL)).toBe(true);
-		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(true);
-		expect(runtime.isControlTool("write")).toBe(false);
+		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(WRITE_PLAN_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(ENTER_TOOL)).toBe(true);
+		expect(runtime.isOwnTool("write")).toBe(false);
 	});
 
-	test("recognizes a control tool sourced from this extension", () => {
+	test("recognizes a plan tool sourced from this extension", () => {
 		const fake = makeFakePi({ active: ["read"] });
 		fake.pi.allTools = [
 			{ name: EXIT_TOOL, sourceInfo: { path: "/this/index.ts" } },
 			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/this/index.ts" } },
+			{ name: ENTER_TOOL, sourceInfo: { path: "/this/index.ts" } },
 		];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
-		expect(runtime.isControlTool(EXIT_TOOL)).toBe(true);
-		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(WRITE_PLAN_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(ENTER_TOOL)).toBe(true);
 	});
 
-	test("rejects a control tool sourced from another extension", () => {
+	test("rejects a plan tool sourced from another extension", () => {
 		const fake = makeFakePi({ active: ["read"] });
 		fake.pi.allTools = [
 			{ name: EXIT_TOOL, sourceInfo: { path: "/other/index.ts" } },
 			{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/other/index.ts" } },
+			{ name: ENTER_TOOL, sourceInfo: { path: "/other/index.ts" } },
 		];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
-		expect(runtime.isControlTool(EXIT_TOOL)).toBe(false);
-		expect(runtime.isControlTool(WRITE_PLAN_TOOL)).toBe(false);
+		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(false);
+		expect(runtime.isOwnTool(WRITE_PLAN_TOOL)).toBe(false);
+		expect(runtime.isOwnTool(ENTER_TOOL)).toBe(false);
 	});
 
-	test("accepts a control tool whose source the host did not record", () => {
+	test("accepts a plan tool whose source the host did not record", () => {
 		const fake = makeFakePi({ active: ["read"] });
 		fake.pi.allTools = [{ name: EXIT_TOOL }];
 		const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi), { entryPath: "/this/index.ts" });
-		expect(runtime.isControlTool(EXIT_TOOL)).toBe(true);
+		expect(runtime.isOwnTool(EXIT_TOOL)).toBe(true);
 	});
 });
 

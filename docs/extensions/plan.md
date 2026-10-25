@@ -367,7 +367,10 @@ WeChat, even though the session is in TUI mode: the choice comes from
 deciding for the user.
 
 `/plan list` is a docked list screen in the TUI and a notice with each plan's
-path everywhere else; both name the store's size and its oldest plan.
+path everywhere else; both name the store's size and its oldest plan. The dock is
+the list's alone while it is open — the goal and todo rails hide, as they do for
+the other list screens — and the screen counts its own frame, so a full list keeps
+its closing rule on a short terminal.
 
 Browser review is a local-turn feature: the server binds `127.0.0.1`, so a remote
 (WeChat) turn cannot reach it and `/plan review` there refuses with a notice
@@ -401,10 +404,13 @@ command. The read-only guarantee is layered:
 - **Path backstop.** A `readOnlyHint` is only a claim, so a tool that takes a
   file path is refused unless it is a known plan-safe reader. `path-guard.ts`
   scans nested arguments and path-shaped values, not just fixed top-level keys.
-- **Control-tool identity.** The `tool_call` guard exempts `write_plan` /
-  `exit_plan_mode` only when the registered tool is this extension's own,
-  matched by source path, so a same-named tool from another extension cannot
-  borrow the exemption.
+- **Control-tool identity.** The `tool_call` guard exempts plan's own tools —
+  `enter_plan_mode`, `cancel_plan_mode`, `write_plan`, and `exit_plan_mode` — only
+  when the registered tool is this extension's, matched by source path, so a
+  same-named tool from another extension cannot borrow the exemption.
+  `enter_plan_mode` is exempted so a call already in flight when plan mode came on
+  is answered with "Already in plan mode" instead of being refused as not
+  read-only; the policy still denies it, so it stays hidden while planning.
 - **Contained writes.** `write_plan` only writes markdown non-dotfiles whose
   real parent resolves inside the plans directory, and every plan write —
   create, refine, `set_plan_steps`, browser feedback — goes through a hidden
@@ -434,9 +440,10 @@ conservative allowlist in `git-bash.ts`. `powershell` is not allowed at all, so
 plan mode uses Git Bash on native Windows: the same read-only git commands work
 there, and a backslash before an ordinary character is accepted as a Windows
 path separator while a backslash that escapes a metacharacter is still refused.
-Everything else uses `read`, `grep`, `find`,
-`ls`, and the other read-only tools already available (`web_search`,
-`web_fetch`, `ask_user_question`, `todo`, `goal`).
+Everything else uses the structured readers — `read`, `grep`, `find`, `ls`, and
+`read_doc` for a PDF, Word, OpenDocument, RTF, or Excel file — and the other
+read-only tools already available (`web_search`, `web_fetch`,
+`ask_user_question`, `todo`, `goal`).
 
 ```bash
 git status && git diff --stat     # allowed: two read-only git commands
@@ -462,7 +469,7 @@ first or wait for approval.
 While planning, `subagent` stays available but every call is **forced
 read-only**. Plan mode sets `readOnly: true` on the call in the `tool_call`
 guard, and `subagent` in turn gives each spawned agent a reader-only `--tools`
-list (`read`, `grep`, `find`, `ls`, `web_search`, `web_fetch`). The child
+list (`read`, `grep`, `find`, `ls`, `read_doc`, `web_search`, `web_fetch`). The child
 process enforces it, so a delegated `explorer`, `researcher`, or even `worker`
 cannot write, edit, or run a shell — regardless of its prompt or an external
 agent file that overrides it.
@@ -744,7 +751,7 @@ both.
 |---|---|
 | Tools | `enter_plan_mode` (active; `readOnlyHint: true`), `write_plan` (`defaultActive: false`; `readOnlyHint: false`, `destructiveHint: true`), `exit_plan_mode` (`defaultActive: false`; `readOnlyHint: true`), `cancel_plan_mode` (`defaultActive: false`; `readOnlyHint: true`), `set_plan_steps` (active; `readOnlyHint: false`, `idempotentHint: true`). All five are `executionMode: "sequential"` and closed-world, and the read-only policy default-denies `set_plan_steps` while planning. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
 | Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/plan share [stop]` (reviewer link), `/plan cancel` (leave without approving), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
-| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })`: a `planning` goal is promoted to the plan's `## Goal`, a session with none is given the same objective, and an `active`/`achieved` goal is left alone — no path asks first. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
+| State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })` when the `goal` tool is registered: a `planning` goal is promoted to the plan's `## Goal`, a session with none is given the same objective, and an `active`/`achieved` goal is left alone — no path asks first. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
 | Entry requests | `pi.events` channel `PLAN_ENTER_REQUEST` from `lib/plan-entry.ts`: the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog. Subscribed on `session_start`, released on `session_shutdown`. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with a pursued session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |

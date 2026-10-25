@@ -11,6 +11,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { formatTokens } from "../../../lib/format.ts";
+import { WEB_FETCH_TOOL } from "../../../lib/tool-names.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
 import {
 	errorLine,
@@ -34,7 +35,7 @@ import { resolveRequest, WebFetchOutput, WebFetchParams, type FetchResponse, typ
 import type { FetchRequest } from "./types.ts";
 import { loadFetchConfig } from "../config.ts";
 
-export const TOOL_NAME = "web_fetch";
+export const TOOL_NAME = WEB_FETCH_TOOL;
 
 /** The host shown while a fetch is in flight, or `page` for an unparseable URL. */
 function hostOf(raw: string | undefined): string {

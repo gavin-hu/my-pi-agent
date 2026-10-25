@@ -9,11 +9,21 @@
  * — `bash`, MCP servers, future extension tools — rather than relying on
  * `write`/`edit` being the only mutators.
  *
- * No runtime dependencies: the caller supplies the annotation lookup. Only the
- * MCP hint type is imported (type-only).
+ * No host dependency beyond the annotation type: the caller supplies the
+ * annotation lookup, and the one reader name comes from `tool-names.ts`, so this
+ * module stays value-only.
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
+import { READ_DOC_TOOL } from "./tool-names.ts";
+
+/**
+ * Tools that only read the workspace: the built-in structured readers and the
+ * packaged document reader. One list for the read-only consumers — plan mode's
+ * allowlist, rewind's snapshot policy, and subagent's read-only child allowlist —
+ * so adding a reader is one edit rather than three.
+ */
+export const WORKSPACE_READERS = ["read", "grep", "find", "ls", READ_DOC_TOOL] as const;
 
 interface ReadOnlyPolicyOptions {
 	/** Tools allowed regardless of annotations (structured readers, plan tracker). */

@@ -73,14 +73,14 @@ describe("built-in agents", () => {
 
 	test("every built-in carries a prompt, a description, and an explicit allowlist", () => {
 		const expectedTools: Record<string, string[]> = {
-			explorer: ["read", "grep", "find", "ls"],
-			planner: ["read", "grep", "find", "ls"],
-			reviewer: ["read", "grep", "find", "ls", "bash"],
-			worker: ["read", "write", "edit", "bash", "grep", "find", "ls"],
-			researcher: ["read", "grep", "find", "ls", "web_search", "web_fetch"],
-			tester: ["read", "write", "edit", "grep", "find", "ls", "bash"],
-			debugger: ["read", "grep", "find", "ls", "bash"],
-			documenter: ["read", "write", "edit", "grep", "find", "ls", "bash"],
+			explorer: ["read", "grep", "find", "ls", "read_doc"],
+			planner: ["read", "grep", "find", "ls", "read_doc"],
+			reviewer: ["read", "grep", "find", "ls", "read_doc", "bash"],
+			worker: ["read", "write", "edit", "bash", "grep", "find", "ls", "read_doc"],
+			researcher: ["read", "grep", "find", "ls", "read_doc", "web_search", "web_fetch"],
+			tester: ["read", "write", "edit", "grep", "find", "ls", "read_doc", "bash"],
+			debugger: ["read", "grep", "find", "ls", "read_doc", "bash"],
+			documenter: ["read", "write", "edit", "grep", "find", "ls", "read_doc", "bash"],
 		};
 
 		for (const agent of BUILTIN_AGENTS) {
@@ -399,25 +399,25 @@ describe("buildAgentArgs", () => {
 
 	test("passes the tool allowlist and the appended system prompt", () => {
 		const args = buildAgentArgs(explorer, "t", {}, "/tmp/prompt.md");
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls");
+		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc");
 		expect(valueAfter(args, "--append-system-prompt")).toBe("/tmp/prompt.md");
 	});
 
 	test("passes the researcher's web tool allowlist", () => {
 		const researcher = builtin("researcher")!;
 		const args = buildAgentArgs(researcher, "t", {}, null);
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,web_search,web_fetch");
+		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc,web_search,web_fetch");
 	});
 
 	test("readOnly narrows an agent's tools to the reader allowlist", () => {
 		const args = buildAgentArgs(worker, "t", {}, null, true);
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls");
+		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc");
 	});
 
 	test("readOnly forces the reader allowlist for an agent with no tools", () => {
 		const inherit = { ...worker, tools: undefined };
 		const args = buildAgentArgs(inherit, "t", {}, null, true);
-		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,web_search,web_fetch");
+		expect(valueAfter(args, "--tools")).toBe("read,grep,find,ls,read_doc,web_search,web_fetch");
 	});
 
 	test("readOnly never passes a writing or shell tool", () => {

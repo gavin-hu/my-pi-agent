@@ -4,8 +4,9 @@
  * Tool names are otherwise owned by the extension that registers the tool, and
  * no extension imports another's modules (see this directory's README). When an
  * orchestrating tool calls another extension's tool through `ctx.executeTool`,
- * or reads another extension's registered parameter schema, the shared name
- * lives here so a rename breaks the build on both sides instead of silently
+ * reads another extension's registered parameter schema, lists the name in a
+ * read-only policy, or passes it on a child's `--tools` allowlist, the shared
+ * name lives here so a rename breaks the build on both sides instead of silently
  * disabling the integration.
  */
 
@@ -43,3 +44,19 @@ export const SESSION_TOOL = "session";
  * refuses a `subagent` whose schema does not declare it.
  */
 export const SUBAGENT_READ_ONLY_PARAM = "readOnly";
+
+/**
+ * The `read_doc` tool. `file-read` registers it, and the plan, rewind, and
+ * subagent reader lists carry the name, so the document reader is one reader
+ * everywhere instead of three spellings.
+ */
+export const READ_DOC_TOOL = "read_doc";
+
+/**
+ * The `web_search` tool. `web-access` registers it; plan's and subagent's reader
+ * lists carry the name, so a rename cannot silently drop the web reader.
+ */
+export const WEB_SEARCH_TOOL = "web_search";
+
+/** The `web_fetch` tool, shared the same way as {@link WEB_SEARCH_TOOL}. */
+export const WEB_FETCH_TOOL = "web_fetch";

@@ -235,7 +235,7 @@ describe("plan-mode tool guard", () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
 
-		for (const toolName of ["read", "grep", "find", "ls", "todo", "goal"]) {
+		for (const toolName of ["read", "grep", "find", "ls", "read_doc", "todo", "goal"]) {
 			const [result] = await emit(fakePi.pi, "tool_call", { toolName, input: {} }, ctx);
 			expect(result).toBeUndefined();
 		}
@@ -245,7 +245,7 @@ describe("plan-mode tool guard", () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
 
-		for (const toolName of [WRITE_PLAN_TOOL, EXIT_TOOL]) {
+		for (const toolName of [WRITE_PLAN_TOOL, EXIT_TOOL, ENTER_TOOL]) {
 			const [result] = await emit(fakePi.pi, "tool_call", { toolName, input: {} }, ctx);
 			expect(result).toBeUndefined();
 		}
@@ -253,6 +253,11 @@ describe("plan-mode tool guard", () => {
 		fakePi.pi.allTools = [{ name: WRITE_PLAN_TOOL, sourceInfo: { path: "/other/index.ts" } }];
 		const [blocked] = await emit(fakePi.pi, "tool_call", { toolName: WRITE_PLAN_TOOL, input: {} }, ctx);
 		expect(blocked.block).toBe(true);
+
+		// The enter exemption is identity-checked too, so an impostor stays blocked.
+		fakePi.pi.allTools = [{ name: ENTER_TOOL, sourceInfo: { path: "/other/index.ts" } }];
+		const [foreignEnter] = await emit(fakePi.pi, "tool_call", { toolName: ENTER_TOOL, input: {} }, ctx);
+		expect(foreignEnter.block).toBe(true);
 	});
 
 	test("allows a tool that carries the read-only hint", async () => {
@@ -280,9 +285,10 @@ describe("plan-mode tool guard", () => {
 		const { fakePi } = await enabledPi();
 		const { ctx } = fakeCtx();
 
-		const [result] = await emit(fakePi.pi, "tool_call", { toolName: "read", input: { path: "src/index.ts" } }, ctx);
-
-		expect(result).toBeUndefined();
+		for (const toolName of ["read", "read_doc"]) {
+			const [result] = await emit(fakePi.pi, "tool_call", { toolName, input: { path: "src/index.ts" } }, ctx);
+			expect(result).toBeUndefined();
+		}
 	});
 
 	test("does not block anything once plan mode is off", async () => {

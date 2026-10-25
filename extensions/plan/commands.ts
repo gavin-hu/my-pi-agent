@@ -13,6 +13,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { isRemoteTurn } from "../../lib/interaction.ts";
 import { READ_ONLY_SUMMARY } from "../../lib/plan-entry.ts";
 import { qrLines } from "../../lib/qr.ts";
+import { withRailsSuppressed } from "../../lib/rails.ts";
 import { feedbackSummary } from "./feedback.ts";
 import { PlanIndexComponent, formatPlanIndex } from "./plan-index.ts";
 import { runBrowserReview } from "./review.ts";
@@ -192,22 +193,26 @@ async function openPlanIndex(
 
 	// The review runs after the screen closes, so the input focus is free again.
 	let selected: (PlanSummary | undefined) | undefined;
-	await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-		const component = new PlanIndexComponent({
-			summaries,
-			dir,
-			theme,
-			onSelect: (summary) => {
-				selected = summary;
-				done();
-			},
-			onClose: () => done(),
-			reload: summarise,
-			requestRender: () => tui.requestRender(),
-			viewportRows: () => tui.terminal?.rows,
-		});
-		return component;
-	});
+	// A dock list shares the editor slot with the goal and todo rails, so it takes
+	// the dock to itself for as long as it is open, like the other list screens.
+	await withRailsSuppressed(pi, () =>
+		ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+			const component = new PlanIndexComponent({
+				summaries,
+				dir,
+				theme,
+				onSelect: (summary) => {
+					selected = summary;
+					done();
+				},
+				onClose: () => done(),
+				reload: summarise,
+				requestRender: () => tui.requestRender(),
+				viewportRows: () => tui.terminal?.rows,
+			});
+			return component;
+		}),
+	);
 	if (selected) await reviewInBrowser(pi, runtime, web, selected.path, ctx);
 }
 
