@@ -458,6 +458,29 @@ describe("the mail notice", () => {
 		expect(notice.details.items).toHaveLength(6);
 	});
 
+	test("names a burst of handoffs as the work it is, and says to start it", () => {
+		const notice = mailNotice([message({ kind: "handoff", text: "Handoff: #4 is yours" })]);
+		expect(notice.content).toContain("1 handoff");
+		expect(notice.details.title).toBe("1 handoff");
+		expect(notice.content).toContain("A handoff is work you now own");
+		expect(notice.content).toContain("do not just acknowledge it");
+	});
+
+	test("keeps a handoff's instruction, which sits past a message's preview limit", () => {
+		// The actionable line is last: paths and a note come first, so a 200-character
+		// preview would cut exactly the part that makes the wake useful.
+		const text = `Handoff: #4 "Billing webhook accepts orders" is yours, billing-core. Paths: ${"src/a".repeat(40)} It is already assigned to you — record the plan and start.`;
+		const notice = mailNotice([message({ kind: "handoff", text })]);
+		expect(notice.content).toContain("already assigned to you");
+		expect(notice.content.length).toBeLessThan(text.length + 400);
+	});
+
+	test("leaves a mixed burst as mail, and only the hint mentions the handoff", () => {
+		const notice = mailNotice([message({ kind: "handoff" }), message({ kind: "event" })]);
+		expect(notice.details.title).toBe("2 new messages");
+		expect(notice.content).toContain("work you now own");
+	});
+
 	test("marks an event and neutralizes the sender", () => {
 		const notice = mailNotice([message({ fromLabel: "back\u001b[31mend", kind: "event" })]);
 		expect(notice.details.items?.[0]?.severity).toBe("warn");
