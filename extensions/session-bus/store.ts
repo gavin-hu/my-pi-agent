@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
 import { claimsConflict } from "./overlap.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, SessionRecord } from "./types.ts";
+import { INBOX_DIR_NAME, SESSIONS_DIR_NAME } from "../../lib/session-roster.ts";
 
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
@@ -156,8 +157,8 @@ async function dropIfEmpty(dir: string): Promise<void> {
 /** Create a store rooted at one repository's bus directory. */
 export function createBusStore(options: BusStoreOptions): BusStore {
 	const { dir } = options;
-	const sessionsDir = join(dir, "sessions");
-	const inboxRoot = join(dir, "inbox");
+	const sessionsDir = join(dir, SESSIONS_DIR_NAME);
+	const inboxRoot = join(dir, INBOX_DIR_NAME);
 	const claimsDir = join(dir, "claims");
 
 	const sessionFile = (id: string): string => join(sessionsDir, `${SHA(id)}.json`);
