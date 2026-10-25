@@ -100,20 +100,30 @@ ${WEB_COMPONENTS_CSS}
 .board-team__caption .bf-chip{margin-left:auto;font-variant-numeric:tabular-nums}
 /* The queue: one row per card, its kind as an edge, its way out in the foot. */
 .board-team__queue{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-.board-team__decision{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3) var(--space-4);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
+/* The queue is the tallest thing here and it can be unbounded; capping it keeps the two
+   panels on one screen. Stacked below 1180px there is no second column to balance, and a
+   nested scroll on a phone is worse than the page's own. */
+@media (min-width:1181px){
+  /* A row cut at the edge reads as a bug unless something says the list continues, and a
+     mac's scrollbars are hidden until it moves: an inset shade in the page's own colour
+     marks the edge without a literal. */
+  /* A floor, because a short window must not turn three rows into a scroll box. */
+  .board-team__queue{max-height:max(18rem,calc(100dvh - 16rem));overflow:auto;overscroll-behavior:contain;padding-right:var(--space-1);box-shadow:inset 0 calc(-1 * var(--space-6)) var(--space-6) calc(-1 * var(--space-6)) var(--canvas)}
+}
+.board-team__decision{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"open foot" "why why";align-items:center;gap:var(--space-1) var(--space-3);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
 .board-team__decision:hover{border-color:var(--border-strong);transform:translateY(-1px)}
 .board-team__decision[data-kind="blocked"]{border-left-color:var(--danger)}
 .board-team__decision[data-kind="idle"]{border-left-color:var(--warn)}
 /* Nobody holds it, so the edge is drawn but not filled: a shape, not a claim. */
 .board-team__decision[data-kind="unassigned"]{border-left-style:dashed}
-.board-team__open{display:flex;align-items:baseline;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;text-align:left;cursor:pointer;color:var(--text);font:var(--fw-medium) var(--fs-md) var(--font-ui);min-width:0}
+.board-team__open{grid-area:open;display:flex;align-items:baseline;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;text-align:left;cursor:pointer;color:var(--text);font:var(--fw-medium) var(--fs-md) var(--font-ui);min-width:0}
 .board-team__open:hover .board-team__title{color:var(--accent)}
 .board-team__ref{font:var(--fs-xs) var(--font-mono);color:var(--muted);flex:0 0 auto}
 .board-team__title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 /* Two lines, then a tooltip: the "why" is the reason the row is on this tab. */
-.board-team__why{margin:0;color:var(--muted);font:var(--fs-sm)/var(--lh-snug) var(--font-ui);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.board-team__why{grid-area:why;margin:0;color:var(--muted);font:var(--fs-sm)/var(--lh-snug) var(--font-ui);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-team__why--blocked{color:var(--danger)}
-.board-team__foot{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.board-team__foot{grid-area:foot;display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)}
 /* A row with no owner chip still puts its one action on the row's edge. */
 .board-team__foot>.bf-btn:only-child{margin-left:auto}
 /* The roster: who is here and what they hold. No hover fill — nothing to open. */
