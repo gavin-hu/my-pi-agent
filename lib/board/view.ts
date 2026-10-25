@@ -13,7 +13,7 @@
  * Pure: the caller supplies the cards, the clock, and the sizes it read.
  */
 
-import { type RosterSession, rosterStateOf } from "../session-roster.ts";
+import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
 import { type Card, CARD_STATUSES, type CardStatus, signatureOf } from "./card.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
@@ -21,8 +21,8 @@ import { buildRound, type RoundSummary } from "./round.ts";
 /** One session on the repository's bus, as the Team tab lists it. */
 export interface ViewTeammate {
 	label: string;
-	/** `live` while its heartbeat holds, `quiet` once the record has aged out. */
-	state: "live" | "quiet";
+	/** `live` while its heartbeat holds, `quiet` once the record has aged out, `gone` once its process is not running. */
+	state: RosterState;
 	/** When it last proved it was there. */
 	seen: number;
 	/** Messages waiting in its inbox. */

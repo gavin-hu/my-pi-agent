@@ -27,8 +27,11 @@ import {
 	defaultSpawn,
 	isPidAlive,
 	type KillTreeFn,
+	type LivenessFn,
 	type SpawnedProcess,
 	type SpawnFn,
+	startTokenOf,
+	type StartTokenFn,
 	type StdinSink,
 } from "../../lib/spawn.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
@@ -38,7 +41,6 @@ import { defaultInterval } from "../../lib/timer.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";
 import { compareJobs, formatLogs } from "./format.ts";
 import { readLogTail } from "./logs.ts";
-import { defaultStartToken, type LivenessFn, type StartTokenFn } from "./process.ts";
 import {
 	loadRegistries,
 	mergeRecords,
@@ -183,7 +185,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	const spawn = options.spawn ?? defaultSpawn;
 	const liveness = options.liveness ?? isPidAlive;
 	const killTree = options.killTree ?? defaultKillTree;
-	const startToken = options.startToken ?? defaultStartToken;
+	const startToken = options.startToken ?? startTokenOf;
 	const now = options.now ?? (() => Date.now());
 	const isWindows = options.isWindows ?? (() => process.platform === "win32");
 

@@ -9,8 +9,7 @@
 import { EventEmitter } from "node:events";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import type { Readable } from "node:stream";
-import type { KillTreeFn, SpawnFn, SpawnedProcess } from "../../lib/spawn.ts";
-import type { LivenessFn, StartTokenFn } from "../../extensions/job/process.ts";
+import type { KillTreeFn, LivenessFn, SpawnFn, SpawnedProcess, StartTokenFn } from "../../lib/spawn.ts";
 import type { SpawnFn as SubagentSpawnFn } from "../../extensions/subagent/types.ts";
 
 /** A recording stand-in for a job's stdin pipe. */

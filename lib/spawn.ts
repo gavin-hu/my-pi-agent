@@ -8,11 +8,14 @@
  *
  * IO is split from the decision: {@link spawnOptions} and {@link killPlan} are
  * pure and testable on every platform, while {@link defaultSpawn} and
- * {@link defaultKillTree} execute them. Value-only, like every `lib/` module:
- * no module state, and each caller keeps its own children.
+ * {@link defaultKillTree} execute them. The liveness pair — {@link isPidAlive}
+ * and {@link startTokenOf} — is here too, because asking whether a process is
+ * still the one a record named is the same question as killing it: `job` guards
+ * a reattached pid with it, and so does the session roster. Value-only, like
+ * every `lib/` module: no module state, and each caller keeps its own children.
  */
 
-import { spawn as nodeSpawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn as nodeSpawn, spawnSync } from "node:child_process";
 import type { Readable } from "node:stream";
 
 /**
@@ -123,6 +126,37 @@ export function isPidAlive(pid: number, probe: KillProbe = process.kill): boolea
 		return (error as NodeJS.ErrnoException).code === "EPERM";
 	}
 }
+
+/** Whether a pid is still alive. */
+export type LivenessFn = (pid: number) => boolean;
+
+/**
+ * Best-effort OS start-time token for a pid, used to detect pid reuse.
+ *
+ * Returns undefined when the platform cannot provide one (for example Windows, or a
+ * process that is already gone), in which case callers fall back to liveness alone.
+ */
+export type StartTokenFn = (pid: number) => string | undefined;
+
+/**
+ * Default start-time token via `ps`. Undefined where `ps` is unavailable.
+ *
+ * It spawns a process, so a caller asks for it only where liveness alone cannot
+ * decide: a pid that is alive may be a different program than the one a record
+ * named, and nothing cheaper than the start time can tell them apart.
+ */
+export const startTokenOf: StartTokenFn = (pid) => {
+	try {
+		const out = execFileSync("ps", ["-p", String(pid), "-o", "lstart="], {
+			stdio: ["ignore", "pipe", "ignore"],
+			timeout: 2000,
+		});
+		const text = out.toString().trim();
+		return text || undefined;
+	} catch {
+		return undefined;
+	}
+};
 
 /** The host seams {@link applyKillPlan} runs through. */
 export interface KillSeams {

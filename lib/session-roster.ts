@@ -9,6 +9,10 @@
  * here once, and `session-bus` imports them, so a layout change cannot land in one
  * copy and not the other.
  *
+ * The rule answers three things, not two: a record whose process is gone is `gone` at
+ * once, rather than aging into `quiet` for ten minutes while the paths it claimed stay
+ * held and the cards it held read `idle`.
+ *
  * A missing directory is an answer, not an error: it means no session has ever
  * joined this repository, and a caller renders that differently from an empty bus.
  *
@@ -18,6 +22,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isPidAlive, type LivenessFn, startTokenOf, type StartTokenFn } from "./spawn.ts";
 
 /** The bus directory under the agent dir, `session-bus`. */
 export const BUS_DIR_NAME = "session-bus";
@@ -38,6 +43,16 @@ export interface RosterSession {
 	/** Messages waiting in its inbox. */
 	mail: number;
 	/**
+	 * The process that owns the record, when the record names one.
+	 *
+	 * Absent is "cannot tell": a record written before this existed, or by a mode that
+	 * is not a local process, is judged by its heartbeat alone rather than being called
+	 * dead on no evidence.
+	 */
+	pid?: number;
+	/** That process's start time, as the bus wrote it, when the record carries it. */
+	startToken?: string;
+	/**
 	 * Whether the session is listening for mail, when its record says.
 	 *
 	 * Absent is "not listening": a record written before this existed and a session that
@@ -46,9 +61,48 @@ export interface RosterSession {
 	watching?: { armed: boolean; wake: boolean };
 }
 
-/** Whether a record's heartbeat is fresh enough to call the session live. */
-export function rosterStateOf(session: RosterSession, now: number, ttlMs = SESSION_TTL_MS): "live" | "quiet" {
-	return now - session.lastSeen <= ttlMs ? "live" : "quiet";
+/** What a record's heartbeat and its process say together. */
+export type RosterState = "live" | "quiet" | "gone";
+
+/**
+ * The host facts {@link rosterStateOf} reads, injectable so every branch is testable.
+ *
+ * The token spawns a process, so it is asked for only where liveness cannot decide.
+ */
+export interface RosterSeams {
+	alive?: LivenessFn;
+	token?: StartTokenFn;
+}
+
+/**
+ * What one record says about its session: alive, aged out, or attached to nothing.
+ *
+ * Three answers, in the order they are decided:
+ *
+ * - `gone` — the record names a process and that process is not running. A heartbeat
+ *   written ten seconds before a crash is not evidence the process exists, so death
+ *   outranks a fresh one.
+ * - `live` — the heartbeat is fresh. When the pid is alive too, the start token has not
+ *   been asked for yet: a session that wrote ten seconds ago is not the interesting
+ *   case for pid reuse, and `ps` costs a process.
+ * - `quiet` — the heartbeat has aged. If the pid is alive but its start time is not the
+ *   one the record wrote, the process is somebody else's and the session is `gone`
+ *   after all; a platform that cannot answer the start time leaves it at `quiet`.
+ */
+export function rosterStateOf(
+	session: RosterSession,
+	now: number,
+	ttlMs = SESSION_TTL_MS,
+	seams: RosterSeams = {},
+): RosterState {
+	const alive = seams.alive ?? isPidAlive;
+	if (session.pid !== undefined && !alive(session.pid)) return "gone";
+	if (now - session.lastSeen <= ttlMs) return "live";
+	if (session.pid !== undefined && session.startToken !== undefined) {
+		const current = (seams.token ?? startTokenOf)(session.pid);
+		if (current !== undefined && current !== session.startToken) return "gone";
+	}
+	return "quiet";
 }
 
 /** The fields this reader trusts; anything else in the file is the bus's business. */
@@ -57,6 +111,11 @@ interface SessionPayload {
 	label: string;
 	mode: string;
 	lastSeen: number;
+}
+
+/** A record's pid, read only when it is the shape a pid has. */
+function pidOf(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 function isSessionPayload(value: unknown): value is SessionPayload {
@@ -79,6 +138,11 @@ export function watchingOf(value: unknown): { armed: boolean; wake: boolean } | 
 	if (typeof value !== "object" || value === null) return undefined;
 	const { armed, wake } = value as Record<string, unknown>;
 	return typeof armed === "boolean" && typeof wake === "boolean" ? { armed, wake } : undefined;
+}
+
+/** A record's start token, read only when it is a string with something in it. */
+function startTokenIn(value: unknown): string | undefined {
+	return typeof value === "string" && value !== "" ? value : undefined;
 }
 
 /** How many message files one session's inbox holds. A missing inbox is empty. */
@@ -117,12 +181,16 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 		if (!isSessionPayload(parsed)) continue;
 		const { id, label, mode, lastSeen } = parsed;
 		const watching = watchingOf((parsed as { watching?: unknown }).watching);
+		const pid = pidOf((parsed as { pid?: unknown }).pid);
+		const token = startTokenIn((parsed as { startToken?: unknown }).startToken);
 		sessions.push({
 			id,
 			label,
 			mode,
 			lastSeen,
 			mail: await mailCount(dir, name.slice(0, -".json".length)),
+			...(pid === undefined ? {} : { pid }),
+			...(token === undefined ? {} : { startToken: token }),
 			...(watching === undefined ? {} : { watching }),
 		});
 	}

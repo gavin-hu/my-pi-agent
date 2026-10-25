@@ -59,7 +59,7 @@ describe("readRoster", () => {
 
 	test("reads the fields a teammate row needs, and counts its mail", async () => {
 		const dir = busDir();
-		writeSession(dir, "aaa", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000, pid: 7 });
+		writeSession(dir, "aaa", { id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000 });
 		writeMail(dir, "aaa", "1");
 		writeMail(dir, "aaa", "2");
 		writeSession(dir, "bbb", { id: "s-2", label: "billing-lead", mode: "print", lastSeen: NOW - 90_000 });
@@ -68,6 +68,32 @@ describe("readRoster", () => {
 			{ id: "s-1", label: "billing-core", mode: "tui", lastSeen: NOW - 5_000, mail: 2 },
 			{ id: "s-2", label: "billing-lead", mode: "print", lastSeen: NOW - 90_000, mail: 0 },
 		]);
+	});
+
+	test("reads the process a record names, so the rule can tell who died", async () => {
+		const dir = busDir();
+		writeSession(dir, "aaa", {
+			id: "s-1",
+			label: "billing-core",
+			mode: "tui",
+			lastSeen: NOW,
+			pid: 4242,
+			startToken: "Mon Oct 26 00:02:00 2026",
+		});
+		// A record that names no process, or names one that is not a pid, is left without
+		// the fields rather than being called dead on a malformed number.
+		writeSession(dir, "bbb", { id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, pid: "4242" });
+		const sessions = await readRoster(dir);
+		expect(sessions?.[0]).toEqual({
+			id: "s-1",
+			label: "billing-core",
+			mode: "tui",
+			lastSeen: NOW,
+			mail: 0,
+			pid: 4242,
+			startToken: "Mon Oct 26 00:02:00 2026",
+		});
+		expect(sessions?.[1]?.pid).toBeUndefined();
 	});
 
 	test("reads the listening field when it is there, and hides a malformed one", async () => {
@@ -122,5 +148,43 @@ describe("rosterStateOf", () => {
 	test("a heartbeat past the TTL is quiet, not gone", () => {
 		// The record still exists: the bus prunes it later, so the page says "quiet".
 		expect(rosterStateOf(session, NOW + SESSION_TTL_MS + 1)).toBe("quiet");
+	});
+
+	test("a record with no pid is judged by its heartbeat alone, never called dead", () => {
+		// A mode that is not a local process writes no pid; nothing may accuse it.
+		const probe = () => expect.unreachable("no pid means nothing to probe");
+		expect(rosterStateOf(session, NOW + SESSION_TTL_MS + 1, SESSION_TTL_MS, { alive: probe })).toBe("quiet");
+	});
+
+	test("a dead pid is gone, and a fresh heartbeat does not outrank it", () => {
+		// The heartbeat was written seconds before the crash; the process is the newer fact.
+		const dead = { ...session, pid: 4242 };
+		expect(rosterStateOf(dead, NOW, SESSION_TTL_MS, { alive: () => false })).toBe("gone");
+	});
+
+	test("an alive pid with a fresh heartbeat is live, and the token is never asked for", () => {
+		const token = () => expect.unreachable("a one-second poll must not spawn ps");
+		const peer = { ...session, pid: 4242 };
+		expect(rosterStateOf(peer, NOW, SESSION_TTL_MS, { alive: () => true, token })).toBe("live");
+	});
+
+	test("a stale heartbeat on the record's own process stays quiet", () => {
+		const peer = { ...session, pid: 4242, startToken: "Mon Oct 26 00:02:00 2026" };
+		const seams = { alive: () => true, token: () => "Mon Oct 26 00:02:00 2026" };
+		expect(rosterStateOf(peer, NOW + SESSION_TTL_MS + 1, SESSION_TTL_MS, seams)).toBe("quiet");
+	});
+
+	test("a pid reused by another process is gone, not quiet", () => {
+		// Same pid, another start time: the session that claimed it is gone.
+		const peer = { ...session, pid: 4242, startToken: "Mon Oct 26 00:02:00 2026" };
+		const seams = { alive: () => true, token: () => "Tue Oct 27 11:00:00 2026" };
+		expect(rosterStateOf(peer, NOW + SESSION_TTL_MS + 1, SESSION_TTL_MS, seams)).toBe("gone");
+	});
+
+	test("a platform that cannot name a start time leaves a stale pid at quiet", () => {
+		// Windows has no `ps`: the answer is ten minutes late, never wrong.
+		const peer = { ...session, pid: 4242, startToken: "Mon Oct 26 00:02:00 2026" };
+		const seams = { alive: () => true, token: () => undefined };
+		expect(rosterStateOf(peer, NOW + SESSION_TTL_MS + 1, SESSION_TTL_MS, seams)).toBe("quiet");
 	});
 });
