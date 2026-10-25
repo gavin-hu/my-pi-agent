@@ -199,6 +199,10 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("view.teammates === undefined ? null : view.teammates");
 		expect(BOARD_CLIENT_JS).toContain("board-team__id");
 		expect(BOARD_CLIENT_JS).toContain('"Reclaim #" + card.id');
+		// A live peer that is not listening is marked, because a message to it waits for its
+		// next turn; a quiet one is not, because its heartbeat is the bigger news.
+		expect(BOARD_CLIENT_JS).toContain('mate.state === "live" && mate.listening === false');
+		expect(BOARD_CLIENT_JS).toContain("not listening");
 	});
 
 	test("says its lane in the head, separates the notes, and offers only reachable lanes", () => {

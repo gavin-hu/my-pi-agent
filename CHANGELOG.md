@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: opening the board joins this session to the team, and so does the first card
+  it works. `/board` lands on the page's seat, `team-lead`, when this session serves it and
+  on the session's own label when it watches somebody else's; either way it is listening,
+  so a handoff or an offer is reported at its next turn and no turn is raised for it. The
+  join is one request on `pi.events` — a command context cannot call a tool — and a board
+  with no bus still serves, saying `no team` on the line. `/board status` reports the team
+  this session is on, and the line that told you to run `session watch` is gone.
+- `board`: the Team tab marks a live teammate that is not listening, with a `not listening`
+  chip whose tooltip says mail waits for its next turn. The fact comes from the session's
+  own record, so a peer that never wrote it is not accused of ignoring anything, and the
+  page's signature includes it — arming a watch is news, not a heartbeat.
 - `board`: the card dialog can hand an unowned card to a teammate. `Assign to` picks a
   name from the roster (your own session excluded) and records the owner; the page cannot
   message a peer — a command context has no tool calls — so the assignment lands in the

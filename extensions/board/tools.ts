@@ -25,6 +25,7 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
 import { formatCard, formatCards, formatDropped } from "./format.ts";
+import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { BoardResult, collapsedLine, resultInput } from "./result.ts";
 import { createInput } from "./input.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
@@ -70,7 +71,11 @@ function refusal(action: BoardAction, me: BoardDetails["me"], message: string, c
 	});
 }
 
-export function registerTools(pi: ExtensionAPI, runtime: BoardSession): void {
+/** The actions that need this session to be a teammate: everything but a read. */
+const MUTATING_ACTIONS = new Set<BoardAction>(BOARD_ACTIONS.filter((action) => action !== "list"));
+
+export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { team?: TeamJoin } = {}): void {
+	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerTool({
 		name: BOARD_TOOL,
 		label: "Board",
@@ -112,6 +117,13 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession): void {
 			}
 			const me = runtime.who(ctx, ctx.cwd);
 			try {
+				// Working a card makes this session a teammate, once: the board is the user's
+				// surface for the team, so nobody has to know the bus exists. A failed join is
+				// not a failed card write — the board works with no bus at all — and it is not
+				// marked, so the next write asks again.
+				if (MUTATING_ACTIONS.has(action) && !runtime.joined()) {
+					if ((await team.join(ctx)).ok) runtime.markJoined();
+				}
 				const store = await runtime.store(ctx.cwd);
 				const now = runtime.now();
 				switch (action) {

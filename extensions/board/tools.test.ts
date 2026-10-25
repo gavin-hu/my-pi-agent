@@ -14,6 +14,8 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
+import type { JoinResult } from "../../lib/session-tool.ts";
+import type { TeamJoin } from "./join.ts";
 import { registerTools } from "./tools.ts";
 import type { BoardDetails } from "./types.ts";
 
@@ -22,11 +24,25 @@ afterAll(() => temps.flush());
 
 const NOW = 100_000;
 
+/** A team join that records every call and answers with `answer`. */
+function recordingTeam(
+	answer: () => JoinResult = () => ({ ok: true, label: "billing-lead", watching: { armed: true, wake: false } }),
+) {
+	const calls: number[] = [];
+	const team: TeamJoin = {
+		join: async () => {
+			calls.push(calls.length + 1);
+			return answer();
+		},
+	};
+	return { team, calls };
+}
+
 /** A registered tool plus the context it will be called with. */
-function harness(options: FakeCtxOptions & { agentDir?: string } = {}) {
-	const { agentDir, ...ctxOptions } = options;
+function harness(options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin } = {}) {
+	const { agentDir, team, ...ctxOptions } = options;
 	const board = boardHarness({ agentDir, now: NOW, track: temps.track, ...ctxOptions });
-	registerTools(board.fake.pi, board.runtime);
+	registerTools(board.fake.pi, board.runtime, team === undefined ? {} : { team });
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
 	return {
@@ -393,5 +409,33 @@ describe("the details a refusal carries", () => {
 		expect(refused.isError).toBeFalsy();
 		// Claiming what you already hold is a no-op, not a failure.
 		expect(refused.details.card?.rev).toBe(2);
+	});
+});
+
+describe("the team", () => {
+	test("a card write joins once, and a second write does not ask again", async () => {
+		const { team, calls } = recordingTeam();
+		const { call } = harness({ team });
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		expect(calls).toHaveLength(1);
+	});
+
+	test("a read never joins: looking at the board is not joining it", async () => {
+		const { team, calls } = recordingTeam();
+		const { call } = harness({ team });
+		await call({ action: "list" });
+		await call({ action: "list", round: true });
+		expect(calls).toEqual([]);
+	});
+
+	test("a refused join leaves the board working, and the next write asks again", async () => {
+		const { team, calls } = recordingTeam(() => ({ ok: false, error: "the session bus is not loaded" }));
+		const { call } = harness({ team });
+		const added = await call({ action: "add", title: "One" });
+		expect(added.isError).toBeFalsy();
+		expect(added.details.card?.id).toBe("1");
+		await call({ action: "claim", card: "1" });
+		expect(calls).toHaveLength(2);
 	});
 });

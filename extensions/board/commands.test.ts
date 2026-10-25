@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
+import type { TeamJoin } from "./join.ts";
 import type { BoardPage, BoardPageStatus, PageStart } from "./page.ts";
 
 /** A page that records every call and answers with a fixed status. */
@@ -70,12 +71,30 @@ function attachedPage(): BoardPage {
 	};
 }
 
+/** A team join that records the labels it was asked for and answers with `result`. */
+function fakeTeam(
+	answer: (label?: string) => Awaited<ReturnType<TeamJoin["join"]>> = (label) => ({
+		ok: true,
+		label: label ?? "billing-lead",
+		watching: { armed: true, wake: false },
+	}),
+) {
+	const labels: Array<string | undefined> = [];
+	const team: TeamJoin = {
+		join: async (_ctx, label) => {
+			labels.push(label);
+			return answer(label);
+		},
+	};
+	return { team, labels };
+}
+
 /** The command as the host invokes it. */
-async function run(args: string, given?: BoardPage) {
+async function run(args: string, given?: BoardPage, team?: TeamJoin) {
 	const { page, calls } = fakePage();
 	const target = given ?? page;
 	const fake = createFakePi();
-	registerCommands(fake.pi, target);
+	registerCommands(fake.pi, target, team === undefined ? {} : { team });
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");
 	const { ctx, notifications } = fakeCtx();
@@ -84,10 +103,47 @@ async function run(args: string, given?: BoardPage) {
 }
 
 describe("/board", () => {
-	test("opens the page on the Board tab with no argument", async () => {
-		const { calls, notifications } = await run("");
-		expect(calls).toEqual(["start board"]);
-		expect(notifications.at(-1)).toBe("board: team-lead serving ~/.pi/agent/board/k on :4812");
+	test("opens the page on the Board tab, and joins the team as the seat", async () => {
+		const { team, labels } = fakeTeam();
+		const { notifications } = await run("", fakePage().page, team);
+		// Opening the page is the lead's one action: the seat is the label it lands on.
+		expect(labels).toEqual(["team-lead"]);
+		expect(notifications.at(-1)).toBe(
+			"board: team-lead serving ~/.pi/agent/board/k on :4812 · on the team as team-lead, listening",
+		);
+	});
+
+	test("a viewer joins under its own label, because the seat is somebody else's", async () => {
+		const { team, labels } = fakeTeam(() => ({
+			ok: true,
+			label: "billing-lead",
+			watching: { armed: true, wake: false },
+		}));
+		const { notifications } = await run("", attachedPage(), team);
+		expect(labels).toEqual([undefined]);
+		expect(notifications.at(-1)).toBe(
+			"board: team-lead is serving this repository on :4812 — viewing · on the team as billing-lead, listening",
+		);
+	});
+
+	test("serves the page anyway when there is no team, and says so", async () => {
+		const { team } = fakeTeam(() => ({ ok: false, error: "the session bus is not loaded" }));
+		const { notifications } = await run("", fakePage().page, team);
+		expect(notifications.at(-1)).toContain("board: team-lead serving");
+		expect(notifications.at(-1)).toContain("no team (the session bus is not loaded)");
+	});
+
+	test("status repeats what the last open did about the team", async () => {
+		const { team } = fakeTeam();
+		const fake = createFakePi();
+		const { page: target } = fakePage();
+		registerCommands(fake.pi, target, { team });
+		const command = fake.commands.get(BOARD_COMMAND);
+		if (!command) throw new Error("the board command was not registered");
+		const { ctx, notifications } = fakeCtx();
+		await command.handler("", ctx);
+		await command.handler("status", ctx);
+		expect(notifications.at(-1)).toContain("on the team as team-lead, listening");
 	});
 
 	test("opens it on the Team tab", async () => {
@@ -108,10 +164,10 @@ describe("/board", () => {
 		expect(status.notifications.at(-1)).toBe("board: watching team-lead on :4812 — nothing to stop here");
 	});
 
-	test("tells a viewer the page it opened, and the step that makes it reachable", async () => {
-		const { notifications } = await run("", attachedPage());
-		expect(notifications.at(-1)).toBe(
-			"board: team-lead is serving this repository on :4812 — viewing (session watch for handoffs)",
+	test("tells a viewer whose page it is, and that it is on the team", async () => {
+		const { notifications } = await run("", attachedPage(), fakeTeam().team);
+		expect(notifications.at(-1)).toContain(
+			"board: team-lead is serving this repository on :4812 — viewing · on the team",
 		);
 	});
 

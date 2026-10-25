@@ -9,6 +9,9 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { plural } from "../../lib/board/round-text.ts";
+import type { JoinResult } from "../../lib/session-tool.ts";
+import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import { joinLabel, teamLine } from "./join.ts";
 import type { BoardPage, BoardPageStatus } from "./page.ts";
 
 /** The command's name, which is also the word a user types. */
@@ -17,7 +20,10 @@ export const BOARD_COMMAND = "board";
 /** The words the command accepts, in the order a user is likely to want them. */
 export const BOARD_WORDS = ["status", "stop", "team"] as const;
 
-export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
+export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team?: TeamJoin } = {}): void {
+	const team = deps.team ?? createTeamJoin(pi);
+	/** What the last `/board` did about the team, for the status line. */
+	let joined: JoinResult | undefined;
 	pi.registerCommand(BOARD_COMMAND, {
 		description: "Open the shared board in a local browser: /board [team | status | stop]",
 		getArgumentCompletions: (prefix: string) => {
@@ -29,7 +35,7 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const word = args.trim().toLowerCase();
 			if (word === "status") {
-				ctx.ui.notify(statusLine(page.status()), "info");
+				ctx.ui.notify(statusLine(page.status(), joined), "info");
 				return;
 			}
 			if (word === "stop") {
@@ -53,13 +59,15 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 				return;
 			}
 			const started = await page.start(ctx, word === "team" ? "team" : "board");
-			// A failed start has already said why; the other two say which page you are on, and
-			// a viewer is told the one step that makes it reachable.
+			// A failed start has already said why. Otherwise the join happens here, because
+			// opening the page is the lead's one action: the seat when this session serves it,
+			// this session's own label when it watches a page somebody else serves.
 			if (started.kind === "failed") return;
+			joined = await team.join(ctx, joinLabel(started.kind === "served"));
 			ctx.ui.notify(
 				started.kind === "attached"
-					? `board: ${started.seat} is serving this repository on :${started.port} — viewing (session watch for handoffs)`
-					: `board: ${started.seat} serving ${started.where} on :${started.port}`,
+					? `board: ${started.seat} is serving this repository on :${started.port} — viewing${teamLine(joined)}`
+					: `board: ${started.seat} serving ${started.where} on :${started.port}${teamLine(joined)}`,
 				"info",
 			);
 		},
@@ -67,13 +75,13 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 }
 
 /** One line for `/board status`: the page this session serves, watches, or does not have. */
-export function statusLine(status: BoardPageStatus): string {
+export function statusLine(status: BoardPageStatus, team?: JoinResult): string {
 	if (status.running) {
 		const watching = plural(status.watchers ?? 0, "tab");
-		return `board: ${status.seat} serving on :${status.port} · ${watching} watching · ${status.where}`;
+		return `board: ${status.seat} serving on :${status.port} · ${watching} watching · ${status.where}${teamLine(team)}`;
 	}
 	if (status.attached === true) {
-		return `board: watching ${status.seat} on :${status.port} — nothing to stop here`;
+		return `board: watching ${status.seat} on :${status.port} — nothing to stop here${teamLine(team)}`;
 	}
 	return "board: not running — /board opens it";
 }

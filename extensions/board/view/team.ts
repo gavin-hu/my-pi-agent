@@ -161,6 +161,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
           state: entry.state,
           seen: entry.seen,
           mail: entry.mail,
+          listening: entry.listening,
           you: entry.you,
           cards: byLabel[labelOf(entry.label)] || { live: [], done: [] },
         });
@@ -168,7 +169,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     }
     for (var key in byLabel) {
       if (seen[key]) continue;
-      rows.push({ label: byLabel[key].label, state: roster === null ? "unknown" : "absent", seen: undefined, mail: 0, you: false, cards: byLabel[key] });
+      rows.push({ label: byLabel[key].label, state: roster === null ? "unknown" : "absent", seen: undefined, mail: 0, listening: undefined, you: false, cards: byLabel[key] });
     }
 
     function rank(mate) {
@@ -200,6 +201,13 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     node.appendChild(dot);
     node.appendChild(el("span", "board-team__name", mate.label));
     if (mate.you) node.appendChild(chip("you"));
+    // A live peer whose watch is off will read a handoff at its next turn instead of being
+    // woken for it, which is the one thing a lead can still act on.
+    if (mate.state === "live" && mate.listening === false) {
+      var silent = chip("not listening");
+      silent.title = "Mail waits for this session's next turn; it is not woken for it.";
+      node.appendChild(silent);
+    }
     if (mate.mail > 0) node.appendChild(chip(plural(mate.mail, "mail"), "accent"));
 
     // "quiet" alone does not tell a lead whether to reclaim; the heartbeat age does.

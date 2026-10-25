@@ -111,15 +111,29 @@ export async function seedStore(directory: string): Promise<void> {
 
 /**
  * The bus sessions a capture shows, so the Team tab is photographed with every state
- * in it: the serving session with mail, one that went quiet after finishing, one
- * holding nothing, and one owner with no record at all (`billing-core` is left out on
- * purpose). Nothing here reads a real bus.
+ * in it: the serving session with mail and listening, one that went quiet after
+ * finishing, one live but not listening, and one owner with no record at all
+ * (`billing-core` is left out on purpose). Nothing here reads a real bus.
  */
 export function fixtureRoster(now: number): RosterSession[] {
 	return [
-		{ id: "s-lead", label: LEAD.label, mode: "tui", lastSeen: now - 20_000, mail: 1 },
+		{
+			id: "s-lead",
+			label: LEAD.label,
+			mode: "tui",
+			lastSeen: now - 20_000,
+			mail: 1,
+			watching: { armed: true, wake: true },
+		},
 		{ id: "s-other", label: OTHER.label, mode: "tui", lastSeen: now - 42 * 60_000, mail: 0 },
-		{ id: "s-helper", label: "ops-helper", mode: "print", lastSeen: now - 5_000, mail: 0 },
+		{
+			id: "s-helper",
+			label: "ops-helper",
+			mode: "print",
+			lastSeen: now - 5_000,
+			mail: 0,
+			watching: { armed: false, wake: false },
+		},
 	];
 }
 
