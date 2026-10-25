@@ -9,14 +9,14 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ansiLinesToHtml, ansiToHtml, cssFor, parseAnsi } from "./ansi-html.ts";
 import { parseArgs as parseBoardArgs } from "./shots/board.ts";
 import { parseArgs as parseFileBrowseArgs } from "./shots/file-browse.ts";
-import { parseArgs as parseCardArgs } from "./shots/cards.ts";
+import { CARDS, fitsExpression, parseArgs as parseCardArgs, VIEWPORT_WIDTH } from "./shots/cards.ts";
 import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
 import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
@@ -212,7 +212,7 @@ describe("posting card shot arguments", () => {
 
 	test("rejects a fixed width, an unknown card, and one output for two cards", () => {
 		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
-			[["--width", "900"], "--width is fixed: a card is a 1200×675 box"],
+			[["--width", "900"], "--width is fixed: a card sizes itself in its own stylesheet"],
 			[["poster"], 'unknown card "poster"; expected flow, graphic, board, and team'],
 			[["-o", "shot.png"], "-o names one file; capture one card at a time"],
 			[["board", "team", "-o", "shot.png"], "-o names one file; capture one card at a time"],
@@ -315,6 +315,62 @@ describe("plan review shot arguments", () => {
 		for (const [argv, message] of invalid) {
 			expect(() => parsePlanReviewArgs(argv), argv.join(" ")).toThrow(message);
 		}
+	});
+});
+
+describe("posting card pages", () => {
+	/** The cards' directory, where both the pages and their one stylesheet live. */
+	const cardsDir = join(repo, "assets", "cards");
+
+	/** One page's text, by the file name `CARDS` records. */
+	function pageText(page: string): string {
+		return readFileSync(join(cardsDir, page), "utf-8");
+	}
+
+	test("every card is a page that links the one stylesheet", () => {
+		// A page that lost its `<link>` still captures — as an unstyled, overflowing poster —
+		// so the pairing the set rests on is asserted here instead of being left to a capture
+		// that CI never runs.
+		for (const [name, card] of Object.entries(CARDS)) {
+			expect(existsSync(join(cardsDir, card.page)), name).toBe(true);
+			const html = pageText(card.page);
+			expect(html, `${name} must link ./cards.css`).toContain('<link rel="stylesheet" href="./cards.css" />');
+			expect(html, `${name} must open with the card element`).toContain('class="card');
+		}
+	});
+
+	test("the stylesheet has no rule no page uses", () => {
+		// The classes are what this set's renames touch, and a leftover selector is invisible
+		// until someone reads all 700 lines. Comments are stripped first, so a file name in the
+		// prose (`plan-flow.html`) cannot pass for a class.
+		const css = readFileSync(join(cardsDir, "cards.css"), "utf-8").replace(/\/\*[\s\S]*?\*\//g, "");
+		const declared = new Set([...css.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((match) => match[1]));
+		const used = new Set(
+			Object.values(CARDS)
+				.flatMap((card) => [...pageText(card.page).matchAll(/class="([^"]*)"/g)])
+				.flatMap((match) => (match[1] ?? "").split(/\s+/))
+				.filter(Boolean),
+		);
+		const orphans = [...declared].filter((name) => !used.has(name)).sort();
+		expect(orphans).toEqual([]);
+	});
+
+	test("the stylesheet owns the poster box, and the window opens at least that wide", () => {
+		// The capture used to police a size of its own, which is how a box can be stated in
+		// two places and drift in one. `cards.css` states it; this holds the number and the
+		// window hint to it.
+		const css = readFileSync(join(cardsDir, "cards.css"), "utf-8").replace(/\/\*[\s\S]*?\*\//g, "");
+		const block = /\.card \{([^}]*)\}/.exec(css)?.[1] ?? "";
+		expect({ width: /\bwidth: (\d+)px/.exec(block)?.[1], height: /\bheight: (\d+)px/.exec(block)?.[1] }).toEqual({
+			width: "1200",
+			height: "675",
+		});
+		expect(VIEWPORT_WIDTH).toBeGreaterThanOrEqual(Number(/\bwidth: (\d+)px/.exec(block)?.[1]));
+	});
+
+	test("the overflow gate measures the page, not a number of its own", () => {
+		expect(fitsExpression()).toContain("getBoundingClientRect");
+		expect(fitsExpression()).not.toMatch(/1200|675/);
 	});
 });
 
