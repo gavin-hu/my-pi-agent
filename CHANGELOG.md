@@ -156,7 +156,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   changed underneath is refused rather than overwritten. Steps stay in the owner's
   plan and `todo`; ownership is advisory, and `session-bus`'s path claims remain the
   lock. `/board` serves the same cards as a loopback page with a Board tab and a
-  Team tab; writes from it are made as the serving session and never touch the
+  Team tab; writes from it are made as the page's own seat and never touch the
   repository.
 - `subagent`: a read-only delegation, and every built-in agent that reads files,
   can read a document. `read_doc` joined the reader allowlist, so `explorer`,
@@ -307,7 +307,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one place the whole key set was not visible. `assets/screens/rewind.png` is recaptured
   in a window sized to its 13 rows, which takes the poster from 23% empty below the
   closing rule to 7%, like `watch` and `memory`.
-- dev: `assets/` is grouped by what writes it — `cards/` the two posting posters with
+- dev: `assets/` is grouped by what writes it — `cards/` the posting posters with
   their stylesheet, `screens/` every captured frame (the terminal surfaces, the two
   browser pages, and the tool gallery), `tools/` the one-PNG-per-tool files — so the
   directory a file lives in is also the command that regenerates it, and no image sits
@@ -349,8 +349,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with it: the third shot CLI's argument contract is pinned like its siblings',
   and the hero's agent dir is seeded from an allowlist rather than copying every
   config of the capturing machine.
-- `docs`: the front door's hero is recaptured on the raised floor, so it names
-  `Pi v1.4.0` instead of `v1.1.0`; the catalog now says its groups are the
+- `docs`: the catalog now says its groups are the
   promises the [roadmap](./ROADMAP.md) tracks and that the
   [guide](./docs/user-guide/) covers the same ground chapter by chapter; and the
   Documentation table gains the [documentation index](./docs/README.md). The
@@ -402,14 +401,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   root anchor, recall switch, and headless surfaces; and web-access, file-browse,
   file-read, and file-open name their write-style fetch, printing and live chip,
   extraction progress, and codemode-only exposure.
-- Tooling: the posting cards cover the board and the team — `assets/cards/board.html`
+- dev: the posting cards cover the board and the team — `assets/cards/board.html`
   draws the lanes' trays, one card's atoms, and the lead's round beside the page's seat
   and live badge, and `board-team.html` draws `assign`, `offer`, and `reclaim` as three
   bands — so a capability can be posted without a screenshot of a live page. The
   capture command is `screenshot:cards` (it was `screenshot:plan-flow`, which now names
   only half of what it captures), it takes several card names at once, and the four
   posters share `assets/cards/cards.css` (was `plan-flow.css`).
-- Tooling: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
+- dev: `bun run tools:render` forwards `list`, `render`, `html`, `gallery`, and
   `tools` to `scripts/tool-renderings.ts`, and the two asset regenerators compose it
   (`screenshot:tools` and `screenshot:tool-pngs`), so a subcommand is reachable by
   package script instead of a raw file path. `AGENTS.md` and `docs/development.md`
@@ -475,11 +474,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shared file, no lead — went with the parameter that fed them, and so did the
   roster card `exit_plan_mode` printed.
 
-- `session`: `join` and `leave` are gone, along with the `team` and `unit`
-  parameters and the `units n/m` line in `status`. A session claims the paths it
-  means to edit and releases them when the work merges: `release` takes a path
-  list, and ending the session is what frees everything else. `session join` from
-  an older note fails as an unknown action instead of claiming nothing.
+- `session-bus`: the tool's `join` no longer takes a unit — a session cannot hold
+  one — and `leave`, the `team` parameter, and the `units n/m` line in `status`
+  went with it. A session claims the paths it means to edit and releases them when
+  the work merges: `release` takes a path list, and ending the session is what
+  frees everything else. `join` is the membership verb now: it puts this session on
+  the bus under a label, listening.
 
 - `plan`: the `plan.team` row is gone from `/bytefly settings`, and the key is no
   longer read from `bytefly.json`. A project that still sets it keeps an inert
@@ -494,8 +494,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   claims, and the inbox watch.
 
 - dev: `assets/cards/parallel-dev.html`, its PNG, and the `terminal.css` it alone
-  linked are deleted, and `bun run screenshot:plan-flow` takes `flow` or
-  `graphic`. The two `lib/` directories the feature had hoisted — `lib/plans/`
+  linked are deleted, and the posting-cards capture takes `flow` or `graphic`.
+  The two `lib/` directories the feature had hoisted — `lib/plans/`
   (the `## Team` codec, the split rules, the `plan.team` switch, the plans
   directory) and `lib/claims/` — are dissolved into their one remaining owner:
   the section scan is `extensions/plan/sections.ts`, the plans directory is a
@@ -605,7 +605,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ten-row table ran to 1758px with 221px rows at a 900px window, and 2154px with
   304px rows on a phone. The frame is now a size container and the cells take a
   14em floor below 600px, so the table overflows into the wrapper that already
-  scrolls it instead; above that width nothing changes.
+  scrolls it instead.
 - `file-browse`: a phone gets the file, not four stacked button rows above it. Below
   820px the served folder's path keeps the tail that names it — the ellipsis falls on
   the left instead of on the last segments — and below 520px the card's controls hold
@@ -635,7 +635,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `context`: the largest-messages rows pad the role column to twelve cells, so
   "tool result" — the longest role — no longer runs into its label as
   "tool resultread".
-- Tooling: the hero capture is one whole turn at 100x34 — the prompt, an answer, the
+- dev: the hero capture is one whole turn at 100x34 — the prompt, an answer, the
   `edit` diff the tool gallery draws, the jobs notice, the turn rule, the goal and todo
   rails, and a footer naming `deepseek-flash` — so the window reads as a session in
   use; `assets/screens/chrome.png` is refreshed.
