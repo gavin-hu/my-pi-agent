@@ -1,9 +1,10 @@
 # team — the lead's round over the board
 
-`board` owns the cards. `team` owns the three actions that need a team: `assign` hands a
-card to a session that is **already running**, `offer` hands one to whoever is free, and
-`reclaim` takes one back when its owner has gone quiet. Each is one pair of calls on the
-board and the session bus, and the report says what the peer will actually do with it.
+`board` owns the cards. `team` owns the lead's three actions: `assign` hands a card to a
+session that is **already running**, `offer` hands one to whoever is free, and `reclaim`
+takes one back when its owner has gone quiet. The first two are a write on the board and a
+message on the session bus; `reclaim` writes the card alone, so it needs no bus at all. The
+report says what the peer will actually do with it.
 
 Nothing starts a process. A message lands in the peer's inbox and is reported at its next
 turn, so `assign` and `offer` are messages, not launches.
@@ -21,10 +22,10 @@ owner whose label nothing answers to, and a teammate that is not listening.*
 | Hand a feature to a running session | `team` action `assign` | The card is `doing`, owned by that session, and a handoff is in its inbox |
 | Tell the peer what to do first | `team` action `assign` with `note` | The handoff carries the card, its paths, its plan, and that line |
 | Hand a feature to whoever is free | `team` action `offer` | Every other live session gets an event naming the card; the card stays unowned until one claims it |
-| Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | `Not listening: <labels>` names the peers whose record says their next turn is when it lands |
+| Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
 | Take a card back | `team` action `reclaim` | The owner clears, the card returns to To do, and its notes stay |
 | Keep the round to the team | `team` | Only `assign`, `offer`, and `reclaim`: no card is created, moved, planned, or finished here — that is `board`'s surface |
-| See the round without a browser | `/team` | The rollup the page's Team tab draws, printed: what needs a decision, who holds what, then who is live, who is not listening, and who has gone quiet |
+| See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one presence line for who is live, who is not listening, and who has gone quiet. Ten lines at most, then `… N more`; an empty board is one line |
 
 ## Quickstart
 
@@ -61,8 +62,9 @@ its surface is the point: `board` and `team` join this session for you.
 
 Joining is listening: mail is reported at that session's next turn, and **no turn is
 raised** for it, so being on the team never spends a turn. `/team` says who is live and
-who is live but not listening; `/board status` says which team this session is on, and
-why not when the bus is not loaded.
+who is live but not listening. `/board status` repeats only what the last `/board` in this
+session did about the team — a join made by `/team join` or by a card write is not on that
+line, and a page that is not running prints no team clause at all.
 
 **The seat is not a session.** The page writes as `team-lead` with an id of its own, so a
 card it claimed comes back with `reclaim` rather than a `release` from the terminal. The
@@ -133,16 +135,21 @@ An offer is advice: nothing is theirs until they claim it, and a card nobody cla
   turn; a session that is not listening at all reads it only when it reads its inbox.
 - **`to` must be on the team.** A session that never opened the board, joined, or worked a
   card cannot be handed a card, and an offer to nobody says so.
-- **`team-lead` is a label, not a person.** The page's seat is not a session, so a handoff
-  to `team-lead` is refused; the seat's cards come back with `reclaim`.
+- **`team-lead` is a label, not a person.** The seat is not a session, so its actor id
+  `board:team-lead` answers no message; the label is the one the session serving the page
+  joins under, so a handoff to `team-lead` reaches whoever is serving the page just now —
+  and is refused, like any other label, when nobody is. The seat's cards come back with
+  `reclaim`.
 - **A label-only owner is fragile.** If the bus could not name the session behind `to`,
   the card records the label, and a rename would need a `reclaim` and a fresh handoff.
 - **An offer is advice.** A card can sit offered indefinitely; the round keeps counting it
   as unassigned, which is the honest signal that nobody took it.
 - **An offer arrives as an `event`.** A burst that mixes one with ordinary messages is
   headlined as new messages rather than named as an offer.
-- **Listening is as fresh as the peer's last team action.** The mark comes from the
-  session's own record, written when it joins or stops listening.
+- **Liveness is a heartbeat; listening is a field.** A running session rewrites its record
+  every ten seconds and the record is believed for ten minutes, so `quiet:` means the
+  record went stale rather than that the peer died, while `not listening` is the separate
+  `watching` field, written when the session joins or arms and disarms its watch.
 - **Plan mode makes this unavailable.** `session` is a mutating tool, so while plan mode is
   active the bus call is refused. Assign after the plan is approved.
 - **Ownership is advisory.** `assign` does not create a path claim; the peer still claims
@@ -156,10 +163,11 @@ An offer is advice: nothing is theirs until they claim it, and a card nobody cla
   to assign.
 - **`session-bus`**: the transport, and the one extension `team` talks to — through
   `lib/session-tool.ts`, whose `join` is an in-process request (a command context cannot
-  call a tool) and whose `peers` and `send` are nested tool calls. The bus's name, its
-  actions, and its labels never appear on this extension's user surface; `team` and
-  `board` are the surface. An unloaded bus makes each call answer with a sentence, which is
-  the "card untouched" row above.
+  call a tool) and whose `peers` and `send` are nested tool calls. The bus's actions and
+  labels never appear on this extension's user surface — `team` and `board` are the
+  surface — but its name does, in the sentence an unloaded bus produces: `team: not on the
+  team — the session bus is not loaded`. Every call returns that sentence instead of
+  throwing, which is the "card untouched" row above.
 - **`plan`**: the handoff names the plan file when one is recorded, so the peer knows
   whether it is executing a plan or writing one.
 - **`subagent`**: a child process is a different Pi session; hand a card to a peer
