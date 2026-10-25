@@ -123,9 +123,15 @@ export function dialogScript(options: DialogOptions): string {
   // A button inside a closed dialog has no boxes, so the rects are the test that
   // survives a hidden attribute, a collapsed panel, and a stylesheet swap alike.
   function focusables() {
-    return Array.prototype.filter.call(dialog.querySelectorAll('${FOCUSABLE}'), function (node) {
+    var nodes = Array.prototype.filter.call(dialog.querySelectorAll('${FOCUSABLE}'), function (node) {
       return node.getClientRects && node.getClientRects().length > 0;
     });
+    // A panel that names itself focusable is where focus lands on open, so the close
+    // button is not the first thing a dialog says with its ring. It stays first in the
+    // list, which is what keeps Shift+Tab wrapping inside instead of escaping the scrim.
+    var panel = dialog.querySelector('[role="dialog"][tabindex]');
+    if (panel && panel.getClientRects && panel.getClientRects().length > 0) nodes.unshift(panel);
+    return nodes;
   }
   function toggle(force) {
     var open = force === undefined ? dialog.hidden : force;

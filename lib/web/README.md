@@ -34,7 +34,10 @@ are computed rather than mapped:
 - `--scrim` and `--shadow` — per appearance, because a dimming layer and a lifted
   panel need their own alpha rather than a palette entry.
 
-Components read tokens only: no literal hex or `rgba()` in `components.ts`, and a
+`--raised` is the one derived neutral: `--surface` mixed 6% (dark) or 3% (light)
+toward `--text`, for a block that has to read as a plane above the page rather than
+as an outline — the light step is smaller because a darker accent on a lighter step
+falls below AA. Components read tokens only: no literal hex or `rgba()` in `components.ts`, and a
 test fails one. Contrast is asserted, not assumed — text, muted, and accent at
 4.5:1 on both surfaces, the primary label at 4.5:1 on the accent fill, `--dim` at
 3:1 because it carries the line-number gutter, and the status colours at 3:1.

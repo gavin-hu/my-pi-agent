@@ -103,7 +103,7 @@ ${docHead({ title: "board", css: BOARD_CSS })}
 </div>
 
 <div class="bf-dialog" id="board-card-dialog" hidden>
-  <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="card-dialog-title">
+  <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="card-dialog-title" tabindex="-1">
     <div class="bf-dialog__head">
       <h2 id="card-dialog-title"></h2>
       <span class="board-dialog__state" id="card-dialog-state"></span>
@@ -129,7 +129,7 @@ ${docHead({ title: "board", css: BOARD_CSS })}
 </div>
 
 <div class="bf-dialog board-confirm" id="board-confirm" hidden>
-  <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="confirm-title" tabindex="-1">
     <div class="bf-dialog__head"><h2 id="confirm-title"></h2></div>
     <div class="bf-dialog__body"><p class="board-confirm__body" id="confirm-body"></p></div>
     <div class="bf-dialog__actions">

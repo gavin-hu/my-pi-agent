@@ -71,7 +71,7 @@ describe("web tokens", () => {
 	test("keeps body text at WCAG AA against both surfaces", () => {
 		for (const appearance of ["dark", "light"] as const) {
 			const tokens = WEB_THEME_TOKENS[appearance];
-			for (const surface of ["--canvas", "--surface"]) {
+			for (const surface of ["--canvas", "--surface", "--raised"]) {
 				expect(contrast(tokens["--text"], tokens[surface]), `${appearance} text/${surface}`).toBeGreaterThanOrEqual(
 					4.5,
 				);
@@ -83,6 +83,22 @@ describe("web tokens", () => {
 				);
 			}
 		}
+	});
+
+	test("derives a raised surface one visible step above the page's", () => {
+		for (const appearance of ["dark", "light"] as const) {
+			const tokens = WEB_THEME_TOKENS[appearance];
+			// A block that must read as a plane needs more than the 1.09:1 a surface has
+			// against the canvas, and less than the border it sits inside.
+			expect(contrast(tokens["--raised"], tokens["--canvas"]), `${appearance} raised`).toBeGreaterThanOrEqual(1.1);
+			expect(tokens["--raised"]).not.toBe(tokens["--surface"]);
+		}
+	});
+
+	test("focuses a dialog's panel when the panel names itself focusable", () => {
+		// The close button used to take the ring on every open, which put the eye in a
+		// corner before it reached the content.
+		expect(dialogScript({ dialogId: "x" })).toContain('[role="dialog"][tabindex]');
 	});
 
 	test("keeps status colours legible as UI", () => {
@@ -111,7 +127,7 @@ describe("web tokens", () => {
 		// numbered column, so it has to stay above the large-text threshold.
 		for (const appearance of ["dark", "light"] as const) {
 			const tokens = WEB_THEME_TOKENS[appearance];
-			for (const surface of ["--canvas", "--surface"]) {
+			for (const surface of ["--canvas", "--surface", "--raised"]) {
 				expect(contrast(tokens["--dim"], tokens[surface]), `${appearance} dim/${surface}`).toBeGreaterThanOrEqual(3);
 			}
 		}

@@ -27,7 +27,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   mail, and what it holds; an owner whose label nothing answers to keeps its row, and
   with `session-bus` unloaded every state reads `—` and the tab behaves as it did.
   An owner whose last card is done keeps its row instead of vanishing from the rollup
-  the moment the work ends.
+  the moment the work ends. A review pass in the dark theme then took the page's
+  outline weight down: decision rows sit on a new `--raised` step above `--surface`
+  instead of a hairline box, the roster drops its per-row rules, the Done lane sits on
+  the page so history stops competing, the reason line speaks one voice (`no plan
+  recorded`, `planned`, or the blocked card's note), a teammate's mail badge sits beside
+  its name, the Done strip's ids carry a dotted line, and a dialog focuses its panel
+  rather than its close button — so the ring lands on the window, not in a corner.
   Its modals are the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the
