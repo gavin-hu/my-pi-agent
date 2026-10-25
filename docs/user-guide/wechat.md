@@ -53,7 +53,7 @@ The bridge carries the signals a chat window needs, without inventing small talk
 | The peer does this | The bridge does this |
 |---|---|
 | Sends a message | Starts the typing indicator and sends the answer when the turn settles |
-| Sends several messages quickly | Sends one acknowledgement at most, then one answer covering the burst in order |
+| Sends several messages quickly | Answers every one: each message is its own turn, in arrival order, and nothing is merged |
 | Waits behind a long turn | Refreshes typing, says the turn is queued after four seconds, and at thirty seconds names `/stop` as the way out |
 | Sends while another peer's turn runs | Says the message is queued after four seconds, then again at a minute |
 | Sends a photo or file | Passes it to the model; an attachment that cannot be read is named in the answer |
@@ -112,18 +112,20 @@ the terminal interface:
 | `/wechat logout` | Confirm, clear credentials, and stop polling |
 | `/wechat help` | List the subcommands |
 
-A peer can use `/new`, `/stop`, `/status`, `/history`, and `/help` in the chat.
-These are answered by the bridge and never become a model turn, and they work
-while a dialog is waiting for an answer — the dialog holds the model, so a
-command is matched first and `/status` names the question, `/stop` ends the turn.
-Unknown slash commands are passed through.
+A peer can use `/stop`, `/status`, `/history`, and `/help` in the chat. `/new` is the
+owner's alone: a peer that sends it gets no answer, and `/help` does not list it for
+them. The commands that are answered by the bridge never become a model turn, and they
+work while a dialog is waiting for an answer — the dialog holds the model, so a command
+is matched first and `/status` names the question, `/stop` ends the turn. Unknown slash
+commands are passed through.
 
 ## Conversations, sessions, and state
 
 - A conversation per peer is persisted under `<agent-dir>/wechat/sessions/<peer>/`
   and resumed on the next message. It is disposed after thirty minutes idle.
-- Turns run one at a time across peers by default, so a forwarded dialog has a
-  single owner. A queued message is acknowledged, not dropped.
+- One turn at a time per peer, and two peers' turns at once by default, so a
+  forwarded dialog has a single owner; a third peer waits for a slot and is told so. A
+  queued message is acknowledged, not dropped.
 - A peer turn never mixes into the terminal conversation. The terminal's own
   dialogs stay in the terminal.
 - Pause is per runtime: it releases the poller lock so another Pi process can

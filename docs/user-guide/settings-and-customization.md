@@ -140,9 +140,9 @@ triggers can be switched independently:
 | **Watcher matched** | A watcher whose wake setting is on matches and raises a turn once the assistant is idle |
 
 `notify.method` in `bytefly.json` can stay `auto`, which prefers the terminal and
-then the platform, or name a mechanism: OSC 777, OSC 99, Windows toast, macOS, or
-Linux `notify-send`. `notify.title` is the title of every OS notification. An
-explicit method your host cannot deliver is reported by the doctor as degraded,
+then the platform, or name one: `osascript` (macOS), `notify-send` (Linux), `toast`
+(Windows), `osc777`, or `osc99`. `notify.title` is the title of every OS notification.
+An explicit method your host cannot deliver is reported by the doctor as degraded,
 not silently ignored.
 
 An aborted run is not announced: pressing `Esc` means you are already at the

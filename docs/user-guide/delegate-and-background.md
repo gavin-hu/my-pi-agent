@@ -64,8 +64,9 @@ server, a test run in another window.
 
    */jobs: running jobs first, and the focused job's last output line.*
 
-3. A finished job that you have not read turns the chip into `✗ 1`. Open its log
-   to clear the mark. A failed job keeps its result until you do.
+3. A job whose result has not been reported back to the assistant turns the chip into
+   `✗ 1`; the completion notice is what clears it, not reading the log. A failed job
+   keeps its result until then.
 
 ### Walkthrough: a watcher
 
@@ -110,13 +111,16 @@ server, a test run in another window.
   chatty command cannot fill your disk. The tail shown in the transcript is
   sanitized, so stray terminal codes cannot garble the screen.
 - A watcher keeps the most recent 200 matches and lives only for the session. A
-  match while the assistant is busy is raised once that turn settles; a match
-  while it is idle wakes it at once.
+  match while the assistant is busy is raised once that turn settles; a match while it
+  is idle raises a turn of its own only with `wake: true` on the watcher, and otherwise
+  waits for your next turn.
 - Both can wake the assistant: say "and wake me when it's done" or "wake me when
-  it matches". The same switches are **Wake when a job finishes** and **Wake on a
-  match** in `/bytefly settings`.
-- A job can outlive the session: **Keep jobs after exit** leaves it running. This
-  is POSIX-only; Windows refuses a detached job.
+  it matches". `/bytefly settings` has **Wake when a job finishes**; the watcher's
+  default is the `watch.wakeOnMatch` key in `bytefly.json`, which the settings screen
+  has no row for.
+- A job can outlive the session: pass `detached: true` to a `job` `start`, or set
+  `job.detachedByDefault` in `bytefly.json` — neither is a settings screen row. This is
+  POSIX-only; Windows refuses a detached job.
 - Another session's job can be read but not killed from this one. The list says
   which session owns it.
 
@@ -153,8 +157,9 @@ and provider, so it spends tokens. Use it for work that benefits from isolation.
 | `debugger` | Finding the root cause of a failure from evidence |
 | `documenter` | Bringing READMEs, docs, and changelogs in line with the code |
 
-Each helper has an explicit tool allowlist. A reviewer cannot edit files, a
-planner writes nothing, and a worker cannot start more helpers.
+Each helper has an explicit tool allowlist. A reviewer's is read-only apart from a
+`bash` it is told to keep to inspection (`git diff`, `git log`, `git show`), a planner
+writes nothing, and a worker cannot start more helpers.
 
 ### Walkthrough: one helper
 
@@ -216,9 +221,9 @@ planner writes nothing, and a worker cannot start more helpers.
 
 ### Bring your own helper
 
-The built-ins are not the limit. Add a Markdown file to `~/.pi/agents` for every
-project, or to a project's `.pi/agents` for one repository. The file is YAML
-frontmatter plus a system prompt:
+The built-ins are not the limit. Add a Markdown file to `<agent-dir>/agents` — usually
+`~/.pi/agent/agents` — for every project, or to a project's `.pi/agents` for one
+repository. The file is YAML frontmatter plus a system prompt:
 
 ```markdown
 ---
@@ -284,8 +289,8 @@ repository act as a team without sharing a conversation.
 ## Sharing a board
 
 `session-bus` carries messages; `board` carries the work. A repository has **one
-board**, filed under the repository's common git directory, so every session and
-every worktree sees the same cards.
+board**, filed under `<agent-dir>/board/<repo-key>/` rather than in the checkout, so
+every session and every worktree sees the same cards.
 
 - A card is one **feature**, not one step: the steps of the work live in the
   owner's plan and in `todo`. A card carries the feature's outcome, the session
@@ -318,9 +323,9 @@ every worktree sees the same cards.
   any `board` action makes your work yours, and any `session` action puts you on the bus
   — where the lead's Team tab sees you — while joining is also listening, so a handoff
   is reported at your next turn and `wake: true` is what raises a turn when it lands.
-- `/team` prints the round in the terminal: the rollup `board list --round` returns, then
-  who is live and who has gone quiet. A lead does not need a browser to see what needs a
-  decision, and `/board status` prints one line about the page itself.
+- `/team` prints the round in the terminal: the rollup a `board` `list` with `round:
+  true` returns, then who is live and who has gone quiet. A lead does not need a browser
+  to see what needs a decision, and `/board status` prints one line about the page itself.
 - Ownership is advisory. Two sessions can still edit the same file; a path claim
   in `session-bus` is what protects it.
 
@@ -330,7 +335,8 @@ overwriting it. Nothing prunes a finished card: `drop` is the only deletion.
 
 ## Running a round
 
-`team` is the lead's half of the board: the two actions that reach the session bus.
+`team` is the lead's half of the board. `assign` and `offer` are the two actions that
+reach the session bus; `reclaim` writes the card alone.
 
 - `team` `action: "assign"` hands a card to a session that is **already running**.
   The peer gets a handoff in its inbox — the card, its paths, its plan, and a line
@@ -343,13 +349,18 @@ overwriting it. Nothing prunes a finished card: `drop` is the only deletion.
 - The order is deliberate. If the send fails, the card is untouched, and the answer
   says so; if the card changed between the send and the assignment, the answer says
   the peer should `board claim` it.
+- `team` `action: "offer"` names nobody. It broadcasts an unclaimed card to every other
+  live session as one event and records no owner, so the first peer to `board claim` it
+  takes it; two peers claiming at once are settled by the store, so one wins and the
+  other is refused with the owner named. A card nobody claims stays `todo`, which is how
+  it keeps showing up as unassigned.
 - `team` `action: "reclaim"` takes a card back to To do when its owner has gone
   quiet. The notes stay, so the next owner reads what happened. The board's Team tab can
   record an owner for an unowned card too, but a browser cannot message a peer, so that
   assignment says in the card's history that no handoff was sent.
 
-A round, end to end: `board list --round` to see who holds what, `team assign` for
-each unassigned card, then `board list --round` again once the peers settle. A
+A round, end to end: a `board` `list` with `round: true` to see who holds what, `team`
+`assign` for each unassigned card, then the same list again once the peers settle. A
 blocked card is your next decision, not theirs.
 
 ## Related

@@ -177,7 +177,7 @@ some keys mean different things in an editor or a diff.
 | macOS | `osascript` is the OS notification route; a launch that starts and then fails adds a notification | [`notify.method`](../configuration.md#notify--os-notifications) |
 | Linux | `notify-send` is the OS notification route | [`notify.method`](../configuration.md#notify--os-notifications) |
 | Any terminal | OSC 777 and OSC 99 need terminal support; `auto` falls back to the platform. `Ctrl+Alt+P` is sent by some terminals but not others, so `/plan` is the portable toggle. A theme cannot correct a mismatched terminal background | [`notify.method`](../configuration.md#notify--os-notifications), [Themes](./settings-and-customization.md#themes) |
-| RPC, JSON, print | Screens print a report instead; `question` is inactive; `/open` and the WeChat QR login need the terminal | [What each feature needs](./getting-started.md#what-each-feature-needs) |
+| RPC, JSON, print | Screens print a report instead; `question` is inactive; the WeChat QR login needs the terminal | [What each feature needs](./getting-started.md#what-each-feature-needs) |
 
 ## Files on disk
 

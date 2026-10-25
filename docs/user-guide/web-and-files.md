@@ -79,12 +79,12 @@ when you already have the URL and want the page's content rather than a snippet.
   related topics rather than a full result list. SearXNG or Brave returns a
   conventional list; see
   [Configuration](../configuration.md#web-access--search-and-fetch).
-- PDF fetching is optional. It needs the `unpdf` package; without it, a PDF URL
-  is refused with an explanation instead of failing silently. Local PDFs are
-  handled by [the document reader](#reading-a-document) and need no extra
-  package.
-- Fetched pages are cached in memory for the session, so paging and `find` do
-  not refetch. `refresh: true` fetches again.
+- PDF fetching is optional. It needs the `unpdf` package; without it, or when a PDF's
+  text cannot be extracted, the fetch still returns the page with a `(binary content: …)`
+  note in place of the text instead of failing silently. Local PDFs are handled by
+  [the document reader](#reading-a-document) and need no extra package.
+- Fetched pages are cached in memory for five minutes (`web-access.cacheTtlMs`), so
+  paging and `find` do not refetch. `refresh: true` fetches again.
 - The SSRF guard covers every redirect hop, but DNS rebinding remains a residual
   risk. Fetch pages you trust.
 - Requests have a timeout and a byte cap. Both are configurable.
@@ -109,8 +109,9 @@ needed; the parsers are ordinary package dependencies loaded only when that
 format is read. The extension is called `file-read`.
 
 Supported formats: PDF, DOCX, DOC, ODT, RTF, and XLSX. A workbook reads as one
-`[Sheet]` heading per worksheet followed by tab-separated rows. Legacy `.xls` is
-not supported; the error names the limitation and points at the supported format.
+`[Sheet]` heading per worksheet that has rows, followed by tab-separated rows; an empty
+sheet is skipped. Legacy `.xls` is not supported; the error names the limitation and
+points at the supported format.
 
 ### Walkthrough
 
@@ -272,9 +273,10 @@ detached, so it stays open after Pi closes.
 
 ### Good to know
 
-- The command needs the interactive terminal interface. The underlying
-  `open_path` tool is available to codemode scripts and extensions, but is not
-  active for the model by default.
+- The command works in every mode: the handler has no terminal-only gate, so a
+  headless run launches the path and reports what it opened. The underlying `open_path`
+  tool is available to codemode scripts and extensions, but is not active for the model
+  by default.
 - Relative paths resolve against the effective working directory, so `/open .`
   opens the active worktree when you are isolated.
 - The `-r` flag must come first. A leading `@` and surrounding quotes are
