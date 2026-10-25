@@ -19,9 +19,12 @@ import { fileURLToPath } from "node:url";
 import { captureFullPage, readyWhen } from "../capture/chrome.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
 
-/** The box every card declares in `cards.css`; the image is exactly this. */
-const CARD_WIDTH = 1200;
-const CARD_HEIGHT = 675;
+/**
+ * The window the capture opens at. A card sizes itself in `cards.css`, so this is a
+ * hint, not the box: it is the widest poster's width, which keeps the first layout
+ * from reflowing before `captureFullPage` sizes the window to the document.
+ */
+export const VIEWPORT_WIDTH = 1200;
 
 /** One card: the page to open and the PNG it is published as. */
 export interface Card {
@@ -63,7 +66,7 @@ function listNames(names: string[]): string {
 /** Parse the command line; throws a message the caller prints as usage. */
 export function parseArgs(argv: string[]): ShotOptions {
 	const parsed = parseShotArgs(argv, { out: "", scale: 2, maxPositional: Object.keys(CARDS).length });
-	if (argv.includes("--width")) throw new Error("--width is fixed: a card is a 1200×675 box");
+	if (argv.includes("--width")) throw new Error("--width is fixed: a card sizes itself in its own stylesheet");
 	const cards = parsed.positional.length > 0 ? parsed.positional : Object.keys(CARDS);
 	for (const name of cards) {
 		if (!(name in CARDS)) throw new Error(`unknown card "${name}"; expected ${listNames(Object.keys(CARDS))}`);
@@ -79,11 +82,13 @@ function readyExpression(waitMs: number): string {
 
 /**
  * Fails the capture when the card's content outgrows it. The card clips, so a
- * child's box is the only honest measurement: the document has no scroll extent
- * to compare, and the rendered PNG would otherwise look complete while its last
- * line was cut.
+ * child's box is the only honest measurement: the document has no scroll extent to
+ * compare, and the rendered PNG would otherwise look complete while its last line
+ * was cut. The box it is compared against is the page's own, because the stylesheet
+ * is the one place that states the poster's size.
  */
-const FITS_CARD = `(function () {
+export function fitsExpression(): string {
+	return `(function () {
 	var card = document.querySelector(".card");
 	if (!card) throw new Error("the card is missing");
 	var box = card.getBoundingClientRect();
@@ -95,12 +100,13 @@ const FITS_CARD = `(function () {
 		widest = Math.max(widest, rect.right - box.left);
 		lowest = Math.max(lowest, rect.bottom - box.top);
 	}
-	if (widest > ${CARD_WIDTH} + 0.5 || lowest > ${CARD_HEIGHT} + 0.5) {
+	if (widest > box.width + 0.5 || lowest > box.height + 0.5) {
 		throw new Error("the card overflows: content reaches " + Math.round(widest) + "×" +
-			Math.round(lowest) + " in a ${CARD_WIDTH}×${CARD_HEIGHT} box");
+			Math.round(lowest) + " in a " + Math.round(box.width) + "×" + Math.round(box.height) + " box");
 	}
-	return Math.round(widest) + "×" + Math.round(lowest);
+	return Math.round(box.width) + "×" + Math.round(box.height);
 })()`;
+}
 
 /** Capture one card and print the path written. */
 async function capture(name: string, options: ShotOptions): Promise<void> {
@@ -111,9 +117,9 @@ async function capture(name: string, options: ShotOptions): Promise<void> {
 		url: `file://${page}`,
 		origin: "file://",
 		out,
-		width: CARD_WIDTH,
+		width: VIEWPORT_WIDTH,
 		scale: options.scale,
-		before: [{ expression: readyExpression(options.waitMs) }, { expression: FITS_CARD }],
+		before: [{ expression: readyExpression(options.waitMs) }, { expression: fitsExpression() }],
 	});
 	console.log(out);
 }
