@@ -31,7 +31,7 @@ session.
 | `subagent` | A runnable `pi` on `PATH` | Delegation reports that no child process could start | The `/agents` board; the tool itself works everywhere |
 | `worktree`, `rewind` | `git` on `PATH` and a project git tracks | Both report what is missing; the rest of the pack works | The path and hunk checklists, and the rewind timeline |
 | `memory` | A trusted project for project-scope notes | Global notes still work; the project store is refused | The picker; text mode lists the notes |
-| `web-access` | Network access; the optional `unpdf` package for PDF URLs | HTML works; a PDF URL is refused with an explanation | None |
+| `web-access` | Network access; the optional `unpdf` package for PDF URLs | HTML works; a PDF URL comes back as a binary-content note rather than text | None |
 | `file-read` | Nothing | Nothing; extraction is local | None |
 | `file-browse` | A browser | The page cannot be opened | A page in your browser |
 | `file-open` | A desktop handler for the file type | A launch failure is reported | The command itself |
