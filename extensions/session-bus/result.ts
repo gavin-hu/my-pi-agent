@@ -151,9 +151,9 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 			const watching = details.status?.watching;
 			if (watching) cells.push(watching.wake ? "watch wake" : "watch on");
 			const line = paint(theme, "meta", cells.join(sep));
-			// A reader that has not named itself is looking at a bus it is not on.
+			// A reader that has not joined is looking at a bus it is not on.
 			if (details.status?.onBus === false) {
-				return `${line}${paint(theme, "faint", sep)}${paint(theme, "warn", "not on the bus \u2014 name this session to join")}`;
+				return `${line}${paint(theme, "faint", sep)}${paint(theme, "warn", "not on the bus \u2014 session join puts you on it")}`;
 			}
 			return line;
 		}

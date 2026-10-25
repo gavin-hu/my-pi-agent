@@ -16,7 +16,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 | Capability | How | What you get | Status |
 |---|---|---|---|
-| Membership | `session join [label]`, `/sessions join [<label>]` | The join: this session is on the bus under a stable label peers address — also the name Pi's footer and `/resume` show — and listens for mail unless told not to. | Unreleased |
+| Membership | `session join [label]`, `/team join [<label>]`, the board's `w` | The join: this session is on the bus under a stable label peers address — also the name Pi's footer and `/resume` show — and listens for mail unless told not to. | Unreleased |
 | Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read. | Shipped |
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
 | Board actions | `/sessions` (`w`, `x`) | Start or stop listening from the board, or release an own claim behind a confirmation, without leaving it. | Shipped |
@@ -26,7 +26,6 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
 | Listening | `session join` | New mail reported at the next turn; `join({wake: true})` raises one turn once the agent is idle, and `join({listen: false})` stops it. | Unreleased |
 | Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. | Shipped |
-| Usage help | `/sessions help` | The command's usage lines, printed in the transcript. | Shipped |
 
 ## Quickstart
 
@@ -37,8 +36,8 @@ pi install ./                             # install the package for a user
 ```
 
 ```text
-/sessions                                  # open the board: empty until this session joins
-/sessions join billing-core                # join, name this session for Pi, and listen for mail
+/sessions                                       # open the board: empty until this session joins
+session({action:"join", label:"billing-core"})  # join, name this session for Pi, and listen for mail
 ```
 
 Nothing joins on `session_start`, in any mode: the board and `status` only read, so
@@ -61,7 +60,7 @@ collapsed line that expands to the board's rows.
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
-| `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/sessions join`, so the footer and `/resume` agree with the record peers address — and starts listening for mail. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused with its owner named, and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
+| `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/team join`, so the footer and `/resume` agree with the record peers address — and starts listening for mail. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused with its owner named, and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
 
 A claim is all-or-nothing: if one path conflicts, nothing is claimed. A claim on
 a directory conflicts with claims below it and above it, so `src/api` and
@@ -81,13 +80,12 @@ and it starts a plain watch; set `wake` with the tool. Nothing joins or listens 
 
 `/sessions` is the human surface: in `tui` mode it opens the live board described
 in [the board](#the-sessions-board), and every other mode prints the compact
-listing. The sub-commands join this session and manage what it listens to.
+listing. It takes no argument, and it joins nothing — the board's `w` is the one
+act there that puts this session on the bus.
 
 | Command | Effect |
 |---|---|
-| `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` starts or stops listening, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing. Neither joins the bus. |
-| `/sessions join [<label>]` | Join the bus, and listen for new mail. With a label, this session is also renamed on the bus and in Pi: the label is unique among active sessions, and it becomes the session name the footer shows and `/resume` lists. |
-| `/sessions help` | Show the command usage. |
+| `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` starts or stops listening, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing. |
 
 Labels are how another session addresses you. Name one by the outcome it owns
 (`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
@@ -98,7 +96,8 @@ with the bus. Because the bus derives a joining session's label from that name, 
 named session comes back under the same label after a resume.
 
 The tool's `join` action is the same join from the model's side, so a `board` or a
-`team` call can put a session on the bus without the user typing `/sessions join`.
+`team` call can put a session on the bus without the user naming it, and
+`/team join [<label>]` is that join from the terminal.
 
 ## Behaviour by mode
 
@@ -119,8 +118,8 @@ The bus lives under the agent directory, not the project, so it is never committ
 
 ## Parallel workflow
 
-1. The user joins each session (`/sessions join <label>`), and the contract
-   (OpenAPI, schema, or types) is written before parallel work starts.
+1. The user joins each session (`/team join <label>`, or `w` on the board), and the
+   contract (OpenAPI, schema, or types) is written before parallel work starts.
 2. Each session claims its paths before touching them, then implements its side.
 3. A contract, build, or test change goes out as an event:
    `session({action:"send", to:"*", kind:"event", text:"contract v2: ..."})`.
@@ -201,7 +200,7 @@ listening watch is what raises the turn.
 | Point | Detail |
 |---|---|
 | Tools | `session` — one action-shaped tool; `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: false`, `executionMode: "sequential"`. |
-| Commands | `/sessions` (board in `tui`, listing elsewhere), `/sessions join [<label>]`, `/sessions help`. |
+| Commands | `/sessions` — the board in `tui`, the listing elsewhere; no arguments and no sub-commands. |
 | UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so listening never changes the footer. |
 | Events | `session_start` resolves the repository and arms the mail trigger, without joining; `before_agent_start` reports queued non-wake mail at the next turn, `agent_settled` retries a wake the run suppressed, and `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
 | State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. Listening is session-only. `/resume` re-registers the same session id. |

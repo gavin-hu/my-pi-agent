@@ -322,7 +322,7 @@ describe("the /sessions screen", () => {
 
 	test("names each scope's empty state, and says how to join", () => {
 		const view = screen(snapshot(status([])), events());
-		expect(view.render(80).join("\n")).toContain("No sessions on this bus. Name this session to join.");
+		expect(view.render(80).join("\n")).toContain("No sessions on this bus yet. Press w to join and listen.");
 		view.handleInput("\t");
 		expect(view.render(80).join("\n")).toContain("No unread mail.");
 		view.handleInput("\t");

@@ -255,11 +255,11 @@ repository act as a team without sharing a conversation.
 
 - `/sessions` opens the board. `Tab` cycles **Sessions**, **Inbox**, and
   **Claims**: sessions with their unread counts, this session's unread mail, and
-  every path a session holds. `Enter` opens the focused row, `w` arms or disarms
-  the inbox watch, and in Claims `x` releases a claim you hold after a y/N
-  confirmation. A non-TUI session prints the same listing and joins the first
-  time it asks.
-- `/sessions name billing-core` gives **this** session a stable target, so every
+  every path a session holds. `Enter` opens the focused row, `w` starts or stops
+  listening — joining this session if it is not on the bus yet — and in Claims `x`
+  releases a claim you hold after a y/N confirmation. It takes no argument, so a
+  non-TUI session prints the same listing.
+- `/team join billing-core` gives **this** session a stable target, so every
   session is named from inside it, by you — one session cannot name another. Labels
   are unique among active sessions; name the outcome a session owns, not a layer.
   It also sets Pi's session name, so the footer shows `[billing-core]` and
@@ -268,11 +268,11 @@ repository act as a team without sharing a conversation.
 - `session` with `action: "send"` posts a short message or event; `action:
   "inbox"` consumes messages at the start of the next turn. Delivery is pull-based
   by default, so nothing interrupts a running turn and no turn starts by itself.
-- `/sessions watch` arms this session's inbox watch: new mail is reported at its
-  next turn, and `/sessions watch wake` raises that turn as soon as the session is
+- Joining is also listening: new mail is reported at this session's next turn, and
+  `session({action:"join", wake:true})` raises that turn as soon as the session is
   idle, including right after a running turn settles. It is per session and
-  session-only, so arming it in the owner
-  you are waiting on is how a lead gets an answer without asking you to switch.
+  session-only, so arming it in the owner you are waiting on is how a lead gets an
+  answer without asking you to switch.
 - `claim` paths before editing. A claim on `src/api` conflicts with `src/api` or
   any file below it; `release` gives it back. A crash releases it when the
   session expires.
@@ -316,8 +316,8 @@ every worktree sees the same cards.
   are the workflow, and the page is how the lead watches it.
 - Joining is two separate things, and `/board status` says which one you are missing:
   any `board` action makes your work yours, and any `session` action puts you on the bus
-  — where the lead's Team tab sees you — while `session watch` is what raises your turn
-  when a handoff lands in your inbox.
+  — where the lead's Team tab sees you — while joining is also listening, so a handoff
+  is reported at your next turn and `wake: true` is what raises a turn when it lands.
 - `/team` prints the round in the terminal: the rollup `board list --round` returns, then
   who is live and who has gone quiet. A lead does not need a browser to see what needs a
   decision, and `/board status` prints one line about the page itself.
@@ -335,8 +335,8 @@ overwriting it. Nothing prunes a finished card: `drop` is the only deletion.
 - `team` `action: "assign"` hands a card to a session that is **already running**.
   The peer gets a handoff in its inbox — the card, its paths, its plan, and a line
   from you — and then the card becomes `doing`, owned by that peer. Nothing is
-  started: a peer that has not armed `session watch` reads the message at its next
-  turn, and `session status` lists the labels a handoff can go to.
+  started: a peer that is not listening reads the message at its next turn, and
+  `session status` lists the labels a handoff can go to.
 - What the peer wakes to is an instruction, not a notification: the notice names it as
   a handoff, keeps enough of the body to act on, and says the work is theirs — so the
   turn that rises starts the card rather than reporting that mail arrived.

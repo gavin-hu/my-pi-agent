@@ -59,9 +59,7 @@ Every packaged skill is model-invoked, so a matching request loads it;
 | `/watch clear [all]` | Remove stopped watchers, or every watcher with `all` | [Background jobs and watchers](./delegate-and-background.md#background-jobs-and-watchers) |
 | `/context` | Show where the context window goes; `c` compacts from the report | [Seeing where the context goes](./track-and-remember.md#seeing-where-the-context-goes) |
 | `/context compact [instructions]` | Compact from the report; refused while a turn is running | [Seeing where the context goes](./track-and-remember.md#seeing-where-the-context-goes) |
-| `/sessions` | Open the bus board: `Tab` between sessions, unread mail, and path claims; `w` toggles the watch, `x` releases your own claim | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
-| `/sessions name <label>` | Name this session for other sessions and set Pi's session name (footer, `/resume`) | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
-| `/sessions watch [off\|wake]` | Report new mail at this session's next turn, or raise one (`wake`) as soon as it is idle; `off` stops it | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
+| `/sessions` | Open the bus board: `Tab` between sessions, unread mail, and path claims; `w` starts or stops listening, which is also how a session there joins; `x` releases your own claim | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
 
 ### Worktrees, rewind, and memory
 

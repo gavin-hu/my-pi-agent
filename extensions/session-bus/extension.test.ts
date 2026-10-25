@@ -92,7 +92,7 @@ describe("session-bus extension", () => {
 		});
 	});
 
-	test("session_start alone lists nobody; naming joins, and shutdown leaves", async () => {
+	test("session_start alone lists nobody; joining puts this session on, and shutdown leaves", async () => {
 		const dir = busDir();
 		const { pi, bus, ctx } = setup(dir);
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
@@ -105,7 +105,7 @@ describe("session-bus extension", () => {
 		expect(await store.sessions()).toEqual([]);
 	});
 
-	test("lists and names through /sessions", async () => {
+	test("prints the listing outside the TUI, where reading is not joining", async () => {
 		const dir = busDir();
 		const { pi, bus, ctx, notices, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
@@ -116,55 +116,12 @@ describe("session-bus extension", () => {
 		await command.handler("", ctx);
 		expect(notices.at(-1)?.message).toContain("Sessions (0)");
 		expect(notices.at(-1)?.message).toContain("not on the bus yet");
+		// One act, no arguments: a stale `/sessions join backend` opens the same board
+		// and joins nothing, so neither the bus nor Pi's session name moves.
 		await command.handler("join backend", ctx);
-		expect(notices.at(-1)?.message).toContain("backend");
-		// The label is also Pi's session name, so the footer and /resume agree.
-		expect(pi.getSessionName()).toBe("backend");
-		// Joining is the join, so the listing now shows this session.
-		await command.handler("", ctx);
-		expect(notices.at(-1)?.message).toContain("Sessions (1)");
-		// A bare join is idempotent: it keeps the label it already landed on.
-		await command.handler("join", ctx);
-		expect(notices.at(-1)?.message).toContain('On the bus as "backend"');
-		expect(pi.getSessionName()).toBe("backend");
-		await command.handler("nope", ctx);
-		expect(notices.at(-1)?.message).toContain("Unknown sessions command");
-		await bus.stop();
-	});
-
-	test("completes the subcommands, and stops once an argument starts", () => {
-		const { command } = setup(busDir());
-		if (!command) throw new Error("sessions command not registered");
-		expect(command.getArgumentCompletions?.("")).toEqual([
-			{ value: "join", label: "join" },
-			{ value: "help", label: "help" },
-		]);
-		expect(command.getArgumentCompletions?.("jo")).toEqual([{ value: "join", label: "join" }]);
-		expect(command.getArgumentCompletions?.("join ")).toBeNull();
-		expect(command.getArgumentCompletions?.("zzz")).toBeNull();
-	});
-
-	test("a rejected name leaves Pi's session name alone", async () => {
-		const dir = busDir();
-		const { pi, bus, ctx, notices, command } = setup(dir);
-		if (!command) throw new Error("sessions command not registered");
-		await bus.start(ctx);
-
-		const peer = createSessionBus({} as ExtensionAPI, {
-			dir,
-			repo: { root: "/repo", key: "shared" },
-			now: () => 1_000,
-			heartbeatMs: 0,
-			watchMs: 0,
-		});
-		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s2", sessionName: "taken" }).ctx as ExtensionContext;
-		await peer.start(peerCtx);
-		await peer.join({ label: "taken", listen: false });
-
-		await command.handler("join taken", ctx);
-		expect(notices.at(-1)?.message).toContain("already in use");
+		expect(notices.at(-1)?.message).toContain("Sessions (0)");
 		expect(pi.getSessionName()).toBeUndefined();
-		await peer.stop();
+		expect((await bus.status()).onBus).toBe(false);
 		await bus.stop();
 	});
 
@@ -185,6 +142,30 @@ describe("session-bus extension", () => {
 		expect(mounted).toBeInstanceOf(SessionListComponent);
 		expect(mounted?.render(80).join("\n")).toContain("frontend · you");
 		expect(suppressed).toEqual([true, false]);
+		await bus.stop();
+	});
+
+	test("a fresh session joins from the board's w", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx, command } = setup(dir);
+		if (!command) throw new Error("sessions command not registered");
+
+		let mounted: SessionListComponent | undefined;
+		ctx.ui.custom = async (factory: any) => {
+			mounted = factory({ requestRender: () => {}, terminal: { rows: 24 } }, fakeTheme, {}, () => {});
+		};
+		onRailsSuppressed(pi, () => {});
+		await command.handler("", ctx);
+		if (!mounted) throw new Error("the board did not mount");
+		// Opening the board is a read: the bus it draws lists nobody, itself included.
+		expect(mounted.render(80).join("\n")).toContain("No sessions on this bus yet. Press w to join and listen.");
+		expect(await createBusStore({ dir }).sessions()).toEqual([]);
+
+		// `w` is the one act the board offers that also joins, so it is how a TUI
+		// session gets on the bus without a tool call.
+		mounted.handleInput("w");
+		await waitFor(() => mounted?.render(80).join("\n").includes('On the bus as "frontend", listening') ?? false);
+		expect((await createBusStore({ dir }).sessions()).map((session) => session.label)).toEqual(["frontend"]);
 		await bus.stop();
 	});
 
@@ -228,20 +209,6 @@ describe("session-bus extension", () => {
 		expect(await createBusStore({ dir }).claims()).toEqual([]);
 		expect(mounted.render(80).join("\n")).toContain("Released src/api.");
 		await peer.stop();
-		await bus.stop();
-	});
-
-	test("joins and renames through /sessions join", async () => {
-		const dir = busDir();
-		const { pi, bus, ctx, notices, command } = setup(dir);
-		if (!command) throw new Error("sessions command not registered");
-		await bus.start(ctx);
-		await command.handler("join", ctx);
-		expect(notices.at(-1)?.message).toContain('On the bus as "frontend"');
-		expect((await bus.status()).watching).toEqual({ armed: true, wake: false });
-		await command.handler("join billing-lead", ctx);
-		expect(notices.at(-1)?.message).toContain('On the bus as "billing-lead"');
-		expect(pi.getSessionName()).toBe("billing-lead");
 		await bus.stop();
 	});
 

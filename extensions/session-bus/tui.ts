@@ -48,7 +48,7 @@ const SCOPE_TITLE: Readonly<Record<BoardScope, string>> = {
 };
 
 const SCOPE_EMPTY: Readonly<Record<BoardScope, string>> = {
-	sessions: "No sessions on this bus. Name this session to join.",
+	sessions: "No sessions on this bus yet. Press w to join and listen.",
 	inbox: "No unread mail.",
 	claims: "No claims.",
 };

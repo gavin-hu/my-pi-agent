@@ -1,11 +1,12 @@
 /**
- * The `/sessions` command.
+ * The `/sessions` command: one act, no arguments.
  *
- * In the TUI, bare `/sessions` opens the live board: `Tab` cycles Sessions,
- * Inbox, and Claims, and `w`/`x` act on this session's own watch and claims.
- * Every other mode prints the compact listing, because there is no dock to mount
- * the screen in. Neither joins the bus: reading is not joining, so the board is
- * empty until this session joins. `join [<label>]` is the join.
+ * In the TUI it opens the live board: `Tab` cycles Sessions, Inbox, and Claims,
+ * and `w`/`x` act on this session's own watch and claims. Every other mode prints
+ * the compact listing, because there is no dock to mount the screen in. Reading is
+ * not joining, so the board is empty until this session joins — and a command
+ * context cannot name a session, so the join is `session({action:"join"})`,
+ * `/team join [<label>]`, or the board's `w`.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
@@ -16,8 +17,6 @@ import { formatJoin, formatStatus } from "./format.ts";
 import { COMMAND_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { SessionListComponent } from "./tui.ts";
-
-const USAGE = "/sessions [join [<label>]]";
 
 /** How often the open board re-reads the bus. */
 const BOARD_POLL_MS = 1_000;
@@ -104,39 +103,10 @@ async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: Session
 
 export function registerCommands(pi: ExtensionAPI, bus: SessionBus): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "List parallel Pi sessions, their unread counts and claims; join the bus",
-		getArgumentCompletions: (prefix) => {
-			const text = prefix.trimStart();
-			if (text.includes(" ")) return null;
-			const options = ["join", "help"].filter((value) => value.startsWith(text));
-			return options.length > 0 ? options.map((value) => ({ value, label: value })) : null;
-		},
-		handler: async (args, ctx) => {
-			const [sub = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
-			if (sub === "help") {
-				ctx.ui.notify(
-					`/sessions — open the bus board\n/sessions join [<label>] — join under a label, and listen for mail\n\n${USAGE}`,
-					"info",
-				);
-				return;
-			}
-			if (sub === "join") {
-				const label = rest.join(" ").trim();
-				try {
-					await bus.start(ctx);
-					const joined = await bus.join(label === "" ? {} : { label });
-					// The bus validates first, so a rejected label leaves both names alone.
-					if (label !== "") pi.setSessionName(joined.label);
-					ctx.ui.notify(formatJoin(joined.label, joined.watching), "info");
-				} catch (error) {
-					ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
-				}
-				return;
-			}
-			if (sub !== "") {
-				ctx.ui.notify(`Unknown sessions command "${sub}". Try ${USAGE}.`, "warning");
-				return;
-			}
+		description: "Open the bus board: sessions, unread mail, and path claims",
+		// One command, one act: an argument is not a sub-command, so it is ignored
+		// rather than warned about — the board is what the user asked for.
+		handler: async (_args, ctx) => {
 			await open(ctx, pi, bus);
 		},
 	});

@@ -41,7 +41,7 @@ export function formatStatus(status: SessionStatus): string {
 		...(claims.length > 0 ? claims : ["- none"]),
 		...(alerts.length > 0 ? ["", ...alerts] : []),
 		"",
-		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 `/sessions join` puts you on it"}`,
+		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 `session join` puts you on it"}`,
 	].join("\n");
 }
 
