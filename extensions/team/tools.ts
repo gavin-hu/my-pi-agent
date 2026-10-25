@@ -133,7 +133,10 @@ async function assignCard(
 		return refusal("assign", formatHandoffFailure(card, to, messageOf(error)), card);
 	}
 
-	const applied = await store.mutate(id, { kind: "assign", to: ownerFor(to, delivered) }, me, now);
+	// Ask the bus for the session behind the label: an owner recorded with its id
+	// survives the peer renaming itself, which a label alone does not.
+	const resolved = await dispatch.resolve?.(to).catch(() => undefined);
+	const applied = await store.mutate(id, { kind: "assign", to: resolved ?? ownerFor(to, delivered) }, me, now);
 	if (!applied.ok)
 		return refusal("assign", formatRacedAssignment(applied.card ?? card, to, applied.error), applied.card ?? card);
 	return textResult(formatHandoff(applied.card, to, delivered), {

@@ -32,7 +32,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so; a card that changed between the send and the assignment is reported with the
   peer told to claim it. Nothing is spawned — the handoff waits in the recipient's
   inbox, and its armed watch is what raises the turn — so `team` is a message, not a
-  launch. `reclaim` returns a card to To do and keeps its notes. The call goes through
+  launch. `reclaim` returns a card to To do and keeps its notes. The owner it records
+  is the session — `assign` asks `session status` who answers to the label and keeps
+  the id, so a peer that renames itself still holds its card. The call goes through
   `SESSION_TOOL` in `lib/tool-names.ts`, so a tool rename breaks both sides.
   `session-bus` now treats the `handoff` kind as the work order it is: a waking turn
   announces `1 handoff`, keeps 800 characters of the body so the card and its next

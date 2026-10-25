@@ -23,6 +23,15 @@ const MAX_HANDOFF = 4_000;
 export interface Dispatch {
 	/** Send the text, and report the labels a message file was written for. Throws on failure. */
 	send: (to: string, text: string) => Promise<{ delivered: string[] }>;
+	/**
+	 * The live session `to` names, when the bus can say.
+	 *
+	 * Its id is what makes an assignment survive a rename — `holds` compares ids
+	 * before labels — so `assign` asks before it writes the owner, and falls back to
+	 * the label when the bus cannot answer. It never throws: a resolve that fails must
+	 * not undo a handoff that landed.
+	 */
+	resolve?: (to: string) => Promise<CardOwner | undefined>;
 }
 
 /**
@@ -63,6 +72,22 @@ export function sessionDispatch(ctx: ExtensionToolContext): Dispatch {
 					: [],
 			};
 		},
+		async resolve(to) {
+			const outcome = await ctx.executeTool(SESSION_TOOL, { action: "status" }).catch(() => undefined);
+			if (!outcome || outcome.isError) return undefined;
+			const status = (outcome.result.details as { status?: unknown } | undefined)?.status;
+			const sessions = (status as { sessions?: unknown } | undefined)?.sessions;
+			if (!Array.isArray(sessions)) return undefined;
+			const target = to.trim().toLowerCase();
+			for (const entry of sessions) {
+				const session = entry as { id?: unknown; label?: unknown };
+				if (typeof session.id !== "string" || typeof session.label !== "string") continue;
+				if (session.id === to.trim() || session.label.toLowerCase() === target) {
+					return { id: session.id, label: session.label };
+				}
+			}
+			return undefined;
+		},
 	};
 }
 
@@ -72,7 +97,10 @@ function nestedMessage(result: { content?: Array<{ type: string; text?: string }
 	return text !== undefined && text !== "" ? text.replace(/^Error:\s*/, "") : "the handoff was not delivered.";
 }
 
-/** The peer a handoff names, as the card records it. */
+/**
+ * The peer a handoff names, as the card records it when the bus cannot say who that
+ * is: the label a message file was written for, else the one that was asked for.
+ */
 export function ownerFor(to: string, delivered: readonly string[]): CardOwner {
 	const label = delivered[0] ?? to;
 	return { label };
