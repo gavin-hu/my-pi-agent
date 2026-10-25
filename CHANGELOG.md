@@ -260,6 +260,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `team`: the tool's description says what is true of each action — `reclaim` writes the
+  card alone and sends nothing, so it needs no bus — instead of tying all three to the
+  team, which sent a model looking for a transport `reclaim` never touches.
 - `board`: `done` is terminal for `release` too. It was the one transition without a
   finished-card guard, so a card its holder released went back to To do — reopening the
   order every dependency had already been recorded against. A card finished by mistake is
