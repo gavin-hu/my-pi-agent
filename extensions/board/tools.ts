@@ -85,6 +85,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession): void {
 			"Record the plan file with `board` action `plan` once the plan is approved, then execute it.",
 			"Note each phase of the work, and move the card to `done` or `blocked` when it changes state.",
 			"A feature's steps belong in `todo`, not on the board: one card is one feature, whatever it takes.",
+			"A `handoff` in your inbox is work you now own: read it with `session inbox`, record the plan, and start it.",
 			"`paths` are hints for a reader, not claims; `session`'s path claims are what protect a file.",
 		],
 		parameters: BoardParams,

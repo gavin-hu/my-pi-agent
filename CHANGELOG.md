@@ -18,6 +18,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   inbox, and its armed watch is what raises the turn — so `team` is a message, not a
   launch. `reclaim` returns a card to To do and keeps its notes. The call goes through
   `SESSION_TOOL` in `lib/tool-names.ts`, so a tool rename breaks both sides.
+  `session-bus` now treats the `handoff` kind as the work order it is: a waking turn
+  announces `1 handoff`, keeps 800 characters of the body so the card and its next
+  step survive, and tells the peer the work is theirs to record and start — so the
+  turn that rises begins the card instead of reporting that mail arrived.
 - `board`: one shared feature board per repository. A card is one feature — its
   outcome, the session holding it, path hints, the plan it is executing, and the
   notes that explain it — and each repository has one board, filed under its common

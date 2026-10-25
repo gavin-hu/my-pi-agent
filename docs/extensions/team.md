@@ -53,6 +53,14 @@ lists them — a label that is not live cannot be handed a card, and the send sa
 `delivered` in the details means a message file was written for that label — not that
 the peer read it.
 
+### What the peer does on waking
+
+A handoff is an instruction, not a notification: the peer's notice is headlined
+`1 handoff`, carries enough of the body to be actionable, and says the work is
+theirs — read it with `session inbox`, record the plan, and start. The card is
+already theirs (`assign` wrote the owner), so there is no claim step; the peer
+plans, works, notes, and moves it to `done` or `blocked`.
+
 ## Security
 
 - The tool writes the board store and calls one other tool (`session`); it starts no

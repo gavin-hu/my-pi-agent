@@ -317,6 +317,9 @@ overwriting it. Nothing prunes a finished card: `drop` is the only deletion.
   from you — and then the card becomes `doing`, owned by that peer. Nothing is
   started: a peer that has not armed `session watch` reads the message at its next
   turn, and `session status` lists the labels a handoff can go to.
+- What the peer wakes to is an instruction, not a notification: the notice names it as
+  a handoff, keeps enough of the body to act on, and says the work is theirs — so the
+  turn that rises starts the card rather than reporting that mail arrived.
 - The order is deliberate. If the send fails, the card is untouched, and the answer
   says so; if the card changed between the send and the assignment, the answer says
   the peer should `board claim` it.

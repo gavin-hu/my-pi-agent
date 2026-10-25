@@ -21,7 +21,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
 | Board actions | `/sessions` (`w`, `x`) | Arm or disarm the inbox watch, or release an own claim behind a confirmation, without leaving the board. | Shipped |
 | Short messages | `session send` | One message per recipient, addressed by label or id, with a broadcast for events. | Shipped |
-| Message kinds | `session send` with `kind` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender. | Shipped |
+| Message kinds | `session send` with `kind` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender, and a `handoff` is named as the work it assigns. | Shipped |
 | Message paths | `session send` with `paths` | A message can name the repository paths it concerns, echoed in the inbox row. | Shipped |
 | Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
 | Inbox watch | `session watch`, `/sessions watch [off\|wake]` | New mail reported at the next turn, or one raised turn once the agent is idle. | Shipped |
@@ -152,6 +152,13 @@ consumes it — and no view shows another session's inbox or releases its claims
 Message kinds are `message` (default), `event`, `ask`, and `handoff`. An `ask` is
 still a message: it does not block or wait for a reply. Text is capped at 4,000
 characters.
+
+A `handoff` is the one kind that assigns work, so it is the one kind the notice
+treats as an instruction: the waking turn is headlined `1 handoff`, the preview
+keeps 800 characters so the card, its paths, and the next step survive, and the
+hint says the work is yours — read it with `session inbox`, record the plan, and
+start. Nothing else changes: a handoff still waits in the inbox, and the recipient's
+armed watch is what raises the turn.
 
 ## Limitations
 
