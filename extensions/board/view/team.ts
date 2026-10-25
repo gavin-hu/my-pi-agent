@@ -54,9 +54,10 @@ export const BOARD_TEAM_JS = String.raw`(function () {
    * one row, and the strongest reason is the one it keeps: a blocker outranks silence,
    * which outranks a missing plan, which outranks nobody holding it.
    */
-  var KIND_RANK = { blocked: 0, idle: 1, unplanned: 2, unassigned: 3 };
+  var KIND_RANK = { blocked: 0, waiting: 1, idle: 2, unplanned: 3, unassigned: 4 };
 
-  function needs(round) {
+  function needs(view) {
+    var round = view.round;
     var byCard = {};
     var entries = [];
     function add(cards, why, kind) {
@@ -81,6 +82,13 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     // The board card says the same words for the same fact: one voice for one state.
     add(round.unplanned, function () { return "no plan recorded"; }, "unplanned");
     add(round.unassigned, function () { return "nobody holds it"; }, "unassigned");
+    // An order outranks nobody holding it: the claim would be refused, so the queue says
+    // what it waits for instead of offering a button the rules would turn down.
+    add(
+      round.unassigned.filter(function (card) { return board.blockersOf(card, view).length > 0; }),
+      function (card) { return "waits on " + board.waitingText(card, view); },
+      "waiting",
+    );
     return entries;
   }
 
@@ -108,7 +116,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       // Six identical buttons read as six identical buttons; the card is the name.
       reclaim.setAttribute("aria-label", "Reclaim #" + card.id);
       foot.appendChild(reclaim);
-    } else {
+    } else if (entry.kind !== "waiting") {
       var claim = actionButton("Claim", function () { board.act("claim", card); });
       claim.setAttribute("aria-label", "Claim #" + card.id);
       foot.appendChild(claim);
@@ -229,7 +237,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
 
     var grid = el("div", "board-team__grid");
 
-    var all = needs(round);
+    var all = needs(view);
     var decisions = all.filter(function (entry) { return keep(entry.card); });
     var queue = panel("Needs a decision", decisions.length, all.length);
     if (decisions.length === 0) {

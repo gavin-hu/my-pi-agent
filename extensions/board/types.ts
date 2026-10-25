@@ -15,7 +15,18 @@ import type { RoundSummary } from "../../lib/board/round.ts";
 export const BOARD_TOOL = "board";
 
 /** The actions the tool accepts, in the order the description lists them. */
-export const BOARD_ACTIONS = ["list", "add", "claim", "release", "move", "note", "plan", "drop"] as const;
+export const BOARD_ACTIONS = [
+	"list",
+	"add",
+	"claim",
+	"release",
+	"reclaim",
+	"move",
+	"note",
+	"plan",
+	"edit",
+	"drop",
+] as const;
 
 /** One action. */
 export type BoardAction = (typeof BOARD_ACTIONS)[number];

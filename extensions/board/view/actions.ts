@@ -212,8 +212,9 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
     footer.textContent = "";
     var isMine = board.mine(card, view.me);
     // An unclaimed card is waiting for its first owner; without this the dialog
-    // offered a reader only Drop and Close on a card they had just opened.
-    if (card.owner === undefined && card.status !== "done") {
+    // offered a reader only Drop and Close on a card they had just opened. A card that
+    // waits on another is not claimable yet, so it is not offered either.
+    if (card.owner === undefined && card.status !== "done" && board.blockersOf(card, view).length === 0) {
       footer.appendChild(board.actionButton("Claim", function () { board.act("claim", card); }, "primary"));
     }
     if (isMine && card.status !== "done") {
@@ -236,6 +237,11 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
     }
     if (isMine && card.status !== "done") {
       footer.appendChild(board.actionButton("Release", function () { board.act("release", card); }));
+    }
+    // Fixing what the card says follows the same rule the rules do: the holder decides,
+    // and anyone decides while nobody holds it — including a finished card.
+    if (card.owner === undefined || isMine) {
+      footer.appendChild(board.actionButton("Edit", function () { board.editCard(card); }));
     }
     if (card.status === "todo" || card.status === "done" || isMine) {
       footer.appendChild(board.actionButton("Drop", function () { board.act("drop", card); }, "danger"));

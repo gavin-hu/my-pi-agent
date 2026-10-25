@@ -129,6 +129,19 @@ describe("list", () => {
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["2"]);
 	});
 
+	test("filters by a query over the title, a path hint, or the holder", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Billing webhook", paths: ["src/billing"] });
+		await call({ action: "add", title: "Retry branches", paths: ["src/git"] });
+		await call({ action: "claim", card: "2" });
+		expect((await call({ action: "list", query: "webhook" })).details.cards?.map((card) => card.id)).toEqual(["1"]);
+		expect((await call({ action: "list", query: "src/git" })).details.cards?.map((card) => card.id)).toEqual(["2"]);
+		expect((await call({ action: "list", query: "BILLING-LEAD" })).details.cards?.map((card) => card.id)).toEqual([
+			"2",
+		]);
+		expect((await call({ action: "list", query: "nothing here" })).details.cards).toEqual([]);
+	});
+
 	test("adds the lead's rollup when asked, over the whole board", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });
@@ -163,6 +176,18 @@ describe("add", () => {
 		expect(text(await call({ action: "add", title: "  " }))).toContain("title is required.");
 		expect(text(await call({ action: "add", title: "T", paths: ["/etc/passwd"] }))).toContain("is absolute");
 		expect(text(await call({ action: "add", title: "T", note: "" }))).toContain("text is required.");
+	});
+
+	test("takes a priority, which orders its lane", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "later" });
+		await call({ action: "add", title: "now", priority: "high" });
+		const result = await call({ action: "list" });
+		expect(result.details.cards?.map((card) => card.id)).toEqual(["2", "1"]);
+		expect(text(result)).toContain("#2 todo · now · unassigned · high");
+		expect(text(await call({ action: "add", title: "T", priority: "urgent" }))).toContain(
+			"priority must be one of high, normal, low.",
+		);
 	});
 });
 
@@ -210,9 +235,90 @@ describe("claim, release, and move", () => {
 
 	test("every card action needs a card", async () => {
 		const { call } = harness();
-		for (const action of ["claim", "release", "move", "note", "plan", "drop"]) {
+		for (const action of ["claim", "release", "reclaim", "move", "note", "plan", "drop"]) {
 			expect(text(await call({ action })), action).toContain("card is required");
 		}
+		expect(text(await call({ action: "edit", title: "T" }))).toContain("card is required");
+	});
+
+	test("reclaim takes the card back from whoever holds it, and keeps its notes", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await peer.call({ action: "note", card: "1", text: "half done" });
+		const result = await lead.call({ action: "reclaim", card: "1" });
+		expect(result.details.card).toMatchObject({ status: "todo", by: "billing-lead" });
+		expect(result.details.card?.owner).toBeUndefined();
+		expect(result.details.card?.notes.map((note) => note.text)).toEqual(["half done"]);
+	});
+});
+
+describe("edit and the links between cards", () => {
+	test("fixes a title and a path hint anyone can reach while nobody holds it", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Billing webhok" });
+		const result = await call({ action: "edit", card: "1", title: "Billing webhook", paths: ["src/billing"] });
+		expect(result.details.card).toMatchObject({ title: "Billing webhook", paths: ["src/billing"] });
+		expect(text(result)).toContain("#1 todo · Billing webhook");
+	});
+
+	test("refuses an edit with nothing to change, and one another session holds", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		await lead.call({ action: "add", title: "One" });
+		expect(text(await lead.call({ action: "edit", card: "1" }))).toContain(
+			"edit needs a title, paths, priority, or dependsOn.",
+		);
+		await peer.call({ action: "claim", card: "1" });
+		const refused = await lead.call({ action: "edit", card: "1", title: "mine now" });
+		expect(refused.isError).toBe(true);
+		expect(text(refused)).toContain("#1 is held by billing-core. Only its owner can edit it.");
+		expect(refused.details.card?.title).toBe("One");
+	});
+
+	test("records what a card waits for, and refuses the claim until that lands", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Retry branches" });
+		await call({ action: "add", title: "Billing webhook" });
+		const linked = await call({ action: "edit", card: "2", dependsOn: ["1"] });
+		expect(linked.details.card?.dependsOn).toEqual(["1"]);
+		// The dependency is named; its lane is `list`'s to add, because the edit answer
+		// does not read the whole board.
+		expect(text(linked)).toContain("waits on: #1");
+		expect(text(await call({ action: "list", card: "2" }))).toContain("waits on: #1 (todo)");
+		const refused = await call({ action: "claim", card: "2" });
+		expect(refused.isError).toBe(true);
+		expect(text(refused)).toContain("#2 waits on #1 (todo).");
+		await call({ action: "claim", card: "1" });
+		await call({ action: "move", card: "1", status: "done" });
+		expect((await call({ action: "claim", card: "2" })).details.card?.status).toBe("doing");
+	});
+
+	test("refuses a link to a card that is not there, to itself, and around a loop", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await call({ action: "add", title: "Two" });
+		expect(text(await call({ action: "edit", card: "1", dependsOn: ["9"] }))).toContain("#9 does not exist.");
+		expect(text(await call({ action: "edit", card: "1", dependsOn: ["1"] }))).toContain("#1 cannot wait on itself.");
+		await call({ action: "edit", card: "2", dependsOn: ["1"] });
+		expect(text(await call({ action: "edit", card: "1", dependsOn: ["2"] }))).toContain(
+			"#1 cannot wait on #2: that would make a loop.",
+		);
+	});
+
+	test("refuses to drop a card another one waits on", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await call({ action: "add", title: "Two" });
+		await call({ action: "edit", card: "2", dependsOn: ["1"] });
+		const refused = await call({ action: "drop", card: "1" });
+		expect(refused.isError).toBe(true);
+		expect(text(refused)).toContain("#1 is waited on by #2; drop that card first.");
 	});
 });
 

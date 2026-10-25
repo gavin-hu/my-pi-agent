@@ -35,7 +35,7 @@ import type { PageView } from "../view/page.ts";
 const METHODS: readonly string[] = [...PAGE_METHODS, "DELETE"];
 
 /** The verbs a card route accepts, in the order the page uses them. */
-const CARD_VERBS = ["claim", "release", "reclaim", "move", "note", "plan"] as const;
+const CARD_VERBS = ["claim", "release", "reclaim", "move", "note", "plan", "edit"] as const;
 
 /** One card verb. */
 export type CardVerb = (typeof CARD_VERBS)[number];

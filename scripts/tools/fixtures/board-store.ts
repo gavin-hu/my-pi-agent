@@ -36,6 +36,7 @@ export const FIXTURE_CARDS = [
 		paths: ["src/billing/retry"],
 		owner: CORE,
 		status: "doing" as const,
+		priority: "high" as const,
 		notes: ["needs a plan before it goes further"],
 	},
 	{
@@ -58,6 +59,14 @@ export const FIXTURE_CARDS = [
 		status: "todo" as const,
 		notes: ["from the support thread"],
 	},
+	{
+		title: "Document the retry policy",
+		paths: ["docs/extensions"],
+		status: "todo" as const,
+		// The one card that waits: an order is the reason a lead cannot just claim it.
+		dependsOn: ["2"],
+		notes: ["after the retry branches land"],
+	},
 ];
 
 /** A store with the fixture's cards in it, in a temp directory. */
@@ -68,7 +77,16 @@ export async function seedStore(directory: string): Promise<void> {
 	const now = Date.now();
 	for (const [index, spec] of FIXTURE_CARDS.entries()) {
 		const at = now - (index + 1) * 7 * 60 * 1_000;
-		const card = await store.create({ title: spec.title, paths: spec.paths, note: spec.notes[0] }, LEAD, at);
+		const card = await store.create(
+			{
+				title: spec.title,
+				paths: spec.paths,
+				note: spec.notes[0],
+				...("priority" in spec && spec.priority !== undefined ? { priority: spec.priority } : {}),
+			},
+			LEAD,
+			at,
+		);
 		if (spec.owner !== undefined) await store.mutate(card.id, { kind: "claim" }, spec.owner, at + 1_000);
 		for (const note of spec.notes.slice(1))
 			await store.mutate(card.id, { kind: "note", text: note }, spec.owner ?? LEAD, at + 2_000);
@@ -76,8 +94,16 @@ export async function seedStore(directory: string): Promise<void> {
 			await store.mutate(card.id, { kind: "move", status: "blocked" }, spec.owner ?? LEAD, at + 3_000);
 		if (spec.status === "done")
 			await store.mutate(card.id, { kind: "move", status: "done" }, spec.owner ?? LEAD, at + 3_000);
-		if (spec.status === "doing" && spec.plan !== undefined) {
+		if (spec.status === "doing" && "plan" in spec && spec.plan !== undefined) {
 			await store.mutate(card.id, { kind: "plan", path: spec.plan }, spec.owner ?? LEAD, at + 4_000);
+		}
+		if ("dependsOn" in spec && spec.dependsOn !== undefined) {
+			await store.mutate(
+				card.id,
+				{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: spec.dependsOn },
+				LEAD,
+				at + 5_000,
+			);
 		}
 	}
 }
