@@ -39,7 +39,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and shows a `n/120` count once you type, the path hints no longer sit in a 197px
   column, the field box takes the focus ring instead of the input inside it, `Cancel` is
   the dialog's one closer, and an empty board keeps its own explanation instead of
-  opening the dialog over it.
+  opening the dialog over it. The dashboard then had to hold a working-sized team: a
+  card that is both idle and unplanned is one row now instead of two (and the count
+  stops overstating), a decision is two lines with its owner and action on the title's
+  line, the queue stops at one screen above 1180px and scrolls inside its panel so the
+  roster and Done stay in view, a quiet session says how long it has been quiet, and a
+  clamped decision title keeps its own tooltip.
   Its modals are the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the

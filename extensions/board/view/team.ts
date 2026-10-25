@@ -43,23 +43,35 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     return node;
   }
 
-  /** The oldest write among some cards, as an age. */
-  function oldest(cards) {
-    var at = cards[0] ? cards[0].updatedAt : 0;
-    for (var i = 1; i < cards.length; i++) at = Math.min(at, cards[i].updatedAt);
-    return ago(at);
-  }
-
   /**
    * Which cards need the lead, and why — entries, not rows.
    *
    * The renderer filters this list, so it has to be the data: filtering the built
    * rows would test the element instead of the card.
+   *
+   * The round's groups overlap on purpose — a doing card untouched for half an hour
+   * is both idle and unplanned — so a card can arrive twice. On the page one card is
+   * one row, and the strongest reason is the one it keeps: a blocker outranks silence,
+   * which outranks a missing plan, which outranks nobody holding it.
    */
+  var KIND_RANK = { blocked: 0, idle: 1, unplanned: 2, unassigned: 3 };
+
   function needs(round) {
+    var byCard = {};
     var entries = [];
     function add(cards, why, kind) {
-      for (var i = 0; i < cards.length; i++) entries.push({ card: cards[i], why: why(cards[i]), kind: kind });
+      for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        var entry = { card: card, why: why(card), kind: kind };
+        var seen = byCard[card.id];
+        if (seen === undefined) {
+          byCard[card.id] = entry;
+          entries.push(entry);
+        } else if (KIND_RANK[kind] < KIND_RANK[seen.kind]) {
+          seen.why = entry.why;
+          seen.kind = kind;
+        }
+      }
     }
     add(round.blocked, function (card) {
       var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
@@ -82,16 +94,12 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     open.type = "button";
     open.setAttribute("aria-haspopup", "dialog");
     open.appendChild(el("span", "board-team__ref", "#" + card.id));
-    open.appendChild(el("span", "board-team__title", card.title));
+    var title = el("span", "board-team__title", card.title);
+    // A clamped title has no other way to be read, so it carries its own tooltip.
+    title.title = card.title;
+    open.appendChild(title);
     open.addEventListener("click", function () { board.openCard(card.id); });
     node.appendChild(open);
-
-    // The reason gets the row's whole width and two lines; the tooltip carries the
-    // rest, because this sentence is the lead's whole reason to look at the row.
-    var why = el("p", "board-team__why", entry.why);
-    why.title = entry.why;
-    if (entry.kind === "blocked") why.className = "board-team__why board-team__why--blocked";
-    node.appendChild(why);
 
     var foot = el("div", "board-team__foot");
     if (card.owner) {
@@ -106,6 +114,13 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       foot.appendChild(claim);
     }
     node.appendChild(foot);
+
+    // The reason gets the row's whole width and two lines; the tooltip carries the
+    // rest, because this sentence is the lead's whole reason to look at the row.
+    var why = el("p", "board-team__why", entry.why);
+    why.title = entry.why;
+    if (entry.kind === "blocked") why.className = "board-team__why board-team__why--blocked";
+    node.appendChild(why);
     return node;
   }
 
@@ -133,6 +148,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
         rows.push({
           label: entry.label,
           state: entry.state,
+          seen: entry.seen,
           mail: entry.mail,
           you: entry.you,
           cards: byLabel[labelOf(entry.label)] || { live: [], done: [] },
@@ -141,7 +157,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     }
     for (var key in byLabel) {
       if (seen[key]) continue;
-      rows.push({ label: byLabel[key].label, state: roster === null ? "unknown" : "absent", mail: 0, you: false, cards: byLabel[key] });
+      rows.push({ label: byLabel[key].label, state: roster === null ? "unknown" : "absent", seen: undefined, mail: 0, you: false, cards: byLabel[key] });
     }
 
     function rank(mate) {
@@ -153,6 +169,13 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     }
     rows.sort(function (a, b) { return rank(a) - rank(b) || a.label.localeCompare(b.label); });
     return rows;
+  }
+
+  /** A text node carrying its stamp, so refreshAges rewrites it with every other age. */
+  function stamped(text, at) {
+    var node = el("span", "", text);
+    node.setAttribute("data-at", String(at));
+    return node;
   }
 
   /** One teammate: who, how they are, and what they hold. Not a button — nothing to open. */
@@ -168,13 +191,25 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     if (mate.you) node.appendChild(chip("you"));
     if (mate.mail > 0) node.appendChild(chip(plural(mate.mail, "mail"), "accent"));
 
+    // "quiet" alone does not tell a lead whether to reclaim; the heartbeat age does.
+    var mets = el("p", "board-team__mets");
+    if (mate.state === "quiet" && mate.seen !== undefined) {
+      mets.appendChild(document.createTextNode("quiet for "));
+      mets.appendChild(stamped(ago(mate.seen), mate.seen));
+    } else {
+      mets.appendChild(document.createTextNode(STATE_WORD[mate.state] || mate.state));
+    }
     var held = mate.cards.live.length;
     var done = mate.cards.done.length;
-    var parts = [STATE_WORD[mate.state] || mate.state];
-    parts.push(held === 0 ? "no cards" : held + " held");
-    if (done > 0) parts.push(done + " done");
-    if (held > 0) parts.push("oldest " + oldest(mate.cards.live));
-    node.appendChild(el("p", "board-team__mets", parts.join(" \u00B7 ")));
+    mets.appendChild(document.createTextNode(" \u00B7 " + (held === 0 ? "no cards" : held + " held")));
+    if (done > 0) mets.appendChild(document.createTextNode(" \u00B7 " + done + " done"));
+    if (held > 0) {
+      var at = mate.cards.live[0].updatedAt;
+      for (var i = 1; i < mate.cards.live.length; i++) at = Math.min(at, mate.cards.live[i].updatedAt);
+      mets.appendChild(document.createTextNode(" \u00B7 oldest "));
+      mets.appendChild(stamped(ago(at), at));
+    }
+    node.appendChild(mets);
     return node;
   }
 
