@@ -32,11 +32,14 @@ function card(overrides: Partial<Card> = {}): Card {
 }
 
 describe("handoffText", () => {
-	test("names the card, its outcome, and the two actions that make it real", () => {
+	test("names the card, its outcome, and says the card is already the peer's", () => {
 		const text = handoffText(card(), "billing-core");
 		expect(text).toContain('Handoff: #4 "Billing webhook accepts orders" is yours, billing-core.');
 		expect(text).toContain("Paths: src/billing");
-		expect(text).toContain('Claim it with board action "claim", card "4"');
+		expect(text).toContain("already assigned to you");
+		// `assign` records the owner, so asking the peer to claim would send it into a
+		// no-op at best and a refusal at worst; the claim belongs to the failure path.
+		expect(text).not.toContain('action "claim"');
 	});
 
 	test("carries the plan when one is recorded, and the lead's note when there is one", () => {

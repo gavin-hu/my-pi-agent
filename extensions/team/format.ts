@@ -16,7 +16,7 @@ export function formatHandoff(card: Card, to: string, delivered: readonly string
 		`${cardRef(card.id)} handed off to ${who}.`,
 		`  ${card.title}`,
 		card.paths.length > 0 ? `  paths: ${card.paths.join(", ")}` : undefined,
-		"  The peer claims it with `board` action `claim`; the handoff is in its inbox.",
+		"  The card is already owned by the peer; the handoff is in its inbox.",
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");

@@ -22,7 +22,8 @@ Nothing starts a process. The handoff lands in the peer's inbox, and an armed
 lead: session({action:"status"})                        → who is live: billing-core, billing-web
 lead: team({action:"assign", card:"4", to:"billing-core", note:"start with the webhook"})
       → #4 handed off to billing-core.
-peer: board({action:"claim", card:"4"})                 → #4 is yours
+peer: board({action:"plan", card:"4", path:"…"})        → the card records its plan
+peer: board({action:"note", card:"4", text:"…"})        → a phase, as it happens
 later: team({action:"reclaim", card:"4"})               → #4 reclaimed from billing-core
 ```
 
