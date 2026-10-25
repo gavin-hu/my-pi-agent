@@ -33,8 +33,16 @@ ${WEB_COMPONENTS_CSS}
 /* The new card is a kit dialog, so the board is what the page opens on. The form is
    the panel's own column: its body scrolls and its actions stay pinned. */
 .board-composer{display:flex;flex-direction:column;min-height:0}
-.board-composer__fields{display:grid;grid-template-columns:minmax(14rem,2fr) minmax(10rem,1fr);gap:var(--space-2)}
+/* One column, label above the box: the dialog is 640px wide, and the 2fr/1fr pair it
+   inherited from the drawer left the path hints 197px and their label inside the box. */
+.board-composer__fields{display:flex;flex-direction:column;gap:var(--space-3)}
+.board-composer__field{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
+.board-composer__label{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
+.board-composer__count{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
 .board-composer__fields .bf-field{min-width:0}
+/* The title is the one thing this dialog exists to ask for, so it leads. */
+.board-composer__field--title .bf-field{padding:var(--space-2) var(--space-3)}
+.board-composer__field--title .bf-input{font-size:var(--fs-md)}
 
 /* The main pane is this page's only child of the shell, so it grows to fill the
    column and the footer stays at the bottom however short the board is. */
@@ -168,7 +176,6 @@ ${WEB_COMPONENTS_CSS}
      toolbar wraps once, on purpose, instead of leaving two buttons stranded. */
   .board-controls{width:100%;justify-content:flex-start}
   .board-filter{order:9;width:100%}
-  .board-composer__fields{grid-template-columns:minmax(0,1fr)}
   .board-team__foot{flex-wrap:wrap}
 }
 @media (prefers-reduced-motion: reduce){
