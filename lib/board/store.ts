@@ -28,7 +28,7 @@ import { link, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } f
 import { join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
-import { messageOf } from "../errors.ts";
+import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
 import { type Card, CARD_STATUSES, cardRef, isCard, type Priority, priorityRank } from "./card.ts";
@@ -144,7 +144,7 @@ export function createStore(dir: string): BoardStore {
 				return card;
 			} catch (error) {
 				lastError = error;
-				if (!isCode(error, "EEXIST")) throw error;
+				if (!hasErrorCode(error, "EEXIST")) throw error;
 			} finally {
 				await rm(temp, { force: true });
 			}
@@ -251,7 +251,7 @@ async function writeCardFile(cardsDir: string, id: string, card: Card): Promise<
 	} catch (error) {
 		// Windows refuses a rename onto an open file; removing first is the fallback
 		// the platform needs, and the read above still bounds what can be lost.
-		if (!isCode(error, "EPERM") && !isCode(error, "EACCES") && !isCode(error, "EEXIST")) {
+		if (!hasErrorCode(error, "EPERM") && !hasErrorCode(error, "EACCES") && !hasErrorCode(error, "EEXIST")) {
 			await rm(temp, { force: true });
 			throw error;
 		}
@@ -284,7 +284,7 @@ async function sweepTemps(cardsDir: string): Promise<void> {
 
 async function readdirSafe(dir: string): Promise<string[]> {
 	return readdir(dir).catch((error: unknown) => {
-		if (isCode(error, "ENOENT")) return [];
+		if (hasErrorCode(error, "ENOENT")) return [];
 		throw error;
 	});
 }
@@ -307,8 +307,4 @@ function sortForLane(cards: Card[]): Card[] {
 		if (byAge !== 0) return byAge;
 		return Number(a.id) - Number(b.id);
 	});
-}
-
-function isCode(error: unknown, code: string): boolean {
-	return typeof error === "object" && error !== null && (error as { code?: unknown }).code === code;
 }
