@@ -1,19 +1,20 @@
 # board — one shared feature board per repository
 
-Every Pi session on a repository reads and writes the same cards, and a repository
-has **one** page: the session that starts it serves it under the seat `team-lead`, and
-every other session opens that page read-only instead of a second one. A card is one
-**feature**: its outcome, who holds it, where the work happens, the plan it is
-executing, how urgent it is, what it waits for, and the notes that explain how it got
-there.
+Every Pi session on a repository works the same cards through the tools, and a repository
+has **one** page that shows them: the session that starts it serves it under the seat
+`team-lead`, and every other session opens that same page instead of a second one. The
+page is a **view** — it cannot change a card — so what a browser shows and what the
+terminal holds cannot disagree. A card is one **feature**: its outcome, who holds it,
+where the work happens, the plan it is executing, how urgent it is, what it waits for,
+and the notes that explain how it got there.
 
 The steps of the work are deliberately *not* on the board. They live in the
 owner's plan and in `todo`; the board answers who is doing what, and what needs a
 decision.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the seat the page writes as, a live badge, Board and Team tabs, done-of-total progress, a filter and a New card button; four lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, path hints, a reason line and the one action a face offers" width="100%">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the seat the page is served as, a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; four lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, path hints and a reason line, with no button on any of them" width="100%">
 
-*`/board`: the four lanes, with a new card one keystroke from its dialog and the round one tab away.*
+*`/board`: the four lanes, with the round one tab away and every card opened by its title.*
 
 ## Capabilities
 
@@ -30,17 +31,17 @@ decision.
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
 | Say how urgent it is | `board` action `add` or `edit` with `priority` | `high` sorts first inside its lane, and the card says so |
 | Record what a card waits for | `board` action `edit` with `dependsOn` | An unfinished dependency refuses a claim and a move to `doing` or `done`, and the reason line names it |
-| Hand a card to a teammate | `Assign to` in the card dialog | The owner is recorded and the card's history says no handoff was sent — `team`'s `assign` is the one that messages a peer |
+| Hand a card to a teammate | `team` action `assign` | The owner is recorded **and** a handoff is sent to that session's inbox. The page cannot do this: a browser has no way to message a peer, so a page assignment that recorded an owner and told nobody is gone with the write path |
 | Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to To do, without the page and without `team` |
 | Find a card without reading every lane | `board` action `list` with `query` | The cards whose title, path hint, or holder matches — the same rule the page's filter uses |
 | See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
 | Delete a card | `board` action `drop` | The card and its notes are gone; a `todo` or `done` card is anyone's to drop, one in flight only its holder's, and one that a card waits on cannot leave at all |
 | One page per repository | `/board` | Serves a loopback page as `team-lead` with a **Board** and a **Team** tab, following the store live; a page already served is opened instead |
-| Watch somebody else's page | `/board` on a session that is not serving | The same page, **read-only**: no **+ New card**, no `Claim`, `Move`, `Edit`, `Drop` or note field, because the note a viewer reads carries a credential that may only read. The viewer joins the team under its own label, so a handoff can still reach it |
+| Watch somebody else's page | `/board` on a session that is not serving | The same page, because there is one: every page is a read view, so a second session gets exactly what the first one sees instead of a writable rival. It joins the team under its own label, so a handoff can still reach it |
 | Read a board at its real size | the `Done` fold, an empty lane's rail | `Done` starts folded past six cards, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, so the lanes carrying work keep the width |
-| Open a card | `Claim`, `Move`, or the card's title | The face offers `Claim`, or `Move` for work in flight, and nothing else: the title opens the dialog, which holds the note field, the move controls, and the rest. A 26-card board draws 26 of those buttons, not 59 |
+| Open a card | the card's title, or `Enter` on a focused one | The title is the only door, because it is the only one needed: it opens the dialog holding the card whole — its lane, its owner, its paths, what it waits for, its plan, and every note |
 | See the lead's round at a glance | `/board team`, or `/team` with no browser | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
-| Join the team | `/board`, or any card you work | Opening the page joins this session to the team — as `team-lead` when it serves the page, under its own name when it watches one — and the first card write joins it too, so nothing has to be armed by hand. `/board status` says which team a `/board` in this session put you on |
+| Join the team | `/board`, or any card you work | Opening the page joins this session to the team — as `team-lead` when it serves the page, under its own name when it opens one somebody else serves — and the first card a tool writes joins it too, so nothing has to be armed by hand. `/board status` says which team a `/board` in this session put you on |
 | See who is around | `/board team` | The Teammates list: every session this repository's bus has recorded, plus every owner a card names, each stating `live`, `quiet`, `no record`, or `—` when no bus is loaded |
 
 ## Quickstart
@@ -65,7 +66,7 @@ lead: board list round: true
 | `/board` | lead | Serves the page as `team-lead`, or opens the one another session already serves |
 | `/board team` | lead | The same, opened on the Team tab |
 | `/board status` | both | One line: the seat, the port, how many tabs are watching, the store, and the team the last `/board` joined — or the page being watched |
-| `/board stop` | lead | Stops the page this session serves; on a watching session it says who serves it |
+| `/board stop` | lead | Stops the page this session serves; on a session that opened somebody else's page it says who serves it |
 | `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
 
 **Who serves the page.** The first `/board` in a repository serves it; after that the
@@ -84,8 +85,10 @@ session that has neither opened the board nor touched a card is not on it. `/boa
 status` reports the join `/board` made itself: a session that joined by writing a card
 is on the team, and its status line does not say so.
 
-The page is still a seat: it writes as `team-lead` with an id of its own, so a card it
-claimed comes back with `reclaim` rather than a `release` from the terminal.
+The page still serves as a seat: `/board status` names `team-lead`, the toolbar chip says
+so, and a card a browser claimed **before** the page stopped writing still names
+`board:team-lead` as its owner — `reclaim` is how a lead takes that back from the
+terminal.
 
 ## Tool
 
@@ -110,13 +113,13 @@ card, so the next attempt starts from the truth.
 
 ## Routes
 
-Every route but three needs a token, and which one a request carries decides what it may
-do: the lead's satisfies every route and is in the URL its browser was opened at; the one
-the note carries satisfies the reads and gets a 403 on every write. The three that do not
-are the page's own furniture — `/favicon.ico`, `/theme.js`, and `/app.js` are the same
-bytes to every reader and can neither read nor change a card, so refusing them to a
-fetch that has no token would only break the page. A write is made as the page's
-seat — `team-lead` — not as the session that opened it.
+Every route but three needs the token, and there is exactly one: 128 random bits minted
+when the page starts, compared in constant time, in the URL the browser was opened at.
+The three that do not are the page's own furniture — `/favicon.ico`, `/theme.js`, and
+`/app.js` are the same bytes to every reader and can neither read nor change a card, so
+refusing them to a fetch that has no token would only break the page. Everything below a
+token is a **read**: the method list is `GET` and `HEAD`, so a `POST` or a `DELETE` is
+refused by the envelope — `405`, `Allow: GET, HEAD` — before the token is even read.
 
 ```
 GET    /favicon.ico          204 and no body — no token
@@ -125,9 +128,6 @@ GET    /app.js               the client script — no token
 GET    /                     the document (?view=board|team)
 GET    /api/board            the snapshot
 GET    /events               the live frame stream
-POST   /api/cards            add a card
-POST   /api/cards/:id/…      claim, release, reclaim, assign, move, note, plan, edit
-DELETE /api/cards/:id        drop a card
 ```
 
 ## Layout
@@ -137,12 +137,11 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 
 | Band | What it holds |
 |---|---|
-| Toolbar | the mark, the seat the page writes as, as a chip, a live badge (`connecting…`, `live` or `live · 3m`, `reconnecting…`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
-| New card dialog | the modal the toolbar's button (or `n`) opens: **Title** on its own line, the loudest field on the page, with a `n/120` count once you type; **Paths** under it, space-separated hints; **Priority** as a three-word list; the hint line; and one closer, `Cancel`, beside **Add card**. The title is focused on open, the dialog stays open after an add so a lead can publish several cards, and a draft survives `Esc`, the backdrop, and `Cancel` is the only thing that discards it. The same dialog is the card dialog's **Edit**: prefilled, headed `Edit card #4`, with **Save** in place of Add — and leaving that mode throws its text away, because that text was the card's, not a draft |
+| Toolbar | the mark, the seat the page is served as, as a chip, a live badge (`connecting…`, `live` or `live · 3m`, `reconnecting…`), then one group: the Board\|Team switch, done-of-total progress, a filter, the keys button, and the theme toggle |
 | Lanes | trays, not a bare list: one column per lane, sized by the work it holds, so a lane showing nothing — because it holds no cards, or because it is folded — narrows to a rail of dot, word, and count, and the lanes carrying cards keep the width. Three or four across above 1180px, two at 1180px or narrower, one lane plus the lane switch at 860px or narrower — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away: `Done` starts folded past six cards, since finished work is history, and a reader's toggle decides from then on |
-| Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, one reason line in one voice — what a card waits for, a blocked card's last note (or `blocked, with nothing recorded`), `no plan recorded`, `planned`, `✓ done by <owner>`, and the last note of a card that is none of those — clamped, with the whole sentence as its tooltip, and at most one action — `Claim`, or `Move` for work in flight, bordered. A card that waits offers no `Claim`, because the claim would be refused: the reason line is what it says instead, and `Move` is drawn on any card still in flight, as the way into its dialog rather than a permission. A finished card and a viewer's page draw no action at all, because the title is the way into the dialog that holds the note field and the move controls; a viewer's page adds no **+ New card**: the document says `data-writes="0"` and every affordance reads it. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
-| Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title, owner chip and `Reclaim` (or `Claim` when nobody holds it) on the first, the reason on the second with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker, and offers no action: the claim the rules would refuse is not on the row at all. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
-| Card dialog | the lane as a dot and a word beside the title, a meta line, the owner and its priority, the paths, what it waits for, the plan as monospace text, the notes as a timeline (who and when above the sentence, a rule between them), a note field, and `Move to` every lane but the card's own — a waiting card may be parked in `blocked`, and the rules turn down the two that put it back in flight — then `Assign to` for an unowned card, `Release`, `Edit`, `Drop`, `Close` |
+| Cards | the id and a two-line title (the page's loudest text and its only door), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, and one reason line in one voice — what a card waits for, a blocked card's last note (or `blocked, with nothing recorded`), `no plan recorded`, `planned`, `✓ done by <owner>`, and the last note of a card that is none of those — clamped, with the whole sentence as its tooltip. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
+| Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title and owner chip on the first, the reason on the second with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). The row is a reason to pick the card up in the terminal, and it draws no button: claiming and reclaiming are the tools' work. An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
+| Card dialog | the lane as a dot and a word beside the title, a meta line, the owner and its priority, the paths, what it waits for, the plan as monospace text, and the notes as a timeline (who and when above the sentence, a rule between them). Nothing in it writes: `Close` is a button because a dialog needs one, and every field is what a reader came to find. One card is one dialog, and the title underneath every card is the way in |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
 `blocked` and destructive choices, `--success` for `done`. The Team tab's decision
@@ -155,7 +154,7 @@ a card with `data-status`, so a theme change repaints it without a rule of its o
 
 The board as a posting card — the same rules, drawn to be read at half width:
 
-<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; four lane trays, each with a dot, a count pill and a fold; one card carrying an id, a title, its age, a priority chip, a path chip, one reason line and its one action; and the lead's round with two owner lines and the counts unassigned, unplanned, blocked, idle and done" width="100%">
+<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; four lane trays, each with a dot, a count pill and a fold; one card carrying an id, a title, its age, a priority chip, a path chip and one reason line, with no action on it; and the lead's round with two owner lines and the counts unassigned, unplanned, blocked, idle and done" width="100%">
 
 *`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `screenshot:cards board`.*
 
@@ -167,7 +166,6 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 | Key | What it does |
 |---|---|
-| `n` | New card: open the dialog and focus the title field |
 | `/` | Filter the cards by title, path, or owner |
 | `j` / `k` | Next or previous card |
 | `Enter` | Open the focused card |
@@ -177,21 +175,19 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 A dialog traps `Tab`, closes on `Esc` or a backdrop click, and returns focus to
 whatever opened it — the kit's `dialogScript`, shared with the review and browse
-pages. A field keeps its keys: `n` inside the note input types an `n`.
+pages. A field keeps its keys: `/` inside the filter box types a slash.
 
 ## Security
 
-- The page binds loopback only, answers only its own host names, and refuses a
-  state-changing request another site made.
-- There are two credentials, both 128 random bits minted when the page starts and
-  compared in constant time: the lead's, which can change a card, and a viewer's, which
-  cannot. They are in the URL, never a cookie, and there is no CORS. The note beside the
-  cards (`page.json`, owner-only) carries the viewer's and never the lead's.
-- A write is made **as the page's seat** — a browser is not an identity — so
-  the toolbar names the session and claim/reclaim ask first.
-- The page writes only the board store under the agent directory. It never writes
-  your repository, and it reads the session bus's own records read-only — labels,
-  modes, heartbeats, message counts, and whether each is listening — to draw the Teammates list.
+- The page binds loopback only, answers only its own host names, and has no
+  state-changing request to refuse.
+- One credential, 128 random bits minted when the page starts and compared in constant
+  time, in the URL and never a cookie, with no CORS. The note beside the cards
+  (`page.json`, owner-only) carries it, so a second session can attach — and because the
+  page cannot change a card, pasting that URL hands out nothing but a view.
+- The page reads only: the board store under the agent directory, and the session bus's
+  own records read-only — labels, modes, heartbeats, message counts, and whether each is
+  listening — to draw the Teammates list. It never writes your repository.
 
 ## Limitations
 
@@ -208,22 +204,24 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   list reads the bus's records, where `live` is a heartbeat inside ten minutes,
   `quiet` is a heartbeat that has aged, `gone` is a record whose process is no longer
   running, and `no record` means only that the bus holds no record of that label. A
-  `gone` owner's cards join **Needs a decision** with the reclaim they allow; a *hung*
-  session reads `live`, so "idle" still means what a card can know — nobody has
+  `gone` owner's cards join **Needs a decision** with the reason that they are free, and a
+  *hung* session reads `live`, so "idle" still means what a card can know — nobody has
   touched it for 30 minutes — rather than that its owner is stuck. With `session-bus`
   unloaded, or before any session has joined here, every state reads `—` and the board
   works exactly as before.
-- **The seat and your terminal are two actors.** The page writes as `team-lead`, so a
-  card a browser claimed is released from the browser or `reclaim`ed from the tool —
-  `board release` in a session is a different actor and is refused. The Team tab marks
-  your own row from the session you are reading in, not from the seat.
-- **A viewer's page is read-only, and the note is the only credential it carries.** A
-  lead who pastes their own URL hands out write access; `/board status` prints the page,
-  not that URL.
+- **The page is read-only, deliberately.** A browser is not an identity: every page write
+  was made as the seat, and a page `assign` had to record that no handoff was sent. Rather
+  than duplicate the card rules in the client — which had already drifted from
+  `lib/board/rules.ts` — the write path is gone. What a reader loses is editing from the
+  browser; what the product keeps is every one of those verbs as a tool. The one capability
+  with no tool-side twin is assigning **without** messaging the peer: `team`'s `assign`
+  sends a handoff, and nothing else records an owner silently.
+- **A seat can outlive its writes.** A card claimed from the page before this change still
+  names `board:team-lead` as its owner, and `reclaim` is how a lead takes it back.
 - **Nothing prunes.** A `done` card stays until someone drops it; the page shows
   how many bytes the store occupies.
-- **A page claim is the seat's claim.** Two browsers on one page are one owner, and every
-  browser that can reach the lead's URL writes as the same seat.
+- **A page claim is a claim nobody cleans up.** A card a page claimed before this change
+  is the seat's until a tool reclaims it; the page itself can no longer add to that pile.
 - **The page stops a minute after its last tab leaves.** Closing the tab to run a
   command and coming back is fine, and a teammate's watching tab counts as one, so a
   page nobody is reading does not answer a port for the rest of the session. `/board`
@@ -249,8 +247,8 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   `lib/session-tool.ts`, because a command context cannot call a tool and the request
   therefore travels on `pi.events` — and reads its records otherwise, which is why the
   page works with the bus disabled. A failed join is a clause on the `/board` line, not
-  a failed page. The seat is a different actor from the session that serves it, which is
-  why `/board status` names both.
+  a failed page. The seat is the name the page is served and reported under, and `/board
+  status` says which session is on the team through it.
 - **`plan`**: `board plan` records a plan file's path; the plan extension owns the
   file. The plan is recorded **after** approval, because plan mode makes mutating
   tools unavailable.
@@ -275,17 +273,17 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   heartbeat every ten seconds is not news, and a frame nobody needs costs the page a
   parse.
 - **One page is found, not configured.** A note beside the cards carries the port, the
-  seat, and a read-only token; it is created exclusively, so two sessions starting at
+  seat, and the token; it is created exclusively, so two sessions starting at
   once cannot both serve, and the loser attaches to the winner. The alternative —
   a setting that names the lead — was rejected: the role moves, the seat's name does
   not. The port is the one thing a file may pin: `board.port` states where the page
   listens, never who serves it.
-- **The new card is a dialog, not a fixture.** The page opens on the board, and an
-  empty board leaves its own explanation in place rather than covering it with the
-  dialog — the empty state's **Add the first card** is what opens it. A card
-  is something you ask to write. It is the kit's modal, so `Tab` stays inside it and
-  closing returns focus to the button that opened it; a draft survives `Esc` or a
-  backdrop click, and `Cancel` is the one way to throw it away.
+- **The page is a view because a browser is not an identity.** Every page write was made
+  as the seat, so a page `assign` had to write down that nobody had been told, and the
+  client's copy of the card rules drifted from `lib/board/rules.ts` — it offered a drop
+  the server refused. The write path was deleted rather than hidden behind a flag: a
+  disabled verb is still a verb the page has to decide. Deleting it took the composer's
+  dialog, the confirm dialog, the note field, and 60-odd buttons with it.
 - **One edge, stored once.** A link is one id in the waiting card's file and the
   reverse edge is computed over the board, because a `blockedBy` copy of the same edge
   is a copy that drifts; the cycle check and the drop rule are what keep the graph
@@ -294,8 +292,8 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   a fifth would double the counts and the heads; inside a lane, priority then age is the
   order, and a card says its priority only when it is not the ordinary one.
 - **`edit` leaves an omitted field alone.** It is the one action whose job is "make it
-  say this", so an absent field must mean "not this field" — otherwise the page, which
-  shows no links, would clear every link it saved.
+  say this", so an absent field must mean "not this field" — a caller that sends only a
+  title must not clear the path hints and links it never mentioned.
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), drag-and-drop (a lane change is a named `move`), a
@@ -311,25 +309,24 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `schema.ts` | The tool's parameters |
 | `types.ts` | The shapes the tool registers and reports: the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
 | `tools.ts` | Action dispatch and the refusal shape |
-| `input.ts` | A card body as both surfaces read it: the `add` fields normalized once, so the tool and the page cannot disagree |
+| `input.ts` | A card body as the tool reads it: the `add` fields normalized in one place |
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
 | `page.ts` | The page's lifecycle: the port it remembers or is pinned to, the chip that names it, and the three closes — `/board stop`, the idle grace, and shutdown |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, and the store's size, handed to `buildView` |
-| `writes.ts` | The page's write path: one request to one store call, 422 for a field and 409 for a card somebody else moved |
 | `commands.ts` | `/board`, its three words, and the one line `/board status` prints |
-| `seat.ts` | The seat the page serves as: one name, and an id derived from it, so the page is one actor across restarts |
+| `seat.ts` | The seat the page is served as: one name, and an id derived from it. The page cannot write, so it is a label now — but the id is still what a card claimed from an older page names |
 | `join.ts` | The board's side of the team: the one request that joins for the user, the label it lands on, and how the outcome reads on a `/board` line |
-| `transport/router.ts` | The routes, what a credential may do, and the guards in front of them |
+| `transport/router.ts` | The six reads, the token gate, and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push, and the close |
-| `view/page.ts` | The document: an inert shell the client fills |
+| `view/page.ts` | The document: an inert shell the client fills, with no form on it |
 | `view/styles.ts` | The page's `board-*` layout rules |
 | `view/render.ts` | The client's snapshot → DOM renderer: toolbar, lanes, cards, the dialog's contents |
 | `view/team.ts` | The client's round: the two tables and the Done line |
-| `view/actions.ts` | The client's writes and its two kit dialogs |
+| `view/dialog.ts` | The client's card dialog: open one card, close it, and forget it when the kit closes it |
 | `view/keys.ts` | The key table, and the bindings that make it true |
-| `view/live.ts` | The client's tabs, new-card dialog, filter, and frame stream |
+| `view/live.ts` | The client's tabs, filter, and frame stream |
 | `view/client.ts` | The one script served at `/app.js` |
 
 The store, the rules, the rollup, and the snapshot are `lib/board/` — see
@@ -344,5 +341,5 @@ transitions, the store a call opens and the identity it writes as, the files tha
 keeps, and the snapshot, and
 `extensions/board/{input,seat,tools,page,commands,config,extension,transport/router,view/pages}`
 for the card body, the seat, every action, the page's lifecycle over a real socket (a page
-served, attached to, taken over, and refused to a viewer), the command, the `board.port`
-setting, the factory, the routes, and the document and client bundle.
+served, attached to, and taken over, and a write refused on the wire), the command, the
+`board.port` setting, the factory, the routes, and the document and client bundle.
