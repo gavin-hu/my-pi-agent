@@ -16,6 +16,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
+import { READ_DOC_TOOL, WEB_FETCH_TOOL, WEB_SEARCH_TOOL } from "../../lib/tool-names.ts";
 
 /** Where an agent definition came from. */
 export type AgentSource = "builtin" | "user" | "project";
@@ -44,7 +45,7 @@ export const BUILTIN_AGENTS: readonly AgentConfig[] = [
 	{
 		name: "explorer",
 		description: "Fast codebase recon that returns compressed context for handoff to other agents",
-		tools: ["read", "grep", "find", "ls"],
+		tools: ["read", "grep", "find", "ls", READ_DOC_TOOL],
 		source: "builtin",
 		systemPrompt: `You are an explorer. Quickly investigate a codebase and return structured findings that another agent can use without re-reading everything.
 
@@ -94,7 +95,7 @@ Which file to look at first and why.`,
 		name: "planner",
 		description:
 			"Delegated implementation planning in an isolated context (headless/chain; use plan mode for interactive planning)",
-		tools: ["read", "grep", "find", "ls"],
+		tools: ["read", "grep", "find", "ls", READ_DOC_TOOL],
 		source: "builtin",
 		systemPrompt: `You are a delegated planning specialist working in an isolated context. The caller hands you planning when it wants a plan produced without adding exploration to its own transcript — for example an explorer → planner → worker chain, or a headless run.
 
@@ -134,7 +135,7 @@ Keep the plan concrete. The worker agent will execute it verbatim.`,
 	{
 		name: "reviewer",
 		description: "Code review specialist for quality and security analysis",
-		tools: ["read", "grep", "find", "ls", "bash"],
+		tools: ["read", "grep", "find", "ls", READ_DOC_TOOL, "bash"],
 		source: "builtin",
 		systemPrompt: `You are a senior code reviewer. Analyze code for quality, security, and maintainability.
 
@@ -168,7 +169,7 @@ Be specific with file paths and line numbers.`,
 	{
 		name: "worker",
 		description: "General-purpose subagent with full capabilities and an isolated context window",
-		tools: ["read", "write", "edit", "bash", "grep", "find", "ls"],
+		tools: ["read", "write", "edit", "bash", "grep", "find", "ls", READ_DOC_TOOL],
 		source: "builtin",
 		systemPrompt: `You are a worker agent with full capabilities. You operate in an isolated context window to handle delegated tasks without polluting the main conversation.
 
@@ -192,7 +193,7 @@ If handing off to another agent (e.g. reviewer), include:
 	{
 		name: "researcher",
 		description: "Web research specialist that returns sourced findings on external questions",
-		tools: ["read", "grep", "find", "ls", "web_search", "web_fetch"],
+		tools: ["read", "grep", "find", "ls", READ_DOC_TOOL, WEB_SEARCH_TOOL, WEB_FETCH_TOOL],
 		source: "builtin",
 		systemPrompt: `You are a research specialist. You investigate questions using web_search and web_fetch, then return findings another agent can act on.
 
@@ -228,7 +229,7 @@ What the caller should do with this, in 2-3 sentences.`,
 	{
 		name: "tester",
 		description: "Writes or updates tests for a change and runs them",
-		tools: ["read", "write", "edit", "grep", "find", "ls", "bash"],
+		tools: ["read", "write", "edit", "grep", "find", "ls", READ_DOC_TOOL, "bash"],
 		source: "builtin",
 		systemPrompt: `You are a test engineer. You add or update tests for a change and run them.
 
@@ -260,7 +261,7 @@ What is still untested and why.`,
 	{
 		name: "debugger",
 		description: "Root-cause analysis for a failing test or bug, read-only plus running tests",
-		tools: ["read", "grep", "find", "ls", "bash"],
+		tools: ["read", "grep", "find", "ls", READ_DOC_TOOL, "bash"],
 		source: "builtin",
 		systemPrompt: `You are a debugging specialist. You find the root cause of a failure from evidence, not guesses.
 
@@ -295,7 +296,7 @@ What else the bug or the fix could affect.`,
 	{
 		name: "documenter",
 		description: "Updates docs, READMEs, and changelog entries to match the code",
-		tools: ["read", "write", "edit", "grep", "find", "ls", "bash"],
+		tools: ["read", "write", "edit", "grep", "find", "ls", READ_DOC_TOOL, "bash"],
 		source: "builtin",
 		systemPrompt: `You are a documentation specialist. You keep docs accurate and consistent with the code.
 

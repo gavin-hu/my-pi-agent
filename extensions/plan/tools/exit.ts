@@ -54,13 +54,15 @@ interface GoalOutcome {
  * Approving the plan *is* the decision, so neither a `planning` goal nor a
  * session with none is asked again. A final goal (`active` or `achieved`) is the
  * user's own: approving ordinary work never rewrites it. Recording runs through
- * the goal tool, so validation and the widget stay goal's, and no model turn is
- * spent.
+ * the goal tool when it is registered — validation and the widget stay goal's,
+ * and no model turn is spent — and stays silent when that sibling extension is
+ * not installed, because there is nothing to report and nothing to act on.
  */
-async function finalizeGoal(ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOutcome> {
+async function finalizeGoal(pi: ExtensionAPI, ctx: ExtensionToolContext, plan: StoredPlan): Promise<GoalOutcome> {
 	const objective = planObjective(plan);
 	const current = lastGoal(ctx.sessionManager.getBranch());
 	if (current !== null && current.status !== "planning") return { objective };
+	if (!pi.getAllTools().some((tool) => tool.name === GOAL_TOOL)) return { objective };
 	const outcome = await ctx.executeTool(GOAL_TOOL, { objective, status: "active" });
 	const action = current === null ? "recorded" : "promoted";
 	return outcome.isError ? { objective, action, error: firstTextLine(outcome) } : { objective, action };
@@ -212,7 +214,7 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 
 			runtime.disable(ctx);
 			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
-			const goal = await finalizeGoal(ctx, decision.plan);
+			const goal = await finalizeGoal(pi, ctx, decision.plan);
 			const listing =
 				steps.length > 0
 					? `\n\n${steps

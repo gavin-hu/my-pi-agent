@@ -210,14 +210,14 @@ at most 8 steps (like the parallel task cap).
 
 | Agent | Tools | Purpose |
 |---|---|---|
-| `explorer` | `read, grep, find, ls` | Fast codebase recon; returns files + line ranges, key code, architecture, and where to start. |
-| `planner` | `read, grep, find, ls` | Delegated planning in an isolated context (headless/chain); never edits. |
-| `reviewer` | `read, grep, find, ls, bash` | Reviews for bugs, security, and maintainability; bash limited to read-only `git diff/log/show`. |
-| `worker` | `read, write, edit, bash, grep, find, ls` | General-purpose executor; reports what changed. |
-| `researcher` | `read, grep, find, ls, web_search, web_fetch` | Investigates external questions and returns sourced findings with confidence. |
-| `tester` | `read, write, edit, grep, find, ls, bash` | Adds or updates tests and runs them; never weakens assertions to pass. |
-| `debugger` | `read, grep, find, ls, bash` | Root-causes a failure from evidence; read-only plus running tests/builds. |
-| `documenter` | `read, write, edit, grep, find, ls, bash` | Updates READMEs, docs, and changelogs to match the code. |
+| `explorer` | `read, grep, find, ls, read_doc` | Fast codebase recon; returns files + line ranges, key code, architecture, and where to start. |
+| `planner` | `read, grep, find, ls, read_doc` | Delegated planning in an isolated context (headless/chain); never edits. |
+| `reviewer` | `read, grep, find, ls, read_doc, bash` | Reviews for bugs, security, and maintainability; bash limited to read-only `git diff/log/show`. |
+| `worker` | `read, write, edit, bash, grep, find, ls, read_doc` | General-purpose executor; reports what changed. |
+| `researcher` | `read, grep, find, ls, read_doc, web_search, web_fetch` | Investigates external questions and returns sourced findings with confidence. |
+| `tester` | `read, write, edit, grep, find, ls, read_doc, bash` | Adds or updates tests and runs them; never weakens assertions to pass. |
+| `debugger` | `read, grep, find, ls, read_doc, bash` | Root-causes a failure from evidence; read-only plus running tests/builds. |
+| `documenter` | `read, write, edit, grep, find, ls, read_doc, bash` | Updates READMEs, docs, and changelogs to match the code. |
 
 Each agent's system prompt is appended to the subprocess, and its tool list is
 passed as `--tools`. Every built-in has an explicit allowlist, so an agent never
@@ -279,9 +279,9 @@ is the safe way to delegate exploration, and plan mode sets it automatically.
 
 The child is restricted at the process boundary, not by its prompt: the tool
 list passed as `--tools` is the intersection of the agent's tools with
-`read`, `grep`, `find`, `ls`, `web_search`, and `web_fetch`. An agent with no
-reader tools (or no `tools` declaration) gets the full reader set instead. So
-`worker` cannot write under `readOnly`, and an external agent file that
+`read`, `grep`, `find`, `ls`, `read_doc`, `web_search`, and `web_fetch`. An agent
+with no reader tools (or no `tools` declaration) gets the full reader set
+instead. So `worker` cannot write under `readOnly`, and an external agent file that
 customizes a built-in cannot widen it. A short read-only note is appended to the
 child's system prompt for behavior; the tool list is the enforcement.
 

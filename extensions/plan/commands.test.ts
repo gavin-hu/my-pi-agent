@@ -485,6 +485,18 @@ describe("/plan list", () => {
 		expect(notifications.some((message) => message.includes("Plan review:"))).toBe(true);
 	});
 
+	test("hides the goal and todo rails while the picker is open", async () => {
+		const { pi } = setup({ result: { status: "cancelled" }, summaries });
+		const seen: unknown[] = [];
+		pi.pi.events.on("my-pi-agent/rails-screen", (value: unknown) => seen.push(value));
+		const { ctx: tuiCtx } = fakeCtx({ mode: "tui", cwd: "/repo" });
+		tuiCtx.ui.custom = async () => undefined;
+
+		await pi.commands.get("plan").handler("list", tuiCtx);
+
+		expect(seen).toEqual([true, false]);
+	});
+
 	test("cancels plan mode without approving", async () => {
 		const { pi, ctx, notifications, runtime } = setup({ result: { status: "cancelled" }, enabled: true });
 

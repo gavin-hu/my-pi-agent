@@ -1518,6 +1518,19 @@ describe("plan index — screen", () => {
 		}
 	});
 
+	test("fits a long list and its footer inside the terminal", () => {
+		const many = Array.from({ length: 30 }, (_, index) => summary({ title: `Plan ${index}` }));
+		const lines = harness({ summaries: many }).component.render(80);
+		// Header, summary, 15 rows, range, detail, hint, and closing rule — exactly 24.
+		expect(lines).toHaveLength(24);
+		for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(80);
+	});
+
+	test("a short list leaves the footer visible below the rows", () => {
+		const lines = harness().component.render(80);
+		expect(lines.length).toBeLessThanOrEqual(24);
+	});
+
 	test("scrolls its range row when the plans overflow", () => {
 		const many = Array.from({ length: 30 }, (_, index) => summary({ title: `Plan ${index}` }));
 		expect(harness({ summaries: many }).text()).toMatch(/1–\d+ of 30/);
@@ -1591,6 +1604,7 @@ describe("plan policy", () => {
 			"grep",
 			"find",
 			"ls",
+			"read_doc",
 			"todo",
 			"goal",
 			"bash",

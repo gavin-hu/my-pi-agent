@@ -3,10 +3,11 @@
  */
 
 import { Type, type Static } from "typebox";
+import { READ_DOC_TOOL } from "../../lib/tool-names.ts";
 import type { FormatId } from "./formats.ts";
 
 /** The tool's registered name, shared by the definition and its renderer. */
-export const TOOL_NAME = "read_doc";
+export const TOOL_NAME = READ_DOC_TOOL;
 
 export const MIN_CHARS = 200;
 export const MAX_CHARS = 100_000;

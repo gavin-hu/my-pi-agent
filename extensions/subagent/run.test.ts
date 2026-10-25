@@ -379,7 +379,7 @@ describe("runSingleAgent", () => {
 		await runSingleAgent(options({ agentName: "worker", readOnly: true, spawn }));
 
 		const toolsIndex = seenArgs.indexOf("--tools");
-		expect(seenArgs[toolsIndex + 1]).toBe("read,grep,find,ls");
+		expect(seenArgs[toolsIndex + 1]).toBe("read,grep,find,ls,read_doc");
 		expect(seenPrompt).toContain("Read-only mode");
 	});
 

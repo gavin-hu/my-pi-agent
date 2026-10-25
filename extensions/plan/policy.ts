@@ -14,26 +14,30 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createReadOnlyPolicy, type ReadOnlyPolicy } from "../../lib/policy.ts";
-import { ASK_USER_QUESTION_TOOL, GOAL_TOOL, SUBAGENT_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
+import { createReadOnlyPolicy, WORKSPACE_READERS, type ReadOnlyPolicy } from "../../lib/policy.ts";
+import {
+	ASK_USER_QUESTION_TOOL,
+	GOAL_TOOL,
+	SUBAGENT_TOOL,
+	TODO_TOOL,
+	WEB_FETCH_TOOL,
+	WEB_SEARCH_TOOL,
+} from "../../lib/tool-names.ts";
 import { ENTER_TOOL } from "./runtime.ts";
 
 /**
- * Tools that stay available while planning: structured readers, the trackers,
- * the git-only `bash`, and the known web/question readers. They are also the
- * tools the path backstop does not second-guess.
+ * Tools that stay available while planning: structured readers (documents
+ * included), the trackers, the git-only `bash`, and the known web/question
+ * readers. They are also the tools the path backstop does not second-guess.
  */
 export const PLAN_SAFE_TOOLS = [
-	"read",
-	"grep",
-	"find",
-	"ls",
+	...WORKSPACE_READERS,
 	TODO_TOOL,
 	GOAL_TOOL,
 	"bash",
 	ASK_USER_QUESTION_TOOL,
-	"web_search",
-	"web_fetch",
+	WEB_SEARCH_TOOL,
+	WEB_FETCH_TOOL,
 ];
 
 /**
@@ -43,7 +47,11 @@ export const PLAN_SAFE_TOOLS = [
  * deliberately absent — it is default-denied like any other shell.
  */
 export const PLAN_ALLOWED_TOOLS = [...PLAN_SAFE_TOOLS, SUBAGENT_TOOL];
-/** Tools always blocked while planning, even when annotated read-only. */
+/**
+ * Tools always blocked while planning, even when annotated read-only.
+ * `enter_plan_mode` is denied so it stays hidden while planning; the guard exempts
+ * plan's own registration so a call already in flight can still answer "already".
+ */
 const ALWAYS_BLOCKED_TOOLS = ["write", "edit", ENTER_TOOL];
 
 /** Shown when a tool call is refused while planning. */

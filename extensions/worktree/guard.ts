@@ -15,6 +15,7 @@
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { isInside, isInsideReal, realPathOfNearest } from "../../lib/path.ts";
+import { WORKSPACE_READERS } from "../../lib/policy.ts";
 import { isShellEscapable } from "../../lib/shell.ts";
 import type { WorktreeConfig } from "./config.ts";
 
@@ -33,14 +34,11 @@ export function resolveUnder(root: string, path: string | undefined): string {
 // File tools (check 1)
 // ---------------------------------------------------------------------------
 
+/** The file tools and the one argument that carries their path. */
 const PATH_FIELD: Record<string, string> = {
-	read: "path",
-	read_doc: "path",
+	...Object.fromEntries(WORKSPACE_READERS.map((name): [string, string] => [name, "path"])),
 	write: "path",
 	edit: "path",
-	grep: "path",
-	find: "path",
-	ls: "path",
 };
 
 const WRITE_TOOLS = new Set(["write", "edit"]);

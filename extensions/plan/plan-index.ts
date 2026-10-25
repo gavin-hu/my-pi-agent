@@ -16,7 +16,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, Key, matchesKey, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
-import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
+import { detailBlockRows, dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { formatSize } from "../../lib/format.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { emptyState, listRow } from "../../lib/tui/rows.ts";
@@ -26,8 +26,12 @@ import type { PlanSummary } from "./plans.ts";
 
 /** Rows the screen shows when the terminal height is unknown. */
 const DEFAULT_ROWS = 14;
-/** Fixed rows around the list: header, summary, blank, range, detail, hint, closing rule. */
-const CHROME = 7;
+/**
+ * Fixed rows around the list body: header, summary, blank, and the closing footer
+ * (blank, hint, rule). The focused path adds `detailBlockRows` on top, and `fitRows`
+ * adds one more when the range row appears.
+ */
+const CHROME = 6;
 /** Longest title a row draws before the trailing meta wins the column. */
 const TITLE_WIDTH = 56;
 
@@ -226,8 +230,14 @@ export class PlanIndexComponent implements Component {
 	render(width: number): string[] {
 		const { theme } = this.options;
 		const w = Math.max(1, width);
-		this.cursor.visible = fitRows(this.options.viewportRows, this.summaries.length, CHROME, DEFAULT_ROWS);
 		this.cursor.sync(this.summaries.length);
+		const detail = this.detailLines(w);
+		this.cursor.visible = fitRows(
+			this.options.viewportRows,
+			this.summaries.length,
+			CHROME + detailBlockRows(detail),
+			DEFAULT_ROWS,
+		);
 
 		const body: string[] = [];
 		if (this.summaries.length === 0) {
@@ -253,7 +263,7 @@ export class PlanIndexComponent implements Component {
 			range: this.cursor.clipped(this.summaries.length)
 				? formatRange(theme, w, { ...this.cursor.window(this.summaries.length), total: this.summaries.length })
 				: undefined,
-			detail: this.detailLines(w),
+			detail,
 			hint,
 		});
 	}

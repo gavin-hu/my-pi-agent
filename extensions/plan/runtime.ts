@@ -11,8 +11,8 @@
  * markers survive a resume too.
  *
  * `write_plan` is the one sanctioned write while planning. The read-only guard
- * in `index.ts` permits a control tool only when the registered tool is this
- * extension's own (matched by source path), so a same-named tool from another
+ * in `index.ts` permits plan's own tools only when the registered tool is this
+ * extension's (matched by source path), so a same-named tool from another
  * extension cannot borrow the exemption.
  */
 
@@ -48,8 +48,16 @@ export const BASELINE_TYPE = "plan-baseline";
 /** Longest plan-file basename shown in the footer chip. */
 const STATUS_NAME_LENGTH = 28;
 
-/** Tools plan mode activates itself; the guard permits only this extension's own. */
+/** Tools plan mode activates itself. */
 const CONTROL_TOOLS = [EXIT_TOOL, CANCEL_TOOL, WRITE_PLAN_TOOL];
+
+/**
+ * Tools the read-only guard exempts when this extension registered them.
+ * `enter_plan_mode` is here only so a call already in flight when plan mode came on
+ * is answered by the tool ("already in plan mode"); the policy still denies it, so
+ * it stays hidden while planning.
+ */
+const OWNED_TOOLS = [...CONTROL_TOOLS, ENTER_TOOL];
 
 export interface PlanRuntime {
 	/** Whether plan mode is currently on. */
@@ -61,8 +69,8 @@ export interface PlanRuntime {
 	restore(ctx: ExtensionContext): void;
 	/** Plan-file storage for `write_plan` and `exit_plan_mode`. */
 	plans: PlanStore;
-	/** Whether `toolName` is a plan-owned control tool (not a same-named impostor). */
-	isControlTool(toolName: string): boolean;
+	/** Whether `toolName` is one of plan's own tools (not a same-named impostor) the read-only guard exempts. */
+	isOwnTool(toolName: string): boolean;
 	/** Path of the most recently written plan, for the footer chip. */
 	lastPlanPath(): string | undefined;
 	/** Remember a written plan and repaint the footer. */
@@ -159,11 +167,15 @@ export function createPlanRuntime(
 
 	const plans = createPlanStore(pi);
 
-	const isControlTool = (toolName: string): boolean => {
-		if (!CONTROL_TOOLS.includes(toolName)) return false;
+	/**
+	 * Whether `toolName` is plan's own registration, matched by the entry path the
+	 * host recorded. Older hosts may not record a source; only a recorded mismatch
+	 * is rejected.
+	 */
+	const isOwnTool = (toolName: string): boolean => {
+		if (!OWNED_TOOLS.includes(toolName)) return false;
 		const info = pi.getAllTools().find((tool) => tool.name === toolName);
 		const source = info?.sourceInfo?.path;
-		// Older hosts may not record a source; only reject a recorded mismatch.
 		return source === undefined || options.entryPath === undefined || samePath(source, options.entryPath);
 	};
 
@@ -241,7 +253,7 @@ export function createPlanRuntime(
 			if (ctx) setStatus(ctx);
 		},
 		plans,
-		isControlTool,
+		isOwnTool,
 		lastPlanPath: () => lastPlanPath,
 		setLastPlan: (ctx, path) => {
 			lastPlanPath = path;

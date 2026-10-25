@@ -9,6 +9,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { WEB_SEARCH_PROVIDER_CHANNEL } from "../../../lib/events.ts";
+import { WEB_SEARCH_TOOL } from "../../../lib/tool-names.ts";
 import { loadSearchConfig } from "../config.ts";
 import { oneLine } from "../transcript.ts";
 import { reuseText } from "../../../lib/tui/chrome.ts";
@@ -27,7 +28,7 @@ import { formatResults } from "./format.ts";
 import { createThrottle, runSearch, type SearchDeps } from "./search.ts";
 import { resolveRequest, WebSearchOutput, WebSearchParams, type SearchResponse, type WebSearchArgs } from "./schema.ts";
 
-export const TOOL_NAME = "web_search";
+export const TOOL_NAME = WEB_SEARCH_TOOL;
 
 export function registerSearchTool(pi: ExtensionAPI, deps: SearchDeps = {}): void {
 	// One throttle per extension instance, so repeated searches stay polite

@@ -64,7 +64,9 @@ function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: Fake
 	const fake = makeFakePi({
 		active: ["read", "bash", "write", "edit", ENTER_TOOL, "todo"],
 		exec: options.exec ?? repoExec(root),
-		allTools: options.allTools,
+		// A normal install has `goal` registered by its sibling extension; the
+		// approval probes for it before recording the session goal.
+		allTools: options.allTools ?? [{ name: GOAL_TOOL }],
 	});
 	const runtime = createPlanRuntime(fake.pi, createPlanPolicy(fake.pi));
 	registerTools(fake.pi, runtime, web);
@@ -1281,6 +1283,20 @@ describe("exit_plan_mode", () => {
 			expect(result.content[0].text).toContain(
 				"Could not record the session goal: objective is longer than 2000 characters.",
 			);
+		});
+
+		test("says nothing about a goal when the goal tool is not installed", async () => {
+			// `allTools` names no goal, as when the sibling extension is disabled.
+			const { enter, exit, write, runtime, root } = setup(undefined, { allTools: [{ name: TODO_TOOL }] });
+			await enterPlan(enter, runtime, root);
+			const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Add rate limiting\n\n## Steps\n- [ ] One");
+
+			const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
+			const result = await call(exit, { plan_path: planPath }, ctx);
+
+			expect(result.details.approved).toBe(true);
+			expect(toolCalls.some((entry) => entry.name === "goal")).toBe(false);
+			expect(result.content[0].text).not.toContain("session goal");
 		});
 	});
 });

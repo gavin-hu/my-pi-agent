@@ -35,6 +35,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lock. `/board` serves the same cards as a loopback page with a Board tab and a
   Team tab; writes from it are made as the serving session and never touch the
   repository.
+- `subagent`: a read-only delegation, and every built-in agent that reads files,
+  can read a document. `read_doc` joined the reader allowlist, so `explorer`,
+  `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, and
+  `documenter` pass it to the child beside `read`, `grep`, `find`, and `ls`, and
+  `readOnly` keeps it as a reader instead of dropping it. The name and the reader
+  set now come from `lib/tool-names.ts` and `lib/policy.ts`, so the agent lists,
+  plan mode's allowlist, and rewind's snapshot policy cannot drift apart.
+
 - `bytefly`: `/bytefly upgrade` installs a pending update through Pi's own package
   manager instead of a command the user has to type. The action confirms first,
   then calls `DefaultPackageManager.update()` — the manager that already names each
@@ -348,6 +356,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   through them.
 
 ### Fixed
+
+- `plan`: `/plan list` keeps its footer. The docked index budgeted seven rows
+  around the list while its own frame spends eight — header, summary, blank, the
+  focused plan, the closing hint, and the rule — so a list that filled the
+  viewport lost its closing rule by one row. It now counts the path block through
+  `detailBlockRows`, the arithmetic `/rewind` already uses, and takes the dock to
+  itself while it is open, so the goal and todo rails no longer shrink the slot
+  it was measured against.
+
+- `plan`: approving a plan no longer reports a goal write when the `goal`
+  extension is disabled. The approval probes for the registered tool, the way
+  `goal` probes for `enter_plan_mode`, and stays quiet when there is nothing to
+  record.
+
+- `plan`: an `enter_plan_mode` call that was already in flight when plan mode came
+  on is answered with "Already in plan mode" instead of being refused as not
+  read-only. The guard's exemption is still matched by source path, so a
+  same-named tool from another extension stays blocked.
+
+- `plan`: a plan can read a document. `read_doc` is a known reader while
+  planning, so a plan built from a PDF, Word, OpenDocument, RTF, or Excel file no
+  longer has to leave plan mode to read it.
 
 - `session-bus`: pruning no longer deletes a claim that a peer took after the
   pruning session read the session list. `store.prune` decided which claims to

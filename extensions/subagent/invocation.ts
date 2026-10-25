@@ -6,13 +6,15 @@
  * import for invocation concerns.
  */
 
+import { WORKSPACE_READERS } from "../../lib/policy.ts";
+import { WEB_FETCH_TOOL, WEB_SEARCH_TOOL } from "../../lib/tool-names.ts";
 import type { AgentConfig } from "./agents.ts";
 import type { DispatchDefaults } from "./types.ts";
 
 export { getPiInvocation, type PiInvocation } from "../../lib/pi-invocation.ts";
 
-/** Tools a read-only delegation may use: structured readers and web readers only. */
-export const READ_ONLY_TOOLS = ["read", "grep", "find", "ls", "web_search", "web_fetch"] as const;
+/** Tools a read-only delegation may use: structured readers, documents, and web readers only. */
+export const READ_ONLY_TOOLS = [...WORKSPACE_READERS, WEB_SEARCH_TOOL, WEB_FETCH_TOOL] as const;
 
 /** Appended to a read-only agent's system prompt; the `--tools` list is the real gate. */
 export const READ_ONLY_NOTE =

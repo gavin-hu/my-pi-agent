@@ -149,10 +149,12 @@ export default function planMode(pi: ExtensionAPI): void {
 	 * the path backstop (a hint on a path-carrying tool is only a claim).
 	 */
 	const blockedReason = (toolName: string, input: unknown): string | undefined => {
-		// Plan-owned control tools are the sanctioned exception: `write_plan` saves
-		// the artifact, `exit_plan_mode` presents it. The source-path check keeps a
-		// same-named tool from another extension from borrowing the exemption.
-		if (runtime.isControlTool(toolName)) return undefined;
+		// Plan-owned tools are the sanctioned exception: `write_plan` saves the
+		// artifact, `exit_plan_mode` presents it, `cancel_plan_mode` restores access,
+		// and `enter_plan_mode` answers "already" to a call that was in flight when
+		// plan mode came on. The source-path check keeps a same-named tool from
+		// another extension from borrowing the exemption.
+		if (runtime.isOwnTool(toolName)) return undefined;
 		// `subagent` stays active, but only as read-only delegation. The flag is
 		// forced in place (the child enforces it through `--tools`), so the model
 		// cannot forget it; a `subagent` that does not declare the parameter is
