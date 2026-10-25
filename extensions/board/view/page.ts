@@ -96,6 +96,7 @@ ${docHead({ title: "board", css: BOARD_CSS })}
   <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="card-dialog-title">
     <div class="bf-dialog__head">
       <h2 id="card-dialog-title"></h2>
+      <span class="board-dialog__state" id="card-dialog-state"></span>
       <span class="bf-spacer"></span>
       <button type="button" class="bf-btn bf-btn--icon" id="card-dialog-close" aria-label="Close">×</button>
     </div>

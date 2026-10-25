@@ -98,7 +98,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
 | Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line (clamped, with the whole sentence as its tooltip), and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | a table of owners (`Owner · Cards · Oldest`), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line. Both tables honour the toolbar's filter, and their headings read `shown/total` the way a lane head does |
-| Card dialog | a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline, a note field, and the lane buttons, `Release`, `Drop`, `Close` |
+| Card dialog | the lane as a dot and a word beside the title, a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline (who and when above the sentence, a rule between them), a note field, and `Move to` only the lanes the card can reach, then `Release`, `Drop`, `Close` |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
 `blocked` and destructive choices, `--success` for `done`. A card takes its colour

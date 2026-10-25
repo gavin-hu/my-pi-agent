@@ -16,7 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   decision — instead of five equal panels. `n`, `/`, `j`/`k`, `Enter`, `t`, and `?`
   drive it from the keyboard, and a filter matches a card by title, path, or holder — on
   both tabs, which is what makes it one control; at a narrow width the board opens on
-  the first lane that holds a card.
+  the first lane that holds a card. The card dialog names its lane with the same dot and
+  word a lane head wears, separates its notes with who and when on their own line, and
+  offers `Move to` only the lanes the card can reach, so the lane it is already in is
+  never a disabled button that looks selected.
   Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the

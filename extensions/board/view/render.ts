@@ -183,7 +183,8 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     var progress = document.getElementById("board-progress");
     if (progress) {
       var total = view.counts.total;
-      progress.hidden = total === 0;
+      // One or two cards is not a ratio: an empty bar beside "0/1 done" is noise.
+      progress.hidden = total < 3;
       var fill = document.getElementById("board-progress-fill");
       if (fill) fill.style.width = total === 0 ? "0%" : Math.round((view.counts.done / total) * 100) + "%";
       var text = document.getElementById("board-progress-text");
@@ -317,8 +318,13 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   /** Fill the card dialog's contents from a card, without opening or closing it. */
   function fillDialog(card, view) {
     document.getElementById("card-dialog-title").textContent = card.title;
+    // The lane is a status of its own, not a word inside a sentence: the same dot and
+    // label a lane head wears, so the dialog and the board speak the same vocabulary.
+    var state = document.getElementById("card-dialog-state");
+    state.setAttribute("data-status", card.status);
+    state.textContent = card.status;
     document.getElementById("card-dialog-meta").textContent =
-      "#" + card.id + " · " + card.status + " · updated " + ago(card.updatedAt) + " · last edited by " + card.by;
+      "#" + card.id + " · updated " + ago(card.updatedAt) + " · last edited by " + card.by;
     var owner = document.getElementById("card-dialog-owner");
     owner.textContent = "";
     owner.appendChild(card.owner ? chip(card.owner.label, "accent") : document.createTextNode("unassigned"));
@@ -339,9 +345,14 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     notes.textContent = "";
     for (var j = 0; j < card.notes.length; j++) {
       var note = card.notes[j];
+      // Who and when on their own line, the sentence under it, a rule between notes:
+      // wrapped prose used to run one note into the next with nothing to separate them.
       var row = el("li", "board-dialog__note");
-      row.appendChild(el("span", "board-dialog__note-by", note.by + " · " + ago(note.at) + " · "));
-      row.appendChild(document.createTextNode(note.text));
+      var head = el("p", "board-dialog__note-head");
+      head.appendChild(el("span", "board-dialog__note-by", note.by));
+      head.appendChild(el("span", "board-dialog__note-at", ago(note.at)));
+      row.appendChild(head);
+      row.appendChild(el("p", "board-dialog__note-text", note.text));
       notes.appendChild(row);
     }
     var earlier = document.getElementById("card-dialog-earlier");
