@@ -35,7 +35,7 @@ import { projectMemoryPath } from "../extensions/memory/store.ts";
 import { DEFAULT_CONFIG as REWIND } from "../extensions/rewind/config/config.ts";
 import { DEFAULT_CONFIG as WORKTREE } from "../extensions/worktree/config.ts";
 import { wechatDir } from "../extensions/wechat/state/credentials.ts";
-import { walkFiles } from "./helpers/files.ts";
+import { walkFiles, posix } from "./helpers/files.ts";
 import { withAgentDir, withEnv } from "./helpers/env.ts";
 import { createFakePi } from "./helpers/fakes.ts";
 
@@ -497,7 +497,8 @@ describe("the files table is every place the pack writes", () => {
 		const anchored = [...walkFiles(join(root, "extensions")), ...walkFiles(join(root, "lib"))]
 			.filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
 			.filter((file) => /getAgentDir|CONFIG_DIR_NAME/.test(readFileSync(file, "utf-8")))
-			.map((file) => relative(root, file))
+			// A declared path is posix, so a Windows separator would read as undeclared.
+			.map((file) => posix(relative(root, file)))
 			.filter((file) => !declared.has(file))
 			.sort();
 		expect(anchored, "a module that anchors on the agent directory with no store row and no READS entry").toEqual([]);
