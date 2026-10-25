@@ -1,20 +1,16 @@
 /**
  * A claim path as the store keeps it: repository-relative, posix, canonical.
  *
- * Two callers must agree, which is why this is one body rather than the copy each
- * used to carry: `session-bus` when a session claims or joins, and plan approval
- * when it validates a split's unit paths. A path is data — it is resolved against
- * the repository root, and canonicalised through its real target before it is
- * compared or stored — so a symlinked spelling inside the repository and the file
- * it names are one claim, and a path that leaves the repository is refused before
- * anything is written. Approval running this is what makes an unjoinable unit
- * impossible to approve instead of impossible to join.
+ * A path is data — it is resolved against the repository root, and canonicalised
+ * through its real target before it is compared or stored — so a symlinked
+ * spelling inside the repository and the file it names are one claim, and a path
+ * that leaves the repository is refused before anything is written.
  *
  * `lib/path.ts` owns the containment predicates; this owns the claim's shape.
  */
 
 import { isAbsolute, join, relative, sep } from "node:path";
-import { isInside, realPathOfNearest } from "../path.ts";
+import { isInside, realPathOfNearest } from "../../lib/path.ts";
 
 /** A path this module declined, with the reason a caller can print. */
 export interface ClaimPathError {

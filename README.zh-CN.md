@@ -65,7 +65,7 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 - `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
   及其运行时健康状况，启用或禁用一个扩展，并用 `x` 清除项目级覆盖。
-- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十三项设置排成
+- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十二项设置排成
   一列，值紧跟在名称之后；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project
   作用域。其余键都是 `bytefly.json` 编辑，见配置参考。
 - `/bytefly skills` 打开控制中心的 Skills 区：每个 Pi 技能一行，带启用复选框与
@@ -86,7 +86,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 ## 包含内容
 
-19 个扩展、5 个随包技能，以及 2 个主题，按 [路线图](./ROADMAP.md) 追踪的承诺分组；
+19 个扩展、4 个随包技能，以及 2 个主题，按 [路线图](./ROADMAP.md) 追踪的承诺分组；
 [用户指南](./docs/user-guide/) 按章节讲述同样的内容。每个扩展在 `docs/extensions/`
 下的页面提供完整的工具与命令说明，并以能力表开头。
 
@@ -94,7 +94,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
-| [`plan`](./docs/extensions/plan.md) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | 只读规划：模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准；开启 `plan.team` 后，批准时还可以把计划拆成切片，由独立会话按名字加入。可在 TUI 中审阅，或在浏览器中打开以留下行内评论：页面会跟随计划文件实时更新，你也可以给每位同事各一个审阅链接，各自以绑定的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
+| [`plan`](./docs/extensions/plan.md) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | 只读规划：模型先调研，把计划保存到 `~/.pi/agent/plans/<repo-key>` 下（每个仓库一份，各 worktree 共享），你在写入任何内容前先批准。可在 TUI 中审阅，或在浏览器中打开以留下行内评论：页面会跟随计划文件实时更新，你也可以给每位同事各一个审阅链接，各自以绑定的名义评论。`init` 技能复用同一审阅流程来创建或更新项目的 `AGENTS.md`。 |
 | [`check`](./docs/extensions/check.md) | `run_check`, `/check` | 检测项目的测试、lint 或类型检查命令（或使用 `check.command`），在受监管的进程中运行，并把失败整理成可导航的 `file:line` 列表。 |
 | [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | 把任务委派给专职智能体（`explorer`、`planner`、`reviewer`、`worker`、`researcher`、`tester`、`debugger`、`documenter`），运行在它自己的 Pi 进程中 —— 单个、并行、链式或在后台运行；后台运行时在页脚显示数量，完成后发出提示。 |
 | [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | 持久任务列表（`pending` / `in_progress` / `completed`），配一行式 widget。 |
@@ -138,7 +138,6 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 | [`init`](./skills/init/SKILL.md) | 通过内置的交互式访谈和计划审阅，基于仓库证据创建或更新 Pi 实际读取的指令文件（`AGENTS.md`；存在覆盖它的 `AGENTS.override.md` 时则是该文件），并从仓库推导命令、生成路径与包范围。 |
 | [`refactor`](./skills/refactor/SKILL.md) | 审计项目或路径中的重构机会：重复代码、过大的模块、耦合、结构漂移，以及测试薄弱且改动频繁的代码。随包的 `scripts/inventory.ts` 会量出体积、扇入、churn 和测试邻近度，让每条发现都带来源，排序清单附证据和验证命令；选定一个候选项后，它会把该重构带到不改行为地完成，而审计本身只读。 |
 | [`project-docs`](./skills/project-docs/SKILL.md) | 让项目的四份文档如实描述代码：只读审计门面、路线图、贡献路径与 changelog，既对照代码树也互相对照；然后每个写入动作一个模式——在变更的同一次提交里记下 changelog 条目、按项目自己的规则整理发布段落、在已发布的路线图条目上删除并把其余重新编号、同步门面的目录、计数与示例。它先摸清各项目的类目名、范围拼写、条目形制与守卫，而不是套用模板；随包的 `scripts/state.ts` 会打印 changelog 的 tag、窗口与未发布类目。 |
-| [`parallel-dev`](./skills/parallel-dev/SKILL.md) | 以“负责人加团队”的方式组织并行开发：负责人对契约、共享文件、合并顺序和绿色基线负责，同时自己承担一个工作流；每个互不重叠的工作流各有一名所有者，先做可运行的纵向骨架，声明路径，在每个回合的边界协作，并由他人独立验证。 |
 | [`next`](./skills/next/SKILL.md) | 按优先级建议接下来的待办——未收尾的工作、已破坏或未兑现的承诺——会话已有工作时基于本次会话，仅当会话为空时才基于代码树；命令后的文字说明问什么、路径说明看哪里。只读，输出带证据和启动命令的简短编号清单。 |
 
 ### 主题

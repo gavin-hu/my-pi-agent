@@ -631,9 +631,9 @@ describe("panel text projection", () => {
 		const views = settingViews(snapshot(), "global");
 		const lines = formatSettingsListing(views).split("\n");
 
-		expect(lines[0]).toBe("bytefly: Settings · Global · 13 settings");
+		expect(lines[0]).toBe("bytefly: Settings · Global · 12 settings");
 		expect(lines[1]).toContain("Bytefly startup TUI: Off");
-		expect(lines).toHaveLength(14);
+		expect(lines).toHaveLength(13);
 		expect(lines.join("\n")).not.toContain("Notifications (");
 		for (const row of [
 			"Bytefly startup TUI: Off",
@@ -648,7 +648,6 @@ describe("panel text projection", () => {
 			"Proactive health check: On",
 			"Currency: CNY (¥)",
 			"Session budget: 0",
-			"Run plans as a team: Off",
 		]) {
 			expect(lines.join("\n"), row).toContain(row);
 		}
@@ -678,9 +677,8 @@ describe("settings catalogue", () => {
 			"doctor.proactive",
 			"price.currency.code",
 			"price.budget",
-			"plan.team",
 		]);
-		expect(SETTING_ROWS.length).toBeLessThanOrEqual(13);
+		expect(SETTING_ROWS.length).toBeLessThanOrEqual(12);
 		expect(new Set(SETTING_ROWS.map((entry) => entry.id)).size).toBe(SETTING_ROWS.length);
 	});
 
@@ -692,8 +690,8 @@ describe("settings catalogue", () => {
 				.filter((entry) => entry.config !== undefined)
 				.map((entry) => entry.id),
 		);
-		expect(global).toHaveLength(13);
-		expect(rowsForScope("project")).toHaveLength(11);
+		expect(global).toHaveLength(12);
+		expect(rowsForScope("project")).toHaveLength(10);
 	});
 
 	test("names every row and describes it", () => {
@@ -719,11 +717,10 @@ describe("settings catalogue", () => {
 			["doctor.proactive", "true", "On", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.budget", "0", "0", "default"],
-			["plan.team", "false", "Off", "default"],
 		]);
 
 		expect(settingViews(snapshot(), "project").map((entry) => entry.origin)).toEqual(
-			Array.from({ length: 11 }, () => "default"),
+			Array.from({ length: 10 }, () => "default"),
 		);
 		const inherited = snapshot({ global: { notify: { enabled: true } } });
 		expect(viewOf(inherited, "project", "notify.enabled")).toMatchObject({ value: "true", origin: "inherited" });
@@ -1297,10 +1294,10 @@ describe("panel entries", () => {
 	test("builds the Settings list flat, in catalogue order, with no headings", () => {
 		const entries = settingEntries(settingViews(snapshot(), "global"));
 
-		expect(entries).toHaveLength(13);
+		expect(entries).toHaveLength(12);
 		expect(entries.every((entry) => entry.kind === "setting")).toBe(true);
 		expect(entryKey(entries[0])).toBe("byteflyUi");
-		expect(entryKey(entries.at(-1))).toBe("plan.team");
+		expect(entryKey(entries.at(-1))).toBe("price.budget");
 	});
 
 	test("marks only rows selectable and skips headings when stepping", () => {
@@ -2554,7 +2551,7 @@ describe("PanelComponent sections", () => {
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.other}Skills`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("13 settings");
+		expect(text).toContain("12 settings");
 		expect(text).toContain("Bytefly startup TUI");
 		expect(text).toContain("Desktop notifications");
 		expect(text).toContain("Watcher matched");
@@ -2572,7 +2569,7 @@ describe("PanelComponent sections", () => {
 		expect(component.render(80).join("\n")).toContain("Global · 0 skills");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 13 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 12 settings");
 
 		component.handleInput("\u001b[D");
 		expect(component.render(80).join("\n")).toContain("Global · 0 skills");
@@ -2590,7 +2587,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\u001b[C");
 		component.handleInput("\u001b[C");
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 13 settings");
+		expect(component.render(80).join("\n")).toContain("Global · 12 settings");
 	});
 
 	test("keeps the scope switch working in Settings", () => {
@@ -2599,7 +2596,7 @@ describe("PanelComponent sections", () => {
 		component.handleInput("\t");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 11 settings");
+		expect(text).toContain("Project · 10 settings");
 		expect(text).toContain("App settings are Global only.");
 		expect(text).not.toContain("Bytefly startup TUI");
 	});
@@ -2611,7 +2608,7 @@ describe("PanelComponent sections", () => {
 		focus(component, "Theme");
 
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 11 settings");
+		expect(component.render(80).join("\n")).toContain("Project · 10 settings");
 		expect(selectedLine(component)).toContain("Turn finished");
 	});
 
@@ -2622,7 +2619,7 @@ describe("PanelComponent sections", () => {
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 13 settings");
+		expect(refused).toContain("Global · 12 settings");
 		expect(refused).not.toContain("Esc close");
 
 		component.handleInput("j");
@@ -3061,7 +3058,7 @@ describe("PanelComponent settings actions", () => {
 		expect(selectedLine(component)).toContain("Bytefly startup TUI");
 
 		component.handleInput("G");
-		expect(selectedLine(component)).toContain("Run plans as a team");
+		expect(selectedLine(component)).toContain("Session budget");
 	});
 });
 
@@ -3120,10 +3117,10 @@ describe("PanelComponent settings review", () => {
 
 		const global = component.render(80).join("\n");
 		expect(global).toContain("showing");
-		expect(global).toContain("of 13");
+		expect(global).toContain("of 12");
 
 		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("of 11");
+		expect(component.render(80).join("\n")).toContain("of 10");
 	});
 
 	test("ignores a click below the last body row", () => {
@@ -3223,18 +3220,18 @@ describe("PanelComponent settings frame", () => {
 		expect(text).toContain("Session budget");
 	});
 
-	test("fits all thirteen settings on a 24-row terminal with no range row", () => {
+	test("fits all twelve settings on a 24-row terminal with no range row", () => {
 		const { component } = build({ items: [], section: "settings", rows: 24 });
 		const lines = component.render(80);
 
-		expect(lines).toHaveLength(23);
+		expect(lines).toHaveLength(22);
 		expect(lines.join("\n")).not.toContain("showing");
-		expect(lines.join("\n")).toContain("Run plans as a team");
+		expect(lines.join("\n")).toContain("Session budget");
 	});
 
 	test("stays content-sized on a tall terminal", () => {
 		const { component } = build({ items: [], section: "settings", rows: 40 });
-		expect(component.render(80)).toHaveLength(23);
+		expect(component.render(80)).toHaveLength(22);
 	});
 
 	test("keeps a value beside its label on a wide terminal", () => {
@@ -3592,7 +3589,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 13 settings");
+		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 12 settings");
 		expect(notifications.at(-1)).toContain("Bytefly startup TUI: Off");
 		expect(notifications.at(-1)).toContain("Session budget: 0");
 		expect(notifications.at(-1)).toContain("Theme: system");
@@ -3632,7 +3629,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("Global · 13 settings");
+		expect(rendered).toContain("Global · 12 settings");
 		expect(rendered).toContain("Bytefly startup TUI");
 	});
 

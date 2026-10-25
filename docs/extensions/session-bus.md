@@ -26,9 +26,6 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
 | Inbox watch | `session watch`, `/sessions watch [off\|wake]` | New mail reported at the next turn, or one raised turn once the agent is idle. | Shipped |
 | Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. | Shipped |
-| Unit joining | `session join`, `session leave`; `plan.team` | One call claims every path an approved split's unit owns. | Shipped |
-| Joined-unit report | `session status` (`units n/m`) | The newest split's joined units, their holder, and the lead are visible without opening the plan. | Shipped |
-| Leave everything | `session leave` with no unit | Releases every claim this session holds, not only one unit's paths. | Shipped |
 | Usage help | `/sessions help` | The command's usage lines, printed in the transcript. | Shipped |
 
 ## Quickstart
@@ -47,7 +44,7 @@ pi install ./                             # install the package for a user
 Nothing joins on `session_start`, in any mode: the board and `status` only read, so
 a fresh session sees an empty board and a peer's session is not listed until it
 names itself. Naming is the join; so is the first action that needs you to be
-addressable — `send`, `claim`, `release`, `join`, `leave`, or `watch`.
+addressable — `send`, `claim`, `release`, `watch`, or `name`.
 
 ## Tool
 
@@ -58,13 +55,11 @@ collapsed line that expands to the board's rows.
 
 | Action | Inputs | Result |
 |---|---|---|
-| `status` | — | Active sessions with unread counts, claims, and this session's identity, plus `units n/m` for the newest split in this repository. Prunes stale records. A read: it never adds this session to the bus. |
+| `status` | — | Active sessions with unread counts, claims, and this session's identity. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. |
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
-| `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. An owner unit of a split may not claim a shared file — the refusal names the lead. |
+| `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
-| `join` | `team`, `unit` | Claims every path of one unit in an approved split. Needs the plan's `## Team` section, so it refuses a plan that was never split, and needs `plan.team` on. Idempotent: joining twice is the same claims. The unit it claims is what `claim` reads to keep shared files with the lead. |
-| `leave` | optional `team`, `unit` | Releases that unit's paths, or every claim this session holds when neither is given. Never gated by the switch. |
 | `watch` | optional `wake`, optional `stop` | Arms this session's inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch's mode. |
 | `name` | `label` | Joins the bus, and renames this session on it and in Pi — the same path as `/sessions name`, with the same uniqueness rule, so the footer and `/resume` agree with the record peers address. An empty label is refused rather than keeping the old one, and a label a live session holds is refused with its owner named. The result reports the label the bus settled on. |
 
@@ -72,22 +67,6 @@ A claim is all-or-nothing: if one path conflicts, nothing is claimed. A claim on
 a directory conflicts with claims below it and above it, so `src/api` and
 `src/api/routes.ts` cannot be held by different sessions. There is no `force`
 takeover; wait for the owner, ask it to release, or let the session expire.
-
-A session that holds an owner unit of a split may not claim a shared file —
-`package.json`, the changelog, the test manifests, the shared name modules — and
-the refusal names the lead whose unit keeps them:
-
-```text
-session({action:"claim", paths:["package.json"]})
-→ Error: package.json is a shared file; only the lead "contract" may claim it.
-```
-
-The rule is the one approval applies, read from [`lib/plans/split.ts`](../../lib/plans/split.ts)
-by both sides, and it holds for as long as the session holds the unit: leaving
-releases the paths and with them the rule. It is read from the claims and the
-newest split rather than remembered, so `/resume` and `/tree` do not lose it, and
-a split a newer plan replaced is out of scope until the session joins again. Like
-every claim rule it is advisory: it refuses a `claim`, not an edit.
 
 Paths resolve against the caller's working directory and are stored relative to
 its repository root; a path outside the repository is refused.
@@ -121,9 +100,8 @@ Naming also sets Pi's session name, so the footer's `[label]` and `/resume` agre
 with the bus. Because the bus derives a joining session's label from that name, a
 named session comes back under the same label after a resume.
 
-The tool's `name` action is the same rename from the model's side, so a lead can
-name itself once the roster card has told it how — the one line of the card it
-cannot get any other way.
+The tool's `name` action is the same rename from the model's side, so a session
+can name itself without the user typing `/sessions name` for it.
 
 ## Behaviour by mode
 
@@ -142,59 +120,21 @@ None in v1. The heartbeat (10 s), watch poll (2 s), session TTL (10 min), messag
 TTL (24 h), text cap, inbox limit, and preview cap are constants in the extension.
 The bus lives under the agent directory, not the project, so it is never committed.
 
-The one switch `join` answers to belongs to another extension: `plan`'s `split`
-key, described in
-[`../configuration.md`](../configuration.md#plan--parallel-slices). `leave` and
-`release` are never gated by it.
-
 ## Parallel workflow
 
 1. The user names each session (`/sessions name`), and the contract (OpenAPI,
    schema, or types) is written before parallel work starts.
-2. When the plan was approved with a split, each session `join`s its unit once —
-   that claims every path the unit owns, so nobody types a path list by hand.
-   Otherwise each session claims its paths. Then it implements its side.
+2. Each session claims its paths before touching them, then implements its side.
 3. A contract, build, or test change goes out as an event:
    `session({action:"send", to:"*", kind:"event", text:"contract v2: ..."})`.
 4. Other sessions consume `inbox` at the start of their next turn, or arm
    `session({action:"watch", wake:true})` so a message raises their turn as soon
    as they are idle; a wake that arrives mid-turn is raised once that run
    settles, never pushed into the running turn.
-5. The lead merges the worktrees and runs the project’s full check.
+5. Whoever integrates merges the worktrees and runs the project's full check.
 
 The bus carries coordination, not authority. The plan, todo list, contract, and
 git branch remain the source of truth.
-
-## Joining a split
-
-A plan approval can write a `## Team` table into the plan file, which is where a
-joining session reads its unit from:
-
-```text
-session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
-→ Joined 2026-11-04-1802-billing/core: claimed src/billing/core.
-```
-
-`team` is the plan file's stem, so two plans in one repository never share a team.
-The unit's paths come from the table the same module wrote, and the read runs
-approval's own rules (`readSplit`), so a hand-edited or stale section is refused
-rather than half-read — and a table approval would have refused, such as an owner
-unit listing `package.json`, cannot be joined either. Each path is then resolved by
-[`lib/claims/`](../../lib/claims/), the same function approval validated it with, so
-a unit's paths and its claims are the same strings; an unknown unit names the units
-that exist; a taken unit names its holder; and with `plan.team` off `join`
-refuses and names the settings row. `status` reports `units 1/2 joined` with the
-holder of each unit, which is how a lead answers "has everyone started?" without
-messaging anyone.
-
-A claim belongs to the live session, not to a branch: a session that exits
-releases its unit, so a restarted owner joins again (the join is idempotent), and
-a crashed one frees the unit when its record goes stale. That is why the roster
-card asks you to name each session — an unnamed one joins under its working
-directory's name, which says nothing about the unit it holds.
-
-Joining also decides who may claim the shared files: an owner's `claim` on one is
-refused, and the lead's own unit keeps them (see [`claim`](#tool)).
 
 ## The /sessions board
 
@@ -235,10 +175,6 @@ characters.
   a session that joins later does not receive it.
 - **No forced claims.** A crashed owner blocks its paths until the session TTL
   expires. This is deliberate; stealing a claim is worse than waiting.
-- **A shared file is refused, not locked.** The split's shared-file rule refuses a
-  `claim`; an owner that edits `package.json` without claiming it is stopped by
-  the merge, not by the bus. It also reads the newest split, so a session whose
-  team a newer plan replaced is unguarded until it joins again.
 - **Bounded by TTL.** An idle session with a stopped heartbeat is pruned after
   ten minutes; its record, its claims, and an inbox directory left empty go with
   it, and its unread mail expires after 24 hours. A claim belongs to a record
@@ -315,12 +251,11 @@ characters.
 |---|---|
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
 | `runtime.ts` | Lifecycle, repo key, joining, heartbeat, and the session's own reads and writes. |
-| `team-runtime.ts` | The team operations: `claim`'s shared-file gate, `join`, `leave`, and the units line `status` reports. |
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
-| `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and one release loop shared by `release` and `leave`. |
+| `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and the one release loop. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |
-| `team.ts` | Reads one unit out of the newest split plan, or the plan a `join` named. |
-| `membership.ts` | Which unit this session holds, read from the claims, and the shared-file claim that follows from it. |
+| `overlap.ts` | The one "do these paths collide?" predicate: `normalizeClaimPath` and `claimsConflict`, re-exported by `protocol.ts`. |
+| `resolve.ts` | `resolveClaimPaths` and `claimPathMessage`: a claim path made repository-relative, posix, and canonical through its real target, or the refusal naming why. |
 | `types.ts` | The stored shapes — session record, message, claim — and the tool's `details`. |
 | `tui.ts` | The `/sessions` board, its scopes, and the pane over one row; the row grammar is in `rows.ts`. |
 | `rows.ts` | The session/claim/message row builders and summaries shared by the board and the transcript. |
@@ -333,7 +268,7 @@ characters.
 ## Testing
 
 The capability suites — `format`, `protocol`, `store`, `runtime`, `tui`, `tools`,
-`membership`, and `extension` — are declared in `test/suite-manifest.ts`. They build a bus in a
-temp directory with a fixed clock, so none needs a live peer; `runtime.test.ts`
+`overlap`, `resolve`, and `extension` — are declared in `test/suite-manifest.ts`.
+They build a bus in a temp directory with a fixed clock, so none needs a live peer; `runtime.test.ts`
 puts its real-repository cases behind `runSlowSuites`, which skips unless `CI` or
 `PI_SLOW_TESTS=1` is set.

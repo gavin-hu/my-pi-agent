@@ -2,10 +2,10 @@
  * The `session` tool.
  *
  * One action-shaped tool keeps the prompt surface small: status, send, inbox,
- * claim, release, join, leave, watch, name. The runtime owns file I/O and
- * lifecycle; this module only validates the action, calls the runtime, and hands
- * the result to the shared presentation module — one collapsed line, or the
- * board's rows on expand.
+ * claim, release, watch, name. The runtime owns file I/O and lifecycle; this
+ * module only validates the action, calls the runtime, and hands the result to
+ * the shared presentation module — one collapsed line, or the board's rows on
+ * expand.
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -17,7 +17,6 @@ import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import {
 	formatClaim,
 	formatInbox,
-	formatJoin,
 	formatName,
 	formatRelease,
 	formatSend,
@@ -32,8 +31,8 @@ import type { SessionDetails } from "./types.ts";
 export { TOOL_NAME };
 
 const SessionParams = Type.Object({
-	action: StringEnum(["status", "send", "inbox", "claim", "release", "join", "leave", "watch", "name"] as const, {
-		description: "status, send, inbox, claim, release, join, leave, watch, or name.",
+	action: StringEnum(["status", "send", "inbox", "claim", "release", "watch", "name"] as const, {
+		description: "status, send, inbox, claim, release, watch, or name.",
 	}),
 	to: Type.Optional(Type.String({ description: "Target session label/id, or * for an event broadcast." })),
 	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
@@ -55,12 +54,6 @@ const SessionParams = Type.Object({
 		}),
 	),
 	stop: Type.Optional(Type.Boolean({ description: "With watch: turn this session's inbox watch off." })),
-	team: Type.Optional(
-		Type.String({
-			description: "With join/leave: the split's name — the plan file name without `.md`.",
-		}),
-	),
-	unit: Type.Optional(Type.String({ description: "With join/leave: the unit to claim or release, e.g. `core`." })),
 	label: Type.Optional(
 		Type.String({ description: "With name: what other sessions call this one, e.g. `billing-lead`." }),
 	),
@@ -82,11 +75,6 @@ function callSubject(action: string, args: Record<string, unknown>): string {
 		const to = typeof args.to === "string" ? args.to : "";
 		return to ? `send ${to}` : "send";
 	}
-	if (action === "join" || action === "leave") {
-		const unit = typeof args.unit === "string" ? args.unit : "";
-		const team = typeof args.team === "string" ? args.team : "";
-		return [action, unit, team && !unit ? team : ""].filter(Boolean).join(" ");
-	}
 	if (action !== "claim" && action !== "release") return action;
 	const paths = Array.isArray(args.paths) ? args.paths.filter((path): path is string => typeof path === "string") : [];
 	const [first, ...rest] = paths;
@@ -99,16 +87,14 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 		name: TOOL_NAME,
 		label: "Session bus",
 		description:
-			"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims, joined units), " +
+			"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims), " +
 			"`send` (to a label/id, or `*` for an event), `inbox` (consume messages), `claim`/`release` (paths), " +
-			"`join`/`leave` (a unit of an approved split, by `team` and `unit`), " +
-			"`watch` (report new mail at your next turn, or raise one with `wake`; `stop` turns it off). " +
+			"`watch` (report new mail at your next turn, or raise one with `wake`; `stop` turns it off), `name` (join the bus under a label). " +
 			"Delivery is pull-based unless this session arms `watch`.",
-		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, join, leave, watch, name.",
+		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, watch, name.",
 		promptGuidelines: [
-			"Check `session inbox` when starting or joining a coordinated turn.",
+			"Check `session inbox` when starting a coordinated turn.",
 			"Claim the paths you will edit before changing them; release them when done.",
-			"When a plan was approved with a split, `join` its unit once at the start of the work and `leave` it when merged.",
 			'Send `kind: "event"` for contract, build, or test changes another session needs.',
 			"Never put credentials or secrets in a session-bus message.",
 		],
@@ -158,26 +144,6 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							action,
 							released: result.released,
 							notOwned: result.notOwned,
-						});
-					}
-					case "join": {
-						const result = await bus.join({ team: args.team, unit: args.unit });
-						return textResult(formatJoin(result.team, result.unit, result.claimed, result.conflicts), {
-							action,
-							team: result.team,
-							unit: result.unit,
-							claimed: result.claimed,
-							conflicts: result.conflicts,
-						});
-					}
-					case "leave": {
-						const result = await bus.leave({ team: args.team, unit: args.unit });
-						return textResult(formatRelease(result.released, result.notOwned), {
-							action,
-							released: result.released,
-							notOwned: result.notOwned,
-							...(args.team === undefined ? {} : { team: args.team }),
-							...(args.unit === undefined ? {} : { unit: args.unit }),
 						});
 					}
 					case "watch": {

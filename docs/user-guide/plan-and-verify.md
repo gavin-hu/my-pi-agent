@@ -174,52 +174,6 @@ describe precisely.
   RPC offers the same choices as a select menu; a run with no UI at all fails
   with an actionable message instead of approving for you.
 
-### Splitting a plan into slices
-
-Off by default. Turn on **Run plans as a team** in `/bytefly settings`, or set
-`"plan": { "split": true }` in the project's `.pi/bytefly.json` so a repository
-opts its own team in while the global default stays off.
-
-With it on, the assistant may approve a plan **with a split**: units, each with a
-name, the path prefixes it owns, the command that proves it done, and the units it
-depends on. The split is validated before the review screen opens, so a bad one
-costs no review at all, and the screen shows it as a read-only `## Team` section —
-the same table the plan file will carry. On approval the table is written into the
-plan as `## Team` and the result prints a roster card:
-
-```text
-Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
-  You start and switch every session; nothing here can.
-  core: enter_worktree core · git rebase main · /sessions name core · /sessions watch wake
-    session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
-    start after: contract
-  merge order: contract → core · your unit: contract
-  your label: none — name this session: session({action:"name", label:"contract"})
-```
-
-That last line is the lead's own label. The lines above it are for the sessions
-you start; this one names the session you approved from, or prints the rename to
-run when it has no label yet. Once it is set the line reads
-`your label: billing-lead — owners send their report there`, which is what each
-owner addresses its completion report to.
-
-Then you open one session per owner and paste its line. Each owner joins its unit
-once — `session({action:"join"})` claims every path the unit owns — works one
-increment per turn, and leaves when it merges. `status` reports `units 1/2 joined`
-with each unit's holder, so you can see who has started without asking — the count
-follows holders, so a unit whose owner has released reads as unheld, and `0/2` after
-everyone finished means done rather than idle.
-
-What the approval refuses, by name: fewer than two units (one path is not a split;
-build the thinnest end-to-end path first), overlapping prefixes, a dependency
-cycle, more than two owners plus the lead, a unit without a test, and an owner unit
-that claims a shared file such as `package.json` or the changelog. A plan with no
-split is approved exactly as before, so the switch costs nothing until you use it.
-
-The browser page cannot approve a split plan: a section written at approval has no
-source lines for its comments to anchor to, so a split is approved in the terminal
-review.
-
 ## Checking your work
 
 ### What it is

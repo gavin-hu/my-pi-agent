@@ -240,7 +240,7 @@ Four layers sit below the extensions, each with one contract.
 
 | Layer | Job | Contract |
 |---|---|---|
-| `lib/` core | configuration, environment, paths, formatting, errors, spawning, timers, and the two subsystems with their own seam: [`../lib/git/`](../lib/git/) and [`../lib/plans/`](../lib/plans/) | [`../lib/README.md`](../lib/README.md) |
+| `lib/` core | configuration, environment, paths, formatting, errors, spawning, timers, and the one subsystem with its own seam: [`../lib/git/`](../lib/git/) | [`../lib/README.md`](../lib/README.md) |
 | [`../lib/tui/`](../lib/tui/) | the terminal design system: roles, rules, rows, columns, gauges, the transcript kit, the render cache | [`../lib/tui/README.md`](../lib/tui/README.md) |
 | [`../lib/web/`](../lib/web/) | the browser design system: tokens, base CSS, components, markup atoms | [`../lib/web/README.md`](../lib/web/README.md) |
 | [`../lib/http/`](../lib/http/) | the loopback policy every served page obeys: one server entry, binding, `Host` check, page headers, responses, event streams, the idempotent closer | [`../lib/README.md`](../lib/README.md) |
@@ -317,8 +317,8 @@ which moves one is visible; the threat model and the policy for each are
 A boundary that two extensions answer has exactly one policy module, in `lib/`.
 Two copies are how a header, a `Host` rule, or an allowlist drifts apart, which
 is why the two served pages share `lib/http/`, the two design systems are
-`lib/tui/` and `lib/web/`, and plan approval and `session-bus` claiming ask
-"do these paths collide?" of one predicate in [`../lib/claims/`](../lib/claims/).
+`lib/tui/` and `lib/web/`, and the two readers of a repository's storage key ask
+`repoKeyFor` of one module, [`../lib/repo-key.ts`](../lib/repo-key.ts).
 
 ## Where a change belongs
 

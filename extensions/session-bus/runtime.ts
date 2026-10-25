@@ -19,9 +19,8 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { claimPathMessage, resolveClaimPaths } from "../../lib/claims/resolve.ts";
+import { claimPathMessage, resolveClaimPaths } from "./resolve.ts";
 import { realPathOfNearest } from "../../lib/path.ts";
-import { plansDir } from "../../lib/plans/store.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
 import { defaultInterval, type RepeatTimer } from "../../lib/timer.ts";
 import {
@@ -39,7 +38,6 @@ import {
 } from "./protocol.ts";
 import { createMailWatch } from "./mail-watch.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
-import { createTeamRuntime } from "./team-runtime.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
 
 export interface SessionBusOptions {
@@ -50,8 +48,6 @@ export interface SessionBusOptions {
 	pid?: number;
 	/** Test seam: skip git and use this repository identity. */
 	repo?: { root: string; key: string };
-	/** Test seam: read teams from this plan store instead of the agent-dir layout. */
-	plans?: string;
 	/** Heartbeat interval; 0 disables it (tests). */
 	heartbeatMs?: number;
 	/** Inbox-watch poll interval; 0 disables it (tests). */
@@ -81,13 +77,6 @@ export interface SessionBus {
 	inbox(limit?: number): Promise<BusMessage[]>;
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
-	/** Claim every path of one unit in a split plan. */
-	join(input: {
-		team?: string;
-		unit?: string;
-	}): Promise<{ team: string; unit: string; claimed: string[]; conflicts: ClaimConflict[] }>;
-	/** Release the paths of one unit, or every claim this session holds. */
-	leave(input: { team?: string; unit?: string }): Promise<{ released: string[]; notOwned: string[] }>;
 	rename(label: string): Promise<string>;
 	/** Arm or disarm this session's inbox watch. */
 	watch(input: { wake?: boolean; stop?: boolean }): Promise<{ armed: boolean; wake: boolean }>;
@@ -139,7 +128,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
 	let store: BusStore | undefined;
-	let plansRoot: string | undefined;
 	let record: SessionRecord | undefined;
 	let joined = false;
 	let stopHeartbeat: (() => void) | undefined;
@@ -160,7 +148,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const cwd = realPathOfNearest(context.cwd);
 			const repo = options.repo ?? (await repoKeyFor(pi, cwd));
 			const dir = options.dir ?? join(getAgentDir(), "session-bus", repo.key);
-			plansRoot = options.plans ?? plansDir(getAgentDir(), repo.key);
 			store = createBusStore({ dir });
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
@@ -276,20 +263,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return record;
 	}
 
-	/**
-	 * The stored form of paths a plan wrote relative to the repository.
-	 *
-	 * A unit's paths are repository-relative by construction, so they resolve
-	 * against the repo root and not the session's cwd: a session started in a
-	 * subdirectory would otherwise claim `packages/web/src/core` for a unit that
-	 * owns `src/core`.
-	 */
-	function rootedPaths(me: SessionRecord, paths: readonly string[]): string[] {
-		const keyed = resolveClaimPaths(me.repoRoot, paths);
-		if ("error" in keyed) throw new Error(claimPathMessage(keyed.error));
-		return keyed.paths;
-	}
-
 	function storedPaths(me: SessionRecord, raw: unknown): string[] {
 		const normalized = normalizePaths(me.repoRoot, me.cwd, raw);
 		if ("error" in normalized) throw new Error(normalized.error);
@@ -303,18 +276,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (store === undefined) throw new Error("session bus is not started.");
 		return store;
 	}
-
-	// The team operations need the bus's own reads and writes; `team-runtime.ts` has
-	// the policy, and this hands it the session, the claims, and path resolution.
-	const team = createTeamRuntime({
-		plansRoot: () => plansRoot,
-		me: currentRecord,
-		stored: storedPaths,
-		rooted: rootedPaths,
-		claims: () => requireStore().claims(),
-		claimAll: (me, paths) => requireStore().claimAll(paths, me.id, me.label, now()),
-		releaseStored: (me, path) => requireStore().release(path, me.id),
-	});
 
 	async function withUnread(rows: readonly SessionRecord[]): Promise<Array<SessionRecord & { unread: number }>> {
 		return Promise.all(rows.map(async (session) => ({ ...session, unread: (await store?.unread(session.id)) ?? 0 })));
@@ -339,15 +300,11 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			: records;
 		const live = new Set(sessions.map((session) => session.id));
 		const claims = (await store.claims()).filter((claim) => !liveOnly || live.has(claim.owner));
-		// The team line is a file read plus a claim scan, so the board's repaint does
-		// not pay for it: only an explicit status call reports units.
-		const units = liveOnly ? undefined : team.units(claims);
 		return {
 			me: { id: me.id, label: me.label },
 			onBus: me.onBus,
 			sessions: await withUnread(sessions),
 			claims,
-			...(units ? { units } : {}),
 			...(mailWatch.state().armed ? { watching: mailWatch.state() } : {}),
 		};
 	}
@@ -483,17 +440,16 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			return messages;
 		},
 
-		claim: (rawPaths) => team.claim(rawPaths),
+		async claim(rawPaths) {
+			const me = await currentRecord();
+			return requireStore().claimAll(storedPaths(me, rawPaths), me.id, me.label, now());
+		},
 
 		async release(rawPaths) {
 			const me = await currentRecord();
 			const bus = requireStore();
 			return releaseClaimed(storedPaths(me, rawPaths), (path) => bus.release(path, me.id));
 		},
-
-		join: (input) => team.join(input),
-
-		leave: (input) => team.leave(input),
 
 		rename,
 	};

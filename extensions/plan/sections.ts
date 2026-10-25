@@ -2,10 +2,10 @@
  * Plan-document sections (pure).
  *
  * One fence-aware scan of a plan's markdown, and one rewrite of a section in
- * place. Two features need it: plan mode, whose review screen navigates by
- * section and whose `set_plan_steps` rewrites `## Steps`, and the split, which
- * writes and replaces `## Team` at approval. A second scanner would disagree
- * about a heading inside a fence, so both go through this module.
+ * place: the review screen navigates by section, `set_plan_steps` rewrites
+ * `## Steps`, and a carried comment finds the block it belongs to through the
+ * same parse. A second scanner would disagree about a heading inside a fence, so
+ * every reader goes through this module.
  *
  * The scan is deliberately smaller than CommonMark: a heading is up to three
  * leading spaces, a space after the hashes, and an optional closing run; a fence
@@ -116,9 +116,10 @@ export function sectionKeys(sections: readonly { title: string }[]): string[] {
  * shallower, outside a fence, or the end of the document.
  *
  * Level-aware on purpose, and not the review's notion of a section: the outline
- * lists every heading at its own level, while a rewrite of `## Team` must take
- * its `###` subsections with it. Flattening the two would move the split's
- * sections and the review's comments; they answer different questions.
+ * lists every heading at its own level, while a rewrite of `## Steps` must take
+ * its `###` subsections with it. Flattening the two would move a rewritten
+ * section's subsections and the review's comments; they answer different
+ * questions.
  */
 function sectionEnd(lines: readonly string[], start: number): number {
 	const level = lines[start].match(HEADING)?.[1].length ?? 2;
@@ -179,15 +180,4 @@ export function replaceSection(plan: string, title: string, body: string | undef
 	// Keep one blank line between the rewritten section and whatever followed it.
 	const gap = tail.length > 0 && tail[0].trim() !== "" ? [""] : [];
 	return [...head, ...replacement, ...gap, ...tail].join("\n");
-}
-
-/** The `## Team` section's body, without its heading or surrounding blank lines. */
-export function teamSectionBody(plan: string): string | undefined {
-	const lines = plan.split("\n");
-	const section = extractSections(plan).find(
-		(candidate) => candidate.level === 2 && normalizeHeadingText(candidate.title).toLowerCase() === "team",
-	);
-	if (!section) return undefined;
-	const body = lines.slice(section.line + 1, sectionEnd(lines, section.line)).join("\n");
-	return body.replace(/^(?:[ \t]*\n)+/, "").replace(/\s+$/, "");
 }

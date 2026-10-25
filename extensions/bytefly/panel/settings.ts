@@ -25,7 +25,6 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
-import { TEAM_KEY, TEAM_SECTION, TEAM_SETTING_ID, TEAM_SETTING_LABEL } from "../../../lib/plans/setting.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
@@ -39,7 +38,7 @@ import { DEFAULT_NOTIFY_CONFIG, normalizeNotifyConfig } from "../notify/config.t
 import type { Settings, WriteScope } from "../picker/types.ts";
 
 /** Where a preference is stored. */
-type SettingSource = "app" | "bytefly" | "plan";
+type SettingSource = "app" | "bytefly";
 
 /** The row control a preference uses. */
 type SettingKind = "boolean" | "enum" | "text";
@@ -62,7 +61,7 @@ interface TextRule {
 }
 
 /** The `bytefly.json` sections a row still reaches. */
-export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "plan";
+export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -295,20 +294,6 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		options: [],
 		text: amountRule(0, MAX_BUDGET),
 		config: { section: "price", path: ["budget"] },
-	},
-	{
-		// The team switch, with the label, id, and default taken from the module
-		// that reads it, so this row cannot describe a key nothing honours.
-		id: TEAM_SETTING_ID,
-		label: TEAM_SETTING_LABEL,
-		description:
-			"Let an approved plan carry a team of slices, which separate sessions join by name. Off keeps every plan one flow.",
-		source: "plan",
-		kind: "boolean",
-		fallback: "false",
-		json: "boolean",
-		options: ON_OFF,
-		config: { section: TEAM_SECTION, path: [TEAM_KEY] },
 	},
 ];
 

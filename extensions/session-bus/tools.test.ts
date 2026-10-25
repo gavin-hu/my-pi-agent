@@ -3,7 +3,6 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { tempDir } from "../../test/helpers/env.ts";
-import { splitStore } from "../../test/helpers/fixtures/split.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
@@ -43,13 +42,12 @@ interface Session {
 	};
 }
 
-function session(dir: string, root: string, id: string, name: string, plans?: string): Session {
+function session(dir: string, root: string, id: string, name: string): Session {
 	const bus = createSessionBus({} as ExtensionAPI, {
 		dir,
 		repo: { root, key: "shared" },
 		now: () => 1_000,
 		heartbeatMs: 0,
-		plans,
 	});
 	const fake = createFakePi();
 	// Pi's session name and the bus's label are one identity in production, so a
@@ -130,37 +128,6 @@ describe("session tool", () => {
 		expect(conflict.details.conflicts[0]).toMatchObject({ path: "src/api", ownerLabel: "frontend" });
 		await frontend.bus.stop();
 		await backend.bus.stop();
-	});
-
-	test("an owner's shared-file claim is an error naming the lead, not a silent claim", async () => {
-		const dir = busDir();
-		const { plans, team, restore } = splitStore(temps);
-		const core = session(dir, "/repo", "s1", "core", plans);
-		try {
-			await core.bus.start(core.ctx);
-			const joined = await core.tool.execute(
-				"call",
-				{ action: "join", team, unit: "core" },
-				undefined,
-				undefined,
-				core.ctx,
-			);
-			expect(joined.details.claimed).toEqual(["src/core"]);
-			const refused = await core.tool.execute(
-				"call",
-				{ action: "claim", paths: ["package.json"] },
-				undefined,
-				undefined,
-				core.ctx,
-			);
-			expect(refused.isError).toBe(true);
-			expect(refused.content[0]?.text).toContain(
-				'package.json is a shared file; only the lead "contract" may claim it.',
-			);
-			await core.bus.stop();
-		} finally {
-			restore();
-		}
 	});
 
 	test("watch arms, reports a turn-start notice, and stops", async () => {

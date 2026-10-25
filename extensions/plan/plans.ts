@@ -40,7 +40,6 @@ import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
-import { plansDir } from "../../lib/plans/store.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
@@ -49,6 +48,13 @@ import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } f
 export const MAX_PLAN_BYTES = 256 * 1024;
 /** Longest slug derived from a plan title. */
 const MAX_SLUG_LENGTH = 60;
+/** The agent-directory entry plans are filed under. */
+const PLANS_DIRNAME = "plans";
+
+/** The plan store: `<agent-dir>/plans`, or `<agent-dir>/plans/<key>` inside a repository. */
+function plansDir(agentDir: string, key?: string): string {
+	return key === undefined ? join(agentDir, PLANS_DIRNAME) : join(agentDir, PLANS_DIRNAME, key);
+}
 
 /** A plan read from disk. */
 export interface StoredPlan {
@@ -94,13 +100,6 @@ export interface WritePlanInput {
 export interface PlanStore {
 	/** Directory plans are written to for `cwd`. */
 	dirFor(cwd: string): Promise<string>;
-	/**
-	 * The repository root `cwd` belongs to, or undefined outside a repository.
-	 *
-	 * A repository-scoped setting — the split switch — is read at the root, so a
-	 * session started in a subdirectory still sees what the project turned on.
-	 */
-	rootFor(cwd: string): Promise<string | undefined>;
 	write(cwd: string, input: WritePlanInput): Promise<WrittenPlan>;
 	/** Read a plan inside the plans directory, or undefined when missing/outside. */
 	read(cwd: string, planPath: string): Promise<StoredPlan | undefined>;
@@ -330,8 +329,6 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 
 	const dirFor = async (cwd: string): Promise<string> => (await resolve(cwd)).dir;
 
-	const rootFor = async (cwd: string): Promise<string | undefined> => (await resolve(cwd)).root;
-
 	const write = async (cwd: string, input: WritePlanInput): Promise<WrittenPlan> => {
 		const base = baseOf(cwd);
 		const title = input.title.trim();
@@ -556,5 +553,5 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		return summaries;
 	};
 
-	return { dirFor, rootFor, write, read, latest, index, setSteps, saveFeedback, takeNotice };
+	return { dirFor, write, read, latest, index, setSteps, saveFeedback, takeNotice };
 }

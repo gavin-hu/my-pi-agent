@@ -1,14 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
-import {
-	appendFileSync,
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	realpathSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { GOAL_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
@@ -67,9 +58,6 @@ function repoExec(root: string) {
 
 /** The exec seam the fake `pi` calls; `killed` is optional there, so it is left out. */
 type FakeExec = (command: string, args: string[]) => Promise<Omit<ExecResult, "killed">>;
-
-/** A git that answers nothing, which is how a directory outside a repository looks. */
-const noGit: FakeExec = async () => ({ stdout: "", stderr: "not a git repository", code: 128 });
 
 function setup(web?: PlanWebReview, options: { allTools?: unknown[]; exec?: FakeExec } = {}) {
 	const root = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-tools-")));
@@ -564,24 +552,6 @@ describe("write_plan", () => {
 		expect(result.content[0].text).toContain("too large");
 	});
 
-	test("refuses a plan that carries its own team section", async () => {
-		const { enter, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const { ctx } = fakeCtx({ cwd: root });
-
-		const result = await call(
-			write,
-			{ title: "Hand-split", content: "# T\n\n## Team\n\nLead: a\n\n## Steps\n\n- [ ] one" },
-			ctx,
-		);
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain('its own "## Team" section');
-		expect(result.content[0].text).toContain("exit_plan_mode's units");
-		expect(result.content[0].text).toContain("Nothing was written");
-		expect(runtime.lastPlanPath()).toBeUndefined();
-	});
-
 	test("renders the saved relative path", () => {
 		const { write } = setup();
 		const component = write.renderResult(
@@ -593,270 +563,18 @@ describe("write_plan", () => {
 	});
 });
 
-describe("exit_plan_mode with a split", () => {
-	/** Turn the feature on for this test, in the isolated agent dir. */
-	function enableSplit(on = true): void {
-		writeFileSync(join(AGENT, "bytefly.json"), JSON.stringify({ plan: { team: on } }));
-	}
-
-	const LEAD = { name: "contract", paths: ["src/contract"], test: "bun test src/contract", lead: true };
-	const CORE = { name: "core", paths: ["src/core"], test: "bun test src/core", dependsOn: ["contract"] };
-	const PLAN = "# Split plan\n\n## Steps\n\n- [ ] contract\n- [ ] core";
-
-	test("ignores units while the switch is off, and says so once", async () => {
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
-
-		expect(result.details.approved).toBe(true);
-		expect(result.details.team).toBeUndefined();
-		expect(result.details.splitOff).toBe(true);
-		expect(result.content[0].text).toContain("plan.team");
-		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
-	});
-
-	test("reads the switch at the repository root, not the session cwd", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-		const nested = join(root, "packages", "web");
-		mkdirSync(nested, { recursive: true });
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: nested });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
-
-		expect(result.details.approved).toBe(true);
-		expect(result.details.team).toMatchObject({ lead: "contract" });
-	});
-
-	test("refuses an overlapping split before the review opens", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(
-			exit,
-			{ plan_path: planPath, units: [LEAD, { name: "core", paths: ["src"], test: "bun test src" }] },
-			ctx,
-		);
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain("Refused:");
-		expect(result.content[0].text).toContain("overlap");
-		// Still planning, nothing seeded, and the file is untouched.
-		expect(runtime.isEnabled()).toBe(true);
-		expect(toolCalls).toHaveLength(0);
-		expect(readFileSync(planPath, "utf-8")).toBe(PLAN);
-	});
-
-	test("the roster card names the lead's own label once it has one", async () => {
-		enableSplit();
-		const { pi, enter, exit, write, runtime, root } = setup();
-		pi.setSessionName("billing-lead");
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
-
-		expect(result.content[0].text).toContain("your label: billing-lead — owners send their report there");
-		expect(result.content[0].text).not.toContain("name this session");
-	});
-
-	test("refuses a unit whose path leaves the repository, and writes nothing", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const escaping = { ...CORE, paths: ["../elsewhere"] };
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, escaping] }, ctx);
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain('Unit "core" claims "../elsewhere"');
-		expect(result.content[0].text).toContain("does not resolve to a file in the repository");
-		expect(result.details.approved).toBe(false);
-		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
-	});
-
-	test("writes the paths a join will claim, not the spelling that was proposed", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, { ...CORE, paths: ["./src//core/"] }] }, ctx);
-
-		expect(result.details.approved).toBe(true);
-		expect(readFileSync(planPath, "utf-8")).toContain("| core | src/core | bun test src/core | contract |");
-	});
-
-	test("refuses a split where there is no repository to claim against", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup(undefined, { exec: noGit });
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain("A team needs a repository");
-		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
-	});
-
-	test("gives an independent unit no start-after line", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-		const REPORT = { name: "report", paths: ["src/report"], test: "bun test src/report" };
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, REPORT] }, ctx);
-
-		expect(result.details.approved).toBe(true);
-		expect(result.content[0].text).toContain("enter_worktree report · git rebase main");
-		expect(result.content[0].text).not.toContain("start after:");
-	});
-
-	test("refuses a single unit with the skeleton advice", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD] }, ctx);
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain("thinnest end-to-end path");
-	});
-
-	test("writes the team, prints the roster card, and seeds the steps", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
-
-		expect(result.details.approved).toBe(true);
-		expect(result.details.team).toMatchObject({ lead: "contract", verdict: "pair" });
-		expect(result.content[0].text).toContain("Split: 2 units");
-		expect(result.content[0].text).toContain("You start and switch every session");
-		expect(result.content[0].text).toContain('session({action:"join"');
-		// The two facts a fresh pane cannot know: its base lags, and its unit waits.
-		expect(result.content[0].text).toContain("enter_worktree core · git rebase main · /sessions name core");
-		expect(result.content[0].text).toContain("start after: contract");
-		expect(result.content[0].text).toContain("merge order: contract → core");
-		expect(result.content[0].text).toContain("Work only your own unit (contract)");
-		expect(result.content[0].text).toContain(
-			'your label: none — name this session: session({action:"name", label:"contract"})',
-		);
-		expect(toolCalls[0]?.name).toBe("todo");
-
-		const written = readFileSync(planPath, "utf-8");
-		expect(written).toContain("## Team");
-		expect(written).toContain("Lead: contract");
-		expect(written).toContain("| core | src/core | bun test src/core | contract |");
-	});
-
-	test("removes a team section no approval wrote", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-		// A section left by an older version, or edited in by hand: approval without
-		// units is what revokes it, so no session can join a team the user never saw.
-		appendFileSync(
-			planPath,
-			"\n\n## Team\n\nLead: contract\n\n| unit | paths | test | depends on |\n| --- | --- | --- | --- |\n| contract | src/contract | bun test src/contract | — |\n| core | src/core | bun test src/core | contract |\n",
-		);
-
-		const result = await call(exit, { plan_path: planPath }, fakeCtx({ editor: "1", cwd: root }).ctx);
-
-		expect(result.details.approved).toBe(true);
-		expect(result.details.team).toBeUndefined();
-		expect(readFileSync(planPath, "utf-8")).not.toContain("## Team");
-	});
-
-	test("a serial plan approves byte-identically with the switch on", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath }, ctx);
-
-		expect(result.details.team).toBeUndefined();
-		expect(result.details.splitOff).toBeUndefined();
-		expect(result.content[0].text).not.toContain("Split:");
-		expect(readFileSync(planPath, "utf-8")).toBe(PLAN);
-	});
-
-	test("opens the browser comment-only for a split plan, and says why", async () => {
-		enableSplit();
+describe("exit_plan_mode with a browser review", () => {
+	test("approves from the page and records the steps", async () => {
 		const { web, starts } = webThatApproves([]);
 		const { enter, exit, write, runtime, root } = setup(web);
 		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-
-		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
-
-		expect(starts).toHaveLength(1);
-		expect(starts[0]?.canApprove).toBe(false);
-		expect(starts[0]?.note).toContain("terminal");
-		// The page's refusal of the approve endpoint is the router's test; here the
-		// point is that the page was opened without the action at all.
-		expect(result.details.approved).toBe(true);
-	});
-
-	test("a browser review still approves a plan with no split", async () => {
-		const { web, starts } = webThatApproves([]);
-		const { enter, exit, write, runtime, root } = setup(web);
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
+		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, "# Plan\n\n## Steps\n\n- [ ] one");
 
 		const { ctx } = fakeCtx({ mode: "tui", custom: { action: "browser" }, cwd: root });
 		const result = await call(exit, { plan_path: planPath }, ctx);
 
 		expect(starts[0]?.canApprove).toBe(true);
 		expect(result.details.approved).toBe(true);
-	});
-
-	test("a failed team write keeps plan mode on and seeds nothing", async () => {
-		enableSplit();
-		const { enter, exit, write, runtime, root } = setup();
-		await enterPlan(enter, runtime, root);
-		const planPath = await savePlan(write, fakeCtx({ cwd: root }).ctx, PLAN);
-		// A plan file the store will refuse to overwrite: the write path is the one
-		// that fails, after the user approved.
-		const refusal = runtime.plans.write;
-		runtime.plans.write = async () => {
-			throw new Error("disk full");
-		};
-
-		const { ctx, toolCalls } = fakeCtx({ editor: "1", cwd: root });
-		const result = await call(exit, { plan_path: planPath, units: [LEAD, CORE] }, ctx);
-		runtime.plans.write = refusal;
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain("disk full");
-		expect(result.content[0].text).toContain("Plan mode is still on");
-		expect(runtime.isEnabled()).toBe(true);
-		expect(toolCalls).toHaveLength(0);
 	});
 });
 

@@ -1,8 +1,6 @@
 /**
- * The shell the three posting cards share, and the two plan-flow cards: the
- * prose-led `plan-flow.html` and the graphic-led `plan-flow-graphic.html`. The
- * third card, `parallel-dev.html`, takes the shell from this file too and its
- * own terminal frame from `terminal.css`, which its page links second.
+ * The shell the two posting cards share: the prose-led `plan-flow.html` and the
+ * graphic-led `plan-flow-graphic.html`.
  *
  * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
  * README hero, and the browser pages all draw from — copied here because a page

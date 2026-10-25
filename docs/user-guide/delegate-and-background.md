@@ -281,11 +281,9 @@ repository act as a team without sharing a conversation.
 
 */sessions: the sessions on this repository, their unread counts and claims, and the focused session's identity.*
 
-The team shape, the roles, and the turn boundary are the [parallel-dev skill](./packaged-workflows.md#coordinating-a-team-with-parallel-dev); this section is what the bus itself does.
-
 ## Related
 
-- [Plan and verify](./plan-and-verify.md) — the plan a split starts from.
+- [Plan and verify](./plan-and-verify.md) — the plan a task starts from.
 - [Configuration](../configuration.md#subagent--delegated-runs) — subagent timeouts, transcripts, and background limits.
 
 ---

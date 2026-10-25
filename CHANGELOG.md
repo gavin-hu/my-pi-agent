@@ -99,50 +99,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   heading, the link refs, the version stamped in the guides, the release body against
   the section the project's tooling prints, and the publish run still awaiting its
   approval — which is how this window found 0.18.0 half-published.
-- `session-bus`: a session that holds an owner unit of a split can no longer claim
-  a shared file — `package.json`, the changelog, the test manifests, or the shared
-  name modules — and the refusal names the lead whose unit keeps them. The
-  predicate is the one approval already applies (`lib/plans/split.ts`'s
-  `sharedFileFor`), so the rule outlives approval instead of only refusing the
-  split; it is read from the session's claims and the newest split, which is why
-  `/resume` and `/tree` keep it, and it refuses nothing when the session holds no
-  owner unit, when the path is not shared, or when the lead itself is claiming. A
-  project-extended shared list stays approval-only: the bus reads no
-  configuration.
 
 ### Changed
-
-- `plan`: the switch is `plan.team`, and its settings row reads **Run plans as a
-  team**. The key was `plan.split` and the row **Split plans into slices**, while
-  everything it turns on — the `## Team` section, the units, the sessions that
-  join them, the roster card — is already named a team, so one concept had two
-  names. A project that set `plan.split` has to write `plan.team`: the old key is
-  not read, and `join` keeps refusing with the note naming the new row until it
-  is on.
-
-- `plan`: a plan's `## Team` section belongs to the approval gate. `write_plan`
-  refuses a plan that writes one, because a table the rules never accepted is a
-  team nobody reviewed, and it points at `exit_plan_mode`'s `units`; approval with
-  no `units` removes a section it did not write, so a refinement, a hand edit, or
-  a file from an older version cannot leave a team behind that was never approved;
-  and the review screen names the section `Team`, the heading the approved file
-  will carry, instead of `Split`. `session-bus` now reads the table through
-  `readSplit`, which parses it with the writer's module and then runs approval's
-  own rules, so a hand-edited or stale section is refused at `join` rather than
-  half-read. `checkSplit` answers a refusal instead of an "approved as one flow"
-  success that only its own caller could have produced, so `decideSplit`'s
-  unreachable `serial` arm is gone.
 
 - `session-bus`: a session joins by naming itself. Nothing joins on
   `session_start` in any mode, so a fresh terminal session's `/sessions` board is
   empty and a peer appears only once it has taken a name; `/sessions` and
   `session status` are reads that never add the reader to the bus, while the first
-  addressable action — `send`, `claim`, `release`, `join`, `leave`, or `watch` —
-  joins as before. A name joins and renames in one call, and it now also starts the
+  addressable action — `send`, `claim`, `release`, `watch`, or `name` — joins as
+  before. A name joins and renames in one call, and it now also starts the
   heartbeat: naming first used to leave the record to go stale after the ten-minute
-  TTL while the session was still alive, which §1 of the parallel-dev skill asks
-  every session to do. The empty board says how to join, and a status read says it
-  is not on the bus yet.
+  TTL while the session was still alive. The empty board says how to join, and a
+  status read says it is not on the bus yet.
 
 - `rewind`: the `/rewind` list answers `Enter` only. `r` chose the focused point as well, was
   never hinted, and means the opposite one screen later, where it reverts — so the shortcut is
@@ -165,8 +133,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   one place the whole key set was not visible. `assets/screens/rewind.png` is recaptured
   in a window sized to its 13 rows, which takes the poster from 23% empty below the
   closing rule to 7%, like `watch` and `memory`.
-- dev: `assets/` is grouped by what writes it — `cards/` the three posting posters with
-  their stylesheets, `screens/` every captured frame (the terminal surfaces, the two
+- dev: `assets/` is grouped by what writes it — `cards/` the two posting posters with
+  their stylesheet, `screens/` every captured frame (the terminal surfaces, the two
   browser pages, and the tool gallery), `tools/` the one-PNG-per-tool files — so the
   directory a file lives in is also the command that regenerates it, and no image sits
   loose beside a stylesheet it has nothing to do with. No image changed: the captures
@@ -315,35 +283,46 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is `test/project-docs-skill.test.ts`, and the guide's section is now *Keeping the docs
   honest*.
 
+### Removed
+
+- `plan`: an approval no longer takes `units`, and no longer writes or removes a
+  `## Team` section. A plan is approved as one flow, and a table an older
+  approval left in a plan file is ordinary prose: nothing reads it, `write_plan`
+  accepts it, and `set_plan_steps` ticks its steps like any other section. The
+  split's rules — overlapping paths, a dependency cycle, more than two owners, a
+  shared file, no lead — went with the parameter that fed them, and so did the
+  roster card `exit_plan_mode` printed.
+
+- `session`: `join` and `leave` are gone, along with the `team` and `unit`
+  parameters and the `units n/m` line in `status`. A session claims the paths it
+  means to edit and releases them when the work merges: `release` takes a path
+  list, and ending the session is what frees everything else. `session join` from
+  an older note fails as an unknown action instead of claiming nothing.
+
+- `plan`: the `plan.team` row is gone from `/bytefly settings`, and the key is no
+  longer read from `bytefly.json`. A project that still sets it keeps an inert
+  key; `chrome`, `goal`, `watch`, `worktree`, and `memory` are now the only
+  sections with no row at all, and the screen lists twelve preferences instead of
+  thirteen.
+
+- `skills`: the `parallel-dev` skill is withdrawn: `/skill:parallel-dev` no
+  longer resolves, and nothing replaces it. Its mechanism — a lead and a team of
+  sessions sharing one approved plan — was the part the package could not carry:
+  a lead cannot start a peer's turn, so every round cost the user a switch per
+  owner, and a split too tightly coupled to divide was approved anyway. The bus
+  keeps the coordination that does not need one: labels, `send`/`inbox`, path
+  claims, and the inbox watch.
+
+- dev: `assets/cards/parallel-dev.html`, its PNG, and the `terminal.css` it alone
+  linked are deleted, and `bun run screenshot:plan-flow` takes `flow` or
+  `graphic`. The two `lib/` directories the feature had hoisted — `lib/plans/`
+  (the `## Team` codec, the split rules, the `plan.team` switch, the plans
+  directory) and `lib/claims/` — are dissolved into their one remaining owner:
+  the section scan is `extensions/plan/sections.ts`, the plans directory is a
+  line of `plans.ts`, and the claim-path rules sit beside the bus that claims
+  through them.
+
 ### Fixed
-
-- `plan`: an approved split's unit paths are paths a `join` can actually claim.
-  Each one is resolved against the repository root by `lib/claims/resolve.ts` —
-  the single function the bus claims and joins through, previously a copy inside
-  `session-bus` — before the rules run, so a `../` escape, an absolute path, the
-  root itself, or a symlink that leaves the repository is refused at approval
-  instead of by an owner's `join` that then claims nothing, leaves that unit
-  unjoined, and quietly escapes the shared-file rule. The `## Team` table records
-  the canonical path, so `./src//core/` is written as `src/core`, and the split's
-  overlap check compares what will be claimed. A split approved outside a
-  repository is refused with them: there is no root for its units to be relative
-  to, so no session could join it.
-
-- `plan`: the roster card says the two things a fresh pane cannot know. Each
-  owner's command line now carries `git rebase main`, because `enter_worktree`
-  cuts from `origin/main`, which lags the branch the lead merges into; and a unit
-  with dependencies gets a `start after: <units>` line, because `dependsOn`
-  reached the card only as merge order, so the owner of a dependent unit opened
-  its pane, joined, and built against an interface that was not on its branch
-  yet. A unit with no dependencies gets no such line.
-
-- `plan`: an owner unit that lists a shared file anywhere but first is refused.
-  The gate asked which shared file a unit claims with
-  `unit.paths.flatMap(...).at(0)`, which reads the first element of a list whose
-  entries are `undefined` whenever that path is not shared, so
-  `paths: ["src/core", "package.json"]` passed approval and `join` then claimed
-  `package.json` for an owner. The rule is a `find` over every path, and
-  `readSplit` runs it again when a session joins.
 
 - `session-bus`: pruning no longer deletes a claim that a peer took after the
   pruning session read the session list. `store.prune` decided which claims to
@@ -362,15 +341,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never read until now, so the record finally names its process. The runtime
   takes a `pid` seam for the test that registers one id from two processes.
 
-- dev: the posting cards' one stylesheet stops declaring `.label` twice, once for the
-  SVG diagram's node names and once for the terminal card's section labels, which is a
-  single global namespace: the diagram's nodes lost the `650` weight their own block
-  declares to the terminal rule's `600`, and `parallel-dev.html`'s `Team`, `Claims` and
-  `Shared` labels took the diagram's `17px` and its `text-anchor: middle` instead of the
-  `14px` mono the panes around them set. The diagram's side is now `.node-label` and
-  `.node-label--zh`, beside the `lane-label` and `edge-label` it already had, and both
-  cards render what their own block says, and the second `.gate` — the same mistake,
-  setting a colour for a class no page uses — is gone.
+- dev: the posting cards' stylesheet stops declaring `.label` twice, once for the
+  SVG diagram's node names and once for a card's section labels, which is a single
+  global namespace: the diagram's nodes lost the `650` weight their own block
+  declares to a `600` that no longer exists. The diagram's side is now `.node-label`
+  and `.node-label--zh`, beside the `lane-label` and `edge-label` it already had,
+  and the second `.gate` — the same mistake, setting a colour for a class no page
+  uses — is gone.
 - `plan`: a comment a refinement carries stays on its own step when a step is
   inserted or deleted above it. Placement fell back to the comment's position
   among the section's blocks, so anything added above shifted every comment below

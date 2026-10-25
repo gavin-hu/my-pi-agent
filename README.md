@@ -75,7 +75,7 @@ Then, from inside Pi:
   every loaded extension with its runtime health, enables or disables one, and
   clears a project override with `x`.
 - `/bytefly settings` opens the control center's Settings section: one flat list
-  of the thirteen preferences a session changes, each with its value beside the
+  of the twelve preferences a session changes, each with its value beside the
   label, `Space`/`Enter` to change one and `Tab` for Global/Project scope. Every
   other key is a `bytefly.json` edit, listed in the configuration reference.
 - `/bytefly skills` opens the control center's Skills section: one row per Pi
@@ -101,7 +101,7 @@ and `PI_OFFLINE` skips the check;
 
 ## What you get
 
-19 extensions, 5 packaged skills, and 2 themes, grouped by the promises the
+19 extensions, 4 packaged skills, and 2 themes, grouped by the promises the
 [roadmap](./ROADMAP.md) tracks; the [guide](./docs/user-guide/) covers the same
 ground chapter by chapter. Each extension's own page in `docs/extensions/` has
 the full tool and command surface, opening with its capabilities.
@@ -110,7 +110,7 @@ the full tool and command surface, opening with its capabilities.
 
 | Extension | Tools and commands | What it does |
 |---|---|---|
-| [`plan`](./docs/extensions/plan.md) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `~/.pi/agent/plans/<repo-key>` — one store per repository, shared by its worktrees — and you approve it before anything is written; with `plan.team` on, the approval can also split it into slices that separate sessions join by name. Review in the TUI, or open it in a browser to leave inline comments: the page follows the plan file live, and you can hand one reviewer link per teammate so each comments under their own name. The `init` skill uses the same review to create or update a project's `AGENTS.md`. |
+| [`plan`](./docs/extensions/plan.md) | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps`, `/plan`, `--plan` | Read-only planning: the model investigates, saves a plan under `~/.pi/agent/plans/<repo-key>` — one store per repository, shared by its worktrees — and you approve it before anything is written. Review in the TUI, or open it in a browser to leave inline comments: the page follows the plan file live, and you can hand one reviewer link per teammate so each comments under their own name. The `init` skill uses the same review to create or update a project's `AGENTS.md`. |
 | [`check`](./docs/extensions/check.md) | `run_check`, `/check` | Detect the project's test, lint, or typecheck command (or take `check.command`), run it in a supervised process, and turn failures into a navigable `file:line` list. |
 | [`subagent`](./docs/extensions/subagent.md) | `subagent`, `/agents` | Delegate a task to a specialist agent (`explorer`, `planner`, `reviewer`, `worker`, `researcher`, `tester`, `debugger`, `documenter`) in its own Pi process — single, parallel, chained, or in the background, with a footer chip while it runs and a finish notice. |
 | [`todo`](./docs/extensions/todo.md) | `todo`, `/todos` | A persistent task list (`pending` / `in_progress` / `completed`) with a one-line widget. |
@@ -156,7 +156,6 @@ advertised to the model, and its instructions load only when the task matches
 | [`init`](./skills/init/SKILL.md) | Creates or updates the instruction file Pi actually reads (`AGENTS.md`, or `AGENTS.override.md` when it shadows it) through a built-in interactive interview and plan review, deriving commands, generated paths, packages, and purpose from repository evidence. |
 | [`refactor`](./skills/refactor/SKILL.md) | Audits a project or path for refactoring opportunities: duplication, oversized modules, coupling, drift, and high-churn code with weak tests. A bundled `scripts/inventory.ts` measures sizes, fan-in, churn, and test proximity so a finding is a number with a source, and the ranked shortlist has evidence and verification commands; it then carries the candidate you choose through a behaviour-preserving refactor, and the audit itself is read-only. |
 | [`project-docs`](./skills/project-docs/SKILL.md) | Keeps a project's documents telling the truth about the code: a read-only audit of the front door, the roadmap, the contributor path, and the changelog against the tree and against each other, then one mode per act that writes — a changelog bullet in the same commit as the change, a release section curated from the project's own rules, a shipped roadmap item deleted with the rest renumbered, and the front door's catalog, counts, and examples synced. Discovers each project's category names, scope spelling, item form, and guards rather than assuming a template, and a bundled `scripts/state.ts` prints the changelog's tag, window, and unreleased categories. |
-| [`parallel-dev`](./skills/parallel-dev/SKILL.md) | Runs parallel development as a lead and a team: a lead accountable for the contract, shared files, merge order and a green baseline who also owns a workstream, one owner per disjoint workstream, a walking skeleton first, advisory path claims, a turn-boundary protocol, and independent verification. |
 | [`next`](./skills/next/SKILL.md) | Suggests the next todos by priority — loose work, a broken or unfinished promise — from this conversation once it has done work, and from the tree only when it is empty, with the words and a path after the command saying what to ask and where to look. Read-only, and capped at a short numbered list with evidence and the command that starts each. |
 
 ### Themes

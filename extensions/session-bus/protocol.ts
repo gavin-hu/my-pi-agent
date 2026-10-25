@@ -17,20 +17,10 @@ export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
-export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join" | "leave" | "watch" | "name";
+export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "watch" | "name";
 export type MessageKind = "message" | "event" | "ask" | "handoff";
 
-const ACTIONS: readonly SessionAction[] = [
-	"status",
-	"send",
-	"inbox",
-	"claim",
-	"release",
-	"join",
-	"leave",
-	"watch",
-	"name",
-];
+const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "watch", "name"];
 const KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 
 /** The session mode as the record stores it. */
@@ -103,10 +93,10 @@ export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { p
 /**
  * Whether one claim covers the other path in either direction.
  *
- * The predicate is `lib/claims/overlap.ts`, because plan approval validates a
- * split with the same question; a second copy here is how the two answers drift.
+ * The predicate is `overlap.ts` beside this module; a second copy is how the two
+ * answers drift.
  */
-export { claimsConflict } from "../../lib/claims/overlap.ts";
+export { claimsConflict } from "./overlap.ts";
 
 /** Resolve `to` to active sessions; `*` is broadcast and excludes the sender. */
 export function resolveRecipients(
