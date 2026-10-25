@@ -225,7 +225,8 @@ Snapshots and their limits are configured in
 ## Extensions and tools
 
 The pack adds 21 extensions and 26 tools. `worktree` also re-registers Pi's path
-tools so they follow the active root; those are replacements, not additions.
+tools (`bash`, `edit`, `find`, `grep`, `ls`, `read`, `write`) so they follow the
+active root; those are replacements, not additions.
 
 | Extension | Tools | Commands and flags |
 |---|---|---|

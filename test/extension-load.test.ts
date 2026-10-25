@@ -151,14 +151,13 @@ describe("every extension loads through the fake runtime", () => {
 	}
 });
 
-/** The factories run once per file; both consumers need the same registration result. */
-let surfacePromise: Promise<{ tools: Set<string>; commands: Set<string> }> | undefined;
+/** The factories run once per file, and the size test reads the same result. */
+let toolsPromise: Promise<Set<string>> | undefined;
 
-/** Load every manifest extension and collect the tools and commands it registers. */
-function registeredSurface(): Promise<{ tools: Set<string>; commands: Set<string> }> {
-	surfacePromise ??= (async () => {
+/** Load every manifest extension and collect the tools it registers. */
+function registeredTools(): Promise<Set<string>> {
+	toolsPromise ??= (async () => {
 		const tools = new Set<string>();
-		const commands = new Set<string>();
 		for (const entry of manifest) {
 			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
 			await withAgentDir(async () => {
@@ -166,13 +165,12 @@ function registeredSurface(): Promise<{ tools: Set<string>; commands: Set<string
 					const fake = createFakePi();
 					module.default?.(fake.pi);
 					for (const name of fake.tools.keys()) tools.add(name);
-					for (const name of fake.commands.keys()) commands.add(name);
 				});
 			});
 		}
-		return { tools, commands };
+		return tools;
 	})();
-	return surfacePromise;
+	return toolsPromise;
 }
 
 /** The kinds of thing a page can say the pack has. */
@@ -216,7 +214,7 @@ describe("the documented footprint", () => {
 	]);
 
 	test("every count a page states is what the package actually loads", async () => {
-		const { tools: names } = await registeredSurface();
+		const names = await registeredTools();
 
 		// Pi's path tools are re-registered by `worktree` so they follow the active
 		// root. They replace the model's existing tool of the same name rather than
@@ -254,18 +252,5 @@ describe("the documented footprint", () => {
 		expect(index.size).toBeGreaterThan(0);
 		const expected = [...extensionNames(), ...skillFiles().map(skillName)].sort();
 		expect([...index].sort(), "docs/user-guide/README.md's feature index").toEqual(expected);
-	});
-});
-
-describe("documented command surface", () => {
-	const reference = readFileSync(join(root, "docs", "user-guide", "reference.md"), "utf-8");
-
-	test("names every registered command in the reference", async () => {
-		const { commands } = await registeredSurface();
-		// A loader that registered nothing would make the check below vacuous.
-		expect(commands.size).toBeGreaterThan(0);
-		const documented = (name: string) => reference.includes(`/${name}\``) || reference.includes(`/${name} `);
-		const missing = [...commands].filter((name) => !documented(name)).sort();
-		expect(missing, "docs/user-guide/reference.md does not name a registered command").toEqual([]);
 	});
 });

@@ -112,10 +112,18 @@ The suite is organized by tier; the full contract is in
 2. **Library suites** — the same grouping over a `lib/` subsystem, keeping
    pure-unit and platform-seam contracts.
 3. **Package-level tests** — cross-cutting contracts (`naming`,
-   `extension-load`, `config-docs`, `prompt-budget`, `release`, `structure`,
-   `drift`, `theme`, `dependencies`). `dependencies` walks each extension
+   `extension-load`, `config-docs`, `settings-coverage`, `reference-coverage`,
+   `prompt-budget`, `release`, `structure`, `drift`, `theme`, `dependencies`).
+   `dependencies` walks each extension
    entrypoint's static import graph, so a parser library loads in the function
    that needs it rather than on every start — the `extract/xlsx.ts` pattern.
+   `reference-coverage` derives the user guide's reference tables from the code:
+   the command rows from the registrations, each extension's tools, commands, and
+   flags from one load of the manifest, the launch rows from the registered flags
+   and `lib/env.ts`, and the files-on-disk rows from the modules that place a
+   store. A new command, tool, flag, or store with no row therefore fails the
+   check instead of waiting for a reader to notice, and the modules that anchor a
+   path on the agent directory are listed there so a store cannot ship unnoticed.
 
 Tests are deterministic by construction: inject `now`, `spawn`, `kill`,
 `liveness`, and a clock rather than stubbing globals. Real git is allowed only
