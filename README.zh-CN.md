@@ -36,7 +36,7 @@ Pi 提供一个精简而锐利的内核。这个包是在其之上的一层，�
   让 watcher 盯住日志直到出现关键行，还能让同一仓库上的多个会话通过共享总线协作、
   各自负责自己的一摊 —— 你继续把握主线。
 - **绝不搞乱检出区。** 隔离只需一条命令：任务切到自己分支的 `git worktree` 中，
-  每次提示还会生成快照，因此一次糟糕的回合只需一个 `/rewind` 就能回退。
+  每次提示的首次改动都会生成快照，因此一次糟糕的回合只需一个 `/rewind` 就能回退。
 - **跨会话记忆。** 持久笔记以纯 Markdown 保存，可读、可改、可纳入版本控制。
 - **连通网络与文件。** 在会话内搜索、抓取、浏览、打开和读取文档与表格，还可通过桥接
   在微信里直接回答当前会话。
@@ -80,8 +80,9 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 还有一件包会自行做的事：每次交互式会话启动时，`bytefly` 询问 Pi 的包管理器
 哪些已配置的包有更新，抑制 Pi 自己的启动更新块，并用主题化 notice 列出它们
 和 `pi update --extensions`；Pi 自身的新版本也由它绘制，提示 `pi update` 与
-changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不会发送任何会话内容
-（Pi 自己的版本请求只是被重新绘制），`PI_OFFLINE` 可跳过检查；信任边界见
+changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不会发送任何会话内容：
+Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自一次固定的 npm
+`latest` 请求，`PI_OFFLINE` 可跳过检查；信任边界见
 [`docs/security.md`](./docs/security.md)。
 
 ## 包含内容
@@ -112,7 +113,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 | 扩展 | 工具与命令 | 说明 |
 |---|---|---|
 | [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | 在隔离的 `git worktree` 里、在独立分支上工作；内置的 read/write/edit/bash 工具会跟随，清理时也不会丢弃工作。 |
-| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` 状态标记 | 每次提示时在 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者，并在还原文件前审阅本轮改动。 |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` 状态标记 | 在每次提示的首次改动前于 `refs/pi/rewind` 下对仓库生成快照，可恢复代码、对话或两者，并在还原文件前审阅本轮改动。 |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | 跨会话的持久笔记，以可人工编辑的 Markdown 保存，注入每次运行，并通过 `/memory` 选择器管理。 |
 
 ### 连通外部世界
@@ -185,7 +186,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 
 ## 配置
 
-大多数扩展无需配置。所有设置都在一个共享文档 `bytefly.json` 中，从
+大多数扩展无需配置。所有扩展设置都在一个共享文档 `bytefly.json` 中，从
 `<agent-dir>/bytefly.json` 读取，并与 `<cwd>/.pi/bytefly.json` 合并（项目优先），
 位于一个以扩展名命名的顶层 section 下。每个扩展在 `docs/extensions/` 下的页面说明其键位的行为，
 [`docs/configuration.md`](./docs/configuration.md) 则给出解析规则、设置界面操作方式，

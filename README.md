@@ -39,8 +39,8 @@ want the agent to *think first and work safely*:
   log until it matters — then run several sessions on one repository through a
   shared bus, each owning its slice, all while you keep the thread.
 - **Never wreck the checkout.** Isolation is one command: the task moves onto its
-  own branch in a `git worktree`, and every prompt is snapshotted so a bad turn
-  is one `/rewind` away.
+  own branch in a `git worktree`, and each prompt's first change is snapshotted,
+  so a bad turn is one `/rewind` away.
 - **Remember across sessions.** Durable notes live in plain markdown that you
   can read, edit, and version.
 - **Reach the web and your files.** Search, fetch, browse, open, and read
@@ -95,8 +95,9 @@ asks Pi's package manager which configured packages are behind, suppresses Pi's
 own startup update blocks, and posts one themed notice naming
 `pi update --extensions`, plus one for a newer Pi that names `pi update` and the
 changelog; a new version also marks the header — this package's, and Pi's own.
-Nothing about the session is sent — Pi's own release request is only re-rendered —
-and `PI_OFFLINE` skips the check;
+Nothing about the session is sent: Pi's own release request is re-rendered, and
+this package's newest version comes from one fixed `GET` of npm's `latest`
+document. `PI_OFFLINE` skips the check;
 [`docs/security.md`](./docs/security.md) covers the trust boundaries.
 
 ## What you get
@@ -128,7 +129,7 @@ the full tool and command surface, opening with its capabilities.
 | Extension | Tools and commands | What it does |
 |---|---|---|
 | [`worktree`](./docs/extensions/worktree.md) | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees`, `/worktree` (screen), `/worktree enter\|exit\|prune`, `--worktree` | Work inside an isolated `git worktree` on its own branch; the built-in read/write/edit/bash tools follow, and cleanup refuses to throw work away. |
-| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo on every prompt under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
+| [`rewind`](./docs/extensions/rewind.md) | `/rewind`, `/review`, `↺ N` status chip | Snapshot the repo before each prompt's first change, under `refs/pi/rewind`, restore code, conversation, or both, and review the latest turn's changes before reverting a file. |
 | [`memory`](./docs/extensions/memory.md) | `memory`, `/memory` | Durable cross-session notes as human-editable markdown, injected into each run and managed through the `/memory` picker. |
 
 ### Reach the world
@@ -205,10 +206,11 @@ each: the first run, the keys that matter, and what to expect on screen.
 
 ## Configuration
 
-Most extensions need no configuration. Every setting lives in one shared
-document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and merged with
-`<cwd>/.pi/bytefly.json` (project wins), under a top-level section named for the
-extension. Each extension's page under `docs/extensions/` covers the behaviour
+Most extensions need no configuration. Every extension setting lives in one
+shared document, `bytefly.json`, read from `<agent-dir>/bytefly.json` and
+merged with `<cwd>/.pi/bytefly.json` (project wins), under a top-level section
+named for the extension. Each extension's page under `docs/extensions/` covers
+the behaviour
 around its keys, and
 [`docs/configuration.md`](./docs/configuration.md) has the resolution rules, the
 settings screen walkthrough, and every section's keys with their type, default,
