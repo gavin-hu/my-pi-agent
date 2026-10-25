@@ -300,14 +300,27 @@ every worktree sees the same cards.
 - A card can wait on another (`edit` with `dependsOn`): the claim and the move to
   `doing` or `done` are refused while that card is unfinished, so the order of a
   feature's work is on the board instead of in somebody's head.
-- `/board` serves the same cards as a page in your browser and opens it: a
-  **Board** tab with the four lanes, and a **Team** tab with one panel per owner.
-  The toolbar and footer stay put while the board scrolls, and the page follows the
-  store live — a card another session moves appears within a second, and an open
-  card dialog updates in place. Each of the four lanes is a tray you can fold, the
-  new-card dialog sits behind **+ New card** so the board opens on the work, and a filter
-  (`/`) plus `?` for the keys make a wide board navigable without the mouse. Writes from the page are made as the serving
-  session, and claim, reclaim, and delete ask first.
+- A repository has **one page**, and the lead serves it: `/board` starts it as the seat
+  `team-lead` — one name and one id for the page's whole life, so a card a browser
+  claimed is still the seat's after the session that served it ends — and opens it in
+  your browser: a **Board** tab with the four lanes, and a **Team** tab with one panel
+  per owner. The toolbar and footer stay put while the board scrolls, and the page
+  follows the store live — a card another session moves appears within a second, and an
+  open card dialog updates in place. Each lane is a tray you can fold, the new-card
+  dialog sits behind **+ New card** so the board opens on the work, and a filter (`/`)
+  plus `?` for the keys make a wide board navigable without the mouse.
+- A teammate runs `/board` too, and gets **the same page, read-only**: the note the lead
+  left beside the cards names the port, the seat, and a credential that may only read,
+  so there is no second page and no button that would be refused. Claiming, moving,
+  editing, and writing a card stay with the session doing the work — `board`'s actions
+  are the workflow, and the page is how the lead watches it.
+- Joining is two separate things, and `/board status` says which one you are missing:
+  any `board` action makes your work yours, and any `session` action puts you on the bus
+  — where the lead's Team tab sees you — while `session watch` is what raises your turn
+  when a handoff lands in your inbox.
+- `/team` prints the round in the terminal: the rollup `board list --round` returns, then
+  who is live and who has gone quiet. A lead does not need a browser to see what needs a
+  decision, and `/board status` prints one line about the page itself.
 - Ownership is advisory. Two sessions can still edit the same file; a path claim
   in `session-bus` is what protects it.
 
@@ -331,7 +344,9 @@ overwriting it. Nothing prunes a finished card: `drop` is the only deletion.
   says so; if the card changed between the send and the assignment, the answer says
   the peer should `board claim` it.
 - `team` `action: "reclaim"` takes a card back to To do when its owner has gone
-  quiet. The notes stay, so the next owner reads what happened.
+  quiet. The notes stay, so the next owner reads what happened. The board's Team tab can
+  record an owner for an unowned card too, but a browser cannot message a peer, so that
+  assignment says in the card's history that no handoff was sent.
 
 A round, end to end: `board list --round` to see who holds what, `team assign` for
 each unassigned card, then `board list --round` again once the peers settle. A

@@ -11,6 +11,7 @@
 import { normalizeCardId } from "../../lib/board/card.ts";
 import type { Actor, CardOp } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
+import { normalizeLabel } from "../../lib/session-label.ts";
 import { createInput } from "./input.ts";
 import type { PageResult, PageWrite } from "./transport/router.ts";
 
@@ -55,6 +56,19 @@ export function opOf(request: PageWrite): { op: CardOp } | { error: string } {
 			return { op: { kind: "release" } };
 		case "reclaim":
 			return { op: { kind: "reclaim" } };
+		case "assign": {
+			// A page cannot message a peer — a command context has no tool calls — so this
+			// records the owner and says in the card's history that nothing was sent.
+			const to = normalizeLabel(typeof request.body.to === "string" ? request.body.to : "", "");
+			if (to === "") return { error: "assign needs a teammate to hand the card to." };
+			return {
+				op: {
+					kind: "assign",
+					to: { label: to },
+					note: `assigned to ${to} from the board page; no handoff was sent`,
+				},
+			};
+		}
 		case "drop":
 			return { op: { kind: "drop" } };
 		case "note":

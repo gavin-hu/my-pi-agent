@@ -98,8 +98,9 @@ export const BOARD_KEYS_JS = String.raw`(function () {
         return;
       }
       if (event.key === "n") {
-        // Two modals over one board is a trap whose edge the reader cannot see.
-        if (board.dialogOpen() || board.composerOpen()) return;
+        // Two modals over one board is a trap whose edge the reader cannot see, and a
+        // viewer's page has no composer to open at all.
+        if (!board.canWrite() || board.dialogOpen() || board.composerOpen()) return;
         event.preventDefault();
         board.focusComposer();
       } else if (event.key === "/") {

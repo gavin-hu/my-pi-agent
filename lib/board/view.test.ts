@@ -116,6 +116,23 @@ describe("buildView", () => {
 		]);
 	});
 
+	test("marks the reader's row from the session, because the page writes as its seat", () => {
+		// The seat is what a card records and the session is who is looking: a page serving
+		// as `team-lead` from `billing-lead` marks billing-lead's row, not the seat's.
+		const view = buildView({
+			me: { id: "board:team-lead", label: "team-lead" },
+			session: { id: "s-lead", label: "billing-lead" },
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+			roster: [{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 }],
+		});
+		expect(view.me).toEqual({ id: "board:team-lead", label: "team-lead" });
+		expect(view.session).toEqual({ id: "s-lead", label: "billing-lead" });
+		expect(view.teammates?.map((mate) => [mate.label, mate.you])).toEqual([["billing-lead", true]]);
+	});
+
 	test("leaves the roster out when there is no bus, which is not the same as an empty one", () => {
 		const absent = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
 		expect(absent.teammates).toBeUndefined();

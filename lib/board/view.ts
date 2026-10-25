@@ -48,8 +48,10 @@ export interface ViewCounts {
 
 /** Everything the page is allowed to know. */
 export interface BoardView {
-	/** The session a page write is made as — the serving one, never the browser. */
+	/** The session a page write is made as — the page's seat, never the browser. */
 	me: { id?: string; label: string };
+	/** The session the page is served from, when the page knows it: who is reading. */
+	session?: { id?: string; label: string };
 	lanes: ViewLane[];
 	counts: ViewCounts;
 	round: RoundSummary;
@@ -71,6 +73,14 @@ export interface BoardView {
 /** What the server read before building one snapshot. */
 export interface ViewInput {
 	me: Actor;
+	/**
+	 * The session the page is served from, when it has one.
+	 *
+	 * The page writes as its seat — a fixed name — so the reader's own row on the Team
+	 * tab is marked from the session, not from `me`: the seat is what a card records,
+	 * and the session is who is looking.
+	 */
+	session?: Actor;
 	cards: readonly Card[];
 	now: number;
 	bytes: number;
@@ -85,9 +95,11 @@ export function buildView(input: ViewInput): BoardView {
 		status,
 		cards: input.cards.filter((card) => card.status === status),
 	}));
-	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, input.me.label, input.now);
+	const reader = input.session ?? input.me;
+	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.now);
 	return {
 		me: input.me.id === undefined ? { label: input.me.label } : { id: input.me.id, label: input.me.label },
+		...(input.session === undefined ? {} : { session: input.session }),
 		lanes,
 		counts: countOf(lanes),
 		round: buildRound(input.cards, input.now),

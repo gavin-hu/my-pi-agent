@@ -150,6 +150,20 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
     });
   };
 
+  /**
+   * Hand an unowned card to a teammate, from the board rather than the bus.
+   *
+   * The page records the owner; it cannot send, so the card's history says no handoff
+   * went out and the peer reads it the next time it looks. The team tool's assign is
+   * the action that messages somebody.
+   */
+  board.assignTo = function (card, label) {
+    return post("/api/cards/" + encodeURIComponent(card.id) + "/assign", { to: label }).catch(function (error) {
+      banner(error.message);
+      return undefined;
+    });
+  };
+
   /** Add a card from the composer. */
   board.add = function (input) {
     return post("/api/cards", input).catch(function (error) {
@@ -201,6 +215,33 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
   };
 
   /**
+   * Assign to: a teammate, then the button.
+   *
+   * The names come from the roster the page already has, live first: a session that has
+   * gone quiet is still a label a card can record, but it is not the one to pick.
+   */
+  function assignControl(card, view) {
+    var row = board.el("div", "board-dialog__assign");
+    var select = board.el("select", "bf-input board-dialog__assign-select");
+    select.setAttribute("aria-label", "Assign to");
+    var mates = view.teammates === undefined ? [] : view.teammates.map(function (mate) { return mate.label; });
+    // Your own terminal is not somebody to hand a card to, and neither is the seat.
+    var self = view.session ? view.session.label : "";
+    var others = mates.filter(function (label) { return label.toLowerCase() !== self.toLowerCase(); });
+    if (others.length > 0) mates = others;
+    if (mates.length === 0) mates = ["team-lead"];
+    for (var i = 0; i < mates.length; i++) {
+      var option = board.el("option", "", mates[i]);
+      option.value = mates[i];
+      select.appendChild(option);
+    }
+    row.appendChild(board.el("span", "board-dialog__label", "Assign to"));
+    row.appendChild(select);
+    row.appendChild(board.actionButton("Assign", function () { board.assignTo(card, select.value); }));
+    return row;
+  }
+
+  /**
    * The card dialog's footer: the claim an unowned card is waiting for, the lane
    * buttons its owner may move to, then its destructive ones. Nothing here is a
    * card-face action, so a reader cannot delete a card from the lane by hitting the
@@ -235,6 +276,7 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
       move.appendChild(lanes);
       footer.appendChild(move);
     }
+    if (board.may(card, view, "assign")) footer.appendChild(assignControl(card, view));
     if (board.may(card, view, "release")) {
       footer.appendChild(board.actionButton("Release", function () { board.act("release", card); }));
     }

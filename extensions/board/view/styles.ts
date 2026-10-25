@@ -163,6 +163,10 @@ ${WEB_COMPONENTS_CSS}
 .board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
 .board-dialog__note-text{margin:0;font:var(--fs-sm)/var(--lh-normal) var(--font-ui);color:var(--text);overflow-wrap:anywhere}
 .board-dialog__move{display:flex;align-items:center;gap:var(--space-2);margin-right:auto}
+/* Assigning records an owner the page cannot tell anybody about, so it sits with the
+   other card actions and takes a name from the roster. */
+.board-dialog__assign{display:flex;align-items:center;gap:var(--space-2);margin-right:auto}
+.board-dialog__assign-select{width:auto;min-width:8rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);padding:2px var(--space-2);cursor:pointer}
 .board-dialog__label{font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}

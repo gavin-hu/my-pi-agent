@@ -8,6 +8,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: the card dialog can hand an unowned card to a teammate. `Assign to` picks a
+  name from the roster (your own session excluded) and records the owner; the page cannot
+  message a peer — a command context has no tool calls — so the assignment lands in the
+  card's history as a note saying no handoff was sent, in the same revision. `team`'s
+  `assign` remains the action that tells somebody.
+- `board`: `list` takes `mine: true` — the cards this session holds, filtered by the same
+  `holds` rule a claim is checked against, so the queue a teammate works from cannot list
+  a card they could not release. It combines with `status` and `query`.
+- `team`: `/team` prints the lead's round in the terminal — no page, no browser, and no
+  bus required. It is the rollup `board list --round` returns, plus a line saying who is
+  live and who has gone quiet, capped at ten lines so a long round says how many it left
+  out instead of filling the screen.
+- `board`: one page per repository, and a teammate can watch it. `/board` reads the note
+  the serving session left beside the board's cards: when a page answers, this session
+  opens that one instead of serving a second, and the toolbar and `/board status` say
+  whose page it is. A viewer's page is read-only — the note carries a credential that
+  satisfies every read and no write, the document says `data-writes="0"`, and the client
+  draws no **+ New card**, `Claim`, `Move`, `Edit`, `Drop` or note field, so a teammate
+  sees the board without a button the server would refuse. `/board stop` on a watching
+  session says who serves it instead of stopping somebody else's page.
+- `board`: the page serves as a seat — one fixed name, `team-lead`, with an id derived
+  from it — instead of as the session that opened it. A card a browser claims stays the
+  seat's after that session ends or `/resume`s, and `/board status` names the seat. The
+  Team tab still marks your own row from the session you are reading in, so the seat
+  and your terminal are two actors and the page says which is which.
 - `board`: a card can be corrected. `board` action `edit` fixes its title, its path
   hints, its priority, and what it waits for — by the session that holds it, or by
   anyone while nobody holds it, including a `done` card, because a title is what a

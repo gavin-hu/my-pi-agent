@@ -36,6 +36,8 @@ export interface ShotOptions extends PageShotOptions {
 	outDir: string;
 	/** Capture one dialog instead of the two tabs. */
 	dialog?: ShotDialog;
+	/** Capture the page a teammate sees: the same board, with no write affordance. */
+	viewer?: boolean;
 }
 
 /** Parse the command line; throws a message the caller prints as usage. */
@@ -44,6 +46,7 @@ export function parseArgs(argv: string[]): ShotOptions {
 		out: "assets/screens",
 		scale: 1,
 		extraFlags: ["--out", "--dialog"],
+		extraBooleans: ["--viewer"],
 		maxPositional: 0,
 	});
 	const dialog = parsed.values["--dialog"];
@@ -58,6 +61,7 @@ export function parseArgs(argv: string[]): ShotOptions {
 		waitMs: parsed.waitMs,
 		out: parsed.out,
 		...(dialog === undefined ? {} : { dialog }),
+		...(parsed.flags.has("--viewer") ? { viewer: true } : {}),
 	};
 }
 
@@ -88,7 +92,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 	const fixture = await fixtureBoard();
 	const server = await createBoardServer({
 		ports: [0],
-		page: async (view) => renderBoardPage({ view }),
+		// A viewer's page is the same document with one attribute saying it may not write.
+		page: async (view) => renderBoardPage({ view, writes: options.viewer !== true }),
 		script: BOARD_CLIENT_JS,
 		view: fixture.view,
 		// A capture never writes; the page's write route is exercised by its suite.
@@ -97,8 +102,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 	const shots: Array<{ url: string; name: string; before?: string[] }> =
 		options.dialog === undefined
 			? [
-					{ url: tabUrl(server.url, "board"), name: "board" },
-					{ url: tabUrl(server.url, "team"), name: "team" },
+					{ url: tabUrl(server.url, "board"), name: `board${options.viewer === true ? "-viewer" : ""}` },
+					{ url: tabUrl(server.url, "team"), name: `team${options.viewer === true ? "-viewer" : ""}` },
 				]
 			: [{ url: tabUrl(server.url, "board"), name: `${options.dialog}-dialog`, before: [DIALOG_OPEN[options.dialog]] }];
 	try {

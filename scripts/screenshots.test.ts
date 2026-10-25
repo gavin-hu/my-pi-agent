@@ -107,6 +107,13 @@ describe("board shot arguments", () => {
 		expect(() => parseBoardArgs(["--root", "docs"])).toThrow("unknown option --root");
 		expect(() => parseBoardArgs(["extra"])).toThrow("unexpected argument extra");
 	});
+
+	test("takes --viewer, so the read-only page is reviewed as a picture", () => {
+		// A viewer's page is the same document with one attribute changed; the flag is how
+		// that state is captured without a second session serving it.
+		expect(parseBoardArgs(["--viewer"]).viewer).toBe(true);
+		expect(parseBoardArgs([]).viewer).toBeUndefined();
+	});
 });
 
 describe("file-browse shot arguments", () => {

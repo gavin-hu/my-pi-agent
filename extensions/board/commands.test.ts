@@ -18,12 +18,14 @@ function fakePage(): { page: BoardPage; calls: string[] } {
 	const calls: string[] = [];
 	const running: BoardPageStatus = {
 		running: true,
+		seat: "team-lead",
 		port: 4812,
 		url: "http://127.0.0.1:4812/?token=abc",
 		where: "~/.pi/agent/board/k",
 	};
 	const served: PageStart = {
 		kind: "served",
+		seat: "team-lead",
 		port: 4812,
 		url: "http://127.0.0.1:4812/?token=abc",
 		where: "~/.pi/agent/board/k",
@@ -52,11 +54,28 @@ function fakePage(): { page: BoardPage; calls: string[] } {
 	return { page, calls };
 }
 
+/** A page this session watches rather than serves. */
+function attachedPage(): BoardPage {
+	return {
+		start: async () => ({
+			kind: "attached",
+			seat: "team-lead",
+			port: 4812,
+			url: "http://127.0.0.1:4812/?token=view",
+			where: "~/.pi/agent/board/k",
+		}),
+		stop: async () => false,
+		status: () => ({ running: false, attached: true, seat: "team-lead", port: 4812 }),
+		closeAll: async () => {},
+	};
+}
+
 /** The command as the host invokes it. */
-async function run(args: string) {
+async function run(args: string, given?: BoardPage) {
 	const { page, calls } = fakePage();
+	const target = given ?? page;
 	const fake = createFakePi();
-	registerCommands(fake.pi, page);
+	registerCommands(fake.pi, target);
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");
 	const { ctx, notifications } = fakeCtx();
@@ -68,7 +87,7 @@ describe("/board", () => {
 	test("opens the page on the Board tab with no argument", async () => {
 		const { calls, notifications } = await run("");
 		expect(calls).toEqual(["start board"]);
-		expect(notifications.at(-1)).toContain("http://127.0.0.1:4812");
+		expect(notifications.at(-1)).toBe("board: team-lead serving ~/.pi/agent/board/k on :4812");
 	});
 
 	test("opens it on the Team tab", async () => {
@@ -82,9 +101,23 @@ describe("/board", () => {
 		expect(notifications.at(-1)).toContain("board: not running");
 	});
 
+	test("says what a watching session may not stop, and whose page it is", async () => {
+		const { notifications } = await run("stop", attachedPage());
+		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead serves this repository on :4812");
+		const status = await run("status", attachedPage());
+		expect(status.notifications.at(-1)).toBe("board: watching team-lead on :4812 — nothing to stop here");
+	});
+
+	test("tells a viewer the page it opened, and the step that makes it reachable", async () => {
+		const { notifications } = await run("", attachedPage());
+		expect(notifications.at(-1)).toBe(
+			"board: team-lead is serving this repository on :4812 — viewing (session watch for handoffs)",
+		);
+	});
+
 	test("stops a running page, and says when there was none", async () => {
 		const first = await run("stop");
-		expect(first.calls).toEqual(["stop"]);
+		expect(first.calls).toEqual(["status", "stop"]);
 		expect(first.notifications.at(-1)).toBe("board: not running");
 	});
 

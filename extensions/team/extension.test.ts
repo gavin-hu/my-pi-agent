@@ -1,5 +1,6 @@
 /**
- * The factory: one tool, no listener, and silence when the package disables it.
+ * The factory: one tool, one command, no listener, and silence when the package
+ * disables it.
  *
  * `team` is the extension that carries the bus dependency, so the property worth
  * pinning is that it registers without a bus being present — the dependency is a
@@ -28,11 +29,12 @@ function stubSession(): BoardSession {
 }
 
 describe("the team extension", () => {
-	test("registers exactly one tool, and opens nothing", () => {
+	test("registers one tool and one command, and opens nothing", () => {
 		const fake = createFakePi();
 		team(fake.pi, { session: stubSession() });
 		expect([...fake.tools.keys()]).toEqual(["team"]);
-		expect(fake.commands.size).toBe(0);
+		// `/team` prints the round; the store and the bus are read when it runs, not now.
+		expect([...fake.commands.keys()]).toEqual(["team"]);
 	});
 
 	test("registers nothing when the package disabled it", async () => {
@@ -40,6 +42,7 @@ describe("the team extension", () => {
 			const fake = createFakePi();
 			team(fake.pi, { session: stubSession() });
 			expect(fake.tools.size).toBe(0);
+			expect(fake.commands.size).toBe(0);
 		});
 	});
 });

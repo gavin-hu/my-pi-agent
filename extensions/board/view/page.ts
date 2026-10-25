@@ -24,12 +24,14 @@ export type PageView = "board" | "team";
  * Render the document for one initial view.
  *
  * Both panels are rendered and one is `hidden`, so switching tabs costs no request
- * and a shared link opens the tab it names.
+ * and a shared link opens the tab it names. `writes` is the credential's authority:
+ * a viewer's document says `data-writes="0"`, which is what makes the client draw a
+ * page with no button the server would refuse.
  */
-export function renderBoardPage(input: { view: PageView }): string {
+export function renderBoardPage(input: { view: PageView; writes?: boolean }): string {
 	const team = input.view === "team";
 	return `<!doctype html>
-<html lang="en" data-view="${team ? "team" : "board"}">
+<html lang="en" data-view="${team ? "team" : "board"}" data-writes="${input.writes === false ? "0" : "1"}">
 <head>
 ${docHead({ title: "board", css: BOARD_CSS })}
 </head>
@@ -126,7 +128,7 @@ ${docHead({ title: "board", css: BOARD_CSS })}
       <p class="board-dialog__plan" id="card-dialog-plan" hidden></p>
       <ol class="board-dialog__notes" id="card-dialog-notes"></ol>
       <p class="bf-dialog__hint" id="card-dialog-earlier" hidden></p>
-      <div class="bf-composer board-dialog__note-composer">
+      <div class="bf-composer board-dialog__note-composer" id="card-dialog-note-composer">
         <label class="bf-field"><span class="sr-only">Add a note</span>
           <input class="bf-input" id="card-dialog-note" placeholder="add a note" maxlength="1000">
         </label>

@@ -16,7 +16,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import { cardRef, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
-import type { CardOp } from "../../lib/board/rules.ts";
+import { type CardOp, holds } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
@@ -78,7 +78,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession): void {
 			"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
 			"A card carries the feature's outcome, the session that holds it, path hints, the plan it is executing, " +
 			"its priority, what it waits for, and its notes. `list` shows the board (`status` filters one lane, " +
-			"`query` matches a title, a path hint, or a holder, `card` shows one card, `round` adds the lead's rollup " +
+			"`mine` shows only what this session holds, `query` matches a title, a path hint, or a holder, `card` shows one card, `round` adds the lead's rollup " +
 			"of owners, unassigned, unplanned, blocked, and idle - the rollup always covers the whole board). `add` " +
 			"creates a `todo` card; `claim` takes one for this session; `release` gives it back; `reclaim` takes it " +
 			"from whoever holds it; `move` changes lane; `note` appends to its history; `plan` records the plan file " +
@@ -211,7 +211,10 @@ async function read(
 	const listed = cards.filter(
 		(card) =>
 			(args.status === undefined || card.status === args.status) &&
-			(args.query === undefined || matchesQuery(card, args.query)),
+			(args.query === undefined || matchesQuery(card, args.query)) &&
+			// The same rule a claim is checked against, so "mine" cannot list a card this
+			// session could not release.
+			(args.mine !== true || holds(card, me)),
 	);
 	if (args.round !== true) return textResult(formatCards(listed), { action, me, cards: listed });
 	const round = buildRound(cards, now);

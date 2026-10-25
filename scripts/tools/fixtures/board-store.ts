@@ -15,6 +15,7 @@ import type { Actor } from "../../../lib/board/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import { buildView, type BoardView } from "../../../lib/board/view.ts";
 import { createStore } from "../../../lib/board/store.ts";
+import { pageActor } from "../../../extensions/board/seat.ts";
 
 /** The two sessions the fixture's cards belong to. */
 export const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
@@ -132,7 +133,10 @@ export async function fixtureBoard(): Promise<{ directory: string; view: () => P
 		view: async () => {
 			const now = Date.now();
 			return buildView({
-				me: LEAD,
+				// The page serves as its seat, and marks the reader's row from the session —
+				// the same two actors a real page reports.
+				me: pageActor(),
+				session: LEAD,
 				cards: await store.list(),
 				now,
 				roster: fixtureRoster(now),

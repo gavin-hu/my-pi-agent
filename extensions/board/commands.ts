@@ -8,7 +8,8 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import type { BoardPage } from "./page.ts";
+import { plural } from "../../lib/board/round-text.ts";
+import type { BoardPage, BoardPageStatus } from "./page.ts";
 
 /** The command's name, which is also the word a user types. */
 export const BOARD_COMMAND = "board";
@@ -28,14 +29,19 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const word = args.trim().toLowerCase();
 			if (word === "status") {
-				const status = page.status();
-				ctx.ui.notify(
-					status.running ? `board: ${status.where} at ${status.url}` : "board: not running — /board opens it",
-					"info",
-				);
+				ctx.ui.notify(statusLine(page.status()), "info");
 				return;
 			}
 			if (word === "stop") {
+				const status = page.status();
+				// A viewer's page is somebody else's to stop, and saying whose is the answer.
+				if (status.attached === true) {
+					ctx.ui.notify(
+						`board: nothing to stop here — ${status.seat} serves this repository on :${status.port}`,
+						"info",
+					);
+					return;
+				}
 				ctx.ui.notify((await page.stop(ctx)) ? "board: stopped" : "board: not running", "info");
 				return;
 			}
@@ -47,9 +53,27 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 				return;
 			}
 			const started = await page.start(ctx, word === "team" ? "team" : "board");
-			// A failed start has already said why; a served one says where.
+			// A failed start has already said why; the other two say which page you are on, and
+			// a viewer is told the one step that makes it reachable.
 			if (started.kind === "failed") return;
-			ctx.ui.notify(`board: ${started.where} at ${started.url}`, "info");
+			ctx.ui.notify(
+				started.kind === "attached"
+					? `board: ${started.seat} is serving this repository on :${started.port} — viewing (session watch for handoffs)`
+					: `board: ${started.seat} serving ${started.where} on :${started.port}`,
+				"info",
+			);
 		},
 	});
+}
+
+/** One line for `/board status`: the page this session serves, watches, or does not have. */
+export function statusLine(status: BoardPageStatus): string {
+	if (status.running) {
+		const watching = plural(status.watchers ?? 0, "tab");
+		return `board: ${status.seat} serving on :${status.port} · ${watching} watching · ${status.where}`;
+	}
+	if (status.attached === true) {
+		return `board: watching ${status.seat} on :${status.port} — nothing to stop here`;
+	}
+	return "board: not running — /board opens it";
 }
