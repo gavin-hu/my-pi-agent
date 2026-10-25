@@ -155,7 +155,10 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     var reason = reasonOf(card);
     if (reason) {
       var kind = reason.kind === "blocked" || reason.kind === "unplanned" ? " board-card__reason--" + reason.kind : "";
-      item.appendChild(el("p", "board-card__reason" + kind, reason.text));
+      var line = el("p", "board-card__reason" + kind, reason.text);
+      // It clamps to one line on the card, so the full sentence is the tooltip.
+      line.title = reason.text;
+      item.appendChild(line);
     }
 
     var actions = el("div", "board-card__actions");

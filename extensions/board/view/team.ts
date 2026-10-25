@@ -19,10 +19,15 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   var ago = board.ago;
   var plural = board.plural;
 
-  /** A section heading: the table's title and a count, not a caption inside it. */
-  function heading(text, count) {
+  /**
+   * A section heading: the table's title and a count, not a caption inside it.
+   *
+   * With a filter on it reads shown/total, the same way a lane's head does, so a
+   * reader can tell "no cards" from "no matches".
+   */
+  function heading(text, count, total) {
     var node = el("h2", "board-team__caption", text);
-    node.appendChild(chip(String(count)));
+    node.appendChild(chip(total !== undefined && total !== count ? count + "/" + total : String(count)));
     return node;
   }
 
@@ -56,6 +61,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       } else if (spec && typeof spec === "object") {
         cell.className = spec.className || "";
         cell.textContent = spec.text === undefined ? "" : String(spec.text);
+        if (spec.title !== undefined) cell.title = String(spec.title);
       } else if (spec !== undefined && spec !== null) {
         cell.textContent = String(spec);
       }
@@ -71,11 +77,16 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     return ago(at);
   }
 
-  /** Which cards need the lead, and why — the second table's rows. */
+  /**
+   * Which cards need the lead, and why — entries, not rows.
+   *
+   * The renderer filters this list, so it has to be the data: filtering the built
+   * rows would test the element instead of the card.
+   */
   function needs(round) {
-    var rows = [];
+    var entries = [];
     function add(cards, why, kind) {
-      for (var i = 0; i < cards.length; i++) rows.push(entry(cards[i], why(cards[i]), kind));
+      for (var i = 0; i < cards.length; i++) entries.push({ card: cards[i], why: why(cards[i]), kind: kind });
     }
     add(round.blocked, function (card) {
       var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
@@ -84,20 +95,25 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     add(round.idle, function (card) { return "no touch for " + ago(card.updatedAt); }, "idle");
     add(round.unplanned, function () { return "in flight without a plan"; }, "unplanned");
     add(round.unassigned, function () { return "nobody holds it"; }, "unassigned");
-    return rows;
+    return entries;
   }
 
   /** One decision row: the card, why it is here, who holds it, and the action. */
-  function entry(card, why, kind) {
+  function entry(decision) {
+    var card = decision.card;
+    var why = decision.why;
+    var kind = decision.kind;
     var open = actionButton("#" + card.id + " " + card.title, function () { board.openCard(card.id); });
     open.className = "board-card__title";
     var owner = card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned");
     var action = card.owner
       ? actionButton("Reclaim", function () { board.act("reclaim", card); })
-      : el("span", "", "—");
+      : el("span", "", "\u2014");
     return row([
       open,
-      { text: why, className: "board-team__why" + (kind === "blocked" ? " board-team__why--blocked" : "") },
+      // The cell clamps to two lines; the tooltip carries the rest, because this
+      // sentence is the lead's whole reason to look at the row.
+      { text: why, title: why, className: "board-team__why" + (kind === "blocked" ? " board-team__why--blocked" : "") },
       owner,
       { node: action, className: "board-team__action" },
     ]);
@@ -108,37 +124,56 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     if (!root) return;
     root.textContent = "";
     var round = view.round;
+    // The toolbar's filter is one control for both tabs, so the round reads it too.
+    var query = board.query || "";
+    var keep = function (card) { return board.matches(card, query); };
+    var filtering = query !== "";
+    var noMatch = "no card here matches \"" + query + "\"";
 
     // A group is its heading and its table together, so the gap between groups is
     // the only gap — otherwise the heading floats away from the header row it names.
     var owners = el("section", "board-team__group");
-    owners.appendChild(heading("Owners", round.owners.length));
-    if (round.owners.length === 0) {
-      owners.appendChild(el("p", "board-lane__empty", "nobody is holding a card"));
+    var ownerGroups = [];
+    for (var i = 0; i < round.owners.length; i++) {
+      var cards = round.owners[i].cards.filter(keep);
+      if (cards.length > 0) ownerGroups.push({ label: round.owners[i].label, cards: cards });
+    }
+    owners.appendChild(heading("Owners", ownerGroups.length, round.owners.length));
+    if (ownerGroups.length === 0) {
+      owners.appendChild(el("p", "board-lane__empty", filtering ? noMatch : "nobody is holding a card"));
     } else {
       var ownerRows = [];
-      for (var i = 0; i < round.owners.length; i++) {
-        var group = round.owners[i];
-        ownerRows.push(row([chip(group.label, "accent"), String(group.cards.length), oldest(group.cards)]));
+      for (var j = 0; j < ownerGroups.length; j++) {
+        ownerRows.push(row([chip(ownerGroups[j].label, "accent"), String(ownerGroups[j].cards.length), oldest(ownerGroups[j].cards)]));
       }
       owners.appendChild(table(["Owner", "Cards", "Oldest"], ownerRows, "board-team__owners"));
     }
     root.appendChild(owners);
 
-    var decisions = needs(round);
+    var all = needs(round);
+    var decisions = all.filter(function (decision) { return keep(decision.card); });
     var needsBlock = el("section", "board-team__group");
-    needsBlock.appendChild(heading("Needs a decision", decisions.length));
+    needsBlock.appendChild(heading("Needs a decision", decisions.length, all.length));
     if (decisions.length === 0) {
-      needsBlock.appendChild(el("p", "board-lane__empty", "nothing needs you: no blockers, nothing idle, every card planned and held"));
+      needsBlock.appendChild(el("p", "board-lane__empty", filtering ? noMatch : "nothing needs you: no blockers, nothing idle, every card planned and held"));
     } else {
-      needsBlock.appendChild(table(["Card", "Why", "Owner", ""], decisions, "board-team__needs"));
+      needsBlock.appendChild(table(["Card", "Why", "Owner", ""], decisions.map(entry), "board-team__needs"));
     }
     root.appendChild(needsBlock);
 
-    var done = el("p", "board-done", "");
-    done.textContent = round.done.length === 0
-      ? "nothing finished yet"
-      : "Done · " + round.done.map(function (card) { return "#" + card.id; }).join(" ") + " · " + plural(round.done.length, "card");
-    root.appendChild(done);
+    var done = round.done.filter(keep);
+    var doneLine = el("p", "board-done", "");
+    if (done.length === 0) {
+      // While filtering, a third "no card here matches" line adds nothing; the two
+      // groups above already said it.
+      if (filtering) return root;
+      doneLine.textContent = "nothing finished yet";
+    } else {
+      var ids = [];
+      for (var k = 0; k < done.length; k++) ids.push("#" + done[k].id);
+      doneLine.textContent = "Done \u00B7 " + ids.join(" ") + " \u00B7 " + plural(done.length, "card") +
+        (filtering && done.length !== round.done.length ? " of " + round.done.length : "");
+    }
+    root.appendChild(doneLine);
   };
 })();`;

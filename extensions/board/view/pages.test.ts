@@ -164,6 +164,15 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.refreshAges()");
 	});
 
+	test("filters both tabs, lands on the lane with work, and tooltips what it clamps", () => {
+		// The filter is one control for two tabs; a narrow reader should not open on
+		// an empty lane; and a clipped line should still be readable on hover.
+		expect(BOARD_CLIENT_JS).toContain("board.matches(card, query)");
+		expect(BOARD_CLIENT_JS).toContain("laneWithWork(view)");
+		expect(BOARD_CLIENT_JS).toContain("cell.title");
+		expect(BOARD_CLIENT_JS).toContain("line.title = reason.text");
+	});
+
 	test("never parses a stored field", () => {
 		// `innerHTML` is the whole injection surface of a page like this one.
 		expect(BOARD_CLIENT_JS).not.toContain("innerHTML");

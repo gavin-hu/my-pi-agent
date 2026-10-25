@@ -186,10 +186,20 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     }
   }
 
+  /**
+   * The lane a narrow reader lands on: the first with a card in it, else the first
+   * lane. Opening on an empty To do while the only card sits in Blocked is a blank
+   * page with a picker nobody has a reason to press.
+   */
+  function laneWithWork(view) {
+    for (var i = 0; i < view.lanes.length; i++) if (view.lanes[i].cards.length > 0) return view.lanes[i].status;
+    return view.lanes[0] ? view.lanes[0].status : "todo";
+  }
+
   /** One frame: paint, record when it arrived, and put the caret where a reader acts. */
   function paint(view) {
     board.lastFrame = Date.now();
-    board.lane = board.lane || (view.lanes[0] ? view.lanes[0].status : "todo");
+    board.lane = board.lane || laneWithWork(view);
     badge("live", board.lastFrame);
     board.render(view);
     if (!board.focused && view.counts.total === 0) {
