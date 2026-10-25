@@ -19,7 +19,7 @@ import {
 	probePage,
 	readPointer,
 	settlePointer,
-	viewUrlOf,
+	urlOf,
 } from "./page-pointer.ts";
 
 const temps = makeTempTracker();
@@ -34,7 +34,7 @@ function scratch(): string {
 function pointer(overrides: Partial<PagePointer> = {}): PagePointer {
 	return {
 		port: 4781,
-		viewToken: "0123456789abcdef0123456789abcdef",
+		token: "0123456789abcdef0123456789abcdef",
 		seat: { id: "board:team-lead", label: "team-lead" },
 		startedAt: 1_000,
 		...overrides,
@@ -46,7 +46,7 @@ describe("the pointer file", () => {
 		const dir = scratch();
 		expect(await createPointer(dir, pointer())).toBe(true);
 		expect(await readPointer(dir)).toEqual(pointer());
-		expect(viewUrlOf(pointer())).toBe("http://127.0.0.1:4781/?token=0123456789abcdef0123456789abcdef");
+		expect(urlOf(pointer())).toBe("http://127.0.0.1:4781/?token=0123456789abcdef0123456789abcdef");
 	});
 
 	test("is the user's eyes only, like a card file", async () => {
@@ -59,7 +59,7 @@ describe("the pointer file", () => {
 	test("one pointer per board: the second session loses and attaches", async () => {
 		const dir = scratch();
 		const first = await createPointer(dir, pointer());
-		const second = await createPointer(dir, pointer({ port: 4782, viewToken: "ffffffffffffffffffffffffffffffff" }));
+		const second = await createPointer(dir, pointer({ port: 4782, token: "ffffffffffffffffffffffffffffffff" }));
 		expect([first, second]).toEqual([true, false]);
 		// The winner's note is untouched, which is what the loser reads to attach.
 		expect((await readPointer(dir))?.port).toBe(4781);
@@ -70,12 +70,12 @@ describe("the pointer file", () => {
 		await createPointer(dir, pointer());
 		expect(await clearPointer(dir, "ffffffffffffffffffffffffffffffff")).toBe(false);
 		expect(await readPointer(dir)).toBeDefined();
-		expect(await clearPointer(dir, pointer().viewToken)).toBe(true);
+		expect(await clearPointer(dir, pointer().token)).toBe(true);
 		expect(await readPointer(dir)).toBeUndefined();
 	});
 
 	test("clearing a note that is not there is not an error", async () => {
-		expect(await clearPointer(scratch(), pointer().viewToken)).toBe(false);
+		expect(await clearPointer(scratch(), pointer().token)).toBe(false);
 	});
 });
 
@@ -86,12 +86,12 @@ describe("settling the note for a page that is starting", () => {
 	test("writes when the name is free, and reports no dead note", async () => {
 		const dir = scratch();
 		expect(await settlePointer(dir, pointer(), dead)).toEqual({ kind: "written" });
-		expect((await readPointer(dir))?.viewToken).toBe(pointer().viewToken);
+		expect((await readPointer(dir))?.token).toBe(pointer().token);
 	});
 
 	test("attaches to the page that is already answering", async () => {
 		const dir = scratch();
-		const winner = pointer({ port: 4782, viewToken: "ffffffffffffffffffffffffffffffff" });
+		const winner = pointer({ port: 4782, token: "ffffffffffffffffffffffffffffffff" });
 		await createPointer(dir, winner);
 		expect(await settlePointer(dir, pointer(), live)).toEqual({ kind: "attached", pointer: winner });
 		// The winner's note is untouched: attaching never rewrites it.
@@ -100,22 +100,22 @@ describe("settling the note for a page that is starting", () => {
 
 	test("takes over a note that answers nobody, and says which one it was", async () => {
 		const dir = scratch();
-		const gone = pointer({ port: 4783, viewToken: "dddddddddddddddddddddddddddddddd" });
+		const gone = pointer({ port: 4783, token: "dddddddddddddddddddddddddddddddd" });
 		await createPointer(dir, gone);
 		const outcome = await settlePointer(dir, pointer(), dead);
 		expect(outcome).toEqual({ kind: "written", took: gone });
-		expect((await readPointer(dir))?.viewToken).toBe(pointer().viewToken);
+		expect((await readPointer(dir))?.token).toBe(pointer().token);
 	});
 
 	test("loses the takeover to another session, then attaches to the page that won", async () => {
 		const dir = scratch();
 		// A page that died and left its note behind.
-		await createPointer(dir, pointer({ viewToken: "dddddddddddddddddddddddddddddddd" }));
+		await createPointer(dir, pointer({ token: "dddddddddddddddddddddddddddddddd" }));
 		// The race: this caller proves the note dead, and another session replaces it in the
 		// window before the clear — so the clear is refused, and the next attempt finds a page
 		// that answers. Before this, that caller was told "another session is serving" and
 		// never opened anything.
-		const winner = pointer({ port: 4784, viewToken: "ffffffffffffffffffffffffffffffff" });
+		const winner = pointer({ port: 4784, token: "ffffffffffffffffffffffffffffffff" });
 		let probes = 0;
 		const outcome = await settlePointer(dir, pointer({ port: 4785 }), async () => {
 			probes += 1;
@@ -135,11 +135,11 @@ describe("settling the note for a page that is starting", () => {
 		// then serve, and only one of the two pages is findable.
 		for (let round = 0; round < 40; round++) {
 			const dir = scratch();
-			await createPointer(dir, pointer({ port: 4783, viewToken: "d".repeat(32) }));
+			await createPointer(dir, pointer({ port: 4783, token: "d".repeat(32) }));
 			const probe = async (url: string) => ({ ok: !url.includes(":4783/") });
 			const outcomes = await Promise.all([
-				settlePointer(dir, pointer({ port: 4790, viewToken: "a".repeat(32) }), probe),
-				settlePointer(dir, pointer({ port: 4791, viewToken: "b".repeat(32) }), probe),
+				settlePointer(dir, pointer({ port: 4790, token: "a".repeat(32) }), probe),
+				settlePointer(dir, pointer({ port: 4791, token: "b".repeat(32) }), probe),
 			]);
 			const served = outcomes.filter((outcome) => outcome.kind === "written");
 			expect(served.length, `round ${round}: ${JSON.stringify(outcomes)}`).toBe(1);
@@ -158,12 +158,12 @@ describe("settling the note for a page that is starting", () => {
 		const dir = scratch();
 		// A note whose token changes on every probe: no clear can ever land, which is what a
 		// third session racing this caller looks like from here.
-		let rival = pointer({ viewToken: "d".repeat(32) });
+		let rival = pointer({ token: "d".repeat(32) });
 		writeFileSync(join(dir, PAGE_FILE), JSON.stringify(rival));
 		let probes = 0;
 		const outcome = await settlePointer(dir, pointer(), async () => {
 			probes += 1;
-			rival = pointer({ port: 4790 + probes, viewToken: `${probes}`.repeat(32).slice(0, 32) });
+			rival = pointer({ port: 4790 + probes, token: `${probes}`.repeat(32).slice(0, 32) });
 			writeFileSync(join(dir, PAGE_FILE), JSON.stringify(rival));
 			return { ok: false };
 		});
@@ -182,7 +182,7 @@ describe("a pointer this build cannot trust", () => {
 			"{}",
 			JSON.stringify({ ...pointer(), port: 0 }),
 			JSON.stringify({ ...pointer(), port: "4781" }),
-			JSON.stringify({ ...pointer(), viewToken: "" }),
+			JSON.stringify({ ...pointer(), token: "" }),
 			JSON.stringify({ ...pointer(), seat: { label: "" } }),
 			JSON.stringify({ ...pointer(), seat: { id: 7, label: "team-lead" } }),
 			JSON.stringify({ ...pointer(), startedAt: "then" }),
@@ -191,6 +191,15 @@ describe("a pointer this build cannot trust", () => {
 			writeFileSync(join(dir, PAGE_FILE), body);
 			expect(await readPointer(dir), body).toBeUndefined();
 		}
+	});
+
+	test("a note written with the old view token is this page's, so an upgrade still serves", async () => {
+		// The build before this one wrote two credentials; the note carried the read-only one.
+		// A reader that only knew `token` would refuse its own note and stop the page.
+		const dir = scratch();
+		const { token, ...rest } = pointer();
+		writeFileSync(join(dir, PAGE_FILE), JSON.stringify({ ...rest, viewToken: token }));
+		expect(await readPointer(dir)).toEqual(pointer());
 	});
 
 	test("a seat without an id is still a seat, so an older note still attaches", async () => {
@@ -205,7 +214,7 @@ describe("a pointer this build cannot trust", () => {
 });
 
 describe("probePage", () => {
-	test("asks the snapshot route, with the view token", async () => {
+	test("asks the snapshot route, with the page's token", async () => {
 		const asked: string[] = [];
 		const live = await probePage(pointer(), async (url) => {
 			asked.push(url);

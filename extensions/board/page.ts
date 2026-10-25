@@ -27,14 +27,13 @@ import {
 	probePage,
 	readPointer,
 	settlePointer,
-	viewUrlOf,
+	urlOf,
 } from "../../lib/board/page-pointer.ts";
 import { mintToken } from "../../lib/http/index.ts";
 import { join } from "node:path";
 import { type BoardConfig, loadBoardConfig } from "./config.ts";
 import { pageActor } from "./seat.ts";
 import { viewOf } from "./snapshot.ts";
-import { writeOf } from "./writes.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
 import { BOARD_CLIENT_JS } from "./view/client.ts";
 import { type PageView, renderBoardPage } from "./view/page.ts";
@@ -105,7 +104,7 @@ export interface BoardPage {
 }
 
 export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {}): BoardPage {
-	let running: { server: BoardServer; store: BoardStore; viewToken: string } | undefined;
+	let running: { server: BoardServer; store: BoardStore; token: string } | undefined;
 	/** The page another session serves, when this session opened that one instead. */
 	let attachedTo: PagePointer | undefined;
 	let sessionPort: number | undefined;
@@ -117,12 +116,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 
 	const stop = async (ctx: ExtensionContext): Promise<boolean> => {
 		if (!running) return false;
-		const { server, store, viewToken } = running;
+		const { server, store, token } = running;
 		running = undefined;
 		await server.close();
 		// The note is the page's, so it leaves with it: a viewer that reads a note nobody
 		// answers wastes a probe, and the next `/board` would attach to a dead port.
-		await clearPointer(store.dir, viewToken);
+		await clearPointer(store.dir, token);
 		clearChip(ctx);
 		return true;
 	};
@@ -135,12 +134,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		/** Watch the page another session serves: its note is the URL, its seat the name. */
 		const attach = (pointer: PagePointer): PageStart => {
 			attachedTo = pointer;
-			open(viewUrlOf(pointer));
+			open(urlOf(pointer));
 			return {
 				kind: "attached",
 				seat: pointer.seat.label,
 				port: pointer.port,
-				url: viewUrlOf(pointer),
+				url: urlOf(pointer),
 				where: store.where(),
 			};
 		};
@@ -157,18 +156,20 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		const preferred = pinned ?? sessionPort ?? (deps.pickPort ?? randomPort)();
 		// The viewer's credential is minted here rather than by the server, because the note
 		// this session leaves has to carry it: that is what a teammate reads to attach.
-		const viewToken = mintToken();
+		// Minted here rather than by the server: the note this session leaves has to carry it,
+		// and that is what a second session reads to attach instead of serving its own page.
+		const token = mintToken();
 		let server: BoardServer;
 		try {
 			server = await createBoardServer({
 				// A pinned port is tried alone: falling back would leave the bookmark pointing
 				// at a page that moved, which is the failure the setting exists to prevent.
 				ports: pinned === undefined ? [preferred, 0] : [pinned],
-				viewToken,
+				token,
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
 				onIdle: () => void stopIdle(ctx),
-				page: async (view, authority) => renderBoardPage({ view, writes: authority === "write" }),
+				page: async (view) => renderBoardPage({ view }),
 				script: BOARD_CLIENT_JS,
 				view: () =>
 					viewOf({
@@ -178,7 +179,6 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 						now,
 						busDir: () => runtime.busDir(ctx.cwd),
 					}),
-				write: (request) => writeOf({ store, actor, now }, request),
 			});
 		} catch (error) {
 			const reason = failureReason(error, pinned);
@@ -193,7 +193,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		// blamed on a session that does not exist.
 		const note: PagePointer = {
 			port: server.port,
-			viewToken,
+			token,
 			seat: { id: seat.id, label: seat.label },
 			startedAt: runtime.now(),
 		};
@@ -205,7 +205,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		if (outcome.kind === "written" && outcome.took !== undefined) {
 			const dead = outcome.took;
 			ctx.ui.notify(
-				`board: ${dead.seat.label} on :${dead.port} does not answer — open ${viewUrlOf(dead)} · took its note over`,
+				`board: ${dead.seat.label} on :${dead.port} does not answer — open ${urlOf(dead)} · took its note over`,
 				"info",
 			);
 		}
@@ -222,7 +222,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			return { kind: "failed", reason };
 		}
 		sessionPort = server.port;
-		running = { server, store, viewToken };
+		running = { server, store, token };
 		setChip(ctx, server.port);
 		open(server.url);
 		return describe(running);
@@ -259,7 +259,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				attached: true,
 				seat: attachedTo.seat.label,
 				port: attachedTo.port,
-				url: viewUrlOf(attachedTo),
+				url: urlOf(attachedTo),
 			};
 		}
 		return { running: false };

@@ -3,8 +3,8 @@
  *
  * A page is one loopback server owned by one session's process, so nothing about it is
  * discoverable without a note left where the repository's state already lives. That note
- * is `<board>/page.json`: the port, the seat serving it, and a *view* token — never the
- * write token, which stays in the URL the lead's own browser was opened at.
+ * is `<board>/page.json`: the port, the seat serving it, and the token the page reads by.
+ * The page cannot change a card, so the note carries nothing a reader could misuse.
  *
  * Two rules make the file safe to trust:
  *
@@ -29,11 +29,11 @@ export const PAGE_FILE = "page.json";
 /** How long a probe waits before it calls the page gone. */
 export const PROBE_MS = 600;
 
-/** The port, the seat, and the credential a viewer may hold. */
+/** The port, the seat, and the credential the page reads by. */
 export interface PagePointer {
 	port: number;
-	/** A token that satisfies every read and no write. */
-	viewToken: string;
+	/** The page's one token: every read, and nothing else to authorise. */
+	token: string;
 	/** The seat the page writes as. */
 	seat: { id?: string; label: string };
 	/** When the page started, so a reader can tell a fresh note from a stale one. */
@@ -43,9 +43,9 @@ export interface PagePointer {
 /** The fetch a probe uses: the global one in production, a stub in a test. */
 export type ProbeFetch = (url: string, init: { signal: AbortSignal }) => Promise<{ ok: boolean }>;
 
-/** The URL a viewer opens: the page, with the credential that may only read it. */
-export function viewUrlOf(pointer: PagePointer): string {
-	return `http://127.0.0.1:${pointer.port}/?token=${pointer.viewToken}`;
+/** The URL for this page, wherever it is opened from. */
+export function urlOf(pointer: PagePointer): string {
+	return `http://127.0.0.1:${pointer.port}/?token=${pointer.token}`;
 }
 
 /**
@@ -126,9 +126,9 @@ export async function createPointer(dir: string, pointer: PagePointer): Promise<
  * findable. The move is atomic, so the file this call holds is the file that was there;
  * a note that is not the one proved dead goes back where it came from.
  */
-export async function clearPointer(dir: string, viewToken: string): Promise<boolean> {
+export async function clearPointer(dir: string, token: string): Promise<boolean> {
 	const pointer = await readPointer(dir);
-	if (pointer === undefined || pointer.viewToken !== viewToken) return false;
+	if (pointer === undefined || pointer.token !== token) return false;
 	const target = join(dir, PAGE_FILE);
 	const held = `${target}.gone-${process.pid}-${Math.random().toString(16).slice(2, 10)}`;
 	try {
@@ -138,7 +138,7 @@ export async function clearPointer(dir: string, viewToken: string): Promise<bool
 		return false;
 	}
 	const moved = await readPointerAt(held);
-	if (moved === undefined || moved.viewToken !== viewToken) {
+	if (moved === undefined || moved.token !== token) {
 		await putBack(held, target);
 		return false;
 	}
@@ -207,7 +207,7 @@ export async function settlePointer(dir: string, note: PagePointer, probe?: Prob
 		if (await probePage(winner, probe)) return { kind: "attached", pointer: winner };
 		// Only that exact note: a note a newer page wrote is not this caller's to take. A
 		// refused clear means somebody else got there first, so the next attempt re-reads.
-		if (await clearPointer(dir, winner.viewToken)) took = winner;
+		if (await clearPointer(dir, winner.token)) took = winner;
 	}
 	const last = await readPointer(dir);
 	if (last !== undefined) return { kind: "stale", pointer: last };
@@ -227,7 +227,7 @@ export async function probePage(
 	timeoutMs: number = PROBE_MS,
 ): Promise<boolean> {
 	try {
-		const response = await fetchLike(`http://127.0.0.1:${pointer.port}/api/board?token=${pointer.viewToken}`, {
+		const response = await fetchLike(`http://127.0.0.1:${pointer.port}/api/board?token=${pointer.token}`, {
 			signal: AbortSignal.timeout(timeoutMs),
 		});
 		return response.ok;
@@ -239,9 +239,12 @@ export async function probePage(
 /** A parsed file as a pointer, or undefined when it is not one this build can trust. */
 function asPointer(value: unknown): PagePointer | undefined {
 	if (typeof value !== "object" || value === null) return undefined;
-	const { port, viewToken, seat, startedAt } = value as Record<string, unknown>;
+	const { port, seat, startedAt } = value as Record<string, unknown>;
+	// A note written by the build with two tokens carries `viewToken`; it is this page's
+	// only credential now, so an upgrade reads it instead of refusing to serve its own note.
+	const { token = (value as { viewToken?: unknown }).viewToken } = value as { token?: unknown };
 	if (typeof port !== "number" || !Number.isInteger(port) || port <= 0 || port > 65_535) return undefined;
-	if (typeof viewToken !== "string" || viewToken === "") return undefined;
+	if (typeof token !== "string" || token === "") return undefined;
 	if (typeof startedAt !== "number") return undefined;
 	if (typeof seat !== "object" || seat === null) return undefined;
 	const { id, label } = seat as Record<string, unknown>;
@@ -249,7 +252,7 @@ function asPointer(value: unknown): PagePointer | undefined {
 	if (id !== undefined && typeof id !== "string") return undefined;
 	return {
 		port,
-		viewToken,
+		token,
 		seat: id === undefined ? { label } : { id, label },
 		startedAt,
 	};

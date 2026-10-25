@@ -1,9 +1,10 @@
 /**
- * The page's lifecycle over a real socket: start, serve, write, stop.
+ * The page's lifecycle over a real socket: start, serve, stop.
  *
- * The server is the shipped one on an OS-chosen port, so the cases cover what only
- * a socket can: the token in the opened URL, the document and the snapshot on the
- * wire, a write landing in the store, and `close()` really closing.
+ * The server is the shipped one on an OS-chosen port, so the cases cover what only a
+ * socket can: the token in the opened URL, the document and the snapshot on the wire, a
+ * write refused for every method a browser could make one with, and `close()` really
+ * closing.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -87,6 +88,14 @@ function attached(start: PageStart): { port: number; url: string; seat: string }
 	return start;
 }
 
+/** The cards the page shows, read over the wire the way the snapshot route answers. */
+async function readCards(port: number, token: string): Promise<Array<{ id: string; status: string }>> {
+	const body = (await (await fetch(`http://127.0.0.1:${port}/api/board?token=${token}`)).json()) as {
+		lanes: Array<{ cards: Array<{ id: string; status: string }> }>;
+	};
+	return body.lanes.flatMap((lane) => lane.cards);
+}
+
 describe("the roster", () => {
 	/** The bus directory this page reads, laid out the way `session-bus` lays one out. */
 	async function seedBus(runtime: BoardSession, cwd: string, records: object[]): Promise<void> {
@@ -124,7 +133,7 @@ describe("the roster", () => {
 });
 
 describe("start", () => {
-	test("serves the document, the snapshot, and a write", async () => {
+	test("serves the document and the snapshot, and refuses to write", async () => {
 		const { page, ctx, opened } = harness();
 		const status = served(await page.start(ctx));
 		expect(status.port).toBeGreaterThan(0);
@@ -143,24 +152,16 @@ describe("start", () => {
 		expect(snapshot.counts.total).toBe(0);
 
 		const token = new URL(base).searchParams.get("token") ?? "";
-		const added = await fetch(`http://127.0.0.1:${status.port}/api/cards?token=${token}`, {
+		// The token opens the page and nothing else: a write is refused by the method list,
+		// before the store is touched, so no route can land one by accident.
+		const refused = await fetch(`http://127.0.0.1:${status.port}/api/cards?token=${token}`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ title: "Billing webhook accepts orders", paths: ["src/billing"] }),
 		});
-		expect(added.status).toBe(200);
-		expect(((await added.json()) as { card?: unknown }).card).toMatchObject({ id: "1", status: "todo" });
-
-		const claimed = await fetch(`http://127.0.0.1:${status.port}/api/cards/1/claim?token=${token}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: "{}",
-		});
-		// The page's writes are the seat's, not the terminal session's.
-		expect(((await claimed.json()) as { card?: unknown }).card).toMatchObject({
-			status: "doing",
-			owner: { id: "board:team-lead", label: "team-lead" },
-		});
+		expect(refused.status).toBe(405);
+		expect(refused.headers.get("allow")).toBe("GET, HEAD");
+		expect(await readCards(status.port, token)).toEqual([]);
 
 		await page.stop(ctx);
 	});
@@ -226,21 +227,21 @@ describe("a pinned port", () => {
 });
 
 describe("the page this repository already serves", () => {
-	test("a second session attaches to it read-only instead of serving a second one", async () => {
+	test("a second session attaches to it instead of serving a second one", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const lead = harness({ cwd, agentDir });
 		const servedFirst = served(await lead.page.start(lead.ctx));
 		const note = await noteOf(lead.runtime, cwd);
 		expect(note?.port).toBe(servedFirst.port);
-		// The note carries the view token, which is the only credential a teammate gets.
-		expect(note?.viewToken).not.toBe(new URL(servedFirst.url).searchParams.get("token"));
+		// One token: the note carries the page's own, and holding it cannot change a card.
+		expect(note?.token).toBe(new URL(servedFirst.url).searchParams.get("token") ?? undefined);
 
 		const peer = harness({ cwd, agentDir });
 		const joined = attached(await peer.page.start(peer.ctx));
 		expect(joined).toMatchObject({ seat: "team-lead", port: servedFirst.port });
-		expect(peer.opened[0]).toBe(`http://127.0.0.1:${servedFirst.port}/?token=${note?.viewToken}`);
-		// The viewer's own page is not a server: nothing to stop, and status says whose it is.
+		expect(peer.opened[0]).toBe(`http://127.0.0.1:${servedFirst.port}/?token=${note?.token}`);
+		// An attached session serves nothing: nothing to stop, and status says whose page it is.
 		expect(await peer.page.stop(peer.ctx)).toBe(false);
 		expect(peer.page.status()).toMatchObject({ running: false, attached: true, seat: "team-lead" });
 		await lead.page.stop(lead.ctx);
@@ -255,7 +256,7 @@ describe("the page this repository already serves", () => {
 		await dead.page.stop(dead.ctx);
 	});
 
-	test("losing the race for the note makes this session a viewer of the winner", async () => {
+	test("losing the race for the note attaches this session to the winner", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const lead = harness({ cwd, agentDir });
@@ -287,7 +288,7 @@ describe("the page this repository already serves", () => {
 		// name it holds would keep every later `/board` from serving either.
 		const stale: PagePointer = {
 			port: 4781,
-			viewToken: "stale-view-token",
+			token: "stale-view-token",
 			seat: { label: "gone-lead" },
 			startedAt: NOW - 1000,
 		};
@@ -299,7 +300,7 @@ describe("the page this repository already serves", () => {
 		expect(said).toContain("does not answer");
 		expect(said).not.toContain("did not start");
 		// And the note is this session's now, so the repository keeps a page.
-		expect((await noteOf(dead.runtime, cwd))?.viewToken).not.toBe(stale.viewToken);
+		expect((await noteOf(dead.runtime, cwd))?.token).not.toBe(stale.token);
 		expect(dead.page.status()).toMatchObject({ running: true, port: status.port });
 		await dead.page.stop(dead.ctx);
 	});
@@ -315,7 +316,7 @@ describe("the page this repository already serves", () => {
 		await store.ensure();
 		writeFileSync(
 			join(store.dir, PAGE_FILE),
-			JSON.stringify({ port: 5068, viewToken: "dead".repeat(8), seat: { label: "team-lead" }, startedAt: NOW - 1_000 }),
+			JSON.stringify({ port: 5068, token: "dead".repeat(8), seat: { label: "team-lead" }, startedAt: NOW - 1_000 }),
 		);
 		const peer = harness({ cwd, agentDir, probe });
 		const [first, second] = await Promise.all([lead.page.start(lead.ctx), peer.page.start(peer.ctx)]);
@@ -363,120 +364,6 @@ describe("the page this repository already serves", () => {
 		const { page, ctx } = harness();
 		const status = served(await page.start(ctx));
 		expect(page.status()).toMatchObject({ running: true, seat: "team-lead", port: status.port, watchers: 0 });
-		await page.stop(ctx);
-	});
-});
-
-describe("a refused write over the wire", () => {
-	test("answers 409 with the card, and the page keeps showing it", async () => {
-		const { page, ctx } = harness();
-		const status = served(await page.start(ctx));
-		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
-		const post = async (path: string, body: unknown) =>
-			fetch(`http://127.0.0.1:${status.port}${path}?token=${token}`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			});
-		await post("/api/cards", { title: "One" });
-		await post("/api/cards/1/claim", {});
-
-		// A second session of the page's own store, claiming the same card.
-		const other = await fetch(`http://127.0.0.1:${status.port}/api/cards/1/move?token=${token}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ status: "sideways" }),
-		});
-		expect(other.status).toBe(422);
-		await page.stop(ctx);
-	});
-});
-
-describe("a validation failure", () => {
-	test("answers 422 without touching a card", async () => {
-		const { page, ctx } = harness();
-		const status = served(await page.start(ctx));
-		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
-		const response = await fetch(`http://127.0.0.1:${status.port}/api/cards?token=${token}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ title: "   " }),
-		});
-		expect(response.status).toBe(422);
-		expect(((await response.json()) as { error?: string }).error).toBe("title is required.");
-		await page.stop(ctx);
-	});
-
-	test("refuses a priority the board does not know", async () => {
-		const { page, ctx } = harness();
-		const status = served(await page.start(ctx));
-		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
-		const response = await fetch(`http://127.0.0.1:${status.port}/api/cards?token=${token}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ title: "One", priority: "urgent" }),
-		});
-		expect(response.status).toBe(422);
-		expect(((await response.json()) as { error?: string }).error).toBe("priority must be one of high, normal, low.");
-		await page.stop(ctx);
-	});
-});
-
-describe("a write the page makes", () => {
-	test("adds a card with a priority, then edits it back to the ordinary one", async () => {
-		const { page, ctx } = harness();
-		const status = served(await page.start(ctx));
-		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
-		const post = async (path: string, body: unknown) => {
-			const response = await fetch(`http://127.0.0.1:${status.port}${path}?token=${token}`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			});
-			return {
-				status: response.status,
-				body: (await response.json()) as { card?: { title?: string; priority?: string } },
-			};
-		};
-		const added = await post("/api/cards", { title: "Billing webhok", priority: "high" });
-		expect(added.status).toBe(200);
-		expect(added.body.card).toMatchObject({ title: "Billing webhok", priority: "high" });
-		const edited = await post("/api/cards/1/edit", { title: "Billing webhook", priority: "normal" });
-		expect(edited.status).toBe(200);
-		expect(edited.body.card).toMatchObject({ title: "Billing webhook", priority: "normal" });
-		// The page never sends a link, so an edit cannot clear one it did not show.
-		await post("/api/cards/1/edit", { dependsOn: ["1"] });
-		const view = (await (await fetch(`http://127.0.0.1:${status.port}/api/board?token=${token}`)).json()) as {
-			lanes: Array<{ cards: Array<{ id: string; title: string }> }>;
-		};
-		expect(view.lanes[0]?.cards[0]).toMatchObject({ id: "1", title: "Billing webhook" });
-		await page.stop(ctx);
-	});
-});
-
-describe("a page that cannot message a peer", () => {
-	test("assigns by recording the owner, and says in the history that nothing was sent", async () => {
-		const { page, ctx } = harness();
-		const status = served(await page.start(ctx));
-		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
-		const post = async (path: string, body: unknown) => {
-			const response = await fetch(`http://127.0.0.1:${status.port}${path}?token=${token}`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			});
-			return { status: response.status, body: (await response.json()) as Record<string, unknown> };
-		};
-		await post("/api/cards", { title: "Billing webhook" });
-		const assigned = await post("/api/cards/1/assign", { to: "billing-core" });
-		expect(assigned.status).toBe(200);
-		expect(assigned.body.card).toMatchObject({
-			status: "doing",
-			owner: { label: "billing-core" },
-			notes: [{ by: "team-lead", text: "assigned to billing-core from the board page; no handoff was sent" }],
-		});
-		// A label is required, and a blank one is a field error rather than a silent no-op.
-		expect((await post("/api/cards/1/assign", { to: "  " })).status).toBe(422);
 		await page.stop(ctx);
 	});
 });

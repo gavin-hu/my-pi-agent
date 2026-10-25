@@ -1,22 +1,20 @@
 /**
- * The board page's router: the routes, the guards in front of them, and the answer a
- * refused write gets.
+ * The board page's router: the reads it serves, and the guards in front of them.
  *
- * Driven directly, with a fake context, so every refusal is asserted without a
- * socket — and so the security cases (token, `Host`, origin, JSON-only) are pinned
- * where a future route cannot skip them.
+ * Driven directly, with a fake context, so every refusal is asserted without a socket —
+ * and so the security cases (token, `Host`, method) are pinned where a future route cannot
+ * skip them. A page that cannot write is a page whose write half is absent, not disabled,
+ * so what these cases hold is the *absence*: no method, no path, no body.
  */
 
 import { describe, expect, test } from "bun:test";
 import { LOOPBACK_HOSTS, PAGE_CSP } from "../../../lib/http/index.ts";
 import type { BoardView } from "../../../lib/board/view.ts";
 import type { Card } from "../../../lib/board/card.ts";
-import type { BoardRouterContext, PageWrite } from "./router.ts";
+import type { BoardRouterContext } from "./router.ts";
 import { handleBoardRequest } from "./router.ts";
 
 const TOKEN = "0123456789abcdef0123456789abcdef";
-/** A viewer's token: the shape the feature's pointer will carry, exercised here directly. */
-const VIEW_TOKEN = "fedcba9876543210fedcba9876543210";
 
 /** A card that passes, so a case can change one thing. */
 function card(overrides: Partial<Card> = {}): Card {
@@ -54,14 +52,11 @@ function view(): BoardView {
 	};
 }
 
-/** A router context that records what it was asked to do. */
+/** A router context that records the pages it was asked for. */
 function context() {
-	const writes: PageWrite[] = [];
 	const pages: string[] = [];
 	const ctx: BoardRouterContext = {
-		// The page's own credential is the write authority; a viewer's is added by the
-		// feature that mints one, and the cases below supply it directly.
-		authority: (given) => (given === TOKEN ? "write" : given === VIEW_TOKEN ? "view" : undefined),
+		read: (given) => given === TOKEN,
 		hosts: () => LOOPBACK_HOSTS,
 		page: async (named) => {
 			pages.push(named);
@@ -69,20 +64,8 @@ function context() {
 		},
 		script: "/* client */",
 		view: async () => view(),
-		write: async (request) => {
-			writes.push(request);
-			if (request.kind === "drop") return { ok: true, card: card() };
-			if (request.kind === "claim")
-				return {
-					ok: false,
-					status: 409,
-					error: "#4 is held by billing-core.",
-					card: card({ status: "doing", owner: { label: "billing-core" } }),
-				};
-			return { ok: true, card: card() };
-		},
 	};
-	return { ctx, writes, pages };
+	return { ctx, pages };
 }
 
 /** The headers a page's own request carries. */
@@ -127,45 +110,11 @@ describe("the document and the static routes", () => {
 });
 
 describe("the token", () => {
-	test("is required for the page, the snapshot, the stream, and every write", async () => {
+	test("is required for the page, the snapshot, and the stream", async () => {
 		const { ctx } = context();
-		for (const [method, path] of [
-			["GET", "/"],
-			["GET", "/api/board"],
-			["GET", "/events"],
-			["POST", "/api/cards"],
-			["DELETE", "/api/cards/4"],
-		] as const) {
-			const response = await handleBoardRequest(
-				ctx,
-				method,
-				path,
-				{ ...SAME_ORIGIN, "content-type": "application/json" },
-				"{}",
-			);
-			expect(response.status, `${method} ${path}`).toBe(403);
-		}
-	});
-
-	test("a viewer's token reads everything and writes nothing", async () => {
-		// The credential a watching session will hold: the same reads, and a refusal on
-		// every route that changes a card — before the body is even parsed.
-		const { ctx, writes } = context();
-		const viewer = (path: string) => `${path}${path.includes("?") ? "&" : "?"}token=${VIEW_TOKEN}`;
 		for (const path of ["/", "/api/board", "/events"]) {
-			expect((await handleBoardRequest(ctx, "GET", viewer(path), SAME_ORIGIN)).status, path).toBe(200);
+			expect((await handleBoardRequest(ctx, "GET", path, SAME_ORIGIN)).status, path).toBe(403);
 		}
-		const headers = { ...SAME_ORIGIN, "content-type": "application/json" };
-		const refused = [
-			await handleBoardRequest(ctx, "POST", viewer("/api/cards"), headers, '{"title":"One"}'),
-			await handleBoardRequest(ctx, "POST", viewer("/api/cards/4/claim"), headers, "{}"),
-			await handleBoardRequest(ctx, "DELETE", viewer("/api/cards/4"), SAME_ORIGIN),
-		];
-		for (const response of refused) {
-			expect(response.status).toBe(403);
-			expect(JSON.parse(String(response.body ?? "{}"))).toEqual({ error: "This page is read-only for a viewer." });
-		}
-		expect(writes).toEqual([]);
 	});
 
 	test("refuses a wrong token, a missing one, and the empty string", async () => {
@@ -177,11 +126,13 @@ describe("the token", () => {
 });
 
 describe("the request envelope", () => {
-	test("refuses a method it does not serve, naming the ones it does", async () => {
+	test("serves no method that could change a card, and says which two it does", async () => {
 		const { ctx } = context();
-		const response = await handleBoardRequest(ctx, "PUT", url("/"), SAME_ORIGIN);
-		expect(response.status).toBe(405);
-		expect(response.headers.Allow).toBe("GET, HEAD, POST, DELETE");
+		for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+			const response = await handleBoardRequest(ctx, method, url("/api/cards/4"), SAME_ORIGIN);
+			expect(response.status, method).toBe(405);
+			expect(response.headers.Allow, method).toBe("GET, HEAD");
+		}
 	});
 
 	test("refuses a foreign Host", async () => {
@@ -190,51 +141,21 @@ describe("the request envelope", () => {
 		expect(response.status).toBe(403);
 		expect(response.body).toContain("Unexpected Host header.");
 	});
+});
 
-	test("refuses a write another site made", async () => {
+describe("what the page does not have", () => {
+	test("has no card route at all, under either method a browser can make", async () => {
 		const { ctx } = context();
-		const response = await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards"),
-			{
-				host: "127.0.0.1:4812",
-				origin: "http://evil.example",
-				"content-type": "application/json",
-			},
-			"{}",
-		);
-		expect(response.status).toBe(403);
-		expect(response.body).toContain("Cross-origin request refused.");
+		for (const path of ["/api/cards", "/api/cards/4", "/api/cards/4/claim", "/api/cards/4/drop"]) {
+			expect((await handleBoardRequest(ctx, "GET", url(path), SAME_ORIGIN)).status, path).toBe(404);
+		}
 	});
 
-	test("refuses a body that is not JSON", async () => {
+	test("answers a path it does not serve with the same refusal", async () => {
 		const { ctx } = context();
-		const form = await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards"),
-			{ ...SAME_ORIGIN, "content-type": "application/x-www-form-urlencoded" },
-			"title=x",
-		);
-		expect(form.status).toBe(415);
-		const plain = await handleBoardRequest(ctx, "GET", url("/api/board"), {
-			...SAME_ORIGIN,
-			"content-type": "text/plain",
-		});
-		expect(plain.status).toBe(200);
-	});
-
-	test("refuses a body that is not an object", async () => {
-		const { ctx } = context();
-		const response = await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards"),
-			{ ...SAME_ORIGIN, "content-type": "application/json" },
-			"[1,2]",
-		);
-		expect(response.status).toBe(400);
+		const response = await handleBoardRequest(ctx, "GET", url("/nope"), SAME_ORIGIN);
+		expect(response.status).toBe(404);
+		expect(response.body).toContain("That page does not exist.");
 	});
 });
 
@@ -251,108 +172,5 @@ describe("the snapshot", () => {
 		const response = await handleBoardRequest(ctx, "GET", url("/events"), SAME_ORIGIN);
 		expect(response.stream).toBe(true);
 		expect(response.headers["Content-Type"]).toContain("text/event-stream");
-	});
-});
-
-describe("the card routes", () => {
-	test("add is a POST to the collection", async () => {
-		const { ctx, writes } = context();
-		const response = await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards"),
-			{ ...SAME_ORIGIN, "content-type": "application/json" },
-			'{"title":"One","paths":["src"]}',
-		);
-		expect(response.status).toBe(200);
-		expect(writes).toEqual([{ kind: "add", body: { title: "One", paths: ["src"] } }]);
-	});
-
-	test("a verb is a POST naming one card", async () => {
-		const { ctx, writes } = context();
-		await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards/4/move"),
-			{ ...SAME_ORIGIN, "content-type": "application/json" },
-			'{"status":"blocked"}',
-		);
-		expect(writes).toEqual([{ kind: "move", id: "4", body: { status: "blocked" } }]);
-	});
-
-	test("edit is a verb like any other, carrying whichever fields the composer sent", async () => {
-		const { ctx, writes } = context();
-		await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards/4/edit"),
-			{ ...SAME_ORIGIN, "content-type": "application/json" },
-			'{"title":"Billing webhook","priority":"high"}',
-		);
-		expect(writes).toEqual([{ kind: "edit", id: "4", body: { title: "Billing webhook", priority: "high" } }]);
-	});
-
-	test("assign is a verb, and a page that cannot send records the owner instead", async () => {
-		const { ctx, writes } = context();
-		await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards/4/assign"),
-			{ ...SAME_ORIGIN, "content-type": "application/json" },
-			'{"to":"billing-core"}',
-		);
-		expect(writes).toEqual([{ kind: "assign", id: "4", body: { to: "billing-core" } }]);
-	});
-
-	test("a refusal answers 409 with the card it left alone", async () => {
-		const { ctx } = context();
-		const response = await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards/4/claim"),
-			{ ...SAME_ORIGIN, "content-type": "application/json" },
-			"{}",
-		);
-		expect(response.status).toBe(409);
-		expect(JSON.parse(String(response.body ?? "{}"))).toMatchObject({
-			error: "#4 is held by billing-core.",
-			card: { rev: 1 },
-		});
-	});
-
-	test("drop is the one deletion", async () => {
-		const { ctx, writes } = context();
-		const response = await handleBoardRequest(ctx, "DELETE", url("/api/cards/4"), SAME_ORIGIN);
-		expect(response.status).toBe(200);
-		expect(writes).toEqual([{ kind: "drop", id: "4" }]);
-	});
-
-	test("refuses a GET on a card, and a POST on the collection's id", async () => {
-		const { ctx } = context();
-		expect((await handleBoardRequest(ctx, "GET", url("/api/cards/4"), SAME_ORIGIN)).status).toBe(405);
-		expect(
-			(
-				await handleBoardRequest(
-					ctx,
-					"POST",
-					url("/api/cards/4"),
-					{ ...SAME_ORIGIN, "content-type": "application/json" },
-					"{}",
-				)
-			).status,
-		).toBe(405);
-	});
-
-	test("refuses a verb it does not have, and a path it does not serve", async () => {
-		const { ctx } = context();
-		const verb = await handleBoardRequest(
-			ctx,
-			"POST",
-			url("/api/cards/4/archive"),
-			{ ...SAME_ORIGIN, "content-type": "application/json" },
-			"{}",
-		);
-		expect(verb.status).toBe(404);
-		expect((await handleBoardRequest(ctx, "GET", url("/nope"), SAME_ORIGIN)).status).toBe(404);
 	});
 });
