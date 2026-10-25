@@ -21,8 +21,8 @@ interface ThemeJson {
 const DARK = darkTheme as unknown as ThemeJson;
 const LIGHT = lightTheme as unknown as ThemeJson;
 
-/** Web custom property -> Bytefly theme var. `--accent-soft`, `--on-accent`, `--scrim`,
- * and `--shadow` are derived, so no appearance-only colour enters the kit. */
+/** Web custom property -> Bytefly theme var. `--accent-soft`, `--raised`, `--on-accent`,
+ * `--scrim`, and `--shadow` are derived, so no appearance-only colour enters the kit. */
 const VAR_TOKENS: ReadonlyArray<readonly [string, string]> = [
 	["--canvas", "canvas"],
 	["--surface", "canvasSubtle"],
@@ -73,6 +73,16 @@ function resolve(theme: ThemeJson, value: string | number): string {
 	return theme.vars[value] ?? value;
 }
 
+/** `#rrggbb` mixed toward another colour: `t` of the way from `a` to `b`. */
+function mix(a: string, b: string, t: number): string {
+	const channel = (hex: string, at: number): number => Number.parseInt(hex.replace("#", "").slice(at, at + 2), 16);
+	const between = (x: number, y: number): number => Math.round(x + (y - x) * t);
+	const r = between(channel(a, 0), channel(b, 0));
+	const g = between(channel(a, 2), channel(b, 2));
+	const bl = between(channel(a, 4), channel(b, 4));
+	return `#${[r, g, bl].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
 /** `#rrggbb` (or `#rgb`) plus alpha -> `rgba(r,g,b,a)`. */
 function rgba(hex: string, alpha: number): string {
 	const raw = hex.replace("#", "");
@@ -94,6 +104,15 @@ function rgba(hex: string, alpha: number): string {
  * lifts a panel off it, so each appearance needs its own alpha rather than the
  * theme's colours.
  */
+/**
+ * How far `--raised` sits above `--surface`: enough to see, not enough to shout.
+ *
+ * The light theme takes a smaller step because its accent is darker: at the dark
+ * step, `--accent` on `--raised` falls to 4.34:1 and the owner chips on a raised row
+ * stop being readable.
+ */
+const RAISED_STEP: Record<"dark" | "light", number> = { dark: 0.06, light: 0.03 };
+
 const OVERLAYS: Record<"dark" | "light", { scrim: string; shadow: string }> = {
 	dark: { scrim: "rgba(0,0,0,.5)", shadow: "0 8px 24px rgba(0,0,0,.4)" },
 	light: { scrim: "rgba(15,23,42,.3)", shadow: "0 8px 24px rgba(15,23,42,.14)" },
@@ -104,6 +123,10 @@ function paletteOf(theme: ThemeJson, appearance: "dark" | "light", accentAlpha: 
 	const palette: Record<string, string> = {};
 	for (const [token, name] of VAR_TOKENS) palette[token] = theme.vars[name];
 	palette["--accent-soft"] = rgba(palette["--accent"] ?? "#000000", accentAlpha);
+	// One step above `--surface`, for a block that must read as a plane rather than an
+	// outline: the theme offers only two neutral fills, and a surface one hairline
+	// lighter than the page is what made a dashboard look like a wireframe.
+	palette["--raised"] = mix(palette["--surface"] ?? "#000000", palette["--text"] ?? "#ffffff", RAISED_STEP[appearance]);
 	// A label on the accent fill is the canvas colour: a light blue button takes dark
 	// text, and the same derivation gives white on the light theme's darker blue.
 	palette["--on-accent"] = palette["--canvas"];

@@ -58,6 +58,7 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 .board-lane[data-status="doing"] .board-lane__dot{background:var(--accent)}
 .board-lane[data-status="blocked"] .board-lane__dot{background:var(--danger)}
+.board-lane[data-status="done"]{background:var(--canvas)}
 .board-lane[data-status="done"] .board-lane__dot{background:var(--success)}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
@@ -91,7 +92,7 @@ ${WEB_COMPONENTS_CSS}
 .board-team__caption .bf-chip{margin-left:auto;font-variant-numeric:tabular-nums}
 /* The queue: one row per card, its kind as an edge, its way out in the foot. */
 .board-team__queue{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
-.board-team__decision{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3) var(--space-4);background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
+.board-team__decision{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3) var(--space-4);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
 .board-team__decision:hover{border-color:var(--border-strong);transform:translateY(-1px)}
 .board-team__decision[data-kind="blocked"]{border-left-color:var(--danger)}
 .board-team__decision[data-kind="idle"]{border-left-color:var(--warn)}
@@ -108,21 +109,23 @@ ${WEB_COMPONENTS_CSS}
 /* A row with no owner chip still puts its one action on the row's edge. */
 .board-team__foot>.bf-btn:only-child{margin-left:auto}
 /* The roster: who is here and what they hold. No hover fill — nothing to open. */
-.board-team__roster{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;min-width:0}
-.board-team__mate{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);padding:var(--space-3) 0;border-bottom:1px solid var(--border);min-width:0}
-.board-team__mate:last-child{border-bottom:0}
+.board-team__roster{display:flex;flex-direction:column;gap:var(--space-1);margin:0;padding:0;list-style:none;min-width:0}
+/* No row rule: the caption already delimits the list, and a second hairline beside it
+   was the same pen drawn twice. */
+.board-team__mate{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);padding:var(--space-2) 0;min-width:0}
 .board-team__dot{width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted);flex:0 0 auto;align-self:center}
 .board-team__mate[data-state="live"] .board-team__dot{background:var(--success)}
 .board-team__mate[data-state="quiet"] .board-team__dot{background:var(--warn)}
 /* A record that is not there is a hollow ring, never a colour that claims it is. */
 .board-team__mate[data-state="absent"] .board-team__dot,.board-team__mate[data-state="unknown"] .board-team__dot{background:transparent;box-shadow:inset 0 0 0 1px var(--border-strong)}
 .board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text)}
-.board-team__mate .bf-chip--accent{margin-left:auto}
 .board-team__mets{flex:1 0 100%;margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 .board-team__empty{margin:0;color:var(--muted);font:var(--fs-sm) var(--font-ui)}
 /* Done stays quiet; its ids are buttons only because they open their card. */
-.board-team__done,.board-done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
-.board-team__id{appearance:none;border:0;background:none;padding:0;margin:0;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted)}
+.board-team__done,.board-done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
+/* An id in the Done strip is a button, so it wears the only affordance it has: a
+   dotted line, visible before the pointer arrives. */
+.board-team__id{appearance:none;border:0;background:none;padding:0;margin:0;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
 .board-team__id:hover{color:var(--accent);text-decoration:underline}
 
 /* The card dialog: a meta line, the notes as a timeline, and the actions at its foot. */
@@ -143,7 +146,9 @@ ${WEB_COMPONENTS_CSS}
 .board-dialog__state[data-status="doing"]::before{background:var(--accent)}
 .board-dialog__state[data-status="blocked"]::before{background:var(--danger)}
 .board-dialog__state[data-status="done"]::before{background:var(--success)}
+.board-dialog__note-composer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-2);padding:0;border:0;background:none}
 .board-dialog__note-composer .bf-field{margin:0}
+.board-dialog__note-composer .bf-composer__row{margin:0}
 .board-confirm__body{margin:0}
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 

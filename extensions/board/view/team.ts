@@ -66,7 +66,8 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       return last ? last.text : "blocked";
     }, "blocked");
     add(round.idle, function (card) { return "no touch for " + ago(card.updatedAt); }, "idle");
-    add(round.unplanned, function () { return "in flight without a plan"; }, "unplanned");
+    // The board card says the same words for the same fact: one voice for one state.
+    add(round.unplanned, function () { return "no plan recorded"; }, "unplanned");
     add(round.unassigned, function () { return "nobody holds it"; }, "unassigned");
     return entries;
   }

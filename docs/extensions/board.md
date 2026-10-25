@@ -97,12 +97,15 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
 | New card dialog | the modal the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards, and a draft survives `Esc` or a backdrop click |
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
-| Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line (clamped, with the whole sentence as its tooltip), and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
+| Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line in one voice — a blocked card's last note, `no plan recorded`, or `planned` — clamped, with the whole sentence as its tooltip, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | two panels and a strip. **Needs a decision** is one row per card: its kind as a left edge (`--danger` blocked, `--warn` idle, `--muted` unplanned, a dashed grey edge for nobody's), the reason on its own line with the whole sentence as its tooltip, and the way out on the row's edge — `Reclaim` when someone holds it, `Claim` when nobody does. **Teammates** is one row per person — a state dot, the label, a `you` chip, a mail badge, then `live · 3 held · 1 done · oldest 21m` — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
 | Card dialog | the lane as a dot and a word beside the title, a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline (who and when above the sentence, a rule between them), a note field, and `Move to` only the lanes the card can reach, then `Release`, `Drop`, `Close` |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
-`blocked` and destructive choices, `--success` for `done`. A card takes its colour
+`blocked` and destructive choices, `--success` for `done`. The Team tab's decision
+rows sit on the kit's `--raised`, the one step above `--surface` that lets a block read
+as a plane instead of an outline; the Done lane sits on the page itself, so history
+stops competing with the lanes a lead works in. A card takes its colour
 from the lane it sits in — the head's dot, and the reason line's tone — rather than
 from a bar of its own, so one card does not shout twice. The page states a lane and
 a card with `data-status`, so a theme change repaints it without a rule of its own.

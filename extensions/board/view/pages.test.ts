@@ -206,6 +206,15 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("window.bfNew.open()");
 	});
 
+	test("says why in one voice, and lets the reason carry it", () => {
+		// Three grammars in one slot read as three different kinds of fact: a status
+		// prefix that repeated the lane, an em-dash clause, and a tick.
+		expect(BOARD_CLIENT_JS).not.toContain('"blocked: "');
+		expect(BOARD_CLIENT_JS).not.toContain("unplanned — no plan recorded");
+		expect(BOARD_CLIENT_JS).not.toContain("✓ planned");
+		expect(BOARD_CLIENT_JS).toContain('"no plan recorded"');
+	});
+
 	test("never parses a stored field", () => {
 		// `innerHTML` is the whole injection surface of a page like this one.
 		expect(BOARD_CLIENT_JS).not.toContain("innerHTML");

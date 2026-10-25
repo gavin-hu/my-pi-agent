@@ -98,12 +98,13 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   function reasonOf(card) {
     var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
     if (card.status === "blocked") {
-      return { text: last ? "blocked: " + last.text : "blocked", kind: "blocked" };
+      // The lane already says blocked and the tone already says danger; the line says why.
+      return { text: last ? last.text : "blocked, with nothing recorded", kind: "blocked" };
     }
     if (card.status === "doing" && !card.plan) {
-      return { text: "unplanned — no plan recorded", kind: "unplanned" };
+      return { text: "no plan recorded", kind: "unplanned" };
     }
-    if (card.status === "doing") return { text: "✓ planned", kind: "plan" };
+    if (card.status === "doing") return { text: "planned", kind: "plan" };
     if (card.status === "done") return { text: "✓ done" + (card.owner ? " by " + card.owner.label : ""), kind: "done" };
     return last ? { text: last.text, kind: "note" } : undefined;
   }
