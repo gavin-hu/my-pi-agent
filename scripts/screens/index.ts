@@ -7,20 +7,9 @@
  * lives in `../capture/`, and the command that drives both is `../screenshots.ts`.
  */
 
-import { CompactionSummaryMessageComponent, getMarkdownTheme, VERSION } from "@earendil-works/pi-coding-agent";
-import { KeybindingsManager, Markdown, setKeybindings, Text, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
-import { ToolBlock } from "../../extensions/bytefly/block/component.ts";
-import { DEFAULT_RAIL_GLYPH, railGlyph } from "../../extensions/bytefly/chrome.ts";
-import { renderLine } from "../../extensions/bytefly/footer/render/layout.ts";
-import { buildLines } from "../../extensions/bytefly/footer/render/lines.ts";
-import type { StatusSnapshot } from "../../extensions/bytefly/footer/types.ts";
-import { ByteflyHeader } from "../../extensions/bytefly/header/component.ts";
-import { nameplate } from "../../extensions/bytefly/message/format.ts";
-import { NoticeComponent } from "../../extensions/bytefly/notice/component.ts";
-import { DEFAULT_HOST_PAD } from "../../extensions/bytefly/pad.ts";
+import { CompactionSummaryMessageComponent, getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { PanelComponent } from "../../extensions/bytefly/panel/tui.ts";
 import { createPickerRuntime } from "../../extensions/bytefly/picker/runtime.ts";
-import { SeparatorComponent } from "../../extensions/bytefly/separator/component.ts";
 import { JobListComponent } from "../../extensions/job/tui.ts";
 import { MemoryPickerComponent } from "../../extensions/memory/tui.ts";
 import { PlanViewComponent } from "../../extensions/plan/tui.ts";
@@ -35,9 +24,7 @@ import { WatchListComponent } from "../../extensions/watch/tui.ts";
 import { SessionListComponent } from "../../extensions/session-bus/tui.ts";
 import { WorktreeListComponent } from "../../extensions/worktree/screen.ts";
 import { StatusScreenComponent } from "../../extensions/wechat/view/status-screen.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { pageColors, repo, setThemeInstance, theme } from "../theme.ts";
-import { TRANSCRIPT_NOTICE } from "../transcript-fixture.ts";
 import { makeDiscovery, makeStore } from "../../test/helpers/fixtures/picker.ts";
 import {
 	AGENT_RUNS,
@@ -66,6 +53,7 @@ import {
 	WECHAT_VIEW,
 	WORKTREE_SNAPSHOT,
 } from "./fixtures/index.ts";
+import { renderHeroFrame, renderTranscriptFrame } from "./whole-window.ts";
 
 export interface Screen {
 	asset: string;
@@ -119,7 +107,7 @@ export const SCREENS: Record<string, Screen> = {
 		// window would leave empty rows under the footer.
 		bounds: { left: 80, top: 80, right: 1080, bottom: 483 },
 		size: { width: 100, rows: 24 },
-		render: (width, rows) => renderTranscript(width, rows),
+		render: (width, rows) => renderTranscriptFrame(width, rows),
 	},
 	todo: {
 		asset: "todo",
@@ -401,12 +389,12 @@ export const SCREENS: Record<string, Screen> = {
 	chrome: {
 		asset: "chrome",
 		title: "π - my-pi-agent · chrome",
-		// The bounds give 98x32 cells in the capture profile; the pinned size keeps a
+		// The bounds give 102x36 cells in the capture profile; the pinned size keeps a
 		// hint row from wrapping, and the two spare columns keep the footer off the
 		// window edge where the crop can shave it.
-		bounds: { left: 80, top: 80, right: 886, bottom: 673 },
-		size: { width: 96, rows: 30 },
-		render: (width, rows) => renderChrome(width, rows),
+		bounds: { left: 80, top: 80, right: 919, bottom: 744 },
+		size: { width: 100, rows: 34 },
+		render: (width, rows) => renderHeroFrame(width, rows),
 	},
 };
 
@@ -427,111 +415,6 @@ function renderQuestion(width: number, rows: number): string[] {
 	};
 	void askViaTui(ctx as never, QUESTIONS);
 	return component ? component.render(width) : [];
-}
-
-/** Pi's default app keybindings, so the preview header's help rows resolve. */
-const APP_BINDINGS = {
-	"app.interrupt": { defaultKeys: "escape", description: "Cancel or abort" },
-	"app.clear": { defaultKeys: "ctrl+c", description: "Clear editor" },
-	"app.exit": { defaultKeys: "ctrl+d", description: "Exit when editor is empty" },
-	"app.suspend": { defaultKeys: "ctrl+z", description: "Suspend to background" },
-	"app.tools.expand": { defaultKeys: "ctrl+o", description: "Toggle tool output" },
-	"app.thinking.toggle": { defaultKeys: "ctrl+t", description: "Toggle thinking blocks" },
-	"app.thinking.cycle": { defaultKeys: "shift+tab", description: "Cycle thinking level" },
-	"app.model.cycleForward": { defaultKeys: "ctrl+p", description: "Cycle to next model" },
-	"app.model.select": { defaultKeys: "ctrl+l", description: "Open model selector" },
-	"app.editor.external": { defaultKeys: "ctrl+g", description: "Open external editor" },
-	"app.message.followUp": { defaultKeys: "alt+enter", description: "Queue follow-up message" },
-	"app.clipboard.pasteImage": { defaultKeys: "ctrl+v", description: "Paste from clipboard" },
-} as const;
-
-/** The preview bar's snapshot, every field populated. */
-const CHROME_SNAPSHOT: StatusSnapshot = {
-	cwd: "/Users/gavin/repo/my-pi-agent",
-	sessionName: null,
-	branch: "main",
-	statuses: new Map([
-		[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
-		[STATUS_KEYS.worktree, `${GLYPHS.worktree} smoke`],
-	]),
-	model: { id: "deepseek-flash", provider: "deepseek", reasoning: false },
-	thinkingLevel: "off",
-	context: { tokens: 124000, contextWindow: 200000, percent: 62 },
-	usage: { input: 42000, output: 8000, cacheRead: 96000, cacheWrite: 0, cost: 0.31 },
-	currency: { code: "USD", decimals: 2 },
-	cacheHitRate: 87,
-	providerCount: 1,
-	// Two delegated runs, priced separately: the parent `usage` above is unchanged.
-	delegation: {
-		runs: 2,
-		usage: { input: 18000, output: 2400, cacheRead: 0, cacheWrite: 0, cost: 0.06 },
-	},
-};
-
-/**
- * Draw the transcript body as one frame: the user nameplate, a tool block, a
- * notice, the turn rule, and the two-line footer. No header, so the frame carries
- * no version string; `renderChrome` puts the header above it. The prompt is the
- * text under the nameplate; the hero passes a question, so the plate reads as a
- * message rather than an empty window.
- */
-function renderTranscript(width: number, rows?: number, prompt = "Ready when you are."): string[] {
-	setThemeInstance(theme);
-	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
-	// Draw at Pi's default output pad, so the frame has a real session's margins.
-	const pad = DEFAULT_HOST_PAD;
-	const lines: string[] = [];
-
-	// The transformer sees the Markdown's content width, not the padded frame.
-	const plate = nameplate(width - pad * 2);
-	if (plate) lines.push(...new Markdown(plate, pad, 0, getMarkdownTheme()).render(width));
-	lines.push("", `${" ".repeat(pad)}${theme.fg("text", prompt)}`, "");
-
-	// A tool block: the call leads as the headline, the result rails under it.
-	lines.push(
-		...new ToolBlock(new Text("read src/app.ts", 0, 0), pad, {
-			headline: true,
-			toolName: "read",
-		}).render(width),
-	);
-	lines.push(
-		...new ToolBlock(new Text("const answer = 42;", 0, 0), pad, {
-			trimLeading: true,
-			rail: railGlyph(theme, "faint", DEFAULT_RAIL_GLYPH),
-		}).render(width),
-	);
-	lines.push("");
-
-	lines.push(...new NoticeComponent(TRANSCRIPT_NOTICE, theme, pad).render(width));
-	lines.push("");
-	lines.push(...new SeparatorComponent({ turn: 3, durationMs: 72_000, tools: 7 }, theme, pad).render(width));
-	lines.push("");
-
-	const footer = buildLines(CHROME_SNAPSHOT, theme, "/Users/gavin").map((line) => renderLine(line, width, theme));
-	// A real session keeps the footer at the bottom of the window, with the
-	// transcript growing above it; pad to that shape when the frame has a height.
-	if (rows !== undefined) {
-		for (let i = 0; i < rows - lines.length - footer.length; i++) lines.push("");
-	}
-	lines.push(...footer);
-	return lines;
-}
-
-/** Draw the whole chrome as one frame: the header above the transcript body. */
-function renderChrome(width: number, rows: number): string[] {
-	setThemeInstance(theme);
-	// The header resolves its help chords through these, so they are installed
-	// before it renders rather than inside the transcript below.
-	setKeybindings(new KeybindingsManager({ ...TUI_KEYBINDINGS, ...APP_BINDINGS }));
-	const lines = new ByteflyHeader(
-		() => theme,
-		() => ({ showVersion: true, halfBlocks: true, pad: DEFAULT_HOST_PAD }),
-		VERSION,
-	).render(width);
-	// A session draws the header, the transcript, and the footer at the window's
-	// bottom; the fixture pads to that shape so the frame is the window's height.
-	lines.push(...renderTranscript(width, Math.max(1, rows - lines.length), "how are you today?"));
-	return lines;
 }
 
 /** The ANSI frame for one screen, sized to the live terminal or the overrides. */

@@ -59,8 +59,8 @@ that draws it.
   rounding — and a diff in a word, a number, or a layout is a real one. A page
   that changed leaves its card behind until it is captured again. The hero is
   the `chrome` frame — the header, the key-hint rows, a nameplated message with
-  its tool block and notice, the turn rule, and the footer — padded to the window
-  a session fills.
+  its answer and an edit diff, the notice, the turn rule, the goal and todo
+  rails, and the footer — padded to the window a session fills.
 - A capture needs a real Terminal.app window, which is why CI cannot produce one
   and the release step names it.
 

@@ -268,12 +268,12 @@ export function registeredToolNames(): string[] {
 	return [...harness().tools.keys()].sort();
 }
 
-/** Every rendering, in gallery order. */
-export function renderings(): Rendering[] {
+/** A builder for one fixture's rendering, over one harness. */
+function renderingBuilder(): (fixture: ToolFixture) => Rendering {
 	setThemeInstance(theme);
 	const { resolve, tools } = harness();
 	const builtins = builtinDefinitions();
-	return FIXTURES.map((fixture) => ({
+	return (fixture) => ({
 		name: fixture.name,
 		group: fixture.group,
 		label: fixture.label,
@@ -283,7 +283,21 @@ export function renderings(): Rendering[] {
 			const base = fixture.group === "builtin" ? builtins[fixture.name] : tools.get(fixture.tool ?? fixture.name);
 			return toolLines(resolve, fixture, base, width);
 		},
-	}));
+	});
+}
+
+/** Every rendering, in gallery order. */
+export function renderings(): Rendering[] {
+	return FIXTURES.map(renderingBuilder());
+}
+
+/**
+ * One fixture's rendering, built alone: a caller that draws a single block (the
+ * hero's diff) needs no harness for the other thirty.
+ */
+export function renderingFor(name: string): Rendering | undefined {
+	const fixture = FIXTURES.find((item) => item.name === name);
+	return fixture === undefined ? undefined : renderingBuilder()(fixture);
 }
 
 /** One labelled block. */

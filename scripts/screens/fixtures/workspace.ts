@@ -7,3 +7,9 @@
 
 /** A stand-in project path, so no capture prints this machine's own paths. */
 export const DEMO_CWD = "/home/u/repo";
+
+/** The stand-in home the footer abbreviates a checkout against. */
+export const DEMO_HOME = "/home/u";
+
+/** The stand-in checkout the hero names: a child of `DEMO_CWD`. */
+export const DEMO_PROJECT = "/home/u/repo/my-pi-agent";

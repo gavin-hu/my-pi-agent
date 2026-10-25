@@ -22,9 +22,12 @@ import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
 import { planDigest } from "../extensions/plan/plan-text.ts";
 import { SCREENS } from "./screens/index.ts";
-import { pageColors, readPageColors, repo } from "./theme.ts";
+import { HERO_GOAL, HERO_TODOS } from "./screens/fixtures/index.ts";
+import { GoalWidget } from "../extensions/goal/tui.ts";
+import { TodoWidget } from "../extensions/todo/tui.ts";
+import { pageColors, readPageColors, repo, setThemeInstance, theme } from "./theme.ts";
 import { FIXTURES } from "./tools/fixtures/index.ts";
-import { galleryHtml, registeredToolNames, renderings } from "./tools/index.ts";
+import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./tools/index.ts";
 
 /** Every capturable frame, the whole-chrome preview included. */
 const FRAMES = SCREENS;
@@ -60,6 +63,19 @@ describe("docs screenshots", () => {
 			if (!screen.size) continue;
 			const lines = screen.render(screen.size.width, screen.size.rows);
 			expect(lines.length, `${name} (${screen.size.width}x${screen.size.rows})`).toBeLessThanOrEqual(screen.size.rows);
+		}
+	});
+
+	test("the hero's rails are one line each, inside the width", () => {
+		// The rails are the window's bottom: a wrapped rail would push the footer off
+		// the frame, so both stay one clipped line at every width the gate renders.
+		setThemeInstance(theme);
+		for (const width of WIDTHS) {
+			for (const rail of [new GoalWidget(HERO_GOAL, theme), new TodoWidget(HERO_TODOS, theme)]) {
+				const lines = rail.render(width);
+				expect(lines.length, `${width}`).toBe(1);
+				expect(visibleWidth(lines[0] ?? ""), `${width}`).toBeLessThanOrEqual(width);
+			}
 		}
 	});
 });
@@ -377,6 +393,16 @@ describe("tool renderings", () => {
 		expect(raw).toContain("\u001b[1medit");
 		expect(raw).toContain("\u001b[7m");
 		expect(raw).toContain("\u001b[27m");
+	});
+
+	test("one fixture builds alone, for a caller drawing a single block", () => {
+		// The hero draws the gallery's `edit` block without constructing the other
+		// thirty renderings, so the lookup has to return the same block.
+		const edit = renderingFor("edit");
+		const lines = (edit?.lines(60) ?? []).map(stripTerminalSequences);
+		expect(lines[0]?.startsWith("edit ")).toBe(true);
+		expect(lines[1]?.startsWith("╎ ")).toBe(true);
+		expect(renderingFor("nope")).toBeUndefined();
 	});
 
 	test("the gallery page includes every rendering in its group", () => {

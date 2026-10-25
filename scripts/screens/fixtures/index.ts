@@ -14,6 +14,7 @@
 export { AGENT_RUNS } from "./agents.ts";
 export { CHECK_RESULT } from "./check.ts";
 export { CONTEXT_REPORT } from "./context.ts";
+export { HERO_GOAL, HERO_TODOS } from "./hero.ts";
 export { JOBS } from "./jobs.ts";
 export { MEMORY_CALLBACKS, MEMORY_ENTRIES } from "./memory.ts";
 export {
@@ -34,4 +35,4 @@ export { WATCHES } from "./watch.ts";
 export { WECHAT_ACCOUNT, WECHAT_BRIDGE, WECHAT_VIEW } from "./wechat.ts";
 export { WINDOW_BOUNDS } from "./window.ts";
 export { WORKTREE_SNAPSHOT } from "./worktree.ts";
-export { DEMO_CWD } from "./workspace.ts";
+export { DEMO_CWD, DEMO_HOME, DEMO_PROJECT } from "./workspace.ts";
