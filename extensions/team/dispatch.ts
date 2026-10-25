@@ -28,9 +28,10 @@ export interface Dispatch {
 /**
  * What the peer reads.
  *
- * It names the card, its outcome, the paths, and the two commands that make the
- * handoff real — `claim`, then `plan` — because the message is the only thing the
- * peer sees before it acts.
+ * It names the card, its outcome, and the paths, and says what to do next: record the
+ * plan, work, note, finish. It does **not** ask the peer to claim the card — `assign`
+ * has already recorded the owner, and a claim by the holder is a no-op. The claim is
+ * only for the failure path where the send landed and the assignment did not.
  */
 export function handoffText(card: Card, to: string, note?: string): string {
 	const lines = [
@@ -38,7 +39,7 @@ export function handoffText(card: Card, to: string, note?: string): string {
 		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
 		card.plan === undefined ? undefined : `Plan: ${card.plan}`,
 		note === undefined ? undefined : `Note: ${note}`,
-		`Claim it with board action "claim", card "${card.id}" — then record the plan with action "plan" if it has none.`,
+		`It is already assigned to you — record the plan with board action "plan" if it has none, then note each phase and move it to done or blocked.`,
 	].filter((line): line is string => line !== undefined);
 	const text = lines.join("\n");
 	return text.length > MAX_HANDOFF ? `${text.slice(0, MAX_HANDOFF - 1)}…` : text;
