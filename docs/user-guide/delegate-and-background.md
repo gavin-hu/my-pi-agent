@@ -299,8 +299,9 @@ every worktree sees the same cards.
   **Board** tab with the four lanes, and a **Team** tab with one panel per owner.
   The toolbar and footer stay put while the board scrolls, and the page follows the
   store live — a card another session moves appears within a second, and an open
-  card dialog updates in place. A filter (`/`), a fold on each lane head, and
-  `?` for the keys make a wide board navigable without the mouse. Writes from the page are made as the serving
+  card dialog updates in place. Each of the four lanes is a tray you can fold, the
+  composer sits behind **+ New card** so the board opens on the work, and a filter
+  (`/`) plus `?` for the keys make a wide board navigable without the mouse. Writes from the page are made as the serving
   session, and claim, reclaim, and delete ask first.
 - Ownership is advisory. Two sessions can still edit the same file; a path claim
   in `session-bus` is what protects it.

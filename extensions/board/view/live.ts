@@ -86,9 +86,50 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   };
 
   board.showView = showView;
-  board.focusComposer = function () {
+
+  /** Open the composer drawer and put the caret in it. */
+  board.openComposer = function () {
+    var form = document.getElementById("board-composer");
+    var trigger = document.getElementById("board-new");
+    if (form) form.hidden = false;
+    if (trigger) trigger.setAttribute("aria-expanded", "true");
     var input = document.getElementById("new-title");
     if (input) input.focus();
+  };
+
+  /** Fold it away, unless a draft is in it — a half-typed card is not lost on Esc. */
+  board.closeComposer = function () {
+    var form = document.getElementById("board-composer");
+    var trigger = document.getElementById("board-new");
+    var title = document.getElementById("new-title");
+    var paths = document.getElementById("new-paths");
+    if (!form || form.hidden) return;
+    if (title && title.value.trim() !== "") return;
+    if (paths && paths.value.trim() !== "") return;
+    form.hidden = true;
+    if (trigger && trigger.focus) trigger.focus();
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+  };
+
+  /** Discard whatever is in the drawer and fold it, leaving focus on the trigger. */
+  board.cancelComposer = function () {
+    var form = document.getElementById("board-composer");
+    if (!form) return;
+    form.hidden = true;
+    var trigger = document.getElementById("board-new");
+    if (trigger) {
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.focus();
+    }
+  };
+
+  board.composerOpen = function () {
+    var form = document.getElementById("board-composer");
+    return form ? !form.hidden : false;
+  };
+
+  board.focusComposer = function () {
+    board.openComposer();
   };
   board.focusFilter = function () {
     var input = document.getElementById("board-filter");
@@ -193,14 +234,30 @@ export const BOARD_LIVE_JS = String.raw`(function () {
       if (paths.length > 0) input.paths = paths;
       board.add(input).then(function (payload) {
         if (!payload) return;
+        // The drawer stays open: a lead publishes several cards in a row.
         form.reset();
         title.focus();
       });
     });
+    var trigger = document.getElementById("board-new");
+    if (trigger) {
+      trigger.addEventListener("click", function () {
+        if (board.composerOpen()) board.closeComposer();
+        else board.openComposer();
+      });
+    }
+    // A drawer with a draft opens no other way out, so Cancel discards it on purpose.
+    var cancel = document.getElementById("board-cancel");
+    if (cancel) {
+      cancel.addEventListener("click", function () {
+        form.reset();
+        board.cancelComposer();
+      });
+    }
     var first = document.getElementById("board-first-card");
     if (first) {
       first.addEventListener("click", function () {
-        board.focusComposer();
+        board.openComposer();
       });
     }
   }

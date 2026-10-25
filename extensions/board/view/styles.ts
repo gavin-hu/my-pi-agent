@@ -23,16 +23,21 @@ ${WEB_COMPONENTS_CSS}
 /* Toolbar: identity and state on the left, the controls the reader uses on the right. */
 .board-toolbar{gap:var(--space-3);flex-wrap:wrap}
 .board-status{margin:0}
+/* The right side of the toolbar is one group, so a wrap happens between groups
+   rather than between two controls that belong together. */
+.board-controls{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;justify-content:flex-end}
 .board-filter{width:13rem}
 .board-progress{margin:0}
 .board-picker{display:none;margin-bottom:var(--space-3)}
 
-/* Composer: one box, two fields, and the action on its own row. */
-.board-composer{margin-bottom:var(--space-5)}
+/* Composer: folded behind the toolbar's button until it is asked for, so the
+   board is what the page opens on. */
+.board-composer{margin-bottom:var(--space-4)}
 .board-composer__fields{display:grid;grid-template-columns:minmax(14rem,2fr) minmax(10rem,1fr);gap:var(--space-2)}
 .board-composer__fields .bf-field{min-width:0}
 .board-composer__hint{margin:0;padding:0}
 .board-composer .bf-composer__row{align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-2)}
+.board-composer__actions{display:flex;align-items:center;gap:var(--space-2)}
 
 /* The main pane is this page's only child of the shell, so it grows to fill the
    column and the footer stays at the bottom however short the board is. */
@@ -43,15 +48,16 @@ ${WEB_COMPONENTS_CSS}
 .board-banner{margin:0 0 var(--space-4)}
 .board-no-cards{max-width:32rem;margin:auto;padding:var(--space-8) var(--space-6)}
 
-/* Lanes: four columns of cards, with a head that sticks while the pane scrolls. */
+/* Lanes: four trays of cards, each with a head that sticks while the pane scrolls. */
 .board-lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-4);align-items:start}
-.board-lane{display:flex;flex-direction:column;gap:var(--space-3);min-width:0}
-.board-lane__head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:var(--space-2);margin:0;padding:var(--space-2) 0;background:var(--canvas);font:var(--fw-semibold) var(--fs-sm) var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.board-lane{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;padding:0 var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+.board-lane__head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:var(--space-2);margin:0 calc(-1 * var(--space-2)) var(--space-1);padding:var(--space-2) var(--space-2);background:var(--surface);border-bottom:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0;font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-lane__toggle{appearance:none;display:flex;align-items:center;gap:var(--space-2);border:0;background:none;padding:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer}
 .board-lane__toggle:hover{color:var(--accent)}
 .board-lane__toggle::after{content:"▾";margin-left:2px;font-size:var(--fs-sm);color:var(--muted)}
+.board-lane__toggle:hover::after{color:var(--accent)}
 .board-lane__toggle[aria-expanded="false"]::after{content:"▸"}
-.board-lane__count{font-variant-numeric:tabular-nums;color:var(--dim)}
+.board-lane__count{font-variant-numeric:tabular-nums;color:var(--muted);background:var(--canvas);border-radius:var(--radius-pill);padding:0 var(--space-2);font-size:var(--fs-xs);letter-spacing:0}
 .board-lane__dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 .board-lane[data-status="doing"] .board-lane__dot{background:var(--accent)}
 .board-lane[data-status="blocked"] .board-lane__dot{background:var(--danger)}
@@ -60,8 +66,8 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
 
 /* A card: a status edge, the title, then the facts a reader needs to act on it. */
-.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-left-width:3px;border-left-style:solid;border-radius:var(--radius-md);background:var(--surface);transition:border-color var(--motion-fast) var(--motion-ease)}
-.board-card:hover{border-color:var(--border-strong)}
+.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-left-width:3px;border-left-style:solid;border-radius:var(--radius-md);background:var(--canvas);transition:border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease)}
+.board-card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
 .board-card[data-status="todo"]{border-left-color:var(--muted)}
 .board-card[data-status="doing"]{border-left-color:var(--accent)}
 .board-card[data-status="blocked"]{border-left-color:var(--danger)}
@@ -69,8 +75,12 @@ ${WEB_COMPONENTS_CSS}
 .board-card[hidden]{display:none}
 .board-card__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
 .board-card__id{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
-.board-card__title{margin:0;padding:0;border:0;background:none;text-align:left;cursor:pointer;font:var(--fw-semibold) var(--fs-md)/var(--lh-snug) var(--font-ui);color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.board-card__title{margin:0;padding:0;border:0;background:none;text-align:left;cursor:pointer;font:var(--fw-semibold) var(--fs-base)/var(--lh-snug) var(--font-ui);color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .board-card__title:hover{color:var(--accent)}
+/* Finished work recedes: it is history, and the live lanes should not compete with it. */
+.board-card[data-status="done"] .board-card__title{color:var(--muted)}
+.board-card[data-status="done"] .board-card__title:hover{color:var(--accent)}
+.board-card[data-status="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
 .board-card__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1);margin:0;padding:0;list-style:none}
 .board-card__reason{margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -110,6 +120,7 @@ ${WEB_COMPONENTS_CSS}
 
 @media (max-width:1180px){
   .board-lanes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .board-progress{display:none}
 }
 @media (max-width:860px){
   .board-lanes{grid-template-columns:minmax(0,1fr)}
@@ -119,8 +130,13 @@ ${WEB_COMPONENTS_CSS}
   .board-toolbar .bf-spacer{display:none}
   /* The icons stay with the tabs and the filter takes the last row whole, so the
      toolbar wraps once, on purpose, instead of leaving two buttons stranded. */
+  .board-controls{width:100%;justify-content:flex-start}
   .board-filter{order:9;width:100%}
   .board-composer__fields{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion: reduce){
+  .board-card{transition:none}
+  .board-card:hover{transform:none}
 }
 @media print{
   .board-lanes{grid-template-columns:minmax(0,1fr)}
