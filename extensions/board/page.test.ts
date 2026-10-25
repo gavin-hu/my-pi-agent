@@ -245,6 +245,52 @@ describe("the page this repository already serves", () => {
 		await dead.page.stop(dead.ctx);
 	});
 
+	test("two sessions starting together on a dead note end up on one page", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		// A page that died and left its note behind, and a probe that answers for any live
+		// page but that port — which is what a real probe would have said.
+		const probe = async (url: string) => ({ ok: !url.includes(":5068/") });
+		const lead = harness({ cwd, agentDir, probe });
+		const store = await lead.runtime.store(cwd);
+		await store.ensure();
+		writeFileSync(
+			join(store.dir, PAGE_FILE),
+			JSON.stringify({ port: 5068, viewToken: "dead".repeat(8), seat: { label: "team-lead" }, startedAt: NOW - 1_000 }),
+		);
+		const peer = harness({ cwd, agentDir, probe });
+		const [first, second] = await Promise.all([lead.page.start(lead.ctx), peer.page.start(peer.ctx)]);
+		// One serves, one views the page that served: neither is told the page did not start.
+		expect([first.kind, second.kind].sort()).toEqual(["attached", "served"]);
+		const said = [...lead.notifications, ...peer.notifications].join("\n");
+		expect(said).not.toContain("did not start");
+		const servedPort = first.kind === "served" ? first.port : second.kind === "served" ? second.port : -1;
+		const viewer = first.kind === "attached" ? first : second.kind === "attached" ? second : undefined;
+		expect(viewer?.port).toBe(servedPort);
+		await lead.page.stop(lead.ctx);
+		await peer.page.stop(peer.ctx);
+	});
+
+	test("a note this build cannot read is named, not blamed on a session", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const blocked = harness({ cwd, agentDir, probe: async () => ({ ok: false }) });
+		const store = await blocked.runtime.store(cwd);
+		await store.ensure();
+		// A file at the note's name that is not a pointer: nothing to attach to, and nothing
+		// this build may take over.
+		writeFileSync(join(store.dir, PAGE_FILE), "{ not a pointer");
+		const start = await blocked.page.start(blocked.ctx);
+		expect(start.kind).toBe("failed");
+		const said = blocked.notifications.join("\n");
+		// The reader is told which file to remove. "Another session is serving" would be a
+		// guess about a session that never existed.
+		expect(said).toContain(join(store.dir, PAGE_FILE));
+		expect(said).toContain("remove it to serve this board");
+		expect(said).not.toContain("another session is serving");
+		expect(blocked.page.status().running).toBe(false);
+	});
+
 	test("the note leaves with the page, and only for its own page", async () => {
 		const { page, ctx, cwd, runtime } = harness();
 		await page.start(ctx);

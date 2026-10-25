@@ -18,6 +18,7 @@ import {
 	type PagePointer,
 	probePage,
 	readPointer,
+	settlePointer,
 	viewUrlOf,
 } from "./page-pointer.ts";
 
@@ -75,6 +76,84 @@ describe("the pointer file", () => {
 
 	test("clearing a note that is not there is not an error", async () => {
 		expect(await clearPointer(scratch(), pointer().viewToken)).toBe(false);
+	});
+});
+
+describe("settling the note for a page that is starting", () => {
+	const live = async () => ({ ok: true });
+	const dead = async () => ({ ok: false });
+
+	test("writes when the name is free, and reports no dead note", async () => {
+		const dir = scratch();
+		expect(await settlePointer(dir, pointer(), dead)).toEqual({ kind: "written" });
+		expect((await readPointer(dir))?.viewToken).toBe(pointer().viewToken);
+	});
+
+	test("attaches to the page that is already answering", async () => {
+		const dir = scratch();
+		const winner = pointer({ port: 4782, viewToken: "ffffffffffffffffffffffffffffffff" });
+		await createPointer(dir, winner);
+		expect(await settlePointer(dir, pointer(), live)).toEqual({ kind: "attached", pointer: winner });
+		// The winner's note is untouched: attaching never rewrites it.
+		expect(await readPointer(dir)).toEqual(winner);
+	});
+
+	test("takes over a note that answers nobody, and says which one it was", async () => {
+		const dir = scratch();
+		const gone = pointer({ port: 4783, viewToken: "dddddddddddddddddddddddddddddddd" });
+		await createPointer(dir, gone);
+		const outcome = await settlePointer(dir, pointer(), dead);
+		expect(outcome).toEqual({ kind: "written", took: gone });
+		expect((await readPointer(dir))?.viewToken).toBe(pointer().viewToken);
+	});
+
+	test("loses the takeover to another session, then attaches to the page that won", async () => {
+		const dir = scratch();
+		// A page that died and left its note behind.
+		await createPointer(dir, pointer({ viewToken: "dddddddddddddddddddddddddddddddd" }));
+		// The race: this caller proves the note dead, and another session replaces it in the
+		// window before the clear — so the clear is refused, and the next attempt finds a page
+		// that answers. Before this, that caller was told "another session is serving" and
+		// never opened anything.
+		const winner = pointer({ port: 4784, viewToken: "ffffffffffffffffffffffffffffffff" });
+		let probes = 0;
+		const outcome = await settlePointer(dir, pointer({ port: 4785 }), async () => {
+			probes += 1;
+			if (probes === 1) {
+				writeFileSync(join(dir, PAGE_FILE), JSON.stringify(winner));
+				return { ok: false };
+			}
+			return { ok: true };
+		});
+		expect(outcome).toEqual({ kind: "attached", pointer: winner });
+		expect(await readPointer(dir)).toEqual(winner);
+	});
+
+	test("names an unreadable note instead of blaming a session", async () => {
+		const dir = scratch();
+		writeFileSync(join(dir, PAGE_FILE), "{ not a pointer");
+		expect(await settlePointer(dir, pointer(), dead)).toEqual({ kind: "unreadable" });
+		// Nothing was cleared: the file is the user's to look at, not this caller's to guess at.
+		expect(readFileSync(join(dir, PAGE_FILE), "utf-8")).toBe("{ not a pointer");
+	});
+
+	test("gives up as stale, naming the note, when every attempt meets a dead one", async () => {
+		const dir = scratch();
+		// A note whose token changes on every probe: no clear can ever land, which is what a
+		// third session racing this caller looks like from here.
+		let rival = pointer({ viewToken: "d".repeat(32) });
+		writeFileSync(join(dir, PAGE_FILE), JSON.stringify(rival));
+		let probes = 0;
+		const outcome = await settlePointer(dir, pointer(), async () => {
+			probes += 1;
+			rival = pointer({ port: 4790 + probes, viewToken: `${probes}`.repeat(32).slice(0, 32) });
+			writeFileSync(join(dir, PAGE_FILE), JSON.stringify(rival));
+			return { ok: false };
+		});
+		expect(probes).toBeGreaterThan(1);
+		expect(outcome).toEqual({ kind: "stale", pointer: rival });
+		// Nothing was cleared on the final pass: the file is still somebody else's to explain.
+		expect(await readPointer(dir)).toEqual(rival);
 	});
 });
 

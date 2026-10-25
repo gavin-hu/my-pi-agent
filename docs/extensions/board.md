@@ -208,7 +208,10 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   page nobody is reading does not answer a port for the rest of the session. `/board`
   starts it again on the same port.
 - **The note is believed only while it answers.** A page that crashed leaves its note
-  behind; the next `/board` probes it, and serves its own page when nothing replies.
+  behind; the next `/board` probes it, takes it over when nothing replies, and attaches to
+  the page that won when two sessions start in the same instant. A note it cannot read at
+  all is named with its path — "another session is serving" is only said of a page that was
+  seen answering.
 
 ## Pi integration
 

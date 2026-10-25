@@ -483,6 +483,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a second `/board` that lost the race for the page note attaches to the session
+  that won it instead of reporting `the page did not start (another session is serving
+  page.json on this board)`. The ladder that settles the note — write, attach to a winner
+  that answers, take over a note proved dead — now runs more than once, so the loser of a
+  *takeover* re-reads and attaches rather than describing a page it never asked about, and a
+  note that is removed in the same instant is retried instead of being reported as
+  unreadable. A note this build cannot read is named with its path, because "another
+  session is serving" is a thing the code can see and therefore must not guess.
+
 - `board`: a note left by a page that died no longer blocks `/board`. The note named a
   page that answered nobody, and because the name was taken no later session could serve
   either — `/board` reported `the page did not start` and the repository had no page until

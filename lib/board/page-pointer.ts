@@ -19,7 +19,7 @@
  * Pure I/O, no state: one call answers one caller, and the caller owns the path it hands in.
  */
 
-import { link, readFile, rm, writeFile } from "node:fs/promises";
+import { access, link, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
 
@@ -46,6 +46,23 @@ export type ProbeFetch = (url: string, init: { signal: AbortSignal }) => Promise
 /** The URL a viewer opens: the page, with the credential that may only read it. */
 export function viewUrlOf(pointer: PagePointer): string {
 	return `http://127.0.0.1:${pointer.port}/?token=${pointer.viewToken}`;
+}
+
+/**
+ * Whether a note is there at all, readable or not.
+ *
+ * `readPointer` answers nothing for two very different states — no page has ever written a
+ * note here, and a note this build cannot read — and a caller that has just failed to
+ * create one has to tell them apart: the first is a race with a page that cleared its note
+ * and is worth another attempt, the second is a file only its owner can explain.
+ */
+export async function noteExists(dir: string): Promise<boolean> {
+	try {
+		await access(join(dir, PAGE_FILE));
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** The pointer written for one board directory, or nothing when there is none to trust. */
@@ -102,6 +119,59 @@ export async function clearPointer(dir: string, viewToken: string): Promise<bool
 	if (pointer === undefined || pointer.viewToken !== viewToken) return false;
 	await rm(join(dir, PAGE_FILE), { force: true });
 	return true;
+}
+
+/** How many times a caller tries to own the note before it gives up for good. */
+export const NOTE_ATTEMPTS = 3;
+
+/** What one `/board` found where the note should be. */
+export type PointerOutcome =
+	| { kind: "written"; took?: PagePointer }
+	| { kind: "attached"; pointer: PagePointer }
+	/** The name is taken by a file this build cannot read: nothing to attach to, nothing to take. */
+	| { kind: "unreadable" }
+	/** Every attempt lost, and the note there still answers nobody. */
+	| { kind: "stale"; pointer: PagePointer }
+	/** Every attempt lost to a page that came and went, so there is no note to name. */
+	| { kind: "busy" };
+
+/**
+ * Become the repository's page, or find the one that already is.
+ *
+ * The note is written exclusively, so the loser of a simultaneous start attaches to the
+ * winner rather than serving a second page nobody can find. A note that answers nobody is
+ * a page that died between its note and its server — and while it sits there no later
+ * `/board` can serve either, so it is taken over once it has been proved dead.
+ *
+ * More than one attempt, because two sessions reach this point in the same instant and
+ * the loser of a *takeover* has to end up a viewer of the page that won: it re-reads and
+ * probes again rather than reporting a page it never asked about. A failure here names
+ * the file, because "another session is serving" is a thing this function can see and
+ * therefore must not guess.
+ */
+export async function settlePointer(dir: string, note: PagePointer, probe?: ProbeFetch): Promise<PointerOutcome> {
+	let took: PagePointer | undefined;
+	for (let attempt = 0; attempt < NOTE_ATTEMPTS; attempt++) {
+		// A retry writes a fresh `startedAt`, so a reader can tell it from the first attempt.
+		const candidate = attempt === 0 ? note : { ...note, startedAt: note.startedAt + attempt };
+		if (await createPointer(dir, candidate))
+			return took === undefined ? { kind: "written" } : { kind: "written", took };
+		const winner = await readPointer(dir);
+		if (winner === undefined) {
+			// No note at all means the page that had it cleared it in this instant: try again
+			// rather than reporting a file that is not there. Only a file that stays, and
+			// cannot be read, is the caller's dead end.
+			if (!(await noteExists(dir))) continue;
+			return { kind: "unreadable" };
+		}
+		if (await probePage(winner, probe)) return { kind: "attached", pointer: winner };
+		// Only that exact note: a note a newer page wrote is not this caller's to take. A
+		// refused clear means somebody else got there first, so the next attempt re-reads.
+		if (await clearPointer(dir, winner.viewToken)) took = winner;
+	}
+	const last = await readPointer(dir);
+	if (last !== undefined) return { kind: "stale", pointer: last };
+	return (await noteExists(dir)) ? { kind: "unreadable" } : { kind: "busy" };
 }
 
 /**
