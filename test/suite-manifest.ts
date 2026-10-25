@@ -46,7 +46,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	question: ["tools", "tui", "extension"],
 	rewind: ["commands/review", "state/runtime", "transport/store", "extension"],
 	subagent: ["agents", "run", "render", "extension"],
-	team: ["dispatch", "tools", "extension"],
+	team: ["commands", "dispatch", "tools", "extension"],
 	todo: ["tools", "runtime", "ui"],
 	watch: ["runtime", "tools", "ui"],
 	"session-bus": ["format", "protocol", "store", "runtime", "tui", "tools", "overlap", "resolve", "extension"],

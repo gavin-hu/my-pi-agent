@@ -20,6 +20,7 @@ owner whose label nothing answers to.*
 | Tell the peer what to do first | `team` action `assign` with `note` | The handoff carries the card, its paths, its plan, and that line |
 | Take a card back | `team` action `reclaim` | The owner clears, the card returns to To do, and its notes stay |
 | Keep the round to the bus | `team` | Only `assign` and `reclaim`: no card is created, moved, or finished here — that is `board`'s surface |
+| See the round without a browser | `/team` | The rollup the page's Team tab draws, printed: what needs a decision, who holds what, then who is live and who has gone quiet |
 
 ## Quickstart
 

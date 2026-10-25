@@ -235,7 +235,7 @@ tools so they follow the active root; those are replacements, not additions.
 | `context` | — | `/context` |
 | `session-bus` | `session` | `/sessions` |
 | `board` | `board` | `/board` |
-| `team` | `team` | — |
+| `team` | `team` | `/team` |
 | `web-access` | `web_search`, `web_fetch` | — |
 | `file-read` | `read_doc` | — |
 | `file-browse` | — | `/browse` |

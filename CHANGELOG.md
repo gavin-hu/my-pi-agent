@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `team`: `/team` prints the lead's round in the terminal — no page, no browser, and no
+  bus required. It is the rollup `board list --round` returns, plus a line saying who is
+  live and who has gone quiet, capped at ten lines so a long round says how many it left
+  out instead of filling the screen.
 - `board`: one page per repository, and a teammate can watch it. `/board` reads the note
   the serving session left beside the board's cards: when a page answers, this session
   opens that one instead of serving a second, and the toolbar and `/board status` say
