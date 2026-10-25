@@ -41,7 +41,12 @@ export function formatRound(cards: readonly Card[], round: RoundSummary): string
 	].join(" · ");
 	const lines = [headline];
 	for (const group of round.owners) {
-		lines.push(`${group.label} (${group.cards.length}): ${group.cards.map((card) => brief(card)).join(", ")}`);
+		// An owner who finished everything is still listed, with what it finished: the
+		// count says which kind of work is left, and an empty list is a legitimate answer.
+		const counts =
+			group.done.length > 0 ? `${group.cards.length} live, ${group.done.length} done` : `${group.cards.length}`;
+		const listed = group.cards.map((card) => brief(card)).join(", ");
+		lines.push(listed === "" ? `${group.label} (${counts})` : `${group.label} (${counts}): ${listed}`);
 	}
 	lines.push(...group("unassigned", round.unassigned));
 	lines.push(...group("unplanned", round.unplanned));

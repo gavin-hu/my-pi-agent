@@ -108,6 +108,18 @@ describe("list", () => {
 		expect(text(await call({ action: "list", card: "9" }))).toContain("#9 does not exist.");
 	});
 
+	test("names an owner who finished, with the count of what it finished", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		await call({ action: "move", card: "1", status: "done" });
+		const result = await call({ action: "list", round: true });
+		// The group survives its last card finishing, and the line says so plainly
+		// instead of leaving a bare "0" next to a teammate who did the work.
+		expect(result.details.round?.owners.map((group) => group.label)).toEqual(["billing-lead"]);
+		expect(text(result)).toContain("billing-lead (0 live, 1 done)");
+	});
+
 	test("filters one lane", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });

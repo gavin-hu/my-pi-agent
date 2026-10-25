@@ -119,9 +119,10 @@ ${WEB_COMPONENTS_CSS}
 .board-dialog__note-composer .bf-field{margin:0}
 /* A summary of one owner should read as a group, not as three fragments across a page. */
 .board-team__owners,.board-team__needs{max-width:60rem}
-.board-team__owners th:nth-child(1){width:50%}
-.board-team__owners th:nth-child(2){width:20%}
-.board-team__owners th:nth-child(3){width:30%}
+.board-team__owners th:nth-child(1){width:44%}
+.board-team__owners th:nth-child(2){width:14%}
+.board-team__owners th:nth-child(3){width:14%}
+.board-team__owners th:nth-child(4){width:28%}
 .board-team__needs{table-layout:fixed}
 .board-team__needs th:nth-child(1){width:44%}
 .board-team__needs th:nth-child(2){width:32%}
