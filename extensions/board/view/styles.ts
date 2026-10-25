@@ -92,6 +92,8 @@ ${WEB_COMPONENTS_CSS}
 .board-team__caption .bf-chip{margin-left:var(--space-2)}
 .board-team__oldest,.board-team__why{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .board-team__why{color:var(--muted);font-size:var(--fs-sm)}
+/* Two lines, then a tooltip: the "why" is the reason the row is on this tab. */
+.board-team__needs .board-team__why{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden}
 .board-team__why--blocked{color:var(--danger)}
 .board-team__action{text-align:right}
 .board-done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
