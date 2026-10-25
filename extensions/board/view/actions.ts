@@ -201,15 +201,21 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
   };
 
   /**
-   * The card dialog's footer: the lane buttons this card may move to, then its
-   * destructive ones. Nothing here is a card-face action, so a reader cannot delete
-   * a card from the lane by hitting the wrong button.
+   * The card dialog's footer: the claim an unowned card is waiting for, the lane
+   * buttons its owner may move to, then its destructive ones. Nothing here is a
+   * card-face action, so a reader cannot delete a card from the lane by hitting the
+   * wrong button.
    */
   board.fillDialogActions = function (card, view) {
     var footer = document.getElementById("card-dialog-actions");
     if (!footer) return;
     footer.textContent = "";
     var isMine = board.mine(card, view.me);
+    // An unclaimed card is waiting for its first owner; without this the dialog
+    // offered a reader only Drop and Close on a card they had just opened.
+    if (card.owner === undefined && card.status !== "done") {
+      footer.appendChild(board.actionButton("Claim", function () { board.act("claim", card); }, "primary"));
+    }
     if (isMine && card.status !== "done") {
       var lanes = board.el("div", "bf-segmented board-dialog__lanes");
       var targets = ["doing", "blocked", "done"];
