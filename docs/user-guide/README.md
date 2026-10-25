@@ -70,8 +70,9 @@ such as `a` or `Esc`.
    read the plan, and press `a` to approve it. Nothing in the project is modified
    before approval. See [Plan first, then write](./plan-and-verify.md#plan-first-then-write).
 
-4. **Know how to undo a turn.** `/rewind` lists the prompts that have a
-   snapshot. See [Undoing a turn](./keep-work-safe.md#undoing-a-turn).
+4. **Know how to undo a turn.** `/rewind` lists every prompt on this branch and
+   marks the ones with a code snapshot. See
+   [Undoing a turn](./keep-work-safe.md#undoing-a-turn).
 
 5. **Review the last turn.** `/review` shows the files it changed; `Enter` opens
    a diff, and `r` reverts a file or the selection. See

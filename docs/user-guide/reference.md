@@ -60,6 +60,12 @@ Every packaged skill is model-invoked, so a matching request loads it;
 | `/context` | Show where the context window goes; `c` compacts from the report | [Seeing where the context goes](./track-and-remember.md#seeing-where-the-context-goes) |
 | `/context compact [instructions]` | Compact from the report; refused while a turn is running | [Seeing where the context goes](./track-and-remember.md#seeing-where-the-context-goes) |
 | `/sessions` | Open the bus board: `Tab` between sessions, unread mail, and path claims; `w` starts or stops listening, which is also how a session there joins; `x` releases your own claim | [Coordinating parallel sessions](./delegate-and-background.md#coordinating-parallel-sessions) |
+| `/board` | Open the shared board in a local browser; `team`, `status`, and `stop` are its words | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
+| `/board team` | Open the page on its Team tab | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
+| `/board status` | Print one line about the page, and the join this session's `/board` made | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
+| `/board stop` | Close the page this session serves; a viewer's page is somebody else's to stop | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
+| `/team` | Print the lead's round: what needs a decision, who holds what, then who is live | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
+| `/team join [<label>]` | Put this session on the team under that label, listening for mail | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
 
 ### Worktrees, rewind, and memory
 
@@ -118,6 +124,7 @@ Every packaged skill is model-invoked, so a matching request loads it;
 | `/bytefly skills` | Open the Skills section | [The control centre](./settings-and-customization.md#the-control-centre) |
 | `/bytefly doctor [extension] [refresh]` | Print the health report | [Health checks](./settings-and-customization.md#health-checks) |
 | `/bytefly update` | Re-run the package update check | [Update checks](./settings-and-customization.md#update-checks) |
+| `/bytefly upgrade` | Confirm, then install what the check found through Pi's own package manager and name the reload it needs | [Update checks](./settings-and-customization.md#update-checks) |
 
 ### Launch flags and environment
 
@@ -182,9 +189,12 @@ no longer need it; deleting a settings file restores defaults.
 | `~/.pi/agent/plans/<repo-key>/` | Plan files as Markdown, shared by every worktree of the repository |
 | `.pi/worktrees/` in the project | Isolated worktrees; `index.json` is a disposable record |
 | `.pi/subagents/` in the project | Optional helper transcripts, pruned by age and count |
+| `<agent-dir>/subagents/` | The same transcripts when the working directory is not a git repository |
 | `.pi/memory.md` in the project | Project memory notes |
 | `.pi/bytefly.json` in the project | Project-scope settings |
 | `<agent-dir>/plans/` | Plans when Pi runs outside a git repository |
+| `<agent-dir>/board/<repo-key>/` | The shared board's cards, and the note the serving session leaves for a viewer; shared by every worktree of the repository |
+| `<agent-dir>/session-bus/<repo-key>/` | Session records with each session's mail, and the path claims they hold |
 | `<agent-dir>/memory.md` | Global memory notes |
 | `<agent-dir>/bytefly.json` | Global `bytefly.json` settings |
 | `<agent-dir>/bytefly/update.json` | The cached update-check answer |
