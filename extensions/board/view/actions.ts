@@ -210,14 +210,14 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
     var footer = document.getElementById("card-dialog-actions");
     if (!footer) return;
     footer.textContent = "";
-    var isMine = board.mine(card, view.me);
-    // An unclaimed card is waiting for its first owner; without this the dialog
-    // offered a reader only Drop and Close on a card they had just opened. A card that
-    // waits on another is not claimable yet, so it is not offered either.
-    if (card.owner === undefined && card.status !== "done" && board.blockersOf(card, view).length === 0) {
+    // Which verb a card allows is board.may's answer, the same one the card face and a
+    // queue row ask; this list only decides which of them the footer shows, and in what
+    // order. An unclaimed card is waiting for its first owner — without Claim the dialog
+    // offered a reader only Drop and Close on a card they had just opened.
+    if (board.may(card, view, "claim")) {
       footer.appendChild(board.actionButton("Claim", function () { board.act("claim", card); }, "primary"));
     }
-    if (isMine && card.status !== "done") {
+    if (board.may(card, view, "move")) {
       // Only the lanes this card can reach: the lane it is in is the head's status, and
       // a segmented control whose selected item is a disabled button reads as a live one.
       var targets = ["doing", "blocked", "done"].filter(function (lane) { return lane !== card.status; });
@@ -235,15 +235,15 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
       move.appendChild(lanes);
       footer.appendChild(move);
     }
-    if (isMine && card.status !== "done") {
+    if (board.may(card, view, "release")) {
       footer.appendChild(board.actionButton("Release", function () { board.act("release", card); }));
     }
     // Fixing what the card says follows the same rule the rules do: the holder decides,
     // and anyone decides while nobody holds it — including a finished card.
-    if (card.owner === undefined || isMine) {
+    if (board.may(card, view, "edit")) {
       footer.appendChild(board.actionButton("Edit", function () { board.editCard(card); }));
     }
-    if (card.status === "todo" || card.status === "done" || isMine) {
+    if (board.may(card, view, "drop")) {
       footer.appendChild(board.actionButton("Drop", function () { board.act("drop", card); }, "danger"));
     }
     footer.appendChild(board.actionButton("Close", function () { board.closeCard(); }));
