@@ -95,9 +95,9 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 |---|---|
 | Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
 | Composer | a drawer the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards |
-| Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
-| Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
-| Team | a table of owners (`Owner · Cards · Oldest`), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line |
+| Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
+| Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line (clamped, with the whole sentence as its tooltip), and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
+| Team | a table of owners (`Owner · Cards · Oldest`), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line. Both tables honour the toolbar's filter, and their headings read `shown/total` the way a lane head does |
 | Card dialog | a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline, a note field, and the lane buttons, `Release`, `Drop`, `Close` |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for

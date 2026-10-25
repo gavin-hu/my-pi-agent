@@ -14,7 +14,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of title and path hints; four lanes with sticky, foldable heads hold cards that show
   an owner and an age, path chips, and one line saying why the card is where it is; and the Team tab is two tables — owners, then the cards that need a
   decision — instead of five equal panels. `n`, `/`, `j`/`k`, `Enter`, `t`, and `?`
-  drive it from the keyboard, and a filter matches a card by title, path, or holder.
+  drive it from the keyboard, and a filter matches a card by title, path, or holder — on
+  both tabs, which is what makes it one control; at a narrow width the board opens on
+  the first lane that holds a card.
   Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the
