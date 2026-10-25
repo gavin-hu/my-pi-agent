@@ -30,9 +30,8 @@ interface Card {
 	/** Default output file name under `assets/cards/`. */
 	png: string;
 	/**
-	 * The element the image is, for a page whose document is taller than its card.
-	 * `parallel-dev.html` centres the card in the viewport, so measuring the document
-	 * would put the empty margin above and below it in the image.
+	 * The element the image is, for a page whose document is taller than its card,
+	 * so the empty margin around it stays out of the image.
 	 */
 	clip?: string;
 }
@@ -41,7 +40,6 @@ interface Card {
 const CARDS: Record<string, Card> = {
 	flow: { page: "plan-flow.html", png: "plan-flow.png" },
 	graphic: { page: "plan-flow-graphic.html", png: "plan-flow-graphic.png" },
-	parallel: { page: "parallel-dev.html", png: "parallel-dev.png", clip: ".card" },
 };
 
 /** `assets/cards/`, anchored to this script so a capture does not depend on the cwd. */

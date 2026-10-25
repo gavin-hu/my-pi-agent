@@ -1,10 +1,10 @@
 /**
- * The plan-document section scan and its in-place rewrite: the same fence-aware
- * view both plan mode and the split rely on.
+ * The plan-document section scan and its in-place rewrite: the one fence-aware
+ * view plan mode reads a document through.
  */
 
 import { describe, expect, test } from "bun:test";
-import { extractSections, replaceSection, sectionKeys, teamSectionBody } from "./sections.ts";
+import { extractSections, replaceSection, sectionKeys } from "./sections.ts";
 
 const PLAN = `# Title
 
@@ -14,13 +14,11 @@ Intro paragraph.
 
 - [ ] one
 
-## Team
+## Appendix
 
-Lead: contract
+A note.
 
-| unit | paths | test |
-| --- | --- | --- |
-| contract | src/a | bun test src/a |
+- evidence
 
 ## Verification
 
@@ -30,7 +28,7 @@ Lead: contract
 describe("extractSections", () => {
 	test("splits at headings, keeping the preamble", () => {
 		const sections = extractSections(PLAN);
-		expect(sections.map((section) => section.title)).toEqual(["Title", "Steps", "Team", "Verification"]);
+		expect(sections.map((section) => section.title)).toEqual(["Title", "Steps", "Appendix", "Verification"]);
 		expect(sections[0]?.line).toBe(0);
 	});
 
@@ -40,8 +38,8 @@ describe("extractSections", () => {
 	});
 
 	test("keeps each section's raw lines", () => {
-		const team = extractSections(PLAN).find((section) => section.title === "Team");
-		expect(team?.text).toStartWith("## Team\n\nLead: contract");
+		const appendix = extractSections(PLAN).find((section) => section.title === "Appendix");
+		expect(appendix?.text).toStartWith("## Appendix\n\nA note.");
 	});
 });
 
@@ -65,63 +63,53 @@ describe("sectionKeys", () => {
 
 describe("replaceSection", () => {
 	test("replaces a section's body and keeps the rest of the document", () => {
-		const next = replaceSection(PLAN, "Team", "Lead: core\n\n| unit | paths |\n| --- | --- |\n| core | src/b |");
-		expect(teamSectionBody(next)).toBe("Lead: core\n\n| unit | paths |\n| --- | --- |\n| core | src/b |");
+		const next = replaceSection(PLAN, "Appendix", "A longer note.\n\n- more evidence");
+		expect(next).toContain("## Appendix\n\nA longer note.\n\n- more evidence");
 		expect(next).toContain("## Steps");
 		expect(next).toContain("bun run check");
 	});
 
 	test("appends a section that is not there", () => {
 		const plan = "# T\n\n## Steps\n\n- [ ] one";
-		const next = replaceSection(plan, "Team", "Lead: a");
-		expect(next).toEndWith("## Steps\n\n- [ ] one\n\n## Team\nLead: a\n");
-		expect(teamSectionBody(next)).toBe("Lead: a");
+		const next = replaceSection(plan, "Appendix", "A note.");
+		expect(next).toEndWith("## Steps\n\n- [ ] one\n\n## Appendix\nA note.\n");
+		expect(next).toContain("## Appendix");
 	});
 
 	test("removes a section when the body is undefined", () => {
-		const next = replaceSection(PLAN, "Team", undefined);
-		expect(next).not.toContain("## Team");
+		const next = replaceSection(PLAN, "Appendix", undefined);
+		expect(next).not.toContain("## Appendix");
 		expect(next).toContain("## Steps");
 		expect(next).toContain("## Verification");
 	});
 
 	test("removing a missing section changes nothing", () => {
 		const plan = "# T\n\n## Steps\n\n- [ ] one";
-		expect(replaceSection(plan, "Team", undefined)).toBe(plan);
+		expect(replaceSection(plan, "Appendix", undefined)).toBe(plan);
 	});
 
 	test("replacing twice is idempotent", () => {
-		const once = replaceSection(PLAN, "Team", "Lead: a");
-		expect(replaceSection(once, "Team", "Lead: a")).toBe(once);
+		const once = replaceSection(PLAN, "Appendix", "A note.");
+		expect(replaceSection(once, "Appendix", "A note.")).toBe(once);
 	});
 
 	test("a heading inside a fence does not end the section", () => {
-		const plan = "# T\n\n## Team\n\nLead: a\n\n```\n## inside\n```\n\n## Steps\n\n- [ ] one";
-		const next = replaceSection(plan, "Team", "Lead: b");
+		const plan = "# T\n\n## Appendix\n\nA note.\n\n```\n## inside\n```\n\n## Steps\n\n- [ ] one";
+		const next = replaceSection(plan, "Appendix", "A note.");
 		// The fenced line belonged to the section, so the rewrite removes it; the
 		// heading after the fence stays outside.
 		expect(next).not.toContain("## inside");
 		expect(next).toContain("## Steps\n\n- [ ] one");
-		expect(teamSectionBody(next)).toBe("Lead: b");
+		expect(next).toContain("## Appendix\n\nA note.");
 	});
 
 	test("keeps one blank line between the section and the next heading", () => {
-		const next = replaceSection(PLAN, "Team", "Lead: a");
-		expect(next).toContain("Lead: a\n\n## Verification");
+		const next = replaceSection(PLAN, "Appendix", "A note.");
+		expect(next).toContain("A note.\n\n## Verification");
 	});
 
 	test("matches the section title case-insensitively and after markdown stripping", () => {
-		const plan = "# T\n\n## **Team**\n\nLead: a\n";
-		expect(replaceSection(plan, "Team", "Lead: b")).toContain("## Team\n\nLead: b");
-	});
-});
-
-describe("teamSectionBody", () => {
-	test("returns the body without the heading", () => {
-		expect(teamSectionBody("## Team\n\nLead: a\n\n## Next\n\nx\n")).toBe("Lead: a");
-	});
-
-	test("returns undefined without a team section", () => {
-		expect(teamSectionBody("# T\n\n## Steps\n\n- [ ] one")).toBeUndefined();
+		const plan = "# T\n\n## **Appendix**\n\nA note.\n";
+		expect(replaceSection(plan, "Appendix", "Another note.")).toContain("Another note.");
 	});
 });

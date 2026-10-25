@@ -18,18 +18,12 @@
  * checkbox or a `[DONE:n]` marker sets the status.
  */
 
-import {
-	extractSections as extractPlanSections,
-	FENCE,
-	HEADING,
-	normalizeHeadingText,
-} from "../../lib/plans/sections.ts";
-import { TEAM_SECTION } from "../../lib/plans/team.ts";
+import { extractSections as extractPlanSections, FENCE, HEADING, normalizeHeadingText } from "./sections.ts";
 
 /**
- * The section machinery is `lib/plans/sections.ts`, because the split writes
- * `## Team` with the same fence-aware scan this module navigates with. These
- * re-exports keep the plan extension's public surface one import.
+ * The section machinery is `sections.ts`, the one fence-aware scan this
+ * module navigates with. These re-exports keep the plan extension's public surface
+ * one import.
  */
 export {
 	extractSections as extractPlanSections,
@@ -38,8 +32,8 @@ export {
 	normalizeHeadingText,
 	replaceSection,
 	sectionKeys,
-} from "../../lib/plans/sections.ts";
-export type { PlanSection } from "../../lib/plans/sections.ts";
+} from "./sections.ts";
+export type { PlanSection } from "./sections.ts";
 
 /** Most steps seeded from one plan. */
 export const MAX_STEPS = 50;
@@ -100,25 +94,6 @@ export const PLAN_OUTLINE = [
 
 /** The outline's section titles, in order, for documentation and tests. */
 export const PLAN_SECTIONS = ["Goal", "Context", "Approach", "Visual", "Steps", "Risks", "Verification"] as const;
-
-/**
- * Sections the approval gate writes, so a plan the model writes may not carry one.
- *
- * `Team` is the only one: `exit_plan_mode` writes it from its `units` argument,
- * after the split's rules accepted the table, and `session-bus` reads the result.
- * A section the model wrote itself would be a plan whose team no gate ever saw.
- */
-export const RESERVED_SECTIONS: readonly string[] = [TEAM_SECTION];
-
-/** The first reserved section the plan carries, or undefined when it carries none. */
-export function reservedSection(plan: string): string | undefined {
-	const sections = extractPlanSections(plan);
-	return RESERVED_SECTIONS.find((title) =>
-		sections.some(
-			(section) => section.level > 0 && normalizeHeadingText(section.title).toLowerCase() === title.toLowerCase(),
-		),
-	);
-}
 
 export interface PlanStep {
 	content: string;

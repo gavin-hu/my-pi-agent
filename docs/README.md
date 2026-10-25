@@ -25,7 +25,7 @@ These are the authoritative references the guides summarize:
 | [AGENTS.md](../AGENTS.md) | Repo invariants, the worktree branch flow, and the AI-agent workflow. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | The contributor entry point. |
 | [Extension docs](./extensions/) | One page per extension: its capabilities table, full tool surface, Pi integration, and design notes. |
-| [Skills](../skills/) | The five packaged workflows, one `SKILL.md` each: when one loads, what it needs, and what it will not decide for you. |
+| [Skills](../skills/) | The four packaged workflows, one `SKILL.md` each: when one loads, what it needs, and what it will not decide for you. |
 | [lib](../lib/README.md) | Shared helpers and the host seams. |
 | [lib/tui](../lib/tui/README.md) | The terminal design system: host-before-custom, block grammar, primitives, width, focus, and the render rules. |
 | [Scripts](../scripts/README.md) | The dev tooling: the two capture mechanisms, fixture ownership, and when an asset is recaptured. |

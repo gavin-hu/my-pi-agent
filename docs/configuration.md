@@ -27,7 +27,6 @@ section and every key with its type, default, and bounds.
 - [`job` — background jobs](#job--background-jobs)
 - [`watch` — file and command watchers](#watch--file-and-command-watchers)
 - [`memory` — durable notes](#memory--durable-notes)
-- [`plan` — parallel slices](#plan--parallel-slices)
 - [`rewind` — snapshots](#rewind--snapshots)
 - [`subagent` — delegated runs](#subagent--delegated-runs)
 - [`todo` — the todo widget](#todo--the-todo-widget)
@@ -151,7 +150,7 @@ the file for the scope you want, and the next session reads it.
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — thirteen
+`/bytefly settings` is a shortlist of the preferences a session changes — twelve
 flat rows, named in bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the rest of this page is the full list.
@@ -193,7 +192,6 @@ repository root rather than the active working directory.
 | [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
 | [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
 | [`memory`](../extensions/memory/) | `memory` | Note injection limits. |
-| [`plan`](../extensions/plan/) | `plan` | The team switch: whether an approved plan may carry a team of slices. |
 | [`rewind`](../extensions/rewind/) | `rewind` | Snapshot scope and retention. |
 | [`subagent`](../extensions/subagent/) | `subagent` | Run deadline, transcript retention. |
 | [`todo`](../extensions/todo/) | `todo` | Widget behaviour. |
@@ -366,18 +364,6 @@ The settings screen has no row for it; `inject` is a `bytefly.json` edit.
 |---|---|---|---|---|
 | `inject` | boolean | `true` | | Inject stored notes before each run. |
 | `maxInjectBytes` | integer | `8192` | `512`–`32768` | Largest injected body, in UTF-8 bytes. |
-
-## `plan` — parallel slices
-
-Off by default. `/bytefly settings` edits `team`; there are no other keys.
-
-| Key | Type | Default | Values | What it does |
-|---|---|---|---|---|
-| `team` | boolean | `false` | | Let an approved plan carry a `## Team` table of slices, which separate sessions join by name. Off approves every plan as one flow. |
-
-The project file may set it, so a repository can switch its own team on while the
-global default stays off. Turning it off never strand a claim: `session leave`
-and `release` keep working, and only `join` closes.
 
 ## `rewind` — snapshots
 

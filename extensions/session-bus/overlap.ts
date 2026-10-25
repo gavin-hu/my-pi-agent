@@ -1,11 +1,10 @@
 /**
  * Claim overlap (pure).
  *
- * Two things in this package need the same answer to "do these paths collide?":
- * `session-bus` when a session claims a path, and plan approval when a proposed
- * split names its units. They must agree, because a split that passes validation
- * and then conflicts at claim time — or the reverse — teaches the user that a
- * claim is arbitrary. So the predicate lives here once and both call it.
+ * The bus's one answer to "do these paths collide?": the runtime checks it before
+ * a claim is written, and the store checks it when a claim is read back. Two
+ * copies would let a claim succeed here and read back as a conflict there, which
+ * teaches the user that a claim is arbitrary.
  *
  * A claim on a directory covers every file below it, in either direction, and a
  * claim is always a repository-relative, posix-separated path: the caller
@@ -30,14 +29,4 @@ export function claimsConflict(a: string, b: string): boolean {
 	// The root claim (an empty path, or ".") covers everything below it.
 	if (left === "" || right === "") return true;
 	return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
-}
-
-/** The first two prefixes in `paths` that collide, if any. */
-export function findClaimOverlap(paths: readonly string[]): [string, string] | undefined {
-	for (let i = 0; i < paths.length; i++) {
-		for (let j = i + 1; j < paths.length; j++) {
-			if (claimsConflict(paths[i], paths[j])) return [paths[i], paths[j]];
-		}
-	}
-	return undefined;
 }

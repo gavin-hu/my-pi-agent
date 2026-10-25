@@ -1,9 +1,9 @@
 /**
- * Claim overlap: one predicate for the bus's claims and a plan's units.
+ * Claim overlap: the bus's one "do these paths collide?" predicate.
  */
 
 import { describe, expect, test } from "bun:test";
-import { claimsConflict, findClaimOverlap, normalizeClaimPath } from "./overlap.ts";
+import { claimsConflict, normalizeClaimPath } from "./overlap.ts";
 
 describe("normalizeClaimPath", () => {
 	test("keeps a repository-relative posix path as written", () => {
@@ -53,19 +53,5 @@ describe("claimsConflict", () => {
 
 	test("the root claim covers everything", () => {
 		expect(claimsConflict("", "src/api")).toBe(true);
-	});
-});
-
-describe("findClaimOverlap", () => {
-	test("returns the first colliding pair", () => {
-		expect(findClaimOverlap(["src/a", "src/b", "src/a/deep"])).toEqual(["src/a", "src/a/deep"]);
-	});
-
-	test("returns nothing for disjoint prefixes", () => {
-		expect(findClaimOverlap(["src/a", "src/b", "test/c"])).toBeUndefined();
-	});
-
-	test("catches a duplicate claim", () => {
-		expect(findClaimOverlap(["src/a", "src/a"])).toEqual(["src/a", "src/a"]);
 	});
 });

@@ -104,14 +104,6 @@ export interface ExitPlanModeDetails {
 	cancelled?: boolean;
 	/** True when no interactive UI was available to ask for approval. */
 	unavailable?: boolean;
-	/** The team approval wrote into the plan, when the plan was split. */
-	team?: {
-		lead: string;
-		units: Array<{ name: string; paths: string[]; test: string; dependsOn: string[] }>;
-		verdict: "pair" | "team";
-	};
-	/** True when the model proposed a split while `plan.team` was off. */
-	splitOff?: boolean;
 }
 
 /** Structured result carried in `cancel_plan_mode`'s `details`. */

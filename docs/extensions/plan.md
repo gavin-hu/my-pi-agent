@@ -29,8 +29,6 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first, under a header naming the store's size and its oldest plan. | Shipped |
 | Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
 | Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
-| Parallel slices | `exit_plan_mode` `units`, `plan.team` | An approval can name the units a team of sessions joins, with a roster card for the lead. | Shipped |
-| Split validation gate | `checkSplit`, `readSplit` | Overlapping paths, dependency cycles, more than two owners, no test, a shared file, or no lead is refused before a review opens — the same list refuses an owner's `claim` once the team is running, and the same rules re-read the table when a session joins, so a hand-edited section cannot get in. | Shipped |
 | Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. | Shipped |
 
 ### Review
@@ -87,7 +85,7 @@ stays small.
 |---|---|---|
 | `enter_plan_mode` | normal mode | Ask to enter plan mode; empty schema, confirmed with `ctx.ui.confirm`. |
 | `write_plan` | plan mode | Save the plan: `title` (file-name slug), `content` (full markdown in the documented outline), optional `plan_path` to overwrite a refinement. Returns the absolute path. |
-| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. Optional `units` proposes a split when `plan.team` is on. |
+| `exit_plan_mode` | plan mode | Read the plan file (`plan_path`) and present it for approval. |
 | `cancel_plan_mode` | plan mode | Leave plan mode without a plan file or a review. Empty schema. |
 | `set_plan_steps` | normal mode | Set the checkboxes of the given top-level steps of an approved plan in one write, and their todo items with them. |
 
@@ -138,10 +136,7 @@ rendered as written, and a refinement is asked to keep its section headings so
 the review can still mark only what changed.
 
 A plan with more than 50 top-level steps in its `Steps` section is refused with
-the cap and the fix named, and nothing is written. A plan that carries a `## Team`
-section is refused the same way — the gate writes that table from
-`exit_plan_mode`'s `units`, so a section the model wrote would be a team no rule
-ever accepted.
+the cap and the fix named, and nothing is written.
 
 The file is the source of truth. On approval the model follows the plan file's
 steps, and refinements rewrite the same file (`write_plan` with `plan_path`), so
@@ -185,20 +180,6 @@ through the `goal` tool, with no extra dialog, because approving the plan *is*
 the decision. A session with no goal at all is given the same objective, also
 without asking. An `active` or `achieved` goal is never rewritten: a final
 objective is the user's. No path spends a model turn.
-
-**A split, when the switch is on.** With `plan.team` enabled (off by default;
-a `/bytefly settings` row), `exit_plan_mode` also accepts `units`: the plan's
-slices, each with a name, path prefixes, a test, and the units it depends on. The
-split is validated *before* the review opens, so a refusal costs no review, and
-the review screen shows it as a read-only `## Team` section — the heading the
-approved file will carry; while the switch is off, `units` is ignored with one
-note. On approval the team
-is written into the plan as a `## Team` table — a sentence naming the lead's
-unit, then one row per unit — and the result carries a roster card. Approval is
-also what revokes one: a plan approved with no `units` loses any `## Team`
-section it carried, so a refinement, a hand edit, or a file from an older version
-cannot leave a team behind that nobody approved. See
-[Splitting a plan](#splitting-a-plan).
 
 ### `cancel_plan_mode`
 
@@ -398,19 +379,6 @@ Aborting the turn closes a browser review. `exit_plan_mode` forwards the call's
 abort signal to the review server, so an aborted turn returns "not approved"
 and stops listening instead of waiting on a page nobody is watching.
 
-## Configuration
-
-One key, in the `plan` section of the shared `bytefly.json` (global document,
-then project document, project wins; resolution rules in
-[`../configuration.md`](../configuration.md#plan--parallel-slices)):
-
-| Key | Default | Meaning |
-|---|---|---|
-| `team` | `false` | Let an approval carry a `## Team` table of slices that separate sessions join by name. |
-
-The switch is also the `/bytefly settings` row **Run plans as a team**. With
-it off, approval treats every plan as one flow.
-
 ## Security
 
 Plan mode is a **guard rail, not a sandbox**: extensions run with Pi's OS
@@ -511,75 +479,6 @@ agent file that overrides it.
   does not fill the planning session.
 - `readOnly` is also a normal `subagent` parameter; outside plan mode a caller
   may set it to run any agent read-only on purpose.
-
-## Splitting a plan
-
-Off by default: enable **Run plans as a team** in `/bytefly settings`, or set
-`"plan": { "split": true }` in the project's `.pi/bytefly.json` so a repository
-switches its own team on.
-
-```text
-exit_plan_mode({
-  plan_path: "~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md",
-  units: [
-    { name: "contract", paths: ["src/billing/contract"], test: "bun test src/billing/contract", lead: true },
-    { name: "core", paths: ["src/billing/core"], test: "bun test src/billing/core", dependsOn: ["contract"] }
-  ]
-})
-```
-
-The result prints the roster card, which is all the package can do for the sessions
-it cannot start — and the one line it can act on for the session it is in:
-
-```text
-Split: 2 units · ~/.pi/agent/plans/a1f9c02/2026-11-04-1802-billing.md
-  You start and switch every session; nothing here can.
-  core: enter_worktree core · git rebase main · /sessions name core · /sessions watch wake
-    session({action:"join", team:"2026-11-04-1802-billing", unit:"core"})
-    start after: contract
-  merge order: contract → core · your unit: contract
-  your label: none — name this session: session({action:"name", label:"contract"})
-```
-
-Each owner's commands are one line because the user types them into a fresh pane,
-and they carry the two facts a pane cannot know: the worktree is cut from
-`origin/main` and so is rebased before the first turn, and a unit with dependencies
-waits for them to land — `core` builds on an interface `contract` owns, which is
-not on its branch until `contract` merges. A unit with no `dependsOn` gets no
-`start after` line.
-
-The last line is the lead's own label. The card's other lines are for the sessions
-the user starts; this one is the lead's own, so it names the label when the session
-already has one, and otherwise prints the rename to run. Once set, it reads
-`your label: billing-lead — owners send their report there`, which is what an
-owner addresses its completion report to.
-
-What the gate enforces, and why each rule is a refusal rather than a warning:
-
-| Refusal | Why |
-|---|---|
-| fewer than two units | One path is not a split: approve as one flow, or build the thinnest end-to-end path first. |
-| overlapping prefixes | Two owners on one path is a merge conflict by construction. |
-| a `dependsOn` cycle | No unit can start. |
-| more than two owner units | The user switches to every owner each round; three means the split is wrong. |
-| a unit with no test | The unit's definition of done would be undocumented. |
-| an owner unit claiming a shared file | `package.json`, the changelog, the test manifests, and the shared name modules belong to the lead. The same list refuses that owner's `claim` through `session-bus`, so the rule outlives approval. |
-| a path outside the repository, an absolute one, or the root itself | Units are claimed by repository-relative path, so `join` resolves each one and refuses what is not in the repository — and a split approved outside a repository has no root to share. Validating here is what makes an unjoinable unit impossible to approve. |
-| no unit marked lead | The approving session needs a unit of its own, or it is a queue. |
-
-Refusals name the pair they caught, and a value that would break the `## Team`
-table is refused with them. Each unit's paths are resolved before the rules run,
-through the function a `join` claims through ([`lib/claims/`](../../lib/claims/)),
-so the table records the canonical path — `./src//core/` is written as
-`src/core` — and what the file says is exactly what a session will hold.
-
-The table itself is a wire format: [`session-bus`](./session-bus.md) reads it
-through `readSplit`, which parses it with the module that writes it and then runs
-these same rules, so a hand-edited or stale section is refused rather than
-half-read — a table approval would have refused cannot be joined either. The
-browser review cannot approve a split plan — a section written at approval has no
-source lines for its comments to anchor to — so the terminal review is where a
-split is approved.
 
 ## Review screen
 
@@ -992,9 +891,9 @@ both.
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or agent directory), containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
-| `split.ts` | The split at approval: the switch, the decision per `units` value, the roster card, and the `## Team` write. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
-| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the plan's own goal (`goalSection`), and the checkbox edit. |
+| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the plan's own goal (`goalSection`), and the checkbox edit. It re-exports the section scan so the extension has one import for it. |
+| `sections.ts` | The one fence-aware heading scan: `extractSections`, `sectionKeys` (the key that tells two identically titled sections apart), `replaceSection` (an in-place body rewrite), and the `HEADING` / `FENCE` / `normalizeHeadingText` vocabulary. |
 | `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
 | `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`, which hands each section back with its flag. |
 | `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), control-tool identity, footer status. |
@@ -1020,7 +919,6 @@ both.
 | `web-markdown.ts` | The client's document half: `safeHref` and the inline/table/code/list rendering (interpolated into `web-client.ts`). |
 | `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, and reading progress (interpolated into `web-client.ts`). |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
-| [`../../lib/plans/`](../../lib/plans/) | The plan document's shared shape: `sections.ts` (the one fence-aware scan, and the occurrence key that tells two identically titled sections apart), `team.ts` (the `## Team` codec), `split.ts` (`checkSplit` and its refusals), `store.ts` (`plansDir`), and `setting.ts` (the `plan.team` key), so approval and `session-bus` cannot disagree. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |
 | [`../../lib/shell.ts`](../../lib/shell.ts) | The shell-escape rule the read-only git guard shares with the worktree isolation guard. |
@@ -1038,7 +936,7 @@ both.
 bun test extensions/plan
 ```
 
-Ten co-located suites, declared in `test/suite-manifest.ts`:
+Eleven co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, directory resolution, atomic
   writes, `read`/`latest`/`index`, containment, `setSteps`, `saveFeedback`, and
@@ -1047,8 +945,7 @@ Ten co-located suites, declared in `test/suite-manifest.ts`:
   parsing, who a reviewer's write is signed by, carrying feedback onto a
   revision, and displaying stored comments.
 - `tools.test.ts` — registration and all five tools, the approval merge into
-  `todo`, the `## Team` write on a split approval, the session goal, and the
-  call/result renderings.
+  `todo`, the session goal, and the call/result renderings.
 - `review-prompt.test.ts` — the compact remote prompt and its reply parser
   against one action table.
 - `web.test.ts` — the browser review: the comment codec, the router, the page
@@ -1064,11 +961,8 @@ Ten co-located suites, declared in `test/suite-manifest.ts`:
   path-argument scan.
 - `tui.test.ts` — the review screen at fixed widths: Markdown body, scrolling,
   section navigation, the gauge, footer hints, the approve question, the inline
-  refine editor, the `## Team` section, and the changed-section markers.
+  refine editor, and the changed-section markers.
+- `sections.test.ts` — the fence-aware scan and the in-place rewrite it feeds.
 - `extension.test.ts` — the Pi wiring: registration, the entry request, the
   session lifecycle, the tool-call guard, injected context, the command, and the
   shortcut.
-
-The split rules and the `## Team` codec are shared with `session-bus`, so their
-tests live beside them in `lib/plans/`: `split.test.ts`, `team.test.ts`, and
-`sections.test.ts`.

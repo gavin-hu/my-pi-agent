@@ -70,8 +70,6 @@ export interface PlanReviewOptions {
 	signal?: AbortSignal;
 	/** Whether the browser may approve the plan (only the `exit_plan_mode` flow). */
 	canApprove?: boolean;
-	/** A line the page shows the owner, such as why approval belongs in the terminal. */
-	note?: string;
 	/** The section digests the previous review showed, so this page can mark changed sections. */
 	baseline?: SectionDigest[];
 	/**
@@ -298,7 +296,6 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 				rev: planDigest(current),
 				...(caller.name === undefined ? {} : { author: caller.name }),
 				canApprove: role === "owner" && canApprove,
-				...(role === "owner" && options.note !== undefined ? { note: options.note } : {}),
 				share: role === "owner" ? shareSession.state() : undefined,
 			};
 		};

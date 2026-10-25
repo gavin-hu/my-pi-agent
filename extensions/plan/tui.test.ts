@@ -43,12 +43,6 @@ interface SetupOptions {
 	path?: string;
 	/** Content the previous review showed, for the changed markers. */
 	baseline?: string;
-	/** A validated split to show as a read-only section. */
-	split?: {
-		lead: string;
-		units: Array<{ name: string; paths: string[]; test: string; dependsOn: string[]; lead?: boolean }>;
-		verdict: "pair" | "team";
-	};
 }
 
 function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", options: SetupOptions = {}) {
@@ -70,43 +64,9 @@ function setup(content = "# Plan\n1. Read the parser\n2. Add a tokenizer", optio
 		},
 		viewportRows: options.rows,
 		tui: options.tui as TuiHandle | undefined,
-		...(options.split === undefined ? {} : { split: options.split }),
 	});
 	return { component, actions, refinements, renders: () => renders };
 }
-
-describe("the team section", () => {
-	const split = {
-		lead: "contract",
-		verdict: "pair" as const,
-		units: [
-			{ name: "contract", paths: ["src/contract"], test: "bun test src/contract", dependsOn: [], lead: true },
-			{ name: "core", paths: ["src/core"], test: "bun test src/core", dependsOn: ["contract"] },
-		],
-	};
-
-	test("renders the table approval will write, after the plan", () => {
-		const text = setup("# Plan\n\n## Steps\n\n- [ ] one").component.render(80).join("\n");
-		const withSplit = setup("# Plan\n\n## Steps\n\n- [ ] one", { split }).component.render(80).join("\n");
-		expect(text).not.toContain("Team");
-		expect(withSplit).toContain("Team");
-		expect(withSplit).toContain("pair · lead + 1 owner · written on approval");
-		expect(withSplit).toContain("Lead: contract");
-		expect(withSplit).toContain("src/contract");
-	});
-
-	test("is navigable as its own section", () => {
-		const { component } = setup("# Plan\n\n## Steps\n\n- [ ] one", { split });
-		component.handleInput("n");
-		component.handleInput("n");
-		expect(component.render(80).join("\n")).toContain("Team");
-	});
-
-	test("adds nothing when the plan has no split", () => {
-		const { component } = setup("# Plan\n\n## Steps\n\n- [ ] one");
-		expect(component.render(80).join("\n")).not.toContain("Team");
-	});
-});
 
 /** Percent shown in the scroll row, or -1 when there is none. */
 function percent(lines: string[]): number {

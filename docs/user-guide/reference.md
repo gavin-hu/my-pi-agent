@@ -33,7 +33,6 @@ Every packaged skill is model-invoked, so a matching request loads it;
 |---|---|---|
 | `/skill:init` | Create or update the effective instruction file (`AGENTS.md` or `AGENTS.override.md`) through a built-in interview and reviewed plan | [Initializing AGENTS.md with /skill:init](./packaged-workflows.md#initializing-agentsmd-with-skillinit) |
 | `/skill:next` | Suggest the next todos by priority, with the evidence and the starting command for each | [Choosing what to do next](./packaged-workflows.md#choosing-what-to-do-next) |
-| `/skill:parallel-dev` | Lead a team of sessions through one approved plan: contract first, one owner per slice | [Coordinating a team with parallel-dev](./packaged-workflows.md#coordinating-a-team-with-parallel-dev) |
 | `/skill:project-docs` | Audit a project's documents against the tree, then record a changelog bullet, curate a release, renumber the roadmap, or sync the front door | [Keeping the docs honest](./packaged-workflows.md#keeping-the-docs-honest) |
 | `/skill:refactor` | Audit a project or path for refactoring opportunities, without editing anything | [Finding refactoring opportunities](./packaged-workflows.md#finding-refactoring-opportunities) |
 

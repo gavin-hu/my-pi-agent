@@ -1,14 +1,13 @@
 # Packaged workflows
 
-Five workflows ship as skills. Each is model-invoked — a matching request loads
+Four workflows ship as skills. Each is model-invoked — a matching request loads
 it — and `/skill:<name>` forces it, with the words after the command as the
 request. They share one shape: they read before they write, they stop at a plan
 you approve, and they leave the judgement to you.
 
 **Use this chapter when** you want the assistant to follow a known method instead
 of improvising one: setting up a project's instruction file, choosing what to do
-next, auditing a scope for refactoring work, keeping the docs true, or leading
-several sessions through one approved plan.
+next, auditing a scope for refactoring work, or keeping the docs true.
 
 ## Initializing AGENTS.md with /skill:init
 
@@ -221,22 +220,6 @@ The project's check is the gate, and in this package the documents are held by
 `test/docs-parity.test.ts`, `test/extension-load.test.ts`, `test/roadmap.test.ts`, and
 `test/release.test.ts`. A request that is really "what should I do next?" belongs to
 `next`, and one about structure to `refactor`.
-
-## Coordinating a team with parallel-dev
-
-`parallel-dev` leads a team of independent sessions through one approved plan: one
-lead owns the contract, and every slice has one owner.
-
-The intended shape is contract-first: one lead accountable for the contract, the shared
-files, the merge order and a green baseline — and working a workstream of its own, so
-it is never a queue between owners — with one owner per disjoint outcome slice. Claim
-slices rather than frontend/backend/test layers, exchange contract and build/test
-events, then merge and run the full check. The bus moves no work by itself: a lead
-cannot start a peer's turn unless that peer armed its inbox watch, so each round
-otherwise costs you one switch to every owner holding an increment. The bus is not the
-source of truth — the plan, todo list, contract, and
-git branch are. The skill is model-invoked: a request such as "split this across two
-sessions" can load it, and `/skill:parallel-dev` forces it.
 
 ## Related
 

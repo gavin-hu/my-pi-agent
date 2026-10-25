@@ -121,7 +121,7 @@ describe("file-browse shot arguments", () => {
 describe("plan flow shot arguments", () => {
 	test("captures every card at 2x by default", () => {
 		const options = parseFlowArgs([]);
-		expect(options.cards).toEqual(["flow", "graphic", "parallel"]);
+		expect(options.cards).toEqual(["flow", "graphic"]);
 		expect(options.out).toBe("");
 		expect(options.scale).toBe(2);
 		expect(options.waitMs).toBe(8000);
@@ -138,7 +138,7 @@ describe("plan flow shot arguments", () => {
 	test("rejects a fixed width, an unknown card, and one output for two cards", () => {
 		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
 			[["--width", "900"], "--width is fixed: a card is a 1200×675 box"],
-			[["poster"], 'unknown card "poster"; expected flow or graphic or parallel'],
+			[["poster"], 'unknown card "poster"; expected flow or graphic'],
 			// Only the default set can hold more than one card: a second positional is
 			// already an error, so `-o` with no card named is the reachable mistake.
 			[["-o", "shot.png"], "-o names one file; capture one card at a time"],

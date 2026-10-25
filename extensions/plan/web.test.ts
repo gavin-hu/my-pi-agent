@@ -167,15 +167,6 @@ describe("browser comment codec", () => {
 
 const HOST = { host: "127.0.0.1:1234" };
 
-test("the page shows the owner a note when approval belongs in the terminal", () => {
-	const withNote = renderReviewPage({ ...PAGE_DATA, note: "Approve this split in the terminal." });
-	const without = renderReviewPage(PAGE_DATA);
-	expect(withNote).toContain("Approve this split in the terminal.");
-	expect(without).not.toContain("Approve this split in the terminal.");
-	// The note is escaped: it is text, not markup.
-	expect(renderReviewPage({ ...PAGE_DATA, note: "<b>x</b>" })).not.toContain("<b>x</b>");
-});
-
 const PAGE_DATA: ReviewPageData = {
 	title: "T",
 	blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],

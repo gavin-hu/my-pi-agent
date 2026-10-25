@@ -24,19 +24,21 @@ surface arrives with its limitation written in the same breath.
 
 ## Where we are
 
-- 19 extensions, 5 packaged skills, 2 themes, one shared `bytefly.json`.
+- 19 extensions, 4 packaged skills, 2 themes, one shared `bytefly.json`.
 - Foundations that hold: no build step, no fork, every extension optional,
   three-OS CI, a shared `lib/tui/` and `lib/web/` design system, budgeted prompt
   context, and package-level guards that hold the docs, the catalog, the release
   window, and this file to the tree.
 - The last tag is `0.18.0`, and it shipped the body the previous review listed
-  as pending: `session-bus` with its live board and slice joining, plans split
-  into a team at approval, reviewer links that follow the plan file live, and the
-  browse page's `path:line` reference copy. The window since then closes three
-  gaps this file listed: one loopback server lifecycle in `lib/http/`, so no
-  served page owns a socket of its own; a split's shared files refused at claiming
-  time as well as at approval; and a memory store that notices a same-size edit
-  inside a millisecond. It adds outbound images, two peers' turns at once, and the
+  as pending: `session-bus` with its live board, plans split into a team at
+  approval, reviewer links that follow the plan file live, and the browse page's
+  `path:line` reference copy. The window since then closes two gaps this file
+  listed: one loopback server lifecycle in `lib/http/`, so no served page owns a
+  socket of its own, and a memory store that notices a same-size edit inside a
+  millisecond. It also withdraws the split it shipped — the team of sessions, the
+  `session join` that claimed a unit's paths, the shared-file rule, and the
+  `parallel-dev` skill — because a lead who cannot start a peer's turn spent more
+  of the user's attention than the split saved. It adds outbound images, two peers' turns at once, and the
   notice a close sends when it abandons a turn; moves every extension doc to
   `docs/extensions/`, capabilities first; fits the browse page to a phone; and adds
   the `refactor` and `project-docs` skills, with the changelog's `scripts/state.ts`
@@ -81,8 +83,8 @@ screenshots.
 
 | README promise | Today | Open items |
 |---|---|---|
-| Plan, then execute | Strong; one plan store per repository, a split at approval that its owners are held to, and a review that follows its file | — |
-| Delegate and parallelize | Strong; background runs, a local session bus, and a protocol skill, with every bus limit documented | — |
+| Plan, then execute | Strong; one plan store per repository, a step list approval seeds into `todo`, and a review that follows its file | — |
+| Delegate and parallelize | Strong; background runs and a local session bus, with every bus limit documented | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |
@@ -107,9 +109,9 @@ this file, as the record of what shipped.
 
 The previous `Now` — a stale-doc sweep, every isolation gap visible in the
 session, a named Pi range, and a long-session benchmark — closed with `0.13.0`,
-and the one after it — a split's shared files and memory's same-tick edit —
-shipped unreleased, which is why this tier now asks the daily-loop question and
-the promise question waits behind it.
+and the one after it — memory's same-tick edit — shipped unreleased, which is why
+this tier now asks the daily-loop question and the promise question waits behind
+it.
 The two items that used to head this file are gone for a reason worth keeping:
 the provider table would only price *below* Pi's per-model catalog, and the
 picker's scope decision is made — themes and prompts stay out, because neither is
@@ -129,20 +131,14 @@ item went the same way: both modules it named have a second consumer inside
   and `cancel`, the `--plan` flag, `Ctrl+Alt+P`, a TUI review, and a browser
   review with inline comments. A review can be shared as one link per person: the
   name a link first posts under is bound to it, the page follows the plan file
-  live, and only the owner's own page saves, approves, or closes. On approval a
-  plan can be split into a `## Team` table, and the result prints a roster card
-  of the commands the package cannot run. Plans live in
+  live, and only the owner's own page saves, approves, or closes. Plans live in
   `<agent-dir>/plans/<repo-key>` — one store per repository, keyed by the common
   git directory, so every worktree sees the same plan.
-- `session-bus`: one `session` tool (`send`, `inbox`, `claim`, `release`, `join`,
-  `leave`, `name`, `watch`, `status`) and `/sessions`, a live board with
-  Sessions, Inbox, and Claims scopes, `units n/m` for the newest split, and an
-  opt-in inbox watch. State lives under the agent directory and is keyed by the
-  common git directory, so every worktree of a repository is on one bus; no
-  server starts.
-- The packaged `parallel-dev` skill turns the bus into a protocol: contract
-  first, one owner per outcome slice rather than per layer, shared files to the
-  lead, a merge order, and claims released when the work merges.
+- `session-bus`: one `session` tool (`send`, `inbox`, `claim`, `release`, `name`,
+  `watch`, `status`) and `/sessions`, a live board with Sessions, Inbox, and
+  Claims scopes, and an opt-in inbox watch. State lives under the agent directory
+  and is keyed by the common git directory, so every worktree of a repository is
+  on one bus; no server starts.
 - `subagent`: eight built-in agents, single, parallel, chain, and background
   runs with `/agents`, a per-run deadline, read-only mode, and opt-in
   transcripts.
@@ -151,16 +147,6 @@ item went the same way: both modules it named have a second consumer inside
 
 **Where the promise is thin**
 
-- A split's shared-file rule is a refusal, twice: approval refuses an owner unit
-  that covers `package.json`, the changelog, the test manifests, or the shared
-  name modules, and `session-bus` refuses that owner's `claim` on one. It is
-  advisory in both places — an owner that edits a shared file without claiming it
-  is stopped by the merge, not by the bus — and the claiming half reads the newest
-  split, so a team a newer plan replaced is unguarded until its sessions join
-  again.
-- A split can be approved only in the terminal review. The browser cannot approve
-  one, because the `## Team` section is written at approval and has no source
-  lines for a comment to anchor to (`plan` page).
 - A shared review reaches one network and one address: there is no tunnel or
   relay, so a distributed team cannot open the link, and a laptop that changes
   network changes its link. A review holds at most eight links, and a reviewer's
@@ -185,8 +171,8 @@ item went the same way: both modules it named have a second consumer inside
 
 **Now**
 
-Nothing here is queued: the split, the bus, and the shared-file rule shipped
-together, so approval and claiming read one list and cannot disagree.
+Nothing here is queued. The bus and the review shipped; the split that shipped
+with them is withdrawn, so a plan is one flow and a session claims its own paths.
 
 **Next**
 
@@ -332,9 +318,9 @@ runs, an update check, and two themes.
 - The control center lists extensions and skills with the same enable checkbox
   and Global/Project scope, and keeps the curated Settings shortlist beside
   them.
-- Settings is a flat shortlist of thirteen preferences — eleven of them
-  `bytefly.json` rows — including the Theme row, one edited amount, and the
-  `plan.team` switch; every other key is a `bytefly.json` edit. The counts the
+- Settings is a flat shortlist of twelve preferences — ten of them
+  `bytefly.json` rows — including the Theme row and one edited amount; every other
+  key is a `bytefly.json` edit. The counts the
   docs state are derived from the catalogue by a test, so a new row cannot leave
   the docs describing an older screen.
 - DeepSeek is priced from its published CNY and USD tables, with peak and
@@ -427,7 +413,6 @@ it. A limitation an item owns is named in that section instead, never here.
 | `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. The store reports its own size, in its header, without becoming one. |
 | `plan`: a shared review reaches one network, one address, and at most eight links | A tunnel, relay, or hosted review service is a product to operate, not a page to serve; the non-goal names it. Revisit with a hosted deployment. |
 | `plan`: a reviewer's name is a label bound to a link, not an account | The owner still makes the only decision, so an account would add identity without adding a decision. Revisit if reviewers must be authenticated across restarts. |
-| `plan`: the browser cannot approve a split | The `## Team` section is written at approval, so it has no source lines for a comment to anchor to. Revisit if a split is ever authored inside the page. |
 | `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns, and a transcript is an audit record rather than a cost ledger. |
 | `subagent`: background is single mode, and a background child is session-owned | Making a child resumable is a durable job queue, which the non-goals exclude. Revisit if a run must outlive its session. |
 | `watch`: a **wake** match raises a notification once the running turn settles | A match found mid-turn is raised when that run settles, so a long turn delays it but never drops it. Revisit if a turn must be interrupted mid-flight. |
@@ -477,9 +462,8 @@ above.
   partial rewind, a WeChat turn that is abandoned, and a message the bus
   cannot read each either preserve the work or say what was lost.
 - State that claims to survive `/resume` and `/tree` does: goal, todo, plan mode,
-  worktree binding, the rewind timeline, and a plan's team — each a session entry
-  or tool-result `details` rebuilt from `getBranch()`, pinned by its extension's
-  tests.
+  worktree binding, and the rewind timeline — each a session entry or tool-result
+  `details` rebuilt from `getBranch()`, pinned by its extension's tests.
 - The full check suite runs on Windows, macOS, and Linux, including the slow git
   suites, and the compat job names the newest Pi it passed against. macOS runs it
   serially until the upstream hang is fixed.

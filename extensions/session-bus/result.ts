@@ -97,21 +97,7 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 				],
 			};
 		}
-		case "join": {
-			const conflicts = details.conflicts ?? [];
-			const claimed = details.claimed ?? [];
-			const rows: BusRow[] = [
-				...conflicts.map((claim) => ({ kind: "claim" as const, claim })),
-				...claimed.map((label) => ({ kind: "result" as const, label, tone: "ok" as const })),
-			];
-			if (rows.length === 0) return undefined;
-			return {
-				kind: "sections",
-				sections: [section(rows, conflicts.length > 0 ? "Conflicts" : "Claimed")],
-			};
-		}
-		case "release":
-		case "leave": {
+		case "release": {
 			const released = details.released ?? [];
 			const notOwned = details.notOwned ?? [];
 			const sections: TailSection<BusRow>[] = [];
@@ -164,8 +150,6 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 			const cells = [count(board.length, "session")];
 			if (unread > 0) cells.push(`${unread} unread`);
 			cells.push(count(claims, "claim"));
-			const units = details.status?.units;
-			if (units) cells.push(`${units.joined}/${units.total} units`);
 			const watching = details.status?.watching;
 			if (watching) cells.push(watching.wake ? "watch wake" : "watch on");
 			const line = paint(theme, "meta", cells.join(sep));
@@ -203,26 +187,7 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 			if (claimed.length === 0) return paint(theme, "meta", "Claimed nothing");
 			return paint(theme, "ok", `Claimed ${claimed.map((path) => sanitizeLine(path)).join(", ")}`);
 		}
-		case "join": {
-			const conflicts = details.conflicts ?? [];
-			const where = [details.team, details.unit]
-				.filter(Boolean)
-				.map((value) => sanitizeLine(value as string))
-				.join("/");
-			if (conflicts.length > 0) {
-				const [first] = conflicts;
-				const owner = first ? sanitizeLine(first.ownerLabel) : "a peer";
-				return paint(
-					theme,
-					"warn",
-					`Could not join ${where}${sep}${count(conflicts.length, "conflict")} held by ${owner}`,
-				);
-			}
-			const claimed = details.claimed ?? [];
-			return paint(theme, "ok", `Joined ${where}${sep}claimed ${claimed.map((path) => sanitizeLine(path)).join(", ")}`);
-		}
-		case "release":
-		case "leave": {
+		case "release": {
 			const released = details.released ?? [];
 			const notOwned = details.notOwned ?? [];
 			const parts: string[] = [];

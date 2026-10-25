@@ -1,7 +1,7 @@
 # my-pi-agent user guide
 
 `my-pi-agent` is an add-on for [Pi](https://pi.dev), the assistant you talk to in
-a terminal. It adds 19 extensions, 5 packaged skills, and 2 colour themes to the
+a terminal. It adds 19 extensions, 4 packaged skills, and 2 colour themes to the
 Pi you already use: planning, verification, background work, isolation, memory,
 web access, a WeChat bridge, and a themed control centre. Nothing in Pi is
 forked or modified, and every extension can be switched off.
@@ -36,7 +36,7 @@ matches what you are doing.
 | [Plan and verify](./plan-and-verify.md) | Plan mode, checks, the assistant's questions | You want the assistant to work in a more controlled way |
 | [Track and remember](./track-and-remember.md) | To-dos and goals, the context report, memory | A task has more steps than one reply |
 | [Delegate and background](./delegate-and-background.md) | Background jobs and watchers, specialist helpers, parallel sessions | A command takes minutes, or the work can be split |
-| [Packaged workflows](./packaged-workflows.md) | The five skills: `init`, `next`, `refactor`, `project-docs`, `parallel-dev` | You want a known method rather than an improvised one |
+| [Packaged workflows](./packaged-workflows.md) | The four skills: `init`, `next`, `refactor`, `project-docs` | You want a known method rather than an improvised one |
 | [Keep your work safe](./keep-work-safe.md) | Worktrees, rewind, review | A task could change files |
 | [Web and files](./web-and-files.md) | Web search and fetch, documents, the file browser, native file opening | You need material from outside the conversation |
 | [Using it from WeChat](./wechat.md) | Login, conversations, the control screen, files, limits | You want to reach the session from your phone |
@@ -144,7 +144,6 @@ Every row names the page that owns it.
 | `next` | Suggests what to do next, with the evidence for each item | [Choosing what to do next](./packaged-workflows.md#choosing-what-to-do-next) |
 | `refactor` | Audits a scope for refactoring opportunities, and edits nothing | [Finding refactoring opportunities](./packaged-workflows.md#finding-refactoring-opportunities) |
 | `project-docs` | Keeps a project's documents true to its tree | [Keeping the docs honest](./packaged-workflows.md#keeping-the-docs-honest) |
-| `parallel-dev` | Leads a team of sessions through one approved plan | [Coordinating a team with parallel-dev](./packaged-workflows.md#coordinating-a-team-with-parallel-dev) |
 
 **Keep your work safe**
 
