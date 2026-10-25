@@ -70,7 +70,9 @@ lead: board list --round
 page is found by the note it leaves beside the cards (`page.json`, in the board's own
 directory), so a second session opens the same page rather than a rival one. That holds
 while a page answers; if nobody is serving, the next `/board` serves — the seat's name
-does not change, so a card a browser claimed is still the seat's.
+does not change, so a card a browser claimed is still the seat's. A note a session left
+behind when it died is not a dead end either: `/board` says which page it named — with its
+URL — takes the note over, and serves.
 
 **Joining.** Two independent things, and `/board status` says which is missing:
 

@@ -91,9 +91,11 @@ export async function createPointer(dir: string, pointer: PagePointer): Promise<
 /**
  * Remove the pointer for a page that has stopped.
  *
- * Only the page that wrote it may clear it: a restart of the same seat has the same
- * seat but a new token, and a note that no longer names a live page must not take the
- * live one's place away. Returns whether the file was this page's.
+ * Only a caller that has proved the note is not a live page may clear it: the page that
+ * wrote it, on its own way out, or a session that just found it answering nobody. The
+ * token is what decides — a restart of the same seat has the same seat and a new token,
+ * so a note that no longer names a live page never takes the live one's place away.
+ * Returns whether the file was the one named.
  */
 export async function clearPointer(dir: string, viewToken: string): Promise<boolean> {
 	const pointer = await readPointer(dir);
