@@ -74,7 +74,8 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			"Open the board with `/board` or work a card first, so this session and its peers are on the team.",
 			"Offer a card nobody has taken; assign one you mean a particular peer to hold.",
 			"When a result says `Not listening`, say so: the message waits for that peer's next turn.",
-			"Reclaim a card whose owner has gone quiet rather than editing someone else's work.",
+			"Reclaim a card whose owner is gone or has gone quiet rather than editing someone else's work. A " +
+				"`gone:` owner's process is not running, so what it held is anyone's to reclaim.",
 		],
 		parameters: TeamParams,
 		annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false },

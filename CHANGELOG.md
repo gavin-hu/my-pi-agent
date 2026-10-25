@@ -20,6 +20,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the refusal colour and ranked above a stale heartbeat. A card that teammate still holds
   joins **Needs a decision** with the reason `is not running — the card is free` and the
   Reclaim it has always allowed, instead of waiting out half an hour of silence first.
+- `team`: `/team` reads a dead owner as work to take, not as a quiet teammate. Its presence
+  line gains `gone: <labels>`, and one line above it names what the crash left behind —
+  `reclaim #2, #3 — billing-core is not running` — for an owner whose process is gone and
+  whose cards are unfinished. `reclaim`'s own description says the same, so a lead reading
+  the tool's rules does not have to infer it.
 
 ### Changed
 

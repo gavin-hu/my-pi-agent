@@ -4,7 +4,8 @@
  * `board` owns the cards and never touches the session bus; `team` owns the two
  * actions that need it. `assign` hands a card to a session that is already running
  * and sends it a handoff — dispatch cannot start a peer's turn, and the page and the
- * docs say so — and `reclaim` takes a card back when its owner has gone quiet. Its one
+ * docs say so — and `reclaim` takes a card back when its owner is gone or has gone quiet.
+ * Its one
  * command, `/team`, prints the round the board's Team tab draws, without a browser.
  *
  * Either extension works without the other: `board` is the work list any session
