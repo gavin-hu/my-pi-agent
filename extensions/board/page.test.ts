@@ -322,6 +322,33 @@ describe("a write the page makes", () => {
 	});
 });
 
+describe("a page that cannot message a peer", () => {
+	test("assigns by recording the owner, and says in the history that nothing was sent", async () => {
+		const { page, ctx } = harness();
+		const status = served(await page.start(ctx));
+		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
+		const post = async (path: string, body: unknown) => {
+			const response = await fetch(`http://127.0.0.1:${status.port}${path}?token=${token}`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+			return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+		};
+		await post("/api/cards", { title: "Billing webhook" });
+		const assigned = await post("/api/cards/1/assign", { to: "billing-core" });
+		expect(assigned.status).toBe(200);
+		expect(assigned.body.card).toMatchObject({
+			status: "doing",
+			owner: { label: "billing-core" },
+			notes: [{ by: "team-lead", text: "assigned to billing-core from the board page; no handoff was sent" }],
+		});
+		// A label is required, and a blank one is a field error rather than a silent no-op.
+		expect((await post("/api/cards/1/assign", { to: "  " })).status).toBe(422);
+		await page.stop(ctx);
+	});
+});
+
 describe("the idle grace", () => {
 	test("closes the page once the last tab has been gone for the grace", async () => {
 		const { page, ctx, notifications } = harness();

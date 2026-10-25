@@ -44,7 +44,7 @@ const METHODS: readonly string[] = [...PAGE_METHODS, "DELETE"];
 export type Authority = "write" | "view";
 
 /** The verbs a card route accepts, in the order the page uses them. */
-const CARD_VERBS = ["claim", "release", "reclaim", "move", "note", "plan", "edit"] as const;
+const CARD_VERBS = ["claim", "release", "reclaim", "assign", "move", "note", "plan", "edit"] as const;
 
 /** One card verb. */
 export type CardVerb = (typeof CARD_VERBS)[number];

@@ -205,6 +205,10 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('getElementById("card-dialog-state")');
 		expect(BOARD_CLIENT_JS).toContain("board-dialog__note-head");
 		expect(BOARD_CLIENT_JS).toContain('"Move to"');
+		// The page records an owner instead of messaging a peer, so its control sits with
+		// the actions and is offered only where the rules would accept it.
+		expect(BOARD_CLIENT_JS).toContain('board.may(card, view, "assign")');
+		expect(BOARD_CLIENT_JS).toContain('"/assign"');
 		expect(BOARD_CLIENT_JS).toContain("lane !== card.status");
 	});
 

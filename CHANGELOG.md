@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: the card dialog can hand an unowned card to a teammate. `Assign to` picks a
+  name from the roster (your own session excluded) and records the owner; the page cannot
+  message a peer — a command context has no tool calls — so the assignment lands in the
+  card's history as a note saying no handoff was sent, in the same revision. `team`'s
+  `assign` remains the action that tells somebody.
 - `board`: `list` takes `mine: true` — the cards this session holds, filtered by the same
   `holds` rule a claim is checked against, so the queue a teammate works from cannot list
   a card they could not release. It combines with `status` and `query`.

@@ -292,6 +292,18 @@ describe("the card routes", () => {
 		expect(writes).toEqual([{ kind: "edit", id: "4", body: { title: "Billing webhook", priority: "high" } }]);
 	});
 
+	test("assign is a verb, and a page that cannot send records the owner instead", async () => {
+		const { ctx, writes } = context();
+		await handleBoardRequest(
+			ctx,
+			"POST",
+			url("/api/cards/4/assign"),
+			{ ...SAME_ORIGIN, "content-type": "application/json" },
+			'{"to":"billing-core"}',
+		);
+		expect(writes).toEqual([{ kind: "assign", id: "4", body: { to: "billing-core" } }]);
+	});
+
 	test("a refusal answers 409 with the card it left alone", async () => {
 		const { ctx } = context();
 		const response = await handleBoardRequest(

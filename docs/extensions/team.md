@@ -114,6 +114,9 @@ plans, works, notes, and moves it to `done` or `blocked`.
   uses and must work with the bus disabled; `team` is the lead's round and is the only
   thing that needs `session send`. If the round ever stops needing the bus, `team`
   folds back in.
+- **The page records; `assign` sends.** The board's Team tab can record an owner for an
+  unowned card, and its card history says no handoff was sent — a browser cannot call
+  `session send`. `team assign` is still the action that tells a peer.
 - **Send first.** A card assigned without a message is a card nobody knows about,
   while a message for a card that then changed is one the peer can still claim.
 - **`reclaim` is here, and in `board`.** It is the compensation for a dispatch that did

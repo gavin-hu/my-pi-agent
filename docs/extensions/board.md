@@ -28,6 +28,7 @@ decision.
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
 | Say how urgent it is | `board` action `add` or `edit` with `priority` | `high` sorts first inside its lane, and the card says so |
 | Record what a card waits for | `board` action `edit` with `dependsOn` | An unfinished dependency refuses a claim and a move to `doing` or `done`, and the reason line names it |
+| Hand a card to a teammate | `Assign to` in the card dialog | The owner is recorded and the card's history says no handoff was sent — `team`'s `assign` is the one that messages a peer |
 | Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to To do, without the page and without `team` |
 | Find a card without reading every lane | `board` action `list` with `query` | The cards whose title, path hint, or holder matches — the same rule the page's filter uses |
 | See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
@@ -95,7 +96,7 @@ GET    /app.js               the client script
 GET    /api/board            the snapshot
 GET    /events               the live frame stream
 POST   /api/cards            add a card
-POST   /api/cards/:id/…      claim, release, reclaim, move, note, plan
+POST   /api/cards/:id/…      claim, release, reclaim, assign, move, note, plan, edit
 DELETE /api/cards/:id        drop a card
 ```
 
@@ -111,7 +112,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
 | Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, one reason line in one voice — what a card waits for, a blocked card's last note, `no plan recorded`, or `planned` — clamped, with the whole sentence as its tooltip, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A card that waits offers neither `Claim` nor `Move`: the reason line is what it says instead. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title, owner chip and `Reclaim` (or `Claim` when nobody holds it) on the first, the reason on the second with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--muted` unplanned or waiting, a dashed grey edge for nobody's). A card that waits on unfinished work is a row of its own kind and offers no action: the claim the rules would refuse is not on the row at all. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
-| Card dialog | the lane as a dot and a word beside the title, a meta line, the owner and its priority, the paths, what it waits for, the plan as monospace text, the notes as a timeline (who and when above the sentence, a rule between them), a note field, and `Move to` only the lanes the card can reach, then `Release`, `Edit`, `Drop`, `Close` |
+| Card dialog | the lane as a dot and a word beside the title, a meta line, the owner and its priority, the paths, what it waits for, the plan as monospace text, the notes as a timeline (who and when above the sentence, a rule between them), a note field, and `Move to` only the lanes the card can reach, then `Assign to` for an unowned card, `Release`, `Edit`, `Drop`, `Close` |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
 `blocked` and destructive choices, `--success` for `done`. The Team tab's decision

@@ -148,6 +148,9 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     if (verb === "edit") return card.owner === undefined || isMine;
     if (verb === "drop") return card.status === "todo" || finished || isMine;
     if (verb === "reclaim") return card.owner !== undefined && !finished;
+    // Recording an owner is what a page can do where it cannot message: an unowned card
+    // that is not waiting for another, which is the same card a claim is offered.
+    if (verb === "assign") return card.owner === undefined && !finished && !waiting;
     return false;
   }
 

@@ -51,7 +51,11 @@ export interface Actor {
 /** One named mutation of one card. */
 export type CardOp =
 	| { kind: "claim" }
-	| { kind: "assign"; to: Actor }
+	/**
+	 * Hand a card to `to`, and — from the page, which cannot message a peer — a note that
+	 * says so. `team assign` sends a handoff instead and passes none.
+	 */
+	| { kind: "assign"; to: Actor; note?: unknown }
 	| { kind: "release" }
 	| { kind: "move"; status: Exclude<CardStatus, "todo"> }
 	// `text` and `path` are whatever the model sent: `card.ts` validates them, and the
@@ -117,7 +121,7 @@ export function applyOp(card: Card, op: CardOp, actor: Actor, now: number, board
 		case "claim":
 			return claim(card, actor, now, board);
 		case "assign":
-			return assign(card, op.to, actor, now, board);
+			return assign(card, op.to, op.note, actor, now, board);
 		case "release":
 			return release(card, actor, now);
 		case "move":
@@ -144,13 +148,21 @@ function claim(card: Card, actor: Actor, now: number, board: BoardIndex): OpResu
 	return { ok: true, card: write(card, actor, now, { status: "doing", owner: ownerOf(actor) }), changed: true };
 }
 
-function assign(card: Card, to: Actor, actor: Actor, now: number, board: BoardIndex): OpResult {
+function assign(card: Card, to: Actor, rawNote: unknown, actor: Actor, now: number, board: BoardIndex): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be assigned.` };
 	if (card.owner !== undefined && !holds(card, to)) return { ok: false, error: heldBy(card) };
 	if (holds(card, to) && card.status === "doing") return { ok: true, card, changed: false };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { ok: false, error: waiting };
-	return { ok: true, card: write(card, actor, now, { status: "doing", owner: ownerOf(to) }), changed: true };
+	const fields: Partial<Card> = { status: "doing", owner: ownerOf(to) };
+	if (rawNote !== undefined) {
+		const parsed = normalizeNote(rawNote);
+		if ("error" in parsed) return { ok: false, error: parsed.error };
+		// One revision, not two: the history says who it went to in the same write that
+		// recorded the owner, so a reader never sees the assignment without the sentence.
+		Object.assign(fields, appendNote(card, actor, now, parsed.text));
+	}
+	return { ok: true, card: write(card, actor, now, fields), changed: true };
 }
 
 function release(card: Card, actor: Actor, now: number): OpResult {
@@ -178,15 +190,16 @@ function move(card: Card, status: Exclude<CardStatus, "todo">, actor: Actor, now
 function note(card: Card, raw: unknown, actor: Actor, now: number): OpResult {
 	const parsed = normalizeNote(raw);
 	if ("error" in parsed) return { ok: false, error: parsed.error };
-	const notes = [...card.notes, { by: actor.label, at: now, text: parsed.text }];
+	return { ok: true, card: write(card, actor, now, appendNote(card, actor, now, parsed.text)), changed: true };
+}
+
+/** A card's notes after one more, with the oldest dropped and counted. */
+function appendNote(card: Card, actor: Actor, now: number, text: string): Pick<Card, "notes" | "notesDropped"> {
+	const notes = [...card.notes, { by: actor.label, at: now, text }];
 	const overflow = Math.max(0, notes.length - MAX_NOTES);
 	return {
-		ok: true,
-		card: write(card, actor, now, {
-			notes: overflow === 0 ? notes : notes.slice(overflow),
-			notesDropped: card.notesDropped + overflow,
-		}),
-		changed: true,
+		notes: overflow === 0 ? notes : notes.slice(overflow),
+		notesDropped: card.notesDropped + overflow,
 	};
 }
 

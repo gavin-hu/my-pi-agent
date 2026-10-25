@@ -121,6 +121,33 @@ describe("assign", () => {
 		);
 	});
 
+	test("records the note it was handed in the same revision as the owner", () => {
+		// The page cannot message a peer, so its assignment says so on the card: one write,
+		// and a reader never sees the owner without the sentence explaining it.
+		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
+		const { card } = accepted(
+			applyOp(
+				created,
+				{ kind: "assign", to: CORE, note: "assigned from the board page; no handoff was sent" },
+				LEAD,
+				NOW,
+				indexOf([created]),
+			),
+		);
+		expect(card.rev).toBe(2);
+		expect(card.owner).toEqual({ id: CORE.id, label: CORE.label });
+		expect(card.notes.map((note) => note.text)).toEqual(["assigned from the board page; no handoff was sent"]);
+		// Whoever wrote it is the lead, so the history says who recorded the hand-out.
+		expect(card.notes[0]?.by).toBe(LEAD.label);
+	});
+
+	test("refuses a note it cannot keep, leaving the card unassigned", () => {
+		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
+		expect(refusal(applyOp(created, { kind: "assign", to: CORE, note: "  " }, LEAD, NOW, indexOf([created])))).toBe(
+			"text is required.",
+		);
+	});
+
 	test("re-assigning to the holder is a no-op", () => {
 		const card = claimed();
 		const { changed } = accepted(applyOp(card, { kind: "assign", to: CORE }, LEAD, NOW, indexOf([card])));
