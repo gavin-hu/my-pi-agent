@@ -452,6 +452,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a note left by a page that died no longer blocks `/board`. The note named a
+  page that answered nobody, and because the name was taken no later session could serve
+  either — `/board` reported `the page did not start` and the repository had no page until
+  the file was removed by hand. It is a notice now, naming the port and the URL of the page
+  that note named, and the session takes the note over and serves in its place.
+
 - `bytefly`: the Settings section finished losing the two app rows that left the
   catalogue for `/settings`. `applyAppSetting` still switched on `outputPad` and
   `showHardwareCursor` — unreachable branches, kept alive by two `SettingsStore`

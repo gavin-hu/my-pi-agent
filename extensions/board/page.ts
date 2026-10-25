@@ -124,20 +124,22 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		const store = await storeOf(ctx);
 		await store.ensure();
 		const open = (url: string) => (deps.open ?? openInBrowser)(view === "board" ? url : `${url}&view=team`);
+		/** Watch the page another session serves: its note is the URL, its seat the name. */
+		const attach = (pointer: PagePointer): PageStart => {
+			attachedTo = pointer;
+			open(viewUrlOf(pointer));
+			return {
+				kind: "attached",
+				seat: pointer.seat.label,
+				port: pointer.port,
+				url: viewUrlOf(pointer),
+				where: store.where(),
+			};
+		};
 		// Somebody may already serve this repository: a note beside the cards says so, and
 		// only the page answering it is one to attach to.
 		const existing = await readPointer(store.dir);
-		if (existing !== undefined && (await probePage(existing, deps.probe))) {
-			attachedTo = existing;
-			open(viewUrlOf(existing));
-			return {
-				kind: "attached",
-				seat: existing.seat.label,
-				port: existing.port,
-				url: viewUrlOf(existing),
-				where: store.where(),
-			};
-		}
+		if (existing !== undefined && (await probePage(existing, deps.probe))) return attach(existing);
 		attachedTo = undefined;
 		const actor = () => seat;
 		const now = () => runtime.now();
@@ -173,29 +175,38 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		// The note is written last, on the port the server actually bound, and only if no
 		// other session got there first: the loser of that race becomes a viewer of the
 		// page that won rather than a second page nobody can find.
-		const wrote = await createPointer(store.dir, {
+		const note: PagePointer = {
 			port: server.port,
 			viewToken,
 			seat: { id: seat.id, label: seat.label },
 			startedAt: runtime.now(),
-		});
+		};
+		let wrote = await createPointer(store.dir, note);
 		if (!wrote) {
-			await server.close();
+			// The note names a page to watch only while it answers. One that does not is a
+			// session that crashed between its note and its server, or a port since taken — and
+			// while it sits there no later `/board` can serve either, because the name is taken.
+			// So it is said where that page was, taken over, and tried once more rather than
+			// reported as a failure the reader cannot act on.
 			const winner = await readPointer(store.dir);
 			if (winner !== undefined && (await probePage(winner, deps.probe))) {
-				attachedTo = winner;
-				open(viewUrlOf(winner));
-				return {
-					kind: "attached",
-					seat: winner.seat.label,
-					port: winner.port,
-					url: viewUrlOf(winner),
-					where: store.where(),
-				};
+				await server.close();
+				return attach(winner);
 			}
-			const reason = `another session is serving ${PAGE_FILE} on this board`;
-			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
-			return { kind: "failed", reason };
+			if (winner !== undefined) {
+				const url = viewUrlOf(winner);
+				const said = `board: ${winner.seat.label} on :${winner.port} does not answer — open ${url}`;
+				// Only that exact note: a note a newer page wrote is not this session's to take.
+				const took = await clearPointer(store.dir, winner.viewToken);
+				if (took) wrote = await createPointer(store.dir, { ...note, startedAt: runtime.now() });
+				ctx.ui.notify(took ? `${said} · took its note over` : said, "info");
+			}
+			if (!wrote) {
+				await server.close();
+				const reason = `another session is serving ${PAGE_FILE} on this board`;
+				ctx.ui.notify(`board: the page did not start (${reason})`, "error");
+				return { kind: "failed", reason };
+			}
 		}
 		sessionPort = server.port;
 		running = { server, store, viewToken };

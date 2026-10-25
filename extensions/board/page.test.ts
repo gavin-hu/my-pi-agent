@@ -218,6 +218,33 @@ describe("the page this repository already serves", () => {
 		await lead.page.stop(lead.ctx);
 	});
 
+	test("a note nobody answers is said, then taken over", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const dead = harness({ cwd, agentDir, probe: async () => ({ ok: false }) });
+		const store = await dead.runtime.store(cwd);
+		await store.ensure();
+		// A page that wrote its note and then died: nothing answers on that port, and the
+		// name it holds would keep every later `/board` from serving either.
+		const stale: PagePointer = {
+			port: 4781,
+			viewToken: "stale-view-token",
+			seat: { label: "gone-lead" },
+			startedAt: NOW - 1000,
+		};
+		writeFileSync(join(store.dir, PAGE_FILE), JSON.stringify(stale));
+		const status = served(await dead.page.start(dead.ctx));
+		const said = dead.notifications.join("\n");
+		// A notice that names the URL, not an error: what a reader needs is where that page was.
+		expect(said).toContain("http://127.0.0.1:4781/?token=stale-view-token");
+		expect(said).toContain("does not answer");
+		expect(said).not.toContain("did not start");
+		// And the note is this session's now, so the repository keeps a page.
+		expect((await noteOf(dead.runtime, cwd))?.viewToken).not.toBe(stale.viewToken);
+		expect(dead.page.status()).toMatchObject({ running: true, port: status.port });
+		await dead.page.stop(dead.ctx);
+	});
+
 	test("the note leaves with the page, and only for its own page", async () => {
 		const { page, ctx, cwd, runtime } = harness();
 		await page.start(ctx);
