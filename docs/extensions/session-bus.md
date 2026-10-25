@@ -254,7 +254,7 @@ characters.
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and the one release loop. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |
-| `overlap.ts` | The one "do these paths collide?" predicate: `normalizeClaimPath` and `claimsConflict`, re-exported by `protocol.ts`. |
+| `overlap.ts` | The one "do these paths collide?" predicate: `claimsConflict`, which normalizes both spellings of a claim path first. |
 | `resolve.ts` | `resolveClaimPaths` and `claimPathMessage`: a claim path made repository-relative, posix, and canonical through its real target, or the refusal naming why. |
 | `types.ts` | The stored shapes — session record, message, claim — and the tool's `details`. |
 | `tui.ts` | The `/sessions` board, its scopes, and the pane over one row; the row grammar is in `rows.ts`. |

@@ -6,14 +6,18 @@
  * copies would let a claim succeed here and read back as a conflict there, which
  * teaches the user that a claim is arbitrary.
  *
+ * One export. `normalizeClaimPath` is the predicate's own step — a spellings rule
+ * with a single caller, inside this module — so a caller cannot normalize a path
+ * one way and compare it another.
+ *
  * A claim on a directory covers every file below it, in either direction, and a
- * claim is always a repository-relative, posix-separated path: the caller
- * normalizes first, because a Windows spelling (`a\b`) and a posix one (`a/b`)
+ * claim is always a repository-relative, posix-separated path: both sides are
+ * normalized here, because a Windows spelling (`a\b`) and a posix one (`a/b`)
  * naming the same file must not read as two claims.
  */
 
 /** A repository-relative path with one separator and no trailing slash. */
-export function normalizeClaimPath(raw: string): string {
+function normalizeClaimPath(raw: string): string {
 	const posix = raw.trim().replace(/\\/g, "/");
 	const trimmed = posix
 		.replace(/^\.\//, "")

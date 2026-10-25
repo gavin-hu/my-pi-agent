@@ -788,9 +788,9 @@ terminal: adding a setting means removing one (`panel/panel.test.ts` holds the
 ceiling). Everything else stays in `bytefly.json` — the tuning numbers, the
 cosmetic labels, and the Pi preferences Pi's own `/settings` owns — and
 `test/settings-coverage.test.ts` keeps the split honest: every loader key is
-either a row or a declared JSON-only edit with the reason it left. Six
-`bytefly.json` sections therefore have no row at all (`chrome`, `goal`,
-`watch`, `worktree`, `memory`), as do `notify.title`, `doctor.timeoutMs`,
+either a row or a declared JSON-only edit with the reason it left. Most
+`bytefly.json` sections therefore have no row at all — `chrome`, `goal`, `watch`,
+`worktree`, and `memory` among them — just as `notify.title`, `doctor.timeoutMs`,
 `price.currency.decimals`, `rewind.max`, `rewind.safetySnapshot`,
 `job.detachedByDefault`, and `watch.wakeOnMatch` inside sections that do. Each is
 documented in [`docs/configuration.md`](../configuration.md).
