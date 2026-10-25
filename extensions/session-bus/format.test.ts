@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { formatClaim, formatInbox, formatRelease, formatSend, formatStatus, formatWatch } from "./format.ts";
+import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
 
 type ListedSession = SessionRecord & { unread: number };
@@ -76,18 +76,21 @@ describe("status", () => {
 	});
 });
 
-describe("watch", () => {
-	test("says which mode is on, and names the session when asked", () => {
-		expect(formatWatch({ armed: true, wake: false })).toBe("Inbox watch on: new messages appear at your next turn.");
-		expect(formatWatch({ armed: true, wake: true })).toBe("Inbox watch on: a new message raises one turn.");
-		expect(formatWatch({ armed: false, wake: false })).toBe("Inbox watch off.");
-		expect(formatWatch({ armed: true, wake: false }, "billing-core")).toBe(
-			'Inbox watch on for "billing-core": new messages appear at your next turn.',
+describe("join", () => {
+	test("says the label and whether mail will reach this session", () => {
+		expect(formatJoin("billing-core", { armed: true, wake: false })).toBe(
+			'On the bus as "billing-core", listening: new messages appear at your next turn.',
+		);
+		expect(formatJoin("billing-core", { armed: true, wake: true })).toBe(
+			'On the bus as "billing-core", listening: a new message raises one turn.',
+		);
+		expect(formatJoin("billing-core", { armed: false, wake: false })).toBe(
+			'On the bus as "billing-core", not listening: mail waits in the inbox.',
 		);
 	});
 
-	test("a label cannot forge a line in the watch line either", () => {
-		const out = formatWatch({ armed: false, wake: false }, "back\nend\u001b[2J");
+	test("a label cannot forge a line in the join line either", () => {
+		const out = formatJoin("back\nend\u001b[2J", { armed: false, wake: false });
 		expect(out).not.toContain("\u001b");
 		expect(out.split("\n")).toHaveLength(1);
 	});

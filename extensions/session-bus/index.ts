@@ -19,6 +19,7 @@ import { isExtensionEnabled } from "../../lib/env.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { createPendingReporter, registerPendingChannel } from "../../lib/report.ts";
 import { registerCommands } from "./commands.ts";
+import { registerJoinRequests } from "./join-request.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
 import { mailNotice } from "./notice.ts";
@@ -44,6 +45,9 @@ export default function sessionBus(pi: ExtensionAPI, deps: SessionBusDeps = {}):
 
 	registerTools(pi, bus);
 	registerCommands(pi, bus);
+	// `board` and `team` join this session through one request: their commands cannot call
+	// a tool, and the user's surface for the team is theirs, not this extension's.
+	registerJoinRequests(pi, bus);
 
 	registerPendingChannel(pi, {
 		reporter,

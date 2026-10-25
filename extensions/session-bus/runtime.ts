@@ -37,7 +37,7 @@ import {
 	sessionMode,
 	shortId,
 } from "./protocol.ts";
-import { createMailWatch } from "./mail-watch.ts";
+import { createMailWatch, type WatchingState } from "./mail-watch.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
 import { BUS_DIR_NAME, SESSION_TTL_MS } from "../../lib/session-roster.ts";
@@ -79,9 +79,16 @@ export interface SessionBus {
 	inbox(limit?: number): Promise<BusMessage[]>;
 	claim(paths: unknown): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(paths: unknown): Promise<{ released: string[]; notOwned: string[] }>;
-	rename(label: string): Promise<string>;
-	/** Arm or disarm this session's inbox watch. */
-	watch(input: { wake?: boolean; stop?: boolean }): Promise<{ armed: boolean; wake: boolean }>;
+	/**
+	 * Join the team: join the bus, name this session when given a label, and listen for
+	 * mail unless `listen` is false. One action, because they are one act — a session on
+	 * the bus that will not hear mail is on it, but not on the team.
+	 */
+	join(input: {
+		label?: string;
+		wake?: boolean;
+		listen?: boolean;
+	}): Promise<{ label: string; watching: WatchingState }>;
 	/** Whether the armed watch asked for a triggered turn; the settle retry reads it. */
 	wantsWake(): boolean;
 	/** Read the inbox without consuming it, queueing what is new; no-op when unarmed. */
@@ -345,10 +352,22 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			record = undefined;
 		},
 
-		async watch(input) {
-			// Arming needs an inbox, so it is one of the actions that joins.
-			await currentRecord();
-			return mailWatch.watch(input);
+		// Join, name, and listen as one act. Order matters the way it does everywhere else
+		// here: the name is validated by `rename` before a watch is armed, so a refused
+		// label leaves both the record and the watch exactly as they were.
+		async join(input) {
+			const me = await currentRecord();
+			const label = input.label === undefined ? me.label : await rename(input.label);
+			// `listen: false` is the one way to be on the bus without mail: the record stays,
+			// so a peer can still address this session, and only the watch is turned off.
+			const watching =
+				input.listen === false ? await mailWatch.watch({ stop: true }) : await mailWatch.watch({ wake: input.wake });
+			// Written to the record so a peer reads it from disk instead of asking: this is the
+			// fact `team` reports as "not listening", and an absent field means exactly that.
+			if (watching.armed) me.watching = { armed: true, wake: watching.wake };
+			else delete me.watching;
+			await requireStore().writeSession(me);
+			return { label, watching };
 		},
 		wantsWake: () => mailWatch.wantsWake(),
 		poll: () => mailWatch.poll(),
@@ -443,7 +462,5 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			const bus = requireStore();
 			return releaseClaimed(storedPaths(me, rawPaths), (path) => bus.release(path, me.id));
 		},
-
-		rename,
 	};
 }

@@ -9,6 +9,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createFakePi, emit, emitFirst, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
+import { type JoinResult, TEAM_JOIN_REQUEST } from "../../lib/session-tool.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 import { onRailsSuppressed } from "../../lib/rails.ts";
 import { SessionListComponent } from "./tui.ts";
@@ -23,7 +24,7 @@ function busDir(): string {
 /** A named session is a joined one: starting the bus puts nobody on it. */
 async function joined(bus: SessionBus, ctx: ExtensionContext, label: string): Promise<void> {
 	await bus.start(ctx);
-	await bus.rename(label);
+	await bus.join({ label, listen: false });
 }
 
 function setup(dir: string) {
@@ -39,6 +40,41 @@ function setup(dir: string) {
 	const { ctx, notices } = fakeCtx({ cwd: "/repo", sessionId: "s1", sessionName: "frontend" });
 	return { ...fake, bus, ctx, notices, command: fake.commands.get("sessions") };
 }
+
+describe("a board's join request", () => {
+	test("joins the session as the label it asked for, and answers once", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx } = setup(dir);
+		await emit(pi, "session_start", { type: "session_start" }, ctx);
+		const answered = new Promise<JoinResult>((resolve) => {
+			pi.events.emit(TEAM_JOIN_REQUEST, { ctx, input: { label: "team-lead" }, respond: resolve });
+		});
+		expect(await answered).toEqual({ ok: true, label: "team-lead", watching: { armed: true, wake: false } });
+		// One identity: the label is also the name Pi's footer and `/resume` show.
+		expect(pi.getSessionName()).toBe("team-lead");
+		expect((await bus.status()).onBus).toBe(true);
+		await bus.stop();
+	});
+
+	test("answers a failure rather than leaving the board waiting", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx } = setup(dir);
+		await emit(pi, "session_start", { type: "session_start" }, ctx);
+		// A label another live session holds is refused, and the refusal is the answer.
+		const peer = createSessionBus({} as ExtensionAPI, { dir, now: () => 1_000, heartbeatMs: 0, watchMs: 0 });
+		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s2", sessionName: "taken" }).ctx as ExtensionContext;
+		await peer.start(peerCtx);
+		await peer.join({ label: "taken", listen: false });
+		const answered = new Promise<JoinResult>((resolve) => {
+			pi.events.emit(TEAM_JOIN_REQUEST, { ctx, input: { label: "taken" }, respond: resolve });
+		});
+		const result = await answered;
+		expect(result.ok).toBe(false);
+		expect(pi.getSessionName()).toBeUndefined();
+		await peer.stop();
+		await bus.stop();
+	});
+});
 
 describe("session-bus extension", () => {
 	test("registers a tool and a command", () => {
@@ -63,7 +99,7 @@ describe("session-bus extension", () => {
 		const store = createBusStore({ dir });
 		// A terminal session is not on the bus because it started.
 		expect(await store.sessions()).toEqual([]);
-		await bus.rename("frontend");
+		await bus.join({ label: "frontend", listen: false });
 		expect((await store.sessions()).map((session) => session.label)).toEqual(["frontend"]);
 		await emit(pi, "session_shutdown", { type: "session_shutdown" }, ctx);
 		expect(await store.sessions()).toEqual([]);
@@ -80,15 +116,17 @@ describe("session-bus extension", () => {
 		await command.handler("", ctx);
 		expect(notices.at(-1)?.message).toContain("Sessions (0)");
 		expect(notices.at(-1)?.message).toContain("not on the bus yet");
-		await command.handler("name backend", ctx);
+		await command.handler("join backend", ctx);
 		expect(notices.at(-1)?.message).toContain("backend");
 		// The label is also Pi's session name, so the footer and /resume agree.
 		expect(pi.getSessionName()).toBe("backend");
-		// Naming is the join, so the listing now shows this session.
+		// Joining is the join, so the listing now shows this session.
 		await command.handler("", ctx);
 		expect(notices.at(-1)?.message).toContain("Sessions (1)");
-		await command.handler("name", ctx);
-		expect(notices.at(-1)?.message).toContain("Usage:");
+		// A bare join is idempotent: it keeps the label it already landed on.
+		await command.handler("join", ctx);
+		expect(notices.at(-1)?.message).toContain('On the bus as "backend"');
+		expect(pi.getSessionName()).toBe("backend");
 		await command.handler("nope", ctx);
 		expect(notices.at(-1)?.message).toContain("Unknown sessions command");
 		await bus.stop();
@@ -98,12 +136,11 @@ describe("session-bus extension", () => {
 		const { command } = setup(busDir());
 		if (!command) throw new Error("sessions command not registered");
 		expect(command.getArgumentCompletions?.("")).toEqual([
-			{ value: "name", label: "name" },
+			{ value: "join", label: "join" },
 			{ value: "help", label: "help" },
-			{ value: "watch", label: "watch" },
 		]);
-		expect(command.getArgumentCompletions?.("wa")).toEqual([{ value: "watch", label: "watch" }]);
-		expect(command.getArgumentCompletions?.("name ")).toBeNull();
+		expect(command.getArgumentCompletions?.("jo")).toEqual([{ value: "join", label: "join" }]);
+		expect(command.getArgumentCompletions?.("join ")).toBeNull();
 		expect(command.getArgumentCompletions?.("zzz")).toBeNull();
 	});
 
@@ -122,9 +159,9 @@ describe("session-bus extension", () => {
 		});
 		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s2", sessionName: "taken" }).ctx as ExtensionContext;
 		await peer.start(peerCtx);
-		await peer.rename("taken");
+		await peer.join({ label: "taken", listen: false });
 
-		await command.handler("name taken", ctx);
+		await command.handler("join taken", ctx);
 		expect(notices.at(-1)?.message).toContain("already in use");
 		expect(pi.getSessionName()).toBeUndefined();
 		await peer.stop();
@@ -194,22 +231,17 @@ describe("session-bus extension", () => {
 		await bus.stop();
 	});
 
-	test("arms and disarms the inbox watch through /sessions watch", async () => {
+	test("joins and renames through /sessions join", async () => {
 		const dir = busDir();
-		const { bus, ctx, notices, command } = setup(dir);
+		const { pi, bus, ctx, notices, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 		await bus.start(ctx);
-		await command.handler("watch", ctx);
-		expect(notices.at(-1)?.message).toContain('Inbox watch on for "frontend"');
+		await command.handler("join", ctx);
+		expect(notices.at(-1)?.message).toContain('On the bus as "frontend"');
 		expect((await bus.status()).watching).toEqual({ armed: true, wake: false });
-		await command.handler("watch wake", ctx);
-		expect(notices.at(-1)?.message).toContain("Inbox watch on");
-		expect((await bus.status()).watching).toEqual({ armed: true, wake: true });
-		await command.handler("watch advanced", ctx);
-		expect(notices.at(-1)?.message).toContain("Unknown watch mode");
-		await command.handler("watch off", ctx);
-		expect(notices.at(-1)?.message).toContain("Inbox watch off");
-		expect((await bus.status()).watching).toBeUndefined();
+		await command.handler("join billing-lead", ctx);
+		expect(notices.at(-1)?.message).toContain('On the bus as "billing-lead"');
+		expect(pi.getSessionName()).toBe("billing-lead");
 		await bus.stop();
 	});
 
@@ -227,7 +259,7 @@ describe("session-bus extension", () => {
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		await peer.start(peerCtx);
 
-		await bus.watch({ wake: true });
+		await bus.join({ wake: true });
 		await peer.send({ to: "frontend", text: "contract v2 merged" });
 		await bus.poll();
 
@@ -262,7 +294,7 @@ describe("session-bus extension", () => {
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		await peer.start(peerCtx);
 
-		await bus.watch({});
+		await bus.join({});
 		await peer.send({ to: "frontend", kind: "ask", text: "is checkout.ts free?" });
 		await bus.poll();
 		expect(customMessages).toEqual([]);
@@ -291,7 +323,7 @@ describe("session-bus extension", () => {
 		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s4", sessionName: "integrator" }).ctx as ExtensionContext;
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		await peer.start(peerCtx);
-		await bus.watch({ wake: true });
+		await bus.join({ wake: true });
 
 		await emit(pi, "agent_start", {}, ctx);
 		await peer.send({ to: "frontend", text: "mid-turn" });
@@ -325,7 +357,7 @@ describe("session-bus extension", () => {
 		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s7", sessionName: "integrator" }).ctx as ExtensionContext;
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		await peer.start(peerCtx);
-		await bus.watch({ wake: true });
+		await bus.join({ wake: true });
 
 		await emit(pi, "agent_start", {}, ctx);
 		await peer.send({ to: "frontend", text: "after the abort" });
@@ -354,14 +386,14 @@ describe("session-bus extension", () => {
 		});
 		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s5", sessionName: "integrator" }).ctx as ExtensionContext;
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
-		await bus.rename("frontend");
+		await bus.join({ label: "frontend", listen: false });
 		await peer.start(peerCtx);
-		await peer.rename("integrator");
+		await peer.join({ label: "integrator", listen: false });
 		await peer.send({ to: "frontend", text: "already here" });
 
 		// The tool call that arms the watch always runs inside a turn.
 		await emit(pi, "agent_start", {}, ctx);
-		await bus.watch({ wake: true });
+		await bus.join({ wake: true });
 		expect(customMessages).toEqual([]);
 
 		await emit(pi, "agent_settled", { aborted: false }, ctx);
@@ -386,7 +418,7 @@ describe("session-bus extension", () => {
 		const peerCtx = fakeCtx({ cwd: "/repo", sessionId: "s6", sessionName: "integrator" }).ctx as ExtensionContext;
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		await peer.start(peerCtx);
-		await bus.watch({});
+		await bus.join({});
 
 		await emit(pi, "agent_start", {}, ctx);
 		await peer.send({ to: "frontend", text: "next turn" });

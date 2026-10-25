@@ -20,6 +20,14 @@ export interface SessionRecord {
 	mode: SessionMode;
 	startedAt: number;
 	lastSeen: number;
+	/**
+	 * Whether this session is listening for mail, written when it joins.
+	 *
+	 * Absent means "not listening": a record written before this existed and a session
+	 * that stopped listening read the same way, which is the honest answer for a peer
+	 * deciding whether mail will reach it.
+	 */
+	watching?: { armed: boolean; wake: boolean };
 }
 
 /** One message waiting in a recipient's inbox. */
@@ -73,7 +81,7 @@ export interface BoardSnapshot {
 
 /** Structured result carried in the `session` tool's details. */
 export interface SessionDetails {
-	action: "status" | "send" | "inbox" | "claim" | "release" | "watch" | "name";
+	action: "status" | "send" | "inbox" | "claim" | "release" | "join";
 	status?: SessionStatus;
 	delivered?: string[];
 	messageId?: string;
@@ -82,9 +90,9 @@ export interface SessionDetails {
 	conflicts?: ClaimConflict[];
 	released?: string[];
 	notOwned?: string[];
-	/** Whether the inbox watch is on, and whether it raises a turn. */
+	/** Whether the inbox watch is on, and whether it raises a turn; `join` reports it. */
 	watching?: { armed: boolean; wake: boolean };
-	/** With name: the label the bus settled on, which is what this session is called. */
+	/** With join: the label the bus settled on, which is what this session is called. */
 	label?: string;
 	error?: string;
 }

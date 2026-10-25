@@ -18,7 +18,7 @@ function busDir(): string {
 interface Session {
 	bus: SessionBus;
 	ctx: ExtensionContext;
-	/** The Pi surface the tool writes a rename through. */
+	/** The Pi surface the tool writes a label through. */
 	pi: { getSessionName(): string | undefined; setSessionName(name: string): void };
 	tool: {
 		execute(
@@ -51,7 +51,7 @@ function session(dir: string, root: string, id: string, name: string): Session {
 	});
 	const fake = createFakePi();
 	// Pi's session name and the bus's label are one identity in production, so a
-	// test that renames has to start from the name the session came back with.
+	// test that joins has to start from the name the session came back with.
 	fake.pi.setSessionName(name);
 	registerTools(fake.pi, bus);
 	const tool = fake.tools.get("session");
@@ -60,10 +60,10 @@ function session(dir: string, root: string, id: string, name: string): Session {
 	return { bus, ctx, tool, pi: fake.pi };
 }
 
-/** Naming is the join, so a session that must appear on the bus names itself. */
+/** Joining puts a session on the bus, so a case that needs a peer joins it. */
 async function joins(target: Session): Promise<void> {
 	await target.bus.start(target.ctx);
-	await target.bus.rename(target.pi.getSessionName() ?? "session");
+	await target.bus.join({ label: target.pi.getSessionName() ?? "session", listen: false });
 }
 
 describe("session tool", () => {
@@ -130,14 +130,14 @@ describe("session tool", () => {
 		await backend.bus.stop();
 	});
 
-	test("watch arms, reports a turn-start notice, and stops", async () => {
+	test("join listens, reports a turn-start notice, and stops listening", async () => {
 		const dir = busDir();
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const backend = session(dir, "/repo/backend", "s2", "backend");
 		await frontend.bus.start(frontend.ctx);
 		await backend.bus.start(backend.ctx);
 
-		const armed = await backend.tool.execute("call", { action: "watch" }, undefined, undefined, backend.ctx);
+		const armed = await backend.tool.execute("call", { action: "join" }, undefined, undefined, backend.ctx);
 		expect(armed.details.watching).toEqual({ armed: true, wake: false });
 		expect(armed.content[0]?.text).toContain("next turn");
 
@@ -147,28 +147,28 @@ describe("session tool", () => {
 
 		const stopped = await backend.tool.execute(
 			"call",
-			{ action: "watch", stop: true },
+			{ action: "join", listen: false },
 			undefined,
 			undefined,
 			backend.ctx,
 		);
 		expect(stopped.details.watching).toEqual({ armed: false, wake: false });
-		expect(stopped.content[0]?.text).toContain("Inbox watch off");
+		expect(stopped.content[0]?.text).toContain("not listening");
 		await frontend.bus.stop();
 		await backend.bus.stop();
 	});
 
-	test("the watch transcript line says which mode is on", () => {
+	test("the join transcript line says which mode is on", () => {
 		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
-			{ content: [], details: { action: "watch", watching: { armed: true, wake: true } } },
+			{ content: [], details: { action: "join", label: "frontend", watching: { armed: true, wake: true } } },
 			{ expanded: false },
 			fakeTheme,
 		);
-		expect(rendered.render(80).join("\n")).toContain("wakes a turn");
+		expect(rendered.render(80).join("\n")).toContain("listening, wake");
 	});
 
-	test("name sets the bus label and Pi's session name, and peers address it", async () => {
+	test("join sets the bus label and Pi's session name, and peers address it", async () => {
 		const dir = busDir();
 		const lead = session(dir, "/repo/mono", "s1", "mono");
 		const owner = session(dir, "/repo/mono", "s2", "billing-core");
@@ -177,14 +177,14 @@ describe("session tool", () => {
 
 		const named = await lead.tool.execute(
 			"call",
-			{ action: "name", label: "  billing-lead  " },
+			{ action: "join", label: "  billing-lead  " },
 			undefined,
 			undefined,
 			lead.ctx,
 		);
 		expect(named.isError).toBeUndefined();
 		expect(named.details.label).toBe("billing-lead");
-		expect(named.content[0]?.text).toBe('This session is now named "billing-lead".');
+		expect(named.content[0]?.text).toContain('On the bus as "billing-lead", listening');
 		expect(lead.pi.getSessionName()).toBe("billing-lead");
 
 		const sent = await owner.tool.execute(
@@ -201,7 +201,7 @@ describe("session tool", () => {
 		await owner.bus.stop();
 	});
 
-	test("name refuses a label another live session holds", async () => {
+	test("join refuses a label another live session holds", async () => {
 		const dir = busDir();
 		const lead = session(dir, "/repo/mono", "s1", "mono");
 		const owner = session(dir, "/repo/mono", "s2", "billing-core");
@@ -211,7 +211,7 @@ describe("session tool", () => {
 
 		const taken = await lead.tool.execute(
 			"call",
-			{ action: "name", label: "billing-core" },
+			{ action: "join", label: "billing-core" },
 			undefined,
 			undefined,
 			lead.ctx,
@@ -223,32 +223,36 @@ describe("session tool", () => {
 		await owner.bus.stop();
 	});
 
-	test("name refuses a blank label instead of keeping the old one", async () => {
+	test("a bare join keeps the label it landed on, and never renames Pi on its own", async () => {
 		const dir = busDir();
 		const lead = session(dir, "/repo/mono", "s1", "mono");
 		await lead.bus.start(lead.ctx);
 
-		const blank = await lead.tool.execute("call", { action: "name", label: "   " }, undefined, undefined, lead.ctx);
-		expect(blank.isError).toBe(true);
-		expect(blank.content[0]?.text).toContain("name requires a label");
+		const joined = await lead.tool.execute("call", { action: "join" }, undefined, undefined, lead.ctx);
+		expect(joined.isError).toBeUndefined();
+		expect(joined.details.label).toBe("mono");
+		// The record's label is derived from the name Pi already shows; a bare join must
+		// not write it back, or a session would be renamed by the act of listening.
+		expect(lead.pi.getSessionName()).toBe("mono");
 		const status = await lead.tool.execute("call", { action: "status" }, undefined, undefined, lead.ctx);
 		expect(status.details.status.me.label).toBe("mono");
 		await lead.bus.stop();
 	});
 
-	test("the name transcript lines name the label", () => {
+	test("the join transcript lines name the label and the state", () => {
 		const lead = session(busDir(), "/repo/mono", "s1", "mono");
 		const call = lead.tool
-			.renderCall({ action: "name", label: "billing-lead" }, fakeTheme, { lastComponent: undefined })
+			.renderCall({ action: "join", label: "billing-lead" }, fakeTheme, { lastComponent: undefined })
 			.render(80)
 			.join("\n");
-		expect(call).toContain("session name billing-lead");
+		expect(call).toContain("session join billing-lead");
 		const rendered = lead.tool.renderResult(
-			{ content: [], details: { action: "name", label: "billing-lead" } },
+			{ content: [], details: { action: "join", label: "billing-lead", watching: { armed: true, wake: false } } },
 			{ expanded: false },
 			fakeTheme,
 		);
-		expect(rendered.render(80).join("\n")).toContain('Named this session "billing-lead"');
+		expect(rendered.render(80).join("\n")).toContain("billing-lead");
+		expect(rendered.render(80).join("\n")).toContain("listening");
 	});
 
 	test("an invalid action returns a model-readable error", async () => {

@@ -51,6 +51,18 @@ describe("sessions", () => {
 		expect(await store.unread("missing")).toBe(0);
 	});
 
+	test("keeps the listening field, and skips a record whose field is not the shape the bus writes", async () => {
+		const { store } = fixture();
+		await store.ensure();
+		await store.writeSession({ ...session("s1"), watching: { armed: true, wake: true } });
+		expect((await store.session("s1"))?.watching).toEqual({ armed: true, wake: true });
+		// The cast is the point of the case: only a hand-edited record can hold this, and a
+		// reader that trusted it would report mail that cannot arrive.
+		const broken = { ...session("s2"), watching: "on" } as unknown as SessionRecord;
+		await store.writeSession(broken);
+		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
+	});
+
 	test("removes a session, and its inbox directory once it holds no mail", async () => {
 		const { dir, store } = fixture();
 		await store.ensure();

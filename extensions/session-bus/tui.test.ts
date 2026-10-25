@@ -393,7 +393,8 @@ describe("the expanded result block", () => {
 	});
 
 	test("an action with nothing to list has no rows", () => {
-		expect(resultSections({ action: "watch", watching: { armed: true, wake: false } })).toBeUndefined();
+		const sections = resultSections({ action: "join", label: "backend", watching: { armed: true, wake: false } });
+		expect(sections).toBeUndefined();
 		expect(resultSections({ action: "inbox", messages: [] })).toBeUndefined();
 		expect(resultSections({ action: "release", released: [], notOwned: [] })).toBeUndefined();
 	});
@@ -432,13 +433,13 @@ describe("the collapsed result line", () => {
 		expect(collapsedLine(fakeTheme, { action: "release", released: [], notOwned: [] })).toBe("Nothing to release");
 	});
 
-	test("the watch line says which mode is on", () => {
-		expect(collapsedLine(fakeTheme, { action: "watch", watching: { armed: true, wake: true } })).toContain(
-			"wakes a turn",
-		);
-		expect(collapsedLine(fakeTheme, { action: "watch", watching: { armed: false, wake: false } })).toBe(
-			"Inbox watch off",
-		);
+	test("the join line names the label and the state", () => {
+		expect(
+			collapsedLine(fakeTheme, { action: "join", label: "backend", watching: { armed: true, wake: true } }),
+		).toContain("listening, wake");
+		expect(
+			collapsedLine(fakeTheme, { action: "join", label: "backend", watching: { armed: false, wake: false } }),
+		).toContain("not listening");
 	});
 
 	test("a message row is one neutralized line", () => {

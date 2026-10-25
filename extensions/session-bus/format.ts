@@ -41,22 +41,23 @@ export function formatStatus(status: SessionStatus): string {
 		...(claims.length > 0 ? claims : ["- none"]),
 		...(alerts.length > 0 ? ["", ...alerts] : []),
 		"",
-		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 name this session to join"}`,
+		`You: ${sanitizeLine(status.me.label)} (${idSuffix(status.me.id)})${status.onBus ? "" : " \u00b7 not on the bus yet \u2014 `/sessions join` puts you on it"}`,
 	].join("\n");
 }
 
-/** The rename result: the label the bus settled on, which peers now address. */
-export function formatName(label: string): string {
-	return `This session is now named "${sanitizeLine(label)}".`;
-}
-
-/** The inbox-watch result. */
-export function formatWatch(watching: { armed: boolean; wake: boolean }, name?: string): string {
-	const owner = name ? ` for "${sanitizeLine(name)}"` : "";
-	if (!watching.armed) return `Inbox watch off${owner}.`;
+/**
+ * The join result: the label peers address, and whether mail will reach this session.
+ *
+ * One sentence for one act, because `join` is one action — the name and the watch are
+ * two facts about the same decision, and a reader that had to ask twice would be reading
+ * a bus the user is not supposed to operate.
+ */
+export function formatJoin(label: string, watching: { armed: boolean; wake: boolean }): string {
+	const who = `On the bus as "${sanitizeLine(label)}"`;
+	if (!watching.armed) return `${who}, not listening: mail waits in the inbox.`;
 	return watching.wake
-		? `Inbox watch on${owner}: a new message raises one turn.`
-		: `Inbox watch on${owner}: new messages appear at your next turn.`;
+		? `${who}, listening: a new message raises one turn.`
+		: `${who}, listening: new messages appear at your next turn.`;
 }
 
 /** One consumed inbox, oldest first. */

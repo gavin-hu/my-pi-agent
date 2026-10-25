@@ -84,8 +84,15 @@ function isSession(value: unknown): value is SessionRecord {
 		typeof entry.repoRoot === "string" &&
 		typeof entry.mode === "string" &&
 		typeof entry.startedAt === "number" &&
-		typeof entry.lastSeen === "number"
+		typeof entry.lastSeen === "number" &&
+		(entry.watching === undefined || isWatchingState(entry.watching))
 	);
+}
+
+/** The optional listening field, validated only when it is there. */
+function isWatchingState(value: unknown): boolean {
+	const entry = asRecord(value);
+	return entry !== undefined && typeof entry.armed === "boolean" && typeof entry.wake === "boolean";
 }
 
 function isMessage(value: unknown): value is BusMessage {

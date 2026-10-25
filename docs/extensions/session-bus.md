@@ -2,9 +2,9 @@
 
 A local coordination bus for Pi sessions on the same machine and repository:
 sessions discover each other, exchange short messages and events, consume an
-inbox, and claim paths before editing. A session joins by naming itself, so the
-board opens empty and a peer never appears because the package loaded. Delivery is pull-based, and a session can
-arm an inbox watch to be told about new mail — a report at its next turn, or,
+inbox, and claim paths before editing. A session joins by joining, so the
+board opens empty and a peer never appears because the package loaded. Delivery is pull-based, and a session that
+joined listens for new mail — a report at its next turn, or,
 with `wake`, one raised turn as soon as the agent is idle, including right after
 a running turn settles. There is no network service and no hidden context.
 
@@ -16,15 +16,15 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 | Capability | How | What you get | Status |
 |---|---|---|---|
-| Session naming | `session name`, `/sessions name <label>` | The join, and a stable label peers address — also the name Pi's footer and `/resume` show. | Shipped |
+| Membership | `session join [label]`, `/sessions join [<label>]` | The join: this session is on the bus under a stable label peers address — also the name Pi's footer and `/resume` show — and listens for mail unless told not to. | Unreleased |
 | Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read. | Shipped |
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
-| Board actions | `/sessions` (`w`, `x`) | Arm or disarm the inbox watch, or release an own claim behind a confirmation, without leaving the board. | Shipped |
+| Board actions | `/sessions` (`w`, `x`) | Start or stop listening from the board, or release an own claim behind a confirmation, without leaving it. | Shipped |
 | Short messages | `session send` | One message per recipient, addressed by label or id, with a broadcast for events. | Shipped |
 | Message kinds | `session send` with `kind` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender, and a `handoff` is named as the work it assigns. | Shipped |
 | Message paths | `session send` with `paths` | A message can name the repository paths it concerns, echoed in the inbox row. | Shipped |
 | Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
-| Inbox watch | `session watch`, `/sessions watch [off\|wake]` | New mail reported at the next turn, or one raised turn once the agent is idle. | Shipped |
+| Listening | `session join` | New mail reported at the next turn; `join({wake: true})` raises one turn once the agent is idle, and `join({listen: false})` stops it. | Unreleased |
 | Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. | Shipped |
 | Usage help | `/sessions help` | The command's usage lines, printed in the transcript. | Shipped |
 
@@ -38,13 +38,14 @@ pi install ./                             # install the package for a user
 
 ```text
 /sessions                                  # open the board: empty until this session joins
-/sessions name billing-core                # join the bus, and name this session for Pi
+/sessions join billing-core                # join, name this session for Pi, and listen for mail
 ```
 
 Nothing joins on `session_start`, in any mode: the board and `status` only read, so
 a fresh session sees an empty board and a peer's session is not listed until it
-names itself. Naming is the join; so is the first action that needs you to be
-addressable — `send`, `claim`, `release`, `watch`, or `name`.
+joins. `join` is the join — it puts this session on the bus, names it when a label
+is given, and starts listening — and so is the first action that needs you to be
+addressable: `send`, `inbox`, `claim`, or `release`.
 
 ## Tool
 
@@ -60,8 +61,7 @@ collapsed line that expands to the board's rows.
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
-| `watch` | optional `wake`, optional `stop` | Arms this session's inbox watch, or turns it off with `stop`. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; omitting it keeps an armed watch's mode. |
-| `name` | `label` | Joins the bus, and renames this session on it and in Pi — the same path as `/sessions name`, with the same uniqueness rule, so the footer and `/resume` agree with the record peers address. An empty label is refused rather than keeping the old one, and a label a live session holds is refused with its owner named. The result reports the label the bus settled on. |
+| `join` | optional `label`, `wake`, `listen` | Joins the bus, names this session on it and in Pi when a label is given — the same path and uniqueness rule as `/sessions join`, so the footer and `/resume` agree with the record peers address — and starts listening for mail. `wake: true` raises one turn per burst once the agent is idle; `wake: false` reports at the next turn; `listen: false` joins without listening. A label a live session holds is refused with its owner named, and the refusal leaves both names and the watch alone. The result reports the label the bus settled on and whether mail will reach this session. |
 
 A claim is all-or-nothing: if one path conflicts, nothing is claimed. A claim on
 a directory conflicts with claims below it and above it, so `src/api` and
@@ -71,47 +71,44 @@ takeover; wait for the owner, ask it to release, or let the session expire.
 Paths resolve against the caller's working directory and are stored relative to
 its repository root; a path outside the repository is refused.
 
-`wake` is the mode, not an arm-time switch: `/sessions watch wake` raises a turn
-for a watch that was reporting at the next turn, and `/sessions watch` — or
-`wake: false` — sets it back. The board's `w` only arms and disarms, and it arms
-a plain watch; set `wake` with the command or the tool. Nothing arms on
-`session_start`; a session that never asks stays pull-only.
+`wake` is the mode, not an arm-time switch: `join({ wake: true })` raises a turn
+for a session that was reporting at the next turn, and `join({ wake: false })` —
+or a plain `join` — sets it back. The board's `w` starts and stops listening,
+and it starts a plain watch; set `wake` with the tool. Nothing joins or listens on
+`session_start`; a session that never asks stays pull-only and off the bus.
 
 ## Commands
 
 `/sessions` is the human surface: in `tui` mode it opens the live board described
 in [the board](#the-sessions-board), and every other mode prints the compact
-listing. The sub-commands name this session and manage its inbox watch.
+listing. The sub-commands join this session and manage what it listens to.
 
 | Command | Effect |
 |---|---|
-| `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` arms or disarms this session's inbox watch, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing. Neither joins the bus. |
-| `/sessions name <label>` | Name this session for the bus and for Pi. The label is unique among active sessions, and it becomes the session name the footer shows and `/resume` lists. |
-| `/sessions watch` | Report new mail at this session's next turn. |
-| `/sessions watch wake` | Report new mail, and raise one turn as soon as the agent is idle — including right after a running turn settles. |
-| `/sessions watch off` | Stop the inbox watch. |
+| `/sessions` | Open the board: `Tab` cycles Sessions, Inbox, and Claims. `Enter` opens the focused row, `w` starts or stops listening, and in Claims `x` releases a claim you hold after a y/N confirmation. A non-TUI caller prints the listing. Neither joins the bus. |
+| `/sessions join [<label>]` | Join the bus, and listen for new mail. With a label, this session is also renamed on the bus and in Pi: the label is unique among active sessions, and it becomes the session name the footer shows and `/resume` lists. |
 | `/sessions help` | Show the command usage. |
 
 Labels are how another session addresses you. Name one by the outcome it owns
 (`billing-core`, `integrator`, `verify-billing`), not by a layer or a role;
 duplicate labels get a short id suffix automatically.
 
-Naming also sets Pi's session name, so the footer's `[label]` and `/resume` agree
+A label is also Pi's session name, so the footer's `[label]` and `/resume` agree
 with the bus. Because the bus derives a joining session's label from that name, a
 named session comes back under the same label after a resume.
 
-The tool's `name` action is the same rename from the model's side, so a session
-can name itself without the user typing `/sessions name` for it.
+The tool's `join` action is the same join from the model's side, so a `board` or a
+`team` call can put a session on the bus without the user typing `/sessions join`.
 
 ## Behaviour by mode
 
 | Mode | Behaviour |
 |---|---|
-| `tui` | Does not join on start. `/sessions` opens the board: sessions, this session's unread mail, and every claim, with `Tab` between them, and lists nobody in this session until it names itself. |
+| `tui` | Does not join on start. `/sessions` opens the board: sessions, this session's unread mail, and every claim, with `Tab` between them, and lists nobody in this session until it joins. |
 | `rpc`, `json`, `print` | Same rule: `/sessions` and `status` are reads, and the first addressable action joins. This is how a subagent or an RPC-driven session opts in. |
 | WeChat peer | Same as `rpc`: the peer is a separate AgentSession in the bridge process and joins only on explicit use. Messages are read by that peer’s model; the bridge does not forward them to the phone. |
 
-Every mode can arm the inbox watch; the notice is a visible transcript message, so
+Every mode can join and listen; the notice is a visible transcript message, so
 a `wake` raises that session’s own turn, not a phone notification.
 
 ## Configuration
@@ -122,13 +119,13 @@ The bus lives under the agent directory, not the project, so it is never committ
 
 ## Parallel workflow
 
-1. The user names each session (`/sessions name`), and the contract (OpenAPI,
-   schema, or types) is written before parallel work starts.
+1. The user joins each session (`/sessions join <label>`), and the contract
+   (OpenAPI, schema, or types) is written before parallel work starts.
 2. Each session claims its paths before touching them, then implements its side.
 3. A contract, build, or test change goes out as an event:
    `session({action:"send", to:"*", kind:"event", text:"contract v2: ..."})`.
-4. Other sessions consume `inbox` at the start of their next turn, or arm
-   `session({action:"watch", wake:true})` so a message raises their turn as soon
+4. Other sessions consume `inbox` at the start of their next turn, or join with
+   `session({action:"join", wake:true})` so a message raises their turn as soon
    as they are idle; a wake that arrives mid-turn is raised once that run
    settles, never pushed into the running turn.
 5. Whoever integrates merges the worktrees and runs the project's full check.
@@ -143,8 +140,8 @@ cycles Sessions, Inbox, and Claims, `Enter` opens the focused row, and `Esc` goe
 back from a row's pane. `↑`/`↓` and `PgUp`/`PgDn` scroll a list; a pane adds
 `g`/`G` for its ends.
 
-The board changes only this session's own state: `w` toggles its watch and `x`
-releases a claim it holds. Mail is previewed, not consumed — `session inbox`
+The board changes only this session's own state: `w` starts or stops listening and
+`x` releases a claim it holds. Mail is previewed, not consumed — `session inbox`
 consumes it — and no view shows another session's inbox or releases its claims.
 
 ## Message kinds
@@ -158,26 +155,28 @@ treats as an instruction: the waking turn is headlined `1 handoff`, the preview
 keeps 800 characters so the card, its paths, and the next step survive, and the
 hint says the work is yours — read it with `session inbox`, record the plan, and
 start. Nothing else changes: a handoff still waits in the inbox, and the recipient's
-armed watch is what raises the turn.
+listening watch is what raises the turn.
 
 ## Limitations
 
 - **Same machine, same OS user.** Any process with that user’s file access can
   read or write the bus; there is no authentication between sessions.
-- **Pull-based by default.** A message does not wake a session that did not arm
-  its inbox watch. Agents must call `inbox` at coordination points.
+- **Pull-based by default.** A message does not reach a session that has not
+  joined and is not listening. Agents must call `inbox` at coordination points, and
+  joining listens unless `join({ listen: false })` says otherwise.
 - **A reader is not a member.** `/sessions` and `session status` never add this
-  session to the bus, so an unnamed session reads a board it is not on until it
-  names itself or acts.
-- **Arming is per session and session-only.** It survives neither a resume nor a
-  new process; unread mail is previewed once more after `/resume`.
-- **The board acts on your own state only.** `w` arms or disarms this session's
-  inbox watch and `x` releases a claim it holds. Mail is a preview, not a consume:
-  the board never deletes a message, never marks one reported, and never touches a
-  peer's inbox or claim.
-- **Two armed peers can ping-pong.** Each reply wakes the other as soon as it is
+  session to the bus, so an unjoined session reads a board it is not on until it
+  joins or acts.
+- **Membership is per session and session-only.** It survives neither a resume nor a
+  new process; unread mail is previewed once more after `/resume`, and the record
+  goes when the session stops.
+- **The board acts on your own state only.** `w` starts or stops listening and `x`
+  releases a claim it holds. Mail is a preview, not a consume: the board never
+  deletes a message, never marks one reported, and never touches a peer's inbox or
+  claim.
+- **Two listening peers can ping-pong.** Each reply wakes the other as soon as it is
   idle. A wake raises one turn per burst, and `inbox` consumes, so the loop needs
-  both sides to keep replying; the answer is to disarm one of them.
+  both sides to keep replying; the answer is to stop listening on one of them.
 - **No broadcast history.** A broadcast reaches the sessions active at send time;
   a session that joins later does not receive it.
 - **No forced claims.** A crashed owner blocks its paths until the session TTL
@@ -190,7 +189,7 @@ armed watch is what raises the turn.
 - **One session id, one record.** Resuming a session in a second pane gives two
   processes the same id, and the record names the process that owns it: the older
   pane's shutdown leaves the record and the claims to the newer one instead of
-  releasing them. Arming is still per process, so the survivor's watch is the
+  releasing them. Listening is still per process, so the survivor's watch is the
   survivor's.
 - **A message file that does not parse is dropped.** The board's read never
   consumes mail, but it does delete a file it cannot validate, so a truncated
@@ -202,12 +201,12 @@ armed watch is what raises the turn.
 | Point | Detail |
 |---|---|
 | Tools | `session` — one action-shaped tool; `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: false`, `executionMode: "sequential"`. |
-| Commands | `/sessions` (board in `tui`, listing elsewhere), `/sessions name <label>`, `/sessions watch [off\|wake]`, `/sessions help`. |
-| UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so the watch never changes the footer. |
+| Commands | `/sessions` (board in `tui`, listing elsewhere), `/sessions join [<label>]`, `/sessions help`. |
+| UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so listening never changes the footer. |
 | Events | `session_start` resolves the repository and arms the mail trigger, without joining; `before_agent_start` reports queued non-wake mail at the next turn, `agent_settled` retries a wake the run suppressed, and `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
-| State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. The armed watch is session-only. `/resume` re-registers the same session id. |
+| State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. Listening is session-only. `/resume` re-registers the same session id. |
 | Lifecycle | The factory only registers. The runtime starts on `session_start`; heartbeat, watch ticker, and cleanup belong to it. Disabling `session-bus` through `PI_DISABLED_EXTENSIONS` registers nothing. |
-| Mode | Uses `ctx.mode` to decide auto-join and whether `/sessions` mounts the board; `askHuman` is not involved and no status chip is published. |
+| Mode | Uses `ctx.mode` to decide whether `/sessions` mounts the board and how a label is derived; nothing joins at start in any mode; `askHuman` is not involved and no status chip is published. |
 
 ## Design notes
 
@@ -228,14 +227,19 @@ armed watch is what raises the turn.
   hard-linked into place — an exclusive create no reader can see half-written.
   This avoids a cross-process lock for the common path.
 - **Lazy join.** Loading a package extension must not make every subagent and
-  WeChat peer a team member. Auto-join only in `tui`; every other mode opts in by
-  using the tool or command.
+  WeChat peer a team member. Nothing joins at start, in any mode; a session opts
+  in by joining, or by the first action that needs it to be addressable.
+- **Listening is on the record.** `join` writes this session's watch state onto its
+  own record, so a peer's `status` read says whether mail will reach it without
+  asking it anything. The field is absent when the session is not listening — which
+  is also how a record written before the field existed reads, and neither is a
+  claim about a peer that has since gone quiet.
 - **Sanitized at the boundary.** Messages are model-authored and are sanitized
   before rendering, like other untrusted text in the transcript.
-- **Poll, not `fs.watch`.** The inbox watch reads this session's inbox directory
+- **Poll, not `fs.watch`.** The listening watch reads this session's inbox directory
   with one `readdir` every 2 s, the same trade `watch` makes for a file tail, so
   it does not depend on a platform's event API or a filename in the event. Only
-  an armed session polls.
+  a listening session polls.
 - **Read the board, prune on the next call.** The open board polls a read-only
   `snapshot()` and `peek()` that hide a session past the TTL, a claim held by one,
   and consume nothing. The physical prune, and the claim release that goes with

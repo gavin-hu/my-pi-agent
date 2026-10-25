@@ -5,20 +5,19 @@
  * Inbox, and Claims, and `w`/`x` act on this session's own watch and claims.
  * Every other mode prints the compact listing, because there is no dock to mount
  * the screen in. Neither joins the bus: reading is not joining, so the board is
- * empty until this session names itself. `name <label>` is the join.
+ * empty until this session joins. `join [<label>]` is the join.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { withPolledScreen } from "../../lib/screen-session.ts";
-import { formatStatus, formatWatch } from "./format.ts";
+import { formatJoin, formatStatus } from "./format.ts";
 import { COMMAND_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { SessionListComponent } from "./tui.ts";
 
-const USAGE = "/sessions [name <label>|watch [off|wake]]";
-const WATCH_MODES = ["off", "wake"];
+const USAGE = "/sessions [join [<label>]]";
 
 /** How often the open board re-reads the bus. */
 const BOARD_POLL_MS = 1_000;
@@ -67,9 +66,10 @@ async function openSessionsScreen(pi: ExtensionAPI, ctx: ExtensionCommandContext
 				theme: screen.theme,
 				callbacks: {
 					toggleWatch: async (armed) => {
-						const watching = await bus.watch({ stop: armed });
+						// The board's toggle is the same act as a join, so it says the same thing.
+						const joined = await bus.join({ listen: !armed });
 						if (holder.screen) await reader(holder.screen);
-						return formatWatch(watching);
+						return formatJoin(joined.label, joined.watching);
 					},
 					releaseClaim: async (path) => {
 						const released = await bus.releaseStored(path);
@@ -104,52 +104,30 @@ async function open(ctx: ExtensionCommandContext, pi: ExtensionAPI, bus: Session
 
 export function registerCommands(pi: ExtensionAPI, bus: SessionBus): void {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "List parallel Pi sessions, their unread counts and claims; name this session",
+		description: "List parallel Pi sessions, their unread counts and claims; join the bus",
 		getArgumentCompletions: (prefix) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
-			const options = ["name", "help", "watch"].filter((value) => value.startsWith(text));
+			const options = ["join", "help"].filter((value) => value.startsWith(text));
 			return options.length > 0 ? options.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args, ctx) => {
 			const [sub = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
 			if (sub === "help") {
 				ctx.ui.notify(
-					`/sessions — open the bus board\n/sessions name <label> — name this session\n` +
-						`/sessions watch [off|wake] — report new mail at the next turn, or raise one\n\n${USAGE}`,
+					`/sessions — open the bus board\n/sessions join [<label>] — join under a label, and listen for mail\n\n${USAGE}`,
 					"info",
 				);
 				return;
 			}
-			if (sub === "watch") {
-				const mode = rest[0] ?? "";
-				if (mode !== "" && !WATCH_MODES.includes(mode)) {
-					ctx.ui.notify(`Unknown watch mode "${mode}". Usage: /sessions watch [off|wake]`, "warning");
-					return;
-				}
-				try {
-					await bus.start(ctx);
-					const status = await bus.status();
-					const watching = await bus.watch({ stop: mode === "off", wake: mode === "wake" });
-					ctx.ui.notify(formatWatch(watching, status.me.label), "info");
-				} catch (error) {
-					ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
-				}
-				return;
-			}
-			if (sub === "name") {
+			if (sub === "join") {
 				const label = rest.join(" ").trim();
-				if (!label) {
-					ctx.ui.notify("Usage: /sessions name <label>", "warning");
-					return;
-				}
 				try {
 					await bus.start(ctx);
-					await bus.status();
-					const renamed = await bus.rename(label);
+					const joined = await bus.join(label === "" ? {} : { label });
 					// The bus validates first, so a rejected label leaves both names alone.
-					pi.setSessionName(renamed);
-					ctx.ui.notify(`This session is now named "${renamed}".`, "info");
+					if (label !== "") pi.setSessionName(joined.label);
+					ctx.ui.notify(formatJoin(joined.label, joined.watching), "info");
 				} catch (error) {
 					ctx.ui.notify(`Session bus: ${messageOf(error)}`, "warning");
 				}

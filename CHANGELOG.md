@@ -232,15 +232,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `session-bus`: a session joins by naming itself. Nothing joins on
-  `session_start` in any mode, so a fresh terminal session's `/sessions` board is
-  empty and a peer appears only once it has taken a name; `/sessions` and
-  `session status` are reads that never add the reader to the bus, while the first
-  addressable action — `send`, `claim`, `release`, `watch`, or `name` — joins as
-  before. A name joins and renames in one call, and it now also starts the
-  heartbeat: naming first used to leave the record to go stale after the ten-minute
-  TTL while the session was still alive. The empty board says how to join, and a
-  status read says it is not on the bus yet.
+- `session-bus`: `name` and `watch` are one action, `join`. Nothing joins on
+  `session_start` in any mode, so a fresh session's `/sessions` board is empty and a peer
+  appears only once it joins; `/sessions` and `session status` are reads that never add
+  the reader to the bus, while the first action that needs an address — `send`, `inbox`,
+  `claim`, or `release` — joins as before. `session({action:"join", label?, wake?,
+  listen?})` and `/sessions join [<label>]` are the one way in: they join, rename this
+  session on the bus and in Pi when a label is given, and start listening for mail, and
+  the join is what starts the heartbeat, so a named session no longer goes stale after
+  the ten-minute TTL while it is alive. `/sessions name` and `/sessions watch [off|wake]`
+  are gone: `wake` is `join({ wake: true })`, `listen: false` is how a session is on the
+  bus without mail, and the board's `w` starts and stops listening. The empty board says
+  how to join, and a status read says it is not on the bus yet.
+- `session-bus`: a session's record carries whether it is listening. `join` writes the
+  watch state to the record and removes it when listening stops, so a peer's `status` read
+  answers "can mail reach this session at all?" without asking it; an absent field means
+  no, which is also how a record written before the field existed reads.
 
 - `rewind`: the `/rewind` list answers `Enter` only. `r` chose the focused point as well, was
   never hinted, and means the opposite one screen later, where it reverts — so the shortcut is

@@ -31,13 +31,13 @@ function bus(dir: string, root: string, now: () => number, watchMs = 0): Session
 }
 
 /**
- * Join by acting: arming and disarming the inbox watch is an addressable action,
- * so it puts the session on the bus under its own name — yielding a suffix when
- * that name is taken — and leaves no state behind.
+ * Join without listening: one action puts the session on the bus under its own name —
+ * yielding a suffix when that name is taken — and leaves the watch off, which is the
+ * state a case that only needs an addressable peer wants.
  */
 async function acting(session: SessionBus, ctx: ExtensionContext): Promise<void> {
 	await session.start(ctx);
-	await session.watch({ stop: true });
+	await session.join({ listen: false });
 }
 
 describe("registration", () => {
@@ -59,7 +59,7 @@ describe("registration", () => {
 		expect(read.sessions).toEqual([]);
 		expect(await store.sessions()).toEqual([]);
 		// A name joins, in any mode.
-		await worker.rename("backend");
+		await worker.join({ label: "backend", listen: false });
 		expect((await store.sessions()).map((session) => session.label)).toEqual(["backend"]);
 		await terminal.stop();
 		await worker.stop();
@@ -152,15 +152,15 @@ describe("claims and labels", () => {
 		await second.stop();
 	});
 
-	test("renames uniquely", async () => {
+	test("joins under a unique label", async () => {
 		const dir = busDir();
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
 		await acting(first, context("/repo/frontend", "s1", "frontend"));
 		await acting(second, context("/repo/backend", "s2", "backend"));
-		expect(await first.rename("ui")).toBe("ui");
-		await expect(second.rename("ui")).rejects.toThrow("already in use");
+		expect((await first.join({ label: "ui", listen: false })).label).toBe("ui");
+		await expect(second.join({ label: "ui", listen: false })).rejects.toThrow("already in use");
 		await first.stop();
 		await second.stop();
 	});
@@ -184,7 +184,7 @@ describe("the inbox watch", () => {
 	test("queues new mail once and leaves it on disk", async () => {
 		const dir = busDir();
 		const { frontend, backend, calls } = await pair(dir);
-		expect(await backend.watch({ wake: true })).toEqual({ armed: true, wake: true });
+		expect((await backend.join({ wake: true })).watching).toEqual({ armed: true, wake: true });
 		await frontend.send({ to: "backend", text: "contract v2" });
 		await backend.poll();
 		expect(backend.pending().map((message) => message.text)).toEqual(["contract v2"]);
@@ -200,7 +200,7 @@ describe("the inbox watch", () => {
 	test("a watch without wake queues mail and leaves the turn alone", async () => {
 		const dir = busDir();
 		const { frontend, backend, calls } = await pair(dir);
-		await backend.watch({});
+		await backend.join({});
 		await frontend.send({ to: "backend", text: "next turn, please" });
 		await backend.poll();
 		expect(backend.pending().map((message) => message.text)).toEqual(["next turn, please"]);
@@ -212,7 +212,7 @@ describe("the inbox watch", () => {
 	test("a message read with inbox is never announced afterwards", async () => {
 		const dir = busDir();
 		const { frontend, backend, calls } = await pair(dir);
-		await backend.watch({ wake: true });
+		await backend.join({ wake: true });
 		await frontend.send({ to: "backend", text: "read me first" });
 		expect(await backend.inbox()).toHaveLength(1);
 		await backend.poll();
@@ -227,7 +227,7 @@ describe("the inbox watch", () => {
 		const { frontend, backend } = await pair(dir);
 		const third = bus(dir, "/repo/third", () => 1_000);
 		await acting(third, context("/repo/third", "s3", "third"));
-		await backend.watch({ wake: true });
+		await backend.join({ wake: true });
 		await frontend.send({ to: "*", kind: "event", text: "build failed" });
 		await backend.poll();
 		expect(backend.pending().map((message) => message.kind)).toEqual(["event"]);
@@ -236,18 +236,33 @@ describe("the inbox watch", () => {
 		await third.stop();
 	});
 
+	test("the record says whether this session is listening, so a peer reads it from disk", async () => {
+		const dir = busDir();
+		const { frontend, backend } = await pair(dir);
+		const store = createBusStore({ dir });
+		await backend.join({ wake: true });
+		expect((await store.session("s2"))?.watching).toEqual({ armed: true, wake: true });
+		// The peer reads it in the status rows it already asks for, not a second call.
+		const seen = (await frontend.status()).sessions.find((session) => session.id === "s2");
+		expect(seen?.watching).toEqual({ armed: true, wake: true });
+		await backend.join({ listen: false });
+		expect((await store.session("s2"))?.watching).toBeUndefined();
+		await frontend.stop();
+		await backend.stop();
+	});
+
 	test("arming is idempotent, an explicit wake sets the mode, and stop is safe when unarmed", async () => {
 		const dir = busDir();
 		const { backend } = await pair(dir);
-		expect(await backend.watch({ wake: true })).toEqual({ armed: true, wake: true });
+		expect((await backend.join({ wake: true })).watching).toEqual({ armed: true, wake: true });
 		// An omitted `wake` keeps an armed watch's mode.
-		expect(await backend.watch({})).toEqual({ armed: true, wake: true });
-		expect(await backend.watch({ wake: false })).toEqual({ armed: true, wake: false });
+		expect((await backend.join({})).watching).toEqual({ armed: true, wake: true });
+		expect((await backend.join({ wake: false })).watching).toEqual({ armed: true, wake: false });
 		expect((await backend.status()).watching).toEqual({ armed: true, wake: false });
-		expect(await backend.watch({ wake: true })).toEqual({ armed: true, wake: true });
+		expect((await backend.join({ wake: true })).watching).toEqual({ armed: true, wake: true });
 		expect((await backend.status()).watching).toEqual({ armed: true, wake: true });
-		expect(await backend.watch({ stop: true })).toEqual({ armed: false, wake: false });
-		expect(await backend.watch({ stop: true })).toEqual({ armed: false, wake: false });
+		expect((await backend.join({ listen: false })).watching).toEqual({ armed: false, wake: false });
+		expect((await backend.join({ listen: false })).watching).toEqual({ armed: false, wake: false });
 		expect((await backend.status()).watching).toBeUndefined();
 		await backend.stop();
 	});
@@ -255,13 +270,13 @@ describe("the inbox watch", () => {
 	test("enabling wake over mail already queued signals that burst", async () => {
 		const dir = busDir();
 		const { frontend, backend, calls } = await pair(dir);
-		await backend.watch({});
+		await backend.join({});
 		await frontend.send({ to: "backend", text: "queued first" });
 		await backend.poll();
 		expect(backend.pending()).toHaveLength(1);
 		expect(calls).toEqual([]);
 
-		await backend.watch({ wake: true });
+		await backend.join({ wake: true });
 		expect(calls).toHaveLength(1);
 
 		await frontend.stop();
@@ -285,11 +300,11 @@ describe("the inbox watch", () => {
 			},
 		});
 		await acting(backend, context("/repo/backend", "s2", "backend"));
-		await backend.watch({});
+		await backend.join({});
 		expect(ticks).toHaveLength(1);
-		await backend.watch({ stop: true });
+		await backend.join({ listen: false });
 		expect(stopped).toBe(1);
-		await backend.watch({});
+		await backend.join({});
 		await backend.stop();
 		expect(stopped).toBe(2);
 	});
@@ -297,7 +312,7 @@ describe("the inbox watch", () => {
 	test("reported mail leaves the queue but stays unread until inbox runs", async () => {
 		const dir = busDir();
 		const { frontend, backend } = await pair(dir);
-		await backend.watch({});
+		await backend.join({});
 		await frontend.send({ to: "backend", text: "notice me" });
 		await backend.poll();
 		const [message] = backend.pending();
@@ -347,7 +362,7 @@ describe("board reads", () => {
 		const backend = bus(dir, "/repo/backend", now);
 		await acting(frontend, context("/repo/frontend", "s1", "frontend"));
 		await acting(backend, context("/repo/backend", "s2", "backend"));
-		await backend.watch({});
+		await backend.join({});
 		await frontend.send({ to: "backend", text: "preview me" });
 
 		expect((await backend.peek()).map((message) => message.text)).toEqual(["preview me"]);
@@ -398,7 +413,7 @@ describe("snapshot", () => {
 		await acting(first, context("/repo/frontend", "s1", "frontend"));
 		await acting(second, context("/repo/backend", "s2", "backend"));
 		await second.claim(["src/api"]);
-		await first.watch({ wake: true });
+		await first.join({ wake: true });
 		await second.send({ to: "frontend", text: "notice me" });
 
 		const live = await first.snapshot();
@@ -459,7 +474,7 @@ describe("labels", () => {
 		await peer.stop();
 	});
 
-	test("renames onto a stale session's label instead of refusing it", async () => {
+	test("joins onto a stale session's label instead of refusing it", async () => {
 		const dir = busDir();
 		const store = createBusStore({ dir });
 		await store.ensure();
@@ -467,7 +482,7 @@ describe("labels", () => {
 
 		const session = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		await acting(session, context("/repo", "s1", "mine"));
-		expect(await session.rename("lead")).toBe("lead");
+		expect((await session.join({ label: "lead", listen: false })).label).toBe("lead");
 		await session.stop();
 	});
 
@@ -499,14 +514,17 @@ describe("labels", () => {
 		await second.stop();
 	});
 
-	test("two renames to one label in the same instant end distinct", async () => {
+	test("two joins to one label in the same instant end distinct", async () => {
 		const dir = busDir();
 		const first = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		await acting(first, context("/repo", "s1", "one"));
 		await acting(second, context("/repo", "s2", "two"));
 		// Either rename may be refused or yield; neither may leave two sessions named lead.
-		await Promise.all([first.rename("lead").catch(() => "refused"), second.rename("lead").catch(() => "refused")]);
+		await Promise.all([
+			first.join({ label: "lead", listen: false }).catch(() => "refused"),
+			second.join({ label: "lead", listen: false }).catch(() => "refused"),
+		]);
 		const labels = (await createBusStore({ dir }).sessions()).map((session) => session.label);
 		expect(new Set(labels).size).toBe(2);
 		expect(labels.filter((label) => label === "lead").length).toBeLessThanOrEqual(1);
@@ -659,7 +677,7 @@ describe("heartbeat", () => {
 		// A headless session joins by naming itself, which is not the join-bus path,
 		// so the heartbeat has to be armed here too or it goes stale while idle.
 		await named.start(context("/repo", "s1", "lead", "json"));
-		await named.rename("lead");
+		await named.join({ label: "lead", listen: false });
 		expect(ticks).toHaveLength(1);
 		// A later reader must not arm a second ticker.
 		await named.status();

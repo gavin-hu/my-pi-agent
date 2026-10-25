@@ -6,6 +6,7 @@
  */
 
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { SESSION_TOOL } from "../../lib/tool-names.ts";
 
 /**
@@ -18,16 +19,21 @@ export { defaultLabel, MAX_LABEL, normalizeLabel, shortId } from "../../lib/sess
 
 export const TOOL_NAME = SESSION_TOOL;
 export const COMMAND_NAME = "sessions";
-export const MAX_TEXT = 4_000;
+/**
+ * The text cap, from `lib/session-tool.ts`, where the callers that clip to it live.
+ * Re-exported the way the label rules are, so this extension imports its protocol's
+ * constants from one place and two extensions cannot drift apart on the number.
+ */
+export const MAX_TEXT = MAX_MESSAGE_TEXT;
 export const MAX_PATHS = 20;
 export const DEFAULT_LIMIT = 20;
 export const MAX_LIMIT = 50;
 
 export type SessionMode = "tui" | "rpc" | "json" | "print" | "unknown";
-export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "watch" | "name";
+export type SessionAction = "status" | "send" | "inbox" | "claim" | "release" | "join";
 export type MessageKind = "message" | "event" | "ask" | "handoff";
 
-const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "watch", "name"];
+const ACTIONS: readonly SessionAction[] = ["status", "send", "inbox", "claim", "release", "join"];
 const KINDS: readonly MessageKind[] = ["message", "event", "ask", "handoff"];
 
 /** The session mode as the record stores it. */

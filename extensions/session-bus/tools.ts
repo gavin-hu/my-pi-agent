@@ -2,7 +2,7 @@
  * The `session` tool.
  *
  * One action-shaped tool keeps the prompt surface small: status, send, inbox,
- * claim, release, watch, name. The runtime owns file I/O and lifecycle; this
+ * claim, release, join. The runtime owns file I/O and lifecycle; this
  * module only validates the action, calls the runtime, and hands the result to
  * the shared presentation module — one collapsed line, or the board's rows on
  * expand.
@@ -14,15 +14,7 @@ import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
-import {
-	formatClaim,
-	formatInbox,
-	formatName,
-	formatRelease,
-	formatSend,
-	formatStatus,
-	formatWatch,
-} from "./format.ts";
+import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
 import { normalizeAction, TOOL_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
 import { collapsedLine, resultSections, SessionResult } from "./result.ts";
@@ -31,8 +23,8 @@ import type { SessionDetails } from "./types.ts";
 export { TOOL_NAME };
 
 const SessionParams = Type.Object({
-	action: StringEnum(["status", "send", "inbox", "claim", "release", "watch", "name"] as const, {
-		description: "status, send, inbox, claim, release, watch, or name.",
+	action: StringEnum(["status", "send", "inbox", "claim", "release", "join"] as const, {
+		description: "status, send, inbox, claim, release, or join.",
 	}),
 	to: Type.Optional(Type.String({ description: "Target session label/id, or * for an event broadcast." })),
 	text: Type.Optional(Type.String({ description: "Message text, at most 4000 characters." })),
@@ -49,13 +41,16 @@ const SessionParams = Type.Object({
 	),
 	wake: Type.Optional(
 		Type.Boolean({
-			description:
-				"With watch: set the mode — true raises one turn per burst, false waits for the next turn, omitted keeps it.",
+			description: "With join: mail raises one turn per burst once the agent is idle; omitted waits for the next turn.",
 		}),
 	),
-	stop: Type.Optional(Type.Boolean({ description: "With watch: turn this session's inbox watch off." })),
+	listen: Type.Optional(
+		Type.Boolean({
+			description: "With join: false joins without listening, so mail waits in the inbox until `inbox` reads it.",
+		}),
+	),
 	label: Type.Optional(
-		Type.String({ description: "With name: what other sessions call this one, e.g. `billing-lead`." }),
+		Type.String({ description: "With join: what other sessions call this one, e.g. `billing-lead`." }),
 	),
 });
 
@@ -67,9 +62,9 @@ type SessionArgs = Static<typeof SessionParams>;
  * identity of the call.
  */
 function callSubject(action: string, args: Record<string, unknown>): string {
-	if (action === "name") {
+	if (action === "join") {
 		const label = typeof args.label === "string" ? args.label.trim() : "";
-		return label ? `name ${label}` : "name";
+		return label ? `join ${label}` : "join";
 	}
 	if (action === "send") {
 		const to = typeof args.to === "string" ? args.to : "";
@@ -89,9 +84,9 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 		description:
 			"Coordinate parallel Pi sessions on this repository. Actions: `status` (sessions, unread, claims), " +
 			"`send` (to a label/id, or `*` for an event), `inbox` (consume messages), `claim`/`release` (paths), " +
-			"`watch` (report new mail at your next turn, or raise one with `wake`; `stop` turns it off), `name` (join the bus under a label). " +
-			"Delivery is pull-based unless this session arms `watch`.",
-		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, watch, name.",
+			"`join` (get on the bus under a label, and listen for mail unless `listen: false`; `wake` raises a turn). " +
+			"Delivery is pull-based unless this session joined and is listening.",
+		promptSnippet: "Coordinate parallel sessions: status, send, inbox, claim, release, join.",
 		promptGuidelines: [
 			"Check `session inbox` when starting a coordinated turn.",
 			"Claim the paths you will edit before changing them; release them when done.",
@@ -146,18 +141,22 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 							notOwned: result.notOwned,
 						});
 					}
-					case "watch": {
-						const watching = await bus.watch({ wake: args.wake, stop: args.stop });
-						return textResult(formatWatch(watching), { action, watching });
-					}
-					case "name": {
+					case "join": {
 						const label = typeof args.label === "string" ? args.label.trim() : "";
-						if (!label) return errorResult(action, 'name requires a label, e.g. "billing-lead".');
-						const named = await bus.rename(label);
-						// The bus's label and Pi's session name are one identity: the footer,
-						// `/resume`, and the record a peer addresses have to agree.
-						pi.setSessionName(named);
-						return textResult(formatName(named), { action, label: named });
+						const joined = await bus.join({
+							...(label === "" ? {} : { label }),
+							...(args.wake === undefined ? {} : { wake: args.wake }),
+							...(args.listen === undefined ? {} : { listen: args.listen }),
+						});
+						// A label is the bus's name and Pi's session name in one act, so the footer,
+						// `/resume`, and the record a peer addresses agree. A bare join derives its
+						// label from the name Pi already shows and must not rename it back.
+						if (label !== "") pi.setSessionName(joined.label);
+						return textResult(formatJoin(joined.label, joined.watching), {
+							action,
+							label: joined.label,
+							watching: joined.watching,
+						});
 					}
 				}
 			} catch (error) {

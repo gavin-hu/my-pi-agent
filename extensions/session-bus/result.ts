@@ -127,9 +127,7 @@ export function resultSections(details: SessionDetails): TailResultInput<BusRow>
 				sections: [section(delivered.map((label) => ({ kind: "result", label, tone: "ok" })))],
 			};
 		}
-		case "watch":
-			return undefined;
-		case "name":
+		case "join":
 			return undefined;
 	}
 }
@@ -198,16 +196,13 @@ export function collapsedLine(theme: Theme, details: SessionDetails): string {
 			}
 			return parts.length > 0 ? parts.join(paint(theme, "faint", sep)) : paint(theme, "meta", "Nothing to release");
 		}
-		case "watch": {
-			const armed = details.watching?.armed === true;
-			if (!armed) return paint(theme, "meta", "Inbox watch off");
-			return paint(
-				theme,
-				"ok",
-				details.watching?.wake === true ? "Inbox watch on: new mail wakes a turn" : "Inbox watch on",
-			);
+		case "join": {
+			const label = paint(theme, "ok", sanitizeLine(details.label ?? ""));
+			const state =
+				details.watching?.armed !== true
+					? paint(theme, "meta", "not listening")
+					: paint(theme, "meta", details.watching.wake === true ? "listening, wake" : "listening");
+			return `${label}${paint(theme, "faint", sep)}${state}`;
 		}
-		case "name":
-			return paint(theme, "ok", `Named this session "${sanitizeLine(details.label ?? "")}"`);
 	}
 }
