@@ -66,9 +66,9 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 		description:
 			"Run a round of work over the shared board: `assign` hands a card to a running session and sends it a handoff " +
 			"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
-			"live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back to To do. " +
-			"All three need the team; use `board` for everything else. Nothing here starts a peer's turn: a message waits " +
-			"in its inbox, and a peer that is listening reports it at its next turn.",
+			"live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back to To do and " +
+			"sends nothing, so it needs no team. Use `board` for everything else. Nothing here starts a peer's turn: a " +
+			"message waits in its inbox, and a peer that is listening reports it at its next turn.",
 		promptSnippet: "Run a round over the board: assign a card to a running session, offer one, or reclaim one.",
 		promptGuidelines: [
 			"Open the board with `/board` or work a card first, so this session and its peers are on the team.",

@@ -84,6 +84,14 @@ describe("the registration", () => {
 		expect(tool.executionMode).toBe("sequential");
 	});
 
+	test("says which action needs no team", () => {
+		const { tool } = harness();
+		// Read every session, so the claim has to be the true one: `reclaim` writes the card
+		// alone, and a model told otherwise goes looking for a bus it does not need.
+		expect(tool.description).toContain("needs no team");
+		expect(tool.description).not.toContain("All three need the team");
+	});
+
 	test("refuses an action it does not have, without throwing", async () => {
 		const { call } = harness();
 		const result = await call({ action: "spawn", card: "1" });
