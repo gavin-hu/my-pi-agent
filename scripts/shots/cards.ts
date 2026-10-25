@@ -24,15 +24,15 @@ const CARD_WIDTH = 1200;
 const CARD_HEIGHT = 675;
 
 /** One card: the page to open and the PNG it is published as. */
-interface Card {
+export interface Card {
 	/** File name under `assets/cards/`. */
 	page: string;
 	/** Default output file name under `assets/cards/`. */
 	png: string;
 }
 
-/** The cards, keyed by the name the command line takes. */
-const CARDS: Record<string, Card> = {
+/** The cards, keyed by the name the command line takes; the suite reads this map. */
+export const CARDS: Record<string, Card> = {
 	flow: { page: "plan-flow.html", png: "plan-flow.png" },
 	graphic: { page: "plan-flow-graphic.html", png: "plan-flow-graphic.png" },
 	board: { page: "board.html", png: "board.png" },

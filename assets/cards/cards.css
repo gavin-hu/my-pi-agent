@@ -705,10 +705,6 @@ body {
 	fill: var(--accent);
 }
 
-.verb-label--write {
-	fill: var(--success);
-}
-
 .verb-label--quiet {
 	fill: var(--accent-alt);
 }
