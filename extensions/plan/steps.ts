@@ -18,22 +18,7 @@
  * checkbox or a `[DONE:n]` marker sets the status.
  */
 
-import { extractSections as extractPlanSections, FENCE, HEADING, normalizeHeadingText } from "./sections.ts";
-
-/**
- * The section machinery is `sections.ts`, the one fence-aware scan this
- * module navigates with. These re-exports keep the plan extension's public surface
- * one import.
- */
-export {
-	extractSections as extractPlanSections,
-	FENCE,
-	HEADING,
-	normalizeHeadingText,
-	replaceSection,
-	sectionKeys,
-} from "./sections.ts";
-export type { PlanSection } from "./sections.ts";
+import { extractSections, FENCE, HEADING, normalizeHeadingText } from "./sections.ts";
 
 /** Most steps seeded from one plan. */
 export const MAX_STEPS = 50;
@@ -291,7 +276,7 @@ const LIST_PREFIX = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/;
  */
 export function verificationItem(plan: string): PlanStep | undefined {
 	if (stepsSection(plan) === undefined) return undefined;
-	const section = extractPlanSections(plan).find(
+	const section = extractSections(plan).find(
 		(candidate) => candidate.level > 0 && candidate.title.toLowerCase() === "verification",
 	);
 	if (!section) return undefined;
@@ -390,7 +375,7 @@ export function setStepStatuses(plan: string, updates: readonly StepEdit[]): str
  * `## Goal` section, so the caller can fall back to the title.
  */
 export function goalSection(plan: string): string | undefined {
-	const section = extractPlanSections(plan).find(
+	const section = extractSections(plan).find(
 		(candidate) => candidate.level === 2 && normalizeHeadingText(candidate.title).toLowerCase() === "goal",
 	);
 	if (section === undefined) return undefined;

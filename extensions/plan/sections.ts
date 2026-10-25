@@ -1,11 +1,11 @@
 /**
  * Plan-document sections (pure).
  *
- * One fence-aware scan of a plan's markdown, and one rewrite of a section in
- * place: the review screen navigates by section, `set_plan_steps` rewrites
- * `## Steps`, and a carried comment finds the block it belongs to through the
- * same parse. A second scanner would disagree about a heading inside a fence, so
- * every reader goes through this module.
+ * One fence-aware scan of a plan's markdown: the review screen navigates by
+ * section, `set_plan_steps` looks up `## Steps`, a carried comment finds the
+ * block it belongs to, and the browser outline lists the same headings. A second
+ * scanner would disagree about a heading inside a fence, so every reader goes
+ * through this module.
  *
  * The scan is deliberately smaller than CommonMark: a heading is up to three
  * leading spaces, a space after the hashes, and an optional closing run; a fence
@@ -109,75 +109,4 @@ export function sectionKeys(sections: readonly { title: string }[]): string[] {
 		seen.set(section.title, occurrence + 1);
 		return `${occurrence}\u0000${section.title}`;
 	});
-}
-
-/**
- * The index one past a section's last line: the next heading at its level or
- * shallower, outside a fence, or the end of the document.
- *
- * Level-aware on purpose, and not the review's notion of a section: the outline
- * lists every heading at its own level, while a rewrite of `## Steps` must take
- * its `###` subsections with it. Flattening the two would move a rewritten
- * section's subsections and the review's comments; they answer different
- * questions.
- */
-function sectionEnd(lines: readonly string[], start: number): number {
-	const level = lines[start].match(HEADING)?.[1].length ?? 2;
-	let fence: string | undefined;
-	for (let index = start + 1; index < lines.length; index++) {
-		const line = lines[index];
-		const fenceMatch = line.match(FENCE);
-		if (fenceMatch) {
-			if (fence === undefined) fence = fenceMatch[1][0];
-			else if (fence === fenceMatch[1][0]) fence = undefined;
-			continue;
-		}
-		if (fence !== undefined) continue;
-		const heading = line.match(HEADING);
-		if (heading && heading[1].length <= level) return index;
-	}
-	return lines.length;
-}
-
-/**
- * Replace a level-2 section's body, or remove the section, or append one.
- *
- * `body` is the section's markdown after its heading, without the heading line —
- * the caller keeps the heading text so a refinement cannot rename the section
- * that other code looks for. An empty `body` removes the whole section, which is
- * how a team stops existing; a missing section with a body appends one, so the
- * write is idempotent rather than order-dependent.
- */
-export function replaceSection(plan: string, title: string, body: string | undefined): string {
-	const lines = plan.split("\n");
-	const wanted = normalizeHeadingText(title).toLowerCase();
-	const sections = extractSections(plan);
-	const found = sections.find(
-		(candidate) => candidate.level === 2 && normalizeHeadingText(candidate.title).toLowerCase() === wanted,
-	);
-
-	if (!found) {
-		if (body === undefined) return plan;
-		const prefix = plan.trim() === "" ? "" : `${plan.replace(/\s+$/, "")}\n\n`;
-		return `${prefix}## ${title}\n${body.replace(/\s+$/, "")}\n`;
-	}
-
-	const end = sectionEnd(lines, found.line);
-	const head = lines.slice(0, found.line);
-	const tail = lines.slice(end);
-	if (body === undefined) {
-		// Drop the blank line that separated the section from what follows, so a
-		// removed section leaves one gap rather than two.
-		const joined = [...head, ...tail];
-		return (
-			joined
-				.join("\n")
-				.replace(/\n{3,}/g, "\n\n")
-				.replace(/\s+$/, "") + (plan.endsWith("\n") ? "\n" : "")
-		);
-	}
-	const replacement = [`## ${title}`, "", ...body.replace(/\s+$/, "").split("\n")];
-	// Keep one blank line between the rewritten section and whatever followed it.
-	const gap = tail.length > 0 && tail[0].trim() !== "" ? [""] : [];
-	return [...head, ...replacement, ...gap, ...tail].join("\n");
 }

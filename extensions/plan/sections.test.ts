@@ -1,10 +1,10 @@
 /**
- * The plan-document section scan and its in-place rewrite: the one fence-aware
- * view plan mode reads a document through.
+ * The plan-document section scan: the one fence-aware view plan mode reads a
+ * document through.
  */
 
 import { describe, expect, test } from "bun:test";
-import { extractSections, replaceSection, sectionKeys } from "./sections.ts";
+import { extractSections, sectionKeys } from "./sections.ts";
 
 const PLAN = `# Title
 
@@ -41,6 +41,44 @@ describe("extractSections", () => {
 		const appendix = extractSections(PLAN).find((section) => section.title === "Appendix");
 		expect(appendix?.text).toStartWith("## Appendix\n\nA note.");
 	});
+
+	test("keeps content before the first heading as an untitled section", () => {
+		const sections = extractSections(["intro line", "", "## Goal", "x"].join("\n"));
+		expect(sections[0]?.title).toBe("");
+		expect(sections[0]?.text).toContain("intro line");
+	});
+
+	test("drops a blank preamble and strips inline formatting from titles", () => {
+		expect(extractSections("\n\n## **Goal** `x`")[0]?.title).toBe("Goal x");
+	});
+
+	test("reads a tab-indented fence as prose, the same as the block parser", () => {
+		// The fence rule is shared with `blocks.ts`, whose rule is spaces-only: a
+		// tab-indented fence must not be code for one parser and prose for the other.
+		const plan = ["\t```", "## Inside", "\t```", "## After"].join("\n");
+		expect(extractSections(plan).map((section) => section.title)).toEqual(["", "Inside", "After"]);
+	});
+
+	test("returns nothing for an empty plan", () => {
+		expect(extractSections("")).toEqual([]);
+		expect(extractSections("\n\n")).toEqual([]);
+	});
+
+	test("reports each heading's source line and level", () => {
+		const plan = ["# Title", "", "## **Goal**", "", "### `Code` step"].join("\n");
+		expect(
+			extractSections(plan).map((section) => ({ line: section.line, level: section.level, title: section.title })),
+		).toEqual([
+			{ line: 0, level: 1, title: "Title" },
+			{ line: 2, level: 2, title: "Goal" },
+			{ line: 4, level: 3, title: "Code step" },
+		]);
+	});
+
+	test("keeps a heading's own trailing hash, not a closing run", () => {
+		expect(extractSections("## C#\nx")[0]?.title).toBe("C#");
+		expect(extractSections("## Notes ##\nx")[0]?.title).toBe("Notes");
+	});
 });
 
 describe("sectionKeys", () => {
@@ -58,58 +96,5 @@ describe("sectionKeys", () => {
 		const sections = extractSections(PLAN);
 		expect(sectionKeys(sections)).toHaveLength(sections.length);
 		expect(new Set(sectionKeys(sections)).size).toBe(sections.length);
-	});
-});
-
-describe("replaceSection", () => {
-	test("replaces a section's body and keeps the rest of the document", () => {
-		const next = replaceSection(PLAN, "Appendix", "A longer note.\n\n- more evidence");
-		expect(next).toContain("## Appendix\n\nA longer note.\n\n- more evidence");
-		expect(next).toContain("## Steps");
-		expect(next).toContain("bun run check");
-	});
-
-	test("appends a section that is not there", () => {
-		const plan = "# T\n\n## Steps\n\n- [ ] one";
-		const next = replaceSection(plan, "Appendix", "A note.");
-		expect(next).toEndWith("## Steps\n\n- [ ] one\n\n## Appendix\nA note.\n");
-		expect(next).toContain("## Appendix");
-	});
-
-	test("removes a section when the body is undefined", () => {
-		const next = replaceSection(PLAN, "Appendix", undefined);
-		expect(next).not.toContain("## Appendix");
-		expect(next).toContain("## Steps");
-		expect(next).toContain("## Verification");
-	});
-
-	test("removing a missing section changes nothing", () => {
-		const plan = "# T\n\n## Steps\n\n- [ ] one";
-		expect(replaceSection(plan, "Appendix", undefined)).toBe(plan);
-	});
-
-	test("replacing twice is idempotent", () => {
-		const once = replaceSection(PLAN, "Appendix", "A note.");
-		expect(replaceSection(once, "Appendix", "A note.")).toBe(once);
-	});
-
-	test("a heading inside a fence does not end the section", () => {
-		const plan = "# T\n\n## Appendix\n\nA note.\n\n```\n## inside\n```\n\n## Steps\n\n- [ ] one";
-		const next = replaceSection(plan, "Appendix", "A note.");
-		// The fenced line belonged to the section, so the rewrite removes it; the
-		// heading after the fence stays outside.
-		expect(next).not.toContain("## inside");
-		expect(next).toContain("## Steps\n\n- [ ] one");
-		expect(next).toContain("## Appendix\n\nA note.");
-	});
-
-	test("keeps one blank line between the section and the next heading", () => {
-		const next = replaceSection(PLAN, "Appendix", "A note.");
-		expect(next).toContain("A note.\n\n## Verification");
-	});
-
-	test("matches the section title case-insensitively and after markdown stripping", () => {
-		const plan = "# T\n\n## **Appendix**\n\nA note.\n";
-		expect(replaceSection(plan, "Appendix", "Another note.")).toContain("Another note.");
 	});
 });

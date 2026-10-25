@@ -22,7 +22,7 @@
 
 import { sanitizeLine } from "../../lib/format.ts";
 import { blockAt, contentBlockAt, planBlocks, type PlanBlock } from "./blocks.ts";
-import { extractPlanSections, sectionKeys } from "./steps.ts";
+import { extractSections, sectionKeys } from "./sections.ts";
 
 /** Marker that opens every stored feedback line. */
 export const REVIEW_MARKER = "[!REVIEW]";
@@ -345,7 +345,7 @@ function alignBlocks(old: readonly PlanBlock[], next: readonly PlanBlock[]): num
  * with no content block ends at its own heading, which the page renders.
  */
 function sectionIndex(plan: string, blocks: readonly PlanBlock[]): Map<string, { blocks: PlanBlock[]; end: number }> {
-	const sections = extractPlanSections(plan);
+	const sections = extractSections(plan);
 	const index = new Map<string, { blocks: PlanBlock[]; end: number }>();
 	const keys = sectionKeys(sections);
 	keys.forEach((key, at) => index.set(key, { blocks: [], end: sections[at]?.line ?? 0 }));

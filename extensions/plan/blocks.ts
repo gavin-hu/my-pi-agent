@@ -14,7 +14,7 @@
  * step.
  */
 
-import { FENCE, HEADING } from "./steps.ts";
+import { FENCE, HEADING } from "./sections.ts";
 
 /** How a block is rendered and grouped. */
 export type PlanBlockKind = "heading" | "paragraph" | "list" | "code" | "quote" | "table" | "hr" | "blank";

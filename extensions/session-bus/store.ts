@@ -11,7 +11,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdir, link, readdir, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
-import { claimsConflict } from "./protocol.ts";
+import { claimsConflict } from "./overlap.ts";
 import type { BusMessage, ClaimConflict, ClaimRecord, SessionRecord } from "./types.ts";
 
 const DIR_MODE = 0o700;

@@ -16,7 +16,7 @@
 import { createHash } from "node:crypto";
 import { stripControlChars } from "../../lib/format.ts";
 import { displayFeedback, stripFeedback } from "./feedback.ts";
-import { extractPlanSections, sectionKeys, type PlanSection } from "./steps.ts";
+import { extractSections, sectionKeys, type PlanSection } from "./sections.ts";
 
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
@@ -71,7 +71,7 @@ export function planDigest(text: string): string {
 
 /** One digest per heading section, in document order, for a persisted baseline. */
 export function sectionDigests(content: string): SectionDigest[] {
-	return extractPlanSections(reviewText(content)).map((section) => ({
+	return extractSections(reviewText(content)).map((section) => ({
 		title: section.title,
 		digest: digestOf(section.text),
 	}));
@@ -103,7 +103,7 @@ export interface SectionMark {
  * aligned with the sections a screen renders from the same content.
  */
 export function changedSections(baseline: readonly SectionDigest[] | undefined, current: string): SectionMark[] {
-	const sections = extractPlanSections(reviewText(current));
+	const sections = extractSections(reviewText(current));
 	if (baseline === undefined) return sections.map((section) => ({ section, changed: false }));
 
 	// Same section across two reviews: `sectionKeys` tells a second `## Notes` from
