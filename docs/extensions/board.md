@@ -235,9 +235,11 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
-| `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, and the three closes — `/board stop`, the idle grace, and shutdown |
+| `page.ts` | The page's lifecycle: the port it remembers, the chip that names it, and the three closes — `/board stop`, the idle grace, and shutdown |
+| `snapshot.ts` | The page's snapshot: the cards, the bus's records, and the store's size, handed to `buildView` |
+| `writes.ts` | The page's write path: one request to one store call, 422 for a field and 409 for a card somebody else moved |
 | `commands.ts` | `/board` and its three words |
-| `transport/router.ts` | The routes, the token, and the guards in front of them |
+| `transport/router.ts` | The routes, what a credential may do, and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push, and the close |
 | `view/page.ts` | The document: an inert shell the client fills |
 | `view/styles.ts` | The page's `board-*` layout rules |

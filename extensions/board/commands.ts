@@ -46,9 +46,10 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 				);
 				return;
 			}
-			const status = await page.start(ctx, word === "team" ? "team" : "board");
-			if (!status.running) return;
-			ctx.ui.notify(`board: ${status.where} at ${status.url}`, "info");
+			const started = await page.start(ctx, word === "team" ? "team" : "board");
+			// A failed start has already said why; a served one says where.
+			if (started.kind === "failed") return;
+			ctx.ui.notify(`board: ${started.where} at ${started.url}`, "info");
 		},
 	});
 }

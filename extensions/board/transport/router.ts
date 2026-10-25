@@ -24,7 +24,6 @@ import {
 	requireJsonBody,
 	scriptHeaders,
 	type ServeResponse,
-	tokenMatches,
 } from "../../../lib/http/index.ts";
 import type { BoardView } from "../../../lib/board/view.ts";
 import type { Card } from "../../../lib/board/card.ts";
@@ -33,6 +32,16 @@ import type { PageView } from "../view/page.ts";
 
 /** The methods this surface serves: reads, writes, and the one deletion. */
 const METHODS: readonly string[] = [...PAGE_METHODS, "DELETE"];
+
+/**
+ * What a credential may do on this page.
+ *
+ * A page can be opened by the session that serves it and by a teammate watching it, and
+ * the two carry different tokens: `write` may change a card, `view` may only read. The
+ * split is a value here and not a boolean threaded through the page, so a route asks one
+ * function instead of remembering which token it was given.
+ */
+export type Authority = "write" | "view";
 
 /** The verbs a card route accepts, in the order the page uses them. */
 const CARD_VERBS = ["claim", "release", "reclaim", "move", "note", "plan", "edit"] as const;
@@ -51,8 +60,8 @@ export type PageResult = { ok: true; card: Card } | { ok: false; status: number;
 
 /** Everything the router needs from the running page. */
 export interface BoardRouterContext {
-	/** The credential this page was minted with. */
-	token: string;
+	/** What the request's token may do here, or undefined when it is not a token of this page. */
+	authority: (given: string | null) => Authority | undefined;
 	/** The names this server answers to. */
 	hosts: () => readonly string[];
 	/** The document for one tab. */
@@ -87,8 +96,8 @@ export async function handleBoardRequest(
 	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 	if (pathname === "/app.js") return { status: 200, headers: scriptHeaders(), body: ctx.script };
 
-	const refusal = tokenGuard(ctx, search.get("token"));
-	if (refusal) return refusal;
+	const authority = ctx.authority(search.get("token"));
+	if (authority === undefined) return jsonError(403, "Invalid or missing token.");
 
 	if (pathname === "/api/board") return jsonResponse(200, await ctx.view());
 	if (pathname === "/" || pathname === "/index.html") {
@@ -96,6 +105,10 @@ export async function handleBoardRequest(
 		return { status: 200, headers: pageHeaders(), body: await ctx.page(view) };
 	}
 	if (pathname === "/events") return { status: 200, headers: eventHeaders(), stream: true };
+
+	// Everything below changes a card, so a credential that may only read stops here.
+	const readOnly = writeGuard(authority);
+	if (readOnly) return readOnly;
 
 	if (pathname === "/api/cards") {
 		const methodRefusal = postOnly(method, "add a card");
@@ -126,10 +139,10 @@ export async function handleBoardRequest(
 	return writeAnswer(await ctx.write({ kind: verb as CardVerb, id, body: parsedBody }));
 }
 
-/** The 403 for a missing or wrong token, or nothing when the caller may proceed. */
-function tokenGuard(ctx: BoardRouterContext, given: string | null): ServeResponse | undefined {
-	if (tokenMatches(ctx.token, given ?? "")) return undefined;
-	return jsonError(403, "Invalid or missing token.");
+/** The 403 for a credential that may read this page but not change it. */
+function writeGuard(authority: Authority): ServeResponse | undefined {
+	if (authority === "write") return undefined;
+	return jsonError(403, "This page is read-only for a viewer.");
 }
 
 /** The tab a `?view=` names; anything else is the board. */

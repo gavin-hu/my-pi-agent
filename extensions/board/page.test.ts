@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
-import { createBoardPage, IDLE_STOP_MS } from "./page.ts";
+import { createBoardPage, IDLE_STOP_MS, type PageStart } from "./page.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 
 const temps = makeTempTracker();
@@ -26,6 +26,12 @@ function harness() {
 	const opened: string[] = [];
 	const page = createBoardPage(board.runtime, { pickPort: () => 0, open: (url) => opened.push(url), idleMs: 40 });
 	return { page, ctx: board.ctx, opened, notifications: board.notifications, cwd: board.cwd, runtime: board.runtime };
+}
+
+/** The started page, or a failure that says why it did not start. */
+function served(start: PageStart): { port: number; url: string } {
+	if (start.kind !== "served") throw new Error(`the page did not start: ${start.reason}`);
+	return start;
 }
 
 describe("the roster", () => {
@@ -42,7 +48,7 @@ describe("the roster", () => {
 			{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000 },
 			{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW },
 		]);
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		const snapshot = JSON.parse(
 			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
 		);
@@ -55,7 +61,7 @@ describe("the roster", () => {
 
 	test("says nothing about the roster when no session has ever joined here", async () => {
 		const { page, ctx } = harness();
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		const snapshot = JSON.parse(
 			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
 		);
@@ -67,8 +73,7 @@ describe("the roster", () => {
 describe("start", () => {
 	test("serves the document, the snapshot, and a write", async () => {
 		const { page, ctx, opened } = harness();
-		const status = await page.start(ctx);
-		expect(status.running).toBe(true);
+		const status = served(await page.start(ctx));
 		expect(status.port).toBeGreaterThan(0);
 		// The opened URL carries the credential the page needs, and nothing else does.
 		expect(opened[0]).toContain("?token=");
@@ -115,7 +120,7 @@ describe("start", () => {
 
 	test("publishes the chip, and clears it on stop", async () => {
 		const { page, ctx } = harness();
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		expect(ctx.statuses.get("board")).toContain(String(status.port));
 		await page.stop(ctx);
 		expect(ctx.statuses.has("board")).toBe(false);
@@ -123,8 +128,8 @@ describe("start", () => {
 
 	test("a second start reuses the running page", async () => {
 		const { page, ctx, opened } = harness();
-		const first = await page.start(ctx);
-		const second = await page.start(ctx);
+		const first = served(await page.start(ctx));
+		const second = served(await page.start(ctx));
 		expect(second.port).toBe(first.port);
 		expect(opened).toHaveLength(1);
 		await page.stop(ctx);
@@ -143,7 +148,7 @@ describe("start", () => {
 describe("a refused write over the wire", () => {
 	test("answers 409 with the card, and the page keeps showing it", async () => {
 		const { page, ctx } = harness();
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
 		const post = async (path: string, body: unknown) =>
 			fetch(`http://127.0.0.1:${status.port}${path}?token=${token}`, {
@@ -168,7 +173,7 @@ describe("a refused write over the wire", () => {
 describe("a validation failure", () => {
 	test("answers 422 without touching a card", async () => {
 		const { page, ctx } = harness();
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
 		const response = await fetch(`http://127.0.0.1:${status.port}/api/cards?token=${token}`, {
 			method: "POST",
@@ -182,7 +187,7 @@ describe("a validation failure", () => {
 
 	test("refuses a priority the board does not know", async () => {
 		const { page, ctx } = harness();
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
 		const response = await fetch(`http://127.0.0.1:${status.port}/api/cards?token=${token}`, {
 			method: "POST",
@@ -198,7 +203,7 @@ describe("a validation failure", () => {
 describe("a write the page makes", () => {
 	test("adds a card with a priority, then edits it back to the ordinary one", async () => {
 		const { page, ctx } = harness();
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
 		const post = async (path: string, body: unknown) => {
 			const response = await fetch(`http://127.0.0.1:${status.port}${path}?token=${token}`, {
@@ -231,7 +236,7 @@ describe("the idle grace", () => {
 	test("closes the page once the last tab has been gone for the grace", async () => {
 		const { page, ctx, notifications } = harness();
 		// The shipped grace, shortened: the same path a real timer takes.
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		expect(IDLE_STOP_MS).toBe(60_000);
 		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
 		const stream = await fetch(`http://127.0.0.1:${status.port}/events?token=${token}`);
@@ -251,7 +256,7 @@ describe("the idle grace", () => {
 describe("closeAll", () => {
 	test("closes the page without a context, as a shutdown does", async () => {
 		const { page, ctx } = harness();
-		const status = await page.start(ctx);
+		const status = served(await page.start(ctx));
 		await page.closeAll();
 		expect(page.status().running).toBe(false);
 		await expect(fetch(status.url ?? "")).rejects.toBeDefined();
