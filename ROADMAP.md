@@ -90,7 +90,7 @@ screenshots.
 |---|---|---|
 | Plan, then execute | Strong; one plan store per repository, a step list approval seeds into `todo`, and a review that follows its file | — |
 | Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | P1–P2 |
-| Never wreck the checkout | Works, but isolation is best-effort | S1–S3 |
+| Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |
 | Optional and upgradeable | Strong; the package updates through Pi's own package manager | C1, F1–F2 |
@@ -228,10 +228,10 @@ cross-repository history to build.
   escape detection is best-effort, so `eval`, `sh -c`, and command substitution
   are covered only behind `blockUnparsableCommands`, and Windows `powershell` is
   refused rather than parsed (`worktree` page).
-- `git branch --merged main` calls a worktree branch merged whenever it matches
-  its base, so a worktree that never committed looks landed while its uncommitted
-  work is still there; prune itself refuses that worktree, and `list_worktrees`
-  reports the clean and merged flags beside each other (`worktree` page).
+- A worktree this package did not create has no recorded fork point, so its row
+  cannot say how many commits it has of its own: `list_worktrees` falls back to
+  `git branch --merged`, and one that never committed still reads as merged
+  (`worktree` page). Prune still refuses such a worktree when it holds work.
 - Rewind captures no ignored file; the path checklist needs a TUI, so RPC,
   `print`, and `json` restore the whole tree; hunk selection covers modified text
   files only; `/review` targets the latest prompt's snapshot and refuses while
@@ -244,12 +244,9 @@ cross-repository history to build.
 
 **Now**
 
-- **S3 — A worktree with no commits stops looking landed.** `git branch
-  --merged` compares branches, not working trees, so a worktree that never
-  committed matches its base while its uncommitted work is still there. The
-  status line gains the commit count `extensions/worktree/git.ts` already
-  computes (`rev-list --count base..branch`), so "no commits" sits beside `clean`
-  and `merged` and the two flags stop contradicting each other.
+Nothing here is queued: the last item shipped — a worktree that has not committed
+since it was created says `no commits` instead of `merged`, so a dirty empty
+checkout stops reading as landed.
 
 Cleanup refuses what it cannot verify, the store reports its own health and
 notices a same-size edit inside a millisecond, and the remaining gaps are

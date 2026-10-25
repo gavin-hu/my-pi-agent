@@ -458,8 +458,10 @@ describe.skipIf(!runSlowSuites)("exiting a worktree", () => {
 
 		const result = await harness.run(WORKTREE_TOOLS.exit, { remove: false });
 		expect(result.content[0].text).toContain("Kept worktree");
-		expect(result.content[0].text).toContain("Handoff: worktree-dirty is merged into main — nothing to merge.");
-		expect(result.details.handoff).toMatchObject({ branch: "worktree-dirty", ahead: 0, merged: true });
+		// Nothing committed, so nothing landed: the handoff says that rather than claiming a
+		// merge of the work still sitting in the directory.
+		expect(result.content[0].text).toContain("Handoff: worktree-dirty has no commits beyond main — nothing to merge.");
+		expect(result.details.handoff).toMatchObject({ branch: "worktree-dirty", ahead: 0, commits: 0, merged: false });
 	});
 
 	test("keeps a dirty worktree's branch when the user chooses remove", async () => {

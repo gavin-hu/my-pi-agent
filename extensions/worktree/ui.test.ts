@@ -226,6 +226,24 @@ describe("WorktreeListComponent", () => {
 		expect(built.component.render(100).join("\n")).toContain("Plan mode is read-only.");
 	});
 
+	test("a worktree with no commits of its own says so instead of merged", () => {
+		const { component } = build({
+			// An empty checkout is an ancestor of its base, which git alone reports as merged.
+			managed: [managed("empty", { state: "dirty", changed: 1, merged: false, commits: 0 })],
+		});
+		const row = component.render(100).join("\n");
+		expect(row).toContain("no commits");
+		expect(row).not.toContain("merged");
+		component.handleInput("l");
+		const detail = component.render(100).join("\n");
+		expect(detail).toContain("dirty (1 changed), no commits");
+	});
+
+	test("a merged row counts the commits that landed", () => {
+		const { component } = build({ managed: [managed("landed", { merged: true, commits: 2 })] });
+		expect(component.render(100).join("\n")).toContain("commits 2");
+	});
+
 	test("opening a row shows its state and, ahead of base, the handoff command", () => {
 		const { component } = build({
 			managed: [managed("beta", { ahead: 2, state: "dirty", changed: 1 })],

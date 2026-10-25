@@ -20,7 +20,12 @@ export interface Handoff {
 	base: string | null;
 	/** Commits on the branch that the base does not contain. */
 	ahead: number;
-	/** Whether the base already contains every commit on the branch. */
+	/**
+	 * Commits the branch has made since the commit it was created at, when that was
+	 * recorded. Absent for a worktree this package did not create.
+	 */
+	commits?: number;
+	/** Whether the work landed: every commit is in the base, and there were commits. */
 	merged: boolean;
 }
 
@@ -43,7 +48,10 @@ export function handoffLines(handoff: Handoff): string[] {
 		];
 	}
 	if (handoff.merged || handoff.ahead === 0) {
-		const state = handoff.merged ? `is merged into ${handoff.base}` : `has no commits beyond ${handoff.base}`;
+		// "Merged" is a claim that work landed; a branch with no commits of its own never had
+		// any to land, and saying so is what stops an empty worktree reading as finished.
+		const landed = handoff.merged && handoff.commits !== 0;
+		const state = landed ? `is merged into ${handoff.base}` : `has no commits beyond ${handoff.base}`;
 		return [`Handoff: ${handoff.branch} ${state} — nothing to merge.`];
 	}
 

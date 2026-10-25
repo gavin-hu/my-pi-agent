@@ -65,7 +65,7 @@ four are `executionMode: "sequential"`, and only `list_worktrees` is read-only.
 | Tool | Usage |
 |---|---|
 | `enter_worktree` | `name` to create a worktree, or `path` to enter an existing one. Errors if already isolated. |
-| `exit_worktree` | optional `remove` and `keepBranch`. Returns the clean/keep/remove decision and a `handoff` (`branch`, `base`, `ahead`, `merged`). |
+| `exit_worktree` | optional `remove` and `keepBranch`. Returns the clean/keep/remove decision and a `handoff` (`branch`, `base`, `ahead`, `commits`, `merged`). |
 | `prune_worktrees` | no parameters. Removes eligible managed worktrees and reports the rest. |
 | `list_worktrees` | no parameters. Read-only status: active root, inactive overrides, isolation gaps, managed worktrees. |
 
@@ -77,11 +77,14 @@ it.
 `exit_worktree` returns to the main checkout. A clean worktree is removed
 automatically; one with uncommitted changes or new commits prompts (or is kept
 in non-interactive mode). Its result ends with a **handoff**: the branch, how
-many commits it holds beyond the merge target, whether that target already
-contains them, and the `git merge --no-ff` and `gh pr create` commands that
-finish the task. The tool never commits, merges, pushes, or opens the PR. A
-branch that still holds work (uncommitted changes, or commits not reachable from
-the recorded base) is never force-deleted, even with `remove: true`.
+many commits it holds beyond the merge target, how many it made since it was
+created, whether that target already contains them, and the `git merge --no-ff`
+and `gh pr create` commands that finish the task. A branch with no commits of its
+own says so rather than claiming a merge — a worktree that never committed is an
+ancestor of its base, and "merged" would read as work that landed. The tool
+never commits, merges, pushes, or opens the PR. A branch that still holds work
+(uncommitted changes, or commits not reachable from the recorded base) is never
+force-deleted, even with `remove: true`.
 
 While isolated, `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` all resolve
 relative paths inside the worktree, and:
@@ -136,10 +139,14 @@ being ignored.
 <img src="../../assets/screens/worktree.png" alt="The /worktree screen: a Worktrees title rule with a `4 worktrees · 1 dirty · 1 ahead` summary, the current dark-mode row carrying its ahead count, a dirty row, a merged row, and a stale-locked row, the focused row's path and base with the Not isolated gap under it, and the key hints" width="100%">
 
 `/worktree` on its own opens a list screen: one row per managed worktree with its
-state (current, dirty, ahead, behind, merged, locked, last used), the active
-worktree's base and isolation gaps under the focused row, and a detail pane for
-the selected one. Outside a terminal — print, RPC, JSON — the same facts print as
-text instead, which is also what the model's `list_worktrees` reads.
+state (current, dirty, ahead, behind, commits, merged, locked, last used), the
+active worktree's base and isolation gaps under the focused row, and a detail
+pane for the selected one. A worktree that has not committed since it was created
+says `no commits` instead of `merged`: it is an ancestor of its base, which git
+alone cannot tell from a branch that landed. When work did land, the row says how
+much — `commits 2  merged`. Outside a terminal — print, RPC, JSON — the same
+facts print as text instead, which is also what the model's `list_worktrees`
+reads.
 
 | Key | What it does |
 |---|---|
@@ -298,10 +305,11 @@ use, falling back to directory mtime for a worktree with no record.
   writes are guarded (relative paths are not isolated), and `list_worktrees`
   reports it. `skipOverrides` is read at load time, from the process working
   directory.
-- `git branch --merged main` calls a worktree branch merged whenever it matches
-  its base, so a worktree that never committed looks landed while its
-  uncommitted work is still there. Read `git -C <path> status` before removing
-  one; `list_worktrees` reports the same clean/merged flags.
+- The commit count behind `no commits` comes from the commit a worktree was
+  created at, which the registry records. A worktree this package did not create
+  has no fork point on record, so it falls back to what `git branch --merged`
+  says: for one of those, a worktree that never committed still reads as merged.
+  Read `git -C <path> status` before removing one.
 - The guard is best-effort at the shell level: command substitution, `eval`, and
   `sh -c` are only covered when `blockUnparsableCommands` is enabled, and real
   isolation of arbitrary shell writes needs an OS sandbox. `/worktree` names the
@@ -330,7 +338,7 @@ use, falling back to directory mtime for a worktree with no record.
 | Contract | Detail |
 |---|---|
 | Registration | The default export calls `registerWorktree`: root-tool overrides, the `--worktree` flag, lifecycle listeners, model tools, and the `/worktree` command. Nothing long-lived starts at load. |
-| Tools | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` via `registerTool`. All `executionMode: "sequential"`. Annotations: `enter_worktree` destructive + open-world; `exit_worktree`/`prune_worktrees` destructive; `list_worktrees` read-only. No `outputSchema`; structured state is returned in tool-result `details` — `exit_worktree` carries `{ state, removed, handoff }`, where `handoff` is `{ branch, base, ahead, merged }`. |
+| Tools | `enter_worktree`, `exit_worktree`, `prune_worktrees`, `list_worktrees` via `registerTool`. All `executionMode: "sequential"`. Annotations: `enter_worktree` destructive + open-world; `exit_worktree`/`prune_worktrees` destructive; `list_worktrees` read-only. No `outputSchema`; structured state is returned in tool-result `details` — `exit_worktree` carries `{ state, removed, handoff }`, where `handoff` is `{ branch, base, ahead, commits, merged }` (`commits` absent when the worktree has no recorded base commit). |
 | Built-in overrides | `read`/`write`/`edit`/`bash`/`grep`/`find`/`ls` are re-registered under the same names with `defaultActive: false`; each spreads the built-in definition and replaces only `execute`. `skipOverrides` is applied at load time. `powershell` is deliberately not overridden: it cannot be re-rooted without a guard, so the `tool_call` handler refuses it (see `guard.blockPowershell`). |
 | Commands | `/worktree` via `registerCommand`, with argument completions for `enter`, `exit`, and `prune`. The bare command mounts `screen.ts` in a terminal and prints the status text otherwise; `enter`/`exit`/`prune` refuse while plan mode is read-only. |
 | Flags | `--worktree` via `registerFlag`. |

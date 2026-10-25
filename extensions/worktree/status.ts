@@ -74,7 +74,11 @@ export function statusMarks(status: CheckoutStatus, isCurrent: boolean): string[
 	if (status.state === "dirty") marks.push(`dirty (${status.changed})`);
 	if (status.ahead > 0) marks.push(`ahead ${status.ahead}`);
 	if (status.behind > 0) marks.push(`behind ${status.behind}`);
-	if (status.merged) marks.push("merged");
+	// A merged mark claims the work landed; with no commits of its own the worktree is an
+	// empty checkout, and saying so is the difference between "nothing here yet" and "done".
+	// How many commits landed is the number that mark is about, so it goes beside it.
+	if (status.commits === 0) marks.push("no commits");
+	else if (status.merged) marks.push(...(status.commits === undefined ? [] : [`commits ${status.commits}`]), "merged");
 	if (status.lastUsedAt) marks.push(`used ${relativeDay(status.lastUsedAt)}`);
 	return marks;
 }

@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `worktree`: a worktree that has not committed since it was created says `no commits`
+  instead of `merged`. A branch that never committed is an ancestor of its base, so
+  `git branch --merged` called it landed while the work was still in the directory, and
+  `list_worktrees`, `/worktree`, and the exit handoff contradicted themselves — `dirty`
+  beside `merged`. The counts now come from the commit it was created at: `no commits`
+  for an empty checkout, and `commits 2  merged` when that much work did land. A worktree
+  this package did not create keeps the coarser answer, since nothing recorded its fork
+  point.
+
 ## [0.19.0] - 2026-10-25
 
 ### Added

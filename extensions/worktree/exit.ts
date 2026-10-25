@@ -36,13 +36,17 @@ export interface ExitOptions {
  * must not fail because the default branch could not be read.
  */
 async function describeHandoff(pi: ExtensionAPI, state: WorktreeState, recorded: number): Promise<Handoff> {
-	if (!state.branch) return { branch: null, base: null, ahead: recorded, merged: false };
+	// `recorded` is the count `inspectWork` took against the commit the worktree was created
+	// at, read while the directory was still there; without that commit there is no fork
+	// point, and the count is unknown rather than zero.
+	const commits = state.baseCommit ? recorded : undefined;
+	if (!state.branch) return { branch: null, base: null, ahead: recorded, commits, merged: false };
 	try {
 		// `origin/HEAD` names the merge target when the repository has a remote; a
 		// local-only repository has none, and the main checkout's own branch is the
 		// branch a merge would actually land on.
 		const base = (await defaultBranch(pi, state.repoRoot)) ?? (await currentBranch(pi, state.repoRoot)) ?? null;
-		if (!base) return { branch: state.branch, base: null, ahead: recorded, merged: false };
+		if (!base) return { branch: state.branch, base: null, ahead: recorded, commits, merged: false };
 		// Count against the resolved base branch, not the commit recorded at entry:
 		// a worktree branch rebased onto a newer local branch would otherwise report
 		// every commit the base gained since, as its own.
@@ -55,15 +59,17 @@ async function describeHandoff(pi: ExtensionAPI, state: WorktreeState, recorded:
 			: (await refExists(pi, root, `origin/${base}`))
 				? `origin/${base}`
 				: null;
-		if (!ref) return { branch: state.branch, base: null, ahead: recorded, merged: false };
+		if (!ref) return { branch: state.branch, base: null, ahead: recorded, commits, merged: false };
+		const ahead = await commitsAheadOf(pi, root, state.branch, ref);
 		return {
 			branch: state.branch,
 			base,
-			ahead: await commitsAheadOf(pi, root, state.branch, ref),
-			merged: await isBranchMerged(pi, root, state.branch, ref),
+			ahead,
+			commits,
+			merged: ahead === 0 && commits !== 0 && (await isBranchMerged(pi, root, state.branch, ref)),
 		};
 	} catch {
-		return { branch: state.branch, base: null, ahead: recorded, merged: false };
+		return { branch: state.branch, base: null, ahead: recorded, commits, merged: false };
 	}
 }
 

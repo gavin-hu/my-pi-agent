@@ -15,14 +15,7 @@ import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { realPathOfNearest } from "../../lib/path.ts";
 import type { WorktreeConfig } from "./config.ts";
-import {
-	commitsAhead,
-	commitsBehind,
-	isBranchMerged,
-	isStaleLock,
-	type ManagedWorktree,
-	statusEntries,
-} from "./git.ts";
+import { commitsAhead, commitsBehind, isStaleLock, type ManagedWorktree, statusEntries } from "./git.ts";
 
 const REGISTRY_VERSION = 1;
 
@@ -53,8 +46,16 @@ export interface CheckoutStatus {
 	state: "clean" | "dirty" | "missing";
 	/** Number of changed files (porcelain entries). */
 	changed: number;
+	/**
+	 * Commits the branch has made since the commit it was created at.
+	 *
+	 * Absent when that commit was never recorded — a worktree the user pointed us at —
+	 * because git keeps no fork point of its own to ask.
+	 */
+	commits?: number;
 	ahead: number;
 	behind: number;
+	/** Whether the work landed: every commit is in the base, and there were commits. */
 	merged: boolean;
 	locked: boolean;
 	staleLock: boolean;
@@ -218,10 +219,17 @@ export async function statusOf(
 	const baseRef = options.baseRef;
 	base.state = dirty.length > 0 ? "dirty" : "clean";
 	base.changed = dirty.length;
+	// The commit the worktree was created at is the only fork point git can be asked about:
+	// once a branch is merged, it and a branch that never committed are both ancestors of
+	// the base, so `ahead` reports 0 for each and cannot tell them apart. This can.
+	const since = options.record?.base.commit;
+	if (since) base.commits = await commitsAhead(pi, path, since);
 	if (baseRef) {
 		base.ahead = await commitsAhead(pi, path, baseRef);
 		base.behind = await commitsBehind(pi, path, baseRef);
-		base.merged = base.ahead === 0 || (await isBranchMerged(pi, path, "HEAD", baseRef));
+		// `merged` claims the work landed, so it needs commits that could have landed: a
+		// branch with none is an empty checkout, not a finished one.
+		base.merged = base.ahead === 0 && base.commits !== 0;
 	}
 	return base;
 }

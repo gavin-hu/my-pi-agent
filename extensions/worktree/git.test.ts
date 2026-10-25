@@ -55,6 +55,7 @@ import {
 	type WorktreeRecord,
 } from "./registry.ts";
 import { loadState, persistState, type WorktreeState } from "./state.ts";
+import { statusMarks } from "./status.ts";
 import { WORKTREE_TOOLS } from "./tools.ts";
 
 const temps = makeTempTracker();
@@ -294,22 +295,81 @@ describe("managed registry store", () => {
 });
 
 describe.skipIf(!runSlowSuites)("checkout status", () => {
-	async function worktree(): Promise<{ repo: string; dir: string }> {
+	/** A managed worktree branched from its repository's current commit. */
+	async function worktree(): Promise<{ repo: string; dir: string; base: string }> {
 		const { repo, remote } = await makeRepoWithRemote("pi-wt-status-");
 		temps.track(repo);
 		temps.track(remote);
+		const base = (await execP("git", ["rev-parse", "HEAD"], { cwd: repo })).stdout.trim();
 		const dir = managedPath(repo, "wt");
 		await execP("git", ["worktree", "add", "-b", "wt", dir], { cwd: repo });
-		return { repo, dir };
+		return { repo, dir, base };
 	}
 
-	test("reports a fresh worktree as clean and merged", async () => {
-		const { dir } = await worktree();
-		const status = await statusOf(makeFakePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
+	/** The registry record `enter` leaves, which is where the fork point comes from. */
+	function record(repo: string, dir: string, base: string): WorktreeRecord {
+		return {
+			path: dir,
+			branch: "wt",
+			repoRoot: repo,
+			base: { ref: "origin/main", commit: base, mode: "fresh" },
+			createdAt: 1000,
+			lastUsedAt: 1000,
+			createdByUs: true,
+		};
+	}
+
+	test("reports a fresh worktree as clean, with no commits of its own", async () => {
+		const { repo, dir, base } = await worktree();
+		const status = await statusOf(
+			makeFakePi(),
+			{ path: dir, branch: "wt" },
+			{ baseRef: "origin/main", record: record(repo, dir, base) },
+		);
 		expect(status.state).toBe("clean");
 		expect(status.changed).toBe(0);
 		expect(status.ahead).toBe(0);
 		expect(status.behind).toBe(0);
+		expect(status.commits).toBe(0);
+		// Nothing was committed, so nothing landed: calling this merged said the work was in
+		// the base while it was still sitting in the directory.
+		expect(status.merged).toBe(false);
+		expect(statusMarks(status, true)).toContain("no commits");
+		expect(statusMarks(status, true)).not.toContain("merged");
+	});
+
+	test("counts its own commits, and calls them merged once the base has them", async () => {
+		const { repo, dir, base } = await worktree();
+		const entry = { path: dir, branch: "wt" };
+		const options = { baseRef: "origin/main", record: record(repo, dir, base) };
+		writeFileSync(join(dir, "new.txt"), "x");
+		await execP("git", ["add", "."], { cwd: dir });
+		await execP("git", ["commit", "-qm", "work"], { cwd: dir });
+
+		let status = await statusOf(makeFakePi(), entry, options);
+		expect(status.commits).toBe(1);
+		expect(status.ahead).toBe(1);
+		expect(status.merged).toBe(false);
+		expect(statusMarks(status, false)).toContain("ahead 1");
+		expect(statusMarks(status, false)).not.toContain("no commits");
+
+		// Land it: the same branch, now contained in the base it targets.
+		await execP("git", ["push", "-q", "origin", "HEAD:main"], { cwd: dir });
+		await execP("git", ["fetch", "-q", "origin"], { cwd: repo });
+		status = await statusOf(makeFakePi(), entry, options);
+		expect(status.commits).toBe(1);
+		expect(status.ahead).toBe(0);
+		expect(status.merged).toBe(true);
+		// The count goes beside the mark that is about it.
+		expect(statusMarks(status, false)).toContain("commits 1");
+		expect(statusMarks(status, false)).toContain("merged");
+	});
+
+	test("cannot count commits for a worktree it did not create", async () => {
+		const { dir } = await worktree();
+		// No record means no fork point, so the count is unknown and the coarse answer stands.
+		const status = await statusOf(makeFakePi(), { path: dir, branch: "wt" }, { baseRef: "origin/main" });
+		expect(status.commits).toBeUndefined();
 		expect(status.merged).toBe(true);
 	});
 
@@ -658,6 +718,15 @@ describe("handoff", () => {
 		expect(handoffLines(handoff({ merged: true, ahead: 2 }))).toHaveLength(1);
 		expect(handoffLines(handoff({ merged: true, ahead: 2 })).join("\n")).not.toContain("git switch");
 		expect(handoffLines(handoff({ ahead: 0 }))).toHaveLength(1);
+	});
+
+	test("says a branch with no commits never landed, instead of calling it merged", () => {
+		// A worktree that never committed is an ancestor of its base, which reads as merged
+		// unless the count is asked for.
+		expect(handoffLines(handoff({ ahead: 0, merged: true, commits: 0 }))).toEqual([
+			"Handoff: worktree-hitl-fix has no commits beyond trunk — nothing to merge.",
+		]);
+		expect(handoffLines(handoff({ ahead: 0, merged: true, commits: 3 })).join("\n")).toContain("is merged into trunk");
 	});
 
 	test("does not invent a merge target or a branch", () => {

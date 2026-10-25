@@ -186,7 +186,13 @@ export class WorktreeListComponent extends DockListScreen<WorktreeRow> {
 			const bits = [status.state === "dirty" ? `dirty (${status.changed} changed)` : "clean"];
 			if (status.ahead > 0) bits.push(`${status.ahead} ahead`);
 			if (status.behind > 0) bits.push(`${status.behind} behind`);
-			if (status.merged) bits.push("merged");
+			// The row says it too, and for the same reason: a merged mark is a claim that work
+			// landed, which a worktree with no commits of its own cannot make.
+			if (status.commits === 0) bits.push("no commits");
+			else if (status.merged) {
+				if (status.commits !== undefined) bits.push(`${status.commits} commits`);
+				bits.push("merged");
+			}
 			lines.push(`state   ${bits.join(", ")}`);
 			if (status.locked) {
 				lines.push(`lock    ${status.staleLock ? "stale (owner is gone)" : "held by a live session"}`);
@@ -200,6 +206,7 @@ export class WorktreeListComponent extends DockListScreen<WorktreeRow> {
 						branch: row.branch,
 						base: this.view.baseBranch ?? null,
 						ahead: status.ahead,
+						commits: status.commits,
 						merged: status.merged,
 					}),
 				);
