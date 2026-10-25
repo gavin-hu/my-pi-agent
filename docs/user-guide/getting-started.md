@@ -188,16 +188,17 @@ do lose work. To disable one feature rather than remove the whole pack, see
   `bytefly-light` themes available but does not select one. Pick one through
   `/settings` → **Theme** or `/bytefly settings` → **Theme**; see
   [Themes](./settings-and-customization.md#themes).
-- **Two loopback web pages, on demand.** The plan review and the file browser
-  listen on `127.0.0.1` only, and only while you have them open.
+- **Three loopback web pages, on demand.** The plan review, the file browser, and the
+  board page listen on `127.0.0.1` only, and only while you have them open.
   [Security](../security.md) covers the boundary.
 
 ## Cost and network
 
 **What costs money.** The pack is free and open source. Your AI provider bills
 for the model tokens a session uses, exactly as it does without the pack. The
-footer shows a running estimate. `USD` mode prices every model from Pi's own
-per-model catalog; `CNY` prices DeepSeek from its published yuan rates and needs
+footer shows a running estimate. `USD` prices DeepSeek from its published dollar
+table, peak schedule included, and takes every other model's number from Pi's own
+per-model cost; `CNY` prices DeepSeek from its published yuan rates and needs
 `price.rates` entries for anything else — a CNY session names the records it
 could not price rather than leaving them silently out of the total. **Pricing**
 in `/bytefly settings` sets the currency and a decimal precision, and an optional
@@ -246,7 +247,7 @@ The chips you will meet:
 | Chip | Meaning |
 |---|---|
 | `≡ plan` | Plan mode is on |
-| `↺ 4` | Four prompts have a rewind snapshot |
+| `↺ 4` | Four prompts are on this branch's rewind timeline |
 | `▸ 2` | Two jobs are running |
 | `✗ 1` | A job finished and you have not read its result |
 | `↳ 1` | One background helper is running |
@@ -274,7 +275,7 @@ bytefly chrome, not a separate command.
 |---|---|
 | Terminal | The text window Pi runs in. |
 | Pi | The assistant program this pack adds to. |
-| Extension | One add-on in the pack; there are 17, each switchable. |
+| Extension | One add-on in the pack; there are 21, each switchable. |
 | Slash command | A message that starts with `/` and acts immediately instead of starting a turn. |
 | Prompt | What you type to the assistant, before it answers. |
 | Turn | One prompt and the assistant's work in answer to it. |

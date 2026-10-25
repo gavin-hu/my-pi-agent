@@ -187,6 +187,9 @@ the same window does not repeat the request.
 
 - `/bytefly update` re-runs the check immediately and reports the updateable
   packages, this package's version and release URL, or a skip.
+- `/bytefly upgrade` is the half that writes: it asks for a confirmation, runs Pi's
+  package manager for every configured package, and names the reload the new version
+  needs.
 - `PI_OFFLINE=1` skips the check and paints only a cached marker. It is the
   switch for the automatic update check, and Pi's release check follows it too.
 - The check sends the configured package list, not your conversation. No session
