@@ -34,6 +34,10 @@ function harness(options: { fail?: string } = {}) {
 			sent.push({ to, text });
 			return { delivered: [to] };
 		},
+		// A stub that resolves, so the assign path records the id a rename would keep.
+		async resolve(to) {
+			return { id: `s-${to}`, label: to };
+		},
 	};
 	registerTools(fake.pi, session, { dispatch: () => dispatch });
 	const tool = fake.tools.get("team");
@@ -100,7 +104,11 @@ describe("assign", () => {
 		expect(sent).toHaveLength(1);
 		expect(sent[0]?.to).toBe("billing-core");
 		expect(sent[0]?.text).toContain("Note: start with the webhook");
-		expect(result.details.card).toMatchObject({ status: "doing", owner: { label: "billing-core" } });
+		// The id comes from the bus, so a peer that renames itself still holds its card.
+		expect(result.details.card).toMatchObject({
+			status: "doing",
+			owner: { id: "s-billing-core", label: "billing-core" },
+		});
 		expect(result.details.delivered).toEqual(["billing-core"]);
 		expect(text(result)).toContain("#1 handed off to billing-core.");
 	});

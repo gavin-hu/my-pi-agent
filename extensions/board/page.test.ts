@@ -11,7 +11,8 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { createBoardPage } from "./page.ts";
+import { settle, waitFor } from "../../test/helpers/process.ts";
+import { createBoardPage, IDLE_STOP_MS } from "./page.ts";
 import { openBoardSession } from "../../lib/board/session.ts";
 
 const temps = makeTempTracker();
@@ -26,7 +27,7 @@ function harness(options: { view?: "board" | "team" } = {}) {
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
 	const runtime = openBoardSession(fake.pi, { now: () => NOW, agentDir });
 	const opened: string[] = [];
-	const page = createBoardPage(runtime, { pickPort: () => 0, open: (url) => opened.push(url) });
+	const page = createBoardPage(runtime, { pickPort: () => 0, open: (url) => opened.push(url), idleMs: 40 });
 	const { ctx, notifications } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead" });
 	return { page, ctx, opened, notifications, cwd, options };
 }
@@ -145,6 +146,27 @@ describe("a validation failure", () => {
 		expect(response.status).toBe(422);
 		expect(((await response.json()) as { error?: string }).error).toBe("title is required.");
 		await page.stop(ctx);
+	});
+});
+
+describe("the idle grace", () => {
+	test("closes the page once the last tab has been gone for the grace", async () => {
+		const { page, ctx, notifications } = harness();
+		// The shipped grace, shortened: the same path a real timer takes.
+		const status = await page.start(ctx);
+		expect(IDLE_STOP_MS).toBe(60_000);
+		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
+		const stream = await fetch(`http://127.0.0.1:${status.port}/events?token=${token}`);
+		expect(stream.status).toBe(200);
+		// The page has a reader; the grace must not be armed yet.
+		await settle(150);
+		expect(page.status().running).toBe(true);
+		await stream.body?.cancel();
+		// The stop and the notice are two steps of one idle callback, so the notice is
+		// what proves both: `stop` clears the state before it reports.
+		await waitFor(() => notifications.length > 0);
+		expect(page.status().running).toBe(false);
+		expect(notifications).toContain("board: stopped — the last page was closed");
 	});
 });
 

@@ -144,9 +144,9 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   how many bytes the store occupies.
 - **A page claim is the serving session's claim.** Opening the page in two browsers
   does not make two owners.
-- **The page outlives its last tab.** It closes on `/board stop` or at session
-  shutdown; an idle grace exists as a seam in `page.ts`, but nothing passes one, so a
-  tab you close leaves the server up until you stop it.
+- **The page stops a minute after its last tab leaves.** Closing the tab to run a
+  command and coming back is fine; an abandoned page does not answer a port for the
+  rest of the session. `/board` starts it again on the same port.
 
 ## Pi integration
 
@@ -191,7 +191,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
-| `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, and the close |
+| `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, and the three closes — `/board stop`, the idle grace, and shutdown |
 | `commands.ts` | `/board` and its three words |
 | `transport/router.ts` | The routes, the token, and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push, and the close |

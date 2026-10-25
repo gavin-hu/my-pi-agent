@@ -86,6 +86,49 @@ describe("sessionDispatch", () => {
 		await expect(sessionDispatch(ctx).send("peer", "text")).rejects.toThrow("the handoff was not delivered.");
 	});
 
+	test("resolves the label to the live session behind it, id included", async () => {
+		const { ctx } = fakeCtx();
+		ctx.executeTool = async (name: string, args: unknown) => {
+			if ((args as { action?: string }).action === "status") {
+				return {
+					isError: false,
+					result: {
+						content: [],
+						details: {
+							action: "status",
+							status: {
+								me: { id: "s-lead", label: "billing-lead" },
+								onBus: true,
+								sessions: [
+									{ id: "s-core", label: "billing-core" },
+									{ id: "s-web", label: "billing-web" },
+								],
+								claims: [],
+							},
+						},
+					},
+				};
+			}
+			throw new Error(`unexpected ${name}`);
+		};
+		const dispatch = sessionDispatch(ctx);
+		expect(await dispatch.resolve?.("billing-core")).toEqual({ id: "s-core", label: "billing-core" });
+		expect(await dispatch.resolve?.("BILLING-WEB")).toEqual({ id: "s-web", label: "billing-web" });
+		expect(await dispatch.resolve?.("s-core")).toEqual({ id: "s-core", label: "billing-core" });
+		expect(await dispatch.resolve?.("nobody")).toBeUndefined();
+	});
+
+	test("a resolve that fails answers nothing rather than undoing a handoff", async () => {
+		const { ctx } = fakeCtx({ executeError: true });
+		expect(await sessionDispatch(ctx).resolve?.("billing-core")).toBeUndefined();
+	});
+
+	test("a status listing it cannot read answers nothing", async () => {
+		const { ctx } = fakeCtx({ executeError: false });
+		ctx.executeTool = async () => ({ isError: false, result: { content: [], details: {} } });
+		expect(await sessionDispatch(ctx).resolve?.("billing-core")).toBeUndefined();
+	});
+
 	test("an outcome without labels reports none, rather than inventing a recipient", async () => {
 		const { ctx } = fakeCtx();
 		ctx.executeTool = async () => ({ isError: false, result: { content: [], details: {} } });

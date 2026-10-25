@@ -17,7 +17,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   drive it from the keyboard, and a filter matches a card by title, path, or holder.
   Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
-  replacing the page's own native-dialog implementation. The polish pass on top: the
+  replacing the page's own native-dialog implementation, and a closed tab lets the
+  page stop a minute later instead of answering a port for the rest of the session.
+  The polish pass on top: the
   composer folds behind **+ New card** so the page opens on the board (its draft
   survives a stray `Esc`; `Cancel` discards it), each lane is a tray with a sticky
   head and a count pill, the card title is the page's loudest text, a hovered card
@@ -30,7 +32,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   so; a card that changed between the send and the assignment is reported with the
   peer told to claim it. Nothing is spawned — the handoff waits in the recipient's
   inbox, and its armed watch is what raises the turn — so `team` is a message, not a
-  launch. `reclaim` returns a card to To do and keeps its notes. The call goes through
+  launch. `reclaim` returns a card to To do and keeps its notes. The owner it records
+  is the session — `assign` asks `session status` who answers to the label and keeps
+  the id, so a peer that renames itself still holds its card. The call goes through
   `SESSION_TOOL` in `lib/tool-names.ts`, so a tool rename breaks both sides.
   `session-bus` now treats the `handoff` kind as the work order it is: a waking turn
   announces `1 handoff`, keeps 800 characters of the body so the card and its next

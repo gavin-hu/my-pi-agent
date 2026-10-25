@@ -38,7 +38,12 @@ surface arrives with its limitation written in the same breath.
   millisecond. It also withdraws the split it shipped — the team of sessions, the
   `session join` that claimed a unit's paths, the shared-file rule, and the
   `parallel-dev` skill — because a lead who cannot start a peer's turn spent more
-  of the user's attention than the split saved. It adds outbound images, two peers' turns at once, and the
+  of the user's attention than the split saved. The round comes back without that
+  premise: `board` is a per-repository feature board that any session reads and
+  writes, served as a page that follows the store live, and `team` is the lead's two
+  bus-dependent actions over the same cards — `assign` hands one to a session that is
+  already running, `reclaim` takes one back — so a handoff is a message and never a
+  launch. It adds outbound images, two peers' turns at once, and the
   notice a close sends when it abandons a turn; moves every extension doc to
   `docs/extensions/`, capabilities first; fits the browse page to a phone; and adds
   the `refactor` and `project-docs` skills, with the changelog's `scripts/state.ts`
@@ -84,7 +89,7 @@ screenshots.
 | README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; one plan store per repository, a step list approval seeds into `todo`, and a review that follows its file | — |
-| Delegate and parallelize | Strong; background runs and a local session bus, with every bus limit documented | — |
+| Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |

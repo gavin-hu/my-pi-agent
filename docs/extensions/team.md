@@ -57,6 +57,12 @@ lists them — a label that is not live cannot be handed a card, and the send sa
 `delivered` in the details means a message file was written for that label — not that
 the peer read it.
 
+The owner `assign` records is the **session**, not just its name: before writing the
+card it asks `session status` who answers to that label and keeps the id. Ownership
+is compared by id first (`lib/board/rules.ts`), so a peer that renames itself still
+holds its card; a card assigned by label alone — an older one, or one whose session
+the bus could not name — goes back to `reclaim` if its holder renames.
+
 ### What the peer does on waking
 
 A handoff is an instruction, not a notification: the peer's notice is headlined
@@ -78,6 +84,9 @@ plans, works, notes, and moves it to `done` or `blocked`.
   the handoff waits in its inbox until that session reads its mail.
 - **`to` must be live.** A session that has shut down cannot be handed a card; its
   cards stay `doing` until someone runs `reclaim`.
+- **A label-only owner is fragile.** If the bus could not name the session behind
+  `to`, the card records the label, and a rename would need a `reclaim` and a fresh
+  handoff.
 - **Plan mode makes this unavailable.** `session` is a mutating tool, so while plan
   mode is active the nested call is refused. Assign after the plan is approved.
 - **Ownership is advisory.** `assign` does not create a path claim; the peer still
