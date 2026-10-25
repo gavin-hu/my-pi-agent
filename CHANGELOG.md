@@ -274,10 +274,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rename this session on the bus and in Pi when a label is given, and start listening for
   mail, and the join is what starts the heartbeat, so a named session no longer goes stale
   after the ten-minute TTL while it is alive. `/sessions` itself takes no argument and
-  does one thing — open the board; its `name`, `watch [off|wake]`, `join [<label>]`, and
-  `help` sub-commands are gone. `wake` is `join({ wake: true })`, `listen: false` is how a
-  session is on the bus without mail, and the board's `w` starts and stops listening. The
-  empty board says how to join, and a status read says it is not on the bus yet.
+  does one thing — open the board; its `name`, `watch [off|wake]`, and `help` sub-commands
+  are gone. `wake` is `join({ wake: true })`, `listen: false` is how a session is on the
+  bus without mail, and the board's `w` starts and stops listening. The empty board says
+  how to join, and a status read says it is not on the bus yet.
 - `session-bus`: a session's record carries whether it is listening. `join` writes the
   watch state to the record and removes it when listening stops, so a peer's `status` read
   answers "can mail reach this session at all?" without asking it; an absent field means
