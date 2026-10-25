@@ -412,6 +412,18 @@ it. A limitation an item owns is named in that section instead, never here.
 
 | Limitation | Why it has no item |
 |---|---|
+| `board`: ownership is advisory | A card names an owner; the lock on a file is `session-bus`'s path claim, and two sessions editing one file is a conflict the board cannot see. Revisit if the board issued claims of its own. |
+| `board`: a link is checked when a card is taken and when it is finished | It never re-opens work that finished before the link was recorded, and `done` is terminal, so a dependency cannot un-finish. Revisit if a link must reorder completed work. |
+| `board`: links are recorded by the tool, not the page | A link names an id a reader has to know, so the page shows what a card waits for and does not edit it. Revisit if the page can offer a picker over the board. |
+| `board`: the board does not know whether a session is alive | "Idle" is a `doing` card untouched for 30 minutes, and the roster's `quiet` is an aged heartbeat; neither is a statement that the process is gone. Revisit if the bus exposes liveness beyond a heartbeat. |
+| `board`: the seat and the terminal are two actors | The page writes as `team-lead`, so a page claim is released from the page or `reclaim`ed; sharing one id would let a browser claim impersonate the session that serves it. Revisit if a page can name the session that asked. |
+| `board`: the note a page leaves carries a read-only token, so the lead's URL is a write credential | A browser is not an identity: the note is what a teammate is given, and `/board status` prints the page rather than the lead's URL. Revisit with a per-session write grant. |
+| `board`: a page stops a minute after its last tab leaves | An abandoned page must not answer a port for the rest of the session; `/board` starts it again on the same port. Revisit if a page must outlive its tabs. |
+| `board`: a page's note is believed only while it answers | A crash leaves the note behind; the next `/board` probes it and serves its own page when nothing replies, so a dead note costs one probe rather than a second page. Revisit if a note must be reaped by something other than its page. |
+| `board`: nothing prunes, so finished cards accumulate | `drop` is the only deletion and the page shows the store's size. Revisit when the store's size is itself a reason to archive. |
+| `team`: dispatch cannot start a peer's turn | A handoff waits in the peer's inbox until it reads mail or its armed watch raises a turn, and nothing spawns a session. Revisit if the bus can raise a turn directly. |
+| `team`: `to` must be live, and a label-only owner is fragile | A shut-down session cannot be handed a card, and a label recorded without an id needs a `reclaim` after a rename. Revisit if the bus keeps a record of retired labels. |
+| `team`: plan mode makes `assign` unavailable | The nested `session` call is a mutating tool, which plan mode refuses; assigning waits for approval. Revisit if a read-only bus call can dispatch. |
 | `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with `S1`. |
 | `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
 | `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file. Revisit if an approval surface must show a full step. |
