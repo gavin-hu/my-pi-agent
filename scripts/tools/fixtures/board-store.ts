@@ -12,6 +12,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Actor } from "../../../lib/board/rules.ts";
+import type { RosterSession } from "../../../lib/session-roster.ts";
 import { buildView, type BoardView } from "../../../lib/board/view.ts";
 import { createStore } from "../../../lib/board/store.ts";
 
@@ -81,6 +82,20 @@ export async function seedStore(directory: string): Promise<void> {
 	}
 }
 
+/**
+ * The bus sessions a capture shows, so the Team tab is photographed with every state
+ * in it: the serving session with mail, one that went quiet after finishing, one
+ * holding nothing, and one owner with no record at all (`billing-core` is left out on
+ * purpose). Nothing here reads a real bus.
+ */
+export function fixtureRoster(now: number): RosterSession[] {
+	return [
+		{ id: "s-lead", label: LEAD.label, mode: "tui", lastSeen: now - 20_000, mail: 1 },
+		{ id: "s-other", label: OTHER.label, mode: "tui", lastSeen: now - 42 * 60_000, mail: 0 },
+		{ id: "s-helper", label: "ops-helper", mode: "print", lastSeen: now - 5_000, mail: 0 },
+	];
+}
+
 /** A fixture store in a temp directory, and the snapshot of it. */
 export async function fixtureBoard(): Promise<{ directory: string; view: () => Promise<BoardView> }> {
 	const directory = mkdtempSync(join(tmpdir(), "pi-board-shot-"));
@@ -88,14 +103,17 @@ export async function fixtureBoard(): Promise<{ directory: string; view: () => P
 	const store = createStore(directory);
 	return {
 		directory,
-		view: async () =>
-			buildView({
+		view: async () => {
+			const now = Date.now();
+			return buildView({
 				me: LEAD,
 				cards: await store.list(),
-				now: Date.now(),
+				now,
+				roster: fixtureRoster(now),
 				bytes: await store.bytes(),
 				// A capture prints the store path, so it names the shape rather than a temp dir.
 				where: "~/.pi/agent/board/8872d3adda0e",
-			}),
+			});
+		},
 	};
 }

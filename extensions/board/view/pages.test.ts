@@ -101,7 +101,7 @@ describe("the document", () => {
 		// the document's markup.
 		const page = renderBoardPage({ view: "board" });
 		expect(page).not.toContain("Billing webhook");
-		expect(page).not.toContain("unassigned");
+		expect(page).not.toContain("waiting on the gateway");
 	});
 
 	test("names both tabs in a tablist, and the page's own landmarks", () => {
@@ -165,12 +165,26 @@ describe("the client bundle", () => {
 	});
 
 	test("filters both tabs, lands on the lane with work, and tooltips what it clamps", () => {
-		// The filter is one control for two tabs; a narrow reader should not open on
-		// an empty lane; and a clipped line should still be readable on hover.
+		// The filter is one control for two tabs — a teammate row matches by its label as
+		// well as by a card; a narrow reader should not open on an empty lane; and a
+		// clipped line should still be readable on hover.
 		expect(BOARD_CLIENT_JS).toContain("board.matches(card, query)");
+		expect(BOARD_CLIENT_JS).toContain("matchesLabel(m.label)");
 		expect(BOARD_CLIENT_JS).toContain("laneWithWork(view)");
-		expect(BOARD_CLIENT_JS).toContain("cell.title");
 		expect(BOARD_CLIENT_JS).toContain("line.title = reason.text");
+		expect(BOARD_CLIENT_JS).toContain("why.title = entry.why");
+	});
+
+	test("draws the dashboard: a queue, a roster, and a Done strip that opens cards", () => {
+		expect(BOARD_CLIENT_JS).toContain("board-team__grid");
+		expect(BOARD_CLIENT_JS).toContain("board-team__decision");
+		expect(BOARD_CLIENT_JS).toContain("board-team__roster");
+		// Every state a teammate can be in, including the two that are not a heartbeat.
+		for (const state of ["live", "quiet", "absent", "unknown"]) expect(BOARD_CLIENT_JS).toContain(state);
+		// A bus that is not loaded must read as unknown rather than as "nobody".
+		expect(BOARD_CLIENT_JS).toContain("view.teammates === undefined ? null : view.teammates");
+		expect(BOARD_CLIENT_JS).toContain("board-team__id");
+		expect(BOARD_CLIENT_JS).toContain('"Reclaim #" + card.id');
 	});
 
 	test("says its lane in the head, separates the notes, and offers only reachable lanes", () => {
