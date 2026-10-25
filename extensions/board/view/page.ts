@@ -91,6 +91,14 @@ ${docHead({ title: "board", css: BOARD_CSS })}
             <span class="board-composer__label">Paths</span>
             <span class="bf-field"><input class="bf-input" id="new-paths" name="paths" placeholder="extensions/board  lib/web" aria-describedby="composer-hint"></span>
           </label>
+          <label class="board-composer__field">
+            <span class="board-composer__label">Priority</span>
+            <span class="bf-field"><select class="bf-input board-composer__select" id="new-priority" name="priority">
+              <option value="high">high</option>
+              <option value="normal" selected>normal</option>
+              <option value="low">low</option>
+            </select></span>
+          </label>
         </div>
         <p class="bf-dialog__hint" id="composer-hint">one card per feature — its steps live in the owner's plan and todo</p>
       </div>
@@ -114,6 +122,7 @@ ${docHead({ title: "board", css: BOARD_CSS })}
       <p class="board-dialog__meta" id="card-dialog-meta"></p>
       <p class="board-dialog__owner" id="card-dialog-owner"></p>
       <ul class="board-card__paths" id="card-dialog-paths"></ul>
+      <p class="board-dialog__depends" id="card-dialog-depends" hidden></p>
       <p class="board-dialog__plan" id="card-dialog-plan" hidden></p>
       <ol class="board-dialog__notes" id="card-dialog-notes"></ol>
       <p class="bf-dialog__hint" id="card-dialog-earlier" hidden></p>

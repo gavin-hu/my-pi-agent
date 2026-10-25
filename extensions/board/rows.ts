@@ -7,7 +7,7 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { type Card, cardRef } from "../../lib/board/card.ts";
+import { type Card, cardRef, DEFAULT_PRIORITY, priorityOf } from "../../lib/board/card.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow } from "../../lib/tui/rows.ts";
@@ -20,14 +20,18 @@ function holderOf(card: Card): string {
 }
 
 /**
- * The lane, and — for work in flight — whether it was planned first.
+ * The lane, and — for work in flight — whether it was planned first, and — when it is
+ * not the ordinary one — how urgent it is.
  *
- * A row carries the lane because a flat listing has no section heading to say it,
- * and "planned" because a `doing` card nobody planned is the one a lead looks at.
+ * A row carries the lane because a flat listing has no section heading to say it, and
+ * "planned" because a `doing` card nobody planned is the one a lead looks at. The
+ * priority rides along for the same reason: inside a lane the order is the priority,
+ * and an order nobody can see reads as an accident.
  */
 function stateOf(card: Card): string[] {
-	if (card.status === "todo" || card.status === "done") return [card.status];
-	return [card.status, card.plan === undefined ? "unplanned" : "planned"];
+	const urgency = priorityOf(card) === DEFAULT_PRIORITY ? [] : [priorityOf(card)];
+	if (card.status === "todo" || card.status === "done") return [...urgency, card.status];
+	return [...urgency, card.status, card.plan === undefined ? "unplanned" : "planned"];
 }
 
 /** One card: the id and title, with its state trailing. */

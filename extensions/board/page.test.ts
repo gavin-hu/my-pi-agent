@@ -185,6 +185,52 @@ describe("a validation failure", () => {
 		expect(((await response.json()) as { error?: string }).error).toBe("title is required.");
 		await page.stop(ctx);
 	});
+
+	test("refuses a priority the board does not know", async () => {
+		const { page, ctx } = harness();
+		const status = await page.start(ctx);
+		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
+		const response = await fetch(`http://127.0.0.1:${status.port}/api/cards?token=${token}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ title: "One", priority: "urgent" }),
+		});
+		expect(response.status).toBe(422);
+		expect(((await response.json()) as { error?: string }).error).toBe("priority must be one of high, normal, low.");
+		await page.stop(ctx);
+	});
+});
+
+describe("a write the page makes", () => {
+	test("adds a card with a priority, then edits it back to the ordinary one", async () => {
+		const { page, ctx } = harness();
+		const status = await page.start(ctx);
+		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
+		const post = async (path: string, body: unknown) => {
+			const response = await fetch(`http://127.0.0.1:${status.port}${path}?token=${token}`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			});
+			return {
+				status: response.status,
+				body: (await response.json()) as { card?: { title?: string; priority?: string } },
+			};
+		};
+		const added = await post("/api/cards", { title: "Billing webhok", priority: "high" });
+		expect(added.status).toBe(200);
+		expect(added.body.card).toMatchObject({ title: "Billing webhok", priority: "high" });
+		const edited = await post("/api/cards/1/edit", { title: "Billing webhook", priority: "normal" });
+		expect(edited.status).toBe(200);
+		expect(edited.body.card).toMatchObject({ title: "Billing webhook", priority: "normal" });
+		// The page never sends a link, so an edit cannot clear one it did not show.
+		await post("/api/cards/1/edit", { dependsOn: ["1"] });
+		const view = (await (await fetch(`http://127.0.0.1:${status.port}/api/board?token=${token}`)).json()) as {
+			lanes: Array<{ cards: Array<{ id: string; title: string }> }>;
+		};
+		expect(view.lanes[0]?.cards[0]).toMatchObject({ id: "1", title: "Billing webhook" });
+		await page.stop(ctx);
+	});
 });
 
 describe("the idle grace", () => {

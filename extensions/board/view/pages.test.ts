@@ -59,6 +59,7 @@ describe("the document", () => {
 			"board-composer",
 			"new-title",
 			"new-paths",
+			"new-priority",
 			"new-submit",
 			"board-cancel",
 			"board-picker",
@@ -73,6 +74,7 @@ describe("the document", () => {
 			"card-dialog-meta",
 			"card-dialog-owner",
 			"card-dialog-paths",
+			"card-dialog-depends",
 			"card-dialog-plan",
 			"card-dialog-notes",
 			"card-dialog-earlier",
@@ -204,6 +206,17 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('getElementById("board-new-dialog")');
 		expect(BOARD_CLIENT_JS).toContain("window.bfNew");
 		expect(BOARD_CLIENT_JS).toContain("window.bfNew.open()");
+	});
+
+	test("edits a card through the dialog it adds one with", () => {
+		// One form, two modes: the same fields, the same kit dialog, and a heading and
+		// submit that say which one is showing.
+		expect(BOARD_CLIENT_JS).toContain("board.editCard");
+		expect(BOARD_CLIENT_JS).toContain('"Edit card #"');
+		expect(BOARD_CLIENT_JS).toContain('"Save"');
+		expect(renderBoardPage({ view: "board" })).toContain('id="new-priority"');
+		// The page never sends a link, because it never shows one.
+		expect(BOARD_CLIENT_JS).not.toContain("dependsOn:");
 	});
 
 	test("says why in one voice, and lets the reason carry it", () => {

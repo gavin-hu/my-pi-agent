@@ -54,6 +54,15 @@ describe("create", () => {
 		expect(await store.read(card.id)).toEqual(card);
 	});
 
+	test("writes the priority it was given, and the ordinary one otherwise", async () => {
+		const { store } = scratchStore();
+		const urgent = await store.create({ title: "now", paths: [], priority: "high" }, LEAD, NOW);
+		const ordinary = await store.create({ title: "later", paths: [] }, LEAD, NOW);
+		expect(urgent.priority).toBe("high");
+		expect(ordinary.priority).toBe("normal");
+		expect((await store.read(ordinary.id))?.priority).toBe("normal");
+	});
+
 	test("gives a card file the user's eyes only", async () => {
 		if (process.platform === "win32") return;
 		const { dir, store } = scratchStore();
@@ -87,6 +96,18 @@ describe("list and read", () => {
 		await store.mutate(done.id, { kind: "move", status: "done" }, CORE, NOW);
 		expect((await store.list()).map((card) => card.title)).toEqual(["todo", "doing", "blocked", "done"]);
 		expect((await store.list()).map((card) => card.id)).toEqual([todo.id, doing.id, blocked.id, done.id]);
+	});
+
+	test("orders a lane by priority before age", async () => {
+		const { store } = scratchStore();
+		const low = await store.create({ title: "low", paths: [], priority: "low" }, LEAD, NOW);
+		const high = await store.create({ title: "high", paths: [], priority: "high" }, LEAD, NOW);
+		const ordinary = await store.create({ title: "ordinary", paths: [] }, LEAD, NOW);
+		// A done card stays history whatever its priority: the lane decides first.
+		const finished = await store.create({ title: "finished", paths: [], priority: "high" }, LEAD, NOW);
+		await store.mutate(finished.id, { kind: "claim" }, CORE, NOW);
+		await store.mutate(finished.id, { kind: "move", status: "done" }, CORE, NOW);
+		expect((await store.list()).map((card) => card.id)).toEqual([high.id, ordinary.id, low.id, finished.id]);
 	});
 
 	test("reads one card, and reports nothing for an id that is not there", async () => {
@@ -188,6 +209,43 @@ describe("mutate", () => {
 		const result = await store.mutate(card.id, { kind: "claim" }, LEAD, NOW);
 		if (result.ok) throw new Error("expected a refusal");
 		expect(result.error).toBe("#1 does not exist.");
+	});
+
+	test("a drop is refused while another card waits on it", async () => {
+		const { store } = scratchStore();
+		const first = await store.create({ title: "retry branches", paths: [] }, LEAD, NOW);
+		const second = await store.create({ title: "billing webhook", paths: [] }, LEAD, NOW);
+		const linked = await store.mutate(
+			second.id,
+			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [first.id] },
+			LEAD,
+			NOW,
+		);
+		if (!linked.ok) throw new Error(linked.error);
+		const dropped = await store.mutate(first.id, { kind: "drop" }, LEAD, NOW);
+		if (dropped.ok) throw new Error("expected the drop to be refused");
+		expect(dropped.error).toBe(`#${first.id} is waited on by #${second.id}; drop that card first.`);
+		expect(await store.read(first.id)).toBeDefined();
+	});
+
+	test("a claim is refused while the card waits, and goes through once the dependency lands", async () => {
+		const { store } = scratchStore();
+		const first = await store.create({ title: "retry branches", paths: [] }, LEAD, NOW);
+		const second = await store.create({ title: "billing webhook", paths: [] }, LEAD, NOW);
+		await store.mutate(
+			second.id,
+			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [first.id] },
+			LEAD,
+			NOW,
+		);
+		const refused = await store.mutate(second.id, { kind: "claim" }, CORE, NOW);
+		if (refused.ok) throw new Error("expected the claim to be refused");
+		expect(refused.error).toBe(`#${second.id} waits on #${first.id} (todo).`);
+		await store.mutate(first.id, { kind: "claim" }, CORE, NOW);
+		await store.mutate(first.id, { kind: "move", status: "done" }, CORE, NOW);
+		const claimed = await store.mutate(second.id, { kind: "claim" }, CORE, NOW);
+		if (!claimed.ok) throw new Error(claimed.error);
+		expect(claimed.card.status).toBe("doing");
 	});
 
 	test("drop removes the file and its notes", async () => {

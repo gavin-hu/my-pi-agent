@@ -14,6 +14,12 @@
  * card that changed underneath is re-evaluated rather than overwritten: an
  * operation says "apply when this holds", never "force this state".
  *
+ * A write reads the whole board once, because `rules.ts` needs another card to answer
+ * three of its questions: is this dependency finished, would this link close a loop,
+ * and does anything wait on the card being dropped. The listing is the index here —
+ * a board is tens of files, so the read is cheaper than the second source of truth a
+ * cached index would be.
+ *
  * Nothing prunes. A `done` card is history, the page shows the store's size, and
  * `drop` is the only deletion.
  */
@@ -25,7 +31,8 @@ import { resolveEffectiveCwd } from "../env.ts";
 import { messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { type Card, CARD_STATUSES, cardRef, isCard } from "./card.ts";
+import { type Card, CARD_STATUSES, cardRef, isCard, type Priority, priorityRank } from "./card.ts";
+import { indexOf } from "./links.ts";
 import { type Actor, applyOp, type CardOp, createCard } from "./rules.ts";
 
 /** The directory under the agent directory that holds every board. */
@@ -51,6 +58,8 @@ export interface CreateInput {
 	title: string;
 	paths: string[];
 	note?: string;
+	/** Absent is `normal`, so an add that says nothing about urgency says the ordinary thing. */
+	priority?: Priority;
 }
 
 /** What a mutation did, or why it was refused. */
@@ -153,9 +162,10 @@ export function createStore(dir: string): BoardStore {
 					error: changedUnderneath ? `${cardRef(id)} was dropped.` : `${cardRef(id)} does not exist.`,
 				};
 			}
-			// The preconditions are checked against the card as it is *now*, so an
-			// operation re-applied to a card that changed is refused rather than forced.
-			const result = applyOp(card, op, actor, now);
+			// The preconditions are checked against the card as it is *now*, and against the
+			// board as it is now, so an operation re-applied to a card that changed is refused
+			// rather than forced.
+			const result = applyOp(card, op, actor, now, indexOf(await list()));
 			if (!result.ok) return { ok: false, error: result.error, card };
 			if (!result.changed) return { ok: true, card: result.card, changed: false, dropped: false };
 			if (op.kind === "drop") {
@@ -279,12 +289,20 @@ async function readdirSafe(dir: string): Promise<string[]> {
 	});
 }
 
-/** Lane order, then oldest first, with the id as the tie-break. */
+/**
+ * Lane order, then the lead's order inside it, then oldest first, with the id as the
+ * tie-break.
+ *
+ * Priority sorts inside a lane rather than beside it: a `high` card in Done is still
+ * history, and a lane that mixed the two would have to say so in its head.
+ */
 function sortForLane(cards: Card[]): Card[] {
 	const lane = (card: Card): number => CARD_STATUSES.indexOf(card.status);
 	return cards.sort((a, b) => {
 		const byLane = lane(a) - lane(b);
 		if (byLane !== 0) return byLane;
+		const byPriority = priorityRank(a) - priorityRank(b);
+		if (byPriority !== 0) return byPriority;
 		const byAge = a.updatedAt - b.updatedAt;
 		if (byAge !== 0) return byAge;
 		return Number(a.id) - Number(b.id);

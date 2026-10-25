@@ -87,14 +87,82 @@ export const BOARD_LIVE_JS = String.raw`(function () {
 
   board.showView = showView;
 
-  /** Open the new-card dialog and put the caret in its title field. */
-  board.openComposer = function () {
+  /**
+   * The composer writes one card: a new one, or the one the card dialog was showing.
+   *
+   * The mode lives here rather than in the form, because the form is a draft: leaving
+   * edit mode puts the dialog back the way the toolbar's button opens it, and the text
+   * it held was the card's, not the reader's.
+   */
+  var composer = { mode: "add", card: undefined };
+
+  /** The title's character count, shown from the first character typed. */
+  function showTitleCount() {
+    var field = document.getElementById("new-title");
+    var count = document.getElementById("new-title-count");
+    if (!field || !count) return;
+    var max = Number(field.getAttribute("maxlength"));
+    if (!max) return;
+    var used = field.value.length;
+    count.textContent = used + "/" + max;
+    count.hidden = used === 0;
+  }
+
+  /** Dress the dialog for a new card or for the one being edited, and fill it in. */
+  function setComposerMode(mode, card) {
+    var heading = document.getElementById("board-new-title");
+    var submit = document.getElementById("new-submit");
+    var hint = document.getElementById("composer-hint");
+    var form = document.getElementById("board-composer");
+    var was = composer.mode;
+    composer.mode = mode;
+    composer.card = mode === "edit" ? card : undefined;
+    if (mode === "edit") {
+      var title = document.getElementById("new-title");
+      var paths = document.getElementById("new-paths");
+      var priority = document.getElementById("new-priority");
+      if (title) title.value = card.title;
+      if (paths) paths.value = (card.paths || []).join(" ");
+      if (priority) priority.value = board.priorityOf(card);
+      if (heading) heading.textContent = "Edit card #" + card.id;
+      if (submit) submit.textContent = "Save";
+      if (hint) hint.textContent = "links are recorded with the board tool, while the card is being planned";
+      showTitleCount();
+      return;
+    }
+    // Leaving edit mode throws its text away; a draft written here survives Esc.
+    if (was === "edit" && form) form.reset();
+    if (heading) heading.textContent = "New card";
+    if (submit) submit.textContent = "Add card";
+    if (hint && board.composerHint !== undefined) hint.textContent = board.composerHint;
+    showTitleCount();
+  }
+
+  /** Open whichever mode the composer is dressed for, with the caret in the title. */
+  function openComposerForm() {
     if (!window.bfNew) return;
     // The kit focuses a dialog's first control, which here is its close button; a card
     // starts with a title, so the caret belongs in that field.
     window.bfNew.open();
     var input = document.getElementById("new-title");
     if (input) input.focus();
+  }
+
+  /** Open the new-card dialog. */
+  board.openComposer = function () {
+    if (composer.mode === "edit") setComposerMode("add");
+    openComposerForm();
+  };
+
+  /** Open it on one card: the same two fields, prefilled, with Save in place of Add. */
+  board.editCard = function (card) {
+    if (!window.bfNew) return;
+    board.closeCard();
+    setComposerMode("edit", card);
+    openComposerForm();
+    var title = document.getElementById("new-title");
+    // The end of the title is where a typo is, so that is where the caret starts.
+    if (title && title.setSelectionRange) title.setSelectionRange(title.value.length, title.value.length);
   };
 
   /** Close it and keep the draft: only Cancel throws one away. */
@@ -106,6 +174,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   board.cancelComposer = function () {
     var form = document.getElementById("board-composer");
     if (form) form.reset();
+    setComposerMode("add");
     board.closeComposer();
   };
 
@@ -209,22 +278,17 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     };
   }
 
-  /** The new-card dialog: a title, space-separated path hints, and Add. */
+  /** The new-card dialog: a title, space-separated path hints, a priority, and Add. */
   function wireComposer() {
     var form = document.getElementById("board-composer");
     if (!form) return;
+    // The hint is the page's, not this module's: a second copy of the sentence would drift.
+    var hint = document.getElementById("composer-hint");
+    board.composerHint = hint ? hint.textContent : "";
     // The field is capped at 120 characters, and a cap nobody can see reads as a bug the
     // first time typing stops; the count appears with the first character.
     var titleField = document.getElementById("new-title");
-    var count = document.getElementById("new-title-count");
-    var titleMax = titleField ? Number(titleField.getAttribute("maxlength")) : 0;
-    function showCount() {
-      if (!titleField || !count || !titleMax) return;
-      var used = titleField.value.length;
-      count.textContent = used + "/" + titleMax;
-      count.hidden = used === 0;
-    }
-    if (titleField) titleField.addEventListener("input", showCount);
+    if (titleField) titleField.addEventListener("input", showTitleCount);
     form.addEventListener("submit", function (event) {
       event.preventDefault();
       var title = document.getElementById("new-title");
@@ -233,13 +297,25 @@ export const BOARD_LIVE_JS = String.raw`(function () {
         return;
       }
       var paths = document.getElementById("new-paths").value.split(/\s+/).filter(Boolean);
-      var input = { title: title.value.trim() };
-      if (paths.length > 0) input.paths = paths;
+      var priorityField = document.getElementById("new-priority");
+      var priority = priorityField ? priorityField.value : "normal";
+      if (composer.mode === "edit") {
+        var card = composer.card;
+        if (!card) return;
+        // Every field goes, including the unchanged ones: an edit means "this is what it
+        // should say", and a priority changed back to normal is a change too.
+        board.act("edit", card, { title: title.value.trim(), paths: paths, priority: priority }).then(function (payload) {
+          if (payload) board.cancelComposer();
+        });
+        return;
+      }
+      var input = { title: title.value.trim(), paths: paths };
+      if (priority !== "normal") input.priority = priority;
       board.add(input).then(function (payload) {
         if (!payload) return;
         // The dialog stays open: a lead publishes several cards in a row.
         form.reset();
-        showCount();
+        showTitleCount();
         title.focus();
       });
     });

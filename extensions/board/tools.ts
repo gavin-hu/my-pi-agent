@@ -14,7 +14,16 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import { cardRef, normalizeCardId, normalizeNote, normalizePathHints, normalizeTitle } from "../../lib/board/card.ts";
+import {
+	cardRef,
+	matchesQuery,
+	normalizeCardId,
+	normalizeNote,
+	normalizePathHints,
+	normalizePriority,
+	normalizeTitle,
+} from "../../lib/board/card.ts";
+import { indexOf } from "../../lib/board/links.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
@@ -48,6 +57,7 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 		const parts = ["list"];
 		if (args.round === true) parts.push("round");
 		if (typeof args.status === "string") parts.push(args.status);
+		if (typeof args.query === "string" && args.query.trim() !== "") parts.push(`"${args.query.trim()}"`);
 		if (card !== "") parts.push(card);
 		return parts.join(" ");
 	}
@@ -73,17 +83,21 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession): void {
 		description:
 			"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
 			"A card carries the feature's outcome, the session that holds it, path hints, the plan it is executing, " +
-			"and its notes. `list` shows the board (`status` filters one lane, `card` shows one card, `round` adds " +
-			"the lead's rollup of owners, unassigned, unplanned, blocked, and idle - the rollup always covers the whole " +
-			"board). `add` creates a `todo` card; `claim` takes one for this session; `release` gives it back; " +
-			"`move` changes lane; `note` appends to its history; `plan` records the plan file being executed; " +
+			"its priority, what it waits for, and its notes. `list` shows the board (`status` filters one lane, " +
+			"`query` matches a title, a path hint, or a holder, `card` shows one card, `round` adds the lead's rollup " +
+			"of owners, unassigned, unplanned, blocked, and idle - the rollup always covers the whole board). `add` " +
+			"creates a `todo` card; `claim` takes one for this session; `release` gives it back; `reclaim` takes it " +
+			"from whoever holds it; `move` changes lane; `note` appends to its history; `plan` records the plan file " +
+			"being executed; `edit` fixes what the card says (title, paths, priority, and the cards it waits for); " +
 			"`drop` deletes a `todo`, a `done`, or one you hold. A card's steps do not belong on the board - they " +
 			"belong in the plan and in `todo`.",
-		promptSnippet: "The shared feature list for this repository: list, add, claim, release, move, note, plan, drop.",
+		promptSnippet:
+			"The shared feature list for this repository: list, add, claim, release, reclaim, move, note, plan, edit, drop.",
 		promptGuidelines: [
-			"Claim a card before working on it, and release or finish it when you stop.",
+			"Claim a card before working on it; release or finish it when you stop, and reclaim a card whose owner is gone.",
 			"Record the plan file with `board` action `plan` once the plan is approved, then execute it.",
 			"Note each phase of the work, and move the card to `done` or `blocked` when it changes state.",
+			"A card that waits on another is linked with `edit` and `dependsOn`, so the order is on the board instead of in a refusal.",
 			"A feature's steps belong in `todo`, not on the board: one card is one feature, whatever it takes.",
 			"A `handoff` in your inbox is work you now own: read it with `session inbox`, record the plan, and start it.",
 			"`paths` are hints for a reader, not claims; `session`'s path claims are what protect a file.",
@@ -115,6 +129,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession): void {
 						return await mutate(store, action, me, now, args, { kind: "claim" });
 					case "release":
 						return await mutate(store, action, me, now, args, { kind: "release" });
+					case "reclaim":
+						return await mutate(store, action, me, now, args, { kind: "reclaim" });
 					case "move": {
 						if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
 						const status = args.status;
@@ -131,6 +147,23 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession): void {
 						return await mutate(store, action, me, now, args, { kind: "note", text: args.text });
 					case "plan":
 						return await mutate(store, action, me, now, args, { kind: "plan", path: args.path });
+					case "edit": {
+						if (
+							args.title === undefined &&
+							args.paths === undefined &&
+							args.priority === undefined &&
+							args.dependsOn === undefined
+						) {
+							return refusal(action, me, "edit needs a title, paths, priority, or dependsOn.");
+						}
+						return await mutate(store, action, me, now, args, {
+							kind: "edit",
+							title: args.title,
+							paths: args.paths,
+							priority: args.priority,
+							dependsOn: args.dependsOn,
+						});
+					}
 					case "drop":
 						return await dropCard(store, me, args, now);
 				}
@@ -179,9 +212,13 @@ async function read(
 		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 		const card = cards.find((entry) => entry.id === id);
 		if (!card) return refusal(action, me, `${cardRef(id)} does not exist.`);
-		return textResult(formatCard(card), { action, me, card });
+		return textResult(formatCard(card, indexOf(cards)), { action, me, card });
 	}
-	const listed = args.status === undefined ? cards : cards.filter((card) => card.status === args.status);
+	const listed = cards.filter(
+		(card) =>
+			(args.status === undefined || card.status === args.status) &&
+			(args.query === undefined || matchesQuery(card, args.query)),
+	);
 	if (args.round !== true) return textResult(formatCards(listed), { action, me, cards: listed });
 	const round = buildRound(cards, now);
 	return textResult(formatRound(cards, round), { action, me, cards: listed, round });
@@ -198,6 +235,8 @@ async function add(
 	if ("error" in title) return refusal("add", me, title.error);
 	const paths = normalizePathHints(args.paths);
 	if ("error" in paths) return refusal("add", me, paths.error);
+	const priority = normalizePriority(args.priority);
+	if ("error" in priority) return refusal("add", me, priority.error);
 	let note: string | undefined;
 	if (args.note !== undefined) {
 		const parsed = normalizeNote(args.note);
@@ -205,7 +244,12 @@ async function add(
 		note = parsed.text;
 	}
 	const card = await store.create(
-		{ title: title.title, paths: paths.paths, ...(note === undefined ? {} : { note }) },
+		{
+			title: title.title,
+			paths: paths.paths,
+			priority: priority.priority,
+			...(note === undefined ? {} : { note }),
+		},
 		me,
 		now,
 	);

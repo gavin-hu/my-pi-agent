@@ -8,7 +8,7 @@
  */
 
 import { Type } from "typebox";
-import { CARD_STATUSES } from "../../lib/board/card.ts";
+import { CARD_STATUSES, PRIORITIES } from "../../lib/board/card.ts";
 import { BOARD_ACTIONS } from "./types.ts";
 
 export const BoardParams = Type.Object({
@@ -16,9 +16,10 @@ export const BoardParams = Type.Object({
 		BOARD_ACTIONS.map((action) => Type.Literal(action)),
 		{
 			description:
-				"`list` the board (optionally one card, one lane, or the lead's rollup), `add` a card, " +
-				"`claim` one for this session, `release` it, `move` it to another lane, `note` it, " +
-				"`plan` it (record the plan file being executed), or `drop` it.",
+				"`list` the board (optionally one card, one lane, a query, or the lead's rollup), `add` a card, " +
+				"`claim` one for this session, `release` it, `reclaim` it from whoever holds it, `move` it to " +
+				"another lane, `note` it, `plan` it (record the plan file being executed), `edit` what it says " +
+				"(title, paths, priority, what it waits for), or `drop` it.",
 		},
 	),
 	card: Type.Optional(
@@ -32,15 +33,37 @@ export const BoardParams = Type.Object({
 			},
 		),
 	),
-	title: Type.Optional(Type.String({ description: "`add`: the feature's outcome, one line." })),
+	title: Type.Optional(Type.String({ description: "`add` and `edit`: the feature's outcome, one line." })),
 	paths: Type.Optional(
 		Type.Array(Type.String(), {
-			description: "`add`: repository-relative hints (directories or files) where the work happens. Not claims.",
+			description:
+				"`add` and `edit`: repository-relative hints (directories or files) where the work happens. Not claims.",
 		}),
 	),
 	note: Type.Optional(Type.String({ description: "`add`: a first note, e.g. why the card exists." })),
 	text: Type.Optional(Type.String({ description: "`note`: the note to append." })),
 	path: Type.Optional(Type.String({ description: "`plan`: the plan file this card is executing." })),
+	priority: Type.Optional(
+		Type.Union(
+			PRIORITIES.map((priority) => Type.Literal(priority)),
+			{
+				description:
+					"`add` and `edit`: how urgent the feature is. `high` sorts first inside its lane; `normal` is the default.",
+			},
+		),
+	),
+	dependsOn: Type.Optional(
+		Type.Array(Type.String(), {
+			description:
+				"`edit`: the cards this one waits for, as ids. It cannot be claimed or moved to doing or done while one of them is unfinished; `[]` removes every link.",
+		}),
+	),
+	query: Type.Optional(
+		Type.String({
+			description:
+				"`list`: show only the cards whose title, path hint, or holder matches this text, case-insensitively.",
+		}),
+	),
 	round: Type.Optional(
 		Type.Boolean({
 			description: "`list`: also return the lead's rollup — owners, unassigned, unplanned, blocked, idle.",

@@ -8,6 +8,28 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a card can be corrected. `board` action `edit` fixes its title, its path
+  hints, its priority, and what it waits for — by the session that holds it, or by
+  anyone while nobody holds it, including a `done` card, because a title is what a
+  reader reads rather than a step of the work. An omitted field is left alone, so an
+  edit cannot clear a link it never showed; the page's new-card dialog is the same
+  form, prefilled and headed `Edit card #4` with **Save** in place of Add.
+- `board`: a card carries a priority — `high`, `normal`, or `low`, set by `add` or
+  `edit`. A lane sorts `high` first and then by age, so a lead can order the queue
+  without a fifth lane; the card chips its priority only when it is not the ordinary
+  one, and the row's trailing text says the same word.
+- `board`: a card can name what it waits for. `edit` with `dependsOn` records the ids,
+  refusing a card that is not there, the card itself, and a loop through the existing
+  edges; while one of them is unfinished the card cannot be claimed, assigned, or
+  moved to `doing` or `done`, and a card another one waits on cannot be dropped. The
+  refusal, the card's reason line, and the Team tab say `waits on #2 (doing)` in the
+  same words, and the page offers no `Claim` on a card the rules would turn down — the
+  Team tab gives it a row of its own instead.
+- `board`: `reclaim` is a board action now, not only the page's and `team`'s — the
+  same operation, from any session, for a card whose owner has gone. `list` also takes
+  a `query`, matching a title, a path hint, or a holder with the rule the page's filter
+  already used.
+
 - `board`: the page is rebuilt on the shared kit, with the reading of the board put
   first. The toolbar carries the serving session, a live badge, the Board|Team
   switch, done-of-total progress, a filter and a keys button; the composer is a dialog

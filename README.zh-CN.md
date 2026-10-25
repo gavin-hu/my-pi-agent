@@ -103,7 +103,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
 | [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、加入已批准拆分中的一个切片或编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；会话可以自行开启收件箱监视，在空闲时唤起本会话的一轮，从不创建智能体。 |
-| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature，任何 session 都可以认领、移动、加注、完成它；同一个看板在浏览器里以 **Board** 和 **Team** 两个 tab 实时显示。步骤留在 owner 的 plan 和 `todo` 里，卡片就是 feature、它的 owner，以及解释它的历史。 |
+| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature，任何 session 都可以认领、移动、编辑、加注、完成它；同一个看板在浏览器里以 **Board** 和 **Team** 两个 tab 实时显示。卡片可以带上优先级，也可以声明自己在等待哪几张卡片，于是工作的先后顺序就写在看板上。步骤留在 owner 的 plan 和 `todo` 里，卡片就是 feature、它的 owner，以及解释它的历史。 |
 | [`team`](./docs/extensions/team.md) | `team` | 同一块看板上的 lead 轮次：`assign` 把一个 feature 交给**已经运行**的 session——handoff 留在它的收件箱里，由它已武装的 `session watch` 唤醒这一轮；`reclaim` 把卡片收回 To do。不启动任何进程，也不在这里新建或完成卡片。 |
 | [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
 

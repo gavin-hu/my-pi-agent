@@ -28,7 +28,7 @@ import { fixtureBoard } from "../tools/fixtures/board-store.ts";
 const READY = "!!document.querySelector('.board-card')";
 
 /** The dialog a shot can open before it captures, so a modal is reviewed as a picture. */
-export type ShotDialog = "card" | "confirm" | "new";
+export type ShotDialog = "card" | "confirm" | "new" | "edit";
 
 /** CLI options after parsing. */
 export interface ShotOptions extends PageShotOptions {
@@ -47,8 +47,8 @@ export function parseArgs(argv: string[]): ShotOptions {
 		maxPositional: 0,
 	});
 	const dialog = parsed.values["--dialog"];
-	if (dialog !== undefined && dialog !== "card" && dialog !== "confirm" && dialog !== "new") {
-		throw new Error("--dialog must be card, confirm, or new");
+	if (dialog !== undefined && dialog !== "card" && dialog !== "confirm" && dialog !== "new" && dialog !== "edit") {
+		throw new Error("--dialog must be card, confirm, new, or edit");
 	}
 	return {
 		outDir: resolve(parsed.values["--out"] ?? parsed.out),
@@ -70,6 +70,12 @@ const DIALOG_OPEN: Record<ShotDialog, string> = {
 	// The toolbar's button is the way a lead asks for a card; a keyboard-only path
 	// would hide the trigger this shot exists to show.
 	new: "document.getElementById('board-new').click()",
+	// The composer's second mode: the card dialog's Edit opens the same two fields,
+	// prefilled, so the state is only visible after two clicks.
+	edit: [
+		"document.querySelector('.board-card__title').click()",
+		"Array.prototype.find.call(document.querySelectorAll('#card-dialog-actions .bf-btn'), function (b) { return b.textContent === 'Edit'; }).click()",
+	].join("; "),
 };
 
 /** The URL for one tab: the server's own URL already carries the token. */

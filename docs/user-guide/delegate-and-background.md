@@ -290,11 +290,16 @@ every worktree sees the same cards.
 - A card is one **feature**, not one step: the steps of the work live in the
   owner's plan and in `todo`. A card carries the feature's outcome, the session
   holding it, path hints, the plan file it is executing, and its notes.
-- `board` `action: "list"` reads the board, `add` creates a `todo` card, `claim`
-  takes one for this session, `move` changes lane, `note` appends to its history,
-  `plan` records the plan file, `release` gives it back, and `drop` deletes a
-  `todo`, a `done`, or one you hold. `round: true` adds the lead's rollup: who
-  holds what, what is unassigned, unplanned, blocked, or has gone quiet.
+- `board` `action: "list"` reads the board — `query` finds a card by title, path
+  hint, or holder — `add` creates a `todo` card with a `priority`, `claim` takes one
+  for this session, `move` changes lane, `note` appends to its history, `plan`
+  records the plan file, `edit` fixes a card's title, hints, priority, or what it
+  waits for, `release` gives it back, `reclaim` takes it from whoever holds it, and
+  `drop` deletes a `todo`, a `done`, or one you hold. `round: true` adds the lead's
+  rollup: who holds what, what is unassigned, unplanned, blocked, or has gone quiet.
+- A card can wait on another (`edit` with `dependsOn`): the claim and the move to
+  `doing` or `done` are refused while that card is unfinished, so the order of a
+  feature's work is on the board instead of in somebody's head.
 - `/board` serves the same cards as a page in your browser and opens it: a
   **Board** tab with the four lanes, and a **Team** tab with one panel per owner.
   The toolbar and footer stay put while the board scrolls, and the page follows the

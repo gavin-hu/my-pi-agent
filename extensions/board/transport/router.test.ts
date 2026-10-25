@@ -255,6 +255,18 @@ describe("the card routes", () => {
 		expect(writes).toEqual([{ kind: "move", id: "4", body: { status: "blocked" } }]);
 	});
 
+	test("edit is a verb like any other, carrying whichever fields the composer sent", async () => {
+		const { ctx, writes } = context();
+		await handleBoardRequest(
+			ctx,
+			"POST",
+			url("/api/cards/4/edit"),
+			{ ...SAME_ORIGIN, "content-type": "application/json" },
+			'{"title":"Billing webhook","priority":"high"}',
+		);
+		expect(writes).toEqual([{ kind: "edit", id: "4", body: { title: "Billing webhook", priority: "high" } }]);
+	});
+
 	test("a refusal answers 409 with the card it left alone", async () => {
 		const { ctx } = context();
 		const response = await handleBoardRequest(

@@ -14,7 +14,13 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { normalizeCardId, normalizeNote, normalizePathHints, normalizeTitle } from "../../lib/board/card.ts";
+import {
+	normalizeCardId,
+	normalizeNote,
+	normalizePathHints,
+	normalizePriority,
+	normalizeTitle,
+} from "../../lib/board/card.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
@@ -103,6 +109,8 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			if ("error" in title) return { ok: false, status: 422, error: title.error };
 			const paths = normalizePathHints(request.body.paths);
 			if ("error" in paths) return { ok: false, status: 422, error: paths.error };
+			const priority = normalizePriority(request.body.priority);
+			if ("error" in priority) return { ok: false, status: 422, error: priority.error };
 			let note: string | undefined;
 			if (request.body.note !== undefined) {
 				const parsed = normalizeNote(request.body.note);
@@ -110,7 +118,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				note = parsed.text;
 			}
 			const card = await store.create(
-				{ title: title.title, paths: paths.paths, ...(note === undefined ? {} : { note }) },
+				{
+					title: title.title,
+					paths: paths.paths,
+					priority: priority.priority,
+					...(note === undefined ? {} : { note }),
+				},
 				me,
 				runtime.now(),
 			);
@@ -232,6 +245,19 @@ function opOf(request: PageWrite): { op: CardOp } | { error: string } {
 			return { op: { kind: "note", text: request.body.text } };
 		case "plan":
 			return { op: { kind: "plan", path: request.body.path } };
+		case "edit":
+			// Every field is passed through as the browser sent it, including the absent
+			// ones: `applyOp` leaves an absent field alone, which is what keeps the page
+			// from clearing a link it never showed.
+			return {
+				op: {
+					kind: "edit",
+					title: request.body.title,
+					paths: request.body.paths,
+					priority: request.body.priority,
+					dependsOn: request.body.dependsOn,
+				},
+			};
 		case "move": {
 			const status = request.body.status;
 			if (status === "doing" || status === "blocked" || status === "done") return { op: { kind: "move", status } };

@@ -94,9 +94,45 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     return String(card.owner.label).toLowerCase() === String(me.label).toLowerCase();
   }
 
+  /** A card's priority; an older card that never recorded one is ordinary. */
+  function priorityOf(card) {
+    return card.priority || "normal";
+  }
+
+  /**
+   * The cards this one waits for that are not finished yet.
+   *
+   * The board is the index: a link is one id in the waiting card's file, so the other
+   * card's lane can only be read from the frame. A finished dependency has stopped
+   * explaining anything, so it drops out of the answer.
+   */
+  function blockersOf(card, view) {
+    var ids = card.dependsOn || [];
+    if (ids.length === 0 || !view) return [];
+    var all = cards(view);
+    var open = [];
+    for (var i = 0; i < ids.length; i++) {
+      for (var j = 0; j < all.length; j++) {
+        if (all[j].id === ids[i] && all[j].status !== "done") open.push(all[j]);
+      }
+    }
+    return open;
+  }
+
+  /** How the board says what a card waits for: the id and the lane that explains it. */
+  function waitingText(card, view) {
+    return blockersOf(card, view)
+      .map(function (blocker) { return "#" + blocker.id + " (" + blocker.status + ")"; })
+      .join(", ");
+  }
+
   /** The one line under a card's meta: why it sits where it does. */
-  function reasonOf(card) {
+  function reasonOf(card, view) {
     var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
+    // An order is the strongest reason a card is not being worked on, and the one a
+    // reader cannot see from the lane: it comes before the note that says the same.
+    var waiting = waitingText(card, view);
+    if (waiting !== "") return { text: "waits on " + waiting, kind: "waiting" };
     if (card.status === "blocked") {
       // The lane already says blocked and the tone already says danger; the line says why.
       return { text: last ? last.text : "blocked, with nothing recorded", kind: "blocked" };
@@ -144,6 +180,9 @@ export const BOARD_RENDER_JS = String.raw`(function () {
 
     var meta = el("p", "board-card__meta");
     meta.appendChild(card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned"));
+    // The order inside a lane is the priority, so an urgent card says so: an order
+    // nobody can see reads as an accident. The lane's colour stays the card's own.
+    if (priorityOf(card) !== "normal") meta.appendChild(chip(priorityOf(card)));
     // The stamp, so the clock can keep the age honest between frames: a board can be
     // quiet for ten minutes while the page still says "live".
     var age = el("span", "", ago(card.updatedAt));
@@ -153,7 +192,7 @@ export const BOARD_RENDER_JS = String.raw`(function () {
 
     if (card.paths.length > 0) item.appendChild(paths(card, PATH_CHIPS));
 
-    var reason = reasonOf(card);
+    var reason = reasonOf(card, view);
     if (reason) {
       var kind = reason.kind === "blocked" || reason.kind === "unplanned" ? " board-card__reason--" + reason.kind : "";
       var line = el("p", "board-card__reason" + kind, reason.text);
@@ -163,9 +202,12 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     }
 
     var actions = el("div", "board-card__actions");
-    if (card.status === "todo") {
+    var waiting = blockersOf(card, view).length > 0;
+    // A card that waits cannot be claimed, so the card face does not offer it: the reason
+    // line above is what it says instead, and the same rule holds in the dialog.
+    if (card.status === "todo" && !waiting) {
       actions.appendChild(actionButton("Claim", function () { board.act("claim", card); }, "plain"));
-    } else if (card.status !== "done") {
+    } else if (card.status !== "todo" && card.status !== "done") {
       actions.appendChild(actionButton("Move", function () { board.openCard(card.id, "move"); }, "plain"));
     }
     actions.appendChild(actionButton("Note", function () { board.openCard(card.id, "note"); }));
@@ -329,6 +371,7 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     var owner = document.getElementById("card-dialog-owner");
     owner.textContent = "";
     owner.appendChild(card.owner ? chip(card.owner.label, "accent") : document.createTextNode("unassigned"));
+    if (priorityOf(card) !== "normal") owner.appendChild(chip(priorityOf(card)));
 
     var pathList = document.getElementById("card-dialog-paths");
     pathList.textContent = "";
@@ -336,6 +379,13 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       var item = el("li", "");
       item.appendChild(chip(card.paths[i]));
       pathList.appendChild(item);
+    }
+
+    var waits = document.getElementById("card-dialog-depends");
+    if (waits) {
+      var linked = (card.dependsOn || []).map(function (id) { return "#" + id; }).join(", ");
+      waits.hidden = linked === "";
+      waits.textContent = linked === "" ? "" : "waits on " + linked;
     }
 
     var plan = document.getElementById("card-dialog-plan");
@@ -383,6 +433,9 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   board.findCard = findCard;
   board.mine = mine;
   board.matches = matches;
+  board.priorityOf = priorityOf;
+  board.blockersOf = blockersOf;
+  board.waitingText = waitingText;
   board.fillDialog = fillDialog;
   board.refreshAges = refreshAges;
   board.plural = plural;

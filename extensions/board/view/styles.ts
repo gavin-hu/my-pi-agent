@@ -39,6 +39,9 @@ ${WEB_COMPONENTS_CSS}
 .board-composer__field{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
 .board-composer__label{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-composer__count{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
+/* A select inside a field: the native caret is the affordance, so it keeps it, and the
+   field's own surface is what it sits on rather than the platform's white box. */
+.board-composer__select{background:transparent;color:var(--text);cursor:pointer}
 .board-composer__fields .bf-field{min-width:0}
 /* The title is the one thing this dialog exists to ask for, so it leads. */
 .board-composer__field--title .bf-field{padding:var(--space-2) var(--space-3)}
@@ -149,6 +152,8 @@ ${WEB_COMPONENTS_CSS}
 /* The card dialog: a meta line, the notes as a timeline, and the actions at its foot. */
 .board-dialog__meta,.board-dialog__owner{margin:0 0 var(--space-2);font:var(--fs-sm) var(--font-ui);color:var(--muted)}
 .board-dialog__plan{margin:0 0 var(--space-2);font:var(--fs-xs) var(--font-mono);color:var(--dim);word-break:break-all}
+/* What the card waits for is a fact about its place in the work, not a record of it. */
+.board-dialog__depends{margin:0 0 var(--space-2);font:var(--fs-xs) var(--font-mono);color:var(--muted);word-break:break-all}
 .board-dialog__notes{display:flex;flex-direction:column;gap:var(--space-3);margin:0 0 var(--space-3);padding:0;list-style:none;max-height:16rem;overflow:auto}
 /* A rule between notes: wrapped prose used to run one note into the next. */
 .board-dialog__note{padding-top:var(--space-3);border-top:1px solid var(--border)}

@@ -1,12 +1,17 @@
 /**
  * The card lifecycle: every transition, as a pure function of the card, the
- * operation, who asked, and the clock.
+ * operation, who asked, the clock, and the board's other cards.
  *
- * One table decides who may do what — the tool, the router, and the page all
+ * One table decides who may do what — the tool, the router, the page, and `team` all
  * route through {@link applyOp} — so a lane change cannot be reachable from one
- * surface and refused from another. Nothing here touches the filesystem or the
- * bus: ownership is advisory (the bus's path claims are the lock), and the store
- * owns the compare-and-set that makes a concurrent writer lose.
+ * surface and refused from another. Nothing here touches the filesystem or the bus:
+ * ownership is advisory (the bus's path claims are the lock), and the store owns the
+ * compare-and-set that makes a concurrent writer lose.
+ *
+ * The board index is a parameter rather than a lookup because three operations need a
+ * *different* card: a claim or a move is refused while a dependency is unfinished, and
+ * a drop is refused while somebody waits on the card. `lib/board/links.ts` answers
+ * those questions; this module decides what to do with the answer.
  *
  * Two shapes of failure, and the difference matters. A refusal is `{ ok: false }`
  * with the reason, and the caller returns the card untouched. A *no-op* is
@@ -24,10 +29,18 @@ import {
 	type CardOwner,
 	type CardStatus,
 	cardRef,
+	DEFAULT_PRIORITY,
+	dependsOf,
 	MAX_NOTES,
 	normalizeNote,
+	normalizePathHints,
 	normalizePlanPath,
+	normalizePriority,
+	normalizeTitle,
+	type Priority,
+	priorityOf,
 } from "./card.ts";
+import { type BoardIndex, dependedOn, normalizeDepends, waitingOn } from "./links.ts";
 
 /** Who is attempting an operation: a session when it has one, and the label it is addressed by. */
 export interface Actor {
@@ -45,6 +58,9 @@ export type CardOp =
 	// refusal it produces is the one the caller shows.
 	| { kind: "note"; text: unknown }
 	| { kind: "plan"; path: unknown }
+	// Every field but `kind` is optional, and an absent one is left as it was: the page
+	// sends the three it can show, and omitting a link must not clear it.
+	| { kind: "edit"; title: unknown; paths: unknown; priority: unknown; dependsOn: unknown }
 	| { kind: "reclaim" }
 	| { kind: "drop" };
 
@@ -54,7 +70,7 @@ export type OpResult = { ok: true; card: Card; changed: boolean } | { ok: false;
 /** A card's first state: `todo`, no owner, one note at most. */
 export function createCard(
 	id: string,
-	input: { title: string; paths: string[]; note?: string },
+	input: { title: string; paths: string[]; note?: string; priority?: Priority },
 	actor: Actor,
 	now: number,
 ): Card {
@@ -64,6 +80,9 @@ export function createCard(
 		title: input.title,
 		status: "todo",
 		paths: [...input.paths],
+		// A new card says its priority out loud, even when it is the ordinary one, so a
+		// file on disk tells a reader the whole story without a default to know.
+		priority: input.priority ?? DEFAULT_PRIORITY,
 		notes: input.note === undefined ? [] : [{ by: actor.label, at: now, text: input.note }],
 		notesDropped: 0,
 		rev: 1,
@@ -93,38 +112,44 @@ export function holds(card: Card, actor: Actor): boolean {
  * A refused operation returns the reason and no card: the caller already holds the
  * card it read, and a "refused" copy of it would be a second version of the truth.
  */
-export function applyOp(card: Card, op: CardOp, actor: Actor, now: number): OpResult {
+export function applyOp(card: Card, op: CardOp, actor: Actor, now: number, board: BoardIndex): OpResult {
 	switch (op.kind) {
 		case "claim":
-			return claim(card, actor, now);
+			return claim(card, actor, now, board);
 		case "assign":
-			return assign(card, op.to, actor, now);
+			return assign(card, op.to, actor, now, board);
 		case "release":
 			return release(card, actor, now);
 		case "move":
-			return move(card, op.status, actor, now);
+			return move(card, op.status, actor, now, board);
 		case "note":
 			return note(card, op.text, actor, now);
 		case "plan":
 			return plan(card, op.path, actor, now);
+		case "edit":
+			return edit(card, op, actor, now, board);
 		case "reclaim":
 			return reclaim(card, actor, now);
 		case "drop":
-			return drop(card, actor);
+			return drop(card, actor, board);
 	}
 }
 
-function claim(card: Card, actor: Actor, now: number): OpResult {
+function claim(card: Card, actor: Actor, now: number, board: BoardIndex): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { ok: true, card, changed: false };
 	if (card.owner !== undefined) return { ok: false, error: heldBy(card) };
+	const waiting = waitingOn(card, board);
+	if (waiting !== undefined) return { ok: false, error: waiting };
 	return { ok: true, card: write(card, actor, now, { status: "doing", owner: ownerOf(actor) }), changed: true };
 }
 
-function assign(card: Card, to: Actor, actor: Actor, now: number): OpResult {
+function assign(card: Card, to: Actor, actor: Actor, now: number, board: BoardIndex): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be assigned.` };
 	if (card.owner !== undefined && !holds(card, to)) return { ok: false, error: heldBy(card) };
 	if (holds(card, to) && card.status === "doing") return { ok: true, card, changed: false };
+	const waiting = waitingOn(card, board);
+	if (waiting !== undefined) return { ok: false, error: waiting };
 	return { ok: true, card: write(card, actor, now, { status: "doing", owner: ownerOf(to) }), changed: true };
 }
 
@@ -134,13 +159,19 @@ function release(card: Card, actor: Actor, now: number): OpResult {
 	return { ok: true, card: write(card, actor, now, { status: "todo", owner: undefined }), changed: true };
 }
 
-function move(card: Card, status: Exclude<CardStatus, "todo">, actor: Actor, now: number): OpResult {
+function move(card: Card, status: Exclude<CardStatus, "todo">, actor: Actor, now: number, board: BoardIndex): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be moved.` };
 	if (card.owner === undefined) {
 		return { ok: false, error: `${cardRef(card.id)} is unclaimed; claim it before moving it to ${status}.` };
 	}
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Only its owner can move it.` };
 	if (card.status === status) return { ok: true, card, changed: false };
+	// Parking is what a link is for, so only the two lanes that put a card back in flight
+	// are gated: a card that waits may be blocked, it may not be taken or finished.
+	if (status !== "blocked") {
+		const waiting = waitingOn(card, board);
+		if (waiting !== undefined) return { ok: false, error: waiting };
+	}
 	return { ok: true, card: write(card, actor, now, { status }), changed: true };
 }
 
@@ -168,16 +199,71 @@ function plan(card: Card, raw: unknown, actor: Actor, now: number): OpResult {
 	return { ok: true, card: write(card, actor, now, { plan: parsed.path }), changed: true };
 }
 
+/**
+ * Fix what a card says: its title, its hints, its priority, and what it waits for.
+ *
+ * The holder decides for a held card and anyone decides for an unclaimed one — and
+ * that includes a `done` card, because a title is what a reader reads, not a step of
+ * the work: a finished feature whose title says the wrong thing would stay wrong for
+ * as long as the board keeps history.
+ *
+ * Every field is optional and an absent one is left alone; a field that already holds
+ * the value asked for is not a write, so re-editing the same card is a no-op.
+ */
+function edit(
+	card: Card,
+	op: Extract<CardOp, { kind: "edit" }>,
+	actor: Actor,
+	now: number,
+	board: BoardIndex,
+): OpResult {
+	if (card.owner !== undefined && !holds(card, actor)) {
+		return { ok: false, error: `${heldBy(card)} Only its owner can edit it.` };
+	}
+	const fields: Partial<Card> = {};
+	if (op.title !== undefined) {
+		const parsed = normalizeTitle(op.title);
+		if ("error" in parsed) return { ok: false, error: parsed.error };
+		if (parsed.title !== card.title) fields.title = parsed.title;
+	}
+	if (op.paths !== undefined) {
+		const parsed = normalizePathHints(op.paths);
+		if ("error" in parsed) return { ok: false, error: parsed.error };
+		if (!sameList(parsed.paths, card.paths)) fields.paths = parsed.paths;
+	}
+	if (op.priority !== undefined) {
+		const parsed = normalizePriority(op.priority);
+		if ("error" in parsed) return { ok: false, error: parsed.error };
+		if (parsed.priority !== priorityOf(card)) fields.priority = parsed.priority;
+	}
+	if (op.dependsOn !== undefined) {
+		const parsed = normalizeDepends(op.dependsOn, card.id, board);
+		if ("error" in parsed) return { ok: false, error: parsed.error };
+		if (!sameList(parsed.dependsOn, dependsOf(card))) fields.dependsOn = parsed.dependsOn;
+	}
+	if (Object.keys(fields).length === 0) return { ok: true, card, changed: false };
+	return { ok: true, card: write(card, actor, now, fields), changed: true };
+}
+
 function reclaim(card: Card, actor: Actor, now: number): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
 	if (card.owner === undefined) return { ok: false, error: `${cardRef(card.id)} has no owner to reclaim.` };
 	return { ok: true, card: write(card, actor, now, { status: "todo", owner: undefined }), changed: true };
 }
 
-function drop(card: Card, actor: Actor): OpResult {
+function drop(card: Card, actor: Actor, board: BoardIndex): OpResult {
+	// A drop takes its id with it, so a card another one waits on cannot leave: the
+	// remaining link would name nothing, and nothing on the board would say so.
+	const depended = dependedOn(card.id, board);
+	if (depended !== undefined) return { ok: false, error: depended };
 	if (card.status === "todo" || card.status === "done") return { ok: true, card, changed: true };
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} It cannot be dropped while someone holds it.` };
 	return { ok: true, card, changed: true };
+}
+
+/** Whether two string lists are the same list, in the same order. */
+function sameList(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((entry, index) => entry === right[index]);
 }
 
 /** A card with `fields` applied and its write marks moved. */
