@@ -295,9 +295,11 @@ export const BOARD_LIVE_JS = String.raw`(function () {
       else if (query.addListener) query.addListener(onChange);
     }
     // The badge says how fresh the last frame is, which is the one thing a quiet
-    // board cannot show by changing.
+    // board cannot show by changing; the ages are the other, so the same tick keeps
+    // them honest without waiting for somebody to write.
     window.setInterval(function () {
       if (board.lastFrame !== undefined) badge("live", board.lastFrame);
+      board.refreshAges();
     }, 1000);
   }
 

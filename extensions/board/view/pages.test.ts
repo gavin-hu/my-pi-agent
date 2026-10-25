@@ -156,6 +156,14 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.start();");
 	});
 
+	test("offers an unowned card the action it is waiting for, and keeps ages honest", () => {
+		// A todo card's dialog used to offer only Drop and Close; a quiet board's
+		// ages used to freeze at the last frame.
+		expect(BOARD_CLIENT_JS).toContain('card.owner === undefined && card.status !== "done"');
+		expect(BOARD_CLIENT_JS).toContain("data-at");
+		expect(BOARD_CLIENT_JS).toContain("board.refreshAges()");
+	});
+
 	test("never parses a stored field", () => {
 		// `innerHTML` is the whole injection surface of a page like this one.
 		expect(BOARD_CLIENT_JS).not.toContain("innerHTML");

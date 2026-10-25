@@ -143,7 +143,11 @@ export const BOARD_RENDER_JS = String.raw`(function () {
 
     var meta = el("p", "board-card__meta");
     meta.appendChild(card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned"));
-    meta.appendChild(el("span", "", ago(card.updatedAt)));
+    // The stamp, so the clock can keep the age honest between frames: a board can be
+    // quiet for ten minutes while the page still says "live".
+    var age = el("span", "", ago(card.updatedAt));
+    age.setAttribute("data-at", String(card.updatedAt));
+    meta.appendChild(age);
     item.appendChild(meta);
 
     if (card.paths.length > 0) item.appendChild(paths(card, PATH_CHIPS));
@@ -191,6 +195,22 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   /** 1 card, 2 cards. */
   function plural(count, noun) {
     return count + " " + noun + (count === 1 ? "" : "s");
+  }
+
+  /**
+   * Rewrite every age already on the page from its own timestamp.
+   *
+   * A frame carries the ages of the moment it was built, so on a board nobody is
+   * writing to the cards would slowly lie about how long they have sat there. The
+   * ticker calls this; it touches nothing else, so a filter, a folded lane, or an
+   * open dialog survives it.
+   */
+  function refreshAges() {
+    var nodes = document.querySelectorAll("[data-at]");
+    for (var i = 0; i < nodes.length; i++) {
+      var next = ago(Number(nodes[i].getAttribute("data-at")));
+      if (nodes[i].textContent !== next) nodes[i].textContent = next;
+    }
   }
 
   /** Whether the filter keeps a card: title, a path hint, or the holder. */
@@ -349,5 +369,6 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   board.mine = mine;
   board.matches = matches;
   board.fillDialog = fillDialog;
+  board.refreshAges = refreshAges;
   board.plural = plural;
 })();`;

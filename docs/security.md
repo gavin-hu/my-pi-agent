@@ -16,12 +16,21 @@ read from outside it. Each one is built around an explicit boundary.
 
 ### Loopback HTTP servers
 
-Two surfaces serve local HTTP:
+Three surfaces serve local HTTP:
 
 - [`file-browse`](../extensions/file-browse/) binds `127.0.0.1` only, is
   read-only, and is rooted at the working directory. Its `/events` stream carries
   the same status the page already renders — a branch, changed paths, an uptime,
   a request count — and can only be read; at most eight pages may hold it.
+- [`board`](../extensions/board/)'s page binds `127.0.0.1` and is the one that
+  **writes** — to the board store under the agent directory, never to the
+  repository. Every route needs the 128-bit token minted when the page starts, and
+  a state-changing request also has to pass the origin check, name
+  `application/json`, and stay inside the body cap. There is no cookie and no CORS,
+  so the token in the URL is the whole credential; a write is made as the session
+  that serves the page, and claim, reclaim, and drop confirm in the page first
+  because a browser is not an identity. The page lives until `/board stop` or
+  session shutdown.
 - [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
   tokenized, and closes its server on the owner's save or cancel, the owner's page
   going away, or session shutdown. Sharing adds a second listener on one address
@@ -33,12 +42,15 @@ Two surfaces serve local HTTP:
 
 The loopback listeners never leave `127.0.0.1`; the only wider bind is the share
 listener the owner starts and can revoke, and it answers only the one address the
-share dialog printed. Both surfaces answer from one shared
-policy in `lib/http` — the same CSP (which refuses to be framed), the same
-`Host` allowlist shape, the same event-stream headers, and the same bind/close
-rules — so the two surfaces cannot drift into different envelopes. A remote turn (for example over WeChat)
-cannot reach them; `/plan review` refuses there instead of opening a server
-nobody can use.
+share dialog printed. All three answer from one shared policy in `lib/http` — the
+same CSP (which refuses to be framed), the same `Host` allowlist shape, the same
+event-stream headers, and the same bind/close rules. The pages that can write
+share more than that: `envelopeRefusal` orders the method, `Host`, and origin
+checks once, `requireJsonBody` refuses a body a form could send, and `mintToken`
+with `tokenMatches` is the one credential, compared in constant time — so the two
+mutating pages cannot drift into different envelopes. A remote turn (for example
+over WeChat) cannot reach them; `/plan review` refuses there instead of opening a
+server nobody can use.
 
 ### Worktree and shell isolation
 

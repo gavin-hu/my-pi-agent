@@ -1,6 +1,10 @@
 /**
  * The page's lifecycle: one server per session, started by `/board` and closed by
- * `/board stop`, by the idle grace, or by `session_shutdown`.
+ * `/board stop` or by `session_shutdown`.
+ *
+ * `idleMs` is a seam, not a shipped default: a caller that supplies it gets the
+ * grace `transport/server.ts` already knows how to arm, and the extension itself
+ * supplies none, so a page left open answers until it is stopped.
  *
  * The server is built from three things this module owns: the store (through the
  * runtime), the snapshot (`buildView` over the cards it reads), and the write path
