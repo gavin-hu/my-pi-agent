@@ -217,19 +217,22 @@ export const BOARD_ACTIONS_JS = String.raw`(function () {
       footer.appendChild(board.actionButton("Claim", function () { board.act("claim", card); }, "primary"));
     }
     if (isMine && card.status !== "done") {
-      var lanes = board.el("div", "bf-segmented board-dialog__lanes");
-      var targets = ["doing", "blocked", "done"];
+      // Only the lanes this card can reach: the lane it is in is the head's status, and
+      // a segmented control whose selected item is a disabled button reads as a live one.
+      var targets = ["doing", "blocked", "done"].filter(function (lane) { return lane !== card.status; });
+      var move = board.el("div", "board-dialog__move");
+      move.appendChild(board.el("span", "board-dialog__label", "Move to"));
+      var lanes = board.el("div", "bf-segmented");
       for (var i = 0; i < targets.length; i++) {
         (function (lane) {
           var item = board.el("button", "bf-segmented__item", board.laneLabel(lane));
           item.type = "button";
-          item.setAttribute("aria-pressed", String(card.status === lane));
-          item.disabled = card.status === lane;
           item.addEventListener("click", function () { board.act("move", card, { status: lane }); });
           lanes.appendChild(item);
         })(targets[i]);
       }
-      footer.appendChild(lanes);
+      move.appendChild(lanes);
+      footer.appendChild(move);
     }
     if (isMine && card.status !== "done") {
       footer.appendChild(board.actionButton("Release", function () { board.act("release", card); }));

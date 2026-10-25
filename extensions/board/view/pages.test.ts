@@ -173,6 +173,13 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("line.title = reason.text");
 	});
 
+	test("says its lane in the head, separates the notes, and offers only reachable lanes", () => {
+		expect(BOARD_CLIENT_JS).toContain('getElementById("card-dialog-state")');
+		expect(BOARD_CLIENT_JS).toContain("board-dialog__note-head");
+		expect(BOARD_CLIENT_JS).toContain('"Move to"');
+		expect(BOARD_CLIENT_JS).toContain("lane !== card.status");
+	});
+
 	test("never parses a stored field", () => {
 		// `innerHTML` is the whole injection surface of a page like this one.
 		expect(BOARD_CLIENT_JS).not.toContain("innerHTML");

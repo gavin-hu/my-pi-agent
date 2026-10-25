@@ -101,11 +101,24 @@ ${WEB_COMPONENTS_CSS}
 /* The card dialog: a meta line, the notes as a timeline, and the actions at its foot. */
 .board-dialog__meta,.board-dialog__owner{margin:0 0 var(--space-2);font:var(--fs-sm) var(--font-ui);color:var(--muted)}
 .board-dialog__plan{margin:0 0 var(--space-2);font:var(--fs-xs) var(--font-mono);color:var(--dim);word-break:break-all}
-.board-dialog__notes{display:flex;flex-direction:column;gap:var(--space-2);margin:0 0 var(--space-3);padding:0;list-style:none;max-height:14rem;overflow:auto}
-.board-dialog__note{font:var(--fs-sm)/var(--lh-normal) var(--font-ui);color:var(--text)}
-.board-dialog__note-by{color:var(--muted)}
-.board-dialog__lanes{margin-right:auto}
+.board-dialog__notes{display:flex;flex-direction:column;gap:var(--space-3);margin:0 0 var(--space-3);padding:0;list-style:none;max-height:16rem;overflow:auto}
+/* A rule between notes: wrapped prose used to run one note into the next. */
+.board-dialog__note{padding-top:var(--space-3);border-top:1px solid var(--border)}
+.board-dialog__note:first-child{padding-top:0;border-top:0}
+.board-dialog__note-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin:0 0 2px}
+.board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--text)}
+.board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
+.board-dialog__note-text{margin:0;font:var(--fs-sm)/var(--lh-normal) var(--font-ui);color:var(--text);overflow-wrap:anywhere}
+.board-dialog__move{display:flex;align-items:center;gap:var(--space-2);margin-right:auto}
+.board-dialog__label{font:var(--fs-xs) var(--font-ui);color:var(--muted)}
+.board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
+.board-dialog__state[data-status="doing"]::before{background:var(--accent)}
+.board-dialog__state[data-status="blocked"]::before{background:var(--danger)}
+.board-dialog__state[data-status="done"]::before{background:var(--success)}
 .board-dialog__note-composer .bf-field{margin:0}
+/* A summary of one owner should read as a group, not as three fragments across a page. */
+.board-team__owners,.board-team__needs{max-width:60rem}
 .board-team__owners th:nth-child(1){width:50%}
 .board-team__owners th:nth-child(2){width:20%}
 .board-team__owners th:nth-child(3){width:30%}
