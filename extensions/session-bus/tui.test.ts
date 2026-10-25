@@ -14,9 +14,10 @@ import { mailNotice } from "./notice.ts";
 import { messageRowLine, sessionDetailBlock, sessionRows, sessionRowLine, summaryCells } from "./rows.ts";
 import { collapsedLine, resultSections, SessionResult } from "./result.ts";
 import { SessionListComponent } from "./tui.ts";
+import type { RosterState } from "../../lib/session-roster.ts";
 import type { BoardSnapshot, BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
 
-type ListedSession = SessionRecord & { unread: number };
+type ListedSession = SessionRecord & { unread: number; state: RosterState };
 
 function session(overrides: Partial<ListedSession> = {}): ListedSession {
 	return {
@@ -29,6 +30,7 @@ function session(overrides: Partial<ListedSession> = {}): ListedSession {
 		startedAt: 1_000,
 		lastSeen: 10_000,
 		unread: 0,
+		state: "live",
 		...overrides,
 	};
 }
@@ -117,6 +119,21 @@ describe("session rows", () => {
 		expect(summaryCells(fakeTheme, rows, { armed: true, wake: true }).join(" · ")).toContain("watch wake");
 		const single = sessionRows(status([session({ id: "s1", label: "solo" })]));
 		expect(summaryCells(fakeTheme, single, undefined).join(" · ")).toBe("1 session · 0 claims");
+	});
+
+	test("a dead session is counted and rowed as gone, not as a quiet teammate", () => {
+		const rows = sessionRows(
+			status([session({ id: "s1", label: "mine" }), session({ id: "s2", label: "crashed", unread: 0, state: "gone" })]),
+		);
+		// The summary leads with it: a crash is the one cell a lead must not scan past.
+		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("1 gone");
+		const crashed = rows.find((row) => row.session.id === "s2");
+		if (!crashed) throw new Error("no row");
+		// The row's own counts would read "0 unread" for a session nothing can answer.
+		const line = sessionRowLine(crashed, fakeTheme, 80);
+		expect(line).toContain("gone");
+		expect(line).not.toContain("0 unread");
+		expect(sessionDetailBlock(crashed, 12_000).join("\n")).toContain("process gone");
 	});
 
 	test("the focus block names the cwd, at most two claims, and identity", () => {

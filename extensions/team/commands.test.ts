@@ -44,9 +44,31 @@ function mate(label: string, lastSeen: number): RosterSession {
 	return { id: `s-${label}`, label, mode: "tui", lastSeen, mail: 0 };
 }
 
+/** A record whose process is gone: no host runs a pid that high. */
+function dead(label: string): RosterSession {
+	return { ...mate(label, NOW - 60_000), pid: 999_999_999 };
+}
+
 describe("roundText", () => {
 	test("an empty board is one sentence, not a headline of zeroes", () => {
 		expect(roundText([], NOW)).toBe("team: nothing to report — the board is empty");
+	});
+
+	test("names a dead owner's cards, and says who is gone rather than quiet", () => {
+		const cards = [
+			card("1", { status: "doing", owner: { label: "billing-core" }, updatedAt: NOW - 2 * 60_000 }),
+			card("2", { status: "blocked", owner: { label: "billing-core" } }),
+			card("3", { status: "done", owner: { label: "billing-core" } }),
+			card("4", { status: "doing", owner: { label: "ops-helper" }, updatedAt: NOW - 2 * 60_000 }),
+		];
+		const roster = [mate("billing-lead", NOW), dead("billing-core"), mate("ops-helper", NOW - 20 * 60_000)];
+		const lines = roundText(cards, NOW, roster).split("\n");
+		// The instruction comes before the presence line: who died is the quieter fact.
+		expect(lines).toContain("reclaim #1, #2 — billing-core is not running");
+		expect(lines.at(-1)).toBe("live: billing-lead · quiet: ops-helper · gone: billing-core");
+		// A card finished by a dead owner is history, not work to reclaim.
+		const reclaim = lines.find((line) => line.startsWith("reclaim "));
+		expect(reclaim).not.toContain("#3");
 	});
 
 	test("prints the rollup, then who is live and who has gone quiet", () => {

@@ -55,7 +55,7 @@ collapsed line that expands to the board's rows.
 
 | Action | Inputs | Result |
 |---|---|---|
-| `status` | — | Active sessions with unread counts, claims, and this session's identity. Prunes stale records. A read: it never adds this session to the bus. |
+| `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
 | `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. |
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
@@ -178,8 +178,18 @@ listening watch is what raises the turn.
   both sides to keep replying; the answer is to stop listening on one of them.
 - **No broadcast history.** A broadcast reaches the sessions active at send time;
   a session that joins later does not receive it.
-- **No forced claims.** A crashed owner blocks its paths until the session TTL
-  expires. This is deliberate; stealing a claim is worse than waiting.
+- **No forced claims.** There is no takeover while an owner can still answer: a
+  claim is released by its owner, or by the next bus call once the owner's process
+  is gone. A *hung* owner still blocks its paths until the session TTL expires,
+  because a running process is not evidence of a working one.
+- **A dead process is named, not waited out.** A record carries its `pid` and, where
+  the host can name one, that process's start time. A pid that is no longer running,
+  or one whose start time is not the record's (a reused pid), reads `gone` at once:
+  its label is free, the paths it held are nobody's, and `session status` and
+  `/sessions` count it. It keeps its row until its heartbeat ages out, so a lead can
+  see what died and reclaim it. A record with no `pid` — and a platform without
+  `ps`, such as Windows — falls back to the heartbeat rather than being called dead
+  on no evidence.
 - **Bounded by TTL.** An idle session with a stopped heartbeat is pruned after
   ten minutes; its record, its claims, and an inbox directory left empty go with
   it, and its unread mail expires after 24 hours. A claim belongs to a record

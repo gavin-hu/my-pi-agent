@@ -23,6 +23,7 @@ export const BUS_BOARD: BoardSnapshot = {
 				startedAt: now - 41 * 60_000,
 				lastSeen: now - 2_000,
 				unread: 1,
+				state: "live",
 			},
 			{
 				id: "8c14de60a2f1",
@@ -34,6 +35,7 @@ export const BUS_BOARD: BoardSnapshot = {
 				startedAt: now - 33 * 60_000,
 				lastSeen: now - 4_000,
 				unread: 0,
+				state: "live",
 			},
 			{
 				id: "a71f90c3e5b2",
@@ -45,6 +47,7 @@ export const BUS_BOARD: BoardSnapshot = {
 				startedAt: now - 12 * 60_000,
 				lastSeen: now - 9_000,
 				unread: 0,
+				state: "live",
 			},
 		],
 		claims: [

@@ -5,6 +5,7 @@
  * `store.ts` and the lifecycle in `runtime.ts`.
  */
 
+import type { RosterState } from "../../lib/session-roster.ts";
 import type { MessageKind, SessionMode } from "./protocol.ts";
 
 /** One registered Pi session. */
@@ -12,6 +13,14 @@ export interface SessionRecord {
 	id: string;
 	label: string;
 	pid: number;
+	/**
+	 * That process's start time, when the host can name one.
+	 *
+	 * It is what tells the record's process apart from an unrelated one that has since
+	 * been given the same pid, so `gone` does not have to wait for the heartbeat to age.
+	 * Absent on a platform without `ps`, and on a record written before this existed.
+	 */
+	startToken?: string;
 	/** Working directory of the session; the worktree root when there is one. */
 	cwd: string;
 	/** Repository root the session belongs to, for relative claims. */
@@ -57,7 +66,7 @@ export interface SessionStatus {
 	me: { id: string; label: string };
 	/** False while this session has only read the bus: it joins by naming itself. */
 	onBus: boolean;
-	sessions: Array<SessionRecord & { unread: number }>;
+	sessions: Array<SessionRecord & { unread: number; state: RosterState }>;
 	claims: ClaimRecord[];
 	/** Present only when this session armed its inbox watch. */
 	watching?: { armed: boolean; wake: boolean };

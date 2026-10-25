@@ -89,7 +89,7 @@ screenshots.
 | README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; one plan store per repository, a step list approval seeds into `todo`, and a review that follows its file | — |
-| Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | P1–P2 |
+| Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | P1 |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |
@@ -170,23 +170,15 @@ item went the same way: both modules it named have a second consumer inside
   it and a restart cannot resume it (`subagent` page).
 - The bus is one machine and one OS user, with no authentication between
   sessions; delivery is pull-based unless a session arms its watch; a claim is
-  advisory and a crashed owner keeps its paths until the ten-minute TTL; two
-  armed peers can ping-pong (`session-bus` page).
+  advisory, and a claim whose owner's process is gone is released at the next bus
+  call while a *hung* owner keeps its paths until the ten-minute TTL; two armed
+  peers can ping-pong (`session-bus` page).
 - A `watch` match raises its notification or its wake once a running turn
   settles, not in the middle of it (`watch` page).
 
 **Now**
 
-- **P1 — A dead session says so.** `lib/session-roster.ts` answers `gone` when a
-  record's `pid` is no longer running, not only `live` or `quiet` from an aged
-  heartbeat, and every surface that says who is on the team reads it: `session
-  status`, `/sessions`, the board's Team tab, and the `/team` round. A `gone`
-  owner's path claims are reclaimable at once instead of after `SESSION_TTL_MS`,
-  and its `doing` cards come back in the round instead of reading idle for half
-  an hour. `lib/spawn.ts` already proves a pid is alive, and `job`'s registry
-  already carries a start token against pid reuse, so the change is one rule
-  where the roster is computed, plus the rows that print it.
-- **P2 — A card's links are set from the page.** The card dialog records what a
+- **P1 — A card's links are set from the page.** The card dialog records what a
   card waits for, as a picker over the board's ids, instead of leaving
   `dependsOn` to `board edit`: the page already shows the links and already
   edits the title, the path hints, and the priority, so this is parity rather

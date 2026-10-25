@@ -40,7 +40,14 @@ import {
 import { createMailWatch, type WatchingState } from "./mail-watch.ts";
 import { createBusStore, releaseClaimed, type BusStore } from "./store.ts";
 import type { BusMessage, ClaimConflict, SessionRecord, SessionStatus } from "./types.ts";
-import { BUS_DIR_NAME, SESSION_TTL_MS } from "../../lib/session-roster.ts";
+import {
+	BUS_DIR_NAME,
+	type RosterSeams,
+	type RosterState,
+	rosterStateOf,
+	SESSION_TTL_MS,
+} from "../../lib/session-roster.ts";
+import { isPidAlive, type LivenessFn, startTokenOf, type StartTokenFn } from "../../lib/spawn.ts";
 
 export interface SessionBusOptions {
 	now?: () => number;
@@ -48,6 +55,10 @@ export interface SessionBusOptions {
 	dir?: string;
 	/** Test seam: the process id this runtime registers as, so two can share one session id. */
 	pid?: number;
+	/** Test seam: whether a pid is running, so a suite never depends on the host's pids. */
+	alive?: LivenessFn;
+	/** Test seam: the start-time seam the record is stamped with. */
+	startTokenFn?: StartTokenFn;
 	/** Test seam: skip git and use this repository identity. */
 	repo?: { root: string; key: string };
 	/** Heartbeat interval; 0 disables it (tests). */
@@ -107,11 +118,6 @@ function messageId(now: number): string {
 	return `${now}-${randomBytes(4).toString("hex")}`;
 }
 
-/** Whether a record's heartbeat is fresh: the rule the bus prunes and displays by. */
-function isLive(session: SessionRecord, at: number, ttlMs: number): boolean {
-	return at - session.lastSeen <= ttlMs;
-}
-
 /** A label with this session's short id appended, inside the label budget. */
 function suffixLabel(label: string, id: string): string {
 	const suffix = `-${shortId(id)}`;
@@ -124,6 +130,26 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const watchMs = options.watchMs ?? DEFAULT_WATCH_MS;
 	const interval = options.interval ?? defaultInterval;
 	const pid = options.pid ?? process.pid;
+	const seams: RosterSeams = { alive: options.alive ?? isPidAlive, token: options.startTokenFn ?? startTokenOf };
+	// Asked once, here: a reused pid is settled from the record afterwards, so no
+	// heartbeat tick spawns `ps`.
+	const processToken = (seams.token ?? startTokenOf)(pid);
+
+	/**
+	 * What one record says about its session.
+	 *
+	 * The rule is the roster's, not a copy: the bus writes these records and the page
+	 * reads them, and a second copy of the heartbeat rule is how a dead session keeps its
+	 * label and its claims while the screen already says it is gone.
+	 */
+	function stateOf(session: SessionRecord, at = now()): RosterState {
+		return rosterStateOf(session, at, sessionTtlMs, seams);
+	}
+
+	/** Whether a record is a session that can still answer. */
+	function isLive(session: SessionRecord, at = now()): boolean {
+		return stateOf(session, at) === "live";
+	}
 	const sessionTtlMs = options.sessionTtlMs ?? SESSION_TTL_MS;
 	const messageTtlMs = options.messageTtlMs ?? DEFAULT_MESSAGE_TTL_MS;
 
@@ -161,6 +187,9 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 				mode,
 				startedAt: now(),
 				lastSeen: now(),
+				// Asked once, here: a reused pid is settled from the record, not by this session
+				// polling `ps` for its own heartbeat.
+				...(processToken === undefined ? {} : { startToken: processToken }),
 			};
 		})();
 		try {
@@ -207,7 +236,7 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		const sessions = await bus.sessions();
 		return new Set(
 			sessions
-				.filter((session) => session.id !== mine && isLive(session, at, sessionTtlMs))
+				.filter((session) => session.id !== mine && isLive(session, at))
 				.map((session) => session.label.toLowerCase()),
 		);
 	}
@@ -231,15 +260,25 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		await store.writeSession(me);
 	}
 
-	/** The live session ids a prune must keep: this session is active by definition. */
-	async function liveIds(): Promise<Set<string>> {
+	/**
+	 * What a prune must keep, and what it must let go.
+	 *
+	 * `live` is who can still answer, and this session is active by definition. `gone` is
+	 * who cannot: their rows survive on the heartbeat's clock, but the paths they held are
+	 * nobody's, which is the half a lead waits for.
+	 */
+	async function pruneSets(): Promise<{ live: Set<string>; gone: Set<string> }> {
 		if (!store) throw new Error("session bus is not started.");
 		const at = now();
-		const active = new Set(
-			(await store.sessions()).filter((session) => isLive(session, at, sessionTtlMs)).map((session) => session.id),
-		);
-		if (record) active.add(record.id);
-		return active;
+		const live = new Set<string>();
+		const gone = new Set<string>();
+		for (const session of await store.sessions()) {
+			const state = stateOf(session, at);
+			if (state === "live") live.add(session.id);
+			else if (state === "gone") gone.add(session.id);
+		}
+		if (record) live.add(record.id);
+		return { live, gone };
 	}
 
 	async function prepare(): Promise<void> {
@@ -249,12 +288,14 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		// session that finally calls a tool does not delete its own record.
 		record.lastSeen = now();
 		await store.writeSession(record);
-		const sessions = await store.sessions();
-		const active = new Set(
-			sessions.filter((session) => isLive(session, now(), sessionTtlMs)).map((session) => session.id),
-		);
-		if (record) active.add(record.id);
-		await store.prune({ now: now(), activeIds: active, sessionTtlMs, messageTtlMs });
+		const sets = await pruneSets();
+		await store.prune({
+			now: now(),
+			activeIds: sets.live,
+			goneIds: sets.gone,
+			sessionTtlMs,
+			messageTtlMs,
+		});
 	}
 
 	async function currentRecord(): Promise<SessionRecord> {
@@ -277,17 +318,28 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		return store;
 	}
 
-	async function withUnread(rows: readonly SessionRecord[]): Promise<Array<SessionRecord & { unread: number }>> {
-		return Promise.all(rows.map(async (session) => ({ ...session, unread: (await store?.unread(session.id)) ?? 0 })));
+	async function withUnread(
+		rows: readonly SessionRecord[],
+	): Promise<Array<SessionRecord & { unread: number; state: RosterState }>> {
+		const at = now();
+		return Promise.all(
+			rows.map(async (session) => ({
+				...session,
+				unread: (await store?.unread(session.id)) ?? 0,
+				state: stateOf(session, at),
+			})),
+		);
 	}
 
 	/**
 	 * The bus as it stands, this session's own record included.
 	 *
-	 * `liveOnly` drops a session whose heartbeat went stale, and a claim held by
-	 * one, without writing or deleting anything, so a board can read it every
-	 * second. The prune itself stays with `prepare()` on the next tool or command
-	 * call, which is therefore what the screen's next action sees.
+	 * `liveOnly` drops a session whose heartbeat went stale, and the claims of one whose
+	 * process is gone, without writing or deleting anything, so a board can read it every
+	 * second. A gone session stays listed — a lead needs a face for the paths it still
+	 * holds — but its claims are nobody's, so they are not drawn. The prune itself stays
+	 * with `prepare()` on the next tool or command call, which is therefore what the
+	 * screen's next action sees.
 	 */
 	async function readStatus(
 		me: { id: string; label: string; onBus: boolean },
@@ -296,10 +348,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 		if (!store) throw new Error("session bus is not started.");
 		const records = await store.sessions();
 		const sessions = liveOnly
-			? records.filter((session) => session.id === record?.id || isLive(session, now(), sessionTtlMs))
+			? records.filter((session) => session.id === record?.id || stateOf(session) !== "quiet")
 			: records;
-		const live = new Set(sessions.map((session) => session.id));
-		const claims = (await store.claims()).filter((claim) => !liveOnly || live.has(claim.owner));
+		const ours = new Set(sessions.filter((session) => stateOf(session) !== "gone").map((session) => session.id));
+		const claims = (await store.claims()).filter((claim) => !liveOnly || ours.has(claim.owner));
 		return {
 			me: { id: me.id, label: me.label },
 			onBus: me.onBus,
@@ -382,7 +434,14 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			// A reader does not join: an unjoined session prunes and reads, and is not
 			// listed by the act of looking. Only an addressable action joins.
 			if (!joined) {
-				await store.prune({ now: now(), activeIds: await liveIds(), sessionTtlMs, messageTtlMs });
+				const sets = await pruneSets();
+				await store.prune({
+					now: now(),
+					activeIds: sets.live,
+					goneIds: sets.gone,
+					sessionTtlMs,
+					messageTtlMs,
+				});
 				return readStatus({ id: record.id, label: record.label, onBus: false }, false);
 			}
 			const me = await currentRecord();

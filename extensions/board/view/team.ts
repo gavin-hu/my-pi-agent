@@ -26,7 +26,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   var plural = board.plural;
 
   /** The word a teammate's state is read as; never a colour alone. */
-  var STATE_WORD = { live: "live", quiet: "quiet", absent: "no record", unknown: "\u2014" };
+  var STATE_WORD = { live: "live", quiet: "quiet", gone: "gone", absent: "no record", unknown: "\u2014" };
 
   /**
    * A panel: its heading row, then its body.
@@ -54,7 +54,18 @@ export const BOARD_TEAM_JS = String.raw`(function () {
    * one row, and the strongest reason is the one it keeps: a blocker outranks silence,
    * which outranks a missing plan, which outranks nobody holding it.
    */
-  var KIND_RANK = { blocked: 0, waiting: 1, idle: 2, unplanned: 3, unassigned: 4 };
+  var KIND_RANK = { blocked: 0, gone: 1, waiting: 2, idle: 3, unplanned: 4, unassigned: 5 };
+
+  /** The labels of the sessions whose process is gone, in the roster's own spelling. */
+  function goneLabels(view) {
+    var roster = view.teammates;
+    var gone = {};
+    if (roster === undefined) return gone;
+    for (var i = 0; i < roster.length; i++) {
+      if (roster[i].state === "gone") gone[roster[i].label.toLowerCase()] = roster[i].label;
+    }
+    return gone;
+  }
 
   function needs(view) {
     var round = view.round;
@@ -78,6 +89,15 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
       return last ? last.text : "blocked";
     }, "blocked");
+    // A dead owner is a fact, not an inference from silence: the card is anyone's now.
+    var gone = goneLabels(view);
+    add(
+      round.owners.reduce(function (cards, group) {
+        return gone[group.label.toLowerCase()] === undefined ? cards : cards.concat(group.cards);
+      }, []),
+      function (card) { return (card.owner ? card.owner.label : "its owner") + " is not running — the card is free"; },
+      "gone",
+    );
     add(round.idle, function (card) { return "no touch for " + ago(card.updatedAt); }, "idle");
     // The board card says the same words for the same fact: one voice for one state.
     add(round.unplanned, function () { return "no plan recorded"; }, "unplanned");
@@ -175,9 +195,11 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     function rank(mate) {
       if (mate.you) return -1;
       if (mate.state === "live") return 0;
-      if (mate.state === "quiet") return 1;
-      if (mate.state === "absent") return 2;
-      return 3;
+      // A crash outranks a stale heartbeat: one is news, the other may be a long turn.
+      if (mate.state === "gone") return 1;
+      if (mate.state === "quiet") return 2;
+      if (mate.state === "absent") return 3;
+      return 4;
     }
     rows.sort(function (a, b) { return rank(a) - rank(b) || a.label.localeCompare(b.label); });
     return rows;

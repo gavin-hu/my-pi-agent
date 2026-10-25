@@ -66,7 +66,7 @@ lead: board list round: true
 | `/board team` | lead | The same, opened on the Team tab |
 | `/board status` | both | One line: the seat, the port, how many tabs are watching, the store, and the team the last `/board` joined — or the page being watched |
 | `/board stop` | lead | Stops the page this session serves; on a watching session it says who serves it |
-| `/team` | both | The round in the terminal: the rollup, then who is live and who has gone quiet |
+| `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
 
 **Who serves the page.** The first `/board` in a repository serves it; after that the
 page is found by the note it leaves beside the cards (`page.json`, in the board's own
@@ -204,13 +204,15 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 - **Links are recorded by the tool.** A link names an id, so the page shows what a
   card waits for but does not edit it; `board edit` records it while the card is being
   planned, and `board drop` refuses to strand one.
-- **The board does not know whether a session is alive.** "Idle" means a `doing`
-  card nobody has touched for 30 minutes, not that its process is gone; and the
-  Teammates list reads the bus's records, where `live` is a heartbeat inside ten
-  minutes, `quiet` is a record whose heartbeat has aged, and `no record` means only
-  that the bus holds no record of that label — never that a session is dead. With
-  `session-bus` unloaded, or before any session has joined here, every state reads
-  `—` and the board works exactly as before.
+- **The board knows when a process is gone, not when work is stuck.** The Teammates
+  list reads the bus's records, where `live` is a heartbeat inside ten minutes,
+  `quiet` is a heartbeat that has aged, `gone` is a record whose process is no longer
+  running, and `no record` means only that the bus holds no record of that label. A
+  `gone` owner's cards join **Needs a decision** with the reclaim they allow; a *hung*
+  session reads `live`, so "idle" still means what a card can know — nobody has
+  touched it for 30 minutes — rather than that its owner is stuck. With `session-bus`
+  unloaded, or before any session has joined here, every state reads `—` and the board
+  works exactly as before.
 - **The seat and your terminal are two actors.** The page writes as `team-lead`, so a
   card a browser claimed is released from the browser or `reclaim`ed from the tool —
   `board release` in a session is a different actor and is refused. The Team tab marks

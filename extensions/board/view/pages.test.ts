@@ -193,8 +193,8 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board-team__grid");
 		expect(BOARD_CLIENT_JS).toContain("board-team__decision");
 		expect(BOARD_CLIENT_JS).toContain("board-team__roster");
-		// Every state a teammate can be in, including the two that are not a heartbeat.
-		for (const state of ["live", "quiet", "absent", "unknown"]) expect(BOARD_CLIENT_JS).toContain(state);
+		// Every state a teammate can be in, including the three that are not a heartbeat.
+		for (const state of ["live", "quiet", "gone", "absent", "unknown"]) expect(BOARD_CLIENT_JS).toContain(state);
 		// A bus that is not loaded must read as unknown rather than as "nobody".
 		expect(BOARD_CLIENT_JS).toContain("view.teammates === undefined ? null : view.teammates");
 		expect(BOARD_CLIENT_JS).toContain("board-team__id");
@@ -203,6 +203,11 @@ describe("the client bundle", () => {
 		// next turn; a quiet one is not, because its heartbeat is the bigger news.
 		expect(BOARD_CLIENT_JS).toContain('mate.state === "live" && mate.listening === false');
 		expect(BOARD_CLIENT_JS).toContain("not listening");
+		// A process that is gone outranks a stale heartbeat, and the card it held is
+		// queued with that reason instead of waiting for half an hour of silence.
+		expect(BOARD_CLIENT_JS).toContain('if (mate.state === "gone") return 1;');
+		expect(BOARD_CLIENT_JS).toContain("is not running");
+		expect(BOARD_CLIENT_JS).toContain("gone: 1");
 	});
 
 	test("says its lane in the head, separates the notes, and offers only reachable lanes", () => {

@@ -365,7 +365,7 @@ rewritten.
   cached from the stdout stream for `status`/`wait`/completion notes; only the
   `/jobs` log pane reads the file.
 - **Pure logic split from IO.** `format.ts` and the reconciliation in
-  `registry.ts` are pure; `process.ts` and the runtime take injectable
+  `registry.ts` are pure; the runtime takes injectable
   spawn/liveness/kill/clock functions, so the whole suite runs without
   launching a process.
 - **The transcript reuses the `/jobs` grammar.** `job list` renders the same
@@ -388,7 +388,6 @@ rewritten.
 | `schema.ts` | Parameter schema and pure validation (a `JobCall` union). |
 | `config.ts` | The `job` section of `bytefly.json`: loading and clamping. |
 | `format.ts` | Pure formatting, duration, and transcript outcome-line helpers; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
-| `process.ts` | The job-only process remainder: the `LivenessFn` seam and the `ps` start-time token. Spawn, tree-kill, and liveness itself come from `lib/spawn.ts`. |
 | `paths.ts` | Session/marker/registry/status file-name helpers. |
 | `registry.ts` | Per-session registry load/merge, legacy migration, and pure reconciliation. |
 | `reservations.ts` | Atomic `O_EXCL` job-id reservation and release. |
