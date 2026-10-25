@@ -4,9 +4,9 @@
  *
  * Layout only — every colour, size step, and radius is a kit token, so the page
  * follows the theme and `lib/web/web.test.ts`'s "draws every colour through a token"
- * rule holds without an exception here. Colour is a role: the card's status edge,
- * the lane dot, and a status chip read `--muted`, `--accent`, `--danger`, and
- * `--success` through `data-status`, never a literal.
+ * rule holds without an exception here. Colour is a role: a lane's dot, its head,
+ * and the reason line read `--muted`, `--accent`, `--danger`, and `--success`
+ * through `data-status`, never a literal.
  *
  * The sheet is in three parts, in the order the page stacks: the toolbar, the
  * composer, then the board (lanes, cards, the Team tables, and the two dialogs).
@@ -65,13 +65,10 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
 
-/* A card: a status edge, the title, then the facts a reader needs to act on it. */
-.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-left-width:3px;border-left-style:solid;border-radius:var(--radius-md);background:var(--canvas);transition:border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease)}
+/* A card: the title, then the facts a reader needs to act on it. Its lane says
+   which state it is in, so the card itself carries no second colour bar. */
+.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);transition:border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease)}
 .board-card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
-.board-card[data-status="todo"]{border-left-color:var(--muted)}
-.board-card[data-status="doing"]{border-left-color:var(--accent)}
-.board-card[data-status="blocked"]{border-left-color:var(--danger)}
-.board-card[data-status="done"]{border-left-color:var(--success)}
 .board-card[hidden]{display:none}
 .board-card__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
 .board-card__id{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
