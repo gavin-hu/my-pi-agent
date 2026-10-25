@@ -60,12 +60,18 @@ describe precisely.
    | `x` | Exit plan mode without approving; the plan file stays |
    | `Esc` | Keep planning without approving |
 
-   On a phone or RPC, the plan file is sent first, then one prompt: reply `1` to
-   approve and run, `2` to keep planning, or `3` to exit without approving. Any
-   other text is a refinement: the model rewrites the plan and asks again, with
-   no second “choose Refine” step. If the file cannot be sent, the plan text is
-   posted first. Dismissing the prompt, or replying `取消`, `退出`, or
-   `exit plan mode`, also exits without approving.
+   Outside the terminal's own review screen, that prompt arrives in a dialog. On a
+   phone — a turn the [WeChat bridge](./wechat.md) answers — the plan file is sent
+   first, then one prompt: reply `1` to approve and run, `2` to keep planning, or
+   `3` to exit without approving. If the file cannot be sent, the plan text is
+   posted first. A turn with no bridge behind it — RPC, a print run — gets the
+   prompt alone, with no file.
+
+   Any other reply is a refinement: the model rewrites the plan and asks again,
+   with no second “choose Refine” step. Only an exact number or one of the three
+   action words — `approve`, `keep planning`, `exit`, or the Chinese forms the
+   prompt shows — is an action, so `exit plan mode` comes back as feedback.
+   Dismissing the prompt exits without approving.
 
    If the plan changed since your last review, a line under the title says how
    many sections changed. A scroll gauge names the section and line range you are
@@ -211,10 +217,11 @@ something works. It is the fastest way to turn "should be fine" into evidence.
    *A failed check; `Enter` opens the focused failure.*
 
 2. On a failure, the list shows `file:line` locations. `Enter` opens the focused
-   failure: its message and a five-line source excerpt around the location,
-   marked with `>`. If the file cannot be read, the detail shows the bounded end
-   of the command output and says why. `j` / `k` and the arrows scroll; `Esc`
-   goes back. `r` reruns. `Esc` from the list closes it.
+   failure: its message and the source around the location — five lines either
+   side of it, so up to eleven — with the failing line marked `>`. If the file
+   cannot be read, the detail shows the bounded end of the command output and says
+   why. `j` / `k` and the arrows scroll, `Esc` goes back, and `r` reruns; `Esc`
+   from the list closes it.
 
    <img src="../../assets/screens/check-detail.png" alt="The /check failure detail: the location and message over a source excerpt with the failing line marked by >" width="100%">
 
@@ -276,7 +283,9 @@ ask me which database to use before you start
    question is answered.
 
 3. On a question that allows several answers, `Space` ticks an option and `Enter`
-   confirms the set. On the **Other** row, `Space` opens the editor as well.
+   confirms the set; on its **Other** row `Space` opens the editor too. A question
+   with one answer ignores `Space` entirely — `Enter` chooses, on the **Other** row
+   as well.
 
 4. `Esc` cancels the whole question. The assistant is told you cancelled, and can
    continue or ask again in ordinary prose.

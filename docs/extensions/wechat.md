@@ -346,9 +346,10 @@ A dialog raised while a WeChat turn is in flight is forwarded to the sender:
   so, so a plan review without it does not pretend free text is a choice.
 - `confirm` — reply 是/否, 确定/不是, or yes/no.
 - `input` / `editor` — reply with the text.
-- Reply 取消 (or cancel) to dismiss; `退出`, `退出 plan 模式`, and
-  `exit plan mode` are recognized as cancel intent. In a plan review a dismissal
-  leaves plan mode without approving.
+- Reply 取消 (or cancel, quit, exit, 退出) to dismiss. In a plan review a
+  dismissal leaves plan mode without approving, and a reply the three actions do
+  not name — `exit plan mode`, or 退出 plan 模式 — is feedback the model applies
+  before asking again.
 - Hints are rendered in the peer’s language, one language per prompt. A reply
   that cannot be read re-sends the prompt with a short “didn’t recognize that”
   notice instead of repeating it silently.

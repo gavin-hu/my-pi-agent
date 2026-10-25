@@ -85,16 +85,19 @@ debugging hunt. Neither is a project-management tool; they are session memory.
    | `/goal clear` | Remove the goal |
    | `/goal help` | Show the command usage |
 
-3. If the to-do list still has open items when you mark the goal done, the
-   assistant is told how many remain. That way it finishes the work rather than
-   declaring it finished, and closing the list remains your decision.
+3. When the assistant marks the goal achieved, its result says how many to-do
+   items the list still has open, so it finishes the work rather than declaring it
+   finished. Marking it yourself with `/goal done` tells you that count in the
+   notice, and closing the list remains your decision.
 
 ### Good to know
 
 - A goal and a to-do list survive `/resume` and `/tree`. Abandoned branches do
   not leak into the current session.
-- Achieved goals are hidden from the widget by default. Set **Achieved goal** to
-  Show in `/bytefly settings` to keep one visible.
+- Achieved goals are hidden from the widget by default. `goal.achieved` in
+  [`bytefly.json`](../configuration.md#goal--the-goal-widget) — `show` keeps the
+  dimmed rail line, `hide` removes it — is the switch; `/bytefly settings` has no
+  row for it.
 - The to-do list is deliberately flat: no priorities, due dates, or sub-items. It
   accepts at most 50 items, and only one item can be in progress.
 - The list and the goal are written by tools the assistant calls, so you do not
@@ -239,7 +242,7 @@ Do not use it as a scratchpad or a substitute for project documentation.
 - A note is a single line of at most 500 characters. That keeps the reminder
   short and the file readable.
 - Notes are injected only up to a byte budget (8 KiB by default). `/memory doctor`
-  names any note that does not fit.
+  says how many notes did not fit and which scope dropped them.
 - The stores are `<repo-root>/.pi/memory.md` for the project and
   `<agent-dir>/memory.md` for global notes. The project store is anchored at the
   repository root, so it is the same when Pi runs from a subdirectory and across
@@ -250,8 +253,9 @@ Do not use it as a scratchpad or a substitute for project documentation.
   comparison (case, whitespace, and trailing punctuation do not matter). The
   result names the existing note so the assistant can update it instead.
 - A merge is one write, and a move writes the destination before removing the
-  source. A failed move can leave the note in both scopes; `/memory doctor`
-  reports it, and merging removes the duplicate.
+  source. A failed move can leave the note in both scopes; `/memory list` shows it
+  twice, and `/memory doctor` does not report it, because it compares notes inside
+  one scope, so having one of the two forgotten clears it.
 
 ## Related
 
