@@ -148,11 +148,6 @@ export function watchingOf(value: unknown): { armed: boolean; wake: boolean } | 
 	return typeof armed === "boolean" && typeof wake === "boolean" ? { armed, wake } : undefined;
 }
 
-/** A record's start token, read only when it is a string with something in it. */
-function startTokenIn(value: unknown): string | undefined {
-	return typeof value === "string" && value !== "" ? value : undefined;
-}
-
 /** How many message files one session's inbox holds. A missing inbox is empty. */
 async function mailCount(dir: string, stem: string): Promise<number> {
 	try {
@@ -190,7 +185,7 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 		const { id, label, mode, lastSeen } = parsed;
 		const watching = watchingOf((parsed as { watching?: unknown }).watching);
 		const pid = pidOf((parsed as { pid?: unknown }).pid);
-		const token = startTokenIn((parsed as { startToken?: unknown }).startToken);
+		const rawToken = (parsed as { startToken?: unknown }).startToken;
 		sessions.push({
 			id,
 			label,
@@ -198,7 +193,7 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 			lastSeen,
 			mail: await mailCount(dir, name.slice(0, -".json".length)),
 			...(pid === undefined ? {} : { pid }),
-			...(token === undefined ? {} : { startToken: token }),
+			...(typeof rawToken === "string" && rawToken !== "" ? { startToken: rawToken } : {}),
 			...(watching === undefined ? {} : { watching }),
 		});
 	}

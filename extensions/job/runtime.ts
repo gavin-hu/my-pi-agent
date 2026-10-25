@@ -27,11 +27,9 @@ import {
 	defaultSpawn,
 	isPidAlive,
 	type KillTreeFn,
-	type LivenessFn,
 	type SpawnedProcess,
 	type SpawnFn,
 	startTokenOf,
-	type StartTokenFn,
 	type StdinSink,
 } from "../../lib/spawn.ts";
 import { loadConfig, type JobsConfig } from "./config.ts";
@@ -116,9 +114,9 @@ export interface SendResult {
 
 export interface RuntimeOptions {
 	spawn?: SpawnFn;
-	liveness?: LivenessFn;
+	liveness?: typeof isPidAlive;
 	killTree?: KillTreeFn;
-	startToken?: StartTokenFn;
+	startToken?: typeof startTokenOf;
 	now?: () => number;
 	/** Platform seam: whether this is Windows. Defaults to the running platform. */
 	isWindows?: () => boolean;
