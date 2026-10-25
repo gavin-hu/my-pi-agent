@@ -47,7 +47,7 @@ peer: claim the first, plan it, note the phases, finish it
       → board claim 1 → /plan → board plan 1 <plan file> → board note 1 … → board move 1 done
       → board claim 2 — refused while #1 is unfinished, allowed once it is done
 lead: board list --round
-      → 1 owner · 2 features · 1 unassigned · 0 unplanned
+      → 1 owner · 2 features · 0 unassigned · 1 unplanned
 ```
 
 `/board` opens the page. `/board team` opens it on the Team tab, `/board status`
