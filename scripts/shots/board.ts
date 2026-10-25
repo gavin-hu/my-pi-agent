@@ -130,7 +130,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 
 if (import.meta.main) {
 	runCli(
-		"usage: bun run screenshot:board [--out <dir>] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000]",
+		"usage: bun run screenshot:board [--out <dir>] [--width 1280] [--scale 1] [--theme light|dark] [--wait 8000] [--dialog card|confirm|new|edit] [--viewer]",
 		() => main(),
 	);
 }
