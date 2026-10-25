@@ -334,8 +334,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   than exempt from it.
 - `docs`: [`scripts/README.md`](./scripts/README.md) is the tooling contract — the
   two capture mechanisms, fixture ownership, and when an asset is recaptured,
-  including the `bun.lock` floor the hero prints. `docs/development.md` keeps the
-  commands and points at it.
+  including the hero's live session and the `bun.lock` floor it prints.
+  `docs/development.md` keeps the commands and points at it, and the claim that no
+  live state can reach the hero's frame is corrected to name what does.
 - `test`: `scripts/` is re-cut around the four jobs it does: `capture/` holds the
   two mechanisms (Terminal.app and Playwright, with the JXA crop beside its
   caller), `screens/` the frames and their fixtures, `shots/` one CLI per
@@ -761,11 +762,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - dev: `test/docs-parity.test.ts` derives the catalog the front door advertises —
   the extension, skill, and theme counts — from `extensions/`, `skills/*/SKILL.md`,
   and `themes/*.json`, and holds both entry READMEs to it, so a twentieth
@@ -1000,11 +996,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `file-read`: the ODT parser libraries (`fflate` and `fast-xml-parser`) load on
   the first ODT read instead of at startup. `formats.ts` imports every extractor
   when the tool registers, so a module-scope import was paid by every session;
@@ -1181,11 +1172,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `goal`, `todo`, `memory`, `watch`, `wechat`: a tool's failure line is drawn by
   one rule, so a multi-line error keeps its lines and `Error:` is prefixed once;
   these five used to flatten the message onto a single line. A call line is also
@@ -1226,11 +1212,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `bytefly`: the control center's Settings section is one flat list of fourteen
   preferences with each value beside its label, and a three-row detail pane, so
   the whole screen fits a 24-row terminal instead of needing three pages. The
@@ -1378,11 +1359,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `bytefly`: the update surface uses Pi's package manager as its only detector.
   bytefly suppresses Pi's `Package Updates Available` block and posts one themed
   notice listing every updateable configured package plus
@@ -1685,11 +1661,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `docs`: the README's "Why this pack" promises now match what ships. "Never
   wreck the checkout" says isolation is one command rather than describing the
   worktree as the default, "Delegate and parallelize" covers background `job`s
@@ -1872,11 +1843,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - docs: the changelog holds one subsection set per release window; the duplicated
   `0.11.1` and misordered `0.5.1` windows are merged and reordered, and
   `test/release.test.ts` fails a repeated or empty subsection.
@@ -2016,11 +1982,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - docs: [`ROADMAP.md`](./ROADMAP.md) is re-derived from the tree rather than the
   last tag. Items that had already shipped are gone, the step-budget gap is
   named, `Now` and `Next` hold at most ten items each, and a new *Deliberately
@@ -2306,11 +2267,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `wechat`: a peer session now carries a channel contract in its system prompt,
   so the model knows the reader is on a phone rather than at this terminal. It
   puts the conclusion first, prefers a short list over a wide table, keeps code
@@ -2591,11 +2547,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `bytefly`: the transcript rail leads a result body and a notice row, painted by
   status — a running result takes the accent, a failure red, a finished one
   neutral, a notice its worst severity. A tool call stays plain-indented (a
@@ -2833,11 +2784,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `bytefly`: the TUI chrome and the `/bytefly` screen are drawn from a new
   shared `lib/tui/` design system (semantic roles, rules, rows, columns, gauge),
   so every surface follows the active theme by role rather than by token name.
@@ -2926,11 +2872,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `file-browse`: rendered Markdown demotes document headings one level so the
   page keeps a single `h1`, gives each heading a stable anchor id so in-document
   `#anchor` links resolve, and adds an **On this page** outline for a document
@@ -2959,11 +2900,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `plan`: `set_plan_step` is now `set_plan_steps`. It takes an `updates` array
   instead of a single `step`/`status` pair, so several steps can be ticked off
   or reopened in one all-or-nothing write: nothing changes if any step is out
@@ -3063,11 +2999,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - Docs: the extension catalog and the contributor contracts move out of the
   root `README.md` into `docs/extensions.md`, `CONTRIBUTING.md`, and the
   `docs/` guides; the tool-naming invariant now names `docs/extensions.md`.
@@ -3238,11 +3169,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `bytefly`: the startup header is a nameplate instead of a recolor of Pi's.
   It draws a two-tone half-block mark from the `accent` / `warning` tokens beside
   the agent identity (`Pi vX.Y.Z`) and the chrome identity
@@ -3471,11 +3397,6 @@ rendering, so model-authored control characters cannot reach the terminal.
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `job`: `start` results badge `detached` and `wake`, so the job's lifetime and
   wake behaviour are visible without reading the arguments.
 - `plan`: the review screen renders the plan with Pi's Markdown theme (headings,
@@ -3506,11 +3427,6 @@ rendering, so model-authored control characters cannot reach the terminal.
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `goal`: `/goal <prompt>` now sets the goal *and* starts the agent on it,
   instead of only recording the objective.
 
@@ -3559,11 +3475,6 @@ rendering, so model-authored control characters cannot reach the terminal.
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `status-bar`: DeepSeek pricing is now the default rather than an opt-in, so
   `currency` defaults to `¥` — the unit of the built-in rates. A session that
   mixes DeepSeek with a provider the table does not cover sums yuan and dollars
@@ -3683,11 +3594,6 @@ rendering, so model-authored control characters cannot reach the terminal.
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `document`: the `doc` extension is renamed to `document` — the directory,
   package manifest entry, `PI_DISABLED_EXTENSIONS` name, and docs. Its config
   file is now `document.json`; an existing `doc.json` is ignored, so rename it
@@ -3731,11 +3637,6 @@ rendering, so model-authored control characters cannot reach the terminal.
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - Every tool's transcript row was reworked for consistency: a blank line
   separates a header from a multi-line body while single-line status rows stay
   flush, hidden content ends with the `app.tools.expand` hint, and renderers
@@ -3824,11 +3725,6 @@ one installable Pi package.
 
 ### Changed
 
-- `test`: the docs table check moves into `test/structure.test.ts` and covers every
-  Markdown doc rather than the two entry READMEs alone, with `scripts/` added to the
-  trees the link check reads. It immediately found two more rows that split
-  themselves the way the `worktree` catalogue row did — in
-  `docs/extensions/bytefly.md` and `docs/extensions/wechat.md` — both now escaped.
 - `web-access`: `web_search` is pluggable and works with no configuration. Under
   `"auto"` the first configured non-default provider wins, then DuckDuckGo — one
   provider, no failover. `search.language`, `safeSearch`, and `categories` apply
