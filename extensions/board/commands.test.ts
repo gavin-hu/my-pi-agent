@@ -18,12 +18,14 @@ function fakePage(): { page: BoardPage; calls: string[] } {
 	const calls: string[] = [];
 	const running: BoardPageStatus = {
 		running: true,
+		seat: "team-lead",
 		port: 4812,
 		url: "http://127.0.0.1:4812/?token=abc",
 		where: "~/.pi/agent/board/k",
 	};
 	const served: PageStart = {
 		kind: "served",
+		seat: "team-lead",
 		port: 4812,
 		url: "http://127.0.0.1:4812/?token=abc",
 		where: "~/.pi/agent/board/k",

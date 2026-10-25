@@ -30,7 +30,9 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 			if (word === "status") {
 				const status = page.status();
 				ctx.ui.notify(
-					status.running ? `board: ${status.where} at ${status.url}` : "board: not running — /board opens it",
+					status.running
+						? `board: ${status.seat} serving ${status.where} at ${status.url}`
+						: "board: not running — /board opens it",
 					"info",
 				);
 				return;
@@ -49,7 +51,7 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage): void {
 			const started = await page.start(ctx, word === "team" ? "team" : "board");
 			// A failed start has already said why; a served one says where.
 			if (started.kind === "failed") return;
-			ctx.ui.notify(`board: ${started.where} at ${started.url}`, "info");
+			ctx.ui.notify(`board: ${started.seat} serving ${started.where} at ${started.url}`, "info");
 		},
 	});
 }

@@ -27,9 +27,10 @@ Three surfaces serve local HTTP:
   repository. Every route needs the 128-bit token minted when the page starts, and
   a state-changing request also has to pass the origin check, name
   `application/json`, and stay inside the body cap. There is no cookie and no CORS,
-  so the token in the URL is the whole credential; a write is made as the session
-  that serves the page, and claim, reclaim, and drop confirm in the page first
-  because a browser is not an identity. The page closes on `/board stop`, a minute after
+  so the token in the URL is the whole credential; a write is made as the page's
+  seat — a fixed name such as `team-lead`, not the session that opened it — and
+  claim, reclaim, and drop confirm in the page first because a browser is not an
+  identity. The page closes on `/board stop`, a minute after
   its last tab leaves, or at session shutdown.
 - [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
   tokenized, and closes its server on the owner's save or cancel, the owner's page

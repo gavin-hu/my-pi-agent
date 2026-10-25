@@ -84,7 +84,9 @@ describe("start", () => {
 		expect(await document.text()).toContain('data-view="board"');
 
 		const snapshot = JSON.parse(await (await fetch(base.replace("/?token=", "/api/board?token="))).text());
-		expect(snapshot.me.label).toBe("billing-lead");
+		// The page writes as its seat, and marks the reader's own row from the session.
+		expect(snapshot.me).toEqual({ id: "board:team-lead", label: "team-lead" });
+		expect(snapshot.session.label).toBe("billing-lead");
 		expect(snapshot.counts.total).toBe(0);
 
 		const token = new URL(base).searchParams.get("token") ?? "";
@@ -101,9 +103,10 @@ describe("start", () => {
 			headers: { "Content-Type": "application/json" },
 			body: "{}",
 		});
+		// The page's writes are the seat's, not the terminal session's.
 		expect(((await claimed.json()) as { card?: unknown }).card).toMatchObject({
 			status: "doing",
-			owner: { label: "billing-lead" },
+			owner: { id: "board:team-lead", label: "team-lead" },
 		});
 
 		await page.stop(ctx);

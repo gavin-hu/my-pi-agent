@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: the page serves as a seat — one fixed name, `team-lead`, with an id derived
+  from it — instead of as the session that opened it. A card a browser claims stays the
+  seat's after that session ends or `/resume`s, and `/board status` names the seat. The
+  Team tab still marks your own row from the session you are reading in, so the seat
+  and your terminal are two actors and the page says which is which.
 - `board`: a card can be corrected. `board` action `edit` fixes its title, its path
   hints, its priority, and what it waits for — by the session that holds it, or by
   anyone while nobody holds it, including a `done` card, because a title is what a

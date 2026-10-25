@@ -35,7 +35,7 @@ function stubPage(calls: string[]): BoardPage {
 	return {
 		start: async () => {
 			calls.push("start");
-			return { kind: "served", port: 1, url: "http://127.0.0.1:1/", where: "x" };
+			return { kind: "served", seat: "team-lead", port: 1, url: "http://127.0.0.1:1/", where: "x" };
 		},
 		stop: async () => {
 			calls.push("stop");

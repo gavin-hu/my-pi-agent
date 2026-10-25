@@ -85,7 +85,8 @@ card, so the next attempt starts from the truth.
 
 ## Routes
 
-Every route needs the page token; a write is made as the serving session.
+Every route needs the page token; a write is made as the page's seat — `team-lead` —
+not as the session that opened it.
 
 ```
 GET    /                     the document (?view=board|team&card=4)
@@ -104,7 +105,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 
 | Band | What it holds |
 |---|---|
-| Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
+| Toolbar | the mark, the seat the page writes as, as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
 | New card dialog | the modal the toolbar's button (or `n`) opens: **Title** on its own line, the loudest field on the page, with a `n/120` count once you type; **Paths** under it, space-separated hints; **Priority** as a three-word list; the hint line; and one closer, `Cancel`, beside **Add card**. The title is focused on open, the dialog stays open after an add so a lead can publish several cards, and a draft survives `Esc`, the backdrop, and `Cancel` is the only thing that discards it. The same dialog is the card dialog's **Edit**: prefilled, headed `Edit card #4`, with **Save** in place of Add — and leaving that mode throws its text away, because that text was the card's, not a draft |
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
 | Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, one reason line in one voice — what a card waits for, a blocked card's last note, `no plan recorded`, or `planned` — clamped, with the whole sentence as its tooltip, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A card that waits offers neither `Claim` nor `Move`: the reason line is what it says instead. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
@@ -142,7 +143,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   state-changing request another site made.
 - The token is 128 random bits minted when the page starts and compared in
   constant time; it is in the URL, never a cookie, and there is no CORS.
-- A write is made **as the serving session** — a browser is not an identity — so
+- A write is made **as the page's seat** — a browser is not an identity — so
   the toolbar names the session and claim/reclaim ask first.
 - The page writes only the board store under the agent directory. It never writes
   your repository, and it reads the session bus's own records read-only — labels,

@@ -19,6 +19,7 @@ import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
+import { pageActor } from "./seat.ts";
 import { viewOf } from "./snapshot.ts";
 import { writeOf } from "./writes.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
@@ -42,6 +43,8 @@ export const IDLE_STOP_MS = 60_000;
 /** What `/board status` prints. */
 export interface BoardPageStatus {
 	running: boolean;
+	/** The name the page serves as: a seat, not the session that opened it. */
+	seat?: string;
 	port?: number;
 	url?: string;
 	where?: string;
@@ -55,7 +58,7 @@ export interface BoardPageStatus {
  * page* is a third answer a `running: false` could not express.
  */
 export type PageStart =
-	| { kind: "served"; port: number; url: string; where: string }
+	| { kind: "served"; seat: string; port: number; url: string; where: string }
 	| { kind: "failed"; reason: string };
 
 /** Test seams and the one place a caller may redirect the browser. */
@@ -78,6 +81,9 @@ export interface BoardPage {
 export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {}): BoardPage {
 	let running: { server: BoardServer; store: BoardStore } | undefined;
 	let sessionPort: number | undefined;
+	// The page is a seat, not a session: one name and one id for its whole life, so a card
+	// a browser claimed is still the seat's after the session that served it ends.
+	const seat = pageActor();
 
 	const storeOf = async (ctx: ExtensionContext): Promise<BoardStore> => runtime.store(ctx.cwd);
 
@@ -94,9 +100,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		if (running) return describe(running);
 		const store = await storeOf(ctx);
 		await store.ensure();
-		// One actor for every request the page answers, read per call so a session that is
-		// renamed is named by its next write rather than by the one that started the page.
-		const actor = () => runtime.who(ctx, ctx.cwd);
+		const actor = () => seat;
 		const now = () => runtime.now();
 		const preferred = sessionPort ?? (deps.pickPort ?? randomPort)();
 		let server: BoardServer;
@@ -108,7 +112,14 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				onIdle: () => void stopIdle(ctx),
 				page: async (view) => renderBoardPage({ view }),
 				script: BOARD_CLIENT_JS,
-				view: () => viewOf({ store, actor, now, busDir: () => runtime.busDir(ctx.cwd) }),
+				view: () =>
+					viewOf({
+						store,
+						actor,
+						session: () => runtime.who(ctx, ctx.cwd),
+						now,
+						busDir: () => runtime.busDir(ctx.cwd),
+					}),
 				write: (request) => writeOf({ store, actor, now }, request),
 			});
 		} catch (error) {
@@ -130,6 +141,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 
 	const describe = (state: { server: BoardServer; store: BoardStore }): PageStart => ({
 		kind: "served",
+		seat: seat.label,
 		port: state.server.port,
 		url: state.server.url,
 		where: state.store.where(),
