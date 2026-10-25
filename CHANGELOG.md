@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and `/sessions` count it as `1 gone`, and its label is free at once. A record with no
   `pid`, and a platform without `ps`, fall back to the heartbeat rather than being
   called dead on no evidence.
+- `board`: the Team tab says `gone` for a teammate whose process is no longer running, in
+  the refusal colour and ranked above a stale heartbeat. A card that teammate still holds
+  joins **Needs a decision** with the reason `is not running — the card is free` and the
+  Reclaim it has always allowed, instead of waiting out half an hour of silence first.
 
 ### Changed
 

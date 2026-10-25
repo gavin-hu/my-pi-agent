@@ -143,6 +143,8 @@ ${WEB_COMPONENTS_CSS}
 .board-team__dot{width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted);flex:0 0 auto;align-self:center}
 .board-team__mate[data-state="live"] .board-team__dot{background:var(--success)}
 .board-team__mate[data-state="quiet"] .board-team__dot{background:var(--warn)}
+/* A dead session is the one state the page states outright: solid, and in the refusal colour. */
+.board-team__mate[data-state="gone"] .board-team__dot{background:var(--danger)}
 /* A record that is not there is a hollow ring, never a colour that claims it is. */
 .board-team__mate[data-state="absent"] .board-team__dot,.board-team__mate[data-state="unknown"] .board-team__dot{background:transparent;box-shadow:inset 0 0 0 1px var(--border-strong)}
 .board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text)}

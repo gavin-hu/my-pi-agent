@@ -112,8 +112,9 @@ export async function seedStore(directory: string): Promise<void> {
 /**
  * The bus sessions a capture shows, so the Team tab is photographed with every state
  * in it: the serving session with mail and listening, one that went quiet after
- * finishing, one live but not listening, and one owner with no record at all
- * (`billing-core` is left out on purpose). Nothing here reads a real bus.
+ * finishing, one live but not listening, one whose process is gone, and one owner with
+ * no record at all (`billing-core` is left out on purpose). Nothing here reads a real
+ * bus, and the gone row's pid is one no host is running.
  */
 export function fixtureRoster(now: number): RosterSession[] {
 	return [
@@ -133,6 +134,15 @@ export function fixtureRoster(now: number): RosterSession[] {
 			lastSeen: now - 5_000,
 			mail: 0,
 			watching: { armed: false, wake: false },
+		},
+		{
+			// Above every host's pid range, so the roster's own rule calls it gone.
+			id: "s-gone",
+			label: "ops-relay",
+			mode: "tui",
+			lastSeen: now - 60_000,
+			mail: 0,
+			pid: 999_999_999,
 		},
 	];
 }
