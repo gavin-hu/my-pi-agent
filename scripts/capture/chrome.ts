@@ -5,10 +5,9 @@
  * `tools/index.ts`: it drives the Chrome or Chromium this machine already
  * has through Playwright and captures the whole document — beyond the viewport —
  * in one shot, so a page taller than the window (a plan, a gallery of tool
- * blocks) is not clipped; a caller that names a `clip` gets that element's own
- * box instead, which is what a fixed-size poster wants. The binary is still found the way it always was,
- * `PI_CHROME` first and then the usual macOS bundles, so no capture downloads a
- * browser of its own.
+ * blocks, a poster) is not clipped. The binary is still found the way it always
+ * was, `PI_CHROME` first and then the usual macOS bundles, so no capture
+ * downloads a browser of its own.
  *
  * Value-only apart from the launch itself: the caller supplies the URL, the
  * expressions to evaluate before the capture, and the output path.
@@ -53,13 +52,6 @@ export interface ChromeShotOptions {
 	init?: string[];
 	/** Expressions run in order before the capture. */
 	before?: ChromeShotStep[];
-	/**
-	 * Capture this element's own box instead of the document. A poster is one fixed
-	 * box centred in whatever viewport it opens in, so its height is the element's,
-	 * not the page's — measuring the document would carry the empty margin around
-	 * it into the image.
-	 */
-	clip?: string;
 }
 
 /** The rows the capture opens with; the document's own height decides the image. */
@@ -137,20 +129,6 @@ export async function captureFullPage(options: ChromeShotOptions): Promise<void>
 			{ timeout: LOAD_TIMEOUT_MS },
 		);
 		for (const step of options.before ?? []) await evaluateInPage(page, step.expression);
-		if (options.clip) {
-			// Size the window to the box first: a page that centres its box in the viewport
-			// would otherwise leave it on a half-pixel offset, which the image would carry
-			// as a taller, half-shifted crop.
-			const box = await page.locator(options.clip).boundingBox();
-			if (!box) throw new Error(`${options.clip} is not in the document`);
-			await page.setViewportSize({
-				width: Math.max(options.width, Math.ceil(box.width)),
-				height: Math.ceil(box.height),
-			});
-			await page.waitForTimeout(100);
-			await page.locator(options.clip).screenshot({ path: options.out, animations: "disabled" });
-			return;
-		}
 		// The image is the document, not the window: a page can be wider than the
 		// width it was given — the gallery is `80ch` of monospace whatever the pixel
 		// width — and a narrow window reflows it into a different, taller page. Size

@@ -90,14 +90,6 @@ export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { p
 	return { paths };
 }
 
-/**
- * Whether one claim covers the other path in either direction.
- *
- * The predicate is `overlap.ts` beside this module; a second copy is how the two
- * answers drift.
- */
-export { claimsConflict } from "./overlap.ts";
-
 /** Resolve `to` to active sessions; `*` is broadcast and excludes the sender. */
 export function resolveRecipients(
 	sessions: readonly { id: string; label: string }[],

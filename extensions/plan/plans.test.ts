@@ -19,12 +19,12 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { blockAt, codeBody, contentBlockAt, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
 import { changedSections, type SectionDigest, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
+import { extractSections } from "./sections.ts";
 import { parseFeedback, stripFeedback } from "./feedback.ts";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
 import { ENV_ROOT } from "../../lib/env.ts";
 import { createPlanPolicy, PLAN_ALLOWED_TOOLS, PLAN_SAFE_TOOLS } from "./policy.ts";
 import {
-	extractPlanSections,
 	extractPlanSteps,
 	goalSection,
 	matchesStepText,
@@ -980,60 +980,9 @@ describe("plan outline", () => {
 	test("is itself a valid plan", () => {
 		// The template is what a model copies, so the example document has to parse:
 		// eight sections in order, two tracked steps, and one verification item.
-		expect(extractPlanSections(PLAN_OUTLINE).map((section) => section.title)).toEqual(["<Title>", ...PLAN_SECTIONS]);
+		expect(extractSections(PLAN_OUTLINE).map((section) => section.title)).toEqual(["<Title>", ...PLAN_SECTIONS]);
 		expect(planStepSummary(PLAN_OUTLINE)).toEqual({ total: 2, elided: 0 });
 		expect(verificationItem(PLAN_OUTLINE)?.content).toBe("Verify: bun test src/config.test.ts; bun run check");
-	});
-});
-
-describe("plan sections", () => {
-	test("splits a canonical plan at its headings", () => {
-		const plan = ["# Title", "", "## Goal", "Ship it.", "", "## Steps", "- [ ] One"].join("\n");
-		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["Title", "Goal", "Steps"]);
-		expect(extractPlanSections(plan)[1].text.split("\n")[0]).toBe("## Goal");
-		expect(extractPlanSections(plan)[1].text).toContain("Ship it.");
-	});
-
-	test("keeps content before the first heading as an untitled section", () => {
-		const plan = ["intro line", "", "## Goal", "x"].join("\n");
-		const sections = extractPlanSections(plan);
-		expect(sections[0].title).toBe("");
-		expect(sections[0].text).toContain("intro line");
-	});
-
-	test("drops a blank preamble and strips inline formatting from titles", () => {
-		expect(extractPlanSections("\n\n## **Goal** `x`")[0].title).toBe("Goal x");
-	});
-
-	test("ignores `#` lines inside code fences", () => {
-		const plan = ["## Real", "```sh", "# not a heading", "```", "## Also real"].join("\n");
-		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["Real", "Also real"]);
-	});
-
-	test("reads a tab-indented fence as prose, the same as the block parser", () => {
-		// The fence rule is shared with `blocks.ts`, whose rule is spaces-only: a
-		// tab-indented fence must not be code for one parser and prose for the other.
-		const plan = ["\t```", "## Inside", "\t```", "## After"].join("\n");
-		expect(extractPlanSections(plan).map((s) => s.title)).toEqual(["", "Inside", "After"]);
-	});
-
-	test("returns nothing for an empty plan", () => {
-		expect(extractPlanSections("")).toEqual([]);
-		expect(extractPlanSections("\n\n")).toEqual([]);
-	});
-
-	test("reports each heading's source line and level", () => {
-		const plan = ["# Title", "", "## **Goal**", "", "### `Code` step"].join("\n");
-		expect(extractPlanSections(plan).map((s) => ({ line: s.line, level: s.level, title: s.title }))).toEqual([
-			{ line: 0, level: 1, title: "Title" },
-			{ line: 2, level: 2, title: "Goal" },
-			{ line: 4, level: 3, title: "Code step" },
-		]);
-	});
-
-	test("keeps a heading's own trailing hash, not a closing run", () => {
-		expect(extractPlanSections("## C#\nx")[0].title).toBe("C#");
-		expect(extractPlanSections("## Notes ##\nx")[0].title).toBe("Notes");
 	});
 });
 

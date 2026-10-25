@@ -12,7 +12,7 @@
  *   bun run screenshot:plan-flow flow -o /tmp/flow.png --scale 3
  *
  * A card that outgrows its own 1200×675 box fails the run with the measured
- * size instead of being captured clipped, because one page is the whole promise.
+ * size instead of being captured clipped, because the image is the whole page.
  */
 
 import { fileURLToPath } from "node:url";
@@ -29,11 +29,6 @@ interface Card {
 	page: string;
 	/** Default output file name under `assets/cards/`. */
 	png: string;
-	/**
-	 * The element the image is, for a page whose document is taller than its card,
-	 * so the empty margin around it stays out of the image.
-	 */
-	clip?: string;
 }
 
 /** The cards, keyed by the name the command line takes. */
@@ -110,7 +105,6 @@ async function capture(name: string, options: ShotOptions): Promise<void> {
 		out,
 		width: CARD_WIDTH,
 		scale: options.scale,
-		clip: card.clip,
 		before: [{ expression: readyExpression(options.waitMs) }, { expression: FITS_CARD }],
 	});
 	console.log(out);

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import {
-	claimsConflict,
 	defaultLabel,
 	normalizeAction,
 	normalizeKind,
@@ -60,11 +59,7 @@ describe("validation", () => {
 	});
 });
 
-describe("claims and targets", () => {
-	test("a directory claim covers its children in both directions", () => {
-		expect(claimsConflict("src", "src/a.ts")).toBe(true);
-		expect(claimsConflict("src/api", "src/ui")).toBe(false);
-	});
+describe("claim targets", () => {
 	test("resolves an exact id, a unique label, or a broadcast", () => {
 		const sessions = [
 			{ id: "s1", label: "frontend" },

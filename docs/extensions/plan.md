@@ -892,8 +892,8 @@ both.
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
 | `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or agent directory), containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
-| `steps.ts` | Plan-document structure (pure): the outline, step extraction and the `Steps`-section scope, heading sections, the plan's own goal (`goalSection`), and the checkbox edit. It re-exports the section scan so the extension has one import for it. |
-| `sections.ts` | The one fence-aware heading scan: `extractSections`, `sectionKeys` (the key that tells two identically titled sections apart), `replaceSection` (an in-place body rewrite), and the `HEADING` / `FENCE` / `normalizeHeadingText` vocabulary. |
+| `steps.ts` | Plan-document structure: the outline, step extraction and the `Steps`-section scope, the plan's own goal (`goalSection`), and the checkbox edit. |
+| `sections.ts` | The one fence-aware heading scan: `extractSections`, `sectionKeys` (the key that tells two identically titled sections apart), and the `HEADING` / `FENCE` / `normalizeHeadingText` vocabulary `blocks.ts` reads a heading through. |
 | `format.ts` | Pure result/approval text: the plan preview, the step-cap diagnosis, step labels, the merge summary, and the verification note. |
 | `plan-text.ts` | The plan text a review shows and compares: `sanitizePlanText`, the one normalization both sides use, the per-section `sectionDigests`, and `changedSections`, which hands each section back with its flag. |
 | `runtime.ts` | Enabled state, tool gating, persistence (mode and review baseline), control-tool identity, footer status. |
@@ -962,7 +962,8 @@ Eleven co-located suites, declared in `test/suite-manifest.ts`:
 - `tui.test.ts` — the review screen at fixed widths: Markdown body, scrolling,
   section navigation, the gauge, footer hints, the approve question, the inline
   refine editor, and the changed-section markers.
-- `sections.test.ts` — the fence-aware scan and the in-place rewrite it feeds.
+- `sections.test.ts` — the fence-aware scan: heading shape, fences, the preamble,
+source lines and levels, and the occurrence key.
 - `extension.test.ts` — the Pi wiring: registration, the entry request, the
   session lifecycle, the tool-call guard, injected context, the command, and the
   shortcut.
