@@ -262,6 +262,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the page reads at the size a board actually reaches. `done` starts folded past
+  six cards, with its count in the lane head, and a reader's toggle decides from then on;
+  a lane holding no cards narrows to its head, its word, and its count, so the three lanes
+  carrying work keep the width; and a card face offers one verb — `Claim`, or `Move` for
+  work in flight — because its title already opens the dialog that holds the note field
+  and the move controls. On a 26-card board that is 26 buttons instead of 59.
 - `team`: the tool's description says what is true of each action — `reclaim` writes the
   card alone and sends nothing, so it needs no bus — instead of tying all three to the
   team, which sent a model looking for a transport `reclaim` never touches.

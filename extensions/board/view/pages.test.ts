@@ -235,6 +235,34 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).not.toContain("dependsOn:");
 	});
 
+	test("keeps one verb on a card face, and lets the title be the way in", () => {
+		// Claim, then Note, then Open: three doors to one room, and 59 buttons on the
+		// 26-card board this page is built for. The title opens the same dialog, which
+		// holds the note field and the move controls.
+		expect(BOARD_CLIENT_JS).toContain('actionButton("Claim"');
+		expect(BOARD_CLIENT_JS).toContain('actionButton("Move"');
+		expect(BOARD_CLIENT_JS).not.toContain('actionButton("Note"');
+		expect(BOARD_CLIENT_JS).not.toContain('actionButton("Open"');
+		// A finished card and a viewer's card have no verb at all, and an empty row would
+		// still take its gap, so the row is drawn only when something is in it.
+		expect(BOARD_CLIENT_JS).toContain("actions.childNodes.length > 0");
+	});
+
+	test("folds finished work once, and gives an empty lane a rail", () => {
+		// Nineteen done cards is history the three live lanes should not have to sit
+		// beside unfolded; the count in the head is the fact. The default is written only
+		// while unset, so a reader's toggle decides from the first click on.
+		expect(BOARD_CLIENT_JS).toContain('lane.status === "done"');
+		expect(BOARD_CLIENT_JS).toContain("DONE_FOLD_AT");
+		expect(BOARD_CLIENT_JS).toContain("board.collapsed[lane.status] === undefined");
+		// The rail is about what the lane is showing, never about the filter: filtering is a
+		// view of the cards, not a statement that the lane holds none. A folded lane shows
+		// nothing either, so it takes the same width and hands the rest to the lanes a
+		// reader is reading.
+		expect(BOARD_CLIENT_JS).toContain('setAttribute("data-empty", lane.cards.length === 0');
+		expect(BOARD_CLIENT_JS).toContain('section.setAttribute("data-folded"');
+	});
+
 	test("says why in one voice, and lets the reason carry it", () => {
 		// Three grammars in one slot read as three different kinds of fact: a status
 		// prefix that repeated the lane, an em-dash clause, and a tick.
