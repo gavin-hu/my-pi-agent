@@ -97,10 +97,10 @@ describe("board shot arguments", () => {
 	});
 
 	test("takes one dialog, and refuses another", () => {
-		for (const dialog of ["card", "confirm"] as const) {
+		for (const dialog of ["card", "confirm", "new"] as const) {
 			expect(parseBoardArgs(["--dialog", dialog]).dialog).toBe(dialog);
 		}
-		expect(() => parseBoardArgs(["--dialog", "menu"])).toThrow("--dialog must be card or confirm");
+		expect(() => parseBoardArgs(["--dialog", "menu"])).toThrow("--dialog must be card, confirm, or new");
 	});
 
 	test("refuses an option it does not have, and a positional", () => {

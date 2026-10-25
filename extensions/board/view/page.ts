@@ -6,7 +6,7 @@
  * as `textContent` from the JSON frame, which is the one property a page with a
  * model-writable store should have.
  *
- * The shell is complete before the script runs: the toolbar, both panels, the two
+ * The shell is complete before the script runs: the toolbar, both panels, the three
  * kit dialogs, the keyboard sheet, and the live region are in the markup, so a slow
  * frame shows a skeleton rather than an empty page. Every id here is a contract with
  * the client (`render.ts`, `team.ts`, `live.ts`, `actions.ts`), and the class
@@ -53,7 +53,7 @@ ${docHead({ title: "board", css: BOARD_CSS })}
     <label class="bf-field board-filter"><span class="sr-only">Filter cards</span>
       <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
     </label>
-    ${button({ label: "+ New card", id: "board-new", title: "New card — n", attrs: { "aria-expanded": "false" } })}
+    ${button({ label: "+ New card", id: "board-new", title: "New card — n", attrs: { "aria-haspopup": "dialog" } })}
     ${button({ label: "?", variant: "icon", id: "keys-open", title: "Keyboard shortcuts", attrs: { "aria-haspopup": "dialog" } })}
     ${themeToggle()}
   </div>
@@ -61,23 +61,6 @@ ${docHead({ title: "board", css: BOARD_CSS })}
 <main class="bf-app__main board-main" id="main" tabindex="-1">
   <p class="bf-note board-banner" id="board-banner" role="status" hidden></p>
   <section class="board-panel" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
-    <form class="bf-composer board-composer" id="board-composer" autocomplete="off" hidden>
-      <div class="board-composer__fields">
-        <label class="bf-field"><span>Title</span>
-          <input class="bf-input" id="new-title" name="title" placeholder="the feature's outcome, one line" maxlength="120" required>
-        </label>
-        <label class="bf-field"><span>Paths</span>
-          <input class="bf-input" id="new-paths" name="paths" placeholder="src/… src/…" aria-describedby="composer-hint">
-        </label>
-      </div>
-      <div class="bf-composer__row">
-        <p class="bf-note board-composer__hint" id="composer-hint">one card per feature — its steps live in the owner's plan and todo</p>
-        <div class="board-composer__actions">
-          <button class="bf-btn" type="button" id="board-cancel">Cancel</button>
-          <button class="bf-btn bf-btn--primary" type="submit" id="new-submit">Add card</button>
-        </div>
-      </div>
-    </form>
     <div class="bf-segmented board-picker" id="board-picker" role="tablist" aria-label="Lane"></div>
     <div class="board-lanes" id="board-lanes"></div>
     <div class="bf-empty board-no-cards" id="board-no-cards" hidden>
@@ -91,6 +74,33 @@ ${docHead({ title: "board", css: BOARD_CSS })}
   </section>
 </main>
 <footer class="bf-app__footer"><span id="board-where"></span></footer>
+
+<div class="bf-dialog" id="board-new-dialog" hidden>
+  <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="board-new-title">
+    <div class="bf-dialog__head">
+      <h2 id="board-new-title">New card</h2>
+      <span class="bf-spacer"></span>
+      <button type="button" class="bf-btn bf-btn--icon" id="new-dialog-close" aria-label="Close">×</button>
+    </div>
+    <form class="board-composer" id="board-composer" autocomplete="off">
+      <div class="bf-dialog__body">
+        <div class="board-composer__fields">
+          <label class="bf-field"><span>Title</span>
+            <input class="bf-input" id="new-title" name="title" placeholder="the feature's outcome, one line" maxlength="120" required>
+          </label>
+          <label class="bf-field"><span>Paths</span>
+            <input class="bf-input" id="new-paths" name="paths" placeholder="src/… src/…" aria-describedby="composer-hint">
+          </label>
+        </div>
+        <p class="bf-dialog__hint" id="composer-hint">one card per feature — its steps live in the owner's plan and todo</p>
+      </div>
+      <div class="bf-dialog__actions">
+        <button class="bf-btn" type="button" id="board-cancel">Cancel</button>
+        <button class="bf-btn bf-btn--primary" type="submit" id="new-submit">Add card</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="bf-dialog" id="board-card-dialog" hidden>
   <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="card-dialog-title">

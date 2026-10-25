@@ -10,8 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `board`: the page is rebuilt on the shared kit, with the reading of the board put
   first. The toolbar carries the serving session, a live badge, the Board|Team
-  switch, done-of-total progress, a filter and a keys button; the composer is one row
-  of title and path hints; four lanes with sticky, foldable heads hold cards that show
+  switch, done-of-total progress, a filter and a keys button; the composer is a dialog
+  behind **+ New card**; four lanes with sticky, foldable heads hold cards that show
   an owner and an age, path chips, and one line saying why the card is where it is; and the Team tab is two tables — owners, then the cards that need a
   decision — instead of five equal panels. `n`, `/`, `j`/`k`, `Enter`, `t`, and `?`
   drive it from the keyboard, and a filter matches a card by title, path, or holder — on
@@ -28,15 +28,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with `session-bus` unloaded every state reads `—` and the tab behaves as it did.
   An owner whose last card is done keeps its row instead of vanishing from the rollup
   the moment the work ends.
-  Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
+  Its modals are the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
   replacing the page's own native-dialog implementation, and a closed tab lets the
   page stop a minute later instead of answering a port for the rest of the session.
   The polish pass on top: the
-  composer folds behind **+ New card** so the page opens on the board (its draft
-  survives a stray `Esc`; `Cancel` discards it), each lane is a tray with a sticky
-  head and a count pill, the card title is the page's loudest text, a hovered card
-  lifts and a finished one recedes, and the toolbar's controls wrap as one group.
+  composer is the kit's modal, so the page opens on the board and its draft survives
+  a stray `Esc` or a backdrop click (`Cancel` discards it), each lane is a tray with
+  a sticky head and a count pill, the card title is the page's loudest text, a hovered
+  card lifts and a finished one recedes, and the toolbar's controls wrap as one group.
 - `team`: the lead's round over the board — `assign` and `reclaim`, the two actions
   that need the session bus. `assign` hands a card to a session that is already
   running: it checks the card's preconditions, sends a handoff through `session send`

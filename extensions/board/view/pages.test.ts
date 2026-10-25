@@ -41,7 +41,7 @@ describe("the document", () => {
 		expect(team).toContain('id="panel-board" role="tabpanel" aria-labelledby="tab-board" hidden');
 	});
 
-	test("carries the regions and both dialogs the client fills", () => {
+	test("carries the regions and all three dialogs the client fills", () => {
 		const page = renderBoardPage({ view: "board" });
 		for (const id of [
 			"board-me",
@@ -51,6 +51,9 @@ describe("the document", () => {
 			"board-progress-text",
 			"board-filter",
 			"board-new",
+			"board-new-dialog",
+			"board-new-title",
+			"new-dialog-close",
 			"keys-open",
 			"board-banner",
 			"board-composer",
@@ -88,12 +91,13 @@ describe("the document", () => {
 		}
 	});
 
-	test("opens with the composer folded behind its one trigger", () => {
+	test("opens with the new-card dialog closed behind its one trigger", () => {
 		const page = renderBoardPage({ view: "board" });
-		// The board is what the page opens on; the drawer is asked for, not offered twice.
-		expect(page).toContain('id="board-composer" autocomplete="off" hidden');
-		expect(page).toContain('id="board-new"');
-		expect(page).toContain('aria-expanded="false"');
+		// The board is what the page opens on; the dialog is asked for, not offered twice.
+		expect(page).toContain('id="board-new-dialog" hidden');
+		expect(page).toContain('id="board-new" title="New card — n" aria-haspopup="dialog"');
+		// The drawer's `aria-expanded` described a tray; a dialog announces itself instead.
+		expect(page).not.toMatch(/id="board-new"[^>]*aria-expanded/);
 	});
 
 	test("carries no card text at all", () => {
@@ -118,7 +122,7 @@ describe("the document", () => {
 		for (const block of [WEB_BASE_CSS, WEB_THEME_CSS, WEB_LAYOUT_CSS, WEB_COMPONENTS_CSS]) {
 			expect(BOARD_CSS.split(block)).toHaveLength(2);
 		}
-		expect(BOARD_CSS.split(".board-composer{margin-bottom")).toHaveLength(2);
+		expect(BOARD_CSS.split(".board-composer{display:flex")).toHaveLength(2);
 	});
 
 	/** The page's own rules, without the shared blocks that define the palette. */
@@ -192,6 +196,14 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board-dialog__note-head");
 		expect(BOARD_CLIENT_JS).toContain('"Move to"');
 		expect(BOARD_CLIENT_JS).toContain("lane !== card.status");
+	});
+
+	test("opens the new card through the kit's dialog, not a home-made one", () => {
+		// One `dialogScript` per modal: the Tab trap, `Esc`, the backdrop click, and the
+		// focus return are the kit's, so the page only fills and opens it.
+		expect(BOARD_CLIENT_JS).toContain('getElementById("board-new-dialog")');
+		expect(BOARD_CLIENT_JS).toContain("window.bfNew");
+		expect(BOARD_CLIENT_JS).toContain("window.bfNew.open()");
 	});
 
 	test("never parses a stored field", () => {

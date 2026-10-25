@@ -8,7 +8,7 @@
  * directory and the paths are this repository's own directories.
  *
  *   bun run screenshot:board [--width 1280] [--scale 1] [--theme light|dark]
- *     [--wait 8000] [--out <dir>] [--dialog card|confirm]
+ *     [--wait 8000] [--out <dir>] [--dialog card|confirm|new]
  *
  * Output defaults to `assets/screens/board.png` and `assets/screens/team.png`; with
  * `--dialog` it writes one modal instead, which is how a state the page hides by
@@ -28,7 +28,7 @@ import { fixtureBoard } from "../tools/fixtures/board-store.ts";
 const READY = "!!document.querySelector('.board-card')";
 
 /** The dialog a shot can open before it captures, so a modal is reviewed as a picture. */
-export type ShotDialog = "card" | "confirm";
+export type ShotDialog = "card" | "confirm" | "new";
 
 /** CLI options after parsing. */
 export interface ShotOptions extends PageShotOptions {
@@ -47,8 +47,8 @@ export function parseArgs(argv: string[]): ShotOptions {
 		maxPositional: 0,
 	});
 	const dialog = parsed.values["--dialog"];
-	if (dialog !== undefined && dialog !== "card" && dialog !== "confirm") {
-		throw new Error("--dialog must be card or confirm");
+	if (dialog !== undefined && dialog !== "card" && dialog !== "confirm" && dialog !== "new") {
+		throw new Error("--dialog must be card, confirm, or new");
 	}
 	return {
 		outDir: resolve(parsed.values["--out"] ?? parsed.out),
@@ -67,6 +67,9 @@ const DIALOG_OPEN: Record<ShotDialog, string> = {
 	// The first card in reading order is the fixture's `todo` card, whose first
 	// action is Claim — the one action that asks before it writes.
 	confirm: "document.querySelector('.board-card__actions .bf-btn').click()",
+	// The toolbar's button is the way a lead asks for a card; a keyboard-only path
+	// would hide the trigger this shot exists to show.
+	new: "document.getElementById('board-new').click()",
 };
 
 /** The URL for one tab: the server's own URL already carries the token. */

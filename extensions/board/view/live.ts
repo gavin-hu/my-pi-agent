@@ -1,6 +1,6 @@
 /**
- * The client's wiring: the tabs, the lane picker, the composer, the filter, and the
- * live frame stream.
+ * The client's wiring: the tabs, the lane picker, the new-card dialog, the filter,
+ * and the live frame stream.
  *
  * A frame is a whole snapshot, so every message repaints from it rather than patching
  * it — the renderer decides what actually changed. The only client state is which tab
@@ -87,45 +87,30 @@ export const BOARD_LIVE_JS = String.raw`(function () {
 
   board.showView = showView;
 
-  /** Open the composer drawer and put the caret in it. */
+  /** Open the new-card dialog and put the caret in its title field. */
   board.openComposer = function () {
-    var form = document.getElementById("board-composer");
-    var trigger = document.getElementById("board-new");
-    if (form) form.hidden = false;
-    if (trigger) trigger.setAttribute("aria-expanded", "true");
+    if (!window.bfNew) return;
+    // The kit focuses a dialog's first control, which here is its close button; a card
+    // starts with a title, so the caret belongs in that field.
+    window.bfNew.open();
     var input = document.getElementById("new-title");
     if (input) input.focus();
   };
 
-  /** Fold it away, unless a draft is in it — a half-typed card is not lost on Esc. */
+  /** Close it, draft and all: only Cancel throws the draft away. */
   board.closeComposer = function () {
-    var form = document.getElementById("board-composer");
-    var trigger = document.getElementById("board-new");
-    var title = document.getElementById("new-title");
-    var paths = document.getElementById("new-paths");
-    if (!form || form.hidden) return;
-    if (title && title.value.trim() !== "") return;
-    if (paths && paths.value.trim() !== "") return;
-    form.hidden = true;
-    if (trigger && trigger.focus) trigger.focus();
-    if (trigger) trigger.setAttribute("aria-expanded", "false");
+    if (window.bfNew) window.bfNew.close();
   };
 
-  /** Discard whatever is in the drawer and fold it, leaving focus on the trigger. */
+  /** Discard the draft and close, which is what its own Cancel button does. */
   board.cancelComposer = function () {
     var form = document.getElementById("board-composer");
-    if (!form) return;
-    form.hidden = true;
-    var trigger = document.getElementById("board-new");
-    if (trigger) {
-      trigger.setAttribute("aria-expanded", "false");
-      trigger.focus();
-    }
+    if (form) form.reset();
+    board.closeComposer();
   };
 
   board.composerOpen = function () {
-    var form = document.getElementById("board-composer");
-    return form ? !form.hidden : false;
+    return window.bfNew ? window.bfNew.isOpen() : false;
   };
 
   board.focusComposer = function () {
@@ -228,7 +213,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     };
   }
 
-  /** The composer: a title, space-separated path hints, and Add. */
+  /** The new-card dialog: a title, space-separated path hints, and Add. */
   function wireComposer() {
     var form = document.getElementById("board-composer");
     if (!form) return;
@@ -244,7 +229,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
       if (paths.length > 0) input.paths = paths;
       board.add(input).then(function (payload) {
         if (!payload) return;
-        // The drawer stays open: a lead publishes several cards in a row.
+        // The dialog stays open: a lead publishes several cards in a row.
         form.reset();
         title.focus();
       });
@@ -256,11 +241,10 @@ export const BOARD_LIVE_JS = String.raw`(function () {
         else board.openComposer();
       });
     }
-    // A drawer with a draft opens no other way out, so Cancel discards it on purpose.
+    // A dialog that keeps its draft on Esc needs one button that does not.
     var cancel = document.getElementById("board-cancel");
     if (cancel) {
       cancel.addEventListener("click", function () {
-        form.reset();
         board.cancelComposer();
       });
     }

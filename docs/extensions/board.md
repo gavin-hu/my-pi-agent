@@ -11,7 +11,7 @@ decision.
 
 <img src="../../assets/screens/board.png" alt="The board page: a toolbar with the serving session, a live badge, Board and Team tabs, done-of-total progress, a filter and a New card button; four lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, path hints, a reason line and their actions" width="100%">
 
-*`/board`: the four lanes, with the composer above them and the round one tab away.*
+*`/board`: the four lanes, with a new card one keystroke from its dialog and the round one tab away.*
 
 ## Capabilities
 
@@ -95,7 +95,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Band | What it holds |
 |---|---|
 | Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
-| Composer | a drawer the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards |
+| New card dialog | the modal the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards, and a draft survives `Esc` or a backdrop click |
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860 — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
 | Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line (clamped, with the whole sentence as its tooltip), and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | two panels and a strip. **Needs a decision** is one row per card: its kind as a left edge (`--danger` blocked, `--warn` idle, `--muted` unplanned, a dashed grey edge for nobody's), the reason on its own line with the whole sentence as its tooltip, and the way out on the row's edge — `Reclaim` when someone holds it, `Claim` when nobody does. **Teammates** is one row per person — a state dot, the label, a `you` chip, a mail badge, then `live · 3 held · 1 done · oldest 21m` — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
@@ -111,12 +111,12 @@ a card with `data-status`, so a theme change repaints it without a rule of its o
 
 | Key | What it does |
 |---|---|
-| `n` | New card: open the composer and focus the title field |
+| `n` | New card: open the dialog and focus the title field |
 | `/` | Filter the cards by title, path, or owner |
 | `j` / `k` | Next or previous card |
 | `Enter` | Open the focused card |
 | `t` | Switch Board and Team |
-| `Esc` | Close a dialog, fold the composer, or clear the filter |
+| `Esc` | Close a dialog, or clear the filter |
 | `?` | The keyboard sheet |
 
 A dialog traps `Tab`, closes on `Esc` or a backdrop click, and returns focus to
@@ -182,9 +182,10 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   this holds", never "force this state".
 - **The page is a dumb renderer** over one snapshot built on the server, pushed
   only when a card's revision moves.
-- **The composer is a drawer, not a fixture.** The page opens on the board; a card is
-  something you ask to write. Its draft survives an `Esc` that only leaves the field,
-  and `Cancel` is the one way to throw it away.
+- **The new card is a dialog, not a fixture.** The page opens on the board; a card
+  is something you ask to write. It is the kit's modal, so `Tab` stays inside it and
+  closing returns focus to the button that opened it; a draft survives `Esc` or a
+  backdrop click, and `Cancel` is the one way to throw it away.
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), and drag-and-drop (a lane change is a named `move`).
@@ -210,7 +211,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `view/team.ts` | The client's round: the two tables and the Done line |
 | `view/actions.ts` | The client's writes and its two kit dialogs |
 | `view/keys.ts` | The key table, and the bindings that make it true |
-| `view/live.ts` | The client's tabs, composer, filter, and frame stream |
+| `view/live.ts` | The client's tabs, new-card dialog, filter, and frame stream |
 | `view/client.ts` | The one script served at `/app.js` |
 
 The store, the rules, the rollup, and the snapshot are `lib/board/` — see

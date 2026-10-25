@@ -9,7 +9,7 @@
  * through `data-status`, never a literal.
  *
  * The sheet is in three parts, in the order the page stacks: the toolbar, the
- * composer, then the board (lanes, cards, the Team tables, and the two dialogs).
+ * board (lanes, cards, and the Team tables), then its dialogs.
  */
 
 import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
@@ -30,14 +30,11 @@ ${WEB_COMPONENTS_CSS}
 .board-progress{margin:0}
 .board-picker{display:none;margin-bottom:var(--space-3)}
 
-/* Composer: folded behind the toolbar's button until it is asked for, so the
-   board is what the page opens on. */
-.board-composer{margin-bottom:var(--space-4)}
+/* The new card is a kit dialog, so the board is what the page opens on. The form is
+   the panel's own column: its body scrolls and its actions stay pinned. */
+.board-composer{display:flex;flex-direction:column;min-height:0}
 .board-composer__fields{display:grid;grid-template-columns:minmax(14rem,2fr) minmax(10rem,1fr);gap:var(--space-2)}
 .board-composer__fields .bf-field{min-width:0}
-.board-composer__hint{margin:0;padding:0}
-.board-composer .bf-composer__row{align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-2)}
-.board-composer__actions{display:flex;align-items:center;gap:var(--space-2)}
 
 /* The main pane is this page's only child of the shell, so it grows to fill the
    column and the footer stays at the bottom however short the board is. */

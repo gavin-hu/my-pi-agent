@@ -14,7 +14,7 @@ import type { KeyHint } from "../../../lib/web/index.ts";
 
 /** One binding: the key or keys, and what pressing it does. */
 export const BOARD_KEYS: readonly KeyHint[] = [
-	{ keys: "n", label: "New card — focus the title field" },
+	{ keys: "n", label: "New card — open the dialog and focus the title field" },
 	{ keys: "/", label: "Filter the cards" },
 	{ keys: ["j", "k"], label: "Next or previous card" },
 	{ keys: "Enter", label: "Open the focused card" },
@@ -78,15 +78,9 @@ export const BOARD_KEYS_JS = String.raw`(function () {
           board.closeCard();
           return;
         }
-        // The composer folds on one Escape when it holds nothing; with a draft, the
-        // first Escape only leaves the field, so a half-typed card is never lost.
-        if (board.composerOpen && board.composerOpen()) {
-          board.closeComposer();
-          if (board.composerOpen() && typing(target)) target.blur();
-          return;
-        }
-        // A filter with text is what Escape is for here; an empty one gives the
-        // keyboard back to the page by leaving the field.
+        // The composer is a kit dialog, so the kit's own Esc closed it in the capture
+        // phase already; a filter with text is what Escape is for here. An empty one
+        // gives the keyboard back to the page by leaving the field.
         if (board.hasFilter()) {
           board.clearFilter();
           if (typing(target)) target.blur();
@@ -104,6 +98,8 @@ export const BOARD_KEYS_JS = String.raw`(function () {
         return;
       }
       if (event.key === "n") {
+        // Two modals over one board is a trap whose edge the reader cannot see.
+        if (board.dialogOpen() || board.composerOpen()) return;
         event.preventDefault();
         board.focusComposer();
       } else if (event.key === "/") {

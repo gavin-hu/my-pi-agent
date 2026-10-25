@@ -27,6 +27,7 @@ ${BOARD_ACTIONS_JS}
 ${BOARD_KEYS_JS}
 ${BOARD_LIVE_JS}
 ${THEME_TOGGLE_JS}
+${dialogScript({ dialogId: "board-new-dialog", closeId: "new-dialog-close", globalName: "bfNew" })}
 ${dialogScript({ dialogId: "board-card-dialog", closeId: "card-dialog-close", globalName: "bfCard" })}
 ${dialogScript({ dialogId: "board-confirm", globalName: "bfConfirm" })}
 ${keysDialogScript("keys-open")}
