@@ -47,7 +47,13 @@ export interface BusStore {
 	releaseAll(owner: string): Promise<string[]>;
 	prune(input: {
 		now: number;
+		/** The sessions known to be live when the caller read the bus. */
 		activeIds: ReadonlySet<string>;
+		/**
+		 * Records whose process the caller found gone: they keep their row until their
+		 * heartbeat ages out, and own no path and no mail in the meantime.
+		 */
+		goneIds?: ReadonlySet<string>;
 		sessionTtlMs: number;
 		messageTtlMs: number;
 	}): Promise<void>;
@@ -85,6 +91,7 @@ function isSession(value: unknown): value is SessionRecord {
 		typeof entry.mode === "string" &&
 		typeof entry.startedAt === "number" &&
 		typeof entry.lastSeen === "number" &&
+		(entry.startToken === undefined || typeof entry.startToken === "string") &&
 		(entry.watching === undefined || isWatchingState(entry.watching))
 	);
 }
@@ -335,15 +342,20 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			return released;
 		},
 
-		async prune({ now: at, activeIds, sessionTtlMs, messageTtlMs }) {
+		async prune({ now: at, activeIds, goneIds, sessionTtlMs, messageTtlMs }) {
 			// The caller's set can lag: a peer that joined and claimed since that read is
 			// live on disk, and its claims are its own. This read is the answer, so the
-			// set only adds to what it found rather than deciding who survives.
+			// set only adds to what it found rather than deciding who survives — except for
+			// a record whose process is gone, which the caller knows and the file cannot.
+			// That record keeps its row until the heartbeat ages out and owns nothing.
 			const live = new Set(activeIds);
+			const gone = new Set(goneIds ?? []);
 			for (const session of await readSessions()) {
 				if (at - session.lastSeen > sessionTtlMs) {
 					await rm(sessionFile(session.id), { force: true });
 					await dropIfEmpty(inboxDir(session.id));
+					live.delete(session.id);
+				} else if (gone.has(session.id)) {
 					live.delete(session.id);
 				} else {
 					live.add(session.id);

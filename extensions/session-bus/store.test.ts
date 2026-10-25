@@ -63,6 +63,18 @@ describe("sessions", () => {
 		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
 	});
 
+	test("keeps the start token, and skips a record whose token is not a string", async () => {
+		const { store } = fixture();
+		await store.ensure();
+		await store.writeSession({ ...session("s1"), startToken: "Mon Oct 26 00:02:00 2026" });
+		expect((await store.session("s1"))?.startToken).toBe("Mon Oct 26 00:02:00 2026");
+		// Only a hand-edited record can hold this, and a rule that trusted it would call a
+		// live session gone.
+		const broken = { ...session("s2"), startToken: 7 } as unknown as SessionRecord;
+		await store.writeSession(broken);
+		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
+	});
+
 	test("removes a session, and its inbox directory once it holds no mail", async () => {
 		const { dir, store } = fixture();
 		await store.ensure();
@@ -201,6 +213,23 @@ describe("prune", () => {
 		await store.prune({ now: 1_000, activeIds: new Set(["s1"]), sessionTtlMs: 500, messageTtlMs: 500 });
 		expect(await store.sessions()).toHaveLength(1);
 		expect(await store.claims()).toHaveLength(1);
+	});
+
+	test("keeps a gone session's row and frees the path it held", async () => {
+		const { store } = fixture();
+		// The process is gone but the heartbeat is fresh: the caller knows that, the file
+		// cannot, so the caller says which ids own nothing.
+		await store.writeSession(session("s1", 900));
+		await store.claimAll(["src/a.ts"], "s1", "one", 900);
+		await store.prune({
+			now: 1_000,
+			activeIds: new Set(),
+			goneIds: new Set(["s1"]),
+			sessionTtlMs: 500,
+			messageTtlMs: 500,
+		});
+		expect((await store.sessions()).map((entry) => entry.id)).toEqual(["s1"]);
+		expect(await store.claims()).toEqual([]);
 	});
 
 	test("keeps a live peer's claim that the caller's active set had not seen yet", async () => {

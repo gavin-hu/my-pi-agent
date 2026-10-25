@@ -22,8 +22,23 @@ function context(cwd: string, sessionId: string, sessionName: string, mode = "tu
 	return fakeCtx({ cwd, sessionId, sessionName, mode, hasUI: mode === "tui" }).ctx as ExtensionContext;
 }
 
+/**
+ * A bus in a temp directory.
+ *
+ * Every pid is alive unless a case says otherwise: a record's liveness is the roster's
+ * question, and a suite that answered it with the host's pid space would pass or fail on
+ * whatever the machine happened to be running.
+ */
 function runtime(dir: string, options: Partial<SessionBusOptions> = {}): SessionBus {
-	return createSessionBus({} as ExtensionAPI, { dir, now: () => 1_000, heartbeatMs: 0, watchMs: 0, ...options });
+	return createSessionBus({} as ExtensionAPI, {
+		dir,
+		now: () => 1_000,
+		heartbeatMs: 0,
+		watchMs: 0,
+		alive: () => true,
+		startTokenFn: () => "started-here",
+		...options,
+	});
 }
 
 function bus(dir: string, root: string, now: () => number, watchMs = 0): SessionBus {
@@ -499,6 +514,69 @@ describe("labels", () => {
 		expect(labels.every((label) => /^lead(-s[12])?$/.test(label))).toBe(true);
 		await first.stop();
 		await second.stop();
+	});
+
+	test("a dead pid's label is free at once, not after the TTL", async () => {
+		const dir = busDir();
+		const store = createBusStore({ dir });
+		await store.ensure();
+		// Fresh heartbeat, dead process: the crash a TTL cannot see.
+		await store.writeSession({ ...stale("dead", "lead"), pid: 4242, lastSeen: 1_000 });
+
+		const lead = runtime(dir, { repo: { root: "/repo", key: "shared" }, alive: (pid) => pid !== 4242 });
+		await acting(lead, context("/repo", "s9", "lead"));
+		expect((await lead.status()).me.label).toBe("lead");
+		await lead.stop();
+	});
+
+	test("a dead pid's claim is nobody's at once, and its row lasts until the TTL", async () => {
+		const dir = busDir();
+		const store = createBusStore({ dir });
+		await store.ensure();
+		await store.writeSession({ ...stale("dead", "lead"), pid: 4242, lastSeen: 1_000 });
+		await store.claimAll(["src/api"], "dead", "lead", 1_000);
+
+		let now = 1_000;
+		const session = runtime(dir, {
+			repo: { root: "/repo", key: "shared" },
+			now: () => now,
+			alive: (pid) => pid !== 4242,
+		});
+		await acting(session, context("/repo", "s1", "mine"));
+		// The row stays — a lead needs a face for the work it held — but its claim is nobody's.
+		const snapshot = await session.snapshot();
+		expect(snapshot.sessions.map((row) => [row.label, row.state])).toEqual([
+			["lead", "gone"],
+			["mine", "live"],
+		]);
+		expect(snapshot.claims).toEqual([]);
+
+		// A read prunes, and the prune frees the claim there and then. The record is
+		// forgotten on the heartbeat's clock, not on the process's, so the crash stays
+		// named for as long as the bus would have kept a silent session.
+		await session.status();
+		expect(await store.claims()).toEqual([]);
+		expect((await store.sessions()).map((row) => row.id).sort()).toEqual(["dead", "s1"]);
+
+		now += 10 * 60_000 + 1;
+		await session.status();
+		expect((await store.sessions()).map((row) => row.id)).toEqual(["s1"]);
+		await session.stop();
+	});
+
+	test("a quiet peer is still dropped from the board, and a gone one is not", async () => {
+		const dir = busDir();
+		const store = createBusStore({ dir });
+		await store.ensure();
+		// One aged out and is still running, one crashed just now: the board drops the
+		// first as stale and keeps the second, because a crash is what a lead must see.
+		await store.writeSession(stale("quiet", "quiet-peer"));
+		await store.writeSession({ ...stale("dead", "dead-peer"), pid: 4242, lastSeen: 1_000 });
+
+		const session = runtime(dir, { repo: { root: "/repo", key: "shared" }, alive: (pid) => pid !== 4242 });
+		await acting(session, context("/repo", "s1", "mine"));
+		expect((await session.snapshot()).sessions.map((row) => row.label)).toEqual(["dead-peer", "mine"]);
+		await session.stop();
 	});
 
 	test("a duplicate at the label limit still ends distinct", async () => {

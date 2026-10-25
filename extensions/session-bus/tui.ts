@@ -96,7 +96,7 @@ function boardKey(board: BoardSnapshot | undefined): string {
 	return [
 		...board.status.sessions.map(
 			(session) =>
-				`${session.id}:${session.label}:${session.unread}:${session.lastSeen}:${session.mode}:${session.cwd}`,
+				`${session.id}:${session.label}:${session.unread}:${session.lastSeen}:${session.mode}:${session.cwd}:${session.state}`,
 		),
 		...board.status.claims.map((claim) => `${claim.path}:${claim.owner}:${claim.ownerLabel}:${claim.at}`),
 		board.status.watching ? `${board.status.watching.armed}:${board.status.watching.wake}` : "",

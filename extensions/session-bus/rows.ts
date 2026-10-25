@@ -15,6 +15,7 @@ import { listRow, statusRow } from "../../lib/tui/rows.ts";
 import type { TailRowLine } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { idSuffix } from "./format.ts";
+import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
 
 /** Claim paths the focus block lists before it points at the pane. */
@@ -27,7 +28,7 @@ export function count(n: number, noun: string): string {
 
 /** One session on the board, with the claims it holds. */
 export interface SessionRow {
-	session: SessionRecord & { unread: number };
+	session: SessionRecord & { unread: number; state: RosterState };
 	/** Whether this row is the session reading the board. */
 	self: boolean;
 	claims: ClaimRecord[];
@@ -69,7 +70,7 @@ export function sessionRowLine(
 	options: { selected?: boolean; marker?: boolean } = {},
 ): string {
 	const label = `${sanitizeLine(row.session.label)}${row.self ? " · you" : ""}`;
-	const counts = [`${row.session.unread} unread`];
+	const counts = [row.session.state === "gone" ? "gone" : `${row.session.unread} unread`];
 	if (row.claims.length > 0) counts.push(count(row.claims.length, "claim"));
 	return listRow(theme, width, {
 		selected: options.selected === true,
@@ -147,7 +148,9 @@ export function summaryCells(
 ): string[] {
 	const unread = rows.reduce((total, row) => total + row.session.unread, 0);
 	const claims = rows.reduce((total, row) => total + row.claims.length, 0);
+	const gone = rows.filter((row) => row.session.state === "gone").length;
 	const cells = [paint(theme, "meta", count(rows.length, "session"))];
+	if (gone > 0) cells.push(paint(theme, "bad", `${gone} gone`));
 	if (unread > 0) cells.push(paint(theme, "label", `${unread} unread`));
 	cells.push(paint(theme, "meta", count(claims, "claim")));
 	if (watching) cells.push(paint(theme, "ok", watching.wake ? "watch wake" : "watch on"));
@@ -165,7 +168,8 @@ export function sessionDetailBlock(row: SessionRow, now: number): string[] {
 	}
 	lines.push(
 		`mode: ${sanitizeLine(row.session.mode)}${SEPARATORS.item}id: ${idSuffix(row.session.id)}` +
-			`${SEPARATORS.item}last seen: ${formatDuration(Math.max(0, now - row.session.lastSeen))} ago`,
+			`${SEPARATORS.item}last seen: ${formatDuration(Math.max(0, now - row.session.lastSeen))} ago` +
+			`${row.session.state === "gone" ? `${SEPARATORS.item}process gone` : ""}`,
 	);
 	return lines;
 }

@@ -8,9 +8,10 @@
 
 import { describe, expect, test } from "bun:test";
 import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
+import type { RosterState } from "../../lib/session-roster.ts";
 import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
 
-type ListedSession = SessionRecord & { unread: number };
+type ListedSession = SessionRecord & { unread: number; state: RosterState };
 
 function session(overrides: Partial<ListedSession> = {}): ListedSession {
 	return {
@@ -23,6 +24,7 @@ function session(overrides: Partial<ListedSession> = {}): ListedSession {
 		startedAt: 10,
 		lastSeen: 20,
 		unread: 0,
+		state: "live",
 		...overrides,
 	};
 }

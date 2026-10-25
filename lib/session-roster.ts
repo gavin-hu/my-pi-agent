@@ -65,6 +65,14 @@ export interface RosterSession {
 export type RosterState = "live" | "quiet" | "gone";
 
 /**
+ * What a record's heartbeat and its process say together.
+ *
+ * The fields the rule reads, rather than the whole roster row: `session-bus` judges its
+ * own records by the same rule without carrying a `mail` count it never shows.
+ */
+export type RosterFacts = Pick<RosterSession, "lastSeen" | "pid" | "startToken">;
+
+/**
  * The host facts {@link rosterStateOf} reads, injectable so every branch is testable.
  *
  * The token spawns a process, so it is asked for only where liveness cannot decide.
@@ -90,7 +98,7 @@ export interface RosterSeams {
  *   after all; a platform that cannot answer the start time leaves it at `quiet`.
  */
 export function rosterStateOf(
-	session: RosterSession,
+	session: RosterFacts,
 	now: number,
 	ttlMs = SESSION_TTL_MS,
 	seams: RosterSeams = {},
