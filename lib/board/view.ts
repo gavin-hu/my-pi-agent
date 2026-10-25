@@ -27,6 +27,8 @@ export interface ViewTeammate {
 	seen: number;
 	/** Messages waiting in its inbox. */
 	mail: number;
+	/** Whether it is listening for mail; absent means its record does not say so. */
+	listening?: boolean;
 	/** Whether this is the session the page writes as. */
 	you: boolean;
 }
@@ -120,6 +122,9 @@ function teammatesOf(roster: readonly RosterSession[], meLabel: string, now: num
 			state: rosterStateOf(session, now),
 			seen: session.lastSeen,
 			mail: session.mail,
+			// A record that does not say is not a promise either way, so the fact is left out
+			// rather than drawn as "not listening".
+			...(session.watching === undefined ? {} : { listening: session.watching.armed }),
 			you: session.label.toLowerCase() === meLabel.toLowerCase(),
 		}))
 		.sort((a, b) => a.label.localeCompare(b.label));
@@ -128,7 +133,10 @@ function teammatesOf(roster: readonly RosterSession[], meLabel: string, now: num
 /** What a frame must know about the roster; `seen` is left out on purpose. */
 function rosterSignature(teammates: readonly ViewTeammate[] | undefined): string {
 	if (teammates === undefined) return "";
-	return "|" + teammates.map((teammate) => `${teammate.label}:${teammate.state}:${teammate.mail}`).join(",");
+	return (
+		"|" +
+		teammates.map((teammate) => `${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}`).join(",")
+	);
 }
 
 /** The tallies, summed from the lanes so the two can never disagree. */

@@ -116,6 +116,36 @@ describe("buildView", () => {
 		]);
 	});
 
+	test("carries whether a teammate is listening, and leaves it out when the record does not say", () => {
+		const view = buildView({
+			me: ME,
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+			roster: [
+				{
+					id: "s-core",
+					label: "billing-core",
+					mode: "tui",
+					lastSeen: NOW,
+					mail: 0,
+					watching: { armed: true, wake: false },
+				},
+				{
+					id: "s-web",
+					label: "billing-web",
+					mode: "tui",
+					lastSeen: NOW,
+					mail: 0,
+					watching: { armed: false, wake: false },
+				},
+				{ id: "s-old", label: "ops-helper", mode: "tui", lastSeen: NOW, mail: 0 },
+			],
+		});
+		expect(view.teammates?.map((mate) => mate.listening)).toEqual([true, false, undefined]);
+	});
+
 	test("marks the reader's row from the session, because the page writes as its seat", () => {
 		// The seat is what a card records and the session is who is looking: a page serving
 		// as `team-lead` from `billing-lead` marks billing-lead's row, not the seat's.
@@ -158,6 +188,19 @@ describe("buildView", () => {
 		expect(mailed).not.toBe(base);
 		const quiet = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 20 * 60_000, mail: 0 }]);
 		expect(quiet).not.toBe(base);
+		// Listening is news too: a peer arming its watch changes what the row says, and the
+		// frame has to be drawn again or the mark would be a frame behind.
+		const listening = at([
+			{
+				id: "s-core",
+				label: "billing-core",
+				mode: "tui",
+				lastSeen: NOW,
+				mail: 0,
+				watching: { armed: true, wake: false },
+			},
+		]);
+		expect(listening).not.toBe(base);
 	});
 
 	test("an empty board is four empty lanes", () => {

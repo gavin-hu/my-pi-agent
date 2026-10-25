@@ -37,6 +37,13 @@ export interface RosterSession {
 	lastSeen: number;
 	/** Messages waiting in its inbox. */
 	mail: number;
+	/**
+	 * Whether the session is listening for mail, when its record says.
+	 *
+	 * Absent is "not listening": a record written before this existed and a session that
+	 * stopped listening read the same way, so a reader never claims a peer will be reached.
+	 */
+	watching?: { armed: boolean; wake: boolean };
 }
 
 /** Whether a record's heartbeat is fresh enough to call the session live. */
@@ -58,6 +65,20 @@ function isSessionPayload(value: unknown): value is SessionPayload {
 	return (
 		typeof id === "string" && typeof label === "string" && typeof mode === "string" && typeof lastSeen === "number"
 	);
+}
+
+/**
+ * The listening field, read only when it is the shape the bus writes.
+ *
+ * A malformed field is not a reason to hide a teammate: the row still draws, and the
+ * only thing lost is the claim that mail will reach it. Exported because the field is
+ * the record's, and `lib/session-tool.ts` reads the same one over the tool rather than
+ * over the files — one reader for one shape.
+ */
+export function watchingOf(value: unknown): { armed: boolean; wake: boolean } | undefined {
+	if (typeof value !== "object" || value === null) return undefined;
+	const { armed, wake } = value as Record<string, unknown>;
+	return typeof armed === "boolean" && typeof wake === "boolean" ? { armed, wake } : undefined;
 }
 
 /** How many message files one session's inbox holds. A missing inbox is empty. */
@@ -95,7 +116,15 @@ export async function readRoster(dir: string): Promise<RosterSession[] | undefin
 		}
 		if (!isSessionPayload(parsed)) continue;
 		const { id, label, mode, lastSeen } = parsed;
-		sessions.push({ id, label, mode, lastSeen, mail: await mailCount(dir, name.slice(0, -".json".length)) });
+		const watching = watchingOf((parsed as { watching?: unknown }).watching);
+		sessions.push({
+			id,
+			label,
+			mode,
+			lastSeen,
+			mail: await mailCount(dir, name.slice(0, -".json".length)),
+			...(watching === undefined ? {} : { watching }),
+		});
 	}
 	return sessions.sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
 }

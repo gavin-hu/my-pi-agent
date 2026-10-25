@@ -82,6 +82,7 @@ export const LIB_SUITES: readonly string[] = [
 	"report",
 	"repo-key",
 	"session-roster",
+	"session-tool",
 	"state",
 	"requirements",
 	"screen-session",

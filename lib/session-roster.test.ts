@@ -70,6 +70,22 @@ describe("readRoster", () => {
 		]);
 	});
 
+	test("reads the listening field when it is there, and hides a malformed one", async () => {
+		const dir = busDir();
+		writeSession(dir, "aaa", {
+			id: "s-1",
+			label: "billing-core",
+			mode: "tui",
+			lastSeen: NOW,
+			watching: { armed: true, wake: true },
+		});
+		writeSession(dir, "bbb", { id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, watching: "on" });
+		const sessions = await readRoster(dir);
+		expect(sessions?.[0]?.watching).toEqual({ armed: true, wake: true });
+		// A malformed field costs the claim that mail will reach the peer, not the row.
+		expect(sessions?.[1]).toEqual({ id: "s-2", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 });
+	});
+
 	test("orders by label, so a repaint does not reorder the list", async () => {
 		const dir = busDir();
 		writeSession(dir, "aaa", { id: "s-1", label: "web", mode: "tui", lastSeen: NOW });

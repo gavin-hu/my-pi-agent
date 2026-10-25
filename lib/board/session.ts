@@ -36,6 +36,10 @@ export interface BoardSession {
 	 * with `session-bus` unloaded.
 	 */
 	busDir(cwd: string): Promise<string>;
+	/** Whether this session has already joined the team, so a card write joins once. */
+	joined(): boolean;
+	/** Record that the join landed; a failed one leaves this false so the next write asks. */
+	markJoined(): void;
 }
 
 /** Test seams and the one place a caller may redirect the store. */
@@ -54,6 +58,7 @@ export interface BoardSessionOptions {
 export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions = {}): BoardSession {
 	const stores = new Map<string, Promise<BoardStore>>();
 	const busDirs = new Map<string, Promise<string>>();
+	let teamJoined = false;
 	const agentDir = options.agentDir;
 	const session: BoardSession = {
 		store(cwd) {
@@ -80,6 +85,10 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 				.then((store) => join(agentDir ?? getAgentDir(), BUS_DIR_NAME, basename(store.dir)));
 			busDirs.set(cwd, resolved);
 			return resolved;
+		},
+		joined: () => teamJoined,
+		markJoined: () => {
+			teamJoined = true;
 		},
 	};
 	return session;
