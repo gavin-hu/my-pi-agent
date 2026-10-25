@@ -8,6 +8,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { createServer, type Server } from "node:http";
 import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -15,24 +16,58 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/board/page-pointer.ts";
 import { createBoardPage, IDLE_STOP_MS, type PageStart } from "./page.ts";
+import type { BoardConfig } from "./config.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 
 const temps = makeTempTracker();
-afterAll(() => temps.flush());
+const blockers: Server[] = [];
+afterAll(() => {
+	for (const blocker of blockers.splice(0)) blocker.close();
+	temps.flush();
+});
 
 const NOW = 50_000;
 
 /** A page over a temp store, with a recorded browser open and an OS-chosen port. */
-function harness(options: { cwd?: string; agentDir?: string; probe?: ProbeFetch; sessionName?: string } = {}) {
-	const board = boardHarness({ now: NOW, track: temps.track, ...options });
+function harness(
+	options: {
+		cwd?: string;
+		agentDir?: string;
+		probe?: ProbeFetch;
+		sessionName?: string;
+		config?: (cwd: string) => BoardConfig;
+	} = {},
+) {
+	const { config = () => ({ port: 0 }), ...boardOptions } = options;
+	const board = boardHarness({ now: NOW, track: temps.track, ...boardOptions });
 	const opened: string[] = [];
 	const page = createBoardPage(board.runtime, {
 		pickPort: () => 0,
 		open: (url) => opened.push(url),
 		idleMs: 40,
+		// The default section, stated rather than read: an ambient global document must
+		// not decide which port a case serves on.
+		config,
 		...(options.probe === undefined ? {} : { probe: options.probe }),
 	});
 	return { page, ctx: board.ctx, opened, notifications: board.notifications, cwd: board.cwd, runtime: board.runtime };
+}
+
+/**
+ * A port an `http` server has held. `keep` leaves it listening and tears it down with
+ * the suite; the default closes it, so the port is free for the page to bind.
+ */
+async function portOfServer(keep: boolean): Promise<number> {
+	const blocker = createServer(() => {});
+	if (keep) blockers.push(blocker);
+	const port = await new Promise<number>((resolve) => {
+		blocker.listen(0, "127.0.0.1", () => {
+			const address = blocker.address();
+			resolve(typeof address === "object" && address ? address.port : 0);
+		});
+	});
+	if (!keep) await new Promise<void>((resolve) => blocker.close(() => resolve()));
+	return port;
 }
 
 /** The note a page leaves beside this board's cards. */
@@ -163,6 +198,30 @@ describe("start", () => {
 		expect(await page.stop(ctx)).toBe(true);
 		expect(await page.stop(ctx)).toBe(false);
 		expect(page.status().running).toBe(false);
+	});
+});
+
+describe("a pinned port", () => {
+	test("serves on the port the board section pins", async () => {
+		const port = await portOfServer(false);
+		const { page, ctx, opened } = harness({ config: () => ({ port }) });
+		const status = served(await page.start(ctx));
+		expect(status.port).toBe(port);
+		// The bookmark is the point: the URL the browser was opened at is the pinned port.
+		expect(opened[0]).toContain(`127.0.0.1:${port}/`);
+		await page.stop(ctx);
+	});
+
+	test("a pinned port that is taken fails the start, naming the setting", async () => {
+		const port = await portOfServer(true);
+		const { page, ctx, notifications, cwd, runtime } = harness({ config: () => ({ port }) });
+		expect((await page.start(ctx)).kind).toBe("failed");
+		const said = notifications.join("\n");
+		expect(said).toContain(`port ${port} is in use`);
+		expect(said).toContain("bytefly.json board section");
+		// No fallback and no note: a page that never bound must not leave one to probe.
+		expect(await noteOf(runtime, cwd)).toBeUndefined();
+		expect(page.status()).toEqual({ running: false });
 	});
 });
 

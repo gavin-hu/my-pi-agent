@@ -103,7 +103,7 @@ changelog。新版本还会标在头部 —— 本包的与 Pi 自己的。不�
 | [`job`](./docs/extensions/job.md) | `job`, `/jobs` | 在后台运行长时 shell 命令；查看日志、等待或结束它们。 |
 | [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | 跟踪文件或命令输出，按模式匹配行，并提醒你或把匹配的行交给智能体。 |
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；收件箱监视需会话自行开启，空闲时会唤起本会话的一轮，从不创建智能体。 |
-| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature，任何 session 都可以认领、移动、编辑、加注、完成它；同一个看板在浏览器里以 **Board** 和 **Team** 两个 tab 实时显示。看板以固定席位 `team-lead` 对外服务，因此第二个 session 打开的是同一块看板（只读），而不是另起一个。卡片可以带上优先级、声明自己在等待哪几张卡片，也可以在看板里交给某个队友。步骤留在 owner 的 plan 和 `todo` 里，卡片就是 feature、它的 owner，以及解释它的历史。 |
+| [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature，任何 session 都可以认领、移动、编辑、加注、完成它；同一个看板在浏览器里以 **Board** 和 **Team** 两个 tab 实时显示。看板以固定席位 `team-lead` 对外服务，因此第二个 session 打开的是同一块看板（只读），而不是另起一个。卡片可以带上优先级、声明自己在等待哪几张卡片，也可以在看板里交给某个队友。步骤留在 owner 的 plan 和 `todo` 里，卡片就是 feature、它的 owner，以及解释它的历史。在 `bytefly.json` 里设置 `board.port` 可以固定看板端口，收藏的地址在重启后依然有效。 |
 | [`team`](./docs/extensions/team.md) | `team`、`/team` | 同一块看板上的 lead 轮次。`/team join <label>` 让一个 session 加入团队，lead 打开 `/board` 时则以 `team-lead` 自动加入；随后 `assign` 把一个 feature 交给运行中的 session，`offer` 交给谁有空谁接——广播而不写卡片，由第一个认领的人拿走——`reclaim` 把卡片收回 To do。结果会说明谁会因此被叫醒、谁会在下一轮才读到；`/team` 在终端里打印同一份轮次，不用开浏览器，也不启动任何进程。 |
 | [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
 

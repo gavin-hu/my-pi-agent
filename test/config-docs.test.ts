@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_CHROME_CONFIG } from "../extensions/bytefly/chrome.ts";
+import { DEFAULT_BOARD_CONFIG } from "../extensions/board/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_CHECK_CONFIG } from "../extensions/check/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG } from "../extensions/bytefly/doctor/config.ts";
 import { DEFAULT_BYTEFLY_CONFIG } from "../extensions/bytefly/footer/price/config.ts";
@@ -59,6 +60,7 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	notify: DEFAULT_NOTIFY_CONFIG,
 	doctor: DEFAULT_DOCTOR_CONFIG,
 	chrome: DEFAULT_CHROME_CONFIG,
+	board: DEFAULT_BOARD_CONFIG,
 	"file-read": DEFAULT_FILE_READ_CONFIG,
 	"file-browse": DEFAULT_FILE_BROWSE_CONFIG,
 	goal: DEFAULT_GOAL_CONFIG,
@@ -203,6 +205,8 @@ describe("configuration reference", () => {
 	});
 
 	test("leaves no section unchecked", () => {
-		expect(Object.keys(SECTIONS)).toHaveLength(17);
+		// A board section means a new entry here and its page in configuration.md.
+		// A board section means a new entry here and its page in configuration.md.
+		expect(Object.keys(SECTIONS)).toHaveLength(18);
 	});
 });

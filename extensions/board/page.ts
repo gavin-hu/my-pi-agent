@@ -31,6 +31,7 @@ import {
 } from "../../lib/board/page-pointer.ts";
 import { mintToken } from "../../lib/http/index.ts";
 import { join } from "node:path";
+import { type BoardConfig, loadBoardConfig } from "./config.ts";
 import { pageActor } from "./seat.ts";
 import { viewOf } from "./snapshot.ts";
 import { writeOf } from "./writes.ts";
@@ -38,7 +39,11 @@ import { type BoardServer, createBoardServer } from "./transport/server.ts";
 import { BOARD_CLIENT_JS } from "./view/client.ts";
 import { type PageView, renderBoardPage } from "./view/page.ts";
 
-/** A free port in the range the other loopback pages use, so a session's pages cluster. */
+/**
+ * A free port in the range the other loopback pages use, so a session's pages cluster.
+ * Only the unpinned page draws one: `board.port` in `bytefly.json` states the port a
+ * bookmarked URL keeps.
+ */
 export function randomPort(): number {
 	return 4780 + Math.floor(Math.random() * 1000);
 }
@@ -87,6 +92,8 @@ export interface BoardPageDeps {
 	idleMs?: number;
 	/** Whether a page another session left a note about is answering; a test drives it. */
 	probe?: ProbeFetch;
+	/** How the `board` section answers; a test drives it without a config file. */
+	config?: (cwd: string) => BoardConfig;
 }
 
 /** The page as `/board` and `session_shutdown` drive it. */
@@ -144,14 +151,19 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		attachedTo = undefined;
 		const actor = () => seat;
 		const now = () => runtime.now();
-		const preferred = sessionPort ?? (deps.pickPort ?? randomPort)();
+		// Read on every start, so an edit to the section applies to the next `/board`.
+		const config = (deps.config ?? loadBoardConfig)(ctx.cwd);
+		const pinned = config.port > 0 ? config.port : undefined;
+		const preferred = pinned ?? sessionPort ?? (deps.pickPort ?? randomPort)();
 		// The viewer's credential is minted here rather than by the server, because the note
 		// this session leaves has to carry it: that is what a teammate reads to attach.
 		const viewToken = mintToken();
 		let server: BoardServer;
 		try {
 			server = await createBoardServer({
-				ports: [preferred, 0],
+				// A pinned port is tried alone: falling back would leave the bookmark pointing
+				// at a page that moved, which is the failure the setting exists to prevent.
+				ports: pinned === undefined ? [preferred, 0] : [pinned],
 				viewToken,
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
@@ -169,7 +181,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				write: (request) => writeOf({ store, actor, now }, request),
 			});
 		} catch (error) {
-			const reason = error instanceof Error ? error.message : String(error);
+			const reason = failureReason(error, pinned);
 			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
 			return { kind: "failed", reason };
 		}
@@ -264,6 +276,19 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			await server.close();
 		},
 	};
+}
+
+/**
+ * Why a start failed, naming the setting when the pinned port was the reason: a
+ * bind error's own text says the address, not the key that chose it.
+ */
+function failureReason(error: unknown, pinned: number | undefined): string {
+	// The bind path rejects with the `listen` error, so `code` is there to read.
+	const code = (error as NodeJS.ErrnoException | undefined)?.code;
+	if (pinned !== undefined && code === "EADDRINUSE") {
+		return `port ${pinned} is in use — change "port" in the bytefly.json board section, or stop what answers on it`;
+	}
+	return error instanceof Error ? error.message : String(error);
 }
 
 /** The chip naming the port, cleared with an empty text. */

@@ -208,6 +208,13 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   command and coming back is fine, and a teammate's watching tab counts as one, so a
   page nobody is reading does not answer a port for the rest of the session. `/board`
   starts it again on the same port.
+- **The port is found, or pinned.** With no setting the page takes a free port in
+  4780–5779 and remembers it for the session; `board.port` in `bytefly.json` pins it, so a
+  bookmarked URL survives a restart. A pinned port that is already taken fails the start —
+  `port 4780 is in use — change "port" in the bytefly.json board section, or stop what
+  answers on it` — because a quiet fallback would move the page out from under the
+  bookmark. A live note still wins: one repository has one page, so this session attaches to
+  the port that note names rather than serving a second one.
 - **The note is believed only while it answers.** A page that crashed leaves its note
   behind; the next `/board` probes it, takes it over when nothing replies, and attaches to
   the page that won when two sessions start in the same instant. A note it cannot read at
@@ -231,7 +238,8 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 - **`worktree`**: the store is keyed by the repository's common git directory, so
   every worktree shares one board.
 - **`bytefly`**: the page's port appears as a `board` status chip, and `doctor`
-  reports nothing new — the board needs no binary and no config.
+  reports nothing new — the board needs no binary and no per-machine setup; its one
+  setting, `board.port`, is a `bytefly.json` edit.
 
 ## Design notes
 
@@ -247,7 +255,8 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   seat, and a read-only token; it is created exclusively, so two sessions starting at
   once cannot both serve, and the loser attaches to the winner. The alternative —
   a setting that names the lead — was rejected: the role moves, the seat's name does
-  not.
+  not. The port is the one thing a file may pin: `board.port` states where the page
+  listens, never who serves it.
 - **The new card is a dialog, not a fixture.** The page opens on the board, and an
   empty board leaves its own explanation in place rather than covering it with the
   dialog — the empty state's **Add the first card** is what opens it. A card
@@ -275,6 +284,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | File | Responsibility |
 |---|---|
 | `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the page, register both, close on shutdown |
+| `config.ts` | The board's one setting: the port its page is pinned to, clamped, from the `bytefly.json` `board` section |
 | `runtime.ts` | Which store a call uses, and who it writes as |
 | `schema.ts` | The tool's parameters |
 | `tools.ts` | Action dispatch and the refusal shape |
@@ -282,7 +292,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
-| `page.ts` | The page's lifecycle: the port it remembers, the chip that names it, and the three closes — `/board stop`, the idle grace, and shutdown |
+| `page.ts` | The page's lifecycle: the port it remembers or is pinned to, the chip that names it, and the three closes — `/board stop`, the idle grace, and shutdown |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, and the store's size, handed to `buildView` |
 | `writes.ts` | The page's write path: one request to one store call, 422 for a field and 409 for a card somebody else moved |
 | `commands.ts` | `/board`, its three words, and the one line `/board status` prints |
@@ -307,7 +317,7 @@ The store, the rules, the rollup, and the snapshot are `lib/board/` — see
 `lib/board/{card,links,page-pointer,round,round-text,rules,session,store,view}` for the
 record, the dependency graph, the note a page leaves, the rollup and its text, the
 lifecycle, the store, and the snapshot, and
-`extensions/board/{input,seat,tools,page,commands,extension,transport/router,view/pages}`
+`extensions/board/{input,seat,tools,page,commands,config,extension,transport/router,view/pages}`
 for the card body, the seat, every action, the page's lifecycle over a real socket (a page
-served, attached to, taken over, and refused to a viewer), the command, the factory, the
-routes, and the document and client bundle.
+served, attached to, taken over, and refused to a viewer), the command, the `board.port`
+setting, the factory, the routes, and the document and client bundle.

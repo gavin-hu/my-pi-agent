@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: `board.port` in `bytefly.json` pins the page's port, so a bookmarked URL
+  survives a restart; the default `0` keeps one free port for the session. A pinned port
+  that is already taken fails `/board` with a message naming the key instead of quietly
+  serving on another one, and a page another session is serving still wins.
 - `board`: opening the board joins this session to the team, and so does the first card
   it works. `/board` lands on the page's seat, `team-lead`, when this session serves it and
   on the session's own label when it watches somebody else's; either way it is listening,

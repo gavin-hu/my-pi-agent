@@ -17,6 +17,7 @@ section and every key with its type, default, and bounds.
 - [Section index](#section-index)
 - [Document metadata](#document-metadata)
 - [`check` — verification runs](#check--verification-runs)
+- [`board` — the shared board page](#board--the-shared-board-page)
 - [`price` — cost calculation](#price--cost-calculation)
 - [`notify` — OS notifications](#notify--os-notifications)
 - [`doctor` — diagnostics](#doctor--diagnostics)
@@ -148,6 +149,7 @@ the file for the scope you want, and the next session reads it.
 | stop injecting memory notes | `memory.inject` below |
 | choose the worktree base, branch prefix, fetch, or prune age | `worktree` below |
 | pin the browser's port | [`file-browse`](#file-browse--the-local-file-server) |
+| pin the board page's port, so a bookmarked URL survives a restart | [`board`](#board--the-shared-board-page) |
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
@@ -168,7 +170,7 @@ The sections, by what they are for:
 
 | Group | Sections |
 |---|---|
-| Plan and delegate | [`check`](#check--verification-runs), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
+| Plan and delegate | [`check`](#check--verification-runs), [`board`](#board--the-shared-board-page), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
 | Keep your work safe | [`worktree`](#worktree--isolated-worktrees), [`rewind`](#rewind--snapshots), [`memory`](#memory--durable-notes) |
 | Reach the world | [`web-access`](#web-access--search-and-fetch), [`file-browse`](#file-browse--the-local-file-server), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
 | Chrome and upkeep | [`price`](#price--cost-calculation), [`notify`](#notify--os-notifications), [`doctor`](#doctor--diagnostics), [`chrome`](#chrome--transcript-chrome) |
@@ -186,6 +188,7 @@ repository root rather than the active working directory.
 | Extension | Section | Covers |
 |---|---|---|
 | [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
+| [`board`](../extensions/board/) | `board` | The port the board page is pinned to. |
 | [`check`](../extensions/check/) | `check` | Detection override, run timeout, and log tail. |
 | [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
 | [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
@@ -411,6 +414,16 @@ unaffected.
 | `command` | string | `""` | | Shell command that overrides detection for every target. Empty means detect. |
 | `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit per command; `0` disables it. |
 | `maxLogBytes` | integer | `1048576` | `65536`–`16777216` | Bytes of output retained per command. |
+
+## `board` — the shared board page
+
+`/bytefly settings` has no row for this; it is a `bytefly.json` edit. Pin it in the
+project document when more than one repository runs a board: a global value is one port
+for every board on the machine, and the second one to start would find it taken.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `port` | integer | `0` | `0`–`65535` | TCP port on `127.0.0.1` for the page; `0` picks a free port for the session, a positive value pins it so a bookmarked URL survives a restart. A pinned port that is already in use fails `/board` with a message naming this key instead of serving on another one. |
 
 ## `todo` — the todo widget
 

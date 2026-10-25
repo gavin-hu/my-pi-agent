@@ -28,6 +28,7 @@ import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
 import { withLeaf } from "./helpers/config.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../extensions/bytefly/chrome.ts";
+import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../extensions/board/config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG,
 	normalizeConfig as normalizeDoctorConfig,
@@ -118,6 +119,12 @@ const SECTIONS: readonly SectionCase[] = [
 		defaults: DEFAULT_CHROME_CONFIG,
 		normalize: (raw) => normalizeChromeConfig(raw, DEFAULT_CHROME_CONFIG),
 		jsonOnly: { rail: "a cosmetic glyph, set once" },
+	},
+	{
+		section: "board",
+		defaults: DEFAULT_BOARD_CONFIG,
+		normalize: (raw) => normalizeBoardConfig(raw, DEFAULT_BOARD_CONFIG),
+		jsonOnly: { port: "a fixed port is an operator decision" },
 	},
 	{
 		section: "file-read",
