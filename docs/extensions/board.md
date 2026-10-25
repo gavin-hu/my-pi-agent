@@ -9,7 +9,7 @@ The steps of the work are deliberately *not* on the board. They live in the
 owner's plan and in `todo`; the board answers who is doing what, and what needs a
 decision.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the serving session, a live badge, Board and Team tabs, done-of-total progress and a filter; a one-row composer; and four lanes of cards, each with a status edge, owner chip, path hints, a reason line, and its actions" width="100%">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the serving session, a live badge, Board and Team tabs, done-of-total progress, a filter and a New card button; four lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, path hints, a reason line and their actions" width="100%">
 
 *`/board`: the four lanes, with the composer above them and the round one tab away.*
 
@@ -96,14 +96,15 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
 | Composer | a drawer the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards |
 | Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
-| Cards | a status edge in the lane's role colour, the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
+| Cards | the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | a table of owners (`Owner · Cards · Oldest`), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line |
 | Card dialog | a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline, a note field, and the lane buttons, `Release`, `Drop`, `Close` |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
-`blocked` and destructive choices, `--success` for `done`. The page states a lane
-and a card with `data-status`, so a theme change repaints it without a rule of its
-own.
+`blocked` and destructive choices, `--success` for `done`. A card takes its colour
+from the lane it sits in — the head's dot, and the reason line's tone — rather than
+from a bar of its own, so one card does not shout twice. The page states a lane and
+a card with `data-status`, so a theme change repaints it without a rule of its own.
 
 ## Keys
 
@@ -143,6 +144,9 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   how many bytes the store occupies.
 - **A page claim is the serving session's claim.** Opening the page in two browsers
   does not make two owners.
+- **The page outlives its last tab.** It closes on `/board stop` or at session
+  shutdown; an idle grace exists as a seam in `page.ts`, but nothing passes one, so a
+  tab you close leaves the server up until you stop it.
 
 ## Pi integration
 
@@ -187,7 +191,7 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
-| `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, `/board stop`, the idle grace |
+| `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, and the close |
 | `commands.ts` | `/board` and its three words |
 | `transport/router.ts` | The routes, the token, and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push, and the close |
@@ -198,16 +202,6 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
 | `view/actions.ts` | The client's writes and its two kit dialogs |
 | `view/keys.ts` | The key table, and the bindings that make it true |
 | `view/live.ts` | The client's tabs, composer, filter, and frame stream |
-| `view/client.ts` | The one script served at `/app.js` |
-| `page.ts` | The page's lifecycle: the store, the snapshot, the write path, the chip, `/board stop`, the idle grace |
-| `commands.ts` | `/board` and its three words |
-| `transport/router.ts` | The routes, the token, and the guards in front of them |
-| `transport/server.ts` | The loopback listener, the frame push, and the close |
-| `view/page.ts` | The document: an inert shell the client fills |
-| `view/styles.ts` | The page's `board-*` layout rules |
-| `view/render.ts` | The client's snapshot → DOM renderer |
-| `view/actions.ts` | The client's writes and the confirm a claim asks for |
-| `view/live.ts` | The client's tabs, composer, dialogs, and frame stream |
 | `view/client.ts` | The one script served at `/app.js` |
 
 The store, the rules, the rollup, and the snapshot are `lib/board/` — see
