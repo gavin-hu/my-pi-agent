@@ -1,24 +1,36 @@
 /**
- * The client's wiring: the tabs, the composer, the two dialogs, and the live frame
- * stream.
+ * The client's wiring: the tabs, the lane picker, the composer, the filter, and the
+ * live frame stream.
  *
- * A frame is whole snapshot, so every message replaces the page rather than patching
- * it — no client-side diff, no state machine, and nothing to get wrong when a card
- * moves lane while a dialog is open. The only client state is which tab is showing,
- * which card's dialog is open, and the lane the narrow layout is on.
+ * A frame is a whole snapshot, so every message repaints from it rather than patching
+ * it — the renderer decides what actually changed. The only client state is which tab
+ * is showing, the filter text, which lanes are collapsed, and which card's dialog is
+ * open; none of it is authoritative, and none of it is sent anywhere.
  */
 
 export const BOARD_LIVE_JS = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var token = new URLSearchParams(window.location.search).get("token") || "";
+  var LANE_LABEL = { todo: "To do", doing: "Doing", blocked: "Blocked", done: "Done" };
 
-  /** The badge's text and state: connecting, live, reconnecting. */
+  /** The lane's word, for the dialog's move buttons. */
+  board.laneLabel = function (lane) {
+    return LANE_LABEL[lane] || lane;
+  };
+
+  /** The badge's text and its kit status role: connecting, live, reconnecting. */
   function badge(state, at) {
     var node = document.getElementById("board-status");
     if (!node) return;
     node.setAttribute("data-state", state);
-    if (state === "live" && at !== undefined) node.textContent = "live · " + board.ago(at);
+    node.className = "bf-status board-status" +
+      (state === "live" ? " bf-status--saved" : state === "reconnecting" ? " bf-status--error" : "");
+    // "now" would read as "live · now ago", so a fresh frame says only "live".
+    if (state === "live") {
+      var age = at === undefined ? "now" : board.ago(at);
+      node.textContent = age === "now" ? "live" : "live · " + age;
+    }
     else if (state === "reconnecting") node.textContent = "reconnecting…";
     else node.textContent = "connecting…";
   }
@@ -29,12 +41,20 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     document.documentElement.setAttribute("data-view", team ? "team" : "board");
     document.getElementById("panel-board").hidden = team;
     document.getElementById("panel-team").hidden = !team;
-    document.getElementById("tab-board").setAttribute("aria-current", team ? "false" : "page");
-    document.getElementById("tab-team").setAttribute("aria-current", team ? "page" : "false");
+    var tabs = document.querySelectorAll("[data-view][role='tab']");
+    for (var i = 0; i < tabs.length; i++) {
+      var current = tabs[i].getAttribute("data-view") === (team ? "team" : "board");
+      if (current) tabs[i].setAttribute("aria-current", "page");
+      else tabs[i].removeAttribute("aria-current");
+    }
     var url = new URL(window.location.href);
     url.searchParams.set("view", team ? "team" : "board");
     window.history.replaceState(null, "", url.toString());
   }
+
+  board.viewName = function () {
+    return document.documentElement.getAttribute("data-view") === "team" ? "team" : "board";
+  };
 
   /** The narrow layout shows one lane; the picker is the only way to change it. */
   function applyLane() {
@@ -44,43 +64,80 @@ export const BOARD_LIVE_JS = String.raw`(function () {
       var selected = lanes[i].getAttribute("data-status") === board.lane;
       lanes[i].hidden = narrow && !selected;
     }
-    var buttons = document.querySelectorAll("#lane-picker [data-lane]");
-    for (var j = 0; j < buttons.length; j++) {
-      var on = buttons[j].getAttribute("data-lane") === board.lane;
-      buttons[j].setAttribute("aria-pressed", String(on));
-      buttons[j].className = "bf-btn" + (on ? " bf-btn--primary" : " bf-btn--ghost");
+    var items = document.querySelectorAll("#board-picker [data-lane]");
+    for (var j = 0; j < items.length; j++) {
+      if (items[j].getAttribute("data-lane") === board.lane) items[j].setAttribute("aria-current", "page");
+      else items[j].removeAttribute("aria-current");
     }
   }
 
-  function showLane(lane) {
+  board.applyLane = applyLane;
+
+  board.showLane = function (lane) {
     board.lane = lane;
     applyLane();
-  }
+  };
 
-  /** Fill and open the card dialog; the second argument names what to focus. */
-  function openCard(id, focus) {
-    var view = board.view;
-    if (!view) return;
-    var card = board.findCard(view, id);
-    if (!card) return;
-    board.openId = id;
-    board.fillDialog(card, view);
-    var dialog = document.getElementById("board-card-dialog");
-    dialog.showModal();
-    if (focus === "note") document.getElementById("card-dialog-note").focus();
-    else document.getElementById("card-dialog-close").focus();
-  }
+  /** Fold a lane's cards away and leave its head, count and all. */
+  board.toggleLane = function (status) {
+    board.collapsed = board.collapsed || {};
+    board.collapsed[status] = board.collapsed[status] !== true;
+    if (board.view) board.render(board.view);
+  };
 
-  function closeCard() {
-    board.openId = undefined;
-    var dialog = document.getElementById("board-card-dialog");
-    if (dialog.open) dialog.close();
-  }
+  board.showView = showView;
+  board.focusComposer = function () {
+    var input = document.getElementById("new-title");
+    if (input) input.focus();
+  };
+  board.focusFilter = function () {
+    var input = document.getElementById("board-filter");
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  };
 
-  /** The gray cards a page shows while it waits for its first frame. */
+  /** Apply the filter box's text to the board, without waiting for a frame. */
+  board.applyFilter = function () {
+    var input = document.getElementById("board-filter");
+    board.query = input ? input.value.trim() : "";
+    if (board.view) board.render(board.view);
+  };
+
+  board.hasFilter = function () {
+    return board.query !== undefined && board.query !== "";
+  };
+
+  board.clearFilter = function () {
+    var input = document.getElementById("board-filter");
+    if (input && input.value !== "") {
+      input.value = "";
+      board.applyFilter();
+    }
+  };
+
+  board.openKeys = function () {
+    if (window.bfKeys) window.bfKeys.open();
+  };
+  board.closeKeys = function () {
+    if (window.bfKeys) window.bfKeys.close();
+  };
+  board.keysOpen = function () {
+    return window.bfKeys ? window.bfKeys.isOpen() : false;
+  };
+
+  /**
+   * The grey cards a page shows while it waits for its first frame.
+   *
+   * They are marked as placeholders rather than given a lane status: the renderer
+   * looks lanes up by data-status, so a skeleton that carried one would be adopted
+   * as the real lane and the cards would never be drawn into it.
+   */
   function skeletons() {
     var lanes = document.getElementById("board-lanes");
     if (!lanes || lanes.childElementCount > 0) return;
+    lanes.setAttribute("data-skeleton", "1");
     for (var i = 0; i < 4; i++) {
       var lane = board.el("section", "board-lane");
       for (var j = 0; j < 2; j++) lane.appendChild(board.el("div", "board-skeleton"));
@@ -95,10 +152,8 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     badge("live", board.lastFrame);
     board.render(view);
     if (!board.focused && view.counts.total === 0) {
-      // An empty board is an invitation: the caret goes to the one field that fills it.
       board.focused = true;
-      var title = document.getElementById("new-title");
-      if (title) title.focus();
+      board.focusComposer();
     }
   }
 
@@ -122,7 +177,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     };
   }
 
-  /** The composer: title, space-separated paths, and an optional first note. */
+  /** The composer: a title, space-separated path hints, and Add. */
   function wireComposer() {
     var form = document.getElementById("board-composer");
     if (!form) return;
@@ -134,70 +189,44 @@ export const BOARD_LIVE_JS = String.raw`(function () {
         return;
       }
       var paths = document.getElementById("new-paths").value.split(/\s+/).filter(Boolean);
-      var note = document.getElementById("new-note").value.trim();
       var input = { title: title.value.trim() };
       if (paths.length > 0) input.paths = paths;
-      if (note) input.note = note;
       board.add(input).then(function (payload) {
         if (!payload) return;
         form.reset();
         title.focus();
       });
     });
+    var first = document.getElementById("board-first-card");
+    if (first) {
+      first.addEventListener("click", function () {
+        board.focusComposer();
+      });
+    }
   }
 
-  /** The card dialog: its note, its plan, and its own close buttons. */
-  function wireDialog() {
-    var dialog = document.getElementById("board-card-dialog");
-    if (!dialog) return;
-    document.getElementById("card-dialog-close").addEventListener("click", closeCard);
-    document.getElementById("card-dialog-close-2").addEventListener("click", closeCard);
-    dialog.addEventListener("cancel", function () {
-      board.openId = undefined;
-    });
-
-    var noteForm = document.getElementById("card-dialog-note-form");
-    noteForm.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var input = document.getElementById("card-dialog-note");
-      var text = input.value.trim();
-      if (!text || board.openId === undefined) return;
-      var card = board.findCard(board.view, board.openId);
-      if (!card) return;
-      board.note(card, text).then(function (payload) {
-        if (!payload) return;
-        input.value = "";
-      });
-    });
-
-    var planForm = document.getElementById("card-dialog-plan-form");
-    planForm.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var input = document.getElementById("card-dialog-plan-input");
-      var path = input.value.trim();
-      if (!path || board.openId === undefined) return;
-      var card = board.findCard(board.view, board.openId);
-      if (!card) return;
-      board.plan(card, path).then(function (payload) {
-        if (!payload) return;
-        input.value = "";
-      });
-    });
-  }
-
-  /** The tabs, the lane picker, and the dialog's own open/close. */
+  /** The filter, the note button, and the two tab sets. */
   function wireChrome() {
+    var filter = document.getElementById("board-filter");
+    if (filter) {
+      filter.addEventListener("input", function () {
+        board.applyFilter();
+      });
+    }
+    var noteAdd = document.getElementById("card-dialog-note-add");
+    if (noteAdd) noteAdd.addEventListener("click", function () { board.addNote(); });
+
     var tabs = document.querySelectorAll("[data-view][role='tab']");
     for (var i = 0; i < tabs.length; i++) {
       tabs[i].addEventListener("click", function (event) {
         showView(event.currentTarget.getAttribute("data-view"));
       });
     }
-    var picker = document.getElementById("lane-picker");
+    var picker = document.getElementById("board-picker");
     if (picker) {
       picker.addEventListener("click", function (event) {
         var lane = event.target && event.target.getAttribute ? event.target.getAttribute("data-lane") : null;
-        if (lane) showLane(lane);
+        if (lane) board.showLane(lane);
       });
     }
     if (window.matchMedia) {
@@ -215,19 +244,16 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     }, 1000);
   }
 
-  board.showView = showView;
-  board.showLane = showLane;
-  board.applyLane = applyLane;
-  board.openCard = openCard;
-  board.closeCard = closeCard;
   board.start = function () {
     board.lane = undefined;
     board.openId = undefined;
+    board.query = "";
+    board.collapsed = {};
     showView(new URLSearchParams(window.location.search).get("view") === "team" ? "team" : "board");
     wireChrome();
     wireComposer();
-    wireDialog();
     skeletons();
+    board.bindKeys(document);
     stream();
   };
 })();`;

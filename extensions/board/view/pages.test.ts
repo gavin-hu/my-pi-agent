@@ -9,7 +9,17 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
+import {
+	brandLockup,
+	button,
+	chip,
+	keysSheet,
+	themeToggle,
+	WEB_BASE_CSS,
+	WEB_COMPONENTS_CSS,
+	WEB_LAYOUT_CSS,
+	WEB_THEME_CSS,
+} from "../../../lib/web/index.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { renderBoardPage } from "./page.ts";
 import { BOARD_CSS } from "./styles.ts";
@@ -36,21 +46,41 @@ describe("the document", () => {
 		for (const id of [
 			"board-me",
 			"board-status",
-			"board-counts",
+			"board-progress",
+			"board-progress-fill",
+			"board-progress-text",
+			"board-filter",
+			"keys-open",
 			"board-banner",
 			"board-composer",
+			"new-title",
+			"new-paths",
+			"new-submit",
+			"board-picker",
 			"board-lanes",
+			"board-no-cards",
+			"board-first-card",
 			"board-team",
 			"board-where",
 			"board-card-dialog",
 			"card-dialog-title",
+			"card-dialog-close",
+			"card-dialog-meta",
+			"card-dialog-owner",
+			"card-dialog-paths",
+			"card-dialog-plan",
 			"card-dialog-notes",
-			"card-dialog-note-form",
-			"card-dialog-plan-form",
+			"card-dialog-earlier",
+			"card-dialog-note",
+			"card-dialog-note-add",
 			"card-dialog-actions",
 			"board-confirm",
+			"confirm-title",
+			"confirm-body",
 			"confirm-cancel",
 			"confirm-ok",
+			"keys-dialog",
+			"keys-close",
 		]) {
 			expect(page, id).toContain(`id="${id}"`);
 		}
@@ -69,7 +99,8 @@ describe("the document", () => {
 		expect(page).toContain('role="tablist"');
 		expect(page).toContain('role="tab"');
 		expect(page).toContain('aria-controls="panel-board"');
-		expect(page).toContain("Skip to the board");
+		expect(page).toContain("Skip to the cards");
+		expect(page).toContain('<h1 class="sr-only">');
 		expect(page).toContain('aria-live="polite"');
 	});
 
@@ -77,7 +108,7 @@ describe("the document", () => {
 		for (const block of [WEB_BASE_CSS, WEB_THEME_CSS, WEB_LAYOUT_CSS, WEB_COMPONENTS_CSS]) {
 			expect(BOARD_CSS.split(block)).toHaveLength(2);
 		}
-		expect(BOARD_CSS.split(".board-composer{display:grid")).toHaveLength(2);
+		expect(BOARD_CSS.split(".board-composer{margin-bottom")).toHaveLength(2);
 	});
 
 	/** The page's own rules, without the shared blocks that define the palette. */
@@ -134,7 +165,8 @@ describe("the client bundle", () => {
 	});
 
 	test("asks before a claim, a reclaim, and a deletion, and never uses alert", () => {
-		expect(BOARD_CLIENT_JS).toContain("dialog.showModal()");
+		expect(BOARD_CLIENT_JS).toContain("window.bfConfirm.open()");
+		expect(BOARD_CLIENT_JS).toContain("window.bfConfirm.close()");
 		expect(BOARD_CLIENT_JS).toContain('verb === "claim"');
 		expect(BOARD_CLIENT_JS).toContain('verb === "reclaim"');
 		expect(BOARD_CLIENT_JS).toContain('verb === "drop"');
@@ -148,5 +180,73 @@ describe("the client bundle", () => {
 		const closes = (BOARD_CLIENT_JS.match(/\}/g) ?? []).length;
 		expect(opens).toBe(closes);
 		expect(BOARD_CLIENT_JS.length).toBeGreaterThan(4_000);
+	});
+});
+
+/**
+ * The class contract: the page may only wear classes that exist.
+ *
+ * A `bf-…` name is the kit's vocabulary — its stylesheet plus what its own atoms
+ * emit — and a `board-…` name is this page's stylesheet or an id its client greps.
+ * A name either side invents renders as an unstyled element, which is exactly how
+ * the tab groups shipped as browser-default buttons: the markup said `role="tab"`
+ * and never said `bf-segmented__item`.
+ *
+ * The test reads the rendered markup and the client bundle, so the part of this
+ * page no type checker sees is still held to the vocabulary.
+ */
+describe("the class contract", () => {
+	/** Every `.name` a stylesheet defines. */
+	function defined(css: string, prefix: string): Set<string> {
+		return new Set(
+			[...css.matchAll(new RegExp(String.raw`\.(${prefix}[a-z0-9_-]+)`, "g"))].map((match) => match[1] ?? ""),
+		);
+	}
+
+	/** Every `prefix…` token in a piece of markup or script. */
+	function used(source: string, prefix: string): Set<string> {
+		return new Set(
+			[...source.matchAll(new RegExp(String.raw`\b(${prefix}[a-z0-9_-]+)\b`, "g"))].map((match) => match[1] ?? ""),
+		);
+	}
+
+	/** The kit's vocabulary: its stylesheets, plus the class names its atoms emit. */
+	const KIT = defined([WEB_BASE_CSS, WEB_THEME_CSS, WEB_LAYOUT_CSS, WEB_COMPONENTS_CSS].join("\n"), "bf-");
+	for (const atom of [
+		brandLockup("board"),
+		themeToggle(),
+		chip({ label: "board-core", tone: "accent" }),
+		button({ label: "Add card", variant: "primary" }),
+		keysSheet([{ keys: "?", label: "this sheet" }]),
+	]) {
+		for (const name of used(atom, "bf-")) KIT.add(name);
+	}
+
+	const DOCUMENTS = [renderBoardPage({ view: "board" }), renderBoardPage({ view: "team" })];
+	const SOURCES = [...DOCUMENTS, BOARD_CLIENT_JS];
+	const PAGE = defined(BOARD_CSS, "board-");
+	// An id is a name the client finds an element by; a class is a name it dresses one with.
+	for (const document of DOCUMENTS) {
+		for (const match of document.matchAll(/\bid="([a-z0-9_-]+)"/g)) PAGE.add(match[1] ?? "");
+	}
+
+	test("finds the vocabulary it claims to check", () => {
+		// A parser that stopped matching would make the checks below vacuous.
+		expect(KIT.size).toBeGreaterThan(40);
+		expect(PAGE.size).toBeGreaterThan(5);
+	});
+
+	test("names no kit class the kit does not define", () => {
+		const unknown = [...new Set(SOURCES.flatMap((source) => [...used(source, "bf-")]))]
+			.filter((name) => !KIT.has(name))
+			.sort();
+		expect(unknown).toEqual([]);
+	});
+
+	test("names no page class this page does not define", () => {
+		const unknown = [...new Set(SOURCES.flatMap((source) => [...used(source, "board-")]))]
+			.filter((name) => !PAGE.has(name))
+			.sort();
+		expect(unknown).toEqual([]);
 	});
 });

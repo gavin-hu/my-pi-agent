@@ -14,6 +14,7 @@ import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ansiLinesToHtml, ansiToHtml, cssFor, parseAnsi } from "./ansi-html.ts";
+import { parseArgs as parseBoardArgs } from "./shots/board.ts";
 import { parseArgs as parseFileBrowseArgs } from "./shots/file-browse.ts";
 import { parseArgs as parseFlowArgs } from "./shots/plan-flow.ts";
 import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
@@ -60,6 +61,51 @@ describe("docs screenshots", () => {
 			const lines = screen.render(screen.size.width, screen.size.rows);
 			expect(lines.length, `${name} (${screen.size.width}x${screen.size.rows})`).toBeLessThanOrEqual(screen.size.rows);
 		}
+	});
+});
+
+describe("board shot arguments", () => {
+	test("defaults to the two tabs in assets/screens, with no dialog", () => {
+		const options = parseBoardArgs([]);
+		expect(basename(options.outDir)).toBe("screens");
+		expect(options.outDir).toContain("assets");
+		expect(options.width).toBe(1280);
+		expect(options.scale).toBe(1);
+		expect(options.theme).toBeUndefined();
+		expect(options.waitMs).toBe(8000);
+		expect(options.dialog).toBeUndefined();
+	});
+
+	test("flags override the defaults", () => {
+		const options = parseBoardArgs([
+			"--out",
+			"shots",
+			"--width",
+			"900",
+			"--scale",
+			"2",
+			"--theme",
+			"dark",
+			"--wait",
+			"50",
+		]);
+		expect(options.outDir).toBe(resolve("shots"));
+		expect(options.width).toBe(900);
+		expect(options.scale).toBe(2);
+		expect(options.theme).toBe("dark");
+		expect(options.waitMs).toBe(50);
+	});
+
+	test("takes one dialog, and refuses another", () => {
+		for (const dialog of ["card", "confirm"] as const) {
+			expect(parseBoardArgs(["--dialog", dialog]).dialog).toBe(dialog);
+		}
+		expect(() => parseBoardArgs(["--dialog", "menu"])).toThrow("--dialog must be card or confirm");
+	});
+
+	test("refuses an option it does not have, and a positional", () => {
+		expect(() => parseBoardArgs(["--root", "docs"])).toThrow("unknown option --root");
+		expect(() => parseBoardArgs(["extra"])).toThrow("unexpected argument extra");
 	});
 });
 

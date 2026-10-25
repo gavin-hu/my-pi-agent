@@ -8,9 +8,11 @@
  * directory and the paths are this repository's own directories.
  *
  *   bun run screenshot:board [--width 1280] [--scale 1] [--theme light|dark]
- *     [--wait 8000] [--out <dir>]
+ *     [--wait 8000] [--out <dir>] [--dialog card|confirm]
  *
- * Output defaults to `assets/screens/board.png` and `assets/screens/team.png`.
+ * Output defaults to `assets/screens/board.png` and `assets/screens/team.png`; with
+ * `--dialog` it writes one modal instead, which is how a state the page hides by
+ * default is reviewed as a picture.
  */
 
 import { mkdirSync, rmSync } from "node:fs";
@@ -25,15 +27,29 @@ import { fixtureBoard } from "../tools/fixtures/board-store.ts";
 /** The readiness expression: the lanes are painted before the capture. */
 const READY = "!!document.querySelector('.board-card')";
 
+/** The dialog a shot can open before it captures, so a modal is reviewed as a picture. */
+export type ShotDialog = "card" | "confirm";
+
 /** CLI options after parsing. */
 export interface ShotOptions extends PageShotOptions {
 	/** Directory the two PNGs are written to. */
 	outDir: string;
+	/** Capture one dialog instead of the two tabs. */
+	dialog?: ShotDialog;
 }
 
 /** Parse the command line; throws a message the caller prints as usage. */
 export function parseArgs(argv: string[]): ShotOptions {
-	const parsed = parseShotArgs(argv, { out: "assets/screens", scale: 1, extraFlags: ["--out"], maxPositional: 0 });
+	const parsed = parseShotArgs(argv, {
+		out: "assets/screens",
+		scale: 1,
+		extraFlags: ["--out", "--dialog"],
+		maxPositional: 0,
+	});
+	const dialog = parsed.values["--dialog"];
+	if (dialog !== undefined && dialog !== "card" && dialog !== "confirm") {
+		throw new Error("--dialog must be card or confirm");
+	}
 	return {
 		outDir: resolve(parsed.values["--out"] ?? parsed.out),
 		width: parsed.width,
@@ -41,8 +57,17 @@ export function parseArgs(argv: string[]): ShotOptions {
 		theme: parsed.theme,
 		waitMs: parsed.waitMs,
 		out: parsed.out,
+		...(dialog === undefined ? {} : { dialog }),
 	};
 }
+
+/** The click that opens one dialog on the fixture board. */
+const DIALOG_OPEN: Record<ShotDialog, string> = {
+	card: "document.querySelector('.board-card__title').click()",
+	// The first card in reading order is the fixture's `todo` card, whose first
+	// action is Claim — the one action that asks before it writes.
+	confirm: "document.querySelector('.board-card__actions .bf-btn').click()",
+};
 
 /** The URL for one tab: the server's own URL already carries the token. */
 function tabUrl(url: string, view: "board" | "team"): string {
@@ -60,20 +85,28 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 		// A capture never writes; the page's write route is exercised by its suite.
 		write: async () => ({ ok: false, status: 422, error: "The capture does not write." }),
 	});
+	const shots: Array<{ url: string; name: string; before?: string[] }> =
+		options.dialog === undefined
+			? [
+					{ url: tabUrl(server.url, "board"), name: "board" },
+					{ url: tabUrl(server.url, "team"), name: "team" },
+				]
+			: [{ url: tabUrl(server.url, "board"), name: `${options.dialog}-dialog`, before: [DIALOG_OPEN[options.dialog]] }];
 	try {
-		for (const view of ["board", "team"] as const) {
-			const out = resolve(options.outDir, `${view}.png`);
+		for (const shot of shots) {
+			const out = resolve(options.outDir, `${shot.name}.png`);
 			mkdirSync(dirname(out), { recursive: true });
 			await capturePage({
-				url: tabUrl(server.url, view),
+				url: shot.url,
 				out,
 				width: options.width,
 				scale: options.scale,
 				theme: options.theme,
 				waitMs: options.waitMs,
 				ready: READY,
+				...(shot.before === undefined ? {} : { before: shot.before }),
 			});
-			console.log(`${view}: ${out}`);
+			console.log(`${shot.name}: ${out}`);
 		}
 	} finally {
 		await server.close();

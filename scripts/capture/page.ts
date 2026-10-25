@@ -56,6 +56,8 @@ export interface PageShotOptions {
 	theme?: "light" | "dark";
 	/** How long to wait for the client to render, in milliseconds. */
 	waitMs: number;
+	/** Expressions run after the theme, readiness, and shell expansion — a shot that opens a dialog. */
+	before?: readonly string[];
 }
 
 /** One page to capture: where it is, and the readiness only that page knows. */
@@ -81,6 +83,7 @@ export async function capturePage(shot: PageShot): Promise<void> {
 			...(shot.theme ? [{ expression: themeExpression(shot.theme) }] : []),
 			{ expression: readyWhen(shot.ready, shot.waitMs) },
 			{ expression: EXPAND_SHELL_EXPRESSION },
+			...(shot.before ?? []).map((expression) => ({ expression })),
 		],
 	});
 }

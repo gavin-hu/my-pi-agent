@@ -18,6 +18,8 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-btn:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 .bf-btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 .bf-btn--primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.bf-btn--danger{border-color:var(--danger);color:var(--danger)}
+.bf-btn--danger:hover{border-color:var(--danger);background:var(--danger);color:var(--on-accent)}
 .bf-btn--primary:hover{filter:brightness(1.06);color:var(--on-accent)}
 .bf-btn--ghost{border-color:transparent;background:none;padding:0;font:inherit;color:inherit}
 .bf-btn--ghost:hover{color:var(--accent)}

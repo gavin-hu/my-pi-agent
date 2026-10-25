@@ -182,6 +182,7 @@ describe("web components", () => {
 			".bf-brand{",
 			".bf-mark__top{",
 			".bf-btn{",
+			".bf-btn--danger{",
 			".bf-btn--primary{",
 			".bf-btn--ghost{",
 			".bf-btn--icon{",
