@@ -41,24 +41,27 @@ ${docHead({ title: "board", css: BOARD_CSS })}
   <span class="bf-chip bf-chip--accent" id="board-me" title="Writes from this page are made as this session">board</span>
   <p class="bf-status board-status" id="board-status" data-state="connecting" aria-live="polite">connecting…</p>
   <span class="bf-spacer"></span>
-  <div class="bf-segmented" role="tablist" aria-label="View">
-    <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board"${team ? "" : ' aria-current="page"'}>Board</button>
-    <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team"${team ? ' aria-current="page"' : ""}>Team</button>
+  <div class="board-controls">
+    <div class="bf-segmented" role="tablist" aria-label="View">
+      <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board"${team ? "" : ' aria-current="page"'}>Board</button>
+      <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team"${team ? ' aria-current="page"' : ""}>Team</button>
+    </div>
+    <p class="bf-progress board-progress" id="board-progress" hidden>
+      <span class="bf-progress__track"><span class="bf-progress__fill" id="board-progress-fill"></span></span>
+      <span id="board-progress-text">0/0</span>
+    </p>
+    <label class="bf-field board-filter"><span class="sr-only">Filter cards</span>
+      <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
+    </label>
+    ${button({ label: "+ New card", id: "board-new", title: "New card — n", attrs: { "aria-expanded": "false" } })}
+    ${button({ label: "?", variant: "icon", id: "keys-open", title: "Keyboard shortcuts", attrs: { "aria-haspopup": "dialog" } })}
+    ${themeToggle()}
   </div>
-  <p class="bf-progress board-progress" id="board-progress" hidden>
-    <span class="bf-progress__track"><span class="bf-progress__fill" id="board-progress-fill"></span></span>
-    <span id="board-progress-text">0/0</span>
-  </p>
-  <label class="bf-field board-filter"><span class="sr-only">Filter cards</span>
-    <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
-  </label>
-  ${button({ label: "?", variant: "icon", id: "keys-open", title: "Keyboard shortcuts", attrs: { "aria-haspopup": "dialog" } })}
-  ${themeToggle()}
 </div></header>
 <main class="bf-app__main board-main" id="main" tabindex="-1">
   <p class="bf-note board-banner" id="board-banner" role="status" hidden></p>
   <section class="board-panel" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
-    <form class="bf-composer board-composer" id="board-composer" autocomplete="off">
+    <form class="bf-composer board-composer" id="board-composer" autocomplete="off" hidden>
       <div class="board-composer__fields">
         <label class="bf-field"><span>Title</span>
           <input class="bf-input" id="new-title" name="title" placeholder="the feature's outcome, one line" maxlength="120" required>
@@ -69,7 +72,10 @@ ${docHead({ title: "board", css: BOARD_CSS })}
       </div>
       <div class="bf-composer__row">
         <p class="bf-note board-composer__hint" id="composer-hint">one card per feature — its steps live in the owner's plan and todo</p>
-        <button class="bf-btn bf-btn--primary" type="submit" id="new-submit">Add card</button>
+        <div class="board-composer__actions">
+          <button class="bf-btn" type="button" id="board-cancel">Cancel</button>
+          <button class="bf-btn bf-btn--primary" type="submit" id="new-submit">Add card</button>
+        </div>
       </div>
     </form>
     <div class="bf-segmented board-picker" id="board-picker" role="tablist" aria-label="Lane"></div>

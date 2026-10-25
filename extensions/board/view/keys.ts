@@ -78,6 +78,13 @@ export const BOARD_KEYS_JS = String.raw`(function () {
           board.closeCard();
           return;
         }
+        // The composer folds on one Escape when it holds nothing; with a draft, the
+        // first Escape only leaves the field, so a half-typed card is never lost.
+        if (board.composerOpen && board.composerOpen()) {
+          board.closeComposer();
+          if (board.composerOpen() && typing(target)) target.blur();
+          return;
+        }
         // A filter with text is what Escape is for here; an empty one gives the
         // keyboard back to the page by leaving the field.
         if (board.hasFilter()) {

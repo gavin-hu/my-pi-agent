@@ -50,12 +50,14 @@ describe("the document", () => {
 			"board-progress-fill",
 			"board-progress-text",
 			"board-filter",
+			"board-new",
 			"keys-open",
 			"board-banner",
 			"board-composer",
 			"new-title",
 			"new-paths",
 			"new-submit",
+			"board-cancel",
 			"board-picker",
 			"board-lanes",
 			"board-no-cards",
@@ -84,6 +86,14 @@ describe("the document", () => {
 		]) {
 			expect(page, id).toContain(`id="${id}"`);
 		}
+	});
+
+	test("opens with the composer folded behind its one trigger", () => {
+		const page = renderBoardPage({ view: "board" });
+		// The board is what the page opens on; the drawer is asked for, not offered twice.
+		expect(page).toContain('id="board-composer" autocomplete="off" hidden');
+		expect(page).toContain('id="board-new"');
+		expect(page).toContain('aria-expanded="false"');
 	});
 
 	test("carries no card text at all", () => {

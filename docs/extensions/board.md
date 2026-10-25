@@ -93,10 +93,10 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 
 | Band | What it holds |
 |---|---|
-| Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), the Board\|Team switch, done-of-total progress, a filter, the keys button, and the theme toggle |
-| Composer | one row: a title and space-separated path hints, the hint line under them, and **Add card** |
-| Lanes | four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860; each head sticks while the pane scrolls and folds its cards away |
-| Cards | a status edge in the lane's role colour, the id and a two-line title, an owner chip and an age, path chips, one reason line, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open` |
+| Toolbar | the mark, the serving session as a chip, a live badge (`connecting`, `live · 3m`, `reconnecting`), then one group: the Board\|Team switch, done-of-total progress, a filter, **+ New card**, the keys button, and the theme toggle |
+| Composer | a drawer the toolbar's button (or `n`) opens: a title, space-separated path hints, the hint line, `Cancel`, and **Add card**; it stays open after an add, so a lead can publish several cards |
+| Lanes | trays, not a bare list: four columns at ≥1180, two rows at 1000, one lane plus the lane switch at ≤860. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away |
+| Cards | a status edge in the lane's role colour, the id and a two-line title (the page's loudest text), an owner chip and an age, path chips, one reason line, and at most three actions — `Claim` or `Move` bordered, then `Note` and `Open`. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | a table of owners (`Owner · Cards · Oldest`), a table of cards that need a decision (`Card · Why · Owner` with `Reclaim`), and one muted Done line |
 | Card dialog | a meta line, the owner, the paths, the plan as monospace text, the notes as a timeline, a note field, and the lane buttons, `Release`, `Drop`, `Close` |
 
@@ -109,12 +109,12 @@ own.
 
 | Key | What it does |
 |---|---|
-| `n` | New card: focus the title field |
+| `n` | New card: open the composer and focus the title field |
 | `/` | Filter the cards by title, path, or owner |
 | `j` / `k` | Next or previous card |
 | `Enter` | Open the focused card |
 | `t` | Switch Board and Team |
-| `Esc` | Close a dialog, or clear the filter |
+| `Esc` | Close a dialog, fold the composer, or clear the filter |
 | `?` | The keyboard sheet |
 
 A dialog traps `Tab`, closes on `Esc` or a backdrop click, and returns focus to
@@ -169,6 +169,9 @@ pages. A field keeps its keys: `n` inside the note input types an `n`.
   this holds", never "force this state".
 - **The page is a dumb renderer** over one snapshot built on the server, pushed
   only when a card's revision moves.
+- **The composer is a drawer, not a fixture.** The page opens on the board; a card is
+  something you ask to write. Its draft survives an `Esc` that only leaves the field,
+  and `Cancel` is the one way to throw it away.
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), and drag-and-drop (a lane change is a named `move`).

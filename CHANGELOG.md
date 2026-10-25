@@ -18,7 +18,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   drive it from the keyboard, and a filter matches a card by title, path, or holder.
   Both modals are now the kit's `bf-dialog` behind one `dialogScript` (the Tab trap,
   `Esc`, the backdrop click, and the focus return the shared contract promises),
-  replacing the page's own native-dialog implementation.
+  replacing the page's own native-dialog implementation. The polish pass on top: the
+  composer folds behind **+ New card** so the page opens on the board (its draft
+  survives a stray `Esc`; `Cancel` discards it), each lane is a tray with a sticky
+  head and a count pill, the card title is the page's loudest text, a hovered card
+  lifts and a finished one recedes, and the toolbar's controls wrap as one group.
 - `team`: the lead's round over the board — `assign` and `reclaim`, the two actions
   that need the session bus. `assign` hands a card to a session that is already
   running: it checks the card's preconditions, sends a handoff through `session send`
