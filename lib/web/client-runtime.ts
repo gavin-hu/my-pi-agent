@@ -15,16 +15,33 @@
  * lib — the cast names the guarantee the page makes: it is a browser, and it has one.
  */
 
-/** The pieces of a DOM node the runtime touches. The page supplies the real thing. */
-interface RuntimeNode {
+/**
+ * The pieces of a DOM node the runtime touches, and the ones a page client needs beyond
+ * it. The page supplies the real thing; this is the shape its bundle is typed against.
+ */
+export interface ClientNode {
 	className: string;
 	textContent: string | null;
 	title: string;
+	hidden: boolean;
+	href: string;
+	id: string;
+	style: { width: string };
+	classList: { add(name: string): void; remove(name: string): void; toggle(name: string, on?: boolean): void };
+	setAttribute(name: string, value: string): void;
+	getAttribute(name: string): string | null;
+	removeAttribute(name: string): void;
+	appendChild(child: ClientNode): void;
+	replaceChildren(): void;
+	querySelector(selector: string): ClientNode | null;
+	querySelectorAll(selector: string): ArrayLike<ClientNode>;
+	scrollIntoView?(options?: { block?: string }): void;
+	addEventListener(type: string, listener: (event: { target?: unknown }) => void): void;
 }
 
 /** What `document.createElement` has to answer for these helpers. */
 interface RuntimeDocument {
-	createElement(tag: string): RuntimeNode;
+	createElement(tag: string): ClientNode;
 }
 
 /**
@@ -33,7 +50,7 @@ interface RuntimeDocument {
  * `text` is set as `textContent`, never parsed: a card title and a plan's prose are both
  * model- or user-written, and the one property that cannot execute is the one to use.
  */
-export function el(tag: string, className?: string, text?: string | null): RuntimeNode {
+export function el(tag: string, className?: string, text?: string | null): ClientNode {
 	// Reached through `globalThis` and cast here, because this project compiles without a
 	// DOM lib; the cast names what the page guarantees — it is a browser, and it has one.
 	const node = (globalThis as unknown as { document: RuntimeDocument }).document.createElement(tag);
@@ -61,7 +78,7 @@ export function typing(target: { tagName?: string; isContentEditable?: boolean }
  * the rule that a tone is a `bf-status--*` class and that the text is also the title (a
  * clamped line has no other way to be read).
  */
-export function paintStatus(node: RuntimeNode, text: string, kind?: string): void {
+export function paintStatus(node: ClientNode, text: string, kind?: string): void {
 	node.textContent = text || "";
 	node.title = text || "";
 	node.className = kind ? "bf-status bf-status--" + kind : "bf-status";
