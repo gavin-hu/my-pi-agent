@@ -66,6 +66,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `board`: the page's tab names its board and how much is open — `board · <key> · 3
   open` — from the store's own key, so two repositories' boards are two tabs a reader
   can tell apart.
+- `Tooling`: a capture records the frame it drew, so an asset that fell behind the
+  renderer fails the tests. `bun run screenshots <name>` writes the frame's fingerprint to
+  `scripts/screens/frames.json`, and `scripts/screenshots.test.ts` fails when the renderer
+  no longer produces it — a frame changed without a recapture, on any OS and with no window
+  open. The picture cannot be re-proved (two captures of one frame differ by subpixel
+  antialiasing), so the frame that was on screen is what is kept; the hero is recorded and
+  required, because it is the frame the root README embeds.
 
 ### Changed
 

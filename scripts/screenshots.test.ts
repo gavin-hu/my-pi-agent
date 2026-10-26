@@ -21,6 +21,7 @@ import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
 import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
 import { planDigest } from "../extensions/plan/plan-text.ts";
+import { frameFingerprint, readFrames } from "./screens/frames.ts";
 import { SCREENS } from "./screens/index.ts";
 import { CHROME_SNAPSHOT, HERO_CALLS, HERO_INPUT, HERO_TOKENS } from "./screens/whole-window.ts";
 import { cacheHitRateOf } from "../extensions/bytefly/footer/collect/entries.ts";
@@ -69,6 +70,29 @@ describe("docs screenshots", () => {
 			if (!screen.size) continue;
 			const lines = screen.render(screen.size.width, screen.size.rows);
 			expect(lines.length, `${name} (${screen.size.width}x${screen.size.rows})`).toBeLessThanOrEqual(screen.size.rows);
+		}
+	});
+
+	test("a captured frame is still the frame the renderer draws", () => {
+		// The picture cannot report on itself: two captures of one frame differ by
+		// antialiasing, so no render is byte-identical to the shipped PNG. What the
+		// capture records instead is the frame that was on screen, and this is where
+		// a renderer change nobody recaptured fails — on every OS, no window needed.
+		const recorded = readFrames();
+		// The hero is embedded in the root README, so it is the frame that must not
+		// quietly lose its guard.
+		expect(Object.keys(recorded)).toContain("chrome");
+		for (const [name, fingerprint] of Object.entries(recorded)) {
+			const screen = FRAMES[name];
+			if (!screen?.size) {
+				expect(screen && name, `${name} is recorded but pins no size, or is no longer a screen`).toBeUndefined();
+				continue;
+			}
+			const { width, rows } = screen.size;
+			const frame = frameFingerprint(screen.render(width, rows));
+			expect(frame, `assets/screens/${screen.asset}.png is behind the frame: bun run screenshots ${name}`).toBe(
+				fingerprint,
+			);
 		}
 	});
 

@@ -65,6 +65,15 @@ a hint row would otherwise shoot whatever geometry the window reached.
 `scripts/screenshots.test.ts` renders every entry at three widths and fails when
 a frame leaves the terminal or outgrows its `rows`.
 
+A capture also records the frame it drew. A PNG cannot be re-proved: two captures
+of one frame differ by subpixel antialiasing, so no render is byte-identical to
+the shipped image. `scripts/capture/terminal.ts` therefore writes the frame's
+fingerprint to `scripts/screens/frames.json`, and the same test fails when the
+renderer no longer produces it — a frame that changed without a recapture, which
+is the one thing the picture cannot report about itself. Only a screen that pins
+its `size` is recorded, since that is what makes a frame the same frame twice;
+adding a screen to the record is the same capture that writes its asset.
+
 Four assets come from a headless browser instead of the terminal: the two
 browser pages and the tool galleries (`screenshot:tools`, `screenshot:tool-pngs`).
 `scripts/capture/chrome.ts` drives Playwright against the Chrome the machine already
