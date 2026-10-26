@@ -30,7 +30,7 @@ export const GLYPHS = {
 	jobsFailure: "✗",
 	stopped: "⊘",
 	browse: "◉",
-	board: "▤",
+	board: "⊞",
 	delegation: "↳",
 	wechat: "✆",
 	gaugeFull: "▰",

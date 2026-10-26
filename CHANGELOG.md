@@ -123,6 +123,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the status chip leads with `⊞`, a grid that is one column in every profile,
+  where `▤` is East-Asian ambiguous and so cost a CJK-width terminal a second column
+  and pushed the port beside it out of line.
+
 - `bytefly`: the footer reads as two bands, one job each — modes, alerts, branch,
   worktree, and browse on the state line, the meters and the model on the resource
   line. The mode slot used to trail the meters, so the resource line was the dense
