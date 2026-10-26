@@ -24,6 +24,7 @@ import { WEB_COMPOSER_JS } from "./web-composer.ts";
 import { WEB_DRAFT_JS } from "./web-draft.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
 import { WEB_PLAN_JS } from "./web-plan.ts";
+import { WEB_SETTLE_JS } from "./web-settle.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -87,6 +88,8 @@ ${CLIENT_RUNTIME_JS}
 ${WEB_OUTLINE_JS}
 
 ${WEB_BLOCKS_JS}
+
+${WEB_SETTLE_JS}
 
 ${WEB_PLAN_JS}
 
@@ -172,40 +175,6 @@ ${WEB_MARKDOWN_JS}
   // the review settles. Only the owner's save and approve resolve the session,
   // so only their callback marks the page terminal. A reviewer posts only their
   // own comments, so a page showing everyone's cannot re-post another writer's.
-  function submit(url, okText, failText, onOk) {
-    var payload = role === "reviewer" ? annotations.filter(isMine) : annotations;
-    postJson(url + "?token=" + encodeURIComponent(token), { annotations: payload }).then(function (result) {
-      if (result.ok) {
-        dirty = false;
-        clearDraft();
-        setStatus(okText, "saved");
-        if (onOk) onOk();
-        updateState();
-        // The server binds a reviewer's name to her link on the first post; adopt it
-        // so a second tab of the same link posts under the same name.
-        if (role === "reviewer" && result.body && typeof result.body.author === "string" && result.body.author) {
-          adoptName(result.body.author);
-        }
-        return;
-      }
-      if (result.status === 409) {
-        // A conflict is either a plan that moved under the page or a link already
-        // bound to another name; a reload fixes both, and the server names which.
-        if (approveButton) approveButton.disabled = true;
-        if (saveButton) saveButton.disabled = true;
-        if (postButton) postButton.disabled = true;
-        offerReload();
-        setStatus(result.body && result.body.error ? result.body.error : PLAN_MOVED, "error");
-        return;
-      }
-      // Surface the server's own reason (a malformed comment, a stale body) rather
-      // than a bare status code.
-      throw new Error(result.body && result.body.error ? result.body.error : "server returned " + result.status);
-    }).catch(function (error) {
-      setStatus(failText + error.message, "error");
-    });
-  }
-
   // A composer holds text the page has not committed, so the ways off the page
   // refuse while it does: leaving would drop what the reviewer typed.
   /** The ways off the page refuse while a comment is half-written; this says so once. */
@@ -213,49 +182,54 @@ ${WEB_MARKDOWN_JS}
     return guardDraft(planEl, statusEl, DRAFT_REFUSAL, paintStatus);
   }
 
-  function save() {
-    if (saved || approved || closed) return;
-    if (confirmNoDraft()) return;
-    setStatus("Saving\u2026");
-    submit("/api/feedback", "Saved \u2014 return to Pi to continue.", "Could not save: ", function () {
-      saved = true;
-      settleStream();
-      lockActions();
-    });
+  /**
+   * What the settlement reads and changes, built where the state is.
+   *
+   * The flags live here, the buttons live here, the stream lives here; web-settle.ts owns
+   * the rules about them and reports each change through these callbacks.
+   */
+  function settlement() {
+    return {
+      token: function () { return token; },
+      role: function () { return role; },
+      mine: function () { return annotations.filter(isMine); },
+      annotations: function () { return annotations; },
+      settled: function () { return saved || approved || closed; },
+      setStatus: setStatus,
+      buttons: function () { return { approve: approveButton, save: saveButton, post: postButton }; },
+      clearDraft: clearDraft,
+      markClean: function () { dirty = false; },
+      adoptName: adoptName,
+      offerReload: offerReload,
+      markSettled: function (kind) {
+        if (kind === "saved") saved = true;
+        else if (kind === "approved") approved = true;
+        else closed = true;
+      },
+      settleStream: settleStream,
+      lockActions: lockActions,
+      updateState: updateState,
+      confirmNoDraft: confirmNoDraft,
+      post: postJson,
+      send: function (url) { return fetch(url, { method: "POST" }); },
+      planMoved: PLAN_MOVED,
+    };
   }
 
-  // A reviewer's write never settles the page: the server keeps the review open,
-  // so the page keeps following it and she can keep editing her own comments.
+  function save() {
+    saveReview(settlement());
+  }
+
   function postComments() {
-    if (closed) return;
-    if (confirmNoDraft()) return;
-    setStatus("Posting\u2026");
-    submit("/api/comment", "Comments posted \u2014 the owner sees them now.", "Could not post: ", null);
+    postReviewComments(settlement());
   }
 
   function approve() {
-    if (saved || approved || closed) return;
-    setStatus("Approving\u2026");
-    submit("/api/approve", "Approved \u2014 return to Pi to continue.", "Could not approve: ", function () {
-      approved = true;
-      settleStream();
-      lockActions();
-    });
+    approveReview(settlement());
   }
 
   function cancel() {
-    // Closing the review is the owner's decision; a reviewer closes their tab.
-    if (role !== "owner" || saved || approved || closed) return;
-    if (confirmNoDraft()) return;
-    closed = true;
-    settleStream();
-    lockActions();
-    setStatus("Closing\u2026");
-    updateState();
-    fetch("/api/cancel?token=" + encodeURIComponent(token), { method: "POST" }).catch(function () {}).then(function () {
-      setStatus("Closed \u2014 return to Pi.");
-      updateState();
-    });
+    cancelReview(settlement());
   }
 
   if (postButton) postButton.addEventListener("click", postComments);
