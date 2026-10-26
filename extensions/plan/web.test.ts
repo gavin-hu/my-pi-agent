@@ -28,6 +28,7 @@ import {
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, type PlanWebReviewDeps } from "./web.ts";
@@ -1871,5 +1872,66 @@ describe("review session", () => {
 		} finally {
 			await new Promise<void>((resolve) => blocker.close(() => resolve()));
 		}
+	});
+});
+
+describe("review outline", () => {
+	const entries = [
+		{ id: "s-1", level: 1, line: 1, text: "Goal" },
+		{ id: "s-8", level: 2, line: 8, text: "Steps", changed: true },
+		{ id: "s-20", level: 1, line: 20, text: "Risks" },
+	];
+
+	test("names the section a line belongs to, and none above the first", () => {
+		expect(sectionFor(entries, 1)?.id).toBe("s-1");
+		expect(sectionFor(entries, 7)?.id).toBe("s-1");
+		expect(sectionFor(entries, 8)?.id).toBe("s-8");
+		expect(sectionFor(entries, 19)?.id).toBe("s-8");
+		expect(sectionFor(entries, 400)?.id).toBe("s-20");
+		expect(sectionFor(entries, 0)).toBeNull();
+		expect(sectionFor([], 4)).toBeNull();
+	});
+
+	test("carries the source, safe to splice into the client bundle", () => {
+		// The bundle is a template literal: a backtick or an interpolation would end it.
+		expect(WEB_OUTLINE_JS).not.toContain("`");
+		expect(WEB_OUTLINE_JS).not.toContain("${");
+		expect(WEB_OUTLINE_JS.split(String(sectionFor)).length).toBe(2);
+		expect(REVIEW_CLIENT_JS).toContain("renderOutline(outlineList, outlineEntries())");
+	});
+
+	test("builds one list item per heading and returns the counters it made", () => {
+		// The fake builder records what it was asked for, so the assertion is about the
+		// document this function describes rather than about the strings in it.
+		const made: Array<{ tag: string; className: string }> = [];
+		const build = (tag: string, className?: string) => {
+			const node = {
+				tag,
+				className: className ?? "",
+				textContent: null as string | null,
+				hidden: false,
+				href: "",
+				title: "",
+				id: "",
+				children: [] as unknown[],
+				setAttribute() {},
+				appendChild(child: unknown) {
+					node.children.push(child);
+				},
+				replaceChildren() {
+					node.children = [];
+				},
+			};
+			made.push({ tag, className: node.className });
+			return node;
+		};
+		const runtime = new Function("el", `${WEB_OUTLINE_JS}\nreturn { renderOutline: renderOutline };`)(build) as {
+			renderOutline: typeof import("./web-outline.ts").renderOutline;
+		};
+		const list = build("ul", "review-nav") as unknown as Parameters<typeof runtime.renderOutline>[0];
+		const counters = runtime.renderOutline(list, entries);
+		expect(Object.keys(counters)).toEqual(["1", "8", "20"]);
+		expect(made.filter((item) => item.tag === "li").map((item) => item.className)).toEqual(["lvl-1", "lvl-2", "lvl-1"]);
+		expect(counters[8]?.hidden).toBe(true);
 	});
 });
