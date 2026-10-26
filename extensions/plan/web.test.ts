@@ -39,6 +39,7 @@ import {
 	WEB_SETTLE_JS,
 } from "./web-settle.ts";
 import { renderPlanFrame, WEB_PLAN_JS } from "./web-plan.ts";
+import { handleKey, rememberSelection, WEB_KEYS_JS } from "./web-keys.ts";
 import { draftTextarea, guardDraft, WEB_DRAFT_JS } from "./web-draft.ts";
 import { observeSections, renderFacts, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
@@ -2697,5 +2698,122 @@ describe("review settlement", () => {
 		expect(postReviewComments(deps)).toBeNull();
 		expect(cancelReview(deps)).toBeNull();
 		expect(calls.sent).toEqual([]);
+	});
+});
+
+describe("review keyboard", () => {
+	const harness = (over: Record<string, unknown> = {}) => {
+		const calls: string[] = [];
+		const deps = {
+			composerOpen: () => false,
+			closeComposer: () => calls.push("closeComposer"),
+			cancel: () => calls.push("cancel"),
+			sheetOpen: () => false,
+			toggleSheet: () => calls.push("toggleSheet"),
+			moveActive: (delta: number) => calls.push("move" + delta),
+			commentOnActive: () => calls.push("comment"),
+			askApprove: () => calls.push("approve"),
+			save: () => calls.push("save"),
+			postComments: () => calls.push("post"),
+			hasSaveControl: () => true,
+			hasApproveControl: () => true,
+			typing: () => false,
+			...over,
+		} as Parameters<typeof handleKey>[1];
+		const event = (key: string, more: Record<string, unknown> = {}) => {
+			let prevented = 0;
+			return {
+				sent: { key, preventDefault: () => (prevented += 1), ...more } as Parameters<typeof handleKey>[0],
+				get prevented() {
+					return prevented;
+				},
+			};
+		};
+		return { deps, calls, event };
+	};
+
+	test("carries the source, safe to splice into the client bundle", () => {
+		expect(WEB_KEYS_JS).not.toContain("`");
+		expect(WEB_KEYS_JS).not.toContain("${");
+		expect(WEB_KEYS_JS.split(String(handleKey)).length).toBe(2);
+		expect(WEB_KEYS_JS.split(String(rememberSelection)).length).toBe(2);
+	});
+
+	test("Esc peels the composer first, then closes the review", () => {
+		const withComposer = harness({ composerOpen: () => true });
+		handleKey(withComposer.event("Escape").sent, withComposer.deps);
+		expect(withComposer.calls).toEqual(["closeComposer"]);
+
+		const bare = harness();
+		handleKey(bare.event("Escape").sent, bare.deps);
+		expect(bare.calls).toEqual(["cancel"]);
+	});
+
+	test("a field owns the keyboard, and a modified key is never a shortcut", () => {
+		const typing = harness({ typing: () => true });
+		handleKey(typing.event("j").sent, typing.deps);
+		handleKey(typing.event("?").sent, typing.deps);
+		expect(typing.calls).toEqual([]);
+
+		const modified = harness();
+		handleKey(modified.event("s", { ctrlKey: true }).sent, modified.deps);
+		handleKey(modified.event("k", { metaKey: true }).sent, modified.deps);
+		expect(modified.calls).toEqual([]);
+	});
+
+	test("the sheet owns the keyboard while it is open, and ? is what opens it", () => {
+		const closed = harness();
+		const question = closed.event("?");
+		handleKey(question.sent, closed.deps);
+		expect(closed.calls).toEqual(["toggleSheet"]);
+		expect(question.prevented).toBe(1);
+
+		const open = harness({ sheetOpen: () => true });
+		for (const key of ["j", "k", "c", "a", "s"]) handleKey(open.event(key).sent, open.deps);
+		expect(open.calls).toEqual([]);
+	});
+
+	test("j and k walk, c comments, a approves", () => {
+		const { deps, calls } = harness();
+		handleKey({ key: "j", preventDefault() {} }, deps);
+		handleKey({ key: "k", preventDefault() {} }, deps);
+		handleKey({ key: "c", preventDefault() {} }, deps);
+		handleKey({ key: "a", preventDefault() {} }, deps);
+		expect(calls).toEqual(["move1", "move-1", "comment", "approve"]);
+	});
+
+	test("s saves for an owner and posts for a reviewer", () => {
+		// The same key means "write my work down": the owner's save ends the review, a
+		// reviewer's post does not, and the page has one button at a time.
+		const owner = harness();
+		handleKey({ key: "s", preventDefault() {} }, owner.deps);
+		expect(owner.calls).toEqual(["save"]);
+
+		const reviewer = harness({ hasSaveControl: () => false });
+		handleKey({ key: "s", preventDefault() {} }, reviewer.deps);
+		expect(reviewer.calls).toEqual(["post"]);
+	});
+
+	test("a release remembers the selection, and forgets it outside a block", () => {
+		const remembered: Array<{ wrap: unknown; quote: string } | null> = [];
+		const block = { querySelector: () => null } as never;
+		const deps = {
+			planEl: {} as never,
+			settled: () => false,
+			selectionIn: () => "the plan",
+			setPending: (quote: { wrap: unknown; quote: string } | null) => remembered.push(quote),
+		} as Parameters<typeof rememberSelection>[1];
+
+		rememberSelection({ closest: () => block }, deps);
+		expect(remembered).toEqual([{ wrap: block, quote: "the plan" }]);
+
+		// A release outside any block clears what was there: the next click must not quote it.
+		rememberSelection({ closest: () => null }, deps);
+		expect(remembered).toEqual([{ wrap: block, quote: "the plan" }, null]);
+
+		// A settled review remembers nothing at all.
+		const settled = { ...deps, settled: () => true } as Parameters<typeof rememberSelection>[1];
+		rememberSelection({ closest: () => block }, settled);
+		expect(remembered).toHaveLength(2);
 	});
 });
