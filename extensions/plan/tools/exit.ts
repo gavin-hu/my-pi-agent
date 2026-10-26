@@ -213,7 +213,16 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 			}
 
 			runtime.disable(ctx);
-			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content);
+			// A plan refined and approved again seeds over the list its first approval made:
+			// the steps that approval appended are the ones this one may replace.
+			const previous = runtime.seeded(decision.plan.path);
+			const { steps, merged, error } = await seedTodos(pi, ctx, decision.plan.content, previous);
+			if (error === undefined && steps.length > 0) {
+				runtime.markSeeded(
+					decision.plan.path,
+					steps.map((step) => step.content),
+				);
+			}
 			const goal = await finalizeGoal(pi, ctx, decision.plan);
 			const listing =
 				steps.length > 0

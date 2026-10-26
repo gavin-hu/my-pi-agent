@@ -36,14 +36,16 @@ export async function seedTodos(
 	pi: ExtensionAPI,
 	ctx: ExtensionToolContext,
 	plan: string,
+	/** What an earlier approval of the same plan appended, when it was approved before. */
+	previous?: readonly string[],
 ): Promise<{ steps: PlanStep[]; merged?: TodoMerge; error?: string }> {
 	const steps = extractPlanSteps(plan);
 	const verification = verificationItem(plan);
 	if (steps.length === 0 && !verification) return { steps };
-	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi), verification);
+	const merged = mergeTodos(lastTodos(ctx.sessionManager.getBranch()), steps, todoMaxItems(pi), verification, previous);
 	// Nothing new to write: every step (and the verification item) is already in
 	// the list, or the list is full, so a rewrite would only churn the widget.
-	if (merged.added === 0 && merged.trailing !== "added") return { steps, merged };
+	if (merged.added === 0 && merged.trailing !== "added" && merged.replaced === 0) return { steps, merged };
 	const outcome = await ctx.executeTool(TODO_TOOL, { todos: merged.todos });
 	if (!outcome.isError) return { steps, merged };
 	// The nested call fails both when the tool is unavailable and when it rejects

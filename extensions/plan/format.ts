@@ -72,16 +72,23 @@ export function mergeSummary(merged: TodoMerge, steps: PlanStep[]): string {
 	const total = steps.length;
 	const counted = `${merged.added + merged.skipped} of ${total} plan step${total === 1 ? "" : "s"}`;
 	const notes = [
+		merged.replaced > 0
+			? `${merged.replaced} stale item${merged.replaced === 1 ? "" : "s"} from the earlier approval replaced`
+			: "",
 		merged.skipped > 0 ? `${merged.skipped} already present` : "",
 		merged.kept > 0 ? `${merged.kept} existing kept` : "",
 		merged.deferred > 0 ? `${merged.deferred} deferred, list full` : "",
 	].filter(Boolean);
 	const suffix = notes.length > 0 ? ` (${notes.join(", ")})` : "";
 	const tick = `Tick each one off in the file with ${SET_PLAN_STEPS_TOOL} as you finish it, passing the step's text as \`expected\`.`;
+	const touched =
+		merged.stale > 0
+			? ` ${merged.stale} older item${merged.stale === 1 ? "" : "s"} no longer match${merged.stale === 1 ? "es" : ""} this plan but ${merged.stale === 1 ? "was" : "were"} left alone: ${merged.stale === 1 ? "it was" : "they were"} started or finished, so check ${merged.stale === 1 ? "it" : "them"} yourself.`
+			: "";
 	if (merged.added === 0 && merged.skipped === 0) {
-		return ` The todo list is full, so no plan steps were added${suffix}. Keep these steps in mind. ${tick}`;
+		return ` The todo list is full, so no plan steps were added${suffix}.${touched} Keep these steps in mind. ${tick}`;
 	}
 	if (merged.added === 0)
-		return ` ${total === 1 ? "The plan's step is" : "Every plan step is"} already in the todo list${suffix}. ${tick}`;
-	return ` Merged ${counted} into the todo list${suffix}. ${tick}`;
+		return ` ${total === 1 ? "The plan's step is" : "Every plan step is"} already in the todo list${suffix}.${touched} ${tick}`;
+	return ` Merged ${counted} into the todo list${suffix}.${touched} ${tick}`;
 }

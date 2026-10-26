@@ -22,7 +22,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | One writable artifact | `write_plan` | The plan lands as markdown under the agent directory, one store per repository, shared by its worktrees. | Shipped |
 | Approval gate | `exit_plan_mode` | The plan is read back and presented; nothing is written until the user approves it. | Shipped |
 | Session goal at approval | `goal` at approval | A `planning` goal is promoted to the plan's objective, and a session with none gets it, without a second dialog; an active goal is left alone. | Shipped |
-| Steps as todos | `exit_plan_mode` | Approval seeds the plan's steps into the todo list, with the verification section as the last item. | Shipped |
+| Steps as todos | `exit_plan_mode` | Approval seeds the plan's steps into the todo list, with the verification section as the last item; approving the same plan again replaces the items its earlier approval seeded. | Shipped |
 | Plan kept current | `set_plan_steps` | Ticking a step rewrites its checkbox in the file and its todo item in one call. | Shipped |
 | Stale-step protection | `expected` in `set_plan_steps` | A step whose number moved, is out of range, or no longer matches its text refuses the whole batch instead of ticking the wrong line. | Shipped |
 | Cancel without a plan | `cancel_plan_mode`, `/plan cancel` | Write access returns, and no todo items or goal are recorded. | Shipped |
@@ -179,6 +179,13 @@ the todo list:
   todos, and its verification bullets are already covered.
 - Each seeded item is matched back to its step by text, so ticking a step with
   `set_plan_steps` completes the item too.
+- An approval records the step texts it seeded, per plan path, as a `plan-seeded`
+  entry. A plan refined after approval is approved again — `write_plan` needs plan
+  mode, so a second round is the way back — and that second approval **replaces the
+  leftovers its own earlier approval made**: an untouched item whose step was
+  renamed or dropped goes, while one somebody started or finished is kept and
+  named, because deleting it would erase work a reader did. `write_plan` says the
+  list is stale when it refines a plan that was approved before.
 
 **Goal-aware.** While planning, the injected context restates a pursued session
 goal as one bullet, so the plan is designed against the objective instead of

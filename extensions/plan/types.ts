@@ -50,6 +50,21 @@ export interface ReviewBaselineEntry {
 	sections: SectionDigest[];
 }
 
+/**
+ * What one approval put into the todo list, so the next approval can replace it.
+ *
+ * A plan refined after it was approved is approved again, and the list still holds the
+ * items seeded the first time. Their texts are the only record of which items came from
+ * this plan, so a re-approval keeps them to recognise — and replace — its own leftovers
+ * without touching an item the user was already tracking.
+ */
+export interface SeededStepsEntry {
+	/** Resolved path of the approved plan file. */
+	path: string;
+	/** The step texts the approval appended, in order. */
+	steps: string[];
+}
+
 /** Structured result carried in `enter_plan_mode`'s `details`. */
 export interface EnterPlanModeDetails {
 	/** Whether the user agreed to enter plan mode. */

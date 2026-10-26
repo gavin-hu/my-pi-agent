@@ -252,7 +252,51 @@ describe("plan approval merge", () => {
 		expect(merged).toMatchObject({ added: 0, skipped: 1, kept: 1 });
 	});
 
-	test("fills activeForm for a legacy in-progress item", () => {
+	test("replaces the leftovers an earlier approval of the same plan seeded", () => {
+		// A plan refined after approval is approved again over the list the first approval
+		// made: a step it renamed leaves an untouched item behind, and only an item *this
+		// plan* seeded is a candidate — the user's own are never touched.
+		const afterFirstApproval: ExistingTodo[] = [
+			{ content: "Update CHANGELOG", status: "completed" },
+			{ content: "Add a token bucket", status: "pending" },
+			{ content: "Wire the limiter", status: "pending" },
+		];
+		const merged = mergeTodos(
+			afterFirstApproval,
+			[step("Add a token bucket"), step("Wire the limiter into the router")],
+			DEFAULT_TODO_MAX,
+			undefined,
+			["Add a token bucket", "Wire the limiter"],
+		);
+		expect(merged.todos.map((todo) => todo.content)).toEqual([
+			"Update CHANGELOG",
+			"Add a token bucket",
+			"Wire the limiter into the router",
+		]);
+		expect(merged).toMatchObject({ replaced: 1, stale: 0, added: 1, skipped: 1 });
+	});
+
+	test("leaves a leftover someone started or finished, and says it is stale", () => {
+		// Deleting one would erase work a reader did; naming it lets them decide.
+		const merged = mergeTodos(
+			[
+				{ content: "Wire the limiter", status: "completed" },
+				{ content: "Add a token bucket", status: "in_progress", activeForm: "Adding a token bucket" },
+			],
+			[step("Wire the limiter into the router")],
+			DEFAULT_TODO_MAX,
+			undefined,
+			["Wire the limiter", "Add a token bucket"],
+		);
+		expect(merged.todos.map((todo) => todo.content)).toEqual([
+			"Wire the limiter",
+			"Add a token bucket",
+			"Wire the limiter into the router",
+		]);
+		expect(merged).toMatchObject({ replaced: 0, stale: 2, added: 1 });
+	});
+
+	test("appends the plan's verification summary after the steps, not as a step", () => {
 		const merged = mergeTodos([{ content: "Halfway", status: "in_progress" }], [], DEFAULT_TODO_MAX);
 		expect(merged.todos).toEqual([{ content: "Halfway", status: "in_progress", activeForm: "Halfway" }]);
 	});
@@ -562,6 +606,59 @@ describe("write_plan", () => {
 			fakeTheme,
 		);
 		expect(component.render(80).join("\n")).toContain("/x/plans/p.md");
+	});
+});
+
+describe("a plan approved twice", () => {
+	test("replaces the items its first approval seeded, and says so", async () => {
+		const { enter, exit, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const planPath = await savePlan(
+			write,
+			fakeCtx({ cwd: root }).ctx,
+			"# Plan\n\n## Steps\n\n- [ ] Wire the limiter into the router",
+		);
+		// Approve it once, then read the list back as the branch would hold it. The seed
+		// record is the entry the first approval appended, keyed by the resolved path.
+		await call(exit, { plan_path: planPath }, fakeCtx({ editor: "1", cwd: root }).ctx);
+		expect(runtime.seeded(planPath)).toEqual(["Wire the limiter into the router"]);
+
+		// Approve a refined plan over a branch still holding the older step's item.
+		await enterPlan(enter, runtime, root);
+		const { ctx, toolCalls } = fakeCtx({
+			editor: "1",
+			branch: todoBranch([{ content: "Wire the limiter", status: "pending" }]),
+			cwd: root,
+		});
+		runtime.markSeeded(planPath, ["Wire the limiter"]);
+		const result = await call(exit, { plan_path: planPath }, ctx);
+
+		// The untouched leftover is replaced, not left beside the step that renamed it.
+		expect(toolCalls[0]?.args).toEqual({ todos: [{ content: "Wire the limiter into the router", status: "pending" }] });
+		expect(result.content[0].text).toContain("1 stale item from the earlier approval replaced");
+	});
+
+	test("warns that a refined plan's todo items are stale, at the write", async () => {
+		const { enter, write, runtime, root } = setup();
+		await enterPlan(enter, runtime, root);
+		const ctx = fakeCtx({ cwd: root }).ctx;
+		const planPath = await savePlan(write, ctx, "# Plan\n\n## Steps\n\n- [ ] one");
+		// Not seeded: refining a plan nobody approved says nothing about the todo list.
+		const first = await call(
+			write,
+			{ title: "Again", content: "# Plan\n\n## Steps\n\n- [ ] two", plan_path: planPath },
+			ctx,
+		);
+		expect(first.content[0].text).not.toContain("approved before");
+
+		runtime.markSeeded(planPath, ["one"]);
+		const second = await call(
+			write,
+			{ title: "Again", content: "# Plan\n\n## Steps\n\n- [ ] three", plan_path: planPath },
+			ctx,
+		);
+		expect(second.content[0].text).toContain("This plan was approved before");
+		expect(second.content[0].text).toContain("approving it again replaces the steps that changed");
 	});
 });
 
