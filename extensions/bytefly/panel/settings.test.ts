@@ -12,8 +12,8 @@ import pkg from "../../../package.json";
 import {
 	documentFor,
 	settingDescriptor,
-	settingView,
 	settingsSnapshot,
+	settingView,
 } from "../../../test/helpers/fixtures/bytefly.ts";
 import type { Settings } from "../picker/types.ts";
 import { nextValue, rowsForScope, SETTING_ROWS, settingViews, storedValue, textError } from "./settings.ts";
@@ -37,6 +37,26 @@ describe("settings catalogue", () => {
 		]);
 		expect(SETTING_ROWS.length).toBeLessThanOrEqual(12);
 		expect(new Set(SETTING_ROWS.map((entry) => entry.id)).size).toBe(SETTING_ROWS.length);
+	});
+
+	test("groups the rows as what a session starts with, tells you, keeps, and costs", () => {
+		expect(new Set(SETTING_ROWS.map((entry) => entry.group))).toEqual(
+			new Set(["Startup", "Notifications", "Session", "Price"]),
+		);
+		expect(SETTING_ROWS.map((entry) => entry.group)).toEqual([
+			"Startup",
+			"Startup",
+			"Notifications",
+			"Notifications",
+			"Notifications",
+			"Notifications",
+			"Notifications",
+			"Session",
+			"Session",
+			"Session",
+			"Price",
+			"Price",
+		]);
 	});
 
 	test("shows app rows only in Global scope", () => {
@@ -78,7 +98,7 @@ describe("settings catalogue", () => {
 			["rewind.autoSnapshots", "true", "On", "default"],
 			["doctor.proactive", "true", "On", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
-			["price.budget", "0", "0", "default"],
+			["price.budget", "0", "Off", "default"],
 		]);
 
 		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.origin)).toEqual(
@@ -224,7 +244,32 @@ describe("settings catalogue", () => {
 
 	test("reads a stored budget from the document", () => {
 		const snap = settingsSnapshot({ global: { price: { budget: 5 } } });
-		expect(settingView(snap, "global", "price.budget")).toMatchObject({ value: "5", origin: "global" });
+		expect(settingView(snap, "global", "price.budget")).toMatchObject({
+			value: "5",
+			valueLabel: "¥5.00",
+			origin: "global",
+		});
+	});
+
+	test("shows the budget in the currency the session prices in, down to its precision", () => {
+		const usd = settingsSnapshot({ global: { price: { budget: 5, currency: { code: "USD" } } } });
+		expect(settingView(usd, "global", "price.budget").valueLabel).toBe("$5.000");
+
+		const precise = settingsSnapshot({ global: { price: { budget: 5, currency: { code: "USD", decimals: 2 } } } });
+		expect(settingView(precise, "global", "price.budget").valueLabel).toBe("$5.00");
+
+		const overridden = settingsSnapshot({
+			global: { price: { budget: 5 } },
+			project: { price: { budget: 2, currency: { code: "USD" } } },
+		});
+		expect(settingView(overridden, "project", "price.budget").valueLabel).toBe("$2.000");
+	});
+
+	test("reads `Off` for a budget that is unset or zero", () => {
+		expect(settingView(settingsSnapshot(), "global", "price.budget").valueLabel).toBe("Off");
+		expect(
+			settingView(settingsSnapshot({ global: { price: { budget: 0 } } }), "global", "price.budget").valueLabel,
+		).toBe("Off");
 	});
 
 	test("reads another extension's leaf as the file states it and labels a curated value", () => {

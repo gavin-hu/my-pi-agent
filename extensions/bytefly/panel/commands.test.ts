@@ -17,12 +17,21 @@ import {
 	fakeUpdate,
 	pathRow,
 	skillIndex,
+	userRow,
 } from "../../../test/helpers/fixtures/bytefly.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeDiscovery, makeItem, skillItem } from "../../../test/helpers/fixtures/picker.ts";
 import { registerPanel } from "./commands.ts";
 import type { DoctorRuntime } from "../doctor/runtime.ts";
 import { SHIPPED_THEMES_DIR } from "./themes.ts";
+
+/** The host's custom-UI factory, narrowed to what these tests drive. */
+type ScreenFactory = (
+	tui: { requestRender: () => void; terminal: { rows: number } },
+	theme: typeof fakeTheme,
+	keybindings: Record<string, never>,
+	done: (result?: void) => void,
+) => { render: (width: number) => string[] };
 
 describe("bytefly panel command", () => {
 	test("registers one /bytefly command", () => {
@@ -88,13 +97,18 @@ describe("bytefly panel command", () => {
 
 describe("bytefly panel modes", () => {
 	test("prints the grouped listing outside TUI mode", async () => {
-		const { commands } = bootPanel({ reports: [makeReport("plan")] });
+		const { commands } = bootPanel({
+			reports: [makeReport("plan")],
+			discover: async () => makeDiscovery({ extensions: [userRow("one")] }).discovery,
+		});
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });
 
 		await commands.get("bytefly").handler("", ctx);
 
 		const text = notifications.at(-1) ?? "";
-		expect(text).toContain("[x] one.ts");
+		// The row is named for the extension directory, not for its `index.ts`.
+		expect(text).toContain("[x] one");
+		expect(text).not.toContain("one/index.ts");
 		expect(text).toContain("plan");
 	});
 
@@ -285,8 +299,8 @@ describe("bytefly panel modes", () => {
 		await commands.get("bytefly").handler("settings", ctx);
 
 		expect(notifications.at(-1)).toContain("bytefly: Settings · Global · 12 settings");
-		expect(notifications.at(-1)).toContain("Bytefly startup TUI: Off");
-		expect(notifications.at(-1)).toContain("Session budget: 0");
+		expect(notifications.at(-1)).toContain("Startup screen: Off");
+		expect(notifications.at(-1)).toContain("Session budget: Off");
 		expect(notifications.at(-1)).toContain("Theme: system");
 	});
 
@@ -316,7 +330,7 @@ describe("bytefly panel modes", () => {
 		const { commands } = bootPanel({});
 		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
 		let rendered = "";
-		ctx.ui.custom = async (factory: any) => {
+		ctx.ui.custom = async (factory: ScreenFactory) => {
 			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
 			rendered = component.render(80).join("\n");
 			return undefined;
@@ -324,8 +338,8 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("settings", ctx);
 
-		expect(rendered).toContain("Global · 12 settings");
-		expect(rendered).toContain("Bytefly startup TUI");
+		expect(rendered).toContain("Settings 12");
+		expect(rendered).toContain("Startup screen");
 	});
 
 	test("mounts the dock screen on the Skills section in TUI mode", async () => {
@@ -346,7 +360,7 @@ describe("bytefly panel modes", () => {
 		});
 		const { ctx } = fakeCtx({ mode: "tui", extra: { isProjectTrusted: () => true } });
 		let rendered = "";
-		ctx.ui.custom = async (factory: any) => {
+		ctx.ui.custom = async (factory: ScreenFactory) => {
 			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
 			rendered = component.render(80).join("\n");
 			return undefined;
@@ -354,7 +368,7 @@ describe("bytefly panel modes", () => {
 
 		await commands.get("bytefly").handler("skills", ctx);
 
-		expect(rendered).toContain("Global · 1 skill");
+		expect(rendered).toContain("Skills 1");
 		expect(rendered).toContain("pdf-tools");
 	});
 

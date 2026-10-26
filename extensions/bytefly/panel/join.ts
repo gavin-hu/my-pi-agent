@@ -31,6 +31,17 @@ export function extensionName(path: string): string {
 	return basename(dirname(path));
 }
 
+/**
+ * The name a resource is called by on screen: the directory for an entry file
+ * (`…/worktree/index.ts`, `…/pdf/SKILL.md`), and the file's own stem otherwise, so
+ * a flat `extensions/auto.ts` is `auto` rather than the directory every flat file
+ * shares.
+ */
+export function resourceName(path: string): string {
+	const stem = basename(path).replace(/\.(ts|js|mjs|cjs|md)$/u, "");
+	return stem === "index" || stem === "SKILL" ? basename(dirname(path)) : stem;
+}
+
 /** Row key for a report that has no resolved extension item. */
 function reportKey(name: string): string {
 	return `report:${name}`;
@@ -46,13 +57,24 @@ export interface PanelJoinOptions {
 	agentDir: string;
 	/** Narrow to one extension directory or report name, or `undefined` for the full list. */
 	filter?: string;
+	/** Keep only the rows this accepts; a group's count follows what survives. */
+	where?: (row: PanelRow) => boolean;
 	/** Which resource kind the list is, for labels and grouping. */
 	kind?: ResourceKind;
 }
 
+/**
+ * The rows one group list produces, group headings included. The screen measures
+ * a section's height from this rather than from a built model, so a section it is
+ * not showing costs no `SKILL.md` read.
+ */
+export function groupedEntryCount(items: readonly ResourceItem[], agentDir: string, kind: ResourceKind): number {
+	return buildEntries([...items], agentDir, kind).length;
+}
+
 /** Build the merged model for the current items and reports. */
 export function buildPanelModel(options: PanelJoinOptions): PanelModel {
-	const { items, reports, agentDir, filter, kind = "extensions" } = options;
+	const { items, reports, agentDir, filter, where, kind = "extensions" } = options;
 	const byName = new Map(reports.map((report) => [report.extension, report]));
 
 	// A directory name may claim a report only when exactly one unique resource
@@ -60,7 +82,7 @@ export function buildPanelModel(options: PanelJoinOptions): PanelModel {
 	// the report and it stays available to the trailing `Not resolved` group.
 	const pathsByName = new Map<string, Set<string>>();
 	for (const item of items) {
-		const name = extensionName(item.path);
+		const name = resourceName(item.path);
 		const paths = pathsByName.get(name) ?? new Set<string>();
 		paths.add(resourceKey(item));
 		pathsByName.set(name, paths);
@@ -83,12 +105,23 @@ export function buildPanelModel(options: PanelJoinOptions): PanelModel {
 		const report = unambiguous(name) ? byName.get(name) : undefined;
 		if (report) claimed.add(name);
 		if (filter !== undefined && name !== filter) continue;
-		rows.push({ key: resourceKey(item), item, report, label: entry.label, group: current?.key ?? "" });
+		// The row is named for the resource, not for its file: a name is only unique
+		// enough to be a name when one resource uses it, which is the same rule that
+		// lets a directory claim a report. Otherwise the picker's `folder/file.ts`
+		// stays, because two rows would otherwise read alike.
+		const label = unambiguous(name) ? resourceName(item.path) : entry.label;
+		const row: PanelRow = { key: resourceKey(item), item, report, label, group: current?.key ?? "" };
+		if (where !== undefined && !where(row)) continue;
+		rows.push(row);
 		if (current) current.count += 1;
 	}
 
 	const extras = reports.filter(
-		(report) => !claimed.has(report.extension) && (filter === undefined || report.extension === filter),
+		(report) =>
+			!claimed.has(report.extension) &&
+			(filter === undefined || report.extension === filter) &&
+			(where === undefined ||
+				where({ key: reportKey(report.extension), report, label: report.extension, group: REPORT_ONLY_GROUP })),
 	);
 	if (extras.length > 0) {
 		const group: PanelGroup = { key: REPORT_ONLY_GROUP, label: REPORT_ONLY_LABEL, count: extras.length };
@@ -111,14 +144,24 @@ export function buildSkillModel(options: {
 	items: readonly ResourceItem[];
 	index: ReadonlyMap<string, SkillInfo>;
 	agentDir: string;
+	where?: (row: PanelRow) => boolean;
 }): PanelModel {
-	const model = buildPanelModel({ items: options.items, reports: [], agentDir: options.agentDir, kind: "skills" });
-	return {
-		groups: model.groups,
-		rows: model.rows.map((row) => {
-			const skill = row.item ? options.index.get(row.item.path) : undefined;
-			if (skill === undefined) return row;
-			return { ...row, label: skill.name ?? row.label, skill };
-		}),
-	};
+	// The filter runs after the join: a skill's name and its `SKILL.md` facts are
+	// what a reader searches and what decides whether it needs attention.
+	const model = buildPanelModel({
+		items: options.items,
+		reports: [],
+		agentDir: options.agentDir,
+		kind: "skills",
+	});
+	const joined = model.rows.map((row) => {
+		const skill = row.item ? options.index.get(row.item.path) : undefined;
+		if (skill === undefined) return row;
+		return { ...row, label: skill.name ?? row.label, skill };
+	});
+	const rows = options.where === undefined ? joined : joined.filter(options.where);
+	const groups = model.groups
+		.map((group) => ({ ...group, count: rows.filter((row) => row.group === group.key).length }))
+		.filter((group) => group.count > 0);
+	return { groups, rows };
 }

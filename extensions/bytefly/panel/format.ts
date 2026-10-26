@@ -127,23 +127,24 @@ const SECTION_LABELS: Record<PanelSection, string> = {
 	settings: "Settings",
 };
 
-/**
- * The section bar's segments, in screen order. The active section takes the
- * accent and the others recede, so the bar reads as a left-to-right switch.
- */
-export function sectionSegments(active: PanelSection): SummarySegment[] {
-	return SECTION_ORDER.map((section) => ({
-		text: SECTION_LABELS[section],
-		color: active === section ? "accent" : "faint",
-	}));
+/** One section's name, as the tab row prints it. */
+export function sectionLabel(section: PanelSection): string {
+	return SECTION_LABELS[section];
 }
 
-/** The Settings section's counts: the scope and how many rows it shows. */
-export function settingsSummarySegments(scope: PanelScope, count: number): SummarySegment[] {
-	return [
-		{ text: scope === "global" ? "Global" : "Project", color: "accent" },
-		{ text: `${count} settings`, color: "meta" },
-	];
+/**
+ * The header's attention line: the worst thing the screen knows, then how many
+ * changes a reload would apply. `all clear` is said out loud rather than left
+ * blank, so the header never reads as "nothing loaded".
+ */
+export function attentionSegments(counts: PanelCounts, dirty: boolean): SummarySegment[] {
+	const segments: SummarySegment[] = [];
+	if (counts.missing > 0) segments.push({ text: `${counts.missing} missing`, color: "bad" });
+	else if (counts.degraded > 0) segments.push({ text: `${counts.degraded} degraded`, color: "warn" });
+	else if (counts.off > 0) segments.push({ text: `${counts.off} off`, color: "faint" });
+	else segments.push({ text: "all clear", color: "ok" });
+	if (dirty) segments.push({ text: "unsaved changes", color: "warn" });
+	return segments;
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
- * The arithmetic the panel's frame is built from: the flat display entries per
- * section and their focus keys, one navigation key's cursor move, and the row
- * budget a short terminal gives way in.
+ * The arithmetic the panel's frame is built from: the display entries per
+ * section and their focus keys, one navigation key's cursor move, the chrome the
+ * three sections share, and the one height they agree on.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -9,23 +9,25 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { ListCursor } from "../../../lib/tui/cursor.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
 import { enabledItem, pathRow, settingsSnapshot } from "../../../test/helpers/fixtures/bytefly.ts";
-import { settingsSummarySegments } from "./format.ts";
+import { attentionSegments } from "./format.ts";
 import { buildPanelModel } from "./join.ts";
 import { resourceKey } from "../picker/resources.ts";
 import { settingViews } from "./settings.ts";
 import { entriesOf, entryKey, isSelectable, nextRow, selectableRange, settingEntries } from "./tui/entries.ts";
 import {
 	BODY_START,
-	countsLine,
+	FRAME_ROWS,
 	detailRows,
-	fitOptionalLines,
 	groupLine,
+	headerLine,
 	noticeLine,
+	panelFrame,
 	savedLine,
-	sectionBar,
+	tabsLine,
 	totalRows,
 } from "./tui/frame.ts";
 import { clampSelection, firstRow, lastRow, moveRows, retainFocus } from "./tui/nav.ts";
+import { isWide } from "./tui/panes.ts";
 
 describe("panel entries", () => {
 	test("interleaves group headings and rows in model order", () => {
@@ -41,12 +43,17 @@ describe("panel entries", () => {
 		expect(entries[3] && entryKey(entries[3])).toBe("auto:/agent/extensions/a.ts");
 	});
 
-	test("builds the Settings list flat, in catalogue order, with no headings", () => {
+	test("groups the Settings list under its four headings, in catalogue order", () => {
 		const entries = settingEntries(settingViews(settingsSnapshot(), "global"));
 
-		expect(entries).toHaveLength(12);
-		expect(entries.every((entry) => entry.kind === "setting")).toBe(true);
-		expect(entryKey(entries[0])).toBe("byteflyUi");
+		expect(entries.filter((entry) => entry.kind === "group").map((entry) => entry.label)).toEqual([
+			"Startup",
+			"Notifications",
+			"Session",
+			"Price",
+		]);
+		expect(entries.filter((entry) => entry.kind === "setting")).toHaveLength(12);
+		expect(entryKey(entries[1])).toBe("byteflyUi");
 		expect(entryKey(entries.at(-1))).toBe("price.budget");
 	});
 
@@ -150,7 +157,7 @@ describe("panel frame arithmetic", () => {
 		for (const bad of [undefined, 0, -1, Number.NaN]) expect(totalRows(bad)).toBeUndefined();
 	});
 
-	test("sizes the detail pane from the free height", () => {
+	test("sizes the bottom pane from the free height", () => {
 		expect(detailRows(false, undefined)).toBe(3);
 		expect(detailRows(true, undefined)).toBe(8);
 		expect(detailRows(false, 24)).toBe(3);
@@ -160,72 +167,102 @@ describe("panel frame arithmetic", () => {
 		expect(detailRows(false, 11)).toBe(1);
 	});
 
-	test("drops the range row, note, detail blank, and detail pane in that order", () => {
-		const input = {
-			body: ["note", "r1", "r2", "r3", "r4"],
-			note: "note",
-			range: "range",
-			detail: ["d1", "d2"],
-		};
-
-		const roomy = fitOptionalLines({ ...input, viewportRows: 20 });
-		expect(roomy).toMatchObject({ range: "range", noteShown: true, detailBlank: true });
-		expect(roomy.detail).toEqual(["d1", "d2"]);
-
-		const rangeDropped = fitOptionalLines({ ...input, viewportRows: 14 });
-		expect(rangeDropped.range).toBeUndefined();
-		expect(rangeDropped.noteShown).toBe(true);
-		expect(rangeDropped.detail).toEqual(["d1", "d2"]);
-
-		const noteDropped = fitOptionalLines({ ...input, viewportRows: 13 });
-		expect(noteDropped.noteShown).toBe(false);
-		expect(noteDropped.body).toEqual(["r1", "r2", "r3", "r4"]);
-		expect(noteDropped.detailBlank).toBe(true);
-
-		const blankDropped = fitOptionalLines({ ...input, viewportRows: 12 });
-		expect(blankDropped.detailBlank).toBe(false);
-		expect(blankDropped.detail).toEqual(["d1", "d2"]);
-
-		const paneDropped = fitOptionalLines({ ...input, viewportRows: 11 });
-		expect(paneDropped.detail).toEqual([]);
+	test("matches the body offset the click mapping relies on", () => {
+		expect(BODY_START).toBe(3);
+		expect(FRAME_ROWS).toBe(6);
 	});
 
-	test("keeps every optional row when the height is unknown", () => {
-		const fitted = fitOptionalLines({
-			body: ["note"],
-			note: "note",
-			range: "range",
-			detail: ["d1"],
-			viewportRows: undefined,
-		});
+	test("draws the header rule with the attention at its right edge", () => {
+		const colored = headerLine(coloringTheme, 80, "Bytefly", [
+			{ text: "1 missing", color: "bad" },
+			{ text: "unsaved changes", color: "warn" },
+		]);
+		const plain = headerLine(fakeTheme, 80, "Bytefly", [
+			{ text: "1 missing", color: "bad" },
+			{ text: "unsaved changes", color: "warn" },
+		]);
 
-		expect(fitted).toMatchObject({ noteShown: true, detailBlank: true, range: "range" });
+		expect(colored).toContain("[accent]Bytefly");
+		expect(colored).toContain("[error]1 missing");
+		expect(colored).toContain("[warning]unsaved changes");
+		expect(visibleWidth(plain)).toBe(80);
+		// The attention sits at the edge, after the fill rather than instead of it.
+		expect(plain.endsWith("unsaved changes")).toBe(true);
+		expect(plain.startsWith("Bytefly")).toBe(true);
 	});
 
-	test("draws the section bar with the active section accented", () => {
-		const bar = sectionBar(
+	test("drops the whole attention line rather than half a word on a narrow terminal", () => {
+		const narrow = headerLine(fakeTheme, 16, "Bytefly", [{ text: "1 missing", color: "bad" }]);
+		const fits = headerLine(fakeTheme, 24, "Bytefly", [{ text: "1 missing", color: "bad" }]);
+
+		expect(narrow).toContain("Bytefly");
+		expect(narrow).not.toContain("missing");
+		expect(visibleWidth(narrow)).toBe(16);
+		// 20 columns of rule and attention fit in 24, so the statement is kept whole.
+		expect(fits).toContain("1 missing");
+		expect(visibleWidth(fits)).toBeLessThanOrEqual(24);
+	});
+
+	test("draws the tab row with counts, the active tab accented, and the write scope", () => {
+		const line = tabsLine(
 			coloringTheme,
-			120,
+			100,
 			"settings",
-			countsLine(coloringTheme, 80, settingsSummarySegments("global", 14)),
+			{ extensions: 10, skills: 2, settings: 12 },
+			{
+				scope: "Global",
+			},
+		);
+		const plain = tabsLine(
+			fakeTheme,
+			100,
+			"settings",
+			{ extensions: 10, skills: 2, settings: 12 },
+			{
+				scope: "Global",
+			},
 		);
 
-		expect(bar).toContain("[dim]Extensions");
-		expect(bar).toContain("[dim]Skills");
-		expect(bar).toContain("[accent]Settings");
-		expect(bar).toContain("[accent]Global");
-		expect(bar).toContain("[muted]14 settings");
-		expect(visibleWidth(bar)).toBeLessThanOrEqual(120);
+		expect(line).toContain("[dim]Extensions");
+		expect(line).toContain("[accent]Settings");
+		expect(plain).toContain("Settings 12");
+		expect(line).toContain("[muted]writes Global");
+		expect(visibleWidth(plain)).toBe(100);
+		// The scope is the right-hand cell, so the tabs stay left-aligned under the title.
+		expect(plain.trimEnd().endsWith("writes Global")).toBe(true);
 	});
 
-	test("drops whole count segments on a narrow line", () => {
-		const wide = countsLine(fakeTheme, 80, settingsSummarySegments("global", 14));
-		const narrow = countsLine(fakeTheme, 12, settingsSummarySegments("global", 14));
+	test("shows the filter chips between the tabs and the scope", () => {
+		const plain = tabsLine(
+			fakeTheme,
+			120,
+			"extensions",
+			{ extensions: 10, skills: 2, settings: 12 },
+			{
+				chips: [
+					{ text: "/workt", color: "meta" },
+					{ text: "needs attention", color: "warn" },
+				],
+				scope: "Project",
+			},
+		);
+		const warnChip = tabsLine(
+			coloringTheme,
+			200,
+			"extensions",
+			{ extensions: 10, skills: 2, settings: 12 },
+			{
+				chips: [{ text: "needs attention", color: "warn" }],
+				scope: "Project",
+			},
+		);
 
-		expect(wide).toContain("14 settings");
-		expect(narrow).toContain("Global");
-		expect(narrow).not.toContain("14 settings");
-		expect(visibleWidth(narrow)).toBeLessThanOrEqual(12);
+		expect(plain).toContain("/workt");
+		expect(warnChip).toContain("[warning]needs attention");
+		expect(plain).toContain("writes Project");
+		// The chips sit between the tabs and the scope, not after it.
+		expect(plain.indexOf("/workt")).toBeLessThan(plain.indexOf("writes Project"));
+		expect(visibleWidth(plain)).toBe(120);
 	});
 
 	test("sanitizes a group heading and clips it to the width", () => {
@@ -251,7 +288,78 @@ describe("panel frame arithmetic", () => {
 		expect(visibleWidth(line ?? "")).toBeLessThanOrEqual(80);
 	});
 
-	test("matches the body offset the click mapping relies on", () => {
-		expect(BODY_START).toBe(3);
+	test("says the same thing about the whole set whatever the list is narrowed to", () => {
+		const model = buildPanelModel({
+			items: [enabledItem("alpha")],
+			reports: [],
+			agentDir: "/agent",
+		});
+
+		expect(attentionSegments({ rows: 1, off: 0, missing: 0, degraded: 0 }, false).map((one) => one.text)).toEqual([
+			"all clear",
+		]);
+		expect(attentionSegments({ rows: 1, off: 0, missing: 1, degraded: 0 }, true).map((one) => one.text)).toEqual([
+			"1 missing",
+			"unsaved changes",
+		]);
+		expect(model.rows).toHaveLength(1);
+	});
+});
+
+describe("the one height the sections share", () => {
+	const entries = (count: number) =>
+		Array.from({ length: count }, () => ({
+			kind: "setting" as const,
+			setting: settingViews(settingsSnapshot(), "global")[0]!,
+		}));
+
+	const frame = (options: {
+		rows: number | undefined;
+		width: number;
+		entries: ReturnType<typeof entries>;
+		tallest: number;
+		side?: boolean;
+	}): string[] =>
+		panelFrame({
+			theme: fakeTheme,
+			viewportRows: options.rows,
+			cursor: new ListCursor(() => {}),
+			width: options.width,
+			header: "Bytefly",
+			tabs: "tabs",
+			entries: options.entries,
+			detail: ["detail"],
+			hint: "hint",
+			emptyLabel: "none",
+			tallest: options.tallest,
+			side: options.side === true ? (rows) => Array.from({ length: rows }, () => "side") : undefined,
+			draw: () => "row",
+		}).lines;
+
+	test("pads a short section to the tallest one, so the frame never resizes", () => {
+		const short = frame({ rows: 24, width: 120, entries: entries(2), tallest: 16, side: true });
+		const tall = frame({ rows: 24, width: 120, entries: entries(16), tallest: 16, side: true });
+
+		expect(short).toHaveLength(tall.length);
+		expect(short).toHaveLength(FRAME_ROWS + 16);
+		// The padding is blank body rows, so the list's own content is unchanged.
+		expect(short.filter((line) => line === "").length).toBeGreaterThan(1);
+	});
+
+	test("keeps the frame inside the terminal at every width and height", () => {
+		for (const rows of [8, 12, 24, 40]) {
+			for (const width of [46, 80, 120]) {
+				const lines = frame({ rows, width, entries: entries(16), tallest: 16, side: isWide(width) });
+				expect(lines.length).toBeLessThanOrEqual(rows);
+				for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+
+	test("scrolls a section longer than the shared height and says so", () => {
+		const lines = frame({ rows: 24, width: 120, entries: entries(40), tallest: 16, side: true });
+
+		expect(lines).toHaveLength(FRAME_ROWS + 16);
+		expect(lines.some((line) => line.includes("showing"))).toBe(true);
 	});
 });

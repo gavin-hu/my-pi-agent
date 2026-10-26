@@ -24,6 +24,7 @@ export {
 	PANEL_REPORTS,
 	PANEL_SETTING_VIEWS,
 	PANEL_SETTINGS,
+	focusRow,
 } from "./panel.ts";
 export { PLAN, PLAN_BASELINE, PLAN_CONTENT, PLAN_PATH } from "./plan.ts";
 export { QUESTIONS } from "./questions.ts";

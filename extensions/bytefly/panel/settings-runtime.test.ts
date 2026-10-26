@@ -116,7 +116,7 @@ describe("settings runtime", () => {
 
 		await runtime.change("global", "byteflyUi");
 
-		expect(notices.at(-1)).toContain("Could not save Bytefly startup TUI");
+		expect(notices.at(-1)).toContain("Could not save Startup screen");
 		expect(notices.at(-1)).toContain("disk full");
 		expect(runtime.isDirty()).toBe(false);
 		expect(runtimeValue(runtime, "global", "byteflyUi")).toBe("false");
@@ -302,7 +302,7 @@ describe("settings runtime", () => {
 
 		expect(await runtime.reset("global", "job.wakeOnFinish")).toBe(false);
 
-		expect(notices.at(-1)).toBe("Wake when a job finishes is already at its default.");
+		expect(notices.at(-1)).toBe("Resume after a job is already at its default.");
 		expect(JSON.parse(readText(globalPath))).toEqual({ rewind: { autoSnapshots: false } });
 		expect(runtime.isDirty()).toBe(false);
 	});

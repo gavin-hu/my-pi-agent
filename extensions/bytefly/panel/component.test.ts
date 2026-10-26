@@ -20,7 +20,7 @@ describe("PanelComponent rendering", () => {
 		});
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("plan/index.ts");
+		expect(text).toContain("plan");
 		expect(text).toContain("1 degraded");
 	});
 
@@ -75,13 +75,15 @@ describe("PanelComponent rendering", () => {
 		}
 	});
 
-	test("abbreviates the summary on a narrow terminal", () => {
+	test("keeps the section counts on the tabs at every width", () => {
 		const { component } = buildPanel({
 			items: [enabledItem("plan"), enabledItem("todo")],
 			reports: [makeReport("plan")],
 		});
-		expect(component.render(96).join("\n")).toContain("2 extensions");
-		expect(component.render(44).join("\n")).toContain("2 ext");
+		expect(component.render(96).join("\n")).toContain("Extensions 2");
+		expect(component.render(44).join("\n")).toContain("Extensions 2");
+		expect(component.render(96).join("\n")).toContain("writes Global");
+		expect(component.render(44).join("\n").includes("Extensions 2")).toBe(true);
 	});
 
 	test("narrows the screen to one extension", () => {
@@ -93,8 +95,8 @@ describe("PanelComponent rendering", () => {
 
 		const text = component.render(80).join("\n");
 		expect(text).toContain("plan only");
-		expect(text).toContain("plan/index.ts");
-		expect(text).not.toContain("todo/index.ts");
+		expect(text).toContain("plan");
+		expect(text).not.toContain("todo");
 	});
 
 	test("shows the focused row's findings and moves them with the selection", () => {
@@ -187,7 +189,7 @@ describe("PanelComponent rendering", () => {
 		});
 
 		const lines = component.render(80);
-		const row = lines.find((line) => line.includes("plan/index.ts"));
+		const row = lines.find((line) => line.includes("plan") && line.includes("off"));
 		expect(row).toContain("off");
 		expect(row).not.toContain("1 missing");
 		expect(lines.join("\n")).toContain("git: missing git");
@@ -199,7 +201,7 @@ describe("PanelComponent rendering", () => {
 			reports: [makeReport("plan", [makeFinding("state", "info", "disabled through env")], false)],
 		});
 
-		const row = component.render(80).find((line) => line.includes("plan/index.ts"));
+		const row = component.render(80).find((line) => line.includes("plan"));
 		expect(row).toContain("env disabled");
 	});
 
@@ -223,8 +225,8 @@ describe("PanelComponent rendering", () => {
 			theme: coloringTheme,
 		});
 		const text = component.render(60).join("\n");
-		expect(text).toContain("[accent]alpha/index.ts");
-		expect(text).toContain("[dim]zulu/index.ts");
+		expect(text).toContain("[accent]alpha");
+		expect(text).toContain("[dim]zulu");
 	});
 
 	test("reports an empty result", () => {
@@ -250,7 +252,7 @@ describe("PanelComponent skills", () => {
 		expect(pdf).toHaveLength(1);
 		expect(quiet).toHaveLength(1);
 		expect(pdf[0]).not.toBe(quiet[0]);
-		expect(lines.join("\n")).toContain("Global · 2 skills");
+		expect(lines.join("\n")).toContain("Skills 2");
 		expect(lines.join("\n")).toContain("User");
 	});
 
@@ -261,7 +263,7 @@ describe("PanelComponent skills", () => {
 			skillIndex: SKILLS_INDEX,
 			section: "skills",
 		});
-		const text = component.render(80).join("\n");
+		const text = component.render(120).join("\n");
 		expect(text).toContain("/agent/skills/pdf/SKILL.md");
 		expect(text).toContain("Extract text and tables from PDF files.");
 
@@ -271,7 +273,7 @@ describe("PanelComponent skills", () => {
 			skillIndex: SKILLS_INDEX,
 			section: "skills",
 		}).component;
-		expect(hidden.render(80).join("\n")).toContain("hidden");
+		expect(hidden.render(120).join("\n")).toContain("hidden");
 
 		const broken = buildPanel({
 			items: [],
@@ -279,9 +281,9 @@ describe("PanelComponent skills", () => {
 			skillIndex: SKILLS_INDEX,
 			section: "skills",
 		}).component;
-		const refused = broken.render(80).join("\n");
+		const refused = broken.render(120).join("\n");
 		expect(refused).toContain("not loaded");
-		expect(refused).toContain("Not loaded: missing description");
+		expect(refused).toContain("missing description");
 	});
 
 	test("toggles the focused skill into the global skills array", async () => {
@@ -311,7 +313,7 @@ describe("PanelComponent skills", () => {
 		});
 		component.render(80);
 
-		component.handleInput("\t");
+		component.handleInput("s");
 		component.handleInput(" ");
 		await settle();
 		await settle();
@@ -353,7 +355,7 @@ describe("PanelComponent skills", () => {
 			trusted: false,
 		});
 
-		component.handleInput("\t");
+		component.handleInput("s");
 
 		expect(component.render(80).join("\n")).toContain("manage skills in Global scope only");
 	});

@@ -334,12 +334,18 @@ runs, an update check, and two themes.
 
 - Bytefly owns the header, footer, turn rule, notices, tool frame, live working
   row, control center, doctor, notify, price, and update check.
-- The control center lists extensions and skills with the same enable checkbox
-  and Global/Project scope, and keeps the curated Settings shortlist beside
-  them.
-- Settings is a flat shortlist of twelve preferences — ten of them
-  `bytefly.json` rows — including the Theme row and one edited amount; every other
-  key is a `bytefly.json` edit. The counts the
+- The control center draws all three sections in one frame: a header rule with
+  the attention at its right, one tab row with each section's count, any filter
+  chips, and the Global/Project write scope; the body is padded to the tallest
+  section so a tab never resizes the dock. Rows are named for the thing itself
+  and carry at most one verdict word; at 96 columns and wider the focused row's
+  facts sit beside the list, and below that they sit under it. `/` filters the
+  rows by text, `!` keeps only what needs attention, `?` prints the key list, `s`
+  switches the write scope, and `R` reloads to apply.
+- Settings is a shortlist of twelve preferences — ten of them
+  `bytefly.json` rows — grouped under Startup, Notifications, Session, and Price
+  with each value in one aligned column, including the Theme row and one edited
+  amount; every other key is a `bytefly.json` edit. The counts the
   docs state are derived from the catalogue by a test, so a new row cannot leave
   the docs describing an older screen.
 - DeepSeek is priced from its published CNY and USD tables, with peak and

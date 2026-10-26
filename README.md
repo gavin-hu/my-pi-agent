@@ -71,16 +71,22 @@ Windows, macOS, and Linux all work, and the full check suite runs on each in CI.
 
 Then, from inside Pi:
 
-- `/bytefly [extension] [refresh]` opens the control center on Extensions, lists
-  every loaded extension with its runtime health, enables or disables one, and
-  clears a project override with `x`.
-- `/bytefly settings` opens the control center's Settings section: one flat list
-  of the twelve preferences a session changes, each with its value beside the
-  label, `Space`/`Enter` to change one and `Tab` for Global/Project scope. Every
-  other key is a `bytefly.json` edit, listed in the configuration reference.
+- `/bytefly [extension] [refresh]` opens the control center on Extensions: one
+  frame for all three sections, its header rule carrying the attention at the
+  right (or `all clear`), a tab row with each section's count and the write scope.
+  It lists every loaded extension by name, with a checkbox and at most one
+  verdict word, enables or disables one, and clears a project override with `x`;
+  `/` filters the rows, `!` keeps only what needs attention, and `?` shows every
+  key.
+- `/bytefly settings` opens the control center's Settings section: the twelve
+  preferences a session changes, grouped under Startup, Notifications, Session,
+  and Price with each value in an aligned column, `Space`/`Enter` to change one
+  and `s` for Global/Project scope. Every other key is a `bytefly.json` edit,
+  listed in the configuration reference.
 - `/bytefly skills` opens the control center's Skills section: one row per Pi
-  skill with its enable checkbox, its declared description underneath, and
-  `Space` to switch it on or off for the active scope.
+  skill with its enable checkbox and at most one verdict word, what its `SKILL.md`
+  declares in the block beside it, and `Space` to switch it on or off for the
+  active scope.
 - `/bytefly doctor [extension] [refresh]` prints the doctor report —
   `run_doctor`'s text — and checks that each enabled extension has what it needs
   at runtime.

@@ -51,19 +51,19 @@ describe("PanelComponent input", () => {
 		expect(text).not.toContain("Esc close");
 	});
 
-	test("Tab warns instead of switching when the project is untrusted", () => {
+	test("s warns instead of switching when the project is untrusted", () => {
 		const { component, runtime } = buildPanel({ items: [enabledItem("plan")], reports: [], trusted: false });
 
-		component.handleInput("\t");
+		component.handleInput("s");
 
 		expect(runtime.scope()).toBe("global");
 		expect(component.render(80).join("\n")).toContain("not trusted");
 	});
 
-	test("Tab switches to project scope when trusted", () => {
+	test("s switches to project scope when trusted", () => {
 		const { component, runtime } = buildPanel({ items: [enabledItem("plan")], reports: [] });
 
-		component.handleInput("\t");
+		component.handleInput("s");
 
 		expect(runtime.scope()).toBe("project");
 	});
@@ -72,7 +72,7 @@ describe("PanelComponent input", () => {
 		const item = makeItem({ path: "/agent/extensions/auto.ts" });
 		const { component, projectStore } = buildPanel({ items: [item], reports: [] });
 
-		component.handleInput("\t");
+		component.handleInput("s");
 		component.handleInput(" ");
 		await settle();
 		await settle();
@@ -86,7 +86,9 @@ describe("PanelComponent input", () => {
 		await settle();
 
 		expect(projectStore.calls.setProjectExtensionPaths.at(-1)).toEqual([]);
-		const row = component.render(80).find((line) => line.includes("auto.ts"));
+		const row = component
+			.render(80)
+			.find((line) => line.includes("auto.ts") && (line.includes("◼") || line.includes("◻")));
 		expect(row).toContain(GLYPHS.boxOn);
 		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
 	});
@@ -94,7 +96,7 @@ describe("PanelComponent input", () => {
 	test("x explains a row with no project override and writes nothing", async () => {
 		const { component, projectStore } = buildPanel({ items: [enabledItem("plan")], reports: [] });
 
-		component.handleInput("\t");
+		component.handleInput("s");
 		component.handleInput("x");
 		await settle();
 		await settle();
@@ -113,7 +115,7 @@ describe("PanelComponent input", () => {
 		expect(global.store.calls.setExtensionPaths).toEqual([]);
 
 		const project = buildPanel({ items: [enabledItem("plan")], reports: [] });
-		project.component.handleInput("\t");
+		project.component.handleInput("s");
 		expect(project.component.render(120).join("\n")).toContain("x inherit");
 	});
 
@@ -130,8 +132,8 @@ describe("PanelComponent input", () => {
 
 		const narrow = component.render(44).join("\n");
 		expect(narrow).toContain("Esc close");
-		expect(narrow).not.toContain("Tab scope");
-		expect(component.render(96).join("\n")).toContain("Tab scope");
+		expect(narrow).not.toContain("s scope");
+		expect(component.render(140).join("\n")).toContain("s scope");
 	});
 
 	test("focuses the row under a click", () => {
@@ -139,10 +141,10 @@ describe("PanelComponent input", () => {
 
 		component.render(80);
 		expect(component.handleMouse({ type: "click", button: "left", x: 10, y: 5 } as any)).toEqual({ handled: true });
-		expect(selectedLine(component)).toContain("beta/index.ts");
+		expect(selectedLine(component)).toContain("beta");
 
 		component.handleMouse({ type: "click", button: "left", x: 10, y: 4 } as any);
-		expect(selectedLine(component)).toContain("alpha/index.ts");
+		expect(selectedLine(component)).toContain("alpha");
 	});
 
 	test("ignores a click on the frame or a group header", () => {
@@ -179,14 +181,15 @@ describe("PanelComponent input", () => {
 			viewportRows: 24,
 			requestRender: () => {},
 			refresh: () => {},
+			reload: () => {},
 			onClose: () => {},
 		});
 
 		component.render(60);
 		component.handleInput("j");
-		expect(component.render(60).join("\n")).toContain("[accent]plan/extra.ts");
+		expect(component.render(60).join("\n")).toContain("[accent]extra");
 
 		items = [enabledItem("alpha"), enabledItem("plan"), makeItem({ path: "/home/me/.pi/extensions/plan/extra.ts" })];
-		expect(component.render(60).join("\n")).toContain("[accent]plan/extra.ts");
+		expect(component.render(60).join("\n")).toContain("[accent]extra");
 	});
 });
