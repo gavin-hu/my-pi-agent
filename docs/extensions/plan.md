@@ -36,7 +36,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Review screen | `exit_plan_mode` | A scrollable, themed plan with approve, refine, keep, browser, and exit in the footer. | Shipped |
-| Browser page | `/plan review`, `w` on the review screen | The plan opens in a local browser as a reading-first page with live section and step progress. | Shipped |
+| Browser page | `/plan review`, `w` on the review screen | The plan opens in a local browser as a reading-first page with live section and step progress. | Partial |
 | Approval in the browser | the `/plan review` page's **Approve & run** | The plan is approved without returning to the terminal, and the steps are seeded. | Shipped |
 | Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. | Shipped |
 | Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. | Shipped |
@@ -273,7 +273,8 @@ its plans hold and how old the oldest one is, both derived from the walk that ju
 happened. The directory stays the index: no registry file, nothing deletes a plan,
 and one bounded read per plan.
 
-`/plan review` is the only subcommand that takes an argument. Bare `/plan review`
+`/plan review` is the only subcommand that takes a path; `/plan share` takes the
+one word `stop` after it, and `list` and `cancel` take nothing. Bare `/plan review`
 reviews the plan this session wrote, or, in a later session, the newest plan file
 in the plans directory (newest modification time); `/plan review <path>.md` (or a
 path with a separator) reviews that plan. A line that merely starts with the word
