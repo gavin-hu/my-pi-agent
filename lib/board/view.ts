@@ -15,7 +15,7 @@
 
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
 import { type Card, CARD_STATUSES, type CardStatus, priorityOf, type Priority, signatureOf } from "./card.ts";
-import { blockersOf, blockersText, indexOf } from "./links.ts";
+import { blockersOf, indexOf, lanesText, openDependentsOf } from "./links.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
 
@@ -52,6 +52,14 @@ export interface ViewCard extends Card {
 	 * boolean beside it would be one more thing that can disagree with the string.
 	 */
 	waits?: string;
+	/**
+	 * The unfinished cards waiting on it, as `#9 (todo)`; absent when none do.
+	 *
+	 * The other side of `waits`: what leaving this card undone holds up. Derived here
+	 * rather than in the page's script for the same reason, and filtered to the unfinished
+	 * for the same reason a finished blocker does not count.
+	 */
+	dependents?: string;
 }
 
 /** One lane and the cards in it, in the order the page draws them. */
@@ -161,8 +169,14 @@ export function buildView(input: ViewInput): BoardView {
  * derived field written onto one would outlive the read that made it.
  */
 function viewCardOf(card: Card, index: ReadonlyMap<string, Card>): ViewCard {
-	const waits = blockersText(blockersOf(card, index));
-	return { ...card, priority: priorityOf(card), ...(waits === "" ? {} : { waits }) };
+	const waits = lanesText(blockersOf(card, index));
+	const dependents = lanesText(openDependentsOf(card.id, index));
+	return {
+		...card,
+		priority: priorityOf(card),
+		...(waits === "" ? {} : { waits }),
+		...(dependents === "" ? {} : { dependents }),
+	};
 }
 
 /** The roster as the page shows it, ordered so a repaint never reorders it. */

@@ -417,6 +417,9 @@ __RUNTIME__
     // The dialog and the card face say one thing, from one field: the ids it was linked
     // to are the storage, and a reader is owed the lanes that make them a decision.
     setRow("depends", card.waits !== undefined, card.waits || "", card.waits);
+    // The other side of the same link: what leaving this card undone is holding up, which
+    // is the one thing a card's own row cannot say.
+    setRow("dependents", card.dependents !== undefined, card.dependents || "", card.dependents);
 
     // A long plan path elides on one line, and the whole of it is on the hover title and
     // in the text, so it stays copyable: the reason to open a card is often its plan.

@@ -523,6 +523,12 @@ describe("edit and the links between cards", () => {
 		// does not read the whole board.
 		expect(text(linked)).toContain("waits on: #1");
 		expect(text(await call({ action: "list", card: "2" }))).toContain("waits on: #1 (todo)");
+		// The blocker's own answer names what it holds up, which is the half a card cannot say
+		// about itself: it is the cost of leaving #1 undone.
+		expect(text(await call({ action: "list", card: "1" }))).toContain("waited on by 1 card: #2 (todo)");
+		await call({ action: "add", title: "Third" });
+		await call({ action: "edit", card: "3", dependsOn: ["1"] });
+		expect(text(await call({ action: "list", card: "1" }))).toContain("waited on by 2 cards: #2 (todo), #3 (todo)");
 		const refused = await call({ action: "claim", card: "2" });
 		expect(refused.isError).toBe(true);
 		expect(text(refused)).toContain("#2 waits on #1 (todo).");

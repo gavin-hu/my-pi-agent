@@ -85,6 +85,27 @@ describe("buildView", () => {
 		expect(cleared.lanes[0]?.cards[0]?.waits).toBeUndefined();
 	});
 
+	test("names what a card is holding up, and forgets a dependent that finished", () => {
+		// The mirror line: the page draws it from the card it is handed, so a view that
+		// dropped the field would leave the dialog saying a blocker's own cost is nothing.
+		const view = buildView({
+			me: ME,
+			cards: [
+				card("2", { status: "doing" }),
+				card("4", { dependsOn: ["2"] }),
+				card("5", { status: "done", dependsOn: ["2"], owner: { label: "x" } }),
+			],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		const blocker = view.lanes.flatMap((lane) => lane.cards).find((entry) => entry.id === "2");
+		expect(blocker?.dependents).toBe("#4 (todo)");
+		// A card nothing waits on carries no field at all: absence is the fact.
+		const dependent = view.lanes.flatMap((lane) => lane.cards).find((entry) => entry.id === "4");
+		expect(dependent?.dependents).toBeUndefined();
+	});
+
 	test("carries a block's reason and a finished card's commit through to the lanes", () => {
 		// The page draws both from the card it is handed, so a field the view dropped would
 		// be a blank line where the reason and the commit belong.

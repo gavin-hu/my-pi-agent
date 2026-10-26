@@ -40,14 +40,16 @@ export function blockersOf(card: Card, board: BoardIndex): Card[] {
 }
 
 /**
- * The same list as a reader meets it: `#2 (doing), #3 (blocked)`.
+ * A list of cards as a reader meets it: `#2 (doing), #3 (blocked)`.
  *
  * The lane is what turns ids into a decision — a finished card is about to start, a
  * `doing` one is to leave alone — so it is never left out. One wording serves the
- * refusal sentence and the page's reason line, because two would drift.
+ * refusal sentence, the page's reason line, and the mirror question of what a card is
+ * holding up: every one of them is a list of cards read to decide something, so a second
+ * formatter would be a second way for the same list to read.
  */
-export function blockersText(blockers: readonly Card[]): string {
-	return blockers.map((blocker) => `${cardRef(blocker.id)} (${blocker.status})`).join(", ");
+export function lanesText(cards: readonly Card[]): string {
+	return cards.map((card) => `${cardRef(card.id)} (${card.status})`).join(", ");
 }
 
 /** The cards that wait on `id`, oldest id first, so a report reads in board order. */
@@ -55,11 +57,23 @@ export function dependentsOf(id: string, board: BoardIndex): Card[] {
 	return [...board.values()].filter((card) => dependsOf(card).includes(id)).sort((a, b) => Number(a.id) - Number(b.id));
 }
 
+/**
+ * The cards still waiting on `id`: the work this card is holding up.
+ *
+ * The mirror of {@link blockersOf}, and for the same reason — a finished dependent has
+ * stopped waiting, so it stops counting here and a card whose only dependents are done
+ * reads as one nothing waits on. `dependentsOf` keeps every edge, because the drop
+ * refusal is about a link that would be stranded rather than about work that is held up.
+ */
+export function openDependentsOf(id: string, board: BoardIndex): Card[] {
+	return dependentsOf(id, board).filter((card) => card.status !== "done");
+}
+
 /** The sentence a claim, a move, or an assignment is refused with while `card` waits, or undefined. */
 export function waitingOn(card: Card, board: BoardIndex): string | undefined {
 	const blockers = blockersOf(card, board);
 	if (blockers.length === 0) return undefined;
-	return `${cardRef(card.id)} waits on ${blockersText(blockers)}.`;
+	return `${cardRef(card.id)} waits on ${lanesText(blockers)}.`;
 }
 
 /** The sentence a drop is refused with while another card waits on `id`, or undefined. */

@@ -287,6 +287,42 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("shows a card's own cost: the cards waiting on it", async () => {
+		// A link is stored on the waiting card alone, so the blocker's dialog can only say
+		// this by being handed the answer the graph computed.
+		const now = clock.now();
+		await store.mutate(
+			"2",
+			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: ["1"] },
+			LEAD,
+			now,
+		);
+		try {
+			const page = await openPage();
+			await page.click('#lane-todo .board-card__title:text-is("Export orders as CSV")');
+			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+			expect(await page.textContent("#card-dialog-dependents")).toBe("#2 (todo)");
+			expect(await hidden(page, "#card-dialog-dependents-label")).toBe(false);
+			// The same card waits on nothing, so that row is absent rather than empty.
+			expect(await hidden(page, "#card-dialog-depends")).toBe(true);
+			await page.keyboard.press("Escape");
+
+			// The dependent's own dialog says the other direction, from the same link.
+			await page.click('#lane-todo .board-card__title:text-is("Invoice totals round the wrong way")');
+			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+			expect(await page.textContent("#card-dialog-depends")).toBe("#1 (todo)");
+			expect(await hidden(page, "#card-dialog-dependents")).toBe(true);
+			await page.close();
+		} finally {
+			await store.mutate(
+				"2",
+				{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [] },
+				LEAD,
+				now,
+			);
+		}
+	});
+
 	test("walks to the next card with j, and says where it landed", async () => {
 		const page = await openPage();
 		await page.click("#lane-todo .board-card__title");

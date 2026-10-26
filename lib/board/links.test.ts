@@ -11,11 +11,12 @@ import { describe, expect, test } from "bun:test";
 import { CARD_VERSION, type Card, MAX_DEPENDS } from "./card.ts";
 import {
 	blockersOf,
-	blockersText,
 	dependentsOf,
 	dependedOn,
 	indexOf,
+	lanesText,
 	normalizeDepends,
+	openDependentsOf,
 	waitingOn,
 	wouldCycle,
 } from "./links.ts";
@@ -56,15 +57,15 @@ describe("blockersOf", () => {
 	});
 });
 
-describe("blockersText", () => {
-	test("names each blocker with the lane that makes it a decision", () => {
+describe("lanesText", () => {
+	test("names each card with the lane that makes it a decision", () => {
 		const board = indexOf([held("2"), held("3", "blocked")]);
-		expect(blockersText(blockersOf(board.get("2") as Card, board))).toBe("");
-		expect(blockersText([board.get("3") as Card, board.get("2") as Card])).toBe("#3 (blocked), #2 (doing)");
+		expect(lanesText(blockersOf(board.get("2") as Card, board))).toBe("");
+		expect(lanesText([board.get("3") as Card, board.get("2") as Card])).toBe("#3 (blocked), #2 (doing)");
 	});
 
-	test("says nothing for a card that waits on nothing", () => {
-		expect(blockersText([])).toBe("");
+	test("says nothing for an empty list", () => {
+		expect(lanesText([])).toBe("");
 	});
 });
 
@@ -99,6 +100,30 @@ describe("dependentsOf and dependedOn", () => {
 	test("says nothing when nothing waits on it", () => {
 		const board = indexOf([card("1"), card("5")]);
 		expect(dependedOn("1", board)).toBeUndefined();
+	});
+
+	test("a drop is refused by a finished card too: the link would be stranded either way", () => {
+		// The drop question is about the edge, not the work, which is why the refusal reads
+		// `dependentsOf` and not `openDependentsOf`.
+		const board = indexOf([card("1"), held("5", "done", { dependsOn: ["1"] })]);
+		expect(dependedOn("1", board)).toBe("#1 is waited on by #5; drop that card first.");
+		expect(openDependentsOf("1", board)).toEqual([]);
+	});
+});
+
+describe("openDependentsOf", () => {
+	test("names what the card is holding up, and forgets what stopped waiting", () => {
+		const board = indexOf([
+			card("1"),
+			card("5", { dependsOn: ["1"] }),
+			held("3", "doing", { dependsOn: ["1", "5"] }),
+			held("4", "done", { dependsOn: ["1"] }),
+		]);
+		// Open, in id order: #3 and #5, not the finished #4.
+		expect(openDependentsOf("1", board).map((entry) => entry.id)).toEqual(["3", "5"]);
+		expect(openDependentsOf("5", board).map((entry) => entry.id)).toEqual(["3"]);
+		// A card nothing waits on, and a card whose only dependents are finished, read alike.
+		expect(openDependentsOf("3", board)).toEqual([]);
 	});
 });
 

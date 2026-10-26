@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a card says what it is holding up, not only what it waits for. A link is stored
+  on the waiting card alone, so `list <card>` and the page's dialog could name a blocker
+  and never the cost of leaving one undone; they now name the cards waiting on it —
+  `waited on by 1 card: #2 (todo)` in the tool's result, a `waited on by` rung in the
+  dialog, both derived in `lib/board/view.ts` so the page holds no second copy of the
+  rule. Both skip a finished card, unlike the drop refusal, which keeps every edge because
+  it is about a link rather than about work.
+
 - `plan`: a refinement keeps the revision it replaced, so two versions of a plan can be
   diffed and a comment carried onto a block that moved can be checked against the text the
   reviewer actually read. `write_plan` with `plan_path` overwrote the file in place and

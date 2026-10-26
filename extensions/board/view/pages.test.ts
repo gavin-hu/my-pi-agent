@@ -112,6 +112,7 @@ describe("the document", () => {
 			"card-dialog-by",
 			"card-dialog-landed",
 			"card-dialog-depends",
+			"card-dialog-dependents",
 			"card-dialog-plan",
 			"card-dialog-paths",
 			"card-dialog-path-list",
@@ -252,7 +253,7 @@ describe("the client bundle", () => {
 		// The ladder is written once: a row is a name, and the label and the value are
 		// found from it, so a row cannot ship with one half hidden.
 		expect(BOARD_CLIENT_JS).toContain('"card-dialog-" + name + "-label"');
-		for (const row of ["updated", "by", "landed", "depends", "plan"]) {
+		for (const row of ["updated", "by", "landed", "depends", "dependents", "plan"]) {
 			expect(BOARD_CLIENT_JS, row).toContain(`setRow("${row}"`);
 		}
 		// The title is the only door: a face that drew a verb would draw a refusal.

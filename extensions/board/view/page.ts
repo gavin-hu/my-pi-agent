@@ -95,6 +95,7 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS })}
           <dt id="card-dialog-by-label">last edited</dt><dd class="${N.dialogValue}" id="card-dialog-by"></dd>
           <dt id="card-dialog-landed-label" hidden>landed</dt><dd class="${N.dialogValue}" id="card-dialog-landed" hidden></dd>
           <dt id="card-dialog-depends-label" hidden>waits on</dt><dd class="${N.dialogValue}" id="card-dialog-depends" hidden></dd>
+          <dt id="card-dialog-dependents-label" hidden>waited on by</dt><dd class="${N.dialogValue}" id="card-dialog-dependents" hidden></dd>
           <dt id="card-dialog-plan-label" hidden>plan</dt><dd class="${N.dialogValue} ${N.dialogPlan}" id="card-dialog-plan" hidden></dd>
           <dt id="card-dialog-paths-label" hidden>paths</dt><dd id="card-dialog-paths" hidden><ul class="${N.dialogPaths}" id="card-dialog-path-list"></ul></dd>
         </dl>

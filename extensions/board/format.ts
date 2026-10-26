@@ -12,7 +12,7 @@
  */
 
 import { type Card, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
-import type { BoardIndex } from "../../lib/board/links.ts";
+import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import type { Skip } from "../../lib/board/store.ts";
 import { plural } from "../../lib/board/round-text.ts";
 
@@ -80,6 +80,15 @@ function detailLines(card: Card, board?: BoardIndex): string[] {
 	if (card.plan !== undefined) lines.push(`  plan: ${card.plan}`);
 	if (card.paths.length > 0) lines.push(`  paths: ${card.paths.join(", ")}`);
 	if (dependsOf(card).length > 0) lines.push(`  waits on: ${waitingOf(card, board)}`);
+	// The mirror question, for the same board: what leaving this card undone holds up. Only
+	// a card with the board in hand can answer it, which is why a bare card read omits it.
+	if (board !== undefined) {
+		const dependents = openDependentsOf(card.id, board);
+		if (dependents.length > 0) {
+			const which = dependents.length === 1 ? "card" : "cards";
+			lines.push(`  waited on by ${dependents.length} ${which}: ${lanesText(dependents)}`);
+		}
+	}
 	if (card.notes.length > 0) {
 		const last = card.notes.at(-1);
 		if (last) lines.push(`  last note (${last.by}): ${last.text}`);
