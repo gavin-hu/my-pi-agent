@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board`: a finished card can leave the board without being destroyed. It had two exits:
+  stay in `done` for good, so every read pays for a history that only grows, or be dropped,
+  which takes its notes and leaves a line in `ended/`. `archive` is the third — one card, or
+  every finished card when none is named — and it moves the card's file into an `archive/`
+  pile beside the cards, untouched, so its notes, plan, owner, and landed commit stay
+  readable while the board, the rollup, and the page stop reading it. `list archived: true`
+  reads the pile (`query` and `mine` narrow it; `status` and `round` do not apply), a
+  lane-less `list` counts what it left aside so the omission cannot pass for a deleted
+  history, and an id stays spent because the file's name is the id. `ended/` keeps its one
+  reason: a drop is still the only thing that leaves a record, and it is also the way to
+  delete an archived card. Nothing un-archives.
+
 - `team`: an offer leaves a record, so an unanswered one stops looking like a card nobody
   has looked at. An offer is a bus event and nothing on the card, which meant a card offered
   to three sessions that all ignored it read exactly like one nobody had seen; `offer` now

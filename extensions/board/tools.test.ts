@@ -97,7 +97,7 @@ describe("the registration", () => {
 
 	test("refuses an action it does not have, without throwing", async () => {
 		const { call } = harness();
-		const result = await call({ action: "archive" });
+		const result = await call({ action: "reopen" });
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toContain("unknown action");
 	});
@@ -621,6 +621,98 @@ describe("drop", () => {
 		expect(result.isError).toBe(true);
 		expect(text(result)).toContain("cannot be dropped while someone holds it");
 		expect(result.details.card?.id).toBe("1");
+	});
+});
+
+describe("archive", () => {
+	/** A finished card, which is the only kind the verb will take. */
+	async function finish(call: (args: Record<string, unknown>) => Promise<{ details: BoardDetails }>, id: string) {
+		await call({ action: "claim", card: id });
+		await call({ action: "move", card: id, status: "done" });
+	}
+
+	test("sets a finished card aside and names the way to read it again", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Finished one", note: "kept" });
+		await call({ action: "add", title: "Open one" });
+		await finish(call, "1");
+		const result = await call({ action: "archive", card: "1" });
+		expect(result.details.archived).toEqual(["1"]);
+		expect(text(result)).toBe(
+			"1 card archived: #1 — out of the board, its notes and plan still readable with archived: true.",
+		);
+		// The board no longer pays for it, and a listing that left it out says so rather
+		// than reading as history somebody deleted.
+		const board = await call({ action: "list" });
+		expect(board.details.cards?.map((card) => card.id)).toEqual(["2"]);
+		expect(text(board)).toContain("1 card is set aside in the archive; pass archived: true to read it.");
+		// Gone and set aside are different answers.
+		const miss = await call({ action: "list", card: "1" });
+		expect(miss.isError).toBe(true);
+		expect(miss.details.error).toBe("#1 is archived; pass archived: true to read it.");
+		const pile = await call({ action: "list", archived: true });
+		expect(pile.details.cards?.map((card) => card.id)).toEqual(["1"]);
+		expect(text(pile)).toContain("#1 done · Finished one · billing-lead");
+	});
+
+	test("sets every finished card aside when no card is named", async () => {
+		const { call } = harness();
+		for (const title of ["One", "Two", "Three"]) await call({ action: "add", title });
+		await finish(call, "1");
+		await finish(call, "2");
+		await call({ action: "claim", card: "3" });
+		const result = await call({ action: "archive" });
+		expect(result.details.archived).toEqual(["1", "2"]);
+		expect(text(result)).toContain("2 cards archived: #1, #2");
+		expect((await call({ action: "list" })).details.cards?.map((card) => card.id)).toEqual(["3"]);
+		expect((await call({ action: "list", archived: true })).details.cards?.map((card) => card.id)).toEqual(["1", "2"]);
+		// Nothing finished left to move is an answer, not a failure.
+		expect(text(await call({ action: "archive" }))).toBe("No finished cards to archive.");
+	});
+
+	test("refuses a card that has not finished, and one that is already aside", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		const refused = await call({ action: "archive", card: "1" });
+		expect(refused.isError).toBe(true);
+		expect(refused.details.error).toBe("#1 is in todo; only a finished card can be archived.");
+		await finish(call, "1");
+		await call({ action: "archive", card: "1" });
+		expect(text(await call({ action: "archive", card: "1" }))).toBe("#1 is already archived.");
+	});
+
+	test("keeps the id spent, so the next card takes a new one", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await finish(call, "1");
+		await call({ action: "archive", card: "1" });
+		const added = await call({ action: "add", title: "Two" });
+		expect(added.details.card?.id).toBe("2");
+	});
+
+	test("refuses a lane and a rollup, which an out-of-board pile has no answer for", async () => {
+		const { call } = harness();
+		const lane = await call({ action: "list", archived: true, status: "done" });
+		expect(lane.isError).toBe(true);
+		expect(lane.details.error).toBe(
+			"archived does not read status: the archive is one pile of finished cards, out of the board.",
+		);
+		expect((await call({ action: "list", archived: true, round: true })).details.error).toContain("round");
+	});
+
+	test("counts what it left aside under the rollup too, and reads one archived card by id", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await finish(call, "1");
+		await call({ action: "archive", card: "1" });
+		const round = await call({ action: "list", round: true });
+		expect(text(round)).toContain("0 features");
+		expect(text(round)).toContain("1 card is set aside in the archive");
+		const one = await call({ action: "list", archived: true, card: "1" });
+		expect(one.details.card?.id).toBe("1");
+		expect(text(one)).toContain("#1 done · One");
+		// The other direction: an id the archive does not hold is named as such.
+		expect((await call({ action: "list", archived: true, card: "9" })).details.error).toBe("#9 is not in the archive.");
 	});
 });
 

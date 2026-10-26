@@ -485,6 +485,41 @@ describe("drop", () => {
 	});
 });
 
+describe("archive", () => {
+	/** A card that finished, which is the only kind that may be set aside. */
+	function finished(): Card {
+		return accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+	}
+
+	test("a finished card is anyone's to set aside, and its record does not move", () => {
+		const done = finished();
+		const { card, changed } = accepted(applyOp(done, { kind: "archive" }, OTHER, NOW + 1, indexOf([done])));
+		expect(changed).toBe(true);
+		// The pile is the whole of the state: no field, no revision, and no lane change,
+		// because an archived card is still done and its history still says so.
+		expect(card).toEqual(done);
+		expect(card.log).toEqual(done.log);
+	});
+
+	test("a card still in flight is refused, naming the lane it is in", () => {
+		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
+		expect(refusal(applyOp(created, { kind: "archive" }, LEAD, NOW, indexOf([created])))).toBe(
+			"#4 is in todo; only a finished card can be archived.",
+		);
+		expect(refusal(applyOp(claimed(), { kind: "archive" }, CORE, NOW, indexOf([claimed()])))).toBe(
+			"#4 is in doing; only a finished card can be archived.",
+		);
+	});
+
+	test("leaving the board writes nothing, so the invariants are untouched", () => {
+		const done = finished();
+		const { card } = accepted(applyOp(done, { kind: "archive" }, LEAD, NOW, indexOf([done])));
+		expect(card.rev).toBe(done.rev);
+		expect(card.updatedAt).toBe(done.updatedAt);
+		expect(card.status === "todo").toBe(card.owner === undefined);
+	});
+});
+
 describe("the transition log", () => {
 	test("a new card is born in todo, and says so", () => {
 		const card = createCard("4", { title: "T", paths: ["src"] }, LEAD, NOW);

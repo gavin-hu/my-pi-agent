@@ -25,6 +25,7 @@ export const BOARD_ACTIONS = [
 	"note",
 	"plan",
 	"edit",
+	"archive",
 	"drop",
 ] as const;
 
@@ -52,6 +53,8 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	note: "appends to its history",
 	plan: "records the plan file being executed",
 	edit: "fixes what the card says — title, path hints, priority, and what it waits for",
+	archive:
+		"sets a finished card aside, out of the board and still readable, or every finished card when no `card` is named",
 	drop: "deletes a `todo`, a `done`, or one you hold",
 };
 
@@ -67,7 +70,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
  * a new field cannot be published without an action that acts on it.
  */
 export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
-	list: ["card", "status", "mine", "query", "round"],
+	list: ["card", "status", "mine", "query", "round", "archived"],
 	add: ["title", "paths", "priority", "note"],
 	claim: ["card"],
 	release: ["card"],
@@ -76,6 +79,7 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	note: ["card", "text"],
 	plan: ["card", "path"],
 	edit: ["card", "title", "paths", "priority", "dependsOn"],
+	archive: ["card"],
 	drop: ["card"],
 };
 
@@ -102,6 +106,8 @@ export interface BoardDetails {
 	round?: RoundSummary;
 	/** The id a `drop` removed. */
 	dropped?: string;
+	/** The ids an `archive` set aside, in the order it moved them. */
+	archived?: string[];
 	/** A refusal's reason, which the renderer draws instead of the details. */
 	error?: string;
 }

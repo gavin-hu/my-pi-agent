@@ -77,4 +77,10 @@ export const BoardParams = Type.Object({
 			description: "`list`: also return the lead's rollup — owners, unassigned, unplanned, blocked, idle.",
 		}),
 	),
+	archived: Type.Optional(
+		Type.Boolean({
+			description:
+				"`list`: read the archive instead of the board — the finished cards `archive` set aside, which no other read opens. `query` and `mine` narrow it; `status` and `round` do not apply to a pile that is out of the board.",
+		}),
+	),
 });

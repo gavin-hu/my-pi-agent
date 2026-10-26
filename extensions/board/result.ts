@@ -58,6 +58,15 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
  */
 export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	const me = paint(theme, "faint", sanitizeLine(details.me.label));
+	const archived = details.archived;
+	if (archived !== undefined && archived.length > 0) {
+		const first = archived[0];
+		const label =
+			archived.length === 1 && first !== undefined
+				? `${cardRef(first)} archived`
+				: `${plural(archived.length, "card")} archived`;
+		return `${paint(theme, "label", label)} ${SEPARATORS.item} ${me}`;
+	}
 	if (details.dropped)
 		return `${paint(theme, "label", `${cardRef(details.dropped)} dropped`)} ${SEPARATORS.item} ${me}`;
 	const card = details.card;

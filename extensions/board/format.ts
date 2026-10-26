@@ -23,23 +23,62 @@ export function formatCard(card: Card, board?: BoardIndex, now?: number): string
 }
 
 /**
- * A board's listing: the cards, then the two things a reader cannot see.
+ * What a listing cannot show, and therefore has to say.
+ *
+ * A footnote is the difference between a listing and the board: an omission nobody
+ * accounted for reads as a smaller board — or as history that was deleted.
+ */
+export interface ListingNotes {
+	/** Finished cards the board holds that a lane-less listing left out. */
+	hiddenDone: number;
+	/** Cards set aside in the archive, which no board read opens. */
+	archived: number;
+	/** Card files this build could not read. */
+	skipped: readonly Skip[];
+}
+
+/**
+ * A board's listing: the cards, then the footnotes a reader cannot see.
  *
  * One body, because the footnotes belong to the listing: a card file this build cannot
- * read, and the finished cards a plain listing left out.
+ * read, the finished cards a plain listing left out, and the cards an `archive` set aside.
  */
-export function formatBoard(shown: readonly Card[], hiddenDone: number, skipped: readonly Skip[]): string {
+export function formatBoard(shown: readonly Card[], notes: ListingNotes): string {
 	const lines =
-		shown.length === 0 ? [hiddenDone === 0 ? "The board is empty." : "No open cards."] : shown.map(listLine);
+		shown.length === 0 ? [notes.hiddenDone === 0 ? "The board is empty." : "No open cards."] : shown.map(listLine);
 	// A finished card is history rather than work, so a listing that names no lane leaves
 	// them out; the count is what keeps the omission from reading as a smaller board.
-	if (hiddenDone > 0) {
-		const them = hiddenDone === 1 ? "it" : "them";
-		lines.push(`${plural(hiddenDone, "done card")} hidden; pass status: "done" to read ${them}.`);
+	if (notes.hiddenDone > 0) {
+		const them = notes.hiddenDone === 1 ? "it" : "them";
+		lines.push(`${plural(notes.hiddenDone, "done card")} hidden; pass status: "done" to read ${them}.`);
 	}
+	for (const note of [archiveNote(notes.archived), formatSkipped(notes.skipped)]) {
+		if (note !== "") lines.push(note);
+	}
+	return lines.join("\n");
+}
+
+/**
+ * The archive's listing: what is set aside, and the files there this build refused.
+ *
+ * The archive is read on request only, so this has no lane footnote of its own — every
+ * card in the pile is finished, and a `done` lane would be a second way to say it.
+ */
+export function formatArchive(shown: readonly Card[], skipped: readonly Skip[]): string {
+	const lines = shown.length === 0 ? ["The archive is empty."] : shown.map(listLine);
 	const unreadable = formatSkipped(skipped);
 	if (unreadable !== "") lines.push(unreadable);
 	return lines.join("\n");
+}
+
+/**
+ * The one sentence a board listing adds so its archive is not mistaken for deleted history.
+ *
+ * Empty when nothing is set aside, so the ordinary board says nothing new.
+ */
+export function archiveNote(count: number): string {
+	if (count === 0) return "";
+	return `${plural(count, "card")} ${count === 1 ? "is" : "are"} set aside in the archive; pass archived: true to read ${count === 1 ? "it" : "them"}.`;
 }
 
 /**
@@ -57,6 +96,17 @@ export function formatSkipped(skipped: readonly Skip[]): string {
 /** The dropped id, which is the only thing left of the card. */
 export function formatDropped(id: string): string {
 	return `${cardRef(id)} dropped, with its notes.`;
+}
+
+/**
+ * The ids an archive set aside, and how to read them again.
+ *
+ * A move has to name the way back or it reads like a deletion: the card is out of the
+ * board and its notes, plan, and landed commit are still in its file.
+ */
+export function formatArchived(ids: readonly string[]): string {
+	const theirs = ids.length === 1 ? "its" : "their";
+	return `${plural(ids.length, "card")} archived: ${ids.map(cardRef).join(", ")} — out of the board, ${theirs} notes and plan still readable with archived: true.`;
 }
 
 /** A one-line listing: the id, the lane, the title, and who holds it. */
