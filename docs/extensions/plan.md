@@ -924,6 +924,7 @@ both.
 | `web-page.ts` | The review page shell (header, reading progress, review facts, section outline, shortcut sheet, approve confirmation, share and name dialogs), its data island, and inline CSS. |
 | `web-share.ts` | Pure sharing rules: the reachable LAN addresses from an injected snapshot, one tokenized URL, the link table (mint, find, revoke, list, state) with its cap, and the reasons a share is unavailable. |
 | `web-share-session.ts` | The shared listener: its bound address, the link table over the session's tokens, `ShareState`, and invite/revoke/stop/close, injected with the request handler, role map, and frame hooks. |
+| `web-draft.ts` | The client's draft guard as typed source (`WEB_DRAFT_JS`): `draftTextarea` answers the open composer's textarea when it holds text, and `guardDraft` refuses the ways off the page, names the reason once, and puts the cursor back in it. |
 | `web-blocks.ts` | The client's block navigation as typed source (`WEB_BLOCKS_JS`): `blockElements`, `setActive` and `moveActive` — which return the index they computed, so the client keeps the one `activeIndex` — and `blockAtLine`, which needs both the rendered block and its island entry. |
 | `web-client.ts` | The `/client.js` source: state and wiring (comment rail, save/approve/back, keyboard nav, the stream's lifetime) over the fragments below. |
 | `web-comments.ts` | The client's comment half: selection quotes, the composer, authored cards and who may edit them, delete-with-undo. |
