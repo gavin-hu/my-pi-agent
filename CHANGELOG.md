@@ -43,6 +43,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the store's size, and an action on one says the file is there and unreadable rather
   than that the card does not exist.
 
+- `board`: a lane says why a card is in it, and what closed it. `blocked` asks a person
+  for a decision, so `move` now records that decision in one line (`blockedBy`, at most
+  200 characters) and the card face draws it instead of guessing from the last note; the
+  sentence survives a `release`, because the decision is still pending, and is cleared on
+  the way back into `doing` or `done`. A move to `done` records `landed` — the commit
+  `HEAD` resolved to — because `done` is terminal and a finished card could not otherwise
+  say which change closed it. Both fields are optional: a card may be blocked with
+  nothing recorded, and a board outside a repository finishes cards without a commit.
+
 ### Changed
 
 - `bytefly`: a model the session cannot price is named instead of silently missing from

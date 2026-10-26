@@ -13,7 +13,7 @@
 
 import { openBoardSession } from "../../lib/board/session.ts";
 import { fakeCtx } from "./context.ts";
-import { createFakePi } from "./fakes.ts";
+import { createFakePi, type FakePiOptions } from "./fakes.ts";
 import { tempDir } from "./env.ts";
 
 /** What a suite may vary about the board it is given. */
@@ -29,6 +29,8 @@ export interface BoardHarnessOptions {
 	now?: number;
 	/** The suite's temp tracker, so a directory this creates is cleaned up. */
 	track?: <T extends string | undefined>(dir: T) => T;
+	/** Override `exec`, for a case whose directory is a real repository. */
+	exec?: FakePiOptions["exec"];
 }
 
 /** One board: the host, its session runtime, and the context a call is made with. */
@@ -37,9 +39,10 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 	const agentDir = options.agentDir ?? track(tempDir("pi-agent-"));
 	const cwd = options.cwd ?? track(tempDir("pi-repo-"));
 	const now = options.now ?? 50_000;
-	// No git answers, so the directory keys on itself: the fallback every
-	// non-repository session takes, and one less subprocess per case.
-	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
+	// No git answers by default, so the directory keys on itself: the fallback every
+	// non-repository session takes, and one less subprocess per case. A case that needs a
+	// repository (a move to done records its commit) passes `exec`.
+	const fake = createFakePi({ exec: options.exec ?? (async () => ({ stdout: "", stderr: "", code: 1 })) });
 	const runtime = openBoardSession(fake.pi, { now: () => now, agentDir });
 	const { ctx, notifications } = fakeCtx({
 		cwd,

@@ -31,6 +31,12 @@ export const BoardParams = Type.Object({
 			},
 		),
 	),
+	blockedBy: Type.Optional(
+		Type.String({
+			description:
+				"`move` to `blocked`: what the card waits on — the decision a person has to make, one line, at most 200 characters.",
+		}),
+	),
 	title: Type.Optional(Type.String({ description: "`add` and `edit`: the feature's outcome, one line." })),
 	paths: Type.Optional(
 		Type.Array(Type.String(), {

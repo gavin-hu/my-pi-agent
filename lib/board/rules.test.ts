@@ -223,6 +223,82 @@ describe("move", () => {
 		);
 	});
 
+	test("a block records what it waits on, and a leave clears it", () => {
+		const card = claimed();
+		const blocked = accepted(
+			applyOp(
+				card,
+				{ kind: "move", status: "blocked", blockedBy: "waiting on the marketing copy" },
+				CORE,
+				NOW,
+				indexOf([card]),
+			),
+		).card;
+		expect(blocked.blockedBy).toBe("waiting on the marketing copy");
+		// The decision is what `blocked` is for, so the sentence belongs to the lane: a card
+		// that goes back to work no longer says it is waiting on anything.
+		expect(
+			accepted(applyOp(blocked, { kind: "move", status: "doing" }, CORE, NOW, indexOf([blocked]))).card.blockedBy,
+		).toBeUndefined();
+	});
+
+	test("a card may be blocked with nothing recorded, and a repeated block may change the sentence", () => {
+		const card = claimed();
+		const unrecorded = accepted(applyOp(card, { kind: "move", status: "blocked" }, CORE, NOW, indexOf([card])));
+		expect(unrecorded.card.blockedBy).toBeUndefined();
+		expect(unrecorded.changed).toBe(true);
+
+		const recorded = accepted(
+			applyOp(
+				unrecorded.card,
+				{ kind: "move", status: "blocked", blockedBy: "legal has to sign" },
+				CORE,
+				NOW,
+				indexOf([unrecorded.card]),
+			),
+		);
+		expect(recorded.card.blockedBy).toBe("legal has to sign");
+		expect(recorded.changed).toBe(true);
+	});
+
+	test("a release keeps the block, because the decision is still pending", () => {
+		const card = claimed();
+		const blocked = accepted(
+			applyOp(card, { kind: "move", status: "blocked", blockedBy: "legal has to sign" }, CORE, NOW, indexOf([card])),
+		).card;
+		const released = accepted(applyOp(blocked, { kind: "release" }, CORE, NOW, indexOf([blocked]))).card;
+		expect(released.status).toBe("todo");
+		expect(released.blockedBy).toBe("legal has to sign");
+	});
+
+	test("a move to done records the commit that closed the card", () => {
+		const card = claimed();
+		const done = accepted(
+			applyOp(card, { kind: "move", status: "done", landed: { commit: "4af1b4a" } }, CORE, NOW, indexOf([card])),
+		).card;
+		expect(done.landed).toEqual({ commit: "4af1b4a", at: NOW });
+		expect(done.blockedBy).toBeUndefined();
+	});
+
+	test("a move to done without a commit still finishes the card", () => {
+		const card = claimed();
+		const done = accepted(applyOp(card, { kind: "move", status: "done" }, CORE, NOW, indexOf([card]))).card;
+		expect(done.landed).toBeUndefined();
+		expect(done.status).toBe("done");
+	});
+
+	test("refuses a block whose sentence is empty or too long", () => {
+		const card = claimed();
+		expect(
+			refusal(applyOp(card, { kind: "move", status: "blocked", blockedBy: "  " }, CORE, NOW, indexOf([card]))),
+		).toBe("blockedBy must say what the card waits on.");
+		expect(
+			refusal(
+				applyOp(card, { kind: "move", status: "blocked", blockedBy: "x".repeat(201) }, CORE, NOW, indexOf([card])),
+			),
+		).toBe("blockedBy must be at most 200 characters.");
+	});
+
 	test("refuses to move a finished card anywhere", () => {
 		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(refusal(applyOp(done, { kind: "move", status: "blocked" }, CORE, NOW, indexOf([done])))).toBe(

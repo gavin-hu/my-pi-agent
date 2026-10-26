@@ -115,13 +115,20 @@ const renderTemplate = String.raw`(function () {
     if (card.waits !== undefined) return { text: "waits on " + card.waits, kind: "waiting" };
     if (card.status === "blocked") {
       // The lane already says blocked and the tone already says danger; the line says why.
+      // The recorded reason comes first: the note is what somebody happened to write last,
+      // and it is the reason a move to blocked asks for. The slot carries the reason alone —
+      // the lane head already says blocked, and a status prefix in it would be a second voice.
+      if (card.blockedBy) return { text: card.blockedBy, kind: "blocked" };
       return { text: last ? last.text : "blocked, with nothing recorded", kind: "blocked" };
     }
     if (card.status === "doing" && !card.plan) {
       return { text: "no plan recorded", kind: "unplanned" };
     }
     if (card.status === "doing") return { text: "planned", kind: "plan" };
-    if (card.status === "done") return { text: "✓ done" + (card.owner ? " by " + card.owner.label : ""), kind: "done" };
+    if (card.status === "done") {
+      var landed = card.landed ? " · landed " + card.landed.commit : "";
+      return { text: "✓ done" + (card.owner ? " by " + card.owner.label : "") + landed, kind: "done" };
+    }
     return last ? { text: last.text, kind: "note" } : undefined;
   }
 
@@ -353,8 +360,11 @@ const renderTemplate = String.raw`(function () {
     var state = document.getElementById("card-dialog-state");
     state.setAttribute("data-status", card.status);
     state.textContent = card.status;
+    // The meta line carries what the card can say about itself beyond its title: who wrote
+    // it last, and — on a finished card — the commit that closed it.
     document.getElementById("card-dialog-meta").textContent =
-      "#" + card.id + " · updated " + ago(card.updatedAt) + " · last edited by " + card.by;
+      "#" + card.id + " · updated " + ago(card.updatedAt) + " · last edited by " + card.by +
+      (card.landed ? " · landed " + card.landed.commit : "");
     var owner = document.getElementById("card-dialog-owner");
     owner.textContent = "";
     owner.appendChild(card.owner ? chip(card.owner.label, "accent") : document.createTextNode("unassigned"));

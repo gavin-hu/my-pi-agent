@@ -32,6 +32,7 @@ import {
 	DEFAULT_PRIORITY,
 	dependsOf,
 	MAX_NOTES,
+	normalizeBlockedBy,
 	normalizeNote,
 	normalizePathHints,
 	normalizePlanPath,
@@ -57,7 +58,13 @@ export type CardOp =
 	 */
 	| { kind: "assign"; to: Actor; note?: unknown }
 	| { kind: "release" }
-	| { kind: "move"; status: Exclude<CardStatus, "todo"> }
+	/**
+	 * Change lane. `blockedBy` says what a block waits on, and `landed` says which commit
+	 * closed a card: both are read only by the lane they belong to, and both are optional,
+	 * because a card may be blocked with nothing recorded and a `done` card may predate the
+	 * field or live outside a repository.
+	 */
+	| { kind: "move"; status: Exclude<CardStatus, "todo">; blockedBy?: unknown; landed?: { commit: string } }
 	// `text` and `path` are whatever the model sent: `card.ts` validates them, and the
 	// refusal it produces is the one the caller shows.
 	| { kind: "note"; text: unknown }
@@ -125,7 +132,7 @@ export function applyOp(card: Card, op: CardOp, actor: Actor, now: number, board
 		case "release":
 			return release(card, actor, now);
 		case "move":
-			return move(card, op.status, actor, now, board);
+			return move(card, op, actor, now, board);
 		case "note":
 			return note(card, op.text, actor, now);
 		case "plan":
@@ -175,20 +182,59 @@ function release(card: Card, actor: Actor, now: number): OpResult {
 	return { ok: true, card: write(card, actor, now, { status: "todo", owner: undefined }), changed: true };
 }
 
-function move(card: Card, status: Exclude<CardStatus, "todo">, actor: Actor, now: number, board: BoardIndex): OpResult {
+function move(
+	card: Card,
+	op: Extract<CardOp, { kind: "move" }>,
+	actor: Actor,
+	now: number,
+	board: BoardIndex,
+): OpResult {
+	const status = op.status;
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be moved.` };
 	if (card.owner === undefined) {
 		return { ok: false, error: `${cardRef(card.id)} is unclaimed; claim it before moving it to ${status}.` };
 	}
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Only its owner can move it.` };
-	if (card.status === status) return { ok: true, card, changed: false };
+	// A block's reason is checked before the no-op: a caller that repeats a move with a new
+	// sentence meant to change it, and a refusal is clearer than a silent nothing.
+	let blockedBy: string | undefined;
+	if (status === "blocked" && op.blockedBy !== undefined) {
+		const parsed = normalizeBlockedBy(op.blockedBy);
+		if ("error" in parsed) return { ok: false, error: parsed.error };
+		blockedBy = parsed.blockedBy;
+	}
+	if (card.status === status && blockedBy === undefined) return { ok: true, card, changed: false };
 	// Parking is what a link is for, so only the two lanes that put a card back in flight
 	// are gated: a card that waits may be blocked, it may not be taken or finished.
 	if (status !== "blocked") {
 		const waiting = waitingOn(card, board);
 		if (waiting !== undefined) return { ok: false, error: waiting };
 	}
-	return { ok: true, card: write(card, actor, now, { status }), changed: true };
+	return { ok: true, card: write(card, actor, now, laneFields(status, blockedBy, op, now)), changed: true };
+}
+
+/**
+ * The fields one lane change writes.
+ *
+ * `blockedBy` belongs to `blocked` alone: a card that leaves for `doing` or `done` has
+ * had its decision or stopped needing one, and a stale sentence would be read as a
+ * current one. `landed` belongs to `done` alone, and only when the caller could name a
+ * commit — a board outside git still finishes cards, it just cannot say with what.
+ */
+function laneFields(
+	status: Exclude<CardStatus, "todo">,
+	blockedBy: string | undefined,
+	op: Extract<CardOp, { kind: "move" }>,
+	now: number,
+): Partial<Card> {
+	const fields: Partial<Card> = { status };
+	if (status === "blocked") {
+		if (blockedBy !== undefined) fields.blockedBy = blockedBy;
+	} else {
+		fields.blockedBy = undefined;
+	}
+	if (status === "done" && op.landed !== undefined) fields.landed = { commit: op.landed.commit, at: now };
+	return fields;
 }
 
 function note(card: Card, raw: unknown, actor: Actor, now: number): OpResult {
@@ -290,6 +336,9 @@ function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Ca
 	// released card reads back exactly like one that was never claimed. Only an
 	// explicit `owner` in `fields` may delete it: every other write keeps the holder.
 	if ("owner" in fields && fields.owner === undefined) delete next.owner;
+	// The same for the block: a card that left `blocked` has no reason, and a key holding
+	// undefined would be one more shape for a reader to know about.
+	if ("blockedBy" in fields && fields.blockedBy === undefined) delete next.blockedBy;
 	return next;
 }
 

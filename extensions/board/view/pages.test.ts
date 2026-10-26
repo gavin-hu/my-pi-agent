@@ -244,6 +244,17 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('"no plan recorded"');
 	});
 
+	test("says what a block waits on, and what closed a finished card", () => {
+		// The reason slot carries the recorded reason rather than the last note somebody
+		// happened to write, and the commit is the one fact a finished card cannot say itself.
+		expect(BOARD_CLIENT_JS).toContain("card.blockedBy");
+		expect(BOARD_CLIENT_JS).toContain("blocked, with nothing recorded");
+		// The bundle escapes the separator, so the assertion names it the way the page sends it.
+		expect(BOARD_CLIENT_JS).toContain('\\u00B7 landed " + card.landed.commit');
+		// The Team tab's queue carries the same reason for the same card, from one field.
+		expect(BOARD_CLIENT_JS).toContain("if (card.blockedBy) return card.blockedBy");
+	});
+
 	test("never parses a stored field", () => {
 		// `innerHTML` is the whole injection surface of a page like this one.
 		expect(BOARD_CLIENT_JS).not.toContain("innerHTML");

@@ -230,6 +230,28 @@ describe("isCard", () => {
 		}
 	});
 
+	test("accepts a recorded block and a landing, and an older card with neither", () => {
+		expect(isCard(card({ status: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }))).toBe(
+			true,
+		);
+		expect(
+			isCard(card({ status: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: 1 } })),
+		).toBe(true);
+		// The two fields are optional, so every card written before them still reads.
+		expect(isCard(card())).toBe(true);
+	});
+
+	test("refuses a block that is empty or over the cap, and a landing that is not one", () => {
+		const blocked = { status: "blocked" as const, owner: { label: "billing-core" } };
+		expect(isCard({ ...card(blocked), blockedBy: "" })).toBe(false);
+		expect(isCard({ ...card(blocked), blockedBy: "x".repeat(201) })).toBe(false);
+		expect(isCard({ ...card(blocked), blockedBy: 7 })).toBe(false);
+		const done = { status: "done" as const, owner: { label: "billing-core" } };
+		expect(isCard({ ...card(done), landed: { commit: "", at: 1 } })).toBe(false);
+		expect(isCard({ ...card(done), landed: { commit: "not a sha", at: 1 } })).toBe(false);
+		expect(isCard({ ...card(done), landed: { commit: "4af1b4a" } })).toBe(false);
+	});
+
 	test("refuses more notes than a card keeps, and a malformed one", () => {
 		const notes = Array.from({ length: MAX_NOTES + 1 }, (_, at) => ({ by: "x", at, text: "n" }));
 		expect(isCard(card({ notes }))).toBe(false);

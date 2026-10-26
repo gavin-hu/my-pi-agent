@@ -100,9 +100,9 @@ terminal.
 | `list` | `status?`, `mine?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query or `mine` matches; `round: true` adds the rollup, which always covers the whole board |
 | `add` | `title`, `paths?`, `priority?`, `note?` | the new `todo` card |
 | `claim` | `card` | the card, now `doing` and owned by this session |
-| `release` | `card` | the card, back in `todo` |
+| `release` | `card` | the card, back in `todo`, keeping any block it recorded |
 | `reclaim` | `card` | the card, back in `todo`, whoever held it |
-| `move` | `card`, `status` | the card in its new lane |
+| `move` | `card`, `status`, `blockedBy?` | the card in its new lane; `blockedBy` (one line, ≤200 characters) is what a block waits on, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
 | `note` | `card`, `text` | the card with the note appended |
 | `plan` | `card`, `path` | the card with its plan recorded |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
@@ -139,8 +139,8 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 |---|---|
 | Toolbar | the mark, the seat the page is served as, as a chip, a live badge (`connecting…`, `live` or `live · 3m`, `reconnecting…`), then one group: the Board\|Team switch, done-of-total progress, a filter, the keys button, and the theme toggle |
 | Lanes | trays, not a bare list: one column per lane, sized by the work it holds, so a lane showing nothing — because it holds no cards, or because it is folded — narrows to a rail of dot, word, and count, and the lanes carrying cards keep the width. Three or four across above 1180px, two at 1180px or narrower, one lane plus the lane switch at 860px or narrower — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away: `Done` starts folded past six cards, since finished work is history, and a reader's toggle decides from then on |
-| Cards | the id and a two-line title (the page's loudest text and its only door), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, and one reason line in one voice — what a card waits for, a blocked card's last note (or `blocked, with nothing recorded`), `no plan recorded`, `planned`, `✓ done by <owner>`, and the last note of a card that is none of those — clamped, with the whole sentence as its tooltip. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
-| Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title and owner chip on the first, the reason on the second with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). The row is a reason to pick the card up in the terminal, and it draws no button: claiming and reclaiming are the tools' work. An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
+| Cards | the id and a two-line title (the page's loudest text and its only door), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, and one reason line in one voice — what a card waits for, a blocked card's recorded reason or else its last note (or `blocked, with nothing recorded`), `no plan recorded`, `planned`, `✓ done by <owner>` with the commit it landed as, and the last note of a card that is none of those — clamped, with the whole sentence as its tooltip. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
+| Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title and owner chip on the first, the reason on the second — a blocked card's recorded `blockedBy`, else its last note — with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). The row is a reason to pick the card up in the terminal, and it draws no button: claiming and reclaiming are the tools' work. An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
 | Card dialog | the lane as a dot and a word beside the title, a meta line, the owner and its priority, the paths, what it waits for, the plan as monospace text, and the notes as a timeline (who and when above the sentence, a rule between them). Nothing in it writes: `Close` is a button because a dialog needs one, and every field is what a reader came to find. One card is one dialog, and the title underneath every card is the way in |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
@@ -318,9 +318,9 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   disabled verb is still a verb the page has to decide. Deleting it took the composer's
   dialog, the confirm dialog, the note field, and 60-odd buttons with it.
 - **One edge, stored once.** A link is one id in the waiting card's file and the
-  reverse edge is computed over the board, because a `blockedBy` copy of the same edge
-  is a copy that drifts; the cycle check and the drop rule are what keep the graph
-  whole instead.
+  reverse edge is computed over the board, because a copy of the same edge on the card
+  being waited for is a copy that drifts; the cycle check and the drop rule are what
+  keep the graph whole instead.
 - **A priority is a field, not a lane.** The four lanes are the board's vocabulary and
   a fifth would double the counts and the heads; inside a lane, priority then age is the
   order, and a card says its priority only when it is not the ordinary one.
@@ -330,8 +330,18 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), drag-and-drop (a lane change is a named `move`), a
-  priority lane (four lanes are the vocabulary), and a reverse `blockedBy` field (two
-  copies of one edge).
+  priority lane (four lanes are the vocabulary), and a reverse link field (two copies of
+  one edge).
+- **A block says why, and a finished card says with what.** `blocked` exists to ask a
+  person for a decision, so the move into it records the sentence — `blockedBy`, one
+  line — and the page draws that rather than the last note somebody wrote, which was a
+  guess. The reason survives a `release` (the decision is still pending) and is cleared
+  on the way back into `doing` or `done` (a stale sentence reads as a current one).
+  `landed` is the commit `HEAD` resolved to at the move to `done`, recorded because
+  `done` is terminal and nothing later can say which change closed the card. Both
+  fields are optional and neither is required: a card may be blocked with nothing
+  recorded, and one finished before the field, or outside a repository, has no commit
+  to record — finishing never depends on a git read.
 
 ## Files
 

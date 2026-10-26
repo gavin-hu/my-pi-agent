@@ -30,6 +30,9 @@ export const MAX_PATH = 200;
 /** Longest recorded plan path, in characters. */
 export const MAX_PLAN = 300;
 
+/** Longest sentence saying what a blocked card is waiting on: one line, so it fits a row. */
+export const MAX_BLOCKED = 200;
+
 /** Longest single note, in characters. */
 export const MAX_NOTE = 1000;
 
@@ -69,6 +72,19 @@ export interface CardNote {
 	text: string;
 }
 
+/**
+ * What a finished card landed as.
+ *
+ * A `done` card cannot say which change closed it from its own text, and `done` is
+ * terminal, so the commit is recorded once, where the move that finished it happens.
+ */
+export interface CardLanded {
+	/** The commit at the move to `done`, as git resolves `HEAD` there. */
+	commit: string;
+	/** When the card was finished. */
+	at: number;
+}
+
 /** One feature on the board. */
 export interface Card {
 	/** Schema version; an unknown value is refused rather than guessed at. */
@@ -83,6 +99,16 @@ export interface Card {
 	paths: string[];
 	/** The plan file being executed, once one is recorded. */
 	plan?: string;
+	/**
+	 * What a blocked card is waiting on: the decision, in one line.
+	 *
+	 * `blocked` exists to say a human has to decide something — a dependency is a
+	 * different thing, and `waits` is what refuses a claim. Absent means the card was
+	 * blocked without saying why, which is a state the tool allows and the page names.
+	 */
+	blockedBy?: string;
+	/** What closed a finished card: the commit at the move to `done`, and when. */
+	landed?: CardLanded;
 	/** How urgent the feature is; absent reads as {@link DEFAULT_PRIORITY}. */
 	priority?: Priority;
 	/** Ids of the cards this one waits for; absent reads as none. */
@@ -246,6 +272,22 @@ export function normalizePlanPath(raw: unknown): { path: string } | FieldError {
 	return { path };
 }
 
+/**
+ * The sentence a block records: one line, and nothing more.
+ *
+ * The board never resolves it against anything — it is the reader's explanation of what
+ * a person has to decide — so this only keeps it to a length a row can hold.
+ */
+export function normalizeBlockedBy(raw: unknown): { blockedBy: string } | FieldError {
+	if (typeof raw !== "string") return { error: "blockedBy must be text." };
+	const blockedBy = sanitizeLine(raw).trim();
+	if (blockedBy === "") return { error: "blockedBy must say what the card waits on." };
+	if (blockedBy.length > MAX_BLOCKED) {
+		return { error: `blockedBy must be at most ${MAX_BLOCKED} characters.` };
+	}
+	return { blockedBy };
+}
+
 /** A card id as a caller writes it (`4`, `#4`), or undefined when it is not one. */
 export function normalizeCardId(raw: unknown): string | undefined {
 	if (typeof raw !== "string") return undefined;
@@ -291,6 +333,8 @@ export function isCard(value: unknown): value is Card {
 	if (!Array.isArray(card.paths) || card.paths.length > MAX_PATHS) return false;
 	if (!card.paths.every((path) => typeof path === "string")) return false;
 	if (card.plan !== undefined && typeof card.plan !== "string") return false;
+	if (card.blockedBy !== undefined && !isBlockedBy(card.blockedBy)) return false;
+	if (card.landed !== undefined && !isLanded(card.landed)) return false;
 	if (card.priority !== undefined && !PRIORITIES.includes(card.priority as Priority)) return false;
 	if (card.dependsOn !== undefined && !isDepends(card.dependsOn)) return false;
 	if (!Array.isArray(card.notes) || card.notes.length > MAX_NOTES) return false;
@@ -300,6 +344,19 @@ export function isCard(value: unknown): value is Card {
 	if (typeof card.createdAt !== "number" || typeof card.updatedAt !== "number") return false;
 	if (typeof card.by !== "string") return false;
 	return (card.status === "todo") === (card.owner === undefined);
+}
+
+/** A recorded block: one line the reader can hold, within the cap this build writes. */
+function isBlockedBy(value: unknown): value is string {
+	return typeof value === "string" && value !== "" && value.length <= MAX_BLOCKED;
+}
+
+/** A recorded landing: a commit id and the moment it closed the card. */
+function isLanded(value: unknown): value is CardLanded {
+	if (typeof value !== "object" || value === null) return false;
+	const landed = value as Record<string, unknown>;
+	if (typeof landed.commit !== "string" || !/^[0-9a-f]{4,40}$/.test(landed.commit)) return false;
+	return typeof landed.at === "number" && Number.isInteger(landed.at);
 }
 
 function isOwner(value: unknown): boolean {

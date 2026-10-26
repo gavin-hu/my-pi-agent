@@ -85,6 +85,25 @@ describe("buildView", () => {
 		expect(cleared.lanes[0]?.cards[0]?.waits).toBeUndefined();
 	});
 
+	test("carries a block's reason and a finished card's commit through to the lanes", () => {
+		// The page draws both from the card it is handed, so a field the view dropped would
+		// be a blank line where the reason and the commit belong.
+		const view = buildView({
+			me: ME,
+			cards: [
+				card("3", { status: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }),
+				card("5", { status: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: NOW } }),
+			],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		const blocked = view.lanes.find((lane) => lane.status === "blocked")?.cards[0];
+		const done = view.lanes.find((lane) => lane.status === "done")?.cards[0];
+		expect(blocked?.blockedBy).toBe("legal has to sign");
+		expect(done?.landed).toEqual({ commit: "4af1b4a", at: NOW });
+	});
+
 	test("hands the rollup's groups the same card the lanes carry", () => {
 		// The Team tab's queue is built from the rollup, not from the lanes: a card there
 		// without `waits` reads as "nobody holds it" and loses the reason it is queued.

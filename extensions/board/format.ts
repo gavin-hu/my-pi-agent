@@ -49,13 +49,19 @@ function listLine(card: Card): string {
 	const holder = card.owner === undefined ? "unassigned" : card.owner.label;
 	const urgency = priorityOf(card) === DEFAULT_PRIORITY ? "" : ` · ${priorityOf(card)}`;
 	const waits = dependsOf(card).length === 0 ? "" : ` · waits on ${dependsOf(card).map(cardRef).join(", ")}`;
-	return `${cardRef(card.id)} ${card.status} · ${card.title} · ${holder}${urgency}${waits}`;
+	// The two lanes that carry a fact of their own say it here: what a block waits on, and
+	// what closed a finished card. Both are one short phrase, so a listing stays one line.
+	const blocked = card.blockedBy === undefined ? "" : ` · blocked: ${card.blockedBy}`;
+	const landed = card.landed === undefined ? "" : ` · landed ${card.landed.commit}`;
+	return `${cardRef(card.id)} ${card.status} · ${card.title} · ${holder}${urgency}${waits}${blocked}${landed}`;
 }
 
 /** The state lines under a card's headline. */
 function detailLines(card: Card, board?: BoardIndex): string[] {
 	const lines: string[] = [];
 	if (card.owner !== undefined) lines.push(`  owner: ${card.owner.label}`);
+	if (card.blockedBy !== undefined) lines.push(`  blocked: ${card.blockedBy}`);
+	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.commit}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
 	if (card.plan !== undefined) lines.push(`  plan: ${card.plan}`);
 	if (card.paths.length > 0) lines.push(`  paths: ${card.paths.join(", ")}`);

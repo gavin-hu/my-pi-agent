@@ -12,9 +12,10 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
+import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
+import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
@@ -41,9 +42,9 @@ function recordingTeam(
 }
 
 /** A registered tool plus the context it will be called with. */
-function harness(options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin } = {}) {
-	const { agentDir, team, ...ctxOptions } = options;
-	const board = boardHarness({ agentDir, now: NOW, track: temps.track, ...ctxOptions });
+function harness(options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin; exec?: FakePiOptions["exec"] } = {}) {
+	const { agentDir, team, exec, ...ctxOptions } = options;
+	const board = boardHarness({ agentDir, exec, now: NOW, track: temps.track, ...ctxOptions });
 	registerTools(board.fake.pi, board.runtime, team === undefined ? {} : { team });
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
@@ -294,6 +295,67 @@ describe("claim, release, and move", () => {
 		expect((await call({ action: "move", card: "1", status: "blocked" })).details.card?.status).toBe("blocked");
 		expect(text(await call({ action: "move", card: "1", status: "todo" }))).toContain("Use release");
 		expect(text(await call({ action: "move", card: "1" }))).toContain("move needs a target lane");
+	});
+
+	test("a finished card's line names the commit, and a blocked card's names its reason", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Blocked one" });
+		await call({ action: "add", title: "Finished one" });
+		await call({ action: "claim", card: "1" });
+		await call({ action: "claim", card: "2" });
+		await call({ action: "move", card: "1", status: "blocked", blockedBy: "legal has to sign" });
+		await call({ action: "move", card: "2", status: "done" });
+		const listing = text(await call({ action: "list" }));
+		expect(listing).toContain("blocked: legal has to sign");
+		// No repository behind this harness, so the done line names no commit: the silence is
+		// the honest answer, not a word saying "none".
+		expect(listing).toContain("#2 done · Finished one · billing-lead");
+		expect(listing).not.toContain("landed");
+	});
+
+	test("a block records what it waits on, and the listing says so", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		const blocked = await call({
+			action: "move",
+			card: "1",
+			status: "blocked",
+			blockedBy: "legal has to sign",
+		});
+		expect(blocked.details.card?.blockedBy).toBe("legal has to sign");
+		expect(text(blocked)).toContain("blocked: legal has to sign");
+		expect(text(await call({ action: "list" }))).toContain("blocked: legal has to sign");
+		// Releasing keeps the sentence: the decision is still pending, whoever holds the card.
+		expect((await call({ action: "release", card: "1" })).details.card?.blockedBy).toBe("legal has to sign");
+	});
+
+	test("a move to done records the commit it landed as, when the directory has one", async () => {
+		const cwd = temps.track(await makeRepo("pi-board-landed-"));
+		// A real repository: the board keys on it, and a move to done can ask git what closed it.
+		const { call } = harness({
+			cwd,
+			exec: async (command: string, args: string[], options?: { cwd?: string }) => {
+				const result = await execP(command, args, { cwd: options?.cwd });
+				return { stdout: result.stdout, stderr: result.stderr, code: result.code };
+			},
+		});
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		const done = await call({ action: "move", card: "1", status: "done" });
+		const commit = done.details.card?.landed?.commit ?? "";
+		expect(commit).toMatch(/^[0-9a-f]{7}$/);
+		expect(text(done)).toContain(`landed: ${commit}`);
+		expect(text(await call({ action: "list" }))).toContain(`landed ${commit}`);
+	});
+
+	test("a move to done outside a repository finishes the card without a commit", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		const done = await call({ action: "move", card: "1", status: "done" });
+		expect(done.details.card?.status).toBe("done");
+		expect(done.details.card?.landed).toBeUndefined();
 	});
 
 	test("every card action needs a card", async () => {

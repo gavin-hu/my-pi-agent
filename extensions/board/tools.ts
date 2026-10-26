@@ -20,6 +20,8 @@ import { type CardOp, holds } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
+import { revParse } from "../../lib/git/read.ts";
+import { createExecRunner } from "../../lib/git/runner.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
@@ -82,6 +84,19 @@ function refusal(action: BoardAction, me: BoardDetails["me"], message: string, c
 		error: message,
 		...(card === undefined ? {} : { card }),
 	});
+}
+
+/**
+ * The commit at `cwd`'s `HEAD`, shortened, or nothing when there is none.
+ *
+ * A finished card records what closed it, and the commit is the one fact a repository can
+ * answer that the card cannot. A directory that is not a repository, or one with no
+ * commits, answers nothing — the move still happens, because finishing a card must not
+ * depend on git.
+ */
+async function headCommit(pi: ExtensionAPI, cwd: string): Promise<{ commit: string } | undefined> {
+	const id = await revParse(createExecRunner(pi), cwd, "HEAD");
+	return id === undefined ? undefined : { commit: id.slice(0, 7) };
 }
 
 export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { team?: TeamJoin } = {}): void {
@@ -150,7 +165,16 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 								'move needs a target lane: "doing", "blocked", or "done". Use release to return a card to todo.',
 							);
 						}
-						return await mutate(store, action, me, now, args, { kind: "move", status });
+						// Only the lane that has something to say reads for it: a move to `done`
+						// records the commit that closed the card, and a board outside a
+						// repository simply has none to record.
+						const landed = status === "done" ? await headCommit(pi, ctx.cwd) : undefined;
+						return await mutate(store, action, me, now, args, {
+							kind: "move",
+							status,
+							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
+							...(landed === undefined ? {} : { landed }),
+						});
 					}
 					case "note":
 						return await mutate(store, action, me, now, args, { kind: "note", text: args.text });

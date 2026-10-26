@@ -84,7 +84,10 @@ export const BOARD_TEAM_JS = String.raw`(function () {
         }
       }
     }
+    // A blocked card in this queue is a person's decision: the reason the move recorded
+    // comes first, and the last note is only the fallback for a block nobody explained.
     add(round.blocked, function (card) {
+      if (card.blockedBy) return card.blockedBy;
       var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
       return last ? last.text : "blocked";
     }, "blocked");
