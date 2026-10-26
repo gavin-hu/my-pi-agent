@@ -504,7 +504,11 @@ stops at the first difference because the control, not the checker, is the fix.
 | [`../../lib/escape.ts`](../../lib/escape.ts) | `escapeHtml`, the shared HTML escaping used by every renderer |
 | [`../../lib/highlight.ts`](../../lib/highlight.ts) | First-party escape-first syntax tokenizer for the code view (shared with `plan`) |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | The shared Bytefly web brand system: tokens, base, components, layout, runtime, and markup |
-| `files/files.ts` | Classification (incl. Markdown), text reads, and one page-level walk (`directoryView`) that returns a directory's listing and its sidebar tree |
+| `files/files.ts` | The barrel over the four reads: one surface for the callers, four modules behind it |
+| `files/classify.ts` | What a name is: kind, Markdown, image, MIME type, and the text sample |
+| `files/list.ts` | Capped directory listings and one file's bytes, over injected filesystem reads |
+| `files/tree.ts` | The sidebar tree and the page-level walk (`directoryView`) that returns it with the listing |
+| `files/index.ts` | The quick-open file index, walked once per root up to a cap |
 | `text/diff.ts` | Pure unified-diff and porcelain-status parsing for the diff view |
 | `text/fuzzy.ts` | Fuzzy path matching and ranking for the quick-open palette |
 | `view/markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted; raw HTML through `raw-html.ts`) |
