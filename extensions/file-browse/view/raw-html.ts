@@ -26,6 +26,7 @@
  */
 
 import { decodeCodePoint, escapeHtml } from "../../../lib/escape.ts";
+import { emitImage, emitImageLink, EXTERNAL_ATTRS } from "./emit.ts";
 import { resolveImage, resolveLink } from "./urls.ts";
 
 /** Elements re-emitted with sanitized attributes. */
@@ -139,6 +140,12 @@ const BLOCK_OPEN = /^ {0,3}<(\/?)([a-zA-Z][a-zA-Z0-9-]*)/;
 const COMMENT_OPEN = /^ {0,3}<!--/;
 const DECLARATION_OPEN = /^ {0,3}<[!?]/;
 /** The five XML references, plus numeric ones, are the only refs decoded in a value. */
+/**
+ * The five references an attribute value may carry, decoded.
+ *
+ * Not the Markdown renderer's table: a tag's attribute is not running text, and decoding
+ * `&nbsp;` or `&mdash;` inside one would invent characters the author did not write.
+ */
 const ATTRIBUTE_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 const ATTRIBUTE_ENTITY = /&(?:#([0-9]{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z]+));/g;
 
@@ -407,7 +414,7 @@ function sanitizeOpenTag(tag: RawTag, baseDir: string): string {
 			const target = href === undefined ? undefined : resolveLink(href, baseDir);
 			if (target !== undefined) {
 				out.push(` href="${escapeHtml(target.href)}"`);
-				if (target.external) out.push(' target="_blank" rel="noopener noreferrer"');
+				if (target.external) out.push(EXTERNAL_ATTRS);
 			}
 			break;
 		}
@@ -456,16 +463,14 @@ function sanitizeImage(tag: RawTag, baseDir: string): string {
 	const src = attribute(tag, "src");
 	const target = src === undefined ? undefined : resolveImage(src, baseDir);
 	if (target === undefined) return alt === "" ? "" : escapeHtml(alt);
-	if (!target.image) {
-		const label = alt === "" ? target.href : alt;
-		return `<a href="${escapeHtml(target.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
-	}
-	const out: string[] = [` class="md-img" src="${escapeHtml(target.href)}" alt="${escapeHtml(alt)}"`];
-	const width = numeric(attribute(tag, "width"));
-	if (width !== undefined) out.push(` width="${width}"`);
-	const height = numeric(attribute(tag, "height"));
-	if (height !== undefined) out.push(` height="${height}"`);
-	const title = attribute(tag, "title");
-	if (title !== undefined) out.push(` title="${escapeHtml(title)}"`);
-	return `<img${out.join("")} loading="lazy" decoding="async">`;
+	if (!target.image) return emitImageLink(target.href, alt === "" ? target.href : alt);
+	// The element is `emit.ts`'s, so an `<img>` written as HTML and the same one written as
+	// Markdown are the same element, down to the lazy decoding.
+	return emitImage({
+		href: target.href,
+		alt,
+		title: attribute(tag, "title"),
+		width: numeric(attribute(tag, "width")),
+		height: numeric(attribute(tag, "height")),
+	});
 }

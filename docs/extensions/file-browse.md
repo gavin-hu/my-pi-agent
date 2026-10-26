@@ -510,6 +510,7 @@ stops at the first difference because the control, not the checker, is the fix.
 | `view/markdown.ts` | First-party escape-first Markdown-to-HTML renderer (fenced code highlighted; raw HTML through `raw-html.ts`) |
 | `view/raw-html.ts` | Allowlisted raw-HTML sanitizer: element/attribute policy, suppressed bodies, and cross-block balancing |
 | `view/urls.ts` | Shared link/image URL policy: scheme allowlist and `/view`/`/raw` rewriting |
+| `view/emit.ts` | The anchor and image elements both renderers emit, so a link written in Markdown and the same one written as HTML are one element |
 | `git/git.ts` | Read-only branch/dirty provider for the header chip |
 | `view/icons.ts` | Inline SVG sprite and the per-language mapping |
 | `view/client.ts` | The `/app.js` source: sort, wrap, copy, hunk navigation, reading progress, and the page keymap |

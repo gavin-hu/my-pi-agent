@@ -69,6 +69,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `file-browse`: a rendered README's links and images have one owner. The Markdown
+  renderer and the raw-HTML sanitizer each built the anchor, the external rel attributes,
+  and the lazy-decoding `<img>` for themselves, and had already drifted; both now emit
+  through `view/emit.ts`, so the same link written either way is the same element.
 - `worktree`: a managed worktree with nothing to report says `clean` in
   `list_worktrees`, which used to print a blank column where the `/worktree` screen
   printed the word. Both surfaces now word a row through one function, so the marks they

@@ -1039,6 +1039,35 @@ function block(source: string, baseDir = ""): string {
 	return sanitizeHtmlBlock(source, baseDir, sink) + closeHtmlSink(sink);
 }
 
+describe("one emitter for both renderers", () => {
+	test("builds the same anchor from Markdown and from raw HTML", () => {
+		// The two renderers reach a link by different paths and must carry the same facts:
+		// the rel attributes and the escaping are `emit.ts`'s, not each writer's. Attribute
+		// order is the document's, since the sanitizer rewrites a tag the author wrote.
+		const rel = 'target="_blank" rel="noopener noreferrer"';
+		for (const html of [renderMarkdown('[x](https://e "t")'), block('<p><a href="https://e" title="t">x</a></p>')]) {
+			expect(html).toContain('href="https://e"');
+			expect(html).toContain('title="t"');
+			expect(html).toContain(rel);
+			// Once, and only on the external anchor.
+			expect(html.split(rel)).toHaveLength(2);
+		}
+		// A mailto is external in the URL sense and not in the tab sense.
+		expect(renderMarkdown("[m](mailto:a@b.c)")).toContain('<a href="mailto:a@b.c">m</a>');
+		expect(block('<p><a href="mailto:a@b.c">m</a></p>')).toContain('<a href="mailto:a@b.c">m</a>');
+	});
+
+	test("builds the same image from Markdown and from raw HTML", () => {
+		const image = '<img class="md-img" src="/raw/i.png" alt="pic" title="t" loading="lazy" decoding="async">';
+		expect(renderMarkdown('![pic](i.png "t")')).toContain(image);
+		expect(block('<p><img src="i.png" alt="pic" title="t"></p>')).toContain(image);
+		// A remote image is a link in both: the page's CSP forbids it either way.
+		const link = '<a href="https://e/i.png" target="_blank" rel="noopener noreferrer">b</a>';
+		expect(renderMarkdown("![b](https://e/i.png)")).toContain(link);
+		expect(block('<p><img src="https://e/i.png" alt="b"></p>')).toContain(link);
+	});
+});
+
 describe("raw HTML structure", () => {
 	test("keeps an allowlisted element and its text", () => {
 		expect(block("<details>\n<summary>More</summary>\nplain\n</details>")).toContain("<details>");

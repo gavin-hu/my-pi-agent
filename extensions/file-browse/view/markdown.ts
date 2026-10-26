@@ -38,9 +38,9 @@ import {
 	sanitizeHtmlBlock,
 	sanitizeInlineTag,
 } from "./raw-html.ts";
+import { emitAnchor, emitImage, emitImageLink } from "./emit.ts";
 import { resolveImage, resolveLink } from "./urls.ts";
 
-const HTTP_SCHEME = /^https?:/i;
 /** A GFM extended autolink: `http(s)://` or `www.` followed by a domain. */
 const AUTOLINK = /^(?:https?:\/\/|www\.)[^\s<>]*/i;
 
@@ -643,20 +643,17 @@ function renderLink(parsed: ParsedLink, ctx: Context): string {
 	const label = renderInline(parsed.label, ctx);
 	const target = resolveLink(parsed.dest, ctx.baseDir);
 	if (!target) return label;
-	const title = parsed.title ? ` title="${escapeHtml(parsed.title)}"` : "";
-	const external = target.external ? ` target="_blank" rel="noopener noreferrer"` : "";
-	return `<a href="${escapeHtml(target.href)}"${title}${external}>${label}</a>`;
+	// The anchor's shape is `emit.ts`'s, the same one the raw-HTML sanitizer emits: a link
+	// written in Markdown and the same link written as HTML are the same link.
+	return emitAnchor({ href: target.href, content: label, title: parsed.title, external: target.external });
 }
 
 function renderImage(parsed: ParsedLink, ctx: Context): string {
 	const alt = escapeHtml(parsed.label);
 	const target = resolveImage(parsed.dest, ctx.baseDir);
 	if (!target) return alt;
-	if (!target.image) {
-		return `<a href="${escapeHtml(target.href)}" target="_blank" rel="noopener noreferrer">${alt || escapeHtml(parsed.dest)}</a>`;
-	}
-	const title = parsed.title ? ` title="${escapeHtml(parsed.title)}"` : "";
-	return `<img class="md-img" src="${escapeHtml(target.href)}" alt="${alt}" loading="lazy" decoding="async"${title}>`;
+	if (!target.image) return emitImageLink(target.href, parsed.label || parsed.dest);
+	return emitImage({ href: target.href, alt, title: parsed.title });
 }
 
 function matchRun(text: string, start: number, char: string): number {
@@ -812,8 +809,10 @@ function renderInline(text: string, ctx: Context): string {
 			const match = /^<((?:https?|mailto):[^>\s]+)>/i.exec(text.slice(i));
 			if (match) {
 				const href = match[1];
-				const external = HTTP_SCHEME.test(href) ? ` target="_blank" rel="noopener noreferrer"` : "";
-				out += `<a href="${escapeHtml(href)}"${external}>${escapeHtml(href)}</a>`;
+				// Resolved rather than pattern-matched: `urls.ts` owns which schemes open in a
+				// new tab, and a `<mailto:>` link is external but does not.
+				const external = resolveLink(href, ctx.baseDir)?.external ?? false;
+				out += emitAnchor({ href, content: escapeHtml(href), external });
 				i += match[0].length;
 				continue;
 			}
@@ -836,8 +835,7 @@ function renderInline(text: string, ctx: Context): string {
 				// Require a domain, so a bare scheme is not a link.
 				if (dots > 0 && /\.[^./]/.test(label.slice(dots))) {
 					const href = /^www\./i.test(label) ? `http://${label}` : label;
-					const external = HTTP_SCHEME.test(href) ? ` target="_blank" rel="noopener noreferrer"` : "";
-					out += `<a href="${escapeHtml(href)}"${external}>${escapeHtml(label)}</a>`;
+					out += emitAnchor({ href, content: escapeHtml(label), external: true });
 					i += label.length;
 					continue;
 				}
