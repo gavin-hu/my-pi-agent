@@ -28,10 +28,12 @@ outgrows its `rows`, so a layout break is caught in CI even though no window can
 be opened there.
 
 A **browser page** is headless: Playwright drives the Chrome the machine already
-has — `PI_CHROME`, else the usual bundles — sizes the window to the document
-before capturing, and sets the theme through the page's own toggle so the header
-glyph and the page stay in step. Each page capture has a fixture or a fixture
-project, so a refresh reproduces the same example.
+has — `PI_CHROME`, else the usual bundles and the paths the three CI images use,
+which is what lets a test drive the board page there too (`findChrome()` answers
+`undefined` instead of throwing, so a test can skip and a capture cannot) — sizes
+the window to the document before capturing, and sets the theme through the page's
+own toggle so the header glyph and the page stay in step. Each page capture has a
+fixture or a fixture project, so a refresh reproduces the same example.
 
 Which mechanism an asset uses follows where it is drawn: a TUI component is a
 frame in `screens/`, a page the package serves is a CLI in `shots/`, and the tool

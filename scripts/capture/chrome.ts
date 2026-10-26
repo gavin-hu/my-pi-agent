@@ -16,18 +16,37 @@
 import { existsSync } from "node:fs";
 import { type Page, chromium } from "playwright-core";
 
-/** Where Chrome usually lives, plus the `PI_CHROME` override. */
+/**
+ * Where Chrome usually lives, plus the `PI_CHROME` override.
+ *
+ * The three CI images each ship a browser, so a test that drives the page can run
+ * there as well as on a developer's machine; the paths are the ones those images
+ * use, and `PI_CHROME` still wins everywhere.
+ */
 const CHROME_CANDIDATES = [
 	process.env.PI_CHROME,
 	"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 	"/Applications/Chromium.app/Contents/MacOS/Chromium",
 	"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+	"/usr/bin/google-chrome",
+	"/usr/bin/google-chrome-stable",
+	"/usr/bin/chromium",
+	"/usr/bin/chromium-browser",
+	"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+	"C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
 ].filter((path): path is string => Boolean(path));
 
-/** The Chrome (or Chromium) binary to drive. */
-export function chromeBinary(): string {
+/** The Chrome (or Chromium) binary this machine has, or nothing when it has none. */
+export function findChrome(): string | undefined {
 	for (const candidate of CHROME_CANDIDATES) if (existsSync(candidate)) return candidate;
-	throw new Error("Chrome not found; set PI_CHROME to a Chrome or Chromium binary.");
+	return undefined;
+}
+
+/** The Chrome (or Chromium) binary to drive; a capture without one cannot run. */
+export function chromeBinary(): string {
+	const binary = findChrome();
+	if (binary === undefined) throw new Error("Chrome not found; set PI_CHROME to a Chrome or Chromium binary.");
+	return binary;
 }
 
 /** One expression evaluated in the page before the capture. A promise is awaited. */

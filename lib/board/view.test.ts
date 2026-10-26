@@ -146,10 +146,10 @@ describe("buildView", () => {
 		expect(view.me).toEqual({ label: "ad-hoc" });
 	});
 
-	test("signature is the cards' signature, so a bump or a drop moves it", () => {
+	test("signature starts from the cards' signature, so a bump or a drop moves it", () => {
 		const one = card("1");
 		const view = buildView({ me: ME, cards: [one], now: NOW, bytes: 0, where: WHERE });
-		expect(view.sig).toBe(signatureOf([one]));
+		expect(view.sig.startsWith(signatureOf([one]))).toBe(true);
 		const bumped = buildView({ me: ME, cards: [{ ...one, rev: 2 }], now: NOW, bytes: 0, where: WHERE });
 		expect(bumped.sig).not.toBe(view.sig);
 		const dropped = buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 0, where: WHERE });
@@ -159,6 +159,11 @@ describe("buildView", () => {
 	test("carries the files it could not read, so the footer can say the board is not empty", () => {
 		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE }).skipped).toBe(0);
 		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 2, where: WHERE }).skipped).toBe(2);
+		// The count is in the signature too: a file that became unreadable changes what the
+		// footer says, and a frame that is never pushed leaves the page saying the old thing.
+		const plain = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
+		const withSkips = buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 2, where: WHERE });
+		expect(withSkips.sig).not.toBe(plain.sig);
 	});
 
 	test("carries the size and the directory, so an unpruned board says so", () => {

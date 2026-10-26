@@ -146,8 +146,10 @@ export function buildView(input: ViewInput): BoardView {
 		bytes: input.bytes,
 		skipped: input.skipped ?? 0,
 		// The roster enters the signature at its coarse facts only: a heartbeat every ten
-		// seconds is not news, while a join, a quiet and a letter are.
-		sig: signatureOf(input.cards) + rosterSignature(teammates),
+		// seconds is not news, while a join, a quiet and a letter are. A file that became
+		// readable, or unreadable, is news too: the footer counts it, and a frame that is
+		// not pushed leaves the page saying the board holds less than it does.
+		sig: signatureOf(input.cards) + rosterSignature(teammates) + `|skipped:${input.skipped ?? 0}`,
 		where: input.where,
 	};
 }
