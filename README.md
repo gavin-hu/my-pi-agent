@@ -15,7 +15,7 @@ This page is the catalog and the setup instructions. For how to use a feature â€
 the keys, the commands, and what you should see â€” start with the
 [user guide](./docs/user-guide/).
 
-![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, three key-hint rows, a nameplated message with its answer and an edit diff behind the rail, a finished-jobs notice, the turn rule, the goal and todo rails, and the two-line footer](assets/screens/chrome.png)
+![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, three key-hint rows, a nameplated message with its answer and an edit diff behind the rail, a notice that two background jobs finished, naming the test run that passed and the build that failed, the turn rule, the goal and todo rails, the input editor with a half-typed request between its two rules, and the two-line footer naming the context gauge, the priced cost, and the model](assets/screens/chrome.png)
 
 ## Contents
 

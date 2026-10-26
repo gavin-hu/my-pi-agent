@@ -11,13 +11,21 @@
  */
 
 import type { NoticeDetails } from "../lib/notice.ts";
+import { JOB_RECORDS } from "./tools/fixtures/jobs.ts";
 
-/** The notice the captures show: the shape `job` and `watch` post to a transcript. */
+/**
+ * The notice the captures show: the shape `job` and `watch` post to a transcript.
+ *
+ * The rows are read off the jobs the gallery's `job` block lists, so the event and the
+ * table name the same two runs. Written by hand they said `j1 build · exit 0` about the
+ * run the table calls `j1 bun test`, which is the kind of drift a picture cannot show.
+ */
 export const TRANSCRIPT_NOTICE: NoticeDetails = {
 	source: "job",
-	title: "2 background jobs finished",
-	items: [
-		{ label: "j1 build", detail: "exit 0", severity: "ok" },
-		{ label: "j2 test", detail: "exit 1", severity: "bad" },
-	],
+	title: `${JOB_RECORDS.length} background jobs finished`,
+	items: JOB_RECORDS.map((job) => ({
+		label: `${job.id} ${job.label}`,
+		detail: `exit ${job.exitCode ?? 0}`,
+		severity: job.status === "exited" ? "ok" : "bad",
+	})),
 };

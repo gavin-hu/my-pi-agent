@@ -132,6 +132,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Both surfaces run one body (`MATCHES_QUERY_JS`), spliced into the page from
   `lib/board/card.ts`, so the filter box cannot find a different set than the tool.
 
+- `Tooling`: the hero capture (`assets/screens/chrome.png`) is true of a real session. The
+  frame shows the input editor between the rails and the footer, which it was missing
+  entirely; prices its own tokens through the shipped DeepSeek USD table, so it prints
+  `$0.023` and `CH 70%` — what a session with those tokens would see — instead of a typed
+  `$0.31` and `CH 87%`; names the two jobs its notice is about (the test run that passed and
+  the build that failed, the pair the tool gallery lists, where the notice had them swapped);
+  counts the one call the turn rule sits under; and drops a version from the rails and a
+  worktree chip that nothing else in the frame agreed with. A test re-derives each claim
+  from the frame or from the tables.
+
 ### Removed
 
 - `board`: the page no longer changes a card. `/board` serves a live view of the board and

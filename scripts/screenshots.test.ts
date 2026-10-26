@@ -22,6 +22,12 @@ import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
 import { planDigest } from "../extensions/plan/plan-text.ts";
 import { SCREENS } from "./screens/index.ts";
+import { CHROME_SNAPSHOT, HERO_CALLS, HERO_INPUT, HERO_TOKENS } from "./screens/whole-window.ts";
+import { cacheHitRateOf } from "../extensions/bytefly/footer/collect/entries.ts";
+import { CURRENCY_DEFAULTS, DEFAULT_RATES_USD } from "../extensions/bytefly/footer/price/config.ts";
+import { createPricer } from "../extensions/bytefly/footer/price/price.ts";
+import { TRANSCRIPT_NOTICE } from "./transcript-fixture.ts";
+import { JOB_RECORDS } from "./tools/fixtures/index.ts";
 import { HERO_GOAL, HERO_TODOS } from "./screens/fixtures/index.ts";
 import { GoalWidget } from "../extensions/goal/tui.ts";
 import { TodoWidget } from "../extensions/todo/tui.ts";
@@ -63,6 +69,66 @@ describe("docs screenshots", () => {
 			if (!screen.size) continue;
 			const lines = screen.render(screen.size.width, screen.size.rows);
 			expect(lines.length, `${name} (${screen.size.width}x${screen.size.rows})`).toBeLessThanOrEqual(screen.size.rows);
+		}
+	});
+
+	test("the hero is true of a real session", () => {
+		// Every claim in the frame is re-derived here from the frame's own content or the
+		// shipped tables: a picture whose footer is about cost cannot print a cost the code
+		// would not, and a window cannot omit the slot a session types into.
+		const lines = SCREENS.chrome?.render(100, 34) ?? [];
+		expect(lines.length).toBe(34);
+
+		// The composer is between the rails and the footer, with no live-cursor markers left
+		// in a still.
+		const input = lines.findIndex((line) => stripTerminalSequences(line).trim() === HERO_INPUT);
+		expect(input).toBeGreaterThan(0);
+		expect(stripTerminalSequences(lines[input + 1] ?? "").trim()).toMatch(/^─+$/);
+		expect(stripTerminalSequences(lines[input - 1] ?? "").trim()).toMatch(/^─+$/);
+		expect(lines.join("\n")).not.toContain("_pi:");
+
+		// The money follows from the tokens and the shipped USD table, at the precision the
+		// currency's own default supplies.
+		const priced = createPricer({
+			currency: CURRENCY_DEFAULTS.USD,
+			rates: DEFAULT_RATES_USD,
+			peak: { timezone: "Asia/Shanghai", windows: [] },
+			budget: 0,
+		})([
+			{
+				provider: "deepseek",
+				model: "deepseek-flash",
+				...HERO_TOKENS,
+				recordedCost: 0,
+				at: null,
+				isAssistant: true,
+			},
+		]);
+		expect(CHROME_SNAPSHOT.usage.cost).toBe(priced.cost);
+		expect(CHROME_SNAPSHOT.usage.cost).toBeGreaterThan(0);
+		expect(CHROME_SNAPSHOT.currency).toEqual(CURRENCY_DEFAULTS.USD);
+		expect(CHROME_SNAPSHOT.currency.decimals).toBe(3);
+		expect(CHROME_SNAPSHOT.cacheHitRate).toBeCloseTo(
+			cacheHitRateOf(HERO_TOKENS.input, HERO_TOKENS.cacheRead, HERO_TOKENS.cacheWrite) ?? 0,
+			6,
+		);
+
+		// The notice names the jobs the gallery's table names, and the rule counts the calls
+		// the frame actually draws.
+		expect((TRANSCRIPT_NOTICE.items ?? []).map((item) => item.label)).toEqual(
+			JOB_RECORDS.map((job) => `${job.id} ${job.label}`),
+		);
+		expect((TRANSCRIPT_NOTICE.items ?? []).map((item) => item.detail)).toEqual(
+			JOB_RECORDS.map((job) => `exit ${job.exitCode ?? 0}`),
+		);
+		for (const call of HERO_CALLS) expect(renderingFor(call), call).toBeDefined();
+		const rule = lines.find((line) => stripTerminalSequences(line).includes("turn 3"));
+		expect(rule).toContain(` ${HERO_CALLS.length} tool${HERO_CALLS.length === 1 ? "" : "s"} `);
+
+		// Nothing in the frame claims a version: the header prints the package's current one,
+		// so a rail naming a version could contradict it.
+		for (const rail of [HERO_GOAL, HERO_TODOS]) {
+			expect(JSON.stringify(rail)).not.toMatch(/\bv?\d+\.\d+\.\d+/);
 		}
 	});
 

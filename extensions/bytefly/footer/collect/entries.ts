@@ -50,6 +50,17 @@ interface UsageSource {
  * not say. A `model_change` entry, and an assistant call that names its model,
  * both move the model in effect for the entries that follow.
  */
+/**
+ * The share of a call's prompt that came from the cache, as a percentage.
+ *
+ * One body, because two callers ask the same question: the collector for a live session,
+ * and the chrome capture, whose frame must print the same number the footer would.
+ */
+export function cacheHitRateOf(input: number, cacheRead: number, cacheWrite: number): number | null {
+	const prompt = input + cacheRead + cacheWrite;
+	return prompt > 0 ? (cacheRead / prompt) * 100 : null;
+}
+
 export function usageRecords(
 	entries: Iterable<unknown>,
 	active: { provider: string; model: string } | undefined,
@@ -89,10 +100,7 @@ export function usageRecords(
 			isAssistant: source.isAssistant,
 		});
 
-		if (source.isAssistant) {
-			const prompt = input + cacheRead + cacheWrite;
-			cacheHitRate = prompt > 0 ? (cacheRead / prompt) * 100 : null;
-		}
+		if (source.isAssistant) cacheHitRate = cacheHitRateOf(input, cacheRead, cacheWrite);
 	}
 
 	return { records, cacheHitRate };
