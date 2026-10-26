@@ -42,7 +42,16 @@ ${WEB_COMPONENTS_CSS}
    sized by the work it holds rather than by its share of the row, so one holding nothing
    narrows to a rail and hands the width to the lanes carrying cards. */
 .board-lanes{display:flex;flex-wrap:nowrap;gap:var(--space-4);align-items:start}
-.board-lane{display:flex;flex:1 1 0;flex-direction:column;gap:var(--space-2);min-width:0;padding:0 var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+.board-lane{--lane-count:0;display:flex;flex:1 1 0;flex-grow:calc(1 + var(--lane-count));flex-direction:column;gap:var(--space-2);min-width:0;padding:0 var(--space-2) var(--space-3);border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+/* The lane count is a count, not a design token: the client sets it from the snapshot and
+   declares its default here, so a lane whose count never arrived is an ordinary lane
+   rather than a variable nobody defines. */
+/* A lane's share of the row follows the work it holds — two cards earn more width than
+   one — and the floor is the narrowest a tray is still a tray at. It is set on the two
+   states that draw one, so a rail keeps its own width, and both breakpoints below
+   replace the basis, so the floor only ever applies to the row it was chosen for:
+   four lanes at 1180px are 60rem, which is inside the row before the wrap. */
+.board-lane[data-empty="false"][data-folded="false"]{min-width:15rem}
 /* The rail: a dot, a word, and a count — the fact that the lane is showing nothing, not a
    tray. A lane is a rail when it holds no cards and when it is folded, because both say
    the same thing: there is nothing here to read. */
@@ -57,7 +66,6 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 .board-lane[data-status="doing"] .board-lane__dot{background:var(--accent)}
 .board-lane[data-status="blocked"] .board-lane__dot{background:var(--danger)}
-.board-lane[data-status="done"]{background:var(--canvas)}
 .board-lane[data-status="done"] .board-lane__dot{background:var(--success)}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
@@ -77,7 +85,7 @@ ${WEB_COMPONENTS_CSS}
 .board-card[data-status="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
 .board-card__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1);margin:0;padding:0;list-style:none}
-.board-card__reason{margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.board-card__reason{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-card__reason--blocked{color:var(--danger)}
 .board-card__reason--unplanned{color:var(--warn)}
 

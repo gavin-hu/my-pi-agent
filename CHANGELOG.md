@@ -192,6 +192,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   worktree chip that nothing else in the frame agreed with. A test re-derives each claim
   from the frame or from the tables.
 
+- `board`: a lane's width follows the work it holds, so two cards earn more of the row than
+  one and a long title stops wrapping in a column the lane was not using; a card's reason
+  line gets two lines at the Team tab's size, so a blocked card's sentence reads instead of
+  cutting at forty characters; and the Done lane keeps its tray, receding through its muted
+  title rather than through a hole in the row.
+
 ### Removed
 
 - `board`: the page no longer changes a card. `/board` serves a live view of the board and

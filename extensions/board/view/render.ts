@@ -335,6 +335,10 @@ __RUNTIME__
       // the fact deserves. The filter never does this — filtering is a view of the cards,
       // not a statement that the lane has none.
       section.setAttribute("data-empty", lane.cards.length === 0 ? "true" : "false");
+      // The lane's share of the row follows the work it holds: the sheet turns this number
+      // into a flex-grow, so two cards earn more width than one and a title is not wrapped
+      // for want of a column the lane is not using. A count, never text.
+      section.style.setProperty("--lane-count", String(lane.cards.length));
       var shown = lane.cards.filter(function (card) { return matches(card, query); });
       var sig = lane.cards.map(function (card) { return card.id + ":" + card.rev; }).join(",") + "|" + query;
       if (section.getAttribute("data-sig") !== sig) {
