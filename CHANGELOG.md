@@ -98,6 +98,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   this package did not create keeps the coarser answer, since nothing recorded its fork
   point.
 
+- `board`: the card dialog reads like the record it carries. The only place a whole card
+  can be read on the page was one flat run of lines, so what a card *is* and its history
+  weighed the same. It is now two named sections: a head/value ladder for the card —
+  owner, priority, updated, last edited (not "author": that is who wrote last), landed,
+  waits on, plan, paths — with empty rows taking their labels with them, then **Notes** at
+  body size on a 68ch measure, each sentence attributed under it. The plan and each path
+  elide on one line with the whole value on the hover title, the nested scroll inside the
+  notes is gone so the dialog's body is the only scrollbar, and `j`/`k` walk to the next or
+  previous card without closing it, announced for a screen reader as `card 2 of 3: <title>`.
+  The walk follows the board as drawn, so a folded lane is skipped.
+
 ### Removed
 
 - `board`: the page no longer changes a card. `/board` serves a live view of the board and

@@ -100,11 +100,21 @@ describe("the document", () => {
 			"board-card-dialog",
 			"card-dialog-title",
 			"card-dialog-close",
-			"card-dialog-meta",
+			"card-dialog-id",
+			"card-dialog-where",
+			"card-dialog-card-head",
+			"card-dialog-notes-head",
+			"card-dialog-note-count",
 			"card-dialog-owner",
-			"card-dialog-paths",
+			"card-dialog-owner-label",
+			"card-dialog-priority",
+			"card-dialog-updated",
+			"card-dialog-by",
+			"card-dialog-landed",
 			"card-dialog-depends",
 			"card-dialog-plan",
+			"card-dialog-paths",
+			"card-dialog-path-list",
 			"card-dialog-notes",
 			"card-dialog-earlier",
 			"keys-dialog",
@@ -143,7 +153,20 @@ describe("the document", () => {
 		for (const block of [WEB_BASE_CSS, WEB_THEME_CSS, WEB_LAYOUT_CSS, WEB_COMPONENTS_CSS]) {
 			expect(BOARD_CSS.split(block)).toHaveLength(2);
 		}
-		expect(BOARD_CSS.split(".board-dialog__notes{display:flex")).toHaveLength(2);
+		expect(BOARD_CSS.split(".board-dialog__facts{display:grid")).toHaveLength(2);
+	});
+
+	test("gives the record the shape a reader asked for", () => {
+		// One scroll: the kit's dialog body. A nested notes box used to hide most of the
+		// cargo behind a second scrollbar inside a 70vh panel.
+		expect(BOARD_CSS).not.toContain("max-height:16rem");
+		// The notes are the record, so they read at body size on a measure rather than at
+		// the panel's smallest type across its whole width.
+		const note = ownRules().match(/\.board-dialog__note-text\{[^}]*\}/)?.[0] ?? "";
+		expect(note).toContain("--fs-base");
+		expect(note).toContain("68ch");
+		// A path is one line, elided, with the whole of it on the hover title.
+		expect(BOARD_CSS).toContain(".board-dialog__value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}");
 	});
 
 	test("draws every colour through a kit token", () => {
@@ -222,10 +245,16 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("gone: 1");
 	});
 
-	test("reads one card whole: its lane, its notes, and what it waits for", () => {
+	test("reads one card whole: its lane, its facts as a ladder, and its notes", () => {
 		expect(BOARD_CLIENT_JS).toContain('getElementById("card-dialog-state")');
-		expect(BOARD_CLIENT_JS).toContain("board-dialog__note-head");
-		expect(BOARD_CLIENT_JS).toContain('getElementById("card-dialog-depends")');
+		// Names come from the page's table, so the bundle holds the lookup, not the class.
+		expect(BOARD_CLIENT_JS).toContain("N.dialogNoteFoot");
+		// The ladder is written once: a row is a name, and the label and the value are
+		// found from it, so a row cannot ship with one half hidden.
+		expect(BOARD_CLIENT_JS).toContain('"card-dialog-" + name + "-label"');
+		for (const row of ["updated", "by", "landed", "depends", "plan"]) {
+			expect(BOARD_CLIENT_JS, row).toContain(`setRow("${row}"`);
+		}
 		// The title is the only door: a face that drew a verb would draw a refusal.
 		expect(BOARD_CLIENT_JS).toContain("board.openCard");
 		expect(BOARD_CLIENT_JS).not.toContain("board-card__actions");

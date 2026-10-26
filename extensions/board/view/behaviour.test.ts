@@ -62,11 +62,28 @@ async function seedBoard(): Promise<void> {
 		await store.create({ ...spec, note: "from the support thread" }, LEAD, now - index * 60_000);
 	}
 	const doing = await store.create(
-		{ title: "Billing webhook accepts orders", paths: ["src/billing", "src/api"], note: "routes wired" },
+		{
+			title: "Billing webhook accepts orders",
+			paths: ["src/billing", "src/api"],
+			note: "routes wired",
+			priority: "high",
+		},
 		LEAD,
 		now - 120_000,
 	);
 	await store.mutate(doing.id, { kind: "claim" }, CORE, now - 119_000);
+	await store.mutate(doing.id, { kind: "note", text: "no retries yet" }, CORE, now - 118_000);
+	// A plan path long enough to elide, which is the whole point of the ladder's one-line
+	// rule: the value has to keep its whole text somewhere a reader can reach it.
+	await store.mutate(
+		doing.id,
+		{
+			kind: "plan",
+			path: "~/.pi/agent/plans/8872d3adda0e/2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md",
+		},
+		CORE,
+		now - 117_000,
+	);
 	for (let index = 1; index <= 7; index++) {
 		const card = await store.create(
 			{ title: `Shipped change ${index}`, paths: ["src/old"] },
@@ -227,6 +244,74 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		expect(await page.textContent("#card-dialog-owner")).toContain("billing-core");
 		expect(await page.textContent("#card-dialog-state")).toContain("doing");
 
+		await page.keyboard.press("Escape");
+		expect(await hidden(page, "#board-card-dialog")).toBe(true);
+		await page.close();
+	});
+
+	test("reads the card as a ladder of facts, one row each", async () => {
+		const page = await openPage();
+		await page.click("#lane-doing .board-card__title");
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		expect(await page.textContent("#card-dialog-id")).toBe("#3");
+		// The age is the page's own clock, not the seed's, so only its shape is asserted.
+		expect(await page.textContent("#card-dialog-updated")).toMatch(/^\d+[mhd]$|^\d+d$/);
+		expect(await page.textContent("#card-dialog-by")).toBe("billing-core");
+		expect(await page.textContent("#card-dialog-priority")).toBe("high");
+		// A card with no link and no landing has no row, label included: an empty value
+		// under a label reads as a missing fact instead of an absent one.
+		expect(await hidden(page, "#card-dialog-landed")).toBe(true);
+		expect(await hidden(page, "#card-dialog-landed-label")).toBe(true);
+		expect(await hidden(page, "#card-dialog-depends")).toBe(true);
+		expect(await hidden(page, "#card-dialog-depends-label")).toBe(true);
+
+		// The plan elides on one line and keeps the whole path in the tooltip, so a long
+		// one cannot shred the row and still cannot hide anything.
+		const plan = await page.$eval("#card-dialog-plan", (node) => {
+			const el = node as unknown as ElementLike & { scrollWidth: number; clientWidth: number };
+			return {
+				title: el.getAttribute("title") ?? "",
+				elided: el.scrollWidth > el.clientWidth,
+			};
+		});
+		expect(plan.title).toContain("2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md");
+		expect(plan.elided).toBe(true);
+
+		// The notes are the record: each sentence with its attribution under it, and the
+		// section's heading carries the count. Body size is a stylesheet claim, held by
+		// `pages.test.ts` where the CSS is.
+		expect(await page.$$eval("#card-dialog-notes .board-dialog__note", (nodes) => nodes.length)).toBe(2);
+		expect(await page.$$eval("#card-dialog-notes .board-dialog__note-foot", (nodes) => nodes.length)).toBe(2);
+		expect(await page.textContent("#card-dialog-note-count")).toContain("2");
+		expect(await page.$$eval("#card-dialog-path-list .board-dialog__path", (nodes) => nodes.length)).toBe(2);
+		await page.close();
+	});
+
+	test("walks to the next card with j, and says where it landed", async () => {
+		const page = await openPage();
+		await page.click("#lane-todo .board-card__title");
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		// Three, not ten: the seven finished cards sit in the folded Done lane, and the
+		// step walks the board as it is drawn.
+		const first = await page.textContent("#card-dialog-where");
+		expect(first).toMatch(/^card 1 of 3: /);
+		const opened = await page.textContent("#card-dialog-title");
+		expect(first).toBe(`card 1 of 3: ${opened}`);
+
+		await page.keyboard.press("j");
+		const second = await page.textContent("#card-dialog-where");
+		expect(second).toMatch(/^card 2 of 3: /);
+		expect(await page.textContent("#card-dialog-title")).not.toBe(opened);
+		// The dialog is still open: a step moves the record, it does not close it.
+		expect(await hidden(page, "#board-card-dialog")).toBe(false);
+
+		await page.keyboard.press("j");
+		expect(await page.textContent("#card-dialog-where")).toMatch(/^card 3 of 3: /);
+		// It wraps, and k walks back the way it came.
+		await page.keyboard.press("j");
+		expect(await page.textContent("#card-dialog-where")).toBe(first);
+		await page.keyboard.press("k");
+		expect(await page.textContent("#card-dialog-where")).toMatch(/^card 3 of 3: /);
 		await page.keyboard.press("Escape");
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
 		await page.close();
