@@ -265,17 +265,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		expect(await hidden(page, "#card-dialog-depends")).toBe(true);
 		expect(await hidden(page, "#card-dialog-depends-label")).toBe(true);
 
-		// The plan elides on one line and keeps the whole path in the tooltip, so a long
-		// one cannot shred the row and still cannot hide anything.
-		const plan = await page.$eval("#card-dialog-plan", (node) => {
-			const el = node as unknown as ElementLike & { scrollWidth: number; clientWidth: number };
-			return {
-				title: el.getAttribute("title") ?? "",
-				elided: el.scrollWidth > el.clientWidth,
-			};
-		});
-		expect(plan.title).toContain("2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md");
-		expect(plan.elided).toBe(true);
+		// The plan keeps the whole path in the tooltip, so a long one cannot hide anything
+		// once the row clamps it. The clamp itself is stylesheet data, held with the rest of
+		// the CSS in `pages.test.ts`; whether *this* browser actually overflowed the row is
+		// font metrics, which is why the runner and the laptop answered differently.
+		const plan = await page.$eval(
+			"#card-dialog-plan",
+			(node) => (node as unknown as ElementLike).getAttribute("title") ?? "",
+		);
+		expect(plan).toContain("2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md");
 
 		// The notes are the record: each sentence with its attribution under it, and the
 		// section's heading carries the count. Body size is a stylesheet claim, held by
