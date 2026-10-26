@@ -39,6 +39,9 @@ import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./to
 /** Every capturable frame, the whole-chrome preview included. */
 const FRAMES = SCREENS;
 
+/** The one platform the pictures are taken on: Terminal.app and `screencapture` are macOS. */
+const CAPTURE_PLATFORM = "darwin";
+
 /** Widths a capture has to survive: a narrow terminal, the default, a wide one. */
 const WIDTHS = [46, 80, 120];
 
@@ -73,11 +76,16 @@ describe("docs screenshots", () => {
 		}
 	});
 
-	test("a captured frame is still the frame the renderer draws", () => {
+	// A picture of a macOS window: captured there, so only that platform can draw the
+	// same frame. The header spells the option key the way the OS does (`option+enter`
+	// on macOS, `alt+enter` elsewhere), which re-packs its help rows, and a fixture path
+	// is printed with the native separator (`\home\u\…` on Windows). The claims that
+	// hold everywhere — a frame fits its width and its rows — are the two tests above.
+	test.skipIf(process.platform !== CAPTURE_PLATFORM)("a captured frame is still the frame the renderer draws", () => {
 		// The picture cannot report on itself: two captures of one frame differ by
 		// antialiasing, so no render is byte-identical to the shipped PNG. What the
 		// capture records instead is the frame that was on screen, and this is where
-		// a renderer change nobody recaptured fails — on every OS, no window needed.
+		// a renderer change nobody recaptured fails.
 		const recorded = readFrames();
 		// The hero is embedded in the root README, so it is the frame that must not
 		// quietly lose its guard.
