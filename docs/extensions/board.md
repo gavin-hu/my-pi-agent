@@ -16,6 +16,11 @@ decision.
 
 *`/board`: the four lanes, with the round one tab away and every card opened by its title.*
 
+<img src="../../assets/screens/card-dialog.png" alt="The card dialog on one doing card: the id and title with the lane as a dot and a word, a head/value ladder reading owner, updated, last edited, plan and paths, each value on one line, then a Notes section whose sentences are attributed under them" width="100%">
+
+*The card dialog: the record of one card — a ladder of facts, then its notes at body size
+(`screenshot:board --dialog card`).*
+
 ## Capabilities
 
 | Capability | How | What you get |
@@ -159,7 +164,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Lanes | trays, not a bare list: one column per lane, sized by the work it holds, so a lane showing nothing — because it holds no cards, or because it is folded — narrows to a rail of dot, word, and count, and the lanes carrying cards keep the width. Three or four across above 1180px, two at 1180px or narrower, one lane plus the lane switch at 860px or narrower — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away: `Done` starts folded past six cards, since finished work is history, and a reader's toggle decides from then on |
 | Cards | the id and a two-line title (the page's loudest text and its only door), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, and one reason line in one voice — what a card waits for, a blocked card's recorded reason or else its last note (or `blocked, with nothing recorded`), `no plan recorded`, `planned`, `✓ done by <owner>` with the commit it landed as, and the last note of a card that is none of those — clamped, with the whole sentence as its tooltip. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title and owner chip on the first, the reason on the second — a blocked card's recorded `blockedBy`, else its last note — with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). The row is a reason to pick the card up in the terminal, and it draws no button: claiming and reclaiming are the tools' work. An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
-| Card dialog | the lane as a dot and a word beside the title, a meta line, the owner and its priority, the paths, what it waits for, the plan as monospace text, and the notes as a timeline (who and when above the sentence, a rule between them). Nothing in it writes: `Close` is a button because a dialog needs one, and every field is what a reader came to find. One card is one dialog, and the title underneath every card is the way in |
+| Card dialog | the record of one card, in two named sections. The head carries the id, the title, and the lane as a dot and a word. **The card** is a ladder — one fact per row, labels sized to the longest of them so the values line up: owner, priority when it is not `normal`, updated, last edited, landed, waits on, plan, paths. The plan and each path are one line that elides, with the whole value on the hover title; what it waits for reads `#2 (doing)`, the lanes that make the id a decision. Empty rows take their labels with them. **Notes · N** is the cargo at body size on a 68ch measure, each sentence with its attribution under it and a rule between notes, and `M earlier notes dropped` when the store capped them. The body is the only scroll, so the head and `Close` stay put. Nothing in it writes, every field is a set as `textContent`, and the title underneath every card is the way in. `j`/`k` walk to the next or previous card without closing it, and an `sr-only` live region announces `card 2 of 3: <title>` — a title that changes inside an open modal is not announced on its own |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
 `blocked` and destructive choices, `--success` for `done`. The Team tab's decision
@@ -185,7 +190,7 @@ The board as a posting card — the same rules, drawn to be read at half width:
 | Key | What it does |
 |---|---|
 | `/` | Filter the cards by title, path, or owner |
-| `j` / `k` | Next or previous card |
+| `j` / `k` | Next or previous card — or, with a card open, the next or previous card in the dialog |
 | `Enter` | Open the focused card |
 | `t` | Switch Board and Team |
 | `Esc` | Close a dialog, or clear the filter |
@@ -307,6 +312,18 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   only when a card's revision, or a teammate's state, mail, or listening flag, moves: a
   heartbeat every ten seconds is not news, and a frame nobody needs costs the page a
   parse.
+- **The record is a ladder, not a paragraph run.** A card's facts are one per row so each
+  can be read and copied alone: the meta line it replaces merged id, updated, and who into
+  one sentence, and named the last writer as though it were the author. The notes are the
+  cargo — they read at body size on a measure, with their attribution under them — and the
+  dialog's body is the only scroll, because a second scrollbar inside a 70vh panel hid most
+  of what a reader opened it for. A long plan path elides on one line with the whole value
+  on its hover title: the plan is the reason to open a card, and it used to shred across
+  three lines of `--dim`.
+- **The walk is over the board as drawn.** `j`/`k` step through the cards the page has
+  boxes for, so a folded Done lane and a filter are both respected; opening a card does not
+  take the keyboard away, it points it at the next record. The position is announced
+  because a title that changes inside an open modal is not.
 - **A class is a symbol, not a string.** The document and the bundle cannot import from
   each other, so both read `view/names.ts` — the only place a `board-*` class is spelled.
   A name assembled from a prefix is what made the old contract untestable: it passed on
@@ -387,7 +404,7 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 | `view/names.ts` | The page's class vocabulary: one table the document and the bundle both read, so what the page wears and what its stylesheet draws can be compared |
 | `view/team.ts` | The client's round: the two tables and the Done line |
 | `view/dialog.ts` | The client's card dialog: open one card, close it, and forget it when the kit closes it |
-| `view/keys.ts` | The key table, and the bindings that make it true |
+| `view/keys.ts` | The key table, and the bindings that make it true — including `j`/`k` walking the open dialog through the drawn cards |
 | `view/live.ts` | The client's tabs, filter, and frame stream |
 | `view/client.ts` | The one script served at `/app.js` |
 

@@ -196,6 +196,24 @@ const renderTemplate = String.raw`(function () {
     return item;
   }
 
+  /**
+   * The cards as the page draws them.
+   *
+   * A folded lane keeps its cards in the document, and so does a panel the other tab
+   * hides: the box is the only honest test of whether a reader can see one, and it is
+   * what j/k walks and what the dialog's position counts.
+   */
+  function drawnCards() {
+    var nodes = document.querySelectorAll(".board-card");
+    var seen = [];
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].hidden) continue;
+      if (!nodes[i].getClientRects || nodes[i].getClientRects().length === 0) continue;
+      seen.push(nodes[i]);
+    }
+    return seen;
+  }
+
   /** The toolbar's identity, progress, footer, and the tab's own name. */
   function renderChrome(view) {
     var me = document.getElementById("board-me");
@@ -365,59 +383,97 @@ const renderTemplate = String.raw`(function () {
   /** Fill the card dialog's contents from a card, without opening or closing it. */
   function fillDialog(card, view) {
     document.getElementById("card-dialog-title").textContent = card.title;
+    document.getElementById("card-dialog-id").textContent = "#" + card.id;
     // The lane is a status of its own, not a word inside a sentence: the same dot and
     // label a lane head wears, so the dialog and the board speak the same vocabulary.
     var state = document.getElementById("card-dialog-state");
     state.setAttribute("data-status", card.status);
     state.textContent = card.status;
-    // The meta line carries what the card can say about itself beyond its title: who wrote
-    // it last, and — on a finished card — the commit that closed it.
-    document.getElementById("card-dialog-meta").textContent =
-      "#" + card.id + " · updated " + ago(card.updatedAt) + " · last edited by " + card.by +
-      (card.landed ? " · landed " + card.landed.commit : "");
+
+    // One fact per row of the ladder, so a reader can pick out a value instead of
+    // hunting for it in a sentence. A row with nothing to say takes its label with it:
+    // an empty cell under a heading reads as a missing value, not as an absence.
+    var pair = function (name, shown) {
+      var dt = document.getElementById("card-dialog-" + name + "-label");
+      var dd = document.getElementById("card-dialog-" + name);
+      if (dt) dt.hidden = !shown;
+      if (dd) dd.hidden = !shown;
+      return dd;
+    };
+    var setRow = function (name, shown, value, full) {
+      var dd = pair(name, shown);
+      dd.textContent = shown ? value : "";
+      if (full === undefined) dd.removeAttribute("title");
+      else dd.setAttribute("title", full);
+    };
+
     var owner = document.getElementById("card-dialog-owner");
     owner.textContent = "";
     owner.appendChild(card.owner ? chip(card.owner.label, "accent") : document.createTextNode("unassigned"));
-    if (card.priority !== "normal") owner.appendChild(chip(card.priority));
+    pair("owner", true);
 
-    var pathList = document.getElementById("card-dialog-paths");
-    pathList.textContent = "";
-    for (var i = 0; i < card.paths.length; i++) {
-      var item = el("li", "");
-      item.appendChild(chip(card.paths[i]));
-      pathList.appendChild(item);
-    }
+    var priority = pair("priority", card.priority !== "normal");
+    priority.textContent = "";
+    if (card.priority !== "normal") priority.appendChild(chip(card.priority));
+
+    setRow("updated", true, ago(card.updatedAt));
+    setRow("by", true, card.by);
+    setRow("landed", card.landed !== undefined, card.landed ? card.landed.commit : "", card.landed ? card.landed.commit : undefined);
 
     // The dialog and the card face say one thing, from one field: the ids it was linked
     // to are the storage, and a reader is owed the lanes that make them a decision.
-    var waits = document.getElementById("card-dialog-depends");
-    if (waits) {
-      waits.hidden = card.waits === undefined;
-      waits.textContent = card.waits === undefined ? "" : "waits on " + card.waits;
-    }
+    setRow("depends", card.waits !== undefined, card.waits || "", card.waits);
 
-    var plan = document.getElementById("card-dialog-plan");
-    plan.hidden = !card.plan;
-    plan.textContent = card.plan ? "plan " + card.plan : "";
+    // A long plan path elides on one line, and the whole of it is on the hover title and
+    // in the text, so it stays copyable: the reason to open a card is often its plan.
+    setRow("plan", Boolean(card.plan), card.plan || "", card.plan || undefined);
+
+    pair("paths", card.paths.length > 0);
+    var pathList = document.getElementById("card-dialog-path-list");
+    pathList.textContent = "";
+    for (var i = 0; i < card.paths.length; i++) {
+      var item = el("li", "");
+      var hint = chip(card.paths[i]);
+      hint.className += " " + N.dialogPath;
+      hint.title = card.paths[i];
+      item.appendChild(hint);
+      pathList.appendChild(item);
+    }
 
     var notes = document.getElementById("card-dialog-notes");
     notes.textContent = "";
     for (var j = 0; j < card.notes.length; j++) {
       var note = card.notes[j];
-      // Who and when on their own line, the sentence under it, a rule between notes:
-      // wrapped prose used to run one note into the next with nothing to separate them.
+      // The prose is the record and reads at body size; who wrote it and when is its
+      // footnote, so it follows the sentence instead of standing over it.
       var row = el("li", N.dialogNote);
-      var head = el("p", N.dialogNoteHead);
-      head.appendChild(el("span", N.dialogNoteBy, note.by));
-      head.appendChild(el("span", N.dialogNoteAt, ago(note.at)));
-      row.appendChild(head);
       row.appendChild(el("p", N.dialogNoteText, note.text));
+      var foot = el("p", N.dialogNoteFoot);
+      foot.appendChild(el("span", N.dialogNoteBy, note.by));
+      foot.appendChild(el("span", N.dialogNoteAt, ago(note.at)));
+      row.appendChild(foot);
       notes.appendChild(row);
     }
+    var count = document.getElementById("card-dialog-note-count");
+    if (count) count.textContent = card.notes.length === 0 ? " · none" : " · " + card.notes.length;
     var earlier = document.getElementById("card-dialog-earlier");
     earlier.hidden = card.notesDropped === 0;
     earlier.textContent = card.notesDropped === 0 ? "" : card.notesDropped + " earlier notes dropped";
 
+    // A modal whose title changes is not announced, so walking with j/k says where it
+    // landed: the position is counted over the cards as they are drawn, not as stored, so
+    // a filter or a folded lane cannot make the number disagree with the screen.
+    var where = document.getElementById("card-dialog-where");
+    if (where) {
+      var drawn = drawnCards();
+      var at = 0;
+      for (var k = 0; k < drawn.length; k++) {
+        if (drawn[k].getAttribute("data-card") === String(card.id)) at = k + 1;
+      }
+      // Opened from the Team tab there is no drawn board to count along, so the line
+      // names the card instead of claiming a position it cannot know.
+      where.textContent = drawn.length === 0 ? card.title : "card " + at + " of " + drawn.length + ": " + card.title;
+    }
   }
 
   /** Paint a whole snapshot. */
@@ -438,6 +494,7 @@ const renderTemplate = String.raw`(function () {
   board.actionButton = actionButton;
   board.ago = ago;
   board.findCard = findCard;
+  board.drawnCards = drawnCards;
   board.matches = matches;
   board.fillDialog = fillDialog;
   board.refreshAges = refreshAges;

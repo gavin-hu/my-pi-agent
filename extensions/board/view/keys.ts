@@ -15,7 +15,7 @@ import type { KeyHint } from "../../../lib/web/index.ts";
 /** One binding: the key or keys, and what pressing it does. */
 export const BOARD_KEYS: readonly KeyHint[] = [
 	{ keys: "/", label: "Filter the cards" },
-	{ keys: ["j", "k"], label: "Next or previous card" },
+	{ keys: ["j", "k"], label: "Next or previous card, or the next card in an open dialog" },
 	{ keys: "Enter", label: "Open the focused card" },
 	{ keys: "t", label: "Switch Board and Team" },
 	{ keys: "Esc", label: "Close a dialog, or clear the filter" },
@@ -43,14 +43,30 @@ export const BOARD_KEYS_JS = String.raw`(function () {
 
   /** The card nodes in reading order, so j/k walk the board as it is drawn. */
   function cards() {
-    var seen = [];
-    var nodes = document.querySelectorAll(".board-card");
-    for (var i = 0; i < nodes.length; i++) if (!nodes[i].hidden) seen.push(nodes[i]);
-    return seen;
+    return board.drawnCards();
+  }
+
+  /** Move the open dialog to the next or previous card; false when no dialog is open. */
+  function walk(delta) {
+    if (!board.dialogOpen || !board.dialogOpen()) return false;
+    var drawn = cards();
+    if (drawn.length === 0) return true;
+    // The open card is the one marked open, not the focused node: focus sits on the
+    // dialog's own panel, which is not one of the cards.
+    var at = -1;
+    for (var i = 0; i < drawn.length; i++) {
+      if (drawn[i].getAttribute("data-card") === String(board.openId)) at = i;
+    }
+    var next = at < 0 ? (delta > 0 ? 0 : drawn.length - 1) : (at + delta + drawn.length) % drawn.length;
+    board.openCard(drawn[next].getAttribute("data-card"));
+    return true;
   }
 
   /** Move focus to the next or previous drawn card, and say so for a screen reader. */
   function step(delta) {
+    // An open dialog walks instead of moving focus: the record stays whole, and Esc
+    // still returns to the board where it was.
+    if (walk(delta)) return;
     var drawn = cards();
     if (drawn.length === 0) return;
     var at = drawn.indexOf(document.activeElement);

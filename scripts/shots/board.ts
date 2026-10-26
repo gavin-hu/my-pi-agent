@@ -59,9 +59,15 @@ export function parseArgs(argv: string[]): ShotOptions {
 	};
 }
 
-/** The click that opens the card dialog on the fixture board. */
+/**
+ * The click that opens the card dialog on the fixture board.
+ *
+ * Card 1 and not the first card drawn: it is the one the fixture gives an owner, a long
+ * plan path, and two notes, so the picture shows the record at its fullest instead of
+ * the one-line card that happens to sit in the first lane.
+ */
 const DIALOG_OPEN: Record<ShotDialog, string> = {
-	card: "document.querySelector('.board-card__title').click()",
+	card: "document.querySelector('.board-card[data-card=\"1\"] .board-card__title').click()",
 };
 
 /** The URL for one tab: the server's own URL already carries the token. */
@@ -84,7 +90,13 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 					{ url: tabUrl(server.url, "board"), name: "board" },
 					{ url: tabUrl(server.url, "team"), name: "team" },
 				]
-			: [{ url: tabUrl(server.url, "board"), name: `${options.dialog}-dialog`, before: [DIALOG_OPEN[options.dialog]] }];
+			: [
+					{
+						url: tabUrl(server.url, "board"),
+						name: `${options.dialog}-dialog`,
+						before: [DIALOG_OPEN[options.dialog]],
+					},
+				];
 	try {
 		for (const shot of shots) {
 			const out = resolve(options.outDir, `${shot.name}.png`);

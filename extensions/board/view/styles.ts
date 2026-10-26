@@ -138,19 +138,45 @@ ${WEB_COMPONENTS_CSS}
 .board-team__id{appearance:none;border:0;background:none;padding:0;margin:0;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
 .board-team__id:hover{color:var(--accent);text-decoration:underline}
 
-/* The card dialog: a meta line, the notes as a timeline, and the actions at its foot. */
-.board-dialog__meta,.board-dialog__owner{margin:0 0 var(--space-2);font:var(--fs-sm) var(--font-ui);color:var(--muted)}
-.board-dialog__plan{margin:0 0 var(--space-2);font:var(--fs-xs) var(--font-mono);color:var(--dim);word-break:break-all}
-/* What the card waits for is a fact about its place in the work, not a record of it. */
-.board-dialog__depends{margin:0 0 var(--space-2);font:var(--fs-xs) var(--font-mono);color:var(--muted);word-break:break-all}
-.board-dialog__notes{display:flex;flex-direction:column;gap:var(--space-3);margin:0 0 var(--space-3);padding:0;list-style:none;max-height:16rem;overflow:auto}
+/* The card dialog: the record of one card, in two named sections. Nothing here scrolls on
+   its own — the kit's body is the one scrollbar, so a reader is never inside a scroll
+   inside a scroll. */
+/* A little taller than the kit's default: this dialog is the only place a whole card —
+   its facts, its plan, and every note it kept — can be read. */
+.board-dialog__panel{width:min(720px,100%);max-height:84vh}
+/* A long title wraps beside its id instead of pushing the close button off the head. */
+.board-dialog__head{flex-wrap:wrap;align-items:baseline;row-gap:var(--space-1)}
+.board-dialog__head h2{flex:1 1 12ch;min-width:0;font-size:var(--fs-lg);line-height:var(--lh-tight);overflow-wrap:anywhere}
+.board-dialog__id{font:var(--fs-sm) var(--font-mono);color:var(--muted)}
+.board-dialog__body{display:flex;flex-direction:column;gap:var(--space-4);padding-bottom:var(--space-4)}
+.board-dialog__section{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+/* The heading is a label, not a headline: the title above it is the only headline here. */
+.board-dialog__heading{display:flex;align-items:baseline;gap:var(--space-1);margin:0;padding-bottom:var(--space-1);border-bottom:1px solid var(--border);font:var(--fw-medium) var(--fs-xs) var(--font-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.board-dialog__count{font:var(--fs-xs) var(--font-mono);letter-spacing:0;text-transform:none;color:var(--dim)}
+/* The ladder: labels size to the longest one, values take the width that is left, and
+   every row starts at the same column so the eye can run down the facts. */
+.board-dialog__facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--space-1) var(--space-3);margin:0;align-items:baseline}
+.board-dialog__facts dt{font:var(--fs-xs) var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.board-dialog__facts dd{margin:0;min-width:0;font:var(--fs-sm) var(--font-ui);color:var(--text)}
+/* A path is a value like any other, but a long one elides on its single line and keeps the
+   whole of itself on the hover title, so a 90-character plan cannot shred the ladder. */
+.board-dialog__value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A plan path and the ids a card waits for are code, and a reader copies them. */
+.board-dialog__plan{font-family:var(--font-mono)}
+.board-dialog__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none;min-width:0}
+.board-dialog__paths li{min-width:0;max-width:100%}
+/* A path is code, not a label: the owner is a chip of prose, a path is something you type. */
+.board-dialog__path{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-family:var(--font-mono)}
+.board-dialog__notes{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 /* A rule between notes: wrapped prose used to run one note into the next. */
 .board-dialog__note{padding-top:var(--space-3);border-top:1px solid var(--border)}
 .board-dialog__note:first-child{padding-top:0;border-top:0}
-.board-dialog__note-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);margin:0 0 2px}
-.board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--text)}
-.board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
-.board-dialog__note-text{margin:0;font:var(--fs-sm)/var(--lh-normal) var(--font-ui);color:var(--text);overflow-wrap:anywhere}
+/* The sentence is the record, so it reads at body size on a measure, not the full 720px. */
+.board-dialog__note-text{margin:0 0 var(--space-1);max-width:68ch;font:var(--fs-base)/var(--lh-relaxed) var(--font-ui);color:var(--text);overflow-wrap:anywhere;white-space:pre-wrap}
+/* Who and when is the footnote of the note above it. */
+.board-dialog__note-foot{display:flex;align-items:baseline;gap:var(--space-2);margin:0;max-width:68ch}
+.board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
+.board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 .board-dialog__state[data-status="doing"]::before{background:var(--accent)}
