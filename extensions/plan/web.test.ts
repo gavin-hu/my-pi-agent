@@ -30,6 +30,14 @@ import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { closeComposer, commentOnActive, reopenComposer, WEB_COMPOSER_JS } from "./web-composer.ts";
+import {
+	approveReview,
+	cancelReview,
+	postReviewComments,
+	saveReview,
+	submitAnnotations,
+	WEB_SETTLE_JS,
+} from "./web-settle.ts";
 import { renderPlanFrame, WEB_PLAN_JS } from "./web-plan.ts";
 import { draftTextarea, guardDraft, WEB_DRAFT_JS } from "./web-draft.ts";
 import { observeSections, renderFacts, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
@@ -665,38 +673,41 @@ describe("review client", () => {
 	});
 
 	test("uses only same-origin routes with the session token", () => {
-		expect(REVIEW_CLIENT_JS).toContain('submit("/api/feedback"');
-		expect(REVIEW_CLIENT_JS).toContain('submit("/api/comment"');
-		expect(REVIEW_CLIENT_JS).toContain('submit("/api/approve"');
-		expect(REVIEW_CLIENT_JS).toContain("/api/cancel?token=");
+		// Every route a settlement writes to is in one module now; the stream stays in the
+		// bundle, because it is wiring rather than a rule.
+		expect(WEB_SETTLE_JS).toContain('"/api/feedback"');
+		expect(WEB_SETTLE_JS).toContain('"/api/comment"');
+		expect(WEB_SETTLE_JS).toContain('"/api/approve"');
+		expect(WEB_SETTLE_JS).toContain("/api/cancel?token=");
+		expect(WEB_SETTLE_JS).toContain('"?token=" + encodeURIComponent(deps.token())');
 		expect(REVIEW_CLIENT_JS).toContain("/events?token=");
-		expect(REVIEW_CLIENT_JS).toContain('"?token=" + encodeURIComponent(token)');
 	});
 
 	test("a reviewer's post keeps the page live and an owner's save settles it", () => {
-		// The bodies are read apart because the difference is which flags they touch:
-		// posting is transient, saving ends the review.
-		const post = clientFunction("postComments");
-		expect(post).toContain('submit("/api/comment"');
-		expect(post).not.toContain("saved = true");
+		// The two are read apart because the difference is which flags they touch: posting
+		// is transient, saving ends the review.
+		const post = String(postReviewComments);
+		expect(post).toContain('"/api/comment"');
+		expect(post).not.toContain("markSettled");
 		expect(post).not.toContain("settleStream");
 		expect(post).not.toContain("lockActions");
 
-		const save = clientFunction("save");
-		expect(save).toContain('submit("/api/feedback"');
-		expect(save).toContain("saved = true");
+		const save = String(saveReview);
+		expect(save).toContain('"/api/feedback"');
+		expect(save).toContain('deps.markSettled("saved")');
+		expect(String(approveReview)).toContain('deps.markSettled("approved")');
 	});
 
 	test("shows the server's own reason when a post conflicts", () => {
 		// A 409 is either a plan that moved or a link already bound to a name; the
 		// server's sentence says which, so the page must not assume the first.
-		const submit = clientFunction("submit");
-		expect(submit).toContain("function submit(");
-		// The parsed body is `result.body`: `postJson` hands back the status and the body
-		// together, so the sentence the server wrote is still what the page says.
-		expect(submit).toContain("result.body.error");
-		expect(submit).toContain("offerReload()");
-		expect(submit).toContain("PLAN_MOVED");
+		const submit = String(submitAnnotations);
+		expect(submit).toContain("function submitAnnotations(");
+		// The parsed body carries the server's sentence, so a conflict says which of the two
+		// it was rather than always the plan-changed one.
+		expect(submit).toContain("body.error");
+		expect(submit).toContain("deps.offerReload()");
+		expect(submit).toContain("deps.planMoved");
 		// The plan-changed sentence is the fallback now, not the only thing said.
 		expect(submit).not.toContain('setStatus("The plan changed');
 	});
@@ -749,10 +760,11 @@ describe("review client", () => {
 	});
 
 	test("closes the review only for its owner and reads a terminal frame", () => {
-		expect(REVIEW_CLIENT_JS).toContain('if (role !== "owner" || saved || approved || closed) return;');
+		expect(String(cancelReview)).toContain('deps.role() !== "owner" || deps.settled()');
+		// The terminal frames the bundle reads off the stream.
 		expect(REVIEW_CLIENT_JS).toContain('kind === "closed"');
 		expect(REVIEW_CLIENT_JS).toContain('kind === "revoked"');
-		expect(REVIEW_CLIENT_JS).toContain("if (postButton) postButton.disabled = true;");
+		expect(String(submitAnnotations)).toContain("buttons.post.disabled = !0");
 	});
 
 	test("never assigns plan or comment text as markup", () => {
@@ -2535,5 +2547,155 @@ describe("review plan renderer", () => {
 		expect(WEB_PLAN_JS).toContain(
 			"const keepFocus = !!(deps.focused && deps.focused !== planEl && planEl.contains(deps.focused));",
 		);
+	});
+});
+
+describe("review settlement", () => {
+	const harness = (answer: { ok: boolean; status: number; body: unknown }, over: Record<string, unknown> = {}) => {
+		const painted: Array<{ text: string; kind?: string }> = [];
+		const calls = {
+			clean: 0,
+			draft: 0,
+			state: 0,
+			reload: 0,
+			lock: 0,
+			settled: [] as string[],
+			adopted: [] as string[],
+			sent: [] as string[],
+		};
+		const buttons = { approve: { disabled: false }, save: { disabled: false }, post: { disabled: false } };
+		const deps = {
+			token: () => "s3cret",
+			role: () => "owner",
+			mine: () => [{ anchor: 1 }],
+			annotations: () => [{ anchor: 1 }, { anchor: 2 }],
+			settled: () => false,
+			setStatus: (text: string, kind?: string) => painted.push({ text, kind }),
+			buttons: () => buttons,
+			clearDraft: () => (calls.draft += 1),
+			markClean: () => (calls.clean += 1),
+			adoptName: (name: string) => calls.adopted.push(name),
+			offerReload: () => (calls.reload += 1),
+			markSettled: (kind: string) => calls.settled.push(kind),
+			settleStream: () => calls.settled.push("stream"),
+			lockActions: () => (calls.lock += 1),
+			updateState: () => (calls.state += 1),
+			confirmNoDraft: () => false,
+			post: async (url: string) => {
+				calls.sent.push(url);
+				return answer;
+			},
+			send: async (url: string) => calls.sent.push(url),
+			planMoved: "The plan changed on disk \u2014 reload to review again.",
+			...over,
+		} as Parameters<typeof submitAnnotations>[0];
+		return { deps, painted, calls, buttons };
+	};
+
+	test("carries the source, safe to splice into the client bundle", () => {
+		expect(WEB_SETTLE_JS).not.toContain("`");
+		expect(WEB_SETTLE_JS).not.toContain("${");
+		for (const fn of [submitAnnotations, saveReview, postReviewComments, approveReview, cancelReview]) {
+			expect(WEB_SETTLE_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
+		}
+	});
+
+	test("a reviewer posts only her own comments, and an owner posts all of them", async () => {
+		const owner = harness({ ok: true, status: 200, body: null });
+		await submitAnnotations(owner.deps, "/api/comment", "posted", "failed: ", null);
+		expect(owner.calls.sent).toEqual(["/api/comment?token=s3cret"]);
+
+		const reviewer = harness({ ok: true, status: 200, body: null }, { role: () => "reviewer" });
+		let sent: unknown = null;
+		reviewer.deps.post = async (_url: string, body: unknown) => {
+			sent = body;
+			return { ok: true, status: 200, body: null };
+		};
+		await submitAnnotations(reviewer.deps, "/api/comment", "posted", "failed: ", null);
+		// The reviewer's payload is her own write, not the page's whole comment list.
+		expect(sent).toEqual({ annotations: [{ anchor: 1 }] });
+	});
+
+	test("a success clears the draft, paints the sentence, and reports it once", async () => {
+		const { deps, painted, calls } = harness({ ok: true, status: 200, body: { author: "mei" } });
+		let onOk = 0;
+		const result = await submitAnnotations(deps, "/api/feedback", "Saved.", "Could not save: ", () => (onOk += 1));
+		expect(result.outcome).toBe("ok");
+		expect(calls.clean).toBe(1);
+		expect(calls.draft).toBe(1);
+		expect(onOk).toBe(1);
+		expect(painted).toEqual([{ text: "Saved.", kind: "saved" }]);
+		// An owner posts untagged comments; the name the server bound is a reviewer's.
+		expect(calls.adopted).toEqual([]);
+	});
+
+	test("a reviewer adopts the name the server bound to her link", async () => {
+		const { deps, calls } = harness({ ok: true, status: 200, body: { author: "mei" } }, { role: () => "reviewer" });
+		await submitAnnotations(deps, "/api/comment", "posted", "failed: ", null);
+		expect(calls.adopted).toEqual(["mei"]);
+	});
+
+	test("a conflict disables the writes, offers a reload, and says the server's reason", async () => {
+		const { deps, buttons, calls, painted } = harness({
+			ok: false,
+			status: 409,
+			body: { error: "a link is bound to @mei" },
+		});
+		const result = await submitAnnotations(deps, "/api/comment", "posted", "failed: ", null);
+		expect(result.outcome).toBe("conflict");
+		expect(buttons).toEqual({ approve: { disabled: true }, save: { disabled: true }, post: { disabled: true } });
+		expect(calls.reload).toBe(1);
+		expect(painted).toEqual([{ text: "a link is bound to @mei", kind: "error" }]);
+	});
+
+	test("a conflict with no sentence of its own falls back to the plan-moved line", async () => {
+		const { deps, painted } = harness({ ok: false, status: 409, body: null });
+		await submitAnnotations(deps, "/api/comment", "posted", "failed: ", null);
+		expect(painted).toEqual([{ text: "The plan changed on disk \u2014 reload to review again.", kind: "error" }]);
+	});
+
+	test("a refusal surfaces the server's reason under the caller's prefix", async () => {
+		const { deps, painted } = harness({ ok: false, status: 422, body: { error: "comment is empty" } });
+		const result = await submitAnnotations(deps, "/api/feedback", "saved", "Could not save: ", null);
+		expect(result.outcome).toBe("failed");
+		expect(painted).toEqual([{ text: "Could not save: comment is empty", kind: "error" }]);
+	});
+
+	test("a settled review writes nothing at all", () => {
+		const { deps, calls } = harness({ ok: true, status: 200, body: null }, { settled: () => true });
+		expect(saveReview(deps)).toBeNull();
+		expect(approveReview(deps)).toBeNull();
+		expect(postReviewComments(deps)).toBeNull();
+		expect(cancelReview(deps)).toBeNull();
+		expect(calls.sent).toEqual([]);
+	});
+
+	test("saving and approving mark the review settled; cancelling is the owner's alone", async () => {
+		const save = harness({ ok: true, status: 200, body: null });
+		await saveReview(save.deps);
+		expect(save.calls.settled).toEqual(["saved", "stream"]);
+		expect(save.calls.lock).toBe(1);
+
+		const approve = harness({ ok: true, status: 200, body: null });
+		await approveReview(approve.deps);
+		expect(approve.calls.settled).toEqual(["approved", "stream"]);
+
+		const close = harness({ ok: true, status: 200, body: null });
+		await cancelReview(close.deps);
+		expect(close.calls.settled).toEqual(["closed", "stream"]);
+		expect(close.calls.sent).toEqual(["/api/cancel?token=s3cret"]);
+		expect(close.painted.at(-1)).toEqual({ text: "Closed \u2014 return to Pi.", kind: undefined });
+
+		const reviewer = harness({ ok: true, status: 200, body: null }, { role: () => "reviewer" });
+		expect(cancelReview(reviewer.deps)).toBeNull();
+		expect(reviewer.calls.sent).toEqual([]);
+	});
+
+	test("a half-written comment refuses the way out before anything is sent", async () => {
+		const { deps, calls } = harness({ ok: true, status: 200, body: null }, { confirmNoDraft: () => true });
+		expect(saveReview(deps)).toBeNull();
+		expect(postReviewComments(deps)).toBeNull();
+		expect(cancelReview(deps)).toBeNull();
+		expect(calls.sent).toEqual([]);
 	});
 });
