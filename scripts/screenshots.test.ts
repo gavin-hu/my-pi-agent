@@ -112,11 +112,11 @@ describe("board shot arguments", () => {
 		expect(options.waitMs).toBe(50);
 	});
 
-	test("takes one dialog, and refuses another", () => {
-		for (const dialog of ["card", "confirm", "new", "edit"] as const) {
-			expect(parseBoardArgs(["--dialog", dialog]).dialog).toBe(dialog);
+	test("takes the card dialog, and refuses any other — a reader cannot open a composer", () => {
+		expect(parseBoardArgs(["--dialog", "card"]).dialog).toBe("card");
+		for (const dialog of ["confirm", "new", "edit", "menu"]) {
+			expect(() => parseBoardArgs(["--dialog", dialog])).toThrow("--dialog must be card");
 		}
-		expect(() => parseBoardArgs(["--dialog", "menu"])).toThrow("--dialog must be card, confirm, new, or edit");
 	});
 
 	test("refuses an option it does not have, and a positional", () => {
@@ -124,11 +124,9 @@ describe("board shot arguments", () => {
 		expect(() => parseBoardArgs(["extra"])).toThrow("unexpected argument extra");
 	});
 
-	test("takes --viewer, so the read-only page is reviewed as a picture", () => {
-		// A viewer's page is the same document with one attribute changed; the flag is how
-		// that state is captured without a second session serving it.
-		expect(parseBoardArgs(["--viewer"]).viewer).toBe(true);
-		expect(parseBoardArgs([]).viewer).toBeUndefined();
+	test("has no --viewer, because every page is one page now", () => {
+		// The flag existed to photograph a second, read-only credential. There is one.
+		expect(() => parseBoardArgs(["--viewer"])).toThrow("unknown option --viewer");
 	});
 });
 

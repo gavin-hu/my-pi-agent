@@ -40,7 +40,7 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 			}
 			if (word === "stop") {
 				const status = page.status();
-				// A viewer's page is somebody else's to stop, and saying whose is the answer.
+				// A page another session serves is that session's to stop, and saying whose it is is the answer.
 				if (status.attached === true) {
 					ctx.ui.notify(
 						`board: nothing to stop here — ${status.seat} serves this repository on :${status.port}`,

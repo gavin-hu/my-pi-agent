@@ -22,7 +22,7 @@ export type { TeamJoin } from "../../lib/session-tool.ts";
 
 /**
  * The label `/board` lands on: the page's seat when this session serves it, and
- * nothing when it watches somebody else's page, so a viewer keeps its own name.
+ * nothing when it opened somebody else's page, so a session keeps its own name.
  */
 export function joinLabel(served: boolean): string | undefined {
 	return served ? DEFAULT_SEAT : undefined;

@@ -575,8 +575,7 @@ body {
 }
 
 .mini__meta,
-.mini__paths,
-.mini__actions {
+.mini__paths {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -607,24 +606,6 @@ body {
 	color: var(--warn);
 	border-color: rgba(var(--warn-rgb), 0.34);
 	background: rgba(var(--warn-rgb), 0.09);
-}
-
-/* An action: bordered for the one the card is inviting, quiet for the rest. */
-.act {
-	padding: 2px 8px;
-	border: 1px solid var(--line);
-	border-radius: 6px;
-	font-family: var(--font-mono);
-	font-size: 12px;
-	line-height: 1.5;
-	color: var(--muted);
-	background: var(--canvas);
-}
-
-.act--loud {
-	color: var(--accent);
-	border-color: rgba(var(--accent-rgb), 0.42);
-	background: rgba(var(--accent-rgb), 0.09);
 }
 
 /* The lead's rollup: one line per owner, then the counts a lead acts on. */

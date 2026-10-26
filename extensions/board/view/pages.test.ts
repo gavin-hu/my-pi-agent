@@ -28,17 +28,33 @@ describe("the document", () => {
 	test("is a complete page under the shared head", () => {
 		const page = renderBoardPage({ view: "board" });
 		expect(page.startsWith("<!doctype html>")).toBe(true);
-		expect(page).toContain('<html lang="en" data-view="board" data-writes="1">');
+		expect(page).toContain('<html lang="en" data-view="board">');
 		expect(page).toContain("/app.js");
 		expect(page.trimEnd().endsWith("</html>")).toBe(true);
 	});
 
-	test("a viewer's document says so, and the client asks it", () => {
-		// The attribute is the whole difference between the lead's page and a teammate's:
-		// the server renders it per request, and every affordance reads it.
-		expect(renderBoardPage({ view: "board", writes: false })).toContain('data-writes="0"');
-		expect(renderBoardPage({ view: "team", writes: true })).toContain('data-writes="1"');
-		expect(BOARD_CLIENT_JS).toContain('getAttribute("data-writes") !== "0"');
+	test("carries no write surface at all", () => {
+		// The page reads. A form, a composer, a banner, or a footer of verbs would each be
+		// a promise the server refuses, so none of them is in the document to begin with.
+		const page = renderBoardPage({ view: "board" });
+		for (const gone of [
+			"data-writes",
+			'id="board-new"',
+			'id="board-composer"',
+			'id="board-new-dialog"',
+			'id="board-confirm"',
+			'id="board-banner"',
+			'id="board-first-card"',
+			'id="card-dialog-note"',
+			'id="card-dialog-actions"',
+		]) {
+			expect(page, gone).not.toContain(gone);
+		}
+		expect(page).not.toContain("<form");
+		// And the client asks nothing the document no longer answers.
+		for (const gone of ["data-writes", "board.may =", "canWrite", "board.act(", "board.add(", "board.editCard"]) {
+			expect(BOARD_CLIENT_JS, gone).not.toContain(gone);
+		}
 	});
 
 	test("opens on the tab it was asked for, with the other one hidden", () => {
@@ -49,7 +65,7 @@ describe("the document", () => {
 		expect(team).toContain('id="panel-board" role="tabpanel" aria-labelledby="tab-board" hidden');
 	});
 
-	test("carries the regions and all three dialogs the client fills", () => {
+	test("carries the regions and the one dialog the client fills", () => {
 		const page = renderBoardPage({ view: "board" });
 		for (const id of [
 			"board-me",
@@ -58,22 +74,10 @@ describe("the document", () => {
 			"board-progress-fill",
 			"board-progress-text",
 			"board-filter",
-			"board-new",
-			"board-new-dialog",
-			"board-new-title",
-			"new-title-count",
 			"keys-open",
-			"board-banner",
-			"board-composer",
-			"new-title",
-			"new-paths",
-			"new-priority",
-			"new-submit",
-			"board-cancel",
 			"board-picker",
 			"board-lanes",
 			"board-no-cards",
-			"board-first-card",
 			"board-team",
 			"board-where",
 			"board-card-dialog",
@@ -86,14 +90,6 @@ describe("the document", () => {
 			"card-dialog-plan",
 			"card-dialog-notes",
 			"card-dialog-earlier",
-			"card-dialog-note",
-			"card-dialog-note-add",
-			"card-dialog-actions",
-			"board-confirm",
-			"confirm-title",
-			"confirm-body",
-			"confirm-cancel",
-			"confirm-ok",
 			"keys-dialog",
 			"keys-close",
 		]) {
@@ -101,13 +97,11 @@ describe("the document", () => {
 		}
 	});
 
-	test("opens with the new-card dialog closed behind its one trigger", () => {
+	test("an empty board says how a card is made, in the terminal's words", () => {
 		const page = renderBoardPage({ view: "board" });
-		// The board is what the page opens on; the dialog is asked for, not offered twice.
-		expect(page).toContain('id="board-new-dialog" hidden');
-		expect(page).toContain('id="board-new" title="New card — n" aria-haspopup="dialog"');
-		// The drawer's `aria-expanded` described a tray; a dialog announces itself instead.
-		expect(page).not.toMatch(/id="board-new"[^>]*aria-expanded/);
+		// The page cannot add one, so the empty state names the command that can instead of
+		// offering a button that would take a reader nowhere.
+		expect(page).toContain("<code>board add</code>");
 	});
 
 	test("carries no card text at all", () => {
@@ -132,7 +126,7 @@ describe("the document", () => {
 		for (const block of [WEB_BASE_CSS, WEB_THEME_CSS, WEB_LAYOUT_CSS, WEB_COMPONENTS_CSS]) {
 			expect(BOARD_CSS.split(block)).toHaveLength(2);
 		}
-		expect(BOARD_CSS.split(".board-composer{display:flex")).toHaveLength(2);
+		expect(BOARD_CSS.split(".board-dialog__notes{display:flex")).toHaveLength(2);
 	});
 
 	/** The page's own rules, without the shared blocks that define the palette. */
@@ -163,17 +157,14 @@ describe("the document", () => {
 });
 
 describe("the client bundle", () => {
-	test("carries all three modules and the entry point", () => {
+	test("carries the paint, the round, the card dialog, the keys, and the entry point", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.render = function");
-		expect(BOARD_CLIENT_JS).toContain("board.act = function");
+		expect(BOARD_CLIENT_JS).toContain("board.openCard = function");
 		expect(BOARD_CLIENT_JS).toContain("board.start = function");
 		expect(BOARD_CLIENT_JS).toContain("board.start();");
 	});
 
-	test("offers an unowned card the action it is waiting for, and keeps ages honest", () => {
-		// A todo card's dialog used to offer only Drop and Close; a quiet board's
-		// ages used to freeze at the last frame.
-		expect(BOARD_CLIENT_JS).toContain('board.may(card, view, "claim")');
+	test("keeps ages honest, which is the one thing a quiet board must still do", () => {
 		expect(BOARD_CLIENT_JS).toContain("data-at");
 		expect(BOARD_CLIENT_JS).toContain("board.refreshAges()");
 	});
@@ -198,7 +189,9 @@ describe("the client bundle", () => {
 		// A bus that is not loaded must read as unknown rather than as "nobody".
 		expect(BOARD_CLIENT_JS).toContain("view.teammates === undefined ? null : view.teammates");
 		expect(BOARD_CLIENT_JS).toContain("board-team__id");
-		expect(BOARD_CLIENT_JS).toContain('"Reclaim #" + card.id');
+		// The rows are reasons to pick a card up in the terminal, not verbs: a page that
+		// offered Reclaim would be offering the server's refusal.
+		expect(BOARD_CLIENT_JS).not.toContain('"Reclaim #" + card.id');
 		// A live peer that is not listening is marked, because a message to it waits for its
 		// next turn; a quiet one is not, because its heartbeat is the bigger news.
 		expect(BOARD_CLIENT_JS).toContain('mate.state === "live" && mate.listening === false');
@@ -210,47 +203,13 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("gone: 1");
 	});
 
-	test("says its lane in the head, separates the notes, and offers only reachable lanes", () => {
+	test("reads one card whole: its lane, its notes, and what it waits for", () => {
 		expect(BOARD_CLIENT_JS).toContain('getElementById("card-dialog-state")');
 		expect(BOARD_CLIENT_JS).toContain("board-dialog__note-head");
-		expect(BOARD_CLIENT_JS).toContain('"Move to"');
-		// The page records an owner instead of messaging a peer, so its control sits with
-		// the actions and is offered only where the rules would accept it.
-		expect(BOARD_CLIENT_JS).toContain('board.may(card, view, "assign")');
-		expect(BOARD_CLIENT_JS).toContain('"/assign"');
-		expect(BOARD_CLIENT_JS).toContain("lane !== card.status");
-	});
-
-	test("opens the new card through the kit's dialog, not a home-made one", () => {
-		// One `dialogScript` per modal: the Tab trap, `Esc`, the backdrop click, and the
-		// focus return are the kit's, so the page only fills and opens it.
-		expect(BOARD_CLIENT_JS).toContain('getElementById("board-new-dialog")');
-		expect(BOARD_CLIENT_JS).toContain("window.bfNew");
-		expect(BOARD_CLIENT_JS).toContain("window.bfNew.open()");
-	});
-
-	test("edits a card through the dialog it adds one with", () => {
-		// One form, two modes: the same fields, the same kit dialog, and a heading and
-		// submit that say which one is showing.
-		expect(BOARD_CLIENT_JS).toContain("board.editCard");
-		expect(BOARD_CLIENT_JS).toContain('"Edit card #"');
-		expect(BOARD_CLIENT_JS).toContain('"Save"');
-		expect(renderBoardPage({ view: "board" })).toContain('id="new-priority"');
-		// The page never sends a link, because it never shows one.
-		expect(BOARD_CLIENT_JS).not.toContain("dependsOn:");
-	});
-
-	test("keeps one verb on a card face, and lets the title be the way in", () => {
-		// Claim, then Note, then Open: three doors to one room, and 59 buttons on the
-		// 26-card board this page is built for. The title opens the same dialog, which
-		// holds the note field and the move controls.
-		expect(BOARD_CLIENT_JS).toContain('actionButton("Claim"');
-		expect(BOARD_CLIENT_JS).toContain('actionButton("Move"');
-		expect(BOARD_CLIENT_JS).not.toContain('actionButton("Note"');
-		expect(BOARD_CLIENT_JS).not.toContain('actionButton("Open"');
-		// A finished card and a viewer's card have no verb at all, and an empty row would
-		// still take its gap, so the row is drawn only when something is in it.
-		expect(BOARD_CLIENT_JS).toContain("actions.childNodes.length > 0");
+		expect(BOARD_CLIENT_JS).toContain('getElementById("card-dialog-depends")');
+		// The title is the only door: a face that drew a verb would draw a refusal.
+		expect(BOARD_CLIENT_JS).toContain("board.openCard");
+		expect(BOARD_CLIENT_JS).not.toContain("board-card__actions");
 	});
 
 	test("folds finished work once, and gives an empty lane a rail", () => {
@@ -295,23 +254,14 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('new URLSearchParams(window.location.search).get("token")');
 	});
 
-	test("asks one permission table on all three surfaces", () => {
-		// A card face, the dialog's footer, and a queue row each draw a different subset of
-		// the same verbs, and the answer to "may this reader" is one function — otherwise the
-		// same card offers `Claim` in one place and refuses it in another.
-		expect(BOARD_CLIENT_JS).toContain("board.may = may");
-		for (const verb of ["claim", "move", "release", "edit", "drop", "reclaim"]) {
-			expect(BOARD_CLIENT_JS, verb).toContain(`board.may(card, view, "${verb}")`);
+	test("keeps no permission table, no request, and no dialog but the card's", () => {
+		// One rule lives in `lib/board/rules.ts`, and the page asks it nothing because the
+		// page asks for nothing: a second table here is how the two drifted apart.
+		for (const gone of ["board.may =", "canWrite", "function request(", "bfConfirm", "bfNew", "board.banner"]) {
+			expect(BOARD_CLIENT_JS, gone).not.toContain(gone);
 		}
-	});
-
-	test("asks before a claim, a reclaim, and a deletion, and never uses alert", () => {
-		expect(BOARD_CLIENT_JS).toContain("window.bfConfirm.open()");
-		expect(BOARD_CLIENT_JS).toContain("window.bfConfirm.close()");
-		expect(BOARD_CLIENT_JS).toContain('verb === "claim"');
-		expect(BOARD_CLIENT_JS).toContain('verb === "reclaim"');
-		expect(BOARD_CLIENT_JS).toContain('verb === "drop"');
 		expect(BOARD_CLIENT_JS).not.toContain("alert(");
+		expect(BOARD_CLIENT_JS).toContain("window.bfCard.open()");
 	});
 
 	test("is one self-contained script", () => {

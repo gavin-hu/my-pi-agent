@@ -63,7 +63,7 @@ Every packaged skill is model-invoked, so a matching request loads it;
 | `/board` | Open the shared board in a local browser; `team`, `status`, and `stop` are its words | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
 | `/board team` | Open the page on its Team tab | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
 | `/board status` | Print one line about the page, and the join this session's `/board` made | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
-| `/board stop` | Close the page this session serves; a viewer's page is somebody else's to stop | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
+| `/board stop` | Close the page this session serves; a page another session serves is that session's to stop | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
 | `/team` | Print the lead's round: what needs a decision, who holds what, then who is live | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
 | `/team join [<label>]` | Put this session on the team under that label, listening for mail | [Sharing a board](./delegate-and-background.md#sharing-a-board) |
 
@@ -193,7 +193,7 @@ no longer need it; deleting a settings file restores defaults.
 | `.pi/memory.md` in the project | Project memory notes |
 | `.pi/bytefly.json` in the project | Project-scope settings |
 | `<agent-dir>/plans/` | Plans when Pi runs outside a git repository |
-| `<agent-dir>/board/<repo-key>/` | The shared board's cards, and the note the serving session leaves for a viewer; shared by every worktree of the repository |
+| `<agent-dir>/board/<repo-key>/` | The shared board's cards, and the note the serving session leaves so a second session can open the same page; shared by every worktree of the repository |
 | `<agent-dir>/session-bus/<repo-key>/` | Session records with each session's mail, and the path claims they hold |
 | `<agent-dir>/memory.md` | Global memory notes |
 | `<agent-dir>/bytefly.json` | Global `bytefly.json` settings |

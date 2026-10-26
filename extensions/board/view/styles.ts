@@ -30,30 +30,12 @@ ${WEB_COMPONENTS_CSS}
 .board-progress{margin:0}
 .board-picker{display:none;margin-bottom:var(--space-3)}
 
-/* The new card is a kit dialog, so the board is what the page opens on. The form is
-   the panel's own column: its body scrolls and its actions stay pinned. */
-.board-composer{display:flex;flex-direction:column;min-height:0}
-/* One column, label above the box: the dialog is 640px wide, and the 2fr/1fr pair it
-   inherited from the drawer left the path hints 197px and their label inside the box. */
-.board-composer__fields{display:flex;flex-direction:column;gap:var(--space-3)}
-.board-composer__field{display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
-.board-composer__label{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2);font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
-.board-composer__count{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
-/* A select inside a field: the native caret is the affordance, so it keeps it, and the
-   field's own surface is what it sits on rather than the platform's white box. */
-.board-composer__select{background:transparent;color:var(--text);cursor:pointer}
-.board-composer__fields .bf-field{min-width:0}
-/* The title is the one thing this dialog exists to ask for, so it leads. */
-.board-composer__field--title .bf-field{padding:var(--space-2) var(--space-3)}
-.board-composer__field--title .bf-input{font-size:var(--fs-md)}
-
 /* The main pane is this page's only child of the shell, so it grows to fill the
    column and the footer stays at the bottom however short the board is. */
 .board-main{flex:1 1 auto}
 /* One panel per tab; the shell's main pane is the only scroll box. */
 .board-panel{display:flex;flex-direction:column;min-width:0}
 .board-panel[hidden]{display:none}
-.board-banner{margin:0 0 var(--space-4)}
 .board-no-cards{max-width:32rem;margin:auto;padding:var(--space-8) var(--space-6)}
 
 /* Lanes: trays of cards, each with a head that sticks while the pane scrolls. A lane is
@@ -170,21 +152,11 @@ ${WEB_COMPONENTS_CSS}
 .board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--text)}
 .board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
 .board-dialog__note-text{margin:0;font:var(--fs-sm)/var(--lh-normal) var(--font-ui);color:var(--text);overflow-wrap:anywhere}
-.board-dialog__move{display:flex;align-items:center;gap:var(--space-2);margin-right:auto}
-/* Assigning records an owner the page cannot tell anybody about, so it sits with the
-   other card actions and takes a name from the roster. */
-.board-dialog__assign{display:flex;align-items:center;gap:var(--space-2);margin-right:auto}
-.board-dialog__assign-select{width:auto;min-width:8rem;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);padding:2px var(--space-2);cursor:pointer}
-.board-dialog__label{font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 .board-dialog__state[data-status="doing"]::before{background:var(--accent)}
 .board-dialog__state[data-status="blocked"]::before{background:var(--danger)}
 .board-dialog__state[data-status="done"]::before{background:var(--success)}
-.board-dialog__note-composer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-2);padding:0;border:0;background:none}
-.board-dialog__note-composer .bf-field{margin:0}
-.board-dialog__note-composer .bf-composer__row{margin:0}
-.board-confirm__body{margin:0}
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 
 @media (max-width:1180px){
@@ -217,7 +189,7 @@ ${WEB_COMPONENTS_CSS}
   .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}
   .board-card{break-inside:avoid}
   /* The disclosure affordance goes; the lane's name stays with its count. */
-  .board-card__actions,.board-composer,.board-filter,.board-picker,.board-done{display:none!important}
+  .board-filter,.board-picker,.board-done{display:none!important}
   .board-lane__toggle::after{content:""}
 }
 `;

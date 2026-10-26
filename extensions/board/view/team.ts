@@ -21,7 +21,6 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
   var chip = board.chip;
-  var actionButton = board.actionButton;
   var ago = board.ago;
   var plural = board.plural;
 
@@ -131,19 +130,9 @@ export const BOARD_TEAM_JS = String.raw`(function () {
 
     var foot = el("div", "board-team__foot");
     if (card.owner) foot.appendChild(chip(card.owner.label, "accent"));
-    // The same permission table the card face and the dialog ask: a row offers the way out
-    // that this reader may actually take, and a card that waits offers none because a
-    // claim on it would be refused.
-    if (board.may(card, view, "reclaim")) {
-      var reclaim = actionButton("Reclaim", function () { board.act("reclaim", card); });
-      // Six identical buttons read as six identical buttons; the card is the name.
-      reclaim.setAttribute("aria-label", "Reclaim #" + card.id);
-      foot.appendChild(reclaim);
-    } else if (board.may(card, view, "claim")) {
-      var claim = actionButton("Claim", function () { board.act("claim", card); });
-      claim.setAttribute("aria-label", "Claim #" + card.id);
-      foot.appendChild(claim);
-    }
+    // No button: this page cannot claim or reclaim, and a page that offered either would
+    // be teaching a verb the server refuses. The row is a reason to pick a card up in the
+    // terminal, which is where a claim is made.
     node.appendChild(foot);
 
     // The reason gets the row's whole width and two lines; the tooltip carries the

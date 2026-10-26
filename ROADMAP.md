@@ -89,7 +89,7 @@ screenshots.
 | README promise | Today | Open items |
 |---|---|---|
 | Plan, then execute | Strong; one plan store per repository, a step list approval seeds into `todo`, and a review that follows its file | — |
-| Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | P1 |
+| Delegate and parallelize | Strong; background runs, a local session bus, and a shared board with a lead's round, with every bus limit documented | — |
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |
@@ -178,13 +178,10 @@ item went the same way: both modules it named have a second consumer inside
 
 **Now**
 
-- **P1 — A card's links are set from the page.** The card dialog records what a
-  card waits for, as a picker over the board's ids, instead of leaving
-  `dependsOn` to `board edit`: the page already shows the links and already
-  edits the title, the path hints, and the priority, so this is parity rather
-  than a new surface.
+Nothing here is queued: the page stopped writing, so the item that would have given
+it more to write was withdrawn with it.
 
-The split that shipped with the review is withdrawn: a plan is one flow, and a
+The split that shipped with the review is withdrawn too: a plan is one flow, and a
 session claims its own paths.
 
 **Next**
@@ -438,8 +435,7 @@ it. A limitation an item owns is named in that section instead, never here.
 | `board`: ownership is advisory | A card names an owner; the lock on a file is `session-bus`'s path claim, and two sessions editing one file is a conflict the board cannot see. Revisit if the board issued claims of its own. |
 | `board`: a link is checked when a card is taken and when it is finished | It never re-opens work that finished before the link was recorded, and `done` is terminal, so a dependency cannot un-finish. Revisit if a link must reorder completed work. |
 
-| `board`: the seat and the terminal are two actors | The page writes as `team-lead`, so a page claim is released from the page or `reclaim`ed; sharing one id would let a browser claim impersonate the session that serves it. Revisit if a page can name the session that asked. |
-| `board`: the note a page leaves carries a read-only token, so the lead's URL is a write credential | A browser is not an identity: the note is what a teammate is given, and `/board status` prints the page rather than the lead's URL. Revisit with a per-session write grant. |
+| `board`: assigning without messaging the peer went with the write path | A page assignment recorded an owner and had to say no handoff was sent; `team`'s `assign` messages the peer instead. Revisit if a silent assignment is worth a tool action of its own. |
 | `board`: a page stops a minute after its last tab leaves | An abandoned page must not answer a port for the rest of the session; `/board` starts it again on the same port. Revisit if a page must outlive its tabs. |
 | `board`: a page's note is believed only while it answers | A crash leaves the note behind; the next `/board` probes it, takes it over when nothing replies, and attaches to the page that won when two sessions start at once, so a dead note costs one probe rather than a second page. Revisit if a note must be reaped by something other than its page. |
 | `board`: nothing prunes, so finished cards accumulate | `drop` is the only deletion and the page shows the store's size. Revisit when the store's size is itself a reason to archive. |

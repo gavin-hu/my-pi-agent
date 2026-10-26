@@ -37,6 +37,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   this package did not create keeps the coarser answer, since nothing recorded its fork
   point.
 
+### Removed
+
+- `board`: the page no longer changes a card. `/board` serves a live view of the board and
+  nothing else — the `board` and `team` tools are the only writers — because a browser is
+  not an identity: every page write was made as the page's seat, and a page `assign` had to
+  record "no handoff was sent". What went with it is a second copy of the card rules in the
+  browser, which had already drifted from the server's. One token replaces the pair, so the
+  note a page leaves is safe to hand out, and `/board status` prints one URL. The card
+  dialog stays, as a read view of one card whole.
+
 ## [0.19.0] - 2026-10-25
 
 ### Added
