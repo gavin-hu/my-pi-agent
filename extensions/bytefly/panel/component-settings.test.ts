@@ -19,18 +19,27 @@ import {
 } from "../../../test/helpers/fixtures/bytefly.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import type { Settings } from "../picker/types.ts";
-import { type SettingsSurface } from "./settings-runtime.ts";
 import { settingViews } from "./settings.ts";
+import { type SettingsSurface } from "./settings-runtime.ts";
 
 describe("PanelComponent settings actions", () => {
-	test("names the reset and JSON keys, and offers no group key on the flat list", () => {
+	test("names the reset and JSON keys, and offers no group key in the hint row", () => {
 		const { component } = buildPanel({ items: [], section: "settings" });
 
-		const text = component.render(120).join("\n");
+		const text = component.render(140).join("\n");
 		expect(text).toContain("u reset");
-		expect(text).toContain("J JSON");
-		expect(text).toContain("↑/↓ select");
 		expect(text).not.toContain("[ ]");
+
+		component.handleInput("?");
+		const help = component.render(140).join("\n");
+		expect(help).toContain("Move to the next or previous row");
+		const json = help.split("\n").find((line) => line.includes("Show the section it lives in")) ?? "";
+		expect(
+			json
+				.slice(json.lastIndexOf("╎") + 1)
+				.trimStart()
+				.startsWith("J "),
+		).toBe(true);
 	});
 
 	test("resets the focused row and marks the screen saved", async () => {
@@ -40,14 +49,14 @@ describe("PanelComponent settings actions", () => {
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		focusPanel(component, "Wake when a job finishes");
+		focusPanel(component, "Resume after a job");
 		component.handleInput("u");
 		await settle();
 
 		const text = component.render(80).join("\n");
-		const row = text.split("\n").find((line) => line.includes("Wake when a job finishes"));
+		const row = text.split("\n").find((line) => line.includes("Resume after a job"));
 		expect(row?.trimEnd().endsWith("Off")).toBe(true);
-		expect(text).toContain("Saved");
+		expect(text).toContain("unsaved changes");
 	});
 
 	test("shows a failed reset in the frame instead of behind it", async () => {
@@ -63,71 +72,74 @@ describe("PanelComponent settings actions", () => {
 		};
 		const { component } = buildPanel({ items: [], section: "settings", settings: surface });
 
-		focusPanel(component, "Bytefly startup TUI");
+		focusPanel(component, "Startup screen");
 		component.handleInput("u");
 		await settle();
 
 		expect(component.render(80).join("\n")).toContain("read-only file");
 	});
 
-	test("shows the focused row's section as stored, and closes it on Tab", () => {
+	test("shows the focused row's section as stored, and closes it when the section changes", () => {
 		const { component } = buildPanel({
 			items: [],
 			section: "settings",
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		focusPanel(component, "Wake when a job finishes");
+		focusPanel(component, "Resume after a job");
 		component.handleInput("J");
 
-		const text = component.render(80).join("\n");
-		expect(text).toContain("job — ");
+		const text = component.render(120).join("\n");
+		expect(text).toContain("── job");
 		expect(text).toContain('"wakeOnFinish": true');
-		expect(text).toContain("J hide");
 
 		component.handleInput("\t");
-		const afterScope = component.render(80).join("\n");
-		expect(afterScope).not.toContain('"wakeOnFinish": true');
+		const afterSection = component.render(120).join("\n");
+		expect(afterSection).not.toContain('"wakeOnFinish": true');
 	});
 
-	test("does not reopen the JSON pane after the focus visits a Global-only row", () => {
+	test("hides the JSON pane on a row with no section and brings it back for one that has", () => {
 		const { component } = buildPanel({
 			items: [],
 			section: "settings",
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		focusPanel(component, "Wake when a job finishes");
+		focusPanel(component, "Resume after a job");
 		component.handleInput("J");
-		expect(component.render(80).join("\n")).toContain('"wakeOnFinish": true');
+		expect(component.render(120).join("\n")).toContain('"wakeOnFinish": true');
 
 		component.handleInput("g");
-		expect(component.render(80).join("\n")).not.toContain('"wakeOnFinish": true');
-		focusPanel(component, "Wake when a job finishes");
-		expect(component.render(80).join("\n")).not.toContain('"wakeOnFinish": true');
+		const appRow = component.render(120).join("\n");
+		expect(appRow).toContain("Startup screen");
+		expect(appRow).not.toContain('"wakeOnFinish": true');
+
+		focusPanel(component, "Resume after a job");
+		expect(component.render(120).join("\n")).toContain('"wakeOnFinish": true');
 	});
 
 	test("explains that a Pi setting has no section to show", () => {
 		const { component } = buildPanel({ items: [], section: "settings" });
 
-		focusPanel(component, "Bytefly startup TUI");
+		focusPanel(component, "Startup screen");
 		component.handleInput("J");
 
-		const text = component.render(80).join("\n");
+		const text = component.render(120).join("\n");
 		expect(text).toContain("bytefly.json has no section");
-		expect(text).not.toContain("J hide");
+		expect(text).toContain("Stored in");
+		expect(text).toContain(join("/agent", "settings.json"));
 	});
 
-	test("leaves the group keys inert on the flat Settings list", () => {
+	test("jumps between the Settings groups with the bracket keys", () => {
 		const { component } = buildPanel({ items: [], section: "settings" });
 
 		component.render(80);
-		expect(selectedLine(component)).toContain("Bytefly startup TUI");
+		expect(selectedLine(component)).toContain("Startup screen");
 
 		component.handleInput("]");
-		expect(selectedLine(component)).toContain("Bytefly startup TUI");
+		expect(selectedLine(component)).toContain("Desktop notifications");
 		component.handleInput("[");
-		expect(selectedLine(component)).toContain("Bytefly startup TUI");
+		expect(selectedLine(component)).toContain("Startup screen");
 
 		component.handleInput("G");
 		expect(selectedLine(component)).toContain("Session budget");
@@ -143,9 +155,9 @@ describe("PanelComponent settings review", () => {
 		});
 
 		focusPanel(component, "Desktop notifications");
-		component.handleInput("\t");
+		component.handleInput("s");
 		expect(selectedLine(component)).toContain("Desktop notifications");
-		component.handleInput("\t");
+		component.handleInput("s");
 		expect(selectedLine(component)).toContain("Desktop notifications");
 	});
 
@@ -157,13 +169,13 @@ describe("PanelComponent settings review", () => {
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		component.handleInput("\t");
-		focusPanel(component, "Wake when a job finishes");
-		let text = component.render(80).join("\n");
+		component.handleInput("s");
+		focusPanel(component, "Resume after a job");
+		let text = component.render(140).join("\n");
 		expect(text).toContain(`Inherited from Global · ${join("/agent", "bytefly.json")}`);
 
-		focusPanel(component, "Automatic snapshots");
-		text = component.render(80).join("\n");
+		focusPanel(component, "Snapshot before a turn");
+		text = component.render(140).join("\n");
 		expect(text).toContain(`Default · ${join("/proj", ".pi", "bytefly.json")}`);
 		expect(text).not.toContain("Inherited from Global");
 	});
@@ -175,13 +187,15 @@ describe("PanelComponent settings review", () => {
 			globalDoc: { job: { wakeOnFinish: true } },
 		});
 
-		component.handleInput("\t");
-		focusPanel(component, "Wake when a job finishes");
+		component.handleInput("s");
+		focusPanel(component, "Resume after a job");
 		component.handleInput("J");
 
-		const text = component.render(80).join("\n");
-		expect(text).toContain(`job — Project · ${join("/proj", ".pi", "bytefly.json")}`);
+		const text = component.render(140).join("\n");
+		expect(text).toContain("Inherited from Global");
+		expect(text).toContain("── job");
 		expect(text).toContain("Not set in this scope.");
+		expect(text).not.toContain('"wakeOnFinish": true');
 	});
 
 	test("counts the settings it shows in the range row", () => {
@@ -191,7 +205,7 @@ describe("PanelComponent settings review", () => {
 		expect(global).toContain("showing");
 		expect(global).toContain("of 12");
 
-		component.handleInput("\t");
+		component.handleInput("s");
 		expect(component.render(80).join("\n")).toContain("of 10");
 	});
 
@@ -217,17 +231,17 @@ describe("PanelComponent settings review", () => {
 		focusPanel(component, "Desktop notifications");
 		component.handleInput("J");
 
-		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
+		expect(component.render(120).join("\n")).toContain("Saved · reload to apply");
 	});
 
 	test("counts the JSON lines it hides", () => {
 		const doctor = Object.fromEntries(Array.from({ length: 10 }, (_, index) => [`key${index}`, `value ${index}`]));
-		const { component } = buildPanel({ items: [], section: "settings", rows: 14, globalDoc: { doctor } });
+		const { component } = buildPanel({ items: [], section: "settings", rows: 16, globalDoc: { doctor } });
 
-		focusPanel(component, "Proactive health check");
+		focusPanel(component, "Health check at startup");
 		component.handleInput("J");
 
-		expect(component.render(80).join("\n")).toContain("… 10 more lines");
+		expect(component.render(120).join("\n")).toContain("… 10 more lines");
 	});
 
 	test("does not claim a hidden JSON pane on an app row", () => {
@@ -237,10 +251,10 @@ describe("PanelComponent settings review", () => {
 		component.handleInput("J");
 		component.handleInput("g");
 
-		const text = component.render(80).join("\n");
-		expect(text).toContain("Bytefly startup TUI — Pi setting");
-		expect(text).toContain("J JSON");
-		expect(text).not.toContain("J hide");
+		const text = component.render(120).join("\n");
+		expect(text).toContain("Startup screen");
+		expect(text).toContain("u reset");
+		expect(text).not.toContain('"enabled": true');
 	});
 
 	test("keeps the label and the caret while editing a long value on a narrow terminal", () => {
@@ -261,7 +275,7 @@ describe("PanelComponent settings review", () => {
 			const { component } = buildPanel({ items: [], section: "settings", rows: 8 });
 			if (project) {
 				component.render(80);
-				component.handleInput("\t");
+				component.handleInput("s");
 			}
 			expect(component.render(80).length).toBeLessThanOrEqual(8);
 		}
@@ -271,20 +285,20 @@ describe("PanelComponent settings review", () => {
 		const dirty = buildPanel({ items: [], section: "settings", rows: 8, settings: surface }).component;
 		const lines = dirty.render(80);
 		expect(lines.length).toBeLessThanOrEqual(8);
-		expect(lines.join("\n")).toContain("Saved · reload to apply");
+		expect(lines.join("\n")).toContain("unsaved changes");
 
 		focusPanel(dirty, "Desktop notifications");
 		dirty.handleInput("J");
 		const withJson = dirty.render(80);
 		expect(withJson.length).toBeLessThanOrEqual(8);
-		expect(withJson.join("\n")).toContain("Saved · reload to apply");
+		expect(withJson.join("\n")).toContain("unsaved changes");
 	});
 });
 
 describe("PanelComponent settings frame", () => {
 	test("shows every curated setting and nothing that left the catalogue", () => {
 		const { component } = buildPanel({ items: [], section: "settings" });
-		const text = component.render(80).join("\n");
+		const text = component.render(96).join("\n");
 
 		for (const gone of ["Notification title", "Probe timeout", "Rail glyph", "Base ref", "Snapshots kept"]) {
 			expect(text, gone).not.toContain(gone);
@@ -294,7 +308,7 @@ describe("PanelComponent settings frame", () => {
 
 	test("fits all twelve settings on a 24-row terminal with no range row", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
-		const lines = component.render(80);
+		const lines = component.render(96);
 
 		expect(lines).toHaveLength(22);
 		expect(lines.join("\n")).not.toContain("showing");
@@ -303,28 +317,30 @@ describe("PanelComponent settings frame", () => {
 
 	test("stays content-sized on a tall terminal", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
-		expect(component.render(80)).toHaveLength(22);
+		expect(component.render(96)).toHaveLength(22);
 	});
 
 	test("keeps a value beside its label on a wide terminal", () => {
 		const { component } = buildPanel({ items: [], section: "settings" });
-		const line = component.render(120).find((candidate) => candidate.includes("Turn finished")) ?? "";
+		const line = component.render(120).find((candidate) => candidate.includes("When a turn ends")) ?? "";
 
-		const labelAt = line.indexOf("Turn finished");
+		const labelAt = line.indexOf("When a turn ends");
 		const valueAt = line.indexOf("On");
 		expect(labelAt).toBeGreaterThanOrEqual(0);
 		expect(valueAt).toBeGreaterThan(labelAt);
 		expect(visibleWidth(line)).toBeLessThanOrEqual(120);
 	});
 
-	test("spends three rows on the focused row's detail", () => {
+	test("spends three rows on the focused row's block below the pane breakpoint", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
 		const lines = component.render(80);
-		const head = lines.findIndex((line) => line.includes("Bytefly startup TUI — Pi setting"));
+		const head = lines.findIndex((line) => line.includes("About"));
 
 		expect(head).toBeGreaterThan(0);
-		expect(lines[head + 1]).toContain("Use bytefly's startup header");
-		expect(lines[head + 2]).toContain("Default · ");
+		// The row above already carries the name and the value, so the block below
+		// the list is the sentence's two lines and where the value is written.
+		expect(lines[head + 2]).toContain("Stored in");
+		expect(lines[head + 3] ?? "").toBe("");
 	});
 });
 
@@ -346,14 +362,14 @@ describe("PanelComponent theme setting", () => {
 
 		const after = component.render(80).join("\n");
 		expect(after).toContain("bytefly-dark");
-		expect(after).toContain("Saved · reload to apply");
+		expect(after).toContain("unsaved changes");
 	});
 
 	test("omits the Theme row in Project scope", () => {
 		const { component } = buildPanel({ items: [], section: "settings", themes: ["system", "bytefly-dark"] });
 
 		component.render(80);
-		component.handleInput("\t");
+		component.handleInput("s");
 
 		expect(component.render(80).join("\n")).not.toContain("Theme");
 	});

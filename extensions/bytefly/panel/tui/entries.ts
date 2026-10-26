@@ -1,10 +1,12 @@
 /**
- * The panel's entry model: one flat list of selectable rows per section.
+ * The panel's entry model: one flat list of display entries per section, made of
+ * group headings interleaved with the selectable rows under them.
  *
- * Extensions interleaves group headings with rows — a source group says where a
- * resource came from, which the row cannot — while Settings is flat, in catalogue
- * order. Both are built from a model or a set of views, so the component only has
- * to keep one cursor per section.
+ * Every section groups. A resource list groups by source — where an extension came
+ * from is something its row cannot say — and Settings groups by what the
+ * preference does, so twelve rows read as four short lists instead of one long
+ * one. Both are built from a model or a set of views, so the component only has to
+ * keep one cursor per section.
  *
  * Pure: the list is rebuilt from a model or a set of views, and navigation is
  * index arithmetic.
@@ -76,9 +78,25 @@ export function entriesOf(model: PanelModel): PanelEntry[] {
 }
 
 /**
- * The Settings entries: one row per view, in catalogue order, with no group
- * headings — the list is short enough to read whole.
+ * The Settings entries: one heading per group, in catalogue order, then its rows.
+ * The group key names the heading so a filter cannot collide a setting id with it.
  */
 export function settingEntries(views: readonly SettingView[]): PanelEntry[] {
-	return views.map((setting) => ({ kind: "setting", setting }));
+	const entries: PanelEntry[] = [];
+	for (const [group, settings] of groupSettings(views)) {
+		entries.push({ kind: "group", key: `setting:${group}`, label: group, count: settings.length });
+		for (const setting of settings) entries.push({ kind: "setting", setting });
+	}
+	return entries;
+}
+
+/** The views by their group, in catalogue order of first appearance. */
+function groupSettings(views: readonly SettingView[]): Map<string, SettingView[]> {
+	const groups = new Map<string, SettingView[]>();
+	for (const view of views) {
+		const list = groups.get(view.group) ?? [];
+		list.push(view);
+		groups.set(view.group, list);
+	}
+	return groups;
 }

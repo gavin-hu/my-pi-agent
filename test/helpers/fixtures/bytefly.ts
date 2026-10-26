@@ -403,6 +403,7 @@ export function buildPanel(options: {
 		requestRender: () => {},
 		skills: () => options.skillIndex?.() ?? new Map(),
 		refresh: options.refresh ?? (() => {}),
+		reload: () => {},
 		needsProbe: options.needsProbe,
 		initialRefresh: options.initialRefresh,
 		onClose: () => {

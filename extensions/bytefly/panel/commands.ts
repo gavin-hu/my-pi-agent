@@ -346,6 +346,13 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 					refresh: async (force) => {
 						reports = await deps.doctor.probeAll({ refresh: force === true });
 					},
+					reload: async () => {
+						// The reload takes the session, so the screen asks first and says
+						// what will change; a refusal leaves the dock exactly as it was.
+						const reload = await ctx.ui.confirm("Reload to apply changes?", "Changes take effect after a reload.");
+						if (!reload) return;
+						await ctx.reload();
+					},
 					onClose: () => {
 						// A late error falls back to the transcript, never a disposed screen.
 						panel = undefined;

@@ -160,14 +160,14 @@ some keys mean different things in an editor or a diff.
 | `Esc` | Go back, cancel, or close |
 | `q` | Close a screen that has no unsaved action |
 | `y` / `N` | Answer a yes/no confirmation |
-| `Tab` | Switch scope or filter |
-| `[` / `]` | Jump to the previous or next extension group (Extensions only) |
+| `Tab` | Switch section, scope, or filter, depending on the screen |
+| `[` / `]` | Jump to the previous or next group |
 | `r` | Refresh, rerun, or revert, depending on the screen |
 | `x` | Clear, stop, cancel, or release your own claim, depending on the screen |
 | `Ctrl+O` | Expand or collapse a long tool block |
 | `Ctrl+C` | Clear the input line, or close a screen |
 | `Ctrl+D` | Exit Pi when the input is empty |
-| `?` | Show the shortcut sheet in a browser page |
+| `?` | Show the keys, in a screen or in a browser page |
 
 ## Platform and terminal notes
 

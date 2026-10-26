@@ -39,7 +39,6 @@ import {
 	PANEL_ITEMS,
 	PANEL_REPORTS,
 	PANEL_SETTING_VIEWS,
-	PANEL_SETTINGS,
 	PLAN,
 	PLAN_BASELINE,
 	QUESTIONS,
@@ -53,6 +52,7 @@ import {
 	WATCHES,
 	WECHAT_VIEW,
 	WORKTREE_SNAPSHOT,
+	focusRow,
 } from "./fixtures/index.ts";
 import { renderHeroFrame, renderTranscriptFrame } from "./whole-window.ts";
 
@@ -325,16 +325,20 @@ export const SCREENS: Record<string, Screen> = {
 	bytefly: {
 		asset: "bytefly",
 		title: "π - my-pi-agent · /bytefly",
-		bounds: { left: 80, top: 80, right: 1080, bottom: 460 },
-		size: { width: 120, rows: 19 },
+		// The frame pads its body to the tallest section, so the window is exactly
+		// the frame: six rows of chrome plus sixteen body rows.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 520 },
+		size: { width: 120, rows: 22 },
 		render: (width, rows) => {
 			// A fresh runtime over a fake discovery per render: no probe, no write.
 			const { discovery } = makeDiscovery({ extensions: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
 			const runtime = createPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
-			return new PanelComponent({
+			const panel = new PanelComponent({
 				runtime,
 				reports: () => PANEL_REPORTS,
-				settings: PANEL_SETTINGS,
+				// The tab row counts the settings, so the extensions screen reads the
+				// real catalogue too; nothing here can write through it.
+				settings: PANEL_SETTING_VIEWS,
 				skills: () => new Map(),
 				theme,
 				agentDir: PANEL_AGENT_DIR,
@@ -342,17 +346,20 @@ export const SCREENS: Record<string, Screen> = {
 				viewportRows: () => rows,
 				requestRender: noop,
 				refresh: noop,
+				reload: noop,
 				onClose: noop,
-			}).render(width);
+			});
+			// The focused row is the one with a finding: the side pane is the reason
+			// the frame has two columns, so the picture has to show it saying something.
+			focusRow(panel, "worktree", width);
+			return panel.render(width);
 		},
 	},
 	"bytefly-settings": {
 		asset: "bytefly-settings",
 		title: "π - my-pi-agent · /bytefly settings",
-		// A 24-row frame needs the window to be tall enough that printing it does
-		// not scroll the header rule off the top.
-		bounds: { left: 80, top: 80, right: 1080, bottom: 560 },
-		size: { width: 120, rows: 24 },
+		bounds: { left: 80, top: 80, right: 1080, bottom: 520 },
+		size: { width: 120, rows: 22 },
 		render: (width, rows) => {
 			// The Settings section over the real catalogue: no probe, no write.
 			const { discovery } = makeDiscovery({ extensions: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
@@ -369,6 +376,7 @@ export const SCREENS: Record<string, Screen> = {
 				viewportRows: () => rows,
 				requestRender: noop,
 				refresh: noop,
+				reload: noop,
 				onClose: noop,
 			}).render(width);
 		},

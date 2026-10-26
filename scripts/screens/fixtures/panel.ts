@@ -7,6 +7,7 @@
  */
 
 import { settingViews, type SettingsSnapshot } from "../../../extensions/bytefly/panel/settings.ts";
+import type { PanelComponent } from "../../../extensions/bytefly/panel/tui.ts";
 import type { SettingsSurface } from "../../../extensions/bytefly/panel/settings-runtime.ts";
 import type { ResourceItem, Settings } from "../../../extensions/bytefly/picker/types.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
@@ -68,6 +69,20 @@ const PANEL_SETTINGS_SNAPSHOT: SettingsSnapshot = {
 	project: {},
 	themes: ["system", "bytefly-dark", "bytefly-light"],
 };
+
+/**
+ * Focus the row whose line names `label`, for a capture that has to show what a
+ * focused row looks like. Only navigation keys are sent, so nothing is written.
+ */
+export function focusRow(panel: PanelComponent, label: string, width: number): void {
+	for (let step = 0; step < 24; step += 1) {
+		// The row's marker is painted, so the line opens with an escape sequence
+		// rather than with `❯`; the label is what tells the two apart.
+		const selected = panel.render(width).find((line) => line.includes("❯"));
+		if (selected !== undefined && selected.includes(label)) return;
+		panel.handleInput("j");
+	}
+}
 
 /**
  * The Settings section as the capture draws it: the real catalogue over a fixed

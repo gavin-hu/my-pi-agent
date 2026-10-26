@@ -1,6 +1,7 @@
 /**
  * The `/bytefly` command's follow-up actions on a live screen: a forced
- * re-probe, the doctor reports behind a verb, and the reload it offers on close.
+ * re-probe, the doctor reports behind a verb, and the reload the screen asks for
+ * through its own seam, or the command offers on close.
  *
  * The command itself is `commands.test.ts`.
  */
@@ -20,6 +21,14 @@ import { makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeDiscovery, makeStore } from "../../../test/helpers/fixtures/picker.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import { registerPanel } from "./commands.ts";
+
+/** The host's custom-UI factory, narrowed to what these tests drive. */
+type ScreenFactory = (
+	tui: { requestRender: () => void; terminal: { rows: number } },
+	theme: typeof fakeTheme,
+	keybindings: Record<string, never>,
+	done: (result?: void) => void,
+) => { render: (width: number) => string[]; handleInput: (data: string) => void };
 
 describe("bytefly panel refresh", () => {
 	test("re-probes when refresh is asked for", async () => {
@@ -168,6 +177,7 @@ describe("bytefly panel probing", () => {
 		};
 
 		await commands.get("bytefly").handler("", ctx);
+		component.render(80);
 		component.handleInput(" ");
 		await settle();
 
@@ -217,7 +227,7 @@ describe("bytefly panel probing", () => {
 });
 
 describe("bytefly panel reload", () => {
-	test("offers a reload after a change and reloads when confirmed", async () => {
+	test("reloads through the screen seam after a change and a confirmation", async () => {
 		const store = makeStore({ global: { extensions: [] } });
 		const built = makeDiscovery({
 			extensions: [pathRow("/agent/extensions/one.ts")],
@@ -232,7 +242,7 @@ describe("bytefly panel reload", () => {
 		});
 
 		let reloaded = 0;
-		const { ctx } = fakeCtx({
+		const { ctx, confirms } = fakeCtx({
 			mode: "tui",
 			confirm: true,
 			extra: {
@@ -242,16 +252,56 @@ describe("bytefly panel reload", () => {
 				},
 			},
 		});
-		ctx.ui.custom = async (factory: any) => {
+		ctx.ui.custom = async (factory: ScreenFactory) => {
 			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			component.render(80);
 			component.handleInput(" ");
 			await settle();
+			await settle();
+			component.handleInput("R");
+			await settle();
+			// The press goes through the screen's own seam: one confirm, one reload.
+			expect(confirms).toHaveLength(1);
+			expect(confirms[0].title).toContain("Reload to apply changes?");
+			expect(reloaded).toBe(1);
+			return undefined;
+		};
+
+		await commands.get("bytefly").handler("", ctx);
+	});
+
+	test("says there is nothing to apply when R is pressed with no changes", async () => {
+		const { pi, commands } = makeFakePi();
+		registerPanel(pi, {
+			doctor: fakeDoctor([]),
+			update: fakeUpdate(),
+			discover: async () => commandDiscovery(),
+			settings: () => fakeSettings(),
+		});
+
+		let reloaded = 0;
+		const { ctx, confirms } = fakeCtx({
+			mode: "tui",
+			confirm: true,
+			extra: {
+				isProjectTrusted: () => true,
+				reload: async () => {
+					reloaded += 1;
+				},
+			},
+		});
+		ctx.ui.custom = async (factory: ScreenFactory) => {
+			const component = factory({ requestRender: () => {}, terminal: { rows: 40 } }, fakeTheme, {}, () => {});
+			component.render(80);
+			component.handleInput("R");
+			expect(component.render(80).join("\n")).toContain("Nothing to apply; change something first.");
 			return undefined;
 		};
 
 		await commands.get("bytefly").handler("", ctx);
 
-		expect(reloaded).toBe(1);
+		expect(confirms).toHaveLength(0);
+		expect(reloaded).toBe(0);
 	});
 
 	test("does not offer a reload when nothing changed", async () => {

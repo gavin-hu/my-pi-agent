@@ -251,6 +251,47 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   cutting at forty characters; and the Done lane keeps its tray, receding through its muted
   title rather than through a hole in the row.
 
+- `bytefly`: the control center draws all three sections in one frame — a header rule
+  with the attention at its right (`all clear`, `1 missing`, `2 off`, or `unsaved
+  changes`), then one tab row with each section's count, any filter chips, and `writes
+  Global` or `writes Project` — and gives the focused row its own pane: the facts and
+  findings sit beside the list after a `╎` divider at 96 columns and wider, and the same
+  block sits under the list, clipped to three rows, below that. The attention and the
+  scope used to be two of several counts on a summary line under a bare title, and the
+  focused row's block was always underneath it.
+
+- `bytefly`: a control-center row is named for the thing itself — `worktree`, not
+  `worktree/index.ts` — and carries at most one verdict word at the right. The label was
+  the resource's file, so the name a reader knows came second and the checkbox shared the
+  row with a path.
+
+- `bytefly`: `s` switches where a change is written, Global or Project; `Tab`, `←`, and
+  `→` change section, wrapping at either end. `Tab` used to switch the scope, so the key
+  every other screen uses to change tab did something else here.
+
+- `bytefly`: `/` filters the rows by text and `!` keeps only the rows that need attention —
+  on Settings, only the values you changed. Both leave a chip on the tab row, so a
+  narrowed list cannot pass for a short one, and the group counts and scroll range count
+  what is on screen.
+
+- `bytefly`: `?` prints every key the section binds, in place of the focused row's facts,
+  with the movement keys in their own row. The bindings were described in prose only,
+  where they could drift from the table the screen dispatches through.
+
+- `bytefly`: the Settings rows are grouped under **Startup**, **Notifications**,
+  **Session**, and **Price**, each value in one aligned column, and eight labels now say
+  what they do: **Startup screen**, **When a turn ends**, **When the agent needs you**,
+  **When a job ends**, **When a watcher matches**, **Resume after a job**, **Snapshot
+  before a turn**, and **Health check at startup**. **Theme**, **Desktop notifications**,
+  **Currency**, and **Session budget** keep their names.
+
+- `bytefly`: all three sections draw the same height — the body is padded to the tallest
+  section's rows — so switching tabs no longer resizes the dock.
+
+- `bytefly`: `R` reloads to apply what you changed; the header says `unsaved changes` and
+  the focused row's block says `Saved · reload to apply`. The only way to apply a switch
+  or a setting was to close the screen and accept the reload offer.
+
 ### Removed
 
 - `board`: the page no longer changes a card. `/board` serves a live view of the board and

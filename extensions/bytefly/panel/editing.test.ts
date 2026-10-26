@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { buildPanel, fakeSettingsSurface, focusPanel } from "../../../test/helpers/fixtures/bytefly.ts";
+import { buildPanel, fakeSettingsSurface, focusPanel, selectedLine } from "../../../test/helpers/fixtures/bytefly.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import { type SettingsSurface } from "./settings-runtime.ts";
 import { applyEditKey, type EditingState } from "./tui/editing.ts";
@@ -112,10 +112,10 @@ describe("PanelComponent text editing", () => {
 
 		const text = component.render(80).join("\n");
 		expect(text).toContain("5▏");
-		expect(text).toContain("Esc cancel");
+		expect(selectedLine(component)).toContain("5▏");
 	});
 
-	test("Enter opens the editor on the stored value and shows the editor keys", () => {
+	test("Enter opens the editor on the stored value, with the caret at its end", () => {
 		const { component } = buildPanel({ items: [], section: "settings", globalDoc: { price: { budget: 5 } } });
 
 		focusPanel(component, "Session budget");
@@ -123,8 +123,8 @@ describe("PanelComponent text editing", () => {
 
 		const text = component.render(80).join("\n");
 		expect(text).toContain("5▏");
-		expect(text).toContain("Esc cancel");
-		expect(text).not.toContain("Esc close");
+		expect(text).toContain("About");
+		expect(selectedLine(component)).toContain("5▏");
 	});
 
 	test("typing and Enter store the value", async () => {
@@ -140,7 +140,10 @@ describe("PanelComponent text editing", () => {
 		await settle();
 
 		expect(settings.changes).toContain("global:price.budget=5");
-		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
+		expect(component.render(80).join("\n")).toContain("unsaved changes");
+		expect(selectedLine(component)).toContain("¥5.00");
+		// The block names the reload the change asks for once it has the height for it.
+		expect(component.render(120).join("\n")).toContain("Saved · reload to apply");
 	});
 
 	test("Esc cancels without writing", async () => {

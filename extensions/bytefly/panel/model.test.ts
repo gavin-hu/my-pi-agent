@@ -10,28 +10,29 @@ import {
 	enabledItem,
 	findRow,
 	pathRow,
-	settingView,
 	settingsSnapshot,
+	settingView,
 	skillIndex,
 	textModel,
 	userRow,
 } from "../../../test/helpers/fixtures/bytefly.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
 import { makeItem, skillItem } from "../../../test/helpers/fixtures/picker.ts";
+import { resourceKey } from "../picker/resources.ts";
 import {
+	attentionSegments,
 	formatHeadline,
 	formatListing,
 	formatRow,
 	formatSettingsHeadline,
 	formatSettingsListing,
 	panelCounts,
-	sectionSegments,
-	settingsSummarySegments,
+	SECTION_ORDER,
 	SKILL_NOUN,
+	sectionLabel,
 	summarySegments,
 } from "./format.ts";
-import { buildPanelModel, buildSkillModel, extensionName, REPORT_ONLY_LABEL } from "./join.ts";
-import { resourceKey } from "../picker/resources.ts";
+import { buildPanelModel, buildSkillModel, extensionName, groupedEntryCount, REPORT_ONLY_LABEL } from "./join.ts";
 import { settingViews } from "./settings.ts";
 
 describe("panel model", () => {
@@ -45,8 +46,37 @@ describe("panel model", () => {
 		const model = buildPanelModel({ items: [enabledItem("web-access")], reports: [report], agentDir: "/agent" });
 
 		expect(model.rows).toHaveLength(1);
-		expect(model.rows[0]?.label).toBe("web-access/index.ts");
+		expect(model.rows[0]?.label).toBe("web-access");
 		expect(model.rows[0]?.report).toBe(report);
+	});
+
+	test("names a row for its extension only when one resource uses that directory", () => {
+		const unique = buildPanelModel({ items: [enabledItem("file-read")], reports: [], agentDir: "/agent" });
+		expect(unique.rows[0]?.label).toBe("file-read");
+
+		const shared = buildPanelModel({
+			items: [enabledItem("plan"), userRow("plan", "extra.ts")],
+			reports: [makeReport("plan")],
+			agentDir: "/agent",
+		});
+		expect(shared.rows.filter((row) => row.item).map((row) => row.label)).toEqual(["plan", "extra"]);
+		// The report is claimed, so nothing is left over for the trailing group.
+		expect(shared.rows.filter((row) => !row.item)).toEqual([]);
+	});
+
+	test("keeps only the rows `where` accepts and counts groups from what survives", () => {
+		const items = [enabledItem("plan"), enabledItem("todo"), enabledItem("memory", false)];
+		const model = buildPanelModel({
+			items,
+			reports: [],
+			agentDir: "/agent",
+			where: (row) => row.item?.enabled === true,
+		});
+
+		expect(model.rows.map((row) => row.label)).toEqual(["plan", "todo"]);
+		expect(model.groups.map((group) => group.count)).toEqual([2]);
+		// The section's height counts the heading as well as the rows under it.
+		expect(groupedEntryCount(items, "/agent", "extensions")).toBe(4);
 	});
 
 	test("keys a flat item by its resource identity and matches no report", () => {
@@ -121,8 +151,11 @@ describe("panel model", () => {
 
 		expect(model.groups).toHaveLength(2);
 		expect(model.groups[0]?.label).toContain("npm:pkg");
-		expect(model.rows[0]?.label).toBe("plan/index.ts");
-		expect(model.rows[1]?.label).toBe("a.ts");
+		expect(model.rows.map((row) => row.item?.path)).toEqual([
+			"/pkg/extensions/plan/index.ts",
+			"/agent/extensions/a.ts",
+		]);
+		expect(model.rows[0]?.label).toBe("plan");
 	});
 
 	test("narrows to one extension directory and drops empty groups", () => {
@@ -134,7 +167,7 @@ describe("panel model", () => {
 		});
 
 		expect(model.rows).toHaveLength(1);
-		expect(model.rows[0]?.label).toBe("todo/index.ts");
+		expect(model.rows[0]?.label).toBe("todo");
 		expect(model.groups.every((group) => group.count > 0)).toBe(true);
 	});
 
@@ -218,38 +251,43 @@ describe("panel text projection", () => {
 		expect(summarySegments(degradedOnly, "global").at(-1)?.color).toBe("warn");
 	});
 
-	test("orders the three section names and accents the active one", () => {
-		expect(sectionSegments("extensions")).toEqual([
-			{ text: "Extensions", color: "accent" },
-			{ text: "Skills", color: "faint" },
-			{ text: "Settings", color: "faint" },
+	test("names the three sections in bar order", () => {
+		expect(SECTION_ORDER.map(sectionLabel)).toEqual(["Extensions", "Skills", "Settings"]);
+	});
+
+	test("states the worst attention first, then a pending reload, else `all clear`", () => {
+		expect(attentionSegments({ rows: 3, off: 0, missing: 1, degraded: 2 }, false)).toEqual([
+			{ text: "1 missing", color: "bad" },
 		]);
-		expect(sectionSegments("skills")).toEqual([
-			{ text: "Extensions", color: "faint" },
-			{ text: "Skills", color: "accent" },
-			{ text: "Settings", color: "faint" },
+		expect(attentionSegments({ rows: 3, off: 0, missing: 0, degraded: 2 }, false)).toEqual([
+			{ text: "2 degraded", color: "warn" },
 		]);
-		expect(sectionSegments("settings")).toEqual([
-			{ text: "Extensions", color: "faint" },
-			{ text: "Skills", color: "faint" },
-			{ text: "Settings", color: "accent" },
+		expect(attentionSegments({ rows: 3, off: 2, missing: 0, degraded: 0 }, false)).toEqual([
+			{ text: "2 off", color: "faint" },
 		]);
-		expect(settingsSummarySegments("global", 11).map((segment) => segment.text)).toEqual(["Global", "11 settings"]);
-		expect(settingsSummarySegments("project", 8).map((segment) => segment.text)).toEqual(["Project", "8 settings"]);
+		expect(attentionSegments({ rows: 3, off: 0, missing: 0, degraded: 0 }, false)).toEqual([
+			{ text: "all clear", color: "ok" },
+		]);
+		expect(
+			attentionSegments({ rows: 3, off: 0, missing: 1, degraded: 0 }, true).map((segment) => segment.text),
+		).toEqual(["1 missing", "unsaved changes"]);
+	});
+
+	test("states the settings scope and count", () => {
 		expect(formatSettingsHeadline(28)).toBe("bytefly: Settings · Global · 28 settings");
 	});
 
 	test("renders a row without a report with no glyph and no summary", () => {
-		const row = findRow(textModel([enabledItem("memory")]), "memory/index.ts");
+		const row = findRow(textModel([enabledItem("memory")]), "memory");
 
-		expect(formatRow(row)).toContain("[x] memory/index.ts");
+		expect(formatRow(row)).toContain("[x] memory");
 		expect(formatRow(row)).not.toContain(GLYPHS.check);
 		expect(formatRow(row)).not.toContain("ok");
 	});
 
 	test("suffixes a reported row with its health", () => {
-		const row = findRow(textModel(), "plan/index.ts");
-		expect(formatRow(row)).toContain(`${GLYPHS.cross} plan/index.ts — 1 missing`);
+		const row = findRow(textModel(), "plan");
+		expect(formatRow(row)).toContain(`${GLYPHS.cross} plan — 1 missing`);
 	});
 
 	test("reads an off row as off, not as its health", () => {
@@ -260,7 +298,7 @@ describe("panel text projection", () => {
 		}).rows[0];
 		if (!off) throw new Error("expected a row");
 
-		expect(formatRow(off)).toContain(`${GLYPHS.disabled} plan/index.ts — off`);
+		expect(formatRow(off)).toContain(`${GLYPHS.disabled} plan — off`);
 		expect(formatRow(off)).not.toContain("missing");
 		expect(formatRow(off)).not.toContain("ok");
 	});
@@ -273,7 +311,7 @@ describe("panel text projection", () => {
 		}).rows[0];
 		if (!envOff) throw new Error("expected a row");
 
-		expect(formatRow(envOff)).toContain(`${GLYPHS.disabled} plan/index.ts — env disabled`);
+		expect(formatRow(envOff)).toContain(`${GLYPHS.disabled} plan — env disabled`);
 	});
 
 	test("renders a report with no item without a checkbox", () => {
@@ -293,8 +331,8 @@ describe("panel text projection", () => {
 		const text = formatListing(textModel(), "global");
 		expect(text.split("\n")[0]).toBe("bytefly: Global · 3 extensions · 1 off · 1 missing");
 		expect(text).toContain("npm:pkg (user) (3)");
-		expect(text).toContain(`[x] ${GLYPHS.cross} plan/index.ts — 1 missing`);
-		expect(text).toContain(`[ ] ${GLYPHS.disabled} memory/index.ts — off`);
+		expect(text).toContain(`[x] ${GLYPHS.cross} plan — 1 missing`);
+		expect(text).toContain(`[ ] ${GLYPHS.disabled} memory — off`);
 	});
 
 	test("lists skills with the skills noun and one verdict per row", () => {
@@ -329,6 +367,21 @@ describe("panel text projection", () => {
 		expect(panelCounts(model)).toEqual({ rows: 3, off: 0, missing: 0, degraded: 0 });
 	});
 
+	test("narrows skills by the name their file declares", () => {
+		const model = buildSkillModel({
+			items: [skillItem("pdf"), skillItem("quiet")],
+			index: skillIndex({
+				"/agent/skills/pdf/SKILL.md": { name: "pdf-tools", description: "Read PDFs.", modelHidden: false },
+				"/agent/skills/quiet/SKILL.md": { name: "quiet", description: "By name only.", modelHidden: true },
+			}),
+			agentDir: "/agent",
+			where: (row) => row.label === "pdf-tools",
+		});
+
+		expect(model.rows.map((row) => row.label)).toEqual(["pdf-tools"]);
+		expect(model.groups.map((group) => group.count)).toEqual([1]);
+	});
+
 	test("reports an empty skill list with its own empty label", () => {
 		const empty = buildSkillModel({ items: [], index: new Map(), agentDir: "/agent" });
 		expect(formatListing(empty, "global", { noun: SKILL_NOUN, emptyLabel: "No skills found." })).toContain(
@@ -346,22 +399,22 @@ describe("panel text projection", () => {
 		const lines = formatSettingsListing(views).split("\n");
 
 		expect(lines[0]).toBe("bytefly: Settings · Global · 12 settings");
-		expect(lines[1]).toContain("Bytefly startup TUI: Off");
+		expect(lines[1]).toContain("Startup screen: Off");
 		expect(lines).toHaveLength(13);
 		expect(lines.join("\n")).not.toContain("Notifications (");
 		for (const row of [
-			"Bytefly startup TUI: Off",
+			"Startup screen: Off",
 			"Theme: system",
 			"Desktop notifications: Off",
-			"Turn finished: On",
-			"Needs input: On",
-			"Job finished: On",
-			"Watcher matched: On",
-			"Wake when a job finishes: Off",
-			"Automatic snapshots: On",
-			"Proactive health check: On",
+			"When a turn ends: On",
+			"When the agent needs you: On",
+			"When a job ends: On",
+			"When a watcher matches: On",
+			"Resume after a job: Off",
+			"Snapshot before a turn: On",
+			"Health check at startup: On",
 			"Currency: CNY (¥)",
-			"Session budget: 0",
+			"Session budget: Off",
 		]) {
 			expect(lines.join("\n"), row).toContain(row);
 		}

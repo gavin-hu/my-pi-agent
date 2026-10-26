@@ -25,10 +25,11 @@ describe("PanelComponent refresh", () => {
 		component.handleInput("r");
 		component.handleInput("r");
 		expect(refreshes).toBe(1);
-		expect(component.render(80).join("\n")).toContain("refreshing");
+		// The hint row drops hints from the right, so the busy hint needs room.
+		expect(component.render(120).join("\n")).toContain("refreshing");
 		finish();
 		await settle();
-		expect(component.render(80).join("\n")).not.toContain("refreshing");
+		expect(component.render(120).join("\n")).not.toContain("refreshing");
 	});
 
 	test("surfaces a failed refresh as a notice and clears the busy state", async () => {
@@ -65,10 +66,11 @@ describe("PanelComponent probing", () => {
 		component.prime();
 		component.prime();
 		expect(calls).toHaveLength(1);
-		expect(component.render(80).join("\n")).toContain("refreshing");
+		// The hint row drops hints from the right, so the busy hint needs room.
+		expect(component.render(120).join("\n")).toContain("refreshing");
 		await settle();
 		expect(calls).toEqual([false]);
-		expect(component.render(80).join("\n")).not.toContain("refreshing");
+		expect(component.render(120).join("\n")).not.toContain("refreshing");
 	});
 
 	test("waits for the first Extensions view", () => {

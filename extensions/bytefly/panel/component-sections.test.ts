@@ -1,6 +1,7 @@
 /**
  * `PanelComponent`'s section switching: which section a key or a click selects,
- * what the bar and the detail row show for it, and what a short terminal keeps.
+ * what the tab row and the focused row's block show for it, and what a short
+ * terminal keeps.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -17,8 +18,8 @@ import {
 } from "../../../test/helpers/fixtures/bytefly.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import type { Settings } from "../picker/types.ts";
-import { type SettingsSurface } from "./settings-runtime.ts";
 import { settingViews } from "./settings.ts";
+import { type SettingsSurface } from "./settings-runtime.ts";
 
 describe("PanelComponent sections", () => {
 	test("draws every section name and accents the active one", () => {
@@ -42,10 +43,10 @@ describe("PanelComponent sections", () => {
 		expect(text).toContain(`${ROLE_SGR.other}Extensions`);
 		expect(text).toContain(`${ROLE_SGR.other}Skills`);
 		expect(text).toContain(`${ROLE_SGR.accent}Settings`);
-		expect(text).toContain("12 settings");
-		expect(text).toContain("Bytefly startup TUI");
+		expect(text).toContain(`${ROLE_SGR.other} 12`);
+		expect(text).toContain("Startup screen");
 		expect(text).toContain("Desktop notifications");
-		expect(text).toContain("Watcher matched");
+		expect(text).toContain("When a watcher matches");
 		expect(text).not.toContain("plan/index.ts");
 	});
 
@@ -54,42 +55,47 @@ describe("PanelComponent sections", () => {
 
 		component.render(80);
 		component.handleInput("j");
-		expect(selectedLine(component)).toContain("beta/index.ts");
+		expect(selectedLine(component)).toContain("beta");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 0 skills");
+		expect(component.render(80).join("\n")).toContain("No skills found.");
 
 		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 12 settings");
+		expect(component.render(80).join("\n")).toContain("Startup (2)");
 
 		component.handleInput("\u001b[D");
-		expect(component.render(80).join("\n")).toContain("Global · 0 skills");
+		expect(component.render(80).join("\n")).toContain("No skills found.");
 
 		component.handleInput("\u001b[D");
-		expect(selectedLine(component)).toContain("beta/index.ts");
+		expect(selectedLine(component)).toContain("beta");
 	});
 
-	test("stops at the ends instead of wrapping", () => {
+	test("wraps the section ring at both ends", () => {
 		const { component } = buildPanel({ items: [enabledItem("alpha")], reports: [] });
 
 		component.handleInput("\u001b[D");
-		expect(component.render(80).join("\n")).toContain("1 extension");
+		expect(component.render(80).join("\n")).toContain("Startup (2)");
+
+		component.handleInput("\u001b[D");
+		expect(component.render(80).join("\n")).toContain("No skills found.");
 
 		component.handleInput("\u001b[C");
+		expect(component.render(80).join("\n")).toContain("Startup (2)");
+
 		component.handleInput("\u001b[C");
-		component.handleInput("\u001b[C");
-		expect(component.render(80).join("\n")).toContain("Global · 12 settings");
+		expect(component.render(80).join("\n")).toContain("alpha");
 	});
 
 	test("keeps the scope switch working in Settings", () => {
 		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings" });
 
-		component.handleInput("\t");
+		component.handleInput("s");
 
 		const text = component.render(80).join("\n");
-		expect(text).toContain("Project · 10 settings");
+		expect(text).toContain("writes Project");
+		expect(text).toContain("Settings 10");
 		expect(text).toContain("App settings are Global only.");
-		expect(text).not.toContain("Bytefly startup TUI");
+		expect(text).not.toContain("Startup screen");
 	});
 
 	test("keeps the focus near the dropped row when a scope switch removes it", () => {
@@ -98,19 +104,20 @@ describe("PanelComponent sections", () => {
 		component.render(80);
 		focusPanel(component, "Theme");
 
-		component.handleInput("\t");
-		expect(component.render(80).join("\n")).toContain("Project · 10 settings");
-		expect(selectedLine(component)).toContain("Turn finished");
+		component.handleInput("s");
+		expect(component.render(80).join("\n")).toContain("Settings 10");
+		expect(selectedLine(component)).toContain("When a turn ends");
 	});
 
 	test("refuses the project scope in Settings when the project is untrusted", () => {
 		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings", trusted: false });
 
-		component.handleInput("\t");
+		component.handleInput("s");
 
 		const refused = component.render(80).join("\n");
 		expect(refused).toContain("Project is not trusted");
-		expect(refused).toContain("Global · 12 settings");
+		expect(refused).toContain("writes Global");
+		expect(refused).toContain("Settings 12");
 		expect(refused).not.toContain("Esc close");
 
 		component.handleInput("j");
@@ -170,7 +177,7 @@ describe("PanelComponent sections", () => {
 		await settle();
 
 		const lines = component.render(80);
-		expect(lines.join("\n")).toContain("Saved · reload to apply");
+		expect(lines.join("\n")).toContain("unsaved changes");
 		expect(lines.length).toBeLessThanOrEqual(12);
 	});
 
@@ -186,7 +193,7 @@ describe("PanelComponent sections", () => {
 		expect(settings.isDirty()).toBe(true);
 		const text = component.render(80).join("\n");
 		expect(text).toContain("On");
-		expect(text).toContain("Saved · reload to apply");
+		expect(text).toContain("unsaved changes");
 	});
 
 	test("changes the focused setting with Enter too", async () => {
@@ -202,13 +209,22 @@ describe("PanelComponent sections", () => {
 		expect(component.render(80).join("\n")).toContain("On");
 	});
 
-	test("hints the section switch, the scope key, and the change key", () => {
+	test("hints the section switch and the change key, and lists the scope key in the key table", () => {
 		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings" });
 
-		const text = component.render(96).join("\n");
-		expect(text).toContain("←/→");
+		const text = component.render(140).join("\n");
+		expect(text).toContain("←/→ section");
 		expect(text).toContain("Space change");
-		expect(text).toContain("Tab scope");
+
+		component.handleInput("?");
+		const help = component.render(140).join("\n");
+		const scope = help.split("\n").find((line) => line.includes("Switch where a change is written")) ?? "";
+		expect(
+			scope
+				.slice(scope.lastIndexOf("╎") + 1)
+				.trimStart()
+				.startsWith("s "),
+		).toBe(true);
 	});
 
 	test("names the source and target file in the detail pane", () => {
@@ -218,8 +234,8 @@ describe("PanelComponent sections", () => {
 			app: { quietStartup: true } as Settings,
 		});
 
-		const text = component.render(80).join("\n");
-		expect(text).toContain("Bytefly startup TUI — Pi setting");
+		const text = component.render(120).join("\n");
+		expect(text).toContain("Startup screen");
 		expect(text).toContain(`Global · ${join("/agent", "settings.json")}`);
 	});
 });

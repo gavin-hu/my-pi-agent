@@ -63,13 +63,18 @@ Windows、macOS 和 Linux 均可运行，完整检查套件在每个平台上都
 
 然后在 Pi 中：
 
-- `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区，列出每个已加载扩展
-  及其运行时健康状况，启用或禁用一个扩展，并用 `x` 清除项目级覆盖。
-- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十二项设置排成
-  一列，值紧跟在名称之后；用 `Space`/`Enter` 修改，用 `Tab` 切换 Global/Project
-  作用域。其余键都是 `bytefly.json` 编辑，见配置参考。
+- `/bytefly [extension] [refresh]` 打开控制中心的 Extensions 区：三个区共用一个
+  框架，头部横线的右端写着需要注意的事项（没有问题时为 `all clear`），一行 tab
+  标出各区的数量与写入作用域。它按名称列出每个已加载扩展及其复选框与至多一个
+  结论词，启用或禁用一个扩展，并用 `x` 清除项目级覆盖；`/` 过滤行，`!` 只保留
+  需要注意的行，`?` 显示全部按键。
+- `/bytefly settings` 打开控制中心的 Settings 区：一次会话会改动的十二项设置按
+  Startup、Notifications、Session、Price 四组排列，值对齐在同一列；用
+  `Space`/`Enter` 修改一项，用 `s` 切换 Global/Project 作用域。其余键都是
+  `bytefly.json` 编辑，见配置参考。
 - `/bytefly skills` 打开控制中心的 Skills 区：每个 Pi 技能一行，带启用复选框与
-  `SKILL.md` 声明的描述，用 `Space` 在当前作用域开关它。
+  至多一个结论词，`SKILL.md` 声明的描述显示在旁边的区块中，用 `Space` 在当前
+  作用域开关它。
 - `/bytefly doctor [extension] [refresh]` 打印 doctor 报告（`run_doctor` 的文本），
   检查每个已启用扩展在运行时是否具备所需条件。
 - `/bytefly update` 立即重跑包更新检查，报告可更新的包、本包版本与 release URL，

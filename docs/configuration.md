@@ -75,7 +75,7 @@ whichever file the scope selector names.
 
 Three exceptions are worth knowing:
 
-- **Pi's own settings.** The **Bytefly startup TUI** and **Theme** rows write Pi's
+- **Pi's own settings.** The **Startup screen** and **Theme** rows write Pi's
   `settings.json` rather than `bytefly.json`, and are Global only because Pi
   exposes no project scope for them. The other Pi preferences the screen once
   carried — output padding and the hardware cursor — stay in Pi's own `/settings`.
@@ -110,7 +110,7 @@ the file for the scope you want, and the next session reads it.
 **From the settings screen.**
 
 1. Run `/bytefly settings` (`/bytefly`, then `→`, opens the same section).
-2. Press `Tab` to choose **Global** or **Project** scope.
+2. Press `s` to choose **Global** or **Project** scope.
 3. Move with `↑`/`↓`, then `Space` or `Enter` to change the value: a switch
    toggles, a choice cycles, and a text row opens an editor saved with `Enter`.
 4. `u` removes the key so its default applies again; `J` shows the stored
@@ -144,7 +144,7 @@ the file for the scope you want, and the next session reads it.
 | change the rail glyph beside tool results | `chrome.rail` below |
 | keep an achieved goal visible | `goal.achieved` below |
 | keep more snapshots, or turn off the pre-restore one | `rewind.max`, `rewind.safetySnapshot` below |
-| wake the agent when a job finishes, or keep jobs after exit | **Wake when a job finishes**, `job.detachedByDefault` |
+| wake the agent when a job finishes, or keep jobs after exit | **Resume after a job**, `job.detachedByDefault` |
 | wake the agent on a watcher match | `watch.wakeOnMatch` below |
 | stop injecting memory notes | `memory.inject` below |
 | choose the worktree base, branch prefix, fetch, or prune age | `worktree` below |
@@ -154,7 +154,8 @@ the file for the scope you want, and the next session reads it.
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
 `/bytefly settings` is a shortlist of the preferences a session changes — twelve
-flat rows, named in bold above. Everything else — the tuning numbers, the
+rows under four headings (Startup, Notifications, Session, and Price), named in
+bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the rest of this page is the full list.
 

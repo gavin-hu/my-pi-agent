@@ -28,9 +28,11 @@ import { configSection, configValueAt } from "../../../lib/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
+	CURRENCY_SYMBOLS,
 	DEFAULT_BYTEFLY_CONFIG,
 	DEFAULT_CURRENCY,
 	MAX_BUDGET,
+	MAX_DECIMALS,
 	normalizeByteflyConfig,
 } from "../footer/price/config.ts";
 import type { CurrencyCode } from "../footer/price/types.ts";
@@ -45,6 +47,13 @@ type SettingKind = "boolean" | "enum" | "text";
 
 /** Where the effective value came from. */
 type SettingOrigin = "default" | "global" | "project" | "inherited";
+
+/**
+ * The heading a row sits under. The screen draws one heading per group, so twelve
+ * rows read as four short lists: what a session starts with, what it tells you
+ * about, what it keeps, and what it costs.
+ */
+export type SettingGroup = "Startup" | "Notifications" | "Session" | "Price";
 
 /** One curated value a row can take. */
 interface SettingOption {
@@ -80,6 +89,8 @@ interface SettingLeaf {
 export interface SettingDescriptor {
 	/** Stable identity, also the focus key. */
 	id: string;
+	/** The heading this row is listed under. */
+	group: SettingGroup;
 	label: string;
 	description: string;
 	source: SettingSource;
@@ -152,8 +163,10 @@ function amountRule(min: number, max: number): TextRule {
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
 		id: "byteflyUi",
-		label: "Bytefly startup TUI",
-		description: "Use bytefly's startup header in place of Pi's startup TUI.",
+		group: "Startup",
+		label: "Startup screen",
+		description:
+			"Show bytefly's header in place of Pi's own, so a session opens on the versions, the help keys, and the update marker.",
 		source: "app",
 		kind: "boolean",
 		fallback: "false",
@@ -162,9 +175,10 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "theme",
+		group: "Startup",
 		label: "Theme",
 		description:
-			"Pi's color theme, chosen from the palettes this package ships; `system` follows the terminal's colors. Takes effect after reload.",
+			"The palette every bytefly surface is drawn with; `system` follows Pi's own colors. Takes effect after reload.",
 		source: "app",
 		kind: "enum",
 		fallback: "system",
@@ -173,8 +187,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.enabled",
+		group: "Notifications",
 		label: "Desktop notifications",
-		description: "Raise an OS notification when a run or job finishes, or the agent asks for input.",
+		description: "The master switch for OS notifications; with it off, none of the four below is raised.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "false",
@@ -184,8 +199,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.turnFinished",
-		label: "Turn finished",
-		description: "Announce it when a full agent run settles.",
+		group: "Notifications",
+		label: "When a turn ends",
+		description: "Raise a notification once the agent has finished a reply.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",
@@ -195,8 +211,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.needsInput",
-		label: "Needs input",
-		description: "Announce it when the agent opens a prompt and waits for an answer.",
+		group: "Notifications",
+		label: "When the agent needs you",
+		description: "Raise a notification when a question or a permission prompt is waiting.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",
@@ -206,8 +223,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.jobFinished",
-		label: "Job finished",
-		description: "Announce it when a background job or watcher settles.",
+		group: "Notifications",
+		label: "When a job ends",
+		description: "Raise a notification when a background job or a watcher settles.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",
@@ -217,8 +235,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "notify.matchFound",
-		label: "Watcher matched",
-		description: "Announce it when a `watch` whose `wake` is on matches, once the agent is idle.",
+		group: "Notifications",
+		label: "When a watcher matches",
+		description: "Raise a notification when a watched pattern appears, once the agent is idle.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",
@@ -228,8 +247,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "job.wakeOnFinish",
-		label: "Wake when a job finishes",
-		description: "Start one agent turn when any background job finishes.",
+		group: "Session",
+		label: "Resume after a job",
+		description: "Wake the agent once a background job finishes, so it can read the output.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "false",
@@ -239,8 +259,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "rewind.autoSnapshots",
-		label: "Automatic snapshots",
-		description: "Take one rewind snapshot per prompt, before the first mutating tool call.",
+		group: "Session",
+		label: "Snapshot before a turn",
+		description: "Keep one rewind point per prompt, so `/rewind` can take you back.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",
@@ -250,8 +271,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "doctor.proactive",
-		label: "Proactive health check",
-		description: "Probe enabled extensions at session start and warn about a missing requirement.",
+		group: "Session",
+		label: "Health check at startup",
+		description: "Probe what the extensions need before the first turn and say what is missing.",
 		source: "bytefly",
 		kind: "boolean",
 		fallback: "true",
@@ -261,9 +283,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "price.currency.code",
+		group: "Price",
 		label: "Currency",
-		description:
-			"CNY prices DeepSeek from its yuan rates; USD from its published dollars, falling back to Pi's recorded cost.",
+		description: "The currency the footer prices a session in, at that currency's published rates.",
 		source: "bytefly",
 		kind: "enum",
 		fallback: DEFAULT_CURRENCY.code,
@@ -283,8 +305,9 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	},
 	{
 		id: "price.budget",
+		group: "Price",
 		label: "Session budget",
-		description: "Warn once when the session's cost reaches this amount; 0 is off. It never stops a turn.",
+		description: "Where the footer's `spent/limit` warns: one notice and one notification at the limit; 0 is off.",
 		source: "bytefly",
 		kind: "text",
 		fallback: "0",
@@ -327,6 +350,31 @@ export function textError(row: SettingDescriptor, raw: string): string | undefin
 function themeOptions(themes: readonly string[]): readonly SettingOption[] {
 	const names = ["system", ...new Set(themes.filter((name) => name !== "" && name !== "system"))];
 	return names.map((name) => ({ value: name, label: name }));
+}
+
+/** The currency and precision a session prices in, through the price reader. */
+function currencyOf(snapshot: SettingsSnapshot, scope: WriteScope): { code: CurrencyCode; decimals: number } {
+	const reader = SECTION_READERS.price;
+	const globalRaw = configSection(snapshot.global, "price");
+	const projectRaw = scope === "project" ? configSection(snapshot.project, "price") : undefined;
+	const code = reader?.(globalRaw, projectRaw, ["currency", "code"]);
+	const decimals = reader?.(globalRaw, projectRaw, ["currency", "decimals"]);
+	return {
+		code: typeof code === "string" && code in CURRENCY_SYMBOLS ? (code as CurrencyCode) : DEFAULT_CURRENCY.code,
+		decimals: typeof decimals === "number" ? Math.min(decimals, MAX_DECIMALS) : DEFAULT_CURRENCY.decimals,
+	};
+}
+
+/**
+ * The budget's display value: `Off` for zero, otherwise the amount in the currency
+ * the session prices in. A reader thinks in `¥5`, not in `5`, and in `Off` rather
+ * than in `0`.
+ */
+function budgetLabel(raw: string, snapshot: SettingsSnapshot, scope: WriteScope): string {
+	const amount = Number(raw);
+	if (!Number.isFinite(amount) || amount <= 0) return "Off";
+	const { code, decimals } = currencyOf(snapshot, scope);
+	return `${CURRENCY_SYMBOLS[code]}${amount.toFixed(decimals)}`;
 }
 
 /** The display label for `raw`, or the raw value when it is a valid custom one. */
@@ -428,7 +476,8 @@ export function settingViews(snapshot: SettingsSnapshot, scope: WriteScope): Set
 		const options = row.id === "theme" ? themeOptions(snapshot.themes) : row.options;
 		const { value, origin } = row.source === "app" ? appValue(snapshot, row) : byteflyValue(snapshot, row, scope);
 		const view = { ...row, options, value };
-		return { ...view, valueLabel: labelFor(view, value), origin };
+		const valueLabel = row.id === "price.budget" ? budgetLabel(value, snapshot, scope) : labelFor(view, value);
+		return { ...view, valueLabel, origin };
 	});
 }
 

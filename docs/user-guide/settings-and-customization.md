@@ -17,35 +17,60 @@ Open it with:
 /bytefly
 ```
 
-You land on **Extensions**: one row per installed extension, an enable checkbox,
-and a health verdict. Under the focused row is that extension's report. Press
-`→` for **Skills** — one row per Pi skill, its checkbox, and its declared
-description — and `→` again for **Settings**, or open either directly with
-`/bytefly skills` and `/bytefly settings`.
+You land on **Extensions**: one row per installed extension, its enable checkbox,
+and at most one verdict word. Press `→` for **Skills** — one row per Pi skill, its
+checkbox, and what its `SKILL.md` declares — and `→` again for **Settings**, or
+open either directly with `/bytefly skills` and `/bytefly settings`.
+
+The three sections share one frame: a header rule carrying the attention at its
+right — `all clear` when nothing needs doing, or a count such as `1 missing` or
+`2 off`, plus `unsaved changes` while a change is pending — then one tab row with
+each section's count, any filter chips, and `writes Global` or `writes Project` at
+the right. Every section draws the same height, so switching tabs never resizes
+the dock.
+
+Rows are named for the thing itself — `worktree`, not `worktree/index.ts` — and
+carry at most one verdict word at the right (`off`, `1 missing`, `not loaded`).
+At 96 columns and wider the focused row's facts and findings sit beside the list,
+after a `╎` divider; narrower terminals keep one column and put the same block
+under the list, clipped to three rows.
 
 | Key | What it does |
 |---|---|
-| `←` / `→` | Switch between Extensions, Skills, and Settings |
+| `Tab`, `←` / `→` | Change section, wrapping at either end |
 | `↑` / `↓`, `j` / `k` | Move the selection |
 | `PgUp` / `PgDn` | Move a page |
 | `Home` / `End`, `g` / `G` | Jump to the first or last row |
 | `Space` | Turn the focused extension or skill on or off; change a setting (Settings) |
-| `Enter` | Expand the focused extension's findings or the skill's description, or change a setting |
-| `Tab` | Switch between Global and Project scope |
+| `Enter` | Expand the focused row's findings or description, or change a setting |
+| `s` | Switch where a change is written: Global or Project |
+| `/` | Filter the rows by text |
+| `!` | Show only the rows that need attention; on Settings, only the values you changed |
+| `?` | Show the key list in place of the focused row's facts |
 | `x` | Clear a project-level override for the focused extension or skill |
 | `u` | Reset the focused setting to its default |
 | `J` | Show or hide the focused row's whole config section |
-| `[` / `]` | Jump to the previous or next group (Extensions and Skills) |
-| `r` | Re-run the health checks |
-| `Esc` or `Ctrl+C` | Close |
+| `[` / `]` | Jump to the previous or next group |
+| `r` | Re-run the health checks (Extensions) |
+| `R` | Reload now, to apply what you changed |
+| `Esc` or `Ctrl+C` | Close; inside a filter or a value editor, cancel the edit instead |
+
+A filter is always named on the tab row: `/` narrows the rows as you type and
+leaves a `/query` chip, `Enter` keeps the query, and `!` adds a `needs attention`
+chip — `changed only` on Settings. Inside the filter editor `Esc` clears the query
+rather than closing the screen, and inside a value editor it cancels the edit the
+same way. Every change this session marks the header `unsaved changes` and the
+focused row's block `Saved · reload to apply`; `R` reloads, which is what applies
+a switch or a setting, because extension factories and settings are read at load
+time.
 
 Mouse scrolling works, and clicking a row focuses it. Every action also has a
 keyboard path.
 
-<img src="../../assets/screens/bytefly.png" alt="The /bytefly control centre: the Extensions, Skills, and Settings sections, one row per extension with its checkbox and health verdict, the missing-prerequisite badge on `worktree`, and the focused row's resource path" width="100%">
+<img src="../../assets/screens/bytefly.png" alt="The /bytefly control centre: a header rule ending in `1 missing`, the Extensions, Skills, and Settings tab row with its counts and `writes Global`, one row per extension with its checkbox, name, and verdict word, and the focused `worktree` row's missing prerequisite and resource path in the pane beside the list after a divider" width="100%">
 
-*The control centre: switch an extension off with `Space`, and read the selected
-row's report underneath when it has one.*
+*The control centre: switch an extension off with `Space`, and read the focused
+row's report beside the list on a wide terminal, or under it on a narrow one.*
 
 ### Commands
 
@@ -66,25 +91,42 @@ mounting the screen.
 
 ## Settings
 
-<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly settings screen: one flat list of twelve preferences with each value beside its label, and a three-row detail pane" width="100%">
+<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly settings screen: twelve preferences under Startup, Notifications, Session, and Price headings, each value in one aligned column beside its row name, and the focused `Startup screen` row's description and stored-in path in the pane beside the list" width="100%">
 
-`/bytefly settings` is a shortlist: twelve preferences on one flat list, each
-with its value beside the label. Choose a row and press `Space` or `Enter`: a
-switch toggles, a choice cycles to the next option, and **Session budget** opens
-an editor whose value you save with `Enter` or discard with `Esc`.
+`/bytefly settings` is a shortlist: twelve preferences under four headings, each
+value in one aligned column. Choose a row and press `Space` or `Enter`: a switch
+toggles, a choice cycles to the next option, and **Session budget** opens an
+editor whose value you save with `Enter` or discard with `Esc`.
+
+**Startup**
 
 | Row | What it controls |
 |---|---|
-| **Bytefly startup TUI** | Whether the bytefly startup header replaces Pi's compact startup detail |
+| **Startup screen** | Whether the bytefly startup header replaces Pi's compact startup detail |
 | **Theme** | One of this pack's two palettes, or `system` to follow Pi's |
+
+**Notifications**
+
+| Row | What it controls |
+|---|---|
 | **Desktop notifications** | The master switch for OS notifications |
-| **Turn finished** | Announce a run that has settled |
-| **Needs input** | Announce a prompt the assistant opens during a run |
-| **Job finished** | Announce a finished background job or watcher |
-| **Watcher matched** | Announce a match that wakes the assistant |
-| **Wake when a job finishes** | Start one turn when any background job ends |
-| **Automatic snapshots** | Take one rewind snapshot per prompt |
-| **Proactive health check** | Probe at session start and warn about a missing requirement |
+| **When a turn ends** | Announce a run that has settled |
+| **When the agent needs you** | Announce a prompt the assistant opens during a run |
+| **When a job ends** | Announce a finished background job or watcher |
+| **When a watcher matches** | Announce a match that wakes the assistant |
+
+**Session**
+
+| Row | What it controls |
+|---|---|
+| **Resume after a job** | Start one turn when any background job ends |
+| **Snapshot before a turn** | Take one rewind snapshot per prompt |
+| **Health check at startup** | Probe at session start and warn about a missing requirement |
+
+**Price**
+
+| Row | What it controls |
+|---|---|
 | **Currency** | CNY or USD pricing for the footer's cost total |
 | **Session budget** | One warning when the session's cost reaches an amount; `0` is off |
 
@@ -134,10 +176,10 @@ triggers can be switched independently:
 
 | Trigger | Fires when |
 |---|---|
-| **Turn finished** | A full run settles and Pi waits for your next message |
-| **Needs input** | The assistant opens a prompt during a run and waits for an answer |
-| **Job finished** | A background job reaches a terminal state |
-| **Watcher matched** | A watcher whose wake setting is on matches and raises a turn once the assistant is idle |
+| **When a turn ends** | A full run settles and Pi waits for your next message |
+| **When the agent needs you** | The assistant opens a prompt during a run and waits for an answer |
+| **When a job ends** | A background job reaches a terminal state |
+| **When a watcher matches** | A watcher whose wake setting is on matches and raises a turn once the assistant is idle |
 
 `notify.method` in `bytefly.json` can stay `auto`, which prefers the terminal and
 then the platform, or name one: `osascript` (macOS), `notify-send` (Linux), `toast`
@@ -170,7 +212,7 @@ stored WeChat login). It also reports a malformed `bytefly.json` by file and
 parse error, and the age of the built-in price table when it is old enough to
 warn.
 
-The same checks run proactively at session start when **Proactive health check**
+The same checks run proactively at session start when **Health check at startup**
 is on and the bytefly startup surface is active. A missing requirement produces a
 warning instead of a failed command. `doctor.timeoutMs` bounds each check; raise
 it in `bytefly.json` on a slow machine if a probe reports a timeout.
@@ -200,7 +242,7 @@ the same window does not repeat the request.
 ### One extension, one scope
 
 Open `/bytefly`, focus the extension, and press `Space`. The verdict changes to
-off. Use `Tab` to choose whether the switch applies to the project or to
+off. Use `s` to choose whether the switch applies to the project or to
 everything, then accept the reload offer so the change takes effect. A reload is
 needed because extension factories run at load time.
 
