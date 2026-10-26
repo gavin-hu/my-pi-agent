@@ -1,17 +1,22 @@
 /**
  * The browser review client, served as `/client.js`.
  *
- * Served as one script with no build step, assembled from typed fragments: the element
- * builder, typing test, status paint, and JSON POST come from `lib/web/client-runtime.ts`,
- * and the Markdown, chrome, comments, and collaboration halves are `web-*.ts` modules
- * interpolated below. It renders
- * the plan from the JSON data island using DOM text nodes only — plan and
- * comment text never becomes markup — renders each block
- * with its comment threads indented directly beneath it, highlights code by
- * copying only `tok-*` spans through `DOMParser`, builds the section outline
- * and review facts, and saves the annotation list back to the server. An
- * `EventSource` keeps a connection open so the server can tell when the tab is
- * gone; the explicit buttons are the primary save/cancel path.
+ * Served as one script with no build step, assembled from typed source: the element builder,
+ * typing test, status paint, and JSON POST come from `lib/web/client-runtime.ts`, and every
+ * rule the page has lives in its own `web-*.ts` module, interpolated below — the outline,
+ * the blocks and their navigation, the composer, the draft guard, the frame, the settlement,
+ * the keymap, and the Markdown, chrome, comments, and collaboration halves.
+ *
+ * What is left here is the composition root, deliberately: the element handles, the state
+ * the rules are handed, one adapter per rule that names it without arguments, the listeners
+ * that attach them, the `EventSource` that keeps a tab's presence known, and the boot order.
+ * None of it decides anything a test could disagree with — a rule that does belongs in a
+ * module, where it can be typed and driven.
+ *
+ * It renders the plan from the JSON data island using DOM text nodes only — plan and comment
+ * text never becomes markup — with each block's comment threads indented beneath it, code
+ * highlighted by copying only `tok-*` spans through `DOMParser`, and the annotation list
+ * saved back to the server.
  */
 
 import { CLIENT_RUNTIME_JS, dialogScript, keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
@@ -23,6 +28,7 @@ import { WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { WEB_COMPOSER_JS } from "./web-composer.ts";
 import { WEB_DRAFT_JS } from "./web-draft.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
+import { WEB_KEYS_JS } from "./web-keys.ts";
 import { WEB_PLAN_JS } from "./web-plan.ts";
 import { WEB_SETTLE_JS } from "./web-settle.ts";
 
@@ -88,6 +94,8 @@ ${CLIENT_RUNTIME_JS}
 ${WEB_OUTLINE_JS}
 
 ${WEB_BLOCKS_JS}
+
+${WEB_KEYS_JS}
 
 ${WEB_SETTLE_JS}
 
@@ -282,47 +290,47 @@ ${WEB_MARKDOWN_JS}
   // Remember a selection made inside a block so clicking the rail button can
   // still quote it after the button press has collapsed the selection.
   document.addEventListener("mouseup", function (event) {
-    if (!planEl || saved || approved || closed) return;
-    var wrap = event.target && event.target.closest ? event.target.closest(".bf-block") : null;
-    var quote = wrap && !wrap.querySelector(".bf-composer") ? selectionIn(wrap) : "";
-    pendingQuote = wrap && quote ? { wrap: wrap, quote: quote } : null;
+    rememberSelection(event.target, {
+      planEl: planEl,
+      settled: function () { return saved || approved || closed; },
+      selectionIn: selectionIn,
+      setPending: function (quote) { pendingQuote = quote; },
+    });
   });
 
   // The sheet's own wiring — trigger, close button, backdrop, Tab trap, and Esc —
   // is shared with browse; the page keeps only its own keymap.
   ${keysDialogScript("shortcuts")}
 
+  /**
+   * What a key may do, built where the state and the handlers are.
+   *
+   * The listener below stays in the bundle with the rest of the wiring; the map of key to
+   * action is web-keys.ts, which is the part with a rule to it.
+   */
+  function keyActions() {
+    return {
+      composerOpen: function () { return !!(planEl && planEl.querySelector(".bf-composer")); },
+      closeComposer: closeOpenComposer,
+      cancel: cancel,
+      sheetOpen: function () { return window.bfKeys.isOpen(); },
+      toggleSheet: function () { window.bfKeys.toggle(); },
+      moveActive: function (delta) {
+        var next = moveActive(planEl, activeIndex, delta);
+        if (next !== null) activeIndex = next;
+      },
+      commentOnActive: function () { activeIndex = commentOnActive(composer(), activeIndex, blocks()); },
+      askApprove: askApprove,
+      save: save,
+      postComments: postComments,
+      hasSaveControl: function () { return !!saveButton; },
+      hasApproveControl: function () { return !!approveButton; },
+      typing: typing,
+    };
+  }
+
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-      // The sheet owns its own Esc; this peels the composer, then the review.
-      if (planEl && planEl.querySelector(".bf-composer")) { closeOpenComposer(); return; }
-      cancel();
-      return;
-    }
-    if (typing(event.target)) return;
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === "?") { event.preventDefault(); window.bfKeys.toggle(); return; }
-    // While the shortcut sheet is open it owns the keyboard.
-    if (window.bfKeys.isOpen()) return;
-    if (event.key === "j") {
-      event.preventDefault();
-      var down = moveActive(planEl, activeIndex, 1);
-      if (down !== null) activeIndex = down;
-      return;
-    }
-    if (event.key === "k") {
-      event.preventDefault();
-      var up = moveActive(planEl, activeIndex, -1);
-      if (up !== null) activeIndex = up;
-      return;
-    }
-    if (event.key === "c") {
-      event.preventDefault();
-      activeIndex = commentOnActive(composer(), activeIndex, blocks());
-      return;
-    }
-    if (event.key === "a" && approveButton) { event.preventDefault(); askApprove(); return; }
-    if (event.key === "s") { event.preventDefault(); if (saveButton) save(); else postComments(); return; }
+    handleKey(event, keyActions());
   });
 
   // A closed tab is detected by the stream below: the server sees the last
