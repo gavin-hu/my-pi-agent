@@ -22,6 +22,7 @@
 import { access, link, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasErrorCode } from "../errors.ts";
+import { abortableSleep } from "../timer.ts";
 
 /** The file, beside the board's `cards/` directory. */
 export const PAGE_FILE = "page.json";
@@ -164,6 +165,14 @@ async function putBack(held: string, target: string): Promise<void> {
 /** How many times a caller tries to own the note before it gives up for good. */
 export const NOTE_ATTEMPTS = 3;
 
+/** How long a page that has written its note but does not answer yet is given, in steps. */
+export const YOUNG_POLLS = 8;
+const YOUNG_POLL_MS = 75;
+
+/** How many times a caller looks again at a name that is momentarily free. */
+const EMPTY_LOOKS = 20;
+const EMPTY_LOOK_MS = 25;
+
 /** What one `/board` found where the note should be. */
 export type PointerOutcome =
 	| { kind: "written"; took?: PagePointer }
@@ -191,20 +200,27 @@ export type PointerOutcome =
  */
 export async function settlePointer(dir: string, note: PagePointer, probe?: ProbeFetch): Promise<PointerOutcome> {
 	let took: PagePointer | undefined;
-	for (let attempt = 0; attempt < NOTE_ATTEMPTS; attempt++) {
+	let attempts = 0;
+	let looks = 0;
+	while (attempts < NOTE_ATTEMPTS) {
 		// A retry writes a fresh `startedAt`, so a reader can tell it from the first attempt.
-		const candidate = attempt === 0 ? note : { ...note, startedAt: note.startedAt + attempt };
+		const candidate = attempts === 0 ? note : { ...note, startedAt: note.startedAt + attempts };
 		if (await createPointer(dir, candidate))
 			return took === undefined ? { kind: "written" } : { kind: "written", took };
 		const winner = await readPointer(dir);
 		if (winner === undefined) {
-			// No note at all means the page that had it cleared it in this instant: try again
-			// rather than reporting a file that is not there. Only a file that stays, and
-			// cannot be read, is the caller's dead end.
-			if (!(await noteExists(dir))) continue;
-			return { kind: "unreadable" };
+			// No note at all means a page is between clearing its note and writing the next one.
+			// That is a few microseconds of somebody else's work, not a takeover attempt of this
+			// caller's, so the name is chased without spending one; a file that stays, and cannot
+			// be read, is the caller's dead end.
+			if (await noteExists(dir)) return { kind: "unreadable" };
+			if (looks >= EMPTY_LOOKS) return { kind: "busy" };
+			looks += 1;
+			await abortableSleep(EMPTY_LOOK_MS);
+			continue;
 		}
-		if (await probePage(winner, probe)) return { kind: "attached", pointer: winner };
+		attempts += 1;
+		if (await answerOrWait(winner, probe)) return { kind: "attached", pointer: winner };
 		// Only that exact note: a note a newer page wrote is not this caller's to take. A
 		// refused clear means somebody else got there first, so the next attempt re-reads.
 		if (await clearPointer(dir, winner.token)) took = winner;
@@ -212,6 +228,23 @@ export async function settlePointer(dir: string, note: PagePointer, probe?: Prob
 	const last = await readPointer(dir);
 	if (last !== undefined) return { kind: "stale", pointer: last };
 	return (await noteExists(dir)) ? { kind: "unreadable" } : { kind: "busy" };
+}
+
+/**
+ * Whether the winner answers, giving a page that is still coming up its full probe window.
+ *
+ * A note is written before its server can accept a connection, so the loser of a simultaneous
+ * start reads a note whose page is a few milliseconds behind it. One refused connection is
+ * therefore not proof of death: stealing that note serves a second page, and calling it stale
+ * reports a page that exists as one that did not start. The poll is bounded at the same
+ * 600 ms a probe itself may spend, so a note whose page is really gone is still taken over.
+ */
+async function answerOrWait(pointer: PagePointer, probe?: ProbeFetch): Promise<boolean> {
+	for (let attempt = 0; attempt < YOUNG_POLLS; attempt++) {
+		if (await probePage(pointer, probe)) return true;
+		await abortableSleep(YOUNG_POLL_MS);
+	}
+	return false;
 }
 
 /**

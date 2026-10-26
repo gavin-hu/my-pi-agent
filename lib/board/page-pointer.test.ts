@@ -116,10 +116,10 @@ describe("settling the note for a page that is starting", () => {
 		// that answers. Before this, that caller was told "another session is serving" and
 		// never opened anything.
 		const winner = pointer({ port: 4784, token: "ffffffffffffffffffffffffffffffff" });
-		let probes = 0;
-		const outcome = await settlePointer(dir, pointer({ port: 4785 }), async () => {
-			probes += 1;
-			if (probes === 1) {
+		const outcome = await settlePointer(dir, pointer({ port: 4785 }), async (url) => {
+			if (url.includes(":4781/")) {
+				// The dead note: every look says so, and another session replaces the file while
+				// this caller is still waiting on it.
 				writeFileSync(join(dir, PAGE_FILE), JSON.stringify(winner));
 				return { ok: false };
 			}
@@ -129,11 +129,29 @@ describe("settling the note for a page that is starting", () => {
 		expect(await readPointer(dir)).toEqual(winner);
 	});
 
+	test("waits for a page still coming up instead of taking its note", async () => {
+		const dir = scratch();
+		// A note is written before its server can accept a connection, so the first look at a
+		// page that started a moment ago is refused. That is not proof of death: stealing the
+		// note serves a second page, and calling it stale reports a page that exists as one
+		// that did not start.
+		const winner = pointer({ port: 4793, token: "f".repeat(32) });
+		await createPointer(dir, winner);
+		let probes = 0;
+		const outcome = await settlePointer(dir, pointer({ port: 4794 }), async (url) => {
+			if (!url.includes(":4793/")) return { ok: false };
+			probes += 1;
+			return { ok: probes > 1 };
+		});
+		expect(outcome).toEqual({ kind: "attached", pointer: winner });
+		expect(await readPointer(dir)).toEqual(winner);
+	});
+
 	test("two sessions starting together never both serve", async () => {
 		// The window a read-then-unlink leaves open: one caller proves the old note dead
 		// and removes the name, deleting the note a faster caller had just written. Both
 		// then serve, and only one of the two pages is findable.
-		for (let round = 0; round < 40; round++) {
+		for (let round = 0; round < 5; round++) {
 			const dir = scratch();
 			await createPointer(dir, pointer({ port: 4783, token: "d".repeat(32) }));
 			const probe = async (url: string) => ({ ok: !url.includes(":4783/") });

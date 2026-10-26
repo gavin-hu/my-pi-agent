@@ -87,6 +87,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   note a page leaves is safe to hand out, and `/board status` prints one URL. The card
   dialog stays, as a read view of one card whole.
 
+### Fixed
+
+- `board`: two sessions starting at the same instant no longer leave one of them saying the
+  page did not start, and never leave two pages serving. A note is written before its server
+  can accept a connection, so the loser of that race read a note whose page was a few
+  milliseconds behind it and called it dead; it now gets the full 600 ms a probe itself may
+  spend before the note is taken over, and a name that is momentarily free — a page between
+  clearing its note and writing the next one — is chased instead of being counted as a failed
+  takeover.
+
 ## [0.19.0] - 2026-10-25
 
 ### Added
