@@ -19,6 +19,7 @@ import { WEB_CHROME_JS } from "./web-chrome.ts";
 import { WEB_COMMENTS_JS } from "./web-comments.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
 import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
+import { WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
@@ -57,6 +58,11 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var pendingQuote = null;
   var activeIndex = -1;
   var outlineItems = {};
+  /** The island's blocks, or none: one place the client reads them for navigation. */
+  function blocks() {
+    return Array.isArray(data.blocks) ? data.blocks : [];
+  }
+
   /** The island's outline, or none: the one place the client reads it for the outline. */
   function outlineEntries() {
     return Array.isArray(data.outline) ? data.outline : [];
@@ -76,6 +82,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
 ${CLIENT_RUNTIME_JS}
 
 ${WEB_OUTLINE_JS}
+
+${WEB_BLOCKS_JS}
 
 ${WEB_CHROME_JS}
 
@@ -106,46 +114,19 @@ ${WEB_MARKDOWN_JS}
     updateState();
   }
 
-  function blockElements() {
-    return planEl ? Array.prototype.slice.call(planEl.querySelectorAll(".bf-block")) : [];
-  }
-
-  function setActive(index) {
-    var blocks = blockElements();
-    if (blocks.length === 0) return;
-    activeIndex = Math.max(0, Math.min(blocks.length - 1, index));
-    blocks.forEach(function (block, at) { block.classList.toggle("bf-block--active", at === activeIndex); });
-    var current = blocks[activeIndex];
-    if (current && current.scrollIntoView) current.scrollIntoView({ block: "nearest" });
-  }
-
-  function moveActive(delta) {
-    var blocks = blockElements();
-    if (blocks.length === 0) return;
-    if (activeIndex < 0) { setActive(delta < 0 ? blocks.length - 1 : 0); return; }
-    setActive(activeIndex + delta);
-  }
-
-  /** The rendered block and its island block for a source line, when both exist. */
-  function blockAtLine(line) {
-    var wrap = planEl ? planEl.querySelector('.bf-block[data-line="' + line + '"]') : null;
-    var block = (data.blocks || []).filter(function (item) { return item.start === line; })[0];
-    return wrap && block ? { wrap: wrap, block: block } : null;
-  }
-
   /** Reopen the composer a reload interrupted, once its block has rendered. */
   function reopenComposer(typing) {
     if (!typing || saved || approved || closed) return;
-    var target = blockAtLine(typing.anchor);
+    var target = blockAtLine(planEl, blocks(), typing.anchor);
     if (target) openComposer(target.wrap, target.block, typing.quote || "", typing.text);
   }
 
   function commentOnActive() {
-    if (blockElements().length === 0) return;
-    if (activeIndex < 0) setActive(0);
-    var wrap = blockElements()[Math.max(0, activeIndex)];
+    if (blockElements(planEl).length === 0) return;
+    if (activeIndex < 0) activeIndex = setActive(planEl, 0);
+    var wrap = blockElements(planEl)[Math.max(0, activeIndex)];
     if (!wrap) return;
-    var target = blockAtLine(Number(wrap.getAttribute("data-line")));
+    var target = blockAtLine(planEl, blocks(), Number(wrap.getAttribute("data-line")));
     if (target) openComposer(target.wrap, target.block, "");
   }
 
@@ -190,7 +171,10 @@ ${WEB_MARKDOWN_JS}
         rail.appendChild(badge);
       }
       wrap.appendChild(rail);
-      wrap.addEventListener("focusin", function () { setActive(blockElements().indexOf(wrap)); });
+      wrap.addEventListener("focusin", function () {
+        var next = setActive(planEl, blockElements(planEl).indexOf(wrap));
+        if (next !== null) activeIndex = next;
+      });
       planEl.appendChild(wrap);
       renderComments(planEl, block.start);
     });
@@ -205,7 +189,7 @@ ${WEB_MARKDOWN_JS}
     planEl.scrollTop = scrollTop;
     // The DOM was rebuilt, so the active block's class is gone; restore it in
     // place rather than scrolling, so j/k resume where the reviewer was.
-    var active = activeIndex >= 0 ? blockElements()[activeIndex] : null;
+    var active = activeIndex >= 0 ? blockElements(planEl)[activeIndex] : null;
     if (active) active.classList.add("bf-block--active");
     // The focused element went with the old DOM, so put the tab stop back on the
     // block's comment control: that is where adding, editing, or deleting left it.
@@ -389,8 +373,18 @@ ${WEB_MARKDOWN_JS}
     if (event.key === "?") { event.preventDefault(); window.bfKeys.toggle(); return; }
     // While the shortcut sheet is open it owns the keyboard.
     if (window.bfKeys.isOpen()) return;
-    if (event.key === "j") { event.preventDefault(); moveActive(1); return; }
-    if (event.key === "k") { event.preventDefault(); moveActive(-1); return; }
+    if (event.key === "j") {
+      event.preventDefault();
+      var down = moveActive(planEl, activeIndex, 1);
+      if (down !== null) activeIndex = down;
+      return;
+    }
+    if (event.key === "k") {
+      event.preventDefault();
+      var up = moveActive(planEl, activeIndex, -1);
+      if (up !== null) activeIndex = up;
+      return;
+    }
     if (event.key === "c") { event.preventDefault(); commentOnActive(); return; }
     if (event.key === "a" && approveButton) { event.preventDefault(); askApprove(); return; }
     if (event.key === "s") { event.preventDefault(); if (saveButton) save(); else postComments(); return; }

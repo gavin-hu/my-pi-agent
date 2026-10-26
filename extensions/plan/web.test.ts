@@ -28,6 +28,7 @@ import {
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
+import { blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { observeSections, renderFacts, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
@@ -725,7 +726,7 @@ describe("review client", () => {
 		expect(clientFunction("typingOf")).toContain('area.closest(".bf-block")');
 		expect(clientFunction("saveDraft")).toContain("record.typing = typing");
 		expect(clientFunction("openComposer")).toContain('area.addEventListener("input"');
-		expect(clientFunction("reopenComposer")).toContain("blockAtLine(typing.anchor)");
+		expect(clientFunction("reopenComposer")).toContain("blockAtLine(planEl, blocks(), typing.anchor)");
 		expect(clientFunction("restoreDraft")).toContain("return typing;");
 		// A close with nothing open must not rewrite, and so drop, a restored draft.
 		expect(clientFunction("closeComposer")).toContain("if (open) saveDraft();");
@@ -2059,5 +2060,86 @@ describe("review outline", () => {
 		expect(Object.keys(counters)).toEqual(["1", "8", "20"]);
 		expect(made.filter((item) => item.tag === "li").map((item) => item.className)).toEqual(["lvl-1", "lvl-2", "lvl-1"]);
 		expect(counters[8]?.hidden).toBe(true);
+	});
+});
+
+describe("review block navigation", () => {
+	/** A block node with the two members the rules touch, recording what it was told. */
+	const block = (line: number) => ({
+		line,
+		active: false,
+		scrolled: 0,
+		classList: {
+			toggle(name: string, on?: boolean) {
+				if (name === "bf-block--active") this.owner.active = on === true;
+			},
+			add() {},
+			remove() {},
+			owner: undefined as unknown as { active: boolean },
+		},
+		scrollIntoView() {
+			this.scrolled += 1;
+		},
+		getAttribute: () => String(line),
+	});
+	const make = (lines: number[]) => {
+		const blocks = lines.map((line) => {
+			const node = block(line);
+			node.classList.owner = node;
+			return node;
+		});
+		const planEl = {
+			querySelectorAll: () => blocks,
+			querySelector: (selector: string) => {
+				const line = Number(/data-line="(\d+)"/.exec(selector)?.[1]);
+				return blocks.find((node) => node.line === line) ?? null;
+			},
+		};
+		return { blocks, planEl: planEl as unknown as Parameters<typeof blockElements>[0] };
+	};
+
+	test("carries the source, safe to splice into the client bundle", () => {
+		expect(WEB_BLOCKS_JS).not.toContain("`");
+		expect(WEB_BLOCKS_JS).not.toContain("${");
+		for (const fn of [blockElements, setActive, moveActive, blockAtLine]) {
+			expect(WEB_BLOCKS_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
+		}
+	});
+
+	test("an empty page has no active block, and the index it had is kept", () => {
+		// `null` is the "nothing changed" answer: a caller must not be reset to zero by a
+		// repaint that happened to run before the blocks were drawn.
+		expect(blockElements(null)).toEqual([]);
+		expect(setActive(null, 3)).toBeNull();
+		expect(moveActive(null, 2, 1)).toBeNull();
+	});
+
+	test("clamps, marks one block at a time, and brings it into view", () => {
+		const { blocks, planEl } = make([1, 8, 20]);
+		expect(blockElements(planEl)).toHaveLength(3);
+		expect(setActive(planEl, 9)).toBe(2);
+		expect(blocks.map((node) => node.active)).toEqual([false, false, true]);
+		expect(blocks[2]?.scrolled).toBe(1);
+		expect(setActive(planEl, -4)).toBe(0);
+		expect(blocks.map((node) => node.active)).toEqual([true, false, false]);
+	});
+
+	test("walks, and starts at the near end when nothing is active yet", () => {
+		const { planEl } = make([1, 8, 20]);
+		// Nothing active: j starts at the top, k at the bottom.
+		expect(moveActive(planEl, -1, 1)).toBe(0);
+		expect(moveActive(planEl, -1, -1)).toBe(2);
+		// A step past the end clamps rather than wrapping: the reader asked for one more.
+		expect(moveActive(planEl, 2, 1)).toBe(2);
+		expect(moveActive(planEl, 0, 1)).toBe(1);
+	});
+
+	test("needs both halves of a line to open a composer", () => {
+		const { planEl } = make([1, 8]);
+		expect(blockAtLine(planEl, [{ start: 1 }, { start: 8 }], 8)?.block.start).toBe(8);
+		// Rendered but not in the island, or in the island but not rendered: neither opens.
+		expect(blockAtLine(planEl, [{ start: 1 }], 8)).toBeNull();
+		expect(blockAtLine(planEl, [{ start: 1 }, { start: 30 }], 30)).toBeNull();
+		expect(blockAtLine(null, [{ start: 1 }], 1)).toBeNull();
 	});
 });

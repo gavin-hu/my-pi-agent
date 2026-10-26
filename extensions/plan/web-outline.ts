@@ -14,6 +14,8 @@
  * without a DOM lib; the annotations are erased before the source is spliced.
  */
 
+import type { ClientNode } from "../../lib/web/client-runtime.ts";
+
 /** One entry of the page's `outline` island: a heading, its line, and whether it moved. */
 export interface OutlineEntry {
 	id: string;
@@ -21,29 +23,6 @@ export interface OutlineEntry {
 	line: number;
 	text: string;
 	changed?: boolean;
-}
-
-/**
- * The pieces of a DOM node the review client touches.
- *
- * Named for the client rather than the outline because the outline was only its first
- * consumer: the facts painter reads the step bar's `style`, the builder appends children,
- * and every later capability needs the same surface. `OutlineEntry` stays outline-specific.
- */
-export interface ClientNode {
-	className: string;
-	textContent: string | null;
-	hidden: boolean;
-	href: string;
-	title: string;
-	id: string;
-	style: { width: string };
-	setAttribute(name: string, value: string): void;
-	getAttribute(name: string): string | null;
-	removeAttribute(name: string): void;
-	appendChild(child: ClientNode): void;
-	replaceChildren(): void;
-	querySelectorAll(selector: string): ArrayLike<ClientNode>;
 }
 
 /** What the browser's `IntersectionObserver` answers for a section watcher. */
