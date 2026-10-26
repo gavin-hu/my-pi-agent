@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { GLYPHS } from "../../../lib/tui/glyphs.ts";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
@@ -326,7 +327,9 @@ describe("the settings block", () => {
 		expect(lines).toContain("bytefly-dark");
 		expect(lines).toContain("About");
 		expect(lines).toContain("Stored in");
-		expect(lines).toContain("/agent/settings.json");
+		// The path is data: the file is built with the platform's joiner, so the
+		// assertion has to be too, or it passes on macOS and fails on Windows.
+		expect(lines).toContain(join("/agent", "settings.json"));
 	});
 
 	test("names an inherited project value and its file", () => {
@@ -343,7 +346,7 @@ describe("the settings block", () => {
 		}).join("\n");
 
 		expect(lines).toContain("Inherited from Global");
-		expect(lines).toContain("/agent/bytefly.json");
+		expect(lines).toContain(join("/agent", "bytefly.json"));
 	});
 
 	test("shows the focused row's section as stored, with its scope file", () => {
