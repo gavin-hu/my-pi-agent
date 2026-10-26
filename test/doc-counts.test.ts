@@ -1,0 +1,100 @@
+/**
+ * Every number a document states about the code, derived rather than trusted.
+ *
+ * A prose count is the first thing to rot: nothing breaks when "21 extensions"
+ * becomes 22, so it stays 21 until somebody notices. `test/settings-coverage.test.ts`
+ * solved the same problem for one number by deriving it from `SETTING_ROWS`; this file
+ * is the same idea for the catalog and the tool surface.
+ *
+ * Each statement is a **pattern plus what it claims**, not a sentence rebuilt from the
+ * numbers: the pattern captures the numbers in the order the sentence names them, and
+ * the assertion compares them with what the tree holds. A document reworded past its
+ * pattern fails loudly, and the fix is to update the pattern beside the prose — never to
+ * drop the check.
+ *
+ * What it cannot do is tell whether a sentence is *well written*: a count that is right
+ * in a confusing sentence still passes. That stays a review judgement.
+ */
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, test } from "bun:test";
+import { addedTools, catalogCounts, manifest } from "./helpers/surface.ts";
+
+const root = join(import.meta.dir, "..");
+
+/** The counts one document states, and the numbers it names them with. */
+interface Claim {
+	/** The file, relative to the package root, and the line a reader meets it on. */
+	file: string;
+	/** The sentence's shape: one capture group per number, in the order it names them. */
+	pattern: RegExp;
+	/** Which derived count each capture group claims. */
+	counts: Array<keyof Counts>;
+}
+
+/** What the tree holds: the catalog, and the tools the pack adds. */
+interface Counts {
+	extensions: number;
+	skills: number;
+	themes: number;
+	tools: number;
+}
+
+/** The six places a count of the code is stated. */
+const CLAIMS: Claim[] = [
+	{
+		file: "README.md",
+		pattern: /(\d+) extensions, (\d+) packaged skills, and (\d+) themes/,
+		counts: ["extensions", "skills", "themes"],
+	},
+	{
+		file: "README.zh-CN.md",
+		pattern: /(\d+) 个扩展、(\d+) 个随包技能，以及 (\d+) 个主题/,
+		counts: ["extensions", "skills", "themes"],
+	},
+	{
+		file: "ROADMAP.md",
+		pattern: /(\d+) extensions, (\d+) packaged skills, (\d+) themes/,
+		counts: ["extensions", "skills", "themes"],
+	},
+	{
+		file: "docs/user-guide/README.md",
+		pattern: /adds (\d+) extensions, (\d+) packaged skills, and (\d+) colour themes/,
+		counts: ["extensions", "skills", "themes"],
+	},
+	{
+		file: "docs/user-guide/reference.md",
+		pattern: /The pack adds (\d+) extensions and (\d+) tools\./,
+		counts: ["extensions", "tools"],
+	},
+	{
+		file: "docs/user-guide/getting-started.md",
+		pattern: /The pack adds (\d+) tools that were/,
+		counts: ["tools"],
+	},
+];
+
+const counts: Counts = { ...catalogCounts(), tools: (await addedTools()).length };
+
+describe("doc counts", () => {
+	test("derives the counts from the tree, and finds something to count", () => {
+		// A glob that stopped matching would make every statement below trivially true.
+		for (const [name, value] of Object.entries(counts)) expect(value, name).toBeGreaterThan(0);
+		// The manifest is the registry: `extension-load.test.ts` holds it to the directories,
+		// and this file counts it rather than the directory again.
+		expect(counts.extensions).toBe(manifest.length);
+	});
+
+	for (const claim of CLAIMS) {
+		test(`${claim.file} states the counts the tree has`, () => {
+			const text = readFileSync(join(root, claim.file), "utf-8");
+			const matches = [...text.matchAll(new RegExp(claim.pattern.source, "g"))];
+			// Twice in one file means one copy can go stale while the other passes.
+			expect(matches.length, `${claim.file}: the sentence matching ${claim.pattern}`).toBe(1);
+			const stated = matches[0]?.slice(1).map(Number) ?? [];
+			const expected = claim.counts.map((name) => counts[name]);
+			expect(stated, `${claim.file}: a stated count no longer matches the tree`).toEqual(expected);
+		});
+	}
+});

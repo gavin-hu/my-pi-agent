@@ -399,11 +399,9 @@ These are not a README pillar, but every promise depends on them.
 
 **Now**
 
-- **F3 — Every count a doc states is derived.** One root test derives the
-  extension, skill, theme, and tool counts that both READMEs and this file
-  state, from the `pi` manifest, `skills/`, `assets/`, and the registered tool
-  names. The settings count is the first such guard and the only one today, and
-  a count without one is a promise waiting to rot.
+Nothing here is queued: `test/doc-counts.test.ts` now derives the extension, skill,
+theme, and tool counts every document states, so a count without a guard is the
+exception rather than the rule.
 
 Binding, the accept path, the close path, and idle grace are one server entry,
 and a page cannot outlive the session it describes.

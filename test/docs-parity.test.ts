@@ -16,12 +16,14 @@
  * `#anchor` links (their fragments are translated), absolute URLs (the badges),
  * the language switcher at the top of each file (the two links are intentionally
  * asymmetric and are asserted on their own), code blocks, and release-time
- * content such as version markers. One sentence is compared across the
- * translation: the catalog's counts, which are numbers and are derived here from
- * the tree rather than trusted from either README.
+ * content such as version markers.
+ *
+ * The catalog's counts are not compared here: they are numbers, and
+ * `test/doc-counts.test.ts` derives every count either README states from the tree,
+ * so the two cannot disagree with it or with each other.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 
@@ -179,31 +181,5 @@ describe("entry README parity", () => {
 	test("ignores fences, anchors, absolute URLs, and the switcher in both", () => {
 		const markdown = "# A\n\n[en](./README.zh-CN.md) [x](#anchor) [y](https://pi.dev)\n\n```\n## not a heading\n```\n";
 		expect(shape(markdown)).toEqual({ headings: [1], tables: [], targets: [] });
-	});
-});
-
-/** How many directories `directory` holds, optionally only those carrying `required`. */
-function countDirectories(directory: string, required?: string): number {
-	return readdirSync(join(root, directory), { withFileTypes: true }).filter(
-		(entry) =>
-			entry.isDirectory() && (required === undefined || existsSync(join(root, directory, entry.name, required))),
-	).length;
-}
-
-/** The catalog the front door advertises, counted from the tree. */
-const CATALOG = {
-	extensions: countDirectories("extensions"),
-	skills: countDirectories("skills", "SKILL.md"),
-	themes: readdirSync(join(root, "themes")).filter((name) => name.endsWith(".json")).length,
-};
-
-describe("entry README counts", () => {
-	test("states the catalog the tree has", () => {
-		const stated = `${CATALOG.extensions} extensions, ${CATALOG.skills} packaged skills, and ${CATALOG.themes} themes`;
-		const mirrored = `${CATALOG.extensions} 个扩展、${CATALOG.skills} 个随包技能，以及 ${CATALOG.themes} 个主题`;
-		expect({ english: english.includes(stated), chinese: chinese.includes(mirrored) }).toEqual({
-			english: true,
-			chinese: true,
-		});
 	});
 });
