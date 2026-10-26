@@ -43,6 +43,8 @@ const renderTemplate = String.raw`(function () {
    * past this it is history, and the count in the head says how much.
    */
   var DONE_FOLD_AT = 6;
+  /** The two tones a reason line can take, by the kind reasonOf reports. */
+  var REASON_TONE = { blocked: N.cardReasonBlocked, unplanned: N.cardReasonUnplanned };
 
   /** One element with optional class and text. */
   function el(tag, className, text) {
@@ -125,7 +127,7 @@ const renderTemplate = String.raw`(function () {
 
   /** A path hint, or the +N chip that points at the rest. */
   function paths(card, limit) {
-    var list = el("ul", "board-card__paths");
+    var list = el("ul", N.cardPaths);
     var shown = card.paths.slice(0, limit);
     for (var i = 0; i < shown.length; i++) {
       var item = el("li", "");
@@ -142,21 +144,21 @@ const renderTemplate = String.raw`(function () {
 
   /** One card in its lane. */
   function cardNode(card, view) {
-    var item = el("li", "board-card");
+    var item = el("li", N.card);
     item.setAttribute("data-card", card.id);
     item.setAttribute("data-status", card.status);
     item.setAttribute("data-rev", String(card.rev));
 
-    var head = el("p", "board-card__head");
-    head.appendChild(el("span", "board-card__id", "#" + card.id));
+    var head = el("p", N.cardHead);
+    head.appendChild(el("span", N.cardId, "#" + card.id));
     var title = actionButton(card.title, function () {
       board.openCard(card.id);
     });
-    title.className = "board-card__title";
+    title.className = N.cardTitle;
     head.appendChild(title);
     item.appendChild(head);
 
-    var meta = el("p", "board-card__meta");
+    var meta = el("p", N.cardMeta);
     meta.appendChild(card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned"));
     // The order inside a lane is the priority, so an urgent card says so: an order
     // nobody can see reads as an accident. The lane's colour stays the card's own.
@@ -172,8 +174,10 @@ const renderTemplate = String.raw`(function () {
 
     var reason = reasonOf(card, view);
     if (reason) {
-      var kind = reason.kind === "blocked" || reason.kind === "unplanned" ? " board-card__reason--" + reason.kind : "";
-      var line = el("p", "board-card__reason" + kind, reason.text);
+      // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
+      // test can compare with the stylesheet.
+      var tone = REASON_TONE[reason.kind];
+      var line = el("p", tone === undefined ? N.cardReason : N.cardReason + " " + tone, reason.text);
       // It clamps to one line on the card, so the full sentence is the tooltip.
       line.title = reason.text;
       item.appendChild(line);
@@ -242,24 +246,24 @@ const renderTemplate = String.raw`(function () {
   function laneNode(lane) {
     var section = document.querySelector('.board-lane[data-status="' + lane.status + '"]');
     if (section) return section;
-    section = el("section", "board-lane");
+    section = el("section", N.lane);
     section.setAttribute("data-status", lane.status);
-    var head = el("h2", "board-lane__head");
+    var head = el("h2", N.laneHead);
     var toggle = actionButton(LANE_LABEL[lane.status] || lane.status, function () {
       board.toggleLane(lane.status);
     });
-    toggle.className = "board-lane__toggle";
+    toggle.className = N.laneToggle;
     toggle.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-controls", "lane-" + lane.status);
     toggle.id = "lane-head-" + lane.status;
-    head.appendChild(el("span", "board-lane__dot"));
+    head.appendChild(el("span", N.laneDot));
     head.appendChild(toggle);
-    head.appendChild(el("span", "board-lane__count"));
+    head.appendChild(el("span", N.laneCount));
     section.appendChild(head);
-    var list = el("ol", "board-lane__list");
+    var list = el("ol", N.laneList);
     list.id = "lane-" + lane.status;
     section.appendChild(list);
-    section.appendChild(el("p", "board-lane__empty", LANE_EMPTY[lane.status] || "nothing"));
+    section.appendChild(el("p", N.laneEmpty, LANE_EMPTY[lane.status] || "nothing"));
     return section;
   }
 
@@ -382,12 +386,12 @@ const renderTemplate = String.raw`(function () {
       var note = card.notes[j];
       // Who and when on their own line, the sentence under it, a rule between notes:
       // wrapped prose used to run one note into the next with nothing to separate them.
-      var row = el("li", "board-dialog__note");
-      var head = el("p", "board-dialog__note-head");
-      head.appendChild(el("span", "board-dialog__note-by", note.by));
-      head.appendChild(el("span", "board-dialog__note-at", ago(note.at)));
+      var row = el("li", N.dialogNote);
+      var head = el("p", N.dialogNoteHead);
+      head.appendChild(el("span", N.dialogNoteBy, note.by));
+      head.appendChild(el("span", N.dialogNoteAt, ago(note.at)));
       row.appendChild(head);
-      row.appendChild(el("p", "board-dialog__note-text", note.text));
+      row.appendChild(el("p", N.dialogNoteText, note.text));
       notes.appendChild(row);
     }
     var earlier = document.getElementById("card-dialog-earlier");

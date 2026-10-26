@@ -21,8 +21,14 @@ import {
 	WEB_THEME_CSS,
 } from "../../../lib/web/index.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
+import { BOARD_CLASS } from "./names.ts";
 import { renderBoardPage } from "./page.ts";
 import { BOARD_CSS } from "./styles.ts";
+
+/** The page's own rules, without the shared blocks that define the palette. */
+function ownRules(): string {
+	return BOARD_CSS.slice(BOARD_CSS.indexOf(WEB_COMPONENTS_CSS) + WEB_COMPONENTS_CSS.length);
+}
 
 describe("the document", () => {
 	test("is a complete page under the shared head", () => {
@@ -128,11 +134,6 @@ describe("the document", () => {
 		}
 		expect(BOARD_CSS.split(".board-dialog__notes{display:flex")).toHaveLength(2);
 	});
-
-	/** The page's own rules, without the shared blocks that define the palette. */
-	function ownRules(): string {
-		return BOARD_CSS.slice(BOARD_CSS.indexOf(WEB_COMPONENTS_CSS) + WEB_COMPONENTS_CSS.length);
-	}
 
 	test("draws every colour through a kit token", () => {
 		// A literal colour would survive the theme toggle and the print theme. The
@@ -302,13 +303,15 @@ describe("the client bundle", () => {
  * The class contract: the page may only wear classes that exist.
  *
  * A `bf-…` name is the kit's vocabulary — its stylesheet plus what its own atoms
- * emit — and a `board-…` name is this page's stylesheet or an id its client greps.
- * A name either side invents renders as an unstyled element, which is exactly how
- * the tab groups shipped as browser-default buttons: the markup said `role="tab"`
- * and never said `bf-segmented__item`.
+ * emit — and a `board-…` name comes from {@link BOARD_CLASS}, the table the document
+ * and the bundle both read. A name either side invents renders as an unstyled element,
+ * which is exactly how the tab groups shipped as browser-default buttons: the markup
+ * said `role="tab"` and never said `bf-segmented__item`.
  *
- * The test reads the rendered markup and the client bundle, so the part of this
- * page no type checker sees is still held to the vocabulary.
+ * The page's own half is compared as two sets, not as spellings: the table against the
+ * stylesheet's selectors, both directions. A name assembled at runtime used to make that
+ * impossible — `"board-card__reason" + kind` reads as a prefix to any scan — so the table
+ * is what lets a missing rule fail here instead of in a screenshot.
  */
 describe("the class contract", () => {
 	/** Every `.name` a stylesheet defines. */
@@ -339,11 +342,25 @@ describe("the class contract", () => {
 
 	const DOCUMENTS = [renderBoardPage({ view: "board" }), renderBoardPage({ view: "team" })];
 	const SOURCES = [...DOCUMENTS, BOARD_CLIENT_JS];
-	const PAGE = defined(BOARD_CSS, "board-");
-	// An id is a name the client finds an element by; a class is a name it dresses one with.
-	for (const document of DOCUMENTS) {
-		for (const match of document.matchAll(/\bid="([a-z0-9_-]+)"/g)) PAGE.add(match[1] ?? "");
-	}
+	/** The page's own vocabulary: what its table declares. */
+	const PAGE = new Set<string>(Object.values(BOARD_CLASS));
+	/** The names the stylesheet draws. */
+	const DRAWN = defined(BOARD_CSS, "board-");
+	/** Every id, which the client finds an element by and no stylesheet dresses. */
+	const IDS = new Set<string>(
+		DOCUMENTS.flatMap((document) => [...document.matchAll(/\bid="([a-z0-9_-]+)"/g)].map((match) => match[1] ?? "")),
+	);
+	/** Attributes whose only reader is the client: an element hook, or a stamp for the age ticker. */
+	const HOOKS: Readonly<Record<string, string>> = {
+		"data-at": "the age ticker rewrites the text from it",
+		"data-card": "the open card is found by its id",
+		"data-lane": "the narrow picker reads which lane a button selects",
+		"data-rev": "a lane rebuilds only when a card's revision moves",
+		"data-sig": "a lane remembers what it last drew",
+		"data-skeleton": "the placeholders are removed once the first frame lands",
+		"data-view": "the tab switch writes which panel is current",
+		"data-you": "a teammate row marks the reader",
+	};
 
 	test("finds the vocabulary it claims to check", () => {
 		// A parser that stopped matching would make the checks below vacuous.
@@ -358,10 +375,31 @@ describe("the class contract", () => {
 		expect(unknown).toEqual([]);
 	});
 
-	test("names no page class this page does not define", () => {
-		const unknown = [...new Set(SOURCES.flatMap((source) => [...used(source, "board-")]))]
-			.filter((name) => !PAGE.has(name))
-			.sort();
+	test("wears only what its table declares, ids aside", () => {
+		// A class literal that bypassed the table is the failure this exists for: it can be
+		// a name with no rule, which renders as an unstyled element and nothing fails.
+		const worn = [...new Set(SOURCES.flatMap((source) => [...used(source, "board-")]))];
+		const unknown = worn.filter((name) => !PAGE.has(name) && !IDS.has(name)).sort();
 		expect(unknown).toEqual([]);
+	});
+
+	test("draws every name its table declares, and declares every name it draws", () => {
+		// Both directions, so a dead rule and a missing rule are the same failure.
+		expect([...PAGE].filter((name) => !DRAWN.has(name)).sort(), "declared, never drawn").toEqual([]);
+		expect([...DRAWN].filter((name) => !PAGE.has(name)).sort(), "drawn, never declared").toEqual([]);
+	});
+
+	test("styles no attribute the page does not wear, and hooks every one it does", () => {
+		// The drift a capture found: an attribute emitted with no rule to act on it.
+		const styled = new Set([...ownRules().matchAll(/\[(data-[a-z-]+)/g)].map((match) => match[1] ?? ""));
+		// The kit styles some attributes of its own — `data-theme` is the theme layer's — so
+		// "is it drawn at all" is asked of the whole stylesheet a page ships.
+		const drawn = new Set([...BOARD_CSS.matchAll(/\[(data-[a-z-]+)/g)].map((match) => match[1] ?? ""));
+		const worn = new Set(
+			SOURCES.flatMap((source) => [...source.matchAll(/\b(data-[a-z-]+)="?/g)].map((m) => m[1] ?? "")),
+		);
+		expect([...styled].filter((name) => !worn.has(name)).sort(), "styled, never worn").toEqual([]);
+		const unsaid = [...worn].filter((name) => !drawn.has(name) && HOOKS[name] === undefined).sort();
+		expect(unsaid, "worn, unstyled, and not declared a hook").toEqual([]);
 	});
 });

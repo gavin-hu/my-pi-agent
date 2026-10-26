@@ -15,6 +15,7 @@
 
 import { brandLockup, button, docHead, keysSheet, themeToggle } from "../../../lib/web/index.ts";
 import { BOARD_KEYS } from "./keys.ts";
+import { BOARD_CLASS as N } from "./names.ts";
 import { BOARD_CSS } from "./styles.ts";
 
 /** The two views the page offers. */
@@ -37,39 +38,39 @@ ${docHead({ title: "board", css: BOARD_CSS })}
 <body class="bf-app">
 <h1 class="sr-only">board — the shared feature list for this repository</h1>
 <a class="skip" href="#main">Skip to the cards</a>
-<header class="bf-app__header"><div class="bf-toolbar board-toolbar">
+<header class="bf-app__header"><div class="bf-toolbar ${N.toolbar}">
   ${brandLockup("board")}
   <span class="bf-chip bf-chip--accent" id="board-me" title="This page is served as this session, and it cannot change a card">board</span>
-  <p class="bf-status board-status" id="board-status" data-state="connecting" aria-live="polite">connecting…</p>
+  <p class="bf-status ${N.status}" id="board-status" data-state="connecting" aria-live="polite">connecting…</p>
   <span class="bf-spacer"></span>
-  <div class="board-controls">
+  <div class="${N.controls}">
     <div class="bf-segmented" role="tablist" aria-label="View">
       <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board"${team ? "" : ' aria-current="page"'}>Board</button>
       <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team"${team ? ' aria-current="page"' : ""}>Team</button>
     </div>
-    <p class="bf-progress board-progress" id="board-progress" hidden>
+    <p class="bf-progress ${N.progress}" id="board-progress" hidden>
       <span class="bf-progress__track"><span class="bf-progress__fill" id="board-progress-fill"></span></span>
       <span id="board-progress-text">0/0</span>
     </p>
-    <label class="bf-field board-filter"><span class="sr-only">Filter cards</span>
+    <label class="bf-field ${N.filter}"><span class="sr-only">Filter cards</span>
       <input class="bf-input" id="board-filter" type="search" placeholder="filter cards" autocomplete="off">
     </label>
     ${button({ label: "?", variant: "icon", id: "keys-open", title: "Keyboard shortcuts", attrs: { "aria-haspopup": "dialog" } })}
     ${themeToggle()}
   </div>
 </div></header>
-<main class="bf-app__main board-main" id="main" tabindex="-1">
-  <section class="board-panel" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
-    <div class="bf-segmented board-picker" id="board-picker" role="tablist" aria-label="Lane"></div>
-    <div class="board-lanes" id="board-lanes"></div>
-    <div class="bf-empty board-no-cards" id="board-no-cards" hidden>
+<main class="bf-app__main ${N.main}" id="main" tabindex="-1">
+  <section class="${N.panel}" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
+    <div class="bf-segmented ${N.picker}" id="board-picker" role="tablist" aria-label="Lane"></div>
+    <div class="${N.lanes}" id="board-lanes"></div>
+    <div class="bf-empty ${N.noCards}" id="board-no-cards" hidden>
       <p class="bf-empty__title">No cards yet</p>
       <p class="bf-empty__sub">One card per feature: what it delivers, who holds it, and where to start.</p>
       <p class="bf-empty__sub"><code>board add</code> makes one — this page reads, and the tools write.</p>
     </div>
   </section>
-  <section class="board-panel" id="panel-team" role="tabpanel" aria-labelledby="tab-team"${team ? "" : " hidden"}>
-    <div class="board-team" id="board-team"></div>
+  <section class="${N.panel}" id="panel-team" role="tabpanel" aria-labelledby="tab-team"${team ? "" : " hidden"}>
+    <div class="${N.team}" id="board-team"></div>
   </section>
 </main>
 <footer class="bf-app__footer"><span id="board-where"></span></footer>
@@ -78,17 +79,17 @@ ${docHead({ title: "board", css: BOARD_CSS })}
   <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="card-dialog-title" tabindex="-1">
     <div class="bf-dialog__head">
       <h2 id="card-dialog-title"></h2>
-      <span class="board-dialog__state" id="card-dialog-state"></span>
+      <span class="${N.dialogState}" id="card-dialog-state"></span>
       <span class="bf-spacer"></span>
       <button type="button" class="bf-btn bf-btn--icon" id="card-dialog-close" aria-label="Close">×</button>
     </div>
     <div class="bf-dialog__body">
-      <p class="board-dialog__meta" id="card-dialog-meta"></p>
-      <p class="board-dialog__owner" id="card-dialog-owner"></p>
-      <ul class="board-card__paths" id="card-dialog-paths"></ul>
-      <p class="board-dialog__depends" id="card-dialog-depends" hidden></p>
-      <p class="board-dialog__plan" id="card-dialog-plan" hidden></p>
-      <ol class="board-dialog__notes" id="card-dialog-notes"></ol>
+      <p class="${N.dialogMeta}" id="card-dialog-meta"></p>
+      <p class="${N.dialogOwner}" id="card-dialog-owner"></p>
+      <ul class="${N.cardPaths}" id="card-dialog-paths"></ul>
+      <p class="${N.dialogDepends}" id="card-dialog-depends" hidden></p>
+      <p class="${N.dialogPlan}" id="card-dialog-plan" hidden></p>
+      <ol class="${N.dialogNotes}" id="card-dialog-notes"></ol>
       <p class="bf-dialog__hint" id="card-dialog-earlier" hidden></p>
     </div>
   </div>

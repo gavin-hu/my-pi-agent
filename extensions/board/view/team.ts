@@ -34,9 +34,9 @@ export const BOARD_TEAM_JS = String.raw`(function () {
    * reader can tell "nothing here" from "nothing matches".
    */
   function panel(text, count, total) {
-    var node = el("section", "board-team__group");
+    var node = el("section", N.teamGroup);
     node.setAttribute("aria-label", text);
-    var caption = el("h2", "board-team__caption", text);
+    var caption = el("h2", N.teamCaption, text);
     caption.appendChild(chip(total !== undefined && total !== count ? count + "/" + total : String(count)));
     node.appendChild(caption);
     return node;
@@ -114,21 +114,21 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   /** One decision: the card, why it is here, who holds it, and the way out. */
   function decision(entry, view) {
     var card = entry.card;
-    var node = el("article", "board-team__decision");
+    var node = el("article", N.teamDecision);
     node.setAttribute("data-kind", entry.kind);
 
-    var open = el("button", "board-team__open");
+    var open = el("button", N.teamOpen);
     open.type = "button";
     open.setAttribute("aria-haspopup", "dialog");
-    open.appendChild(el("span", "board-team__ref", "#" + card.id));
-    var title = el("span", "board-team__title", card.title);
+    open.appendChild(el("span", N.teamRef, "#" + card.id));
+    var title = el("span", N.teamTitle, card.title);
     // A clamped title has no other way to be read, so it carries its own tooltip.
     title.title = card.title;
     open.appendChild(title);
     open.addEventListener("click", function () { board.openCard(card.id); });
     node.appendChild(open);
 
-    var foot = el("div", "board-team__foot");
+    var foot = el("div", N.teamFoot);
     if (card.owner) foot.appendChild(chip(card.owner.label, "accent"));
     // No button: this page cannot claim or reclaim, and a page that offered either would
     // be teaching a verb the server refuses. The row is a reason to pick a card up in the
@@ -137,9 +137,9 @@ export const BOARD_TEAM_JS = String.raw`(function () {
 
     // The reason gets the row's whole width and two lines; the tooltip carries the
     // rest, because this sentence is the lead's whole reason to look at the row.
-    var why = el("p", "board-team__why", entry.why);
+    var why = el("p", N.teamWhy, entry.why);
     why.title = entry.why;
-    if (entry.kind === "blocked") why.className = "board-team__why board-team__why--blocked";
+    if (entry.kind === "blocked") why.className = N.teamWhy + " " + N.teamWhyBlocked;
     node.appendChild(why);
     return node;
   }
@@ -203,14 +203,14 @@ export const BOARD_TEAM_JS = String.raw`(function () {
 
   /** One teammate: who, how they are, and what they hold. Not a button — nothing to open. */
   function mate(mate) {
-    var node = el("li", "board-team__mate");
+    var node = el("li", N.teamMate);
     node.setAttribute("data-state", mate.state);
     if (mate.you) node.setAttribute("data-you", "1");
 
-    var dot = el("span", "board-team__dot");
+    var dot = el("span", N.teamDot);
     dot.setAttribute("aria-hidden", "true");
     node.appendChild(dot);
-    node.appendChild(el("span", "board-team__name", mate.label));
+    node.appendChild(el("span", N.teamName, mate.label));
     if (mate.you) node.appendChild(chip("you"));
     // A live peer whose watch is off will read a handoff at its next turn instead of being
     // woken for it, which is the one thing a lead can still act on.
@@ -222,7 +222,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     if (mate.mail > 0) node.appendChild(chip(plural(mate.mail, "mail"), "accent"));
 
     // "quiet" alone does not tell a lead whether to reclaim; the heartbeat age does.
-    var mets = el("p", "board-team__mets");
+    var mets = el("p", N.teamMets);
     if (mate.state === "quiet" && mate.seen !== undefined) {
       mets.appendChild(document.createTextNode("quiet for "));
       mets.appendChild(stamped(ago(mate.seen), mate.seen));
@@ -257,15 +257,15 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     var filtering = query !== "";
     var noMatch = "no card here matches \"" + query + "\"";
 
-    var grid = el("div", "board-team__grid");
+    var grid = el("div", N.teamGrid);
 
     var all = needs(view);
     var decisions = all.filter(function (entry) { return keep(entry.card); });
     var queue = panel("Needs a decision", decisions.length, all.length);
     if (decisions.length === 0) {
-      queue.appendChild(el("p", "board-team__empty", filtering ? noMatch : "nothing needs you: no blockers, nothing idle, every card planned and held"));
+      queue.appendChild(el("p", N.teamEmpty, filtering ? noMatch : "nothing needs you: no blockers, nothing idle, every card planned and held"));
     } else {
-      var list = el("div", "board-team__queue");
+      var list = el("div", N.teamQueue);
       for (var i = 0; i < decisions.length; i++) list.appendChild(decision(decisions[i], view));
       queue.appendChild(list);
     }
@@ -281,9 +281,9 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     });
     var people = panel("Teammates", shown.length, everyone.length);
     if (shown.length === 0) {
-      people.appendChild(el("p", "board-team__empty", filtering ? noMatch : roster === null ? "session-bus is not loaded here" : "nobody is here yet"));
+      people.appendChild(el("p", N.teamEmpty, filtering ? noMatch : roster === null ? "session-bus is not loaded here" : "nobody is here yet"));
     } else {
-      var rosterList = el("ul", "board-team__roster");
+      var rosterList = el("ul", N.teamRoster);
       for (var j = 0; j < shown.length; j++) rosterList.appendChild(mate(shown[j]));
       people.appendChild(rosterList);
     }
@@ -291,7 +291,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     root.appendChild(grid);
 
     var done = round.done.filter(keep);
-    var strip = el("p", "board-team__done");
+    var strip = el("p", N.teamDone);
     if (done.length === 0) {
       // While filtering, a third "no card here matches" line adds nothing; the two
       // panels above already said it.
@@ -301,7 +301,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       strip.appendChild(document.createTextNode("Done \u00B7 "));
       for (var m = 0; m < done.length; m++) {
         (function (card) {
-          var id = el("button", "board-team__id", "#" + card.id);
+          var id = el("button", N.teamId, "#" + card.id);
           id.type = "button";
           id.setAttribute("aria-haspopup", "dialog");
           id.addEventListener("click", function () { board.openCard(card.id); });

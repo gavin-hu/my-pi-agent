@@ -80,7 +80,6 @@ ${WEB_COMPONENTS_CSS}
 .board-card__reason{margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .board-card__reason--blocked{color:var(--danger)}
 .board-card__reason--unplanned{color:var(--warn)}
-.board-card__actions{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-1)}
 
 /* The Team tab: a queue and a roster side by side, then one quiet strip. */
 .board-team{display:grid;gap:var(--space-5);min-width:0}
@@ -133,7 +132,7 @@ ${WEB_COMPONENTS_CSS}
 .board-team__mets{flex:1 0 100%;margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 .board-team__empty{margin:0;color:var(--muted);font:var(--fs-sm) var(--font-ui)}
 /* Done stays quiet; its ids are buttons only because they open their card. */
-.board-team__done,.board-done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
+.board-team__done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
 /* An id in the Done strip is a button, so it wears the only affordance it has: a
    dotted line, visible before the pointer arrives. */
 .board-team__id{appearance:none;border:0;background:none;padding:0;margin:0;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
@@ -189,7 +188,7 @@ ${WEB_COMPONENTS_CSS}
   .board-lanes,.board-team__grid{grid-template-columns:minmax(0,1fr)}
   .board-card{break-inside:avoid}
   /* The disclosure affordance goes; the lane's name stays with its count. */
-  .board-filter,.board-picker,.board-done{display:none!important}
+  .board-filter,.board-picker{display:none!important}
   .board-lane__toggle::after{content:""}
 }
 `;

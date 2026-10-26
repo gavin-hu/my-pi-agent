@@ -14,7 +14,8 @@
  */
 
 import { PLURAL_JS } from "../../../lib/board/round-text.ts";
-import { THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
+import { namesScript, THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
+import { BOARD_CLASS } from "./names.ts";
 import { BOARD_DIALOG_JS } from "./dialog.ts";
 import { BOARD_KEYS_JS } from "./keys.ts";
 import { BOARD_LIVE_JS } from "./live.ts";
@@ -27,7 +28,8 @@ import { BOARD_TEAM_JS } from "./team.ts";
  * `plural` crosses the boundary as source: the browser has no import graph, and a
  * second copy of one word's rule is exactly what this bundle is not allowed to hold.
  */
-export const BOARD_CLIENT_JS = `${renderJs(PLURAL_JS)}
+export const BOARD_CLIENT_JS = `${namesScript(BOARD_CLASS)}
+${renderJs(PLURAL_JS)}
 ${BOARD_TEAM_JS}
 ${BOARD_DIALOG_JS}
 ${BOARD_KEYS_JS}
