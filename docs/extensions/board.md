@@ -40,7 +40,8 @@ decision.
 | Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to To do, without the page and without `team` |
 | Find a card without reading every lane | `board` action `list` with `query` | The cards whose title, holder, path hint, plan, or note text matches — the same rule the page's filter uses, from one body (`MATCHES_QUERY_JS`) |
 | See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
-| Delete a card | `board` action `drop` | The card and its notes are gone, and its id is spent: a record of the title, the lane, who ended it, and when stays in `ended/`, so a note or a handoff that names that id cannot come to mean a different feature. A `todo` or `done` card is anyone's to drop, one in flight only its holder's, and one that a card waits on cannot leave at all |
+| Set a finished card aside | `board` action `archive` | A `done` card's file moves into an `archive/` pile beside the board with its notes, plan, owner, and landed commit still readable, and the board stops reading it: the card named by `card`, or every finished card when none is named. It is a decision a person makes, never a threshold in the background, and nothing un-archives |
+| Delete a card | `board` action `drop` | The card and its notes are gone, and its id is spent: a record of the title, the lane, who ended it, and when stays in `ended/`, so a note or a handoff that names that id cannot come to mean a different feature. A `todo` or `done` card is anyone's to drop, an archived one included, one in flight only its holder's, and one that a card waits on cannot leave at all |
 | One page per repository | `/board` | Serves a loopback page as `team-lead` with a **Board** and a **Team** tab, following the store live; a page already served is opened instead |
 | Watch somebody else's page | `/board` on a session that is not serving | The same page, because there is one: every page is a read view, so a second session gets exactly what the first one sees instead of a writable rival. It joins the team under its own label, so a handoff can still reach it |
 | Read a board at its real size | the `Done` fold, an empty lane's rail | `Done` starts folded at six cards or more, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, so the lanes carrying work keep the width |
@@ -102,7 +103,7 @@ terminal.
 
 | Action | Parameters | Result |
 |---|---|---|
-| `list` | `status?`, `mine?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work; `round: true` adds the rollup, which always covers the whole board |
+| `list` | `status?`, `mine?`, `card?`, `query?`, `round?`, `archived?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work; `round: true` adds the rollup, which always covers the whole board; `archived: true` reads the archive instead of the board, with `query` and `mine` narrowing it and `status`/`round` refused |
 | `add` | `title`, `paths?`, `priority?`, `note?` | the new `todo` card |
 | `claim` | `card` | the card, now `doing` and owned by this session |
 | `release` | `card` | the card, back in `todo`, keeping any block it recorded |
@@ -111,6 +112,7 @@ terminal.
 | `note` | `card`, `text` | the card with the note appended |
 | `plan` | `card`, `path` | the card with its plan recorded |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
+| `archive` | `card?` | the ids set aside — one finished card, or every finished card when no card is named; a card still in flight is refused |
 | `drop` | `card` | the id that was dropped, whose number is now spent |
 
 `card` takes `4` or `#4`. A refused call is an error result that still carries the
@@ -218,16 +220,18 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 
 - **Ownership is advisory.** Two sessions can still edit the same file; only
   `session-bus`'s path claims are a lock.
-- **A listing is bounded, the rollup is not.** Nothing prunes a finished card, so the
-  cards accumulate — most of this repository's own board is finished cards — and reading
-  them on every call is a cost that grows with the history rather than with the work. A
-  `list` that names no lane therefore leaves `done` out and prints the count, which is
-  what keeps the omission from reading as a smaller board; `status: "done"` reads them,
-  and `round` counts every card, because a rollup that hid half the board would not be
-  one. The page bounds its own View the same way, folding a long `done` lane.
+- **A listing is bounded, the rollup is not.** Nothing prunes a finished card by itself, so
+  the cards accumulate — most of this repository's own board was finished cards — and
+  reading them on every call is a cost that grows with the history rather than with the
+  work. A `list` that names no lane therefore leaves `done` out and prints the count, which
+  is what keeps the omission from reading as a smaller board; `status: "done"` reads them,
+  and `round` counts every card, because a rollup that hid half the board would not be one.
+  The page bounds its own View the same way, folding a long `done` lane. `archive` is how a
+  board stops paying for its history at all: the card leaves the board and its read.
 - **A finished card stays finished.** `done` is terminal for every transition — claim,
   assign, release, move, and plan all refuse it — so a card a dependency was recorded
-  against cannot un-finish and reopen the order after the fact. A card finished by
+  against cannot un-finish and reopen the order after the fact, and `archive` does not
+  change that: it moves a `done` card's file, and never its lane. A card finished by
   mistake is dropped and added again: the new card takes a new number, and the dropped
   one's title and lane stay in `ended/` under the id nothing will use again. Its notes
   do not come with it.
@@ -262,9 +266,12 @@ eight lane transitions, dropping the oldest and counting what it dropped, so the
 is bounded at write time rather than by a janitor — nothing prunes a board. A card
 written before the log existed has no `in lane` row, and `updatedAt` keeps meaning what
 it always meant: when the card was last touched, which is not when it last changed lane.
-- **Nothing prunes.** A `done` card stays until someone drops it, and a dropped card
-  leaves its record behind for the same reason; the page shows how many bytes the store
-  occupies and how many files it could not read.
+- **Nothing prunes itself.** A `done` card stays until someone sets it aside or drops it,
+  an archived card stays until someone drops it, and a dropped card leaves its record
+  behind for the same reason; the page shows how many bytes the board occupies and how
+  many files it could not read, and neither it nor the round counts the archive. Setting
+  history aside is a `board` call, not a threshold nobody stated, so what a read returns
+  never depends on how much has accumulated.
 - **A page claim is a claim nobody cleans up.** A card a page claimed before this change
   is the seat's until a tool reclaims it; the page itself can no longer add to that pile.
 - **The page stops a minute after its last tab leaves.** Closing the tab to run a
@@ -310,14 +317,26 @@ it always meant: when the card was last touched, which is not when it last chang
 
 ## Design notes
 
-- **One JSON file per card**, in `<agentDir>/board/<repo-key>/cards/`, and one per
-  ended card in `ended/`. The listing is the index, so a reader needs no cache and no
-  daemon.
-- **An id is never reused.** The next id is the highest in `cards/` *or* `ended/` plus
-  one, so an ended card's number cannot be handed to the next add — which is the only
+- **One JSON file per card**, in `<agentDir>/board/<repo-key>/cards/`, one per ended
+  card in `ended/`, and one per archived card in `archive/`. The listing is the index, so
+  a reader needs no cache and no daemon.
+- **An id is never reused.** The next id is the highest in `cards/`, `archive/` *or*
+  `ended/` plus one, so a number cannot be handed to a second feature — which is the only
   thing that lets a note, a handoff, or a link name a card and still mean it. A record
   is written before its card is removed: a crash between the two leaves a card that
   still exists with a record explaining it, never a card that is gone unexplained.
+- **An archive is a second pile, not a second state.** `archive` renames a finished
+  card's file into `archive/` and touches nothing inside it, so there is no new field, no
+  schema version, and no lane transition: the record is exactly what it was, and the
+  directory it lies in is the whole fact. That is why `ended/` keeps its one reason — a
+  drop still leaves a record because the card is gone, while an archived card is not gone
+  at all — and why a read by id looks in both piles: a card is where it lies. The
+  decision is explicit because nothing in this board prunes by itself, and because an
+  automatic sweep would make `status: "done"` return something different past a threshold
+  nobody could see. The board, the rollup, and the page read `cards/` alone — the only
+  look at the archive is the directory listing a lane-less `list` counts, so the omission
+  cannot pass for a deleted history — and an archive therefore lowers the board's size
+  and the cost of every read. The ids stay spent because the file name is the id.
 - **Create is exclusive**, by hard-linking a temporary file onto the target name,
   so two adds cannot share an id. **Update** re-reads, re-checks the operation's
   own preconditions, then renames over the old file: an operation means "apply when
@@ -407,8 +426,9 @@ it always meant: when the card was last touched, which is not when it last chang
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), drag-and-drop (a lane change is a named `move`), a
-  priority lane (four lanes are the vocabulary), and a reverse link field (two copies of
-  one edge).
+  priority lane (four lanes are the vocabulary), a reverse link field (two copies of
+  one edge), and an automatic archive past some number of finished cards (a threshold
+  nobody stated would decide what a read returns, and nothing else here prunes).
 - **A block says why, and a finished card says with what.** `blocked` exists to ask a
   person for a decision, so the move into it records the sentence — `blockedBy`, one
   line — and the page draws that rather than the last note somebody wrote, which was a

@@ -20,8 +20,10 @@
  * a board is tens of files, so the read is cheaper than the second source of truth a
  * cached index would be.
  *
- * Nothing prunes. A `done` card is history, the page shows the store's size, and
- * `drop` is the only deletion.
+ * Nothing prunes by itself. `cards/` is the board and `archive/` is where a finished card
+ * is set aside by `archive` — its file moved rather than rewritten, so the record is
+ * unchanged and the board stops paying for it — and `ended/` keeps the record of a `drop`
+ * alone. The page shows the store's size, and `drop` is the only deletion.
  */
 
 import { link, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
@@ -53,6 +55,14 @@ export const CARDS_DIR_NAME = "cards";
 /** The subdirectory a dropped card leaves its record in. */
 export const ENDED_DIR_NAME = "ended";
 
+/**
+ * The subdirectory a finished card is set aside in.
+ *
+ * A second pile, not a second state: the file is moved here unchanged, so its notes, plan,
+ * and landed commit stay readable, and the board's own reads stop opening it.
+ */
+export const ARCHIVE_DIR_NAME = "archive";
+
 /** Card files are the user's work; only their owner reads them. */
 const FILE_MODE = 0o600;
 
@@ -76,7 +86,7 @@ export interface CreateInput {
 
 /** What a mutation did, or why it was refused. */
 export type MutateResult =
-	| { ok: true; card: Card; changed: boolean; dropped: boolean }
+	| { ok: true; card: Card; changed: boolean; dropped: boolean; archived: boolean }
 	| { ok: false; error: string; card?: Card };
 
 /**
@@ -100,15 +110,25 @@ export interface BoardStore {
 	readonly dir: string;
 	/** Create the directories and sweep a temp file a dead process left. */
 	ensure(): Promise<void>;
-	/** Every card, in lane order: todo, doing, blocked, done. */
+	/** Every card on the board, in lane order: todo, doing, blocked, done. */
 	list(): Promise<Card[]>;
-	/** One card by its unpadded id, or undefined when it is not there. */
+	/**
+	 * The cards set aside in the archive, in the same order, and the files there this build
+	 * refused. Read only when a caller asks: no other read opens the pile.
+	 */
+	archived(): Promise<{ cards: Card[]; skipped: Skip[] }>;
+	/** How many card files the archive holds, without opening one: the count a listing prints. */
+	archivedCount(): Promise<number>;
+	/** One card by its unpadded id, from whichever pile its file lies in. */
 	read(id: string): Promise<Card | undefined>;
 	/** Add a card, allocating the next id. */
 	create(input: CreateInput, actor: Actor, now: number): Promise<Card>;
-	/** Apply one operation, re-checking it if the card changed while it was read. */
+	/**
+	 * Apply one operation, re-checking it if the card changed while it was read. A card is
+	 * found in whichever pile it lies in, and written back to that one.
+	 */
 	mutate(id: string, op: CardOp, actor: Actor, now: number): Promise<MutateResult>;
-	/** Bytes the store occupies on disk. */
+	/** Bytes the board's cards occupy on disk; the archive is not counted. */
 	bytes(): Promise<number>;
 	/** Card files this build refused to read, and why. */
 	skipped(): Promise<Skip[]>;
@@ -139,19 +159,23 @@ export async function openBoard(
 export function createStore(dir: string): BoardStore {
 	const cardsDir = join(dir, CARDS_DIR_NAME);
 	const endedDir = join(dir, ENDED_DIR_NAME);
+	const archiveDir = join(dir, ARCHIVE_DIR_NAME);
 
 	const ensure = async (): Promise<void> => {
 		await mkdir(cardsDir, { recursive: true, mode: DIR_MODE });
 		await sweepTemps(cardsDir);
+		// An archived card that was edited leaves a temp file in its own pile, and a process
+		// that died mid-write there is the same mess as one on the board.
+		await sweepTemps(archiveDir);
 	};
 
-	/** Every card file, read once: what the lanes show and what they refused. */
-	const scan = async (): Promise<{ cards: Card[]; skipped: Skip[] }> => {
-		const entries = await readdirSafe(cardsDir);
+	/** Every card file of one pile, read once: what it shows and what it refused. */
+	const scan = async (pileDir: string): Promise<{ cards: Card[]; skipped: Skip[] }> => {
+		const entries = await readdirSafe(pileDir);
 		const cards: Card[] = [];
 		const skipped: Skip[] = [];
 		for (const entry of entries) {
-			const read = await readCardFile(cardsDir, entry);
+			const read = await readCardFile(pileDir, entry);
 			if ("card" in read) cards.push(read.card);
 			// Anything that is not a card-named file is not the board's to explain.
 			else if (entry.endsWith(".json")) skipped.push(read.skip);
@@ -160,20 +184,38 @@ export function createStore(dir: string): BoardStore {
 		return { cards: sortForLane(cards), skipped: skipped.sort((a, b) => a.file.localeCompare(b.file)) };
 	};
 
-	const list = async (): Promise<Card[]> => (await scan()).cards;
+	const list = async (): Promise<Card[]> => (await scan(cardsDir)).cards;
 
-	const skipped = async (): Promise<Skip[]> => (await scan()).skipped;
+	const archived = async (): Promise<{ cards: Card[]; skipped: Skip[] }> => scan(archiveDir);
 
-	const read = async (id: string): Promise<Card | undefined> => {
-		const result = await readCardFile(cardsDir, fileNameFor(id));
-		return "card" in result ? result.card : undefined;
+	// A directory listing and a name pattern, with no file opened: a plain `list` prints this
+	// count so the archive it left out cannot read as history that was deleted.
+	const archivedCount = async (): Promise<number> =>
+		(await readdirSafe(archiveDir)).filter((entry) => CARD_FILE.test(entry)).length;
+
+	const skipped = async (): Promise<Skip[]> => (await scan(cardsDir)).skipped;
+
+	/**
+	 * One card and the pile its file is in, the board first.
+	 *
+	 * A card is where it lies: the archive is not a state a record carries, so every read by
+	 * id has to look in both places, and every write goes back to the one it was read from.
+	 */
+	const locate = async (id: string): Promise<{ card: Card; pile: string } | undefined> => {
+		for (const pile of [cardsDir, archiveDir]) {
+			const result = await readCardFile(pile, fileNameFor(id));
+			if ("card" in result) return { card: result.card, pile };
+		}
+		return undefined;
 	};
+
+	const read = async (id: string): Promise<Card | undefined> => (await locate(id))?.card;
 
 	const create = async (input: CreateInput, actor: Actor, now: number): Promise<Card> => {
 		await ensure();
 		let lastError: unknown;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-			const id = await nextCardId(cardsDir, endedDir);
+			const id = await nextCardId(cardsDir, endedDir, archiveDir);
 			const card = createCard(id, input, actor, now);
 			const temp = tempPath(cardsDir);
 			await writeFile(temp, serialize(card), { mode: FILE_MODE });
@@ -195,12 +237,12 @@ export function createStore(dir: string): BoardStore {
 	const mutate = async (id: string, op: CardOp, actor: Actor, now: number): Promise<MutateResult> => {
 		let changedUnderneath = false;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-			const card = await read(id);
-			if (!card) {
+			const found = await locate(id);
+			if (!found) {
 				if (changedUnderneath) return { ok: false, error: `${cardRef(id)} was dropped.` };
 				// A file that is there and refused is not a card that does not exist: the
 				// reader is told which file to look at instead of being sent to add one.
-				const skip = (await scan()).skipped.find((entry) => entry.id === id);
+				const skip = (await scan(cardsDir)).skipped.find((entry) => entry.id === id);
 				return {
 					ok: false,
 					error:
@@ -209,18 +251,30 @@ export function createStore(dir: string): BoardStore {
 							: `${cardRef(id)} is there and this build cannot read it (${skip.file}: ${skip.why}).`,
 				};
 			}
+			const { card, pile } = found;
 			// The preconditions are checked against the card as it is *now*, and against the
 			// board as it is now, so an operation re-applied to a card that changed is refused
 			// rather than forced.
 			const result = applyOp(card, op, actor, now, indexOf(await list()));
 			if (!result.ok) return { ok: false, error: result.error, card };
-			if (!result.changed) return { ok: true, card: result.card, changed: false, dropped: false };
+			if (!result.changed) {
+				return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
+			}
 			if (op.kind === "drop") {
 				// The record lands first: a crash between the two leaves a card that still
 				// exists with a note explaining it, never a card that is gone unexplained.
 				await writeEnded(endedDir, result.card, actor, now);
-				await rm(join(cardsDir, fileNameFor(id)), { force: true });
-				return { ok: true, card: result.card, changed: true, dropped: true };
+				await rm(join(pile, fileNameFor(id)), { force: true });
+				return { ok: true, card: result.card, changed: true, dropped: true, archived: false };
+			}
+			if (op.kind === "archive") {
+				// A card the board does not hold is already aside, and two sessions asking at
+				// once are one move rather than a second one.
+				if (pile === archiveDir) {
+					return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
+				}
+				await moveCard(cardsDir, archiveDir, id);
+				return { ok: true, card: result.card, changed: true, dropped: false, archived: true };
 			}
 			// Last look before the rename: a writer that landed in between is the
 			// re-read the next pass applies against.
@@ -229,8 +283,8 @@ export function createStore(dir: string): BoardStore {
 				changedUnderneath = true;
 				continue;
 			}
-			await writeCardFile(cardsDir, id, result.card);
-			return { ok: true, card: result.card, changed: true, dropped: false };
+			await writeCardFile(pile, id, result.card);
+			return { ok: true, card: result.card, changed: true, dropped: false, archived: false };
 		}
 		return {
 			ok: false,
@@ -250,7 +304,19 @@ export function createStore(dir: string): BoardStore {
 		return total;
 	};
 
-	return { dir, ensure, list, read, create, mutate, bytes, skipped, where: () => shortenPath(dir) };
+	return {
+		dir,
+		ensure,
+		list,
+		archived,
+		archivedCount,
+		read,
+		create,
+		mutate,
+		bytes,
+		skipped,
+		where: () => shortenPath(dir),
+	};
 }
 
 /** `<id>.json`, zero-padded to four digits so a directory lists in card order. */
@@ -262,11 +328,11 @@ function fileNameFor(id: string): string {
 const CARD_FILE = /^(\d{4,})\.json$/;
 
 /** One card file: the card, or the reason this build refused it. */
-async function readCardFile(cardsDir: string, entry: string): Promise<{ card: Card } | { skip: Skip }> {
+async function readCardFile(pileDir: string, entry: string): Promise<{ card: Card } | { skip: Skip }> {
 	const match = CARD_FILE.exec(entry);
 	if (!match) return { skip: { file: entry, why: "not a card id" } };
 	const id = String(Number(match[1]));
-	const text = await readFile(join(cardsDir, entry), "utf-8").catch(() => undefined);
+	const text = await readFile(join(pileDir, entry), "utf-8").catch(() => undefined);
 	if (text === undefined) return { skip: { file: entry, id, why: "cannot be read" } };
 	let parsed: unknown;
 	try {
@@ -303,11 +369,12 @@ async function highestId(dir: string): Promise<number> {
 /**
  * `1`, `2`, `3` … as the highest id the board has ever used plus one.
  *
- * Ended cards count: a dropped card's record keeps its id spent, so a note or a
- * handoff that names `#29` cannot come to mean a different feature tomorrow.
+ * Ended and archived cards count: a dropped card's record keeps its id spent, and an
+ * archived card's file is still named by it, so a note or a handoff that names `#29`
+ * cannot come to mean a different feature tomorrow.
  */
-async function nextCardId(cardsDir: string, endedDir: string): Promise<string> {
-	return String(Math.max(await highestId(cardsDir), await highestId(endedDir)) + 1);
+async function nextCardId(cardsDir: string, endedDir: string, archiveDir: string): Promise<string> {
+	return String(Math.max(await highestId(cardsDir), await highestId(endedDir), await highestId(archiveDir)) + 1);
 }
 
 /**
@@ -339,22 +406,43 @@ async function writeEnded(endedDir: string, card: Card, actor: Actor, now: numbe
 	}
 }
 
-/** Write one card: a temp file in the same directory, then a rename over the old one. */
-async function writeCardFile(cardsDir: string, id: string, card: Card): Promise<void> {
-	const temp = tempPath(cardsDir);
-	await writeFile(temp, serialize(card), { mode: FILE_MODE });
-	const target = join(cardsDir, fileNameFor(id));
+/**
+ * Move one card's file into the archive.
+ *
+ * A rename, not a write: the record does not change, and the pile it lies in is the whole
+ * of what an archive means.
+ */
+async function moveCard(from: string, to: string, id: string): Promise<void> {
+	await mkdir(to, { recursive: true, mode: DIR_MODE });
+	await renameInto(join(from, fileNameFor(id)), join(to, fileNameFor(id)));
+}
+
+/**
+ * Rename one file over or onto another, with the fallback this platform needs.
+ *
+ * Windows refuses a rename onto an open file, so removing the target first is the only
+ * way through there; every caller has already read what it is replacing, which is what
+ * bounds what the removal can lose.
+ */
+async function renameInto(source: string, target: string): Promise<void> {
 	try {
-		await rename(temp, target);
+		await rename(source, target);
 	} catch (error) {
-		// Windows refuses a rename onto an open file; removing first is the fallback
-		// the platform needs, and the read above still bounds what can be lost.
-		if (!hasErrorCode(error, "EPERM") && !hasErrorCode(error, "EACCES") && !hasErrorCode(error, "EEXIST")) {
-			await rm(temp, { force: true });
-			throw error;
-		}
+		if (!hasErrorCode(error, "EPERM") && !hasErrorCode(error, "EACCES") && !hasErrorCode(error, "EEXIST")) throw error;
 		await rm(target, { force: true });
-		await rename(temp, target);
+		await rename(source, target);
+	}
+}
+
+/** Write one card: a temp file in the same directory, then a rename over the old one. */
+async function writeCardFile(dir: string, id: string, card: Card): Promise<void> {
+	const temp = tempPath(dir);
+	await writeFile(temp, serialize(card), { mode: FILE_MODE });
+	try {
+		await renameInto(temp, join(dir, fileNameFor(id)));
+	} catch (error) {
+		await rm(temp, { force: true });
+		throw error;
 	}
 }
 

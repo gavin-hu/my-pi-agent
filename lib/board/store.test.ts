@@ -36,6 +36,11 @@ function filesOf(dir: string): string[] {
 	return readdirSync(join(dir, "cards")).sort();
 }
 
+/** The files actually on disk in a store's archive directory. */
+function archivedFilesOf(dir: string): string[] {
+	return readdirSync(join(dir, "archive")).sort();
+}
+
 describe("create", () => {
 	test("allocates ids from 1 and pads the file name, not the id", async () => {
 		const { dir, store } = scratchStore();
@@ -308,8 +313,120 @@ describe("mutate", () => {
 	});
 });
 
+describe("archive", () => {
+	/** A card that finished, which is the only kind the store will set aside. */
+	async function finished(store: ReturnType<typeof createStore>, title = "T"): Promise<string> {
+		const card = await store.create({ title, paths: [], note: "kept" }, LEAD, NOW);
+		await store.mutate(card.id, { kind: "claim" }, CORE, NOW);
+		const moved = await store.mutate(card.id, { kind: "move", status: "done" }, CORE, NOW);
+		if (!moved.ok) throw new Error(moved.error);
+		return card.id;
+	}
+
+	test("moves the file out of the board, unchanged, and off every listing", async () => {
+		const { dir, store } = scratchStore();
+		const id = await finished(store, "Finished one");
+		const before = readFileSync(join(dir, "cards", "0001.json"), "utf-8");
+		const result = await store.mutate(id, { kind: "archive" }, LEAD, NOW + 5);
+		if (!result.ok) throw new Error(result.error);
+		expect(result.archived).toBe(true);
+		expect(result.dropped).toBe(false);
+		// A move, not a write: the bytes are the same file, so nothing about the record
+		// changed and no revision was spent on leaving.
+		expect(readFileSync(join(dir, "archive", "0001.json"), "utf-8")).toBe(before);
+		expect(existsSync(join(dir, "cards", "0001.json"))).toBe(false);
+		expect(filesOf(dir)).toEqual([]);
+		expect(archivedFilesOf(dir)).toEqual(["0001.json"]);
+		expect(await store.list()).toEqual([]);
+		expect(await store.read(id)).toEqual(result.card);
+	});
+
+	test("is read only when the pile is asked for, in lane order", async () => {
+		const { store } = scratchStore();
+		const first = await finished(store, "First");
+		const second = await finished(store, "Second");
+		expect((await store.archived()).cards).toEqual([]);
+		expect(await store.archivedCount()).toBe(0);
+		await store.mutate(first, { kind: "archive" }, LEAD, NOW);
+		await store.mutate(second, { kind: "archive" }, LEAD, NOW);
+		expect((await store.archived()).cards.map((card) => card.title)).toEqual(["First", "Second"]);
+		expect(await store.archivedCount()).toBe(2);
+	});
+
+	test("a card that is already aside is a no-op, not a second move", async () => {
+		const { store } = scratchStore();
+		const id = await finished(store);
+		await store.mutate(id, { kind: "archive" }, LEAD, NOW);
+		const again = await store.mutate(id, { kind: "archive" }, LEAD, NOW + 1);
+		if (!again.ok) throw new Error(again.error);
+		expect(again.changed).toBe(false);
+		expect(again.archived).toBe(false);
+	});
+
+	test("refuses a card that has not finished", async () => {
+		const { store } = scratchStore();
+		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
+		const result = await store.mutate(card.id, { kind: "archive" }, LEAD, NOW);
+		if (result.ok) throw new Error("expected a refusal");
+		expect(result.error).toBe("#1 is in todo; only a finished card can be archived.");
+		expect(await store.list()).toHaveLength(1);
+	});
+
+	test("keeps the number spent, so the next add takes a new one", async () => {
+		const { store } = scratchStore();
+		const id = await finished(store);
+		await store.mutate(id, { kind: "archive" }, LEAD, NOW);
+		const next = await store.create({ title: "The next feature", paths: [] }, LEAD, NOW);
+		expect(next.id).toBe("2");
+	});
+
+	test("writes an edit back to the pile the card was read from", async () => {
+		const { dir, store } = scratchStore();
+		const id = await finished(store);
+		await store.mutate(id, { kind: "archive" }, LEAD, NOW);
+		const edited = await store.mutate(
+			id,
+			{ kind: "edit", title: "Finished one, restated", paths: undefined, priority: undefined, dependsOn: undefined },
+			CORE,
+			NOW + 1,
+		);
+		if (!edited.ok) throw new Error(edited.error);
+		expect(edited.card.title).toBe("Finished one, restated");
+		expect(existsSync(join(dir, "cards", "0001.json"))).toBe(false);
+		expect(JSON.parse(readFileSync(join(dir, "archive", "0001.json"), "utf-8")).title).toBe("Finished one, restated");
+	});
+
+	test("a drop takes an archived card, leaving the record that ended it", async () => {
+		const { dir, store } = scratchStore();
+		const id = await finished(store);
+		await store.mutate(id, { kind: "archive" }, LEAD, NOW);
+		const dropped = await store.mutate(id, { kind: "drop" }, LEAD, NOW + 2);
+		if (!dropped.ok) throw new Error(dropped.error);
+		expect(dropped.dropped).toBe(true);
+		expect(existsSync(join(dir, "archive", "0001.json"))).toBe(false);
+		expect(JSON.parse(readFileSync(join(dir, "ended", "0001.json"), "utf-8")).why).toBe("dropped");
+	});
+
+	test("does not strand a card that waits on it, so its drop is still refused", async () => {
+		const { store } = scratchStore();
+		const id = await finished(store);
+		const waiter = await store.create({ title: "Waits on it", paths: [] }, LEAD, NOW);
+		const linked = await store.mutate(
+			waiter.id,
+			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [id] },
+			LEAD,
+			NOW,
+		);
+		if (!linked.ok) throw new Error(linked.error);
+		await store.mutate(id, { kind: "archive" }, LEAD, NOW);
+		const dropped = await store.mutate(id, { kind: "drop" }, LEAD, NOW);
+		if (dropped.ok) throw new Error("expected the drop to be refused");
+		expect(dropped.error).toBe(`#${id} is waited on by #${waiter.id}; drop that card first.`);
+	});
+});
+
 describe("bytes, where, and the signature", () => {
-	test("counts the card files and ignores a temp file", async () => {
+	test("counts the card files and ignores a temp file, and never the archive", async () => {
 		const { dir, store } = scratchStore();
 		await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		const before = await store.bytes();
@@ -317,6 +434,11 @@ describe("bytes, where, and the signature", () => {
 		expect(before).toBe(statSync(join(dir, "cards", "0001.json")).size);
 		writeFileSync(join(dir, "cards", ".tmp-1-x"), "x".repeat(500));
 		expect(await store.bytes()).toBe(before);
+		// The page's size belongs to the cards it lists, so a card set aside lowers it.
+		await store.mutate("1", { kind: "claim" }, LEAD, NOW);
+		await store.mutate("1", { kind: "move", status: "done" }, LEAD, NOW);
+		await store.mutate("1", { kind: "archive" }, LEAD, NOW);
+		expect(await store.bytes()).toBe(0);
 	});
 
 	test("names the directory it writes to", async () => {

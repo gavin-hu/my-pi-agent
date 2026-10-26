@@ -103,6 +103,9 @@ const RECLAIMED: TeamDetails = {
 	card: { ...UNPLANNED, status: "todo", rev: 4 },
 };
 
+/** One finished card set aside, as the tool reports it. */
+const ARCHIVED: BoardDetails = { action: "archive", me: ME, card: DONE, archived: [DONE.id] };
+
 export const BOARD_FIXTURES: ToolFixture[] = [
 	{
 		name: "board",
@@ -136,6 +139,22 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 			content: [{ type: "text", text: "Error: #1 is held by billing-core." }],
 			details: { action: "claim", me: ME, card: PLANNED, error: "#1 is held by billing-core." } as BoardDetails,
 			isError: true,
+		},
+	},
+	{
+		name: "board-archived",
+		tool: "board",
+		group: "package",
+		label: "a finished card set aside, out of the board and still readable",
+		args: { action: "archive", card: "4" },
+		result: {
+			content: [
+				{
+					type: "text",
+					text: "1 card archived: #4 — out of the board, its notes and plan still readable with archived: true.",
+				},
+			],
+			details: ARCHIVED,
 		},
 	},
 	{

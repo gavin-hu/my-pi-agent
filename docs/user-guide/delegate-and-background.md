@@ -299,8 +299,10 @@ every session and every worktree sees the same cards.
   hint, or holder — `add` creates a `todo` card with a `priority`, `claim` takes one
   for this session, `move` changes lane, `note` appends to its history, `plan`
   records the plan file, `edit` fixes a card's title, hints, priority, or what it
-  waits for, `release` gives it back, `reclaim` takes it from whoever holds it, and
-  `drop` deletes a `todo`, a `done`, or one you hold. `round: true` adds the lead's
+  waits for, `release` gives it back, `reclaim` takes it from whoever holds it, `archive`
+  sets a finished card aside without destroying it — its file, notes, plan, and landed
+  commit stay, and `list` can read them back with `archived: true` — and `drop` deletes a
+  `todo`, a `done`, or one you hold. `round: true` adds the lead's
   rollup: who holds what, what is unassigned, unplanned, blocked, or has gone quiet.
 - A card can wait on another (`edit` with `dependsOn`): the claim and the move to
   `doing` or `done` are refused while that card is unfinished, so the order of a
@@ -331,7 +333,8 @@ every session and every worktree sees the same cards.
 
 The board records who wrote a revision and refuses a write it can no longer
 justify — a card someone else claimed, or one finished a moment ago — instead of
-overwriting it. Nothing prunes a finished card: `drop` is the only deletion.
+overwriting it. Nothing prunes by itself: `archive` sets finished work aside and
+`drop` deletes a card, and both are calls you make.
 
 ## Running a round
 

@@ -79,6 +79,11 @@ export type CardOp =
 	 * and then writes this, because an event nobody answers otherwise leaves no trace.
 	 */
 	| { kind: "offer" }
+	/**
+	 * Set a finished card aside: the store moves its file out of the board, and the record
+	 * itself is unchanged, because the pile its file lies in is the whole of the state.
+	 */
+	| { kind: "archive" }
 	| { kind: "drop" };
 
 /** What an operation did: the new card, or the reason it was refused. */
@@ -153,6 +158,8 @@ export function applyOp(card: Card, op: CardOp, actor: Actor, now: number, board
 			return reclaim(card, actor, now);
 		case "offer":
 			return offer(card, actor, now, board);
+		case "archive":
+			return archive(card);
 		case "drop":
 			return drop(card, actor, board);
 	}
@@ -362,6 +369,21 @@ function reclaim(card: Card, actor: Actor, now: number): OpResult {
 		card: write(card, actor, now, { status: "todo", owner: undefined, offeredAt: undefined }),
 		changed: true,
 	};
+}
+
+/**
+ * Set a finished card aside, out of the board and into the archive beside it.
+ *
+ * Only a finished card leaves this way: `done` is terminal, and a card still in flight
+ * has an owner, a plan, and a decision in it. No field moves and no transition is
+ * appended — the record is unchanged, and what changed is which pile its file lies in,
+ * which is the store's write. `changed` is still true, because the board lost a card.
+ */
+function archive(card: Card): OpResult {
+	if (card.status !== "done") {
+		return { ok: false, error: `${cardRef(card.id)} is in ${card.status}; only a finished card can be archived.` };
+	}
+	return { ok: true, card, changed: true };
 }
 
 function drop(card: Card, actor: Actor, board: BoardIndex): OpResult {

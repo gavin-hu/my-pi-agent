@@ -27,7 +27,15 @@ import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
-import { formatBoard, formatCard, formatDropped, formatSkipped } from "./format.ts";
+import {
+	archiveNote,
+	formatArchive,
+	formatArchived,
+	formatBoard,
+	formatCard,
+	formatDropped,
+	formatSkipped,
+} from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { BoardResult, collapsedLine, resultInput } from "./result.ts";
 import { createInput } from "./input.ts";
@@ -205,6 +213,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 					}
 					case "drop":
 						return await dropCard(store, me, args, now);
+					case "archive":
+						return await archiveCards(store, me, args, now);
 				}
 			} catch (error) {
 				return refusal(action, me, messageOf(error));
@@ -237,7 +247,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 	});
 }
 
-/** `list`: the board, one card, or the lead's rollup. */
+/** `list`: the board, one card, the lead's rollup, or the archive. */
 async function read(
 	store: BoardStore,
 	action: BoardAction,
@@ -245,15 +255,22 @@ async function read(
 	args: BoardArgs,
 	now: number,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
+	if (args.archived === true) return readArchive(store, action, me, args, now);
 	const cards = await store.list();
 	// Read once: a card file the reader refused is the difference between "not there"
 	// and "there, and this build cannot read it".
 	const skipped = await store.skipped();
+	// A directory listing, not a read: a listing says what it left aside without opening one.
+	const archived = await store.archivedCount();
 	if (args.card !== undefined) {
 		const id = normalizeCardId(args.card);
 		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 		const card = cards.find((entry) => entry.id === id);
 		if (!card) {
+			// Gone and set aside are different answers, and one read by id tells them apart.
+			if ((await store.read(id)) !== undefined) {
+				return refusal(action, me, `${cardRef(id)} is archived; pass archived: true to read it.`);
+			}
 			const unreadable = skipped.find((entry) => entry.id === id);
 			return refusal(
 				action,
@@ -279,12 +296,59 @@ async function read(
 	// the rollup counts the whole board, which is what makes it a rollup.
 	const hiddenDone = args.status === undefined ? listed.filter((card) => card.status === "done").length : 0;
 	const shown = hiddenDone === 0 ? listed : listed.filter((card) => card.status !== "done");
-	if (args.round !== true) return textResult(formatBoard(shown, hiddenDone, skipped), { action, me, cards: shown });
+	if (args.round !== true) {
+		return textResult(formatBoard(shown, { hiddenDone, archived, skipped }), { action, me, cards: shown });
+	}
 	const round = buildRound(cards, now);
-	// One line under the rollup, because a reader who cannot see a card file should know why.
-	const unreadable = formatSkipped(skipped);
-	const text = formatRound(cards, round);
-	return textResult(unreadable === "" ? text : `${text}\n${unreadable}`, { action, me, cards: listed, round });
+	// One line under the rollup, because a reader who cannot see a card file should know why,
+	// and one for the archive, because a rollup that silently left it out would be a board
+	// smaller than the one on disk.
+	const notes = [formatSkipped(skipped), archiveNote(archived)].filter((line) => line !== "");
+	const text = [formatRound(cards, round), ...notes].join("\n");
+	return textResult(text, { action, me, cards: listed, round });
+}
+
+/**
+ * `list archived: true`: the cards set aside, which no board read opens.
+ *
+ * A lane and a rollup are answers about the board, so asking for the archive with either
+ * is refused rather than quietly ignored: the pile is one thing, and every card in it is
+ * finished. A query and `mine` narrow it, because both are questions about a card.
+ */
+async function readArchive(
+	store: BoardStore,
+	action: BoardAction,
+	me: BoardDetails["me"],
+	args: BoardArgs,
+	now: number,
+): Promise<ReturnType<typeof textResult<BoardDetails>>> {
+	const wrong = (["status", "round"] as const).filter((field) => args[field] !== undefined);
+	if (wrong.length > 0) {
+		return refusal(
+			action,
+			me,
+			`archived does not read ${wrong.join(", ")}: the archive is one pile of finished cards, out of the board.`,
+		);
+	}
+	const pile = await store.archived();
+	if (args.card !== undefined) {
+		const id = normalizeCardId(args.card);
+		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
+		const card = pile.cards.find((entry) => entry.id === id);
+		if (!card) {
+			const onBoard = (await store.list()).some((entry) => entry.id === id);
+			return refusal(
+				action,
+				me,
+				onBoard ? `${cardRef(id)} is on the board, not in the archive.` : `${cardRef(id)} is not in the archive.`,
+			);
+		}
+		return textResult(formatCard(card, indexOf(pile.cards), now), { action, me, card });
+	}
+	const shown = pile.cards.filter(
+		(card) => (args.query === undefined || matchesQuery(card, args.query)) && (args.mine !== true || holds(card, me)),
+	);
+	return textResult(formatArchive(shown, pile.skipped), { action, me, cards: shown });
 }
 
 /** `add`: the only action that creates a card. */
@@ -315,6 +379,38 @@ async function mutate(
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
 	return textResult(formatCard(result.card), { action, me, card: result.card });
+}
+
+/**
+ * `archive`: a finished card leaves the board without being destroyed.
+ *
+ * One card, or — with no card named — every finished card, because clearing a board is
+ * the errand and a lead should not have to run sixty calls to do it. Each move is its own
+ * compare-and-set, so a sweep is best-effort: it reports what it actually set aside.
+ */
+async function archiveCards(
+	store: BoardStore,
+	me: BoardDetails["me"],
+	args: BoardArgs,
+	now: number,
+): Promise<ReturnType<typeof textResult<BoardDetails>>> {
+	if (args.card !== undefined) {
+		const id = normalizeCardId(args.card);
+		if (id === undefined) return refusal("archive", me, `"${args.card}" is not a card id.`);
+		const result = await store.mutate(id, { kind: "archive" }, me, now);
+		if (!result.ok) return refusal("archive", me, result.error, result.card);
+		// Asked twice is one state, not an error: the card is where the caller wanted it.
+		if (!result.changed) return textResult(`${cardRef(id)} is already archived.`, { action: "archive", me });
+		return textResult(formatArchived([id]), { action: "archive", me, card: result.card, archived: [id] });
+	}
+	const finished = (await store.list()).filter((card) => card.status === "done");
+	const moved: string[] = [];
+	for (const card of finished) {
+		const result = await store.mutate(card.id, { kind: "archive" }, me, now);
+		if (result.ok && result.changed) moved.push(card.id);
+	}
+	if (moved.length === 0) return textResult("No finished cards to archive.", { action: "archive", me });
+	return textResult(formatArchived(moved), { action: "archive", me, archived: moved });
 }
 
 /** `drop`: the card and its notes leave together, so the report is the id. */
