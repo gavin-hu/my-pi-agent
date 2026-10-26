@@ -929,7 +929,7 @@ both.
 | `web-collab.ts` | The client's collaboration half: the link list with copy and per-link revoke, the reviewer's name, and the island refetch a stream frame triggers. |
 | `web-markdown.ts` | The client's document half: `safeHref` and the inline/table/code/list rendering (interpolated into `web-client.ts`). |
 | `web-chrome.ts` | The client's chrome half: the state chip, the status line, the header, and reading progress (interpolated into `web-client.ts`). |
-| `web-outline.ts` | The client's section list as typed source (`WEB_OUTLINE_JS`): `sectionFor` — the last heading at or before a line — and `renderOutline`, which builds the list and hands back the counters it made. |
+| `web-outline.ts` | The client's outline as typed source (`WEB_OUTLINE_JS`): `sectionFor` — the last heading at or before a line — `renderOutline`, which builds the list and hands back the counters it made, and `observeSections`, which watches the blocks and returns the one watcher the client keeps. |
 | `path-guard.ts` | Recursive path-argument detection for the read-only backstop. |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform default-browser opener (shared with `file-browse`). |
 | [`../../lib/plan-entry.ts`](../../lib/plan-entry.ts) | Plan-mode entry shared with `goal`: the read-only summary, the consent sentence, and the `pi.events` request `plan` answers by enabling the mode. |

@@ -23,7 +23,7 @@ export interface OutlineEntry {
 	changed?: boolean;
 }
 
-/** The pieces of a DOM node these two functions touch. */
+/** The pieces of a DOM node the outline touches. */
 export interface OutlineNode {
 	className: string;
 	textContent: string | null;
@@ -32,8 +32,17 @@ export interface OutlineNode {
 	title: string;
 	id: string;
 	setAttribute(name: string, value: string): void;
+	getAttribute(name: string): string | null;
+	removeAttribute(name: string): void;
 	appendChild(child: OutlineNode): void;
 	replaceChildren(): void;
+	querySelectorAll(selector: string): ArrayLike<OutlineNode>;
+}
+
+/** What the browser's `IntersectionObserver` answers for a section watcher. */
+export interface SectionWatcher {
+	observe(target: OutlineNode): void;
+	disconnect(): void;
 }
 
 /** What `el` has to answer for an outline. Spliced beside it; declared for the checker. */
@@ -88,5 +97,56 @@ export function renderOutline(list: OutlineNode | null, entries: readonly Outlin
 	return counters;
 }
 
-/** Both functions as source, for the client bundle. */
-export const WEB_OUTLINE_JS = [sectionFor, renderOutline].map(String).join("\n\n");
+/**
+ * Watch the blocks and mark the section the reader is in, replacing any previous watcher.
+ *
+ * The observer is returned rather than stored, so the client owns the one handle it has to
+ * disconnect and this function owns the rule: the last block still in the document the
+ * observer was built over wins, and a page with no headings needs no watcher at all.
+ */
+export function observeSections(
+	planEl: OutlineNode | null,
+	list: OutlineNode | null,
+	previous: SectionWatcher | null,
+): SectionWatcher | null {
+	if (previous) previous.disconnect();
+	if (!planEl || !list) return null;
+	const Observer = (
+		globalThis as unknown as {
+			IntersectionObserver?: new (
+				callback: (entries: ArrayLike<{ isIntersecting: boolean; target: { id: string } }>) => void,
+				options: Record<string, unknown>,
+			) => SectionWatcher;
+		}
+	).IntersectionObserver;
+	if (!Observer) return null;
+	const links: Record<string, OutlineNode> = {};
+	const anchors = list.querySelectorAll("a");
+	for (let i = 0; i < anchors.length; i++) {
+		const link = anchors[i];
+		if (link) links[link.getAttribute("data-id") ?? ""] = link;
+	}
+	const headings = planEl.querySelectorAll(".bf-block[id]");
+	if (headings.length === 0) return null;
+	const watcher = new Observer(
+		(entries) => {
+			for (let i = 0; i < entries.length; i++) {
+				const entry = entries[i];
+				if (!entry || !entry.isIntersecting) continue;
+				const all = list.querySelectorAll("a");
+				for (let j = 0; j < all.length; j++) all[j]?.removeAttribute("aria-current");
+				const link = links[entry.target.id];
+				if (link) link.setAttribute("aria-current", "true");
+			}
+		},
+		{ rootMargin: "-88px 0px -68% 0px", threshold: 0 },
+	);
+	for (let i = 0; i < headings.length; i++) {
+		const heading = headings[i];
+		if (heading) watcher.observe(heading);
+	}
+	return watcher;
+}
+
+/** The section list, its one rule, and the watcher that marks where the reader is. */
+export const WEB_OUTLINE_JS = [sectionFor, renderOutline, observeSections].map(String).join("\n\n");
