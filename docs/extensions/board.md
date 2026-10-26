@@ -69,10 +69,10 @@ lead: board list round: true
 
 | Command | Who | Effect |
 |---|---|---|
-| `/board` | lead | Serves the page as `team-lead`, or opens the one another session already serves |
+| `/board` | lead | Serves the page as `team-lead`, or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the address |
 | `/board team` | lead | The same, opened on the Team tab |
-| `/board status` | both | One line: the seat, the port, how many tabs are watching, the store, and the team the last `/board` joined — or the page being watched |
-| `/board stop` | lead | Stops the page this session serves; on a session that opened somebody else's page it says who serves it |
+| `/board status` | both | One line: the seat, the port, how many tabs are watching, the store, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
+| `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead, and a watched page that is alive is its owner's to stop |
 | `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
 
 **Who serves the page.** The first `/board` in a repository serves it; after that the
@@ -81,7 +81,11 @@ directory), so a second session opens the same page rather than a rival one. Tha
 while a page answers; if nobody is serving, the next `/board` serves — the seat's name
 does not change, so a card a browser claimed is still the seat's. A note a session left
 behind when it died is not a dead end either: `/board` says which page it named — with its
-URL — takes the note over, and serves.
+URL — takes the note over, and serves. A clean exit is not that case: `/board stop` and a
+session shut down normally both take their note with them, so the note that survives is
+one a crash left. `/board status` probes the note it is watching, and names one that
+answers nobody; `/board stop` then drops it (a token-safe clear, so a page that came back
+keeps its own note) instead of waiting for the next `/board` to trip over it.
 
 **Joining.** One thing, done for you: `/board` puts this session on the team — as
 `team-lead` when it serves the page, under its own name when it watches one — and so does
@@ -151,9 +155,16 @@ GET    /theme.js             the theme script — no token
 GET    /app.js               the client script — no token
 GET    /                     the document (?view=board|team), whose tab reads
                              board · <store key> · <N> open
+GET    /index.html           the same document, for a link that names it
+GET    /api/ping             whether the page answers, and nothing else: a session
+                             deciding whether to attach reads this, not the snapshot
 GET    /api/board            the snapshot
 GET    /events               the live frame stream
 ```
+
+`/api/ping` exists so a probe cannot be queued behind the page's own work: the snapshot
+is a store read and a roster read on the same event loop, and a page that is busy
+answering its browser would otherwise be declared dead and taken over.
 
 ## Layout
 
@@ -231,7 +242,11 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 - **A finished card stays finished.** `done` is terminal for every transition — claim,
   assign, release, move, and plan all refuse it — so a card a dependency was recorded
   against cannot un-finish and reopen the order after the fact, and `archive` does not
-  change that: it moves a `done` card's file, and never its lane. A card finished by
+  change that: it moves a `done` card's file, and never its lane. The one exception is
+  `edit`: a title, path hints, priority, or `dependsOn` can still be corrected by whoever
+  holds it, or by anyone while nobody does, because a title is what a reader reads and a
+  finished feature whose title is wrong would stay wrong for as long as the board keeps
+  history. A card finished by
   mistake is dropped and added again: the new card takes a new number, and the dropped
   one's title and lane stay in `ended/` under the id nothing will use again. Its notes
   do not come with it.
@@ -274,10 +289,12 @@ it always meant: when the card was last touched, which is not when it last chang
   never depends on how much has accumulated.
 - **A page claim is a claim nobody cleans up.** A card a page claimed before this change
   is the seat's until a tool reclaims it; the page itself can no longer add to that pile.
-- **The page stops a minute after its last tab leaves.** Closing the tab to run a
-  command and coming back is fine, and a teammate's watching tab counts as one, so a
-  page nobody is reading does not answer a port for the rest of the session. `/board`
-  starts it again on the same port.
+- **The page stops a minute after its last tab leaves, or two minutes after it starts
+  with no tab at all.** Closing the tab to run a command and coming back is fine, and a
+  teammate's watching tab counts as one. The second grace covers the page a browser never
+  opened — `openInBrowser` swallows a failure, and a port held by a page nobody saw is a
+  port held for the session. Either way `/board` starts it again, on the same port, and
+  prints the address it reopened.
 - **The port is found, or pinned.** With no setting the page prefers a free port in
   4780–5779, falls back to whatever free port the OS gives it if that one is taken, and
   remembers the answer for the session; `board.port` in `bytefly.json` pins it, so a
@@ -288,7 +305,9 @@ it always meant: when the card was last touched, which is not when it last chang
   the port that note names rather than serving a second one.
 - **The note is believed only while it answers.** A page that crashed leaves its note
   behind; the next `/board` probes it, takes it over when nothing replies, and attaches to
-  the page that won when two sessions start in the same instant. A note it cannot read at
+  the page that won when two sessions start in the same instant. A clean exit — `/board
+  stop`, or a session shut down normally — clears its own note, so the one that survives
+  is the one a crash left. A note it cannot read at
   all is named with its path — "another session is serving" is only said of a page that was
   seen answering.
 
@@ -453,9 +472,9 @@ it always meant: when the card was last touched, which is not when it last chang
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
-| `page.ts` | The page's lifecycle: the port it remembers or is pinned to, the chip that names it, and the three closes — `/board stop`, the idle grace, and shutdown |
+| `page.ts` | The page's lifecycle: the port it remembers or is pinned to, the chip that names it, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, and the store's size, handed to `buildView` |
-| `commands.ts` | `/board`, its three words, and the one line `/board status` prints |
+| `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |
 | `seat.ts` | The seat the page is served as: one name, and an id derived from it. The page cannot write, so it is a label now — but the id is still what a card claimed from an older page names |
 | `join.ts` | The board's side of the team: the one request that joins for the user, the label it lands on, and how the outcome reads on a `/board` line |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |

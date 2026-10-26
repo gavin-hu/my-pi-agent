@@ -35,11 +35,23 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const word = args.trim().toLowerCase();
 			if (word === "status") {
-				ctx.ui.notify(statusLine(page.status(), joined), "info");
+				ctx.ui.notify(statusLine(await page.status(), joined), "info");
 				return;
 			}
 			if (word === "stop") {
-				const status = page.status();
+				const status = await page.status();
+				// A note nobody answers is not a page to leave for the next session to trip over:
+				// it is dropped here, and the line says whose it was.
+				if (status.stale === true) {
+					const dropped = await page.dropStale(ctx);
+					ctx.ui.notify(
+						dropped
+							? `board: dropped ${status.seat}'s note for :${status.port} — it answered nobody`
+							: `board: nothing to stop here — ${status.seat} is answering on :${status.port}`,
+						"info",
+					);
+					return;
+				}
 				// A page another session serves is that session's to stop, and saying whose it is is the answer.
 				if (status.attached === true) {
 					ctx.ui.notify(
@@ -64,10 +76,13 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 			// this session's own label when it watches a page somebody else serves.
 			if (started.kind === "failed") return;
 			joined = await team.join(ctx, joinLabel(started.kind === "served"));
+			// The address is on the line because the browser is not the only way in: a machine
+			// with no default browser prints it here, and a tab closed by mistake is one
+			// command from being opened again.
 			ctx.ui.notify(
 				started.kind === "attached"
-					? `board: ${started.seat} is serving this repository on :${started.port} — viewing${teamLine(joined)}`
-					: `board: ${started.seat} serving ${started.where} on :${started.port}${teamLine(joined)}`,
+					? `board: ${started.seat} is serving this repository on :${started.port} — viewing · open ${started.url}${teamLine(joined)}`
+					: `board: ${started.seat} serving ${started.where} on :${started.port} · open ${started.url}${teamLine(joined)}`,
 				"info",
 			);
 		},
@@ -79,6 +94,9 @@ export function statusLine(status: BoardPageStatus, team?: JoinResult): string {
 	if (status.running) {
 		const watching = plural(status.watchers ?? 0, "tab");
 		return `board: ${status.seat} serving on :${status.port} · ${watching} watching · ${status.where}${teamLine(team)}`;
+	}
+	if (status.stale === true) {
+		return `board: watching ${status.seat} on :${status.port} — that note answers nobody; /board stop drops it${teamLine(team)}`;
 	}
 	if (status.attached === true) {
 		return `board: watching ${status.seat} on :${status.port} — nothing to stop here${teamLine(team)}`;

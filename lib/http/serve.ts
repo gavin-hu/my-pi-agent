@@ -218,6 +218,9 @@ export async function serveLoopback(options: LoopbackOptions): Promise<LoopbackS
 		});
 	});
 	const port = await bindFirst(server, host, options.ports);
+	// The socket is bound but no page may ever read it: a server that asked for a first
+	// grace arms it here, so a browser that never came up cannot hold the port all session.
+	sinks.start();
 	const closeServer = createCloser(server);
 	let closed = false;
 	return {

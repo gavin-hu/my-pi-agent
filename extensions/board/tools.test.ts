@@ -655,6 +655,54 @@ describe("archive", () => {
 		expect(text(pile)).toContain("#1 done · Finished one · billing-lead");
 	});
 
+	test("names a card the sweep could not set aside, instead of dropping it from the report", async () => {
+		const board = boardHarness({ now: NOW, track: temps.track });
+		// A store where one card changes underneath the sweep: the refusal is the case the
+		// report must not swallow, because "every finished card" would read as fewer.
+		const inner = board.runtime;
+		const refuseOnce = { refused: false };
+		const racing = {
+			...inner,
+			store: async (cwd: string) => {
+				const store = await inner.store(cwd);
+				return {
+					...store,
+					mutate: async (...args: Parameters<typeof store.mutate>) => {
+						const [id, op] = args;
+						if (id === "2" && op.kind === "archive" && !refuseOnce.refused) {
+							refuseOnce.refused = true;
+							return { ok: false as const, error: "#2 kept changing while it was written; read it again." };
+						}
+						return store.mutate(...args);
+					},
+				};
+			},
+		};
+		registerTools(board.fake.pi, racing as typeof inner);
+		const tool = board.fake.pi.tools.get("board");
+		if (!tool) throw new Error("the board tool was not registered");
+		const call = async (args: Record<string, unknown>) =>
+			(await tool.execute("call-1", args, undefined, undefined, board.ctx)) as {
+				content: Array<{ text: string }>;
+				details: BoardDetails;
+			};
+
+		for (const title of ["One", "Two", "Three"]) await call({ action: "add", title });
+		await finish(call, "1");
+		await finish(call, "2");
+		await call({ action: "claim", card: "3" });
+
+		const result = await call({ action: "archive" });
+		expect(result.details.archived).toEqual(["1"]);
+		expect(result.details.failed).toEqual([
+			{ card: "2", error: "#2 kept changing while it was written; read it again." },
+		]);
+		expect(text(result)).toContain("1 card archived: #1");
+		expect(text(result)).toContain("#2 was not archived (#2 kept changing while it was written; read it again.)");
+		// And the card is still on the board, in its lane: a refusal never half-applies.
+		expect((await call({ action: "list", status: "done" })).details.cards?.map((card) => card.id)).toEqual(["2"]);
+	});
+
 	test("sets every finished card aside when no card is named", async () => {
 		const { call } = harness();
 		for (const title of ["One", "Two", "Three"]) await call({ action: "add", title });

@@ -22,12 +22,23 @@ export interface EventSink {
 	end(frame?: string): void;
 }
 
+/** Why a server went idle: no stream ever opened, or the last one left. */
+export type IdleReason = "first" | "last";
+
 /** The idle policy a server was given, or none. */
 export interface IdleGrace {
 	/** How long the last stream's departure is held, in ms. */
 	ms: number;
-	/** Called once no stream has been open for `ms`. */
-	onIdle: () => void;
+	/**
+	 * How long a server may stand with no stream ever opened, in ms.
+	 *
+	 * A page opened in a browser that never came up would otherwise hold its port for the
+	 * rest of the session. Omitted, the grace still waits for the first stream, which is
+	 * what a server whose page is opened by hand wants.
+	 */
+	firstMs?: number;
+	/** Called once no stream has been open for the grace that applied. */
+	onIdle: (reason: IdleReason) => void;
 }
 
 /** What the registry needs besides the streams themselves. */
@@ -44,6 +55,8 @@ export interface SinkRegistry {
 	open(response: ServerResponse): EventSink;
 	/** How many streams are open. */
 	size(): number;
+	/** Arm the grace for a server nobody may ever read. Does nothing without `firstMs`. */
+	start(): void;
 	/** End every open stream, because the server is closing. */
 	endAll(): void;
 }
@@ -52,20 +65,24 @@ export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 	const streams = new Set<EventSink>();
 	const timer = deps.timer ?? defaultTimer;
 	let cancelIdle: (() => void) | undefined;
-	/** A grace armed before any page ever attached would close a server nobody opened. */
+	/** A stream has attached at least once, so a departure is one to wait on. */
 	let sawStream = false;
+	/** The server asked for the first grace, so it may go idle without a reader. */
+	let started = false;
 
 	const standDown = (): void => {
 		cancelIdle?.();
 		cancelIdle = undefined;
 	};
 
-	const arm = (): void => {
-		const idle = deps.idle;
-		if (idle === undefined || !sawStream || streams.size > 0 || cancelIdle !== undefined) return;
-		cancelIdle = timer(idle.ms, () => {
+	/** Arm `ms` from now, unless a stream is open or a grace already runs. */
+	const arm = (ms: number, reason: IdleReason): void => {
+		if (deps.idle === undefined || (!started && !sawStream) || streams.size > 0 || cancelIdle !== undefined) return;
+		cancelIdle = timer(ms, () => {
 			cancelIdle = undefined;
-			if (streams.size === 0) deps.idle?.onIdle();
+			// A tab that attached while the grace ran has already stood it down, but a
+			// second look costs nothing and keeps a race from closing a page being read.
+			if (streams.size === 0) deps.idle?.onIdle(reason);
 		});
 	};
 
@@ -74,12 +91,20 @@ export function createSinks(deps: SinkDeps = {}): SinkRegistry {
 			standDown();
 			sawStream = true;
 			const sink = createSink(response, () => {
-				if (streams.delete(sink)) arm();
+				if (!streams.delete(sink)) return;
+				const idle = deps.idle;
+				if (idle !== undefined) arm(idle.ms, "last");
 			});
 			streams.add(sink);
 			return sink;
 		},
 		size: () => streams.size,
+		start() {
+			const idle = deps.idle;
+			if (idle?.firstMs === undefined || started || sawStream) return;
+			started = true;
+			arm(idle.firstMs, "first");
+		},
 		endAll() {
 			standDown();
 			const open = [...streams];

@@ -120,6 +120,45 @@ describe("the idle grace", () => {
 		returning.end();
 	});
 
+	test("arms a first grace when the server asks, before any page attached", () => {
+		const timer = graceTimer();
+		const reasons: string[] = [];
+		const sinks = createSinks({
+			idle: { ms: 10, firstMs: 20, onIdle: (reason) => reasons.push(reason) },
+			timer: timer.timer,
+		});
+		// A server is bound and nobody has opened it: without this the port would be held
+		// for the whole session by a browser that never came up.
+		sinks.start();
+		expect(timer.armed).toBe(1);
+		timer.fire();
+		expect(reasons).toEqual(["first"]);
+	});
+
+	test("stands the first grace down when a tab finally attaches", () => {
+		const timer = graceTimer();
+		const reasons: string[] = [];
+		const sinks = createSinks({
+			idle: { ms: 10, firstMs: 20, onIdle: (reason) => reasons.push(reason) },
+			timer: timer.timer,
+		});
+		sinks.start();
+		const sink = sinks.open(pageResponse());
+		expect(timer.cancelled).toBe(1);
+		timer.fire();
+		expect(reasons).toEqual([]);
+		sink.end();
+		timer.fire();
+		expect(reasons).toEqual(["last"]);
+	});
+
+	test("asks for no first grace when the caller named none", () => {
+		const timer = graceTimer();
+		const sinks = createSinks({ idle: { ms: 10, onIdle: () => {} }, timer: timer.timer });
+		sinks.start();
+		expect(timer.armed).toBe(0);
+	});
+
 	test("never arms before a page has ever attached", () => {
 		const timer = graceTimer();
 		const sinks = createSinks({ idle: { ms: 10, onIdle: () => {} }, timer: timer.timer });

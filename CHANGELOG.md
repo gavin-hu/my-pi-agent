@@ -304,6 +304,46 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a clean shutdown takes its seat note with it. `/board stop` cleared
+  `page.json` and `session_shutdown` did not, so quitting Pi while serving left a note
+  naming a dead port: every open tab reconnected forever, and the next `/board` anywhere
+  spent a probe and a takeover before it could serve. Both closes go through one path now.
+
+- `board`: `/board status` and `/board stop` no longer trust a note they have not probed.
+  After the leading session ended, a viewer was still told `watching team-lead on :4812`
+  and `stop` still refused with a port nobody held; `status` now probes the note it
+  watches, names one that answers nobody, and `stop` drops it — token-safe, so a page that
+  came back keeps its own note.
+
+- `board`: `/board` opens the page it is about, and prints its address. The serving
+  session's second `/board` did nothing (so a closed tab could not be reopened), a viewer
+  opened a new tab every time, and no line carried the URL — though `openInBrowser`
+  swallows a failure on the grounds that the URL is printed. One command now opens the
+  page in both roles, and the line names `http://127.0.0.1:<port>/?token=…`.
+
+- `board`: a page no tab ever loaded closes after two minutes. The idle grace was armed
+  only after a stream had opened, so a browser that never came up left the port bound for
+  the session; the server now arms a first grace at bind, and `/board` restarts the page.
+
+- `board` and `lib/http`: a probe asks a page whether it is alive, not for its snapshot.
+  The snapshot is a store read and a roster read on the same event loop, so a page busy
+  answering its browser could be declared dead and taken over — two servers, one note. A
+  new `/api/ping` route answers the question in one line, the probe waits 1.5 s instead of
+  600 ms, and a page from an older build is asked for its snapshot once instead of being
+  stolen.
+
+- `board`: a start that cannot write its note no longer leaves an orphan listener. Only
+  the bind was guarded, so a read-only board directory (or a full disk at the seat write)
+  left a bound port with no note, no chip and no notice; the whole start is one `try` that
+  closes the server it made and names the reason.
+
+- `board`: `archive` with no card named reports a card it could not set aside. A sweep
+  keeps only the cards it moved, so "every finished card" could set aside fewer with no
+  word about the rest; the text now appends `· #3 was not archived (…)`, and the details
+  carry `failed`.
+
+## [0.19.0] - 2026-10-25
+
 - `board`: `card` names a field of `list`, and the parameters say so. The `card` description
   promised it was "used by every action but `list`/`add`" — stale the moment `list` grew a
   single-card read — so a model reading the tool built `action: "card"` and got
@@ -366,8 +406,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   fingerprint, and a test rendered it a third time, so a screen printing a live age (`/watch`'s
   `720s`) said three different things. `frameLines` draws every one of those moments against
   the clock the fixtures were built with.
-
-## [0.19.0] - 2026-10-25
 
 ### Added
 

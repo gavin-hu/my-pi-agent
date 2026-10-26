@@ -109,6 +109,8 @@ export interface BoardDetails {
 	dropped?: string;
 	/** The ids an `archive` set aside, in the order it moved them. */
 	archived?: string[];
+	/** Cards an `archive` sweep could not set aside, and why: a move that changed underneath it. */
+	failed?: Array<{ card: string; error: string }>;
 	/** A refusal's reason, which the renderer draws instead of the details. */
 	error?: string;
 }

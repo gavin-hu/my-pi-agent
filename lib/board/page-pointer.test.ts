@@ -232,18 +232,30 @@ describe("a pointer this build cannot trust", () => {
 });
 
 describe("probePage", () => {
-	test("asks the snapshot route, with the page's token", async () => {
+	test("asks the cheap liveness route, with the page's token", async () => {
 		const asked: string[] = [];
 		const live = await probePage(pointer(), async (url) => {
 			asked.push(url);
 			return { ok: true };
 		});
 		expect(live).toBe(true);
-		expect(asked).toEqual(["http://127.0.0.1:4781/api/board?token=0123456789abcdef0123456789abcdef"]);
+		// Not the snapshot: a probe must not queue behind the page's own view on a busy
+		// event loop, which is how a live page got declared dead.
+		expect(asked).toEqual(["http://127.0.0.1:4781/api/ping?token=0123456789abcdef0123456789abcdef"]);
+	});
+
+	test("falls back to the snapshot for a page from a build without the ping", async () => {
+		const asked: string[] = [];
+		const live = await probePage(pointer(), async (url) => {
+			asked.push(url);
+			return url.includes("/api/ping") ? { ok: false, status: 404 } : { ok: true };
+		});
+		expect(live).toBe(true);
+		expect(asked.map((url) => new URL(url).pathname)).toEqual(["/api/ping", "/api/board"]);
 	});
 
 	test("a page that refuses the token, or is gone, is not one to attach to", async () => {
-		expect(await probePage(pointer(), async () => ({ ok: false }))).toBe(false);
+		expect(await probePage(pointer(), async () => ({ ok: false, status: 403 }))).toBe(false);
 		expect(
 			await probePage(pointer(), async () => {
 				throw new Error("connect ECONNREFUSED");
