@@ -947,7 +947,7 @@ both.
 bun test extensions/plan
 ```
 
-Eleven co-located suites, declared in `test/suite-manifest.ts`:
+Twelve co-located suites, declared in `test/suite-manifest.ts`:
 
 - `plans.test.ts` — the plan-file store: naming, directory resolution, atomic
   writes, `read`/`latest`/`index`, containment, `setSteps`, `saveFeedback`, and
@@ -962,6 +962,11 @@ Eleven co-located suites, declared in `test/suite-manifest.ts`:
 - `web.test.ts` — the browser review: the comment codec, the router, the page
   roles and page shell, the client script, the stream, the plan-file poll, the
   share rules, and a real loopback session.
+- `web-behaviour.test.ts` — the served review, driven in a real browser through
+  the router: the blocks and the plan's name, a block's comment control opening the
+  composer with Escape peeling it before the review, a stored comment in its block's
+  rail and the header's count, and the outline jumping to the section it names. It
+  skips where no browser is installed, naming `PI_CHROME`.
 - `web-share.test.ts` — the LAN address selector, `shareUrl`, the link table with
   its cap, and the reasons a share is unavailable.
 - `commands.test.ts` — `/plan review`, `/plan list`, `/plan share`, and the one

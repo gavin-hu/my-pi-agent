@@ -47,6 +47,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"tools",
 		"review-prompt",
 		"web",
+		"web-behaviour",
 		"web-share",
 		"commands",
 		"runtime",
