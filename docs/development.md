@@ -357,8 +357,9 @@ Do not duplicate across these:
   skill has exactly one page, listed in the guide home's index, which
   `test/extension-load.test.ts` holds against the manifest and `skills/`.
 - `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
-  its ids, links, citations, and bucket caps, and shipping an item means
-  renumbering or removing it in the same commit.
+  its ids, links, citations, bucket caps, and the tag the file says it was written
+  against (the newest `vX.Y.Z`), so a release restates that sentence in its own
+  commit; shipping an item means renumbering or removing it in the same commit.
 - `AGENTS.md` — the machine-facing entry point: the four rules, the gates that
   hold them, and the traps with no other home.
 - `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,

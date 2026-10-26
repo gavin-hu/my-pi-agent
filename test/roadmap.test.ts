@@ -16,9 +16,12 @@
  * It cannot tell that an item has already shipped — that is a judgement made
  * against `git log <last-tag>..main` when the roadmap is reviewed, which is why
  * the file states that rule, and its own *Deliberately left thin* table, in
- * prose.
+ * prose. The sentence naming the tag it was written against is the exception: it
+ * is checked against `git tag`, because a file a whole release out of date is the
+ * one thing a reader can be misled by without noticing.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
@@ -31,6 +34,9 @@ const lines = roadmap.split("\n");
 
 /** An item heading: `- **P1 — Review continuity.** …`. */
 const ITEM = /^- \*\*([PSWCF])(\d+) — /;
+
+/** The tag the file says it was written against, which the tree can check. */
+const STATED_TAG = /The last tag is `([0-9]+\.[0-9]+\.[0-9]+)`/;
 
 /** A bucket heading: a bare `**Now**`, `**Next**`, or `**Later**` line. */
 const BUCKET = /^\*\*(Now|Next|Later)\*\*$/;
@@ -224,3 +230,45 @@ describe("roadmap sizes", () => {
 		expect(drift).toEqual([]);
 	});
 });
+
+describe("the tag it was written against", () => {
+	test("is stated, so a reader can judge the file's age", () => {
+		expect(STATED_TAG.exec(roadmap)?.[1], "`The last tag is `X.Y.Z``").toBeDefined();
+	});
+
+	test("is the newest tag in the repository", () => {
+		// The one sentence a reader uses to judge how current this file is was also the
+		// one that could be a whole release wrong, silently. Same seam as release.test.ts:
+		// a clone that fetched no tags cannot answer, so it says nothing.
+		const stated = STATED_TAG.exec(roadmap)?.[1];
+		const tags = tagVersions();
+		if (tags === undefined || tags.length === 0) return;
+		const newestTag = tags.sort(compareVersions)[tags.length - 1];
+		expect(stated, "restate it in the same commit as the release").toBe(newestTag);
+	});
+});
+
+/** The `X.Y.Z` of every `vX.Y.Z` tag, or undefined when git cannot list them. */
+function tagVersions(): string[] | undefined {
+	let output: string;
+	try {
+		output = execFileSync("git", ["tag", "--list", "v*"], { cwd: root, encoding: "utf-8" });
+	} catch {
+		return undefined;
+	}
+	return output
+		.split("\n")
+		.map((line) => /^v([0-9]+\.[0-9]+\.[0-9]+)$/.exec(line.trim())?.[1])
+		.filter((version): version is string => version !== undefined);
+}
+
+/** Numeric, part by part: `0.10.0` sorts after `0.9.0`, which a string compare gets wrong. */
+function compareVersions(a: string, b: string): number {
+	const left = a.split(".").map(Number);
+	const right = b.split(".").map(Number);
+	for (let i = 0; i < 3; i++) {
+		const delta = (left[i] ?? 0) - (right[i] ?? 0);
+		if (delta !== 0) return delta;
+	}
+	return 0;
+}

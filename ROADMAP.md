@@ -29,13 +29,13 @@ surface arrives with its limitation written in the same breath.
   three-OS CI, a shared `lib/tui/` and `lib/web/` design system, budgeted prompt
   context, and package-level guards that hold the docs, the catalog, the release
   window, and this file to the tree.
-- The last tag is `0.18.0`, and it shipped the body the previous review listed
-  as pending: `session-bus` with its live board, plans split into a team at
-  approval, reviewer links that follow the plan file live, and the browse page's
-  `path:line` reference copy. The window since then closes two gaps this file
-  listed: one loopback server lifecycle in `lib/http/`, so no served page owns a
-  socket of its own, and a memory store that notices a same-size edit inside a
-  millisecond. It also withdraws the split it shipped — the team of sessions, the
+- The last tag is `0.19.0`. `0.18.0` before it shipped the body the previous
+  review listed as pending: `session-bus` with its live board, plans split into a
+  team at approval, reviewer links that follow the plan file live, and the browse
+  page's `path:line` reference copy. `0.19.0` closes two gaps this file listed:
+  one loopback server lifecycle in `lib/http/`, so no served page owns a socket
+  of its own, and a memory store that notices a same-size edit inside a
+  millisecond. It also withdraws the split `0.18.0` shipped — the team of sessions, the
   `session join` that claimed a unit's paths, the shared-file rule, and the
   `parallel-dev` skill — because a lead who cannot start a peer's turn spent more
   of the user's attention than the split saved. The round comes back without that
@@ -53,6 +53,15 @@ surface arrives with its limitation written in the same breath.
   confirmation. `docs/architecture.md` now states the
   target architecture rather than a snapshot, and `AGENTS.md` names its four rules,
   the fourth enforced by review alone.
+- The window since `0.19.0` adds no new surface: it makes what shipped true. The
+  board page became a read view — one token, no write path — its class names became
+  a table the document and the bundle share, and a field an action does not act on
+  is refused rather than ignored; a blocked card records why and a finished one the
+  commit that landed it; the card dialog reads as a ladder of facts over its notes;
+  a query reads a card's plan and its notes; every page bundle now runs one spliced
+  browser runtime; and the hero capture prices its own tokens instead of asserting
+  a number. Two guards followed: every count a doc states is derived by a test, and
+  the tag named in this file is checked against the newest one.
 
 ## How items are ordered
 
@@ -543,7 +552,9 @@ These stay out unless a roadmap item says otherwise:
 - An item that needs a documented non-goal reversed is marked as a decision, not
   slipped in as a feature.
 - A number this file or another doc states about the code needs a test that
-  derives it; prose alone is how the settings count drifted.
+  derives it; prose alone is how the settings count drifted. That includes the tag
+  this file says it was written against: `test/roadmap.test.ts` compares it with the
+  newest `vX.Y.Z` tag, so restate it in the same commit as a release.
 - Renumbering an item means grepping the Promise ledger, the three-things list,
   and the section intros; `test/roadmap.test.ts` fails on a dangling ID or a
   bucket over the cap.
