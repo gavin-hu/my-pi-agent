@@ -298,6 +298,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   clearing its note and writing the next one — is chased instead of being counted as a failed
   takeover.
 
+- `Tooling`: a captured frame is the same frame in every terminal and at every moment, so the
+  guard that holds `assets/screens/` to it can run on a runner. Two things broke that: the
+  fingerprint hashed the frame's escape codes, which Pi's theme layer picks from `TERM`, so
+  the Mac that captured a picture could never hand its hash to macOS, Linux, and Windows CI —
+  it records the frame's text now; and a capture drew the frame, re-rendered it to record the
+  fingerprint, and a test rendered it a third time, so a screen printing a live age (`/watch`'s
+  `720s`) said three different things. `frameLines` draws every one of those moments against
+  the clock the fixtures were built with.
+
 ## [0.19.0] - 2026-10-25
 
 ### Added

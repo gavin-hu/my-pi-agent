@@ -21,7 +21,7 @@ import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
 import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
 import { planDigest } from "../extensions/plan/plan-text.ts";
-import { frameFingerprint, readFrames } from "./screens/frames.ts";
+import { frameFingerprint, frameLines, readFrames } from "./screens/frames.ts";
 import { SCREENS } from "./screens/index.ts";
 import { CHROME_SNAPSHOT, HERO_CALLS, HERO_INPUT, HERO_TOKENS } from "./screens/whole-window.ts";
 import { cacheHitRateOf } from "../extensions/bytefly/footer/collect/entries.ts";
@@ -89,7 +89,7 @@ describe("docs screenshots", () => {
 				continue;
 			}
 			const { width, rows } = screen.size;
-			const frame = frameFingerprint(screen.render(width, rows));
+			const frame = frameFingerprint(frameLines(screen, width, rows));
 			expect(frame, `assets/screens/${screen.asset}.png is behind the frame: bun run screenshots ${name}`).toBe(
 				fingerprint,
 			);

@@ -1,4 +1,20 @@
 {
-  "chrome": "cc71cfec03c7a8b7",
-  "transcript": "8afe14acfb0453c3"
+  "agents": "4b66b39e749da5ca",
+  "bytefly": "c777047ffab5fa28",
+  "bytefly-settings": "cdf50ced6edf5922",
+  "check": "61b2abd552567d90",
+  "check-detail": "b0e3fb3dde8cf121",
+  "chrome": "c37f8367790f7ef8",
+  "compaction": "70fc3021082c0394",
+  "context": "57c6cf8286152ad7",
+  "memory": "4387a7add4b4310b",
+  "plan": "87f61ffade2d9882",
+  "review": "794b35797fa9dba8",
+  "rewind": "2c02e14bfbede826",
+  "session": "e4cf43a0b2356832",
+  "todo": "ee775a2288a78365",
+  "transcript": "96edd6669585e674",
+  "watch": "22fd78f21e8e5b38",
+  "wechat": "43e6d24b6f05fcd4",
+  "worktree": "6201023285a97e4a"
 }
