@@ -809,3 +809,53 @@ describe.skipIf(!runSlowSuites)("a real repository", () => {
 		await linked.stop();
 	});
 });
+
+describe("a resume", () => {
+	/**
+	 * What `/resume` does to the bus, pinned because the doc states it twice and nothing
+	 * tested it: the pane stops (session_shutdown) and starts again on the same session id
+	 * and name.
+	 */
+	test("drops membership and keeps the mail, so the label comes back when it rejoins", async () => {
+		const dir = busDir();
+		const now = () => 1_000;
+		const store = createBusStore({ dir });
+		const peer = bus(dir, "/repo/backend", now);
+		await acting(peer, context("/repo/backend", "s2", "backend"));
+
+		const pane = bus(dir, "/repo/frontend", now);
+		const ctx = context("/repo/frontend", "s1", "billing-core");
+		await pane.start(ctx);
+		await pane.join({ listen: false });
+		expect((await store.sessions()).map((session) => session.label).sort()).toEqual(["backend", "billing-core"]);
+
+		// Mail that arrived while the pane was open, and a claim it holds.
+		await peer.send({ to: "billing-core", text: "before the resume" });
+		await pane.claim(["src/billing"]);
+
+		// `/resume`: the pane stops, then starts again on the same id and name.
+		await pane.stop();
+		const resumed = bus(dir, "/repo/frontend", now);
+		await resumed.start(context("/repo/frontend", "s1", "billing-core"));
+
+		// Membership is gone: a resumed session is not on the bus until it joins again.
+		expect((await store.sessions()).map((session) => session.id)).toEqual(["s2"]);
+		const status = await resumed.status();
+		expect(status.onBus).toBe(false);
+		expect(status.sessions.map((session) => session.id)).toEqual(["s2"]);
+
+		// The mail is not: it is a file, and a resumed session reads it again.
+		expect((await resumed.peek()).map((message) => message.text)).toEqual(["before the resume"]);
+
+		// Rejoining takes the same label, because it derives from Pi's session name — which
+		// is what the doc means by "the footer and /resume agree with the record".
+		await resumed.join({ listen: false });
+		expect((await store.sessions()).map((session) => session.label).sort()).toEqual(["backend", "billing-core"]);
+
+		// The claim did not come back with the label: a resume releases what the session held.
+		expect((await store.claims()).filter((claim) => claim.owner === "s1")).toEqual([]);
+
+		await resumed.stop();
+		await peer.stop();
+	});
+});
