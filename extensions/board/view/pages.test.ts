@@ -321,6 +321,15 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.plural = plural;");
 	});
 
+	test("filters through the module's one query rule, spliced in", () => {
+		// Same reason as the plural: the filter box and `board list query:` must find the
+		// same cards, and a copy in the bundle is how they stopped doing that.
+		expect(BOARD_CLIENT_JS).toContain("card.plan.toLowerCase().includes(needle)");
+		expect(BOARD_CLIENT_JS).toContain("card.notes.some");
+		expect(BOARD_CLIENT_JS).not.toContain("__MATCHES__");
+		expect(BOARD_CLIENT_JS).toContain("board.matches = matches;");
+	});
+
 	test("reads what the snapshot decided instead of deciding it again", () => {
 		// A dependency graph, a priority default, and a reason sentence each live once.
 		expect(BOARD_CLIENT_JS).toContain("card.waits");

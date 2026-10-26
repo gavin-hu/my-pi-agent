@@ -236,18 +236,29 @@ export function priorityRank(card: Card): number {
 }
 
 /**
- * Whether `query` names `card`: its title, one of its path hints, or its holder.
+ * Whether `query` names `card`: its title, its holder, a path hint, its plan, or a note.
  *
  * The page's filter and `board list`'s `query` are the same question, so they are the
- * same rule here — a reader who finds a card in the browser finds it in the tool.
+ * same rule here — and the same *body*: this function's source is spliced into the
+ * browser bundle as `MATCHES_QUERY_JS`, which is why it is written with concatenation
+ * and no backtick. A second copy in the page is exactly what drifted before.
+ *
+ * The order is the answer's weight: a title hit is what a reader meant, then who holds
+ * it, then where it lives, and only then the reasoning — a plan path and the notes,
+ * which are the two fields that make a card findable by what it says.
  */
 export function matchesQuery(card: Card, query: string): boolean {
 	const needle = query.trim().toLowerCase();
 	if (needle === "") return true;
 	if (card.title.toLowerCase().includes(needle)) return true;
 	if (card.owner !== undefined && card.owner.label.toLowerCase().includes(needle)) return true;
-	return card.paths.some((path) => path.toLowerCase().includes(needle));
+	if (card.paths.some((path) => path.toLowerCase().includes(needle))) return true;
+	if (card.plan !== undefined && card.plan.toLowerCase().includes(needle)) return true;
+	return card.notes.some((note) => note.text.toLowerCase().includes(needle));
 }
+
+/** The same body, as the browser receives it: one rule for the tool and the filter box. */
+export const MATCHES_QUERY_JS = String(matchesQuery);
 
 /** One note's text: a single sanitized line, or the reason it cannot be one. */
 export function normalizeNote(raw: unknown): { text: string } | FieldError {

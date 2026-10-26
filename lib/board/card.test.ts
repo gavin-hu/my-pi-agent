@@ -23,6 +23,7 @@ import {
 	MAX_PLAN,
 	MAX_TITLE,
 	matchesQuery,
+	MATCHES_QUERY_JS,
 	normalizeCardId,
 	normalizeNote,
 	normalizePathHints,
@@ -170,12 +171,52 @@ describe("matchesQuery", () => {
 		expect(matchesQuery(card({ status: "doing", owner: { label: "billing-core" } }), "CORE")).toBe(true);
 	});
 
+	test("matches the plan, which is the file a reader is holding", () => {
+		const planned = card({ plan: "~/.pi/agent/plans/8872d3adda0e/2026-10-26-1008-the-query.md" });
+		expect(matchesQuery(planned, "2026-10-26-1008")).toBe(true);
+	});
+
+	test("matches a note's text, which is where a card's reasoning lives", () => {
+		const noted = card({
+			notes: [
+				{ by: "billing-lead", at: 2_000, text: "routes wired; tests next" },
+				{ by: "billing-core", at: 3_000, text: "waiting on the CHANGELOG entry" },
+			],
+		});
+		expect(matchesQuery(noted, "changelog")).toBe(true);
+		expect(matchesQuery(noted, "routes")).toBe(true);
+	});
+
 	test("matches everything when the query is blank", () => {
 		expect(matchesQuery(card(), "  ")).toBe(true);
 	});
 
 	test("does not match a card it does not name", () => {
 		expect(matchesQuery(card(), "retry branches")).toBe(false);
+	});
+});
+
+describe("MATCHES_QUERY_JS", () => {
+	test("is the same body, safe to splice into a script", () => {
+		// The page's filter runs this source; a backtick or an interpolation would end the
+		// template it lands in, and the failure would be a board that never filters.
+		expect(MATCHES_QUERY_JS).toBe(String(matchesQuery));
+		expect(MATCHES_QUERY_JS).not.toContain("`");
+		expect(MATCHES_QUERY_JS).not.toContain("${");
+	});
+
+	test("answers what the module answers", () => {
+		const browserMatches = new Function(`return (${MATCHES_QUERY_JS});`)() as (card: Card, query: string) => boolean;
+		const worked = card({
+			status: "doing",
+			owner: { label: "billing-core" },
+			plan: "~/.pi/agent/plans/8872d3adda0e/the-query.md",
+			notes: [{ by: "billing-core", at: 2_000, text: "waiting on the gateway" }],
+		});
+		const queries = ["", "  ", "WEBHOOK", "src/bill", "CORE", "8872d3adda0e", "gateway", "changelog"];
+		for (const query of queries) {
+			expect([query, browserMatches(worked, query)]).toEqual([query, matchesQuery(worked, query)]);
+		}
 	});
 });
 

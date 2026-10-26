@@ -246,17 +246,21 @@ describe("list", () => {
 		expect((await stranger.call({ action: "list", mine: true })).details.cards).toEqual([]);
 	});
 
-	test("filters by a query over the title, a path hint, or the holder", async () => {
+	test("filters by a query over the title, the holder, a path hint, the plan, or a note", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "Billing webhook", paths: ["src/billing"] });
 		await call({ action: "add", title: "Retry branches", paths: ["src/git"] });
 		await call({ action: "claim", card: "2" });
-		expect((await call({ action: "list", query: "webhook" })).details.cards?.map((card) => card.id)).toEqual(["1"]);
-		expect((await call({ action: "list", query: "src/git" })).details.cards?.map((card) => card.id)).toEqual(["2"]);
-		expect((await call({ action: "list", query: "BILLING-LEAD" })).details.cards?.map((card) => card.id)).toEqual([
-			"2",
-		]);
-		expect((await call({ action: "list", query: "nothing here" })).details.cards).toEqual([]);
+		await call({ action: "plan", card: "2", path: "~/.pi/agent/plans/8872d3adda0e/retry-branches.md" });
+		await call({ action: "note", card: "1", text: "waiting on the gateway owner" });
+		const ids = async (query: string) => (await call({ action: "list", query })).details.cards?.map((card) => card.id);
+		expect(await ids("webhook")).toEqual(["1"]);
+		expect(await ids("src/git")).toEqual(["2"]);
+		expect(await ids("BILLING-LEAD")).toEqual(["2"]);
+		// The two fields that hold a card's reasoning are two it can be found by.
+		expect(await ids("gateway owner")).toEqual(["1"]);
+		expect(await ids("retry-branches")).toEqual(["2"]);
+		expect(await ids("nothing here")).toEqual([]);
 	});
 
 	test("adds the lead's rollup when asked, over the whole board", async () => {

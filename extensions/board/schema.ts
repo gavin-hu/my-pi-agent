@@ -68,7 +68,7 @@ export const BoardParams = Type.Object({
 	query: Type.Optional(
 		Type.String({
 			description:
-				"`list`: show only the cards whose title, path hint, or holder matches this text, case-insensitively.",
+				"`list`: show only the cards whose title, holder, path hint, plan, or a note's text matches this text, case-insensitively.",
 		}),
 	),
 	round: Type.Optional(

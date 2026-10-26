@@ -16,17 +16,22 @@
  * `team.ts` draws the round, `dialog.ts` opens a card, `keys.ts` binds, and `live.ts`
  * owns the frame stream and the wiring.
  *
- * `plural` and `tabTitle` are not written here. Their one bodies live in `lib/` beside
- * the rules they express, and the assembler hands the source in — a second copy in the
- * bundle is a second wording for `1 card`, or a second shape for the tab.
+ * `plural`, `tabTitle`, and `matchesQuery` are not written here. Their one bodies live in
+ * `lib/` beside the rules they express, and the assembler hands the source in — a second
+ * copy in the bundle is a second wording for `1 card`, a second shape for the tab, or a
+ * filter that finds a different card than the tool does.
  */
 
 /**
- * The renderer, with the two rules it needs spliced in: the counts' wording and the
- * tab title's shape, both written once in `lib/` and handed in as source.
+ * The renderer, with the three rules it needs spliced in: the counts' wording, the tab
+ * title's shape, and what a query matches — each written once in `lib/` and handed in
+ * as source.
  */
-export function renderJs(rules: { plural: string; tabTitle: string }): string {
-	return renderTemplate.replace("__PLURAL__", rules.plural).replace("__TAB_TITLE__", rules.tabTitle);
+export function renderJs(rules: { plural: string; tabTitle: string; matches: string }): string {
+	return renderTemplate
+		.replace("__PLURAL__", rules.plural)
+		.replace("__TAB_TITLE__", rules.tabTitle)
+		.replace("__MATCHES__", rules.matches);
 }
 
 const renderTemplate = String.raw`(function () {
@@ -267,15 +272,8 @@ const renderTemplate = String.raw`(function () {
     }
   }
 
-  /** Whether the filter keeps a card: title, a path hint, or the holder. */
-  function matches(card, query) {
-    if (!query) return true;
-    var needle = query.toLowerCase();
-    if (card.title.toLowerCase().indexOf(needle) !== -1) return true;
-    if (card.owner && card.owner.label.toLowerCase().indexOf(needle) !== -1) return true;
-    for (var i = 0; i < card.paths.length; i++) if (card.paths[i].toLowerCase().indexOf(needle) !== -1) return true;
-    return false;
-  }
+  /** Whether the filter keeps a card: the module's one predicate, spliced in as source. */
+  var matches = __MATCHES__;
 
   /** The lane section for one status, created once and then reused. */
   function laneNode(lane) {
