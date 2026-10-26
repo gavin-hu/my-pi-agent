@@ -24,6 +24,7 @@ import { failedResult, type ToolFailure, textResult } from "../../lib/tool-resul
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { plural } from "../../lib/board/round-text.ts";
+import { strayField } from "../../lib/stray-fields.ts";
 import { type Dispatch, handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
 import {
 	formatHandoff,
@@ -34,7 +35,14 @@ import {
 	formatReclaimed,
 } from "./format.ts";
 import { TeamParams } from "./schema.ts";
-import { normalizeTeamAction, TEAM_ACTIONS, TEAM_TOOL, type TeamAction, type TeamDetails } from "./types.ts";
+import {
+	ACTION_FIELDS,
+	normalizeTeamAction,
+	TEAM_ACTIONS,
+	TEAM_TOOL,
+	type TeamAction,
+	type TeamDetails,
+} from "./types.ts";
 
 /** The parameters as the schema validates them. */
 type TeamArgs = Static<typeof TeamParams>;
@@ -87,6 +95,10 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			if (!action) {
 				return refusal("assign", `unknown action "${String(args.action)}"; use ${TEAM_ACTIONS.join(" or ")}.`);
 			}
+			// Before the store and before the card: a refused call has done nothing, so it
+			// cannot have read a card or sent a message on its way to the refusal.
+			const stray = strayField(action, args, ACTION_FIELDS);
+			if (stray !== undefined) return refusal(action, stray);
 			const id = normalizeCardId(args.card);
 			if (id === undefined) return refusal(action, `"${String(args.card)}" is not a card id.`);
 			const me = session.who(ctx, ctx.cwd);

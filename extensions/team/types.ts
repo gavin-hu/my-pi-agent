@@ -42,6 +42,23 @@ export interface TeamDetails {
 	error?: string;
 }
 
+/**
+ * The fields each action acts on: what a call may carry, per action.
+ *
+ * The parameters are one flat object, so a field is published to every action at once,
+ * and only this table stops one reaching an action that would drop it. `to` is `assign`'s
+ * alone: an `offer` that named a peer was broadcast to every live session instead, and a
+ * `reclaim` that named one took the card back from whoever held it.
+ *
+ * A test holds the other direction — every published parameter but `action` is claimed
+ * here — so a field cannot be published without an action that acts on it.
+ */
+export const ACTION_FIELDS: Record<TeamAction, readonly string[]> = {
+	assign: ["card", "to", "note"],
+	offer: ["card", "note"],
+	reclaim: ["card"],
+};
+
 /** Whether a value is one of the actions, so an unknown one is a refusal and not a crash. */
 export function normalizeTeamAction(raw: unknown): TeamAction | undefined {
 	return typeof raw === "string" && TEAM_ACTIONS.includes(raw as TeamAction) ? (raw as TeamAction) : undefined;

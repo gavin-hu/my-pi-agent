@@ -84,6 +84,20 @@ label is shared with the session that serves the page; the ids are not.
 `card` takes `4` or `#4`. `to` is a teammate's label or id, as `/team` lists them — a
 label nobody answers to cannot be handed a card, and the result says so.
 
+The parameters are one flat object, so a field is published to every action at once.
+An action reads only the fields in its row above, and a call carrying one that its
+action does not read is **refused**, naming the action that takes it — not ignored.
+`to` is the one that matters: an `offer` that named a peer was broadcast to every live
+session while the lead believed it had named one, and a `reclaim` that named one took
+the card back from its holder anyway.
+
+```
+offer does not act on to: `assign` takes it.
+```
+
+`ACTION_FIELDS` in `types.ts` is the table that answers this, `lib/stray-fields.ts` is
+the sentence, and a test holds every published parameter to an action that acts on it.
+
 ### The order is the point
 
 `assign` sends **before** it assigns, and each failure leaves a state the report names:

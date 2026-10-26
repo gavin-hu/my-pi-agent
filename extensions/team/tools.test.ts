@@ -15,7 +15,7 @@ import { openBoardSession } from "../../lib/board/session.ts";
 import type { Peer } from "../../lib/session-tool.ts";
 import type { Dispatch } from "./dispatch.ts";
 import { registerTools } from "./tools.ts";
-import type { TeamDetails } from "./types.ts";
+import { ACTION_FIELDS, type TeamDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -102,6 +102,61 @@ describe("the registration", () => {
 	test("refuses a card id that is not one", async () => {
 		const { call } = harness();
 		expect(text(await call({ action: "reclaim", card: "four" }))).toContain('"four" is not a card id.');
+	});
+});
+
+describe("a field the action does not act on", () => {
+	test("an offer that names a peer is refused rather than broadcast", async () => {
+		const { call, seed, sent } = harness();
+		const id = await seed();
+		// The field would have been dropped: every other live session got the card while the
+		// caller believed it had named one of them.
+		const result = await call({ action: "offer", card: id, to: "billing-core" });
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toBe("offer does not act on to: `assign` takes it.");
+		expect(sent).toEqual([]);
+	});
+
+	test("a reclaim that names one is refused, and the card is left alone", async () => {
+		const { call, seed, store } = harness();
+		const id = await seed();
+		await call({ action: "assign", card: id, to: "billing-core" });
+		const before = await (await store()).read(id);
+		const result = await call({ action: "reclaim", card: id, to: "billing-core" });
+		expect(result.details.error).toBe("reclaim does not act on to: `assign` takes it.");
+		// Whoever held it still does: the refusal reached the card in no way at all.
+		expect((await (await store()).read(id))?.owner?.label).toBe("billing-core");
+		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
+	});
+
+	test("names the action that takes every stray field, and sends nothing", async () => {
+		const { call, seed, sent } = harness();
+		const id = await seed();
+		const result = await call({ action: "offer", card: id, to: "billing-core", title: "x" });
+		expect(result.details.error).toBe(
+			"offer does not act on to, title: `assign` takes to; title belongs to no action.",
+		);
+		expect(sent).toEqual([]);
+	});
+
+	test("leaves the fields the action does read alone", async () => {
+		const { call, seed, sent } = harness();
+		const id = await seed();
+		// The shapes that would break first if the table were too eager: an offer reads its
+		// note, and an assign reads a peer and a note.
+		expect((await call({ action: "offer", card: id, note: "whoever is free" })).isError).toBeFalsy();
+		expect((await call({ action: "assign", card: id, to: "billing-core", note: "start here" })).isError).toBeFalsy();
+		expect(sent).toHaveLength(2);
+	});
+
+	test("publishes no field that no action acts on, and invents none", () => {
+		const { tool } = harness();
+		const published = Object.keys(tool.parameters.properties).filter((field) => field !== "action");
+		const claimed = new Set(Object.values(ACTION_FIELDS).flat());
+		// A new parameter with no owner is the same defect one step along: published to every
+		// action, acted on by some, silently dropped by the rest.
+		expect(published.filter((field) => !claimed.has(field))).toEqual([]);
+		expect([...claimed].filter((field) => !published.includes(field))).toEqual([]);
 	});
 });
 

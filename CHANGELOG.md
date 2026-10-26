@@ -169,6 +169,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `team`: a call carrying a field its action does not act on is refused, naming the action
+  that takes it, instead of being ignored. `to` was the one that mattered: an `offer` that
+  named a peer broadcast to every live session while the lead believed it had named one,
+  and a `reclaim` that named one took the card back from its holder anyway. `offer` with
+  `to` now answers `offer does not act on to: \`assign\` takes it.` The table of what each
+  action reads is `ACTION_FIELDS` in `team/types.ts`, the sentence is `lib/stray-fields.ts`
+  — one body, shared with `board`'s guard — and a test holds every published parameter to
+  an action that acts on it.
+
 - `board`: a call carrying a field its action does not act on is refused, naming the action
   that takes it, instead of being ignored. The parameters are one flat object, so `add`
   published `dependsOn` and then dropped it: the card was created without the link and the
