@@ -4,9 +4,9 @@
  * `session_shutdown`.
  *
  * Only the lifecycle lives here — the state machine, the port it remembers, the chip
- * that names it, and the three closes. What the page *reads* is `snapshot.ts`, what it
- * *writes* is `writes.ts`, and how a request reaches either is `transport/`; the router
- * knows nothing of the page's markup, and this is still the one place they meet.
+ * that names it, and the three closes. What the page *reads* is `snapshot.ts`, and it
+ * writes nothing: how a request reaches the snapshot is `transport/`, the router knows
+ * nothing of the page's markup, and this is still the one place they meet.
  *
  * All state lives in this closure, not at module scope: Pi loads each extension with an
  * isolated module cache, so a module variable would be one copy per extension.
@@ -30,6 +30,7 @@ import {
 	urlOf,
 } from "../../lib/board/page-pointer.ts";
 import { mintToken } from "../../lib/http/index.ts";
+import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
 import { type BoardConfig, loadBoardConfig } from "./config.ts";
 import { pageActor } from "./seat.ts";
@@ -56,11 +57,26 @@ export function randomPort(): number {
  */
 export const IDLE_STOP_MS = 60_000;
 
+/**
+ * How long a page may stand with no tab ever attached.
+ *
+ * `/board` opens a browser, and a browser that does not open (a swallowed failure, a
+ * terminal on a machine with no default browser) would otherwise leave the port bound for
+ * the rest of the session. Two minutes is long enough for a person to finish reading the
+ * transcript and click the link `/board` printed.
+ */
+export const IDLE_FIRST_MS = 120_000;
+
 /** What `/board status` prints. */
 export interface BoardPageStatus {
 	running: boolean;
 	/** True when this session opened somebody else's page instead of serving one. */
 	attached?: boolean;
+	/**
+	 * True when that page no longer answers: the note is there, the process behind it is
+	 * not, and `/board stop` may drop it.
+	 */
+	stale?: boolean;
 	/** The name the page serves as: a seat, not the session that opened it. */
 	seat?: string;
 	port?: number;
@@ -89,6 +105,8 @@ export interface BoardPageDeps {
 	interval?: RepeatTimer;
 	/** Grace after the last tab leaves; defaults to {@link IDLE_STOP_MS}. */
 	idleMs?: number;
+	/** Grace for a page no tab ever attached to; defaults to {@link IDLE_FIRST_MS}. */
+	firstIdleMs?: number;
 	/** Whether a page another session left a note about is answering; a test drives it. */
 	probe?: ProbeFetch;
 	/** How the `board` section answers; a test drives it without a config file. */
@@ -99,7 +117,10 @@ export interface BoardPageDeps {
 export interface BoardPage {
 	start: (ctx: ExtensionContext, view?: PageView) => Promise<PageStart>;
 	stop: (ctx: ExtensionContext) => Promise<boolean>;
-	status: () => BoardPageStatus;
+	/** What `/board status` prints: served here, watched, watched and dead, or absent. */
+	status: () => Promise<BoardPageStatus>;
+	/** Drop the note of a page that has stopped answering. False when it still answers. */
+	dropStale: (ctx: ExtensionContext) => Promise<boolean>;
 	closeAll: () => Promise<void>;
 }
 
@@ -114,22 +135,50 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 
 	const storeOf = async (ctx: ExtensionContext): Promise<BoardStore> => runtime.store(ctx.cwd);
 
-	const stop = async (ctx: ExtensionContext): Promise<boolean> => {
-		if (!running) return false;
+	/**
+	 * Close the page this session serves, and take its note with it.
+	 *
+	 * One close for both callers: `/board stop` has a context and clears the chip, and a
+	 * clean `session_shutdown` has none. The note must leave either way — a note nobody
+	 * answers makes every open tab reconnect forever and costs the next `/board` a probe
+	 * and a takeover before it serves.
+	 */
+	const closeRunning = async (ctx?: ExtensionContext): Promise<boolean> => {
+		if (running === undefined) return false;
 		const { server, store, token } = running;
 		running = undefined;
 		await server.close();
-		// The note is the page's, so it leaves with it: a session that reads a note nobody
-		// answers wastes a probe, and the next `/board` would attach to a dead port.
 		await clearPointer(store.dir, token);
-		clearChip(ctx);
+		if (ctx !== undefined) clearChip(ctx);
 		return true;
 	};
 
+	const stop = (ctx: ExtensionContext): Promise<boolean> => closeRunning(ctx);
+
 	const start = async (ctx: ExtensionContext, view: PageView = "board"): Promise<PageStart> => {
-		if (running) return describe(running);
-		const store = await storeOf(ctx);
-		await store.ensure();
+		// `/board` is how the page is summoned, and a page whose tab was closed is one
+		// command away from being shown again — the same answer a viewer's `/board` gives.
+		if (running !== undefined) {
+			(deps.open ?? openInBrowser)(view === "board" ? running.server.url : `${running.server.url}&view=team`);
+			return describe(running);
+		}
+		const config = (deps.config ?? loadBoardConfig)(ctx.cwd);
+		const pinned = config.port > 0 ? config.port : undefined;
+		/** One refusal for every way a start can fail, named by what failed. */
+		const failed = (error: unknown): PageStart => {
+			const reason = failureReason(error, pinned);
+			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
+			return { kind: "failed", reason };
+		};
+		// The board's own directory, then the page: both can fail on a path that exists and
+		// cannot be written, and a start that fails must leave no listener behind.
+		let store: BoardStore;
+		try {
+			store = await storeOf(ctx);
+			await store.ensure();
+		} catch (error) {
+			return failed(error);
+		}
 		const open = (url: string) => (deps.open ?? openInBrowser)(view === "board" ? url : `${url}&view=team`);
 		/** Watch the page another session serves: its note is the URL, its seat the name. */
 		const attach = (pointer: PagePointer): PageStart => {
@@ -150,16 +199,13 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		attachedTo = undefined;
 		const actor = () => seat;
 		const now = () => runtime.now();
-		// Read on every start, so an edit to the section applies to the next `/board`.
-		const config = (deps.config ?? loadBoardConfig)(ctx.cwd);
-		const pinned = config.port > 0 ? config.port : undefined;
+		// Read above, so a pinned port names itself in a refusal; the port itself is
+		// remembered for the session so a closed and reopened page lands where it was.
 		const preferred = pinned ?? sessionPort ?? (deps.pickPort ?? randomPort)();
-		// The token is minted here rather than by the server, because the note this session
-		// leaves has to carry it: that is what a second session reads to attach.
 		// Minted here rather than by the server: the note this session leaves has to carry it,
 		// and that is what a second session reads to attach instead of serving its own page.
 		const token = mintToken();
-		let server: BoardServer;
+		let server: BoardServer | undefined;
 		try {
 			server = await createBoardServer({
 				// A pinned port is tried alone: falling back would leave the bookmark pointing
@@ -168,7 +214,8 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				token,
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
-				onIdle: () => void stopIdle(ctx),
+				firstIdleMs: deps.firstIdleMs ?? IDLE_FIRST_MS,
+				onIdle: (reason) => void stopIdle(ctx, reason),
 				page: async (view) => renderBoardPage({ view }),
 				script: BOARD_CLIENT_JS,
 				view: () =>
@@ -180,57 +227,64 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 						busDir: () => runtime.busDir(ctx.cwd),
 					}),
 			});
+			// The note and the seat: written last, on the port the server actually bound, and only if no
+			// other session got there first: the loser of that race attaches to the page that
+			// won rather than serving a second page nobody can find. A note that answers
+			// nobody is taken over, so a page that died between its note and its server does not
+			// hold the name forever, and a note this build cannot read is named rather than
+			// blamed on a session that does not exist.
+			const note: PagePointer = {
+				port: server.port,
+				token,
+				seat: { id: seat.id, label: seat.label },
+				startedAt: runtime.now(),
+			};
+			const outcome = await settlePointer(store.dir, note, deps.probe);
+			if (outcome.kind === "attached") {
+				await server.close();
+				return attach(outcome.pointer);
+			}
+			if (outcome.kind === "written" && outcome.took !== undefined) {
+				const dead = outcome.took;
+				ctx.ui.notify(
+					`board: ${dead.seat.label} on :${dead.port} does not answer — open ${urlOf(dead)} · took its note over`,
+					"info",
+				);
+			}
+			if (outcome.kind !== "written") {
+				await server.close();
+				const path = join(store.dir, PAGE_FILE);
+				const reason =
+					outcome.kind === "stale"
+						? `${path} names ${outcome.pointer.seat.label} on :${outcome.pointer.port}, and nothing answers — remove it to serve this board`
+						: outcome.kind === "busy"
+							? `${path} kept changing hands — run /board again`
+							: `${path} is there and cannot be read — remove it to serve this board`;
+				ctx.ui.notify(`board: the page did not start (${reason})`, "error");
+				return { kind: "failed", reason };
+			}
+			sessionPort = server.port;
+			running = { server, store, token };
+			setChip(ctx, server.port);
+			open(server.url);
+			return describe(running);
 		} catch (error) {
-			const reason = failureReason(error, pinned);
-			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
-			return { kind: "failed", reason };
+			// A bind that failed has no server to close; a seat that could not be written does,
+			// and leaving it bound would hold a port no note names — invisible until shutdown.
+			await server?.close();
+			return failed(error);
 		}
-		// The note is written last, on the port the server actually bound, and only if no
-		// other session got there first: the loser of that race attaches to the page that
-		// won rather than serving a second page nobody can find. A note that answers
-		// nobody is taken over, so a page that died between its note and its server does not
-		// hold the name forever, and a note this build cannot read is named rather than
-		// blamed on a session that does not exist.
-		const note: PagePointer = {
-			port: server.port,
-			token,
-			seat: { id: seat.id, label: seat.label },
-			startedAt: runtime.now(),
-		};
-		const outcome = await settlePointer(store.dir, note, deps.probe);
-		if (outcome.kind === "attached") {
-			await server.close();
-			return attach(outcome.pointer);
-		}
-		if (outcome.kind === "written" && outcome.took !== undefined) {
-			const dead = outcome.took;
-			ctx.ui.notify(
-				`board: ${dead.seat.label} on :${dead.port} does not answer — open ${urlOf(dead)} · took its note over`,
-				"info",
-			);
-		}
-		if (outcome.kind !== "written") {
-			await server.close();
-			const path = join(store.dir, PAGE_FILE);
-			const reason =
-				outcome.kind === "stale"
-					? `${path} names ${outcome.pointer.seat.label} on :${outcome.pointer.port}, and nothing answers — remove it to serve this board`
-					: outcome.kind === "busy"
-						? `${path} kept changing hands — run /board again`
-						: `${path} is there and cannot be read — remove it to serve this board`;
-			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
-			return { kind: "failed", reason };
-		}
-		sessionPort = server.port;
-		running = { server, store, token };
-		setChip(ctx, server.port);
-		open(server.url);
-		return describe(running);
 	};
 
-	/** The idle grace closes the page and says so, once. */
-	const stopIdle = async (ctx: ExtensionContext): Promise<void> => {
-		if (await stop(ctx)) ctx.ui.notify("board: stopped — the last page was closed", "info");
+	/** The idle grace closes the page and says which grace it was, once. */
+	const stopIdle = async (ctx: ExtensionContext, reason: IdleReason): Promise<void> => {
+		if (!(await stop(ctx))) return;
+		ctx.ui.notify(
+			reason === "first"
+				? "board: stopped — no tab ever opened; /board starts it again"
+				: "board: stopped — the last page was closed",
+			"info",
+		);
 	};
 
 	const describe = (state: { server: BoardServer; store: BoardStore }): PageStart => ({
@@ -241,9 +295,16 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		where: state.store.where(),
 	});
 
-	/** What `/board status` answers, wherever the page is: served here, watched, or absent. */
-	const statusOf = (): BoardPageStatus => {
-		if (running) {
+	/**
+	 * What `/board status` answers, wherever the page is: served here, watched, watched and
+	 * dead, or absent.
+	 *
+	 * A watched page is probed, because the note saying it exists is not the same thing as
+	 * it answering: after the lead's session ends, its note stays and the reader would
+	 * otherwise be told about a port nobody holds.
+	 */
+	const statusOf = async (): Promise<BoardPageStatus> => {
+		if (running !== undefined) {
 			return {
 				running: true,
 				seat: seat.label,
@@ -253,27 +314,42 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				watchers: running.server.watchers(),
 			};
 		}
-		if (attachedTo !== undefined) {
-			return {
-				running: false,
-				attached: true,
-				seat: attachedTo.seat.label,
-				port: attachedTo.port,
-				url: urlOf(attachedTo),
-			};
-		}
-		return { running: false };
+		if (attachedTo === undefined) return { running: false };
+		const answers = await probePage(attachedTo, deps.probe);
+		return {
+			running: false,
+			attached: true,
+			...(answers ? {} : { stale: true }),
+			seat: attachedTo.seat.label,
+			port: attachedTo.port,
+			url: urlOf(attachedTo),
+		};
+	};
+
+	/**
+	 * Drop the note of a page that has stopped answering.
+	 *
+	 * Only a note this session watched, and only while it answers nobody: a page that came
+	 * back between the status line and this call keeps its note, and `clearPointer`'s token
+	 * check makes that true even if a new page wrote one in between.
+	 */
+	const dropStale = async (ctx: ExtensionContext): Promise<boolean> => {
+		const pointer = attachedTo;
+		if (pointer === undefined) return false;
+		if (await probePage(pointer, deps.probe)) return false;
+		const store = await storeOf(ctx);
+		if (!(await clearPointer(store.dir, pointer.token))) return false;
+		attachedTo = undefined;
+		return true;
 	};
 
 	return {
 		start,
 		stop,
 		status: statusOf,
+		dropStale,
 		closeAll: async () => {
-			if (!running) return;
-			const { server } = running;
-			running = undefined;
-			await server.close();
+			await closeRunning();
 		},
 	};
 }

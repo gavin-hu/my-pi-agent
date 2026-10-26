@@ -27,8 +27,14 @@ import { abortableSleep } from "../timer.ts";
 /** The file, beside the board's `cards/` directory. */
 export const PAGE_FILE = "page.json";
 
-/** How long a probe waits before it calls the page gone. */
-export const PROBE_MS = 600;
+/**
+ * How long a probe waits before it calls the page gone.
+ *
+ * Long enough for a page that is busy answering a browser: the probe shares the event
+ * loop with the snapshot route, and a page declared dead while it is merely slow is taken
+ * over — two servers, one note.
+ */
+export const PROBE_MS = 1_500;
 
 /** The port, the seat, and the credential the page reads by. */
 export interface PagePointer {
@@ -42,7 +48,7 @@ export interface PagePointer {
 }
 
 /** The fetch a probe uses: the global one in production, a stub in a test. */
-export type ProbeFetch = (url: string, init: { signal: AbortSignal }) => Promise<{ ok: boolean }>;
+export type ProbeFetch = (url: string, init: { signal: AbortSignal }) => Promise<{ ok: boolean; status?: number }>;
 
 /** The URL for this page, wherever it is opened from. */
 export function urlOf(pointer: PagePointer): string {
@@ -250,20 +256,32 @@ async function answerOrWait(pointer: PagePointer, probe?: ProbeFetch): Promise<b
 /**
  * Whether the page a pointer names is answering.
  *
- * A page that answers with anything but a 200 to the snapshot request is not one to
- * attach to: a port reused by another program, a server shutting down, and a page that
- * refuses the token all read the same, and all mean "serve your own".
+ * The question goes to the cheap liveness route, not to the snapshot: a probe runs while
+ * another session may be serving a browser, and asking for the snapshot would make a busy
+ * page look like a dead one — the very race that costs a takeover and leaves two servers.
+ * A page from a build without that route answers 404 there and is asked for its snapshot
+ * once, so an upgrade mid-session attaches instead of stealing the seat.
+ *
+ * A page that answers with anything but a 200 is not one to attach to: a port reused by
+ * another program, a server shutting down, and a page that refuses the token all read the
+ * same, and all mean "serve your own".
  */
 export async function probePage(
 	pointer: PagePointer,
 	fetchLike: ProbeFetch = (url, init) => fetch(url, init),
 	timeoutMs: number = PROBE_MS,
 ): Promise<boolean> {
-	try {
-		const response = await fetchLike(`http://127.0.0.1:${pointer.port}/api/board?token=${pointer.token}`, {
+	const ask = (path: string): Promise<{ ok: boolean; status?: number }> =>
+		fetchLike(`http://127.0.0.1:${pointer.port}${path}?token=${pointer.token}`, {
 			signal: AbortSignal.timeout(timeoutMs),
 		});
-		return response.ok;
+	try {
+		const ping = await ask("/api/ping");
+		if (ping.ok) return true;
+		// A page this build started always answers the ping; a 404 is one started by an
+		// older build, whose only liveness answer is its snapshot.
+		if (ping.status !== 404) return false;
+		return (await ask("/api/board")).ok;
 	} catch {
 		return false;
 	}

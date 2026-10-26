@@ -44,9 +44,13 @@ function fakePage(): { page: BoardPage; calls: string[] } {
 			isRunning = false;
 			return was;
 		},
-		status: () => {
+		status: async () => {
 			calls.push("status");
 			return isRunning ? running : { running: false };
+		},
+		dropStale: async () => {
+			calls.push("dropStale");
+			return false;
 		},
 		closeAll: async () => {
 			calls.push("closeAll");
@@ -66,8 +70,34 @@ function attachedPage(): BoardPage {
 			where: "~/.pi/agent/board/k",
 		}),
 		stop: async () => false,
-		status: () => ({ running: false, attached: true, seat: "team-lead", port: 4812 }),
+		status: async () => ({ running: false, attached: true, seat: "team-lead", port: 4812 }),
+		dropStale: async () => false,
 		closeAll: async () => {},
+	};
+}
+
+/** A page this session watched, whose note now answers nobody. */
+function stalePage(dropped = true): { page: BoardPage; calls: string[] } {
+	const calls: string[] = [];
+	return {
+		calls,
+		page: {
+			start: async () => ({ kind: "failed", reason: "not started" }),
+			stop: async () => false,
+			status: async () => ({
+				running: false,
+				attached: true,
+				stale: true,
+				seat: "team-lead",
+				port: 4812,
+				url: "http://127.0.0.1:4812/?token=dead",
+			}),
+			dropStale: async () => {
+				calls.push("dropStale");
+				return dropped;
+			},
+			closeAll: async () => {},
+		},
 	};
 }
 
@@ -109,7 +139,7 @@ describe("/board", () => {
 		// Opening the page is the lead's one action: the seat is the label it lands on.
 		expect(labels).toEqual(["team-lead"]);
 		expect(notifications.at(-1)).toBe(
-			"board: team-lead serving ~/.pi/agent/board/k on :4812 · on the team as team-lead, listening",
+			"board: team-lead serving ~/.pi/agent/board/k on :4812 · open http://127.0.0.1:4812/?token=abc · on the team as team-lead, listening",
 		);
 	});
 
@@ -122,7 +152,7 @@ describe("/board", () => {
 		const { notifications } = await run("", attachedPage(), team);
 		expect(labels).toEqual([undefined]);
 		expect(notifications.at(-1)).toBe(
-			"board: team-lead is serving this repository on :4812 — viewing · on the team as billing-lead, listening",
+			"board: team-lead is serving this repository on :4812 — viewing · open http://127.0.0.1:4812/?token=view · on the team as billing-lead, listening",
 		);
 	});
 
@@ -167,8 +197,31 @@ describe("/board", () => {
 	test("tells a viewer whose page it is, and that it is on the team", async () => {
 		const { notifications } = await run("", attachedPage(), fakeTeam().team);
 		expect(notifications.at(-1)).toContain(
-			"board: team-lead is serving this repository on :4812 — viewing · on the team",
+			"board: team-lead is serving this repository on :4812 — viewing · open http://127.0.0.1:4812/?token=view · on the team",
 		);
+	});
+
+	test("names a watched note that answers nobody, and drops it on stop", async () => {
+		const stale = stalePage();
+		const status = await run("status", stale.page);
+		expect(status.notifications.at(-1)).toBe(
+			"board: watching team-lead on :4812 — that note answers nobody; /board stop drops it",
+		);
+
+		const stopped = await run("stop", stale.page);
+		expect(stale.calls).toEqual(["dropStale"]);
+		expect(stopped.notifications.at(-1)).toBe("board: dropped team-lead's note for :4812 — it answered nobody");
+	});
+
+	test("keeps the note of a page that came back before stop", async () => {
+		const stale = stalePage(false);
+		const { notifications } = await run("stop", stale.page);
+		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead is answering on :4812");
+	});
+
+	test("prints the address, so a page can be opened by hand", async () => {
+		const started = await run("");
+		expect(started.notifications.at(-1)).toContain("open http://127.0.0.1:4812/?token=abc");
 	});
 
 	test("stops a running page, and says when there was none", async () => {
@@ -207,7 +260,8 @@ function page(): BoardPage {
 	return {
 		start: async () => ({ kind: "failed", reason: "not started" }),
 		stop: async () => false,
-		status: () => ({ running: false }),
+		status: async () => ({ running: false }),
+		dropStale: async () => false,
 		closeAll: async () => {},
 	};
 }

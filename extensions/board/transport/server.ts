@@ -16,6 +16,7 @@ import {
 	serveLoopback,
 	tokenMatches,
 } from "../../../lib/http/index.ts";
+import type { IdleReason } from "../../../lib/http/sink.ts";
 import { defaultInterval, type RepeatTimer } from "../../../lib/timer.ts";
 import type { BoardView } from "../../../lib/board/view.ts";
 import type { PageView } from "../view/page.ts";
@@ -36,10 +37,12 @@ export interface BoardServerOptions {
 	page: (view: PageView) => Promise<string>;
 	script: string;
 	view: () => Promise<BoardView>;
-	/** Called when the last tab has been gone for the grace period. */
-	onIdle?: () => void;
+	/** Called when the page went idle: no tab ever opened, or the last one left. */
+	onIdle?: (reason: IdleReason) => void;
 	/** Grace after the last stream leaves; 0 or absent waits for `close()`. */
 	idleMs?: number;
+	/** Grace for a page no tab ever attached to; absent leaves the server open. */
+	firstIdleMs?: number;
 	/** The interval seam, so a test drives the ticker instead of waiting. */
 	interval?: RepeatTimer;
 }
@@ -86,7 +89,13 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 		maxBodyBytes: MAX_BODY_BYTES,
 		...(options.idleMs === undefined || options.onIdle === undefined
 			? {}
-			: { idle: { ms: options.idleMs, onIdle: options.onIdle } }),
+			: {
+					idle: {
+						ms: options.idleMs,
+						...(options.firstIdleMs === undefined ? {} : { firstMs: options.firstIdleMs }),
+						onIdle: options.onIdle,
+					},
+				}),
 		async handler(request) {
 			const result = await handleBoardRequest(ctx, request.method, request.url, request.headers);
 			if (!result.stream) return { result };

@@ -49,6 +49,9 @@ export interface BoardRouterContext {
 	view: () => Promise<BoardView>;
 }
 
+/** The cheap liveness route: a probe reads this, and never the snapshot. */
+export const PING_PATH = "/api/ping";
+
 /**
  * Handle one request. `method`, `rawUrl`, and `headers` are the raw HTTP values.
  */
@@ -70,6 +73,10 @@ export async function handleBoardRequest(
 
 	if (!ctx.read(search.get("token"))) return jsonError(403, "Invalid or missing token.");
 
+	// The liveness answer, and nothing else: a session deciding whether this page is alive
+	// must not pay for the snapshot, which is a store read and a roster read on the same
+	// event loop the probe is racing.
+	if (pathname === PING_PATH) return jsonResponse(200, { ok: true });
 	if (pathname === "/api/board") return jsonResponse(200, await ctx.view());
 	if (pathname === "/" || pathname === "/index.html") {
 		return { status: 200, headers: pageHeaders(), body: await ctx.page(viewOf(search.get("view"))) };

@@ -8,8 +8,8 @@
  * know — nobody has touched it in half an hour — not that its owner's process is
  * gone.
  *
- * The groups overlap on purpose. A `doing` card with no plan and no touch for an
- * hour is both `unplanned` and `idle`, and hiding it in one of the two would lose
+ * The groups overlap on purpose. A `doing` card with no plan and no touch for half
+ * an hour is both `unplanned` and `idle`, and hiding it in one of the two would lose
  * half the reason a lead should look at it.
  *
  * Pure: no I/O and no clock of its own.

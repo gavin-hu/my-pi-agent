@@ -43,7 +43,8 @@ function stubPage(calls: string[]): BoardPage {
 			calls.push("stop");
 			return true;
 		},
-		status: () => ({ running: false }),
+		status: async () => ({ running: false }),
+		dropStale: async () => false,
 		closeAll: async () => {
 			calls.push("closeAll");
 		},

@@ -214,6 +214,22 @@ describe("serveLoopback", () => {
 		expect(idled).toBe(1);
 	});
 
+	test("closes a server no tab ever opened, on the first grace", async () => {
+		const timer = graceTimer();
+		const reasons: string[] = [];
+		await start({
+			ports: [0],
+			// The no-tab grace is short in the test and two minutes in the board; the path is
+			// the same one a browser that never came up takes.
+			idle: { ms: 10, firstMs: 5, onIdle: (reason) => reasons.push(reason) },
+			timer: timer.timer,
+			handler: async () => ({ result: textResponse(200, "ok") }),
+		});
+		expect(timer.armed).toBe(1);
+		timer.fire();
+		expect(reasons).toEqual(["first"]);
+	});
+
 	test("ends an open sink when the server closes", async () => {
 		let detached = 0;
 		const server = await serveLoopback({

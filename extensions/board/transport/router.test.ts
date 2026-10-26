@@ -120,6 +120,24 @@ describe("the document and the static routes", () => {
 	});
 });
 
+describe("the liveness route", () => {
+	test("answers without reading the snapshot", async () => {
+		const { ctx } = context();
+		let views = 0;
+		const counted: BoardRouterContext = { ...ctx, view: async () => (views++, view()) };
+		const response = await handleBoardRequest(counted, "GET", url("/api/ping"), SAME_ORIGIN);
+		expect(response.status).toBe(200);
+		expect(response.body).toContain('"ok":true');
+		// The point of the route: a probe must not wait behind a store read.
+		expect(views).toBe(0);
+	});
+
+	test("is behind the same token as every other read", async () => {
+		const { ctx } = context();
+		expect((await handleBoardRequest(ctx, "GET", "/api/ping", SAME_ORIGIN)).status).toBe(403);
+	});
+});
+
 describe("the token", () => {
 	test("is required for the page, the snapshot, and the stream", async () => {
 		const { ctx } = context();

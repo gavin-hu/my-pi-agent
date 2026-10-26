@@ -9,6 +9,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { createServer, type Server } from "node:http";
 import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
@@ -16,7 +17,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/board/page-pointer.ts";
-import { createBoardPage, IDLE_STOP_MS, type PageStart } from "./page.ts";
+import { createBoardPage, IDLE_FIRST_MS, IDLE_STOP_MS, type PageStart } from "./page.ts";
 import type { BoardConfig } from "./config.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 
@@ -37,6 +38,7 @@ function harness(
 		probe?: ProbeFetch;
 		sessionName?: string;
 		config?: (cwd: string) => BoardConfig;
+		firstIdleMs?: number;
 	} = {},
 ) {
 	const { config = () => ({ port: 0 }), ...boardOptions } = options;
@@ -46,6 +48,7 @@ function harness(
 		pickPort: () => 0,
 		open: (url) => opened.push(url),
 		idleMs: 40,
+		...(options.firstIdleMs === undefined ? {} : { firstIdleMs: options.firstIdleMs }),
 		// The default section, stated rather than read: an ambient global document must
 		// not decide which port a case serves on.
 		config,
@@ -183,12 +186,18 @@ describe("start", () => {
 		expect(ctx.statuses.has("board")).toBe(false);
 	});
 
-	test("a second start reuses the running page", async () => {
+	test("a second start reuses the running page and summons it again", async () => {
 		const { page, ctx, opened } = harness();
 		const first = served(await page.start(ctx));
 		const second = served(await page.start(ctx));
 		expect(second.port).toBe(first.port);
-		expect(opened).toHaveLength(1);
+		// The page is one; the command is how it is shown, so a closed tab is one `/board`
+		// away from being open again.
+		expect(opened).toEqual([
+			`http://127.0.0.1:${first.port}/?token=${new URL(first.url).searchParams.get("token")}`,
+			opened[1],
+		]);
+		expect(opened).toHaveLength(2);
 		await page.stop(ctx);
 	});
 
@@ -198,7 +207,7 @@ describe("start", () => {
 		await page.start(ctx);
 		expect(await page.stop(ctx)).toBe(true);
 		expect(await page.stop(ctx)).toBe(false);
-		expect(page.status().running).toBe(false);
+		expect((await page.status()).running).toBe(false);
 	});
 });
 
@@ -222,7 +231,7 @@ describe("a pinned port", () => {
 		expect(said).toContain("bytefly.json board section");
 		// No fallback and no note: a page that never bound must not leave one to probe.
 		expect(await noteOf(runtime, cwd)).toBeUndefined();
-		expect(page.status()).toEqual({ running: false });
+		expect(await page.status()).toEqual({ running: false });
 	});
 });
 
@@ -243,7 +252,7 @@ describe("the page this repository already serves", () => {
 		expect(peer.opened[0]).toBe(`http://127.0.0.1:${servedFirst.port}/?token=${note?.token}`);
 		// An attached session serves nothing: nothing to stop, and status says whose page it is.
 		expect(await peer.page.stop(peer.ctx)).toBe(false);
-		expect(peer.page.status()).toMatchObject({ running: false, attached: true, seat: "team-lead" });
+		expect(await peer.page.status()).toMatchObject({ running: false, attached: true, seat: "team-lead" });
 		await lead.page.stop(lead.ctx);
 	});
 
@@ -301,7 +310,7 @@ describe("the page this repository already serves", () => {
 		expect(said).not.toContain("did not start");
 		// And the note is this session's now, so the repository keeps a page.
 		expect((await noteOf(dead.runtime, cwd))?.token).not.toBe(stale.token);
-		expect(dead.page.status()).toMatchObject({ running: true, port: status.port });
+		expect(await dead.page.status()).toMatchObject({ running: true, port: status.port });
 		await dead.page.stop(dead.ctx);
 	});
 
@@ -348,7 +357,7 @@ describe("the page this repository already serves", () => {
 		expect(said).toContain(join(store.dir, PAGE_FILE));
 		expect(said).toContain("remove it to serve this board");
 		expect(said).not.toContain("another session is serving");
-		expect(blocked.page.status().running).toBe(false);
+		expect((await blocked.page.status()).running).toBe(false);
 	});
 
 	test("the note leaves with the page, and only for its own page", async () => {
@@ -360,10 +369,69 @@ describe("the page this repository already serves", () => {
 		expect(PAGE_FILE).toBe("page.json");
 	});
 
+	test("attaches on the cheap liveness answer, not on the snapshot being free", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const lead = harness({ cwd, agentDir });
+		const first = served(await lead.page.start(lead.ctx));
+		// A peer whose probe only ever gets the ping through — which is what a page busy
+		// answering its own browser looks like when the question is the snapshot.
+		const asked: string[] = [];
+		const peer = harness({
+			cwd,
+			agentDir,
+			probe: async (target) => {
+				asked.push(new URL(target).pathname);
+				return { ok: true };
+			},
+		});
+		const joined = attached(await peer.page.start(peer.ctx));
+		expect(joined.port).toBe(first.port);
+		expect(asked).toContain("/api/ping");
+		expect(asked).not.toContain("/api/board");
+		await lead.page.stop(lead.ctx);
+	});
+
+	test("names a watched note that answers nobody, and drops it when asked", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const lead = harness({ cwd, agentDir });
+		const first = served(await lead.page.start(lead.ctx));
+		let answering = true;
+		const viewer = harness({ cwd, agentDir, probe: async () => ({ ok: answering }) });
+		attached(await viewer.page.start(viewer.ctx));
+		expect(await viewer.page.status()).toMatchObject({ attached: true, port: first.port });
+
+		// The lead's session ends: the note stays, the page does not.
+		answering = false;
+		const stale = await viewer.page.status();
+		expect(stale).toMatchObject({ running: false, attached: true, stale: true, seat: "team-lead", port: first.port });
+
+		// Dropping it is a token-safe clear: the note in this repository is the dead one.
+		expect(await viewer.page.dropStale(viewer.ctx)).toBe(true);
+		expect(await noteOf(viewer.runtime, cwd)).toBeUndefined();
+		expect(await viewer.page.status()).toEqual({ running: false });
+		await lead.page.stop(lead.ctx);
+	});
+
+	test("leaves a note that answers to its owner", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const lead = harness({ cwd, agentDir });
+		const first = served(await lead.page.start(lead.ctx));
+		const viewer = harness({ cwd, agentDir });
+		attached(await viewer.page.start(viewer.ctx));
+
+		// The lead is alive: stop is still the owner's decision, and no note is dropped.
+		expect(await viewer.page.dropStale(viewer.ctx)).toBe(false);
+		expect((await noteOf(viewer.runtime, cwd))?.port).toBe(first.port);
+		await lead.page.stop(lead.ctx);
+	});
+
 	test("status reports the seat and the tabs watching it", async () => {
 		const { page, ctx } = harness();
 		const status = served(await page.start(ctx));
-		expect(page.status()).toMatchObject({ running: true, seat: "team-lead", port: status.port, watchers: 0 });
+		expect(await page.status()).toMatchObject({ running: true, seat: "team-lead", port: status.port, watchers: 0 });
 		await page.stop(ctx);
 	});
 });
@@ -379,13 +447,52 @@ describe("the idle grace", () => {
 		expect(stream.status).toBe(200);
 		// The page has a reader; the grace must not be armed yet.
 		await settle(150);
-		expect(page.status().running).toBe(true);
+		expect((await page.status()).running).toBe(true);
 		await stream.body?.cancel();
 		// The stop and the notice are two steps of one idle callback, so the notice is
 		// what proves both: `stop` clears the state before it reports.
 		await waitFor(() => notifications.length > 0);
-		expect(page.status().running).toBe(false);
+		expect((await page.status()).running).toBe(false);
 		expect(notifications).toContain("board: stopped — the last page was closed");
+	});
+});
+
+describe("a start that cannot write the board", () => {
+	test("fails with a reason, and leaves no listener or note behind", async () => {
+		const board = boardHarness({ now: NOW, track: temps.track });
+		const store = await board.runtime.store(board.cwd);
+		// A file where the board's directory has to be: `ensure` fails before a port is
+		// bound, and the same `catch` covers a seat write that fails after it.
+		mkdirSync(dirname(store.dir), { recursive: true });
+		writeFileSync(store.dir, "");
+		const page = createBoardPage(board.runtime, {
+			pickPort: () => 0,
+			open: () => {},
+			idleMs: 40,
+			config: () => ({ port: 0 }),
+		});
+
+		const start = await page.start(board.ctx);
+		expect(start.kind).toBe("failed");
+		expect(board.notifications.join("\n")).toContain("board: the page did not start");
+		expect((await page.status()).running).toBe(false);
+		expect(await readPointer(store.dir)).toBeUndefined();
+	});
+});
+
+describe("a page no tab ever opened", () => {
+	test("closes on its first grace, and says which grace it was", async () => {
+		const { page, ctx, notifications, cwd, runtime } = harness({ firstIdleMs: 20 });
+		const status = served(await page.start(ctx));
+		// Two minutes in the product, twenty milliseconds here: the same path.
+		expect(IDLE_FIRST_MS).toBe(120_000);
+		// The browser never came up: no stream is opened against this page at all.
+		await waitFor(() => notifications.length > 0);
+		expect((await page.status()).running).toBe(false);
+		expect(notifications).toContain("board: stopped — no tab ever opened; /board starts it again");
+		// And nothing is left behind for the next session to probe.
+		expect(await noteOf(runtime, cwd)).toBeUndefined();
+		await expect(fetch(status.url ?? "")).rejects.toBeDefined();
 	});
 });
 
@@ -394,7 +501,7 @@ describe("closeAll", () => {
 		const { page, ctx } = harness();
 		const status = served(await page.start(ctx));
 		await page.closeAll();
-		expect(page.status().running).toBe(false);
+		expect((await page.status()).running).toBe(false);
 		await expect(fetch(status.url ?? "")).rejects.toBeDefined();
 	});
 });
