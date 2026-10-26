@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-26
+
 ### Added
 
 - `board`: a finished card can leave the board without being destroyed. It had two exits:
@@ -120,6 +122,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   row carrying the lane and how long it has held it. A card written before the log, or
   one whose entry has dropped off the front, omits the row instead of guessing; the log
   keeps the last eight, counted the way the notes are.
+
+- `plan`: a comment a refinement carried onto another block says so. `carryFeedback` has
+  four fallbacks after the anchored text itself — wording overlap, the gap a deleted step
+  left, the section's end, the plan's last block — and the page drew the thread under
+  whatever block it landed on with no sign that it moved, so a reviewer could read her own
+  note attached to unrelated text and never learn it was a guess. Such a marker is now
+  `> [!REVIEW moved]`, the card carries a `moved` chip whose tooltip says the block changed
+  and the note was placed here, the flag survives a reload, a hand-off, and a save by its
+  own author, and a later carry that finds the text again clears it.
 
 ### Changed
 
@@ -292,6 +303,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the focused row's block says `Saved · reload to apply`. The only way to apply a switch
   or a setting was to close the screen and accept the reload offer.
 
+- `board`: the page reads at the size a board actually reaches. `done` starts folded past
+  six cards, with its count in the lane head, and a reader's toggle decides from then on;
+  a lane holding no cards narrows to its head, its word, and its count, so the three lanes
+  carrying work keep the width; and a card face offers one verb — `Claim`, or `Move` for
+  work in flight — because its title already opens the dialog that holds the note field
+  and the move controls. On a 26-card board that is 26 buttons instead of 59.
+
 ### Removed
 
 - `board`: the page no longer changes a card. `/board` serves a live view of the board and
@@ -342,37 +360,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   word about the rest; the text now appends `· #3 was not archived (…)`, and the details
   carry `failed`.
 
-## [0.19.0] - 2026-10-25
+- `Tooling`: a captured frame is the same frame in every terminal and at every moment, so the
+  guard that holds `assets/screens/` to it can run on a runner. Two things broke that: the
+  fingerprint hashed the frame's escape codes, which Pi's theme layer picks from `TERM`, so
+  the Mac that captured a picture could never hand its hash to macOS, Linux, and Windows CI —
+  it records the frame's text now; and a capture drew the frame, re-rendered it to record the
+  fingerprint, and a test rendered it a third time, so a screen printing a live age (`/watch`'s
+  `720s`) said three different things. `frameLines` draws every one of those moments against
+  the clock the fixtures were built with.
 
-- `board`: `card` names a field of `list`, and the parameters say so. The `card` description
-  promised it was "used by every action but `list`/`add`" — stale the moment `list` grew a
-  single-card read — so a model reading the tool built `action: "card"` and got
-  `must be equal to constant`, once per verb, with nothing naming the mistake. `list`'s
-  sentence now says `card` reads that one card instead of the board, and the action's own
-  description says where the field belongs. The refusal itself still enumerates the verbs.
-
-- `plan`: approving a plan that was approved before replaces the todo items the earlier
-  approval seeded. Nothing re-seeded a refined plan — `write_plan` needs plan mode, so a
-  second round is the way back — and the merge matched by text, so a renamed step added a
-  second item and left the first behind; the approval now records what it seeded and the
-  next one removes its own untouched leftovers, keeping and naming any item somebody had
-  started or finished. `write_plan` says the list is stale when it refines an approved plan.
-- `plan`: a comment a refinement carried onto another block says so. `carryFeedback` has
-  four fallbacks after the anchored text itself — wording overlap, the gap a deleted step
-  left, the section's end, the plan's last block — and the page drew the thread under
-  whatever block it landed on with no sign that it moved, so a reviewer could read her own
-  note attached to unrelated text and never learn it was a guess. Such a marker is now
-  `> [!REVIEW moved]`, the card carries a `moved` chip whose tooltip says the block changed
-  and the note was placed here, the flag survives a reload, a hand-off, and a save by its
-  own author, and a later carry that finds the text again clears it.
-
-- `session-bus`: the refusal for a label another session holds names the session that
-  holds it, which is what the docs and two shipped changelog entries have promised since
-  the join and `session({action:"name"})` landed. `takenLabels` returned a set of lowercase
-  labels, so the holder was never in scope and the sentence stopped at
-  `the label "billing-core" is already in use.` — a label the caller can see for itself.
-  It now keeps the record and answers `… is already in use by session s2.` The other half
-  of the promise already held: a refusal leaves both names and the watch alone.
+- `board`: a call carrying a field its action does not act on is refused, naming the action
+  that takes it, instead of being ignored. The parameters are one flat object, so `add`
+  published `dependsOn` and then dropped it: the card was created without the link and the
+  caller was told it worked. `add dependsOn ["4"]` now answers `add does not act on
+  dependsOn: \`edit\` takes it.` — and the same check covers the rest of the family,
+  `list` with `text` or `note` with `priority`. Every published field is held to an action
+  that acts on it, so the next one cannot be added without an owner.
 
 - `team`: a call carrying a field its action does not act on is refused, naming the action
   that takes it, instead of being ignored. `to` was the one that mattered: an `offer` that
@@ -383,13 +386,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   — one body, shared with `board`'s guard — and a test holds every published parameter to
   an action that acts on it.
 
-- `board`: a call carrying a field its action does not act on is refused, naming the action
-  that takes it, instead of being ignored. The parameters are one flat object, so `add`
-  published `dependsOn` and then dropped it: the card was created without the link and the
-  caller was told it worked. `add dependsOn ["4"]` now answers `add does not act on
-  dependsOn: \`edit\` takes it.` — and the same check covers the rest of the family,
-  `list` with `text` or `note` with `priority`. Every published field is held to an action
-  that acts on it, so the next one cannot be added without an owner.
+- `session-bus`: the refusal for a label another session holds names the session that
+  holds it, which is what the docs and two shipped changelog entries have promised since
+  the join and `session({action:"name"})` landed. `takenLabels` returned a set of lowercase
+  labels, so the holder was never in scope and the sentence stopped at
+  `the label "billing-core" is already in use.` — a label the caller can see for itself.
+  It now keeps the record and answers `… is already in use by session s2.` The other half
+  of the promise already held: a refusal leaves both names and the watch alone.
+
+- `plan`: approving a plan that was approved before replaces the todo items the earlier
+  approval seeded. Nothing re-seeded a refined plan — `write_plan` needs plan mode, so a
+  second round is the way back — and the merge matched by text, so a renamed step added a
+  second item and left the first behind; the approval now records what it seeded and the
+  next one removes its own untouched leftovers, keeping and naming any item somebody had
+  started or finished. `write_plan` says the list is stale when it refines an approved plan.
+
+- `board`: `card` names a field of `list`, and the parameters say so. The `card` description
+  promised it was "used by every action but `list`/`add`" — stale the moment `list` grew a
+  single-card read — so a model reading the tool built `action: "card"` and got
+  `must be equal to constant`, once per verb, with nothing naming the mistake. `list`'s
+  sentence now says `card` reads that one card instead of the board, and the action's own
+  description says where the field belongs. The refusal itself still enumerates the verbs.
+
+## [0.19.0] - 2026-10-25
+
 - `board`: two sessions starting at the same instant no longer leave one of them saying the
   page did not start, and never leave two pages serving. A note is written before its server
   can accept a connection, so the loser of that race read a note whose page was a few
@@ -397,15 +417,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   spend before the note is taken over, and a name that is momentarily free — a page between
   clearing its note and writing the next one — is chased instead of being counted as a failed
   takeover.
-
-- `Tooling`: a captured frame is the same frame in every terminal and at every moment, so the
-  guard that holds `assets/screens/` to it can run on a runner. Two things broke that: the
-  fingerprint hashed the frame's escape codes, which Pi's theme layer picks from `TERM`, so
-  the Mac that captured a picture could never hand its hash to macOS, Linux, and Windows CI —
-  it records the frame's text now; and a capture drew the frame, re-rendered it to record the
-  fingerprint, and a test rendered it a third time, so a screen printing a live age (`/watch`'s
-  `720s`) said three different things. `frameLines` draws every one of those moments against
-  the clock the fixtures were built with.
 
 ### Added
 
@@ -661,12 +672,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `board`: the page reads at the size a board actually reaches. `done` starts folded past
-  six cards, with its count in the lane head, and a reader's toggle decides from then on;
-  a lane holding no cards narrows to its head, its word, and its count, so the three lanes
-  carrying work keep the width; and a card face offers one verb — `Claim`, or `Move` for
-  work in flight — because its title already opens the dialog that holds the note field
-  and the move controls. On a 26-card board that is 26 buttons instead of 59.
 - `team`: the tool's description says what is true of each action — `reclaim` writes the
   card alone and sends nothing, so it needs no bus — instead of tying all three to the
   team, which sent a model looking for a transport `reclaim` never touches.
@@ -4224,7 +4229,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.20.0
 [0.19.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.19.0
 [0.18.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.18.0
 [0.17.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.17.0

@@ -66,7 +66,7 @@ package outside your source tree.
    teammates:
 
    ```bash
-   pi install git:github.com/gavin-hu/my-pi-agent@v0.19.0
+   pi install git:github.com/gavin-hu/my-pi-agent@v0.20.0
    ```
 
    npm versions and git tags name the same release. The pin above matches the
