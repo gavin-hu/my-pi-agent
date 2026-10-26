@@ -21,6 +21,7 @@ import { VARIANT_FIXTURES } from "./variants.ts";
 import { WEB_FIXTURES } from "./web.ts";
 import { WORKTREE_FIXTURES } from "./worktree.ts";
 
+export { JOB_RECORDS } from "./jobs.ts";
 export type { FixtureResult, ToolFixture } from "./types.ts";
 
 /** Every gallery entry, in the order the gallery and its committed PNG use. */

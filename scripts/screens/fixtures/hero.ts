@@ -10,12 +10,18 @@
 import type { Goal } from "../../../extensions/goal/types.ts";
 import type { Todo } from "../../../extensions/todo/types.ts";
 
-/** The top rail: the objective the frame is shipping. */
-export const HERO_GOAL: Goal = { objective: "Ship the board page in 0.19.0", status: "active" };
+/**
+ * The top rail: the objective the frame is working on.
+ *
+ * No version in either rail. The header prints the package's *current* version, so a rail
+ * that said `Cut 0.19.0` pending sat under a header already announcing `v0.19.0` — a
+ * contradiction in the one part of the frame a reader can check against the other part.
+ */
+export const HERO_GOAL: Goal = { objective: "Ship the board page", status: "active" };
 
 /** The bottom rail: one completed item, the current one, and what follows. */
 export const HERO_TODOS: Todo[] = [
 	{ content: "Land the board page", status: "completed" },
 	{ content: "Refresh the screenshots", status: "in_progress", activeForm: "Refreshing the screenshots" },
-	{ content: "Cut 0.19.0", status: "pending" },
+	{ content: "Write the changelog entry", status: "pending" },
 ];
