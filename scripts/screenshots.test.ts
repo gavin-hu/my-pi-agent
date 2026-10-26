@@ -76,8 +76,21 @@ describe("docs screenshots", () => {
 		// Every claim in the frame is re-derived here from the frame's own content or the
 		// shipped tables: a picture whose footer is about cost cannot print a cost the code
 		// would not, and a window cannot omit the slot a session types into.
-		const lines = SCREENS.chrome?.render(100, 34) ?? [];
-		expect(lines.length).toBe(34);
+		const size = SCREENS.chrome?.size ?? { width: 0, rows: 0 };
+		expect(size).toEqual({ width: 100, rows: 36 });
+		const lines = SCREENS.chrome?.render(size.width, size.rows) ?? [];
+		// The frame fills the window it is captured in: a shorter one leaves its spare
+		// cells at the bottom of the picture, where nothing accounts for them.
+		expect(lines.length).toBe(size.rows);
+
+		// Three blank rows sit above the Goal rail, and the row above them is the turn rule:
+		// the gap is where a short transcript leaves the window's spare rows.
+		const goal = lines.findIndex((line) => stripTerminalSequences(line).startsWith("Goal ·"));
+		expect(goal).toBeGreaterThan(3);
+		for (const row of [1, 2, 3]) {
+			expect(stripTerminalSequences(lines[goal - row] ?? "x").trim(), `row ${row} above Goal`).toBe("");
+		}
+		expect(stripTerminalSequences(lines[goal - 4] ?? "")).toContain("turn 3");
 
 		// The composer is between the rails and the footer, with no live-cursor markers left
 		// in a still.

@@ -391,9 +391,12 @@ export const SCREENS: Record<string, Screen> = {
 		title: "π - my-pi-agent · chrome",
 		// The bounds give 102x36 cells in the capture profile; the pinned size keeps a
 		// hint row from wrapping, and the two spare columns keep the footer off the
-		// window edge where the crop can shave it.
+		// window edge where the crop can shave it. The rows fill the window: a frame
+		// shorter than the window leaves its spare cells at the bottom, where nothing
+		// in the picture accounts for them, and the spare rows the frame does draw
+		// belong above the rails.
 		bounds: { left: 80, top: 80, right: 919, bottom: 744 },
-		size: { width: 100, rows: 34 },
+		size: { width: 100, rows: 36 },
 		render: (width, rows) => renderHeroFrame(width, rows),
 	},
 };
