@@ -175,7 +175,12 @@ describe("claims and labels", () => {
 		await acting(first, context("/repo/frontend", "s1", "frontend"));
 		await acting(second, context("/repo/backend", "s2", "backend"));
 		expect((await first.join({ label: "ui", listen: false })).label).toBe("ui");
-		await expect(second.join({ label: "ui", listen: false })).rejects.toThrow("already in use");
+		// The refusal names the session that holds it: the label it holds is the one asked for,
+		// so the id is the only part of "who" the caller did not already know.
+		await expect(second.join({ label: "ui", listen: false })).rejects.toThrow(
+			'the label "ui" is already in use by session s1',
+		);
+		expect((await second.status()).me.label).toBe("backend");
 		await first.stop();
 		await second.stop();
 	});

@@ -231,14 +231,16 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	}
 
 	/** The labels other live sessions hold: a crashed session's label is not taken. */
-	async function takenLabels(bus: BusStore, mine: string): Promise<Set<string>> {
+	async function takenLabels(bus: BusStore, mine: string): Promise<Map<string, SessionRecord>> {
 		const at = now();
 		const sessions = await bus.sessions();
-		return new Set(
-			sessions
-				.filter((session) => session.id !== mine && isLive(session, at))
-				.map((session) => session.label.toLowerCase()),
-		);
+		const taken = new Map<string, SessionRecord>();
+		// The record, not just the string: a refusal names the session that holds the label,
+		// which a set of lowercase labels could not do.
+		for (const session of sessions) {
+			if (session.id !== mine && isLive(session, at)) taken.set(session.label.toLowerCase(), session);
+		}
+		return taken;
 	}
 
 	/**
@@ -364,9 +366,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	async function rename(label: string): Promise<string> {
 		if (!store || !record) throw new Error("session bus is not started.");
 		const candidate = normalizeLabel(label, record.label);
-		if ((await takenLabels(store, record.id)).has(candidate.toLowerCase())) {
-			throw new Error(`the label "${candidate}" is already in use.`);
-		}
+		// The bus's own answer to "who has it": the session record, named by its id, because
+		// the label it holds is the one the caller just asked for.
+		const holder = (await takenLabels(store, record.id)).get(candidate.toLowerCase());
+		if (holder) throw new Error(`the label "${candidate}" is already in use by session ${holder.id}.`);
 		record.label = candidate;
 		record.lastSeen = now();
 		await store.writeSession(record);

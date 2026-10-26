@@ -169,6 +169,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: the refusal for a label another session holds names the session that
+  holds it, which is what the docs and two shipped changelog entries have promised since
+  the join and `session({action:"name"})` landed. `takenLabels` returned a set of lowercase
+  labels, so the holder was never in scope and the sentence stopped at
+  `the label "billing-core" is already in use.` — a label the caller can see for itself.
+  It now keeps the record and answers `… is already in use by session s2.` The other half
+  of the promise already held: a refusal leaves both names and the watch alone.
+
 - `team`: a call carrying a field its action does not act on is refused, naming the action
   that takes it, instead of being ignored. `to` was the one that mattered: an `offer` that
   named a peer broadcast to every live session while the lead believed it had named one,

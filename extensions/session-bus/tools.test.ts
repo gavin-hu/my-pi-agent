@@ -217,7 +217,7 @@ describe("session tool", () => {
 			lead.ctx,
 		);
 		expect(taken.isError).toBe(true);
-		expect(taken.content[0]?.text).toContain('the label "billing-core" is already in use');
+		expect(taken.content[0]?.text).toContain('the label "billing-core" is already in use by session s2');
 		expect(lead.pi.getSessionName()).toBe("mono");
 		await lead.bus.stop();
 		await owner.bus.stop();
