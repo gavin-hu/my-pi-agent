@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-26
+
 ### Added
 
 - `board`: a finished card can leave the board without being destroyed. It had two exits:
@@ -4224,7 +4226,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.20.0
 [0.19.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.19.0
 [0.18.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.18.0
 [0.17.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.17.0
