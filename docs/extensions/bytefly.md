@@ -97,12 +97,13 @@ One command runs the screen, prints the report, and re-checks updates:
 | `/bytefly settings` | Open the control center on Settings. Outside `tui` it prints one `Label: Value` line per setting. |
 | `/bytefly skills` | Open the control center on Skills. Outside `tui` it prints the grouped skills listing with one row per skill. |
 | `/bytefly doctor [extension] [refresh]` | Print the doctor report. Outside `tui` it prints `run_doctor`'s text for every extension, or one named extension's findings; in `tui` it mounts the same docked screen. |
+| `/bytefly prices` | Name the models this session could not price: the `price.rates` key for each, the records behind it, and where to add it. It prices the session when asked, so it answers in every mode — the footer that carries the same fact exists only in `tui`. No rate is suggested. |
 | `/bytefly update` | Re-run the package update check now, ignoring the cache window, and report what it found — the updateable packages, this package's version and release URL when known, `PI_OFFLINE`, or an unreadable list. It resolves no packages and probes no extension. |
 | `/bytefly upgrade` | Install what the check found, behind a confirmation: Pi's own package manager updates every configured package, the marker is re-read, and one line reports the result and the reload it needs. `PI_OFFLINE` and a pinned npm version skip the work. It resolves no packages and mounts no screen. |
 
 Tab completes the subcommands, extension names after `doctor`, and `refresh`;
-`/bytefly settings`, `/bytefly skills`, `/bytefly update`, and `/bytefly upgrade`
-take no name.
+`/bytefly settings`, `/bytefly skills`, `/bytefly prices`, `/bytefly update`, and
+`/bytefly upgrade` take no name.
 
 ## Behaviour by mode
 
@@ -407,14 +408,27 @@ turns it off. The check reads the total the footer already priced, and the
 footer exists only in `tui` sessions, so a print or JSON run has no budget
 alert; the footer's own numbers are visible in every interactive session.
 
-`CNY` has no fallback, so a record for a model with no `price.rates` entry
-contributes nothing to the total — with nothing on screen saying so. The footer
-counts those records on the pass it already prices, and one
-`bytefly · Records with no CNY rate` notice names the count and the two fixes:
-switch `price.currency.code` to `USD` (Pi's catalog is per model, tiers included)
-or add yuan `price.rates` entries. It fires once per session, on the run that
-settles, like the budget alert. `USD` never counts one: Pi's recorded amount
-covers every model.
+A record nothing prices contributes nothing to the total. `CNY` has no fallback at
+all; `USD` falls back to Pi's recorded amount, which is `0` for a model its catalog
+does not know either. So "unpriced" means the same thing in both modes — no
+`price.rates` key matched **and** nothing else priced it — and it is counted by
+*model*, because a count says the total is short while a key says what to do:
+
+- The footer's cost segment marks it: `¥1.23 · 2 unpriced`, dropping to the count
+  alone on a narrow bar. A session where nothing could be priced shows `2 unpriced`
+  beside no price at all, where it used to show nothing.
+- `/bytefly prices` lists them — the key, the records behind it, and the line saying
+  where the keys go. It prices the session when asked, so it works in every mode,
+  including the ones with no footer.
+- One `bytefly · Records with no rate` notice fires per session, on the run that
+  settles, naming up to three keys. The two fixes it offers are both honest: switch
+  `price.currency.code` to `USD` (Pi's catalog is per model, tiers included) or add
+  `price.rates` entries for those keys.
+
+The key is the `price.rates` vocabulary, so it is copy-pasteable: `provider/model`,
+`*` for a side the history does not name, and a model id containing a slash kept
+whole (`openrouter/anthropic/claude-fable-5`). A genuinely free model — a local one
+whose recorded cost is `0` — is listed too; adding its key costs nothing.
 
 For example, DeepSeek flash at `¥2` in and `¥8` out per million, with the
 published peak windows and `offPeakMultiplier: 0.5`, prices a 1M-in + 1M-out
@@ -1139,10 +1153,11 @@ why the line says so, and each source the manager reports is shown while it runs
   Anthropic's 2× one-hour cache write are not modelled; switch to `USD` mode
   to use Pi's recorded cost for those models.
 - **No FX conversion.** The two modes are separate methods; neither converts
-  one currency into the other. A model is priced only by the selected method. A
-  `CNY` session names the records it could not price instead of silently leaving
-  them out — switch to `USD` for Pi's per-model cost, or add yuan `price.rates`
-  entries for the models you use.
+  one currency into the other. A model is priced only by the selected method, and
+  a model neither method can price is named — by key, in the footer, in
+  `/bytefly prices`, and in one notice — instead of being quietly left out. What
+  is *not* built is a table for another provider: rates are sourced data, and
+  `price.rates` is where they go.
 - **Two built-in footer indicators cannot be reproduced.** Pi's `(auto)` marks
   that auto-compaction is on, and its `(sub)` marks a subscription-backed
   provider. Auto-compaction is session state on Pi's own session object, and
@@ -1519,7 +1534,7 @@ columns, gauge), so the look follows the active theme.
 | `footer/price/rates.ts` | Model-key matching: `createRateLookup` splits every key once, splits a key at its first slash (so an OpenRouter model id may contain one), matches exact and wildcard most-specific-first, and remembers the last record's model. |
 | `footer/price/schedule.ts` | Peak-window parsing and evaluation in a configured zone. |
 | `footer/price/price.ts` | Records → totals: rated cost in both modes, Pi's recorded cost as USD's fallback, the peak multiplier, and the count of records CNY could not rate. |
-| `footer/unpriced.ts` | The one notice a CNY session posts for records it could not price, and its OS-notification body. |
+| `footer/unpriced.ts` | The one notice a session posts for records nothing could price: the models by key, the count that the two agree on (`recordsText`), and its OS-notification body. |
 | `footer/render/format.ts` | Generic formatters (tokens, cost in the configured currency, cwd, the context role, truncation). |
 | `footer/render/status.ts` | Status-chip transforms: `compactStatus` and `dropStatusDetail`. |
 | `footer/render/segments.ts` | The segment builders: forms, weights, separators, roles. |
@@ -1550,6 +1565,7 @@ columns, gauge), so the look follows the active theme.
 | `panel/settings.ts` | The curated Settings catalogue: the twelve descriptors in screen order, snapshot views and origins, value cycling, stored-value mapping, validation, plus the per-section readers that resolve a row's leaf over the global and project documents. |
 | `panel/settings-runtime.ts` | The Settings runtime: snapshot cache, scope guards, app setters, per-leaf `bytefly.json` writes, dirty state, and change listeners. |
 | `panel/themes.ts` | Which themes the Theme row offers: the host's resolved list narrowed to the palettes under this package's `themes/`, identified by directory rather than name. |
+| `panel/prices.ts` | The `/bytefly prices` report: the unpriced models by key, the records behind each, and the one line saying where the keys go. It quotes no price — a rate is the user's to state. |
 | `panel/skills.ts` | Skill metadata through Pi's own `loadSkills`, keyed by resolved path, plus the deduplicated paths both discovery views read. |
 | `panel/tui.ts` | `PanelComponent`, the three-section dock screen: the section switch, the cursors, the toggle chain, and the two list sections through one `LIST_VIEWS` table. |
 | `panel/tui/list-view.ts` | The shared list grammar: the section headline, one resource row, and the key-hint row both sections offer. |

@@ -1,6 +1,6 @@
 import type { MarkdownTransformer, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
 import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
-import type { StatusSnapshot } from "../../../extensions/bytefly/footer/types.ts";
+import type { PricedUsage, StatusSnapshot } from "../../../extensions/bytefly/footer/types.ts";
 import bytefly from "../../../extensions/bytefly/index.ts";
 import { createFakePi, fakeTheme, type AnyHandler } from "../fakes.ts";
 
@@ -135,6 +135,16 @@ export function separatorEntry(turn: number): unknown {
 	return { type: "custom", customType: "bytefly-separator", data: { turn } };
 }
 
+/**
+ * The session totals a snapshot carries: zeroed, with what the pricer adds.
+ *
+ * A case that only cares about one number overrides it and gets the rest for free —
+ * `unpriced` and `unpricedModels` are part of the shape, not an optional extra.
+ */
+export function usageOf(overrides: Partial<PricedUsage> = {}): PricedUsage {
+	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, unpriced: 0, unpricedModels: [], ...overrides };
+}
+
 /** A snapshot with every field populated. */
 export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSnapshot {
 	return {
@@ -148,7 +158,7 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 		model: { id: "opus-4.5", provider: "anthropic", reasoning: true },
 		thinkingLevel: "high",
 		context: { tokens: 124000, contextWindow: 200000, percent: 62 },
-		usage: { input: 42000, output: 8000, cacheRead: 96000, cacheWrite: 0, cost: 0.31 },
+		usage: usageOf({ input: 42000, output: 8000, cacheRead: 96000, cost: 0.31 }),
 		currency: { code: "USD", decimals: 2 },
 		cacheHitRate: 87,
 		providerCount: 1,

@@ -18,7 +18,7 @@ import type { DelegationLedger } from "../delegation.ts";
 import { createPricer } from "../price/price.ts";
 import type { ByteflyConfig } from "../price/types.ts";
 import { zeroUsage } from "../../../../lib/usage.ts";
-import type { ContextInfo, FooterData, PricedUsage, StatusSnapshot, UsageTotals } from "../types.ts";
+import type { ContextInfo, FooterData, PricedUsage, StatusSnapshot } from "../types.ts";
 import { usageRecords } from "./entries.ts";
 
 /**
@@ -42,22 +42,10 @@ export interface SnapshotReader {
 	peek(): PricedUsage | undefined;
 }
 
-/** The five counters, without the unpriced count that only the notice reads. */
-function countsOf(priced: PricedUsage): UsageTotals {
-	return {
-		input: priced.input,
-		output: priced.output,
-		cacheRead: priced.cacheRead,
-		cacheWrite: priced.cacheWrite,
-		cost: priced.cost,
-	};
-}
-
 export function createSnapshotReader(config: ByteflyConfig, delegation: DelegationLedger): SnapshotReader {
 	const price = createPricer(config);
 	let key: string | null = null;
-	let usage: PricedUsage = { ...zeroUsage(), unpriced: 0 };
-	let usageCounts: UsageTotals = zeroUsage();
+	let usage: PricedUsage = { ...zeroUsage(), unpriced: 0, unpricedModels: [] };
 	let delegationTotals = { runs: 0, usage: zeroUsage() };
 	let cacheHitRate: number | null = null;
 	let context: ContextInfo = { tokens: null, contextWindow: 0, percent: null };
@@ -73,11 +61,13 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 			const active = current ? { provider: current.provider, model: current.id } : undefined;
 			const scanned = usageRecords(session.getEntries(), active);
 			usage = price(scanned.records);
-			usageCounts = countsOf(usage);
 			cacheHitRate = scanned.cacheHitRate;
 			// The child runs are priced by the same pricer, so a currency or rate
 			// change moves both numbers together — and neither is folded into the other.
-			delegationTotals = { runs: delegation.runs(), usage: countsOf(price(delegation.records())) };
+			// A child run's unpriced records are its own: the ledger keeps one amount per run,
+			// and nothing here reports them separately.
+			const { unpriced: _childUnpriced, unpricedModels: _childModels, ...childUsage } = price(delegation.records());
+			delegationTotals = { runs: delegation.runs(), usage: childUsage };
 
 			const usageInfo = ctx.getContextUsage();
 			context = {
@@ -105,7 +95,7 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 			model,
 			thinkingLevel: ctx.thinkingLevel ?? null,
 			context,
-			usage: usageCounts,
+			usage,
 			currency: config.currency,
 			cacheHitRate,
 			providerCount: footerData.getAvailableProviderCount(),

@@ -3486,6 +3486,40 @@ describe("bytefly panel modes", () => {
 		expect(notifications.at(-1)).toContain("→ install git");
 	});
 
+	test("names the models this session could not price", async () => {
+		const { commands } = bootPanel({});
+		// Two records for a model with no rate in the default (DeepSeek, CNY) table, and
+		// one for a model it prices: the report names the first and not the second.
+		const at = "2026-10-26T08:00:00.000Z";
+		const record = (model: string, input: number) => ({
+			type: "usage",
+			provider: "anthropic",
+			model,
+			usage: { input, output: 0, cacheRead: 0, cacheWrite: 0 },
+			timestamp: at,
+		});
+		const { ctx, notifications } = fakeCtx({
+			mode: "print",
+			entries: [record("claude-fable-5", 1_000), record("claude-fable-5", 1_000)],
+		});
+
+		await commands.get("bytefly").handler("prices", ctx);
+
+		const report = notifications.at(-1) ?? "";
+		expect(report).toContain("2 records in 1 model have no rate");
+		expect(report).toContain("anthropic/claude-fable-5 · 2 records");
+		expect(report).toContain("price.rates");
+	});
+
+	test("says so when every record was priced", async () => {
+		const { commands } = bootPanel({});
+		const { ctx, notifications } = fakeCtx({ mode: "print", entries: [] });
+
+		await commands.get("bytefly").handler("prices", ctx);
+
+		expect(notifications.at(-1)).toBe("bytefly: every record in this session has a rate — nothing to add.");
+	});
+
 	test("warns on an unknown extension name", async () => {
 		const { commands } = bootPanel({});
 		const { ctx, notifications } = fakeCtx({ mode: "print", extra: { isProjectTrusted: () => true } });

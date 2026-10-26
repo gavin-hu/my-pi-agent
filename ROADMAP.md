@@ -352,8 +352,10 @@ runs, an update check, and two themes.
   fixed 24-hour cache, and prompts only for packages Pi's manager knows about, so
   `pi -e .` and temporary checkouts are not checked; suppressing Pi's own startup
   block depends on host shims a future Pi can invalidate (`bytefly` page).
-- Only DeepSeek has a built-in rate table, there is no FX conversion, and a
-  `(auto)` or `(sub)` indicator cannot be reproduced.
+- Only DeepSeek has a built-in rate table and there is no FX conversion — a model
+  nothing can price is named with the `price.rates` key that would price it, in the
+  footer, `/bytefly prices`, and one notice — and a `(auto)` or `(sub)` indicator
+  cannot be reproduced.
 - `doctor` checks declared requirements only, and a probe proves a binary runs,
   not that it works.
 
