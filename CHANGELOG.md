@@ -92,6 +92,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   antialiasing), so the frame that was on screen is what is kept; the hero is recorded and
   required, because it is the frame the root README embeds.
 
+- `board`: a card records when it entered the lane it is in, and who moved it. Only the
+  last writer survived (`by`, `updatedAt`), so "blocked for two hours" was an inference
+  from a stamp that a note resets; every lane change now appends a transition, from the
+  one `write()` all of them already pass through, and the card dialog gains an `in lane`
+  row carrying the lane and how long it has held it. A card written before the log, or
+  one whose entry has dropped off the front, omits the row instead of guessing; the log
+  keeps the last eight, counted the way the notes are.
+
 ### Changed
 
 - `board`: a `list` call leaves the finished cards out and says how many it left, so reading

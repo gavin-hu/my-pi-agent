@@ -14,7 +14,15 @@
  */
 
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
-import { type Card, CARD_STATUSES, type CardStatus, priorityOf, type Priority, signatureOf } from "./card.ts";
+import {
+	type Card,
+	CARD_STATUSES,
+	type CardStatus,
+	laneSince,
+	priorityOf,
+	type Priority,
+	signatureOf,
+} from "./card.ts";
 import { blockersOf, indexOf, lanesText, openDependentsOf } from "./links.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
@@ -60,6 +68,15 @@ export interface ViewCard extends Card {
 	 * for the same reason a finished blocker does not count.
 	 */
 	dependents?: string;
+	/**
+	 * When the card entered the lane it is in now, or absent when its history does not say.
+	 *
+	 * A timestamp rather than a phrase: the page already formats ages, and a wording
+	 * decided here would be a second copy of that rule. Absent is the honest answer for a
+	 * card written before the log existed, so the page draws no age rather than guessing
+	 * one from `updatedAt`, which moves on every write.
+	 */
+	since?: number;
 }
 
 /** One lane and the cards in it, in the order the page draws them. */
@@ -171,11 +188,13 @@ export function buildView(input: ViewInput): BoardView {
 function viewCardOf(card: Card, index: ReadonlyMap<string, Card>): ViewCard {
 	const waits = lanesText(blockersOf(card, index));
 	const dependents = lanesText(openDependentsOf(card.id, index));
+	const since = laneSince(card);
 	return {
 		...card,
 		priority: priorityOf(card),
 		...(waits === "" ? {} : { waits }),
 		...(dependents === "" ? {} : { dependents }),
+		...(since === undefined ? {} : { since }),
 	};
 }
 

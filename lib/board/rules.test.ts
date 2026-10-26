@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card, MAX_NOTES } from "./card.ts";
+import { type Card, type CardStatus, MAX_LOG, MAX_NOTES } from "./card.ts";
 import { indexOf } from "./links.ts";
 import { type Actor, applyOp, createCard, holds, type OpResult } from "./rules.ts";
 
@@ -403,6 +403,52 @@ describe("drop", () => {
 		expect(refusal(applyOp(claimed(), { kind: "drop" }, OTHER, NOW, indexOf([claimed()])))).toBe(
 			"#4 is held by billing-core. It cannot be dropped while someone holds it.",
 		);
+	});
+});
+
+describe("the transition log", () => {
+	test("a new card is born in todo, and says so", () => {
+		const card = createCard("4", { title: "T", paths: ["src"] }, LEAD, NOW);
+		expect(card.log).toEqual([{ status: "todo", at: NOW, by: LEAD.label }]);
+		expect(card.logDropped).toBe(0);
+	});
+
+	test("a lane change appends, credited to the session that moved it", () => {
+		const created = createCard("4", { title: "T", paths: ["src"] }, LEAD, 1_000);
+		const claimedCard = accepted(applyOp(created, { kind: "claim" }, CORE, NOW, indexOf([created]))).card;
+		expect(claimedCard.log?.map((entry) => entry.status)).toEqual(["todo", "doing"]);
+		expect(claimedCard.log?.at(-1)).toEqual({ status: "doing", at: NOW, by: CORE.label });
+	});
+
+	test("a write that leaves the lane alone is not a transition", () => {
+		const base = claimed();
+		const noted = accepted(applyOp(base, { kind: "note", text: "phase one" }, CORE, NOW, indexOf([base]))).card;
+		expect(noted.log).toEqual(base.log);
+		// A claim by the holder is a no-op: nothing is written, so nothing is logged.
+		const again = accepted(applyOp(base, { kind: "claim" }, CORE, NOW, indexOf([base])));
+		expect(again.changed).toBe(false);
+		expect(again.card.log).toEqual(base.log);
+	});
+
+	test("the oldest transition drops past the cap and is counted", () => {
+		let card = createCard("4", { title: "T", paths: ["src"] }, LEAD, 0);
+		card = accepted(applyOp(card, { kind: "claim" }, CORE, 1, indexOf([card]))).card;
+		const lanes: Array<Exclude<CardStatus, "todo">> = [
+			"blocked",
+			"doing",
+			"blocked",
+			"doing",
+			"blocked",
+			"doing",
+			"blocked",
+			"doing",
+		];
+		for (const [index, status] of lanes.entries()) {
+			card = accepted(applyOp(card, { kind: "move", status }, CORE, 10 + index, indexOf([card]))).card;
+		}
+		expect(card.log).toHaveLength(MAX_LOG);
+		expect(card.logDropped).toBe(2);
+		expect(card.log?.at(-1)).toEqual({ status: "doing", at: 17, by: CORE.label });
 	});
 });
 

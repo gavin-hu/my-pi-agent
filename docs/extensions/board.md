@@ -16,7 +16,7 @@ decision.
 
 *`/board`: the four lanes, with the round one tab away and every card opened by its title.*
 
-<img src="../../assets/screens/card-dialog.png" alt="The card dialog on one doing card: the id and title with the lane as a dot and a word, a head/value ladder reading owner, updated, last edited, plan and paths, each value on one line, then a Notes section whose sentences are attributed under them" width="100%">
+<img src="../../assets/screens/card-dialog.png" alt="The card dialog on one doing card: the id and title with the lane as a dot and a word, a head/value ladder reading owner, updated, in lane, last edited, plan and paths, each value on one line, then a Notes section whose sentences are attributed under them" width="100%">
 
 *The card dialog: the record of one card — a ladder of facts, then its notes at body size
 (`screenshot:board --dialog card`).*
@@ -164,7 +164,7 @@ pinned and makes the main pane the only scroll box; the page adds no second one.
 | Lanes | trays, not a bare list: one column per lane, sized by the work it holds, so a lane showing nothing — because it holds no cards, or because it is folded — narrows to a rail of dot, word, and count, and the lanes carrying cards keep the width. Three or four across above 1180px, two at 1180px or narrower, one lane plus the lane switch at 860px or narrower — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away: `Done` starts folded at six cards or more, since finished work is history, and a reader's toggle decides from then on |
 | Cards | the id and a two-line title (the page's loudest text and its only door), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, and one reason line in one voice — what a card waits for, a blocked card's recorded reason or else its last note (or `blocked, with nothing recorded`), `no plan recorded`, `planned`, `✓ done by <owner>` with the commit it landed as, and the last note of a card that is none of those — clamped, with the whole sentence as its tooltip. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title and owner chip on the first, the reason on the second — a blocked card's recorded `blockedBy`, else its last note — with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). The row is a reason to pick the card up in the terminal, and it draws no button: claiming and reclaiming are the tools' work. An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
-| Card dialog | the record of one card, in two named sections. The head carries the id, the title, and the lane as a dot and a word. **The card** is a ladder — one fact per row, labels sized to the longest of them so the values line up: owner, priority when it is not `normal`, updated, last edited, landed, waits on, waited on by, plan, paths. The plan and each path are one line that elides, with the whole value on the hover title; what it waits for reads `#2 (doing)`, the lanes that make the id a decision. Empty rows take their labels with them. **Notes · N** is the cargo at body size on a 68ch measure, each sentence with its attribution under it and a rule between notes, and `M earlier notes dropped` when the store capped them. The body is the only scroll, so the head and `Close` stay put. Nothing in it writes, every field is a set as `textContent`, and the title underneath every card is the way in. `j`/`k` walk to the next or previous card without closing it, and an `sr-only` live region announces `card 2 of 3: <title>` — a title that changes inside an open modal is not announced on its own |
+| Card dialog | the record of one card, in two named sections. The head carries the id, the title, and the lane as a dot and a word. **The card** is a ladder — one fact per row, labels sized to the longest of them so the values line up: owner, priority when it is not `normal`, updated, in lane, last edited, landed, waits on, waited on by, plan, paths. `in lane` is the lane the card is in and how long it has held it, read from the card's transitions rather than from `updatedAt`, which a note or an edit moves; a card whose history does not say omits the row. The plan and each path are one line that elides, with the whole value on the hover title; what it waits for reads `#2 (doing)`, the lanes that make the id a decision. Empty rows take their labels with them. **Notes · N** is the cargo at body size on a 68ch measure, each sentence with its attribution under it and a rule between notes, and `M earlier notes dropped` when the store capped them. The body is the only scroll, so the head and `Close` stay put. Nothing in it writes, every field is a set as `textContent`, and the title underneath every card is the way in. `j`/`k` walk to the next or previous card without closing it, and an `sr-only` live region announces `card 2 of 3: <title>` — a title that changes inside an open modal is not announced on its own |
 
 Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
 `blocked` and destructive choices, `--success` for `done`. The Team tab's decision
@@ -255,6 +255,11 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   sends a handoff, and nothing else records an owner silently.
 - **A seat can outlive its writes.** A card claimed from the page before this change still
   names `board:team-lead` as its owner, and `reclaim` is how a lead takes it back.
+- **A lane history is short, and it starts when the field did.** A card keeps the last
+eight lane transitions, dropping the oldest and counting what it dropped, so the record
+is bounded at write time rather than by a janitor — nothing prunes a board. A card
+written before the log existed has no `in lane` row, and `updatedAt` keeps meaning what
+it always meant: when the card was last touched, which is not when it last changed lane.
 - **Nothing prunes.** A `done` card stays until someone drops it, and a dropped card
   leaves its record behind for the same reason; the page shows how many bytes the store
   occupies and how many files it could not read.
@@ -381,6 +386,13 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 - **`edit` leaves an omitted field alone.** It is the one action whose job is "make it
   say this", so an absent field must mean "not this field" — a caller that sends only a
   title must not clear the path hints and links it never mentioned.
+- **A lane change is recorded where every transition ends.** `applyOp` decides each
+  transition, but `write()` in `rules.ts` is the one place all of them pass through, so
+  the log is appended there rather than from six operations that would each have to
+  remember it. A write that leaves the lane alone — a note, a plan, an edit, a claim by
+  the holder — appends nothing, because the question the log answers is "how long has
+  this been blocked", and `updatedAt` cannot answer it: filing a note against a blocked
+  card moves that stamp without moving the card.
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), drag-and-drop (a lane change is a named `move`), a

@@ -411,6 +411,10 @@ __RUNTIME__
     if (card.priority !== "normal") priority.appendChild(chip(card.priority));
 
     setRow("updated", true, ago(card.updatedAt));
+    // How long the card has been in the lane it is in now, which updatedAt cannot say:
+    // a note filed against a blocked card moves that stamp without moving the card. Absent
+    // for a card written before the log existed, so the row takes its label with it.
+    setRow("lane", card.since !== undefined, card.status + " · " + ago(card.since));
     setRow("by", true, card.by);
     setRow("landed", card.landed !== undefined, card.landed ? card.landed.commit : "", card.landed ? card.landed.commit : undefined);
 

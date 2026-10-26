@@ -11,11 +11,14 @@ import { describe, expect, test } from "bun:test";
 import {
 	CARD_VERSION,
 	type Card,
+	type CardTransition,
 	cardRef,
 	DEFAULT_PRIORITY,
 	dependsOf,
 	isCard,
+	laneSince,
 	MAX_DEPENDS,
+	MAX_LOG,
 	MAX_NOTE,
 	MAX_NOTES,
 	MAX_PATHS,
@@ -239,11 +242,50 @@ describe("normalizeCardId", () => {
 	});
 });
 
+describe("laneSince", () => {
+	test("answers with the moment the current lane was entered", () => {
+		expect(laneSince(card({ log: [{ status: "todo", at: 4_000, by: "billing-lead" }] }))).toBe(4_000);
+		const moved = card({
+			status: "doing",
+			owner: { label: "billing-core" },
+			log: [
+				{ status: "todo", at: 1_000, by: "billing-lead" },
+				{ status: "doing", at: 2_000, by: "billing-core" },
+			],
+		});
+		expect(laneSince(moved)).toBe(2_000);
+	});
+
+	test("says nothing when the history is silent", () => {
+		// A card written before the log existed, and one whose entry for the lane it is in
+		// has dropped off the front of a full log: both are absence, not a guess from
+		// `updatedAt`, which moves on every write.
+		expect(laneSince(card())).toBeUndefined();
+		expect(laneSince(card({ status: "doing", owner: { label: "c" }, log: [] }))).toBeUndefined();
+		expect(
+			laneSince(card({ status: "doing", owner: { label: "c" }, log: [{ status: "todo", at: 1_000, by: "lead" }] })),
+		).toBeUndefined();
+	});
+});
+
 describe("isCard", () => {
 	test("accepts a card this build writes", () => {
+		expect(isCard(card({ log: [{ status: "todo", at: 1_000, by: "billing-lead" }], logDropped: 0 }))).toBe(true);
 		expect(isCard(card())).toBe(true);
 		expect(isCard(card({ status: "doing", owner: { id: "s1", label: "billing-core" } }))).toBe(true);
 		expect(isCard(card({ status: "done", owner: { label: "billing-core" }, plan: "p.md" }))).toBe(true);
+	});
+
+	test("refuses a log this build cannot trust", () => {
+		const entry: CardTransition = { status: "doing", at: 1_000, by: "billing-core" };
+		expect(isCard(card({ log: [entry] }))).toBe(true);
+		// A lane the build does not know, a moment that is not a moment, and a writer with
+		// no name are each a record this reader refuses rather than repairs.
+		expect(isCard({ ...card(), log: [{ ...entry, status: "paused" }] })).toBe(false);
+		expect(isCard({ ...card(), log: [{ ...entry, at: 1.5 }] })).toBe(false);
+		expect(isCard({ ...card(), log: [{ ...entry, by: "" }] })).toBe(false);
+		expect(isCard({ ...card(), log: Array.from({ length: MAX_LOG + 1 }, () => entry) })).toBe(false);
+		expect(isCard({ ...card(), logDropped: -1 })).toBe(false);
 	});
 
 	test("refuses another schema version", () => {

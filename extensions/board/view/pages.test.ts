@@ -109,6 +109,8 @@ describe("the document", () => {
 			"card-dialog-owner-label",
 			"card-dialog-priority",
 			"card-dialog-updated",
+			"card-dialog-lane",
+			"card-dialog-lane-label",
 			"card-dialog-by",
 			"card-dialog-landed",
 			"card-dialog-depends",

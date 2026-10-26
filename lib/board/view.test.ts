@@ -52,6 +52,30 @@ describe("buildView", () => {
 		expect(view.lanes.map((lane) => lane.cards.map((entry) => entry.id))).toEqual([["1"], ["2"], ["3"], ["4"]]);
 	});
 
+	test("gives a card the moment it entered its lane, and nothing when its history is silent", () => {
+		const view = buildView({
+			me: ME,
+			cards: [
+				card("1", { log: [{ status: "todo", at: 4_000, by: "billing-lead" }] }),
+				// A card written before the log existed.
+				card("2"),
+				// A log whose last entry is another lane cannot say when this one began.
+				card("3", {
+					status: "doing",
+					owner: { label: "billing-core" },
+					log: [{ status: "todo", at: 1_000, by: "billing-lead" }],
+				}),
+			],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		const cards = view.lanes.flatMap((lane) => lane.cards);
+		expect(cards.find((entry) => entry.id === "1")?.since).toBe(4_000);
+		expect(cards.find((entry) => entry.id === "2")).not.toHaveProperty("since");
+		expect(cards.find((entry) => entry.id === "3")).not.toHaveProperty("since");
+	});
+
 	test("gives each card the priority it acts on, ordinary unless it says otherwise", () => {
 		const view = buildView({
 			me: ME,

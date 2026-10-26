@@ -39,6 +39,16 @@ export const MAX_NOTE = 1000;
 /** How many notes one card keeps; the oldest drops past this, counted in `notesDropped`. */
 export const MAX_NOTES = 8;
 
+/**
+ * How many lane transitions one card keeps; the oldest drops past this, counted in
+ * `logDropped`.
+ *
+ * Bounded at write time rather than by a janitor, because nothing prunes a board: the
+ * log is the only record of when a lane was entered, so it has to stay small enough
+ * that every card can afford one.
+ */
+export const MAX_LOG = 8;
+
 /** How many other cards one card may wait on. */
 export const MAX_DEPENDS = 6;
 
@@ -70,6 +80,20 @@ export interface CardNote {
 	by: string;
 	at: number;
 	text: string;
+}
+
+/**
+ * One lane a card has been in, when it got there, and who moved it.
+ *
+ * `updatedAt` moves on every write, so it answers "when was this last touched", not
+ * "how long has this been blocked": a note filed against a blocked card resets it. A
+ * transition is recorded only when the lane actually changes, which is the fact the
+ * page needs and the one a reader has no way to reconstruct.
+ */
+export interface CardTransition {
+	status: CardStatus;
+	at: number;
+	by: string;
 }
 
 /**
@@ -117,6 +141,15 @@ export interface Card {
 	notes: CardNote[];
 	/** How many notes dropped off the front, so a reader knows history was elided. */
 	notesDropped: number;
+	/**
+	 * The lanes this card has been in, oldest first: the last {@link MAX_LOG} transitions.
+	 *
+	 * Absent on a card written before this field existed, which is why every reader goes
+	 * through {@link laneSince} rather than reading the list directly.
+	 */
+	log?: CardTransition[];
+	/** How many transitions dropped off the front, so a reader knows the log was elided. */
+	logDropped?: number;
 	/** Bumped per write; the compare-and-set guard a concurrent writer loses on. */
 	rev: number;
 	createdAt: number;
@@ -228,6 +261,20 @@ export function priorityOf(card: Card): Priority {
 /** A card's dependencies, with the absent field read as its meaning. */
 export function dependsOf(card: Card): readonly string[] {
 	return card.dependsOn ?? [];
+}
+
+/**
+ * When the card entered the lane it is in now, or `undefined` when its history does not
+ * say.
+ *
+ * Two ways to know nothing: a card written before the log existed, and one whose entry
+ * for the current lane has dropped off the front of a full log. Both read the same to a
+ * caller — the page draws no age — rather than a guess from `updatedAt`, which is a
+ * different fact and would be wrong exactly when a card is being worked on.
+ */
+export function laneSince(card: Card): number | undefined {
+	const last = card.log?.at(-1);
+	return last !== undefined && last.status === card.status ? last.at : undefined;
 }
 
 /** Where a card's priority sits in {@link PRIORITIES}: the lane sort's first key after the lane. */
@@ -351,6 +398,9 @@ export function isCard(value: unknown): value is Card {
 	if (!Array.isArray(card.notes) || card.notes.length > MAX_NOTES) return false;
 	if (!card.notes.every(isNote)) return false;
 	if (typeof card.notesDropped !== "number") return false;
+	if (card.log !== undefined && (!Array.isArray(card.log) || card.log.length > MAX_LOG)) return false;
+	if (Array.isArray(card.log) && !card.log.every(isTransition)) return false;
+	if (card.logDropped !== undefined && !isCount(card.logDropped)) return false;
 	if (typeof card.rev !== "number" || !Number.isInteger(card.rev) || card.rev < 1) return false;
 	if (typeof card.createdAt !== "number" || typeof card.updatedAt !== "number") return false;
 	if (typeof card.by !== "string") return false;
@@ -390,6 +440,24 @@ function isDepends(value: unknown): boolean {
 		seen.add(id);
 	}
 	return true;
+}
+
+/** A recorded lane change: a lane, a moment, and who moved it. */
+function isTransition(value: unknown): value is CardTransition {
+	if (typeof value !== "object" || value === null) return false;
+	const entry = value as Record<string, unknown>;
+	return (
+		CARD_STATUSES.includes(entry.status as CardStatus) &&
+		typeof entry.at === "number" &&
+		Number.isInteger(entry.at) &&
+		typeof entry.by === "string" &&
+		entry.by !== ""
+	);
+}
+
+/** A count a reader can trust: a whole number that never ran backwards past zero. */
+function isCount(value: unknown): value is number {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 function isNote(value: unknown): boolean {

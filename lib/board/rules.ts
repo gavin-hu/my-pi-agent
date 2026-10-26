@@ -31,6 +31,7 @@ import {
 	cardRef,
 	DEFAULT_PRIORITY,
 	dependsOf,
+	MAX_LOG,
 	MAX_NOTES,
 	normalizeBlockedBy,
 	normalizeNote,
@@ -96,6 +97,10 @@ export function createCard(
 		priority: input.priority ?? DEFAULT_PRIORITY,
 		notes: input.note === undefined ? [] : [{ by: actor.label, at: now, text: input.note }],
 		notesDropped: 0,
+		// A card is born in `todo`, and that is a transition like any other: a reader asking
+		// "how long has this been waiting" gets an answer rather than an absence.
+		log: [{ status: "todo", at: now, by: actor.label }],
+		logDropped: 0,
 		rev: 1,
 		createdAt: now,
 		updatedAt: now,
@@ -253,6 +258,16 @@ function appendNote(card: Card, actor: Actor, now: number, text: string): Pick<C
 	};
 }
 
+/** A card's log after one more transition, with the oldest dropped and counted. */
+function appendTransition(card: Card, status: CardStatus, actor: Actor, now: number): Pick<Card, "log" | "logDropped"> {
+	const log = [...(card.log ?? []), { status, at: now, by: actor.label }];
+	const overflow = Math.max(0, log.length - MAX_LOG);
+	return {
+		log: overflow === 0 ? log : log.slice(overflow),
+		logDropped: (card.logDropped ?? 0) + overflow,
+	};
+}
+
 function plan(card: Card, raw: unknown, actor: Actor, now: number): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; its plan cannot change.` };
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Only its owner records a plan.` };
@@ -329,9 +344,20 @@ function sameList(left: readonly string[], right: readonly string[]): boolean {
 	return left.length === right.length && left.every((entry, index) => entry === right[index]);
 }
 
-/** A card with `fields` applied and its write marks moved. */
+/**
+ * A card with `fields` applied and its write marks moved.
+ *
+ * This is the one place a lane change is observed, because it is the one place every
+ * transition ends: a note, a plan, or an edit writes fields and leaves the lane alone,
+ * while a claim, an assign, a release, a reclaim, and a move all name the new one. So
+ * the log is appended from here rather than from each operation, and an operation added
+ * later cannot forget it.
+ */
 function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Card {
-	const next: Card = { ...card, ...fields, rev: card.rev + 1, updatedAt: now, by: actor.label };
+	const status = fields.status;
+	const transition =
+		status !== undefined && status !== card.status ? appendTransition(card, status, actor, now) : undefined;
+	const next: Card = { ...card, ...fields, ...transition, rev: card.rev + 1, updatedAt: now, by: actor.label };
 	// `owner: undefined` must clear the field rather than store a key holding it, so a
 	// released card reads back exactly like one that was never claimed. Only an
 	// explicit `owner` in `fields` may delete it: every other write keeps the holder.

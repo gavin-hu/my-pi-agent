@@ -287,6 +287,23 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("says how long the card has been in its lane", async () => {
+		// The fixture files a note and a plan against the doing card after the claim, so
+		// `updatedAt` and the lane entry are different moments: the row that says how long
+		// the lane has held cannot be reading the last write.
+		const page = await openPage();
+		await page.click('#lane-doing .board-card__title:text-is("Billing webhook accepts orders")');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		expect(await page.textContent("#card-dialog-lane")).toMatch(/^doing · /);
+		expect(await hidden(page, "#card-dialog-lane-label")).toBe(false);
+		// A card nobody has taken says the same about the lane it was born in.
+		await page.keyboard.press("Escape");
+		await page.click('#lane-todo .board-card__title:text-is("Export orders as CSV")');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		expect(await page.textContent("#card-dialog-lane")).toMatch(/^todo · /);
+		await page.close();
+	});
+
 	test("shows a card's own cost: the cards waiting on it", async () => {
 		// A link is stored on the waiting card alone, so the blocker's dialog can only say
 		// this by being handed the answer the graph computed.
