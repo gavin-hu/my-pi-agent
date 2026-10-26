@@ -35,14 +35,24 @@ import { realPathOfNearest } from "../../lib/path.ts";
 export const ROOT_TOOL_NAMES = ["read", "write", "edit", "bash", "grep", "find", "ls"] as const;
 export type RootToolName = (typeof ROOT_TOOL_NAMES)[number];
 
-type AnyToolDef = ToolDefinition<any, any, any>;
+/**
+ * A built-in tool definition, as the seven factories return it.
+ *
+ * Pi's own three defaults, spelled out rather than left implicit: `renderCall`'s arguments
+ * are contravariant in the parameter schema and its context in the detail type, so the
+ * seven concrete definitions do not widen to one `ToolDefinition<TSchema, unknown, ...>`
+ * — and neither does the test seam that replaces them with a stub. Erasing all three is
+ * the only alias that accepts both, which is what makes this line Pi's escape hatch
+ * rather than a missing type.
+ */
+type BuiltinToolDef = ToolDefinition<any, any, any>;
 
 export interface FactoryOptions {
 	read?: { autoResizeImages?: boolean };
 	bash?: { commandPrefix?: string; shellPath?: string };
 }
 
-function createBuiltin(name: RootToolName, cwd: string, options: FactoryOptions): AnyToolDef {
+function createBuiltin(name: RootToolName, cwd: string, options: FactoryOptions): BuiltinToolDef {
 	switch (name) {
 		case "read":
 			return createReadToolDefinition(cwd, options.read);
@@ -62,7 +72,7 @@ function createBuiltin(name: RootToolName, cwd: string, options: FactoryOptions)
 }
 
 /** Host built-in factory. Injectable so tests avoid `mock.module`. */
-export type BuiltinFactory = (name: RootToolName, cwd: string, options: FactoryOptions) => AnyToolDef;
+export type BuiltinFactory = (name: RootToolName, cwd: string, options: FactoryOptions) => BuiltinToolDef;
 
 export interface RootToolDeps {
 	/** Override the host built-in factories. Tests inject a stub definition. */

@@ -15,7 +15,7 @@ import { fakeTheme } from "../../test/helpers/fakes.ts";
 import type { IsolationGap } from "./gaps.ts";
 import type { CheckoutStatus } from "./registry.ts";
 import { WorktreeListComponent, type WorktreeAction, type WorktreeScreenOptions, worktreeRows } from "./screen.ts";
-import type { ManagedRow, WorktreeSnapshot } from "./status.ts";
+import { formatWorktreeStatus, type ManagedRow, refusalMessage, statusMarks, type WorktreeSnapshot } from "./status.ts";
 import type { WorktreeState } from "./state.ts";
 
 function status(overrides: Partial<CheckoutStatus> = {}): CheckoutStatus {
@@ -113,6 +113,57 @@ describe("worktreeRows", () => {
 		const rows = worktreeRows(snapshot({ active: outside }));
 		expect(rows.map((row) => row.name)).toEqual(["checked-out-by-hand", "alpha"]);
 		expect(rows[0]).toMatchObject({ current: true, status: undefined, path: "/elsewhere/wt" });
+	});
+});
+
+describe("the two status surfaces", () => {
+	test("word a row's marks once, so `clean` means the same thing in both", () => {
+		// A clean worktree with nothing else to say read as a blank column in the text
+		// listing and as `clean` on the screen: one row, two answers.
+		const quiet = status();
+		expect(statusMarks(quiet, false)).toEqual(["clean"]);
+		expect(statusMarks(quiet, true)).toEqual(["current", "clean"]);
+		expect(formatWorktreeStatus(snapshot({ managed: [managed("alpha")] }))).toContain("[clean]");
+		const rendered = build({ managed: [managed("alpha")] })
+			.component.render(80)
+			.join("\n");
+		expect(rendered).toContain("clean");
+	});
+
+	test("say what a busy worktree is, and only that", () => {
+		const busy = statusMarks(status({ state: "dirty", changed: 2, ahead: 1, behind: 3 }), false);
+		expect(busy).toEqual(["dirty (2)", "ahead 1", "behind 3"]);
+		expect(busy).not.toContain("clean");
+	});
+});
+
+describe("refusalMessage", () => {
+	test("names what happened and what the session did about it", () => {
+		// Three refusals, three outcomes: a gone or unsafe worktree clears the binding, an
+		// unverified one keeps it so a later resume can retry, and only that one says the
+		// directory may hold work.
+		const gone = refusalMessage({ ok: false, reason: "gone", detail: "gone" }, "/repo/wt", "/repo");
+		expect(gone).toContain("no longer exists");
+		expect(gone).toContain("continues in /repo");
+		expect(gone).not.toContain("may hold work");
+
+		const unverified = refusalMessage(
+			{ ok: false, reason: "unverified", detail: "git timed out" },
+			"/repo/wt",
+			"/repo",
+		);
+		expect(unverified).toContain("git timed out");
+		expect(unverified).toContain("binding was kept");
+		expect(unverified).toContain("Resume again to retry");
+
+		const unsafe = refusalMessage(
+			{ ok: false, reason: "unsafe", detail: "is not a git worktree." },
+			"/repo/wt",
+			"/repo",
+		);
+		expect(unsafe).toContain("Refusing to use /repo/wt");
+		expect(unsafe).toContain("is not a git worktree.");
+		expect(unsafe).toContain("salvage it before removing");
 	});
 });
 

@@ -69,6 +69,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `worktree`: a managed worktree with nothing to report says `clean` in
+  `list_worktrees`, which used to print a blank column where the `/worktree` screen
+  printed the word. Both surfaces now word a row through one function, so the marks they
+  show cannot drift apart, and a row the session is in says `current  clean` rather than
+  leaving the checkout's state unsaid.
+- `worktree`: the plan-mode refusal is one sentence. Five extensions showed their own copy
+  of "Plan mode is read-only. Approve the plan before …"; `planModeRefusal` in
+  `lib/plan-entry.ts` now names the action, so the guarantee reads the same wherever a
+  command is refused.
 - `bytefly`: a model the session cannot price is named instead of silently missing from
   the total. `CNY` has no fallback and `USD` falls back to Pi's recorded amount, which is
   `0` for a model its catalog does not know either, so the footer's cost segment now

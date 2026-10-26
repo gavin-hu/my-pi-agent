@@ -10,6 +10,7 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
+import { planModeRefusal } from "../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import { formatCheckReport, formatCheckSummary } from "./format.ts";
@@ -107,7 +108,7 @@ export function registerCheckCommand(pi: ExtensionAPI, runtime: CheckRuntime): v
 		},
 		handler: async (args, ctx) => {
 			if (isPlanModeEnabled(ctx.sessionManager.getBranch())) {
-				ctx.ui.notify("Plan mode is read-only. Approve the plan before running checks.", "warning");
+				ctx.ui.notify(planModeRefusal("running checks"), "warning");
 				return;
 			}
 			const target = parseTarget(args, ctx);

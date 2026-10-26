@@ -116,6 +116,12 @@ instead, so there is no gap to report. `unverifiable` appears only while
 reset at session start. `doctor` reports the `powershell` switch as `degraded`
 when it is off and notes the two structural gaps, which no setting closes.
 
+Managed worktrees follow the header, one row each, as `path`, branch, and the
+marks in brackets: `current`, `missing`, `dirty (2)`, `ahead 3`, `behind 1`, `no
+commits`, `commits 4  merged`, `locked`, `used 2d ago`. A row with nothing else to
+report says `clean` — the same word the `/worktree` screen prints, because both
+read `statusMarks` rather than each deciding what an empty row means.
+
 ## Commands and flags
 
 | Command / flag | What it does |
@@ -415,6 +421,7 @@ one read and two renderings.
 | `root-tools.ts` | Load-time built-in overrides bound to the active root |
 | `git.ts` | Git plumbing (shared runner + read helpers) |
 | `guard.ts` | Path, shell, and git-redirect isolation checks, plus the `powershell` refusal |
+| `shell.ts` | The command-line reader those checks ask: words, segments, and redirection targets |
 | `gaps.ts` | The isolation gaps a session carries, and how they read (pure) |
 | `include.ts` | `.worktreeinclude` matcher and copy |
 | `config.ts` / `state.ts` / `status.ts` | Config, session entry shape, status text and the shared snapshot |

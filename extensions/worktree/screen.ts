@@ -4,8 +4,9 @@
  *
  * The frame, navigation, y/N confirmation, and pane come from the shared
  * `DockListScreen`, so this module owns only the worktree vocabulary. Rows come
- * from the same `worktreeSnapshot` the text status renders, so the screen and the
- * `list_worktrees` tool cannot disagree about a worktree.
+ * from the same `worktreeSnapshot` the text status renders and their marks from the
+ * same `statusMarks`, so the screen and the `list_worktrees` tool cannot disagree
+ * about a worktree.
  *
  * Every verb but `p` closes the screen and hands the action back to the command:
  * entering and exiting change the session binding and `exitWorktree` asks through
@@ -16,6 +17,7 @@
 import { basename } from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
+import { planModeRefusal } from "../../lib/plan-entry.ts";
 import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
@@ -75,11 +77,9 @@ function rowGlyph(status: CheckoutStatus | undefined): { char: string; role: Tui
 	return { char: GLYPHS.branch, role: "info" };
 }
 
-/** The row's right-hand text: its marks, or `clean` when it has none. */
+/** The row's right-hand text: its marks, worded once in `statusMarks`. */
 function rowMarks(row: WorktreeRow): string {
-	const marks = row.status ? statusMarks(row.status, row.current) : ["current"];
-	if (marks.length === 0) marks.push("clean");
-	return marks.join("  ");
+	return (row.status ? statusMarks(row.status, row.current) : ["current"]).join("  ");
 }
 
 export interface WorktreeScreenOptions {
@@ -218,7 +218,7 @@ export class WorktreeListComponent extends DockListScreen<WorktreeRow> {
 	protected handleVerb(key: string, row: WorktreeRow | undefined): void {
 		if (key !== "e" && key !== "x" && key !== "p") return;
 		if (this.deps.readOnly) {
-			this.notify("Plan mode is read-only. Approve the plan before changing worktrees.");
+			this.notify(planModeRefusal("changing worktrees"));
 			return;
 		}
 		if (key === "e") {

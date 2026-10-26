@@ -16,6 +16,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
+import { planModeRefusal } from "../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import {
@@ -24,7 +25,7 @@ import {
 	formatWorktreeStatus,
 	isWorktreeCancelled,
 	pruneWorktrees,
-	worktreeLabel,
+	enteredWorktree,
 	worktreeSnapshot,
 } from "./lifecycle.ts";
 import { type WorktreeAction, WorktreeListComponent } from "./screen.ts";
@@ -46,36 +47,42 @@ const USAGE = "Usage: /worktree [enter [name]|exit|prune]";
 /** Refuse a lifecycle change while plan mode is read-only, as `/check` does. */
 function refuseInPlanMode(ctx: ExtensionContext): boolean {
 	if (!isPlanModeEnabled(ctx.sessionManager.getBranch())) return false;
-	ctx.ui.notify("Plan mode is read-only. Approve the plan before changing worktrees.", "warning");
+	ctx.ui.notify(planModeRefusal("changing worktrees"), "warning");
 	return true;
+}
+
+/**
+ * Run one lifecycle verb and report it the way a command does.
+ *
+ * Enter and exit differ in what they call and in the sentence a success prints, never in
+ * how a refusal is reported: a cancellation is the choice the user just made and reads as
+ * info, and everything else is a failure that names the verb that failed.
+ */
+async function reportLifecycle(ctx: ExtensionContext, verb: string, run: () => Promise<string>): Promise<void> {
+	try {
+		ctx.ui.notify(await run(), "info");
+	} catch (error) {
+		if (isWorktreeCancelled(error)) {
+			ctx.ui.notify(messageOf(error), "info");
+			return;
+		}
+		ctx.ui.notify(`${verb} failed: ${messageOf(error)}`, "error");
+	}
 }
 
 async function runEnter(pi: ExtensionAPI, ctx: ExtensionContext, name: string | undefined): Promise<void> {
 	if (refuseInPlanMode(ctx)) return;
-	try {
+	// The path on its own line: a command's answer is read without a tool result beside it,
+	// and "which directory am I in now" is the question entering answers.
+	await reportLifecycle(ctx, "Enter", async () => {
 		const { state } = await enterWorktree(pi, ctx, { name });
-		ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}\n${state.path}`, "info");
-	} catch (error) {
-		if (isWorktreeCancelled(error)) {
-			ctx.ui.notify(messageOf(error), "info");
-			return;
-		}
-		ctx.ui.notify(`Enter failed: ${messageOf(error)}`, "error");
-	}
+		return `${enteredWorktree(state)}\n${state.path}`;
+	});
 }
 
 async function runExit(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	if (refuseInPlanMode(ctx)) return;
-	try {
-		const result = await exitWorktree(pi, ctx, {});
-		ctx.ui.notify(result.output, "info");
-	} catch (error) {
-		if (isWorktreeCancelled(error)) {
-			ctx.ui.notify(messageOf(error), "info");
-			return;
-		}
-		ctx.ui.notify(`Exit failed: ${messageOf(error)}`, "error");
-	}
+	await reportLifecycle(ctx, "Exit", async () => (await exitWorktree(pi, ctx, {})).output);
 }
 
 async function runPrune(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {

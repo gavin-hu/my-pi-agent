@@ -76,7 +76,7 @@ export const WORKTREE_FIXTURES: ToolFixture[] = [
 					type: "text",
 					text: [
 						"Managed worktrees (3):",
-						`  ${CWD}/.pi/worktrees/tool-gallery  worktree-tool-gallery  [current]`,
+						`  ${CWD}/.pi/worktrees/tool-gallery  worktree-tool-gallery  [current, clean]`,
 						`  ${CWD}/.pi/worktrees/feature-auth  worktree-feature-auth  [dirty (4), ahead 2]`,
 						`  ${CWD}/.pi/worktrees/fix-typo      worktree-fix-typo       [merged, used 3d ago]`,
 					].join("\n"),

@@ -34,6 +34,7 @@ import {
 	isWorktreeCancelled,
 	refusalMessage,
 	worktreeFacts,
+	enteredWorktree,
 	worktreeLabel,
 } from "./lifecycle.ts";
 import { registerCommands } from "./commands.ts";
@@ -160,7 +161,7 @@ export function registerWorktree(pi: ExtensionAPI, { entryPath, createBuiltin }:
 				const name = flag.trim() === "true" ? undefined : flag.trim();
 				try {
 					const { state } = await enterWorktree(pi, ctx, { name });
-					ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}`, "info");
+					ctx.ui.notify(enteredWorktree(state), "info");
 				} catch (error) {
 					if (isWorktreeCancelled(error)) {
 						ctx.ui.notify(error instanceof Error ? error.message : String(error), "info");

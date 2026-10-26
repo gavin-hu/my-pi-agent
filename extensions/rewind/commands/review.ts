@@ -12,6 +12,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../../lib/errors.ts";
 import { sanitizeLine } from "../../../lib/format.ts";
+import { planModeRefusal } from "../../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../../lib/plan-state.ts";
 import { withRailsSuppressed } from "../../../lib/rails.ts";
 import {
@@ -75,7 +76,7 @@ async function loadReview(runtime: RewindRuntime, ctx: ExtensionCommandContext):
 		return {
 			ok: false,
 			kind: "warning",
-			message: "Plan mode is read-only. Approve the plan before reviewing and reverting its changes.",
+			message: planModeRefusal("reviewing and reverting its changes"),
 		};
 	}
 

@@ -287,7 +287,11 @@ export async function mergeBase(pi: ExtensionAPI, dir: string, ref: string): Pro
 	return result.code === 0 ? result.stdout.trim() || undefined : undefined;
 }
 
-export type CheckoutCheck = { ok: true } | { ok: false; reason: "gone" | "unsafe" | "unverified"; detail: string };
+/** Why a checkout is unusable, as `checkCheckout` reports it. */
+export type CheckoutRefusal = { ok: false; reason: "gone" | "unsafe" | "unverified"; detail: string };
+
+/** The verdict on a recorded worktree: usable, or the refusal that says why not. */
+export type CheckoutCheck = { ok: true } | CheckoutRefusal;
 
 /**
  * Verify a directory is a usable, separate checkout before restoring it.

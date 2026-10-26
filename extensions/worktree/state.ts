@@ -12,7 +12,7 @@ const STATE_ENTRY = "worktree";
 
 export interface WorktreeState {
 	active: boolean;
-	/** Name of a managed worktree ("feature-auth"). Absent for foreign paths. */
+	/** Name of a managed worktree ("feature-auth"). Absent on an inherited checkout. */
 	name?: string;
 	/** Absolute path of the worktree. */
 	path: string;

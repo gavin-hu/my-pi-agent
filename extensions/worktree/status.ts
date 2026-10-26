@@ -4,8 +4,8 @@
  *
  * One snapshot feeds both surfaces: `formatWorktreeStatus` renders it as the text
  * a tool result or a headless command prints, and `screen.ts` renders the same
- * rows as the `/worktree` list screen. They read the same git calls, so they
- * cannot disagree about a worktree.
+ * rows as the `/worktree` list screen. They read the same git calls and word a row
+ * through the same `statusMarks`, so the two cannot disagree about a worktree.
  */
 
 import { basename } from "node:path";
@@ -13,13 +13,29 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { mapConcurrent } from "../../lib/pool.ts";
 import { loadConfig } from "./config.ts";
 import { gapLines, type IsolationGap, isolationGaps } from "./gaps.ts";
-import { type CheckoutCheck, defaultBranch, listManagedWorktrees, type ManagedWorktree, repoRoot } from "./git.ts";
+import { type CheckoutRefusal, defaultBranch, listManagedWorktrees, type ManagedWorktree, repoRoot } from "./git.ts";
 import { reconcileRegistry, statusOf, type CheckoutStatus } from "./registry.ts";
 import { configFor, getActive, getInactiveOverrides, getUnverifiableCommands } from "./runtime.ts";
 import type { WorktreeState } from "./state.ts";
 
 export function worktreeLabel(state: WorktreeState): string {
 	return state.name ?? basename(state.path);
+}
+
+/**
+ * What entering a worktree is reported as, on every surface that reports it.
+ *
+ * The tool, the `/worktree` command, and the startup flag say the same sentence through
+ * this one function; the command adds the path on a line of its own, because a command's
+ * answer is read without a tool result beside it.
+ */
+export function enteredWorktree(state: WorktreeState): string {
+	return `Entered worktree ${worktreeLabel(state)}`;
+}
+
+/** What leaving one is reported as, for the same reason. */
+export function exitedWorktree(state: WorktreeState): string {
+	return `Exited worktree ${worktreeLabel(state)}`;
 }
 
 /**
@@ -47,9 +63,14 @@ export function stateSummary(state: WorktreeState): string {
 	return `Worktree: ${worktreeLabel(state)}\n${worktreeFacts(state, "path", 8, [base])}`;
 }
 
-/** Actionable message for a worktree the session refuses to restore. */
-export function refusalMessage(check: CheckoutCheck, path: string, cwd: string): string {
-	if (check.ok) return "";
+/**
+ * Actionable message for a worktree the session refuses to restore.
+ *
+ * The parameter is the refusal half of `CheckoutCheck`, so "there is a message" is the
+ * type's claim rather than a guard's: its only caller is the branch that already knows the
+ * check failed.
+ */
+export function refusalMessage(check: CheckoutRefusal, path: string, cwd: string): string {
 	if (check.reason === "gone") {
 		return `Worktree ${path} no longer exists; its binding was cleared and the session continues in ${cwd}.`;
 	}
@@ -65,10 +86,14 @@ export function refusalMessage(check: CheckoutCheck, path: string, cwd: string):
 	);
 }
 
-/** Compact marks for one managed worktree in the status list. */
+/**
+ * Compact marks for one managed worktree, as both surfaces print them.
+ *
+ * A worktree with nothing to report says `clean` rather than nothing: a blank column reads
+ * as "not read yet", and the screen had to invent the word for itself before this owned it.
+ */
 export function statusMarks(status: CheckoutStatus, isCurrent: boolean): string[] {
 	const marks: string[] = [];
-	if (isCurrent) marks.push("current");
 	if (status.state === "missing") marks.push("missing");
 	if (status.locked) marks.push(status.staleLock ? "locked (stale)" : "locked");
 	if (status.state === "dirty") marks.push(`dirty (${status.changed})`);
@@ -80,6 +105,10 @@ export function statusMarks(status: CheckoutStatus, isCurrent: boolean): string[
 	if (status.commits === 0) marks.push("no commits");
 	else if (status.merged) marks.push(...(status.commits === undefined ? [] : [`commits ${status.commits}`]), "merged");
 	if (status.lastUsedAt) marks.push(`used ${relativeDay(status.lastUsedAt)}`);
+	// `clean` answers "what is wrong with this checkout", so it does not stand in for the
+	// session's own mark: a worktree this session is in and has not touched is both.
+	if (marks.length === 0) marks.push("clean");
+	if (isCurrent) marks.unshift("current");
 	return marks;
 }
 

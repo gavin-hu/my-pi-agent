@@ -7,6 +7,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { planModeRefusal } from "../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
 import { withRailsSuppressed } from "../../lib/rails.ts";
 import type { BackgroundRuntime } from "./background.ts";
@@ -20,7 +21,7 @@ async function openAgents(
 	ctx: ExtensionCommandContext,
 ): Promise<void> {
 	if (isPlanModeEnabled(ctx.sessionManager.getBranch())) {
-		ctx.ui.notify("Plan mode is read-only. Approve the plan before managing background runs.", "warning");
+		ctx.ui.notify(planModeRefusal("managing background runs"), "warning");
 		return;
 	}
 

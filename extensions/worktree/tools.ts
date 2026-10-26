@@ -4,12 +4,14 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { messageOf } from "../../lib/errors.ts";
 import {
 	enterWorktree,
 	exitWorktree,
 	isWorktreeCancelled,
 	pruneWorktrees,
-	worktreeLabel,
+	enteredWorktree,
+	exitedWorktree,
 	worktreeStatus,
 } from "./lifecycle.ts";
 import { getActive, getInactiveOverrides } from "./runtime.ts";
@@ -25,6 +27,18 @@ export const WORKTREE_TOOLS = {
 	prune: "prune_worktrees",
 	list: "list_worktrees",
 } as const;
+
+/**
+ * The result a lifecycle tool answers when the user declined.
+ *
+ * Entering and exiting ask the same question and are refused the same way: the message is
+ * the refusal the user just chose, and `cancelled` is what tells a caller it was a choice
+ * rather than a failure. A cancelled call still throws — every other error is a real one.
+ */
+function cancelledResult(error: unknown): { content: [{ type: "text"; text: string }]; details: { cancelled: true } } {
+	if (!isWorktreeCancelled(error)) throw error;
+	return { content: [{ type: "text", text: messageOf(error) }], details: { cancelled: true } };
+}
 
 export function registerTools(pi: ExtensionAPI): void {
 	pi.registerTool({
@@ -55,17 +69,13 @@ export function registerTools(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			try {
 				const { state, summary } = await enterWorktree(pi, ctx, { name: params.name, path: params.path });
-				ctx.ui.notify(`Entered worktree ${worktreeLabel(state)}`, "info");
+				ctx.ui.notify(enteredWorktree(state), "info");
 				return {
 					content: [{ type: "text", text: summary }],
 					details: { state },
 				};
 			} catch (error) {
-				if (isWorktreeCancelled(error)) {
-					const message = error instanceof Error ? error.message : String(error);
-					return { content: [{ type: "text", text: message }], details: { cancelled: true } };
-				}
-				throw error;
+				return cancelledResult(error);
 			}
 		},
 	});
@@ -91,17 +101,13 @@ export function registerTools(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			try {
 				const result = await exitWorktree(pi, ctx, { remove: params.remove, keepBranch: params.keepBranch });
-				ctx.ui.notify(`Exited worktree ${worktreeLabel(result.state)}`, "info");
+				ctx.ui.notify(exitedWorktree(result.state), "info");
 				return {
 					content: [{ type: "text", text: result.output }],
 					details: { state: result.state, removed: result.removed, handoff: result.handoff },
 				};
 			} catch (error) {
-				if (isWorktreeCancelled(error)) {
-					const message = error instanceof Error ? error.message : String(error);
-					return { content: [{ type: "text", text: message }], details: { cancelled: true } };
-				}
-				throw error;
+				return cancelledResult(error);
 			}
 		},
 	});

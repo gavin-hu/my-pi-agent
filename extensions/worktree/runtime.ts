@@ -21,8 +21,14 @@ export const ENV_BRANCH = "PI_WORKTREE_BRANCH";
 /** Main checkout a borrowed worktree forked from, so a child knows its `repoRoot`. */
 export const ENV_MAIN = "PI_WORKTREE_MAIN";
 
-/** Cross-extension notification channel. */
-export const WORKTREE_EVENT_CHANNEL = "worktree:changed";
+/**
+ * The channel `publishWorktree` announces on, for another extension that follows the active
+ * root without polling; `docs/extensions/worktree.md` names it as the contract.
+ *
+ * Not exported: the channel is an event name on `pi.events`, so what crosses the boundary
+ * is the string a listener subscribes to, and the constant is this module's own.
+ */
+const WORKTREE_EVENT_CHANNEL = "worktree:changed";
 
 let active: WorktreeState | null = null;
 /** Directory to use when not isolated (the session cwd at startup). */

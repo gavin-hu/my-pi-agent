@@ -12,6 +12,8 @@ export { exitWorktree, type ExitOptions } from "./exit.ts";
 export { pruneWorktrees } from "./prune.ts";
 export { findInactiveOverrides } from "./root-tools.ts";
 export {
+	enteredWorktree,
+	exitedWorktree,
 	formatWorktreeStatus,
 	refusalMessage,
 	stateSummary,

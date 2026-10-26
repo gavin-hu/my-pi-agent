@@ -6,8 +6,9 @@
  * is a disposable cache: a missing or corrupt file loads as empty, writes are
  * best-effort, and reads reconcile against `git worktree list`.
  *
- * `statusOf` is the single derived view used by status, prune, and (later)
- * switch/exit, so those do not each re-derive dirty/ahead/behind/merged state.
+ * `statusOf` is the single derived view the status listing reads, so the text and the
+ * screen do not each re-derive dirty/ahead/behind/merged state; exit reads the one fact it
+ * needs (`commitsAheadOf`) without it.
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";

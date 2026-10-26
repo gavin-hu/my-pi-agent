@@ -41,6 +41,17 @@ export const PLAN_CONSENT_SHORT =
 	"Enter read-only plan mode? Writes and mutating tools are disabled until you approve a plan.";
 export const PLAN_CONSENT_SHORT_ZH = "进入只读 plan 模式？批准计划前会禁用写入和修改。";
 
+/**
+ * The refusal a command shows when plan mode forbids what it does.
+ *
+ * Plan mode is read-only, so every extension whose command changes something says so the
+ * same way and names the action it is not doing: one sentence in `lib/`, because five
+ * copies is how the guarantee stops reading as one guarantee.
+ */
+export function planModeRefusal(action: string): string {
+	return `Plan mode is read-only. Approve the plan before ${action}.`;
+}
+
 /** What a caller sends on {@link PLAN_ENTER_REQUEST}. */
 export interface PlanEnterRequest {
 	/** The caller's context; `plan` uses it for the footer status. */
