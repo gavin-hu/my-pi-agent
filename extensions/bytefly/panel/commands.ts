@@ -29,7 +29,11 @@ import type { UpdateHandle } from "../update/register.ts";
 import { createSettingsStores, discoverResources, type DiscoveryDeps } from "../picker/discovery.ts";
 import { createPickerRuntime, type PickerRuntime } from "../picker/runtime.ts";
 import type { Discovery } from "../picker/types.ts";
+import { usageRecords } from "../footer/collect/entries.ts";
+import { loadByteflyConfig } from "../footer/price/config.ts";
+import { createPricer } from "../footer/price/price.ts";
 import { formatListing, formatSettingsListing, SKILL_NOUN } from "./format.ts";
+import { pricesReport } from "./prices.ts";
 import { buildPanelModel, buildSkillModel, extensionName } from "./join.ts";
 import { createSettingsRuntime, type SettingsRuntime, type SettingsRuntimeDeps } from "./settings-runtime.ts";
 import { loadSkillIndex, resolvedSkillPaths, type SkillIndex } from "./skills.ts";
@@ -67,6 +71,7 @@ function selectableNames(discovery: Discovery): Set<string> {
 /** The values a bare `/bytefly <tab>` offers, in screen order. */
 const FIRST_TOKENS = [
 	"doctor",
+	"prices",
 	"settings",
 	"skills",
 	"update",
@@ -98,7 +103,7 @@ function completions(prefix: string): Array<{ value: string; label: string }> | 
 }
 
 /** Which bytefly surface the arguments select. */
-type PanelMode = "screen" | "doctor" | "update" | "upgrade";
+type PanelMode = "screen" | "doctor" | "update" | "upgrade" | "prices";
 
 /** `/bytefly [doctor] [settings] [extension] [refresh]`, parsed. */
 interface PanelArgs {
@@ -124,6 +129,9 @@ function parseArgs(args: string): PanelArgs {
 	// check found. Refusing to fold them into one word is what keeps a command that
 	// writes behind a confirmation instead of behind an argument.
 	if (rest[0] === "upgrade") return { mode: "upgrade", section: "extensions", refresh };
+	// `prices` answers a question about this session's totals, so it takes no name and
+	// no refresh: it prices what the session holds, once, when asked.
+	if (rest[0] === "prices") return { mode: "prices", section: "extensions", refresh };
 	if (rest[0] === "settings") return { mode: "screen", section: "settings", name: rest[1], refresh };
 	if (rest[0] === "skills") return { mode: "screen", section: "skills", name: rest[1], refresh };
 	return { mode: "screen", section: "extensions", name: rest[0], refresh };
@@ -181,6 +189,18 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			return;
 		}
 		const cwd = ctx.cwd ?? process.cwd();
+		// `/bytefly prices` answers one question about the session and resolves nothing: it
+		// prices what the transcript already recorded and names what that left out. It runs
+		// in every mode, because the footer that would carry the same fact exists only in
+		// `tui`.
+		if (mode === "prices") {
+			const config = loadByteflyConfig(cwd);
+			const active = ctx.model ? { provider: ctx.model.provider, model: ctx.model.id } : undefined;
+			const scanned = usageRecords(ctx.sessionManager.getEntries(), active);
+			ctx.ui.notify(pricesReport(createPricer(config)(scanned.records), config.currency).join("\n"), "info");
+			return;
+		}
+
 		const agentDir = getAgentDir();
 		const trusted = ctx.isProjectTrusted();
 		const themes = settingsThemeNames(ctx);

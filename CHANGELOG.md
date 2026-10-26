@@ -45,6 +45,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: a model the session cannot price is named instead of silently missing from
+  the total. `CNY` has no fallback and `USD` falls back to Pi's recorded amount, which is
+  `0` for a model its catalog does not know either, so the footer's cost segment now
+  carries the count (`¥1.23 · 2 unpriced`), `/bytefly prices` lists the models with the
+  `price.rates` key that would price each one, and the once-per-session notice names up to
+  three of them instead of only counting records. A session whose every record went
+  unpriced shows the count where it used to show no cost segment at all. No rate table and
+  no FX conversion: the key is offered, never a price.
 - `board`: the page no longer keeps its own copy of three rules the tools own. A card
   arrives in the snapshot with the priority it acts on and, when something unfinished
   blocks it, the dependencies named with their lanes — so the card face, the card dialog,

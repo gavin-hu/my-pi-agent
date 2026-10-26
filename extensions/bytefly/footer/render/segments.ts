@@ -170,15 +170,30 @@ export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 	};
 }
 
+/**
+ * What the session cost, and how many records the total leaves out.
+ *
+ * A session whose every record went unpriced has a total of zero, and a segment that
+ * vanished at zero was the loudest version of the silence: nothing on the bar said the
+ * work was unpriced rather than free. So the count is its own fact, and the price comes
+ * first where there is one — the narrower forms drop the price before the warning.
+ */
 export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const { cost } = snapshot.usage;
-	if (cost === 0) return null;
+	const { cost, unpriced } = snapshot.usage;
+	if (cost === 0 && unpriced === 0) return null;
+	const price = formatCost(cost, snapshot.currency);
+	const leftOut = unpriced === 1 ? "1 unpriced" : `${unpriced} unpriced`;
+	const forms = [
+		`${paint(theme, "meta", price)}${faint(theme, CONFIG.separators.item)}${paint(theme, "warn", leftOut)}`,
+		paint(theme, "warn", leftOut),
+		...(cost === 0 ? [] : [paint(theme, "meta", price)]),
+	];
 	return {
 		id: "cost",
 		weight: 2,
 		droppable: true,
 		separator: faint(theme, CONFIG.separators.item),
-		forms: [paint(theme, "meta", formatCost(cost, snapshot.currency))],
+		forms: unpriced === 0 ? [paint(theme, "meta", price)] : forms,
 	};
 }
 

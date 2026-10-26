@@ -37,14 +37,30 @@ export interface UsageTotals {
 }
 
 /**
- * The totals plus how many records the mode had no rate for.
+ * One model this session could not price, as the key that would price it.
  *
- * CNY has no fallback, so those records contribute no cost at all; the count is
- * what lets the session say so instead of quietly showing a total that omits
- * them. USD falls back to Pi's recorded amount, so it never counts any.
+ * The key is the `price.rates` vocabulary — `provider/model`, with `*` standing in
+ * for a side the record does not name — so it is copy-pasteable into the config.
+ */
+export interface UnpricedModel {
+	key: string;
+	/** How many records in this session carried it. */
+	records: number;
+}
+
+/**
+ * The totals plus the records the mode had no rate for.
+ *
+ * CNY has no fallback, so those records contribute no cost at all. USD falls back
+ * to Pi's recorded amount — except when that amount is `0`, which is what Pi
+ * records for a model its own catalog cannot price, and then nothing has priced
+ * the record either. Both cases want the same fix, so they are one list: the
+ * models, and the key that would price each. `unpriced` is summed from it, so the
+ * count and the names cannot disagree.
  */
 export interface PricedUsage extends UsageTotals {
 	unpriced: number;
+	unpricedModels: UnpricedModel[];
 }
 
 /** Context-window usage for the active model. */
@@ -75,7 +91,8 @@ export interface StatusSnapshot {
 	model: ModelInfo | null;
 	thinkingLevel: ThinkingLevel | null;
 	context: ContextInfo;
-	usage: UsageTotals;
+	/** The session's totals, with the records nothing could price riding along. */
+	usage: PricedUsage;
 	/** How `usage.cost` is rendered. */
 	currency: Currency;
 	/** Latest cache hit rate as a percentage, or `null` when unknown. */

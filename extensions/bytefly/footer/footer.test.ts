@@ -19,7 +19,7 @@ import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import { zeroUsage } from "../../../lib/usage.ts";
 import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { emit, fakeTheme, makeFakePi, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
-import { fakeFooterCtx, fullSnapshot, renderFooter } from "../../../test/helpers/fixtures/bytefly.ts";
+import { fakeFooterCtx, fullSnapshot, renderFooter, usageOf } from "../../../test/helpers/fixtures/bytefly.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
 import { budgetBody, budgetNotice, budgetState } from "./budget.ts";
 import { usageRecords } from "./collect/entries.ts";
@@ -61,7 +61,8 @@ import {
 	worktreeSegment,
 } from "./render/segments.ts";
 import { compactStatus, dropStatusDetail } from "./render/status.ts";
-import type { PricedUsage, UsageRecord } from "./types.ts";
+import { NAMED_MODELS, unpricedBody, unpricedNotice } from "./unpriced.ts";
+import type { UsageRecord } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -547,6 +548,36 @@ describe("pricer", () => {
 		expect(totals.unpriced).toBe(1);
 	});
 
+	test("names the model behind each unpriced record, as the key that would price it", () => {
+		const totals = createPricer(config())([
+			record({ provider: "openrouter", model: "anthropic/claude-fable-5", recordedCost: 0.2 }),
+			record({ provider: "openrouter", model: "anthropic/claude-fable-5", recordedCost: 0.2 }),
+			record({ provider: "openai", model: "gpt-5", recordedCost: 0.3 }),
+			// A record the history does not name a side for is priced by a wildcard key.
+			record({ provider: null, model: null, recordedCost: 0.1 }),
+		]);
+		// Most records first, then by key, so a report names the model that costs the most.
+		expect(totals.unpricedModels).toEqual([
+			{ key: "openrouter/anthropic/claude-fable-5", records: 2 },
+			{ key: "*/*", records: 1 },
+			{ key: "openai/gpt-5", records: 1 },
+		]);
+		// The count is the list's sum, so the two can never disagree.
+		expect(totals.unpriced).toBe(4);
+	});
+
+	test("does not name a model Pi's own amount priced, and does name one it recorded as zero", () => {
+		// USD has a fallback, so a priced record is not unpriced; a zero is what Pi records
+		// for a model it cannot price, and then nothing priced this record.
+		const priced = createPricer(usdConfig())([
+			record({ provider: "anthropic", model: "claude-sonnet-5", recordedCost: 0.4 }),
+		]);
+		expect(priced.unpricedModels).toEqual([]);
+		const silent = createPricer(usdConfig())([record({ provider: "local", model: "llama-4", recordedCost: 0 })]);
+		expect(silent.unpricedModels).toEqual([{ key: "local/llama-4", records: 1 }]);
+		expect(silent.unpriced).toBe(1);
+	});
+
 	test("counts nothing when a rate matched, a rate is explicit, or USD falls back", () => {
 		expect(createPricer(config())([record({ input: 1_000_000 })]).unpriced).toBe(0);
 		const free = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, offPeakMultiplier: 1 };
@@ -601,7 +632,9 @@ describe("usage records", () => {
 		message: { role: "toolResult", usage, timestamp },
 	});
 
-	test("starts every accumulation from zeroed totals", () => {
+	test("starts every accumulation from zeroed totals the pricer then extends", () => {
+		// `lib/usage.ts` keeps the five counters; the priced extras belong to the pricer,
+		// so a caller that only wants totals is not handed a list it cannot fill.
 		expect(zeroUsage()).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
 	});
 
@@ -996,11 +1029,44 @@ describe("snapshot reader", () => {
 		expect(read.peek()).toBeUndefined();
 
 		const snapshot = read(millionTokens(), footerData);
-		const { unpriced, ...totals } = read.peek() as PricedUsage;
-		expect(totals).toEqual(snapshot.usage);
-		// The count rides along on the same read, so the unpriced notice never
-		// re-prices the session.
-		expect(unpriced).toBe(0);
+		// The count and the models ride along on the same read, so the unpriced notice
+		// never re-prices the session.
+		expect(read.peek()).toEqual(snapshot.usage);
+		expect(snapshot.usage.unpriced).toBe(0);
+		expect(snapshot.usage.unpricedModels).toEqual([]);
+	});
+});
+
+describe("the unpriced notice", () => {
+	const models = [
+		{ key: "openrouter/anthropic/claude-fable-5", records: 2 },
+		{ key: "openai/gpt-5", records: 1 },
+	];
+
+	test("names the models, counts the records, and offers both fixes", () => {
+		const notice = unpricedNotice(models);
+		expect(notice.content).toContain("3 records have no rate");
+		expect(notice.content).toContain("openrouter/anthropic/claude-fable-5, openai/gpt-5");
+		expect(notice.content).toContain("USD");
+		expect(notice.content).toContain("price.rates");
+		// The transcript card carries one item per model, with its record count.
+		expect(notice.details.items).toEqual([
+			{ label: "openrouter/anthropic/claude-fable-5", detail: "2 records" },
+			{ label: "openai/gpt-5", detail: "1 record" },
+		]);
+	});
+
+	test("counts what it does not name", () => {
+		const many = Array.from({ length: NAMED_MODELS + 2 }, (_, index) => ({ key: `p/m${index}`, records: 1 }));
+		expect(unpricedNotice(many).content).toContain(`+2 more`);
+		expect(unpricedNotice(many).details.items).toHaveLength(NAMED_MODELS);
+	});
+
+	test("says one record in the singular, and the body leads with the first key", () => {
+		expect(unpricedNotice([{ key: "a/b", records: 1 }]).content).toContain("1 record has");
+		expect(unpricedBody(models)).toBe(
+			"3 records with no rate · openrouter/anthropic/claude-fable-5 · use USD or add price.rates",
+		);
 	});
 });
 
@@ -1275,15 +1341,28 @@ describe("footer segments", () => {
 	});
 
 	test("shows the session cost in the configured currency", () => {
-		expect(
-			costSegment(fullSnapshot({ usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } }), fakeTheme),
-		).toBeNull();
+		expect(costSegment(fullSnapshot({ usage: usageOf() }), fakeTheme)).toBeNull();
 		expect(costSegment(fullSnapshot(), fakeTheme)?.forms).toEqual(["$0.31"]);
 		expect(costSegment(fullSnapshot({ currency: { code: "CNY", decimals: 2 } }), fakeTheme)?.forms).toEqual(["¥0.31"]);
 	});
 
+	test("marks the records the total leaves out, and appears when the total is only short", () => {
+		const two = usageOf({ cost: 1.23, unpriced: 2, unpricedModels: [{ key: "a/b", records: 2 }] });
+		const segment = costSegment(fullSnapshot({ usage: two, currency: { code: "CNY", decimals: 2 } }), fakeTheme);
+		// Detailed first, and a narrow bar drops the price before the warning.
+		expect(segment?.forms).toEqual(["¥1.23 · 2 unpriced", "2 unpriced", "¥1.23"]);
+
+		// A session where nothing could be priced has a total of zero; the segment used to
+		// vanish here, which is the silence this exists to end.
+		const silent = costSegment(
+			fullSnapshot({ usage: usageOf({ unpriced: 1, unpricedModels: [{ key: "a/b", records: 1 }] }) }),
+			fakeTheme,
+		);
+		expect(silent?.forms).toEqual(["$0.00 · 1 unpriced", "1 unpriced"]);
+	});
+
 	test("rolls up the child runs beside the session cost", () => {
-		const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+		const zero = usageOf();
 		expect(delegationSegment(fullSnapshot(), fakeTheme)).toBeNull();
 
 		const segment = delegationSegment(
@@ -1303,21 +1382,14 @@ describe("footer segments", () => {
 	});
 
 	test("omits zero token directions and the whole meter when empty", () => {
-		expect(
-			tokensSegment(fullSnapshot({ usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } }), fakeTheme),
-		).toBeNull();
-		expect(
-			tokensSegment(
-				fullSnapshot({ usage: { input: 42000, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } }),
-				fakeTheme,
-			)?.forms,
-		).toEqual(["↑42k"]);
+		expect(tokensSegment(fullSnapshot({ usage: usageOf() }), fakeTheme)).toBeNull();
+		expect(tokensSegment(fullSnapshot({ usage: usageOf({ input: 42000 }) }), fakeTheme)?.forms).toEqual(["↑42k"]);
 	});
 
 	test("shows cache tokens and a hit rate only when something was cached", () => {
 		const cached = cacheSegment(
 			fullSnapshot({
-				usage: { input: 0, output: 0, cacheRead: 96000, cacheWrite: 0, cost: 0 },
+				usage: usageOf({ cacheRead: 96000 }),
 				cacheHitRate: 87,
 			}),
 			fakeTheme,
@@ -1326,7 +1398,7 @@ describe("footer segments", () => {
 
 		const noRate = cacheSegment(
 			fullSnapshot({
-				usage: { input: 0, output: 0, cacheRead: 96000, cacheWrite: 0, cost: 0 },
+				usage: usageOf({ cacheRead: 96000 }),
 				cacheHitRate: null,
 			}),
 			fakeTheme,
@@ -1336,7 +1408,7 @@ describe("footer segments", () => {
 		expect(
 			cacheSegment(
 				fullSnapshot({
-					usage: { input: 100, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+					usage: usageOf({ input: 100 }),
 					cacheHitRate: 0,
 				}),
 				fakeTheme,
@@ -1413,10 +1485,10 @@ describe("line composition", () => {
 	});
 
 	test("places the child-run roll-up after the session cost and drops it when empty", () => {
-		const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+		const zero = usageOf();
 		const [, line2] = buildLines(
 			fullSnapshot({
-				usage: { input: 1000, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0.25 },
+				usage: usageOf({ input: 1000, cost: 0.25 }),
 				currency: { code: "CNY", decimals: 2 },
 				delegation: { runs: 3, usage: { ...zero, input: 4000, cost: 0.12 } },
 			}),
@@ -1894,12 +1966,13 @@ describe("registerFooter unpriced records", () => {
 			expect(h.messages).toHaveLength(1);
 			const notice = h.messages[0]?.message;
 			expect(notice.customType).toBe(NOTICE_TYPE);
-			expect(notice.details.title).toBe("Records with no CNY rate");
+			expect(notice.details.title).toBe("Records with no rate");
 			expect(notice.details.severity).toBe("info");
-			expect(notice.details.items).toEqual([{ label: "records", detail: "1" }]);
+			// The model, not a bare count: the key is what a reader acts on.
+			expect(notice.details.items).toEqual([{ label: "anthropic/opus-4.5", detail: "1 record" }]);
 			expect(notice.content).toContain("price.currency.code");
 			expect(notice.content).toContain("price.rates");
-			expect(h.bodies).toEqual(["1 record with no CNY rate · use USD or add price.rates"]);
+			expect(h.bodies).toEqual(["1 record with no rate · anthropic/opus-4.5 · use USD or add price.rates"]);
 		});
 	});
 

@@ -72,12 +72,12 @@ export function registerFooter(pi: ExtensionAPI, deps: FooterDeps = {}): void {
 		if (!budget || ctx.mode !== "tui") return;
 		const usage = budget.read.peek();
 		if (!usage) return;
-		// CNY records no rate for a model, so its spend is simply absent from the
-		// total. USD never counts one: Pi's recorded amount covers every model.
-		if (!warnedUnpriced && usage.unpriced > 0) {
+		// A model with no rate contributes nothing: CNY has no fallback, and USD's fallback
+		// is Pi's own amount, which is zero for a model its catalog cannot price either.
+		if (!warnedUnpriced && usage.unpricedModels.length > 0) {
 			warnedUnpriced = true;
-			pi.sendMessage(unpricedNotice(usage.unpriced));
-			deps.notify?.(unpricedBody(usage.unpriced));
+			pi.sendMessage(unpricedNotice(usage.unpricedModels));
+			deps.notify?.(unpricedBody(usage.unpricedModels));
 		}
 		if (warned || budget.limit <= 0) return;
 		const state = budgetState(budget.limit, usage.cost);
