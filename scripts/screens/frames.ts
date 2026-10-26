@@ -18,16 +18,51 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
+import { now as fixtureNow } from "./fixtures/shared.ts";
 
 /** The record: one fingerprint per captured frame, beside the frames it describes. */
 const FRAMES = join(import.meta.dir, "frames.json");
 
 /**
- * The fingerprint of one frame. Escape codes are hashed with the text on
- * purpose: a theme change repaints the picture, so it owes a recapture too.
+ * Draw one frame with the clock its fixtures were built against.
+ *
+ * A fixture places a watcher's start at `now - 12m` and the screen prints the age
+ * against the wall clock, so a render a second after the picture says `721s` where
+ * the picture says `720s`. The capture draws the frame, then re-renders it to record
+ * its fingerprint, and the test renders it again: three moments, three texts — which
+ * is a frame nobody can reproduce, not a frame that drifted. Freezing the clock for
+ * the render makes a frame a pure function of its fixtures, so the picture, the
+ * record, and the test are the same frame.
+ */
+export function frameLines(
+	screen: { render(width: number, rows: number): string[] },
+	width: number,
+	rows: number,
+): string[] {
+	const wallClock = Date.now;
+	Date.now = () => fixtureNow;
+	try {
+		return screen.render(width, rows);
+	} finally {
+		Date.now = wallClock;
+	}
+}
+
+/**
+ * The fingerprint of one frame: its text, with the styling stripped.
+ *
+ * The colors are left out because a frame's escape codes are decided by the
+ * terminal that asked for it — Pi's theme layer picks truecolor, 256-color, or
+ * none from `TERM` — so a runner can never reproduce the codes of the Mac that
+ * captured the picture, and hashing them would fail every job. The text is the
+ * part a renderer change moves: it carries Pi's version, every label, the
+ * wrapping, and the right-aligned columns. A palette edit is still caught, by
+ * the theme's own tests and by eye on the picture it repaints.
  */
 export function frameFingerprint(lines: string[]): string {
-	return createHash("sha256").update(lines.join("\n")).digest("hex").slice(0, 16);
+	const text = lines.map((line) => stripTerminalSequences(line)).join("\n");
+	return createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
 /** Every recorded frame: screen name to the fingerprint it was captured at. */

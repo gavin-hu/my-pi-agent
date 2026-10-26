@@ -21,7 +21,7 @@ import { parseArgs as parsePlanReviewArgs } from "./shots/plan-review.ts";
 import { draftSeed } from "./shots/plan-review-capture.ts";
 import { stripFeedback } from "../extensions/plan/feedback.ts";
 import { planDigest } from "../extensions/plan/plan-text.ts";
-import { frameFingerprint, readFrames } from "./screens/frames.ts";
+import { frameFingerprint, frameLines, readFrames } from "./screens/frames.ts";
 import { SCREENS } from "./screens/index.ts";
 import { CHROME_SNAPSHOT, HERO_CALLS, HERO_INPUT, HERO_TOKENS } from "./screens/whole-window.ts";
 import { cacheHitRateOf } from "../extensions/bytefly/footer/collect/entries.ts";
@@ -38,6 +38,9 @@ import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./to
 
 /** Every capturable frame, the whole-chrome preview included. */
 const FRAMES = SCREENS;
+
+/** The one platform the pictures are taken on: Terminal.app and `screencapture` are macOS. */
+const CAPTURE_PLATFORM = "darwin";
 
 /** Widths a capture has to survive: a narrow terminal, the default, a wide one. */
 const WIDTHS = [46, 80, 120];
@@ -73,11 +76,16 @@ describe("docs screenshots", () => {
 		}
 	});
 
-	test("a captured frame is still the frame the renderer draws", () => {
+	// A picture of a macOS window: captured there, so only that platform can draw the
+	// same frame. The header spells the option key the way the OS does (`option+enter`
+	// on macOS, `alt+enter` elsewhere), which re-packs its help rows, and a fixture path
+	// is printed with the native separator (`\home\u\…` on Windows). The claims that
+	// hold everywhere — a frame fits its width and its rows — are the two tests above.
+	test.skipIf(process.platform !== CAPTURE_PLATFORM)("a captured frame is still the frame the renderer draws", () => {
 		// The picture cannot report on itself: two captures of one frame differ by
 		// antialiasing, so no render is byte-identical to the shipped PNG. What the
 		// capture records instead is the frame that was on screen, and this is where
-		// a renderer change nobody recaptured fails — on every OS, no window needed.
+		// a renderer change nobody recaptured fails.
 		const recorded = readFrames();
 		// The hero is embedded in the root README, so it is the frame that must not
 		// quietly lose its guard.
@@ -89,7 +97,13 @@ describe("docs screenshots", () => {
 				continue;
 			}
 			const { width, rows } = screen.size;
-			const frame = frameFingerprint(screen.render(width, rows));
+			const lines = frameLines(screen, width, rows);
+			const frame = frameFingerprint(lines);
+			// A hash says only that something moved, which is no help to whoever reads a
+			// red job; the frame it just drew is what they need, and it is already here.
+			if (frame !== fingerprint) {
+				for (const [index, line] of lines.entries()) console.log(`${name}|${index}|${JSON.stringify(line)}`);
+			}
 			expect(frame, `assets/screens/${screen.asset}.png is behind the frame: bun run screenshots ${name}`).toBe(
 				fingerprint,
 			);

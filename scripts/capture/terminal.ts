@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { pollUntil, sleep } from "../poll.ts";
 import { repo } from "../theme.ts";
 import { WINDOW_BOUNDS } from "../screens/fixtures/index.ts";
-import { frameFingerprint, recordFrame } from "../screens/frames.ts";
+import { frameFingerprint, frameLines, recordFrame } from "../screens/frames.ts";
 import type { Screen } from "../screens/index.ts";
 
 /** A temporary Terminal profile that matches the theme's canvas, deleted after. */
@@ -201,7 +201,7 @@ export async function captureScreen(name: string, screen: Screen): Promise<void>
 		// by antialiasing — so the frame that was on screen is recorded beside it,
 		// and a renderer change nobody recaptured fails the test that reads it.
 		const size = screen.size;
-		if (size) recordFrame(name, frameFingerprint(screen.render(size.width, size.rows)));
+		if (size) recordFrame(name, frameFingerprint(frameLines(screen, size.width, size.rows)));
 		console.log(`assets/screens/${screen.asset}.png`);
 	} finally {
 		killRender(name);

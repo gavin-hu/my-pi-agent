@@ -25,6 +25,7 @@ import { SessionListComponent } from "../../extensions/session-bus/tui.ts";
 import { WorktreeListComponent } from "../../extensions/worktree/screen.ts";
 import { StatusScreenComponent } from "../../extensions/wechat/view/status-screen.ts";
 import { pageColors, repo, setThemeInstance, theme } from "../theme.ts";
+import { frameLines } from "./frames.ts";
 import { makeDiscovery, makeStore } from "../../test/helpers/fixtures/picker.ts";
 import {
 	AGENT_RUNS,
@@ -422,7 +423,9 @@ function renderQuestion(width: number, rows: number): string[] {
 
 /** The ANSI frame for one screen, sized to the live terminal or the overrides. */
 export function frame(screen: Screen, width: number, rows: number): string {
-	const lines = screen.render(width, rows);
+	// Drawn through the same clock the record and the test use, so the picture is the
+	// frame whose fingerprint `captureScreen` writes beside it.
+	const lines = frameLines(screen, width, rows);
 	// Reset the terminal palette to the theme, clear, then draw the frame and
 	// hide the cursor so the capture has no stray glyph.
 	const background = `\u001b]11;${pageColors.background}\u0007\u001b]10;${pageColors.text}\u0007`;
