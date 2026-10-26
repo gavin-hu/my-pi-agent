@@ -111,9 +111,12 @@ describe("the document and the static routes", () => {
 		expect(theme.status).toBe(200);
 	});
 
-	test("answers a favicon with no body", async () => {
+	test("answers a favicon request as the unknown route it is", async () => {
+		// The head links the mark as a data URI, so a browser never asks for the file the
+		// route used to stand in for. What is left is one more path the board does not
+		// serve: a token, then the same 404 every unknown route gets.
 		const { ctx } = context();
-		expect((await handleBoardRequest(ctx, "GET", "/favicon.ico", SAME_ORIGIN)).status).toBe(204);
+		expect((await handleBoardRequest(ctx, "GET", url("/favicon.ico"), SAME_ORIGIN)).status).toBe(404);
 	});
 });
 

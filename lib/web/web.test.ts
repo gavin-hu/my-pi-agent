@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { WEB_BASE_CSS } from "./base.ts";
 import { WEB_COMPONENTS_CSS } from "./components.ts";
 import { SIDEBAR_COLLAPSE_MAX, WEB_LAYOUT_CSS } from "./layout.ts";
-import { brandLockup, button, chip, docHead, keysSheet, themeToggle } from "./markup.ts";
+import { brandLockup, button, chip, docHead, keysSheet, markIcon, themeToggle } from "./markup.ts";
 import {
 	dialogScript,
 	keysDialogScript,
@@ -390,6 +390,13 @@ describe("web names", () => {
 	});
 });
 
+/** The decoded SVG of every icon link in one markup string. */
+function iconSvgs(markup: string): string[] {
+	return [...markup.matchAll(/href="data:image\/svg\+xml,([^"]*)"/g)].map((match) =>
+		decodeURIComponent(match[1] ?? ""),
+	);
+}
+
 describe("web markup", () => {
 	test("renders the shared document head", () => {
 		const head = docHead({ title: "browse · <dir>", css: "body{}" });
@@ -398,6 +405,44 @@ describe("web markup", () => {
 		expect(head).toContain("<style>body{}</style>");
 		expect(head).toContain(`src="${THEME_JS_PATH}"`);
 		expect(head).toContain("&lt;dir&gt;");
+	});
+
+	test("links the brand mark as the tab icon, in the appearance the tab is in", () => {
+		const head = docHead({ title: "browse", css: "body{}" });
+		// Two links, not one: an icon is its own document and cannot read the page's tokens,
+		// so the appearance is chosen by the link rather than by a stylesheet.
+		const links = head.split("\n").filter((line) => line.startsWith('<link rel="icon"'));
+		expect(links).toHaveLength(2);
+		expect(links[0]).not.toContain("media=");
+		expect(links[1]).toContain('media="(prefers-color-scheme: light)"');
+		for (const line of links) {
+			// `data:` only, and one href per link: the page's CSP is `img-src 'self' data:`, so an
+			// icon fetched from anywhere else would be a tab with no mark at all.
+			expect(line.match(/href="/g)).toHaveLength(1);
+			expect(line).toContain('href="data:image/svg+xml,');
+		}
+		expect(iconSvgs(head)).toHaveLength(2);
+	});
+
+	test("draws the tab icon from the same blocks as the lockup", () => {
+		const icon = markIcon();
+		// The shape is written once: a second copy is a mark that drifts the first time it is
+		// redrawn, and the lockup and the tab would stop being the same mark.
+		const rects = (svg: string) => svg.match(/<rect [^>]*\/>/g)?.join("");
+		const lockup = brandLockup("board");
+		for (const svg of iconSvgs(icon)) {
+			expect(svg).toContain('viewBox="0 0 4 2"');
+			expect(rects(svg)).toBe(rects(lockup));
+		}
+	});
+
+	test("paints each icon with its own appearance's accent and warning", () => {
+		const [dark = "", light = ""] = iconSvgs(markIcon());
+		expect(dark).toContain(WEB_THEME_TOKENS.dark["--accent"]);
+		expect(dark).toContain(WEB_THEME_TOKENS.dark["--warn"]);
+		expect(light).toContain(WEB_THEME_TOKENS.light["--accent"]);
+		expect(light).toContain(WEB_THEME_TOKENS.light["--warn"]);
+		expect(dark).not.toBe(light);
 	});
 
 	test("serves the pre-paint theme from the one path the head asks for", () => {

@@ -65,7 +65,6 @@ export async function handleBoardRequest(
 	if (!parsed) return jsonError(400, "Malformed request URL.");
 	const { pathname, search } = parsed;
 
-	if (pathname === "/favicon.ico") return { status: 204, headers: { "Cache-Control": "no-store" } };
 	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 	if (pathname === "/app.js") return { status: 200, headers: scriptHeaders(), body: ctx.script };
 

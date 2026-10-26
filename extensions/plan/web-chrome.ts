@@ -56,7 +56,8 @@ export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
       titleEl.textContent = data.title;
       titleEl.title = data.title;
     }
-    if (data.title) document.title = "Plan review \u00b7 " + data.title;
+    // The document's own <title> already names the plan, rendered with the page: a second
+    // copy of the same sentence in script is a tab title that can disagree with the head.
   }
 
   function updateProgress() {

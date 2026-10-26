@@ -142,7 +142,7 @@ describe("request routing", () => {
 		expect(text(failing)).not.toContain('class="bf-chip browse-git');
 	});
 
-	test("serves /app.js, /theme.js, a 204 favicon, and the tree API", async () => {
+	test("serves /app.js, /theme.js, the tree API, and no favicon", async () => {
 		const app = await handleRequest(context(), "GET", "/app.js", {});
 		expect(app.status).toBe(200);
 		expect(app.headers["Content-Type"]).toContain("text/javascript");
@@ -152,7 +152,7 @@ describe("request routing", () => {
 		expect(theme.headers["Content-Type"]).toContain("text/javascript");
 
 		const icon = await handleRequest(context(), "GET", "/favicon.ico", {});
-		expect(icon.status).toBe(204);
+		expect(icon.status).toBe(404);
 
 		const api = await handleRequest(context(), "GET", "/api/tree?path=sub", {});
 		expect(api.status).toBe(200);

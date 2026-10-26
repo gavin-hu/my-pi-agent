@@ -172,6 +172,15 @@ describe("page chrome", () => {
 		expect(html).toContain("read-only");
 	});
 
+	test("carries the brand mark as its tab icon, and no icon of its own", () => {
+		const html = directoryPage();
+		// The kit's head links the mark in both appearances. The page used to add a blue
+		// circle of its own, which was a second brand in the same tab strip.
+		expect(html.match(/rel="icon"/g)).toHaveLength(2);
+		expect(html).toContain('href="data:image/svg+xml,');
+		expect(html).not.toContain("%3Ccircle");
+	});
+
 	test("ships each shared stylesheet block once", () => {
 		// A repeated block is invisible in a rendered page — every rule still applies —
 		// so only a count catches it, and only here: the kit does not know who concatenates it.

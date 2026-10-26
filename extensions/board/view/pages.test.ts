@@ -39,6 +39,17 @@ describe("the document", () => {
 		expect(page.trimEnd().endsWith("</html>")).toBe(true);
 	});
 
+	test("names the board in the tab, and lets the count refine it", () => {
+		const page = renderBoardPage({ view: "board" });
+		// The head answers before a frame arrives; the count needs the store, so the client
+		// paints the rest — one sentence, in the one place a browser reads it.
+		expect(page).toContain("<title>board</title>");
+		expect(page).toContain('rel="icon"');
+		// The bundle escapes the separator, so the assertion names it the way the page sends it.
+		expect(BOARD_CLIENT_JS).toContain('document.title = "board" + (key ? " \\u00B7 " + key : "")');
+		expect(BOARD_CLIENT_JS).toContain('\\u00B7 " + open + " open"');
+	});
+
 	test("carries no write surface at all", () => {
 		// The page reads. A form, a composer, a banner, or a footer of verbs would each be
 		// a promise the server refuses, so none of them is in the document to begin with.

@@ -262,9 +262,9 @@ describe("review router", () => {
 	});
 
 	test("answers a favicon without a content type and an unknown route with 404", async () => {
-		const favicon = await get("/favicon.ico");
-		expect(favicon.status).toBe(204);
-		expect(favicon.headers["Content-Type"]).toBeUndefined();
+		// No stub: the head links the mark itself, so the browser never asks for the file.
+		// A page's own request gets the same 404 as every other path the review does not serve.
+		expect((await get("/favicon.ico?token=tok")).status).toBe(404);
 		expect((await get("/nope?token=tok")).status).toBe(404);
 	});
 
@@ -451,6 +451,25 @@ function page(overrides: Partial<ReviewPageData> = {}): string {
 		...overrides,
 	});
 }
+
+describe("the review's tab", () => {
+	test("names the plan in the document head, before a script runs", () => {
+		// A tab is read in a browser's tab strip, so the title has to be in the document: a
+		// script that sets it later is a tab named "Plan review" for as long as the page loads.
+		expect(page()).toContain("<title>Plan review · Add rate limiting</title>");
+		expect(page({ title: "Fix <the> parser" })).toContain("<title>Plan review · Fix &lt;the&gt; parser</title>");
+	});
+
+	test("leaves the tab title to the head rather than a second copy in script", () => {
+		// One sentence, one owner: the head renders it from the same `title` the header paints.
+		expect(REVIEW_CLIENT_JS).not.toContain("document.title");
+	});
+
+	test("links the brand mark as the tab icon", () => {
+		expect(page()).toContain('rel="icon"');
+		expect(page()).toContain('href="data:image/svg+xml,');
+	});
+});
 
 describe("review page roles", () => {
 	test("gives the owner Share, the link list, and the matching dialog", () => {

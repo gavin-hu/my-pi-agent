@@ -8,6 +8,7 @@
 
 import { escapeHtml } from "../escape.ts";
 import { THEME_JS_PATH } from "./runtime.ts";
+import { WEB_THEME_TOKENS } from "./tokens.ts";
 
 /** Options for {@link docHead}. */
 export interface DocHeadOptions {
@@ -27,8 +28,70 @@ export function docHead(options: DocHeadOptions): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <title>${escapeHtml(options.title)}</title>
+${markIcon()}
 <style>${options.css}</style>
 <script src="${THEME_JS_PATH}"></script>`;
+}
+
+/**
+ * The mark's blocks: `█▀█` over `█▀ █`, as `[x, height]` per row in a 4x2 grid.
+ *
+ * One shape, three places — the header lockup, the tab icon, and the TUI header's
+ * half-blocks — so it is written once. The rows differ: the top fills x=2, the bottom
+ * leaves it empty and fills x=3, which is what makes the mark read as two glyphs.
+ */
+const MARK_ROWS: ReadonlyArray<{ group: "top" | "bottom"; rects: ReadonlyArray<readonly [number, number]> }> = [
+	{
+		group: "top",
+		rects: [
+			[0, 1],
+			[1, 0.5],
+			[2, 1],
+		],
+	},
+	{
+		group: "bottom",
+		rects: [
+			[0, 1],
+			[1, 0.5],
+			[3, 1],
+		],
+	},
+];
+
+/** One row of the mark, as `<rect>`s starting at `y`. */
+function markRowRects(row: (typeof MARK_ROWS)[number], y: number): string {
+	return row.rects.map(([x, height]) => `<rect x="${x}" y="${y}" width="1" height="${height}"/>`).join("");
+}
+
+/**
+ * The mark as a standalone SVG, in one appearance's colours.
+ *
+ * A favicon is its own document: it cannot read the page's tokens, so the fills are
+ * resolved here from the same palette the page paints with, and each appearance gets
+ * its own icon.
+ */
+function markSvg(fills: { top: string; bottom: string }): string {
+	const rows = MARK_ROWS.map((row, index) => `<g fill="${fills[row.group]}">${markRowRects(row, index)}</g>`);
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 2">${rows.join("")}</svg>`;
+}
+
+/**
+ * The tab icon: the mark, in the appearance the reader's system is in.
+ *
+ * The dark icon is the plain `rel="icon"` — the page paints dark at `:root`, and a
+ * browser that reads no `media` query on an icon keeps it. The light one is the
+ * override, so a light tab does not carry a mark tuned for a dark one.
+ */
+export function markIcon(): string {
+	const dark = encodeURIComponent(
+		markSvg({ top: WEB_THEME_TOKENS.dark["--accent"], bottom: WEB_THEME_TOKENS.dark["--warn"] }),
+	);
+	const light = encodeURIComponent(
+		markSvg({ top: WEB_THEME_TOKENS.light["--accent"], bottom: WEB_THEME_TOKENS.light["--warn"] }),
+	);
+	return `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${dark}">
+<link rel="icon" type="image/svg+xml" media="(prefers-color-scheme: light)" href="data:image/svg+xml,${light}">`;
 }
 
 /**
@@ -37,7 +100,8 @@ export function docHead(options: DocHeadOptions): string {
  * as a 4x2 grid so the accent and warning rows stay crisp at any zoom.
  */
 export function brandLockup(product: string): string {
-	return `<span class="bf-brand"><svg class="bf-mark" viewBox="0 0 4 2" aria-hidden="true"><g class="bf-mark__top"><rect x="0" y="0" width="1" height="1"/><rect x="1" y="0" width="1" height="0.5"/><rect x="2" y="0" width="1" height="1"/></g><g class="bf-mark__bottom"><rect x="0" y="1" width="1" height="1"/><rect x="1" y="1" width="1" height="0.5"/><rect x="3" y="1" width="1" height="1"/></g></svg><span class="bf-wordmark">bytefly</span><span class="bf-context">${escapeHtml(product)}</span></span>`;
+	const rows = MARK_ROWS.map((row, index) => `<g class="bf-mark__${row.group}">${markRowRects(row, index)}</g>`);
+	return `<span class="bf-brand"><svg class="bf-mark" viewBox="0 0 4 2" aria-hidden="true">${rows.join("")}</svg><span class="bf-wordmark">bytefly</span><span class="bf-context">${escapeHtml(product)}</span></span>`;
 }
 
 /**

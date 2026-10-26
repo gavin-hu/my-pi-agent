@@ -341,7 +341,7 @@ ${reviewHints(data.role, data.canApprove)}
 	return `<!doctype html>
 <html lang="en">
 <head>
-${docHead({ title: "Plan review", css: REVIEW_CSS })}
+${docHead({ title: `Plan review · ${data.title}`, css: REVIEW_CSS })}
 </head>
 <body class="bf-app">
 <a class="skip" href="#plan">Skip to the plan</a>

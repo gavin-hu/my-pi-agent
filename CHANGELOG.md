@@ -51,6 +51,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `HEAD` resolved to — because `done` is terminal and a finished card could not otherwise
   say which change closed it. Both fields are optional: a card may be blocked with
   nothing recorded, and a board outside a repository finishes cards without a commit.
+- `web`: every served page shows the brand mark in its tab. `docHead` links the mark —
+  the same `█▀█` / `█▀ █` blocks the header lockup draws, from one geometry — as an SVG
+  data URI, with a second link behind `prefers-color-scheme: light` so a light tab does
+  not carry a glyph tuned for a dark one. The three `/favicon.ico` stubs and the
+  file-browse page's own blue circle are gone: a linked icon is one no browser has to go
+  looking for, and the page's CSP already allows `data:` images.
+- `plan`: the review's tab names the plan — `Plan review · <title>` — in the document
+  rather than from script, so a strip of tabs reads apart before the page has loaded and
+  the title has one owner instead of two.
+- `board`: the page's tab names its board and how much is open — `board · <key> · 3
+  open` — from the store's own key, so two repositories' boards are two tabs a reader
+  can tell apart.
 
 ### Changed
 

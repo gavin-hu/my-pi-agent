@@ -193,7 +193,7 @@ const renderTemplate = String.raw`(function () {
     return item;
   }
 
-  /** The toolbar's identity, progress, and footer. */
+  /** The toolbar's identity, progress, footer, and the tab's own name. */
   function renderChrome(view) {
     var me = document.getElementById("board-me");
     if (me) {
@@ -218,6 +218,12 @@ const renderTemplate = String.raw`(function () {
         "store " + view.where + " · " + plural(view.counts.total, "card") + " · " + size(view.bytes) +
         (view.skipped > 0 ? " · " + plural(view.skipped, "unreadable") : "");
     }
+    // The tab has to tell two boards apart, and a board's own name is the last segment of
+    // its store: one board per repository, so that key is the subject. The count is what
+    // a browser full of tabs is read for, and an empty board says nothing rather than 0.
+    var key = view.where.split("/").pop();
+    var open = view.counts.total - view.counts.done;
+    document.title = "board" + (key ? " · " + key : "") + (open > 0 ? " · " + open + " open" : "");
   }
 
   /** 1 card, 2 cards — the one body, handed in by the bundle's assembler. */

@@ -110,6 +110,8 @@ async function openPage(): Promise<Page> {
 interface Doc {
 	querySelectorAll(selector: string): ArrayLike<ElementLike>;
 	getElementById(id: string): ElementLike | null;
+	/** What the tab strip shows: the page's own name, once a frame has painted it. */
+	title: string;
 }
 
 interface ElementLike {
@@ -171,6 +173,49 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// but hidden: a reader clicks the head to see them.
 		expect(await page.$eval("#lane-head-done", (node) => node.getAttribute("aria-expanded"))).toBe("false");
 		expect(await hidden(page, "#lane-done")).toBe(true);
+		await page.close();
+	});
+
+	test("names itself in the tab, and links the mark the header draws", async () => {
+		const page = await openPage();
+		// A tab is read from a strip of other tabs: the store's own key tells two boards apart,
+		// and the count is the reason a tab is read at all. Both need the store, so the client
+		// paints them; the head's `board` is what a tab shows before the first frame.
+		await page.waitForFunction(
+			() => (globalThis as unknown as { document: Doc }).document.title.includes("open"),
+			undefined,
+			{ timeout: PAINT_MS },
+		);
+		expect(await page.title()).toBe("board · behaviour · 3 open");
+
+		// The mark is the one the header draws, as a `data:` URI the page's own CSP allows.
+		const icons = await page.$$eval('link[rel="icon"]', (nodes) =>
+			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("href") ?? ""),
+		);
+		expect(icons).toHaveLength(2);
+		for (const href of icons) expect(href.startsWith("data:image/svg+xml,")).toBe(true);
+
+		// And the browser draws it under the page's own CSP: an icon it refused, or a URI it
+		// could not parse, would report no width at all.
+		const drawn = await page.evaluate(
+			() =>
+				new Promise<number>((resolve) => {
+					const doc = globalThis as unknown as {
+						document: { querySelector(selector: string): ElementLike | null };
+						Image: new () => {
+							naturalWidth: number;
+							src: string;
+							onload: (() => void) | null;
+							onerror: (() => void) | null;
+						};
+					};
+					const image = new doc.Image();
+					image.onload = () => resolve(image.naturalWidth);
+					image.onerror = () => resolve(0);
+					image.src = doc.document.querySelector('link[rel="icon"]')?.getAttribute("href") ?? "";
+				}),
+		);
+		expect(drawn).toBeGreaterThan(0);
 		await page.close();
 	});
 

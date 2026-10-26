@@ -122,7 +122,6 @@ export async function handleReviewRequest(
 	if (!parsed) return jsonError(400, "Malformed request URL.");
 	const { pathname, search } = parsed;
 
-	if (pathname === "/favicon.ico") return { status: 204, headers: { "Cache-Control": "no-store" } };
 	if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
 	if (pathname === "/client.js") return { status: 200, headers: scriptHeaders(), body: REVIEW_CLIENT_JS };
 

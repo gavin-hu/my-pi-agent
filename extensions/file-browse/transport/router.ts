@@ -15,7 +15,6 @@ import {
 	isLocalHostHeader,
 	jsonError,
 	jsonResponse,
-	pageHeaders,
 	parseRequestUrl,
 	scriptHeaders,
 	type ServeResponse,
@@ -379,7 +378,6 @@ export async function handleRequest(
 	try {
 		if (pathname === "/app.js") return { status: 200, headers: scriptHeaders(), body: CLIENT_JS };
 		if (pathname === THEME_JS_PATH) return { status: 200, headers: scriptHeaders(), body: THEME_JS };
-		if (pathname === "/favicon.ico") return { status: 204, headers: pageHeaders(), body: "" };
 		if (pathname === "/api/tree") return await treeApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/dir-rev") return await dirRevApi(ctx, search.get("path") ?? "");
 		if (pathname === "/api/files") return await filesApi(ctx, search.get("q") ?? "");

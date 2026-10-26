@@ -127,19 +127,23 @@ acts on it.
 
 ## Routes
 
-Every route but three needs the token, and there is exactly one: 128 random bits minted
+Every route but two needs the token, and there is exactly one: 128 random bits minted
 when the page starts, compared in constant time, in the URL the browser was opened at.
-The three that do not are the page's own furniture — `/favicon.ico`, `/theme.js`, and
-`/app.js` are the same bytes to every reader and can neither read nor change a card, so
-refusing them to a fetch that has no token would only break the page. Everything below a
+The two that do not are the page's own furniture — `/theme.js` and `/app.js` are the same
+bytes to every reader and can neither read nor change a card, so refusing them to a fetch
+that has no token would only break the page. Everything below a
 token is a **read**: the method list is `GET` and `HEAD`, so a `POST` or a `DELETE` is
 refused by the envelope — `405`, `Allow: GET, HEAD` — before the token is even read.
 
+The tab's icon is not a route: the document head links the mark as an SVG data URI, so
+a browser fetches the icon out of the page it already has, and `/favicon.ico` is one more
+path the board does not serve.
+
 ```
-GET    /favicon.ico          204 and no body — no token
 GET    /theme.js             the theme script — no token
 GET    /app.js               the client script — no token
-GET    /                     the document (?view=board|team)
+GET    /                     the document (?view=board|team), whose tab names the
+                             store's key and how many cards are open
 GET    /api/board            the snapshot
 GET    /events               the live frame stream
 ```
