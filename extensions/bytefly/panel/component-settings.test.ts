@@ -1,0 +1,360 @@
+/**
+ * The Settings section of `PanelComponent`: changing, resetting, and reviewing a
+ * row, its frame, and the theme row's interaction.
+ *
+ * The catalogue behind it is `settings.test.ts`; the writer is
+ * `settings-runtime.test.ts`.
+ */
+
+import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
+import { visibleWidth } from "@earendil-works/pi-tui";
+import {
+	buildPanel,
+	enabledItem,
+	fakeSettingsSurface,
+	focusPanel,
+	selectedLine,
+	settingsSnapshot,
+} from "../../../test/helpers/fixtures/bytefly.ts";
+import { settle } from "../../../test/helpers/process.ts";
+import type { Settings } from "../picker/types.ts";
+import { type SettingsSurface } from "./settings-runtime.ts";
+import { settingViews } from "./settings.ts";
+
+describe("PanelComponent settings actions", () => {
+	test("names the reset and JSON keys, and offers no group key on the flat list", () => {
+		const { component } = buildPanel({ items: [], section: "settings" });
+
+		const text = component.render(120).join("\n");
+		expect(text).toContain("u reset");
+		expect(text).toContain("J JSON");
+		expect(text).toContain("↑/↓ select");
+		expect(text).not.toContain("[ ]");
+	});
+
+	test("resets the focused row and marks the screen saved", async () => {
+		const { component } = buildPanel({
+			items: [],
+			section: "settings",
+			globalDoc: { job: { wakeOnFinish: true } },
+		});
+
+		focusPanel(component, "Wake when a job finishes");
+		component.handleInput("u");
+		await settle();
+
+		const text = component.render(80).join("\n");
+		const row = text.split("\n").find((line) => line.includes("Wake when a job finishes"));
+		expect(row?.trimEnd().endsWith("Off")).toBe(true);
+		expect(text).toContain("Saved");
+	});
+
+	test("shows a failed reset in the frame instead of behind it", async () => {
+		const surface: SettingsSurface = {
+			views: (scope) => settingViews(settingsSnapshot(), scope),
+			change: async () => {},
+			setValue: async () => false,
+			reset: async () => {
+				throw new Error("read-only file");
+			},
+			sectionDocument: () => undefined,
+			isDirty: () => false,
+		};
+		const { component } = buildPanel({ items: [], section: "settings", settings: surface });
+
+		focusPanel(component, "Bytefly startup TUI");
+		component.handleInput("u");
+		await settle();
+
+		expect(component.render(80).join("\n")).toContain("read-only file");
+	});
+
+	test("shows the focused row's section as stored, and closes it on Tab", () => {
+		const { component } = buildPanel({
+			items: [],
+			section: "settings",
+			globalDoc: { job: { wakeOnFinish: true } },
+		});
+
+		focusPanel(component, "Wake when a job finishes");
+		component.handleInput("J");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("job — ");
+		expect(text).toContain('"wakeOnFinish": true');
+		expect(text).toContain("J hide");
+
+		component.handleInput("\t");
+		const afterScope = component.render(80).join("\n");
+		expect(afterScope).not.toContain('"wakeOnFinish": true');
+	});
+
+	test("does not reopen the JSON pane after the focus visits a Global-only row", () => {
+		const { component } = buildPanel({
+			items: [],
+			section: "settings",
+			globalDoc: { job: { wakeOnFinish: true } },
+		});
+
+		focusPanel(component, "Wake when a job finishes");
+		component.handleInput("J");
+		expect(component.render(80).join("\n")).toContain('"wakeOnFinish": true');
+
+		component.handleInput("g");
+		expect(component.render(80).join("\n")).not.toContain('"wakeOnFinish": true');
+		focusPanel(component, "Wake when a job finishes");
+		expect(component.render(80).join("\n")).not.toContain('"wakeOnFinish": true');
+	});
+
+	test("explains that a Pi setting has no section to show", () => {
+		const { component } = buildPanel({ items: [], section: "settings" });
+
+		focusPanel(component, "Bytefly startup TUI");
+		component.handleInput("J");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("bytefly.json has no section");
+		expect(text).not.toContain("J hide");
+	});
+
+	test("leaves the group keys inert on the flat Settings list", () => {
+		const { component } = buildPanel({ items: [], section: "settings" });
+
+		component.render(80);
+		expect(selectedLine(component)).toContain("Bytefly startup TUI");
+
+		component.handleInput("]");
+		expect(selectedLine(component)).toContain("Bytefly startup TUI");
+		component.handleInput("[");
+		expect(selectedLine(component)).toContain("Bytefly startup TUI");
+
+		component.handleInput("G");
+		expect(selectedLine(component)).toContain("Session budget");
+	});
+});
+
+describe("PanelComponent settings review", () => {
+	test("keeps the focused setting across a scope switch", () => {
+		const { component } = buildPanel({
+			items: [enabledItem("plan")],
+			section: "settings",
+			globalDoc: { notify: { enabled: true } },
+		});
+
+		focusPanel(component, "Desktop notifications");
+		component.handleInput("\t");
+		expect(selectedLine(component)).toContain("Desktop notifications");
+		component.handleInput("\t");
+		expect(selectedLine(component)).toContain("Desktop notifications");
+	});
+
+	test("names the global file for an inherited row and calls a default a default", () => {
+		const { component } = buildPanel({
+			items: [enabledItem("plan")],
+			section: "settings",
+			rows: 40,
+			globalDoc: { job: { wakeOnFinish: true } },
+		});
+
+		component.handleInput("\t");
+		focusPanel(component, "Wake when a job finishes");
+		let text = component.render(80).join("\n");
+		expect(text).toContain(`Inherited from Global · ${join("/agent", "bytefly.json")}`);
+
+		focusPanel(component, "Automatic snapshots");
+		text = component.render(80).join("\n");
+		expect(text).toContain(`Default · ${join("/proj", ".pi", "bytefly.json")}`);
+		expect(text).not.toContain("Inherited from Global");
+	});
+
+	test("names the scope file in the JSON pane, not the value origin", () => {
+		const { component } = buildPanel({
+			items: [enabledItem("plan")],
+			section: "settings",
+			globalDoc: { job: { wakeOnFinish: true } },
+		});
+
+		component.handleInput("\t");
+		focusPanel(component, "Wake when a job finishes");
+		component.handleInput("J");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain(`job — Project · ${join("/proj", ".pi", "bytefly.json")}`);
+		expect(text).toContain("Not set in this scope.");
+	});
+
+	test("counts the settings it shows in the range row", () => {
+		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings", rows: 12 });
+
+		const global = component.render(80).join("\n");
+		expect(global).toContain("showing");
+		expect(global).toContain("of 12");
+
+		component.handleInput("\t");
+		expect(component.render(80).join("\n")).toContain("of 10");
+	});
+
+	test("ignores a click below the last body row", () => {
+		const { component } = buildPanel({ items: [enabledItem("plan")], section: "settings", rows: 12 });
+
+		const lines = component.render(80);
+		const rangeY = lines.findIndex((line) => line.includes("showing"));
+		const hintY = lines.findIndex((line) => line.includes("Esc close"));
+		const before = selectedLine(component);
+
+		for (const y of [rangeY, hintY]) {
+			expect(component.handleMouse({ type: "click", button: "left", x: 10, y } as any)).toBeUndefined();
+		}
+		expect(selectedLine(component)).toBe(before);
+	});
+
+	test("keeps the saved marker while the JSON pane is open", () => {
+		const base = fakeSettingsSurface({ global: { notify: { enabled: true } } });
+		const surface: SettingsSurface = { ...base.surface, isDirty: () => true };
+		const { component } = buildPanel({ items: [], section: "settings", settings: surface });
+
+		focusPanel(component, "Desktop notifications");
+		component.handleInput("J");
+
+		expect(component.render(80).join("\n")).toContain("Saved · reload to apply");
+	});
+
+	test("counts the JSON lines it hides", () => {
+		const doctor = Object.fromEntries(Array.from({ length: 10 }, (_, index) => [`key${index}`, `value ${index}`]));
+		const { component } = buildPanel({ items: [], section: "settings", rows: 14, globalDoc: { doctor } });
+
+		focusPanel(component, "Proactive health check");
+		component.handleInput("J");
+
+		expect(component.render(80).join("\n")).toContain("… 10 more lines");
+	});
+
+	test("does not claim a hidden JSON pane on an app row", () => {
+		const { component } = buildPanel({ items: [], section: "settings", globalDoc: { notify: { enabled: true } } });
+
+		focusPanel(component, "Desktop notifications");
+		component.handleInput("J");
+		component.handleInput("g");
+
+		const text = component.render(80).join("\n");
+		expect(text).toContain("Bytefly startup TUI — Pi setting");
+		expect(text).toContain("J JSON");
+		expect(text).not.toContain("J hide");
+	});
+
+	test("keeps the label and the caret while editing a long value on a narrow terminal", () => {
+		const { component } = buildPanel({ items: [], section: "settings", globalDoc: { price: { budget: 0 } } });
+
+		focusPanel(component, "Session budget");
+		component.handleInput(" ");
+		component.handleInput("1234567890");
+
+		const line = component.render(30).find((candidate) => candidate.startsWith("❯")) ?? "";
+		expect(line).toContain("Session");
+		expect(line).toContain("▏");
+		expect(line).toContain("…");
+	});
+
+	test("fits an eight-row terminal in both scopes and while dirty", () => {
+		for (const project of [false, true]) {
+			const { component } = buildPanel({ items: [], section: "settings", rows: 8 });
+			if (project) {
+				component.render(80);
+				component.handleInput("\t");
+			}
+			expect(component.render(80).length).toBeLessThanOrEqual(8);
+		}
+
+		const base = fakeSettingsSurface({ global: { notify: { enabled: true } } });
+		const surface: SettingsSurface = { ...base.surface, isDirty: () => true };
+		const dirty = buildPanel({ items: [], section: "settings", rows: 8, settings: surface }).component;
+		const lines = dirty.render(80);
+		expect(lines.length).toBeLessThanOrEqual(8);
+		expect(lines.join("\n")).toContain("Saved · reload to apply");
+
+		focusPanel(dirty, "Desktop notifications");
+		dirty.handleInput("J");
+		const withJson = dirty.render(80);
+		expect(withJson.length).toBeLessThanOrEqual(8);
+		expect(withJson.join("\n")).toContain("Saved · reload to apply");
+	});
+});
+
+describe("PanelComponent settings frame", () => {
+	test("shows every curated setting and nothing that left the catalogue", () => {
+		const { component } = buildPanel({ items: [], section: "settings" });
+		const text = component.render(80).join("\n");
+
+		for (const gone of ["Notification title", "Probe timeout", "Rail glyph", "Base ref", "Snapshots kept"]) {
+			expect(text, gone).not.toContain(gone);
+		}
+		expect(text).toContain("Session budget");
+	});
+
+	test("fits all twelve settings on a 24-row terminal with no range row", () => {
+		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
+		const lines = component.render(80);
+
+		expect(lines).toHaveLength(22);
+		expect(lines.join("\n")).not.toContain("showing");
+		expect(lines.join("\n")).toContain("Session budget");
+	});
+
+	test("stays content-sized on a tall terminal", () => {
+		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
+		expect(component.render(80)).toHaveLength(22);
+	});
+
+	test("keeps a value beside its label on a wide terminal", () => {
+		const { component } = buildPanel({ items: [], section: "settings" });
+		const line = component.render(120).find((candidate) => candidate.includes("Turn finished")) ?? "";
+
+		const labelAt = line.indexOf("Turn finished");
+		const valueAt = line.indexOf("On");
+		expect(labelAt).toBeGreaterThanOrEqual(0);
+		expect(valueAt).toBeGreaterThan(labelAt);
+		expect(visibleWidth(line)).toBeLessThanOrEqual(120);
+	});
+
+	test("spends three rows on the focused row's detail", () => {
+		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
+		const lines = component.render(80);
+		const head = lines.findIndex((line) => line.includes("Bytefly startup TUI — Pi setting"));
+
+		expect(head).toBeGreaterThan(0);
+		expect(lines[head + 1]).toContain("Use bytefly's startup header");
+		expect(lines[head + 2]).toContain("Default · ");
+	});
+});
+
+describe("PanelComponent theme setting", () => {
+	test("renders the Theme row and cycles the resolved names", async () => {
+		const { component } = buildPanel({
+			items: [],
+			section: "settings",
+			themes: ["system", "bytefly-dark", "bytefly-light"],
+			app: { theme: "system" } as Settings,
+		});
+
+		focusPanel(component, "Theme");
+		expect(component.render(80).join("\n")).toContain("Theme");
+
+		component.handleInput(" ");
+		await settle();
+		await settle();
+
+		const after = component.render(80).join("\n");
+		expect(after).toContain("bytefly-dark");
+		expect(after).toContain("Saved · reload to apply");
+	});
+
+	test("omits the Theme row in Project scope", () => {
+		const { component } = buildPanel({ items: [], section: "settings", themes: ["system", "bytefly-dark"] });
+
+		component.render(80);
+		component.handleInput("\t");
+
+		expect(component.render(80).join("\n")).not.toContain("Theme");
+	});
+});

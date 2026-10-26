@@ -9,7 +9,7 @@
  * The catalogue is the shortlist a session changes, not the whole document: every
  * row is one a workflow differs on, and each states its own rule so a value the
  * screen accepts is a value the loader keeps. The catalogue order is the screen's
- * order, and it is capped so the section fits a 24-row terminal (`panel.test.ts`
+ * order, and it is capped so the section fits a 24-row terminal (`settings.test.ts`
  * holds the ceiling); a new row has to displace one. Everything else stays
  * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
  * (`price.peak`), and the tuning numbers and labels this screen deliberately does

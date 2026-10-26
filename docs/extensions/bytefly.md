@@ -798,7 +798,7 @@ shows where the value comes from — `Global · ~/.pi/agent/bytefly.json`, `Proj
 the same reload confirm as an extension or skill toggle.
 
 The list is capped at twelve rows so the screen keeps fitting a 24-row
-terminal: adding a setting means removing one (`panel/panel.test.ts` holds the
+terminal: adding a setting means removing one (`panel/settings.test.ts` holds the
 ceiling). Everything else stays in `bytefly.json` — the tuning numbers, the
 cosmetic labels, and the Pi preferences Pi's own `/settings` owns — and
 `test/settings-coverage.test.ts` keeps the split honest: every loader key is

@@ -254,7 +254,7 @@ manifest, and package-level contracts.
 BEFORE  (~300 files, one per module)        AFTER  (~100 declared suites)
   extensions/bytefly/block/component.test.ts    extensions/bytefly/block/block.test.ts
   extensions/bytefly/block/fallback.test.ts     extensions/bytefly/chrome.test.ts
-  extensions/bytefly/block/register.test.ts     extensions/bytefly/panel/panel.test.ts
+  extensions/bytefly/block/register.test.ts     extensions/bytefly/panel/component.test.ts
   extensions/bytefly/header/component.test.ts   ...
   extensions/bytefly/header/register.test.ts
   ...
