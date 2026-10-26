@@ -16,15 +16,15 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 | Capability | How | What you get | Status |
 |---|---|---|---|
-| Membership | `session join [label]`, `/team join [<label>]`, the board's `w` | The join: this session is on the bus under a stable label peers address, and listens for mail unless told not to. A label given to `session join` or `/team join` is also Pi's session name, so the footer and `/resume` agree with the record; `w` joins under the name the bus derives and writes nothing to Pi. | Unreleased |
-| Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read. | Shipped |
+| Membership | `session join [label]`, `/team join [<label>]`, `/board`, any `board` action that writes, the board's `w` | The join: this session is on the bus under a stable label peers address, and listens for mail unless told not to. A label given to `session join` or `/team join` is also Pi's session name, so the footer and `/resume` agree with the record; `/board` joins as the page's seat (`team-lead`) or, on a page it is only watching, under its own label; the first `board` action that writes joins under the name the session already has; `w` joins under the name the bus derives and writes nothing to Pi. | Shipped |
+| Peer discovery | `session status` | Every active session with its unread count and claims, plus this session's identity, in one read — and a session whose process is gone says so, its paths free from that read on. | Unreleased |
 | Live board | `/sessions` | Sessions, this session's unread mail, and every claim held on the repository, on one screen. | Shipped |
 | Board actions | `/sessions` (`w`, `x`) | Start or stop listening from the board, or release an own claim behind a confirmation, without leaving it. | Shipped |
 | Short messages | `session send` | One message per recipient, addressed by label or id, with a broadcast for events. | Shipped |
 | Message kinds | `session send` with `kind` | A `message`, `event`, `ask`, or `handoff` keeps its meaning; `ask` does not block the sender, and a `handoff` is named as the work it assigns. | Shipped |
 | Message paths | `session send` with `paths` | A message can name the repository paths it concerns, echoed in the inbox row. | Shipped |
 | Inbox on demand | `session inbox` | Up to `limit` messages, oldest first, consumed only when the model asks. | Shipped |
-| Listening | `session join` | New mail reported at the next turn; `join({wake: true})` raises one turn once the agent is idle, and `join({listen: false})` stops it. | Unreleased |
+| Listening | `session join` | New mail reported at the next turn; `join({wake: true})` raises one turn once the agent is idle, and `join({listen: false})` stops it. The record carries whether this session listens, so a peer's status read answers it without asking. | Shipped |
 | Path claims | `session claim`, `session release` | A file or directory prefix held by one session at a time. | Shipped |
 
 ## Quickstart
@@ -212,7 +212,7 @@ listening watch is what raises the turn.
 | Tools | `session` — one action-shaped tool; `readOnlyHint: false`, `destructiveHint: true`, `openWorldHint: false`, `executionMode: "sequential"`. |
 | Commands | `/sessions` — the board in `tui`, the listing elsewhere; no arguments and no sub-commands. |
 | UI | `tui` mounts `SessionListComponent` through `withPolledScreen` (rails suppressed, a 1 s read-only poll of `snapshot()` + `peek()`); every other mode prints through `ctx.ui.notify`. No status chip, so listening never changes the footer. |
-| Events | `session_start` resolves the repository and arms the mail trigger, without joining; `before_agent_start` reports queued non-wake mail at the next turn, `agent_settled` retries a wake the run suppressed, and `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
+| Events | `session_start` resolves the repository and arms the mail trigger, without joining; `session_tree` only repaints, since navigating the tree changes no pending record; `agent_start` marks the run busy; `before_agent_start` reports queued non-wake mail at the next turn; `agent_settled` retries a wake the run suppressed; `context` prunes stale notices; `session_shutdown` clears the heartbeat, the watch ticker, and the record. The seven hooks are `lib/report.ts`'s `registerPendingChannel`, not a local copy. |
 | State | Files under `<agent-dir>/session-bus/<repo-key>/`; nothing in the session branch. Listening is session-only. `/resume` re-registers the same session id. |
 | Lifecycle | The factory only registers. The runtime starts on `session_start`; heartbeat, watch ticker, and cleanup belong to it. Disabling `session-bus` through `PI_DISABLED_EXTENSIONS` registers nothing. |
 | Mode | Uses `ctx.mode` to decide whether `/sessions` mounts the board and how a label is derived; nothing joins at start in any mode; `askHuman` is not involved and no status chip is published. |
