@@ -29,8 +29,8 @@ surface arrives with its limitation written in the same breath.
   three-OS CI, a shared `lib/tui/` and `lib/web/` design system, budgeted prompt
   context, and package-level guards that hold the docs, the catalog, the release
   window, and this file to the tree.
-- The last tag is `0.19.0`. The one before it, `0.18.0`, shipped the body the
-  previous review listed as pending: `session-bus` with its live board, plans split
+- The last tag is `0.20.0`. `0.18.0` shipped the body the review before this one
+  listed as pending: `session-bus` with its live board, plans split
   into a team at approval, reviewer links that follow the plan file live, the browse
   page's `path:line` reference copy, one loopback server lifecycle in `lib/http/` so
   no served page owns a socket of its own, and the daily loop's structured fetch and
