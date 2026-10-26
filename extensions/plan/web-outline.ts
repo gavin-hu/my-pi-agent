@@ -23,8 +23,14 @@ export interface OutlineEntry {
 	changed?: boolean;
 }
 
-/** The pieces of a DOM node the outline touches. */
-export interface OutlineNode {
+/**
+ * The pieces of a DOM node the review client touches.
+ *
+ * Named for the client rather than the outline because the outline was only its first
+ * consumer: the facts painter reads the step bar's `style`, the builder appends children,
+ * and every later capability needs the same surface. `OutlineEntry` stays outline-specific.
+ */
+export interface ClientNode {
 	className: string;
 	textContent: string | null;
 	hidden: boolean;
@@ -35,19 +41,19 @@ export interface OutlineNode {
 	setAttribute(name: string, value: string): void;
 	getAttribute(name: string): string | null;
 	removeAttribute(name: string): void;
-	appendChild(child: OutlineNode): void;
+	appendChild(child: ClientNode): void;
 	replaceChildren(): void;
-	querySelectorAll(selector: string): ArrayLike<OutlineNode>;
+	querySelectorAll(selector: string): ArrayLike<ClientNode>;
 }
 
 /** What the browser's `IntersectionObserver` answers for a section watcher. */
 export interface SectionWatcher {
-	observe(target: OutlineNode): void;
+	observe(target: ClientNode): void;
 	disconnect(): void;
 }
 
 /** What `el` has to answer for an outline. Spliced beside it; declared for the checker. */
-type Build = (tag: string, className?: string, text?: string | null) => OutlineNode;
+type Build = (tag: string, className?: string, text?: string | null) => ClientNode;
 declare const el: Build;
 
 /**
@@ -69,8 +75,8 @@ export function sectionFor(entries: readonly OutlineEntry[], line: number): Outl
  * comments are counted per section; returning it is what lets this function be a pure
  * build with no handle on the client's state.
  */
-export function renderOutline(list: OutlineNode | null, entries: readonly OutlineEntry[]): Record<number, OutlineNode> {
-	const counters: Record<number, OutlineNode> = {};
+export function renderOutline(list: ClientNode | null, entries: readonly OutlineEntry[]): Record<number, ClientNode> {
+	const counters: Record<number, ClientNode> = {};
 	if (!list) return counters;
 	list.replaceChildren();
 	for (const item of entries) {
@@ -106,8 +112,8 @@ export function renderOutline(list: OutlineNode | null, entries: readonly Outlin
  * observer was built over wins, and a page with no headings needs no watcher at all.
  */
 export function observeSections(
-	planEl: OutlineNode | null,
-	list: OutlineNode | null,
+	planEl: ClientNode | null,
+	list: ClientNode | null,
 	previous: SectionWatcher | null,
 ): SectionWatcher | null {
 	if (previous) previous.disconnect();
@@ -121,7 +127,7 @@ export function observeSections(
 		}
 	).IntersectionObserver;
 	if (!Observer) return null;
-	const links: Record<string, OutlineNode> = {};
+	const links: Record<string, ClientNode> = {};
 	const anchors = list.querySelectorAll("a");
 	for (let i = 0; i < anchors.length; i++) {
 		const link = anchors[i];
@@ -171,12 +177,12 @@ export interface StepProgress {
 export function renderFacts(
 	steps: StepProgress,
 	comments: readonly AnchoredComment[],
-	counters: Record<number, OutlineNode>,
+	counters: Record<number, ClientNode>,
 	entries: readonly OutlineEntry[],
 ): void {
 	const doc = (
 		globalThis as unknown as {
-			document: { getElementById(id: string): OutlineNode | null };
+			document: { getElementById(id: string): ClientNode | null };
 		}
 	).document;
 	// A plan with no Steps section has no progress to show; 0/0 is noise.
