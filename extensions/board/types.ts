@@ -42,7 +42,8 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	list:
 		"shows the board — `status` filters one lane, `mine` only what this session holds, " +
 		"`query` matches a title, a holder, a path hint, the plan, or a note's text, `card` shows one card, and `round` adds " +
-		"the lead's rollup of owners, unassigned, unplanned, blocked, and idle, which always covers the whole board",
+		"the lead's rollup of owners, unassigned, unplanned, blocked, and idle, which always covers the whole board — and a " +
+		"listing that names no lane leaves out the `done` cards, saying how many it left out",
 	add: "creates a `todo` card",
 	claim: "takes one for this session",
 	release: "gives it back",

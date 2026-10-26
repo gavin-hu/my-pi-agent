@@ -263,6 +263,54 @@ describe("list", () => {
 		expect(await ids("nothing here")).toEqual([]);
 	});
 
+	test("leaves the finished cards out of a plain listing, and says how many", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Open one" });
+		await call({ action: "add", title: "Finished one" });
+		await call({ action: "claim", card: "2" });
+		await call({ action: "move", card: "2", status: "done" });
+		const result = await call({ action: "list" });
+		// A finished card is history, not work: it is not in the rows, and the count is what
+		// stops the listing from reading as a one-card board.
+		expect(result.details.cards?.map((card) => card.id)).toEqual(["1"]);
+		expect(text(result)).toContain("#1 todo · Open one");
+		expect(text(result)).not.toContain("Finished one");
+		expect(text(result)).toContain('1 done card hidden; pass status: "done" to read it.');
+		// The escape is the lane that names it, and it lists nothing else.
+		const finished = await call({ action: "list", status: "done" });
+		expect(finished.details.cards?.map((card) => card.id)).toEqual(["2"]);
+		expect(text(finished)).toContain("#2 done · Finished one");
+		expect(text(finished)).not.toContain("hidden");
+	});
+
+	test("reads a board that is all finished as no open cards, and a query alone hides them", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Finished one" });
+		await call({ action: "claim", card: "1" });
+		await call({ action: "move", card: "1", status: "done" });
+		const all = await call({ action: "list" });
+		expect(text(all)).toBe('No open cards.\n1 done card hidden; pass status: "done" to read it.');
+		// A query narrows the listing, it does not widen it past the lane rule: the card it
+		// would have matched is one the listing left out, and the count says so.
+		const queried = await call({ action: "list", query: "Finished" });
+		expect(queried.details.cards).toEqual([]);
+		expect(text(queried)).toContain("1 done card hidden");
+		// An empty board says only that.
+		const empty = harness();
+		expect(text(await empty.call({ action: "list" }))).toBe("The board is empty.");
+	});
+
+	test("the round still counts the finished cards a listing leaves out", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "Open one" });
+		await call({ action: "add", title: "Finished one" });
+		await call({ action: "claim", card: "2" });
+		await call({ action: "move", card: "2", status: "done" });
+		const result = await call({ action: "list", round: true });
+		expect(result.details.round?.done.map((card) => card.id)).toEqual(["2"]);
+		expect(text(result)).toContain("2 features");
+	});
+
 	test("adds the lead's rollup when asked, over the whole board", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });
@@ -364,10 +412,12 @@ describe("claim, release, and move", () => {
 		await call({ action: "move", card: "2", status: "done" });
 		const listing = text(await call({ action: "list" }));
 		expect(listing).toContain("blocked: legal has to sign");
-		// No repository behind this harness, so the done line names no commit: the silence is
-		// the honest answer, not a word saying "none".
-		expect(listing).toContain("#2 done · Finished one · billing-lead");
-		expect(listing).not.toContain("landed");
+		// A plain listing leaves the finished card out, so its line is read from the lane
+		// that asks for it. No repository behind this harness, so it names no commit: the
+		// silence is the honest answer, not a word saying "none".
+		const finished = text(await call({ action: "list", status: "done" }));
+		expect(finished).toContain("#2 done · Finished one · billing-lead");
+		expect(finished).not.toContain("landed");
 	});
 
 	test("a block records what it waits on, and the listing says so", async () => {
@@ -403,7 +453,7 @@ describe("claim, release, and move", () => {
 		const commit = done.details.card?.landed?.commit ?? "";
 		expect(commit).toMatch(/^[0-9a-f]{7}$/);
 		expect(text(done)).toContain(`landed: ${commit}`);
-		expect(text(await call({ action: "list" }))).toContain(`landed ${commit}`);
+		expect(text(await call({ action: "list", status: "done" }))).toContain(`landed ${commit}`);
 	});
 
 	test("a move to done outside a repository finishes the card without a commit", async () => {

@@ -21,10 +21,24 @@ export function formatCard(card: Card, board?: BoardIndex): string {
 	return [`${cardRef(card.id)} ${card.status} · ${card.title}`, ...detailLines(card, board)].join("\n");
 }
 
-/** A board, in lane order. */
-export function formatCards(cards: readonly Card[]): string {
-	if (cards.length === 0) return "The board is empty.";
-	return cards.map((card) => listLine(card)).join("\n");
+/**
+ * A board's listing: the cards, then the two things a reader cannot see.
+ *
+ * One body, because the footnotes belong to the listing: a card file this build cannot
+ * read, and the finished cards a plain listing left out.
+ */
+export function formatBoard(shown: readonly Card[], hiddenDone: number, skipped: readonly Skip[]): string {
+	const lines =
+		shown.length === 0 ? [hiddenDone === 0 ? "The board is empty." : "No open cards."] : shown.map(listLine);
+	// A finished card is history rather than work, so a listing that names no lane leaves
+	// them out; the count is what keeps the omission from reading as a smaller board.
+	if (hiddenDone > 0) {
+		const them = hiddenDone === 1 ? "it" : "them";
+		lines.push(`${plural(hiddenDone, "done card")} hidden; pass status: "done" to read ${them}.`);
+	}
+	const unreadable = formatSkipped(skipped);
+	if (unreadable !== "") lines.push(unreadable);
+	return lines.join("\n");
 }
 
 /**

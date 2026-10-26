@@ -26,7 +26,7 @@ import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
-import { formatCard, formatCards, formatDropped, formatSkipped } from "./format.ts";
+import { formatBoard, formatCard, formatDropped, formatSkipped } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { BoardResult, collapsedLine, resultInput } from "./result.ts";
 import { createInput } from "./input.ts";
@@ -298,12 +298,18 @@ async function read(
 			// session could not release.
 			(args.mine !== true || holds(card, me)),
 	);
-	// One line under the listing, because a reader who cannot see a card should know why.
-	const unreadable = formatSkipped(skipped);
-	const withFiles = (text: string): string => (unreadable === "" ? text : `${text}\n${unreadable}`);
-	if (args.round !== true) return textResult(withFiles(formatCards(listed)), { action, me, cards: listed });
+	// A finished card is history rather than work, and nothing prunes it — this
+	// repository's own board is mostly finished cards — so a listing that names no lane
+	// leaves them out and says how many. A named lane, `card`, and `round` are unchanged;
+	// the rollup counts the whole board, which is what makes it a rollup.
+	const hiddenDone = args.status === undefined ? listed.filter((card) => card.status === "done").length : 0;
+	const shown = hiddenDone === 0 ? listed : listed.filter((card) => card.status !== "done");
+	if (args.round !== true) return textResult(formatBoard(shown, hiddenDone, skipped), { action, me, cards: shown });
 	const round = buildRound(cards, now);
-	return textResult(withFiles(formatRound(cards, round)), { action, me, cards: listed, round });
+	// One line under the rollup, because a reader who cannot see a card file should know why.
+	const unreadable = formatSkipped(skipped);
+	const text = formatRound(cards, round);
+	return textResult(unreadable === "" ? text : `${text}\n${unreadable}`, { action, me, cards: listed, round });
 }
 
 /** `add`: the only action that creates a card. */

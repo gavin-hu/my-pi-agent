@@ -25,7 +25,7 @@ decision.
 
 | Capability | How | What you get |
 |---|---|---|
-| A shared feature list for one repository | `board` action `list` | Every card in lane order — `todo`, `doing`, `blocked`, `done` — or one card, or one lane |
+| A shared feature list for one repository | `board` action `list` | Every open card in lane order — `todo`, `doing`, `blocked` — or one card, or one lane; the `done` cards are left out with a count of how many, and `status: "done"` reads them |
 | The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned, unplanned, blocked, idle, and done |
 | Publish a feature | `board` action `add` | A `todo` card with path hints and a first note |
 | Take a feature | `board` action `claim` | The card is `doing` and owned by this session |
@@ -102,7 +102,7 @@ terminal.
 
 | Action | Parameters | Result |
 |---|---|---|
-| `list` | `status?`, `mine?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; `round: true` adds the rollup, which always covers the whole board |
+| `list` | `status?`, `mine?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work; `round: true` adds the rollup, which always covers the whole board |
 | `add` | `title`, `paths?`, `priority?`, `note?` | the new `todo` card |
 | `claim` | `card` | the card, now `doing` and owned by this session |
 | `release` | `card` | the card, back in `todo`, keeping any block it recorded |
@@ -216,6 +216,13 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 
 - **Ownership is advisory.** Two sessions can still edit the same file; only
   `session-bus`'s path claims are a lock.
+- **A listing is bounded, the rollup is not.** Nothing prunes a finished card, so the
+  cards accumulate — most of this repository's own board is finished cards — and reading
+  them on every call is a cost that grows with the history rather than with the work. A
+  `list` that names no lane therefore leaves `done` out and prints the count, which is
+  what keeps the omission from reading as a smaller board; `status: "done"` reads them,
+  and `round` counts every card, because a rollup that hid half the board would not be
+  one. The page bounds its own View the same way, folding a long `done` lane.
 - **A finished card stays finished.** `done` is terminal for every transition — claim,
   assign, release, move, and plan all refuse it — so a card a dependency was recorded
   against cannot un-finish and reopen the order after the fact. A card finished by

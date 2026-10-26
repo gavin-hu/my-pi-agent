@@ -27,7 +27,8 @@ export const BoardParams = Type.Object({
 		Type.Union(
 			CARD_STATUSES.map((status) => Type.Literal(status)),
 			{
-				description: "`list`: show only this lane. `move`: the lane to move to (not `todo` — use `release`).",
+				description:
+					"`list`: show only this lane, and not skip the `done` cards. `move`: the lane to move to (not `todo` — use `release`).",
 			},
 		),
 	),

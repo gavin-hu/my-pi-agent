@@ -76,6 +76,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a `list` call leaves the finished cards out and says how many it left, so reading
+  the board costs what the open work costs rather than what the history costs — this
+  repository's own board is mostly finished cards. `status: "done"` reads
+  them, and a listing that names a lane or a `card` is unaffected; `query` and `mine`
+  narrow what the listing shows rather than reaching past it, so a card the listing left
+  out stays out and the count says it exists. `round` still counts every card, since a
+  rollup that hid half the board would not be one.
+
 - `file-browse`: a rendered README's links and images have one owner. The Markdown
   renderer and the raw-HTML sanitizer each built the anchor, the external rel attributes,
   and the lazy-decoding `<img>` for themselves, and had already drifted; both now emit
