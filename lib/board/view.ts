@@ -14,7 +14,8 @@
  */
 
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
-import { type Card, CARD_STATUSES, type CardStatus, signatureOf } from "./card.ts";
+import { type Card, CARD_STATUSES, type CardStatus, priorityOf, type Priority, signatureOf } from "./card.ts";
+import { blockersOf, blockersText, indexOf } from "./links.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
 
@@ -33,10 +34,30 @@ export interface ViewTeammate {
 	you: boolean;
 }
 
+/**
+ * One card as the page meets it: the stored card, plus the two answers it would
+ * otherwise compute for itself.
+ *
+ * Both are derived from the board, not stored on the card, so a client that did the
+ * same work would be a second copy of a rule — and the copies drift, which is how the
+ * page came to disagree with the tool about what a card waits for.
+ */
+export interface ViewCard extends Card {
+	/** The priority it acts on: a card that never set one is ordinary. */
+	priority: Priority;
+	/**
+	 * The unfinished cards it waits for, as `#2 (doing)`; absent when nothing blocks it.
+	 *
+	 * `undefined` is the whole fact — a waiting card is one with a `waits` — because a
+	 * boolean beside it would be one more thing that can disagree with the string.
+	 */
+	waits?: string;
+}
+
 /** One lane and the cards in it, in the order the page draws them. */
 export interface ViewLane {
 	status: CardStatus;
-	cards: Card[];
+	cards: ViewCard[];
 }
 
 /** The per-lane tallies the toolbar shows. */
@@ -56,7 +77,7 @@ export interface BoardView {
 	session?: { id?: string; label: string };
 	lanes: ViewLane[];
 	counts: ViewCounts;
-	round: RoundSummary;
+	round: RoundSummary<ViewCard>;
 	/**
 	 * The sessions on this repository's bus, or absent when there is no bus here.
 	 *
@@ -93,9 +114,16 @@ export interface ViewInput {
 
 /** Build the page's snapshot. */
 export function buildView(input: ViewInput): BoardView {
+	// One index for the whole snapshot: a card's lane and its blockers are read from the
+	// same board, so a dependency and its dependent cannot be told two different stories.
+	const index = indexOf(input.cards);
+	// One mapped list feeds both halves of the snapshot: the rollup's groups carry the same
+	// card the lane does, so a client reading `round.unassigned` is not handed a card
+	// missing the facts every other card has.
+	const cards = input.cards.map((card) => viewCardOf(card, index));
 	const lanes = CARD_STATUSES.map((status) => ({
 		status,
-		cards: input.cards.filter((card) => card.status === status),
+		cards: cards.filter((card) => card.status === status),
 	}));
 	const reader = input.session ?? input.me;
 	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.now);
@@ -104,7 +132,7 @@ export function buildView(input: ViewInput): BoardView {
 		...(input.session === undefined ? {} : { session: input.session }),
 		lanes,
 		counts: countOf(lanes),
-		round: buildRound(input.cards, input.now),
+		round: buildRound(cards, input.now),
 		...(teammates === undefined ? {} : { teammates }),
 		bytes: input.bytes,
 		// The roster enters the signature at its coarse facts only: a heartbeat every ten
@@ -112,6 +140,17 @@ export function buildView(input: ViewInput): BoardView {
 		sig: signatureOf(input.cards) + rosterSignature(teammates),
 		where: input.where,
 	};
+}
+
+/**
+ * One card for the page: what it carries, plus what it acts on.
+ *
+ * The card is copied rather than annotated — the caller's cards are the store's, and a
+ * derived field written onto one would outlive the read that made it.
+ */
+function viewCardOf(card: Card, index: ReadonlyMap<string, Card>): ViewCard {
+	const waits = blockersText(blockersOf(card, index));
+	return { ...card, priority: priorityOf(card), ...(waits === "" ? {} : { waits }) };
 }
 
 /** The roster as the page shows it, ordered so a repaint never reorders it. */

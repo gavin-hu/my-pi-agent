@@ -20,28 +20,33 @@ import type { Card } from "./card.ts";
 /** How long a `doing` card may go untouched before the rollup calls it idle. */
 export const IDLE_MS = 30 * 60 * 1_000;
 
-/** One owner, the live cards it holds, and the ones it finished. */
-export interface RoundGroup {
+/**
+ * One owner, the live cards it holds, and the ones it finished.
+ *
+ * `T` is what the caller handed in: the rollup never builds a card, so a snapshot whose
+ * cards carry derived facts hands them back on the same terms it received them.
+ */
+export interface RoundGroup<T extends Card = Card> {
 	label: string;
-	cards: Card[];
+	cards: T[];
 	/** This owner's finished cards: history, kept so a teammate who is done is not erased. */
-	done: Card[];
+	done: T[];
 }
 
 /** The lead's rollup of one board. */
-export interface RoundSummary {
+export interface RoundSummary<T extends Card = Card> {
 	/** Every owner with at least one unfinished card, ordered by label. */
-	owners: RoundGroup[];
+	owners: RoundGroup<T>[];
 	/** `todo` cards: nobody has taken them yet. */
-	unassigned: Card[];
+	unassigned: T[];
 	/** `doing` cards with no plan recorded: work started before it was planned. */
-	unplanned: Card[];
+	unplanned: T[];
 	/** `blocked` cards, and the note that says why. */
-	blocked: Card[];
+	blocked: T[];
 	/** `doing` cards untouched for {@link IDLE_MS}: possibly a dead owner. */
-	idle: Card[];
+	idle: T[];
 	/** Finished cards, oldest first, kept as history. */
-	done: Card[];
+	done: T[];
 }
 
 /**
@@ -55,13 +60,13 @@ export interface RoundSummary {
  * whose labels differ only by case are one owner — a name is case-insensitive when
  * it is a send target, so it is here too — and the first spelling seen is kept.
  */
-export function buildRound(cards: readonly Card[], now: number): RoundSummary {
-	const groups = new Map<string, RoundGroup>();
-	const unassigned: Card[] = [];
-	const unplanned: Card[] = [];
-	const blocked: Card[] = [];
-	const idle: Card[] = [];
-	const done: Card[] = [];
+export function buildRound<T extends Card = Card>(cards: readonly T[], now: number): RoundSummary<T> {
+	const groups = new Map<string, RoundGroup<T>>();
+	const unassigned: T[] = [];
+	const unplanned: T[] = [];
+	const blocked: T[] = [];
+	const idle: T[] = [];
+	const done: T[] = [];
 
 	for (const card of cards) {
 		if (card.status === "todo") unassigned.push(card);

@@ -104,8 +104,8 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     // An order outranks nobody holding it: the claim would be refused, so the queue says
     // what it waits for instead of offering a button the rules would turn down.
     add(
-      round.unassigned.filter(function (card) { return board.blockersOf(card, view).length > 0; }),
-      function (card) { return "waits on " + board.waitingText(card, view); },
+      round.unassigned.filter(function (card) { return card.waits !== undefined; }),
+      function (card) { return "waits on " + card.waits; },
       "waiting",
     );
     return entries;

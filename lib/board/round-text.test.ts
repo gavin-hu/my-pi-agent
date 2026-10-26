@@ -9,7 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { CARD_VERSION, type Card } from "./card.ts";
 import { buildRound } from "./round.ts";
-import { formatRound, plural } from "./round-text.ts";
+import { formatRound, PLURAL_JS, plural } from "./round-text.ts";
 
 const NOW = 1_760_000_000_000;
 const IDLE_MS = 30 * 60 * 1_000;
@@ -78,6 +78,27 @@ describe("formatRound", () => {
 		expect(formatRound([], buildRound([], NOW))).toBe(
 			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 blocked · 0 idle · 0 done",
 		);
+	});
+});
+
+describe("PLURAL_JS", () => {
+	test("is the same body, safe to splice into a script", () => {
+		// The page's bundle carries this string; a backtick or an interpolation would end
+		// the template it lands in, and the failure would be a blank board.
+		expect(PLURAL_JS).toBe(String(plural));
+		expect(PLURAL_JS).not.toContain("`");
+		expect(PLURAL_JS).not.toContain("${");
+	});
+
+	test("answers what the module answers", () => {
+		const browserPlural = new Function(`return (${PLURAL_JS});`)() as (count: number, noun: string) => string;
+		for (const [count, noun] of [
+			[0, "note"],
+			[1, "card"],
+			[2, "cards"],
+		] as const) {
+			expect(browserPlural(count, noun)).toBe(plural(count, noun));
+		}
 	});
 });
 

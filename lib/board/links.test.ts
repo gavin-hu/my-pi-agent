@@ -9,7 +9,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { CARD_VERSION, type Card, MAX_DEPENDS } from "./card.ts";
-import { blockersOf, dependentsOf, dependedOn, indexOf, normalizeDepends, waitingOn, wouldCycle } from "./links.ts";
+import {
+	blockersOf,
+	blockersText,
+	dependentsOf,
+	dependedOn,
+	indexOf,
+	normalizeDepends,
+	waitingOn,
+	wouldCycle,
+} from "./links.ts";
 
 /** A card that passes, so each case changes one field. */
 function card(id: string, overrides: Partial<Card> = {}): Card {
@@ -44,6 +53,18 @@ describe("blockersOf", () => {
 	test("a card with no links waits on nothing", () => {
 		const board = indexOf([card("1")]);
 		expect(blockersOf(board.get("1") as Card, board)).toEqual([]);
+	});
+});
+
+describe("blockersText", () => {
+	test("names each blocker with the lane that makes it a decision", () => {
+		const board = indexOf([held("2"), held("3", "blocked")]);
+		expect(blockersText(blockersOf(board.get("2") as Card, board))).toBe("");
+		expect(blockersText([board.get("3") as Card, board.get("2") as Card])).toBe("#3 (blocked), #2 (doing)");
+	});
+
+	test("says nothing for a card that waits on nothing", () => {
+		expect(blockersText([])).toBe("");
 	});
 });
 

@@ -52,6 +52,72 @@ describe("buildView", () => {
 		expect(view.lanes.map((lane) => lane.cards.map((entry) => entry.id))).toEqual([["1"], ["2"], ["3"], ["4"]]);
 	});
 
+	test("gives each card the priority it acts on, ordinary unless it says otherwise", () => {
+		const view = buildView({
+			me: ME,
+			cards: [card("1"), card("2", { priority: "high" })],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		expect(view.lanes[0]?.cards.map((entry) => entry.priority)).toEqual(["normal", "high"]);
+	});
+
+	test("names what a card is blocked by, and nothing once that dependency is done", () => {
+		// The page prints this line; the tool prints its own, which also names finished
+		// links. Both read the same graph, so neither can invent a blocker.
+		const blocked = buildView({
+			me: ME,
+			cards: [card("2", { status: "doing" }), card("4", { dependsOn: ["2"] })],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		expect(blocked.lanes[0]?.cards[0]?.waits).toBe("#2 (doing)");
+
+		const cleared = buildView({
+			me: ME,
+			cards: [card("2", { status: "done", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		expect(cleared.lanes[0]?.cards[0]?.waits).toBeUndefined();
+	});
+
+	test("hands the rollup's groups the same card the lanes carry", () => {
+		// The Team tab's queue is built from the rollup, not from the lanes: a card there
+		// without `waits` reads as "nobody holds it" and loses the reason it is queued.
+		const view = buildView({
+			me: ME,
+			cards: [card("2", { status: "doing", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		expect(view.round.unassigned.map((entry) => entry.waits)).toEqual(["#2 (doing)"]);
+		expect(view.round.owners[0]?.cards[0]?.priority).toBe("normal");
+	});
+
+	test("never writes a derived field onto the card it was handed", () => {
+		// The cards are the store's; a field added to one would outlive the read.
+		const one = card("1");
+		buildView({ me: ME, cards: [one], now: NOW, bytes: 0, where: WHERE });
+		expect(Object.keys(one).sort()).toEqual([
+			"by",
+			"createdAt",
+			"id",
+			"notes",
+			"notesDropped",
+			"paths",
+			"rev",
+			"status",
+			"title",
+			"updatedAt",
+			"v",
+		]);
+	});
+
 	test("counts each lane, and the total is their sum", () => {
 		const view = buildView({
 			me: ME,

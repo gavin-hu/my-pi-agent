@@ -13,11 +13,20 @@
  * offset, and an open dialog all survive a peer's write.
  *
  * The client modules share one namespace, `window.bfBoard`: this one paints,
- * `team.ts` draws the round, `actions.ts` posts, `keys.ts` binds, and `live.ts` owns
- * the frame stream and the wiring.
+ * `team.ts` draws the round, `dialog.ts` opens a card, `keys.ts` binds, and `live.ts`
+ * owns the frame stream and the wiring.
+ *
+ * `plural` is not written here. The one body lives in `lib/board/round-text.ts` beside
+ * the counts it formats, and the assembler hands its source in — a second copy in the
+ * bundle is a second wording for `1 card`.
  */
 
-export const BOARD_RENDER_JS = String.raw`(function () {
+/** The renderer, with the one `plural` it prints counts through spliced in. */
+export function renderJs(pluralSource: string): string {
+	return renderTemplate.replace("__PLURAL__", pluralSource);
+}
+
+const renderTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
 
@@ -95,45 +104,13 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     return undefined;
   }
 
-  /** A card's priority; an older card that never recorded one is ordinary. */
-  function priorityOf(card) {
-    return card.priority || "normal";
-  }
-
-  /**
-   * The cards this one waits for that are not finished yet.
-   *
-   * The board is the index: a link is one id in the waiting card's file, so the other
-   * card's lane can only be read from the frame. A finished dependency has stopped
-   * explaining anything, so it drops out of the answer.
-   */
-  function blockersOf(card, view) {
-    var ids = card.dependsOn || [];
-    if (ids.length === 0 || !view) return [];
-    var all = cards(view);
-    var open = [];
-    for (var i = 0; i < ids.length; i++) {
-      for (var j = 0; j < all.length; j++) {
-        if (all[j].id === ids[i] && all[j].status !== "done") open.push(all[j]);
-      }
-    }
-    return open;
-  }
-
-  /** How the board says what a card waits for: the id and the lane that explains it. */
-  function waitingText(card, view) {
-    return blockersOf(card, view)
-      .map(function (blocker) { return "#" + blocker.id + " (" + blocker.status + ")"; })
-      .join(", ");
-  }
-
   /** The one line under a card's meta: why it sits where it does. */
   function reasonOf(card, view) {
     var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
     // An order is the strongest reason a card is not being worked on, and the one a
     // reader cannot see from the lane: it comes before the note that says the same.
-    var waiting = waitingText(card, view);
-    if (waiting !== "") return { text: "waits on " + waiting, kind: "waiting" };
+    // The sentence is the snapshot's, so this line and the tool's refusal name one list.
+    if (card.waits !== undefined) return { text: "waits on " + card.waits, kind: "waiting" };
     if (card.status === "blocked") {
       // The lane already says blocked and the tone already says danger; the line says why.
       return { text: last ? last.text : "blocked, with nothing recorded", kind: "blocked" };
@@ -183,7 +160,7 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     meta.appendChild(card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned"));
     // The order inside a lane is the priority, so an urgent card says so: an order
     // nobody can see reads as an accident. The lane's colour stays the card's own.
-    if (priorityOf(card) !== "normal") meta.appendChild(chip(priorityOf(card)));
+    if (card.priority !== "normal") meta.appendChild(chip(card.priority));
     // The stamp, so the clock can keep the age honest between frames: a board can be
     // quiet for ten minutes while the page still says "live".
     var age = el("span", "", ago(card.updatedAt));
@@ -228,10 +205,8 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     }
   }
 
-  /** 1 card, 2 cards. */
-  function plural(count, noun) {
-    return count + " " + noun + (count === 1 ? "" : "s");
-  }
+  /** 1 card, 2 cards — the one body, handed in by the bundle's assembler. */
+  var plural = __PLURAL__;
 
   /**
    * Rewrite every age already on the page from its own timestamp.
@@ -375,7 +350,7 @@ export const BOARD_RENDER_JS = String.raw`(function () {
     var owner = document.getElementById("card-dialog-owner");
     owner.textContent = "";
     owner.appendChild(card.owner ? chip(card.owner.label, "accent") : document.createTextNode("unassigned"));
-    if (priorityOf(card) !== "normal") owner.appendChild(chip(priorityOf(card)));
+    if (card.priority !== "normal") owner.appendChild(chip(card.priority));
 
     var pathList = document.getElementById("card-dialog-paths");
     pathList.textContent = "";
@@ -385,11 +360,12 @@ export const BOARD_RENDER_JS = String.raw`(function () {
       pathList.appendChild(item);
     }
 
+    // The dialog and the card face say one thing, from one field: the ids it was linked
+    // to are the storage, and a reader is owed the lanes that make them a decision.
     var waits = document.getElementById("card-dialog-depends");
     if (waits) {
-      var linked = (card.dependsOn || []).map(function (id) { return "#" + id; }).join(", ");
-      waits.hidden = linked === "";
-      waits.textContent = linked === "" ? "" : "waits on " + linked;
+      waits.hidden = card.waits === undefined;
+      waits.textContent = card.waits === undefined ? "" : "waits on " + card.waits;
     }
 
     var plan = document.getElementById("card-dialog-plan");
@@ -435,9 +411,6 @@ export const BOARD_RENDER_JS = String.raw`(function () {
   board.ago = ago;
   board.findCard = findCard;
   board.matches = matches;
-  board.priorityOf = priorityOf;
-  board.blockersOf = blockersOf;
-  board.waitingText = waitingText;
   board.fillDialog = fillDialog;
   board.refreshAges = refreshAges;
   board.plural = plural;
