@@ -97,6 +97,7 @@ export function createSnapshotReader(config: ByteflyConfig, delegation: Delegati
 			context,
 			usage,
 			currency: config.currency,
+			budget: config.budget,
 			cacheHitRate,
 			providerCount: footerData.getAvailableProviderCount(),
 			delegation: delegationTotals,

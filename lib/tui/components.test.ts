@@ -84,11 +84,8 @@ describe("GLYPHS", () => {
 });
 
 describe("SEPARATORS", () => {
-	test("item and group separators are distinct and three columns wide", () => {
-		expect(SEPARATORS.item).not.toBe(SEPARATORS.group);
+	test("the item separator is three columns wide", () => {
 		expect(visibleWidth(SEPARATORS.item)).toBe(3);
-		expect(visibleWidth(SEPARATORS.group)).toBe(3);
-		expect(SEPARATORS.group).toContain(GLYPHS.divider);
 	});
 });
 

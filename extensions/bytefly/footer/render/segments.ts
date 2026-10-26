@@ -13,8 +13,17 @@ import { formatTokens, sanitize, sanitizeLine } from "../../../../lib/format.ts"
 import { gaugeBar } from "../../../../lib/tui/gauge.ts";
 import { chip } from "../../../../lib/tui/rows.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
+import { budgetState } from "../budget.ts";
 import { CONFIG } from "../config.ts";
-import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./format.ts";
+import {
+	contextRole,
+	formatCost,
+	formatCwd,
+	formatLimit,
+	formatPercent,
+	thinkingColor,
+	truncateLabel,
+} from "./format.ts";
 import { compactStatus, dropStatusDetail } from "./status.ts";
 import type { Segment, StatusSnapshot } from "../types.ts";
 
@@ -114,15 +123,40 @@ export function browseSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
 	};
 }
 
-/** Sort rank: an alert (a failed job) leads the slot; modes follow by key. */
-function statusRank(key: string): number {
-	return key === CONFIG.jobsFailureStatusKey ? 0 : 1;
+/** Whether a status key names an alert instead of a mode. */
+function isAlert(key: string): boolean {
+	return CONFIG.alertStatusKeys.includes(key);
+}
+
+/**
+ * The alerts: a failed job, and anything else whose chip means "this broke".
+ *
+ * Not droppable, because every other fact on the bar can be read again from
+ * somewhere — the branch from git, the mode from the session — and a failure
+ * that scrolled off the bar is a failure nobody is looking at. It gives up its
+ * text last, keeping the count (`✗1`) instead of collapsing to a bare glyph.
+ */
+export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const alerts = [...snapshot.statuses.entries()]
+		.filter(([key]) => isAlert(key))
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([, value]) => sanitize(value))
+		.filter(Boolean);
+	if (alerts.length === 0) return null;
+	const separator = faint(theme, CONFIG.separators.item);
+	return {
+		id: "alert",
+		weight: 1,
+		droppable: false,
+		separator,
+		forms: [alerts.join(separator), alerts.map((status) => compactStatus(status)).join(" ")],
+	};
 }
 
 export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
-		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.browseStatusKey)
-		.sort(([a], [b]) => statusRank(a) - statusRank(b) || a.localeCompare(b))
+		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.browseStatusKey && !isAlert(key))
+		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([key, value]) => {
 			const status = sanitize(value);
 			// The plan chip trails the plan file name; the slot shows the mode only.
@@ -137,11 +171,11 @@ export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 	const icons = others.map((status) => compactStatus(status)).join(" ");
 	return {
 		id: "statuses",
-		// The last thing to go, but droppable: a tight bar drops the slot rather
-		// than truncating the model, which sits at the end of the line.
-		weight: 1,
+		// Weight 2, ahead of the branch: a mode is stated again by the session, while
+		// `⎇` is the only thing on the bar that says where the work will land.
+		weight: 2,
 		droppable: true,
-		separator: faint(theme, CONFIG.separators.group),
+		separator: faint(theme, CONFIG.separators.item),
 		forms: [full, icons],
 	};
 }
@@ -177,23 +211,35 @@ export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment |
  * vanished at zero was the loudest version of the silence: nothing on the bar said the
  * work was unpriced rather than free. So the count is its own fact, and the price comes
  * first where there is one — the narrower forms drop the price before the warning.
+ *
+ * A configured budget turns the price into a position: `$0.31/$5`, drawn in `warn` once
+ * the spend reaches the ceiling. That is the condition the budget notice fires on, read
+ * from the same `budgetState`, so the bar cannot call a session over budget that the
+ * notice has not, and the ceiling is visible from the first frame rather than only in
+ * the one notice that names it.
  */
 export function costSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const { cost, unpriced } = snapshot.usage;
-	if (cost === 0 && unpriced === 0) return null;
+	const budget = snapshot.budget;
+	if (cost === 0 && unpriced === 0 && budget <= 0) return null;
 	const price = formatCost(cost, snapshot.currency);
+	const spend = budget > 0 ? `${price}/${formatLimit(budget, snapshot.currency)}` : price;
+	const spendText = paint(theme, budgetState(budget, cost).exceeded ? "warn" : "meta", spend);
 	const leftOut = unpriced === 1 ? "1 unpriced" : `${unpriced} unpriced`;
+	// A zero total with no ceiling says nothing a reader can use, so the price form
+	// appears only once there is a spend or a budget to hold it against.
+	const priced = cost === 0 && budget <= 0 ? [] : [spendText];
 	const forms = [
-		`${paint(theme, "meta", price)}${faint(theme, CONFIG.separators.item)}${paint(theme, "warn", leftOut)}`,
+		`${spendText}${faint(theme, CONFIG.separators.item)}${paint(theme, "warn", leftOut)}`,
 		paint(theme, "warn", leftOut),
-		...(cost === 0 ? [] : [paint(theme, "meta", price)]),
+		...priced,
 	];
 	return {
 		id: "cost",
 		weight: 2,
 		droppable: true,
 		separator: faint(theme, CONFIG.separators.item),
-		forms: unpriced === 0 ? [paint(theme, "meta", price)] : forms,
+		forms: unpriced === 0 ? [spendText] : forms,
 	};
 }
 
@@ -271,7 +317,10 @@ export function modelSegment(snapshot: StatusSnapshot, theme: Theme): Segment {
 			forms: [paint(theme, "meta", CONFIG.labels.noModel)],
 		};
 	}
-	const provider = snapshot.providerCount > 1 ? `(${model.provider}) ` : "";
+	// Only several providers make the name ambiguous, and an id that already carries
+	// its provider (`deepseek/deepseek-v4-pro`) would only say it twice.
+	const qualify = snapshot.providerCount > 1 && !model.id.toLowerCase().startsWith(model.provider.toLowerCase());
+	const provider = qualify ? `(${model.provider}) ` : "";
 	return {
 		id: "model",
 		weight: 1,

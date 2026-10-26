@@ -63,7 +63,9 @@ const HERO_PRICE = {
 	rates: DEFAULT_RATES_USD,
 	// No peak windows: an undated record is charged at the published rate, never discounted.
 	peak: { timezone: "Asia/Shanghai", windows: [] },
-	budget: 0,
+	// A guardrail a session could plausibly set, so the picture carries the bar's
+	// `spent/limit` form rather than a ceiling nobody configured.
+	budget: 5,
 } as const;
 
 /**
@@ -102,6 +104,7 @@ export const CHROME_SNAPSHOT: StatusSnapshot = {
 	context: { tokens: 124000, contextWindow: 200000, percent: 62 },
 	usage: pricedTokens(HERO_TOKENS),
 	currency: CURRENCY_DEFAULTS.USD,
+	budget: HERO_PRICE.budget,
 	cacheHitRate: cacheHitRateOf(HERO_TOKENS.input, HERO_TOKENS.cacheRead, HERO_TOKENS.cacheWrite),
 	providerCount: 1,
 	// Two delegated runs, priced separately: the parent `usage` above is unchanged.

@@ -1,13 +1,18 @@
 /**
  * Turn a `StatusSnapshot` into the two footer lines.
  *
- * Line 1 — identity: left `pwd`, right `⎇ branch · ⑂ worktree · ◉ browse`.
- * Line 2 — resources: left the plan/alert statuses then the context gauge and
- * usage meters, right the model and thinking level.
+ * Line 1 — state: left `pwd` and the session name, right the alert, the mode
+ * chips, then `⎇ branch · ⑂ worktree · ◉ browse`. Line 2 — meters: left the
+ * context gauge and usage, right the model and thinking level.
+ *
+ * The split is one job per row. The state chips change while a session runs, so
+ * they ride the line with slack; the meters are the dense row, and a fact that
+ * moves onto the top row is one the bottom row stops dropping to fit.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
+	alertSegment,
 	branchSegment,
 	cacheSegment,
 	contextSegment,
@@ -29,11 +34,20 @@ function defined(segments: Array<Segment | null>): Segment[] {
 	return segments.filter((segment): segment is Segment => segment !== null);
 }
 
-/** Build the identity and resources lines for a snapshot. */
+/** Build the state and meter lines for a snapshot. */
 export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string | undefined): LineSpec[] {
 	const line1: LineSpec = {
 		left: defined([pwdSegment(snapshot, theme, home), sessionSegment(snapshot, theme)]),
-		right: defined([branchSegment(snapshot, theme), worktreeSegment(snapshot, theme), browseSegment(snapshot, theme)]),
+		// The state chips lead the right zone: it is right-aligned, so a chip that
+		// appears at its start leaves the location chips where they were, the same
+		// stability the gauge gets by sitting at column 0.
+		right: defined([
+			alertSegment(snapshot, theme),
+			modesSegment(snapshot, theme),
+			branchSegment(snapshot, theme),
+			worktreeSegment(snapshot, theme),
+			browseSegment(snapshot, theme),
+		]),
 	};
 
 	const line2Left = defined([
@@ -43,7 +57,6 @@ export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string 
 		delegationSegment(snapshot, theme),
 		tokensSegment(snapshot, theme),
 		cacheSegment(snapshot, theme),
-		modesSegment(snapshot, theme),
 	]);
 
 	const line2Right = defined([modelSegment(snapshot, theme), thinkingSegment(snapshot, theme)]);

@@ -39,6 +39,24 @@ export function formatCost(cost: number, currency: Currency = DEFAULT_CURRENCY):
 	return `${symbol}${cost.toFixed(decimals)}`;
 }
 
+/**
+ * A budget ceiling, in the configured currency, with trailing zeros dropped.
+ *
+ * A ceiling is not a price: it is the round number the user typed, and the bar
+ * pairs it with the spend (`$0.31/$5`), where the currency's display precision
+ * would spend two of the bar's columns on `$5.000`. The budget notice names the
+ * same figure through here, so the bar and the notice cannot disagree.
+ */
+export function formatLimit(limit: number, currency: Currency = DEFAULT_CURRENCY): string {
+	const { decimals } = currency;
+	const symbol = CURRENCY_SYMBOLS[currency.code];
+	if (!Number.isFinite(limit) || limit <= 0) return `${symbol}${(0).toFixed(decimals)}`;
+	const minimum = 10 ** -decimals;
+	if (limit < minimum) return `${symbol}<${minimum.toFixed(decimals)}`;
+	const text = limit.toFixed(decimals);
+	return `${symbol}${text.includes(".") ? text.replace(/\.?0+$/, "") : text}`;
+}
+
 /** Rounded percentage, or `?` when the value is unknown. */
 export function formatPercent(percent: number | null): string {
 	return percent === null ? "?" : `${Math.round(percent)}%`;

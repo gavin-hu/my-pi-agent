@@ -7,12 +7,13 @@
  * whether the threshold has been crossed and what the one notice says.
  *
  * Pure: the caller has the priced spend and the currency, this shapes the answer.
- * The amount formatting reuses the footer's own `formatCost`, so the notice and the
- * status bar cannot disagree about precision or about a sub-minor-unit amount.
+ * The amount formatting is the footer's own — `formatCost` for what was spent,
+ * `formatLimit` for the ceiling it is held against — so the notice and the status
+ * bar cannot disagree about either figure.
  */
 
 import { noticeMessage, type NoticeMessage } from "../../../lib/notice.ts";
-import { formatCost } from "./render/format.ts";
+import { formatCost, formatLimit } from "./render/format.ts";
 import type { Currency } from "./price/types.ts";
 
 /** Where the session stands against its budget. */
@@ -41,7 +42,7 @@ export function budgetState(limit: number, spent: number): BudgetState {
  */
 export function budgetNotice(state: BudgetState, currency: Currency): NoticeMessage {
 	const spent = formatCost(state.spent, currency);
-	const limit = formatCost(state.limit, currency);
+	const limit = formatLimit(state.limit, currency);
 	return noticeMessage({
 		content:
 			`Session spend reached the configured budget: ${spent} of ${limit}. ` +
@@ -60,5 +61,5 @@ export function budgetNotice(state: BudgetState, currency: Currency): NoticeMess
 
 /** The one-line body an OS notification carries. */
 export function budgetBody(state: BudgetState, currency: Currency): string {
-	return `Session budget reached · ${formatCost(state.spent, currency)} of ${formatCost(state.limit, currency)}`;
+	return `Session budget reached · ${formatCost(state.spent, currency)} of ${formatLimit(state.limit, currency)}`;
 }

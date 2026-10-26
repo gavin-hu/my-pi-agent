@@ -227,7 +227,7 @@ itself.
 Most of the pack is visible in the transcript, so the parts of the screen have
 names this manual uses throughout.
 
-<img src="../../assets/screens/chrome.png" alt="A terminal running the Pi TUI: the bytefly startup header with its version and the key hints, a nameplated message with its answer and an edit diff, a notice that two background jobs finished, the turn rule, the goal and todo rails, the input editor with a half-typed request between two rules, and the two-line footer with the context gauge, the priced cost and the model" width="100%">
+<img src="../../assets/screens/chrome.png" alt="A terminal running the Pi TUI: the bytefly startup header with its version and the key hints, a nameplated message with its answer and an edit diff, a notice that two background jobs finished, the turn rule, the goal and todo rails, the input editor with a half-typed request between two rules, and the two-line footer — the plan chip and the branch on one line, the context gauge, the priced cost against its $5 budget, and the model on the other" width="100%">
 
 *The full frame with the optional startup header enabled. The header is off
 until you turn it on; the transcript, the input editor, and the footer are always

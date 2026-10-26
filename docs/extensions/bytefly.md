@@ -17,8 +17,8 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Startup header | `quietStartup` | One two-tone nameplate with the agent and chrome versions and the live help keys, in place of Pi's startup header and resource listing. | Shipped |
-| Two-line footer | every `tui` session | Location, branch, context, spend, and model on two lines that shed parts rather than clip. | Shipped |
-| Extension status chips | `footerData.getExtensionStatuses()` | Worktree, browse, plan, and alert statuses appear in the footer, using each extension's own colour. | Shipped |
+| Two-line footer | every `tui` session | State on one line — location, modes, and alerts — and meters on the other — context, spend, tokens, cache, and model — each shedding parts rather than clipping. | Shipped |
+| Extension status chips | `footerData.getExtensionStatuses()` | Worktree, browse, plan, and alert statuses appear in the footer, using each extension's own colour. A failed job is the one chip no width drops. | Shipped |
 | Priced session total | the `price` section of `bytefly.json` | The session's spend in yuan or dollars, with DeepSeek priced out of the box. | Shipped |
 | Delegated-run cost roll-up | the `↳` footer segment | A finished subagent's cost appears beside the session total, without merging the two ledgers. | Shipped |
 | User-message nameplate | every `tui` session | Each user message opens with a two-row `You` label and rule. | Shipped |
@@ -45,7 +45,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Currency and peak tariff | `price.currency.code`, `price.peak` | `CNY` and `USD` are separate pricing methods with published rates; DeepSeek's peak windows apply per token record. | Shipped |
-| Session budget alert | `price.budget` | One notice, and one OS notification, when the session total reaches the threshold. | Shipped |
+| Session budget alert | `price.budget` | The session total shows as `spent/limit` in the footer, and one notice plus one OS notification fires when it reaches the threshold. | Partial |
 | Unpriced-record notice | `price.currency.code` | A `CNY` session names the records it could not price, and the two ways to fix it. | Shipped |
 | Desktop notifications | `notify.enabled`, `notify.turnFinished`, `notify.needsInput`, `notify.jobFinished`, `notify.matchFound` | An OS notification when a run settles, the agent needs you, a job finishes, or a watcher matches. | Shipped |
 | Proactive health check | `doctor.proactive` | At session start, when the startup header is on, a hard requirement is probed once and reported before the first turn. | Shipped |
@@ -194,7 +194,7 @@ catch-all prices everything).
 | Section | Read at | Applies to |
 |---|---|---|
 | `chrome` | `session_start`, `session_tree` | the rail glyph |
-| `price` | the footer install (`session_start`, `session_tree`) | the cost total |
+| `price` | the footer install (`session_start`, `session_tree`) | the cost total and the budget ceiling beside it |
 | `notify` | `session_start` | which events are announced, and how |
 | `doctor` | `session_start` | the proactive check |
 
@@ -1333,9 +1333,9 @@ rather than showing a wrong value.
   entry renderer none and adds its component raw, so bytefly's blocks inset
   themselves by that pad: the tool frame and the notice take it from Pi, and the
   turn separator reads the last value a sibling observed (`pad.ts`). Pi's setting
-  is the only knob — bytefly adds no padding of its own. The footer's group
-  separator draws `│` between chips — a divider, not the rail (`╎`), which stays
-  a transcript-only glyph.
+  is the only knob — bytefly adds no padding of its own. The footer draws no
+  rule of its own: it joins its chips with the shared ` · `, and the rail (`╎`)
+  stays a transcript-only glyph.
 - **The header is a nameplate, not a dashboard.** Pi's built-in brand colors are
   fixed, so the mark ignores the active theme; bytefly's header draws a two-tone
   mark from the `accent`/`warn` roles, a signature rule whose accent lead sits
@@ -1347,24 +1347,39 @@ rather than showing a wrong value.
   terminal: the height ladder drops whole help groups, then the leading blank
   row, before the nameplate gives up anything, so a short pane spends its rows
   on the transcript instead of chrome.
-- **Two lines, four zones.** Line 1 is identity (`pwd` left, branch + worktree
-  right); line 2 is resources (meters left, model + level right). This keeps
-  "where am I / what state" separate from "how much am I burning".
+- **Two lines, one job each: state and meters.** Line 1 is state (`pwd` and the
+  session name left; the alert, the modes, then `⎇` branch, `⑂` worktree and `◉`
+  browse right); line 2 is meters (the gauge and usage left; model and level
+  right). The state chips change while a session runs, so they ride the line that
+  has slack: the meters are the dense row, and a fact that moves to the top row is
+  one the bottom row stops dropping to fit. It keeps "where am I / what state"
+  separate from "how much am I burning".
 - **Child spend is a second figure.** The footer never adds a subagent's tokens to
   the session's; it prices the `my-pi-agent/subagent-finished` events with the
   same pricer and renders them as `↳`, so "this session" keeps meaning the
   dispatching process and the delegated work stays visible beside it.
-- **The gauge is anchored at column 0.** A leading mode slot would shift the
-  context percentage left and right as plan mode came and went; trailing it
-  after a `│` keeps the percentage in a fixed place while the mode stays
-  visible as the meters drop.
+- **The gauge is anchored at column 0, and nothing can displace it.** A leading
+  mode slot used to push the context percentage left and right as plan mode came
+  and went, which is why the mode chip trailed the meters after a `│`; moving the
+  mode slot to the state line leaves the gauge as the resource line's first
+  segment, so the percentage cannot move at all.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line, so the bar sorts them by meaning instead:
   `worktree` and `browse` are location, so the `◉ <port>` chip sits beside `⎇`
-  branch and `⑂` worktree and the left zone stays the filesystem identity; a
-  plan or a failed job is mode or alert, so it takes the slot after the gauge.
-  The [wechat](./wechat.md) extension publishes `✆ wechat` while its bridge runs,
+  branch and `⑂` worktree; a plan is a mode, so it leads the state line beside
+  them; a failed job is an alert, so it is its own segment ahead of both. The
+  [wechat](./wechat.md) extension publishes `✆ wechat` while its bridge runs,
   which is why the bar has to render `getExtensionStatuses()` at all.
+- **A state chip leads its zone, so the zone does not move under it.** The right
+  zone is right-aligned: a chip appended to it would push the branch and the
+  worktree label left every time a mode came and went, while a chip prepended to
+  it grows into the empty columns. That is the same stability argument the gauge
+  gets from sitting at column 0, applied to the row that changes.
+- **A failure is never the thing that drops.** The alert segment is the one
+  non-droppable chip: every other fact can be read again — the branch from git,
+  the mode from the session, the spend from `/bytefly prices` — while a failed
+  job that scrolled off the bar is a failure nobody is looking at. It keeps its
+  count (`✗1`) when it compacts.
 - **Segments degrade; they do not clip.** Each `Segment` carries progressively
   shorter `forms` and a `weight`; the layout advances the lowest-priority form
   or drops the lowest-priority segment, and only truncates once everything is
@@ -1374,15 +1389,23 @@ rather than showing a wrong value.
   non-zero usage, so it reads full only at 100% and a small percentage never
   disappears; unknown usage draws no gauge at all. Only at extreme widths does
   `truncateToWidth` clip the remaining text.
-- **Separators shrink to a single space.** Padded separators (` · `, ` │ `)
-  collapse to one space before `truncateToWidth` applies, so adjacent segments
-  never collide and the ellipsis never replaces a `│` with nothing after it.
+- **Separators shrink to a single space.** Every segment is joined by the same
+  padded ` · `, which collapses to one space before `truncateToWidth` applies, so
+  adjacent segments never collide and the ellipsis never replaces a separator
+  with nothing after it.
 - **Statuses compact with their colour.** A themed status's compact icon form
   reattaches its opening and closing SGR sequences around the visible text, so a
   red `✗1` stays red instead of losing its colour exactly when the bar tightens.
   A two-token `icon count` badge (for `rewind`: `↺ 2`) compacts to `↺2`, keeping
-  the count. The slot sorts an alert (a failed job) ahead of the modes and is
-  droppable, so it goes before the model is clipped.
+  the count. A mode is droppable, so it goes before the branch and long before
+  the model is clipped; only an alert is not.
+- **A budget is a position, not a second figure.** With `price.budget` set, the
+  cost segment reads `$0.31/$5` and turns `warn` once the spend reaches the
+  ceiling, which is the same `budgetState` condition the notice fires on, so the
+  bar cannot call a session over budget that the notice has not. The ceiling is
+  formatted by its own `formatLimit` — the number the user typed, with trailing
+  zeros dropped — while the spend keeps the currency's precision; both the bar
+  and the notice use it, so the two cannot disagree about one figure.
 - **Neutral by default; color means something.** A tool block carries no status
   colour except the accent tool name and the status-coloured result rail; an
   informational notice leads with `muted`; a failure is red only where the
@@ -1525,7 +1548,7 @@ columns, gauge), so the look follows the active theme.
 | `header/identity.ts` | `IdentityInput` and `identityCells`: the agent and chrome cells, each with its `↑` marker, in the ladder that sheds the chrome marker, the chrome version, the chrome line, and finally the agent's marker with the row. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
 | `footer/register.ts` | Installs/restores the footer and owns its session lifecycle. |
-| `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, status keys, labels. |
+| `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, alert and plan status keys, labels. |
 | `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan, context estimate, and session name per branch leaf. |
