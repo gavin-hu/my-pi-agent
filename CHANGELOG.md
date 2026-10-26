@@ -251,6 +251,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `card` names a field of `list`, and the parameters say so. The `card` description
+  promised it was "used by every action but `list`/`add`" — stale the moment `list` grew a
+  single-card read — so a model reading the tool built `action: "card"` and got
+  `must be equal to constant`, once per verb, with nothing naming the mistake. `list`'s
+  sentence now says `card` reads that one card instead of the board, and the action's own
+  description says where the field belongs. The refusal itself still enumerates the verbs.
+
 - `plan`: approving a plan that was approved before replaces the todo items the earlier
   approval seeded. Nothing re-seeded a refined plan — `write_plan` needs plan mode, so a
   second round is the way back — and the merge matched by text, so a renamed step added a

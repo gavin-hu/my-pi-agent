@@ -17,11 +17,15 @@ export const BoardParams = Type.Object({
 		{
 			// The verbs and their meanings live in the tool description, built from
 			// `BOARD_ACTION_DOCS`; this says only what a caller needs to choose one.
-			description: "`list` reads the board; every other verb changes it. The tool description says what each one does.",
+			description:
+				"`list` reads the board, or one card when `card` names it; every other verb changes it. The tool description says what each one does.",
 		},
 	),
 	card: Type.Optional(
-		Type.String({ description: 'The card id for one card, e.g. "4" or "#4". Used by every action but `list`/`add`.' }),
+		Type.String({
+			description:
+				'The card id for one card, e.g. "4" or "#4". `list` reads that card; every other action but `add` acts on it.',
+		}),
 	),
 	status: Type.Optional(
 		Type.Union(
