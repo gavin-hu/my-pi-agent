@@ -123,6 +123,35 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the footer reads as two bands, one job each — modes, alerts, branch,
+  worktree, and browse on the state line, the meters and the model on the resource
+  line. The mode slot used to trail the meters, so the resource line was the dense
+  one: `R96k CH 70%` dropped at 92 columns while the state line drew two chips on a
+  92-column row. The state chips now lead their zone, so a mode appearing grows into
+  the empty columns instead of pushing the branch and the worktree label sideways,
+  and the gauge is the resource line's first segment, so the context percentage
+  cannot move at all. The `│` that used to divide the two halves is gone with the
+  slot it divided.
+
+- `bytefly`: a failed job's chip is the one fact on the footer that no width drops.
+  It was part of the mode slot, which was droppable, so a narrow bar lost `✗1` while
+  an 18-column branch name stayed on the line above — the one chip that says the work
+  broke was the least protected thing on the bar. It is its own non-droppable segment
+  now, ahead of the modes, and it keeps its count (`✗1`) when it compacts.
+
+- `bytefly`: a configured `price.budget` shows on the bar as `spent/limit`, in the
+  warning colour once the spend reaches the ceiling. The budget used to speak once, in
+  a single notice at the threshold, so the bar that reports the spend never named the
+  allowance it was heading for; a fresh session against a ceiling now shows `$0.00/$5`
+  from its first frame. The ceiling is formatted by its own `formatLimit` — the round
+  number the user typed, trailing zeros dropped — so the notice reads `¥5.25 of ¥5`
+  rather than `¥5.25 of ¥5.00`, and the bar and the notice read the same figure.
+
+- `bytefly`: the model chip stops naming a provider its model id already carries, so
+  `providerCount > 1` shows `deepseek-v4-pro` where it showed
+  `(deepseek) deepseek-v4-pro`. A provider the id does not name still gets its
+  parenthetical.
+
 - `board`: a `list` call leaves the finished cards out and says how many it left, so reading
   the board costs what the open work costs rather than what the history costs — this
   repository's own board is mostly finished cards. `status: "done"` reads

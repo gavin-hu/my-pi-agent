@@ -45,6 +45,7 @@ import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, trunc
 import { renderLine } from "./render/layout.ts";
 import { buildLines } from "./render/lines.ts";
 import {
+	alertSegment,
 	branchSegment,
 	browseSegment,
 	cacheSegment,
@@ -1095,10 +1096,10 @@ describe("budget", () => {
 	test("names both figures in the configured currency", () => {
 		const notice = budgetNotice(budgetState(5, 5.25), CNY);
 
-		expect(notice.content).toContain("¥5.25 of ¥5.00");
+		expect(notice.content).toContain("¥5.25 of ¥5");
 		expect(notice.details.items).toEqual([
 			{ label: "spent", detail: "¥5.25" },
-			{ label: "budget", detail: "¥5.00" },
+			{ label: "budget", detail: "¥5" },
 		]);
 	});
 
@@ -1113,12 +1114,17 @@ describe("budget", () => {
 	});
 
 	test("follows the currency's precision and shows a sub-minor-unit spend", () => {
-		expect(budgetNotice(budgetState(2, 2.0004), CURRENCY_DEFAULTS.USD).content).toContain("$2.000 of $2.000");
+		expect(budgetNotice(budgetState(2, 2.0004), CURRENCY_DEFAULTS.USD).content).toContain("$2.000 of $2");
 		expect(budgetNotice(budgetState(0.001, 0.001), CNY).content).toContain("¥<0.01 of ¥<0.01");
 	});
 
+	test("keeps a ceiling's cents but drops its trailing zeros", () => {
+		expect(budgetBody(budgetState(5, 6), CNY)).toBe("Session budget reached · ¥6.00 of ¥5");
+		expect(budgetBody(budgetState(7.5, 8), CNY)).toBe("Session budget reached · ¥8.00 of ¥7.5");
+	});
+
 	test("is one body line naming the figures", () => {
-		expect(budgetBody(budgetState(5, 6), CNY)).toBe("Session budget reached · ¥6.00 of ¥5.00");
+		expect(budgetBody(budgetState(5, 6), CNY)).toBe("Session budget reached · ¥6.00 of ¥5");
 	});
 });
 
@@ -1269,18 +1275,17 @@ describe("footer segments", () => {
 		expect(segment?.separator).toBe(CONFIG.separators.item);
 	});
 
-	test("sorts the status slot with an alert first, then by key", () => {
-		const segment = modesSegment(
-			fullSnapshot({
-				statuses: new Map([
-					[STATUS_KEYS.jobs, "▸ 1"],
-					[STATUS_KEYS.jobsFailure, "✗ 1"],
-				]),
-			}),
-			fakeTheme,
-		);
-		expect(segment?.forms).toEqual(["✗ 1 · ▸ 1", "✗1 ▸1"]);
+	test("keeps an alert out of the mode slot", () => {
+		const statuses = new Map([
+			[STATUS_KEYS.jobs, "▸ 1"],
+			[STATUS_KEYS.jobsFailure, "✗ 1"],
+		]);
 
+		expect(alertSegment(fullSnapshot({ statuses }), fakeTheme)?.forms).toEqual(["✗ 1", "✗1"]);
+		expect(modesSegment(fullSnapshot({ statuses }), fakeTheme)?.forms).toEqual(["▸ 1", "▸1"]);
+	});
+
+	test("orders the mode slot by key", () => {
 		const ordered = modesSegment(
 			fullSnapshot({
 				statuses: new Map([
@@ -1361,6 +1366,33 @@ describe("footer segments", () => {
 		expect(silent?.forms).toEqual(["$0.00 · 1 unpriced", "1 unpriced"]);
 	});
 
+	test("shows the budget as a ceiling beside the spend, and turns warn at it", () => {
+		const under = costSegment(fullSnapshot({ budget: 5 }), fakeTheme);
+		expect(under?.forms).toEqual(["$0.31/$5"]);
+
+		const over = costSegment(fullSnapshot({ budget: 0.25 }), fakeTheme);
+		expect(over?.forms).toEqual(["$0.31/$0.25"]);
+		// The same condition the budget notice fires on, so the two cannot disagree.
+		const reached = makeRecordingTheme() as any;
+		costSegment(fullSnapshot({ budget: 0.25 }), reached);
+		expect(reached.calls).toContainEqual(["warning", "$0.31/$0.25"]);
+		const below = makeRecordingTheme() as any;
+		costSegment(fullSnapshot({ budget: 5 }), below);
+		expect(below.calls).toContainEqual(["muted", "$0.31/$5"]);
+		// The ceiling is the number the user typed: its cents stay, its trailing zeros go.
+		expect(costSegment(fullSnapshot({ budget: 7.5 }), fakeTheme)?.forms).toEqual(["$0.31/$7.5"]);
+
+		// A fresh session against a ceiling shows the allowance rather than nothing.
+		expect(costSegment(fullSnapshot({ usage: usageOf(), budget: 5 }), fakeTheme)?.forms).toEqual(["$0.00/$5"]);
+		// And the warning still leads the narrower forms.
+		const short = usageOf({ unpriced: 2, unpricedModels: [{ key: "a/b", records: 2 }] });
+		expect(costSegment(fullSnapshot({ usage: short, budget: 5 }), fakeTheme)?.forms).toEqual([
+			"$0.00/$5 · 2 unpriced",
+			"2 unpriced",
+			"$0.00/$5",
+		]);
+	});
+
 	test("rolls up the child runs beside the session cost", () => {
 		const zero = usageOf();
 		expect(delegationSegment(fullSnapshot(), fakeTheme)).toBeNull();
@@ -1425,6 +1457,21 @@ describe("footer segments", () => {
 		]);
 	});
 
+	test("does not repeat a provider its model id already names", () => {
+		const deepseek = fullSnapshot({
+			providerCount: 2,
+			model: { id: "deepseek-v4-pro", provider: "deepseek", reasoning: true },
+		});
+		expect(modelSegment(deepseek, fakeTheme).forms).toEqual(["deepseek-v4-pro", "deepseek-v4-pro"]);
+
+		// A provider the id does not name still earns its parenthetical.
+		const routed = fullSnapshot({
+			providerCount: 2,
+			model: { id: "gpt-5", provider: "azure", reasoning: true },
+		});
+		expect(modelSegment(routed, fakeTheme).forms[0]).toBe("(azure) gpt-5");
+	});
+
 	test("shows the thinking level for a reasoning model only, in its own theme token", () => {
 		expect(
 			thinkingSegment(fullSnapshot({ model: { id: "gpt-4o", provider: "openai", reasoning: false } }), fakeTheme),
@@ -1454,13 +1501,23 @@ describe("footer segments", () => {
 describe("line composition", () => {
 	const ids = (segments: Array<{ id: string }>) => segments.map((segment) => segment.id);
 
-	test("routes identity and resources to their zones", () => {
+	test("routes state to the identity line and meters to the resource line", () => {
 		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
 
 		expect(ids(line1.left)).toEqual(["pwd"]);
-		expect(ids(line1.right)).toEqual(["branch", "worktree"]);
-		expect(ids(line2.left)).toEqual(["context", "window", "cost", "tokens", "cache", "statuses"]);
+		expect(ids(line1.right)).toEqual(["statuses", "branch", "worktree"]);
+		expect(ids(line2.left)).toEqual(["context", "window", "cost", "tokens", "cache"]);
 		expect(ids(line2.right)).toEqual(["model", "thinking"]);
+	});
+
+	test("puts an alert ahead of the modes it rides with", () => {
+		const statuses = new Map([
+			[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
+			[STATUS_KEYS.jobsFailure, `${GLYPHS.jobsFailure} 1`],
+		]);
+		const [line1] = buildLines(fullSnapshot({ statuses }), fakeTheme, "/home/u");
+
+		expect(ids(line1.right)).toEqual(["alert", "statuses", "branch"]);
 	});
 
 	test("routes a browse chip to line 1 right and out of the alerts", () => {
@@ -1479,9 +1536,9 @@ describe("line composition", () => {
 		expect(ids(line2.left)).not.toContain("statuses");
 	});
 
-	test("has no status slot when there are no alerts", () => {
-		const [, line2] = buildLines(fullSnapshot({ statuses: new Map() }), fakeTheme, "/home/u");
-		expect(ids(line2.left)).not.toContain("statuses");
+	test("has no state slot when nothing is published", () => {
+		const [line1] = buildLines(fullSnapshot({ statuses: new Map() }), fakeTheme, "/home/u");
+		expect(ids(line1.right)).toEqual(["branch"]);
 	});
 
 	test("places the child-run roll-up after the session cost and drops it when empty", () => {
@@ -1496,7 +1553,7 @@ describe("line composition", () => {
 			"/home/u",
 		);
 
-		expect(ids(line2.left)).toEqual(["context", "window", "cost", "delegation", "tokens", "statuses"]);
+		expect(ids(line2.left)).toEqual(["context", "window", "cost", "delegation", "tokens"]);
 		const parent = line2.left.find((segment) => segment.id === "cost");
 		const delegation = line2.left.find((segment) => segment.id === "delegation");
 		expect(parent?.forms[0]).toBe("¥0.25");
@@ -1544,13 +1601,14 @@ describe("line layout", () => {
 	});
 
 	test("renders every resource segment at full width", () => {
-		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
 		const rendered = renderLine(line2, 100, fakeTheme);
 
 		expect(visibleWidth(rendered)).toBeLessThanOrEqual(100);
-		for (const text of [`${GLYPHS.plan} plan`, "62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
+		for (const text of ["62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
 			expect(rendered).toContain(text);
 		}
+		expect(renderLine(line1, 100, fakeTheme)).toContain(`${GLYPHS.plan} plan`);
 	});
 
 	test("drops low-priority segments as the width shrinks", () => {
@@ -1562,17 +1620,16 @@ describe("line layout", () => {
 		expect(narrow).not.toContain("R96k");
 	});
 
-	test("drops the status slot before clipping the model on a narrow bar", () => {
-		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
-		const rendered = renderLine(line2, 24, fakeTheme);
+	test("drops the mode slot before clipping the model on a narrow bar", () => {
+		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
 
-		expect(rendered).toContain("opus-4.5");
-		expect(rendered).not.toContain(GLYPHS.plan);
+		expect(renderLine(line2, 24, fakeTheme)).toContain("opus-4.5");
+		expect(renderLine(line1, 24, fakeTheme)).not.toContain(GLYPHS.plan);
 	});
 
 	test("drops tokens before cost", () => {
 		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
-		const rendered = renderLine(line2, 60, fakeTheme);
+		const rendered = renderLine(line2, 50, fakeTheme);
 
 		expect(rendered).toContain("$0.31");
 		expect(rendered).not.toContain("↑42k");
@@ -1586,7 +1643,6 @@ describe("line layout", () => {
 
 	test("never glues adjacent segments together as the width shrinks", () => {
 		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
-		const divider = CONFIG.separators.group.trim();
 		for (let width = 6; width <= 120; width++) {
 			for (const line of [line1, line2]) {
 				const rendered = renderLine(line, width, fakeTheme);
@@ -1594,7 +1650,6 @@ describe("line layout", () => {
 				expect(rendered).not.toMatch(
 					new RegExp(`%[${GLYPHS.plan}${GLYPHS.worktree}${GLYPHS.branch}${GLYPHS.detached}]`),
 				);
-				expect(rendered).not.toMatch(new RegExp(`\\S${divider}|${divider}\\S`));
 			}
 		}
 	});
@@ -1611,16 +1666,23 @@ describe("line layout", () => {
 		expect(rendered.startsWith(" ")).toBe(true);
 	});
 
-	test("puts the mode slot after the group separator", () => {
-		const [, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
-		const rendered = renderLine(line2, 100, fakeTheme);
+	test("reads the identity line as modes, then where the work happens", () => {
+		const [line1] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line1, 100, fakeTheme);
 
-		expect(rendered).toContain(`${CONFIG.separators.group}${GLYPHS.plan} plan`);
+		expect(rendered).toContain(`${GLYPHS.plan} plan${CONFIG.separators.item}${GLYPHS.branch} main`);
 	});
 
-	test("has no group separator when there is no mode slot", () => {
-		const [, line2] = buildLines(fullSnapshot({ statuses: new Map() }), fakeTheme, "/home/u");
-		expect(renderLine(line2, 100, fakeTheme)).not.toContain(CONFIG.separators.group.trim());
+	test("keeps a failed job when the identity line sheds everything else", () => {
+		const statuses = new Map([
+			[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
+			[STATUS_KEYS.jobsFailure, `${GLYPHS.jobsFailure} 1`],
+		]);
+		const [line1] = buildLines(fullSnapshot({ statuses }), fakeTheme, "/home/u");
+		const rendered = renderLine(line1, 20, fakeTheme);
+
+		expect(rendered).toContain(`${GLYPHS.jobsFailure} 1`);
+		expect(rendered).not.toContain("main");
 	});
 
 	test("counts wide characters correctly", () => {
@@ -1874,8 +1936,8 @@ describe("registerFooter session budget", () => {
 			expect(notice.customType).toBe(NOTICE_TYPE);
 			expect(notice.details.title).toBe("Session budget reached");
 			expect(notice.details.severity).toBe("warn");
-			expect(notice.content).toContain("$0.600 of $0.500");
-			expect(h.bodies).toEqual(["Session budget reached · $0.600 of $0.500"]);
+			expect(notice.content).toContain("$0.600 of $0.5");
+			expect(h.bodies).toEqual(["Session budget reached · $0.600 of $0.5"]);
 		});
 	});
 

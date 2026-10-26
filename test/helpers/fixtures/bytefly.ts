@@ -186,6 +186,7 @@ export function fullSnapshot(overrides: Partial<StatusSnapshot> = {}): StatusSna
 		context: { tokens: 124000, contextWindow: 200000, percent: 62 },
 		usage: usageOf({ input: 42000, output: 8000, cacheRead: 96000, cost: 0.31 }),
 		currency: { code: "USD", decimals: 2 },
+		budget: 0,
 		cacheHitRate: 87,
 		providerCount: 1,
 		delegation: { runs: 0, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 } },

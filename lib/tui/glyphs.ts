@@ -57,10 +57,9 @@ export const GLYPHS = {
 /** Columns between a rail body glyph and its text. */
 export const GLYPH_GAP = 1;
 
-/** Padding used to join (`item`) or group (`group`) UI segments. */
+/** Padding used to join UI segments. */
 export const SEPARATORS = {
 	item: " · ",
-	group: ` ${GLYPHS.divider} `,
 } as const;
 
 /** `ctx.ui.setStatus` keys; one per extension that publishes a chip. */

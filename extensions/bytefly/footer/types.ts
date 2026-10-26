@@ -95,6 +95,13 @@ export interface StatusSnapshot {
 	usage: PricedUsage;
 	/** How `usage.cost` is rendered. */
 	currency: Currency;
+	/**
+	 * The session's configured spend ceiling in `currency`; `0` means no ceiling.
+	 *
+	 * The bar pairs it with the cost (`$0.31/$5`) so the allowance is a fact on the
+	 * screen, not something the one budget notice alone carries.
+	 */
+	budget: number;
 	/** Latest cache hit rate as a percentage, or `null` when unknown. */
 	cacheHitRate: number | null;
 	providerCount: number;

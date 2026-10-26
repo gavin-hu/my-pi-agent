@@ -9,17 +9,21 @@
 
 import { GLYPHS, SEPARATORS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 
+/**
+ * Status keys that are alerts rather than modes, and so are never dropped.
+ * A mode can be read again from the session; a failure cannot be re-derived once
+ * its chip is off the bar. Annotated rather than inferred so the list can be read
+ * against an arbitrary key from `getExtensionStatuses()`.
+ */
+const ALERT_STATUS_KEYS: readonly string[] = [STATUS_KEYS.jobsFailure];
+
 export const CONFIG = {
 	/** Context percentage thresholds. */
 	thresholds: { warn: 70, danger: 90 },
 	/** The block counts the context gauge steps down through. */
 	gauge: { widths: [10, 5, 3, 0] as const },
-	/**
-	 * Separators printed before grouped and other segments. The group divider is
-	 * the footer's own solid `│`, not the shared `╎`: that glyph is the transcript
-	 * rail (and `chrome.rail`'s default), and a status line is not a rail.
-	 */
-	separators: { group: " │ ", item: SEPARATORS.item },
+	/** Separator printed before every segment but the first in its zone. */
+	separators: { item: SEPARATORS.item },
 	icons: {
 		branch: GLYPHS.branch,
 		detached: GLYPHS.detached,
@@ -33,8 +37,12 @@ export const CONFIG = {
 	browseStatusKey: STATUS_KEYS.browse,
 	/** Status key whose ` · detail` suffix (the plan file name) is dropped. */
 	planStatusKey: STATUS_KEYS.planMode,
-	/** Status key treated as an alert: the one that sorts to the front of the slot. */
-	jobsFailureStatusKey: STATUS_KEYS.jobsFailure,
+	/**
+	 * Status keys that are alerts rather than modes, and so are never dropped.
+	 * A mode can be read again from the session; a failure cannot be re-derived
+	 * once its chip is off the bar.
+	 */
+	alertStatusKeys: ALERT_STATUS_KEYS,
 	labels: { noModel: "no model", detached: "detached" },
 	/** Minimum gap kept between the left and right zones. */
 	minGap: 2,
