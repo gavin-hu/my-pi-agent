@@ -98,6 +98,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a call carrying a field its action does not act on is refused, naming the action
+  that takes it, instead of being ignored. The parameters are one flat object, so `add`
+  published `dependsOn` and then dropped it: the card was created without the link and the
+  caller was told it worked. `add dependsOn ["4"]` now answers `add does not act on
+  dependsOn: \`edit\` takes it.` — and the same check covers the rest of the family,
+  `list` with `text` or `note` with `priority`. Every published field is held to an action
+  that acts on it, so the next one cannot be added without an owner.
 - `board`: two sessions starting at the same instant no longer leave one of them saying the
   page did not start, and never leave two pages serving. A note is written before its server
   can accept a connection, so the loser of that race read a note whose page was a few
