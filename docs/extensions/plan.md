@@ -613,7 +613,9 @@ file and returns them to the model.
   `DOMParser`, so a code line is never parsed as markup.
 - **The file is the store.** Each comment is written as
   `> [!REVIEW] <comment>` on the line after the block it anchors to, tagged with
-  its author when a teammate wrote it (`> [!REVIEW] @alice: <comment>`). Saving is
+  its author when a teammate wrote it (`> [!REVIEW] @alice: <comment>`), and
+  marked `> [!REVIEW moved]` when a refinement carried it off the text it was
+  written on. Saving is
   idempotent per writer: that writer's previous markers are replaced and everyone
   else's are kept, so two people reviewing the same plan cannot erase each other.
   Stripping is fence-aware: a `> [!REVIEW]` line inside a code block is
@@ -629,7 +631,11 @@ file and returns them to the model.
   comment whose section is gone too moves to the plan's last block rather than
   disappearing, and every one of those placements lands beside a block, never after
   a blank line, so the page keeps the thread under its block. Only a plan with no
-  block at all leaves a comment in the unattached list.
+  block at all leaves a comment in the unattached list. Everything past the first
+  step is a guess, so a placement that is not the anchored text itself is marked:
+  the card carries a `moved` chip whose tooltip says the block changed and the
+  note was placed here, and the marker records it in the file, so the fact
+  survives a reload, a hand-off, and a save by its own author.
 - **Anchored to source.** `blocks.ts` splits the plan (fence-aware) into
   source-line ranges; a comment is placed after the whole anchored block, so a
   fenced code block is never split. A save re-checks the file against what the
@@ -717,6 +723,12 @@ both.
   Git Bash (`bash`), which must be installed for any shell command to run.
 - The read-only guarantee is a guard rail against accidental writes, not a
   security boundary (see [Security](#security)).
+- **A carried comment's new home is a guess, and only the page says so.** A note a
+  refinement could not pin to surviving text is placed by wording overlap, by the
+  gap it left, or at the plan's last block; the `moved` chip is what tells a
+  reviewer that. A reader of the plan file alone sees `> [!REVIEW moved]`, and the
+  terminal review shows the comment as a quote with no chip, so the marker is the
+  fact and the chip is one reader's way of showing it.
 - The plans directory is the only index. `/plan list` walks it on every open and
   keeps no registry, so it sees an external edit or a hand-copied plan
   immediately; it lists a file over the 256 KiB plan limit without reading it,

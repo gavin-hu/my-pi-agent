@@ -37,6 +37,12 @@ export interface PlanAnnotation {
 	comment: string;
 	/** Who wrote it; `""`/absent is the plan owner, the only writer before sharing. */
 	author?: string;
+	/**
+	 * Set when a refinement carried this comment onto a block other than the text it was
+	 * written on: the note is still the reviewer's, but where it sits is this build's best
+	 * guess, and the page says so instead of presenting a guess as her own anchor.
+	 */
+	moved?: true;
 }
 
 /** Most annotations one save may carry. */
@@ -51,8 +57,12 @@ export const MAX_AUTHOR_LENGTH = 40;
 /** The name a reviewer write is stored under, or why it cannot be decided. */
 export type AuthorClaim = { name: string } | { status: number; message: string };
 
-/** A stored feedback line, capturing its author and comment. */
-const MARKER_LINE = /^\s*>\s*\[!REVIEW\]\s?(.*)$/;
+/**
+ * A stored feedback line, capturing whether a refinement moved it, its author, and its
+ * comment. The flag is inside the marker tag rather than the comment, so the text a
+ * reviewer wrote stays exactly what she typed.
+ */
+const MARKER_LINE = /^\s*>\s*\[!REVIEW(\s+moved)?\]\s?(.*)$/;
 /** The author prefix inside a marker body (`@alice: note`). */
 const AUTHOR_PREFIX = /^@([^:]{1,40}):\s?(.*)$/;
 
@@ -121,6 +131,8 @@ interface StoredMarker {
 	at: number;
 	comment: string;
 	author: string;
+	/** Whether a refinement carried this comment off the text it was written on. */
+	moved: boolean;
 }
 
 /** The plan body without markers, plus the markers that were removed from it. */
@@ -134,20 +146,23 @@ function scanMarkers(plan: string): { clean: string; markers: StoredMarker[] } {
 			clean.push(line);
 			return;
 		}
-		const body = match[1].trim();
+		const body = (match[2] ?? "").trim();
 		if (body === "") return;
 		const authored = AUTHOR_PREFIX.exec(body);
 		const author = authored ? normalizeAuthor(authored[1]) : "";
 		const comment = (authored ? authored[2] : body).trim();
-		if (comment) markers.push({ at: clean.length - 1, comment, author });
+		if (comment) markers.push({ at: clean.length - 1, comment, author, moved: match[1] !== undefined });
 	});
 	return { clean: clean.join("\n"), markers };
 }
 
 /** One marker line in its stored form. */
-function markerLine(author: string, comment: string): string {
+function markerLine(author: string, comment: string, moved = false): string {
 	const body = sanitizeLine(comment);
-	return author ? `> ${REVIEW_MARKER} @${author}: ${body}` : `> ${REVIEW_MARKER} ${body}`;
+	// The flag rides inside the tag, where it cannot be confused with the comment: after
+	// the closing bracket, a comment that begins "moved …" would read as the flag.
+	const tag = moved ? "[!REVIEW moved]" : REVIEW_MARKER;
+	return author ? `> ${tag} @${author}: ${body}` : `> ${tag} ${body}`;
 }
 
 /** A marker waiting to be placed after clean-plan line `at`. */
@@ -220,6 +235,7 @@ export function readFeedback(plan: string): FeedbackRead {
 			comment: marker.comment,
 		};
 		if (marker.author) annotation.author = marker.author;
+		if (marker.moved) annotation.moved = true;
 		return annotation;
 	});
 	return { body: clean, blocks, annotations };
@@ -231,12 +247,17 @@ export function parseFeedback(plan: string): PlanAnnotation[] {
 }
 
 /** Sanitized, non-empty comments with the anchor they land on. */
-function storableComments(annotations: readonly PlanAnnotation[]): Array<{ anchor: number; comment: string }> {
-	const items: Array<{ anchor: number; comment: string }> = [];
+function storableComments(
+	annotations: readonly PlanAnnotation[],
+): Array<{ anchor: number; comment: string; moved: boolean }> {
+	const items: Array<{ anchor: number; comment: string; moved: boolean }> = [];
 	for (const annotation of annotations) {
 		const comment = sanitizeLine(annotation.comment);
 		if (comment.length === 0 || comment.length > MAX_COMMENT_LENGTH) continue;
-		items.push({ anchor: annotation.anchor, comment });
+		// Editing a moved note's text does not put it back on its old block, so the fact
+		// that a refinement placed it where it sits survives the save: the page posts back
+		// the annotation it was handed, flag included, and this keeps it.
+		items.push({ anchor: annotation.anchor, comment, moved: annotation.moved === true });
 	}
 	return items;
 }
@@ -251,13 +272,13 @@ export function formatFeedback(plan: string, annotations: PlanAnnotation[], opti
 	const { clean, markers } = scanMarkers(plan);
 	const kept = markers
 		.filter((marker) => marker.author !== author)
-		.map((marker) => ({ at: marker.at, line: markerLine(marker.author, marker.comment) }));
+		.map((marker) => ({ at: marker.at, line: markerLine(marker.author, marker.comment, marker.moved) }));
 	const blocks = planBlocks(clean);
 	const added = storableComments(annotations).map((item) => ({
 		// A marker beside a block, never after a blank line: an anchor that names
 		// blank space is written where the page can read it back as a thread.
 		at: contentBlockAt(blocks, item.anchor)?.end ?? -1,
-		line: markerLine(author, item.comment),
+		line: markerLine(author, item.comment, item.moved),
 	}));
 	return compose(clean, [...kept, ...added]);
 }
@@ -428,13 +449,16 @@ export function carryFeedback(previous: string, next: string): string {
 
 	const placed = markers.map((marker) => {
 		const block = blockAt(oldBlocks, marker.at);
-		const line = markerLine(marker.author, marker.comment);
-		if (block === undefined) return { at: tail, line };
+		// The flag means "this note is no longer on the text it was written about", so it
+		// is decided by the carry in hand: a block whose text survived proves the anchor,
+		// and anything after that is a guess the page has to admit to.
+		const keep = (moved: boolean): string => markerLine(marker.author, marker.comment, moved);
+		if (block === undefined) return { at: tail, line: keep(true) };
 		if (block.kind !== "blank") {
 			const match = queues.get(blockKey(block))?.shift();
-			if (match !== undefined) return { at: match.end, line };
+			if (match !== undefined) return { at: match.end, line: keep(false) };
 		}
-		return { at: bySection(block) ?? tail, line };
+		return { at: bySection(block) ?? tail, line: keep(true) };
 	});
 	return compose(cleanNext, placed);
 }
@@ -453,7 +477,7 @@ export function displayFeedback(plan: string): string {
 			if (fenced.has(index)) return line;
 			const match = MARKER_LINE.exec(line);
 			if (!match) return line;
-			const body = match[1].trim();
+			const body = (match[2] ?? "").trim();
 			if (body === "") return line;
 			const authored = AUTHOR_PREFIX.exec(body);
 			const author = authored ? normalizeAuthor(authored[1]) : "";

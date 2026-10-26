@@ -826,7 +826,8 @@ describe("plan store — authored review comments", () => {
 		await store.write(root, { title: "Review", planPath: path, content: "# Plan\n- [ ] one\n\n## Notes\nGreen.\n" });
 
 		const stored = readFileSync(path, "utf-8");
-		expect(stored).toContain("- [ ] one\n> [!REVIEW] about two\n");
+		// The step it hung on is gone, so the marker says the placement was a guess.
+		expect(stored).toContain("- [ ] one\n> [!REVIEW moved] about two\n");
 		const starts = planBlocks(stripFeedback(stored))
 			.filter((block) => block.kind !== "blank")
 			.map((block) => block.start);

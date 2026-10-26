@@ -70,12 +70,12 @@ interface Doc {
 }
 
 /** The review's own router, answering the shipped page and its script over HTTP. */
-function context(): ReviewContext {
+function context(page: ReviewPageData): ReviewContext {
 	return {
 		caller: (token) => (token === "tok" ? { role: "owner" } : undefined),
 		hosts: () => [...LOOPBACK_HOSTS],
 		canApprove: true,
-		page: async () => PAGE,
+		page: async () => page,
 		save: async (): Promise<SaveResult> => ({ ok: true }),
 		share: async () => ({ state: { sharing: false, port: 0, links: [] } }),
 		invite: async () => ({ state: { sharing: false, port: 0, links: [] } }),
@@ -88,8 +88,8 @@ function context(): ReviewContext {
 }
 
 /** Serve one review: the router decides, so the page is the page the extension ships. */
-function serve(): Promise<{ server: Server; origin: string }> {
-	const ctx = context();
+function serve(page: ReviewPageData = PAGE): Promise<{ server: Server; origin: string }> {
+	const ctx = context(page);
 	const started = createServer((request, response) => {
 		const chunks: Buffer[] = [];
 		request.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -176,7 +176,35 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			"bf-block--commented",
 		);
 		expect(await page.textContent("#comment-total")).toBe("1");
+		// Nothing was carried, so nothing claims to be.
+		expect(await page.$$eval(".bf-comment__moved", (nodes) => nodes.length)).toBe(0);
 		await page.close();
+	});
+
+	test("marks a comment a refinement carried off the text it was written on", async () => {
+		const carried: ReviewPageData = {
+			...PAGE,
+			annotations: [{ anchor: 1, comment: "needs a rollback step", author: "priya", moved: true }],
+		};
+		const local = await serve(carried);
+		try {
+			const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector(".bf-comment__moved", { timeout: PAINT_MS });
+			const chip = page.locator(".bf-comment__moved");
+			expect(await chip.textContent()).toBe("moved");
+			// The refusal is in the tooltip as well as the chip: a reader who hovers learns
+			// that the placement is a guess rather than the reviewer's own anchor.
+			expect(await chip.getAttribute("title")).toContain("Written on an earlier revision");
+			// Still her comment, in the rail of the block it was carried to.
+			expect(await page.$eval('#plan .bf-block[data-line="1"]', (node) => node.className)).toContain(
+				"bf-block--commented",
+			);
+			expect(await page.textContent("#plan .bf-comment__body")).toBe("needs a rollback step");
+			await page.close();
+		} finally {
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
 	});
 
 	test("jumps to the section the outline names", async () => {

@@ -179,6 +179,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: a comment a refinement carried onto another block says so. `carryFeedback` has
+  four fallbacks after the anchored text itself — wording overlap, the gap a deleted step
+  left, the section's end, the plan's last block — and the page drew the thread under
+  whatever block it landed on with no sign that it moved, so a reviewer could read her own
+  note attached to unrelated text and never learn it was a guess. Such a marker is now
+  `> [!REVIEW moved]`, the card carries a `moved` chip whose tooltip says the block changed
+  and the note was placed here, the flag survives a reload, a hand-off, and a save by its
+  own author, and a later carry that finds the text again clears it.
+
 - `session-bus`: the refusal for a label another session holds names the session that
   holds it, which is what the docs and two shipped changelog entries have promised since
   the join and `session({action:"name"})` landed. `takenLabels` returned a set of lowercase

@@ -209,8 +209,10 @@ describe("authored review comments", () => {
 	test("keeps a comment on a step whose text was reworded", () => {
 		const previous = "- [ ] one\n> [!REVIEW] @alice: about one\n- [ ] two";
 		const rewritten = "- [ ] one, restated differently\n- [ ] two";
+		// The wording changed, so the placement is the alignment's guess — and the marker
+		// says so, because the page shows it to the reviewer who wrote it.
 		expect(carryFeedback(previous, rewritten)).toBe(
-			"- [ ] one, restated differently\n> [!REVIEW] @alice: about one\n- [ ] two",
+			"- [ ] one, restated differently\n> [!REVIEW moved] @alice: about one\n- [ ] two",
 		);
 	});
 
@@ -223,12 +225,14 @@ describe("authored review comments", () => {
 		// The step it was written on is gone: the note goes where that step stood —
 		// between the heading and the step that followed — not at the section's end.
 		const previous = "## Steps\n- [ ] one\n> [!REVIEW] about one\n- [ ] two";
-		expect(carryFeedback(previous, "## Steps\n- [ ] two")).toBe("## Steps\n> [!REVIEW] about one\n- [ ] two");
+		expect(carryFeedback(previous, "## Steps\n- [ ] two")).toBe("## Steps\n> [!REVIEW moved] about one\n- [ ] two");
 	});
 
 	test("keeps a comment in the gap between the steps that survived", () => {
 		const previous = "## Steps\n- [ ] a\n- [ ] b\n> [!REVIEW] on b\n- [ ] c";
-		expect(carryFeedback(previous, "## Steps\n- [ ] a\n- [ ] c")).toBe("## Steps\n- [ ] a\n> [!REVIEW] on b\n- [ ] c");
+		expect(carryFeedback(previous, "## Steps\n- [ ] a\n- [ ] c")).toBe(
+			"## Steps\n- [ ] a\n> [!REVIEW moved] on b\n- [ ] c",
+		);
 	});
 
 	test("keeps a reworded step's comment when a step was inserted above it", () => {
@@ -237,14 +241,14 @@ describe("authored review comments", () => {
 		const previous = "## Steps\n- [ ] a\n- [ ] b\n> [!REVIEW] on b\n- [ ] c";
 		const rewritten = "## Steps\n- [ ] x\n- [ ] a\n- [ ] b reworded\n- [ ] c";
 		expect(carryFeedback(previous, rewritten)).toBe(
-			"## Steps\n- [ ] x\n- [ ] a\n- [ ] b reworded\n> [!REVIEW] on b\n- [ ] c",
+			"## Steps\n- [ ] x\n- [ ] a\n- [ ] b reworded\n> [!REVIEW moved] on b\n- [ ] c",
 		);
 	});
 
 	test("falls back to the end of the plan when the section is gone", () => {
 		const previous = "## Steps\n- [ ] one\n> [!REVIEW] @alice: about one";
 		const rewritten = "# Plan\n\nBody only";
-		expect(carryFeedback(previous, rewritten)).toBe(`${rewritten}\n> [!REVIEW] @alice: about one`);
+		expect(carryFeedback(previous, rewritten)).toBe(`${rewritten}\n> [!REVIEW moved] @alice: about one`);
 	});
 
 	test("never duplicates a marker the rewritten plan carried itself", () => {
@@ -263,13 +267,13 @@ describe("authored review comments", () => {
 		const previous = "# Plan\n\n## Steps\n- [ ] one\n- [ ] two\n> [!REVIEW] about two\n\n## Notes\nGreen.\n";
 		const rewritten = "# Plan\n\n## Steps\n- [ ] one\n\n## Notes\nGreen.\n";
 		expect(carryFeedback(previous, rewritten)).toBe(
-			"# Plan\n\n## Steps\n- [ ] one\n> [!REVIEW] about two\n\n## Notes\nGreen.\n",
+			"# Plan\n\n## Steps\n- [ ] one\n> [!REVIEW moved] about two\n\n## Notes\nGreen.\n",
 		);
 	});
 
 	test("keeps a carried comment beside the plan's last block when its section is gone", () => {
 		const previous = "# Plan\n\n## Steps\n- [ ] one\n> [!REVIEW] about one\n\n## Notes\nGreen.\n";
-		expect(carryFeedback(previous, "# Plan\n\nBody only\n")).toBe("# Plan\n\nBody only\n> [!REVIEW] about one\n");
+		expect(carryFeedback(previous, "# Plan\n\nBody only\n")).toBe("# Plan\n\nBody only\n> [!REVIEW moved] about one\n");
 	});
 
 	test("keeps a reworded step's comment when a blank line above it moved", () => {
@@ -278,7 +282,7 @@ describe("authored review comments", () => {
 		const previous = "## Steps\n- [ ] one\n\n- [ ] two\n> [!REVIEW] about two\n- [ ] three";
 		const rewritten = "## Steps\n- [ ] one\n- [ ] two, restated\n- [ ] three";
 		expect(carryFeedback(previous, rewritten)).toBe(
-			"## Steps\n- [ ] one\n- [ ] two, restated\n> [!REVIEW] about two\n- [ ] three",
+			"## Steps\n- [ ] one\n- [ ] two, restated\n> [!REVIEW moved] about two\n- [ ] three",
 		);
 	});
 
@@ -296,7 +300,7 @@ describe("authored review comments", () => {
 		const previous = "## Notes\nfirst\n> [!REVIEW] on the first\n\n## Notes\nsecond\n> [!REVIEW] on the second";
 		const rewritten = "## Notes\nfirst, restated\n\n## Notes\nsecond, restated";
 		expect(carryFeedback(previous, rewritten)).toBe(
-			"## Notes\nfirst, restated\n> [!REVIEW] on the first\n\n## Notes\nsecond, restated\n> [!REVIEW] on the second",
+			"## Notes\nfirst, restated\n> [!REVIEW moved] on the first\n\n## Notes\nsecond, restated\n> [!REVIEW moved] on the second",
 		);
 	});
 
@@ -307,8 +311,41 @@ describe("authored review comments", () => {
 		// behaviour change, so this test is here to notice one.
 		const previous = "## Notes\nfirst\n> [!REVIEW] on the first\n\n## Notes\nsecond\n> [!REVIEW] on the second";
 		expect(carryFeedback(previous, "## Notes\nsecond")).toBe(
-			"## Notes\nsecond\n> [!REVIEW] on the first\n> [!REVIEW] on the second",
+			// The survivor's own note is on text that survived, so only the adopted one is
+			// marked: the flag is about the anchor, not about the section it ended up in.
+			"## Notes\nsecond\n> [!REVIEW moved] on the first\n> [!REVIEW] on the second",
 		);
+	});
+
+	test("a comment that only moved is marked once, and its text is untouched", () => {
+		// The flag lives in the marker tag, so nothing a reviewer typed changes: the quote
+		// the page shows is still the comment.
+		const moved = carryFeedback("- [ ] one\n> [!REVIEW] @alice: burst case?", "- [ ] one, restated");
+		expect(moved).toBe("- [ ] one, restated\n> [!REVIEW moved] @alice: burst case?");
+		expect(parseFeedback(moved)).toEqual([{ anchor: 0, comment: "burst case?", author: "alice", moved: true }]);
+		expect(displayFeedback(moved)).toBe("- [ ] one, restated\n> @alice: burst case?");
+		// A later carry that finds the text again clears it: the note is back on its own
+		// words, so a chip saying otherwise would be the lie in the other direction.
+		expect(carryFeedback(moved, "- [ ] one, restated")).toBe("- [ ] one, restated\n> [!REVIEW] @alice: burst case?");
+	});
+
+	test("saving a moved comment keeps it moved", () => {
+		// Editing the note's text is not an anchor decision: the reviewer changes what she
+		// says, not where the refinement put it.
+		const moved = "# Plan\n> [!REVIEW moved] @alice: burst case?\n\n## Steps\n- [ ] one";
+		// The page posts back the annotations it was given, flag and all, so the save keeps
+		// the fact rather than re-deciding an anchor it did not touch.
+		const saved = formatFeedback(moved, [{ anchor: 0, comment: "burst case, still", author: "alice", moved: true }], {
+			author: "alice",
+		});
+		expect(saved).toContain("> [!REVIEW moved] @alice: burst case, still");
+	});
+
+	test("one writer's save keeps another writer's moved flag", () => {
+		const plan = "# Plan\n> [!REVIEW moved] @alice: mine\n> [!REVIEW] the owner's";
+		const saved = formatFeedback(plan, [{ anchor: 0, comment: "the owner's, edited" }]);
+		expect(saved).toContain("> [!REVIEW moved] @alice: mine");
+		expect(saved).toContain("> [!REVIEW] the owner's, edited");
 	});
 
 	test("reads a marker that follows a blank line onto the block above it", () => {

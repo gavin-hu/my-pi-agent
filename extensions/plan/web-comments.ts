@@ -237,6 +237,16 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       var label = el("span", annotation.author ? "bf-comment__label bf-comment__label--author" : "bf-comment__label");
       label.textContent = annotation.author ? "@" + annotation.author : "Review";
       head.appendChild(label);
+      if (annotation.moved) {
+        // A refinement carried this note off the text it was written on: the placement is
+        // this build's best guess, and saying so is the difference between the reviewer's
+        // anchor and ours.
+        var moved = el("span", "bf-comment__moved");
+        moved.textContent = "moved";
+        moved.title =
+          "Written on an earlier revision. The block it was on changed, so it sits here now: check it still refers to the text below.";
+        head.appendChild(moved);
+      }
       head.appendChild(el("span", "bf-comment__spacer"));
       if (isMine(annotation)) {
         var actions = el("div", "bf-comment__actions");

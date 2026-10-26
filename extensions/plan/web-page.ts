@@ -180,6 +180,8 @@ ${WEB_COMPONENTS_CSS}
 .bf-comment__label{font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--warn);text-transform:uppercase;letter-spacing:.06em}
 /* A reviewer's name is a name, not a label: keep its own capitalisation. */
 .bf-comment__label--author{text-transform:none;letter-spacing:0}
+/* A note a refinement carried off its own block: muted, because the complaint is the guess, not the text. */
+.bf-comment__moved{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 6px}
 .bf-comment__spacer{flex:1 1 auto}
 .bf-comment__actions{display:flex;gap:4px}
 .bf-comment__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
