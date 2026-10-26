@@ -29,39 +29,34 @@ surface arrives with its limitation written in the same breath.
   three-OS CI, a shared `lib/tui/` and `lib/web/` design system, budgeted prompt
   context, and package-level guards that hold the docs, the catalog, the release
   window, and this file to the tree.
-- The last tag is `0.19.0`. `0.18.0` before it shipped the body the previous
-  review listed as pending: `session-bus` with its live board, plans split into a
-  team at approval, reviewer links that follow the plan file live, and the browse
-  page's `path:line` reference copy. `0.19.0` closes two gaps this file listed:
-  one loopback server lifecycle in `lib/http/`, so no served page owns a socket
-  of its own, and a memory store that notices a same-size edit inside a
-  millisecond. It also withdraws the split `0.18.0` shipped — the team of sessions, the
-  `session join` that claimed a unit's paths, the shared-file rule, and the
-  `parallel-dev` skill — because a lead who cannot start a peer's turn spent more
-  of the user's attention than the split saved. The round comes back without that
-  premise: `board` is a per-repository feature board that any session reads and
-  writes, served as a page that follows the store live, and `team` is the lead's three
-  bus-dependent actions over the same cards — `assign` hands one to a session that is
-  already running, `offer` hands one to whoever is free, and `reclaim` takes one back —
-  so a handoff is a message and never a launch. It adds outbound images, two peers' turns at once, and the
-  notice a close sends when it abandons a turn; moves every extension doc to
-  `docs/extensions/`, capabilities first; fits the browse page to a phone; and adds
-  the `refactor` and `project-docs` skills, with the changelog's `scripts/state.ts`
-  moved under the latter. It also closes the daily loop this file ranked first:
-  `web_fetch` renders a JSON, CSV, or XML body as a table or a tree, and the
-  control center installs an update through Pi's own package manager behind a
-  confirmation. `docs/architecture.md` now states the
-  target architecture rather than a snapshot, and `AGENTS.md` names its four rules,
-  the fourth enforced by review alone.
-- The window since `0.19.0` adds no new surface: it makes what shipped true. The
-  board page became a read view — one token, no write path — its class names became
-  a table the document and the bundle share, and a field an action does not act on
-  is refused rather than ignored; a blocked card records why and a finished one the
-  commit that landed it; the card dialog reads as a ladder of facts over its notes;
-  a query reads a card's plan and its notes; every page bundle now runs one spliced
-  browser runtime; and the hero capture prices its own tokens instead of asserting
-  a number. Two guards followed: every count a doc states is derived by a test, and
-  the tag named in this file is checked against the newest one.
+- The last tag is `0.19.0`. The one before it, `0.18.0`, shipped the body the
+  previous review listed as pending: `session-bus` with its live board, plans split
+  into a team at approval, reviewer links that follow the plan file live, the browse
+  page's `path:line` reference copy, one loopback server lifecycle in `lib/http/` so
+  no served page owns a socket of its own, and the daily loop's structured fetch and
+  update action.
+- `0.19.0` withdraws that team of sessions — the `session join` that claimed a
+  unit's paths, the shared-file rule, and the `parallel-dev` skill — because a lead
+  who cannot start a peer's turn spent more of the user's attention than the split
+  saved. The round comes back without that premise: `board` is a per-repository
+  feature board that any session reads and writes, served as a page that follows the
+  store live, and `team` is the lead's three bus-dependent actions over the same
+  cards — `assign` hands one to a session that is already running, `offer` hands one
+  to whoever is free, and `reclaim` takes one back — so a handoff is a message and
+  never a launch. It adds outbound images, two peers' turns at once, and the notice a
+  close sends when it abandons a turn; moves every extension doc to
+  `docs/extensions/`, capabilities first; fits the browse page to a phone; names the
+  `changelog` skill `project-docs` and gives `refactor` an inventory script; and makes
+  the memory store notice a same-size edit inside a millisecond.
+- The window since `0.19.0` has closed four limits this file listed: the board page
+  is a reader — it draws a view and offers nothing it cannot do, and plan mode admits
+  `list` alone; a session or a teammate whose process is gone reads `gone`, and its
+  paths and cards come back at the next call; a dropped card leaves a record and its
+  number is never reused; and a model nobody can price is named with the
+  `price.rates` key that would price it. It also gives every doc count a test, gives
+  every served page the brand mark and a tab title that names its subject, and says
+  `no commits` for a worktree that has not committed since it was created. The tag
+  this bullet names is checked against the newest one by `test/roadmap.test.ts`.
 
 ## How items are ordered
 
@@ -113,7 +108,7 @@ closed by work parked in any horizon.
 
 | Horizon | Question | Exit condition |
 |---|---|---|
-| **Now** | Does the daily loop feel finished? | Closed by the structured fetch and the update action; reopened by the team and doc-truth items each section now holds, and the next review reopens it again with a candidate. |
+| **Now** | Does the daily loop feel finished? | Closed by the structured fetch, the update action, the team round, and a doc count every page derives; the next review reopens it with a candidate. |
 | **Next** | Does the pack keep what it promised? | `S1` is spiked or demoted, with the reason recorded. |
 | **Later** | Is it a platform? | Reproducible releases, benchmarked long sessions, and the expansion decisions made. |
 
@@ -123,9 +118,10 @@ this file, as the record of what shipped.
 
 The previous `Now` — a stale-doc sweep, every isolation gap visible in the
 session, a named Pi range, and a long-session benchmark — closed with `0.13.0`,
-and the one after it — memory's same-tick edit — shipped unreleased, which is why
-this tier now asks the daily-loop question and the promise question waits behind
-it.
+and the one after it — memory's same-tick edit — shipped with `0.19.0`. The
+daily-loop question closed with the structured fetch, the update action, and the
+team round, so the promise question is the one left; its exit condition still
+names `S1`, which sits in `Later`.
 The two items that used to head this file are gone for a reason worth keeping:
 the provider table would only price *below* Pi's per-model catalog, and the
 picker's scope decision is made — themes and prompts stay out, because neither is
@@ -370,14 +366,11 @@ runs, an update check, and two themes.
 
 **Now**
 
-- **C2 — A model the session cannot price is named.** The footer and `/bytefly`
-  say which models this session priced nothing for and which `price.rates` key
-  would price them, so an unpriced run stops reading as a free one. It adds no
-  rate table and no FX conversion: the published numbers stay the user's to
-  supply.
-
-The control center updates the configured packages through Pi's own package
-manager, so this row's remaining surface is closed.
+Nothing here is queued: the unpriced-model item shipped, so the footer,
+`/bytefly prices`, and one notice now name the models this session priced nothing
+for, with the `price.rates` key that would price them. The published numbers stay
+the user's to supply. The control center updates the configured packages through
+Pi's own package manager, so this row's remaining surface is closed.
 
 **Next**
 
@@ -425,7 +418,7 @@ exception.
 
 - **F1 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
-- **F2 — Split the browse listing out of `files.ts`.** At 564 of the 600-line
+- **F2 — Split the browse listing out of `files.ts`.** At 551 of the 600-line
   bar, `extensions/file-browse/files/files.ts` still holds classification, Markdown
   detection, text reads, listings, and the sidebar tree. The split is a
   behaviour-neutral move of the listing half into its own module; it is deferred

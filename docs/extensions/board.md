@@ -177,11 +177,11 @@ a card with `data-status`, so a theme change repaints it without a rule of its o
 
 The board as a posting card — the same rules, drawn to be read at half width:
 
-<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; four lane trays, each with a dot, a count pill and a fold; one card carrying an id, a title, its age, a priority chip, a path chip and one reason line, with no action on it; and the lead's round with two owner lines and the counts unassigned, unplanned, blocked, idle and done" width="100%">
+<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; four lane trays — To do, Doing, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines and the counts unassigned, unplanned, blocked, idle and done" width="100%">
 
 *`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `screenshot:cards board`.*
 
-<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer, whose claim takes the card; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to To do with its notes kept and no handoff sent" width="100%">
+<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and writes the card as doing, owned by that peer, before the peer reads the mail; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to To do with its notes kept and no handoff sent" width="100%">
 
 *`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`screenshot:cards team`).*
 
