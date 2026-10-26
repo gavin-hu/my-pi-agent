@@ -254,6 +254,23 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('new URLSearchParams(window.location.search).get("token")');
 	});
 
+	test("prints counts through the module's one plural, spliced in", () => {
+		// The bundle has no import graph: the source crosses the boundary, so the page and
+		// the tool say `1 card` the same way.
+		expect(BOARD_CLIENT_JS).toContain('count + " " + noun + (count === 1 ? "" : "s")');
+		expect(BOARD_CLIENT_JS).not.toContain("__PLURAL__");
+		expect(BOARD_CLIENT_JS).toContain("board.plural = plural;");
+	});
+
+	test("reads what the snapshot decided instead of deciding it again", () => {
+		// A dependency graph, a priority default, and a reason sentence each live once.
+		expect(BOARD_CLIENT_JS).toContain("card.waits");
+		expect(BOARD_CLIENT_JS).toContain('card.priority !== "normal"');
+		for (const gone of ["blockersOf", "waitingText", "priorityOf", "dependsOn"]) {
+			expect(BOARD_CLIENT_JS, gone).not.toContain(gone);
+		}
+	});
+
 	test("keeps no permission table, no request, and no dialog but the card's", () => {
 		// One rule lives in `lib/board/rules.ts`, and the page asks it nothing because the
 		// page asks for nothing: a second table here is how the two drifted apart.

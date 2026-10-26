@@ -34,18 +34,25 @@ function card(overrides: Partial<Card> = {}): Card {
 	};
 }
 
-/** The snapshot a fake view answers with. */
+/** The snapshot a fake view answers with. Its one card is ordinary and waits on nothing. */
 function view(): BoardView {
 	return {
 		me: { id: "s-lead", label: "billing-lead" },
 		lanes: [
-			{ status: "todo", cards: [card()] },
+			{ status: "todo", cards: [{ ...card(), priority: "normal" }] },
 			{ status: "doing", cards: [] },
 			{ status: "blocked", cards: [] },
 			{ status: "done", cards: [] },
 		],
 		counts: { total: 1, todo: 1, doing: 0, blocked: 0, done: 0 },
-		round: { owners: [], unassigned: [card()], unplanned: [], blocked: [], idle: [], done: [] },
+		round: {
+			owners: [],
+			unassigned: [{ ...card(), priority: "normal" }],
+			unplanned: [],
+			blocked: [],
+			idle: [],
+			done: [],
+		},
 		bytes: 512,
 		sig: "4:1",
 		where: "~/.pi/agent/board/abc",

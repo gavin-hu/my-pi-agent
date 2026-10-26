@@ -33,6 +33,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the page no longer keeps its own copy of three rules the tools own. A card
+  arrives in the snapshot with the priority it acts on and, when something unfinished
+  blocks it, the dependencies named with their lanes — so the card face, the card dialog,
+  and `board`'s refusal all say `waits on #2 (doing)` from one answer instead of three.
+  The copies had drifted: the dialog listed a card's raw ids with its finished links still
+  in them, so a card whose dependency had landed, or which was refused, said one thing in
+  the lane and another inside the dialog. `plural` crosses to the browser as the module's
+  own source, so `1 card` has one wording too.
 - `todo`: reading the board is not work. The lag reminder treats a tool that may write
   as work, and `board` may write, so every `list` set the flag and could force an extra
   request; a `list` result now reads like any other reader, while `add` or `claim`

@@ -39,6 +39,17 @@ export function blockersOf(card: Card, board: BoardIndex): Card[] {
 		.filter((other): other is Card => other !== undefined && other.status !== "done");
 }
 
+/**
+ * The same list as a reader meets it: `#2 (doing), #3 (blocked)`.
+ *
+ * The lane is what turns ids into a decision — a finished card is about to start, a
+ * `doing` one is to leave alone — so it is never left out. One wording serves the
+ * refusal sentence and the page's reason line, because two would drift.
+ */
+export function blockersText(blockers: readonly Card[]): string {
+	return blockers.map((blocker) => `${cardRef(blocker.id)} (${blocker.status})`).join(", ");
+}
+
 /** The cards that wait on `id`, oldest id first, so a report reads in board order. */
 export function dependentsOf(id: string, board: BoardIndex): Card[] {
 	return [...board.values()].filter((card) => dependsOf(card).includes(id)).sort((a, b) => Number(a.id) - Number(b.id));
@@ -48,8 +59,7 @@ export function dependentsOf(id: string, board: BoardIndex): Card[] {
 export function waitingOn(card: Card, board: BoardIndex): string | undefined {
 	const blockers = blockersOf(card, board);
 	if (blockers.length === 0) return undefined;
-	const named = blockers.map((blocker) => `${cardRef(blocker.id)} (${blocker.status})`).join(", ");
-	return `${cardRef(card.id)} waits on ${named}.`;
+	return `${cardRef(card.id)} waits on ${blockersText(blockers)}.`;
 }
 
 /** The sentence a drop is refused with while another card waits on `id`, or undefined. */

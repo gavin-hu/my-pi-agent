@@ -47,10 +47,19 @@ export function formatRound(cards: readonly Card[], round: RoundSummary): string
 	return lines.join("\n");
 }
 
-/** `1 owner`, `2 owners`. */
+/**
+ * `1 owner`, `2 owners`.
+ *
+ * Written as concatenation rather than a template, because the page's bundle carries
+ * this function's *source*: a backtick or an interpolation in it would end the string it
+ * is spliced into. `round-text.test.ts` pins both, and `PLURAL_JS` is how it crosses.
+ */
 export function plural(count: number, noun: string): string {
-	return `${count} ${noun}${count === 1 ? "" : "s"}`;
+	return count + " " + noun + (count === 1 ? "" : "s");
 }
+
+/** The same body, as the browser receives it: one wording for `1 card`, not two. */
+export const PLURAL_JS = String(plural);
 
 /** `#4 doing planned`, the brief a rollup group needs. */
 function brief(card: Card): string {

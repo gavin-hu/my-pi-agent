@@ -13,15 +13,21 @@
  * last, after every `board.*` handler it wires exists.
  */
 
+import { PLURAL_JS } from "../../../lib/board/round-text.ts";
 import { THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
 import { BOARD_DIALOG_JS } from "./dialog.ts";
 import { BOARD_KEYS_JS } from "./keys.ts";
 import { BOARD_LIVE_JS } from "./live.ts";
-import { BOARD_RENDER_JS } from "./render.ts";
+import { renderJs } from "./render.ts";
 import { BOARD_TEAM_JS } from "./team.ts";
 
-/** The whole client, in load order: paint, round, the card dialog, keys, wiring, start. */
-export const BOARD_CLIENT_JS = `${BOARD_RENDER_JS}
+/**
+ * The whole client, in load order: paint, round, the card dialog, keys, wiring, start.
+ *
+ * `plural` crosses the boundary as source: the browser has no import graph, and a
+ * second copy of one word's rule is exactly what this bundle is not allowed to hold.
+ */
+export const BOARD_CLIENT_JS = `${renderJs(PLURAL_JS)}
 ${BOARD_TEAM_JS}
 ${BOARD_DIALOG_JS}
 ${BOARD_KEYS_JS}
