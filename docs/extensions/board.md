@@ -275,6 +275,17 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   only when a card's revision, or a teammate's state, mail, or listening flag, moves: a
   heartbeat every ten seconds is not news, and a frame nobody needs costs the page a
   parse.
+- **The page is given what it prints.** A card arrives with the priority it acts on and
+  the unfinished dependencies that block it (`waits`, as `#2 (doing)`), so the client
+  holds no copy of a rule `lib/board` owns — the copies it did hold had already drifted
+  from the tool's. The one body that cannot cross as data is `plural`, and it crosses as
+  source (`PLURAL_JS`), because a second wording for `1 card` is the same mistake in a
+  smaller place.
+- **`waits on` answers two questions, on purpose.** The page names the *unfinished*
+  dependencies in one line — "why can I not start" — and `board`'s result names every
+  dependency with its lane, including finished ones — "what is this card tied to". Both
+  read `links.ts`, so neither can invent a blocker; the difference is the question, not
+  a drift.
 - **One page is found, not configured.** A note beside the cards carries the port, the
   seat, and the token; it is created exclusively, so two sessions starting at
   once cannot both serve, and the loser attaches to the winner. The alternative —
