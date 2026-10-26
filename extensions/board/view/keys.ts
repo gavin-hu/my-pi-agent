@@ -89,9 +89,9 @@ export const BOARD_KEYS_JS = String.raw`(function () {
           board.closeCard();
           return;
         }
-        // The composer is a kit dialog, so the kit's own Esc closed it in the capture
-        // phase already; a filter with text is what Escape is for here. An empty one
-        // gives the keyboard back to the page by leaving the field.
+        // What is left for Escape is the filter: a field with text loses it, and the field
+        // itself then gives the keyboard back to the page. The keys sheet and the card
+        // dialog are above this, in the order a reader is likely to be inside them.
         if (board.hasFilter()) {
           board.clearFilter();
           if (typing(target)) target.blur();

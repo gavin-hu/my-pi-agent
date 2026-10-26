@@ -1,6 +1,5 @@
 /**
- * The client's wiring: the tabs, the lane picker, the new-card dialog, the filter,
- * and the live frame stream.
+ * The client's wiring: the tabs, the lane picker, the filter, and the live frame stream.
  *
  * A frame is a whole snapshot, so every message repaints from it rather than patching
  * it — the renderer decides what actually changed. The only client state is which tab
