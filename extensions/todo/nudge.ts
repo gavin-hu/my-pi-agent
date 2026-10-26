@@ -14,7 +14,8 @@
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { TODO_TOOL } from "../../lib/tool-names.ts";
+import { isBoardRead } from "../../lib/policy.ts";
+import { BOARD_TOOL, TODO_TOOL } from "../../lib/tool-names.ts";
 import { currentTodo, hasOpenTodos } from "./state.ts";
 import type { Todo } from "./types.ts";
 
@@ -32,9 +33,14 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set(["write", "edit"
  * Whether a finished tool call counts as work for lag detection. The `todo`
  * tool never does (it is the update itself), a known mutator always does, and
  * any other tool counts only when it explicitly declares `readOnlyHint: false`.
+ *
+ * `board` is the one mutator whose read face is provable from what the call
+ * returned: a result whose `details` say `action: "list"` read the cards and changed
+ * nothing, so it counts like every other reader.
  */
-export function isMutatingTool(toolName: string, annotations?: ToolAnnotations): boolean {
+export function isMutatingTool(toolName: string, annotations?: ToolAnnotations, details?: unknown): boolean {
 	if (toolName === TODO_TOOL) return false;
+	if (toolName === BOARD_TOOL && isBoardRead(details)) return false;
 	if (MUTATING_TOOL_NAMES.has(toolName)) return true;
 	return annotations?.readOnlyHint === false;
 }

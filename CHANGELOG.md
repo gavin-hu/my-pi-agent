@@ -25,9 +25,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `reclaim #2, #3 — billing-core is not running` — for an owner whose process is gone and
   whose cards are unfinished. `reclaim`'s own description says the same, so a lead reading
   the tool's rules does not have to infer it.
+- `board`: `list` works while planning. Plan mode shows only read-only tools, and the
+  board is one tool over ten verbs, so the whole tool used to disappear — a model
+  asking for the board was told it did not exist. It stays visible now and only `list`
+  is admitted; `add`, `claim`, and the rest are refused by name with the exit guidance,
+  which is the distinction the read-only hint cannot carry because the same tool writes.
 
 ### Changed
 
+- `todo`: reading the board is not work. The lag reminder treats a tool that may write
+  as work, and `board` may write, so every `list` set the flag and could force an extra
+  request; a `list` result now reads like any other reader, while `add` or `claim`
+  still counts.
+- `board`: the ten verbs are described once, in the table the tool description, the
+  `action` parameter, and the prompt snippet all read — the parameter no longer
+  restates them at a third length, and a new verb reaches every surface as one row.
 - `worktree`: a worktree that has not committed since it was created says `no commits`
   instead of `merged`. A branch that never committed is an ancestor of its base, so
   `git branch --merged` called it landed while the work was still in the directory, and

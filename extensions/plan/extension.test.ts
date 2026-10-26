@@ -220,6 +220,34 @@ describe("plan-mode tool guard", () => {
 		expect(input.readOnly).toBe(true);
 	});
 
+	test("keeps board active so planning can read it, and refuses every other verb", async () => {
+		// A session that had the board before it started planning: the filter keeps the
+		// tools it may expose, so this is the set the model actually sees.
+		const fakePi = makeFakePi({ active: ["read", "board", "write"] });
+		planMode(fakePi.pi);
+		const { ctx } = fakeCtx({ branch: [stateEntry(true)] });
+		await emit(fakePi.pi, "session_start", { reason: "startup" }, ctx);
+
+		// The board is not "another mutating tool": the same tool reads, and the action
+		// in the call is what says which. Without this the model is told the tool does
+		// not exist, because plan mode removed it from the active set.
+		expect(fakePi.activeTools()).toContain("board");
+
+		const [read] = await emit(fakePi.pi, "tool_call", { toolName: "board", input: { action: "list" } }, ctx);
+		expect(read).toBeUndefined();
+
+		const [write] = await emit(
+			fakePi.pi,
+			"tool_call",
+			{ toolName: "board", input: { action: "add", title: "x" } },
+			ctx,
+		);
+		expect(write.block).toBe(true);
+		expect(write.reason).toContain("`add` changes the board");
+		expect(write.reason).toContain("only `list` reads it");
+		expect(write.reason).toContain("exit_plan_mode");
+	});
+
 	test("refuses a subagent that does not declare readOnly", async () => {
 		const { fakePi } = await enabledPi();
 		fakePi.pi.allTools = [{ name: "subagent", parameters: { type: "object", properties: {} } }];

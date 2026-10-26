@@ -15,7 +15,20 @@
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { READ_DOC_TOOL } from "./tool-names.ts";
+import { BOARD_READ_ACTION, READ_DOC_TOOL } from "./tool-names.ts";
+
+/**
+ * Whether a call to the `board` tool only reads it.
+ *
+ * The board is one tool over ten actions, so its `readOnlyHint` says "may write" and
+ * cannot answer this. The action can, and it travels in the call's input — and in the
+ * result's `details`, which is all a `tool_execution_end` event carries. Plan mode
+ * asks before the call and the todo nudge after it, so the answer lives here once.
+ */
+export function isBoardRead(call: unknown): boolean {
+	if (typeof call !== "object" || call === null) return false;
+	return (call as { action?: unknown }).action === BOARD_READ_ACTION;
+}
 
 /**
  * Tools that only read the workspace: the built-in structured readers and the

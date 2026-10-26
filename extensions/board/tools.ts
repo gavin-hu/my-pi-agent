@@ -30,7 +30,20 @@ import { BoardResult, collapsedLine, resultInput } from "./result.ts";
 import { createInput } from "./input.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { BoardParams } from "./schema.ts";
-import { BOARD_ACTIONS, BOARD_TOOL, type BoardAction, type BoardDetails, normalizeBoardAction } from "./types.ts";
+import {
+	BOARD_ACTION_DOCS,
+	BOARD_ACTIONS,
+	BOARD_MUTATING_ACTIONS,
+	BOARD_TOOL,
+	type BoardAction,
+	type BoardDetails,
+	normalizeBoardAction,
+} from "./types.ts";
+
+/** The verbs as one sentence, in `BOARD_ACTIONS` order; the table owns the words. */
+function verbHelp(): string {
+	return `${BOARD_ACTIONS.map((action) => `\`${action}\` ${BOARD_ACTION_DOCS[action]}`).join("; ")}.`;
+}
 
 /** The parameters as the schema validates them. */
 type BoardArgs = Static<typeof BoardParams>;
@@ -71,9 +84,6 @@ function refusal(action: BoardAction, me: BoardDetails["me"], message: string, c
 	});
 }
 
-/** The actions that need this session to be a teammate: everything but a read. */
-const MUTATING_ACTIONS = new Set<BoardAction>(BOARD_ACTIONS.filter((action) => action !== "list"));
-
 export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { team?: TeamJoin } = {}): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerTool({
@@ -82,16 +92,9 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 		description:
 			"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
 			"A card carries the feature's outcome, the session that holds it, path hints, the plan it is executing, " +
-			"its priority, what it waits for, and its notes. `list` shows the board (`status` filters one lane, " +
-			"`mine` shows only what this session holds, `query` matches a title, a path hint, or a holder, `card` shows one card, `round` adds the lead's rollup " +
-			"of owners, unassigned, unplanned, blocked, and idle - the rollup always covers the whole board). `add` " +
-			"creates a `todo` card; `claim` takes one for this session; `release` gives it back; `reclaim` takes it " +
-			"from whoever holds it; `move` changes lane; `note` appends to its history; `plan` records the plan file " +
-			"being executed; `edit` fixes what the card says (title, paths, priority, and the cards it waits for); " +
-			"`drop` deletes a `todo`, a `done`, or one you hold. A card's steps do not belong on the board - they " +
-			"belong in the plan and in `todo`.",
-		promptSnippet:
-			"The shared feature list for this repository: list, add, claim, release, reclaim, move, note, plan, edit, drop.",
+			`its priority, what it waits for, and its notes. ${verbHelp()} A card's steps do not belong on the ` +
+			"board - they belong in the plan and in `todo`.",
+		promptSnippet: `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`,
 		promptGuidelines: [
 			"Claim a card before working on it; release or finish it when you stop, and reclaim a card whose owner is gone.",
 			"Record the plan file with `board` action `plan` once the plan is approved, then execute it.",
@@ -121,7 +124,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 				// surface for the team, so nobody has to know the bus exists. A failed join is
 				// not a failed card write — the board works with no bus at all — and it is not
 				// marked, so the next write asks again.
-				if (MUTATING_ACTIONS.has(action) && !runtime.joined()) {
+				if (BOARD_MUTATING_ACTIONS.has(action) && !runtime.joined()) {
 					if ((await team.join(ctx)).ok) runtime.markJoined();
 				}
 				const store = await runtime.store(ctx.cwd);

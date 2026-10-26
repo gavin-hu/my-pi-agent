@@ -60,7 +60,10 @@ export default function todo(pi: ExtensionAPI) {
 	pi.on("tool_execution_end", (event) => {
 		if (event.isError) return;
 		const annotations = pi.getAllTools().find((tool) => tool.name === event.toolName)?.annotations;
-		if (!isMutatingTool(event.toolName, annotations)) return;
+		// The result is the only place a call's own record of what it did survives to this
+		// event, which is why the board's read action is read from here.
+		const details = (event.result as { details?: unknown } | undefined)?.details;
+		if (!isMutatingTool(event.toolName, annotations, details)) return;
 		runtime.noteWork(isFileWrite(event.toolName, annotations));
 	});
 

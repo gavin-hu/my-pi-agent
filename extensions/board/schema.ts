@@ -15,11 +15,9 @@ export const BoardParams = Type.Object({
 	action: Type.Union(
 		BOARD_ACTIONS.map((action) => Type.Literal(action)),
 		{
-			description:
-				"`list` the board (optionally one card, one lane, a query, or the lead's rollup), `add` a card, " +
-				"`claim` one for this session, `release` it, `reclaim` it from whoever holds it, `move` it to " +
-				"another lane, `note` it, `plan` it (record the plan file being executed), `edit` what it says " +
-				"(title, paths, priority, what it waits for), or `drop` it.",
+			// The verbs and their meanings live in the tool description, built from
+			// `BOARD_ACTION_DOCS`; this says only what a caller needs to choose one.
+			description: "`list` reads the board; every other verb changes it. The tool description says what each one does.",
 		},
 	),
 	card: Type.Optional(

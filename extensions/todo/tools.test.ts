@@ -205,6 +205,16 @@ describe("nudge rules", () => {
 		for (const name of MUTATING_TOOL_NAMES) expect(isMutatingTool(name)).toBe(true);
 	});
 
+	test("a board read is not work, and any other board verb is", () => {
+		// The board is one tool over ten actions, so its hint says "may write" and the
+		// action the result reports is what tells a read from a change.
+		expect(isMutatingTool("board", { readOnlyHint: false }, { action: "list" })).toBe(false);
+		expect(isMutatingTool("board", { readOnlyHint: false }, { action: "claim" })).toBe(true);
+		// A result with no detail to read is a mutation, because the hint says so.
+		expect(isMutatingTool("board", { readOnlyHint: false })).toBe(true);
+		expect(isMutatingTool("board", undefined, { action: "list" })).toBe(false);
+	});
+
 	test("a known reader is not work, and an unknown tool needs an explicit mutation hint", () => {
 		expect(isMutatingTool("read")).toBe(false);
 		expect(isMutatingTool("grep", {})).toBe(false);

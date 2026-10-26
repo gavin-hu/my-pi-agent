@@ -24,7 +24,14 @@ import { isExtensionEnabled } from "../../lib/env.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import { READ_ONLY_SUMMARY, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
-import { ASK_USER_QUESTION_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
+import { isBoardRead } from "../../lib/policy.ts";
+import {
+	ASK_USER_QUESTION_TOOL,
+	BOARD_READ_ACTION,
+	BOARD_TOOL,
+	SUBAGENT_READ_ONLY_PARAM,
+	SUBAGENT_TOOL,
+} from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
@@ -167,6 +174,15 @@ export default function planMode(pi: ExtensionAPI): void {
 				(input as Record<string, unknown>)[SUBAGENT_READ_ONLY_PARAM] = true;
 			}
 			return undefined;
+		}
+		// `board` stays active so planning can read the board it is about to add cards
+		// to. The action is the truth here, not the annotation: the same tool writes, so
+		// `readOnlyHint` cannot say it, and every verb but the read is refused by name.
+		if (toolName === BOARD_TOOL) {
+			if (isBoardRead(input)) return undefined;
+			const action = (input as { action?: unknown } | undefined)?.action;
+			const verb = typeof action === "string" && action.trim() !== "" ? action.trim() : "board";
+			return `Plan mode: \`${verb}\` changes the board — only \`${BOARD_READ_ACTION}\` reads it. ${BLOCKED_GUIDANCE}`;
 		}
 		const blocked = policy.check(toolName);
 		if (blocked) return `Plan mode: ${blocked.reason}`;

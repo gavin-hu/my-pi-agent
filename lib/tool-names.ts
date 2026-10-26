@@ -46,6 +46,19 @@ export const SESSION_TOOL = "session";
 export const SUBAGENT_READ_ONLY_PARAM = "readOnly";
 
 /**
+ * The `board` tool: the shared feature list. Plan mode keeps it active because its
+ * `list` action is a read of the repository's cards, so the name is shared while the
+ * write actions stay the board's to refuse.
+ */
+export const BOARD_TOOL = "board";
+
+/**
+ * The one `board` action that reads. Plan mode admits it and refuses the rest, which
+ * is the distinction the tool's `readOnlyHint` cannot carry: the same tool writes.
+ */
+export const BOARD_READ_ACTION = "list";
+
+/**
  * The `read_doc` tool. `file-read` registers it, and the plan, rewind, and
  * subagent reader lists carry the name, so the document reader is one reader
  * everywhere instead of three spellings.

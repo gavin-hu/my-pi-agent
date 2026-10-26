@@ -17,12 +17,14 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createReadOnlyPolicy, WORKSPACE_READERS, type ReadOnlyPolicy } from "../../lib/policy.ts";
 import {
 	ASK_USER_QUESTION_TOOL,
+	BOARD_TOOL,
 	GOAL_TOOL,
 	SUBAGENT_TOOL,
 	TODO_TOOL,
 	WEB_FETCH_TOOL,
 	WEB_SEARCH_TOOL,
 } from "../../lib/tool-names.ts";
+
 import { ENTER_TOOL } from "./runtime.ts";
 
 /**
@@ -41,12 +43,15 @@ export const PLAN_SAFE_TOOLS = [
 ];
 
 /**
- * Tools that may stay active while planning. `subagent` is here so it is not
- * filtered out, but it is not in {@link PLAN_SAFE_TOOLS}: the `tool_call` guard
- * forces it read-only before the path backstop would see it. `powershell` is
- * deliberately absent — it is default-denied like any other shell.
+ * Tools that may stay active while planning. Two of them are here so they are not
+ * filtered out, without being in {@link PLAN_SAFE_TOOLS}: the `tool_call` guard
+ * narrows each before the path backstop would see it. `subagent` is forced
+ * read-only per call, and `board` admits only its `list` action — a model planning
+ * work should be able to read the board it is about to add cards to, and the hint
+ * cannot say that because the same tool writes. `powershell` is deliberately
+ * absent — it is default-denied like any other shell.
  */
-export const PLAN_ALLOWED_TOOLS = [...PLAN_SAFE_TOOLS, SUBAGENT_TOOL];
+export const PLAN_ALLOWED_TOOLS = [...PLAN_SAFE_TOOLS, SUBAGENT_TOOL, BOARD_TOOL];
 /**
  * Tools always blocked while planning, even when annotated read-only.
  * `enter_plan_mode` is denied so it stays hidden while planning; the guard exempts

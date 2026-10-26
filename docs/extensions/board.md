@@ -250,10 +250,13 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   a failed page. The seat is the name the page is served and reported under, and `/board
   status` says which session is on the team through it.
 - **`plan`**: `board plan` records a plan file's path; the plan extension owns the
-  file. The plan is recorded **after** approval, because plan mode makes mutating
-  tools unavailable.
+  file. The board stays available while planning, and only `list` works: the same tool
+  writes, so its read-only hint cannot say that, and plan mode reads the action in the
+  call instead — `add`, `claim`, or any other verb is refused with the exit guidance.
+  The plan is recorded **after** approval, when the writing verbs work again.
 - **`todo`**: the approved plan's steps are seeded into `todo`. Steps never become
-  cards.
+  cards. A `list` call is a read for the lag reminder too, so reading the board never
+  forces a todo update, while `add` or `claim` counts as work like any other write.
 - **`worktree`**: the store is keyed by the repository's common git directory, so
   every worktree shares one board.
 - **`bytefly`**: the page's port appears as a `board` status chip, and `doctor`

@@ -31,6 +31,39 @@ export const BOARD_ACTIONS = [
 /** One action. */
 export type BoardAction = (typeof BOARD_ACTIONS)[number];
 
+/**
+ * What each verb does, in one sentence.
+ *
+ * The tool description is built from this table and the parameter's `action`
+ * description points at that sentence, so the verbs are stated once. A new action is
+ * a row here and an entry in {@link BOARD_ACTIONS}; `test` holds the two together.
+ */
+export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
+	list:
+		"shows the board — `status` filters one lane, `mine` only what this session holds, " +
+		"`query` matches a title, a path hint, or a holder, `card` shows one card, and `round` adds " +
+		"the lead's rollup of owners, unassigned, unplanned, blocked, and idle, which always covers the whole board",
+	add: "creates a `todo` card",
+	claim: "takes one for this session",
+	release: "gives it back",
+	reclaim: "takes it from whoever holds it",
+	move: "changes lane",
+	note: "appends to its history",
+	plan: "records the plan file being executed",
+	edit: "fixes what the card says — title, path hints, priority, and what it waits for",
+	drop: "deletes a `todo`, a `done`, or one you hold",
+};
+
+/**
+ * The actions that change the board: everything but a read.
+ *
+ * One definition, read by the tool (does this call need a teammate?) and by plan
+ * mode (may this call run while planning?), so "a read" cannot mean two things.
+ */
+export const BOARD_MUTATING_ACTIONS: ReadonlySet<BoardAction> = new Set(
+	BOARD_ACTIONS.filter((action) => action !== "list"),
+);
+
 /** A result the transcript renders and the page's routes mirror. */
 export interface BoardDetails {
 	action: BoardAction;

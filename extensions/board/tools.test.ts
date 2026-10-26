@@ -17,7 +17,7 @@ import { MAX_NOTES } from "../../lib/board/card.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
 import { registerTools } from "./tools.ts";
-import type { BoardDetails } from "./types.ts";
+import { BOARD_ACTION_DOCS, BOARD_ACTIONS, BOARD_MUTATING_ACTIONS, type BoardDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -72,6 +72,23 @@ describe("the registration", () => {
 		expect(tool.promptGuidelines.length).toBeGreaterThan(0);
 		expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, openWorldHint: false });
 		expect(tool.executionMode).toBe("sequential");
+	});
+
+	test("states every verb once, from the table that owns them", () => {
+		const { tool } = harness();
+		// A new action without a row here would reach the model as a bare name.
+		expect(Object.keys(BOARD_ACTION_DOCS).sort()).toEqual([...BOARD_ACTIONS].sort());
+		for (const action of BOARD_ACTIONS) {
+			expect(BOARD_ACTION_DOCS[action].length, action).toBeGreaterThan(0);
+			expect(tool.description, action).toContain(`\`${action}\` `);
+			// The parameter says which verbs are reads and points at the description
+			// instead of restating ten meanings a second time.
+			expect(tool.parameters.properties.action.description).toContain("`list` reads the board");
+			expect(tool.promptSnippet).toContain(action);
+		}
+		// Only one verb is a read, which is what plan mode admits and the nudge ignores.
+		expect([...BOARD_MUTATING_ACTIONS]).not.toContain("list");
+		expect(BOARD_MUTATING_ACTIONS.size).toBe(BOARD_ACTIONS.length - 1);
 	});
 
 	test("refuses an action it does not have, without throwing", async () => {
