@@ -97,8 +97,15 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 				// carried to a block that moved can be checked against what she actually read.
 				const kept =
 					file.replaced === undefined ? "" : `, keeping the revision it replaced at ${file.replaced.relativePath}`;
+				// A plan that was approved before is now out of step with the todo list, and
+				// the list is only re-seeded by approving it again. Say so here, where the
+				// refinement is made, instead of letting the two disagree in silence.
+				const reseed =
+					runtime.seeded(file.path) === undefined
+						? ""
+						: " This plan was approved before: its todo items are the ones that approval seeded, and approving it again replaces the steps that changed (an item you started or finished is left alone and named).";
 				return textResult(
-					`Wrote the plan to ${file.relativePath}${kept}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
+					`Wrote the plan to ${file.relativePath}${kept}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}${reseed}`,
 					{ path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
 				);
 			} catch (error) {

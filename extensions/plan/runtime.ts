@@ -28,7 +28,7 @@ import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
 import { sameSections, sectionDigests, type SectionDigest } from "./plan-text.ts";
-import type { PlanModeEntry, ReviewBaselineEntry } from "./types.ts";
+import type { PlanModeEntry, ReviewBaselineEntry, SeededStepsEntry } from "./types.ts";
 
 /** Tool the model calls to leave plan mode after approval. */
 export const EXIT_TOOL = "exit_plan_mode";
@@ -44,6 +44,8 @@ export const SET_PLAN_STEPS_TOOL = "set_plan_steps";
 export const STATE_TYPE = PLAN_MODE_ENTRY_TYPE;
 /** Custom-entry type used for a plan's review baseline. */
 export const BASELINE_TYPE = "plan-baseline";
+/** Custom-entry type used for the steps one approval seeded, so a re-approval can replace them. */
+export const SEEDED_TYPE = "plan-seeded";
 
 /** Longest plan-file basename shown in the footer chip. */
 const STATUS_NAME_LENGTH = 28;
@@ -79,12 +81,18 @@ export interface PlanRuntime {
 	reviewed(path: string): SectionDigest[] | undefined;
 	/** Remember what a review just showed, as a session entry on this branch. */
 	markReviewed(path: string, content: string): void;
+	/** The step texts the last approval of this plan appended, or undefined. */
+	seeded(path: string): string[] | undefined;
+	/** Record what this approval appended, so a re-approval can replace it. */
+	markSeeded(path: string, steps: readonly string[]): void;
 }
 
 /** What the branch carries: the last plan-mode state, and a baseline per plan. */
 interface BranchState {
 	mode: PlanModeEntry | undefined;
 	baselines: Map<string, SectionDigest[]>;
+	/** The step texts each approval appended, per plan path. */
+	seeded: Map<string, string[]>;
 }
 
 /** Well-formed `{ title, digest }` pairs from untrusted branch data, or undefined. */
@@ -106,6 +114,7 @@ function readSections(value: unknown): SectionDigest[] | undefined {
 function readBranchState(ctx: ExtensionContext): BranchState {
 	let mode: PlanModeEntry | undefined;
 	const baselines = new Map<string, SectionDigest[]>();
+	const seeded = new Map<string, string[]>();
 	for (const raw of ctx.sessionManager.getBranch()) {
 		const entry = raw as { type?: string; customType?: string; data?: unknown };
 		if (entry.type !== "custom") continue;
@@ -119,6 +128,16 @@ function readBranchState(ctx: ExtensionContext): BranchState {
 			mode = removed ? { enabled: data.enabled, removed } : { enabled: data.enabled };
 			continue;
 		}
+		if (entry.customType === SEEDED_TYPE) {
+			const data = entry.data as { path?: unknown; steps?: unknown } | null | undefined;
+			if (typeof data?.path !== "string" || !Array.isArray(data.steps)) continue;
+			// Branch data is untrusted: keep only the strings a step can be.
+			seeded.set(
+				resolve(data.path),
+				data.steps.filter((text): text is string => typeof text === "string"),
+			);
+			continue;
+		}
 		if (entry.customType !== BASELINE_TYPE) continue;
 		const data = entry.data as { path?: unknown; sections?: unknown } | null | undefined;
 		if (typeof data?.path !== "string") continue;
@@ -128,7 +147,7 @@ function readBranchState(ctx: ExtensionContext): BranchState {
 		// still answers a lookup for the plan it names.
 		if (sections) baselines.set(resolve(data.path), sections);
 	}
-	return { mode, baselines };
+	return { mode, baselines, seeded };
 }
 
 /** Compare two paths, resolving symlinks when possible so `/tmp` and `/private/tmp` match. */
@@ -161,6 +180,8 @@ export function createPlanRuntime(
 	// can mark what changed. Persisted with the branch, so `/resume` and `/tree`
 	// compare against the review this branch actually showed.
 	const reviewedPlans = new Map<string, SectionDigest[]>();
+	/** The steps each approval appended, so the next approval can replace its own leftovers. */
+	const seededPlans = new Map<string, string[]>();
 	// Tools plan mode deactivated, so disabling restores exactly those and does
 	// not re-activate a tool another extension intentionally hid.
 	let removedForPlan: string[] = [];
@@ -236,6 +257,8 @@ export function createPlanRuntime(
 			// never showed has no digest here, so nothing looks changed until it does.
 			reviewedPlans.clear();
 			for (const [path, sections] of branch.baselines) reviewedPlans.set(path, sections);
+			seededPlans.clear();
+			for (const [path, steps] of branch.seeded) seededPlans.set(path, steps);
 			const persisted = branch.mode;
 			// `--plan` starts a fresh session in plan mode; an explicit persisted
 			// choice (including a later disable) wins over the launch flag.
@@ -260,6 +283,12 @@ export function createPlanRuntime(
 			setStatus(ctx);
 		},
 		reviewed: (path) => reviewedPlans.get(resolve(path)),
+		seeded: (path) => seededPlans.get(resolve(path)),
+		markSeeded: (path, steps) => {
+			const key = resolve(path);
+			seededPlans.set(key, [...steps]);
+			pi.appendEntry(SEEDED_TYPE, { path: key, steps: [...steps] } satisfies SeededStepsEntry);
+		},
 		markReviewed: (path, content) => {
 			const key = resolve(path);
 			const sections = sectionDigests(content);

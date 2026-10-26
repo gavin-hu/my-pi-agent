@@ -195,6 +195,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plan`: approving a plan that was approved before replaces the todo items the earlier
+  approval seeded. Nothing re-seeded a refined plan — `write_plan` needs plan mode, so a
+  second round is the way back — and the merge matched by text, so a renamed step added a
+  second item and left the first behind; the approval now records what it seeded and the
+  next one removes its own untouched leftovers, keeping and naming any item somebody had
+  started or finished. `write_plan` says the list is stale when it refines an approved plan.
 - `plan`: a comment a refinement carried onto another block says so. `carryFeedback` has
   four fallbacks after the anchored text itself — wording overlap, the gap a deleted step
   left, the section's end, the plan's last block — and the page drew the thread under

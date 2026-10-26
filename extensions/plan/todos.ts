@@ -22,6 +22,16 @@ export interface TodoMerge {
 	skipped: number;
 	/** Existing items kept as they were. */
 	kept: number;
+	/**
+	 * Untouched items dropped because they were seeded by an earlier approval of this
+	 * plan and are no longer one of its steps: the plan was renamed or rewritten.
+	 */
+	replaced: number;
+	/**
+	 * Older seeds kept because someone had already started or finished them. Deleting one
+	 * would erase work a reader did, so they are reported instead of replaced.
+	 */
+	stale: number;
 	/** Plan steps left out because the list reached its cap. */
 	deferred: number;
 	/**
@@ -89,9 +99,38 @@ function contentKey(content: string): string {
  * (still subject to the same duplicate and cap rules) but is not counted as a
  * step, because it is not one.
  */
-export function mergeTodos(existing: ExistingTodo[], steps: PlanStep[], max: number, trailing?: PlanStep): TodoMerge {
+export function mergeTodos(
+	existing: ExistingTodo[],
+	steps: PlanStep[],
+	max: number,
+	trailing?: PlanStep,
+	/** What an earlier approval of this plan seeded, when there was one. */
+	previous?: readonly string[],
+): TodoMerge {
 	const limit = Number.isInteger(max) && max > 0 ? max : DEFAULT_TODO_MAX;
-	const todos: ExistingTodo[] = existing.map((todo) =>
+	// A plan refined after approval is approved again over the list its first approval
+	// made. An item this plan seeded that is no longer one of its steps is a leftover, and
+	// only an item *this plan seeded* is a candidate: a user's own item is never touched.
+	const ours = new Set((previous ?? []).map(contentKey));
+	const current = new Set(steps.map((step) => contentKey(step.content)));
+	if (trailing) current.add(contentKey(trailing.content));
+	let replaced = 0;
+	let stale = 0;
+	const kept: ExistingTodo[] = [];
+	for (const todo of existing) {
+		const key = contentKey(todo.content);
+		if (ours.has(key) && !current.has(key)) {
+			// An untouched leftover is bookkeeping and goes; one someone acted on is
+			// evidence of work, and is named rather than deleted.
+			if (todo.status === "pending") {
+				replaced += 1;
+				continue;
+			}
+			stale += 1;
+		}
+		kept.push(todo);
+	}
+	const todos: ExistingTodo[] = kept.map((todo) =>
 		todo.status === "in_progress" && !todo.activeForm ? { ...todo, activeForm: todo.content } : todo,
 	);
 	const seen = new Set(todos.map((todo) => contentKey(todo.content)));
@@ -126,5 +165,14 @@ export function mergeTodos(existing: ExistingTodo[], steps: PlanStep[], max: num
 		}
 	}
 
-	return { todos, added, skipped, kept: existing.length, deferred, trailing: trailingOutcome };
+	return {
+		todos,
+		added,
+		skipped,
+		kept: existing.length - replaced,
+		replaced,
+		stale,
+		deferred,
+		trailing: trailingOutcome,
+	};
 }
