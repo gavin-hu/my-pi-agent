@@ -2,11 +2,11 @@
  * The WeChat bridge: one connection per account, one session per peer.
  *
  * This is the composition root. The poll loop, outbound delivery, the typing and
- * wait notices, admission (dedupe/cap/budget), and inbound media each live in
- * their own module; the bridge wires them to the live client, account, cursor,
- * and state, and owns the connection lifecycle and the status snapshot. Each
- * admitted message is handed to the sender's own session through the peer
- * worker, so a WeChat turn never runs in the terminal's session.
+ * wait notices, admission (dedupe/cap/budget), inbound media, and the inbound
+ * path itself each live in their own module; the bridge wires them to the live
+ * client, account, cursor, and state, and owns the connection lifecycle and the
+ * status snapshot. Each admitted message is handed to the sender's own session
+ * through the peer worker, so a WeChat turn never runs in the terminal's session.
  *
  * The peer only has the chat window, so the bridge carries the signals the phone
  * needs: typing starts as soon as a message is picked up, a message waiting on
@@ -22,45 +22,23 @@ import { createDeliverer, type MessageTarget } from "./transport/deliver.ts";
 import { createInboundAdmission } from "./transport/inbound.ts";
 import { createPollLoop, defaultPollTimeout } from "./transport/poll.ts";
 import { messageOf } from "./errors.ts";
-import { parseInbound, peerKey, peerLabel, peerLanguage, sanitizeInbound, type PeerLanguage } from "./text/format.ts";
+import { peerKey, sanitizeInbound, type PeerLanguage } from "./text/format.ts";
 import { notice } from "./text/notices.ts";
 import { createPresence } from "./peer/presence.ts";
+import { createForgetToken, createIntake, createLanguageOf, type Counter } from "./intake.ts";
+
+// The admission predicates, re-exported: they are the bridge's contract, and a caller
+// should not have to know which module inside it answers them.
+export { isAllowedPeer, isInboundMessage } from "./intake.ts";
 import { createPeerChannels, type PeerChannels } from "./dialog/channels.ts";
 import type { PendingPromptInfo, WechatInteractionChannel } from "./dialog/interaction.ts";
 import { defaultSleep, defaultTimer, type ArmTimer } from "./timer.ts";
 import { createPeerWorker, type PeerState, type PeerWorker } from "./peer/peer-worker.ts";
 import type { PeerSession } from "./peer/peer-session.ts";
-import { emptyState, findPeer, ownerTarget, recordInbound, rememberMessage, seenMessage } from "./state/state.ts";
-import {
-	expandSnippet,
-	findSlashCommand,
-	parseSlash,
-	slashControls,
-	SLASH_COMMANDS,
-	type SlashCommand,
-	type SlashContext,
-} from "./commands/slash.ts";
-import type { BotCredentials, InboundItem, WechatState, WeixinMessage } from "./types.ts";
+import { emptyState, ownerTarget } from "./state/state.ts";
+import { SLASH_COMMANDS, type SlashCommand } from "./commands/slash.ts";
+import type { BotCredentials, WechatState } from "./types.ts";
 import type { WechatConfig } from "./config.ts";
-
-/** Inbound messages held while a turn runs; beyond this the peer is told to wait. */
-const MAX_QUEUE = 8;
-
-/**
- * Whether `peer` may drive the agent: the owner, or an explicit extra. Either id
- * form is accepted (with or without `@im.wechat`), so a label copied from the
- * control screen is not silently refused.
- */
-export function isAllowedPeer(peer: string, owner: string | undefined, allowedPeers: string[]): boolean {
-	const key = peerKey(peer);
-	if (owner !== undefined && peerKey(owner) === key) return true;
-	return allowedPeers.some((allowed) => peerKey(allowed) === key);
-}
-
-/** True when a message is inbound from a human (not the bot's own echo). */
-export function isInboundMessage(message: WeixinMessage): message is WeixinMessage & { from_user_id: string } {
-	return message.message_type !== 2 && typeof message.from_user_id === "string" && message.from_user_id !== "";
-}
 
 /** The bridge's connection state, published to the UI for the status chip. */
 export type BridgeState = "stopped" | "running" | "expired" | "paused";
@@ -181,7 +159,8 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	let client: WechatClient | undefined;
 	let account: BotCredentials | undefined;
 	let state: WechatState = { cursor: "", peers: {} };
-	let refused = 0;
+	/** Senders refused since the connection opened; the inbound path bumps it. */
+	const refused: Counter = { value: 0 };
 	/** Labels of refused senders, so the operator can allowlist one by name. */
 	const refusedPeers = new Set<string>();
 	/** The language each peer last wrote in, so a media-only message can answer. */
@@ -189,6 +168,9 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	/** Peers already told that the queue is full, until it drains. */
 	const overflow = new Set<string>();
 	const slashCommands = deps.slashCommands ?? SLASH_COMMANDS;
+	/** The peer's language memory: written here when a turn settles, read on every message. */
+	const languageOf = createLanguageOf(languages);
+	const forgetToken = createForgetToken({ state: () => state, saveState: deps.saveState });
 
 	/** One worker per open connection: it owns the queues and the peer sessions. */
 	let worker: PeerWorker | undefined;
@@ -214,14 +196,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		notify("WeChat session expired. Run /wechat login to reconnect.", "warning");
 	}
 
-	/** Drop a peer's cached reply token, so the next inbound message replaces it. */
-	function forgetToken(peer: string): void {
-		const entry = findPeer(state, peer);
-		if (!entry?.lastContextToken) return;
-		delete entry.lastContextToken;
-		deps.saveState(state);
-	}
-
 	/** Send one bubble to a peer and report whether it was delivered. */
 	async function reply(target: MessageTarget, text: string, signal?: AbortSignal): Promise<boolean> {
 		return deliverer.reply(target, text, signal ?? abort?.signal);
@@ -244,35 +218,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 			lastSendError = undefined;
 		},
 	});
-	/** Run a slash action out-of-band and reply to the sender; never starts a turn. */
-	async function runSlashAction(command: SlashCommand, target: MessageTarget, args: string): Promise<void> {
-		if (!command.run) return;
-		const ctx: SlashContext = {
-			args,
-			peer: target.peer,
-			reply: async (text) => {
-				await reply(target, text);
-			},
-			activeTurn: worker?.state(target.peer).status === "running",
-			language: languageOf(target.peer),
-			session: slashControls(target.peer, {
-				state: (peer) => worker?.state(peer) ?? { status: "idle", queued: 0 },
-				prompt: (peer) => channels.pendingFor(peer)?.title,
-				reset: (peer) => {
-					worker?.reset(peer);
-				},
-				stop: (peer) => worker?.abort(peer) ?? false,
-				history: (peer, count) => deps.readHistory(peer, count),
-			}),
-		};
-		try {
-			await command.run(ctx);
-		} catch (error) {
-			notify(`WeChat command /${command.name} failed: ${messageOf(error)}`, "warning");
-			await reply(target, `Command /${command.name} failed.`);
-		}
-	}
-
 	/**
 	 * Every peer's dialogs, one channel each.
 	 *
@@ -297,15 +242,6 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		language: (peer) => languageOf(peer),
 		armTimer: deps.armTimer,
 	});
-
-	/** The peer's language: from this text, else the last one they wrote. */
-	function languageOf(peer: string, text?: string): PeerLanguage {
-		// A Chinese message is evidence of Chinese. Its absence is not evidence of
-		// English, or a short reply ("ok", "1") would flip an established conversation
-		// back to English; English is the fallback, so it needs no record of its own.
-		if (text && peerLanguage(text) === "zh") languages.set(peer, "zh");
-		return languages.get(peer) ?? "en";
-	}
 
 	/** Typing, acknowledgement, and the slow/busy lines; one timer registry each. */
 	const presence = createPresence({
@@ -339,92 +275,27 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	const budget = createTurnBudget(deps.config.maxTurnsPerHour, deps.now);
 	const admission = createAdmissionQueue({ admit: inbound.admit, notify });
 
-	function handleMessage(message: WeixinMessage): void {
-		if (!isInboundMessage(message)) return;
-		const peer = message.from_user_id;
-		const { text: rawText, media, unsupported } = parseInbound(message.item_list);
-		const owner = state.ownerId ?? account?.ilinkUserId;
-		// Admission comes first: a refused sender never reaches the state file, a
-		// pending prompt, or the queue.
-		if (!isAllowedPeer(peer, owner, deps.config.allowedPeers)) {
-			refused += 1;
-			const label = peerLabel(peer);
-			// Name a new sender once, so the operator can allowlist it from the
-			// terminal; the cap keeps a spam run from filling the list.
-			if (refusedPeers.size < 5 && !refusedPeers.has(label)) {
-				refusedPeers.add(label);
-				notify(`WeChat refused a message from ${label}. Add it to allowedPeers to admit.`, "warning");
-			}
-			return;
-		}
-		// A server replay of an already handled message must not answer twice. The
-		// id is persisted, so a reload or reconnect cannot resurrect it.
-		const messageId = message.message_id;
-		if (typeof messageId === "number" && messageId !== 0 && seenMessage(state, peer, messageId)) return;
-
-		let text = rawText;
-		const cap = deps.config.maxInboundChars;
-		if (text.length > cap) {
-			const total = text.length;
-			text = `${text.slice(0, cap)}\n[WeChat message truncated: showing ${cap} of ${total} characters]`;
-			notify(`WeChat message truncated to ${cap} characters.`, "warning");
-		}
-
-		const now = deps.now();
-		recordInbound(state, peer, message.context_token, now);
-		if (typeof messageId === "number" && messageId !== 0) rememberMessage(state, peer, messageId, now);
-		deps.saveState(state);
-
-		const target = { peer, contextToken: message.context_token ?? findPeer(state, peer)?.lastContextToken };
-		// A command is not an answer: while a dialog waits the model is blocked on it,
-		// so /stop and /status must reach their handlers or the peer's only way out is
-		// the prompt timing out. A message with media is never a command, and an
-		// unknown command falls through to the model as ordinary text.
-		const slash = media.length === 0 ? parseSlash(text) : undefined;
-		const command = slash ? findSlashCommand(slashCommands, slash.name) : undefined;
-		if (command && slash) {
-			if (command.ownerOnly && peerKey(peer) !== peerKey(owner ?? "")) {
-				refused += 1;
-				return;
-			}
-			if (command.kind === "snippet") {
-				text = expandSnippet(command, slash.args);
-			} else {
-				void runSlashAction(command, target, slash.args);
-				return;
-			}
-		}
-		// A reply to a pending prompt is consumed here, before queueing, so it never
-		// starts a turn of its own. A duplicate answer was stopped by the id check.
-		if (channels.handleInbound(peer, text)) return;
-		const language = languageOf(peer, text);
-		const item: InboundItem = { ...target, text, media, language };
-		if (!text && media.length === 0) {
-			// Nothing to read. A voice note without a transcript or a video is
-			// answered, so the peer knows it did not reach the agent.
-			if (unsupported > 0) void reply(item, notice("unsupported", language));
-			return;
-		}
-		// A slot is reserved here, before the download, so a burst of media cannot
-		// all pass the check and then enqueue together.
-		if (!budget.allow(peer)) {
-			void reply(item, notice("budget", language));
-			return;
-		}
-		const busy = (worker?.state(peer).queued ?? 0) + admission.pending(peer);
-		if (busy >= MAX_QUEUE) {
-			// Refuse rather than grow without bound; one notice per episode, not per
-			// dropped message.
-			if (!overflow.has(peer)) {
-				overflow.add(peer);
-				void reply(item, notice("overflow", language));
-			}
-			return;
-		}
-		presence.keepTyping(peer, item.contextToken);
-		presence.armAck(item);
-		admission.enqueue(item);
-	}
+	/** The inbound path: admission, commands, and the hand-off to a peer's session. */
+	const intake = createIntake({
+		state: () => state,
+		saveState: deps.saveState,
+		account: () => account,
+		config: deps.config,
+		now: deps.now,
+		notify,
+		worker: () => worker,
+		channels,
+		presence,
+		budget,
+		admission,
+		languageOf,
+		reply: (target, text) => reply(target, text),
+		readHistory: deps.readHistory,
+		refused,
+		refusedPeers,
+		overflow,
+		slashCommands,
+	});
 
 	/** The long-poll loop; it reads the live client, cursor, and state. */
 	const poll = createPollLoop({
@@ -440,7 +311,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 		notify,
 		onExpired: handleExpired,
 		onMessages: (messages) => {
-			for (const message of messages) handleMessage(message);
+			for (const message of messages) intake.handleMessage(message);
 		},
 		refreshLock: deps.refreshLock,
 		isRunning: () => running,
@@ -461,7 +332,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 	function resetEphemeral(): void {
 		languages.clear();
 		overflow.clear();
-		refused = 0;
+		refused.value = 0;
 		refusedPeers.clear();
 		channels.reset();
 		deliverer.reset();
@@ -665,7 +536,7 @@ export function createBridge(deps: BridgeDeps): Bridge {
 				peerCount: Object.keys(state.peers).length,
 				queued: states.reduce((total, entry) => total + entry.state.queued, 0),
 				running: states.some((entry) => entry.state.status === "running"),
-				refused,
+				refused: refused.value,
 				refusedPeers: [...refusedPeers],
 				mediaDropped: inbound.dropped(),
 				promptPending: channels.hasPending(),

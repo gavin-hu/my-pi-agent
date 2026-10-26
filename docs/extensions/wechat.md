@@ -594,7 +594,8 @@ status, which is what the old start/stop guidance used to do.
 | File | Responsibility |
 |---|---|
 | `index.ts` | Factory: gate, register the command and tool, wire the lifecycle events, build the bridge, open peer sessions from the host context. |
-| `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle, slash dispatch, the status snapshot, and `sendToOwner`. |
+| `bridge.ts` | The composition root: wires the poll loop, delivery, presence, admission, and inbound modules to the live client/account/cursor/state; owns the connection lifecycle, the status snapshot, and `sendToOwner`. |
+| `intake.ts` | The inbound path: who is refused, what is a replay, what is a command, what answers a pending prompt, and what is queued or turned away; the admission predicates live here too. |
 | `tools.ts` | The `send_wechat` tool: owner-only proactive text or one image, with the neither-or-both refusal. |
 | `config.ts` | The `wechat` section of `bytefly.json` loading and normalization. |
 | `types.ts` | Wire and domain types. |
