@@ -28,7 +28,7 @@ import {
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { observeSections, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
+import { observeSections, renderFacts, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, type PlanWebReviewDeps } from "./web.ts";
@@ -1971,6 +1971,58 @@ describe("review outline", () => {
 			expect(observeSections(planEl, null, null)).toBeNull();
 		} finally {
 			(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = before;
+		}
+	});
+
+	test("paints the facts, and counts each comment under the heading above it", () => {
+		// The counters are renderOutline's own output, so the section a comment lands in is
+		// the same rule the list was built with; a comment anchored above the first heading
+		// is in no section and must not be counted into one.
+		const node = (id: string) => ({
+			id,
+			hidden: false,
+			textContent: id === "step-count" || id === "comment-total" || id.startsWith("count-") ? "0" : null,
+			style: { width: "" },
+		});
+		const nodes: Record<string, ReturnType<typeof node>> = {
+			"step-fact": node("step-fact"),
+			"step-fill": node("step-fill"),
+			"step-count": node("step-count"),
+			"comment-total": node("comment-total"),
+			"count-1": node("count-1"),
+			"count-8": node("count-8"),
+		};
+		nodes["step-count"]!.textContent = "0/0";
+		const before = (globalThis as { document?: unknown }).document;
+		(globalThis as { document?: unknown }).document = { getElementById: (id: string) => nodes[id] ?? null };
+		try {
+			const counters = { 1: nodes["count-1"]!, 8: nodes["count-8"]! } as unknown as Parameters<typeof renderFacts>[2];
+			const entries = [
+				{ id: "s-1", level: 1, line: 1, text: "Goal" },
+				{ id: "s-8", level: 2, line: 8, text: "Steps" },
+			];
+			renderFacts(
+				{ done: 2, total: 5 },
+				[{ anchor: 0 }, { anchor: 4 }, { anchor: 9 }, { anchor: 12 }],
+				counters,
+				entries,
+			);
+			expect(nodes["step-fact"]?.hidden).toBe(false);
+			expect(nodes["step-fill"]?.style.width).toBe("40%");
+			expect(nodes["step-count"]?.textContent).toBe("2/5");
+			// Four comments, three of them in a section: the one above the first heading is not.
+			expect(nodes["comment-total"]?.textContent).toBe("4");
+			expect(nodes["count-1"]?.textContent).toBe("1");
+			expect(nodes["count-1"]?.hidden).toBe(false);
+			expect(nodes["count-8"]?.textContent).toBe("2");
+			expect(nodes["count-8"]?.hidden).toBe(false);
+
+			// A plan with no Steps section shows no progress: 0/0 is noise.
+			renderFacts({ done: 0, total: 0 }, [], counters, entries);
+			expect(nodes["step-fact"]?.hidden).toBe(true);
+			expect(nodes["count-1"]?.hidden).toBe(true);
+		} finally {
+			(globalThis as { document?: unknown }).document = before;
 		}
 	});
 

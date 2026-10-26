@@ -31,6 +31,7 @@ export interface OutlineNode {
 	href: string;
 	title: string;
 	id: string;
+	style: { width: string };
 	setAttribute(name: string, value: string): void;
 	getAttribute(name: string): string | null;
 	removeAttribute(name: string): void;
@@ -148,5 +149,59 @@ export function observeSections(
 	return watcher;
 }
 
-/** The section list, its one rule, and the watcher that marks where the reader is. */
-export const WEB_OUTLINE_JS = [sectionFor, renderOutline, observeSections].map(String).join("\n\n");
+/** One review comment, as the facts need it: the line it is anchored to. */
+export interface AnchoredComment {
+	anchor: number;
+}
+
+/** What a plan's step list says: the numbers the server counted. */
+export interface StepProgress {
+	done: number;
+	total: number;
+}
+
+/**
+ * Paint the review facts: the plan's step progress, the comment total, and one count per
+ * section in the outline.
+ *
+ * The counters are the ones `renderOutline` returned, so the two functions agree by
+ * construction; a section a comment cannot be placed in is skipped rather than counted
+ * against the first heading, which is what "not attached to a current block" means.
+ */
+export function renderFacts(
+	steps: StepProgress,
+	comments: readonly AnchoredComment[],
+	counters: Record<number, OutlineNode>,
+	entries: readonly OutlineEntry[],
+): void {
+	const doc = (
+		globalThis as unknown as {
+			document: { getElementById(id: string): OutlineNode | null };
+		}
+	).document;
+	// A plan with no Steps section has no progress to show; 0/0 is noise.
+	const fact = doc.getElementById("step-fact");
+	if (fact) fact.hidden = steps.total === 0;
+	const fill = doc.getElementById("step-fill");
+	if (fill) fill.style.width = (steps.total > 0 ? Math.round((steps.done / steps.total) * 100) : 0) + "%";
+	const count = doc.getElementById("step-count");
+	if (count) count.textContent = steps.done + "/" + steps.total;
+	const total = doc.getElementById("comment-total");
+	if (total) total.textContent = String(comments.length);
+	for (const line of Object.keys(counters)) {
+		const node = counters[Number(line)];
+		if (node) node.hidden = true;
+	}
+	for (const comment of comments) {
+		const section = sectionFor(entries, comment.anchor);
+		if (!section) continue;
+		const node = counters[section.line];
+		if (!node) continue;
+		const value = node.hidden ? 0 : Number(node.textContent);
+		node.textContent = String(value + 1);
+		node.hidden = false;
+	}
+}
+
+/** The section list, the facts beside it, and the watcher that marks where the reader is. */
+export const WEB_OUTLINE_JS = [sectionFor, renderOutline, observeSections, renderFacts].map(String).join("\n\n");
