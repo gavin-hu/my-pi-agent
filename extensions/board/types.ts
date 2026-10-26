@@ -55,6 +55,30 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 };
 
 /**
+ * The fields each action acts on: the behaviour, where {@link BOARD_ACTION_DOCS} is prose.
+ *
+ * The parameters are one flat object, so a field is published to every action at once;
+ * that is only harmless while each action reads its own. A call carrying a field its
+ * action never reads is refused against this table, because the alternative is what
+ * `add` did with `dependsOn`: accepted, ignored, and reported as recorded.
+ *
+ * `test` holds the other direction — every parameter but `action` is claimed here — so
+ * a new field cannot be published without an action that acts on it.
+ */
+export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
+	list: ["card", "status", "mine", "query", "round"],
+	add: ["title", "paths", "priority", "note"],
+	claim: ["card"],
+	release: ["card"],
+	reclaim: ["card"],
+	move: ["card", "status", "blockedBy"],
+	note: ["card", "text"],
+	plan: ["card", "path"],
+	edit: ["card", "title", "paths", "priority", "dependsOn"],
+	drop: ["card"],
+};
+
+/**
  * The actions that change the board: everything but a read.
  *
  * One definition, read by the tool (does this call need a teammate?) and by plan

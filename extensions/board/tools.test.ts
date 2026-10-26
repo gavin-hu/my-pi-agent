@@ -20,7 +20,7 @@ import { MAX_NOTES } from "../../lib/board/card.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
 import { registerTools } from "./tools.ts";
-import { BOARD_ACTION_DOCS, BOARD_ACTIONS, BOARD_MUTATING_ACTIONS, type BoardDetails } from "./types.ts";
+import { ACTION_FIELDS, BOARD_ACTION_DOCS, BOARD_ACTIONS, BOARD_MUTATING_ACTIONS, type BoardDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -100,6 +100,59 @@ describe("the registration", () => {
 		const result = await call({ action: "archive" });
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toContain("unknown action");
+	});
+});
+
+describe("a field the action does not act on", () => {
+	test("is refused, naming the action that takes it, and writes nothing", async () => {
+		const { call } = harness();
+		// `add` used to accept this and drop it: the caller could not tell a recorded
+		// link from an ignored one, and the card was written without it.
+		const result = await call({ action: "add", title: "Export orders as CSV", dependsOn: ["31"] });
+		expect(result.isError).toBe(true);
+		expect(result.details.error).toBe("add does not act on dependsOn: `edit` takes it.");
+		expect(text(await call({ action: "list" }))).toBe("The board is empty.");
+	});
+
+	test("names every stray field and the verb that takes each", async () => {
+		const { call } = harness();
+		const result = await call({ action: "add", title: "x", dependsOn: ["1"], text: "why" });
+		expect(result.details.error).toBe(
+			"add does not act on dependsOn, text: `edit` takes dependsOn; `note` takes text.",
+		);
+		// Two actions take this one, so the message has to name both and say "take".
+		const lane = await call({ action: "add", title: "x", status: "doing" });
+		expect(lane.details.error).toBe("add does not act on status: `list` and `move` take it.");
+	});
+
+	test("does not reach for the board, so a refused call enlists nobody", async () => {
+		const { team, calls } = recordingTeam();
+		const { call } = harness({ team });
+		await call({ action: "add", title: "x", dependsOn: ["1"] });
+		expect(calls).toEqual([]);
+	});
+
+	test("leaves a field the action does read alone", async () => {
+		const { call } = harness();
+		// The shapes that would break first if the table were too eager: `list` reads a
+		// card, and `move` reads a card and a lane.
+		const added = await call({ action: "add", title: "Retry the gateway", paths: ["src/gateway"] });
+		const id = added.details.card?.id ?? "";
+		expect(text(await call({ action: "list", card: id }))).toContain("Retry the gateway");
+		expect(text(await call({ action: "claim", card: id }))).toContain("Retry the gateway");
+		expect(text(await call({ action: "move", card: id, status: "doing" }))).toContain("doing");
+		// And a note is `add`'s, not `note`'s.
+		expect(text(await call({ action: "add", title: "Second", note: "from the thread" }))).toContain("Second");
+	});
+
+	test("publishes no field that no action acts on, and invents none", () => {
+		const { tool } = harness();
+		const published = Object.keys(tool.parameters.properties).filter((field) => field !== "action");
+		const claimed = new Set(Object.values(ACTION_FIELDS).flat());
+		// A new parameter with no owner is the same defect one step along: published to
+		// every action, acted on by some action, silently dropped by the rest.
+		expect(published.filter((field) => !claimed.has(field))).toEqual([]);
+		expect([...claimed].filter((field) => !published.includes(field))).toEqual([]);
 	});
 });
 

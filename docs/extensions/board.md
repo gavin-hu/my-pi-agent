@@ -111,6 +111,20 @@ terminal.
 `card` takes `4` or `#4`. A refused call is an error result that still carries the
 card, so the next attempt starts from the truth.
 
+The parameters are one flat object, so a field is published to every action at once.
+An action reads only the fields in its row above, and a call carrying one that its
+action does not read is **refused**, naming the action that takes it — not ignored.
+`add` with `dependsOn` used to create the card and drop the link, so a caller could
+not tell a recorded link from an ignored one:
+
+```
+add does not act on dependsOn: `edit` takes it.
+```
+
+To link a new card, add it and then edit it. `ACTION_FIELDS` in `types.ts` is the
+table that answers this, and a test holds every published parameter to an action that
+acts on it.
+
 ## Routes
 
 Every route but three needs the token, and there is exactly one: 128 random bits minted
@@ -350,7 +364,7 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 | `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the page, register both, close on shutdown |
 | `config.ts` | The board's one setting: the port its page is pinned to, clamped, from the `bytefly.json` `board` section |
 | `schema.ts` | The tool's parameters |
-| `types.ts` | The shapes the tool registers and reports: the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
+| `types.ts` | The shapes the tool registers and reports — the actions and the fields each acts on, the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
 | `tools.ts` | Action dispatch and the refusal shape |
 | `input.ts` | A card body as the tool reads it: the `add` fields normalized in one place |
 | `format.ts` | The model-facing text |

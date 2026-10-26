@@ -33,6 +33,7 @@ import { createInput } from "./input.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { BoardParams } from "./schema.ts";
 import {
+	ACTION_FIELDS,
 	BOARD_ACTION_DOCS,
 	BOARD_ACTIONS,
 	BOARD_MUTATING_ACTIONS,
@@ -99,6 +100,32 @@ async function headCommit(pi: ExtensionAPI, cwd: string): Promise<{ commit: stri
 	return id === undefined ? undefined : { commit: id.slice(0, 7) };
 }
 
+/**
+ * Why a call carries a field its action does not act on, or nothing when it is clean.
+ *
+ * The parameters are one flat object, so a field is published to every action at once.
+ * A field that reaches an action which never reads it used to be dropped in silence —
+ * `add` with `dependsOn` answered success and wrote no link — so the caller could not
+ * tell what was recorded from what was ignored. Naming the action that takes it is the
+ * whole fix: the retry is one call away, and the prompt already describes it.
+ */
+function strayField(action: BoardAction, args: BoardArgs): string | undefined {
+	const mine = ACTION_FIELDS[action];
+	const stray = Object.entries(args)
+		.filter(([field, value]) => value !== undefined && field !== "action" && !mine.includes(field))
+		.map(([field]) => field);
+	if (stray.length === 0) return undefined;
+	// One stray reads as "takes it"; several need their names, or the sentence stops
+	// saying which field goes where.
+	const named = (field: string): string => {
+		const taking = BOARD_ACTIONS.filter((candidate) => ACTION_FIELDS[candidate].includes(field));
+		if (taking.length === 0) return `${field} belongs to no action`;
+		const verbs = taking.map((one) => `\`${one}\``).join(" and ");
+		return `${verbs} ${taking.length === 1 ? "takes" : "take"} ${stray.length === 1 ? "it" : field}`;
+	};
+	return `${action} does not act on ${stray.join(", ")}: ${stray.map(named).join("; ")}.`;
+}
+
 export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { team?: TeamJoin } = {}): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerTool({
@@ -135,6 +162,10 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 			}
 			const me = runtime.who(ctx, ctx.cwd);
 			try {
+				// Before the join and the store: a refused call has done nothing, so it cannot
+				// have enlisted this session as a teammate on its way to the refusal.
+				const stray = strayField(action, args);
+				if (stray !== undefined) return refusal(action, me, stray);
 				// Working a card makes this session a teammate, once: the board is the user's
 				// surface for the team, so nobody has to know the bus exists. A failed join is
 				// not a failed card write — the board works with no bus at all — and it is not
