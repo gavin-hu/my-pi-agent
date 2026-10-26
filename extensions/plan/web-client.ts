@@ -19,6 +19,7 @@ import { WEB_CHROME_JS } from "./web-chrome.ts";
 import { WEB_COMMENTS_JS } from "./web-comments.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
 import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
+import { WEB_OUTLINE_JS } from "./web-outline.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -56,6 +57,10 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var pendingQuote = null;
   var activeIndex = -1;
   var outlineItems = {};
+  /** The island's outline, or none: the one place the client reads it for the outline. */
+  function outlineEntries() {
+    return Array.isArray(data.outline) ? data.outline : [];
+  }
   var stream = null;
 
   var planEl = document.getElementById("plan");
@@ -69,6 +74,8 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var progressEl = document.getElementById("progress-fill");
 
 ${CLIENT_RUNTIME_JS}
+
+${WEB_OUTLINE_JS}
 
 ${WEB_CHROME_JS}
 
@@ -114,43 +121,6 @@ ${WEB_MARKDOWN_JS}
     headings.forEach(function (heading) { sectionObserver.observe(heading); });
   }
 
-  function renderOutline() {
-    outlineItems = {};
-    if (!outlineList) return;
-    outlineList.replaceChildren();
-    var items = Array.isArray(data.outline) ? data.outline : [];
-    items.forEach(function (item) {
-      var li = el("li", "lvl-" + item.level);
-      var link = el("a");
-      link.href = "#" + item.id;
-      link.setAttribute("data-id", item.id);
-      var label = el("span", "review-nav__link");
-      label.textContent = item.text;
-      link.appendChild(label);
-      if (item.changed) {
-        var dot = el("span", "review-changed");
-        dot.setAttribute("role", "img");
-        dot.setAttribute("aria-label", "Changed since your last review");
-        dot.title = "Changed since your last review";
-        link.appendChild(dot);
-      }
-      var count = el("span", "review-nav__count");
-      count.hidden = true;
-      link.appendChild(count);
-      li.appendChild(link);
-      outlineList.appendChild(li);
-      outlineItems[item.line] = count;
-    });
-  }
-
-  // The section a source line belongs to: the last heading at or before it.
-  function sectionFor(line) {
-    var items = Array.isArray(data.outline) ? data.outline : [];
-    var found = null;
-    items.forEach(function (item) { if (item.line <= line) found = item; });
-    return found;
-  }
-
   // Review facts: the plan's step progress, and the comments per section.
   function renderFacts() {
     // The server counts the same step list approval seeds, so this never
@@ -167,7 +137,7 @@ ${WEB_MARKDOWN_JS}
     if (totalEl) totalEl.textContent = String(annotations.length);
     Object.keys(outlineItems).forEach(function (line) { outlineItems[line].hidden = true; });
     annotations.forEach(function (annotation) {
-      var section = sectionFor(annotation.anchor);
+      var section = sectionFor(outlineEntries(), annotation.anchor);
       if (!section) return;
       var count = outlineItems[section.line];
       if (!count) return;
@@ -501,7 +471,7 @@ ${WEB_MARKDOWN_JS}
   var restoredTyping = restoreDraft();
   renderHeader();
   renderName();
-  renderOutline();
+  outlineItems = renderOutline(outlineList, outlineEntries());
   renderPlan();
   reopenComposer(restoredTyping);
   updateProgress();
