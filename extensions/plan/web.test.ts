@@ -28,7 +28,7 @@ import {
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
+import { observeSections, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
 import { createPlanWebReview, type PlanReviewOptions, type PlanReviewSession, type PlanWebReviewDeps } from "./web.ts";
@@ -1898,6 +1898,80 @@ describe("review outline", () => {
 		expect(WEB_OUTLINE_JS).not.toContain("${");
 		expect(WEB_OUTLINE_JS.split(String(sectionFor)).length).toBe(2);
 		expect(REVIEW_CLIENT_JS).toContain("renderOutline(outlineList, outlineEntries())");
+	});
+
+	test("watches the blocks and marks the section the reader is in", () => {
+		// The watcher is the page's own rule for "which section am I in": the last block
+		// that crossed the top margin wins, and a page with no headings needs none.
+		const made: Array<{ rootMargin: string; observed: string[] }> = [];
+		class FakeObserver {
+			readonly rootMargin: string;
+			readonly observed: string[] = [];
+			disconnected = false;
+			constructor(callback: unknown, options: { rootMargin?: string }) {
+				this.rootMargin = options.rootMargin ?? "";
+				this.callback = callback as (entries: Array<{ isIntersecting: boolean; target: { id: string } }>) => void;
+				made.push(this);
+			}
+			private readonly callback: (entries: Array<{ isIntersecting: boolean; target: { id: string } }>) => void;
+			observe(node: { id: string }): void {
+				this.observed.push(node.id);
+			}
+			disconnect(): void {
+				this.disconnected = true;
+			}
+			fire(...ids: string[]): void {
+				this.callback(ids.map((id) => ({ isIntersecting: true, target: { id } })));
+			}
+		}
+		const before = (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
+		(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeObserver;
+		try {
+			const link = (id: string) => {
+				const node = {
+					id,
+					attributes: new Map<string, string>([["data-id", id]]),
+					setAttribute(name: string, value: string) {
+						node.attributes.set(name, value);
+					},
+					getAttribute(name: string) {
+						return node.attributes.get(name) ?? null;
+					},
+					removeAttribute(name: string) {
+						node.attributes.delete(name);
+					},
+				};
+				return node;
+			};
+			const links = [link("s-1"), link("s-8")];
+			const headings = [{ id: "s-1" }, { id: "s-8" }];
+			const list = { querySelectorAll: () => links } as unknown as Parameters<typeof observeSections>[1];
+			const planEl = { querySelectorAll: () => headings } as unknown as Parameters<typeof observeSections>[0];
+
+			const watcher = observeSections(planEl, list, null) as unknown as FakeObserver;
+			expect(watcher.observed).toEqual(["s-1", "s-8"]);
+			expect(watcher.rootMargin).toBe("-88px 0px -68% 0px");
+
+			watcher.fire("s-8");
+			expect(links[1]?.getAttribute("aria-current")).toBe("true");
+			expect(links[0]?.getAttribute("aria-current")).toBeNull();
+			watcher.fire("s-1");
+			expect(links[0]?.getAttribute("aria-current")).toBe("true");
+			// One section at a time: the previous marker is cleared, not left behind.
+			expect(links[1]?.getAttribute("aria-current")).toBeNull();
+
+			const replacement = observeSections(planEl, list, watcher) as unknown as FakeObserver;
+			expect(watcher.disconnected).toBe(true);
+			expect(replacement.disconnected).toBe(false);
+
+			// No headings, or no list, is no watcher: the page has nothing to follow.
+			expect(
+				observeSections({ querySelectorAll: () => [] } as unknown as Parameters<typeof observeSections>[0], list, null),
+			).toBeNull();
+			expect(observeSections(planEl, null, null)).toBeNull();
+		} finally {
+			(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = before;
+		}
 	});
 
 	test("builds one list item per heading and returns the counters it made", () => {

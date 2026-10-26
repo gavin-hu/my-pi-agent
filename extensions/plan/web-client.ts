@@ -98,29 +98,6 @@ ${WEB_MARKDOWN_JS}
     if (open) saveDraft();
   }
 
-  function observeSections() {
-    if (sectionObserver && sectionObserver.disconnect) sectionObserver.disconnect();
-    sectionObserver = null;
-    if (!outlineList || !window.IntersectionObserver) return;
-    var links = {};
-    Array.prototype.forEach.call(outlineList.querySelectorAll("a"), function (link) {
-      links[link.getAttribute("data-id")] = link;
-    });
-    var headings = Array.prototype.slice.call(planEl.querySelectorAll(".bf-block[id]"));
-    if (headings.length === 0) return;
-    sectionObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        Array.prototype.forEach.call(outlineList.querySelectorAll("a"), function (link) {
-          link.removeAttribute("aria-current");
-        });
-        var link = links[entry.target.id];
-        if (link) link.setAttribute("aria-current", "true");
-      });
-    }, { rootMargin: "-88px 0px -68% 0px", threshold: 0 });
-    headings.forEach(function (heading) { sectionObserver.observe(heading); });
-  }
-
   // Review facts: the plan's step progress, and the comments per section.
   function renderFacts() {
     // The server counts the same step list approval seeds, so this never
@@ -256,7 +233,7 @@ ${WEB_MARKDOWN_JS}
       if (stop) stop.focus();
     }
     renderFacts();
-    observeSections();
+    sectionObserver = observeSections(planEl, outlineList, sectionObserver);
     updateState();
   }
 
