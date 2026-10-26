@@ -100,9 +100,19 @@ function readSections(value: unknown): SectionDigest[] | undefined {
 	if (!Array.isArray(value)) return undefined;
 	const sections: SectionDigest[] = [];
 	for (const raw of value) {
-		const section = raw as { title?: unknown; digest?: unknown } | null | undefined;
+		const section = raw as { title?: unknown; digest?: unknown; blocks?: unknown } | null | undefined;
 		if (typeof section?.title !== "string" || typeof section.digest !== "string") return undefined;
-		sections.push({ title: section.title, digest: section.digest });
+		// Branch data is untrusted, so the block digests are kept only when they are a list
+		// of strings: a baseline written before block marks simply has none, and one that
+		// holds something else is read at section depth rather than repaired.
+		const blocks = Array.isArray(section.blocks)
+			? section.blocks.filter((entry): entry is string => typeof entry === "string")
+			: undefined;
+		sections.push(
+			blocks === undefined
+				? { title: section.title, digest: section.digest }
+				: { title: section.title, digest: section.digest, blocks },
+		);
 	}
 	return sections;
 }

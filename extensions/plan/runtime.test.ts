@@ -283,6 +283,24 @@ describe("plan runtime — review baseline", () => {
 		expect(runtime.reviewed(path)).toEqual(sectionDigests(plan));
 	});
 
+	test("keeps the block digests a review wrote", () => {
+		const { runtime, ctx } = setup({ branch: [baselineEntry(path, sectionDigests(plan))] });
+		runtime.restore(ctx);
+
+		// The reader on the branch is a parser over untrusted data: without carrying the
+		// block digests through it, a persisted baseline could never mark a changed block.
+		expect(runtime.reviewed(path)?.[0]?.blocks).toEqual(sectionDigests(plan)[0]?.blocks);
+	});
+
+	test("drops block digests that are not strings, and keeps the section", () => {
+		// A branch entry is untrusted data: a block list is kept only where it is strings.
+		const tampered = { title: "Goal", digest: "d", blocks: ["ok", 7] as unknown as string[] };
+		const { runtime, ctx } = setup({ branch: [baselineEntry(path, [tampered])] });
+		runtime.restore(ctx);
+
+		expect(runtime.reviewed(path)).toEqual([{ title: "Goal", digest: "d", blocks: ["ok"] }]);
+	});
+
 	test("a branch that never reviewed the plan has no baseline", () => {
 		const { runtime } = setup();
 		runtime.markReviewed(path, plan);

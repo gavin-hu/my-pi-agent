@@ -62,7 +62,11 @@ interface ReviewIsland {
 	canApprove: boolean;
 	annotations: PlanAnnotation[];
 	steps: { done: number; total: number };
-	outline: Array<{ id: string; line: number; level: number; text: string; changed?: boolean }>;
+	outline: Array<{ id: string; line: number; level: number; text: string; changed?: boolean; removed?: number }>;
+	/** Absolute start lines of the blocks that are new or edited since the previous review. */
+	changed?: number[];
+	/** Whether the baseline carried block digests, so `changed` means something. */
+	blockMarks?: boolean;
 	code: Record<string, string[]>;
 	limits: { comments: number; comment: number; quote: number };
 	blocks: Array<{ start: number; lines: string[] }>;
@@ -624,6 +628,15 @@ describe("review page", () => {
 		expect(html).toContain('id="progress-fill"');
 		expect(html).toContain('id="keys-dialog"');
 		expect(html).toContain("Approve and run the plan");
+	});
+
+	test("offers the three views, with Changed off when there is nothing to compare", () => {
+		const html = page({ blockMarks: true });
+		expect(html).toContain('data-view="all"');
+		expect(html).toContain('data-view="changed"');
+		expect(html).toContain('data-view="comments"');
+		// The client disables Changed from the island, so the flag has to be in it.
+		expect(html).toContain('"blockMarks":true');
 	});
 
 	test("omits the approve hint and shortcut on a comment-only review", () => {
@@ -1580,6 +1593,42 @@ describe("review session", () => {
 		const data = islandOf(await (await fetch(session.url)).text());
 
 		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan", changed: true }]);
+	});
+
+	test("marks the blocks that changed, in the lines the page draws", async () => {
+		const plan = ["# Plan", "", "Kept.", "", "Edited now."].join("\n");
+		const previous = ["# Plan", "", "Kept.", "", "Edited."].join("\n");
+		const session = await start(plan, { baseline: sectionDigests(previous) });
+		const data = islandOf(await (await fetch(session.url)).text());
+
+		// The heading is line 0, "Kept." line 2, the edited paragraph line 4: only the
+		// paragraph is new to this review, and the mark names the line the page draws.
+		expect(data.changed).toEqual([4]);
+		expect(data.blockMarks).toBe(true);
+	});
+
+	test("says a section lost blocks, which a document cannot draw in place", async () => {
+		const plan = ["# Plan", "", "One."].join("\n");
+		const previous = ["# Plan", "", "One.", "", "Two."].join("\n");
+		const session = await start(plan, { baseline: sectionDigests(previous) });
+		const data = islandOf(await (await fetch(session.url)).text());
+
+		expect(data.outline).toEqual([{ id: "s-0", line: 0, level: 1, text: "Plan", changed: true, removed: 1 }]);
+	});
+
+	test("marks no blocks against a baseline written before block marks", async () => {
+		// A baseline with section digests but no block digests is honoured at the depth it
+		// can be: the section dot, and no guessed block marks.
+		const aged = sectionDigests("# Plan\n\nOld body\n").map((section) => ({
+			title: section.title,
+			digest: section.digest,
+		}));
+		const session = await start("# Plan\n\nNew body\n", { baseline: aged });
+		const data = islandOf(await (await fetch(session.url)).text());
+
+		expect(data.changed).toBeUndefined();
+		expect(data.blockMarks).toBeUndefined();
+		expect(data.outline[0]?.changed).toBe(true);
 	});
 
 	test("marks only the occurrence of a duplicate heading that changed", async () => {

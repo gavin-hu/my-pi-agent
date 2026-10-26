@@ -67,10 +67,17 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var sectionObserver = null;
   var pendingQuote = null;
   var activeIndex = -1;
+  /** What the reader asked the plan to show: every block, the changed ones, or the annotated. */
+  var view = "all";
   var outlineItems = {};
   /** The island's blocks, or none: one place the client reads them for navigation. */
   function blocks() {
     return Array.isArray(data.blocks) ? data.blocks : [];
+  }
+
+  /** The island's changed blocks, or none: the whole list is scanned, because it is short. */
+  function changedBlocks() {
+    return Array.isArray(data.changed) ? data.changed : [];
   }
 
   /** The island's outline, or none: the one place the client reads it for the outline. */
@@ -159,6 +166,7 @@ ${WEB_MARKDOWN_JS}
       outlineList: outlineList,
       focused: document.activeElement,
       blocks: blocks,
+      changed: function (line) { return changedBlocks().indexOf(line) >= 0; },
       annotations: function () { return annotations; },
       activeIndex: function () { return activeIndex; },
       setActiveIndex: function (index) { activeIndex = index; },
@@ -175,8 +183,32 @@ ${WEB_MARKDOWN_JS}
     };
   }
 
+  /**
+   * Apply the current view and say what it hides.
+   *
+   * The count goes on the status line rather than into the document: a filtered plan with
+   * no note reads as a shorter plan, and the count is the one fact that undoes that.
+   */
+  function syncView() {
+    var counts = applyView(planEl, view);
+    var buttons = document.querySelectorAll("[data-view]");
+    for (var i = 0; i < buttons.length; i++) {
+      var button = buttons[i];
+      var name = button.getAttribute("data-view");
+      button.setAttribute("aria-pressed", name === view ? "true" : "false");
+      // Nothing to compare against is not an empty view: the button says why it is off.
+      if (name === "changed") {
+        var comparable = data.blockMarks === true;
+        button.disabled = !comparable;
+        button.title = comparable ? "Only what this review changed" : "No earlier review of this plan to compare against";
+      }
+    }
+    if (counts.hidden > 0) paintStatus("Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — the rest hidden");
+  }
+
   function renderAll() {
     sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
+    syncView();
   }
 
   // Save, approve, and post share the same POST shape; what differs is whether
@@ -327,6 +359,16 @@ ${WEB_MARKDOWN_JS}
       hasApproveControl: function () { return !!approveButton; },
       typing: typing,
     };
+  }
+
+  var viewButtons = document.querySelectorAll("[data-view]");
+  for (var v = 0; v < viewButtons.length; v++) {
+    viewButtons[v].addEventListener("click", function (event) {
+      var next = event.target && event.target.getAttribute ? event.target.getAttribute("data-view") : null;
+      if (next !== "all" && next !== "changed" && next !== "comments") return;
+      view = next;
+      renderAll();
+    });
   }
 
   document.addEventListener("keydown", function (event) {

@@ -87,3 +87,48 @@ export function blockAtLine(
 
 /** The block rules as source, for the client bundle. */
 export const WEB_BLOCKS_JS = [blockElements, setActive, moveActive, blockAtLine].map(String).join("\n\n");
+
+/** What the reader asked the plan to show. */
+export type ReviewView = "all" | "changed" | "comments";
+
+/** How much of the plan a view kept, so the page can say what it is hiding. */
+export interface ViewCounts {
+	shown: number;
+	hidden: number;
+}
+
+/**
+ * Keep the blocks a view asks for, and hide the rest.
+ *
+ * A view is a filter over what is drawn, not a second document: `All` restores every
+ * block, so the reader is one click from the whole plan, and the page's status line says
+ * how many were hidden so a filtered document never reads as a short one. Headings stay
+ * in every view — a paragraph without its section is a sentence without a subject — and a
+ * view with nothing to show keeps the document whole rather than blanking it.
+ */
+export function applyView(planEl: ClientNode | null, view: ReviewView): ViewCounts {
+	const blocks = blockElements(planEl);
+	if (!planEl) return { shown: 0, hidden: 0 };
+	if (view === "all") {
+		for (const block of blocks) block.hidden = false;
+		return { shown: blocks.length, hidden: 0 };
+	}
+	let shown = 0;
+	for (const block of blocks) {
+		const keep =
+			block.getAttribute("data-kind") === "heading" ||
+			(view === "changed"
+				? block.getAttribute("data-changed") === "1"
+				: (block.className || "").split(" ").indexOf("bf-block--commented") >= 0);
+		block.hidden = !keep;
+		if (keep) shown += 1;
+	}
+	// A filter that matches nothing is not a view of the plan: showing an empty page is
+	// worse than showing the whole document beside the count.
+	if (shown === blocks.length) return { shown, hidden: 0 };
+	if (blocks.length > 0 && shown === blocks.filter((block) => block.getAttribute("data-kind") === "heading").length) {
+		for (const block of blocks) block.hidden = false;
+		return { shown: blocks.length, hidden: 0 };
+	}
+	return { shown, hidden: blocks.length - shown };
+}

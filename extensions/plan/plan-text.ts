@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import { stripControlChars } from "../../lib/format.ts";
 import { displayFeedback, stripFeedback } from "./feedback.ts";
 import { extractSections, sectionKeys, type PlanSection } from "./sections.ts";
+import { planBlocks } from "./blocks.ts";
 
 /** Spaces a tab expands to; the terminal's own tab stops are not width-modelled. */
 const TAB_WIDTH = 4;
@@ -27,6 +28,14 @@ export interface SectionDigest {
 	title: string;
 	/** SHA-256 of the section's normalized text, heading included. */
 	digest: string;
+	/**
+	 * Short digests of this section's content blocks, in order.
+	 *
+	 * Absent in a baseline a build before block marks wrote, which is why every reader
+	 * treats it as optional: a section with no block digests marks nothing, and the page
+	 * says it cannot compare at that depth rather than reading as "nothing changed".
+	 */
+	blocks?: string[];
 }
 
 /**
@@ -61,6 +70,17 @@ function digestOf(text: string): string {
 }
 
 /**
+ * A short, stable digest of one block's lines.
+ *
+ * Short because it is persisted once per content block in a session entry: eight hex
+ * characters tell two blocks apart for the length of one review, which is all a change
+ * mark needs, and keep a long plan's baseline small enough to sit in the branch.
+ */
+export function blockDigest(lines: readonly string[]): string {
+	return digestOf(lines.join("\n")).slice(0, 8);
+}
+
+/**
  * A short, stable id for one plan text. The review page keys this tab's unsaved
  * draft on it, so a draft is restored for the plan it was written against and
  * dropped for a plan that changed underneath it.
@@ -74,7 +94,97 @@ export function sectionDigests(content: string): SectionDigest[] {
 	return extractSections(reviewText(content)).map((section) => ({
 		title: section.title,
 		digest: digestOf(section.text),
+		// Blank blocks are separators, not content: a plan that gained a blank line has not
+		// changed, and a digest per separator would say it had.
+		blocks: planBlocks(section.text)
+			.filter((block) => block.kind !== "blank")
+			.map((block) => blockDigest(block.lines)),
 	}));
+}
+
+/** Where the blocks changed, in the document the page is about to render. */
+export interface BlockChangeMarks {
+	/** Absolute 0-based start lines of the blocks that are new or edited. */
+	starts: number[];
+	/** Content blocks each section no longer holds, keyed by the section's heading line. */
+	removed: Record<number, number>;
+	/**
+	 * Whether the baseline carried block digests at all.
+	 *
+	 * False for a baseline a build before block marks wrote: section marks still mean
+	 * something, block marks cannot, and the page says which instead of drawing nothing.
+	 */
+	compared: boolean;
+}
+
+/**
+ * Where the blocks changed since the baseline, as the rendered document numbers them.
+ *
+ * The pages marks what it draws, so every line here is a line of `current`: a section's
+ * blocks are numbered from its own heading, which is why the section's line is added
+ * back. Sections are paired the way {@link changedSections} pairs them — by occurrence,
+ * so a second `## Notes` is never compared with the first — and a section the baseline
+ * never held (or held without block digests) contributes no marks.
+ */
+export function blockChangeMarks(baseline: readonly SectionDigest[] | undefined, current: string): BlockChangeMarks {
+	const sections = extractSections(reviewText(current));
+	if (baseline === undefined) return { starts: [], removed: {}, compared: false };
+	const before = new Map<string, SectionDigest>();
+	sectionKeys(baseline).forEach((key, at) => {
+		const section = baseline[at];
+		if (section !== undefined) before.set(key, section);
+	});
+	const starts: number[] = [];
+	const removed: Record<number, number> = {};
+	let compared = true;
+	sectionKeys(sections).forEach((key, at) => {
+		const section = sections[at];
+		if (section === undefined) return;
+		const prior = before.get(key);
+		if (prior?.blocks === undefined) {
+			compared = false;
+			return;
+		}
+		const mine = planBlocks(section.text).filter((block) => block.kind !== "blank");
+		const priorBlocks = new Set(prior.blocks);
+		for (const block of mine) {
+			if (!priorBlocks.has(blockDigest(block.lines))) starts.push(section.line + block.start);
+		}
+		const shrunk = Math.max(0, prior.blocks.length - mine.length);
+		if (shrunk > 0) removed[section.line] = shrunk;
+	});
+	return { starts, removed, compared };
+}
+
+/** What one section's blocks look like against the baseline's. */
+export interface BlockMarks {
+	/** Indexes, among the section's content blocks, of the blocks that are new or edited. */
+	changed: number[];
+	/** How many content blocks the section no longer holds: the part it shrank by. */
+	removed: number;
+}
+
+/**
+ * Mark the blocks a section gained or edited since the baseline.
+ *
+ * Membership rather than position: a block is changed when its digest is not among the
+ * baseline's, so an inserted step marks itself and leaves every block after it alone —
+ * the index-by-index pairing a diff would use would mark the whole rest of the section.
+ * A block that left cannot be drawn in place, so the section reports how much shorter it
+ * has become instead — the shrinkage, not the set difference, so an edited block reads
+ * as one change rather than as one removal beside one addition.
+ *
+ * An absent or blockless baseline marks nothing: a build before block marks wrote no
+ * block digests, and claiming every block changed would be a worse lie than saying the
+ * comparison cannot be made at that depth.
+ */
+export function changedBlocks(prior: readonly string[] | undefined, current: readonly string[]): BlockMarks {
+	if (prior === undefined) return { changed: [], removed: 0 };
+	const before = new Set(prior);
+	return {
+		changed: current.flatMap((digest, index) => (before.has(digest) ? [] : [index])),
+		removed: Math.max(0, prior.length - current.length),
+	};
 }
 
 /** Whether two baselines describe the same content, section for section. */
