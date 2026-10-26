@@ -147,7 +147,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       closeOpenComposer();
       markDirty();
       setStatus("Comment added.");
-      renderPlan();
+      renderAll();
     };
     add.addEventListener("click", submit);
     submitOnEnter(area, submit);
@@ -168,7 +168,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     card.appendChild(area);
     var row = el("div", "bf-comment__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
-    cancel.addEventListener("click", renderPlan);
+    cancel.addEventListener("click", renderAll);
     var apply = el("button"); apply.type = "button"; apply.className = "bf-btn bf-btn--primary"; apply.textContent = "Save";
     apply.addEventListener("click", function () {
       var comment = area.value.replace(/\s+/g, " ").trim();
@@ -176,7 +176,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       annotation.comment = comment;
       markDirty();
       setStatus("Comment updated.");
-      renderPlan();
+      renderAll();
     });
     submitOnEnter(area, function () { apply.click(); });
     row.appendChild(cancel); row.appendChild(apply); card.appendChild(row);
@@ -205,7 +205,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       annotations.splice(Math.min(index, annotations.length), 0, annotation);
       markDirty();
       clearUndo();
-      renderPlan();
+      renderAll();
       setStatus("Comment restored.", "saved");
     });
     controls.appendChild(button);
@@ -217,7 +217,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     if (!annotation) return;
     annotations.splice(index, 1);
     markDirty();
-    renderPlan();
+    renderAll();
     offerUndo(index, annotation);
     setStatus("Comment deleted.");
   }
