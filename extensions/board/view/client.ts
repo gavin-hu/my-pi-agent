@@ -14,6 +14,7 @@
  */
 
 import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
+import { CLIENT_RUNTIME_JS } from "../../../lib/web/index.ts";
 import { PLURAL_JS } from "../../../lib/board/round-text.ts";
 import { namesScript, TAB_TITLE_JS, THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
 import { BOARD_CLASS } from "./names.ts";
@@ -31,7 +32,7 @@ import { BOARD_TEAM_JS } from "./team.ts";
  * of any of them is exactly what this bundle is not allowed to hold.
  */
 export const BOARD_CLIENT_JS = `${namesScript(BOARD_CLASS)}
-${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS })}
+${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, runtime: CLIENT_RUNTIME_JS })}
 ${BOARD_TEAM_JS}
 ${BOARD_DIALOG_JS}
 ${BOARD_KEYS_JS}

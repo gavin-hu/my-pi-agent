@@ -21,6 +21,27 @@ counts its own stylesheet (`pages.test.ts`, `web.test.ts`). A page rule is
 namespaced (`review-*`, `browse-*`) and overrides a kit class rather than
 re-declaring it.
 
+## One browser runtime, spliced in
+
+Three surfaces render pages from a bundle held as a template literal, and each had written
+the same three helpers for itself: an element builder, a "did this key land in a field?"
+test, and a status line's paint. No type checker and no AST scan compares text inside a
+string, so the plan's `el(tag, className)` and the board's `el(tag, className, text)` were
+two builders, and the plan compared `INPUT` where the board lowercased the tag.
+
+`client-runtime.ts` holds one body of each, as ordinary TypeScript, and exports
+`CLIENT_RUNTIME_JS` — the four functions as source, in the order a client reads them. A
+page carries it the way it carries `plural` and its class table: the source crosses the
+boundary, and the page runs the function instead of a copy of it.
+
+The bodies are JavaScript on purpose — no annotation survives into the string, and no
+backtick or `${` may appear in one. The DOM is reached through `globalThis`, because this
+project compiles without a DOM lib; the cast names the guarantee the page makes.
+
+What stays page-side: what a status *says*. `paintStatus` owns the text, its tooltip, and
+the `bf-status--<tone>` class; the board composes `live · 3m` and appends its own class.
+A shared runtime that also decided the wording would be a second copy of the page's voice.
+
 ## Name a class once, in a table
 
 A page's document is TypeScript and its client is a string inside a template literal, so

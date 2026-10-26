@@ -34,12 +34,8 @@ export const BOARD_KEYS_JS = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
 
-  /** Whether the event landed in a field, where every key is text. */
-  function typing(target) {
-    if (!target || !target.tagName) return false;
-    var tag = target.tagName.toLowerCase();
-    return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable === true;
-  }
+  /** The render bundle's runtime: one typing test for the whole page. */
+  var typing = board.typing;
 
   /** The card nodes in reading order, so j/k walk the board as it is drawn. */
   function cards() {

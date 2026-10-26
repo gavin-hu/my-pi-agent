@@ -28,6 +28,7 @@ import {
 	WEB_THEME_STORAGE_KEY,
 } from "./runtime.ts";
 import { KEBAB, namesScript } from "./names.ts";
+import { CLIENT_RUNTIME_JS, el, paintStatus, postJson, typing } from "./client-runtime.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS } from "./tokens.ts";
 
 /** sRGB relative luminance of a `#rgb`/`#rrggbb` colour. */
@@ -585,5 +586,105 @@ describe("web theme runtime", () => {
 		expect(script).toContain("}, true);");
 		expect(script).toContain("event.stopPropagation();");
 		expect(() => new Function(script)).not.toThrow();
+	});
+});
+
+describe("web client runtime", () => {
+	test("carries each body once, and the string is safe to splice", () => {
+		// The bundle is a template literal: a backtick or an interpolation in one of these
+		// bodies would end the script, and the failure would be a page that never paints.
+		expect(CLIENT_RUNTIME_JS).not.toContain("`");
+		expect(CLIENT_RUNTIME_JS).not.toContain("${");
+		for (const fn of [el, typing, paintStatus, postJson]) {
+			expect(CLIENT_RUNTIME_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
+		}
+	});
+
+	test("a spliced bundle builds and answers the same as the module", () => {
+		const made: Array<{ tag: string; className: string; textContent: string | null }> = [];
+		const fakeHtml = {
+			createElement(tag: string) {
+				const node = { tag, className: "", textContent: null as string | null, title: "" };
+				made.push(node);
+				return node;
+			},
+		};
+		const bundle = new Function(
+			"globalThis",
+			"fetch",
+			`${CLIENT_RUNTIME_JS}\nreturn { el: el, typing: typing, paintStatus: paintStatus, postJson: postJson };`,
+		) as (
+			g: unknown,
+			f: unknown,
+		) => {
+			el: typeof el;
+			typing: typeof typing;
+			paintStatus: typeof paintStatus;
+			postJson: typeof postJson;
+		};
+		const runtime = bundle({ document: fakeHtml }, async () => ({}));
+
+		const node = runtime.el("span", "bf-chip", "billing-core");
+		expect(node.textContent).toBe("billing-core");
+		expect(made[0]?.className).toBe("bf-chip");
+		expect(runtime.el("p").textContent).toBeNull();
+
+		expect(runtime.typing({ tagName: "INPUT" })).toBe(true);
+		expect(runtime.typing({ tagName: "textarea" })).toBe(true);
+		expect(runtime.typing({ tagName: "div", isContentEditable: true })).toBe(true);
+		expect(runtime.typing({ tagName: "body" })).toBe(false);
+		expect(runtime.typing({})).toBe(false);
+
+		runtime.paintStatus(node, "live \u00B7 3m", "saved");
+		expect(node.className).toBe("bf-status bf-status--saved");
+		expect(node.title).toBe("live \u00B7 3m");
+		runtime.paintStatus(node, "");
+		expect(node.className).toBe("bf-status");
+		expect(node.textContent).toBe("");
+	});
+
+	test("reads the reply body on both branches, so a refusal keeps its reason", async () => {
+		const calls: Array<{ url: string; init: RequestInit }> = [];
+		const fakeFetch = async (url: string, init: RequestInit) => {
+			calls.push({ url, init });
+			return {
+				ok: false,
+				status: 409,
+				json: async () => ({ error: "the plan changed on disk" }),
+			};
+		};
+		const global = { document: { createElement: () => ({ className: "", textContent: null, title: "" }) } };
+		const runtime = new Function("globalThis", "fetch", `${CLIENT_RUNTIME_JS}\nreturn { postJson: postJson };`)(
+			global,
+			fakeFetch,
+		) as { postJson: typeof postJson };
+		const before = globalThis.fetch;
+		Object.assign(globalThis, { fetch: fakeFetch });
+		try {
+			const result = await runtime.postJson("/api/feedback?token=t", { annotations: [] });
+			expect(result).toEqual({ ok: false, status: 409, body: { error: "the plan changed on disk" } });
+		} finally {
+			Object.assign(globalThis, { fetch: before });
+		}
+		expect(calls[0]?.init.method).toBe("POST");
+		expect(calls[0]?.init.headers).toEqual({ "Content-Type": "application/json" });
+		expect(calls[0]?.init.body).toBe('{"annotations":[]}');
+	});
+
+	test("a body that is not JSON costs the reason, not the answer", async () => {
+		const fakeFetch = async () => ({
+			ok: true,
+			status: 200,
+			json: async () => {
+				throw new Error("not json");
+			},
+		});
+		const before = globalThis.fetch;
+		Object.assign(globalThis, { fetch: fakeFetch });
+		try {
+			expect(await postJson("/api/x", {})).toEqual({ ok: true, status: 200, body: null });
+		} finally {
+			Object.assign(globalThis, { fetch: before });
+		}
 	});
 });

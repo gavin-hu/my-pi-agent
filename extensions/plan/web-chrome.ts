@@ -8,10 +8,7 @@
  */
 
 export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
-    if (!statusEl) return;
-    statusEl.textContent = text || "";
-    statusEl.title = text || "";
-    statusEl.className = kind ? "bf-status bf-status--" + kind : "bf-status";
+    if (statusEl) paintStatus(statusEl, text, kind);
   }
 
   // The always-visible header chip: connection, comment count, and whether

@@ -5,6 +5,7 @@
  */
 
 export * from "./base.ts";
+export * from "./client-runtime.ts";
 export * from "./components.ts";
 export * from "./layout.ts";
 export * from "./markup.ts";
