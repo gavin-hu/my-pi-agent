@@ -1,16 +1,15 @@
 /**
- * The seat: the name the page serves as, and the actor its writes are made as.
+ * The seat: the name the page serves as, and the actor it is shown as.
  *
  * A page outlives the session that opened it — a `/resume`, a rename, or a fresh
- * session taking the page over would otherwise change who a browser claim belongs to,
- * and a card claimed yesterday could no longer be released today. So the page is a
- * *seat* rather than a session: one fixed name, one fixed id derived from it, and the
- * same cards belong to it however many sessions have served it.
+ * session taking the page over would otherwise change who the page says it is. So the
+ * page is a *seat* rather than a session: one fixed name, one fixed id derived from it,
+ * and the same identity however many sessions have served it.
  *
- * The id is derived rather than minted so two sessions that serve the same seat are the
- * same actor — which is what a handover needs, and what makes the terminal a *different*
- * actor from the page: the board's own tools still write as the session, and `reclaim`
- * is how a lead takes back what the page holds.
+ * The page writes nothing, so the id decides no ownership: it is what the page's own
+ * roster and the `you` chip are read against, and it keeps a page's reads the same
+ * across a handover. The board's tools write as the session — which is why the label is
+ * shared with the session serving the page and the ids are not.
  */
 
 import type { Actor } from "../../lib/board/rules.ts";
@@ -22,7 +21,7 @@ export const DEFAULT_SEAT = "team-lead";
 /** The prefix of a page's actor id, so one is never mistaken for a session id. */
 export const SEAT_ID_PREFIX = "board:";
 
-/** The actor a page writes as: the seat, and an id derived from it. */
+/** The actor a page reads as: the seat, and an id derived from it. */
 export function pageActor(label: string = DEFAULT_SEAT): Actor {
 	const seat = normalizeLabel(label, DEFAULT_SEAT);
 	return { id: `${SEAT_ID_PREFIX}${seat.toLowerCase()}`, label: seat };

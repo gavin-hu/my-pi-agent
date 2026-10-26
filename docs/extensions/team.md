@@ -2,14 +2,15 @@
 
 `board` owns the cards. `team` owns the lead's three actions: `assign` hands a card to a
 session that is **already running**, `offer` hands one to whoever is free, and `reclaim`
-takes one back when its owner is gone or has gone quiet. The first two are a write on the
-board and a message on the session bus; `reclaim` writes the card alone, so it needs no bus
-at all. The report says what the peer will actually do with it.
+takes one back when its owner is gone or has gone quiet. `assign` writes the card and puts
+a handoff on the session bus, `offer` writes nothing at all — the first peer to claim is
+what makes an offer into work — and `reclaim` writes the card alone, so it needs no bus.
+The report says what the peer will actually do with it.
 
 Nothing starts a process. A message lands in the peer's inbox and is reported at its next
 turn, so `assign` and `offer` are messages, not launches.
 
-<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and a Reclaim or Claim action on the row edge, or no action on a card that waits; on the right, a Teammates list with a state dot, label, you chip, mail badge, a not listening chip on a peer whose watch is off, and a line of what each holds; and one muted Done line under both" width="100%">
+<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and the owner as a chip on the row's right; on the right, a Teammates list with a state dot, label, you chip, mail badge, a not listening chip on a peer whose watch is off, and a line of what each holds; and one muted Done line under both" width="100%">
 
 *The Team tab: the cards that need the lead, then who is on the team — including an
 owner whose label nothing answers to, and a teammate that is not listening.*
@@ -25,7 +26,7 @@ owner whose label nothing answers to, and a teammate that is not listening.*
 | Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
 | Take a card back | `team` action `reclaim` | The owner clears, the card returns to To do, and its notes stay |
 | Keep the round to the team | `team` | Only `assign`, `offer`, and `reclaim`: no card is created, moved, planned, or finished here — that is `board`'s surface |
-| See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one line naming the cards a dead owner left behind, and one presence line for who is live, who is not listening, who has gone quiet, and who is gone. Ten lines at most, then `… N more`; an empty board is one line |
+| See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one line naming the cards a dead owner left behind, and one presence line for who is live, who is not listening, who has gone quiet, and who is gone. The rollup itself is capped at ten lines, then `… N more`, and the gone and presence lines follow the cap rather than counting against it — the cap is a notify's limit, not a screen's. An empty board is one line |
 
 ## Quickstart
 
@@ -66,9 +67,10 @@ who is live but not listening. `/board status` repeats only what the last `/boar
 session did about the team — a join made by `/team join` or by a card write is not on that
 line, and a page that is not running prints no team clause at all.
 
-**The seat is not a session.** The page writes as `team-lead` with an id of its own, so a
-card it claimed comes back with `reclaim` rather than a `release` from the terminal. The
-label is shared with the session that serves the page; the ids are not.
+**The seat is not a session.** The page is a view: it has one name, `team-lead`, and an id
+of its own derived from it, and it writes nothing, so it holds no card for a lead to take
+back. Its cards come from the session that serves it, whose label is the same and whose id
+is not: a card that session claimed is the session's, and `release` returns it.
 
 ## Tool
 
@@ -164,8 +166,10 @@ An offer is advice: nothing is theirs until they claim it, and a card nobody cla
   every ten seconds and the record is believed for ten minutes, so `quiet:` means the
   record went stale rather than that the peer died, while `not listening` is the separate
   `watching` field, written when the session joins or arms and disarms its watch.
-- **Plan mode makes this unavailable.** `session` is a mutating tool, so while plan mode is
-  active the bus call is refused. Assign after the plan is approved.
+- **Plan mode makes this unavailable.** Neither `team` nor `session` is a read-only tool, so
+  plan mode refuses both by name and tells the model to exit and get approval; the board
+  stays readable, since `list` is the one action it admits. Assign after the plan is
+  approved.
 - **Ownership is advisory.** `assign` does not create a path claim; the peer still claims
   the paths it edits through `session`.
 
