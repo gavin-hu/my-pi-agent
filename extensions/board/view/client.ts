@@ -13,6 +13,7 @@
  * last, after every `board.*` handler it wires exists.
  */
 
+import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
 import { PLURAL_JS } from "../../../lib/board/round-text.ts";
 import { namesScript, TAB_TITLE_JS, THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
 import { BOARD_CLASS } from "./names.ts";
@@ -25,12 +26,12 @@ import { BOARD_TEAM_JS } from "./team.ts";
 /**
  * The whole client, in load order: paint, round, the card dialog, keys, wiring, start.
  *
- * Two rules cross the boundary as source — the count's wording and the tab title's
- * shape: the browser has no import graph, and a second copy of either is exactly what
- * this bundle is not allowed to hold.
+ * Three rules cross the boundary as source — the count's wording, the tab title's
+ * shape, and what a `query` matches: the browser has no import graph, and a second copy
+ * of any of them is exactly what this bundle is not allowed to hold.
  */
 export const BOARD_CLIENT_JS = `${namesScript(BOARD_CLASS)}
-${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS })}
+${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS })}
 ${BOARD_TEAM_JS}
 ${BOARD_DIALOG_JS}
 ${BOARD_KEYS_JS}

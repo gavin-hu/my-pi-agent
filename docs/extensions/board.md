@@ -102,7 +102,7 @@ terminal.
 
 | Action | Parameters | Result |
 |---|---|---|
-| `list` | `status?`, `mine?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query or `mine` matches; `round: true` adds the rollup, which always covers the whole board |
+| `list` | `status?`, `mine?`, `card?`, `query?`, `round?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; `round: true` adds the rollup, which always covers the whole board |
 | `add` | `title`, `paths?`, `priority?`, `note?` | the new `todo` card |
 | `claim` | `card` | the card, now `doing` and owned by this session |
 | `release` | `card` | the card, back in `todo`, keeping any block it recorded |
@@ -189,7 +189,7 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 | Key | What it does |
 |---|---|
-| `/` | Filter the cards by title, path, or owner |
+| `/` | Filter the cards by title, holder, path hint, plan, or the text of a note |
 | `j` / `k` | Next or previous card — or, with a card open, the next or previous card in the dialog |
 | `Enter` | Open the focused card |
 | `t` | Switch Board and Team |
@@ -312,6 +312,12 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   only when a card's revision, or a teammate's state, mail, or listening flag, moves: a
   heartbeat every ten seconds is not news, and a frame nobody needs costs the page a
   parse.
+- **A query reads what a card says, not just what it is called.** A card's reasoning lives
+  in its notes and in the plan it is executing, so leaving both out of the search made the
+  two fields that hold the argument the two a reader could not find. The order is the
+  answer's weight — title, holder, path hints, plan, notes — and it is one body spliced
+  into the page from `lib/board/card.ts`, so the filter box and `board list query:` cannot
+  disagree about which card a word names.
 - **The record is a ladder, not a paragraph run.** A card's facts are one per row so each
   can be read and copied alone: the meta line it replaces merged id, updated, and who into
   one sentence, and named the last writer as though it were the author. The notes are the

@@ -317,6 +317,17 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("filters on a note's words, which the tool's query reads too", async () => {
+		const page = await openPage();
+		// Nothing on the card's face says "retries": the word lives in a note, and the
+		// filter runs the module's own predicate rather than a copy of it.
+		await page.fill("#board-filter", "retries");
+		await cardCount(page, "doing", 1);
+		expect(await titlesIn(page, "doing")).toEqual(["Billing webhook accepts orders"]);
+		await cardCount(page, "todo", 0);
+		await page.close();
+	});
+
 	test("narrows the lanes from the one filter box", async () => {
 		const page = await openPage();
 		await page.fill("#board-filter", "invoice");

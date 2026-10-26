@@ -112,6 +112,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   previous card without closing it, announced for a screen reader as `card 2 of 3: <title>`.
   The walk follows the board as drawn, so a folded lane is skipped.
 
+- `board`: `list`'s `query` and the page's filter read a card's plan and the text of its
+  notes, not only its title, holder, and path hints — the two fields that hold a card's
+  reasoning are now two a reader can find it by, so `query: "CHANGELOG"` names the card
+  whose notes are about it and `query: "2026-10-26"` names the one executing that plan.
+  Both surfaces run one body (`MATCHES_QUERY_JS`), spliced into the page from
+  `lib/board/card.ts`, so the filter box cannot find a different set than the tool.
+
 ### Removed
 
 - `board`: the page no longer changes a card. `/board` serves a live view of the board and
