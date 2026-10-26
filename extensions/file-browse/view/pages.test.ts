@@ -172,6 +172,13 @@ describe("page chrome", () => {
 		expect(html).toContain("read-only");
 	});
 
+	test("names what it serves in the tab, in the kit's one shape", () => {
+		// The folder, its file, the diff overview, and an error page each name themselves:
+		// `<page> · <subject>`, the same rule the board and the plan review follow.
+		expect(directoryPage()).toContain("<title>browse · aurora</title>");
+		expect(directoryPage({ rel: "src/billing" })).toContain("<title>browse · src/billing</title>");
+	});
+
 	test("carries the brand mark as its tab icon, and no icon of its own", () => {
 		const html = directoryPage();
 		// The kit's head links the mark in both appearances. The page used to add a blue

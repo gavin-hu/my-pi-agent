@@ -45,9 +45,9 @@ describe("the document", () => {
 		// paints the rest — one sentence, in the one place a browser reads it.
 		expect(page).toContain("<title>board</title>");
 		expect(page).toContain('rel="icon"');
-		// The bundle escapes the separator, so the assertion names it the way the page sends it.
-		expect(BOARD_CLIENT_JS).toContain('document.title = "board" + (key ? " \\u00B7 " + key : "")');
-		expect(BOARD_CLIENT_JS).toContain('\\u00B7 " + open + " open"');
+		// The tab's shape is the kit's, spliced in as one body rather than rewritten here.
+		expect(BOARD_CLIENT_JS).toContain("var tabTitle = function tabTitle(");
+		expect(BOARD_CLIENT_JS).toContain('tabTitle("board", view.where.split("/").pop()');
 	});
 
 	test("carries no write surface at all", () => {

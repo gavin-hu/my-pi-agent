@@ -171,8 +171,9 @@ global document then project document, project wins — are in
 
 The page is server-rendered HTML with an inline style block and inline SVG
 icons, progressively enhanced by one first-party script (`client.ts`). Each page
-names its own subject in the tab — `browse · <folder>`, `browse · <rel>` for a file —
-and links the brand mark as an SVG data URI, in the appearance the system is in. A folder
+names its own subject in the tab — `browse · <folder>`, `browse · <rel>` for a file, the
+`<page> · <subject>` shape the kit's `tabTitle` gives every served page — and links the
+brand mark as an SVG data URI, in the appearance the system is in. A folder
 folds from its twisty, and a `fold all` / `expand all` button beside the filter
 folds the whole tree at once. The tree scrolls in its own pane with quick open
 and the filter pinned above it; below 860px it collapses into a `Files`

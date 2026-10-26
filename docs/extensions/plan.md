@@ -531,9 +531,11 @@ line range it shows, and the footer lists only the keys that apply.
 <img src="../../assets/screens/plan-review.png" alt="The browser-based plan review: a sticky header with the plan title, a status chip, and the Approve & run, Save feedback, and Back to Pi actions, a Share action, a side panel with step progress and a section outline, and the plan as one measured column with a comment rail holding the owner's own comment and a teammate's @priya comment" width="100%">
 
 Press `w` on the review screen — or run `/plan review [path]` — to open the plan
-in the default browser on `127.0.0.1`. Its tab reads `Plan review · <the plan's
-title>`, rendered with the document rather than set by a script, so a strip of
-tabs names the plan before the page has finished loading. The page is a
+in the default browser on `127.0.0.1`. Its tab reads `plan review · <the plan's
+title>` — the page's name as the header's lockup says it, then the subject, the shape
+`lib/web/markup.ts`'s `tabTitle` gives every served page — rendered with the document
+rather than set by a script, so a strip of tabs names the plan before the page has
+finished loading. The page is a
 reading-first review surface: a sticky header carrying the plan's H1 (falling back to the file-name
 slug), a live status chip (connection, comment count, and unsaved changes), the
 theme toggle, and the review actions, over a hairline reading-progress bar. A

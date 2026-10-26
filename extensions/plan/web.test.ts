@@ -456,8 +456,10 @@ describe("the review's tab", () => {
 	test("names the plan in the document head, before a script runs", () => {
 		// A tab is read in a browser's tab strip, so the title has to be in the document: a
 		// script that sets it later is a tab named "Plan review" for as long as the page loads.
-		expect(page()).toContain("<title>Plan review · Add rate limiting</title>");
-		expect(page({ title: "Fix <the> parser" })).toContain("<title>Plan review · Fix &lt;the&gt; parser</title>");
+		// Lowercase, like the lockup that names the page under it, and the plan's title after
+		// one separator: the three served pages read as one product in a strip of tabs.
+		expect(page()).toContain("<title>plan review · Add rate limiting</title>");
+		expect(page({ title: "Fix <the> parser" })).toContain("<title>plan review · Fix &lt;the&gt; parser</title>");
 	});
 
 	test("leaves the tab title to the head rather than a second copy in script", () => {

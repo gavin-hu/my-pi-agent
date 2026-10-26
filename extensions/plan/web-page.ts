@@ -19,6 +19,7 @@ import {
 	type KeyHint,
 	keysSheet,
 	SIDEBAR_COLLAPSE_MAX,
+	tabTitle,
 	themeToggle,
 	WEB_BASE_CSS,
 	WEB_COMPONENTS_CSS,
@@ -341,7 +342,7 @@ ${reviewHints(data.role, data.canApprove)}
 	return `<!doctype html>
 <html lang="en">
 <head>
-${docHead({ title: `Plan review · ${data.title}`, css: REVIEW_CSS })}
+${docHead({ title: tabTitle("plan review", data.title), css: REVIEW_CSS })}
 </head>
 <body class="bf-app">
 <a class="skip" href="#plan">Skip to the plan</a>

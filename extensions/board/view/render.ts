@@ -16,14 +16,17 @@
  * `team.ts` draws the round, `dialog.ts` opens a card, `keys.ts` binds, and `live.ts`
  * owns the frame stream and the wiring.
  *
- * `plural` is not written here. The one body lives in `lib/board/round-text.ts` beside
- * the counts it formats, and the assembler hands its source in — a second copy in the
- * bundle is a second wording for `1 card`.
+ * `plural` and `tabTitle` are not written here. Their one bodies live in `lib/` beside
+ * the rules they express, and the assembler hands the source in — a second copy in the
+ * bundle is a second wording for `1 card`, or a second shape for the tab.
  */
 
-/** The renderer, with the one `plural` it prints counts through spliced in. */
-export function renderJs(pluralSource: string): string {
-	return renderTemplate.replace("__PLURAL__", pluralSource);
+/**
+ * The renderer, with the two rules it needs spliced in: the counts' wording and the
+ * tab title's shape, both written once in `lib/` and handed in as source.
+ */
+export function renderJs(rules: { plural: string; tabTitle: string }): string {
+	return renderTemplate.replace("__PLURAL__", rules.plural).replace("__TAB_TITLE__", rules.tabTitle);
 }
 
 const renderTemplate = String.raw`(function () {
@@ -221,13 +224,14 @@ const renderTemplate = String.raw`(function () {
     // The tab has to tell two boards apart, and a board's own name is the last segment of
     // its store: one board per repository, so that key is the subject. The count is what
     // a browser full of tabs is read for, and an empty board says nothing rather than 0.
-    var key = view.where.split("/").pop();
     var open = view.counts.total - view.counts.done;
-    document.title = "board" + (key ? " · " + key : "") + (open > 0 ? " · " + open + " open" : "");
+    document.title = tabTitle("board", view.where.split("/").pop(), open > 0 ? open + " open" : undefined);
   }
 
   /** 1 card, 2 cards — the one body, handed in by the bundle's assembler. */
   var plural = __PLURAL__;
+  /** board · my-pi-agent · 3 open, the tab's one shape, handed in the same way. */
+  var tabTitle = __TAB_TITLE__;
 
   /**
    * Rewrite every age already on the page from its own timestamp.

@@ -8,7 +8,17 @@ import { describe, expect, test } from "bun:test";
 import { WEB_BASE_CSS } from "./base.ts";
 import { WEB_COMPONENTS_CSS } from "./components.ts";
 import { SIDEBAR_COLLAPSE_MAX, WEB_LAYOUT_CSS } from "./layout.ts";
-import { brandLockup, button, chip, docHead, keysSheet, markIcon, themeToggle } from "./markup.ts";
+import {
+	brandLockup,
+	button,
+	chip,
+	docHead,
+	keysSheet,
+	markIcon,
+	TAB_TITLE_JS,
+	tabTitle,
+	themeToggle,
+} from "./markup.ts";
 import {
 	dialogScript,
 	keysDialogScript,
@@ -443,6 +453,38 @@ describe("web markup", () => {
 		expect(light).toContain(WEB_THEME_TOKENS.light["--accent"]);
 		expect(light).toContain(WEB_THEME_TOKENS.light["--warn"]);
 		expect(dark).not.toBe(light);
+	});
+
+	test("shapes a tab title as page, subject, count, and leaves out what a page lacks", () => {
+		// One convention for the three served pages: the page's own name, lowercase and the
+		// same word its lockup carries, then what it shows, then the count a reader opens the
+		// tab for.
+		expect(tabTitle("board", "my-pi-agent", "3 open")).toBe("board · my-pi-agent · 3 open");
+		expect(tabTitle("board", "my-pi-agent")).toBe("board · my-pi-agent");
+		expect(tabTitle("plan review", "Add rate limiting")).toBe("plan review · Add rate limiting");
+		expect(tabTitle("browse", "src/billing")).toBe("browse · src/billing");
+		// An empty part is not a part: a board that has nothing open is not "board · ".
+		expect(tabTitle("board")).toBe("board");
+		expect(tabTitle("board", "", "")).toBe("board");
+	});
+
+	test("hands the tab title's body to the bundle, safe to splice into a script", () => {
+		// The board's count is live, so the page's script must build the same string. A
+		// backtick or an interpolation here would end the template the source lands in.
+		expect(TAB_TITLE_JS).toBe(String(tabTitle));
+		expect(TAB_TITLE_JS).not.toContain("`");
+		expect(TAB_TITLE_JS).not.toContain("${");
+	});
+
+	test("answers what the module answers once it is a script", () => {
+		const browser = new Function(`return (${TAB_TITLE_JS});`)() as (
+			product: string,
+			subject?: string,
+			count?: string,
+		) => string;
+		expect(browser("board", "my-pi-agent", "3 open")).toBe(tabTitle("board", "my-pi-agent", "3 open"));
+		expect(browser("plan review", "Add rate limiting")).toBe(tabTitle("plan review", "Add rate limiting"));
+		expect(browser("board")).toBe(tabTitle("board"));
 	});
 
 	test("serves the pre-paint theme from the one path the head asks for", () => {

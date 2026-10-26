@@ -8,7 +8,7 @@
  * the page-only `browse-*` rules from `styles.ts`.
  */
 
-import { brandLockup, docHead, type KeyHint, keysSheet, themeToggle } from "../../../lib/web/index.ts";
+import { brandLockup, docHead, type KeyHint, keysSheet, tabTitle, themeToggle } from "../../../lib/web/index.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
 import { renderChanges, renderGit, renderLiveChrome, renderLiveStatus, type LivePage } from "./chrome.ts";
 import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
@@ -220,7 +220,7 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		body += `<p class="bf-note">Showing the first ${page.listing.entries.length} of ${page.listing.total} entries.</p>`;
 
 	return renderLayout({
-		title: `browse · ${page.rel || folderName}`,
+		title: tabTitle("browse", page.rel || folderName),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
@@ -370,7 +370,7 @@ export function renderFilePage(page: FilePage): string {
 	}
 
 	return renderLayout({
-		title: `browse · ${page.rel}`,
+		title: tabTitle("browse", page.rel),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
@@ -443,7 +443,7 @@ ${page.files.map((file) => renderChangedRow(file, page.mode)).join("\n")}
 </table>`;
 	const stat = page.stat ? `<pre class="browse-diff-stat">${escapeHtml(page.stat)}</pre>` : "";
 	return renderLayout({
-		title: "browse · changes",
+		title: tabTitle("browse", "changes"),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: "",
@@ -515,7 +515,7 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 		if (page.diff.truncated) note = `<p class="bf-note">Showing the first ${page.diff.lines.length} diff lines.</p>`;
 	}
 	return renderLayout({
-		title: `browse · ${page.rel}`,
+		title: tabTitle("browse", page.rel),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
@@ -543,7 +543,7 @@ export interface ErrorPage {
 /** Render a status/error page with the same chrome. */
 export function renderErrorPage(page: ErrorPage): string {
 	return renderLayout({
-		title: `browse · ${page.status}`,
+		title: tabTitle("browse", String(page.status)),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: "",

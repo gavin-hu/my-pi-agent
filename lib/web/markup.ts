@@ -19,6 +19,29 @@ export interface DocHeadOptions {
 }
 
 /**
+ * A page's browser-tab title: `<page> · <subject> · <count>`.
+ *
+ * One convention across the served pages, so a strip of tabs reads as one product. The
+ * page's name comes first, lowercase and the same word its header's `brandLockup`
+ * carries; then what the page is showing; then the count a reader opens the tab for. A
+ * part the page does not have is left out rather than drawn empty, so a board with
+ * nothing open reads `board · my-pi-agent` and a plan reads `plan review · <its title>`.
+ */
+export function tabTitle(product: string, subject?: string, count?: string): string {
+	const kept = [product, subject, count];
+	return kept.filter((part) => part !== undefined && part !== "").join(" · ");
+}
+
+/**
+ * The same body, as the browser receives it.
+ *
+ * The board's count is live, so its tab is repainted on every frame and this rule has to
+ * cross into the bundle. It is written as concatenation with no backtick and no
+ * interpolation, because the bundle is a template the source is spliced into.
+ */
+export const TAB_TITLE_JS = String(tabTitle);
+
+/**
  * The shared document head: charset, viewport, colour scheme, title, the page
  * CSS, and the pre-paint theme bootstrap. The body and its scripts stay with
  * each page.

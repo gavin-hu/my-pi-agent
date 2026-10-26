@@ -13,7 +13,7 @@
  * contract test holds every class to the kit or to this page's stylesheet.
  */
 
-import { brandLockup, button, docHead, keysSheet, themeToggle } from "../../../lib/web/index.ts";
+import { brandLockup, button, docHead, keysSheet, tabTitle, themeToggle } from "../../../lib/web/index.ts";
 import { BOARD_KEYS } from "./keys.ts";
 import { BOARD_CLASS as N } from "./names.ts";
 import { BOARD_CSS } from "./styles.ts";
@@ -33,7 +33,7 @@ export function renderBoardPage(input: { view: PageView }): string {
 	return `<!doctype html>
 <html lang="en" data-view="${team ? "team" : "board"}">
 <head>
-${docHead({ title: "board", css: BOARD_CSS })}
+${docHead({ title: tabTitle("board"), css: BOARD_CSS })}
 </head>
 <body class="bf-app">
 <h1 class="sr-only">board — the shared feature list for this repository</h1>

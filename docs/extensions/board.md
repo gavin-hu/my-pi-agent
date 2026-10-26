@@ -142,8 +142,8 @@ path the board does not serve.
 ```
 GET    /theme.js             the theme script — no token
 GET    /app.js               the client script — no token
-GET    /                     the document (?view=board|team), whose tab names the
-                             store's key and how many cards are open
+GET    /                     the document (?view=board|team), whose tab reads
+                             board · <store key> · <N> open
 GET    /api/board            the snapshot
 GET    /events               the live frame stream
 ```

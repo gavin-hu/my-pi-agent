@@ -119,11 +119,17 @@ choice. Neither page reloads for a theme.
 
 ## Markup atoms and escaping
 
-`docHead`, `brandLockup`, `markIcon`, `themeToggle`, `chip`, `button`, and
+`docHead`, `brandLockup`, `markIcon`, `tabTitle`, `themeToggle`, `chip`, `button`, and
 `keysSheet` return strings. `docHead` links the mark as the tab icon — two SVG
 data URIs from the same blocks the lockup draws, the dark one plain and the light
 one behind `prefers-color-scheme` — because an icon is its own document and
-cannot read the page's tokens. Every dynamic **value** goes through `escapeHtml` from
+cannot read the page's tokens.
+
+`tabTitle` is where the three served pages' tab titles agree: `<page> · <subject> ·
+<count>`, the page's name lowercase and the same word its `brandLockup` carries, a part
+the page does not have left out rather than drawn empty. The board's count is live, so
+its page repaints the title on every frame and the body crosses into the bundle as
+`TAB_TITLE_JS`, the way `plural` does — one shape for the string, not two. Every dynamic **value** goes through `escapeHtml` from
 [`../escape.ts`](../escape.ts); the fields documented as trusted (`css`, an
 `icon` glyph, an attribute key, a client id) are code-authored constants, never
 model or file text. A page that renders its own document follows the same rule.
