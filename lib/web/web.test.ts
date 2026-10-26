@@ -17,6 +17,7 @@ import {
 	THEME_TOGGLE_JS,
 	WEB_THEME_STORAGE_KEY,
 } from "./runtime.ts";
+import { KEBAB, namesScript } from "./names.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS } from "./tokens.ts";
 
 /** sRGB relative luminance of a `#rgb`/`#rrggbb` colour. */
@@ -359,6 +360,33 @@ describe("web layout", () => {
 	test("returns to normal page scroll on narrow screens", () => {
 		expect(WEB_LAYOUT_CSS).toContain(".bf-app{height:auto;min-height:100vh;overflow:visible}");
 		expect(WEB_LAYOUT_CSS).toContain("max-height:none;overflow:visible;border-right:0");
+	});
+});
+
+describe("web names", () => {
+	const table = { card: "board-card", laneHead: "board-lane__head" } as const;
+
+	test("serializes a table as a script statement a bundle can start with", () => {
+		expect(namesScript(table)).toBe('var N = {"card":"board-card","laneHead":"board-lane__head"};');
+		// The value is spliced into a template literal: a backtick would end the string
+		// and `${` would interpolate at build time, so both are refused at the boundary.
+		expect(namesScript(table)).not.toContain("`");
+		expect(namesScript(table)).not.toContain("${");
+		expect(namesScript(table, "CLASSES")).toBe('var CLASSES = {"card":"board-card","laneHead":"board-lane__head"};');
+	});
+
+	test("refuses a name that is not a class name, naming it", () => {
+		for (const bad of ["board card", "card`", "${x}", "Board-Card", "", "-lead"]) {
+			expect(() => namesScript({ card: bad }), bad).toThrow(/is not a kebab-case name/);
+			expect(KEBAB.test(bad), bad).toBe(false);
+		}
+		expect(() => namesScript(table, "not ok")).toThrow(/is not a name a script can declare/);
+	});
+
+	test("accepts the shapes a stylesheet can select", () => {
+		for (const good of ["card", "board-card", "board-card__head", "board-card--done", "x1"]) {
+			expect(KEBAB.test(good), good).toBe(true);
+		}
 	});
 });
 

@@ -289,6 +289,11 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   only when a card's revision, or a teammate's state, mail, or listening flag, moves: a
   heartbeat every ten seconds is not news, and a frame nobody needs costs the page a
   parse.
+- **A class is a symbol, not a string.** The document and the bundle cannot import from
+  each other, so both read `view/names.ts` — the only place a `board-*` class is spelled.
+  A name assembled from a prefix is what made the old contract untestable: it passed on
+  the prefix and could not see the whole name, so a rule with nothing behind it (or a
+  name with no rule) survived until a capture showed it.
 - **The page is given what it prints.** A card arrives with the priority it acts on and
   the unfinished dependencies that block it (`waits`, as `#2 (doing)`), so the client
   holds no copy of a rule `lib/board` owns — the copies it did hold had already drifted
@@ -351,6 +356,7 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 | `view/page.ts` | The document: an inert shell the client fills, with no form on it |
 | `view/styles.ts` | The page's `board-*` layout rules |
 | `view/render.ts` | The client's snapshot → DOM renderer: toolbar, lanes, cards, the dialog's contents |
+| `view/names.ts` | The page's class vocabulary: one table the document and the bundle both read, so what the page wears and what its stylesheet draws can be compared |
 | `view/team.ts` | The client's round: the two tables and the Done line |
 | `view/dialog.ts` | The client's card dialog: open one card, close it, and forget it when the kit closes it |
 | `view/keys.ts` | The key table, and the bindings that make it true |

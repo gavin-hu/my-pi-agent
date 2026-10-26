@@ -24,7 +24,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     var node = document.getElementById("board-status");
     if (!node) return;
     node.setAttribute("data-state", state);
-    node.className = "bf-status board-status" +
+    node.className = "bf-status " + N.status +
       (state === "live" ? " bf-status--saved" : state === "reconnecting" ? " bf-status--error" : "");
     // "now" would read as "live · now ago", so a fresh frame says only "live".
     if (state === "live") {
@@ -136,8 +136,8 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     if (!lanes || lanes.childElementCount > 0) return;
     lanes.setAttribute("data-skeleton", "1");
     for (var i = 0; i < 4; i++) {
-      var lane = board.el("section", "board-lane");
-      for (var j = 0; j < 2; j++) lane.appendChild(board.el("div", "board-skeleton"));
+      var lane = board.el("section", N.lane);
+      for (var j = 0; j < 2; j++) lane.appendChild(board.el("div", N.skeleton));
       lanes.appendChild(lane);
     }
   }

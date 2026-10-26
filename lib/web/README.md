@@ -21,6 +21,26 @@ counts its own stylesheet (`pages.test.ts`, `web.test.ts`). A page rule is
 namespaced (`review-*`, `browse-*`) and overrides a kit class rather than
 re-declaring it.
 
+## Name a class once, in a table
+
+A page's document is TypeScript and its client is a string inside a template literal, so
+the two halves cannot import from each other: a class name used to be a literal in each,
+and one assembled at runtime (`"board-card__reason" + kind`) could not be found by
+reading either half. That is how a class reaches a stylesheet with no rule behind it —
+an unstyled element, and nothing fails.
+
+So a page declares its vocabulary once, in a `ClassNames` table beside its own modules,
+and both halves read it: the document interpolates `${N.toolbar}`, the bundle carries
+`namesScript(table)`. A name is then a symbol, and a test can compare the set a page
+wears with the set its stylesheet draws, in both directions.
+
+`namesScript` is the boundary, and it throws rather than trusting a caller: a value must
+be `KEBAB` — lowercase, hyphenated — because the table is spliced into a template
+literal, and a backtick would end the string while `${` would interpolate at build time.
+The global it binds must be a JavaScript `IDENTIFIER`. The table's *keys* are the page's
+own English; its *values* are what CSS matches, and nothing else in the page may spell
+one.
+
 ## Color is a role
 
 `WEB_THEME_TOKENS` is derived from `themes/bytefly-dark.json` and
