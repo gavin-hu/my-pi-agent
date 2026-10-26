@@ -89,7 +89,13 @@ describe("docs screenshots", () => {
 				continue;
 			}
 			const { width, rows } = screen.size;
-			const frame = frameFingerprint(frameLines(screen, width, rows));
+			const lines = frameLines(screen, width, rows);
+			const frame = frameFingerprint(lines);
+			// A hash says only that something moved, which is no help to whoever reads a
+			// red job; the frame it just drew is what they need, and it is already here.
+			if (frame !== fingerprint) {
+				for (const [index, line] of lines.entries()) console.log(`${name}|${index}|${JSON.stringify(line)}`);
+			}
 			expect(frame, `assets/screens/${screen.asset}.png is behind the frame: bun run screenshots ${name}`).toBe(
 				fingerprint,
 			);
