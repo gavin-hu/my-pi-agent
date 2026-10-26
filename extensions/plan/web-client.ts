@@ -99,29 +99,10 @@ ${WEB_MARKDOWN_JS}
   }
 
   // Review facts: the plan's step progress, and the comments per section.
-  function renderFacts() {
-    // The server counts the same step list approval seeds, so this never
-    // disagrees with the todo list over a checkbox outside the Steps section.
-    var steps = data.steps || { done: 0, total: 0 };
-    // A plan with no Steps section has no progress to show; 0/0 is noise.
-    var stepFact = document.getElementById("step-fact");
-    if (stepFact) stepFact.hidden = !steps.total;
-    var stepFill = document.getElementById("step-fill");
-    if (stepFill) stepFill.style.width = (steps.total > 0 ? Math.round((steps.done / steps.total) * 100) : 0) + "%";
-    var stepCount = document.getElementById("step-count");
-    if (stepCount) stepCount.textContent = steps.done + "/" + steps.total;
-    var totalEl = document.getElementById("comment-total");
-    if (totalEl) totalEl.textContent = String(annotations.length);
-    Object.keys(outlineItems).forEach(function (line) { outlineItems[line].hidden = true; });
-    annotations.forEach(function (annotation) {
-      var section = sectionFor(outlineEntries(), annotation.anchor);
-      if (!section) return;
-      var count = outlineItems[section.line];
-      if (!count) return;
-      var value = count.hidden ? 0 : Number(count.textContent);
-      count.textContent = String(value + 1);
-      count.hidden = false;
-    });
+  function facts() {
+    // The server counts the same step list approval seeds, so this never disagrees with
+    // the todo list over a checkbox outside the Steps section.
+    renderFacts(data.steps || { done: 0, total: 0 }, annotations, outlineItems, outlineEntries());
     updateState();
   }
 
@@ -232,7 +213,7 @@ ${WEB_MARKDOWN_JS}
       var stop = active.querySelector(".bf-block__add");
       if (stop) stop.focus();
     }
-    renderFacts();
+    facts();
     sectionObserver = observeSections(planEl, outlineList, sectionObserver);
     updateState();
   }
