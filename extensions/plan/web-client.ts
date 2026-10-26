@@ -23,6 +23,7 @@ import { WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { WEB_COMPOSER_JS } from "./web-composer.ts";
 import { WEB_DRAFT_JS } from "./web-draft.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
+import { WEB_PLAN_JS } from "./web-plan.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
@@ -87,6 +88,8 @@ ${WEB_OUTLINE_JS}
 
 ${WEB_BLOCKS_JS}
 
+${WEB_PLAN_JS}
+
 ${WEB_COMPOSER_JS}
 
 ${WEB_DRAFT_JS}
@@ -133,78 +136,37 @@ ${WEB_MARKDOWN_JS}
   function closeOpenComposer() {
     closeComposer(composer());
   }
-  function renderPlan() {
-    if (!planEl) return;
-    // The DOM below is thrown away and rebuilt. Focus is only put back when it was
-    // inside this document to begin with: a repaint the stream caused must never
-    // pull the keyboard away from the page the reviewer is working in.
-    var focused = document.activeElement;
-    var keepFocus = !!(focused && focused !== planEl && planEl.contains(focused));
-    closeOpenComposer();
-    pendingQuote = null;
-    var scrollTop = planEl.scrollTop;
-    planEl.replaceChildren();
-    var blocks = Array.isArray(data.blocks) ? data.blocks : [];
-    var anchored = {};
-    blocks.forEach(function (block) {
-      if (block.kind === "blank") return;
-      anchored[block.start] = true;
-      var wrap = el("div", "bf-block");
-      wrap.setAttribute("data-line", String(block.start));
-      wrap.setAttribute("data-kind", String(block.kind));
-      if (block.kind === "heading") wrap.id = "s-" + block.start;
-      renderBlockContent(wrap, block);
-      var mine = annotations.filter(function (annotation) { return annotation.anchor === block.start; });
-      if (mine.length > 0) wrap.classList.add("bf-block--commented");
-      var rail = el("div", "bf-block__rail");
-      var add = el("button", "bf-block__add");
-      add.type = "button";
-      add.textContent = "+";
-      add.setAttribute("aria-label", "Comment on this block");
-      add.addEventListener("click", function () {
-        var quote = pendingQuote && pendingQuote.wrap === wrap ? pendingQuote.quote : selectionIn(wrap);
-        pendingQuote = null;
-        openComposer(wrap, block, quote);
-      });
-      rail.appendChild(add);
-      if (mine.length > 0) {
-        var badge = el("span", "bf-block__count");
-        badge.textContent = String(mine.length);
-        badge.title = mine.length === 1 ? "1 review comment" : mine.length + " review comments";
-        rail.appendChild(badge);
-      }
-      wrap.appendChild(rail);
-      wrap.addEventListener("focusin", function () {
-        var next = setActive(planEl, blockElements(planEl).indexOf(wrap));
-        if (next !== null) activeIndex = next;
-      });
-      planEl.appendChild(wrap);
-      renderComments(planEl, block.start);
-    });
-    var orphans = annotations.filter(function (annotation) { return !anchored[annotation.anchor]; });
-    if (orphans.length > 0) {
-      var box = el("div", "bf-comments bf-comments--orphans");
-      var note = el("p"); note.textContent = "Comments not attached to a current block";
-      box.appendChild(note);
-      renderCommentCards(box, orphans);
-      planEl.appendChild(box);
-    }
-    planEl.scrollTop = scrollTop;
-    // The DOM was rebuilt, so the active block's class is gone; restore it in
-    // place rather than scrolling, so j/k resume where the reviewer was.
-    var active = activeIndex >= 0 ? blockElements(planEl)[activeIndex] : null;
-    if (active) active.classList.add("bf-block--active");
-    // The focused element went with the old DOM, so put the tab stop back on the
-    // block's comment control: that is where adding, editing, or deleting left it.
-    if (keepFocus && active) {
-      var stop = active.querySelector(".bf-block__add");
-      if (stop) stop.focus();
-    }
-    facts();
-    sectionObserver = observeSections(planEl, outlineList, sectionObserver);
-    updateState();
+  /**
+   * What a repaint reads and changes, built where the state is.
+   *
+   * Reads are getters and mutations are callbacks, so the bundle keeps every variable it
+   * owns and web-plan.ts holds only the shape of one frame.
+   */
+  function planFrame() {
+    return {
+      planEl: planEl,
+      outlineList: outlineList,
+      focused: document.activeElement,
+      blocks: blocks,
+      annotations: function () { return annotations; },
+      activeIndex: function () { return activeIndex; },
+      setActiveIndex: function (index) { activeIndex = index; },
+      pendingQuote: function () { return pendingQuote; },
+      clearPendingQuote: function () { pendingQuote = null; },
+      composer: composer,
+      renderBlock: renderBlockContent,
+      renderComments: renderComments,
+      renderCommentCards: renderCommentCards,
+      selectionIn: selectionIn,
+      open: openComposer,
+      facts: facts,
+      updateState: updateState,
+    };
   }
 
+  function renderAll() {
+    sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
+  }
 
   // Save, approve, and post share the same POST shape; what differs is whether
   // the review settles. Only the owner's save and approve resolve the session,
@@ -423,7 +385,7 @@ ${WEB_MARKDOWN_JS}
   renderHeader();
   renderName();
   outlineItems = renderOutline(outlineList, outlineEntries());
-  renderPlan();
+  renderAll();
   reopenComposer(composer(), restoredTyping, { saved: saved, approved: approved, closed: closed }, blocks());
   updateProgress();
 })();

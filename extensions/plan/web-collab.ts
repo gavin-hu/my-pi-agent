@@ -131,7 +131,7 @@ export const WEB_COLLAB_JS = String.raw`  /**
     reviewerName = value;
     try { window.localStorage.setItem("bf-review-name", reviewerName); } catch (error) {}
     renderName();
-    renderPlan();
+    renderAll();
   }
 
   function askName() {
@@ -147,7 +147,7 @@ export const WEB_COLLAB_JS = String.raw`  /**
     try { window.localStorage.setItem("bf-review-name", reviewerName); } catch (error) {}
     if (window.bfName) window.bfName.close();
     renderName();
-    renderPlan();
+    renderAll();
   }
 
   /**
@@ -197,7 +197,7 @@ export const WEB_COLLAB_JS = String.raw`  /**
         if (typeof next.author === "string" && next.author) adoptName(next.author);
         // This tab's own unsaved comments belong on top of what just arrived.
         restoreDraft();
-        renderPlan();
+        renderAll();
         renderFacts();
         updateState();
         setStatus(kind === "plan" ? "The plan changed on disk; showing the new version." : "Updated with a new comment.");
