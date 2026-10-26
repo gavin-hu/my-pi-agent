@@ -20,6 +20,7 @@ import { WEB_COMMENTS_JS } from "./web-comments.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
 import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
 import { WEB_BLOCKS_JS } from "./web-blocks.ts";
+import { WEB_DRAFT_JS } from "./web-draft.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
@@ -84,6 +85,8 @@ ${CLIENT_RUNTIME_JS}
 ${WEB_OUTLINE_JS}
 
 ${WEB_BLOCKS_JS}
+
+${WEB_DRAFT_JS}
 
 ${WEB_CHROME_JS}
 
@@ -243,22 +246,14 @@ ${WEB_MARKDOWN_JS}
 
   // A composer holds text the page has not committed, so the ways off the page
   // refuse while it does: leaving would drop what the reviewer typed.
-  function draftTextarea() {
-    var open = planEl ? planEl.querySelector(".bf-composer") : null;
-    var area = open ? open.querySelector("textarea") : null;
-    return area && area.value.trim() ? area : null;
-  }
-  function guardDraft() {
-    var area = draftTextarea();
-    if (!area) return false;
-    setStatus(DRAFT_REFUSAL, "error");
-    area.focus();
-    return true;
+  /** The ways off the page refuse while a comment is half-written; this says so once. */
+  function confirmNoDraft() {
+    return guardDraft(planEl, statusEl, DRAFT_REFUSAL, paintStatus);
   }
 
   function save() {
     if (saved || approved || closed) return;
-    if (guardDraft()) return;
+    if (confirmNoDraft()) return;
     setStatus("Saving\u2026");
     submit("/api/feedback", "Saved \u2014 return to Pi to continue.", "Could not save: ", function () {
       saved = true;
@@ -271,7 +266,7 @@ ${WEB_MARKDOWN_JS}
   // so the page keeps following it and she can keep editing her own comments.
   function postComments() {
     if (closed) return;
-    if (guardDraft()) return;
+    if (confirmNoDraft()) return;
     setStatus("Posting\u2026");
     submit("/api/comment", "Comments posted \u2014 the owner sees them now.", "Could not post: ", null);
   }
@@ -289,7 +284,7 @@ ${WEB_MARKDOWN_JS}
   function cancel() {
     // Closing the review is the owner's decision; a reviewer closes their tab.
     if (role !== "owner" || saved || approved || closed) return;
-    if (guardDraft()) return;
+    if (confirmNoDraft()) return;
     closed = true;
     settleStream();
     lockActions();
@@ -314,7 +309,7 @@ ${WEB_MARKDOWN_JS}
 
   function askApprove() {
     if (saved || approved || closed) return;
-    if (guardDraft()) return;
+    if (confirmNoDraft()) return;
     if (!approveDialog || !window.bfApprove) { approve(); return; }
     window.bfApprove.open();
   }

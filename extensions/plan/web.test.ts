@@ -29,6 +29,7 @@ import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
+import { draftTextarea, guardDraft, WEB_DRAFT_JS } from "./web-draft.ts";
 import { observeSections, renderFacts, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
@@ -761,7 +762,9 @@ describe("review client", () => {
 	});
 
 	test("refuses to leave a draft, hides empty steps, and offers a delete back", () => {
-		expect(REVIEW_CLIENT_JS).toContain("function guardDraft()");
+		// The rule is `web-draft.ts`'s now: the client keeps its sentence and its status
+		// line, and hands both to the one guard.
+		expect(REVIEW_CLIENT_JS).toContain("guardDraft(planEl, statusEl, DRAFT_REFUSAL, paintStatus)");
 		expect(REVIEW_CLIENT_JS).toContain("Add or discard the comment you are writing.");
 		expect(REVIEW_CLIENT_JS).toContain('getElementById("step-fact")');
 		expect(REVIEW_CLIENT_JS).toContain('button.id = "undo-delete"');
@@ -2141,5 +2144,56 @@ describe("review block navigation", () => {
 		expect(blockAtLine(planEl, [{ start: 1 }], 8)).toBeNull();
 		expect(blockAtLine(planEl, [{ start: 1 }, { start: 30 }], 30)).toBeNull();
 		expect(blockAtLine(null, [{ start: 1 }], 1)).toBeNull();
+	});
+});
+
+describe("review draft guard", () => {
+	const planWith = (value: string) => {
+		const area = {
+			value,
+			focused: 0,
+			focus() {
+				this.focused += 1;
+			},
+		};
+		const planEl = {
+			querySelector: (selector: string) => (selector === ".bf-composer" ? { querySelector: () => area } : null),
+		};
+		return { area, planEl: planEl as unknown as Parameters<typeof draftTextarea>[0] };
+	};
+
+	test("carries the source, safe to splice into the client bundle", () => {
+		expect(WEB_DRAFT_JS).not.toContain("`");
+		expect(WEB_DRAFT_JS).not.toContain("${");
+		for (const fn of [draftTextarea, guardDraft]) {
+			expect(WEB_DRAFT_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
+		}
+	});
+
+	test("a composer with only whitespace is not a draft", () => {
+		expect(draftTextarea(planWith("  \n\t ").planEl)).toBeNull();
+		expect(draftTextarea(planWith("half a thought").planEl)?.value).toBe("half a thought");
+		expect(draftTextarea(planWith("x").planEl)?.value).toBe("x");
+		expect(draftTextarea(null)).toBeNull();
+		expect(draftTextarea({ querySelector: () => null } as unknown as Parameters<typeof draftTextarea>[0])).toBeNull();
+	});
+
+	test("the way out is refused, named, and the cursor is put where the text is", () => {
+		const { area, planEl } = planWith("half a thought");
+		const painted: Array<{ text: string; kind: string | undefined }> = [];
+		const guard = (value: string) =>
+			guardDraft(planEl, {} as Parameters<typeof guardDraft>[1], value, (_node, text, kind) => {
+				painted.push({ text, kind });
+			});
+		expect(guard("Add or discard the comment you are writing.")).toBe(true);
+		expect(painted).toEqual([{ text: "Add or discard the comment you are writing.", kind: "error" }]);
+		expect(area.focused).toBe(1);
+
+		// With nothing half-written, every way out is allowed and nothing is painted.
+		painted.length = 0;
+		expect(guardDraft(planWith("").planEl, null, "refusal", () => painted.push({ text: "x", kind: undefined }))).toBe(
+			false,
+		);
+		expect(painted).toEqual([]);
 	});
 });
