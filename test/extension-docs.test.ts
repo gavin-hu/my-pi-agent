@@ -21,10 +21,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
-import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
-import { withAgentDir, withEnv } from "./helpers/env.ts";
-import { createFakePi } from "./helpers/fakes.ts";
+import { registeredSurface } from "./helpers/surface.ts";
 
 const root = join(import.meta.dir, "..");
 const docsDir = join(root, "docs", "extensions");
@@ -122,24 +119,6 @@ function tablesOf(section: string): string[][][] {
 					.slice(1, -1)
 					.map((cell) => cell.replaceAll("\u0000", "|").trim()),
 			),
-	);
-}
-
-/** The names a factory registers for the host to hold. */
-async function surfaceOf(entry: string): Promise<{ tools: string[]; commands: string[] }> {
-	const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
-	return await withAgentDir(async () =>
-		withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
-			const fake = createFakePi();
-			module.default?.(fake.pi);
-			// Pi's own path tools are re-registered by `worktree` to follow the active
-			// root; they replace the model's tool rather than joining the surface.
-			const overridden = new Set<string>(ROOT_TOOL_NAMES);
-			return {
-				tools: [...fake.tools.keys()].filter((name) => !overridden.has(name)),
-				commands: [...fake.commands.keys()],
-			};
-		}),
 	);
 }
 
@@ -256,7 +235,7 @@ describe("the registered surface is in the capabilities", () => {
 		test(entry, async () => {
 			const name = nameOf(entry);
 			const section = sectionOf(pageOf(name), "Capabilities");
-			const { tools, commands } = await surfaceOf(entry);
+			const { tools, commands } = await registeredSurface(entry);
 
 			const missingTools = tools.filter((tool) => !new RegExp(`\`[^\`]*\\b${tool}\\b[^\`]*\``).test(section));
 			const missingCommands = commands.filter((command) => !section.includes(`\`/${command}`));

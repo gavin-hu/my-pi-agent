@@ -56,6 +56,7 @@ gate is stated in the test.
    `test/tool-render.test.ts`, `test/roadmap.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
+   `test/doc-counts.test.ts`,
    `test/config-docs.test.ts`, `test/settings-coverage.test.ts`,
    `test/reference-coverage.test.ts`,
    `test/dependencies.test.ts`, `test/skill-bank.test.ts`,
@@ -272,12 +273,14 @@ test/
   helpers/                 # ALL shared doubles and fixtures
     fakes.ts  context.ts  process.ts  env.ts  entries.ts  config.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
+    surface.ts             # the catalog and the registered surface, counted from the tree
     fixtures/<name>.ts     # extension-specific fixtures
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, boundary, line bar, and doc-link guards
   drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
-  docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, links, catalog counts
+  docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
+  doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
   architecture-doc.test.ts # docs/architecture.md: the paths and roadmap ids it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, and a Files row for every module

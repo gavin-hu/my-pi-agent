@@ -62,6 +62,7 @@ const ROOT_TEST_FILES = new Set([
 	"project-docs-skill.test.ts",
 	"config-docs.test.ts",
 	"dependencies.test.ts",
+	"doc-counts.test.ts",
 	"docs-parity.test.ts",
 	"drift.test.ts",
 	"extension-docs.test.ts",
