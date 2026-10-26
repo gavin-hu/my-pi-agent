@@ -32,6 +32,7 @@ export interface ClientNode {
 	getAttribute(name: string): string | null;
 	removeAttribute(name: string): void;
 	appendChild(child: ClientNode): void;
+	remove(): void;
 	replaceChildren(): void;
 	querySelector(selector: string): ClientNode | null;
 	querySelectorAll(selector: string): ArrayLike<ClientNode>;

@@ -29,6 +29,7 @@ import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
 import { blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
+import { closeComposer, commentOnActive, reopenComposer, WEB_COMPOSER_JS } from "./web-composer.ts";
 import { draftTextarea, guardDraft, WEB_DRAFT_JS } from "./web-draft.ts";
 import { observeSections, renderFacts, sectionFor, WEB_OUTLINE_JS } from "./web-outline.ts";
 import { renderReviewPage, REVIEW_CSS, type ReviewPageData } from "./web-page.ts";
@@ -727,10 +728,13 @@ describe("review client", () => {
 		expect(clientFunction("typingOf")).toContain('area.closest(".bf-block")');
 		expect(clientFunction("saveDraft")).toContain("record.typing = typing");
 		expect(clientFunction("openComposer")).toContain('area.addEventListener("input"');
-		expect(clientFunction("reopenComposer")).toContain("blockAtLine(planEl, blocks(), typing.anchor)");
+		expect(clientFunction("reopenComposer")).toContain("blockAtLine(deps.planEl, blocks, typing.anchor)");
 		expect(clientFunction("restoreDraft")).toContain("return typing;");
 		// A close with nothing open must not rewrite, and so drop, a restored draft.
-		expect(clientFunction("closeComposer")).toContain("if (open) saveDraft();");
+		const close = clientFunction("closeComposer");
+		expect(close).toContain("if (open)");
+		expect(close).toContain("deps.saveDraft();");
+		expect(REVIEW_CLIENT_JS).toContain("function closeOpenComposer() {");
 	});
 
 	test("keeps the selection a composer was quoting", () => {
@@ -2195,5 +2199,123 @@ describe("review draft guard", () => {
 			false,
 		);
 		expect(painted).toEqual([]);
+	});
+});
+
+describe("review composer lifecycle", () => {
+	const node = (className = "") => {
+		const self: Record<string, unknown> = {
+			className,
+			textContent: null as string | null,
+			title: "",
+			hidden: false,
+			href: "",
+			id: "",
+			style: { width: "" },
+			composing: false,
+			removed: false,
+			classList: {
+				add() {},
+				remove(name: string) {
+					if (name === "bf-block--composing") self.composing = false;
+				},
+				toggle() {},
+			},
+			setAttribute() {},
+			getAttribute: () => "8",
+			removeAttribute() {},
+			appendChild() {},
+			replaceChildren() {},
+			remove() {
+				self.removed = true;
+			},
+			querySelector: () => null,
+			querySelectorAll: () => (self.composing ? [self] : []),
+			addEventListener() {},
+		};
+		return self;
+	};
+	const deps = (over: Partial<Record<string, unknown>> = {}) => {
+		const painted: Array<{ text: string; kind?: string }> = [];
+		const opened: Array<{ quote: string; initial?: string }> = [];
+		return {
+			painted,
+			opened,
+			value: {
+				planEl: null,
+				statusEl: null,
+				refusal: "Add or discard the comment you are writing.",
+				setStatus: (text: string, kind?: string) => painted.push({ text, kind }),
+				saveDraft: () => painted.push({ text: "saved" }),
+				open: (_wrap: unknown, _block: unknown, quote: string, initial?: string) => opened.push({ quote, initial }),
+				...over,
+			} as Parameters<typeof closeComposer>[0] & { open: (w: unknown, b: unknown, q: string, i?: string) => void },
+		};
+	};
+
+	test("carries the source, safe to splice into the client bundle", () => {
+		expect(WEB_COMPOSER_JS).not.toContain("`");
+		expect(WEB_COMPOSER_JS).not.toContain("${");
+		for (const fn of [closeComposer, reopenComposer, commentOnActive]) {
+			expect(WEB_COMPOSER_JS.split(String(fn)).length, String(fn).slice(0, 40)).toBe(2);
+		}
+	});
+
+	test("closing drops the draft only when a composer was open", () => {
+		// A close with nothing open must not rewrite — and so drop — a draft a reload restored.
+		const empty = deps();
+		closeComposer(empty.value);
+		expect(empty.painted).toEqual([]);
+
+		const composer = node("bf-composer") as { removed: boolean };
+		const planEl = { querySelector: () => composer, querySelectorAll: () => [node()] };
+		const filled = deps({ planEl });
+		closeComposer(filled.value);
+		expect(composer.removed).toBe(true);
+		expect(filled.painted).toEqual([{ text: "saved", kind: undefined }]);
+	});
+
+	test("a stale refusal is cleared, a fresh status is left alone", () => {
+		const stale = deps();
+		stale.value.statusEl = { textContent: "Add or discard the comment you are writing." } as never;
+		closeComposer(stale.value);
+		expect(stale.painted).toEqual([{ text: "", kind: undefined }]);
+
+		const other = deps();
+		other.value.statusEl = { textContent: "Comment added." } as never;
+		closeComposer(other.value);
+		expect(other.painted).toEqual([]);
+	});
+
+	test("a settled review has no draft to reopen", () => {
+		const withBlock = deps({ planEl: { querySelector: () => node(), querySelectorAll: () => [] } });
+		reopenComposer(withBlock.value, { anchor: 8 }, { saved: true, approved: false, closed: false }, [{ start: 8 }]);
+		reopenComposer(withBlock.value, { anchor: 8 }, { saved: false, approved: true, closed: false }, [{ start: 8 }]);
+		reopenComposer(withBlock.value, { anchor: 8 }, { saved: false, approved: false, closed: true }, [{ start: 8 }]);
+		reopenComposer(withBlock.value, undefined, { saved: false, approved: false, closed: false }, []);
+		expect(withBlock.opened).toEqual([]);
+
+		// A page still asking gets its half-written comment back, quote and text.
+		reopenComposer(
+			withBlock.value,
+			{ anchor: 8, quote: "the plan", text: "half a thought" },
+			{ saved: false, approved: false, closed: false },
+			[{ start: 8 }],
+		);
+		expect(withBlock.opened).toEqual([{ quote: "the plan", initial: "half a thought" }]);
+	});
+
+	test("the keyboard's composer opens on the active block, starting one if none is", () => {
+		const opened: string[] = [];
+		const blocks = [node()];
+		const planEl = { querySelector: () => blocks[0], querySelectorAll: () => blocks };
+		const subject = deps({ planEl, open: (_w: unknown, _b: unknown, quote: string) => opened.push(quote) });
+		// Nothing active: it becomes the first block, and that is what gets the composer.
+		expect(commentOnActive(subject.value, -1, [{ start: 8 }])).toBe(0);
+		expect(opened).toEqual([""]);
+		// No blocks at all: the index is kept rather than reset to zero.
+		const bare = deps({ planEl: { querySelector: () => null, querySelectorAll: () => [] } });
+		expect(commentOnActive(bare.value, 4, [])).toBe(4);
+		expect(bare.opened).toEqual([]);
 	});
 });
