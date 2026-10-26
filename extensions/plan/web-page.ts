@@ -26,69 +26,14 @@ import {
 	WEB_LAYOUT_CSS,
 	WEB_THEME_CSS,
 } from "../../lib/web/index.ts";
-import type { PlanBlock } from "./blocks.ts";
-import type { PlanAnnotation } from "./feedback.ts";
+import { keyRows, type KeySurface } from "./web-keys.ts";
 import type { ReviewRole } from "./types.ts";
-import type { ShareState } from "./web-share.ts";
+import type { ReviewPageData } from "./web-payload.ts";
 
-/** A heading the outline can jump to. */
-export interface ReviewOutlineItem {
-	/** DOM id the client gives the heading. */
-	id: string;
-	/** 0-based source line. */
-	line: number;
-	/** Heading level, 1-6. */
-	level: number;
-	/** Heading text. */
-	text: string;
-	/** True when this section changed since the previous review of the plan. */
-	changed?: boolean;
-}
-
-/** Everything the browser needs to render one plan review. */
-export interface ReviewPageData {
-	/** Plan title: the document's H1, or the file-name slug when it has none. */
-	title: string;
-	/** Source-line blocks of the feedback-stripped plan. */
-	blocks: PlanBlock[];
-	/** Feedback already stored in the file. */
-	annotations: PlanAnnotation[];
-	/** Section outline, in document order. */
-	outline: ReviewOutlineItem[];
-	/**
-	 * The plan's step progress, from the same `extractPlanSteps` the approval and
-	 * `set_plan_steps` use: the `Steps` section when there is one, so the page
-	 * agrees with what approval seeds rather than counting every checkbox.
-	 */
-	steps: { done: number; total: number };
-	/** Highlighted HTML per line, keyed by the code block's 0-based start line. */
-	code: Record<string, string[]>;
-	/**
-	 * The caps the server enforces, so the page does not retype them: comment
-	 * count, comment length, and quote length, from `feedback.ts`.
-	 */
-	limits: { comments: number; comment: number; quote: number };
-	/** Whether the review may approve the plan (only the `exit_plan_mode` flow). */
-	canApprove: boolean;
-	/** Who is looking: `owner` may approve, `reviewer` may only comment. */
-	role: ReviewRole;
-	/**
-	 * The name a reviewer's link posts under, once it has been bound. Absent for the
-	 * owner and for a reviewer that has not written yet, which is what tells the page
-	 * whether its name control is still a choice.
-	 */
-	author?: string;
-	/** A running share, so a reload re-renders the link the owner already minted. */
-	share?: ShareState;
-	/** Per-session secret the client echoes on every request. */
-	token: string;
-	/**
-	 * A short digest of the plan text the page rendered. It keys the unsaved draft a
-	 * tab keeps for itself, so a reload restores the comments this writer has not
-	 * saved yet, and a plan that changed underneath drops them instead.
-	 */
-	rev: string;
-}
+// The island's two types live with the code that builds it (`web-payload.ts`); they are
+// re-exported here because a page's data and the page's markup are read from the same
+// imports in every caller, and two declarations of one island is how its halves drift.
+export type { ReviewOutlineItem, ReviewPageData } from "./web-payload.ts";
 
 /** Page styles: the shared base + theme + shell + components, then the review. */
 export const REVIEW_CSS = `${WEB_BASE_CSS}
@@ -127,6 +72,10 @@ ${WEB_COMPONENTS_CSS}
 .review-fact .bf-progress{color:var(--text)}
 .review-fact .bf-progress__track{width:96px}
 .review-fact__value{color:var(--text);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.review-view{display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:var(--radius-md)}
+.review-view .bf-btn{flex:1 1 auto;justify-content:center;padding:3px 8px;font-size:var(--fs-xs);border:0;background:none}
+.review-view .bf-btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:var(--fw-semibold)}
+.review-view .bf-btn:disabled{opacity:.5;cursor:default}
 .review-nav{min-width:0}
 .review-nav__title{margin:0;font:var(--fw-semibold) var(--fs-xs) var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .review-nav ul{list-style:none;margin:0;padding:0}
@@ -149,6 +98,10 @@ ${WEB_COMPONENTS_CSS}
 .bf-block__add:hover{border-color:var(--accent);color:var(--accent)}
 .bf-block:hover .bf-block__add,.bf-block:focus-within .bf-block__add,.bf-block--active .bf-block__add,.bf-block--commented .bf-block__add{opacity:1}
 .bf-block__count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent);font:var(--fw-semibold) var(--fs-xs)/1 var(--font-mono)}
+/* A block the last review did not hold: the one mark that says "read this line again". The
+   rule sits at the text edge, inside the gutter the rail already reserves, so it cannot
+   reflow the measure or collide with a comment badge. */
+.bf-block[data-changed]{box-shadow:inset 2px 0 0 var(--accent)}
 .bf-block:hover,.bf-block--active{background:var(--surface)}
 .bf-block--active{box-shadow:inset 0 0 0 1px var(--border)}
 .bf-block h1,.bf-block h2,.bf-block h3,.bf-block h4,.bf-block h5,.bf-block h6{margin:24px 0 8px;line-height:var(--lh-tight)}
@@ -225,7 +178,9 @@ ${WEB_COMPONENTS_CSS}
 @media print{
 .bf-review{padding:0}
 .bf-review>.bf-block{max-width:none;padding:0 0 6px}
-.bf-block__rail,.bf-composer,.bf-block__add,.review-progress{display:none}
+.bf-block__rail,.bf-composer,.bf-block__add,.review-progress,.review-view{display:none}
+/* A printed review is the whole plan, never the view the reader had on screen. */
+.bf-block[hidden]{display:block}
 .bf-block:hover,.bf-block--active{background:none;box-shadow:none}
 .bf-comments{padding-left:0}
 .bf-comment{break-inside:avoid}
@@ -237,28 +192,19 @@ ${WEB_COMPONENTS_CSS}
  * not have to grow every time a binding is added.
  */
 function reviewHints(role: ReviewRole, canApprove: boolean): string {
-	const approve = canApprove ? `, <kbd class="bf-kbd">a</kbd> to approve` : "";
-	const save = role === "owner" ? "save" : "post";
-	return `<p class="review-hints">Press <kbd class="bf-kbd">j</kbd>/<kbd class="bf-kbd">k</kbd> to move, <kbd class="bf-kbd">c</kbd> to comment${approve}, <kbd class="bf-kbd">s</kbd> to ${save}, <kbd class="bf-kbd">?</kbd> for all shortcuts.</p>`;
+	const surface: KeySurface = { role, canApprove };
+	const parts = keyRows(surface)
+		.filter((row) => row.hint !== undefined)
+		.map(
+			(row) => `${row.keys.map((key) => `<kbd class="bf-kbd">${key}</kbd>`).join("/")} ${row.hint?.(surface) ?? ""}`,
+		);
+	return `<p class="review-hints">Press ${parts.join(", ")}.</p>`;
 }
 
-/** The shortcut sheet's rows: the review's own keys, led by approve when offered. */
+/** The shortcut sheet's rows: the same table the handler dispatches through. */
 function reviewKeys(role: ReviewRole, canApprove: boolean): KeyHint[] {
-	const rows: KeyHint[] = [];
-	if (canApprove) rows.push({ keys: "a", label: "Approve and run the plan" });
-	rows.push(
-		{ keys: ["j", "k"], label: "Next and previous block" },
-		{ keys: "c", label: "Comment on the current block" },
-		{ keys: "Enter", label: "Add the comment you are writing" },
-		role === "owner"
-			? { keys: "s", label: "Save feedback and return to Pi" }
-			: { keys: "s", label: "Post your comments to the plan" },
-		role === "owner"
-			? { keys: "Esc", label: "Close the composer, the sheet, or the review" }
-			: { keys: "Esc", label: "Close the composer or this sheet" },
-		{ keys: "?", label: "Toggle this sheet" },
-	);
-	return rows;
+	const surface: KeySurface = { role, canApprove };
+	return keyRows(surface).map((row) => ({ keys: [...row.keys], label: row.label(surface) }));
 }
 
 /**
@@ -318,6 +264,11 @@ export function renderReviewPage(data: ReviewPageData): string {
 <summary class="bf-panel__summary">Sections</summary>
 <div class="bf-panel review-panel">
 ${reviewFacts()}
+<div class="review-view" role="group" aria-label="What to show" id="review-view">
+<button type="button" class="bf-btn" data-view="all" aria-pressed="true">All</button>
+<button type="button" class="bf-btn" data-view="changed" aria-pressed="false">Changed</button>
+<button type="button" class="bf-btn" data-view="comments" aria-pressed="false">Comments</button>
+</div>
 <nav class="review-nav" aria-labelledby="outline-title"><p class="review-nav__title" id="outline-title">Sections</p><ul id="outline-list"></ul></nav>
 ${reviewHints(data.role, data.canApprove)}
 </div>

@@ -37,6 +37,8 @@ export interface PlanRenderDeps {
 	/** The element that had focus before this frame, or null when nothing did. */
 	focused: ClientNode | null;
 	blocks(): readonly IslandBlock[];
+	/** Whether this block is new or edited since the previous review; absent means no marks. */
+	changed?(line: number): boolean;
 	annotations(): readonly { anchor: number }[];
 	activeIndex(): number;
 	setActiveIndex(index: number): void;
@@ -87,6 +89,8 @@ export function renderPlanFrame(
 		const wrap = el("div", "bf-block");
 		wrap.setAttribute("data-line", String(block.start));
 		wrap.setAttribute("data-kind", String(block.kind));
+		// The one mark that says "read this line again": a block the last review did not have.
+		if (deps.changed?.(block.start) === true) wrap.setAttribute("data-changed", "1");
 		if (block.kind === "heading") wrap.id = "s-" + block.start;
 		deps.renderBlock(wrap, block);
 		const mine = deps.annotations().filter((annotation) => annotation.anchor === block.start);

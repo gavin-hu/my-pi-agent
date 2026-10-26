@@ -23,6 +23,8 @@ export interface OutlineEntry {
 	line: number;
 	text: string;
 	changed?: boolean;
+	/** Content blocks this section no longer holds, when the baseline can say so. */
+	removed?: number;
 }
 
 /** What the browser's `IntersectionObserver` answers for a section watcher. */
@@ -72,6 +74,14 @@ export function renderOutline(list: ClientNode | null, entries: readonly Outline
 			dot.setAttribute("aria-label", "Changed since your last review");
 			dot.title = "Changed since your last review";
 			link.appendChild(dot);
+		}
+		if (item.removed !== undefined && item.removed > 0) {
+			// A block that left cannot be drawn where it was, so the count is the fact the
+			// page can still give: how much shorter this section has become.
+			link.title =
+				item.removed === 1
+					? "1 block removed since your last review"
+					: item.removed + " blocks removed since your last review";
 		}
 		const count = el("span", "review-nav__count");
 		count.hidden = true;

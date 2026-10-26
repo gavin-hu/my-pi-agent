@@ -18,7 +18,14 @@ import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { blockAt, codeBody, contentBlockAt, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
-import { changedSections, type SectionDigest, sameSections, sanitizePlanText, sectionDigests } from "./plan-text.ts";
+import {
+	changedBlocks,
+	changedSections,
+	type SectionDigest,
+	sameSections,
+	sanitizePlanText,
+	sectionDigests,
+} from "./plan-text.ts";
 import { extractSections } from "./sections.ts";
 import { parseFeedback, stripFeedback } from "./feedback.ts";
 import { createPlanStore, MAX_PLAN_BYTES, planTitle, slugify, stamp, type PlanSummary } from "./plans.ts";
@@ -1282,6 +1289,56 @@ describe("plan text — sanitizing and review comparison", () => {
 		const plan = ["# Plan", "## Goal", "Ship it."].join("\n");
 		expect(sameSections(sectionDigests(plan), sectionDigests(plan.replace("Ship it.", "Ship it now.")))).toBe(false);
 		expect(sameSections(sectionDigests(plan), sectionDigests(`${plan}\n## Risks\n- stale reads`))).toBe(false);
+	});
+});
+
+describe("the baseline's block digests", () => {
+	/** One section's content-block digests, in order: what a later review compares against. */
+	const blocksOf = (plan: string): string[] => sectionDigests(plan)[0]?.blocks ?? [];
+
+	test("carries one digest per content block, and none for a blank separator", () => {
+		const spaced = ["## Steps", "- [ ] One", "", "- [ ] Two"].join("\n");
+		// A blank line is a separator, not content: adding one has not changed the plan.
+		expect(blocksOf(spaced)).toHaveLength(3);
+		expect(blocksOf(["## Steps", "- [ ] One", "- [ ] Two"].join("\n"))).toHaveLength(3);
+	});
+
+	test("gives each block a short digest beside the section's own", () => {
+		const [section] = sectionDigests(["## Steps", "- [ ] One"].join("\n"));
+		expect(section?.blocks?.[0]).toMatch(/^[0-9a-f]{8}$/);
+		expect(section?.digest).toMatch(/^[0-9a-f]{64}$/);
+	});
+});
+
+describe("plan text — changed blocks", () => {
+	const plan = ["## Steps", "- [ ] One", "- [ ] Two", "- [ ] Three"].join("\n");
+	const prior = (): string[] => sectionDigests(plan)[0]?.blocks ?? [];
+	const current = (text: string): string[] => sectionDigests(text)[0]?.blocks ?? [];
+
+	test("marks only the block that was edited", () => {
+		const marks = changedBlocks(prior(), current(plan.replace("- [ ] Two", "- [ ] Two, revised")));
+		// The heading is block 0, so the second step is block 2.
+		expect(marks).toEqual({ changed: [2], removed: 0 });
+	});
+
+	test("marks an inserted block and leaves the rest alone", () => {
+		const inserted = plan.replace("- [ ] Two", "- [ ] One and a half\n- [ ] Two");
+		expect(changedBlocks(prior(), current(inserted)).changed).toEqual([2]);
+	});
+
+	test("counts a block that left without marking anything", () => {
+		const marks = changedBlocks(prior(), current(plan.replace("- [ ] Two\n", "")));
+		expect(marks).toEqual({ changed: [], removed: 1 });
+	});
+
+	test("marks nothing for an identical plan", () => {
+		expect(changedBlocks(prior(), current(plan))).toEqual({ changed: [], removed: 0 });
+	});
+
+	test("marks nothing against a baseline with no block digests", () => {
+		// A baseline written before block marks is honoured at the depth it can be: the
+		// section dot the terminal review uses, and no guessed block marks.
+		expect(changedBlocks(undefined, current(plan))).toEqual({ changed: [], removed: 0 });
 	});
 });
 

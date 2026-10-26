@@ -60,6 +60,9 @@ export function fixedPlanDate(): Date {
 }
 
 /** A persisted plan-baseline custom entry. */
-export function baselineEntry(path: string, sections: Array<{ title: string; digest: string }>): unknown {
+export function baselineEntry(
+	path: string,
+	sections: Array<{ title: string; digest: string; blocks?: string[] }>,
+): unknown {
 	return { type: "custom", customType: "plan-baseline", data: { path, sections } };
 }

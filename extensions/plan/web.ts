@@ -11,7 +11,6 @@
  */
 
 import { networkInterfaces } from "node:os";
-import { basename } from "node:path";
 import { openInBrowser } from "../../lib/browser.ts";
 import {
 	jsonHeaders,
@@ -22,25 +21,14 @@ import {
 	serveLoopback,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
-import { fenceLanguage, highlightLines } from "../../lib/highlight.ts";
 import { type ArmTimer, defaultInterval, defaultTimer, type RepeatTimer } from "../../lib/timer.ts";
-import { codeBody, fenceInfo } from "./blocks.ts";
-import {
-	claimAuthor,
-	MAX_ANNOTATIONS,
-	MAX_COMMENT_LENGTH,
-	MAX_QUOTE_LENGTH,
-	normalizeAuthor,
-	readFeedback,
-	stripFeedback,
-	type PlanAnnotation,
-} from "./feedback.ts";
-import { planTitle, type PlanStore, type StoredPlan } from "./plans.ts";
-import { changedSections, planDigest, type SectionDigest } from "./plan-text.ts";
-import { extractPlanSteps } from "./steps.ts";
+import { stripFeedback, type PlanAnnotation } from "./feedback.ts";
+import type { PlanStore, StoredPlan } from "./plans.ts";
+import type { SectionDigest } from "./plan-text.ts";
 import type { ReviewCaller } from "./types.ts";
 import { handleReviewRequest, type ReviewContext, type SaveResult } from "./web-router.ts";
-import type { ReviewPageData } from "./web-page.ts";
+import { reviewPageData, type ReviewPageData } from "./web-payload.ts";
+import { postReviewerAnnotations, saveOwnerAnnotations } from "./web-write.ts";
 import { createShareSession, type ShareSession } from "./web-share-session.ts";
 import { createStreams } from "./web-streams.ts";
 import { createTokens } from "./web-tokens.ts";
@@ -242,62 +230,18 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		stopTicker = (deps.tick ?? defaultInterval)(deps.pollMs ?? PLAN_POLL_MS, () => void checkPlanFile());
 
 		const page = async (caller: ReviewCaller): Promise<ReviewPageData> => {
-			const { role } = caller;
 			const stored = await refreshPageText();
-			// The body, its blocks, and the comments out of one read of the file: an
-			// anchor names a block from this same parse, so the island cannot mark a
-			// comment onto a line the page never rendered.
-			const read = readFeedback(stored.content);
-			const current = read.body;
-			const blocks = read.blocks;
-			// Per-section change marks, each carrying its own section: the same shape the
-			// terminal review renders, so a heading and its mark cannot be paired wrongly.
-			const marks = changedSections(options.baseline, current);
-			const outline = marks.flatMap(({ section, changed }) =>
-				section.title === ""
-					? []
-					: [
-							{
-								id: `s-${section.line}`,
-								line: section.line,
-								level: section.level,
-								text: section.title,
-								...(changed ? { changed: true } : {}),
-							},
-						],
-			);
-			// The same step list approval seeds and set_plan_steps indexes, so the page's
-			// progress cannot disagree with the todo list.
-			const stepList = extractPlanSteps(current);
-			// Highlight code blocks once, at the boundary: the client copies only the
-			// tok-* spans out of the server-escaped HTML.
-			const code: Record<string, string[]> = {};
-			for (const block of blocks) {
-				if (block.kind !== "code") continue;
-				const language = fenceLanguage(fenceInfo(block.lines[0] ?? ""));
-				if (language) code[String(block.start)] = highlightLines(codeBody(block), language);
-			}
-			return {
-				// The document's own H1 reads better than the file-name slug, and the
-				// slug is still the fallback for a plan that starts with something else.
-				title: marks.find((mark) => mark.section.level === 1)?.section.title || planTitle(basename(plan.path)),
-				blocks,
-				annotations: read.annotations,
-				outline,
-				steps: {
-					done: stepList.filter((step) => step.status === "completed").length,
-					total: stepList.length,
-				},
-				code,
-				limits: { comments: MAX_ANNOTATIONS, comment: MAX_COMMENT_LENGTH, quote: MAX_QUOTE_LENGTH },
+			// The island is one function of what the page renders: the text, the baseline
+			// the previous review left, and who is asking.
+			return reviewPageData({
+				path: plan.path,
+				content: stored.content,
+				baseline: options.baseline,
+				caller,
 				token,
-				role,
-				// What the page keys this tab's unsaved draft on: same plan text, same draft.
-				rev: planDigest(current),
-				...(caller.name === undefined ? {} : { author: caller.name }),
-				canApprove: role === "owner" && canApprove,
-				share: role === "owner" ? shareSession.state() : undefined,
-			};
+				canApprove,
+				share: () => shareSession.state(),
+			});
 		};
 
 		/**
@@ -309,33 +253,26 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		 */
 		const save = async (annotations: PlanAnnotation[], caller: ReviewCaller): Promise<SaveResult> => {
 			const { role } = caller;
-			const current = await store.read(cwd, plan.path);
-			if (!current) return { ok: false, status: 404, message: "The plan file is gone." };
-			if (stripFeedback(current.content) !== pageText) {
-				return { ok: false, status: 409, message: "The plan changed on disk; reload the page and review again." };
-			}
-			try {
-				if (role === "owner") {
-					savedPlan = await store.saveFeedback(cwd, plan.path, annotations);
-					streams.broadcast("comment");
-					return { ok: true };
-				}
-				// The link, not the payload, decides whose markers this post replaces: the name
-				// is bound to the token on its first write, and a page that signs another one
-				// is a stale tab rather than an authorized writer.
-				const claim = claimAuthor({ bound: caller.name, taken: tokens.namesExcept(caller) }, annotations);
-				if (!("name" in claim)) return { ok: false, status: claim.status, message: claim.message };
-				const own = annotations.filter((annotation) => normalizeAuthor(annotation.author) === claim.name);
-				// The saved plan is deliberately not recorded here: a post is not a result
-				// the session can return, so there is nothing for a later flush to resolve.
-				await store.saveFeedback(cwd, plan.path, own, { author: claim.name });
-				caller.name ??= claim.name;
+			const write = { store, cwd, path: plan.path, pageText: () => pageText };
+			if (role === "owner") {
+				const saved = await saveOwnerAnnotations(write, annotations);
+				if (!saved.ok) return saved;
+				savedPlan = saved.plan;
 				streams.broadcast("comment");
-				if (own.length > 0) options.onReviewerComment?.(claim.name, own.length);
-				return { ok: true, author: claim.name };
-			} catch (error) {
-				return { ok: false, status: 500, message: error instanceof Error ? error.message : String(error) };
+				return { ok: true };
 			}
+			// The saved plan is deliberately not recorded for a reviewer: a post is not a
+			// result the session can return, so there is nothing for a later flush to resolve.
+			const posted = await postReviewerAnnotations(
+				{ ...write, caller, taken: tokens.namesExcept(caller) },
+				annotations,
+			);
+			if (!posted.save.ok) return posted.save;
+			caller.name ??= posted.save.author;
+			streams.broadcast("comment");
+			// The page is told the name its link stored, and the terminal is told a peer wrote.
+			if (posted.count > 0) options.onReviewerComment?.(posted.save.author ?? "", posted.count);
+			return posted.save;
 		};
 
 		// The second listener, its reviewer token, and the state the page and
