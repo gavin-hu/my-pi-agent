@@ -13,7 +13,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { blockAt, codeBody, contentBlockAt, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
@@ -473,7 +473,10 @@ describe("plan store — atomic writes", () => {
 
 		const dir = await store.dirFor(root);
 		expect(readFileSync(file.path, "utf-8")).toBe("v2");
-		expect(readdirSync(dir).sort()).toEqual([basename(file.path)]);
+		// The plan and the revision it replaced, and no temp file: the dotfile is the
+		// history this store keeps, not a half-written plan.
+		expect(readdirSync(dir).sort()).toEqual([`.${basename(file.path, ".md")}-r001.md`, basename(file.path)].sort());
+		expect(readdirSync(dir).filter((name) => name.endsWith(".tmp"))).toEqual([]);
 	});
 
 	test("a step edit leaves no temp file either", async () => {
@@ -485,6 +488,86 @@ describe("plan store — atomic writes", () => {
 
 		const dir = await store.dirFor(root);
 		expect(readdirSync(dir).sort()).toEqual([basename(file.path)]);
+	});
+});
+
+describe("plan store — the revision a refinement replaced", () => {
+	test("keeps the text a refinement replaced, verbatim, beside the plan", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const first = await store.write(root, { title: "Refine", content: "v1\n" });
+		const refined = await store.write(root, { title: "Refine", content: "v2\n", planPath: first.path });
+
+		// The revision is a dotfile: the plan's own name with its number, so the pair sorts
+		// together and no scan mistakes one for a plan.
+		expect(refined.replaced?.path).toBe(join(dirname(first.path), `.${basename(first.path, ".md")}-r001.md`));
+		expect(readFileSync(refined.replaced?.path ?? "", "utf-8")).toBe("v1\n");
+		expect(readFileSync(first.path, "utf-8")).toBe("v2\n");
+		// What a first write leaves behind is nothing: there was no text to replace.
+		expect(first.replaced).toBeUndefined();
+	});
+
+	test("keeps the comments as the reviewer left them, not the carried ones", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const first = await store.write(root, { title: "Refine", content: "# Plan\n\n## Steps\n\n- One\n" });
+		await store.saveFeedback(root, first.path, [
+			{ block: "## Steps", text: "split this", author: "reviewer", createdAt: 1 } as never,
+		]);
+		const reviewed = readFileSync(first.path, "utf-8");
+		const refined = await store.write(root, {
+			title: "Refine",
+			content: "# Plan\n\n## Steps\n\n- One\n- Two\n",
+			planPath: first.path,
+		});
+
+		// The revision is what the reviewer read — markers and all — so a comment carried
+		// onto a block that moved can be checked against the text it was written on.
+		expect(readFileSync(refined.replaced?.path ?? "", "utf-8")).toBe(reviewed);
+	});
+
+	test("numbers the chain, and keeps only the newest few", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const first = await store.write(root, { title: "Chain", content: "v1" });
+		const prefix = `.${basename(first.path, ".md")}-r`;
+		for (let revision = 1; revision <= 8; revision++) {
+			await store.write(root, { title: "Chain", content: `v${revision + 1}`, planPath: first.path });
+		}
+
+		const dir = await store.dirFor(root);
+		const kept = readdirSync(dir)
+			.filter((name) => name.startsWith(prefix))
+			.sort();
+		// Five, newest last: the chain is a chain, and it does not grow with the afternoon.
+		expect(kept).toEqual(["004.md", "005.md", "006.md", "007.md", "008.md"].map((suffix) => `${prefix}${suffix}`));
+		// The newest revision is the text the last refinement replaced.
+		expect(readFileSync(join(dir, `${prefix}008.md`), "utf-8")).toBe("v8");
+	});
+
+	test("a refinement that changed nothing keeps nothing, and leaves no chain behind", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const first = await store.write(root, { title: "Same", content: "v1\n" });
+
+		const again = await store.write(root, { title: "Same", content: "v1\n", planPath: first.path });
+
+		// The copy would be the plan itself, so the chain stays empty instead of filling
+		// with identical revisions.
+		expect(again.replaced).toBeUndefined();
+		const dir = await store.dirFor(root);
+		expect(readdirSync(dir).sort()).toEqual([basename(first.path)]);
+	});
+
+	test("a revision is not a plan: no scan lists it, and no plan_path opens it", async () => {
+		const root = tempDir();
+		const store = repoStore(root);
+		const first = await store.write(root, { title: "Hidden", content: "v1" });
+		const refined = await store.write(root, { title: "Hidden", content: "v2", planPath: first.path });
+
+		expect((await store.index(root)).map((one) => one.path)).toEqual([first.path]);
+		expect((await store.latest(root))?.path).toBe(first.path);
+		expect(await store.read(root, refined.replaced?.path ?? "")).toBeUndefined();
 	});
 });
 

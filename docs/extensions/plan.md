@@ -140,7 +140,15 @@ the cap and the fix named, and nothing is written.
 
 The file is the source of truth. On approval the model follows the plan file's
 steps, and refinements rewrite the same file (`write_plan` with `plan_path`), so
-the reviewed artifact is the executed artifact.
+the reviewed artifact is the executed artifact. The text a refinement replaces is
+kept beside it, as a dotfile named for the plan and the revision
+(`.2026-10-26-1008-add-rate-limiting-r001.md`), up to the newest five: that is
+what makes two revisions diffable, and what lets a comment `carryFeedback` moved
+onto another block be checked against the text the reviewer actually read. A
+revision is a dotfile, so no scan lists it as a plan, no `plan_path` opens it, and
+the review never offers it for approval — and a refinement that changed nothing
+keeps nothing, because the copy would be the plan itself. The write's result names
+the revision it kept.
 
 ### `exit_plan_mode`
 
@@ -901,7 +909,8 @@ both.
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or agent directory), containment, atomic `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or agent directory), containment, `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
+| `plan-files.ts` | How a plan file reaches the disk: `writeAtomic` (a dotfile temp, then a rename, so a crash cannot truncate the plan a review is reading) and `keepRevision`, which keeps the text a refinement replaces beside it, numbered, up to the newest five. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure: the outline, step extraction and the `Steps`-section scope, the plan's own goal (`goalSection`), and the checkbox edit. |
 | `sections.ts` | The one fence-aware heading scan: `extractSections`, `sectionKeys` (the key that tells two identically titled sections apart), and the `HEADING` / `FENCE` / `normalizeHeadingText` vocabulary `blocks.ts` reads a heading through. |

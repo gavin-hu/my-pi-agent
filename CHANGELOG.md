@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plan`: a refinement keeps the revision it replaced, so two versions of a plan can be
+  diffed and a comment carried onto a block that moved can be checked against the text the
+  reviewer actually read. `write_plan` with `plan_path` overwrote the file in place and
+  discarded the previous text — the only record was a per-section digest in a session
+  entry, which dies with the session. The replaced text now sits beside the plan as a
+  dotfile (`.‹plan›-r001.md`), numbered up to the newest five per plan, with the comments
+  as the reviewer left them; a revision is never listed as a plan, opened by `plan_path`,
+  or offered for approval, and the write's result names the one it kept. A refinement that
+  changed nothing keeps nothing.
+
 - `session-bus`: a session whose process is gone says so. The roster answers `gone` when
   a record's `pid` is no longer running — or when its start time is no longer that pid's,
   so a reused pid is not mistaken for a live peer — instead of waiting out the

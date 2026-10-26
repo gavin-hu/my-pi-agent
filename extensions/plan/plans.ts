@@ -21,7 +21,6 @@
  * This module owns paths and bytes only; tool wiring lives in `tools.ts`.
  */
 
-import { randomBytes } from "node:crypto";
 import {
 	existsSync,
 	lstatSync,
@@ -38,6 +37,7 @@ import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
+import { keepRevision, writeAtomic } from "./plan-files.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
 import { isInside, isInsideReal } from "../../lib/path.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
@@ -69,6 +69,11 @@ export interface StoredPlan {
 /** A plan written to disk, carrying the title that named it. */
 export interface WrittenPlan extends StoredPlan {
 	title: string;
+	/**
+	 * The revision this write replaced, when it refined an existing plan: the text as the
+	 * reviewer last read it, kept beside the plan.
+	 */
+	replaced?: { path: string; relativePath: string };
 }
 
 /** One row of the plan index: enough to choose a plan without opening it. */
@@ -193,27 +198,6 @@ function resolvePlanArg(dir: string, planPath: string): string {
 	if (text === "~") return homedir();
 	if (text.startsWith("~/") || text.startsWith(`~${sep}`)) return resolve(homedir(), text.slice(2));
 	return isAbsolute(text) ? resolve(text) : resolve(dir, text);
-}
-
-/**
- * Write a plan atomically: a hidden sibling temp file, then a rename. A crash
- * or a full disk mid-write leaves the previous file intact instead of a
- * truncated plan, and the temp name is a dotfile, so neither `latest()` nor a
- * plan lookup ever mistakes it for a plan.
- */
-function writeAtomic(path: string, content: string): void {
-	const temp = join(dirname(path), `.${basename(path)}.${randomBytes(6).toString("hex")}.tmp`);
-	try {
-		writeFileSync(temp, content, { encoding: "utf-8", flag: "wx" });
-		renameSync(temp, path);
-	} catch (error) {
-		try {
-			unlinkSync(temp);
-		} catch {
-			// The temp file was never created, or the rename already moved it.
-		}
-		throw error;
-	}
 }
 
 function uniquePath(dir: string, base: string): string {
@@ -367,8 +351,20 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 			throw new Error(`The plan is too large with its review comments (${nextBytes} bytes).`);
 		}
 
+		// Both are kept: the plan is what the review and the model read from now on, and the
+		// revision is what they read before this call — the only thing a diff, or a comment
+		// carried onto a block that moved, can be answered against.
+		// A refinement that changed nothing has nothing to keep: the copy would be the plan.
+		const replaced = previous === undefined || previous === content ? undefined : keepRevision(path, previous);
 		writeAtomic(path, content);
-		return { path, relativePath: shortenPath(path), title, content, bytes: nextBytes };
+		return {
+			path,
+			relativePath: shortenPath(path),
+			title,
+			content,
+			bytes: nextBytes,
+			...(replaced === undefined ? {} : { replaced: { path: replaced, relativePath: shortenPath(replaced) } }),
+		};
 	};
 
 	const read = async (cwd: string, planPath: string): Promise<StoredPlan | undefined> => {

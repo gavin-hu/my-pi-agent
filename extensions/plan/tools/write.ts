@@ -93,8 +93,12 @@ export function registerWriteTool(pi: ExtensionAPI, runtime: PlanRuntime): void 
 				// write; say so once, where the user is looking.
 				const moved = runtime.plans.takeNotice();
 				if (moved) ctx.ui.notify(moved, "info");
+				// A refinement says where the text it replaced went: a reviewer's comment that was
+				// carried to a block that moved can be checked against what she actually read.
+				const kept =
+					file.replaced === undefined ? "" : `, keeping the revision it replaced at ${file.replaced.relativePath}`;
 				return textResult(
-					`Wrote the plan to ${file.relativePath}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
+					`Wrote the plan to ${file.relativePath}${kept}. Call exit_plan_mode with plan_path: ${file.path}${stepElisionNote(summary.elided)}`,
 					{ path: file.path, relativePath: file.relativePath, bytes: file.bytes } satisfies WritePlanDetails,
 				);
 			} catch (error) {
