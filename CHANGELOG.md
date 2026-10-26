@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `team`: an offer leaves a record, so an unanswered one stops looking like a card nobody
+  has looked at. An offer is a bus event and nothing on the card, which meant a card offered
+  to three sessions that all ignored it read exactly like one nobody had seen; `offer` now
+  writes `offeredAt` after the broadcast — the moment, and no owner, since the first claim
+  is still what makes an offer into work. A claim, an assignment, or a release clears it, so
+  a record means the offer is open, and `board` reads it three ways: `offered 1m ago, and
+  nobody took it` in `list <card>`, `offered 1m ago · nobody took it` under the card on the
+  page, and `offered 1m ago — nobody took it` as the Team tab's reason.
+
 - `board`: a card says what it is holding up, not only what it waits for. A link is stored
   on the waiting card alone, so `list <card>` and the page's dialog could name a blocker
   and never the cost of leaving one undone; they now name the cards waiting on it —

@@ -130,6 +130,20 @@ describe("buildView", () => {
 		expect(dependent?.dependents).toBeUndefined();
 	});
 
+	test("carries the offer's age through, so the page can say how long it has stood", () => {
+		// The page prints the age from this number; a view that dropped it would leave an
+		// offered card reading like one nobody had looked at.
+		const view = buildView({
+			me: ME,
+			cards: [card("2", { offeredAt: NOW - 60_000 }), card("3")],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+		});
+		expect(view.lanes[0]?.cards[0]?.offeredAt).toBe(NOW - 60_000);
+		expect(view.lanes[0]?.cards[1]?.offeredAt).toBeUndefined();
+	});
+
 	test("carries a block's reason and a finished card's commit through to the lanes", () => {
 		// The page draws both from the card it is handed, so a field the view dropped would
 		// be a blank line where the reason and the commit belong.

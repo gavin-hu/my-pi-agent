@@ -3,8 +3,9 @@
 `board` owns the cards. `team` owns the lead's three actions: `assign` hands a card to a
 session that is **already running**, `offer` hands one to whoever is free, and `reclaim`
 takes one back when its owner is gone or has gone quiet. `assign` writes the card and puts
-a handoff on the session bus, `offer` writes nothing at all — the first peer to claim is
-what makes an offer into work — and `reclaim` writes the card alone, so it needs no bus.
+a handoff on the session bus, `offer` writes only the moment it was made — never an owner,
+because the first peer to claim is what makes an offer into work — and `reclaim` writes the
+card alone, so it needs no bus.
 The report says what the peer will actually do with it.
 
 Nothing starts a process. A message lands in the peer's inbox and is reported at its next
@@ -22,7 +23,7 @@ owner whose label nothing answers to, and a teammate that is not listening.*
 | Join the team | `/board` as the lead, `/team join <label>` as a teammate, or any card you work | The session is on the team under a label peers address, listening, and `/team` and the Team tab list it |
 | Hand a feature to a running session | `team` action `assign` | The card is `doing`, owned by that session, and a handoff is in its inbox |
 | Tell the peer what to do first | `team` action `assign` with `note` | The handoff carries the card, its paths, its plan, and that line |
-| Hand a feature to whoever is free | `team` action `offer` | Every other live session gets an event naming the card; the card stays unowned until one claims it |
+| Hand a feature to whoever is free | `team` action `offer` | Every other live session gets an event naming the card; the card stays unowned until one claims it, and it records when the offer was made, so a lead can tell an offer nobody took from a card nobody has looked at |
 | Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
 | Take a card back | `team` action `reclaim` | The owner clears, the card returns to To do, and its notes stay |
 | Keep the round to the team | `team` | Only `assign`, `offer`, and `reclaim`: no card is created, moved, planned, or finished here — that is `board`'s surface |
@@ -80,7 +81,7 @@ is not: a card that session claimed is the session's, and `release` returns it.
 | Action | Parameters | Behaviour |
 |---|---|---|
 | `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner |
-| `offer` | `card`, `note?` | Checks the preconditions a claim would meet, broadcasts the card as an `event` to every other live session, and writes nothing |
+| `offer` | `card`, `note?` | Checks the preconditions a claim would meet, broadcasts the card as an `event` to every other live session, then records the offer on the card — the moment, and nothing else: status and owner are untouched |
 | `reclaim` | `card` | Clears the owner and returns the card to To do, keeping its notes and plan |
 
 `card` takes `4` or `#4`. `to` is a teammate's label or id, as `/team` lists them — a
@@ -110,10 +111,15 @@ the sentence, and a test holds every published parameter to an action that acts 
 | the send | untouched — `todo`, no owner | `#4 was not handed off to billing-core: …`, plus `The card is unchanged.` |
 | the assignment, after a successful send | whatever the other writer left | `#4 was handed off to billing-core, but the card changed before it could be assigned: …`, and the peer is told to `board claim` it |
 
-`offer` has no order to get wrong, because it writes nothing: a refused broadcast leaves
-the card exactly as the rules just read it, and the first `board claim` is what turns an
-offer into work. Two peers claiming at once are settled by the store's compare-and-set —
-one claim wins, and the other is refused with the owner named.
+`offer` broadcasts **before** it records, for the same reason: an offer nobody received
+must not leave a record claiming one happened. A refused broadcast leaves the card exactly
+as the rules read it, and the write that follows changes one field — when the offer was
+made. If the card changed in between, the peers already have the message, so the refusal
+says the offer stands as a message and the board is what it now says. The first `board
+claim` is what turns an offer into work, and the claim is what clears the record: every
+answer to an offer — a claim, an assignment, a release — takes it with it, so a record
+here means the offer is still open. Two peers claiming at once are settled by the store's
+compare-and-set; one claim wins, and the other is refused with the owner named.
 
 `delivered` in the details means a message file was written for that label — not that the
 peer read it. `notListening` names the peers it reached whose record says they are not
@@ -134,7 +140,11 @@ read it with `session inbox`, record the plan, and start. The card is already th
 moves it to `done` or `blocked`.
 
 An offer is advice: nothing is theirs until they claim it, and a card nobody claims stays
-`todo`, so it keeps showing up as unassigned in the round.
+`todo`, so it keeps showing up as unassigned in the round — with its age, which is the one
+thing an event cannot carry. `board` prints it as `offered 1m ago, and nobody took it`, the
+card face says `offered 1m ago · nobody took it`, and the Team tab's queue says
+`offered 1m ago — nobody took it` in place of "nobody holds it". A lead reading that has a
+decision the plain unassigned row never offered: re-offer, `assign` it, or take it.
 
 ## Security
 

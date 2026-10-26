@@ -232,7 +232,7 @@ describe("assign", () => {
 });
 
 describe("offer", () => {
-	test("broadcasts the card as an event and writes nothing", async () => {
+	test("broadcasts the card as an event, then records the offer and nothing else", async () => {
 		const { call, seed, sent, store } = harness();
 		const id = await seed();
 		const before = await (await store()).read(id);
@@ -242,12 +242,27 @@ describe("offer", () => {
 		expect(sent[0]).toMatchObject({ kind: "event", to: "*" });
 		expect(sent[0]?.text).toContain("is unclaimed");
 		expect(sent[0]?.text).toContain("Note: whoever is free");
-		// Nothing half-applied is possible: the card is exactly as the rules read it.
-		expect(result.details.card?.rev).toBe(before?.rev);
-		expect(result.details.card?.owner).toBeUndefined();
-		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
+		// One write, and only the offer: the card is unowned, still to do, and its one
+		// change is the moment it was offered — which is what a lead reads instead of
+		// guessing whether anybody looked.
+		const after = await (await store()).read(id);
+		expect(after?.rev).toBe((before?.rev ?? 0) + 1);
+		expect(after?.offeredAt).toBe(NOW);
+		expect(after?.status).toBe("todo");
+		expect(after?.owner).toBeUndefined();
+		expect(result.details.card?.offeredAt).toBe(NOW);
 		expect(text(result)).toContain("#1 offered to billing-core, billing-web.");
 		expect(text(result)).toContain("unowned until one of them claims it");
+	});
+
+	test("a claim answers the offer, so the record goes with it", async () => {
+		const { call, seed, store } = harness();
+		const id = await seed();
+		await call({ action: "offer", card: id });
+		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
+		await (await store()).mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW + 1);
+		// The next reader of the card cannot mistake an answered offer for an open one.
+		expect((await (await store()).read(id))?.offeredAt).toBeUndefined();
 	});
 
 	test("refuses a card somebody holds, and one that waits, without broadcasting", async () => {

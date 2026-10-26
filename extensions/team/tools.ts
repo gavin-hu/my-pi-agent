@@ -31,6 +31,7 @@ import {
 	formatHandoffFailure,
 	formatOffer,
 	formatOfferFailure,
+	formatRacedOffer,
 	formatRacedAssignment,
 	formatReclaimed,
 } from "./format.ts";
@@ -106,7 +107,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				const store = await session.store(ctx.cwd);
 				const now = session.now();
 				if (action === "reclaim") return await reclaimCard(store, me, id, now);
-				if (action === "offer") return await offerCard(store, id, args.note, now, dispatchFor(ctx));
+				if (action === "offer") return await offerCard(store, me, id, args.note, now, dispatchFor(ctx));
 				const to = typeof args.to === "string" ? args.to.trim() : "";
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
 				return await assignCard(store, me, id, to, args.note, now, dispatchFor(ctx));
@@ -193,14 +194,17 @@ async function assignCard(
 const OFFER_CLAIMANT: Actor = { label: "*" };
 
 /**
- * `offer`: check the claim's preconditions, broadcast the card, and write nothing.
+ * `offer`: check the claim's preconditions, broadcast the card, then record the offer.
  *
- * The order matters less here than in `assign`, because nothing is written: a failed
- * broadcast leaves the card exactly as it was, and the first peer to claim is what makes
- * an offer into work. Two peers racing are settled by the store's compare-and-set.
+ * The broadcast comes first and the record second, because a record of an offer nobody
+ * received would be worse than an offer with no record: the card is unchanged by a failed
+ * send, and the first peer to claim is what makes an offer into work. What the record
+ * adds is the one thing an event cannot carry — when it was made — so a lead can tell an
+ * offer nobody took from a card nobody has looked at.
  */
 async function offerCard(
 	store: BoardStore,
+	me: Actor,
 	id: string,
 	note: string | undefined,
 	now: number,
@@ -219,11 +223,15 @@ async function offerCard(
 	} catch (error) {
 		return refusal("offer", formatOfferFailure(card, messageOf(error)), card);
 	}
+	// The peers have the event, so a card that changed underneath is reported as raced
+	// rather than refused: the message is already in their inboxes.
+	const recorded = await store.mutate(id, { kind: "offer" }, me, now);
+	if (!recorded.ok) return refusal("offer", formatRacedOffer(recorded.card ?? card, recorded.error), recorded.card);
 	const peers = await dispatch.peers().catch(() => undefined);
 	const silent = notListening(peers, delivered);
-	return textResult(formatOffer(card, delivered, silent), {
+	return textResult(formatOffer(recorded.card, delivered, silent), {
 		action: "offer",
-		card,
+		card: recorded.card,
 		delivered,
 		...(silent.length === 0 ? {} : { notListening: silent }),
 	});

@@ -74,6 +74,11 @@ export type CardOp =
 	// sends the three it can show, and omitting a link must not clear it.
 	| { kind: "edit"; title: unknown; paths: unknown; priority: unknown; dependsOn: unknown }
 	| { kind: "reclaim" }
+	/**
+	 * Record that the card was offered to the team: `team offer` broadcasts it on the bus
+	 * and then writes this, because an event nobody answers otherwise leaves no trace.
+	 */
+	| { kind: "offer" }
 	| { kind: "drop" };
 
 /** What an operation did: the new card, or the reason it was refused. */
@@ -146,6 +151,8 @@ export function applyOp(card: Card, op: CardOp, actor: Actor, now: number, board
 			return edit(card, op, actor, now, board);
 		case "reclaim":
 			return reclaim(card, actor, now);
+		case "offer":
+			return offer(card, actor, now, board);
 		case "drop":
 			return drop(card, actor, board);
 	}
@@ -157,7 +164,11 @@ function claim(card: Card, actor: Actor, now: number, board: BoardIndex): OpResu
 	if (card.owner !== undefined) return { ok: false, error: heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { ok: false, error: waiting };
-	return { ok: true, card: write(card, actor, now, { status: "doing", owner: ownerOf(actor) }), changed: true };
+	return {
+		ok: true,
+		card: write(card, actor, now, { status: "doing", owner: ownerOf(actor), offeredAt: undefined }),
+		changed: true,
+	};
 }
 
 function assign(card: Card, to: Actor, rawNote: unknown, actor: Actor, now: number, board: BoardIndex): OpResult {
@@ -166,7 +177,7 @@ function assign(card: Card, to: Actor, rawNote: unknown, actor: Actor, now: numb
 	if (holds(card, to) && card.status === "doing") return { ok: true, card, changed: false };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { ok: false, error: waiting };
-	const fields: Partial<Card> = { status: "doing", owner: ownerOf(to) };
+	const fields: Partial<Card> = { status: "doing", owner: ownerOf(to), offeredAt: undefined };
 	if (rawNote !== undefined) {
 		const parsed = normalizeNote(rawNote);
 		if ("error" in parsed) return { ok: false, error: parsed.error };
@@ -184,7 +195,11 @@ function release(card: Card, actor: Actor, now: number): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { ok: false, error: `${cardRef(card.id)} is not claimed.` };
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Release is the owner's decision.` };
-	return { ok: true, card: write(card, actor, now, { status: "todo", owner: undefined }), changed: true };
+	return {
+		ok: true,
+		card: write(card, actor, now, { status: "todo", owner: undefined, offeredAt: undefined }),
+		changed: true,
+	};
 }
 
 function move(
@@ -323,10 +338,30 @@ function edit(
 	return { ok: true, card: write(card, actor, now, fields), changed: true };
 }
 
+/**
+ * Record that the card was offered to the team, and nobody has taken it.
+ *
+ * The same preconditions a claim would meet, because the offer asks a peer to claim: a
+ * held card, a finished one, or one waiting on unfinished work is refused before anything
+ * is broadcast. Re-offering refreshes the age rather than refusing as a no-op — a lead
+ * who offers again is asking again, and the age is the record of when they last did.
+ */
+function offer(card: Card, actor: Actor, now: number, board: BoardIndex): OpResult {
+	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be offered.` };
+	if (card.owner !== undefined) return { ok: false, error: heldBy(card) };
+	const waiting = waitingOn(card, board);
+	if (waiting !== undefined) return { ok: false, error: waiting };
+	return { ok: true, card: write(card, actor, now, { offeredAt: now }), changed: true };
+}
+
 function reclaim(card: Card, actor: Actor, now: number): OpResult {
 	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
 	if (card.owner === undefined) return { ok: false, error: `${cardRef(card.id)} has no owner to reclaim.` };
-	return { ok: true, card: write(card, actor, now, { status: "todo", owner: undefined }), changed: true };
+	return {
+		ok: true,
+		card: write(card, actor, now, { status: "todo", owner: undefined, offeredAt: undefined }),
+		changed: true,
+	};
 }
 
 function drop(card: Card, actor: Actor, board: BoardIndex): OpResult {
@@ -365,6 +400,7 @@ function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Ca
 	// The same for the block: a card that left `blocked` has no reason, and a key holding
 	// undefined would be one more shape for a reader to know about.
 	if ("blockedBy" in fields && fields.blockedBy === undefined) delete next.blockedBy;
+	if ("offeredAt" in fields && fields.offeredAt === undefined) delete next.offeredAt;
 	return next;
 }
 

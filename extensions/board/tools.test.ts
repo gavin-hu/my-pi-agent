@@ -549,6 +549,20 @@ describe("edit and the links between cards", () => {
 		);
 	});
 
+	test("says when a card was offered and nobody took it", async () => {
+		const { call, runtime, ctx } = harness();
+		const added = await call({ action: "add", title: "Retry branches" });
+		const id = added.details.card?.id ?? "";
+		// The offer is `team`'s verb, written by the rules: seed it where a lead's offer would
+		// leave it, and read the card back through the tool.
+		const store = await runtime.store(ctx.cwd);
+		await store.mutate(id, { kind: "offer" }, { label: "billing-lead" }, 55_000);
+		expect(text(await call({ action: "list", card: id }))).toContain("offered: 1m ago, and nobody took it");
+		// A claim answers it, so the line goes with the record.
+		await call({ action: "claim", card: id });
+		expect(text(await call({ action: "list", card: id }))).not.toContain("offered:");
+	});
+
 	test("refuses to drop a card another one waits on", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });

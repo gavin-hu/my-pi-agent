@@ -405,6 +405,30 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("says an offer nobody took, in the words the queue uses", async () => {
+		// The offer is `team`'s verb; what the page owes a lead is the age, because that is
+		// the difference between nobody having looked and nobody taking it.
+		const now = clock.now();
+		await store.mutate("1", { kind: "offer" }, LEAD, now - 45_000);
+		try {
+			const page = await openPage();
+			const reason = await page.$eval('#lane-todo .board-card[data-card="1"] .board-card__reason', (node) => ({
+				text: node.textContent ?? "",
+				tone: node.className,
+			}));
+			// The age is the browser's clock against the fixture's fixed one, so the test pins
+			// the sentence's shape and the fact; the age rule itself is `formatAge`'s own unit
+			// test, which is the only place it can be pinned without a clock.
+			expect(reason.text).toMatch(/^offered \d+[a-z] ago \u00B7 nobody took it$/);
+			expect(reason.tone).toContain("board-card__reason");
+			await page.close();
+		} finally {
+			// A claim answers the offer; the release then leaves the card as the fixture had it.
+			await store.mutate("1", { kind: "claim" }, LEAD, now);
+			await store.mutate("1", { kind: "release" }, LEAD, now);
+		}
+	});
+
 	test("shows a card another session writes, without a reload", async () => {
 		const page = await openPage();
 		const added = await store.create({ title: "A card another session added", paths: [] }, CORE, clock.now());

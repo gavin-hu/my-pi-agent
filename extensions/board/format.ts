@@ -14,11 +14,12 @@
 import { type Card, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import type { Skip } from "../../lib/board/store.ts";
+import { formatAge } from "../../lib/format.ts";
 import { plural } from "../../lib/board/round-text.ts";
 
 /** One card: the headline, then the state a reader needs in order to act on it. */
-export function formatCard(card: Card, board?: BoardIndex): string {
-	return [`${cardRef(card.id)} ${card.status} · ${card.title}`, ...detailLines(card, board)].join("\n");
+export function formatCard(card: Card, board?: BoardIndex, now?: number): string {
+	return [`${cardRef(card.id)} ${card.status} · ${card.title}`, ...detailLines(card, board, now)].join("\n");
 }
 
 /**
@@ -71,9 +72,14 @@ function listLine(card: Card): string {
 }
 
 /** The state lines under a card's headline. */
-function detailLines(card: Card, board?: BoardIndex): string[] {
+function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	const lines: string[] = [];
 	if (card.owner !== undefined) lines.push(`  owner: ${card.owner.label}`);
+	// An offer's age is the fact a reader acts on, which is the one place an age belongs in
+	// this text: the value is whether anybody has had time to answer.
+	if (card.offeredAt !== undefined && now !== undefined) {
+		lines.push(`  offered: ${formatAge(now, card.offeredAt)} ago, and nobody took it`);
+	}
 	if (card.blockedBy !== undefined) lines.push(`  blocked: ${card.blockedBy}`);
 	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.commit}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);

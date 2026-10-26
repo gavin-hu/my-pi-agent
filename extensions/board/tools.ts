@@ -263,7 +263,7 @@ async function read(
 					: `${cardRef(id)} is there and this build cannot read it (${unreadable.file}: ${unreadable.why}).`,
 			);
 		}
-		return textResult(formatCard(card, indexOf(cards)), { action, me, card });
+		return textResult(formatCard(card, indexOf(cards), now), { action, me, card });
 	}
 	const listed = cards.filter(
 		(card) =>

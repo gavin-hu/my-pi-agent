@@ -87,6 +87,20 @@ export function formatOfferFailure(card: Card, reason: string): string {
 }
 
 /**
+ * The broadcast landed and recording the offer then lost a race.
+ *
+ * The peers have an event for a card somebody else has since claimed, moved, or taken
+ * over, so the correction says the offer stands as a message and the card is what the
+ * board now says — not that nothing happened.
+ */
+export function formatRacedOffer(card: Card, reason: string): string {
+	return (
+		`${cardRef(card.id)} was offered, but the card changed before the offer could be recorded: ${reason}\n` +
+		"  The peers have the message; the card is as the board shows it now."
+	);
+}
+
+/**
  * The send landed and the assignment then lost a race.
  *
  * The peer has a message telling it the card is its, so the correction names the

@@ -111,6 +111,14 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       function (card) { return "waits on " + card.waits; },
       "waiting",
     );
+    // An offer outranks plain silence: the lead has already tried to hand this card out,
+    // and the age is the difference between nobody having looked and nobody taking it. A
+    // card that waits keeps that reason, because the claim would be refused either way.
+    add(
+      round.unassigned.filter(function (card) { return card.offeredAt !== undefined; }),
+      function (card) { return "offered " + ago(card.offeredAt) + " ago — nobody took it"; },
+      "waiting",
+    );
     return entries;
   }
 

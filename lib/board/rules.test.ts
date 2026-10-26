@@ -360,6 +360,85 @@ describe("plan", () => {
 	});
 });
 
+describe("offer", () => {
+	/** A `todo` card nobody holds, which is what an offer is for. */
+	const free = (overrides: Partial<Card> = {}): Card => ({
+		...createCard("2", { title: "Retry branches", paths: [] }, LEAD, 1_000),
+		...overrides,
+	});
+
+	test("records when the offer was made, and changes nothing else", () => {
+		const board = indexOf([free()]);
+		const before = free();
+		const { card, changed } = accepted(applyOp(before, { kind: "offer" }, LEAD, NOW, board));
+		expect(card.offeredAt).toBe(NOW);
+		expect(card.status).toBe("todo");
+		expect("owner" in card).toBe(false);
+		expect(card.rev).toBe(before.rev + 1);
+		expect(changed).toBe(true);
+	});
+
+	test("re-offering refreshes the age instead of refusing as a no-op", () => {
+		const board = indexOf([free()]);
+		const first = accepted(applyOp(free(), { kind: "offer" }, LEAD, NOW, board));
+		const again = accepted(applyOp(first.card, { kind: "offer" }, LEAD, NOW + 60_000, board));
+		// A lead who offers again is asking again, and the age is when they last asked.
+		expect(again.card.offeredAt).toBe(NOW + 60_000);
+		expect(again.changed).toBe(true);
+	});
+
+	test("refuses a held card, a finished one, and one that waits", () => {
+		const held = indexOf([claimed()]);
+		expect(refusal(applyOp(claimed(), { kind: "offer" }, LEAD, NOW, held))).toBe("#4 is held by billing-core.");
+		const done = { ...claimed(), status: "done" as const };
+		expect(refusal(applyOp(done, { kind: "offer" }, LEAD, NOW, indexOf([done])))).toContain("is done");
+		// A card that waits is refused before anything is broadcast, so no peer is asked to
+		// claim a card the claim would refuse.
+		const waiting = free({ dependsOn: ["1"] });
+		const board = indexOf([free({ id: "1" }), waiting]);
+		expect(refusal(applyOp(waiting, { kind: "offer" }, LEAD, NOW, board))).toBe("#2 waits on #1 (todo).");
+	});
+
+	test("every answer clears it, so an open record means an unanswered offer", () => {
+		const offered = free({ offeredAt: NOW });
+		const board = indexOf([free({ id: "1" }), offered]);
+		const after = (op: Parameters<typeof applyOp>[1], actor: Actor = LEAD, at = NOW + 1): Card =>
+			accepted(applyOp(offered, op, actor, at, board)).card;
+		// A claim, an assignment, and a move each answer the offer: the record goes, and
+		// `write` deletes the key rather than leaving one holding undefined.
+		// A move cannot be one of them: it needs an owner, and an offered card has none — every
+		// way into another lane goes through a claim or an assignment first, and both clear it.
+		for (const answered of [after({ kind: "claim" }), after({ kind: "assign", to: { label: "billing-core" } })]) {
+			expect(answered.offeredAt).toBeUndefined();
+			expect("offeredAt" in answered).toBe(false);
+		}
+		// A release is the fourth: the card goes back to To do, and the offer that was
+		// answered by the claim is not re-opened by giving the card back.
+		const reoffered = { ...after({ kind: "claim" }), offeredAt: NOW };
+		const released = accepted(applyOp(reoffered, { kind: "release" }, LEAD, NOW + 2, board)).card;
+		expect("offeredAt" in released).toBe(false);
+	});
+
+	test("a note, a plan, or an edit leaves it standing", () => {
+		const offered = free({ offeredAt: NOW });
+		const after = (op: Parameters<typeof applyOp>[1]): Card =>
+			accepted(applyOp(offered, op, LEAD, NOW + 1, indexOf([offered]))).card;
+		// None of these answers the offer: the card was offered, and it still is.
+		// A plan is not among them either: recording one needs the card, and an offer is made
+		// before anybody holds it.
+		expect(after({ kind: "note", text: "waiting on the gateway owner" }).offeredAt).toBe(NOW);
+		expect(
+			after({
+				kind: "edit",
+				title: "Retry branches, restated",
+				paths: undefined,
+				priority: undefined,
+				dependsOn: undefined,
+			}).offeredAt,
+		).toBe(NOW);
+	});
+});
+
 describe("reclaim", () => {
 	test("clears the owner, keeps the notes, and records the reclaimer", () => {
 		const noted = accepted(

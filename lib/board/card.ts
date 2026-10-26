@@ -133,6 +133,15 @@ export interface Card {
 	blockedBy?: string;
 	/** What closed a finished card: the commit at the move to `done`, and when. */
 	landed?: CardLanded;
+	/**
+	 * When this card was last offered to the team, and nobody has taken it.
+	 *
+	 * An offer is a bus event, and an event leaves nothing behind: a card offered to three
+	 * sessions that all ignored it read exactly like one nobody had looked at. This is the
+	 * one fact an offer can leave, and every answer to it — a claim, an assignment, a
+	 * release, a move — clears it, so a record here means the offer is still open.
+	 */
+	offeredAt?: number;
 	/** How urgent the feature is; absent reads as {@link DEFAULT_PRIORITY}. */
 	priority?: Priority;
 	/** Ids of the cards this one waits for; absent reads as none. */
@@ -393,6 +402,9 @@ export function isCard(value: unknown): value is Card {
 	if (card.plan !== undefined && typeof card.plan !== "string") return false;
 	if (card.blockedBy !== undefined && !isBlockedBy(card.blockedBy)) return false;
 	if (card.landed !== undefined && !isLanded(card.landed)) return false;
+	if (card.offeredAt !== undefined && (typeof card.offeredAt !== "number" || !Number.isInteger(card.offeredAt))) {
+		return false;
+	}
 	if (card.priority !== undefined && !PRIORITIES.includes(card.priority as Priority)) return false;
 	if (card.dependsOn !== undefined && !isDepends(card.dependsOn)) return false;
 	if (!Array.isArray(card.notes) || card.notes.length > MAX_NOTES) return false;

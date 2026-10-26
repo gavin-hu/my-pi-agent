@@ -8,8 +8,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
 	boundedTail,
+	formatAge,
 	formatCount,
 	formatDuration,
+	FORMAT_AGE_JS,
 	formatSize,
 	formatToolCount,
 	formatTokens,
@@ -57,6 +59,33 @@ describe("formatCount", () => {
 		expect(formatCount(42478)).toBe("42,478");
 		expect(formatCount(-42478)).toBe("-42,478");
 		expect(formatCount(Number.NaN)).toBe("0");
+	});
+});
+
+describe("formatAge", () => {
+	test("says an age the way a reader does", () => {
+		const now = 1_000_000_000;
+		// Under 45 seconds is "now", then minutes, hours, days — never a second count, because
+		// a card's age is a shape and not a stopwatch.
+		expect(formatAge(now, now)).toBe("now");
+		expect(formatAge(now, now - 44_000)).toBe("now");
+		expect(formatAge(now, now - 45_000)).toBe("1m");
+		expect(formatAge(now, now - 7 * 60_000)).toBe("7m");
+		expect(formatAge(now, now - 119 * 60_000)).toBe("2h");
+		expect(formatAge(now, now - 25 * 3_600_000)).toBe("1d");
+		// A record written by a clock ahead of this one reads as new, not as a negative age.
+		expect(formatAge(now, now + 60_000)).toBe("now");
+	});
+
+	test("crosses into the page's bundle as one body", () => {
+		expect(FORMAT_AGE_JS).toBe(String(formatAge));
+		// The bundle is a template literal, so the source may hold neither of these.
+		expect(FORMAT_AGE_JS).not.toContain("`");
+		expect(FORMAT_AGE_JS).not.toContain("${");
+		const browserAge = new Function(`return (${FORMAT_AGE_JS});`)() as (now: number, at: number) => string;
+		for (const at of [0, 1_000_000_000 - 44_000, 1_000_000_000 - 7 * 60_000, 1_000_000_000 - 86_400_000]) {
+			expect(browserAge(1_000_000_000, at)).toBe(formatAge(1_000_000_000, at));
+		}
 	});
 });
 

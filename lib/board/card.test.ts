@@ -367,3 +367,28 @@ describe("isCard", () => {
 		for (const value of [null, undefined, 4, "card", []]) expect(isCard(value)).toBe(false);
 	});
 });
+
+describe("the recorded offer", () => {
+	test("round-trips as a whole number, and reads as absent when it is missing", () => {
+		const base = {
+			v: 1,
+			id: "2",
+			title: "Retry branches",
+			status: "todo",
+			paths: [],
+			notes: [],
+			notesDropped: 0,
+			rev: 1,
+			createdAt: 1,
+			updatedAt: 2,
+			by: "billing-lead",
+		};
+		expect(isCard(base)).toBe(true);
+		expect(isCard({ ...base, offeredAt: 5_000 })).toBe(true);
+		// A pre-existing card has no field, and the field is optional, so there is no version
+		// bump: a clock fragment or a string is what this build cannot read.
+		for (const bad of [1.5, "5000", null]) {
+			expect(isCard({ ...base, offeredAt: bad })).toBe(false);
+		}
+	});
+});

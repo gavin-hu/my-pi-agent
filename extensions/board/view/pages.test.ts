@@ -298,6 +298,17 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("if (card.blockedBy) return card.blockedBy");
 	});
 
+	test("says an offer went unanswered, on the card and in the lead's queue", () => {
+		// One record, two readers: the card face says how long the broadcast has stood, and
+		// the Team tab's row says the same words about the same fact.
+		// The bundle escapes both separators, so the assertions name them the way the page
+		// sends them, the same as the landed-commit line above.
+		expect(BOARD_CLIENT_JS).toContain('"offered " + ago(card.offeredAt) + " ago \\u00B7 nobody took it"');
+		expect(BOARD_CLIENT_JS).toContain('"offered " + ago(card.offeredAt) + " ago \\u2014 nobody took it"');
+		// The age itself is not a second copy: the bundle is handed `lib/format.ts`'s body.
+		expect(BOARD_CLIENT_JS).toContain("var ageText = function formatAge(");
+	});
+
 	test("never parses a stored field", () => {
 		// `innerHTML` is the whole injection surface of a page like this one.
 		expect(BOARD_CLIENT_JS).not.toContain("innerHTML");

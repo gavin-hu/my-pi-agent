@@ -28,11 +28,18 @@
  * shape, what a query matches, and the browser runtime's element builder and typing test —
  * each written once in `lib/` and handed in as source.
  */
-export function renderJs(rules: { plural: string; tabTitle: string; matches: string; runtime: string }): string {
+export function renderJs(rules: {
+	plural: string;
+	tabTitle: string;
+	matches: string;
+	age: string;
+	runtime: string;
+}): string {
 	return renderTemplate
 		.replace("__PLURAL__", rules.plural)
 		.replace("__TAB_TITLE__", rules.tabTitle)
 		.replace("__MATCHES__", rules.matches)
+		.replace("__AGE__", rules.age)
 		.replace("__RUNTIME__", rules.runtime);
 }
 
@@ -78,16 +85,14 @@ __RUNTIME__
     return el("span", "bf-chip" + (tone ? " bf-chip--" + tone : ""), text);
   }
 
-  /** "12m", "3h", "2d" — the age of a card's last write, compact enough for a meta line. */
-  function ago(at) {
-    var seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
-    if (seconds < 45) return "now";
-    var minutes = Math.round(seconds / 60);
-    if (minutes < 60) return minutes + "m";
-    var hours = Math.round(minutes / 60);
-    if (hours < 24) return hours + "h";
-    return Math.round(hours / 24) + "d";
-  }
+  /**
+   * "12m", "3h", "2d" — an age, compact enough for a meta line.
+   *
+   * The transcript prints the same rule for the same fact, so the body is spliced in from
+   * lib/format.ts rather than written twice. No backticks in here: this is a template.
+   */
+  var ageText = __AGE__;
+  function ago(at) { return ageText(Date.now(), at); }
 
   /** Bytes, the way the footer says them. */
   function size(bytes) {
@@ -124,6 +129,12 @@ __RUNTIME__
       // the lane head already says blocked, and a status prefix in it would be a second voice.
       if (card.blockedBy) return { text: card.blockedBy, kind: "blocked" };
       return { text: last ? last.text : "blocked, with nothing recorded", kind: "blocked" };
+    }
+    // An offer is a decision the lead already made once: the lane says nobody holds it, and
+    // this says how long the broadcast has gone unanswered, which is the difference between
+    // nobody having looked and nobody taking it.
+    if (card.status === "todo" && card.offeredAt !== undefined) {
+      return { text: "offered " + ago(card.offeredAt) + " ago · nobody took it", kind: "waiting" };
     }
     if (card.status === "doing" && !card.plan) {
       return { text: "no plan recorded", kind: "unplanned" };
