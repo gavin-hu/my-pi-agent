@@ -20,6 +20,7 @@ import { WEB_COMMENTS_JS } from "./web-comments.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
 import { WEB_MARKDOWN_JS } from "./web-markdown.ts";
 import { WEB_BLOCKS_JS } from "./web-blocks.ts";
+import { WEB_COMPOSER_JS } from "./web-composer.ts";
 import { WEB_DRAFT_JS } from "./web-draft.ts";
 import { WEB_OUTLINE_JS } from "./web-outline.ts";
 
@@ -86,6 +87,8 @@ ${WEB_OUTLINE_JS}
 
 ${WEB_BLOCKS_JS}
 
+${WEB_COMPOSER_JS}
+
 ${WEB_DRAFT_JS}
 
 ${WEB_CHROME_JS}
@@ -95,19 +98,6 @@ ${WEB_COMMENTS_JS}
 ${WEB_COLLAB_JS}
 
 ${WEB_MARKDOWN_JS}
-  function closeComposer() {
-    var open = planEl ? planEl.querySelector(".bf-composer") : null;
-    if (open && open.parentNode) open.parentNode.removeChild(open);
-    Array.prototype.forEach.call(planEl ? planEl.querySelectorAll(".bf-block--composing") : [], function (block) {
-      block.classList.remove("bf-block--composing");
-    });
-    // The only status a composer leaves behind is the refusal to leave it; once
-    // the draft is gone that sentence is stale.
-    if (statusEl && statusEl.textContent === DRAFT_REFUSAL) setStatus("");
-    // Closing is how a half-typed comment is discarded, so the stored draft follows
-    // it. A close with nothing open must not rewrite — and so drop — a restored one.
-    if (open) saveDraft();
-  }
 
   // Review facts: the plan's step progress, and the comments per section.
   function facts() {
@@ -117,22 +107,32 @@ ${WEB_MARKDOWN_JS}
     updateState();
   }
 
-  /** Reopen the composer a reload interrupted, once its block has rendered. */
-  function reopenComposer(typing) {
-    if (!typing || saved || approved || closed) return;
-    var target = blockAtLine(planEl, blocks(), typing.anchor);
-    if (target) openComposer(target.wrap, target.block, typing.quote || "", typing.text);
+  /**
+   * What the composer lifecycle reads, built where its state is.
+   *
+   * The bundle holds the state and the element handles; web-composer.ts holds the rules,
+   * so each call hands it the things those rules ask for and nothing more.
+   */
+  function composer() {
+    return {
+      planEl: planEl,
+      statusEl: statusEl,
+      refusal: DRAFT_REFUSAL,
+      setStatus: setStatus,
+      saveDraft: saveDraft,
+      open: openComposer,
+    };
   }
 
-  function commentOnActive() {
-    if (blockElements(planEl).length === 0) return;
-    if (activeIndex < 0) activeIndex = setActive(planEl, 0);
-    var wrap = blockElements(planEl)[Math.max(0, activeIndex)];
-    if (!wrap) return;
-    var target = blockAtLine(planEl, blocks(), Number(wrap.getAttribute("data-line")));
-    if (target) openComposer(target.wrap, target.block, "");
+  /**
+   * Close the composer, for the surfaces that never see the bundle.
+   *
+   * The comment fragments call this while they build the form; they own the DOM, not the
+   * four pieces the rule reads, so they name the action and this supplies the state.
+   */
+  function closeOpenComposer() {
+    closeComposer(composer());
   }
-
   function renderPlan() {
     if (!planEl) return;
     // The DOM below is thrown away and rebuilt. Focus is only put back when it was
@@ -140,7 +140,7 @@ ${WEB_MARKDOWN_JS}
     // pull the keyboard away from the page the reviewer is working in.
     var focused = document.activeElement;
     var keepFocus = !!(focused && focused !== planEl && planEl.contains(focused));
-    closeComposer();
+    closeOpenComposer();
     pendingQuote = null;
     var scrollTop = planEl.scrollTop;
     planEl.replaceChildren();
@@ -359,7 +359,7 @@ ${WEB_MARKDOWN_JS}
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
       // The sheet owns its own Esc; this peels the composer, then the review.
-      if (planEl && planEl.querySelector(".bf-composer")) { closeComposer(); return; }
+      if (planEl && planEl.querySelector(".bf-composer")) { closeOpenComposer(); return; }
       cancel();
       return;
     }
@@ -380,7 +380,11 @@ ${WEB_MARKDOWN_JS}
       if (up !== null) activeIndex = up;
       return;
     }
-    if (event.key === "c") { event.preventDefault(); commentOnActive(); return; }
+    if (event.key === "c") {
+      event.preventDefault();
+      activeIndex = commentOnActive(composer(), activeIndex, blocks());
+      return;
+    }
     if (event.key === "a" && approveButton) { event.preventDefault(); askApprove(); return; }
     if (event.key === "s") { event.preventDefault(); if (saveButton) save(); else postComments(); return; }
   });
@@ -420,7 +424,7 @@ ${WEB_MARKDOWN_JS}
   renderName();
   outlineItems = renderOutline(outlineList, outlineEntries());
   renderPlan();
-  reopenComposer(restoredTyping);
+  reopenComposer(composer(), restoredTyping, { saved: saved, approved: approved, closed: closed }, blocks());
   updateProgress();
 })();
 `;

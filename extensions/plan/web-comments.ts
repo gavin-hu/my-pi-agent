@@ -112,7 +112,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   }
 
   function openComposer(wrap, block, quote, initial) {
-    closeComposer();
+    closeOpenComposer();
     wrap.classList.add("bf-block--composing");
     var composer = el("div", "bf-composer");
     if (quote) {
@@ -132,7 +132,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     composer.appendChild(area);
     var row = el("div", "bf-composer__row");
     var cancel = el("button"); cancel.type = "button"; cancel.className = "bf-btn"; cancel.textContent = "Cancel";
-    cancel.addEventListener("click", closeComposer);
+    cancel.addEventListener("click", closeOpenComposer);
     var add = el("button"); add.type = "button"; add.className = "bf-btn bf-btn--primary"; add.textContent = "Add comment";
     var submit = function () {
       if (closed) { setStatus("The review is closed; this comment was not added.", "error"); return; }
@@ -144,7 +144,7 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
       if (role === "reviewer") entry.author = reviewerName;
       annotations.push(entry);
       // Close first: the text is now a comment, so the draft keeps one or the other.
-      closeComposer();
+      closeOpenComposer();
       markDirty();
       setStatus("Comment added.");
       renderPlan();
