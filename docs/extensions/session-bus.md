@@ -167,8 +167,11 @@ listening watch is what raises the turn.
   session to the bus, so an unjoined session reads a board it is not on until it
   joins or acts.
 - **Membership is per session and session-only.** It survives neither a resume nor a
-  new process; unread mail is previewed once more after `/resume`, and the record
-  goes when the session stops.
+  new process: the record and every claim it held go when the session stops, and a
+  resumed pane is off the bus until it joins again. What does survive is everything
+  stored as a file — unread mail is previewed once more after `/resume`, and the
+  label a rejoining session takes is the same one, because it derives from Pi's
+  session name (`runtime.test.ts`, *a resume*).
 - **The board acts on your own state only.** `w` starts or stops listening and `x`
   releases a claim it holds. Mail is a preview, not a consume: the board never
   deletes a message, never marks one reported, and never touches a peer's inbox or
