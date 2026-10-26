@@ -9,6 +9,8 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
@@ -48,6 +50,7 @@ function harness(options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin 
 	return {
 		tool,
 		ctx: board.ctx,
+		runtime: board.runtime,
 		/** Run one action. */
 		async call(args: Record<string, unknown>) {
 			return (await tool.execute("call-1", args, undefined, undefined, board.ctx)) as {
@@ -105,6 +108,21 @@ describe("list", () => {
 		const result = await call({ action: "list" });
 		expect(text(result)).toBe("The board is empty.");
 		expect(result.details.cards).toEqual([]);
+	});
+
+	test("names a card file it cannot read, instead of calling the board empty", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const { call, ctx, runtime } = harness({ agentDir });
+		// A board written by a newer build: its file is there, and this build refuses it.
+		const store = await runtime.store(ctx.cwd);
+		await store.ensure();
+		writeFileSync(join(store.dir, "cards", "0007.json"), JSON.stringify({ v: 2, id: "7", title: "Newer" }));
+
+		const listed = await call({ action: "list" });
+		expect(text(listed)).toContain("1 file this build cannot read: 0007.json (version 2)");
+		const missing = await call({ action: "list", card: "7" });
+		expect(missing.isError).toBe(true);
+		expect(text(missing)).toContain("#7 is there and this build cannot read it (0007.json: version 2)");
 	});
 
 	test("lists in lane order, with the holder", async () => {

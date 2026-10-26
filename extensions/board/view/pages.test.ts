@@ -164,6 +164,13 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.start();");
 	});
 
+	test("says how many files the board could not read, beside its size", () => {
+		// A footer counting only what it read would report "2 cards" over a directory
+		// holding three files, and a reader cannot tell that from an empty board.
+		expect(BOARD_CLIENT_JS).toContain("view.skipped");
+		expect(BOARD_CLIENT_JS).toContain('plural(view.skipped, "unreadable")');
+	});
+
 	test("keeps ages honest, which is the one thing a quiet board must still do", () => {
 		expect(BOARD_CLIENT_JS).toContain("data-at");
 		expect(BOARD_CLIENT_JS).toContain("board.refreshAges()");

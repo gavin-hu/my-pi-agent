@@ -165,6 +165,7 @@ export async function fixtureBoard(): Promise<{ directory: string; view: () => P
 				now,
 				roster: fixtureRoster(now),
 				bytes: await store.bytes(),
+				skipped: (await store.skipped()).length,
 				// A capture prints the store path, so it names the shape rather than a temp dir.
 				where: "~/.pi/agent/board/8872d3adda0e",
 			});

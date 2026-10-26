@@ -30,6 +30,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   asking for the board was told it did not exist. It stays visible now and only `list`
   is admitted; `add`, `claim`, and the rest are refused by name with the exit guidance,
   which is the distinction the read-only hint cannot carry because the same tool writes.
+- `board`: a dropped card leaves a record, and its number is never reused. `drop` wrote
+  the file away and nothing else, and the next `add` took the freed id, so a note or a
+  handoff naming `#29` could mean a different feature a minute later. Each drop now
+  writes `ended/<id>.json` — the title, the lane, who ended it, when, and why — before
+  the card goes, and the next id is the highest in `cards/` or `ended/` plus one, so a
+  finished number stays finished.
+- `board`: a card file this build cannot read is named instead of looking absent. A
+  newer schema, a half-written file, or a record moved under another name was skipped
+  silently, so a board written by a newer build read as "nobody has planned anything";
+  `list` now says which files it refused and why, the page's footer counts them beside
+  the store's size, and an action on one says the file is there and unreadable rather
+  than that the card does not exist.
 
 ### Changed
 

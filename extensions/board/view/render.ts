@@ -201,7 +201,11 @@ const renderTemplate = String.raw`(function () {
     }
     var where = document.getElementById("board-where");
     if (where) {
-      where.textContent = "store " + view.where + " · " + plural(view.counts.total, "card") + " · " + size(view.bytes);
+      // A footer that only counts read cards would say "2 cards" over a board holding
+      // three files, so the unreadable ones are named beside the size.
+      where.textContent =
+        "store " + view.where + " · " + plural(view.counts.total, "card") + " · " + size(view.bytes) +
+        (view.skipped > 0 ? " · " + plural(view.skipped, "unreadable") : "");
     }
   }
 

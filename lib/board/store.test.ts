@@ -130,6 +130,23 @@ describe("list and read", () => {
 		writeFileSync(join(cards, "notes.txt"), "ignored");
 		writeFileSync(join(cards, ".tmp-123-abc"), "in flight");
 		expect((await store.list()).map((card) => card.id)).toEqual(["1"]);
+		// Dropping them silently is what makes an unreadable board read as an empty one:
+		// each refusal is reported with the file and the reason.
+		expect(await store.skipped()).toEqual([
+			{ file: "0002.json", id: "2", why: "bad JSON" },
+			{ file: "0003.json", id: "3", why: "version 2" },
+			{ file: "0004.json", id: "4", why: "names card 9" },
+			{ file: "0005.json", id: "5", why: "not a card record" },
+		]);
+	});
+
+	test("a card file that is there but unreadable is named in the refusal", async () => {
+		const { dir, store } = scratchStore();
+		await store.ensure();
+		writeFileSync(join(dir, "cards", "0007.json"), JSON.stringify({ ...cardLike("7"), v: 2 }));
+		const result = await store.mutate("7", { kind: "claim" }, LEAD, NOW);
+		if (result.ok) throw new Error("expected a refusal");
+		expect(result.error).toBe("#7 is there and this build cannot read it (0007.json: version 2).");
 	});
 
 	test("a padded id inside the record is a disagreement, not a card", async () => {
@@ -256,6 +273,38 @@ describe("mutate", () => {
 		expect(result.dropped).toBe(true);
 		expect(existsSync(join(dir, "cards", "0001.json"))).toBe(false);
 		expect(await store.list()).toEqual([]);
+	});
+
+	test("records what ended, so the id does not come back", async () => {
+		const { dir, store } = scratchStore();
+		const first = await store.create({ title: "A card that ended", paths: [] }, LEAD, NOW);
+		await store.mutate(first.id, { kind: "drop" }, LEAD, NOW + 5);
+
+		const ended = JSON.parse(readFileSync(join(dir, "ended", "0001.json"), "utf-8"));
+		expect(ended).toEqual({
+			v: 1,
+			id: "1",
+			title: "A card that ended",
+			status: "todo",
+			by: LEAD.label,
+			at: NOW + 5,
+			why: "dropped",
+		});
+
+		// The next add takes a new number: a note or a handoff that names #1 cannot come
+		// to mean a different feature tomorrow.
+		const second = await store.create({ title: "The next feature", paths: [] }, LEAD, NOW);
+		expect(second.id).toBe("2");
+	});
+
+	test("keeps the owner in the record when the card had one", async () => {
+		const { dir, store } = scratchStore();
+		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
+		await store.mutate(card.id, { kind: "claim" }, CORE, NOW);
+		await store.mutate(card.id, { kind: "drop" }, CORE, NOW);
+		const ended = JSON.parse(readFileSync(join(dir, "ended", "0001.json"), "utf-8"));
+		expect(ended.status).toBe("doing");
+		expect(ended.owner).toEqual({ id: CORE.id, label: CORE.label });
 	});
 });
 

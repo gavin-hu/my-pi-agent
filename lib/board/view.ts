@@ -87,6 +87,13 @@ export interface BoardView {
 	teammates?: ViewTeammate[];
 	/** Bytes the store occupies, so a board that is never pruned says so. */
 	bytes: number;
+	/**
+	 * Card files the reader refused, so the footer can say the board is not empty.
+	 *
+	 * Zero is the ordinary answer and draws nothing; a count above it is the one fact
+	 * that separates "no work here" from "this build cannot read your work".
+	 */
+	skipped: number;
 	/** Changes when a card's revision, a teammate's state, or its mail does. */
 	sig: string;
 	/** The store's directory, shortened. */
@@ -107,6 +114,8 @@ export interface ViewInput {
 	cards: readonly Card[];
 	now: number;
 	bytes: number;
+	/** Card files the reader refused; absent reads as none, which is the ordinary board. */
+	skipped?: number;
 	where: string;
 	/** The bus's records, when the page could read them at all. */
 	roster?: readonly RosterSession[];
@@ -135,6 +144,7 @@ export function buildView(input: ViewInput): BoardView {
 		round: buildRound(cards, input.now),
 		...(teammates === undefined ? {} : { teammates }),
 		bytes: input.bytes,
+		skipped: input.skipped ?? 0,
 		// The roster enters the signature at its coarse facts only: a heartbeat every ten
 		// seconds is not news, while a join, a quiet and a letter are.
 		sig: signatureOf(input.cards) + rosterSignature(teammates),

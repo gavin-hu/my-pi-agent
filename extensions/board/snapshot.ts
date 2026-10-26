@@ -35,6 +35,7 @@ export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 		cards: await context.store.list(),
 		now: context.now(),
 		bytes: await context.store.bytes(),
+		skipped: (await context.store.skipped()).length,
 		where: context.store.where(),
 		...(roster === undefined ? {} : { roster }),
 	});

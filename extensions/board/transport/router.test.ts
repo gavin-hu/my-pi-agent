@@ -45,6 +45,7 @@ function view(): BoardView {
 			{ status: "done", cards: [] },
 		],
 		counts: { total: 1, todo: 1, doing: 0, blocked: 0, done: 0 },
+		skipped: 0,
 		round: {
 			owners: [],
 			unassigned: [{ ...card(), priority: "normal" }],

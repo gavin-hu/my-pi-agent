@@ -13,6 +13,7 @@
 
 import { type Card, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
 import type { BoardIndex } from "../../lib/board/links.ts";
+import type { Skip } from "../../lib/board/store.ts";
 import { plural } from "../../lib/board/round-text.ts";
 
 /** One card: the headline, then the state a reader needs in order to act on it. */
@@ -24,6 +25,18 @@ export function formatCard(card: Card, board?: BoardIndex): string {
 export function formatCards(cards: readonly Card[]): string {
 	if (cards.length === 0) return "The board is empty.";
 	return cards.map((card) => listLine(card)).join("\n");
+}
+
+/**
+ * The files the board could not read, or nothing when it read everything.
+ *
+ * A skipped file is not an absent one: a board written by a newer build would
+ * otherwise read as "nobody has planned anything" while the work sits on disk.
+ */
+export function formatSkipped(skipped: readonly Skip[]): string {
+	if (skipped.length === 0) return "";
+	const files = skipped.map((entry) => `${entry.file} (${entry.why})`).join(", ");
+	return `${plural(skipped.length, "file")} this build cannot read: ${files}`;
 }
 
 /** The dropped id, which is the only thing left of the card. */

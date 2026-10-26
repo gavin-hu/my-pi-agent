@@ -24,7 +24,7 @@ import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
-import { formatCard, formatCards, formatDropped } from "./format.ts";
+import { formatCard, formatCards, formatDropped, formatSkipped } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { BoardResult, collapsedLine, resultInput } from "./result.ts";
 import { createInput } from "./input.ts";
@@ -216,11 +216,23 @@ async function read(
 	now: number,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	const cards = await store.list();
+	// Read once: a card file the reader refused is the difference between "not there"
+	// and "there, and this build cannot read it".
+	const skipped = await store.skipped();
 	if (args.card !== undefined) {
 		const id = normalizeCardId(args.card);
 		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 		const card = cards.find((entry) => entry.id === id);
-		if (!card) return refusal(action, me, `${cardRef(id)} does not exist.`);
+		if (!card) {
+			const unreadable = skipped.find((entry) => entry.id === id);
+			return refusal(
+				action,
+				me,
+				unreadable === undefined
+					? `${cardRef(id)} does not exist.`
+					: `${cardRef(id)} is there and this build cannot read it (${unreadable.file}: ${unreadable.why}).`,
+			);
+		}
 		return textResult(formatCard(card, indexOf(cards)), { action, me, card });
 	}
 	const listed = cards.filter(
@@ -231,9 +243,12 @@ async function read(
 			// session could not release.
 			(args.mine !== true || holds(card, me)),
 	);
-	if (args.round !== true) return textResult(formatCards(listed), { action, me, cards: listed });
+	// One line under the listing, because a reader who cannot see a card should know why.
+	const unreadable = formatSkipped(skipped);
+	const withFiles = (text: string): string => (unreadable === "" ? text : `${text}\n${unreadable}`);
+	if (args.round !== true) return textResult(withFiles(formatCards(listed)), { action, me, cards: listed });
 	const round = buildRound(cards, now);
-	return textResult(formatRound(cards, round), { action, me, cards: listed, round });
+	return textResult(withFiles(formatRound(cards, round)), { action, me, cards: listed, round });
 }
 
 /** `add`: the only action that creates a card. */

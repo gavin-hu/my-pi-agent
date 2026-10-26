@@ -99,6 +99,47 @@ export interface Card {
 	by: string;
 }
 
+/**
+ * What a card left behind when it was dropped: the record that its id is spent.
+ *
+ * A card's id is how a note, a handoff, or another card names one feature, so an id
+ * that comes back is worse than an id that is gone — the same number would answer for
+ * two different features. The store keeps one of these per ended card, writes it
+ * before the card file goes, and never allocates its id again.
+ */
+export interface EndedCard {
+	/** Schema version for the record itself; a reader refuses what it does not know. */
+	v: 1;
+	/** The id that is now spent, without padding. */
+	id: string;
+	/** What the card was called, so a note that names its id still reads. */
+	title: string;
+	/** The lane it was in when it ended. */
+	status: CardStatus;
+	/** Who ended it. */
+	by: string;
+	/** The owner it had, when it had one. */
+	owner?: CardOwner;
+	/** When it ended. */
+	at: number;
+	/** Why it ended: the operation, which is `drop` today. */
+	why: "dropped";
+}
+
+/** Whether `value` is an ended-card record this build can trust. */
+export function isEndedCard(value: unknown): value is EndedCard {
+	if (typeof value !== "object" || value === null) return false;
+	const ended = value as Record<string, unknown>;
+	if (ended.v !== CARD_VERSION) return false;
+	if (typeof ended.id !== "string" || !/^[0-9]+$/.test(ended.id)) return false;
+	if (typeof ended.title !== "string" || ended.title === "") return false;
+	if (!CARD_STATUSES.includes(ended.status as CardStatus)) return false;
+	if (typeof ended.by !== "string" || ended.by === "") return false;
+	if (!isOwner(ended.owner)) return false;
+	if (typeof ended.at !== "number" || !Number.isInteger(ended.at)) return false;
+	return ended.why === "dropped";
+}
+
 /** A rejected field, phrased for the model: what was wrong, not that something was. */
 export type FieldError = { error: string };
 

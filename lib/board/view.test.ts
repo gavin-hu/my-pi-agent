@@ -152,8 +152,13 @@ describe("buildView", () => {
 		expect(view.sig).toBe(signatureOf([one]));
 		const bumped = buildView({ me: ME, cards: [{ ...one, rev: 2 }], now: NOW, bytes: 0, where: WHERE });
 		expect(bumped.sig).not.toBe(view.sig);
-		const dropped = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
+		const dropped = buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 0, where: WHERE });
 		expect(dropped.sig).not.toBe(view.sig);
+	});
+
+	test("carries the files it could not read, so the footer can say the board is not empty", () => {
+		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE }).skipped).toBe(0);
+		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 2, where: WHERE }).skipped).toBe(2);
 	});
 
 	test("carries the size and the directory, so an unpruned board says so", () => {

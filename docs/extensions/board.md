@@ -35,7 +35,7 @@ decision.
 | Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to To do, without the page and without `team` |
 | Find a card without reading every lane | `board` action `list` with `query` | The cards whose title, path hint, or holder matches — the same rule the page's filter uses |
 | See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
-| Delete a card | `board` action `drop` | The card and its notes are gone; a `todo` or `done` card is anyone's to drop, one in flight only its holder's, and one that a card waits on cannot leave at all |
+| Delete a card | `board` action `drop` | The card and its notes are gone, and its id is spent: a record of the title, the lane, who ended it, and when stays in `ended/`, so a note or a handoff that names that id cannot come to mean a different feature. A `todo` or `done` card is anyone's to drop, one in flight only its holder's, and one that a card waits on cannot leave at all |
 | One page per repository | `/board` | Serves a loopback page as `team-lead` with a **Board** and a **Team** tab, following the store live; a page already served is opened instead |
 | Watch somebody else's page | `/board` on a session that is not serving | The same page, because there is one: every page is a read view, so a second session gets exactly what the first one sees instead of a writable rival. It joins the team under its own label, so a handoff can still reach it |
 | Read a board at its real size | the `Done` fold, an empty lane's rail | `Done` starts folded past six cards, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, so the lanes carrying work keep the width |
@@ -106,7 +106,7 @@ terminal.
 | `note` | `card`, `text` | the card with the note appended |
 | `plan` | `card`, `path` | the card with its plan recorded |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
-| `drop` | `card` | the id that was dropped |
+| `drop` | `card` | the id that was dropped, whose number is now spent |
 
 `card` takes `4` or `#4`. A refused call is an error result that still carries the
 card, so the next attempt starts from the truth.
@@ -196,7 +196,14 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 - **A finished card stays finished.** `done` is terminal for every transition — claim,
   assign, release, move, and plan all refuse it — so a card a dependency was recorded
   against cannot un-finish and reopen the order after the fact. A card finished by
-  mistake is dropped and added again; its notes do not come with it.
+  mistake is dropped and added again: the new card takes a new number, and the dropped
+  one's title and lane stay in `ended/` under the id nothing will use again. Its notes
+  do not come with it.
+- **A card file this build cannot read is reported, not skipped.** A file written by a
+  newer build, a half-written one, or a record moved under another name is named by
+  `list` with the reason and counted in the page's footer beside the store's size, so a
+  board that is not readable never reads as a board that is empty. `done` stays
+  terminal until a `reopen` is designed.
 - **Links are recorded by the tool.** A link names an id, so the page shows what a
   card waits for but does not edit it; `board edit` records it while the card is being
   planned, and `board drop` refuses to strand one.
@@ -218,8 +225,9 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   sends a handoff, and nothing else records an owner silently.
 - **A seat can outlive its writes.** A card claimed from the page before this change still
   names `board:team-lead` as its owner, and `reclaim` is how a lead takes it back.
-- **Nothing prunes.** A `done` card stays until someone drops it; the page shows
-  how many bytes the store occupies.
+- **Nothing prunes.** A `done` card stays until someone drops it, and a dropped card
+  leaves its record behind for the same reason; the page shows how many bytes the store
+  occupies and how many files it could not read.
 - **A page claim is a claim nobody cleans up.** A card a page claimed before this change
   is the seat's until a tool reclaims it; the page itself can no longer add to that pile.
 - **The page stops a minute after its last tab leaves.** Closing the tab to run a
@@ -265,8 +273,14 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 
 ## Design notes
 
-- **One JSON file per card**, in `<agentDir>/board/<repo-key>/cards/`. The listing
-  is the index, so a reader needs no cache and no daemon.
+- **One JSON file per card**, in `<agentDir>/board/<repo-key>/cards/`, and one per
+  ended card in `ended/`. The listing is the index, so a reader needs no cache and no
+  daemon.
+- **An id is never reused.** The next id is the highest in `cards/` *or* `ended/` plus
+  one, so an ended card's number cannot be handed to the next add — which is the only
+  thing that lets a note, a handoff, or a link name a card and still mean it. A record
+  is written before its card is removed: a crash between the two leaves a card that
+  still exists with a record explaining it, never a card that is gone unexplained.
 - **Create is exclusive**, by hard-linking a temporary file onto the target name,
   so two adds cannot share an id. **Update** re-reads, re-checks the operation's
   own preconditions, then renames over the old file: an operation means "apply when

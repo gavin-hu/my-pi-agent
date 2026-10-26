@@ -31,7 +31,16 @@ import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { type Card, CARD_STATUSES, cardRef, isCard, type Priority, priorityRank } from "./card.ts";
+import {
+	type Card,
+	CARD_STATUSES,
+	CARD_VERSION,
+	cardRef,
+	type EndedCard,
+	isCard,
+	type Priority,
+	priorityRank,
+} from "./card.ts";
 import { indexOf } from "./links.ts";
 import { type Actor, applyOp, type CardOp, createCard } from "./rules.ts";
 
@@ -40,6 +49,9 @@ export const BOARD_DIR_NAME = "board";
 
 /** The subdirectory one board's cards live in. */
 export const CARDS_DIR_NAME = "cards";
+
+/** The subdirectory a dropped card leaves its record in. */
+export const ENDED_DIR_NAME = "ended";
 
 /** Card files are the user's work; only their owner reads them. */
 const FILE_MODE = 0o600;
@@ -67,6 +79,21 @@ export type MutateResult =
 	| { ok: true; card: Card; changed: boolean; dropped: boolean }
 	| { ok: false; error: string; card?: Card };
 
+/**
+ * A card file the reader refused, and why.
+ *
+ * The lanes skip these, so without this the board reads as if they were never there:
+ * "nobody has planned anything" instead of "this build cannot read your work".
+ */
+export interface Skip {
+	/** The file name, e.g. `0042.json`. */
+	file: string;
+	/** The id the file name spells, when it spells one, so a caller can match a refusal. */
+	id?: string;
+	/** What is wrong, phrased for a reader: `bad JSON`, `version 2`. */
+	why: string;
+}
+
 /** One repository's board, as the runtime, the router, and the tool use it. */
 export interface BoardStore {
 	/** The board's own directory, for `where` and for a refusal that names it. */
@@ -83,6 +110,8 @@ export interface BoardStore {
 	mutate(id: string, op: CardOp, actor: Actor, now: number): Promise<MutateResult>;
 	/** Bytes the store occupies on disk. */
 	bytes(): Promise<number>;
+	/** Card files this build refused to read, and why. */
+	skipped(): Promise<Skip[]>;
 	/** A short, user-facing name for the directory. */
 	where(): string;
 }
@@ -109,31 +138,42 @@ export async function openBoard(
 /** Build a store over one directory. Exported for tests and for a second backend. */
 export function createStore(dir: string): BoardStore {
 	const cardsDir = join(dir, CARDS_DIR_NAME);
+	const endedDir = join(dir, ENDED_DIR_NAME);
 
 	const ensure = async (): Promise<void> => {
 		await mkdir(cardsDir, { recursive: true, mode: DIR_MODE });
 		await sweepTemps(cardsDir);
 	};
 
-	const list = async (): Promise<Card[]> => {
+	/** Every card file, read once: what the lanes show and what they refused. */
+	const scan = async (): Promise<{ cards: Card[]; skipped: Skip[] }> => {
 		const entries = await readdirSafe(cardsDir);
 		const cards: Card[] = [];
+		const skipped: Skip[] = [];
 		for (const entry of entries) {
-			const card = await readCardFile(cardsDir, entry);
-			if (card) cards.push(card);
+			const read = await readCardFile(cardsDir, entry);
+			if ("card" in read) cards.push(read.card);
+			// Anything that is not a card-named file is not the board's to explain.
+			else if (entry.endsWith(".json")) skipped.push(read.skip);
 		}
-		return sortForLane(cards);
+		// Sorted by file name so two reads of one board say the same thing in the same order.
+		return { cards: sortForLane(cards), skipped: skipped.sort((a, b) => a.file.localeCompare(b.file)) };
 	};
 
+	const list = async (): Promise<Card[]> => (await scan()).cards;
+
+	const skipped = async (): Promise<Skip[]> => (await scan()).skipped;
+
 	const read = async (id: string): Promise<Card | undefined> => {
-		return readCardFile(cardsDir, fileNameFor(id));
+		const result = await readCardFile(cardsDir, fileNameFor(id));
+		return "card" in result ? result.card : undefined;
 	};
 
 	const create = async (input: CreateInput, actor: Actor, now: number): Promise<Card> => {
 		await ensure();
 		let lastError: unknown;
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-			const id = await nextCardId(cardsDir);
+			const id = await nextCardId(cardsDir, endedDir);
 			const card = createCard(id, input, actor, now);
 			const temp = tempPath(cardsDir);
 			await writeFile(temp, serialize(card), { mode: FILE_MODE });
@@ -157,9 +197,16 @@ export function createStore(dir: string): BoardStore {
 		for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
 			const card = await read(id);
 			if (!card) {
+				if (changedUnderneath) return { ok: false, error: `${cardRef(id)} was dropped.` };
+				// A file that is there and refused is not a card that does not exist: the
+				// reader is told which file to look at instead of being sent to add one.
+				const skip = (await scan()).skipped.find((entry) => entry.id === id);
 				return {
 					ok: false,
-					error: changedUnderneath ? `${cardRef(id)} was dropped.` : `${cardRef(id)} does not exist.`,
+					error:
+						skip === undefined
+							? `${cardRef(id)} does not exist.`
+							: `${cardRef(id)} is there and this build cannot read it (${skip.file}: ${skip.why}).`,
 				};
 			}
 			// The preconditions are checked against the card as it is *now*, and against the
@@ -169,6 +216,9 @@ export function createStore(dir: string): BoardStore {
 			if (!result.ok) return { ok: false, error: result.error, card };
 			if (!result.changed) return { ok: true, card: result.card, changed: false, dropped: false };
 			if (op.kind === "drop") {
+				// The record lands first: a crash between the two leaves a card that still
+				// exists with a note explaining it, never a card that is gone unexplained.
+				await writeEnded(endedDir, result.card, actor, now);
 				await rm(join(cardsDir, fileNameFor(id)), { force: true });
 				return { ok: true, card: result.card, changed: true, dropped: true };
 			}
@@ -200,7 +250,7 @@ export function createStore(dir: string): BoardStore {
 		return total;
 	};
 
-	return { dir, ensure, list, read, create, mutate, bytes, where: () => shortenPath(dir) };
+	return { dir, ensure, list, read, create, mutate, bytes, skipped, where: () => shortenPath(dir) };
 }
 
 /** `<id>.json`, zero-padded to four digits so a directory lists in card order. */
@@ -211,34 +261,82 @@ function fileNameFor(id: string): string {
 /** The card files the reader accepts. */
 const CARD_FILE = /^(\d{4,})\.json$/;
 
-/** One card file, or undefined when it is not a card this build trusts. */
-async function readCardFile(cardsDir: string, entry: string): Promise<Card | undefined> {
+/** One card file: the card, or the reason this build refused it. */
+async function readCardFile(cardsDir: string, entry: string): Promise<{ card: Card } | { skip: Skip }> {
 	const match = CARD_FILE.exec(entry);
-	if (!match) return undefined;
+	if (!match) return { skip: { file: entry, why: "not a card id" } };
+	const id = String(Number(match[1]));
 	const text = await readFile(join(cardsDir, entry), "utf-8").catch(() => undefined);
-	if (text === undefined) return undefined;
+	if (text === undefined) return { skip: { file: entry, id, why: "cannot be read" } };
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(text);
 	} catch {
-		return undefined;
+		return { skip: { file: entry, id, why: "bad JSON" } };
 	}
-	if (!isCard(parsed)) return undefined;
+	// A version above this build's is the one refusal a reader can act on: the file was
+	// written by a newer build, so the board is not empty, it is not readable here.
+	const version = typeof parsed === "object" && parsed !== null ? (parsed as { v?: unknown }).v : undefined;
+	if (typeof version === "number" && version !== CARD_VERSION) {
+		return { skip: { file: entry, id, why: `version ${version}` } };
+	}
+	if (!isCard(parsed)) return { skip: { file: entry, id, why: "not a card record" } };
 	// The file name is the id's canonical spelling: a padded id inside the record
 	// (or a record moved under another name) is a disagreement, not a card.
-	if (parsed.id !== String(Number(match[1]))) return undefined;
-	return parsed;
+	if (parsed.id !== String(Number(match[1]))) {
+		return { skip: { file: entry, id, why: `names card ${parsed.id}` } };
+	}
+	return { card: parsed };
 }
 
-/** `1`, `2`, `3` … as the highest existing id plus one. */
-async function nextCardId(cardsDir: string): Promise<string> {
-	const entries = await readdirSafe(cardsDir);
+/** The highest id a directory holds, or 0 when it holds none. */
+async function highestId(dir: string): Promise<number> {
+	const entries = await readdirSafe(dir);
 	let highest = 0;
 	for (const entry of entries) {
 		const match = CARD_FILE.exec(entry);
 		if (match) highest = Math.max(highest, Number(match[1]));
 	}
-	return String(highest + 1);
+	return highest;
+}
+
+/**
+ * `1`, `2`, `3` … as the highest id the board has ever used plus one.
+ *
+ * Ended cards count: a dropped card's record keeps its id spent, so a note or a
+ * handoff that names `#29` cannot come to mean a different feature tomorrow.
+ */
+async function nextCardId(cardsDir: string, endedDir: string): Promise<string> {
+	return String(Math.max(await highestId(cardsDir), await highestId(endedDir)) + 1);
+}
+
+/**
+ * Write the record of a card that has ended.
+ *
+ * Exclusive like a create, so the id ends once: a retry that finds the record already
+ * there is the same end, not a second one.
+ */
+async function writeEnded(endedDir: string, card: Card, actor: Actor, now: number): Promise<void> {
+	await mkdir(endedDir, { recursive: true, mode: DIR_MODE });
+	const ended: EndedCard = {
+		v: 1,
+		id: card.id,
+		title: card.title,
+		status: card.status,
+		by: actor.label,
+		...(card.owner === undefined ? {} : { owner: card.owner }),
+		at: now,
+		why: "dropped",
+	};
+	const temp = tempPath(endedDir);
+	await writeFile(temp, serialize(ended), { mode: FILE_MODE });
+	try {
+		await link(temp, join(endedDir, fileNameFor(card.id)));
+	} catch (error) {
+		if (!hasErrorCode(error, "EEXIST")) throw error;
+	} finally {
+		await rm(temp, { force: true });
+	}
 }
 
 /** Write one card: a temp file in the same directory, then a rename over the old one. */
@@ -261,8 +359,9 @@ async function writeCardFile(cardsDir: string, id: string, card: Card): Promise<
 }
 
 /** One card's bytes, ending in a newline so the file reads well in an editor. */
-function serialize(card: Card): string {
-	return `${JSON.stringify(card, null, "\t")}\n`;
+/** One record as the bytes a file holds: tab-indented JSON with a closing newline. */
+function serialize(record: Card | EndedCard): string {
+	return `${JSON.stringify(record, null, "\t")}\n`;
 }
 
 /** A temp path in the cards directory: never matched by the reader's own pattern. */
