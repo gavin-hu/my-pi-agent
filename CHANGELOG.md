@@ -123,6 +123,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the two pages a session can serve are one cluster on the footer's state
+  line. The board's `⊞ <port>` was a mode chip and file-browse's `◉ <port>` a segment
+  of its own, so the two facts shared no weight: `◉` dropped four columns before `⊞`,
+  and `⎇` sat between them, which made a pair read as two unrelated chips. One `ports`
+  segment now reads both, in a fixed order — `⎇ main · ⊞ 5043 · ◉ 4909` — compacts
+  from `⊞ 5043 ◉ 4909` to `⊞ ◉`, and drops as a unit. A bar too narrow for a port
+  still says a page is up, which it had stopped saying at 56 columns.
+
 - `board`: the status chip leads with `⊞`, a grid that is one column in every profile,
   where `▤` is East-Asian ambiguous and so cost a CJK-width terminal a second column
   and pushed the port beside it out of line.

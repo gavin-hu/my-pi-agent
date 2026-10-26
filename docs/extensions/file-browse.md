@@ -344,10 +344,10 @@ old and new sides for `lib/highlight`.
 
 While a server is running, the extension publishes a two-tone `◉ <port>` chip
 (a green circle-dot and a blue port) under the shared `browse` status key. The
-[`bytefly`](./bytefly.md) extension routes it to line 1's right zone
-beside `⎇ branch` and `⑂ worktree`; it is cleared on stop and on
-`session_shutdown`. The chip is session-local: it reflects only this session's
-server, with no cross-session sharing.
+[`bytefly`](./bytefly.md) extension routes it to line 1's right zone, after
+`⎇ branch` and `⑂ worktree` and in the same run as the board page's port chip;
+it is cleared on stop and on `session_shutdown`. The chip is session-local: it
+reflects only this session's server, with no cross-session sharing.
 
 The page has its own live status, which is what a left-open tab reads. A `◉ live`
 chip beside `read-only` says whether status is flowing (green), still

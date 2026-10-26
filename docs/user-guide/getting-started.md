@@ -255,6 +255,7 @@ The chips you will meet:
 | `⊚ 1` | One watcher is live |
 | `! 2` | A watcher has two matches you have not read |
 | `◉ 4820` | The file browser is serving on port 4820 |
+| `⊞ 5043` | The board page is serving on port 5043 |
 | `✆ wechat expired` | A WeChat login has expired |
 
 ### While a turn runs

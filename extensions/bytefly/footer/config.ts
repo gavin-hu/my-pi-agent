@@ -28,11 +28,14 @@ export const CONFIG = {
 		branch: GLYPHS.branch,
 		detached: GLYPHS.detached,
 		worktree: GLYPHS.worktree,
+		board: GLYPHS.board,
 		browse: GLYPHS.browse,
 		delegation: GLYPHS.delegation,
 	},
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
 	worktreeStatusKey: STATUS_KEYS.worktree,
+	/** Status key the board extension publishes its page port under. */
+	boardStatusKey: STATUS_KEYS.board,
 	/** Status key the file-browse extension uses; routed to line 1's right zone. */
 	browseStatusKey: STATUS_KEYS.browse,
 	/** Status key whose ` · detail` suffix (the plan file name) is dropped. */

@@ -100,26 +100,42 @@ export function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment
 	return { id: "worktree", weight: 3, droppable: true, separator, forms };
 }
 
-export function browseSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const raw = snapshot.statuses.get(CONFIG.browseStatusKey);
-	if (!raw) return null;
-	const icon = CONFIG.icons.browse;
-	const label = chipLabel(raw);
-	const separator = faint(theme, CONFIG.separators.item);
-	if (!label) {
-		return { id: "browse", weight: 3, droppable: true, separator, forms: [paint(theme, "ok", icon)] };
-	}
-	// A two-tone chip: the `◉` glyph stays green while the port reads as accent.
+/**
+ * The pages this session is serving, as one cluster.
+ *
+ * The board and file-browse chips say one thing — a page is up on this port — so they
+ * share a segment, a weight, and a floor. Read separately they were a mode chip and a
+ * port chip: `▤ 5043` rode the mode weight and outlived `◉ 4909` by four columns, which
+ * made two facts of the same kind look like two kinds of fact. Shared, they also drop
+ * together, and the surviving form is the pair of glyphs, so a bar too narrow for a port
+ * still says a page is up.
+ */
+export function portsSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const open = [
+		{ key: CONFIG.boardStatusKey, icon: CONFIG.icons.board },
+		{ key: CONFIG.browseStatusKey, icon: CONFIG.icons.browse },
+	]
+		.filter((entry) => snapshot.statuses.has(entry.key))
+		.map((entry) => ({
+			icon: paint(theme, "ok", entry.icon),
+			port: chipLabel(snapshot.statuses.get(entry.key) ?? ""),
+		}));
+	if (open.length === 0) return null;
+	const joined = (separator: string): string =>
+		open
+			.map((entry) => (entry.port ? `${entry.icon} ${paint(theme, "accent", entry.port)}` : entry.icon))
+			.join(separator);
+	// Widest first: the item separator, then a single space, then the glyphs alone. A
+	// one-page session has two forms; two pages sharing a padded bar have three.
+	const forms = [
+		...new Set([joined(faint(theme, CONFIG.separators.item)), joined(" "), open.map((entry) => entry.icon).join(" ")]),
+	];
 	return {
-		id: "browse",
+		id: "ports",
 		weight: 3,
 		droppable: true,
-		separator,
-		forms: [
-			`${paint(theme, "ok", icon)} ${paint(theme, "accent", label)}`,
-			`${paint(theme, "ok", icon)}${paint(theme, "accent", label)}`,
-			paint(theme, "ok", icon),
-		],
+		separator: faint(theme, CONFIG.separators.item),
+		forms,
 	};
 }
 
@@ -155,7 +171,13 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 
 export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
-		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.browseStatusKey && !isAlert(key))
+		.filter(
+			([key]) =>
+				key !== CONFIG.worktreeStatusKey &&
+				key !== CONFIG.boardStatusKey &&
+				key !== CONFIG.browseStatusKey &&
+				!isAlert(key),
+		)
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([key, value]) => {
 			const status = sanitize(value);
