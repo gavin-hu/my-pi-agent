@@ -687,7 +687,9 @@ describe("review client", () => {
 		// server's sentence says which, so the page must not assume the first.
 		const submit = clientFunction("submit");
 		expect(submit).toContain("function submit(");
-		expect(submit).toContain("payload.error");
+		// The parsed body is `result.body`: `postJson` hands back the status and the body
+		// together, so the sentence the server wrote is still what the page says.
+		expect(submit).toContain("result.body.error");
 		expect(submit).toContain("offerReload()");
 		expect(submit).toContain("PLAN_MOVED");
 		// The plan-changed sentence is the fallback now, not the only thing said.
@@ -809,7 +811,7 @@ describe("review client", () => {
 	});
 
 	test("offers a reload when the plan changed on disk", () => {
-		expect(REVIEW_CLIENT_JS).toContain("response.status === 409");
+		expect(REVIEW_CLIENT_JS).toContain("result.status === 409");
 		expect(REVIEW_CLIENT_JS).toContain("window.location.reload()");
 	});
 

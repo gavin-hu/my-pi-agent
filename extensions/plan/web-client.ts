@@ -1,9 +1,10 @@
 /**
  * The browser review client, served as `/client.js`.
  *
- * Kept as one self-contained script (like `file-browse/view/client.ts`) with no
- * build step. Its document half — the inline and block Markdown rendering — is
- * `web-markdown.ts`, a fragment of the same IIFE interpolated below. It renders
+ * Served as one script with no build step, assembled from typed fragments: the element
+ * builder, typing test, status paint, and JSON POST come from `lib/web/client-runtime.ts`,
+ * and the Markdown, chrome, comments, and collaboration halves are `web-*.ts` modules
+ * interpolated below. It renders
  * the plan from the JSON data island using DOM text nodes only — plan and
  * comment text never becomes markup — renders each block
  * with its comment threads indented directly beneath it, highlights code by
@@ -13,7 +14,7 @@
  * gone; the explicit buttons are the primary save/cancel path.
  */
 
-import { dialogScript, keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import { CLIENT_RUNTIME_JS, dialogScript, keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
 import { WEB_CHROME_JS } from "./web-chrome.ts";
 import { WEB_COMMENTS_JS } from "./web-comments.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
@@ -67,11 +68,7 @@ export const REVIEW_CLIENT_JS = String.raw`(function () {
   var outlineList = document.getElementById("outline-list");
   var progressEl = document.getElementById("progress-fill");
 
-  function el(tag, className) {
-    var node = document.createElement(tag);
-    if (className) node.className = className;
-    return node;
-  }
+${CLIENT_RUNTIME_JS}
 
 ${WEB_CHROME_JS}
 
@@ -300,12 +297,8 @@ ${WEB_MARKDOWN_JS}
   // own comments, so a page showing everyone's cannot re-post another writer's.
   function submit(url, okText, failText, onOk) {
     var payload = role === "reviewer" ? annotations.filter(isMine) : annotations;
-    fetch(url + "?token=" + encodeURIComponent(token), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ annotations: payload })
-    }).then(function (response) {
-      if (response.ok) {
+    postJson(url + "?token=" + encodeURIComponent(token), { annotations: payload }).then(function (result) {
+      if (result.ok) {
         dirty = false;
         clearDraft();
         setStatus(okText, "saved");
@@ -313,28 +306,24 @@ ${WEB_MARKDOWN_JS}
         updateState();
         // The server binds a reviewer's name to her link on the first post; adopt it
         // so a second tab of the same link posts under the same name.
-        return response.json().then(function (payload) {
-          if (role === "reviewer" && payload && typeof payload.author === "string" && payload.author) adoptName(payload.author);
-        }, function () {});
+        if (role === "reviewer" && result.body && typeof result.body.author === "string" && result.body.author) {
+          adoptName(result.body.author);
+        }
+        return;
       }
-      if (response.status === 409) {
+      if (result.status === 409) {
         // A conflict is either a plan that moved under the page or a link already
         // bound to another name; a reload fixes both, and the server names which.
         if (approveButton) approveButton.disabled = true;
         if (saveButton) saveButton.disabled = true;
         if (postButton) postButton.disabled = true;
         offerReload();
-        return response.json().then(
-          function (payload) { setStatus(payload && payload.error ? payload.error : PLAN_MOVED, "error"); },
-          function () { setStatus(PLAN_MOVED, "error"); }
-        );
+        setStatus(result.body && result.body.error ? result.body.error : PLAN_MOVED, "error");
+        return;
       }
-      // Surface the server's own reason (a malformed comment, a stale body)
-      // rather than a bare status code.
-      return response.json().then(
-        function (payload) { throw new Error(payload && payload.error ? payload.error : "server returned " + response.status); },
-        function () { throw new Error("server returned " + response.status); }
-      );
+      // Surface the server's own reason (a malformed comment, a stale body) rather
+      // than a bare status code.
+      throw new Error(result.body && result.body.error ? result.body.error : "server returned " + result.status);
     }).catch(function (error) {
       setStatus(failText + error.message, "error");
     });
@@ -459,11 +448,6 @@ ${WEB_MARKDOWN_JS}
   // The sheet's own wiring — trigger, close button, backdrop, Tab trap, and Esc —
   // is shared with browse; the page keeps only its own keymap.
   ${keysDialogScript("shortcuts")}
-
-  function typing(target) {
-    var tag = target && target.tagName ? target.tagName : "";
-    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (target && target.isContentEditable);
-  }
 
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {

@@ -16,22 +16,24 @@
  * `team.ts` draws the round, `dialog.ts` opens a card, `keys.ts` binds, and `live.ts`
  * owns the frame stream and the wiring.
  *
- * `plural`, `tabTitle`, and `matchesQuery` are not written here. Their one bodies live in
- * `lib/` beside the rules they express, and the assembler hands the source in — a second
- * copy in the bundle is a second wording for `1 card`, a second shape for the tab, or a
- * filter that finds a different card than the tool does.
+ * `plural`, `tabTitle`, `matchesQuery`, `el`, `typing`, and `paintStatus` are not written
+ * here. Their one bodies live in `lib/` beside the rules they express, and the assembler
+ * hands the source in — a second copy in the bundle is a second wording for `1 card`, a
+ * second shape for the tab, a filter that finds a different card than the tool does, or an
+ * element builder and a typing test that drift from the review page's.
  */
 
 /**
- * The renderer, with the three rules it needs spliced in: the counts' wording, the tab
- * title's shape, and what a query matches — each written once in `lib/` and handed in
- * as source.
+ * The renderer, with what it needs spliced in: the counts' wording, the tab title's
+ * shape, what a query matches, and the browser runtime's element builder and typing test —
+ * each written once in `lib/` and handed in as source.
  */
-export function renderJs(rules: { plural: string; tabTitle: string; matches: string }): string {
+export function renderJs(rules: { plural: string; tabTitle: string; matches: string; runtime: string }): string {
 	return renderTemplate
 		.replace("__PLURAL__", rules.plural)
 		.replace("__TAB_TITLE__", rules.tabTitle)
-		.replace("__MATCHES__", rules.matches);
+		.replace("__MATCHES__", rules.matches)
+		.replace("__RUNTIME__", rules.runtime);
 }
 
 const renderTemplate = String.raw`(function () {
@@ -54,13 +56,7 @@ const renderTemplate = String.raw`(function () {
   /** The two tones a reason line can take, by the kind reasonOf reports. */
   var REASON_TONE = { blocked: N.cardReasonBlocked, unplanned: N.cardReasonUnplanned };
 
-  /** One element with optional class and text. */
-  function el(tag, className, text) {
-    var node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text !== undefined && text !== null) node.textContent = String(text);
-    return node;
-  }
+__RUNTIME__
 
   /**
    * One button that calls back, so nothing on the page is a click handler in markup.
@@ -488,6 +484,7 @@ const renderTemplate = String.raw`(function () {
   };
 
   board.el = el;
+  board.typing = typing;
   board.chip = chip;
   board.actionButton = actionButton;
   board.ago = ago;
