@@ -135,26 +135,28 @@ describe("roundText", () => {
 
 /** A team join that records what it was asked and answers with `answer`. */
 function fakeTeam(
-	answer: (label?: string) => JoinResult = (label) => ({
+	answer: (label: string | undefined) => JoinResult = (label) => ({
 		ok: true,
 		label: label ?? "billing-lead",
 		watching: { armed: true, wake: false },
 	}),
 ) {
 	const labels: Array<string | undefined> = [];
+	const naming: Array<boolean | undefined> = [];
 	const team: TeamJoin = {
-		join: async (_ctx, label) => {
-			labels.push(label);
-			return answer(label);
+		join: async (_ctx, input) => {
+			labels.push(input?.label);
+			naming.push(input?.name);
+			return answer(input?.label);
 		},
 	};
-	return { team, labels };
+	return { team, labels, naming };
 }
 
 describe("/team join", () => {
 	test("joins under the label it was given, and says where it landed", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
-		const { team, labels } = fakeTeam();
+		const { team, labels, naming } = fakeTeam();
 		const fake = createFakePi();
 		registerCommands(fake.pi, board.runtime, { team });
 		const command = fake.commands.get(TEAM_COMMAND);
@@ -162,12 +164,14 @@ describe("/team join", () => {
 		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 		await command.handler("join billing-core", ctx);
 		expect(labels).toEqual(["billing-core"]);
+		// Naming the session is the point of this door: a typed label is also Pi's own name.
+		expect(naming).toEqual([true]);
 		expect(notifications.at(-1)).toBe("team: on the team as billing-core, listening for handoffs.");
 	});
 
-	test("a bare join lands on the label the bus already has", async () => {
+	test("a bare join lands on the label the bus already has, and renames nothing", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
-		const { team, labels } = fakeTeam();
+		const { team, labels, naming } = fakeTeam();
 		const fake = createFakePi();
 		registerCommands(fake.pi, board.runtime, { team });
 		const command = fake.commands.get(TEAM_COMMAND);
@@ -175,6 +179,7 @@ describe("/team join", () => {
 		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
 		await command.handler("join", ctx);
 		expect(labels).toEqual([undefined]);
+		expect(naming).toEqual([undefined]);
 		expect(notifications.at(-1)).toContain("on the team as billing-lead");
 	});
 

@@ -40,7 +40,9 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			const [word = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
 			if (word === "join") {
 				const label = rest.join(" ").trim();
-				const joined = await team.join(ctx, label === "" ? undefined : label);
+				// The one naming action: a typed label is also Pi's session name, which is what
+				// `/team join` is for. Joining without one leaves both to the bus.
+				const joined = await team.join(ctx, label === "" ? {} : { label, name: true });
 				ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
 				return;
 			}

@@ -151,6 +151,10 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		running = undefined;
 		await server.close();
 		await clearPointer(store.dir, token);
+		// A page that closed is no seat: the session's next card is written as itself. This is
+		// the one place all three closes pass — `/board stop`, the idle grace, and shutdown — so
+		// a page nobody is looking at cannot leave the session serving in name only.
+		runtime.serve(undefined);
 		if (ctx !== undefined) clearChip(ctx);
 		return true;
 	};
@@ -225,7 +229,6 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 					viewOf({
 						store,
 						actor,
-						session: () => runtime.who(ctx, ctx.cwd),
 						now,
 						busDir: () => runtime.busDir(ctx.cwd),
 					}),

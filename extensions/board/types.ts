@@ -84,16 +84,6 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	drop: ["card"],
 };
 
-/**
- * The actions that change the board: everything but a read.
- *
- * One definition, read by the tool (does this call need a teammate?) and by plan
- * mode (may this call run while planning?), so "a read" cannot mean two things.
- */
-export const BOARD_MUTATING_ACTIONS: ReadonlySet<BoardAction> = new Set(
-	BOARD_ACTIONS.filter((action) => action !== "list"),
-);
-
 /** A result the transcript renders and the page's routes mirror. */
 export interface BoardDetails {
 	action: BoardAction;

@@ -42,17 +42,30 @@ function setup(dir: string) {
 }
 
 describe("a board's join request", () => {
-	test("joins the session as the label it asked for, and answers once", async () => {
+	test("joins the session as the label it asked for, and leaves Pi's name alone", async () => {
 		const dir = busDir();
 		const { pi, bus, ctx } = setup(dir);
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		const answered = new Promise<JoinResult>((resolve) => {
-			pi.events.emit(TEAM_JOIN_REQUEST, { ctx, input: { label: "team-lead" }, respond: resolve });
+			pi.events.emit(TEAM_JOIN_REQUEST, { ctx, input: { label: "team-agent-s1" }, respond: resolve });
 		});
-		expect(await answered).toEqual({ ok: true, label: "team-lead", watching: { armed: true, wake: false } });
-		// One identity: the label is also the name Pi's footer and `/resume` show.
-		expect(pi.getSessionName()).toBe("team-lead");
+		expect(await answered).toEqual({ ok: true, label: "team-agent-s1", watching: { armed: true, wake: false } });
+		// A join is membership, not a rename: the footer keeps the name the user gave it.
+		expect(pi.getSessionName()).toBeUndefined();
 		expect((await bus.status()).onBus).toBe(true);
+		await bus.stop();
+	});
+
+	test("names Pi's session too when the caller asks for it", async () => {
+		const dir = busDir();
+		const { pi, bus, ctx } = setup(dir);
+		await emit(pi, "session_start", { type: "session_start" }, ctx);
+		const answered = new Promise<JoinResult>((resolve) => {
+			pi.events.emit(TEAM_JOIN_REQUEST, { ctx, input: { label: "billing-core", name: true }, respond: resolve });
+		});
+		expect(await answered).toEqual({ ok: true, label: "billing-core", watching: { armed: true, wake: false } });
+		// `/team join <label>` is the one door that means "call me this from now on".
+		expect(pi.getSessionName()).toBe("billing-core");
 		await bus.stop();
 	});
 

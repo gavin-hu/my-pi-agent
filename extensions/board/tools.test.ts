@@ -16,29 +16,38 @@ import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
+import { agentLabel } from "../../lib/session-label.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
 import { registerTools } from "./tools.ts";
-import { ACTION_FIELDS, BOARD_ACTION_DOCS, BOARD_ACTIONS, BOARD_MUTATING_ACTIONS, type BoardDetails } from "./types.ts";
+import { ACTION_FIELDS, BOARD_ACTION_DOCS, BOARD_ACTIONS, type BoardDetails } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 const NOW = 100_000;
 
-/** A team join that records every call and answers with `answer`. */
+/** The two sessions these suites work as, and the team names their ids derive. */
+const LEAD_ID = "s-lead";
+const PEER_ID = "s-peer";
+const LEAD = agentLabel(LEAD_ID);
+const PEER = agentLabel(PEER_ID);
+
+/** A team join that records every call and the label it asked for, and answers with `answer`. */
 function recordingTeam(
-	answer: () => JoinResult = () => ({ ok: true, label: "billing-lead", watching: { armed: true, wake: false } }),
+	answer: () => JoinResult = () => ({ ok: true, label: LEAD, watching: { armed: true, wake: false } }),
 ) {
 	const calls: number[] = [];
+	const labels: Array<string | undefined> = [];
 	const team: TeamJoin = {
-		join: async () => {
+		join: async (_ctx, input) => {
 			calls.push(calls.length + 1);
+			labels.push(input?.label);
 			return answer();
 		},
 	};
-	return { team, calls };
+	return { team, calls, labels };
 }
 
 /** A registered tool plus the context it will be called with. */
@@ -90,9 +99,6 @@ describe("the registration", () => {
 			expect(tool.parameters.properties.action.description).toContain("`list` reads the board");
 			expect(tool.promptSnippet).toContain(action);
 		}
-		// Only one verb is a read, which is what plan mode admits and the nudge ignores.
-		expect([...BOARD_MUTATING_ACTIONS]).not.toContain("list");
-		expect(BOARD_MUTATING_ACTIONS.size).toBe(BOARD_ACTIONS.length - 1);
 	});
 
 	test("refuses an action it does not have, without throwing", async () => {
@@ -189,7 +195,7 @@ describe("list", () => {
 		const result = await call({ action: "list" });
 		expect(result.details.cards?.map((card) => card.status)).toEqual(["todo", "doing"]);
 		expect(text(result)).toContain("#2 todo · Retry branches merge cleanly · unassigned");
-		expect(text(result)).toContain("#1 doing · Billing webhook accepts orders · billing-lead");
+		expect(text(result)).toContain(`#1 doing · Billing webhook accepts orders · ${LEAD}`);
 	});
 
 	test("shows one card, however the id is written", async () => {
@@ -198,7 +204,7 @@ describe("list", () => {
 		for (const card of ["1", "#1"]) {
 			const result = await call({ action: "list", card });
 			expect(result.details.card?.id).toBe("1");
-			expect(text(result)).toContain("last note (billing-lead): why it exists");
+			expect(text(result)).toContain(`last note (${LEAD}): why it exists`);
 		}
 	});
 
@@ -216,8 +222,8 @@ describe("list", () => {
 		const result = await call({ action: "list", round: true });
 		// The group survives its last card finishing, and the line says so plainly
 		// instead of leaving a bare "0" next to a teammate who did the work.
-		expect(result.details.round?.owners.map((group) => group.label)).toEqual(["billing-lead"]);
-		expect(text(result)).toContain("billing-lead (0 live, 1 done)");
+		expect(result.details.round?.owners.map((group) => group.label)).toEqual([LEAD]);
+		expect(text(result)).toContain(`${LEAD} (0 live, 1 done)`);
 	});
 
 	test("filters one lane", async () => {
@@ -232,8 +238,8 @@ describe("list", () => {
 	test("shows only what this session holds, and nothing for one that holds nothing", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "Mine" });
 		await lead.call({ action: "add", title: "Theirs" });
 		await lead.call({ action: "claim", card: "1" });
@@ -242,7 +248,7 @@ describe("list", () => {
 		// The same rule a claim is checked against: a lane filter narrows it, it does not
 		// widen it, and a session holding nothing gets an empty list rather than the board.
 		expect((await lead.call({ action: "list", mine: true, status: "todo" })).details.cards).toEqual([]);
-		const stranger = harness({ cwd, agentDir, sessionId: "s-other", sessionName: "billing-other" });
+		const stranger = harness({ cwd, agentDir, sessionId: "s-other" });
 		expect((await stranger.call({ action: "list", mine: true })).details.cards).toEqual([]);
 	});
 
@@ -256,7 +262,7 @@ describe("list", () => {
 		const ids = async (query: string) => (await call({ action: "list", query })).details.cards?.map((card) => card.id);
 		expect(await ids("webhook")).toEqual(["1"]);
 		expect(await ids("src/git")).toEqual(["2"]);
-		expect(await ids("BILLING-LEAD")).toEqual(["2"]);
+		expect(await ids(LEAD.toUpperCase())).toEqual(["2"]);
 		// The two fields that hold a card's reasoning are two it can be found by.
 		expect(await ids("gateway owner")).toEqual(["1"]);
 		expect(await ids("retry-branches")).toEqual(["2"]);
@@ -318,7 +324,7 @@ describe("list", () => {
 		await call({ action: "claim", card: "2" });
 		const result = await call({ action: "list", round: true, status: "todo" });
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["1"]);
-		expect(result.details.round?.owners.map((group) => group.label)).toEqual(["billing-lead"]);
+		expect(result.details.round?.owners.map((group) => group.label)).toEqual([LEAD]);
 		expect(result.details.round?.unassigned.map((card) => card.id)).toEqual(["1"]);
 		expect(result.details.round?.unplanned.map((card) => card.id)).toEqual(["2"]);
 		expect(text(result)).toContain("1 owner · 2 features · 1 unassigned · 1 unplanned");
@@ -337,7 +343,7 @@ describe("add", () => {
 		expect(result.isError).toBeFalsy();
 		expect(result.details.card).toMatchObject({ id: "1", status: "todo", paths: ["src/billing"] });
 		expect(result.details.card?.notes).toHaveLength(1);
-		expect(result.details.me.label).toBe("billing-lead");
+		expect(result.details.me.label).toBe(LEAD);
 	});
 
 	test("refuses an invalid title, path, or note", async () => {
@@ -367,21 +373,21 @@ describe("claim, release, and move", () => {
 		const result = await call({ action: "claim", card: "1" });
 		expect(result.details.card).toMatchObject({
 			status: "doing",
-			owner: { id: ctx.sessionManager.getSessionId(), label: "billing-lead" },
+			owner: { id: ctx.sessionManager.getSessionId(), label: LEAD },
 		});
 	});
 
 	test("a claim another session made is refused with that session's name", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		const result = await lead.call({ action: "claim", card: "1" });
 		expect(result.isError).toBe(true);
-		expect(text(result)).toContain("#1 is held by billing-core.");
-		expect(result.details.card?.owner?.label).toBe("billing-core");
+		expect(text(result)).toContain(`#1 is held by ${PEER}.`);
+		expect(result.details.card?.owner?.label).toBe(PEER);
 	});
 
 	test("release returns it to todo with no owner left", async () => {
@@ -416,7 +422,7 @@ describe("claim, release, and move", () => {
 		// that asks for it. No repository behind this harness, so it names no commit: the
 		// silence is the honest answer, not a word saying "none".
 		const finished = text(await call({ action: "list", status: "done" }));
-		expect(finished).toContain("#2 done · Finished one · billing-lead");
+		expect(finished).toContain(`#2 done · Finished one · ${LEAD}`);
 		expect(finished).not.toContain("landed");
 	});
 
@@ -476,13 +482,13 @@ describe("claim, release, and move", () => {
 	test("reclaim takes the card back from whoever holds it, and keeps its notes", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		await peer.call({ action: "note", card: "1", text: "half done" });
 		const result = await lead.call({ action: "reclaim", card: "1" });
-		expect(result.details.card).toMatchObject({ status: "todo", by: "billing-lead" });
+		expect(result.details.card).toMatchObject({ status: "todo", by: LEAD });
 		expect(result.details.card?.owner).toBeUndefined();
 		expect(result.details.card?.notes.map((note) => note.text)).toEqual(["half done"]);
 	});
@@ -500,8 +506,8 @@ describe("edit and the links between cards", () => {
 	test("refuses an edit with nothing to change, and one another session holds", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		expect(text(await lead.call({ action: "edit", card: "1" }))).toContain(
 			"edit needs a title, paths, priority, or dependsOn.",
@@ -509,7 +515,7 @@ describe("edit and the links between cards", () => {
 		await peer.call({ action: "claim", card: "1" });
 		const refused = await lead.call({ action: "edit", card: "1", title: "mine now" });
 		expect(refused.isError).toBe(true);
-		expect(text(refused)).toContain("#1 is held by billing-core. Only its owner can edit it.");
+		expect(text(refused)).toContain(`#1 is held by ${PEER}. Only its owner can edit it.`);
 		expect(refused.details.card?.title).toBe("One");
 	});
 
@@ -589,8 +595,8 @@ describe("note and plan", () => {
 	test("plan records the file, and only the owner may", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		expect(text(await lead.call({ action: "plan", card: "1", path: "p.md" }))).toContain(
@@ -613,8 +619,8 @@ describe("drop", () => {
 	test("refuses a live card another session holds", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead", sessionName: "billing-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer", sessionName: "billing-core" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		const result = await lead.call({ action: "drop", card: "1" });
@@ -652,7 +658,7 @@ describe("archive", () => {
 		expect(miss.details.error).toBe("#1 is archived; pass archived: true to read it.");
 		const pile = await call({ action: "list", archived: true });
 		expect(pile.details.cards?.map((card) => card.id)).toEqual(["1"]);
-		expect(text(pile)).toContain("#1 done · Finished one · billing-lead");
+		expect(text(pile)).toContain(`#1 done · Finished one · ${LEAD}`);
 	});
 
 	test("names a card the sweep could not set aside, instead of dropping it from the report", async () => {
@@ -777,29 +783,51 @@ describe("the details a refusal carries", () => {
 });
 
 describe("the team", () => {
-	test("a card write joins once, and a second write does not ask again", async () => {
-		const { team, calls } = recordingTeam();
+	test("a claim joins once, under this session's own name", async () => {
+		const { team, calls, labels } = recordingTeam();
 		const { call } = harness({ team });
 		await call({ action: "add", title: "One" });
+		await call({ action: "add", title: "Two" });
 		await call({ action: "claim", card: "1" });
+		await call({ action: "claim", card: "2" });
 		expect(calls).toHaveLength(1);
+		// The label is the card's owner label, so the bus, the roster and the card agree.
+		expect(labels).toEqual([LEAD]);
 	});
 
-	test("a read never joins: looking at the board is not joining it", async () => {
+	test("no other action joins: a read, a new card, a note or an edit enlists nobody", async () => {
 		const { team, calls } = recordingTeam();
 		const { call } = harness({ team });
 		await call({ action: "list" });
 		await call({ action: "list", round: true });
+		await call({ action: "add", title: "One" });
+		await call({ action: "note", card: "1", text: "looked at it" });
+		await call({ action: "edit", card: "1", title: "One, renamed" });
 		expect(calls).toEqual([]);
 	});
 
-	test("a refused join leaves the board working, and the next write asks again", async () => {
-		const { team, calls } = recordingTeam(() => ({ ok: false, error: "the session bus is not loaded" }));
+	test("a refused claim wrote nothing, so it enlists nobody", async () => {
+		const { team, calls } = recordingTeam();
 		const { call } = harness({ team });
-		const added = await call({ action: "add", title: "One" });
-		expect(added.isError).toBeFalsy();
-		expect(added.details.card?.id).toBe("1");
+		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
+		await call({ action: "move", card: "1", status: "done" });
+		// A done card cannot be claimed, so the refusal is not a second join.
+		const refused = await call({ action: "claim", card: "1" });
+		expect(refused.isError).toBe(true);
+		expect(calls).toHaveLength(1);
+	});
+
+	test("a refused join leaves the board working, and the next claim asks again", async () => {
+		const { team, calls } = recordingTeam(() => ({ ok: false, error: "the session bus is not loaded" }));
+		const { call, runtime } = harness({ team });
+		await call({ action: "add", title: "One" });
+		await call({ action: "add", title: "Two" });
+		const first = await call({ action: "claim", card: "1" });
+		expect(first.isError).toBeFalsy();
+		// The failure is kept, because `/board status` says why there is no team.
+		expect(runtime.team.last()).toEqual({ ok: false, error: "the session bus is not loaded" });
+		await call({ action: "claim", card: "2" });
 		expect(calls).toHaveLength(2);
 	});
 });

@@ -10,6 +10,8 @@
 import { describe, expect, test } from "bun:test";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
+import type { BoardTeam } from "../../lib/board/session.ts";
+import type { JoinResult } from "../../lib/session-tool.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 import type { TeamJoin } from "./join.ts";
 import type { BoardPage, BoardPageStatus, PageStart } from "./page.ts";
@@ -106,39 +108,60 @@ function stalePage(dropped = true): { page: BoardPage; calls: string[] } {
 
 /** A team join that records the labels it was asked for and answers with `result`. */
 function fakeTeam(
-	answer: (label?: string) => Awaited<ReturnType<TeamJoin["join"]>> = (label) => ({
+	answer: (label: string | undefined) => JoinResult = (label) => ({
 		ok: true,
-		label: label ?? "billing-lead",
+		label: label ?? "team-agent-slead",
 		watching: { armed: true, wake: false },
 	}),
 ) {
 	const labels: Array<string | undefined> = [];
 	const team: TeamJoin = {
-		join: async (_ctx, label) => {
-			labels.push(label);
-			return answer(label);
+		join: async (_ctx, input) => {
+			labels.push(input?.label);
+			return answer(input?.label);
 		},
 	};
 	return { team, labels };
 }
 
+/**
+ * A session's team half: the name it writes as, the seat it serves, and its standing.
+ *
+ * The seat is held here the way the real session holds it, so a served page changes the
+ * name the join asks for.
+ */
+function fakeSession(name = "team-agent-slead"): BoardTeam & { seat(): string | undefined } {
+	let seat: string | undefined;
+	let standing: JoinResult | undefined;
+	return {
+		who: () => ({ id: "s-lead", label: seat ?? name }),
+		serving: () => seat,
+		serve: (label) => {
+			seat = label;
+		},
+		team: { last: () => standing, record: (result) => void (standing = result) },
+		seat: () => seat,
+	};
+}
+
 /** The command as the host invokes it. */
-async function run(args: string, given?: BoardPage, team?: TeamJoin) {
-	const { page, calls } = fakePage();
-	const target = given ?? page;
+async function run(args: string, options: { page?: BoardPage; team?: TeamJoin; session?: BoardTeam } = {}) {
+	const { page: recording, calls } = fakePage();
+	const target = options.page ?? recording;
+	const session = options.session ?? fakeSession();
 	const fake = createFakePi();
-	registerCommands(fake.pi, target, team === undefined ? {} : { team });
+	registerCommands(fake.pi, session, target, options.team === undefined ? {} : { team: options.team });
 	const command = fake.commands.get(BOARD_COMMAND);
 	if (!command) throw new Error("the board command was not registered");
 	const { ctx, notifications } = fakeCtx();
 	await command.handler(args, ctx);
-	return { calls, notifications, command, ctx };
+	return { calls, notifications, command, ctx, session };
 }
 
 describe("/board", () => {
 	test("opens the page on the Board tab, and joins the team as the seat", async () => {
 		const { team, labels } = fakeTeam();
-		const { notifications } = await run("", fakePage().page, team);
+		const { notifications } = await run("", { page: fakePage().page, team });
 		// Opening the page is the lead's one action: the seat is the label it lands on.
 		expect(labels).toEqual(["team-lead"]);
 		expect(notifications.at(-1)).toBe(
@@ -149,19 +172,21 @@ describe("/board", () => {
 	test("a viewer joins under its own label, because the seat is somebody else's", async () => {
 		const { team, labels } = fakeTeam(() => ({
 			ok: true,
-			label: "billing-lead",
+			label: "team-agent-slead",
 			watching: { armed: true, wake: false },
 		}));
-		const { notifications } = await run("", attachedPage(), team);
-		expect(labels).toEqual([undefined]);
+		const { notifications, session } = await run("", { page: attachedPage(), team });
+		// A page somebody else serves is nobody's seat here: the session keeps its own name.
+		expect(labels).toEqual(["team-agent-slead"]);
+		expect(session.serving()).toBeUndefined();
 		expect(notifications.at(-1)).toBe(
-			"board: team-lead is serving this repository on :4812 — viewing · open http://127.0.0.1:4812/?token=view · on the team as billing-lead, listening",
+			"board: team-lead is serving this repository on :4812 — viewing · open http://127.0.0.1:4812/?token=view · on the team as team-agent-slead, listening",
 		);
 	});
 
 	test("serves the page anyway when there is no team, and says so", async () => {
 		const { team } = fakeTeam(() => ({ ok: false, error: "the session bus is not loaded" }));
-		const { notifications } = await run("", fakePage().page, team);
+		const { notifications } = await run("", { page: fakePage().page, team });
 		expect(notifications.at(-1)).toContain("board: team-lead serving");
 		expect(notifications.at(-1)).toContain("no team (the session bus is not loaded)");
 	});
@@ -170,13 +195,40 @@ describe("/board", () => {
 		const { team } = fakeTeam();
 		const fake = createFakePi();
 		const { page: target } = fakePage();
-		registerCommands(fake.pi, target, { team });
+		const session = fakeSession();
+		registerCommands(fake.pi, session, target, { team });
 		const command = fake.commands.get(BOARD_COMMAND);
 		if (!command) throw new Error("the board command was not registered");
 		const { ctx, notifications } = fakeCtx();
 		await command.handler("", ctx);
 		await command.handler("status", ctx);
 		expect(notifications.at(-1)).toContain("on the team as team-lead, listening");
+	});
+
+	test("status reports a team a claim joined, and the page does not need to be open", async () => {
+		// The standing is the session's, not the command's: a claim writes it, and this line
+		// reads it, so a session that never ran `/board` still says which team it is on.
+		const session = fakeSession();
+		session.team.record({ ok: true, label: "team-agent-slead", watching: { armed: true, wake: false } });
+		const { notifications } = await run("status", { session });
+		expect(notifications.at(-1)).toBe(
+			"board: not running — /board opens it · on the team as team-agent-slead, listening",
+		);
+	});
+
+	test("says why there is no team, on the same line", async () => {
+		const session = fakeSession();
+		session.team.record({ ok: false, error: "the session bus is not loaded" });
+		const { notifications } = await run("status", { session });
+		expect(notifications.at(-1)).toContain("· no team (the session bus is not loaded)");
+	});
+
+	test("stands the seat down when the page stops", async () => {
+		const session = fakeSession();
+		const started = await run("", { session });
+		expect(started.session.serving()).toBe("team-lead");
+		const stopped = await run("stop", { session });
+		expect(stopped.session.serving()).toBeUndefined();
 	});
 
 	test("opens it on the Team tab", async () => {
@@ -191,14 +243,14 @@ describe("/board", () => {
 	});
 
 	test("says what a watching session may not stop, and whose page it is", async () => {
-		const { notifications } = await run("stop", attachedPage());
+		const { notifications } = await run("stop", { page: attachedPage() });
 		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead serves this repository on :4812");
-		const status = await run("status", attachedPage());
+		const status = await run("status", { page: attachedPage() });
 		expect(status.notifications.at(-1)).toBe("board: watching team-lead on :4812 — nothing to stop here");
 	});
 
 	test("tells a viewer whose page it is, and that it is on the team", async () => {
-		const { notifications } = await run("", attachedPage(), fakeTeam().team);
+		const { notifications } = await run("", { page: attachedPage(), team: fakeTeam().team });
 		expect(notifications.at(-1)).toContain(
 			"board: team-lead is serving this repository on :4812 — viewing · open http://127.0.0.1:4812/?token=view · on the team",
 		);
@@ -206,19 +258,19 @@ describe("/board", () => {
 
 	test("names a watched note that answers nobody, and drops it on stop", async () => {
 		const stale = stalePage();
-		const status = await run("status", stale.page);
+		const status = await run("status", { page: stale.page });
 		expect(status.notifications.at(-1)).toBe(
 			"board: watching team-lead on :4812 — that note answers nobody; /board stop drops it",
 		);
 
-		const stopped = await run("stop", stale.page);
+		const stopped = await run("stop", { page: stale.page });
 		expect(stale.calls).toEqual(["dropStale"]);
 		expect(stopped.notifications.at(-1)).toBe("board: dropped team-lead's note for :4812 — it answered nobody");
 	});
 
 	test("keeps the note of a page that came back before stop", async () => {
 		const stale = stalePage(false);
-		const { notifications } = await run("stop", stale.page);
+		const { notifications } = await run("stop", { page: stale.page });
 		expect(notifications.at(-1)).toBe("board: nothing to stop here — team-lead is answering on :4812");
 	});
 
@@ -241,7 +293,7 @@ describe("/board", () => {
 
 	test("completes only the words it has", async () => {
 		const fake = createFakePi();
-		registerCommands(fake.pi, page());
+		registerCommands(fake.pi, fakeSession(), page());
 		const command = fake.commands.get(BOARD_COMMAND);
 		const complete = (prefix: string) => command.getArgumentCompletions(prefix);
 		const values = (prefix: string) => complete(prefix)?.map((item: { value: string }) => item.value);
@@ -253,7 +305,7 @@ describe("/board", () => {
 
 	test("names itself in the command table", async () => {
 		const fake = createFakePi();
-		registerCommands(fake.pi, page());
+		registerCommands(fake.pi, fakeSession(), page());
 		expect(fake.commands.get(BOARD_COMMAND)?.description).toContain("/board [team | status | stop]");
 	});
 });

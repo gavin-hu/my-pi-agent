@@ -9,9 +9,10 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { plural } from "../../lib/board/round-text.ts";
+import type { BoardTeam } from "../../lib/board/session.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import { joinLabel, teamLine } from "./join.ts";
+import { teamLine } from "./join.ts";
 import type { BoardPage, BoardPageStatus } from "./page.ts";
 
 /** The command's name, which is also the word a user types. */
@@ -20,10 +21,13 @@ export const BOARD_COMMAND = "board";
 /** The words the command accepts, in the order a user is likely to want them. */
 export const BOARD_WORDS = ["status", "stop", "team"] as const;
 
-export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team?: TeamJoin } = {}): void {
+export function registerCommands(
+	pi: ExtensionAPI,
+	session: BoardTeam,
+	page: BoardPage,
+	deps: { team?: TeamJoin } = {},
+): void {
 	const team = deps.team ?? createTeamJoin(pi);
-	/** What the last `/board` did about the team, for the status line. */
-	let joined: JoinResult | undefined;
 	pi.registerCommand(BOARD_COMMAND, {
 		description: "Open the shared board in a local browser: /board [team | status | stop]",
 		getArgumentCompletions: (prefix: string) => {
@@ -35,7 +39,7 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			const word = args.trim().toLowerCase();
 			if (word === "status") {
-				ctx.ui.notify(statusLine(await page.status(), joined), "info");
+				ctx.ui.notify(statusLine(await page.status(), session.team.last()), "info");
 				return;
 			}
 			if (word === "stop") {
@@ -60,7 +64,11 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 					);
 					return;
 				}
-				ctx.ui.notify((await page.stop(ctx)) ? "board: stopped" : "board: not running", "info");
+				const stopped = await page.stop(ctx);
+				// The word is this session saying it serves nothing now: the page clears the seat too
+				// when it closes itself (the idle grace), and both writes are the same fact.
+				session.serve(undefined);
+				ctx.ui.notify(stopped ? "board: stopped" : "board: not running", "info");
 				return;
 			}
 			if (word !== "" && word !== "team") {
@@ -71,11 +79,14 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 				return;
 			}
 			const started = await page.start(ctx, word === "team" ? "team" : "board");
-			// A failed start has already said why. Otherwise the join happens here, because
-			// opening the page is the lead's one action: the seat when this session serves it,
-			// this session's own label when it watches a page somebody else serves.
+			// A failed start has already said why. Otherwise the seat is set from the page's own
+			// answer — the page a session serves is a role, and every name this session writes and
+			// is addressed by follows from it — and the join happens here, because opening the page
+			// is the lead's one action.
 			if (started.kind === "failed") return;
-			joined = await team.join(ctx, joinLabel(started.kind === "served"));
+			session.serve(started.kind === "served" ? started.seat : undefined);
+			const joined = await team.join(ctx, { label: session.who(ctx, ctx.cwd).label });
+			session.team.record(joined);
 			// The address is on the line because the browser is not the only way in: a machine
 			// with no default browser prints it here, and a tab closed by mistake is one
 			// command from being opened again.
@@ -101,5 +112,7 @@ export function statusLine(status: BoardPageStatus, team?: JoinResult): string {
 	if (status.attached === true) {
 		return `board: watching ${status.seat} on :${status.port} — nothing to stop here${teamLine(team)}`;
 	}
-	return "board: not running — /board opens it";
+	// The team outlives the page: a session that claimed a card is on it with no page open, so
+	// the line says which team this session is on whichever door put it there.
+	return `board: not running — /board opens it${teamLine(team)}`;
 }

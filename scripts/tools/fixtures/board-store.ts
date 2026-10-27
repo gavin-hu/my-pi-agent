@@ -120,7 +120,8 @@ export function fixtureRoster(now: number): RosterSession[] {
 	return [
 		{
 			id: "s-lead",
-			label: LEAD.label,
+			// The serving session is the page's seat, and the page marks its own row.
+			label: "team-lead",
 			mode: "tui",
 			lastSeen: now - 20_000,
 			mail: 1,
@@ -157,10 +158,8 @@ export async function fixtureBoard(): Promise<{ directory: string; view: () => P
 		view: async () => {
 			const now = Date.now();
 			return buildView({
-				// The page serves as its seat, and marks the reader's row from the session —
-				// the same two actors a real page reports.
+				// The page serves as its seat, and marks its own row: one actor, one name.
 				me: pageActor(),
-				session: LEAD,
 				cards: await store.list(),
 				now,
 				roster: fixtureRoster(now),
