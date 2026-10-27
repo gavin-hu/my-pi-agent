@@ -31,6 +31,10 @@ export interface KeyDeps {
 	toggleSheet(): void;
 	/** Walk the blocks by one, in the direction the key names. */
 	moveActive(delta: number): void;
+	/** Walk the blocks that carry a comment, in the direction the key names. */
+	moveComment?(delta: number): void;
+	/** Cycle what the page shows: everything, the changes, the comments. */
+	cycleView?(): void;
 	/** Comment on the block the keyboard is on. */
 	commentOnActive(): void;
 	/** Approve, through its confirmation; and the two writes `s` can stand for. */
@@ -60,6 +64,10 @@ export interface KeySurface {
 	role: ReviewRole;
 	/** Whether this review may approve the plan. */
 	canApprove: boolean;
+	/** Whether the page wired the comment walk (`n`/`N`), so the sheet may name it. */
+	hasCommentWalk: boolean;
+	/** Whether the page wired the view cycle (`v`). */
+	hasViewCycle: boolean;
 }
 
 /**
@@ -73,7 +81,7 @@ export interface KeySurface {
  */
 export interface WebKey {
 	/** Stable id: the sheet's order, and what a test names. */
-	id: "approve" | "blocks" | "comment" | "add" | "settle" | "close" | "sheet";
+	id: "approve" | "blocks" | "comments" | "comment" | "add" | "view" | "settle" | "close" | "sheet";
 	/** The keys as the sheet prints them; the same strings the handler matches. */
 	keys: readonly string[];
 	/** The sheet's sentence on this page. */
@@ -113,6 +121,16 @@ export function webKeys(): readonly WebKey[] {
 			run: (deps, key) => deps.moveActive(key === "k" ? -1 : 1),
 		},
 		{
+			id: "comments",
+			keys: ["n", "N"],
+			// Offered only when the page wired the walk: a documented key that does nothing is
+			// worse than a key the sheet leaves out.
+			offered: (surface) => surface.hasCommentWalk,
+			label: () => "Next and previous block with a comment",
+			hint: () => "to walk comments",
+			run: (deps, key) => deps.moveComment?.(key === "N" ? -1 : 1),
+		},
+		{
 			id: "comment",
 			keys: ["c"],
 			label: () => "Comment on the current block",
@@ -123,6 +141,14 @@ export function webKeys(): readonly WebKey[] {
 			id: "add",
 			keys: ["Enter"],
 			label: () => "Add the comment you are writing",
+		},
+		{
+			id: "view",
+			keys: ["v"],
+			offered: (surface) => surface.hasViewCycle,
+			label: () => "Show everything, what changed, or the comments",
+			hint: () => "to filter",
+			run: (deps) => deps.cycleView?.(),
 		},
 		{
 			id: "settle",
@@ -152,9 +178,14 @@ export function keyRows(surface: KeySurface): WebKey[] {
 	return webKeys().filter((row) => row.offered === undefined || row.offered(surface));
 }
 
-/** The surface a handler sees, read off the controls it was given. */
+/** The surface a handler sees, read off the callbacks and controls it was given. */
 function surfaceOf(deps: KeyDeps): KeySurface {
-	return { role: deps.hasSaveControl() ? "owner" : "reviewer", canApprove: deps.hasApproveControl() };
+	return {
+		role: deps.hasSaveControl() ? "owner" : "reviewer",
+		canApprove: deps.hasApproveControl(),
+		hasCommentWalk: deps.moveComment !== undefined,
+		hasViewCycle: deps.cycleView !== undefined,
+	};
 }
 
 /**

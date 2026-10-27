@@ -322,6 +322,111 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		await page.close();
 	});
 
+	test("v cycles what the page shows, and refuses over a half-written comment", async () => {
+		const local = await serve({ ...PAGE, changed: [1], blockMarks: true });
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const pressed = async (): Promise<string> =>
+			page.$eval('[data-view][aria-pressed="true"]', (node) => node.getAttribute("data-view") ?? "");
+		try {
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			expect(await pressed()).toBe("all");
+			await page.keyboard.press("v");
+			expect(await pressed()).toBe("changed");
+			// The paragraph that did not change is gone; the headings and the changed one stay.
+			expect(await page.$$eval("#plan .bf-block:not([hidden])", (nodes) => nodes.length)).toBe(3);
+			await page.keyboard.press("v");
+			expect(await pressed()).toBe("comments");
+			await page.keyboard.press("v");
+			expect(await pressed()).toBe("all");
+
+			// Cycling repaints, which closes the composer: a typed comment refuses it. The key
+			// only reaches the page once the textarea has given up the keyboard, so the reader's
+			// focus is moved out (the composer stays open).
+			await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
+			await page.fill(".bf-composer textarea", "half a thought");
+			await page.evaluate(() =>
+				(
+					globalThis as unknown as { document: { activeElement: { blur?: () => void } | null } }
+				).document.activeElement?.blur?.(),
+			);
+			await page.keyboard.press("v");
+			expect(await pressed()).toBe("all");
+			expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(1);
+			expect(await page.inputValue(".bf-composer textarea")).toBe("half a thought");
+			expect(await page.textContent("#status")).toContain("Add or discard the comment you are writing.");
+		} finally {
+			await page.close();
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
+	});
+
+	test("n walks the commented blocks, and steps over one the view hides", async () => {
+		// Three notes: the heading, the changed paragraph, and a paragraph the Changed view
+		// hides. The walk lands on the two it can show and never on the one it cannot.
+		const local = await serve({
+			...PAGE,
+			changed: [1],
+			blockMarks: true,
+			annotations: [
+				{ anchor: 0, comment: "on the title" },
+				{ anchor: 1, comment: "on the change" },
+				{ anchor: 4, comment: "on the roll-out" },
+			],
+		});
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const active = async (): Promise<string | null> =>
+			page.$eval("#plan .bf-block--active", (node) => node.getAttribute("data-line"));
+		try {
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.keyboard.press("v");
+			await page.keyboard.press("n");
+			expect(await active()).toBe("0");
+			await page.keyboard.press("n");
+			expect(await active()).toBe("1");
+			// Block 4 carries a note and is hidden: the walk stops rather than landing on it.
+			await page.keyboard.press("n");
+			expect(await active()).toBe("1");
+			await page.keyboard.press("N");
+			expect(await active()).toBe("0");
+		} finally {
+			await page.close();
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
+	});
+
+	test("Resolve settles the writer's own note, and the counts say so", async () => {
+		const local = await serve({
+			...PAGE,
+			annotations: [
+				{ anchor: 1, comment: "mine to settle" },
+				{ anchor: 4, comment: "hers", author: "priya" },
+			],
+		});
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		try {
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector("#plan .bf-comment", { timeout: PAINT_MS });
+			expect(await page.textContent("#comment-total")).toBe("2");
+			// The owner's own note offers the action; the reviewer's does not.
+			expect(await page.$$eval(".bf-comment__actions", (nodes) => nodes.length)).toBe(1);
+
+			await page.click(".bf-comment__actions .bf-btn");
+			expect(await page.$eval(".bf-comment", (node) => node.className)).toContain("bf-comment--resolved");
+			// Settled: the body is gone, the quote stays, and the panel splits the count.
+			expect(await page.$$eval(".bf-comment .bf-comment__body", (nodes) => nodes.length)).toBe(1);
+			expect(await page.textContent("#comment-total")).toBe("1 open · 1 resolved");
+			// Reopen puts it back.
+			await page.click(".bf-comment__actions .bf-btn");
+			expect(await page.$eval(".bf-comment", (node) => node.className)).not.toContain("bf-comment--resolved");
+			expect(await page.textContent("#comment-total")).toBe("2");
+		} finally {
+			await page.close();
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
+	});
+
 	test("opens the composer from a block's control, and Escape peels it before the review", async () => {
 		const page = await openPage();
 		// The control is one per block and is what a reader clicks; it is inside the rail.

@@ -240,10 +240,12 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   function renderCommentCards(box, list) {
     list.forEach(function (annotation) {
       var index = annotations.indexOf(annotation);
-      var card = el("div", "bf-comment");
+      var card = el("div", annotation.resolved ? "bf-comment bf-comment--resolved" : "bf-comment");
       var head = el("div", "bf-comment__head");
-      var label = el("span", annotation.author ? "bf-comment__label bf-comment__label--author" : "bf-comment__label");
-      label.textContent = annotation.author ? "@" + annotation.author : "Review";
+      // Every card names a person: "Review" was a category, and on a reviewer's page it
+      // could be anybody — including the reader.
+      var label = el("span", "bf-comment__label bf-comment__label--author");
+      label.textContent = annotation.author ? "@" + annotation.author : role === "owner" ? "You" : "The owner";
       head.appendChild(label);
       if (annotation.moved) {
         // A refinement carried this note off the text it was written on: the placement is
@@ -255,14 +257,31 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
           "Written on an earlier revision. The block it was on changed, so it sits here now: check it still refers to the text below.";
         head.appendChild(moved);
       }
+      if (annotation.resolved) {
+        // Settled notes keep their thread and their quote, and lose their body: the record
+        // stays, the reader's eye lands on what is still open.
+        var settled = el("span", "bf-comment__resolved");
+        settled.textContent = "\u2713 settled";
+        settled.title = "Settled: kept in the plan as the record of the question";
+        head.appendChild(settled);
+      }
       head.appendChild(el("span", "bf-comment__spacer"));
       if (isMine(annotation)) {
         var actions = el("div", "bf-comment__actions");
         var edit = el("button"); edit.type = "button"; edit.className = "bf-btn"; edit.textContent = "Edit";
         edit.addEventListener("click", function () { startEdit(card, index); });
+        var settle = el("button"); settle.type = "button"; settle.className = "bf-btn";
+        settle.textContent = annotation.resolved ? "Reopen" : "Resolve";
+        settle.addEventListener("click", function () {
+          if (annotation.resolved) delete annotation.resolved;
+          else annotation.resolved = true;
+          markDirty();
+          renderAll();
+          setStatus(annotation.resolved ? "Comment resolved." : "Comment reopened.");
+        });
         var remove = el("button"); remove.type = "button"; remove.className = "bf-btn"; remove.textContent = "Delete";
         remove.addEventListener("click", function () { removeComment(index); });
-        actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
+        actions.appendChild(settle); actions.appendChild(edit); actions.appendChild(remove); head.appendChild(actions);
       }
       card.appendChild(head);
       if (annotation.quote) {
@@ -270,9 +289,11 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
         quote.textContent = "\u201c" + annotation.quote + "\u201d";
         card.appendChild(quote);
       }
-      var body = el("div", "bf-comment__body");
-      body.textContent = annotation.comment;
-      card.appendChild(body);
+      if (!annotation.resolved) {
+        var body = el("div", "bf-comment__body");
+        body.textContent = annotation.comment;
+        card.appendChild(body);
+      }
       box.appendChild(card);
     });
   }

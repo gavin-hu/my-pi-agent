@@ -1709,6 +1709,22 @@ describe("review session", () => {
 		if (result.status === "saved") expect(result.plan.content).toContain("> [!REVIEW moved] check this");
 	});
 
+	test("keeps the resolved flag on a note the page posts back", async () => {
+		// Settling is the reader's decision, and the page is where it was made: a save that
+		// dropped the flag would hand a closed question back to the model as an open one.
+		const session = await start("# Plan\n\nA paragraph.\n");
+		const response = await fetch(feedbackUrl(session), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "answered", resolved: true }] }),
+		});
+
+		expect(response.status).toBe(200);
+		const result = await session.done;
+		expect(result.status).toBe("saved");
+		if (result.status === "saved") expect(result.plan.content).toContain("> [!REVIEW resolved] answered");
+	});
+
 	test("resolves cancelled when the user cancels", async () => {
 		const session = await start();
 		expect((await fetch(cancelUrl(session), { method: "POST" })).status).toBe(200);
@@ -2108,7 +2124,7 @@ describe("review outline", () => {
 			);
 			expect(nodes["step-fact"]?.hidden).toBe(false);
 			expect(nodes["step-fill"]?.style.width).toBe("40%");
-			expect(nodes["step-count"]?.textContent).toBe("2/5");
+			expect(nodes["step-count"]?.textContent).toBe("2/5 ticked");
 			// Four comments, three of them in a section: the one above the first heading is not.
 			expect(nodes["comment-total"]?.textContent).toBe("4");
 			expect(nodes["count-1"]?.textContent).toBe("1");
@@ -2937,6 +2953,26 @@ describe("review keyboard", () => {
 		const open = harness({ sheetOpen: () => true });
 		for (const key of ["j", "k", "c", "a", "s"]) handleKey(open.event(key).sent, open.deps);
 		expect(open.calls).toEqual([]);
+	});
+
+	test("n and N walk the comments, v cycles the view", () => {
+		const { deps, calls } = harness({
+			moveComment: (delta: number) => calls.push("comment" + delta),
+			cycleView: () => calls.push("view"),
+		});
+		handleKey({ key: "n", preventDefault() {} }, deps);
+		handleKey({ key: "N", preventDefault() {} }, deps);
+		handleKey({ key: "v", preventDefault() {} }, deps);
+		expect(calls).toEqual(["comment1", "comment-1", "view"]);
+	});
+
+	test("does not answer a key the page never wired", () => {
+		// The surface decides what is documented, and the same surface decides what acts:
+		// a page without the walk leaves `n` to the browser rather than swallowing it.
+		const { deps, calls } = harness();
+		handleKey({ key: "n", preventDefault() {} }, deps);
+		handleKey({ key: "v", preventDefault() {} }, deps);
+		expect(calls).toEqual([]);
 	});
 
 	test("j and k walk, c comments, a approves", () => {
