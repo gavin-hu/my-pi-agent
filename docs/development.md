@@ -180,9 +180,10 @@ Two different things come out of it:
   state between frames fails CI.
 - **The numbers, which are a pre-release reading:** wall-clock and heap depend on
   the machine, so no CI job gates on them. On the author's laptop a 2000-block
-  frame takes about 2 ms at 80 and 120 columns; treat **10 ms for 2000 blocks**
-  as the point worth investigating, and the memo staying above ~85% of components
-  as the healthy baseline (the fixture mix is ~91% today). The fixtures average
+  frame takes under a millisecond at 80 and 120 columns; treat **10 ms for 2000
+  blocks** as the point worth investigating, and the memo staying above ~85% of
+  components as the healthy baseline (the fixture mix is ~97% today — the misses
+  are Pi's own built-ins, whose `Container` rebuilds its array by design). The fixtures average
   about two lines per block, so compare shapes of the same session size rather
   than raw line counts.
 

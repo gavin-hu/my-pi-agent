@@ -90,6 +90,20 @@ describe("TodoResult", () => {
 	});
 });
 
+describe("TodoResult memo", () => {
+	test("serves a repeat frame, and rebuilds when the list or the theme moves", () => {
+		const view = new TodoResult({ rows: todos }, theme);
+		const first = view.render(60);
+		// A frame re-renders every block: the rail is derived once and compared once.
+		expect(view.render(60)).toBe(first);
+		view.setInput({ rows: todos.slice(0, 1) }, theme);
+		expect(view.render(60)).toEqual(["", "✓ Write schema"]);
+		view.invalidate();
+		expect(view.render(60)).toEqual(["", "✓ Write schema"]);
+		expect(view.render(40)).not.toBe(view.render(60));
+	});
+});
+
 describe("TodoWidget", () => {
 	test("shows progress and the current item on one line", () => {
 		const lines = new TodoWidget(todos, theme).render(60);

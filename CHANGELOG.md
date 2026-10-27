@@ -50,6 +50,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   or the theme moves, like the tool frame, notice, and separator beside it: a 2000-block
   frame falls from 6.2 ms to 2.6 ms median (p95 8.2 to 3.1), and the share served from a
   render memo rises from 86% to 91%.
+- `todo`, `check`, `goal`: the last transcript blocks that rebuilt on every frame now derive
+  their lines once, like the rest of the kit. Their rows, their failure list, and their goal
+  header are a pure function of the result they were handed, and `setInput`/`update` is
+  already where that result changes, so a repaint is one comparison: a 2000-block frame
+  falls from 2.3 ms to 0.3 ms median (p95 2.7 to 0.4) and the share served from a render
+  memo rises from 91% to 97%, leaving Pi's own three built-ins as the only misses.
 
 ## [0.20.0] - 2026-10-26
 
