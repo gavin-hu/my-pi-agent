@@ -8,11 +8,10 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
 import { type Card, cardRef } from "../../lib/board/card.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { TailResult, type TailResultInput, type TailSection } from "../../lib/tui/tool.ts";
+import type { TailResultInput, TailSection } from "../../lib/tui/tool.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { boardRowLine } from "./rows.ts";
@@ -83,26 +82,4 @@ function cardLine(theme: Theme, card: Card): string {
 	const id = paint(theme, "meta", cardRef(card.id));
 	const lane = paint(theme, "accent", card.status);
 	return `${id} ${lane} ${SEPARATORS.item} ${paint(theme, "label", sanitizeLine(card.title))}`;
-}
-
-/** The expanded block, as a component the transcript can reuse across renders. */
-export class BoardResult implements Component {
-	private readonly view: TailResult<Card>;
-
-	constructor(input: TailResultInput<Card>, theme: Theme) {
-		this.view = new TailResult(input, theme);
-	}
-
-	/** Update in place so the transcript reuses this component. */
-	setInput(input: TailResultInput<Card>, theme: Theme): void {
-		this.view.setInput(input, theme);
-	}
-
-	invalidate(): void {
-		this.view.invalidate();
-	}
-
-	render(width: number): string[] {
-		return this.view.render(width);
-	}
 }

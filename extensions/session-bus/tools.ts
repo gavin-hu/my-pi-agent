@@ -13,11 +13,12 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
-import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
+import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
 import { normalizeAction, TOOL_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
-import { collapsedLine, resultSections, SessionResult } from "./result.ts";
+import { collapsedLine, resultSections } from "./result.ts";
+import type { BusRow } from "./rows.ts";
 import type { SessionDetails } from "./types.ts";
 
 export { TOOL_NAME };
@@ -183,8 +184,8 @@ export function registerTools(pi: ExtensionAPI, bus: SessionBus): void {
 				text.setText(collapsedLine(theme, value));
 				return text;
 			}
-			const view =
-				context?.lastComponent instanceof SessionResult ? context.lastComponent : new SessionResult(sections, theme);
+			const previous = context?.lastComponent;
+			const view = isTailResult<BusRow>(previous) ? previous : new TailResult<BusRow>(sections, theme);
 			view.setInput(sections, theme);
 			return view;
 		},

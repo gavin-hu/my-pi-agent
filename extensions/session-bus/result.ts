@@ -7,38 +7,12 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { TailResult, type TailResultInput, type TailSection } from "../../lib/tui/tool.ts";
+import type { TailResultInput, TailSection } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { type BusRow, busRowLine, count, sessionRows } from "./rows.ts";
 import type { SessionDetails } from "./types.ts";
-
-/**
- * The transcript block for an expanded `session` result: the shared tail block
- * over the board's rows, one section per entity group.
- */
-export class SessionResult implements Component {
-	private readonly view: TailResult<BusRow>;
-
-	constructor(input: TailResultInput<BusRow>, theme: Theme) {
-		this.view = new TailResult(input, theme);
-	}
-
-	/** Update in place so the transcript can reuse this component across renders. */
-	setInput(input: TailResultInput<BusRow>, theme: Theme): void {
-		this.view.setInput(input, theme);
-	}
-
-	invalidate(): void {
-		this.view.invalidate();
-	}
-
-	render(width: number): string[] {
-		return this.view.render(width);
-	}
-}
 
 /** One section of the expanded result. */
 function section(rows: BusRow[], label?: string): TailSection<BusRow> {

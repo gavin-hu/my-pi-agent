@@ -280,6 +280,19 @@ export class TailResult<Row> implements Component {
 	}
 }
 
+/**
+ * Whether the component the transcript handed back is this kit's tail block.
+ *
+ * `TailResult` carries its row type and `instanceof` erases it. The caller is the
+ * one that knows which rows it drew, so the claim lives here as a guard rather
+ * than as a cast in each extension that reuses its block through
+ * `context.lastComponent` — and a component from another tool can only reach that
+ * check by being this class, which is why the erased type is safe to assert.
+ */
+export function isTailResult<Row>(value: unknown): value is TailResult<Row> {
+	return value instanceof TailResult;
+}
+
 /** The render context fields the elapsed timer needs. */
 export interface ToolRenderClock {
 	/** Pi's per-call render state, opaque here: this module only ever casts it. */
