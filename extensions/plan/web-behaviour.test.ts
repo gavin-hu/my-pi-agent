@@ -486,6 +486,33 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		}
 	});
 
+	test("the sidebar hint stays a hint, and the facts row keeps its labels whole", async () => {
+		// Two rules, both about a 260px panel: the hint line names the keys a reader reaches
+		// for first and leaves the rest to `?`, and no fact's label is squeezed into a column
+		// by the value beside it.
+		const page = await openPage();
+		// A string expression evaluates to `unknown`; this is the shape the page returns,
+		// and the assertions below are what hold it to that.
+		const panel = (await page.evaluate(`(function () {
+			var hints = document.querySelector(".review-hints");
+			var label = document.querySelector("#step-fact > span");
+			var row = document.getElementById("step-fact");
+			return {
+				keys: document.querySelectorAll(".review-hints .bf-kbd").length,
+				text: hints ? hints.textContent || "" : "",
+				labelHeight: label ? label.getBoundingClientRect().height : 0,
+				overflow: row ? row.scrollWidth - row.clientWidth : 0
+			};
+		})()`)) as { keys: number; text: string; labelHeight: number; overflow: number };
+		expect(panel.keys).toBe(6);
+		expect(panel.text).not.toContain("walk comments");
+		expect(panel.text).not.toContain("to filter");
+		// One line: a wrapped label measures its two rows, which is over 30px here.
+		expect(panel.labelHeight).toBeLessThan(30);
+		expect(panel.overflow).toBeLessThanOrEqual(1);
+		await page.close();
+	});
+
 	test("draws a list marker with the kit's class, checked or not", async () => {
 		// The marker's width and muted colour come from the kit rule; a bare marker class
 		// matched nothing, so a plain bullet sat at a different width from a checked one.

@@ -124,10 +124,10 @@ export function webKeys(): readonly WebKey[] {
 			id: "comments",
 			keys: ["n", "N"],
 			// Offered only when the page wired the walk: a documented key that does nothing is
-			// worse than a key the sheet leaves out.
+			// worse than a key the sheet leaves out. No `hint`: the sidebar line names what a
+			// reader reaches for first and leaves the rest to the sheet, or it grows forever.
 			offered: (surface) => surface.hasCommentWalk,
 			label: () => "Next and previous block with a comment",
-			hint: () => "to walk comments",
 			run: (deps, key) => deps.moveComment?.(key === "N" ? -1 : 1),
 		},
 		{
@@ -147,7 +147,6 @@ export function webKeys(): readonly WebKey[] {
 			keys: ["v"],
 			offered: (surface) => surface.hasViewCycle,
 			label: () => "Show everything, what changed, or the comments",
-			hint: () => "to filter",
 			run: (deps) => deps.cycleView?.(),
 		},
 		{
