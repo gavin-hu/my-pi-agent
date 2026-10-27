@@ -19,6 +19,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     var next = wrap.nextElementSibling;
     if (next && next.classList && next.classList.contains("bf-comments")) return next;
     var box = el("div", "bf-comments");
+    // The line it belongs to, so a filtered view can hide the thread with its block.
+    box.setAttribute("data-line", wrap.getAttribute("data-line") || "");
     wrap.insertAdjacentElement("afterend", box);
     return box;
   }
@@ -273,6 +275,8 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     var mine = annotations.filter(function (annotation) { return annotation.anchor === anchor; });
     if (mine.length === 0) return;
     var box = el("div", "bf-comments");
+    // The block this thread hangs under, as a line: the view filter hides the two together.
+    box.setAttribute("data-line", String(anchor));
     renderCommentCards(box, mine);
     container.appendChild(box);
   }

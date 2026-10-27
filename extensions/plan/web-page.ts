@@ -179,8 +179,11 @@ ${WEB_COMPONENTS_CSS}
 .bf-review{padding:0}
 .bf-review>.bf-block{max-width:none;padding:0 0 6px}
 .bf-block__rail,.bf-composer,.bf-block__add,.review-progress,.review-view{display:none}
-/* A printed review is the whole plan, never the view the reader had on screen. */
-.bf-block[hidden]{display:block}
+/* A printed review is the whole plan, never the view the reader had on screen: the
+   base layer's hidden rule is !important, so the un-hide has to be too, and a thread
+   the filter hid on screen goes back under its block. */
+.bf-block[hidden]{display:block!important}
+.bf-comments[hidden]{display:flex!important}
 .bf-block:hover,.bf-block--active{background:none;box-shadow:none}
 .bf-comments{padding-left:0}
 .bf-comment{break-inside:avoid}

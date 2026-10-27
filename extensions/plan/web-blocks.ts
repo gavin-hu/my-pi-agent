@@ -59,13 +59,20 @@ export function setActive(planEl: ClientNode | null, index: number): number | nu
  * The index one step from `activeIndex`, or `null` when there is nothing to walk.
  *
  * With nothing active yet, `j` starts at the top and `k` at the bottom, which is what a
- * reader pressing either key on a fresh page expects.
+ * reader pressing either key on a fresh page expects. A view can hide blocks, and a
+ * hidden block is not a place the reader can be sent: the step lands on the next block
+ * they can actually see, or nowhere when the filter left none.
  */
 export function moveActive(planEl: ClientNode | null, activeIndex: number, delta: number): number | null {
 	const blocks = blockElements(planEl);
 	if (blocks.length === 0) return null;
-	const next = activeIndex < 0 ? (delta < 0 ? blocks.length - 1 : 0) : activeIndex + delta;
-	return setActive(planEl, next);
+	const step = delta < 0 ? -1 : 1;
+	const first =
+		activeIndex < 0 ? (step < 0 ? blocks.length - 1 : 0) : Math.min(Math.max(activeIndex + step, 0), blocks.length - 1);
+	for (let index = first; index >= 0 && index < blocks.length; index += step) {
+		if (blocks[index]?.hidden !== true) return setActive(planEl, index);
+	}
+	return null;
 }
 
 /**
@@ -103,30 +110,43 @@ export interface ViewCounts {
  * in every view — a paragraph without its section is a sentence without a subject — and a
  * view with nothing to show keeps the document whole rather than blanking it.
  */
+/**
+ * Keep the blocks a view asks for, and hide the rest.
+ *
+ * A view is a filter over what is drawn, not a second document: `All` restores every
+ * block, so the reader is one click from the whole plan, and the page's status line says
+ * how many were hidden so a filtered document never reads as a short one. Headings stay
+ * in every view — a paragraph without its section is a sentence without a subject — and a
+ * view with nothing to show keeps the document whole rather than blanking it. A comment
+ * thread is hidden with the block it hangs under: a note with no text it refers to reads
+ * as a comment on whatever happens to be above it.
+ */
 export function applyView(planEl: ClientNode | null, view: ReviewView): ViewCounts {
-	const blocks = blockElements(planEl);
 	if (!planEl) return { shown: 0, hidden: 0 };
-	if (view === "all") {
-		for (const block of blocks) block.hidden = false;
-		return { shown: blocks.length, hidden: 0 };
-	}
-	let shown = 0;
+	const blocks = blockElements(planEl);
+	const keep = (block: ClientNode): boolean =>
+		view === "all" ||
+		block.getAttribute("data-kind") === "heading" ||
+		(view === "changed"
+			? block.getAttribute("data-changed") === "1"
+			: (block.className || "").split(" ").indexOf("bf-block--commented") >= 0);
+	// A filter that matches nothing but the headings is not a view of the plan: showing an
+	// empty page is worse than showing the whole document beside the count.
+	const matched = blocks.filter((block) => block.getAttribute("data-kind") !== "heading" && keep(block)).length;
+	const whole = view !== "all" && blocks.length > 0 && matched === 0;
+	const visible: Record<string, boolean> = {};
 	for (const block of blocks) {
-		const keep =
-			block.getAttribute("data-kind") === "heading" ||
-			(view === "changed"
-				? block.getAttribute("data-changed") === "1"
-				: (block.className || "").split(" ").indexOf("bf-block--commented") >= 0);
-		block.hidden = !keep;
-		if (keep) shown += 1;
+		block.hidden = !whole && !keep(block);
+		if (!block.hidden) visible[block.getAttribute("data-line") ?? ""] = true;
 	}
-	// A filter that matches nothing is not a view of the plan: showing an empty page is
-	// worse than showing the whole document beside the count.
-	if (shown === blocks.length) return { shown, hidden: 0 };
-	if (blocks.length > 0 && shown === blocks.filter((block) => block.getAttribute("data-kind") === "heading").length) {
-		for (const block of blocks) block.hidden = false;
-		return { shown: blocks.length, hidden: 0 };
+	const threads = planEl.querySelectorAll(".bf-comments");
+	for (let i = 0; i < threads.length; i++) {
+		const thread = threads[i];
+		if (!thread) continue;
+		const line = thread.getAttribute("data-line");
+		if (line !== null) thread.hidden = visible[line] !== true;
 	}
+	const shown = whole ? blocks.length : blocks.filter(keep).length;
 	return { shown, hidden: blocks.length - shown };
 }
 

@@ -196,6 +196,40 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		}
 	});
 
+	test("a filtered view hides a thread with its block, and the keys stay on what is shown", async () => {
+		// One changed paragraph, one comment on a paragraph that did not change: the note has
+		// no text left to refer to, so it goes with its block, and the keyboard has no business
+		// landing on a block the reader cannot see.
+		const local = await serve({
+			...PAGE,
+			changed: [1],
+			blockMarks: true,
+			annotations: [{ anchor: 4, comment: "needs a rollback step", author: "priya" }],
+		});
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		try {
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.click('[data-view="changed"]');
+			expect(await page.$eval("#plan .bf-comments", (node) => node.hidden)).toBe(true);
+
+			const active = "#plan .bf-block--active";
+			await page.keyboard.press("j");
+			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("0");
+			await page.keyboard.press("j");
+			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("1");
+			// The next block is the hidden one: the step skips it and lands on the heading after.
+			await page.keyboard.press("j");
+			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("3");
+			// Nothing visible is left past it, so the reader stays where they are.
+			await page.keyboard.press("j");
+			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("3");
+		} finally {
+			await page.close();
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
+	});
+
 	test("opens the composer from a block's control, and Escape peels it before the review", async () => {
 		const page = await openPage();
 		// The control is one per block and is what a reader clicks; it is inside the rail.

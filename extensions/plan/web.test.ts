@@ -30,7 +30,7 @@ import {
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
+import { applyView, blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { closeComposer, commentOnActive, reopenComposer, WEB_COMPOSER_JS } from "./web-composer.ts";
 import {
 	approveReview,
@@ -552,6 +552,15 @@ describe("review page", () => {
 		] as const) {
 			expect(REVIEW_CSS.split(block).length - 1, `${name} block`).toBe(1);
 		}
+	});
+
+	test("prints the whole plan, whichever view the reader had", () => {
+		// The base layer hides a filtered block with !important, so the print rule has to
+		// match it: without that, a printed Changed view is a partial plan, which is the one
+		// thing the print block promises it is not.
+		expect(WEB_BASE_CSS).toContain("[hidden]{display:none!important}");
+		expect(REVIEW_CSS).toContain(".bf-block[hidden]{display:block!important}");
+		expect(REVIEW_CSS).toContain(".bf-comments[hidden]{display:flex!important}");
 	});
 
 	test("loads the first-party client, the shared theme, and the review controls", () => {
@@ -2223,6 +2232,21 @@ describe("review block navigation", () => {
 		expect(moveActive(planEl, 0, 1)).toBe(1);
 	});
 
+	test("a filtered view is walked over, not through", () => {
+		const { blocks, planEl } = make([1, 8, 20]);
+		// The middle block is hidden by a view: `j` from the first lands on the third rather
+		// than on a class nobody can see, and from a hidden block it steps back out.
+		(blocks[1] as { hidden?: boolean }).hidden = true;
+		expect(moveActive(planEl, 0, 1)).toBe(2);
+		expect(moveActive(planEl, 2, -1)).toBe(0);
+		expect(moveActive(planEl, 1, 1)).toBe(2);
+
+		// Nothing visible left to walk to says so, instead of moving to a hidden block.
+		(blocks[0] as { hidden?: boolean }).hidden = true;
+		(blocks[2] as { hidden?: boolean }).hidden = true;
+		expect(moveActive(planEl, 1, 1)).toBeNull();
+	});
+
 	test("needs both halves of a line to open a composer", () => {
 		const { planEl } = make([1, 8]);
 		expect(blockAtLine(planEl, [{ start: 1 }, { start: 8 }], 8)?.block.start).toBe(8);
@@ -2230,6 +2254,61 @@ describe("review block navigation", () => {
 		expect(blockAtLine(planEl, [{ start: 1 }], 8)).toBeNull();
 		expect(blockAtLine(planEl, [{ start: 1 }, { start: 30 }], 30)).toBeNull();
 		expect(blockAtLine(null, [{ start: 1 }], 1)).toBeNull();
+	});
+});
+
+describe("review view filter", () => {
+	/** A block or thread node with the members the filter reads. */
+	const node = (attrs: Record<string, string>, className = "") => ({
+		attrs,
+		className,
+		hidden: false,
+		getAttribute: (name: string) => attrs[name] ?? null,
+	});
+	/** One page: its blocks, and the comment threads drawn under them. */
+	const page = (blocks: ReturnType<typeof node>[], threads: ReturnType<typeof node>[] = []) =>
+		({
+			querySelectorAll: (selector: string) =>
+				selector === ".bf-block" ? blocks : selector === ".bf-comments" ? threads : [],
+		}) as unknown as Parameters<typeof applyView>[0];
+
+	test("keeps the headings and what the view asks for, and hides the rest", () => {
+		const blocks = [
+			node({ "data-line": "0", "data-kind": "heading" }),
+			node({ "data-line": "1", "data-kind": "paragraph", "data-changed": "1" }),
+			node({ "data-line": "2", "data-kind": "paragraph" }),
+		];
+		const counts = applyView(page(blocks), "changed");
+		expect(blocks.map((entry) => entry.hidden)).toEqual([false, false, true]);
+		expect(counts).toEqual({ shown: 2, hidden: 1 });
+	});
+
+	test("hides a thread with its block, and leaves an orphan thread alone", () => {
+		const blocks = [
+			node({ "data-line": "0", "data-kind": "heading" }),
+			node({ "data-line": "1", "data-kind": "paragraph", "data-changed": "1" }),
+			node({ "data-line": "2", "data-kind": "paragraph" }),
+		];
+		const thread = node({ "data-line": "2" });
+		const orphan = node({});
+		applyView(page(blocks, [thread, orphan]), "changed");
+		// A note whose block is hidden has no text to refer to; one no block claims is its own.
+		expect(thread.hidden).toBe(true);
+		expect(orphan.hidden).toBe(false);
+
+		applyView(page(blocks, [thread, orphan]), "all");
+		expect(thread.hidden).toBe(false);
+	});
+
+	test("a filter that matches nothing but headings keeps the document whole", () => {
+		const blocks = [
+			node({ "data-line": "0", "data-kind": "heading" }),
+			node({ "data-line": "1", "data-kind": "paragraph" }),
+		];
+		// No block carries a change mark, so the Changed view has nothing to show.
+		const counts = applyView(page(blocks), "changed");
+		expect(blocks.map((entry) => entry.hidden)).toEqual([false, false]);
+		expect(counts).toEqual({ shown: 2, hidden: 0 });
 	});
 });
 
