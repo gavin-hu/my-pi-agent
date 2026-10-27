@@ -110,16 +110,17 @@ describe("the roster", () => {
 	test("names the bus's sessions on the snapshot", async () => {
 		const { page, ctx, cwd, runtime } = harness();
 		await seedBus(runtime, cwd, [
-			{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000 },
-			{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW },
+			{ id: "s-core", label: "team-agent-score", mode: "tui", lastSeen: NOW - 1_000 },
+			{ id: "s-lead", label: "team-lead", mode: "tui", lastSeen: NOW },
 		]);
 		const status = served(await page.start(ctx));
 		const snapshot = JSON.parse(
 			await (await fetch((status.url ?? "").replace("/?token=", "/api/board?token="))).text(),
 		);
+		// The page is the seat, so the seat's row is the one marked `you`.
 		expect(snapshot.teammates).toEqual([
-			{ label: "billing-core", state: "live", seen: NOW - 1_000, mail: 0, you: false },
-			{ label: "billing-lead", state: "live", seen: NOW, mail: 0, you: true },
+			{ label: "team-agent-score", state: "live", seen: NOW - 1_000, mail: 0, you: false },
+			{ label: "team-lead", state: "live", seen: NOW, mail: 0, you: true },
 		]);
 		await page.stop(ctx);
 	});
@@ -149,9 +150,9 @@ describe("start", () => {
 		expect(await document.text()).toContain('data-view="board"');
 
 		const snapshot = JSON.parse(await (await fetch(base.replace("/?token=", "/api/board?token="))).text());
-		// The page writes as its seat, and marks the reader's own row from the session.
+		// One identity for a page: the seat writes, and the seat is who is looking.
 		expect(snapshot.me).toEqual({ id: "board:team-lead", label: "team-lead" });
-		expect(snapshot.session.label).toBe("billing-lead");
+		expect(snapshot).not.toHaveProperty("session");
 		expect(snapshot.counts.total).toBe(0);
 
 		const token = new URL(base).searchParams.get("token") ?? "";

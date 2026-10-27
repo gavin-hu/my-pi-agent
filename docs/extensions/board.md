@@ -43,11 +43,11 @@ decision.
 | Set a finished card aside | `board` action `archive` | A `done` card's file moves into an `archive/` pile beside the board with its notes, plan, owner, and landed commit still readable, and the board stops reading it: the card named by `card`, or every finished card when none is named. It is a decision a person makes, never a threshold in the background, and nothing un-archives |
 | Delete a card | `board` action `drop` | The card and its notes are gone, and its id is spent: a record of the title, the lane, who ended it, and when stays in `ended/`, so a note or a handoff that names that id cannot come to mean a different feature. A `todo` or `done` card is anyone's to drop, an archived one included, one in flight only its holder's, and one that a card waits on cannot leave at all |
 | One page per repository | `/board` | Serves a loopback page as `team-lead` with a **Board** and a **Team** tab, following the store live; a page already served is opened instead |
-| Watch somebody else's page | `/board` on a session that is not serving | The same page, because there is one: every page is a read view, so a second session gets exactly what the first one sees instead of a writable rival. It joins the team under its own label, so a handoff can still reach it |
+| Watch somebody else's page | `/board` on a session that is not serving | The same page, because there is one: every page is a read view, so a second session gets exactly what the first one sees instead of a writable rival. It joins the team under its own name, so a handoff can still reach it |
 | Read a board at its real size | the `Done` fold, an empty lane's rail | `Done` starts folded at six cards or more, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, so the lanes carrying work keep the width |
 | Open a card | the card's title, or `Enter` on a focused one | The title is the only door, because it is the only one needed: it opens the dialog holding the card whole — its lane, its owner, its paths, what it waits for, its plan, and every note |
 | See the lead's round at a glance | `/board team`, or `/team` with no browser | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
-| Join the team | `/board`, or any card you work | Opening the page joins this session to the team — as `team-lead` when it serves the page, under its own name when it opens one somebody else serves — and the first card a tool writes joins it too, so nothing has to be armed by hand. `/board status` says which team a `/board` in this session put you on |
+| Join the team | `/board`, or the first card you claim | Opening the page joins this session to the team — as `team-lead` when it serves the page, under its own `team-agent-…` name when it opens one somebody else serves — and so does the first card it claims, so nothing has to be armed by hand. Joining never renames Pi's session: the footer keeps the name you gave it. `/board status` reports the team this session is on, whichever door it used |
 | See who is around | `/board team` | The Teammates list: every session this repository's bus has recorded, plus every owner a card names, each stating `live`, `quiet`, `no record`, or `—` when no bus is loaded |
 
 ## Quickstart
@@ -89,11 +89,19 @@ keeps its own note) instead of waiting for the next `/board` to trip over it.
 
 **Joining.** One thing, done for you: `/board` puts this session on the team — as
 `team-lead` when it serves the page, under its own name when it watches one — and so does
-the first card you work. The join is also the listening: mail is reported at that
-session's next turn, and no turn is raised, so being on the team never spends a turn. A
-session that has neither opened the board nor touched a card is not on it. `/board
-status` reports the join `/board` made itself: a session that joined by writing a card
-is on the team, and its status line does not say so.
+the first card it claims. A read, a new card, a note, a plan, or an edit enlists nobody: a
+teammate is a session that holds work. The join is also the listening: mail is reported at
+that session's next turn, and no turn is raised, so being on the team never spends a turn.
+A session that has neither opened the board nor claimed a card is not on it.
+
+**The two names.** A session's team name is the seat — `team-lead` — while it serves the
+page, and `team-agent-` plus the last six characters of its session id otherwise, so
+`billing-core` on this machine is `team-agent-9f21ac` to the team. The name is derived from
+the id and not from Pi's session name, which means a rename cannot strand a card, two
+sessions cannot settle on one name, and nothing here ever renames your session: `/team join
+<label>` is the one door that does. A card records that name as its owner, so the chip, the
+roster, and the bus record are one word — and `/board status` says it whichever door put
+this session on the team, including a claim made with no page open.
 
 The page still serves as a seat: `/board status` names `team-lead`, the toolbar chip says
 so, and a card a browser claimed **before** the page stopped writing still names
@@ -318,13 +326,14 @@ it always meant: when the card was last touched, which is not when it last chang
 
 ## Pi integration
 
-- **`session-bus`**: a card's owner is the bus label, so a card names a session a
+- **`session-bus`**: a card's owner is the session's team name, so a card names a session a
   peer can be addressed by. The board calls one thing on it — the join, through
   `lib/session-tool.ts`, because a command context cannot call a tool and the request
   therefore travels on `pi.events` — and reads its records otherwise, which is why the
-  page works with the bus disabled. A failed join is a clause on the `/board` line, not
-  a failed page. The seat is the name the page is served and reported under, and `/board
-  status` says which session is on the team through it.
+  page works with the bus disabled. The join asks for the name the board already writes
+  and never renames the session, so the footer stays the user's. A failed join is a clause
+  on the `/board` line, not a failed page. The seat is the name the page is served and
+  reported under, and `/board status` says which session is on the team through it.
 - **`plan`**: `board plan` records a plan file's path; the plan extension owns the
   file. The board stays available while planning, and only `list` works: the same tool
   writes, so its read-only hint cannot say that, and plan mode reads the action in the
@@ -481,7 +490,7 @@ it always meant: when the card was last touched, which is not when it last chang
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
 | `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |
 | `seat.ts` | The seat the page is served as: one name, and an id derived from it. The page cannot write, so it is a label now — but the id is still what a card claimed from an older page names |
-| `join.ts` | The board's side of the team: the one request that joins for the user, the label it lands on, and how the outcome reads on a `/board` line |
+| `join.ts` | The board's side of the team: when it asks (the page, or the first claimed card), the name it asks for, and how the outcome reads on a `/board` line |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push, and the close |
 | `view/page.ts` | The document: an inert shell the client fills, with no form on it |

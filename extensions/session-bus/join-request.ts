@@ -8,8 +8,9 @@
  * travels on `pi.events` and this module answers it with the runtime's own `join`.
  *
  * The answer always comes: every path here ends in `respond`, including a failure, so
- * a caller never waits on a listener that threw. The label also becomes Pi's session
- * name, because a team label and the footer have to agree.
+ * a caller never waits on a listener that threw. A caller that asks for `name` also gets
+ * Pi's session name, because `/team join <label>` is the one door that means "call me
+ * this from now on"; every other join leaves the footer alone.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -28,9 +29,11 @@ export function registerJoinRequests(pi: ExtensionAPI, bus: SessionBus): void {
 		let result: JoinResult;
 		try {
 			await bus.start(request.ctx);
-			const joined = await bus.join(request.input);
-			// One identity: the bus's label is also the name Pi's footer and `/resume` show.
-			if (request.input.label !== undefined) pi.setSessionName(joined.label);
+			// `name` is this wrapper's business, not the bus's: the record's label and Pi's
+			// session name are two facts, and only a caller that asked gets both changed.
+			const { name, ...input } = request.input;
+			const joined = await bus.join(input);
+			if (name === true && request.input.label !== undefined) pi.setSessionName(joined.label);
 			result = { ok: true, label: joined.label, watching: joined.watching };
 		} catch (error) {
 			result = { ok: false, error: messageOf(error) };

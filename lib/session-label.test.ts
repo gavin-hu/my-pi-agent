@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { defaultLabel, MAX_LABEL, normalizeLabel, shortId } from "./session-label.ts";
+import { agentLabel, defaultLabel, MAX_LABEL, normalizeLabel, shortId, TEAM_AGENT_PREFIX } from "./session-label.ts";
 
 describe("normalizeLabel", () => {
 	test("collapses whitespace and trims", () => {
@@ -38,6 +38,29 @@ describe("shortId", () => {
 
 	test("survives an id with nothing alphanumeric in it", () => {
 		expect(shortId("----")).toBe("----");
+	});
+});
+
+describe("agentLabel", () => {
+	test("names the session after the tail of its id", () => {
+		expect(agentLabel("session-9f21ac3b")).toBe("team-agent-21ac3b");
+	});
+
+	test("derives the same name every time, whatever the user calls the session", () => {
+		// The point of deriving it: a rename cannot strand the card that recorded the name.
+		expect(agentLabel("session-9f21ac3b")).toBe(agentLabel("session-9f21ac3b"));
+		expect(agentLabel("session-9f21ac3b")).not.toBe(agentLabel("session-00000000"));
+	});
+
+	test("stays one line and inside the cap, because it is a target", () => {
+		const label = agentLabel(`x-${"y".repeat(MAX_LABEL * 2)}`);
+		expect(label.length).toBeLessThanOrEqual(MAX_LABEL);
+		expect(label.startsWith(TEAM_AGENT_PREFIX)).toBe(true);
+		expect(agentLabel("a\nb")).toBe("team-agent-ab");
+	});
+
+	test("keeps a name even when the id has nothing alphanumeric in it", () => {
+		expect(agentLabel("----")).toBe("team-agent-----");
 	});
 });
 

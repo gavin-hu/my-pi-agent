@@ -54,12 +54,27 @@ export type JoinResult = { ok: true; label: string; watching: Watching } | { ok:
 /** EventBus channel on which a caller asks `session-bus` to join the team for it. */
 export const TEAM_JOIN_REQUEST = "my-pi-agent/team-join/request";
 
+/**
+ * What a join asks for.
+ *
+ * `label` is the name to be on the team as; without one the bus settles its own. `name`
+ * is the separate question of whether that label also becomes Pi's session name — the
+ * footer and `/resume` — and it is opt-in, because a join is not a rename: only
+ * `/team join <label>` means "call me this from now on".
+ */
+export interface TeamJoinInput {
+	label?: string;
+	wake?: boolean;
+	listen?: boolean;
+	name?: boolean;
+}
+
 /** What a caller sends on {@link TEAM_JOIN_REQUEST}. */
 export interface TeamJoinRequest {
 	/** The caller's context; the bus starts and names through it. */
 	ctx: ExtensionContext;
 	/** What to join as and how to listen. */
-	input: { label?: string; wake?: boolean; listen?: boolean };
+	input: TeamJoinInput;
 	/** Called once, when the bus has answered. */
 	respond(result: JoinResult): void;
 }
@@ -96,19 +111,19 @@ function nestedMessage(result: { content?: Array<{ type: string; text?: string }
 /**
  * How an extension joins the team, whatever kind of context it is holding.
  *
- * Two extensions ask — `board` when the page opens or a card is worked, `team` for
+ * Two extensions ask — `board` when the page opens or a card is claimed, `team` for
  * `/team join` — and both hold a command or a tool context, so the request is the one
  * transport that works from either.
  */
 export interface TeamJoin {
-	/** Join the team, naming this session when `label` is given. Never throws. */
-	join(ctx: ExtensionContext, label?: string): Promise<JoinResult>;
+	/** Join the team as `input.label` when given. Never throws. */
+	join(ctx: ExtensionContext, input?: TeamJoinInput): Promise<JoinResult>;
 }
 
 /** The production join, bound to one extension's `pi`. */
 export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">): TeamJoin {
 	return {
-		join: (ctx, label) => join(pi, ctx, label === undefined ? {} : { label }),
+		join: (ctx, input) => join(pi, ctx, input ?? {}),
 	};
 }
 
@@ -117,7 +132,8 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
  *
  * One call for all three, because that is one act — see `join` in
  * `extensions/session-bus` — and one transport for both kinds of caller: the request
- * travels on `pi.events` and the bus answers it.
+ * travels on `pi.events` and the bus answers it. Pi's session name is not one of the
+ * three: that is `input.name`, which only a caller meaning to rename asks for.
  *
  * With no bus loaded there is no listener, so the answer is the sentence the caller
  * reports rather than a promise that never settles: the `session` tool's presence is
@@ -126,7 +142,7 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
 export async function join(
 	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
 	ctx: ExtensionContext,
-	input: { label?: string; wake?: boolean; listen?: boolean } = {},
+	input: TeamJoinInput = {},
 ): Promise<JoinResult> {
 	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) {
 		return { ok: false, error: "the session bus is not loaded" };

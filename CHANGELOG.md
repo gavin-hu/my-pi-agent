@@ -42,6 +42,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a session joins the team when it claims a card, and under a name derived from its
+  id. The team's two names are now `team-lead` for the session serving the page and
+  `team-agent-<last6>` for everyone else, so a card's owner chip, the Team tab's roster, and
+  the bus record are one word that cannot drift when a session is renamed — and no join
+  renames Pi's session any more, so the footer keeps the name you gave it (`/team join
+  <label>` is the one door that still does). A read, a new card, a note, a plan, an edit, or
+  an archive no longer puts a session on the roster: a teammate is a session that holds
+  work. `/board status` reports the join whichever door made it, including a claim made
+  with no page open, and the browser's `you` chip is the seat's own row.
 - `bytefly`: a transcript block derives its lines once, not once per frame. Pi re-renders
   every block on every repaint, and the shared tail block behind a board card, a session's
   peer list, and a shaped tail re-derived its rows and clipped every line each time — so a

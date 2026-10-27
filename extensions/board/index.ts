@@ -32,7 +32,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	const session = deps.session ?? openBoardSession(pi);
 	const page = deps.page ?? createBoardPage(session);
 	registerTools(pi, session);
-	registerCommands(pi, page);
+	registerCommands(pi, session, page);
 
 	pi.on("session_shutdown", async () => {
 		await page.closeAll();

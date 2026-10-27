@@ -364,23 +364,21 @@ describe("buildView", () => {
 		expect(view.teammates?.map((mate) => mate.listening)).toEqual([true, false, undefined]);
 	});
 
-	test("marks the reader's row from the session, because the page writes as its seat", () => {
-		// The seat is what a card records and the session is who is looking: a page serving
-		// as `team-lead` from `billing-lead` marks billing-lead's row, not the seat's.
+	test("marks the seat's row, because the page is the seat and not the session behind it", () => {
+		// A page outlives the session that serves it, so `you` is the seat: whoever opened it
+		// reads the roster as the name the page writes as.
 		const view = buildView({
 			me: { id: "board:team-lead", label: "team-lead" },
-			session: { id: "s-lead", label: "billing-lead" },
 			cards: [],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
 			repo: REPO,
 			root: ROOT,
-			roster: [{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 }],
+			roster: [{ id: "board:team-lead", label: "team-lead", mode: "tui", lastSeen: NOW, mail: 0 }],
 		});
 		expect(view.me).toEqual({ id: "board:team-lead", label: "team-lead" });
-		expect(view.session).toEqual({ id: "s-lead", label: "billing-lead" });
-		expect(view.teammates?.map((mate) => [mate.label, mate.you])).toEqual([["billing-lead", true]]);
+		expect(view.teammates?.map((mate) => [mate.label, mate.you])).toEqual([["team-lead", true]]);
 	});
 
 	test("leaves the roster out when there is no bus, which is not the same as an empty one", () => {

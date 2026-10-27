@@ -1,9 +1,9 @@
 /**
- * The board session: which store a call uses, and who it writes as.
+ * The board session: which store a call uses, who it writes as, and where it stands.
  *
  * The store cache is the interesting part — one open per working directory, so a
  * second call does not shell out to git again — and the identity is the pair a card
- * records, which is what lets the board name its owner without reading the bus.
+ * records: the session id, and the team name derived from it.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
@@ -32,26 +32,55 @@ function runtimeFor(agentDir: string) {
 describe("who", () => {
 	const agentDir = temps.track(tempDir("pi-agent-"));
 
-	test("names the session by its id and its Pi name", () => {
+	test("names the session for the team from its id, not from the user's own name", () => {
 		const runtime = runtimeFor(agentDir);
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1", sessionName: "billing-core" });
-		expect(runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "billing-core" });
+		// Pi's session name is the user's, and a rename must not move a card's owner: the id
+		// is what the team addresses and what the agent name is derived from.
+		expect(runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-agent-s1" });
 	});
 
-	test("falls back to the working directory's name, then to the id", () => {
+	test("names it as the seat while it serves the page, and as itself again after", () => {
 		const runtime = runtimeFor(agentDir);
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
-		expect(runtime.who(ctx, "/repo/billing").label).toBe("billing");
-		const anonymous = fakeCtx({ cwd: "/repo/billing", sessionId: undefined });
-		expect(runtime.who(anonymous.ctx, "/repo/billing").label).toBe("billing");
+		expect(runtime.serving()).toBeUndefined();
+		runtime.serve("team-lead");
+		expect(runtime.serving()).toBe("team-lead");
+		expect(runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-lead" });
+		runtime.serve(undefined);
+		expect(runtime.who(ctx, "/repo/billing").label).toBe("team-agent-s1");
 	});
 
-	test("reports a label alone when the host has no session id", () => {
+	test("keeps the readable chain for a host that reports no id", () => {
 		const runtime = runtimeFor(agentDir);
-		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "" });
-		const who = runtime.who(ctx, "/repo/billing");
+		const named = fakeCtx({ cwd: "/repo/billing", sessionId: "", sessionName: "billing-core" });
+		expect(runtime.who(named.ctx, "/repo/billing").label).toBe("billing-core");
+		const anonymous = fakeCtx({ cwd: "/repo/billing", sessionId: "" });
+		const who = runtime.who(anonymous.ctx, "/repo/billing");
 		expect(who.id).toBeUndefined();
 		expect(who.label).toBe("billing");
+	});
+});
+
+describe("team", () => {
+	test("has no standing until something asks for one", () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		expect(runtime.team.last()).toBeUndefined();
+	});
+
+	test("keeps the label and whether mail will reach the session", () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		runtime.team.record({ ok: true, label: "team-agent-s1", watching: { armed: true, wake: false } });
+		expect(runtime.team.last()).toMatchObject({ ok: true, label: "team-agent-s1" });
+	});
+
+	test("keeps a failure, so a line can say why, and a later attempt replaces it", () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		runtime.team.record({ ok: false, error: "the session bus is not loaded" });
+		// A failure is not "on the team": a caller reads `ok` to decide whether to ask again.
+		expect(runtime.team.last()?.ok).toBe(false);
+		runtime.team.record({ ok: true, label: "team-agent-s1", watching: { armed: true, wake: false } });
+		expect(runtime.team.last()?.ok).toBe(true);
 	});
 });
 

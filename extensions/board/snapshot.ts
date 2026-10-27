@@ -18,8 +18,6 @@ export interface SnapshotContext {
 	store: BoardStore;
 	/** The actor every request is made and reported as: the page's seat. */
 	actor: () => Actor;
-	/** The session serving the page, which is who is reading, not who it writes as. */
-	session?: () => Actor;
 	now: () => number;
 	/** Where this repository's bus files its records. */
 	busDir: () => Promise<string>;
@@ -28,10 +26,8 @@ export interface SnapshotContext {
 /** The snapshot the page renders, and the body of `/api/board`. */
 export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 	const roster = await readRoster(await context.busDir());
-	const session = context.session?.();
 	return buildView({
 		me: context.actor(),
-		...(session === undefined ? {} : { session }),
 		cards: await context.store.list(),
 		now: context.now(),
 		bytes: await context.store.bytes(),

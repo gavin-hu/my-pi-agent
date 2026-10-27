@@ -3,9 +3,9 @@
  *
  * One store per working directory, opened on first use and kept for the session:
  * a tool call is frequent and the repository lookup shells out to git, so the
- * answer is remembered per `cwd`. The identity is the same pair a card records —
- * the session id Pi knows, and the label `session-bus` would settle by default —
- * which is why the board can name its owner without reading the bus.
+ * answer is remembered per `cwd`. The identity is the same pair a card records — the
+ * session id Pi knows, and the team name derived from it — which is why the board can
+ * name its owner without reading the bus, and why the name survives a rename.
  *
  * The store and its cache live in this closure, not in a module variable: Pi loads
  * each extension with an isolated module cache, so module state would be one copy
@@ -15,16 +15,39 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { basename, join } from "node:path";
-import { defaultLabel, sessionNameOf } from "../session-label.ts";
+import { agentLabel, defaultLabel, sessionNameOf } from "../session-label.ts";
 import { BUS_DIR_NAME } from "../session-roster.ts";
+import type { JoinResult } from "../session-tool.ts";
 import type { Actor } from "./rules.ts";
 import { type BoardStore, openBoard } from "./store.ts";
+
+/**
+ * Where this session stands on the team, as the one place that keeps it.
+ *
+ * Two surfaces ask: `board` when it joins on the page or on a claim, and `team` for
+ * `/team join`. It is a standing rather than a flag because both need to *say* what
+ * happened — `/board status` names the label and whether mail is listened for — and
+ * because a failure has to be asked again while a success must not be. A failure is
+ * kept so a line can say why, and `ok` is what a caller reads to decide.
+ */
+export interface TeamStanding {
+	/** What the last join did, or undefined when this session has not asked. */
+	last(): JoinResult | undefined;
+	/** Record what an attempt did; a failed one is kept, and asked again. */
+	record(result: JoinResult): void;
+}
 
 /** What a tool, a page, and a round need from the session, without any of them owning it. */
 export interface BoardSession {
 	/** The board for `cwd`'s repository. */
 	store(cwd: string): Promise<BoardStore>;
-	/** The session a write is made as. */
+	/**
+	 * The session a write is made as: its team name, and the id a card keeps.
+	 *
+	 * The label is the seat while this session serves the page, else `team-agent-<id>`,
+	 * else — on a host that reports no id — the readable chain. One name on every
+	 * surface is the point: the card, the bus record, and the roster say the same word.
+	 */
 	who(ctx: ExtensionContext, cwd: string): Actor;
 	/** The clock, so a test drives a deadline instead of waiting on one. */
 	now(): number;
@@ -36,11 +59,22 @@ export interface BoardSession {
 	 * with `session-bus` unloaded.
 	 */
 	busDir(cwd: string): Promise<string>;
-	/** Whether this session has already joined the team, so a card write joins once. */
-	joined(): boolean;
-	/** Record that the join landed; a failed one leaves this false so the next write asks. */
-	markJoined(): void;
+	/** The seat this session serves the page as, or undefined when it is not serving. */
+	serving(): string | undefined;
+	/** Serve the page under `seat`, or stand it down when the page stops. */
+	serve(seat: string | undefined): void;
+	/** Where this session stands on the team, so a claim joins once and status can say. */
+	team: TeamStanding;
 }
+
+/**
+ * The part of a session a command needs: what it is called, and where it stands.
+ *
+ * `/board` joins, sets the seat, and reports the standing; it never opens a store or
+ * reads the bus, so a command takes this much and no more. A test drives it with four
+ * stand-ins instead of a whole session with a temp agent directory.
+ */
+export type BoardTeam = Pick<BoardSession, "who" | "serving" | "serve" | "team">;
 
 /** Test seams and the one place a caller may redirect the store. */
 export interface BoardSessionOptions {
@@ -58,7 +92,8 @@ export interface BoardSessionOptions {
 export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions = {}): BoardSession {
 	const stores = new Map<string, Promise<BoardStore>>();
 	const busDirs = new Map<string, Promise<string>>();
-	let teamJoined = false;
+	let seat: string | undefined;
+	let standing: JoinResult | undefined;
 	const agentDir = options.agentDir;
 	const session: BoardSession = {
 		store(cwd) {
@@ -70,7 +105,11 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 		},
 		who(ctx, cwd) {
 			const id = sessionIdOf(ctx);
-			const label = defaultLabel(sessionNameOf(ctx), cwd, id ?? "session");
+			// The seat is a role and the agent name is derived from the id, so neither moves
+			// when a user renames the session — which is what keeps a card's owner readable
+			// against the roster a year later. A host that reports no id has nothing to derive
+			// from, so it keeps the bus's own readable chain.
+			const label = seat ?? (id === undefined ? defaultLabel(sessionNameOf(ctx), cwd) : agentLabel(id));
 			return id === undefined ? { label } : { id, label };
 		},
 		now: options.now ?? Date.now,
@@ -86,9 +125,15 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			busDirs.set(cwd, resolved);
 			return resolved;
 		},
-		joined: () => teamJoined,
-		markJoined: () => {
-			teamJoined = true;
+		serving: () => seat,
+		serve: (label) => {
+			seat = label;
+		},
+		team: {
+			last: () => standing,
+			record: (result) => {
+				standing = result;
+			},
 		},
 	};
 	return session;

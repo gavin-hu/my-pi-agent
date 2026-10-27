@@ -37,6 +37,7 @@ import {
 	formatSkipped,
 } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
+import { joinOnClaim } from "./join.ts";
 import { collapsedLine, resultInput } from "./result.ts";
 import { createInput } from "./input.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
@@ -45,7 +46,6 @@ import {
 	ACTION_FIELDS,
 	BOARD_ACTION_DOCS,
 	BOARD_ACTIONS,
-	BOARD_MUTATING_ACTIONS,
 	BOARD_TOOL,
 	type BoardAction,
 	type BoardDetails,
@@ -94,6 +94,17 @@ function refusal(action: BoardAction, me: BoardDetails["me"], message: string, c
 		error: message,
 		...(card === undefined ? {} : { card }),
 	});
+}
+
+/**
+ * Whether a result this tool built is a refusal.
+ *
+ * `refusal` marks one with `isError`, and the success shape (`ToolResult`) has no such
+ * field, so this is the one probe that tells the two apart — read here rather than
+ * widening the shared envelope with a flag that would then be optional everywhere.
+ */
+function refused(result: unknown): boolean {
+	return typeof result === "object" && result !== null && (result as { isError?: unknown }).isError === true;
 }
 
 /**
@@ -149,13 +160,6 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 				// have enlisted this session as a teammate on its way to the refusal.
 				const stray = strayField(action, args, ACTION_FIELDS);
 				if (stray !== undefined) return refusal(action, me, stray);
-				// Working a card makes this session a teammate, once: the board is the user's
-				// surface for the team, so nobody has to know the bus exists. A failed join is
-				// not a failed card write — the board works with no bus at all — and it is not
-				// marked, so the next write asks again.
-				if (BOARD_MUTATING_ACTIONS.has(action) && !runtime.joined()) {
-					if ((await team.join(ctx)).ok) runtime.markJoined();
-				}
 				const store = await runtime.store(ctx.cwd);
 				const now = runtime.now();
 				switch (action) {
@@ -163,8 +167,16 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 						return await read(store, action, me, args, now);
 					case "add":
 						return await add(store, me, args, now);
-					case "claim":
-						return await mutate(store, action, me, now, args, { kind: "claim" });
+					case "claim": {
+						const claimed = await mutate(store, action, me, now, args, { kind: "claim" });
+						// Taking a card is what makes this session a teammate. It is the one action here
+						// worth being addressed about, and the board is the user's surface for the team, so
+						// nobody has to know the bus exists. A refused claim wrote nothing and enlists
+						// nobody; a refused join is not a failed claim, so the card stands and the next
+						// claim asks again.
+						if (!refused(claimed)) await joinOnClaim(runtime.team, team, ctx, me.label);
+						return claimed;
+					}
 					case "release":
 						return await mutate(store, action, me, now, args, { kind: "release" });
 					case "reclaim":
