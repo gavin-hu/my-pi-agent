@@ -21,11 +21,7 @@ import { type Browser, chromium, type Page } from "playwright-core";
 import { findChrome } from "../../../scripts/capture/chrome.ts";
 import type { Actor } from "../../../lib/board/rules.ts";
 import { createStore } from "../../../lib/board/store.ts";
-import { buildView } from "../../../lib/board/view.ts";
-import { pageActor } from "../seat.ts";
-import { type BoardServer, createBoardServer } from "../transport/server.ts";
-import { BOARD_CLIENT_JS } from "./client.ts";
-import { renderBoardPage } from "./page.ts";
+import { serveBoardPage, type ServedBoardPage } from "../../../test/helpers/board-page.ts";
 
 /** The browser this machine has; absent means the whole suite is skipped. */
 const CHROME = findChrome();
@@ -41,7 +37,7 @@ const PAINT_MS = 10_000;
 
 let directory = "";
 let browser: Browser;
-let server: BoardServer;
+let server: ServedBoardPage;
 let store: ReturnType<typeof createStore>;
 
 /**
@@ -98,21 +94,7 @@ async function seedBoard(): Promise<void> {
 /** The store's own path and the repository it belongs to, as the page is told them. */
 const WHERE = "~/.pi/agent/board/behaviour";
 const ROOT = "/Users/someone/my-pi-agent";
-
-/** The snapshot the page renders: the store, read fresh on every frame. */
-async function view() {
-	const now = clock.now();
-	return buildView({
-		me: pageActor(),
-		cards: await store.list(),
-		now,
-		bytes: await store.bytes(),
-		skipped: (await store.skipped()).length,
-		repo: "my-pi-agent",
-		root: ROOT,
-		where: WHERE,
-	});
-}
+const REPO = "my-pi-agent";
 
 /** One fresh tab on the served page, waited until its lanes have painted. */
 async function openPage(): Promise<Page> {
@@ -170,11 +152,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 	beforeAll(async () => {
 		directory = mkdtempSync(join(tmpdir(), "pi-board-page-"));
 		await seedBoard();
-		server = await createBoardServer({
-			ports: [0],
-			page: async (tab) => renderBoardPage({ view: tab }),
-			script: BOARD_CLIENT_JS,
-			view,
+		// The shipped page over this store: the one boot a caller outside the extension needs.
+		server = await serveBoardPage({
+			store,
+			now: clock.now,
+			display: { repo: REPO, root: ROOT, where: WHERE },
 		});
 		browser = await chromium.launch({ executablePath: CHROME, headless: true });
 	});

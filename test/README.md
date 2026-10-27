@@ -279,6 +279,7 @@ test/
     fakes.ts  context.ts  process.ts  env.ts  entries.ts  config.ts
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
     surface.ts             # the catalog and the registered surface, counted from the tree
+    board-page.ts          # the shipped board page, served over a fixture store
     fixtures/<name>.ts     # extension-specific fixtures
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract

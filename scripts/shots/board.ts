@@ -19,10 +19,8 @@ import { mkdirSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parseShotArgs, runCli } from "../cli.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
-import { createBoardServer } from "../../extensions/board/transport/server.ts";
-import { BOARD_CLIENT_JS } from "../../extensions/board/view/client.ts";
-import { renderBoardPage } from "../../extensions/board/view/page.ts";
-import { fixtureBoard } from "../tools/fixtures/board-store.ts";
+import { serveBoardPage } from "../../test/helpers/board-page.ts";
+import { fixtureBoard, fixtureRoster } from "../tools/fixtures/board-store.ts";
 
 /** The readiness expression: the lanes are painted before the capture. */
 const READY = "!!document.querySelector('.board-card')";
@@ -78,21 +76,23 @@ function tabUrl(url: string, view: "board" | "team"): string {
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
 	const options = parseArgs(argv);
 	const fixture = await fixtureBoard();
-	const server = await createBoardServer({
-		ports: [0],
-		page: async (view) => renderBoardPage({ view }),
-		script: BOARD_CLIENT_JS,
-		view: fixture.view,
+	// A capture prints the repository and the store path, so it names the shape rather than a
+	// temp directory: this is the only thing a picture needs that an assertion does not.
+	const page = await serveBoardPage({
+		store: fixture.store,
+		now: Date.now,
+		display: { repo: "my-pi-agent", root: "/Users/someone/my-pi-agent", where: "~/.pi/agent/board/8872d3adda0e" },
+		roster: fixtureRoster,
 	});
 	const shots: Array<{ url: string; name: string; before?: string[] }> =
 		options.dialog === undefined
 			? [
-					{ url: tabUrl(server.url, "board"), name: "board" },
-					{ url: tabUrl(server.url, "team"), name: "team" },
+					{ url: tabUrl(page.url, "board"), name: "board" },
+					{ url: tabUrl(page.url, "team"), name: "team" },
 				]
 			: [
 					{
-						url: tabUrl(server.url, "board"),
+						url: tabUrl(page.url, "board"),
 						name: `${options.dialog}-dialog`,
 						before: [DIALOG_OPEN[options.dialog]],
 					},
@@ -114,7 +114,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 			console.log(`${shot.name}: ${out}`);
 		}
 	} finally {
-		await server.close();
+		await page.close();
 		rmSync(fixture.directory, { recursive: true, force: true });
 	}
 }
