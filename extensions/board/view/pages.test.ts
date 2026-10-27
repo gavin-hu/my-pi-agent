@@ -20,7 +20,7 @@ import {
 	WEB_LAYOUT_CSS,
 	WEB_THEME_CSS,
 } from "../../../lib/web/index.ts";
-import { unfilledPlaceholders } from "../../../test/helpers/bundle.ts";
+import { duplicateDeclarations, unfilledPlaceholders, unreadPublications } from "../../../test/helpers/bundle.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { renderBoardPage } from "./page.ts";
@@ -379,6 +379,19 @@ describe("the client bundle", () => {
 		const closes = (BOARD_CLIENT_JS.match(/\}/g) ?? []).length;
 		expect(opens).toBe(closes);
 		expect(BOARD_CLIENT_JS.length).toBeGreaterThan(4_000);
+	});
+
+	test("declares a shared word once, so one lane has one name", () => {
+		// The fragments have no import graph, so a constant two of them need is either
+		// declared once and published, or declared twice and free to drift: `LANE_LABEL`
+		// shipped twice, and the lane head and the dialog could have spelled it apart.
+		expect(duplicateDeclarations(BOARD_CLIENT_JS)).toEqual([]);
+	});
+
+	test("publishes nothing nobody reads", () => {
+		// A helper published for a caller that stopped calling it stays forever in a string
+		// no compiler reads: `board.laneLabel` outlived the dialog's move buttons.
+		expect(unreadPublications(BOARD_CLIENT_JS)).toEqual([]);
 	});
 });
 
