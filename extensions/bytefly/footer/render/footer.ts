@@ -9,14 +9,25 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
+import { RenderCache } from "../../../../lib/tui/render-cache.ts";
+import { snapshotKey } from "./key.ts";
 import { renderLine } from "./layout.ts";
 import { buildLines } from "./lines.ts";
 import type { FooterData, StatusSnapshot, TuiLike } from "../types.ts";
 
-/** A two-line, width-adaptive status bar. */
+/**
+ * A two-line, width-adaptive status bar.
+ *
+ * The bar is derived from a snapshot the reader rebuilds every frame, so it memoizes on a
+ * key rather than on the snapshot's identity: the width, the theme object (its strings are
+ * what the memo holds), and `snapshotKey`'s walk over every field the bar could draw. A
+ * frame where nothing moved costs the key and a comparison; a frame that moved pays the key
+ * as well, which is why the key is measured against the build it saves.
+ */
 class StatusBar implements Component {
 	/** Unsubscribes the branch watcher; set by `createFooter`. */
 	dispose?: () => void;
+	private readonly cache = new RenderCache();
 
 	constructor(
 		private readonly read: () => StatusSnapshot,
@@ -25,15 +36,18 @@ class StatusBar implements Component {
 	) {}
 
 	invalidate(): void {
-		// The bar recomputes from a fresh snapshot each render, so there is
-		// nothing cached to clear. Theme-dependent strings are built in render.
+		// Pi calls this on a theme change; the key holds the theme's identity too, so this
+		// is what drops themed strings a rebuild would otherwise keep.
+		this.cache.invalidate();
 	}
 
 	render(width: number): string[] {
 		const snapshot = this.read();
 		const theme = this.getTheme();
 		const target = Math.max(1, width);
-		return buildLines(snapshot, theme, this.home).map((line) => renderLine(line, target, theme));
+		return this.cache.keyed([target, theme, snapshotKey(snapshot)], () =>
+			buildLines(snapshot, theme, this.home).map((line) => renderLine(line, target, theme)),
+		);
 	}
 }
 

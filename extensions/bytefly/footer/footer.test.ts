@@ -42,6 +42,9 @@ import type { ByteflyConfig, ModelRates } from "./price/types.ts";
 import { registerFooter } from "./register.ts";
 import { createFooter } from "./render/footer.ts";
 import { contextRole, formatCost, formatCwd, formatPercent, thinkingColor, truncateLabel } from "./render/format.ts";
+import { RenderCache } from "../../../lib/tui/render-cache.ts";
+import type { StatusSnapshot } from "./types.ts";
+import { snapshotKey } from "./render/key.ts";
 import { renderLine } from "./render/layout.ts";
 import { buildLines } from "./render/lines.ts";
 import {
@@ -1623,6 +1626,135 @@ describe("line composition", () => {
 			"/home/u",
 		);
 		expect(ids(line2.right)).toEqual(["model"]);
+	});
+});
+
+describe("the repaint key", () => {
+	/**
+	 * Leaves whose change reaches no bar line, with the reason it does not.
+	 *
+	 * Every other leaf of `StatusSnapshot` moves the key and the painted lines, so a field
+	 * added to the snapshot is covered by this test or has to be justified in one sentence.
+	 */
+	const REACHES_NO_LINE: ReadonlyMap<string, string> = new Map([
+		["model.provider", "the bar names the model's id; the provider is the unpriced notice's to say"],
+		["context.tokens", "the bar draws `context.percent`; the raw token count is not printed"],
+		["usage.unpricedModels", "the bar counts the unpriced records; the model names are the notice's"],
+		["delegation.usage.input", "the delegation segment rolls up runs and spend, not the child's token split"],
+		["delegation.usage.output", "the delegation segment rolls up runs and spend, not the child's token split"],
+		["delegation.usage.cacheRead", "the delegation segment rolls up runs and spend, not the child's token split"],
+		["delegation.usage.cacheWrite", "the delegation segment rolls up runs and spend, not the child's token split"],
+		["delegation.usage.unpriced", "a child run's unpriced count stays on the ledger; the segment draws runs and spend"],
+		[
+			"delegation.usage.unpricedModels",
+			"a child run's unpriced models stay on the ledger; the segment draws runs and spend",
+		],
+	]);
+
+	const painted = (snapshot: StatusSnapshot): string =>
+		buildLines(snapshot, fakeTheme, "/home/u")
+			.map((line) => renderLine(line, 100, fakeTheme))
+			.join("\n");
+
+	/** Every leaf of `value`, as the path that names it. */
+	function leaves(value: unknown, path: string[], out: string[][]): void {
+		if (value === null || value === undefined || typeof value !== "object" || value instanceof Map) {
+			out.push(path);
+			return;
+		}
+		if (Array.isArray(value)) {
+			if (value.length === 0) {
+				out.push(path);
+				return;
+			}
+			value.forEach((entry, at) => leaves(entry, [...path, String(at)], out));
+			return;
+		}
+		for (const [key, entry] of Object.entries(value)) leaves(entry, [...path, key], out);
+	}
+
+	/**
+	 * The same value, changed in a way its kind allows.
+	 *
+	 * A number moves by a tenth — `+1` on 124000 tokens changes nothing a reader can see —
+	 * a string gains a character, a map gains an entry, a boolean flips.
+	 */
+	function perturbed(value: unknown): unknown {
+		if (typeof value === "number") return value + Math.max(1, Math.ceil(Math.abs(value) / 10));
+		if (typeof value === "string") return `${value}x`;
+		if (typeof value === "boolean") return !value;
+		if (value instanceof Map) return new Map([...value, ["extra", "1"]]);
+		if (Array.isArray(value)) return [...value, "x"];
+		if (value === null || value === undefined) return "x";
+		if (typeof value === "object") {
+			const record = value as Record<string, unknown>;
+			const first = Object.keys(record)[0];
+			if (first === undefined) return { extra: 1 };
+			return { ...record, [first]: perturbed(record[first]) };
+		}
+		return "x";
+	}
+
+	/** A copy of `value` with the leaf at `path` perturbed. */
+	function withPerturbed(value: unknown, path: readonly string[]): unknown {
+		const head = path[0];
+		if (head === undefined) return perturbed(value);
+		const rest = path.slice(1);
+		if (Array.isArray(value)) {
+			const copy = [...value];
+			const at = Number(head);
+			copy[at] = withPerturbed(copy[at], rest);
+			return copy;
+		}
+		if (value instanceof Map) return perturbed(value);
+		const record = value as Record<string, unknown>;
+		return { ...record, [head]: withPerturbed(record[head], rest) };
+	}
+
+	test("carries every field of the snapshot, and each one reaches the bar", () => {
+		// Delegated work is non-zero here so the segment that reports it is on the bar: with
+		// `runs: 0` the segment hides, and four of its leaves could not be judged at all.
+		const snapshot = fullSnapshot({
+			delegation: { runs: 2, usage: usageOf({ input: 1000, output: 500, cacheRead: 2000, cost: 0.05 }) },
+		});
+		const baselineKey = snapshotKey(snapshot);
+		const baselineLines = painted(snapshot);
+		const paths: string[][] = [];
+		leaves(snapshot, [], paths);
+		expect(paths.length).toBeGreaterThan(20);
+
+		// Collected, not asserted one at a time: a run reports every leaf that is missing from
+		// the key or from the bar, which is the list a reader has to act on.
+		const unkeyed: string[] = [];
+		const unpainted: string[] = [];
+		for (const path of paths) {
+			const label = path.join(".");
+			const changed = withPerturbed(snapshot, path) as StatusSnapshot;
+			if (snapshotKey(changed) === baselineKey) unkeyed.push(label);
+			if (painted(changed) === baselineLines) unpainted.push(label);
+		}
+		expect(unkeyed).toEqual([]);
+		expect(unpainted.filter((label) => !REACHES_NO_LINE.has(label))).toEqual([]);
+
+		// An allowlist entry that names no leaf is a stale excuse: the snapshot's shape is
+		// what this test walks, so a path it never saw cannot be justified.
+		const known = new Set(paths.map((path) => path.join(".")));
+		expect([...REACHES_NO_LINE.keys()].filter((path) => !known.has(path))).toEqual([]);
+	});
+
+	test("serves a repeat frame and rebuilds when the snapshot moves", () => {
+		const cache = new RenderCache();
+		let built = 0;
+		const build = (): string[] => {
+			built += 1;
+			return [String(built)];
+		};
+		const key = (snapshot: StatusSnapshot): string => snapshotKey(snapshot);
+		const first = cache.keyed([100, fakeTheme, key(fullSnapshot())], build);
+		expect(cache.keyed([100, fakeTheme, key(fullSnapshot())], build)).toBe(first);
+		expect(built).toBe(1);
+		cache.keyed([100, fakeTheme, key(fullSnapshot({ budget: 5 }))], build);
+		expect(built).toBe(2);
 	});
 });
 
