@@ -45,9 +45,10 @@ describe("the document", () => {
 		// paints the rest — one sentence, in the one place a browser reads it.
 		expect(page).toContain("<title>board</title>");
 		expect(page).toContain('rel="icon"');
-		// The tab's shape is the kit's, spliced in as one body rather than rewritten here.
+		// The tab's shape is the kit's, spliced in as one body rather than rewritten here,
+		// and the subject it is given is the repository's name: a store key is a hash.
 		expect(BOARD_CLIENT_JS).toContain("var tabTitle = function tabTitle(");
-		expect(BOARD_CLIENT_JS).toContain('tabTitle("board", view.where.split("/").pop()');
+		expect(BOARD_CLIENT_JS).toContain('tabTitle("board", view.repo');
 	});
 
 	test("carries no write surface at all", () => {

@@ -27,7 +27,7 @@
  */
 
 import { link, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
@@ -134,6 +134,16 @@ export interface BoardStore {
 	skipped(): Promise<Skip[]>;
 	/** A short, user-facing name for the directory. */
 	where(): string;
+	/**
+	 * The repository root this board belongs to, and the directory itself outside one.
+	 *
+	 * A board is keyed by a hash, so this is the one part of its identity a reader can
+	 * say out loud: the page names the repository from it, and offers the whole path on
+	 * hover, which is what tells two clones of one repository apart.
+	 */
+	root(): string;
+	/** The root's last segment — `my-pi-agent` — which is all a tab has room for. */
+	name(): string;
 }
 
 /** Where one repository's board lives. */
@@ -152,11 +162,14 @@ export async function openBoard(
 	// environment carries the active root, so the two are reconciled before the
 	// repository lookup — the same path `plan` and `session-bus` take.
 	const repo = await repoKeyFor(pi, resolveEffectiveCwd(cwd));
-	return createStore(boardDirFor(agentDir, repo.key));
+	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root });
 }
 
 /** Build a store over one directory. Exported for tests and for a second backend. */
-export function createStore(dir: string): BoardStore {
+export function createStore(dir: string, options: { root?: string } = {}): BoardStore {
+	// A store built over a directory by hand has no repository to name, so it names its
+	// own directory: the page then says something true instead of something blank.
+	const root = options.root ?? dir;
 	const cardsDir = join(dir, CARDS_DIR_NAME);
 	const endedDir = join(dir, ENDED_DIR_NAME);
 	const archiveDir = join(dir, ARCHIVE_DIR_NAME);
@@ -316,6 +329,8 @@ export function createStore(dir: string): BoardStore {
 		bytes,
 		skipped,
 		where: () => shortenPath(dir),
+		root: () => root,
+		name: () => basename(root),
 	};
 }
 

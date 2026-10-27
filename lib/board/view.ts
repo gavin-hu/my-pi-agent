@@ -8,7 +8,8 @@
  *
  * `where` is the store's own path, shortened, so a reader can tell which directory
  * a shared board is filed under — and so nothing here needs a "remote" variant that
- * no backend produces.
+ * no backend produces. `repo` and `root` are the same board said aloud: the repository
+ * root's own name, which a tab can carry, and its whole path for the hover title.
  *
  * Pure: the caller supplies the cards, the clock, and the sizes it read.
  */
@@ -121,6 +122,10 @@ export interface BoardView {
 	skipped: number;
 	/** Changes when a card's revision, a teammate's state, or its mail does. */
 	sig: string;
+	/** The root's last segment, e.g. `my-pi-agent`: what the tab and the footer lead with. */
+	repo: string;
+	/** The repository root, absolute, so the footer can put the whole path on hover. */
+	root: string;
 	/** The store's directory, shortened. */
 	where: string;
 }
@@ -142,6 +147,10 @@ export interface ViewInput {
 	/** Card files the reader refused; absent reads as none, which is the ordinary board. */
 	skipped?: number;
 	where: string;
+	/** The repository's name, from `BoardStore.name()`. */
+	repo: string;
+	/** The repository root, from `BoardStore.root()`. */
+	root: string;
 	/** The bus's records, when the page could read them at all. */
 	roster?: readonly RosterSession[];
 }
@@ -175,6 +184,8 @@ export function buildView(input: ViewInput): BoardView {
 		// readable, or unreadable, is news too: the footer counts it, and a frame that is
 		// not pushed leaves the page saying the board holds less than it does.
 		sig: signatureOf(input.cards) + rosterSignature(teammates) + `|skipped:${input.skipped ?? 0}`,
+		repo: input.repo,
+		root: input.root,
 		where: input.where,
 	};
 }

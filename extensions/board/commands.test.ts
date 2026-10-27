@@ -22,6 +22,7 @@ function fakePage(): { page: BoardPage; calls: string[] } {
 		seat: "team-lead",
 		port: 4812,
 		url: "http://127.0.0.1:4812/?token=abc",
+		repo: "my-pi-agent",
 		where: "~/.pi/agent/board/k",
 	};
 	const served: PageStart = {
@@ -29,6 +30,7 @@ function fakePage(): { page: BoardPage; calls: string[] } {
 		seat: "team-lead",
 		port: 4812,
 		url: "http://127.0.0.1:4812/?token=abc",
+		repo: "my-pi-agent",
 		where: "~/.pi/agent/board/k",
 	};
 	let isRunning = false;
@@ -67,6 +69,7 @@ function attachedPage(): BoardPage {
 			seat: "team-lead",
 			port: 4812,
 			url: "http://127.0.0.1:4812/?token=view",
+			repo: "my-pi-agent",
 			where: "~/.pi/agent/board/k",
 		}),
 		stop: async () => false,
@@ -139,7 +142,7 @@ describe("/board", () => {
 		// Opening the page is the lead's one action: the seat is the label it lands on.
 		expect(labels).toEqual(["team-lead"]);
 		expect(notifications.at(-1)).toBe(
-			"board: team-lead serving ~/.pi/agent/board/k on :4812 · open http://127.0.0.1:4812/?token=abc · on the team as team-lead, listening",
+			"board: team-lead serving my-pi-agent on :4812 · open http://127.0.0.1:4812/?token=abc · on the team as team-lead, listening",
 		);
 	});
 

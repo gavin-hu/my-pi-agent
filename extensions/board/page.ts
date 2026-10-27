@@ -81,6 +81,8 @@ export interface BoardPageStatus {
 	seat?: string;
 	port?: number;
 	url?: string;
+	/** The repository's name, so `status` says which board the page is. */
+	repo?: string;
 	where?: string;
 	/** How many tabs are attached, while this session serves the page. */
 	watchers?: number;
@@ -94,8 +96,8 @@ export interface BoardPageStatus {
  * page* is a third answer a `running: false` could not express.
  */
 export type PageStart =
-	| { kind: "served"; seat: string; port: number; url: string; where: string }
-	| { kind: "attached"; seat: string; port: number; url: string; where: string }
+	| { kind: "served"; seat: string; port: number; url: string; repo: string; where: string }
+	| { kind: "attached"; seat: string; port: number; url: string; repo: string; where: string }
 	| { kind: "failed"; reason: string };
 
 /** Test seams and the one place a caller may redirect the browser. */
@@ -189,6 +191,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				seat: pointer.seat.label,
 				port: pointer.port,
 				url: urlOf(pointer),
+				repo: store.name(),
 				where: store.where(),
 			};
 		};
@@ -292,6 +295,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		seat: seat.label,
 		port: state.server.port,
 		url: state.server.url,
+		repo: state.store.name(),
 		where: state.store.where(),
 	});
 
@@ -310,6 +314,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				seat: seat.label,
 				port: running.server.port,
 				url: running.server.url,
+				repo: running.store.name(),
 				where: running.store.where(),
 				watchers: running.server.watchers(),
 			};
