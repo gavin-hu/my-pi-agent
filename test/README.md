@@ -163,7 +163,12 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 - Real git only inside temp dirs tracked by the suite harness.
 - The one real-process exception is the job exit-trap suite: it runs a POSIX
   shell to exercise shell `EXIT`-trap semantics, with fixed commands and exit
-  codes, and is skipped on Windows.
+  codes, and is skipped on Windows. A child is the one thing `settle()` cannot
+  drain, so both of its waits are bounded with `waitFor`: the shell's exit at
+  10 s, which reports "the shell did not exit within 10000ms", and the status
+  file the trap writes as the shell exits, which lands after the child's `close`
+  (2 s). An unbounded wait there is what a rotating `--parallel` failure looked
+  like — a 30 s timeout on the test, with no reason in it.
 - `PI_CODING_AGENT_DIR` is touched only through `helpers/env.ts`
   (`useAgentDir` / `withAgentDir`).
 
