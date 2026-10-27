@@ -7,6 +7,11 @@
  * session id Pi knows, and the team name derived from it — which is why the board can
  * name its owner without reading the bus, and why the name survives a rename.
  *
+ * One session per *host*, not one per extension: Pi loads `board` and `team` with
+ * separate module caches, so two sessions would mean the seat `/board` sets is
+ * invisible to every write `team` makes, and one session would name its own cards
+ * two ways.
+ *
  * The store and its cache live in this closure, not in a module variable: Pi loads
  * each extension with an isolated module cache, so module state would be one copy
  * per extension and none of them the same one.
@@ -83,13 +88,28 @@ export interface BoardSessionOptions {
 }
 
 /**
- * Build the session around one extension's `pi`.
+ * The key one host's session is kept under.
  *
- * Shared by `board` and `team`: both work on the same store and must name a write
- * as the same session, and two copies are how a card's owner label drifts from the
- * label the board writes.
+ * `Symbol.for` is the global registry, so the copy of this module in `board`'s cache
+ * and the copy in `team`'s agree on the key — a plain `Symbol()` would be two keys on
+ * one host, which is the drift this reuse exists to stop.
+ */
+const SESSION_KEY = Symbol.for("@gavin-hu/my-pi-agent/board-session");
+
+/** A host with this module's key on it. */
+type BoardHost = ExtensionAPI & { [SESSION_KEY]?: BoardSession };
+
+/**
+ * The session around one host, built on the first call and shared after it.
+ *
+ * `board` and `team` both work on the same store and must name a write as the same
+ * session, so the first caller's options are the ones built: a second extension joins
+ * the session that exists rather than opening a second one beside it.
  */
 export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions = {}): BoardSession {
+	const host = pi as BoardHost;
+	const shared = host[SESSION_KEY];
+	if (shared !== undefined) return shared;
 	const stores = new Map<string, Promise<BoardStore>>();
 	const busDirs = new Map<string, Promise<string>>();
 	let seat: string | undefined;
@@ -136,6 +156,7 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			},
 		},
 	};
+	host[SESSION_KEY] = session;
 	return session;
 }
 

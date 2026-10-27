@@ -84,6 +84,42 @@ describe("team", () => {
 	});
 });
 
+describe("one session per host", () => {
+	/** One host, and its agent directory, shared by two extensions' calls. */
+	function sharedHost() {
+		const fake = offlinePi();
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const options = { now: () => NOW, agentDir };
+		return { fake, board: openBoardSession(fake.pi, options), team: openBoardSession(fake.pi, options) };
+	}
+
+	test("hands board and team one session, so the seat `/board` sets names both", () => {
+		const { board, team } = sharedHost();
+		expect(team).toBe(board);
+		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
+		board.serve("team-lead");
+		// The regression: a second session kept its own seat, so `team` wrote every card as
+		// `team-agent-s1` while `board` wrote the same session's cards as `team-lead`.
+		expect(team.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-lead" });
+	});
+
+	test("shares the standing, so a join through either door is the one status reads", () => {
+		const { board, team } = sharedHost();
+		team.team.record({ ok: true, label: "team-lead", watching: { armed: true, wake: false } });
+		expect(board.team.last()).toMatchObject({ ok: true, label: "team-lead" });
+	});
+
+	test("keeps a second host's session separate", () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const options = { now: () => NOW, agentDir };
+		const first = openBoardSession(offlinePi().pi, options);
+		const second = openBoardSession(offlinePi().pi, options);
+		expect(second).not.toBe(first);
+		second.serve("team-lead");
+		expect(first.serving()).toBeUndefined();
+	});
+});
+
 describe("store", () => {
 	test("opens one store per working directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
