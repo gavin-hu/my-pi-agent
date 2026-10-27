@@ -9,12 +9,11 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { join } from "node:path";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
 import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import { THEME_JS, WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../lib/web/index.ts";
+import { declaredFunctions, missingBundleBodies } from "../../test/helpers/bundle.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import {
 	coerceAnnotations,
@@ -3021,33 +3020,20 @@ describe("review keyboard", () => {
 });
 
 describe("the client bundle", () => {
-	/**
-	 * Every helper the fragments declare, read from their own sources.
-	 *
-	 * Sources rather than an import list on purpose: the failure this guards against is a
-	 * function that lands in a module and is called from the bundle without being added to
-	 * that module's `*_JS` source. Nothing else can see it — the bundle is a string, so the
-	 * checker never reads it, and a suite that drives the typed function directly never
-	 * runs the page's copy.
-	 */
-	function declaredFunctions(): string[] {
-		const names = new Set<string>();
-		for (const file of readdirSync(import.meta.dir)) {
-			if (!/^web-.*\.ts$/.test(file) || file.endsWith(".test.ts")) continue;
-			const source = readFileSync(join(import.meta.dir, file), "utf-8");
-			for (const match of source.matchAll(/^(?:export )?function (\w+)/gm)) names.add(match[1] ?? "");
-		}
-		return [...names].filter((name) => name !== "");
-	}
+	/** The fragments this page assembles from: every `web-*.ts` beside the suite. */
+	const fragments = (): string[] => declaredFunctions(import.meta.dir, /^web-.*\.ts$/);
 
 	test("carries every fragment function the bundle calls", () => {
 		// `applyView`, `surfaceOf`, and `keyRows` were exactly this: called by the shipped
 		// script, documented, and absent from it — a ReferenceError on the page's first
 		// render and on every content key, with the whole suite green.
-		const missing = declaredFunctions().filter(
-			(name) =>
-				new RegExp(`\\b${name}\\s*\\(`).test(REVIEW_CLIENT_JS) && !REVIEW_CLIENT_JS.includes(`function ${name}(`),
-		);
-		expect(missing).toEqual([]);
+		expect(missingBundleBodies(REVIEW_CLIENT_JS, fragments())).toEqual([]);
+	});
+
+	test("the scan reports a name the bundle calls and does not define", () => {
+		// The helper's own contract, pinned where it is used: `test/helpers/` has no suite
+		// of its own, and a scan that silently reported nothing would pass every page.
+		const bundle = "function drawn() { return 1; }\n	drawn();\n	missing();";
+		expect(missingBundleBodies(bundle, ["drawn", "missing", "unused"])).toEqual(["missing"]);
 	});
 });
