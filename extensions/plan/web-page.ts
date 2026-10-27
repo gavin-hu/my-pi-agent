@@ -69,7 +69,10 @@ ${WEB_COMPONENTS_CSS}
 .bf-app__body--single{grid-template-columns:minmax(0,1fr)}
 .review-panel{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4) var(--space-4) var(--space-2)}
 .review-facts{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);border-bottom:1px solid var(--border)}
-.review-fact{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
+.review-fact{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
+/* The label is one word or two, never a column: squeezed by the value beside it, it broke
+   "Plan steps" over two lines. It holds its line, and the value wraps below instead. */
+.review-fact>span:first-child{white-space:nowrap}
 .review-fact .bf-progress{color:var(--text)}
 .review-fact .bf-progress__track{width:96px}
 .review-fact__value{color:var(--text);font-family:var(--font-mono);font-variant-numeric:tabular-nums}

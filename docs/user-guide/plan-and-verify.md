@@ -83,29 +83,39 @@ describe precisely.
    approve, refine, and keep keys at the bottom.*
 
 3. Prefer a browser? Press `w` on the review screen. The page opens on your own
-   machine with the plan as one measured column, a live step-progress panel, a
-   section outline, and a comment rail. Select text or use **+ Comment** to
-   annotate a block; **Save feedback** writes the comments into the plan file and
-   returns them to the assistant as a refinement. A save with no comments asks for
-   nothing, so the review screen comes back instead.
+   machine with the plan as one measured column, a panel of live facts — `4/8 ticked`,
+   and `2 open · 1 resolved` comments — a section outline, and a comment rail. Select
+   text or use **+ Comment** to annotate a block; **Save feedback** writes the comments
+   into the plan file and returns them to the assistant as a refinement. A save with no
+   comments asks for nothing, so the review screen comes back instead.
+
+   A second review of a revised plan marks the blocks the last one did not hold, and
+   **All** / **Changed** / **Comments** switch what the page shows — **Changed** is off,
+   with its reason, when the plan's last review predates block marks. A note you wrote can
+   be **Resolved**: it keeps its place and its quote, loses its body, and the panel's count
+   follows; **Reopen** brings it back. Every card names its writer — `@name`, or **You** on
+   your own note and **The owner** on a reviewer's.
 
    When the page was opened from the review screen, it also carries **Approve &
    run**: the
    confirmation names what happens, starts on **Cancel**, and only its own
    button approves. A page opened later with `/plan review` is comment-only and
-   has no approve action.
+   has no approve action. One line beside the facts says what the two do: approving
+   runs the plan and returns these comments, saving keeps planning.
 
-   <img src="../../assets/screens/plan-review.png" alt="The browser plan review: a sticky header with Share and Approve & run, a step-progress panel, the plan as one measured column, and a comment rail with a teammate's comment" width="100%">
+   <img src="../../assets/screens/plan-review.png" alt="The browser plan review: a sticky header with Share and Approve & run, a panel with the decisions caption, the step count and the All / Changed / Comments control, the plan as one measured column, and a comment rail with a teammate's note beside one you wrote" width="100%">
 
-   *The browser review: step progress, a comment rail holding a teammate's
-   comment, and the approval action when the page was opened from the terminal
-   review.*
+   *The browser review: the step count and comment split, the view control, a
+   teammate's comment, and **Resolve** on a note you wrote, with the approval action
+   when the page was opened from the terminal review.*
 
-   In the page, `j` / `k` move between blocks, `c` comments on the current block,
-   `a` opens the approval confirmation, `s` saves feedback, `Esc` closes the
-   composer or the page, and `?` opens a shortcut sheet. Nothing typed is lost:
-   saving, approving, or closing refuses while a comment is half-written and puts
-   the cursor back in it, and a deleted comment can be undone from the header.
+   In the page, `j` / `k` move between the blocks the view shows and `n` / `N` to the
+   next and previous one with a comment, `v` cycles All / Changed / Comments, `c`
+   comments on the current block, `a` opens the approval confirmation, `s` saves
+   feedback, `Esc` closes the composer or the page, and `?` opens a shortcut sheet.
+   Nothing typed is lost: saving, approving, closing, or changing the view refuses while
+   a comment is half-written and puts the cursor back in it, and a deleted comment can
+   be undone from the header.
 
    **Review with someone else.** **Share** in the page header mints a link (and a
    QR a phone can scan) that a teammate on the same network opens to read the plan
