@@ -299,6 +299,32 @@ describe("TailResult", () => {
 		view.setInput({ kind: "lines", lines: ["new"], earlier: 0, earlierLabel: "lines" }, fakeTheme);
 		expect(view.render(40)).toEqual(["", "new"]);
 	});
+
+	test("serves a repeat frame from its memo, and rebuilds when the input moves", () => {
+		// A frame re-renders every block, so this one is derived once and compared
+		// once until its input, theme or width changes.
+		let built = 0;
+		const counted = (row: string, width: number): string => {
+			built += 1;
+			return `${row}:${width}`;
+		};
+		const view = new TailResult<string>({ kind: "list", rows: ["a"], more: 0, rowLine: counted }, fakeTheme);
+		const first = view.render(40);
+		expect(view.render(40)).toBe(first);
+		expect(built).toBe(1);
+
+		// `setInput` is the invalidation: the new rows are built, then held again.
+		view.setInput({ kind: "list", rows: ["a", "b"], more: 0, rowLine: counted }, fakeTheme);
+		expect(view.render(40)).toEqual(["", "a:40", "b:40"]);
+		expect(built).toBe(3);
+
+		// A new width is a new layout; `invalidate` drops it for a theme change.
+		view.render(20);
+		expect(built).toBe(5);
+		view.invalidate();
+		view.render(20);
+		expect(built).toBe(7);
+	});
 });
 
 describe("syncElapsedTimer", () => {

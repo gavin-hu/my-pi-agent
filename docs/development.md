@@ -182,7 +182,7 @@ Two different things come out of it:
   the machine, so no CI job gates on them. On the author's laptop a 2000-block
   frame takes about 2 ms at 80 and 120 columns; treat **10 ms for 2000 blocks**
   as the point worth investigating, and the memo staying above ~85% of components
-  as the healthy baseline (the fixture mix is ~89% today). The fixtures average
+  as the healthy baseline (the fixture mix is ~91% today). The fixtures average
   about two lines per block, so compare shapes of the same session size rather
   than raw line counts.
 
