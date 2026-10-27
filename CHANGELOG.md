@@ -56,6 +56,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already where that result changes, so a repaint is one comparison: a 2000-block frame
   falls from 2.3 ms to 0.3 ms median (p95 2.7 to 0.4) and the share served from a render
   memo rises from 91% to 97%, leaving Pi's own three built-ins as the only misses.
+- `bytefly`: the footer stops re-measuring its line. `renderLine` assembled the line to
+  decide whether it fit, assembled it again to shrink it, and then handed the result to
+  `truncateToWidth` even when nothing needed cutting — and that truncation walks the string
+  character by character, which was most of the bar's cost on every frame. Each pass now
+  keeps the line it measured and a fitting line is returned as assembled: the footer's two
+  lines cost 3.5–13 µs instead of 31–85, so the whole bar is under 20 µs per frame at the
+  widths a terminal actually uses.
 
 ## [0.20.0] - 2026-10-26
 
