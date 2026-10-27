@@ -21,16 +21,22 @@ export interface ComposerDeps {
 	statusEl: ClientNode | null;
 	/** The sentence that names a half-written comment, so a stale one can be cleared. */
 	refusal: string;
+	/** Whether the review has ended, so a key opens no composer for it. */
+	settled?(): boolean;
 	setStatus(text: string, kind?: string): void;
 	saveDraft(): void;
 	open: OpenComposer;
 }
 
 /**
- * Close the composer, and let the stored draft follow it.
+ * Close the composer, and drop the text it was holding.
  *
- * A close with nothing open must not rewrite — and so drop — a draft a reload restored, so
- * the draft is saved only when a composer was actually there.
+ * A close is the reader's Cancel or Esc, or the commit that turned the text into a
+ * comment: either way the composer is not somewhere to resume from, so the draft does not
+ * keep it. What protects a half-written comment is the guards on the ways out — a repaint
+ * that would close a composer asks first (`guardDraft`), the view control included — not
+ * this function. A close with nothing open must not rewrite, and so drop, a draft a reload
+ * restored.
  */
 export function closeComposer(deps: ComposerDeps): void {
 	const open = deps.planEl ? deps.planEl.querySelector(".bf-composer") : null;
@@ -40,6 +46,8 @@ export function closeComposer(deps: ComposerDeps): void {
 	// The only status a composer leaves behind is the refusal to leave it; once the draft is
 	// gone that sentence is stale.
 	if (deps.statusEl && deps.statusEl.textContent === deps.refusal) deps.setStatus("");
+	// The composer is gone, so recomputing the draft now is what forgets the text it held —
+	// a close is not a pause — while the comments this writer added stay in it.
 	if (open) deps.saveDraft();
 }
 
@@ -67,6 +75,9 @@ export function reopenComposer(
  * navigation, and the block the reader lands on is the block they are commenting on.
  */
 export function commentOnActive(deps: ComposerDeps, activeIndex: number, blocks: readonly IslandBlock[]): number {
+	// A settled review takes no new comment, so the key opens nothing rather than a
+	// composer whose note could never be saved.
+	if (deps.settled?.() === true) return activeIndex;
 	if (blockElements(deps.planEl).length === 0) return activeIndex;
 	const index = activeIndex < 0 ? (setActive(deps.planEl, 0) ?? activeIndex) : activeIndex;
 	const wrap = blockElements(deps.planEl)[Math.max(0, index)];

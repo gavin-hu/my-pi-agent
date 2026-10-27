@@ -199,7 +199,7 @@ export const WEB_MARKDOWN_JS = String.raw`  // A link is rendered only for an ht
         var markerText = match[2];
         var rest = match[3];
         var box = /^\[([ xX])\]\s*(.*)$/.exec(rest);
-        var marker = el("span", "marker");
+        var marker = el("span", "bf-block__marker");
         if (box) {
           var done = box[1].toLowerCase() === "x";
           markerText = done ? "\u2713" : "\u2610";

@@ -536,7 +536,15 @@ export function coerceAnnotations(value: unknown): PlanAnnotation[] | undefined 
 		if (comment.length === 0) continue;
 		const quote = typeof record.quote === "string" ? sanitizeLine(record.quote).slice(0, MAX_QUOTE_LENGTH) : undefined;
 		const author = normalizeAuthor(record.author);
-		annotations.push({ anchor, comment, ...(quote ? { quote } : {}), ...(author ? { author } : {}) });
+		// A note a refinement carried onto another block keeps saying so when the page posts
+		// it back: only this body knows where the comment really belonged.
+		annotations.push({
+			anchor,
+			comment,
+			...(quote ? { quote } : {}),
+			...(author ? { author } : {}),
+			...(record.moved === true ? { moved: true } : {}),
+		});
 	}
 	return annotations;
 }

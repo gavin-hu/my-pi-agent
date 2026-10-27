@@ -44,6 +44,8 @@ export interface PlanRenderDeps {
 	setActiveIndex(index: number): void;
 	pendingQuote(): PendingQuote | null;
 	clearPendingQuote(): void;
+	/** Whether the review has ended, so the rail offers no new comment. */
+	settled?(): boolean;
 	/** The composer lifecycle, for the close a repaint begins with. */
 	composer(): ComposerDeps;
 	/** The block's content, from the Markdown half. */
@@ -96,19 +98,23 @@ export function renderPlanFrame(
 		const mine = deps.annotations().filter((annotation) => annotation.anchor === block.start);
 		if (mine.length > 0) wrap.classList.add("bf-block--commented");
 		const rail = el("div", "bf-block__rail");
-		const add = el("button", "bf-block__add");
-		add.type = "button";
-		add.textContent = "+";
-		add.setAttribute("aria-label", "Comment on this block");
-		add.addEventListener("click", function () {
-			// Read at click time, not at render time: a selection made after this frame is
-			// the quote the reader means.
-			const waiting = deps.pendingQuote();
-			const quoted = waiting && waiting.wrap === wrap ? waiting.quote : deps.selectionIn(wrap);
-			deps.clearPendingQuote();
-			deps.open(wrap, block, quoted);
-		});
-		rail.appendChild(add);
+		// A settled review takes no new comment: this control would open a composer whose
+		// note could never be saved, so it is not drawn rather than drawn and refused.
+		if (deps.settled?.() !== true) {
+			const add = el("button", "bf-block__add");
+			add.type = "button";
+			add.textContent = "+";
+			add.setAttribute("aria-label", "Comment on this block");
+			add.addEventListener("click", function () {
+				// Read at click time, not at render time: a selection made after this frame is
+				// the quote the reader means.
+				const waiting = deps.pendingQuote();
+				const quoted = waiting && waiting.wrap === wrap ? waiting.quote : deps.selectionIn(wrap);
+				deps.clearPendingQuote();
+				deps.open(wrap, block, quoted);
+			});
+			rail.appendChild(add);
+		}
 		if (mine.length > 0) {
 			const badge = el("span", "bf-block__count");
 			badge.textContent = String(mine.length);

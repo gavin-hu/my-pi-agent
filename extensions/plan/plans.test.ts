@@ -19,6 +19,7 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { blockAt, codeBody, contentBlockAt, fenceInfo, planBlocks, type PlanBlockKind } from "./blocks.ts";
 import { formatPlanIndex, PlanIndexComponent, relativeAge } from "./plan-index.ts";
 import {
+	blockChangeMarks,
 	changedBlocks,
 	changedSections,
 	type SectionDigest,
@@ -1339,6 +1340,48 @@ describe("plan text — changed blocks", () => {
 		// A baseline written before block marks is honoured at the depth it can be: the
 		// section dot the terminal review uses, and no guessed block marks.
 		expect(changedBlocks(undefined, current(plan))).toEqual({ changed: [], removed: 0 });
+	});
+});
+
+describe("plan text — block marks for the page", () => {
+	const before = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One", "- [ ] Two"].join("\n");
+	const baseline = (): SectionDigest[] => sectionDigests(before);
+
+	test("names the lines the page draws, not the section's own offsets", () => {
+		const after = before.replace("- [ ] Two", "- [ ] Two, revised");
+		// The heading of `# Plan` is line 0 and the Steps heading line 3, so the edited second
+		// step of that section is line 5 of the document.
+		expect(blockChangeMarks(baseline(), after)).toEqual({ starts: [5], removed: {}, compared: true });
+	});
+
+	test("marks every block of a section the baseline never held", () => {
+		// Adding a section is a refinement, not a failed comparison: its blocks are all new,
+		// and the rest of the plan still compares. Treating it as uncomparable disabled the
+		// page's whole Changed view with the wrong reason.
+		const after = `${before}\n## Risks\n\n- stale reads\n`;
+		const marks = blockChangeMarks(baseline(), after);
+		expect(marks.starts).toEqual([6, 8]);
+		expect(marks.compared).toBe(true);
+	});
+
+	test("marks a renamed section, because its heading is new text", () => {
+		const marks = blockChangeMarks(baseline(), before.replace("## Steps", "## Stages"));
+		expect(marks.starts).toEqual([3, 4, 5]);
+		expect(marks.compared).toBe(true);
+	});
+
+	test("counts what a section lost, and marks nothing for it", () => {
+		const after = ["# Plan", "## Goal", "Ship it.", "## Steps", "- [ ] One"].join("\n");
+		const marks = blockChangeMarks(baseline(), after);
+		expect(marks.removed).toEqual({ 3: 1 });
+		expect(marks.starts).toEqual([]);
+	});
+
+	test("says it cannot compare a baseline written before block digests", () => {
+		// The one case that clears the flag: the baseline has section digests but no block
+		// digests, so a guess at which block moved would be worse than saying so.
+		const aged = baseline().map((section) => ({ title: section.title, digest: section.digest }));
+		expect(blockChangeMarks(aged, before)).toEqual({ starts: [], removed: {}, compared: false });
 	});
 });
 

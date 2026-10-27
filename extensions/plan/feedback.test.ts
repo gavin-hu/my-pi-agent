@@ -122,6 +122,16 @@ describe("plan feedback codec", () => {
 		expect(coerceAnnotations([{ anchor: 2, comment: "  " }])).toEqual([]);
 	});
 
+	test("keeps the flag a refinement placed on a carried comment", () => {
+		// The page posts back the annotation it was handed, flag included; dropping it here
+		// would rewrite the writer's own marker as though the placement were her own.
+		expect(coerceAnnotations([{ anchor: 1, comment: "c", moved: true }])).toEqual([
+			{ anchor: 1, comment: "c", moved: true },
+		]);
+		// Only the flag: a hand-edited body cannot set anything else.
+		expect(coerceAnnotations([{ anchor: 1, comment: "c", moved: "yes" }])).toEqual([{ anchor: 1, comment: "c" }]);
+	});
+
 	test("rejects a non-array or a malformed entry", () => {
 		expect(coerceAnnotations("nope")).toBeUndefined();
 		expect(coerceAnnotations([{ anchor: -1, comment: "c" }])).toBeUndefined();

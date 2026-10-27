@@ -227,7 +227,6 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			if (!current) return;
 			if (stripFeedback(current.content) !== pageText) notifyPlanChange();
 		};
-		stopTicker = (deps.tick ?? defaultInterval)(deps.pollMs ?? PLAN_POLL_MS, () => void checkPlanFile());
 
 		const page = async (caller: ReviewCaller): Promise<ReviewPageData> => {
 			const stored = await refreshPageText();
@@ -365,6 +364,9 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		const port = server.port;
 		ports.set(plan.path, port);
 		currentPort = port;
+		// Armed only now: a review whose listener never bound has no page to keep current,
+		// and an interval started for it would outlive the session that failed to start.
+		stopTicker = (deps.tick ?? defaultInterval)(deps.pollMs ?? PLAN_POLL_MS, () => void checkPlanFile());
 
 		const url = `http://127.0.0.1:${port}/?token=${token}`;
 		let closed = false;

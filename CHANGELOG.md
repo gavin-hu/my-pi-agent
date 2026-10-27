@@ -15,6 +15,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   path is the footer's hover title, which is the one thing that tells two clones of a
   repository apart. `/board` and `/board status` name it too, so the terminal and the page
   say the same thing, and `status` keeps the store's path beside it.
+- `plan`: a second review of a revised plan reads as a diff, and can hide the rest. The
+  baseline a review leaves behind now carries one short digest per content block, so the
+  browser page marks each block that is new or edited — matched by digest, so an inserted
+  step marks itself and leaves the rest of its section alone — and a section that lost
+  blocks says how much shorter it became instead of pretending they never existed.
+  **All** / **Changed** / **Comments** switch what the page shows, Changed disabled and
+  its reason named when the baseline predates block digests, and a printed review is
+  always the whole plan. A comment a refinement carried onto another block keeps its
+  `moved` marker through a save, and a reviewer's post is signed with the name the server
+  bound to her link, so her earlier comments stay hers.
 
 ## [0.20.0] - 2026-10-26
 

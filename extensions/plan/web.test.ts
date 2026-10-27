@@ -9,7 +9,9 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { join } from "node:path";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
 import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import { THEME_JS, WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../lib/web/index.ts";
@@ -28,7 +30,7 @@ import {
 import { sectionDigests } from "./plan-text.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import { REVIEW_CLIENT_JS } from "./web-client.ts";
-import { blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
+import { applyView, blockAtLine, blockElements, moveActive, setActive, WEB_BLOCKS_JS } from "./web-blocks.ts";
 import { closeComposer, commentOnActive, reopenComposer, WEB_COMPOSER_JS } from "./web-composer.ts";
 import {
 	approveReview,
@@ -550,6 +552,15 @@ describe("review page", () => {
 		] as const) {
 			expect(REVIEW_CSS.split(block).length - 1, `${name} block`).toBe(1);
 		}
+	});
+
+	test("prints the whole plan, whichever view the reader had", () => {
+		// The base layer hides a filtered block with !important, so the print rule has to
+		// match it: without that, a printed Changed view is a partial plan, which is the one
+		// thing the print block promises it is not.
+		expect(WEB_BASE_CSS).toContain("[hidden]{display:none!important}");
+		expect(REVIEW_CSS).toContain(".bf-block[hidden]{display:block!important}");
+		expect(REVIEW_CSS).toContain(".bf-comments[hidden]{display:flex!important}");
 	});
 
 	test("loads the first-party client, the shared theme, and the review controls", () => {
@@ -1682,6 +1693,22 @@ describe("review session", () => {
 		}
 	});
 
+	test("keeps the moved flag on a comment the page posts back", async () => {
+		// A refinement carried the note onto another block, and the page is the only place
+		// that still knows. A save must not rewrite it as though it sat there all along.
+		const session = await start("# Plan\n\nA paragraph.\n");
+		const response = await fetch(feedbackUrl(session), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "check this", moved: true }] }),
+		});
+
+		expect(response.status).toBe(200);
+		const result = await session.done;
+		expect(result.status).toBe("saved");
+		if (result.status === "saved") expect(result.plan.content).toContain("> [!REVIEW moved] check this");
+	});
+
 	test("resolves cancelled when the user cancels", async () => {
 		const session = await start();
 		expect((await fetch(cancelUrl(session), { method: "POST" })).status).toBe(200);
@@ -2205,6 +2232,21 @@ describe("review block navigation", () => {
 		expect(moveActive(planEl, 0, 1)).toBe(1);
 	});
 
+	test("a filtered view is walked over, not through", () => {
+		const { blocks, planEl } = make([1, 8, 20]);
+		// The middle block is hidden by a view: `j` from the first lands on the third rather
+		// than on a class nobody can see, and from a hidden block it steps back out.
+		(blocks[1] as { hidden?: boolean }).hidden = true;
+		expect(moveActive(planEl, 0, 1)).toBe(2);
+		expect(moveActive(planEl, 2, -1)).toBe(0);
+		expect(moveActive(planEl, 1, 1)).toBe(2);
+
+		// Nothing visible left to walk to says so, instead of moving to a hidden block.
+		(blocks[0] as { hidden?: boolean }).hidden = true;
+		(blocks[2] as { hidden?: boolean }).hidden = true;
+		expect(moveActive(planEl, 1, 1)).toBeNull();
+	});
+
 	test("needs both halves of a line to open a composer", () => {
 		const { planEl } = make([1, 8]);
 		expect(blockAtLine(planEl, [{ start: 1 }, { start: 8 }], 8)?.block.start).toBe(8);
@@ -2212,6 +2254,61 @@ describe("review block navigation", () => {
 		expect(blockAtLine(planEl, [{ start: 1 }], 8)).toBeNull();
 		expect(blockAtLine(planEl, [{ start: 1 }, { start: 30 }], 30)).toBeNull();
 		expect(blockAtLine(null, [{ start: 1 }], 1)).toBeNull();
+	});
+});
+
+describe("review view filter", () => {
+	/** A block or thread node with the members the filter reads. */
+	const node = (attrs: Record<string, string>, className = "") => ({
+		attrs,
+		className,
+		hidden: false,
+		getAttribute: (name: string) => attrs[name] ?? null,
+	});
+	/** One page: its blocks, and the comment threads drawn under them. */
+	const page = (blocks: ReturnType<typeof node>[], threads: ReturnType<typeof node>[] = []) =>
+		({
+			querySelectorAll: (selector: string) =>
+				selector === ".bf-block" ? blocks : selector === ".bf-comments" ? threads : [],
+		}) as unknown as Parameters<typeof applyView>[0];
+
+	test("keeps the headings and what the view asks for, and hides the rest", () => {
+		const blocks = [
+			node({ "data-line": "0", "data-kind": "heading" }),
+			node({ "data-line": "1", "data-kind": "paragraph", "data-changed": "1" }),
+			node({ "data-line": "2", "data-kind": "paragraph" }),
+		];
+		const counts = applyView(page(blocks), "changed");
+		expect(blocks.map((entry) => entry.hidden)).toEqual([false, false, true]);
+		expect(counts).toEqual({ shown: 2, hidden: 1 });
+	});
+
+	test("hides a thread with its block, and leaves an orphan thread alone", () => {
+		const blocks = [
+			node({ "data-line": "0", "data-kind": "heading" }),
+			node({ "data-line": "1", "data-kind": "paragraph", "data-changed": "1" }),
+			node({ "data-line": "2", "data-kind": "paragraph" }),
+		];
+		const thread = node({ "data-line": "2" });
+		const orphan = node({});
+		applyView(page(blocks, [thread, orphan]), "changed");
+		// A note whose block is hidden has no text to refer to; one no block claims is its own.
+		expect(thread.hidden).toBe(true);
+		expect(orphan.hidden).toBe(false);
+
+		applyView(page(blocks, [thread, orphan]), "all");
+		expect(thread.hidden).toBe(false);
+	});
+
+	test("a filter that matches nothing but headings keeps the document whole", () => {
+		const blocks = [
+			node({ "data-line": "0", "data-kind": "heading" }),
+			node({ "data-line": "1", "data-kind": "paragraph" }),
+		];
+		// No block carries a change mark, so the Changed view has nothing to show.
+		const counts = applyView(page(blocks), "changed");
+		expect(blocks.map((entry) => entry.hidden)).toEqual([false, false]);
+		expect(counts).toEqual({ shown: 2, hidden: 0 });
 	});
 });
 
@@ -2572,6 +2669,26 @@ describe("review plan renderer", () => {
 		expect(pending).toBeNull();
 	});
 
+	test("a settled review draws no control to add a comment", () => {
+		// The composer would accept the note and report it added, and nothing could ever save
+		// it: the rail's control goes with the buttons the settlement disables.
+		const { deps, dom } = plan({ settled: () => true });
+		const runtime = new Function("el", "blockElements", "setActive", `${WEB_PLAN_JS}\nreturn renderPlanFrame;`)(
+			dom.build,
+			blockElements,
+			setActive,
+		) as typeof renderPlanFrame;
+		runtime(
+			deps,
+			() => {},
+			() => null,
+			null,
+		);
+		expect(dom.made.filter((node) => node.className === "bf-block__add")).toHaveLength(0);
+		// The blocks themselves are still drawn, and still carry their comment cards.
+		expect(dom.made.filter((node) => node.className === "bf-block")).toHaveLength(2);
+	});
+
 	test("restores focus only when it was inside the plan to begin with", () => {
 		const { deps, dom } = plan();
 		const runtime = new Function("el", "blockElements", "setActive", `${WEB_PLAN_JS}\nreturn renderPlanFrame;`)(
@@ -2864,5 +2981,37 @@ describe("review keyboard", () => {
 		const settled = { ...deps, settled: () => true } as Parameters<typeof rememberSelection>[1];
 		rememberSelection({ closest: () => block }, settled);
 		expect(remembered).toHaveLength(2);
+	});
+});
+
+describe("the client bundle", () => {
+	/**
+	 * Every helper the fragments declare, read from their own sources.
+	 *
+	 * Sources rather than an import list on purpose: the failure this guards against is a
+	 * function that lands in a module and is called from the bundle without being added to
+	 * that module's `*_JS` source. Nothing else can see it — the bundle is a string, so the
+	 * checker never reads it, and a suite that drives the typed function directly never
+	 * runs the page's copy.
+	 */
+	function declaredFunctions(): string[] {
+		const names = new Set<string>();
+		for (const file of readdirSync(import.meta.dir)) {
+			if (!/^web-.*\.ts$/.test(file) || file.endsWith(".test.ts")) continue;
+			const source = readFileSync(join(import.meta.dir, file), "utf-8");
+			for (const match of source.matchAll(/^(?:export )?function (\w+)/gm)) names.add(match[1] ?? "");
+		}
+		return [...names].filter((name) => name !== "");
+	}
+
+	test("carries every fragment function the bundle calls", () => {
+		// `applyView`, `surfaceOf`, and `keyRows` were exactly this: called by the shipped
+		// script, documented, and absent from it — a ReferenceError on the page's first
+		// render and on every content key, with the whole suite green.
+		const missing = declaredFunctions().filter(
+			(name) =>
+				new RegExp(`\\b${name}\\s*\\(`).test(REVIEW_CLIENT_JS) && !REVIEW_CLIENT_JS.includes(`function ${name}(`),
+		);
+		expect(missing).toEqual([]);
 	});
 });
