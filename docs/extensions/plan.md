@@ -41,6 +41,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. | Shipped |
 | Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. | Shipped |
 | Changed sections | the `exit_plan_mode` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked. | Shipped |
+| Block-level change marks | the `/plan review` page's **Changed** view | After a refinement, each block that is new or edited is marked — an inserted step marks itself and leaves the rest of its section alone — and a section that lost blocks says how much shorter it became. **All** / **Changed** / **Comments** switch what the page shows, with the keyboard walking only what is visible, and a printed review always the whole plan. | Unreleased |
 | Section navigation | the review screen, `n`/`p` | The screen names the section you are in and jumps between headings. | Shipped |
 | Remote review | `exit_plan_mode` on a WeChat turn | The plan file is sent, then one compact prompt to approve, keep planning, or exit. | Shipped |
 
