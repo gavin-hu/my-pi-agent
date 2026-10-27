@@ -6,7 +6,6 @@
  * is validated and clamped so a typo cannot produce a nonsensical server.
  */
 
-import { randomInt } from "node:crypto";
 import { asBoolean, clampInteger, loadConfigSection } from "../../../lib/config.ts";
 
 export interface ServeConfig {
@@ -60,12 +59,6 @@ export const DEFAULT_CONFIG: ServeConfig = {
 	liveIntervalMs: 5000,
 };
 
-/** Base of the per-session port range. */
-export const PORT_BASE = 4780;
-
-/** Number of ports in the per-session range. */
-export const PORT_RANGE = 1000;
-
 /** Fastest live-status cadence a page may be given: short enough to watch, and a
  * floor so a page cannot outrun the git reads behind each frame. */
 export const LIVE_INTERVAL_MIN = 250;
@@ -89,11 +82,6 @@ export const IDLE_STOP_MS = 10_000;
  * reconnecting instead of retrying for a slot that will not open.
  */
 export const LIVE_MAX_CLIENTS = 8;
-
-/** A random port in the per-session range `PORT_BASE`–`PORT_BASE + PORT_RANGE - 1`. */
-export function randomPort(): number {
-	return PORT_BASE + randomInt(PORT_RANGE);
-}
 
 /** Validate and clamp a raw config object over the defaults. */
 export function normalizeConfig(

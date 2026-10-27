@@ -117,6 +117,7 @@ export const LIB_SUITES: readonly string[] = [
 	"timer",
 	"git/index",
 	"http/http",
+	"http/port",
 	"http/guard",
 	"http/serve",
 	"http/sink",

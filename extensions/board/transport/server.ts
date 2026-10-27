@@ -23,10 +23,10 @@ import type { PageView } from "../view/page.ts";
 import { type BoardRouterContext, handleBoardRequest } from "./router.ts";
 
 /** How often the page is offered a frame; a frame is sent only when the signature moved. */
-export const PUSH_MS = 1_000;
+const PUSH_MS = 1_000;
 
 /** Largest request body the page accepts: a card and a note are small. */
-export const MAX_BODY_BYTES = 64 * 1_024;
+const MAX_BODY_BYTES = 64 * 1_024;
 
 /** What the page is built from. The lifecycle (`page.ts`) supplies all of it. */
 export interface BoardServerOptions {

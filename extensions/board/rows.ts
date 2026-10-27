@@ -35,7 +35,7 @@ function stateOf(card: Card): string[] {
 }
 
 /** One card: the id and title, with its state trailing. */
-export function cardRowLine(card: Card, width: number, theme: Theme, options: { self?: boolean } = {}): string {
+function cardRowLine(card: Card, width: number, theme: Theme, options: { self?: boolean } = {}): string {
 	return listRow(theme, width, {
 		marker: false,
 		label: `${cardRef(card.id)} ${sanitizeLine(card.title)}`,

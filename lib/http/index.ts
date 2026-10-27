@@ -17,6 +17,7 @@
 
 export * from "./guard.ts";
 export * from "./headers.ts";
+export * from "./port.ts";
 export * from "./response.ts";
 export * from "./router.ts";
 export * from "./serve.ts";
