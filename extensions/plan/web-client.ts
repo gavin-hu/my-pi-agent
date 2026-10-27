@@ -139,6 +139,7 @@ ${WEB_MARKDOWN_JS}
       planEl: planEl,
       statusEl: statusEl,
       refusal: DRAFT_REFUSAL,
+      settled: function () { return saved || approved || closed; },
       setStatus: setStatus,
       saveDraft: saveDraft,
       open: openComposer,
@@ -172,6 +173,7 @@ ${WEB_MARKDOWN_JS}
       setActiveIndex: function (index) { activeIndex = index; },
       pendingQuote: function () { return pendingQuote; },
       clearPendingQuote: function () { pendingQuote = null; },
+      settled: function () { return saved || approved || closed; },
       composer: composer,
       renderBlock: renderBlockContent,
       renderComments: renderComments,
@@ -204,8 +206,10 @@ ${WEB_MARKDOWN_JS}
       }
     }
     // The page's own wrapper owns the element: the shared paint takes the node first, so
-    // the sentence goes through setStatus rather than being handed over as one.
-    if (counts.hidden > 0) setStatus("Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — the rest hidden");
+    // the sentence goes through setStatus rather than being handed over as one. A settled
+    // review's status line carries how it ended, not the filter's count.
+    if (counts.hidden > 0 && !saved && !approved && !closed)
+      setStatus("Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — the rest hidden");
   }
 
   function renderAll() {
@@ -368,6 +372,9 @@ ${WEB_MARKDOWN_JS}
     viewButtons[v].addEventListener("click", function (event) {
       var next = event.target && event.target.getAttribute ? event.target.getAttribute("data-view") : null;
       if (next !== "all" && next !== "changed" && next !== "comments") return;
+      // The filter repaints the document, which closes the composer: a half-written
+      // comment would go with it, so the click refuses the way the ways off the page do.
+      if (confirmNoDraft()) return;
       view = next;
       renderAll();
     });

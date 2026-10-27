@@ -2669,6 +2669,26 @@ describe("review plan renderer", () => {
 		expect(pending).toBeNull();
 	});
 
+	test("a settled review draws no control to add a comment", () => {
+		// The composer would accept the note and report it added, and nothing could ever save
+		// it: the rail's control goes with the buttons the settlement disables.
+		const { deps, dom } = plan({ settled: () => true });
+		const runtime = new Function("el", "blockElements", "setActive", `${WEB_PLAN_JS}\nreturn renderPlanFrame;`)(
+			dom.build,
+			blockElements,
+			setActive,
+		) as typeof renderPlanFrame;
+		runtime(
+			deps,
+			() => {},
+			() => null,
+			null,
+		);
+		expect(dom.made.filter((node) => node.className === "bf-block__add")).toHaveLength(0);
+		// The blocks themselves are still drawn, and still carry their comment cards.
+		expect(dom.made.filter((node) => node.className === "bf-block")).toHaveLength(2);
+	});
+
 	test("restores focus only when it was inside the plan to begin with", () => {
 		const { deps, dom } = plan();
 		const runtime = new Function("el", "blockElements", "setActive", `${WEB_PLAN_JS}\nreturn renderPlanFrame;`)(

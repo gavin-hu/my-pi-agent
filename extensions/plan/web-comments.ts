@@ -114,6 +114,10 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
   }
 
   function openComposer(wrap, block, quote, initial) {
+    // One composer at a time, and the open one holds text the page has not committed:
+    // replacing it would drop that text without a word. A restored draft passes its text
+    // as the initial value, because it is the thing being reopened, not a draft to protect.
+    if (!initial && guardDraft(planEl, statusEl, DRAFT_REFUSAL, paintStatus)) return;
     closeOpenComposer();
     wrap.classList.add("bf-block--composing");
     var composer = el("div", "bf-composer");
@@ -137,7 +141,9 @@ export const WEB_COMMENTS_JS = String.raw`  function selectionIn(wrap) {
     cancel.addEventListener("click", closeOpenComposer);
     var add = el("button"); add.type = "button"; add.className = "bf-btn bf-btn--primary"; add.textContent = "Add comment";
     var submit = function () {
-      if (closed) { setStatus("The review is closed; this comment was not added.", "error"); return; }
+      // A settled review takes no new comment: the note could never reach the plan, so
+      // adding it would report "Comment added" about something nobody will read.
+      if (saved || approved || closed) { setStatus("This review has ended; the comment was not added.", "error"); return; }
       if (role === "reviewer" && !reviewerName) { askName(); return; }
       var comment = area.value.replace(/\s+/g, " ").trim();
       if (!comment) { area.focus(); return; }

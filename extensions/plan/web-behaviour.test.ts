@@ -67,6 +67,7 @@ let origin = "";
  */
 interface Doc {
 	querySelector(selector: string): { textContent: string | null } | null;
+	querySelectorAll(selector: string): { length: number };
 }
 
 /** The review's own router, answering the shipped page and its script over HTTP. */
@@ -88,8 +89,11 @@ function context(page: ReviewPageData): ReviewContext {
 }
 
 /** Serve one review: the router decides, so the page is the page the extension ships. */
-function serve(page: ReviewPageData = PAGE): Promise<{ server: Server; origin: string }> {
-	const ctx = context(page);
+function serve(
+	page: ReviewPageData = PAGE,
+	overrides: Partial<ReviewContext> = {},
+): Promise<{ server: Server; origin: string }> {
+	const ctx = { ...context(page), ...overrides };
 	const started = createServer((request, response) => {
 		const chunks: Buffer[] = [];
 		request.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -230,6 +234,94 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		}
 	});
 
+	test("a reviewer's second post keeps the name the server bound to her link", async () => {
+		// She types `@alice`, the server stores and answers `alice`. If the page kept the
+		// typed form, her first comment would stop being hers to edit and her next post —
+		// which carries only what she still calls hers — would replace it with nothing.
+		const saves: unknown[][] = [];
+		const local = await serve(
+			{ ...PAGE, role: "reviewer", canApprove: false, annotations: [] },
+			{
+				caller: (token) => (token === "tok" ? { role: "reviewer" } : undefined),
+				save: async (annotations): Promise<SaveResult> => {
+					saves.push(annotations.map((annotation) => ({ ...annotation })));
+					return { ok: true, author: "alice" };
+				},
+			},
+		);
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		const post = async (text: string): Promise<void> => {
+			await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
+			await page.fill(".bf-composer textarea", text);
+			await page.click(".bf-composer .bf-btn--primary");
+			await page.click("#post");
+			await page.waitForFunction(
+				() =>
+					/Posted/i.test(
+						(globalThis as unknown as { document: Doc }).document.querySelector("#status")?.textContent ?? "",
+					),
+				undefined,
+				{ timeout: PAINT_MS },
+			);
+		};
+		try {
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			await page.click("#reviewer-name");
+			await page.fill("#name-input", "@alice");
+			await page.click("#name-save");
+
+			await post("first note");
+			// The router normalised the typed name on the way through, which is the whole reason
+			// the page has to take its answer rather than keep what it was typed.
+			expect(saves[0]).toEqual([{ anchor: 1, comment: "first note", author: "alice" }]);
+			// The page now posts as the name the file uses, and shows it.
+			expect(await page.textContent("#reviewer-name")).toContain("alice");
+			expect(await page.textContent("#reviewer-name")).not.toContain("@alice");
+
+			await post("second note");
+			// Both comments, one author: nothing she wrote earlier was dropped from the post.
+			expect(saves[1]).toEqual([
+				{ anchor: 1, comment: "first note", author: "alice" },
+				{ anchor: 1, comment: "second note", author: "alice" },
+			]);
+		} finally {
+			await page.close();
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
+	});
+
+	test("a view click refuses while a comment is half-written", async () => {
+		// The filter repaints the document, and the repaint closes the composer: the click
+		// answers with the same sentence the ways off the page use, and the text stays put.
+		const page = await openPage();
+		await page.click('#plan .bf-block[data-line="1"] .bf-block__add');
+		await page.fill(".bf-composer textarea", "half a thought");
+		await page.click('[data-view="comments"]');
+		expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(1);
+		expect(await page.textContent("#status")).toContain("Add or discard the comment you are writing.");
+		await page.close();
+	});
+
+	test("a settled review offers no comment control, and the key opens nothing", async () => {
+		const page = await openPage();
+		await page.click("#approve");
+		await page.click("#approve-confirm");
+		// The review ends without returning to the terminal, because the stub answers the post.
+		await page.waitForFunction(
+			() => (globalThis as unknown as { document: Doc }).document.querySelectorAll("#plan .bf-block__add").length === 0,
+			undefined,
+			{ timeout: PAINT_MS },
+		);
+		expect(await page.textContent("#review-state")).toContain("Approved");
+		expect(await page.textContent("#status")).toContain("Approved");
+
+		// `c` would otherwise open a composer for a note nothing could save.
+		await page.keyboard.press("c");
+		expect(await page.$$eval(".bf-composer", (nodes) => nodes.length)).toBe(0);
+		await page.close();
+	});
+
 	test("opens the composer from a block's control, and Escape peels it before the review", async () => {
 		const page = await openPage();
 		// The control is one per block and is what a reader clicks; it is inside the rail.
@@ -285,6 +377,43 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(await page.textContent("#plan .bf-comment__body")).toBe("needs a rollback step");
 			await page.close();
 		} finally {
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
+	});
+
+	test("draws a list marker with the kit's class, checked or not", async () => {
+		// The marker's width and muted colour come from the kit rule; a bare marker class
+		// matched nothing, so a plain bullet sat at a different width from a checked one.
+		const local = await serve({
+			...PAGE,
+			blocks: [
+				{ start: 0, end: 0, kind: "heading", lines: ["# Steps"] },
+				{ start: 1, end: 1, kind: "list", lines: ["- a plain bullet"] },
+				{ start: 2, end: 2, kind: "list", lines: ["- [x] a done step"] },
+			],
+			annotations: [],
+			outline: [{ id: "s-0", line: 0, level: 1, text: "Steps" }],
+		});
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		try {
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector("#plan .bf-block__li", { timeout: PAINT_MS });
+			const markers = await page.$$eval("#plan .bf-block__li > span:first-child", (nodes) =>
+				nodes.map((node) => ({
+					cls: node.className,
+					minWidth: (globalThis as unknown as { getComputedStyle(n: unknown): { minWidth: string } }).getComputedStyle(
+						node,
+					).minWidth,
+				})),
+			);
+			expect(markers.map((marker) => marker.cls)).toEqual([
+				"bf-block__marker",
+				"bf-block__marker bf-block__marker--done",
+			]);
+			// Both wear the kit's class, so both get its width rather than the text default.
+			expect(markers.every((marker) => marker.minWidth !== "auto")).toBe(true);
+		} finally {
+			await page.close();
 			await new Promise<void>((resolve) => local.server.close(() => resolve()));
 		}
 	});

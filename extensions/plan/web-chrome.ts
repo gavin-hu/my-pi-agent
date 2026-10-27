@@ -76,6 +76,10 @@ export const WEB_CHROME_JS = String.raw`  function setStatus(text, kind) {
     if (saveButton) saveButton.disabled = true;
     if (postButton) postButton.disabled = true;
     if (cancelButton) cancelButton.disabled = true;
+    // The rail's comment controls go with them: a settled review takes no new comment, and
+    // the frame renderer is the one rule that decides that, so this asks for a repaint
+    // rather than removing the buttons itself.
+    renderAll();
   }
 
   // A conflict means the file moved under the page; only a reload can re-anchor.

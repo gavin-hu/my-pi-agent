@@ -17,8 +17,8 @@ export interface SettleDeps {
 	token(): string;
 	role(): string;
 	/** The comments this writer may write: her own when she is a reviewer, all when owner. */
-	mine(): readonly unknown[];
-	annotations(): readonly unknown[];
+	mine(): readonly { author?: string }[];
+	annotations(): readonly { author?: string }[];
 	/** Whether the review has already ended, by any of the three routes. */
 	settled(): boolean;
 	setStatus(text: string, kind?: string): void;
@@ -82,9 +82,14 @@ export function submitAnnotations(
 				if (onOk) onOk();
 				deps.updateState();
 				// The server binds a reviewer's name to her link on the first post, so a
-				// second tab of the same link posts under the same name.
+				// second tab of the same link posts under the same name — and it may normalise
+				// what she typed (`@alice` is stored as `alice`). The comments she just posted
+				// are in the file under the bound name, so the page's copy has to say that too:
+				// otherwise they stop being hers to edit, and her next post would replace
+				// markers it never sent.
 				const body = result.body as { author?: unknown } | null;
 				if (deps.role() === "reviewer" && body && typeof body.author === "string" && body.author) {
+					for (const annotation of payload) if (annotation.author !== undefined) annotation.author = body.author;
 					deps.adoptName(body.author);
 				}
 				return { outcome: "ok" as const };
