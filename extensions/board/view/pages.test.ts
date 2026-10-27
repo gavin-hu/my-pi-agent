@@ -174,6 +174,19 @@ describe("the document", () => {
 		expect(BOARD_CSS).toContain(".board-dialog__value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}");
 	});
 
+	test("keeps a card's text inside its border", () => {
+		// A chip is one line and nowrap by design, so an owner label or a path longer than the
+		// card used to spill past its border and across the lane beside it. The list item is
+		// what shrinks, the chip is what clips, and the whole value is on the hover title.
+		expect(BOARD_CSS).toContain(".board-card__paths li{min-width:0;max-width:100%}");
+		expect(BOARD_CSS).toContain(
+			".board-card .bf-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}",
+		);
+		expect(BOARD_CLIENT_JS).toContain("hint.title = shown[i]");
+		// A title with no spaces in it wraps to the two-line clamp instead of being cut mid-word.
+		expect(ownRules()).toMatch(/\.board-card__title\{[^}]*overflow-wrap:anywhere/);
+	});
+
 	test("draws every colour through a kit token", () => {
 		// A literal colour would survive the theme toggle and the print theme. The
 		// shared theme block is where literals belong, so only the page's own rules

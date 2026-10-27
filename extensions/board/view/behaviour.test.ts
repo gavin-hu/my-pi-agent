@@ -122,6 +122,9 @@ interface Doc {
 interface ElementLike {
 	textContent: string | null;
 	hidden: boolean;
+	/** The box a child can overflow: a card whose content spills has the larger scroll width. */
+	scrollWidth: number;
+	clientWidth: number;
 	getAttribute(name: string): string | null;
 }
 
@@ -427,6 +430,28 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				undefined,
 				{ timeout: PAINT_MS },
 			);
+		} finally {
+			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
+			await page.close();
+		}
+	});
+
+	test("keeps a path longer than the card inside it, and the whole value on its title", async () => {
+		const page = await openPage();
+		// A path with no break opportunity, longer than any lane: a one-line, nowrap chip used to
+		// spill out of the card and over the lane beside it.
+		const path = `src/billing/reconciliation/legacy-adapter/compat/shim/${"x".repeat(90)}/index.ts`;
+		const added = await store.create({ title: "A card with a long hint", paths: [path] }, CORE, clock.now());
+		try {
+			const chip = page.locator(`.board-card[data-card="${added.id}"] .board-card__paths .bf-chip`);
+			await chip.waitFor({ timeout: PAINT_MS });
+			expect(await chip.getAttribute("title")).toBe(path);
+			const spills = await page.$$eval(".board-card", (cards) =>
+				Array.from(cards as ArrayLike<ElementLike>)
+					.filter((card) => card.scrollWidth > card.clientWidth + 1)
+					.map((card) => card.getAttribute("data-card") ?? "?"),
+			);
+			expect(spills).toEqual([]);
 		} finally {
 			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
 			await page.close();

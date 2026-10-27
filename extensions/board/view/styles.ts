@@ -77,7 +77,7 @@ ${WEB_COMPONENTS_CSS}
 .board-card[hidden]{display:none}
 .board-card__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
 .board-card__id{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
-.board-card__title{margin:0;padding:0;border:0;background:none;text-align:left;cursor:pointer;font:var(--fw-semibold) var(--fs-base)/var(--lh-snug) var(--font-ui);color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.board-card__title{margin:0;padding:0;border:0;background:none;text-align:left;cursor:pointer;font:var(--fw-semibold) var(--fs-base)/var(--lh-snug) var(--font-ui);color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-card__title:hover{color:var(--accent)}
 /* Finished work recedes: it is history, and the live lanes should not compete with it. */
 .board-card[data-status="done"] .board-card__title{color:var(--muted)}
@@ -85,6 +85,12 @@ ${WEB_COMPONENTS_CSS}
 .board-card[data-status="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
 .board-card__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1);margin:0;padding:0;list-style:none}
+/* A chip is one line and nowrap by design, so an owner label or a path longer than the card
+   would spill past its border and across the lane beside it: clipped to the card instead,
+   with the whole of it on the hover title the renderer sets. The list item has to be the one
+   that shrinks, because a flex item's automatic minimum is its chip's width. */
+.board-card__paths li{min-width:0;max-width:100%}
+.board-card .bf-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .board-card__reason{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-card__reason--blocked{color:var(--danger)}
 .board-card__reason--unplanned{color:var(--warn)}
