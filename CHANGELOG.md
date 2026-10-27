@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `board`: the page names the repository it belongs to. A board is filed under a store key —
+  twelve hex characters — so its tab read `board · 8872d3adda0e · 3 open`, and three open
+  tabs could not be told apart. The tab now leads with the repository root's own name, and
+  the footer opens with it, in front of the store's path and the counts; the root's whole
+  path is the footer's hover title, which is the one thing that tells two clones of a
+  repository apart. `/board` and `/board status` name it too, so the terminal and the page
+  say the same thing, and `status` keeps the store's path beside it.
+
 ## [0.20.0] - 2026-10-26
 
 ### Added

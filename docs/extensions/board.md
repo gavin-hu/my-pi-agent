@@ -69,9 +69,9 @@ lead: board list round: true
 
 | Command | Who | Effect |
 |---|---|---|
-| `/board` | lead | Serves the page as `team-lead`, or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the address |
+| `/board` | lead | Serves the page as `team-lead`, or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the repository and the address |
 | `/board team` | lead | The same, opened on the Team tab |
-| `/board status` | both | One line: the seat, the port, how many tabs are watching, the store, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
+| `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
 | `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead, and a watched page that is alive is its owner's to stop |
 | `/team` | both | The round in the terminal: the rollup, the work a dead owner left behind, then who is live, who has gone quiet, and who is gone |
 
@@ -154,7 +154,7 @@ path the board does not serve.
 GET    /theme.js             the theme script — no token
 GET    /app.js               the client script — no token
 GET    /                     the document (?view=board|team), whose tab reads
-                             board · <store key> · <N> open
+                             board · <repo> · <N> open
 GET    /index.html           the same document, for a link that names it
 GET    /api/ping             whether the page answers, and nothing else: a session
                              deciding whether to attach reads this, not the snapshot
@@ -169,7 +169,12 @@ answering its browser would otherwise be declared dead and taken over.
 ## Layout
 
 One page, two tabs, one lifecycle. The kit shell keeps the toolbar and the footer
-pinned and makes the main pane the only scroll box; the page adds no second one.
+pinned and makes the main pane the only scroll box; the page adds no second one. The
+footer is one line about the board itself: the repository's name, the store's path, the
+count of cards, and the size they occupy — plus the files this build could not read —
+with the repository root's whole path on the hover title, which is what tells two
+clones of one repository apart. The tab carries the repository's name for the same
+reason: a store key is a hash, and no reader can say it out loud.
 
 | Band | What it holds |
 |---|---|
@@ -473,7 +478,7 @@ it always meant: when the card was last touched, which is not when it last chang
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
 | `page.ts` | The page's lifecycle: the port it remembers or is pinned to, the chip that names it, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
-| `snapshot.ts` | The page's snapshot: the cards, the bus's records, and the store's size, handed to `buildView` |
+| `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
 | `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |
 | `seat.ts` | The seat the page is served as: one name, and an id derived from it. The page cannot write, so it is a label now — but the id is still what a card claimed from an older page names |
 | `join.ts` | The board's side of the team: the one request that joins for the user, the label it lands on, and how the outcome reads on a `/board` line |

@@ -10,7 +10,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync, statSync, utimesSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { type Card, signatureOf } from "./card.ts";
@@ -445,6 +445,17 @@ describe("bytes, where, and the signature", () => {
 		const { dir, store } = scratchStore();
 		expect(store.where()).toContain("board");
 		expect(store.where().length).toBeLessThan(dir.length + 1);
+		// A store built over a directory by hand has no repository behind it, so it names the
+		// one directory it has rather than saying nothing.
+		expect(store.root()).toBe(dir);
+		expect(store.name()).toBe(basename(dir));
+	});
+
+	test("names the repository it was opened for, not the hash it is filed under", () => {
+		const dir = temps.track(tempDir("pi-board-"));
+		const root = join(dir, "my-pi-agent");
+		expect(createStore(join(dir, "8872d3adda0e"), { root }).name()).toBe("my-pi-agent");
+		expect(createStore(join(dir, "8872d3adda0e"), { root }).root()).toBe(root);
 	});
 
 	test("the signature moves with a revision, an add, and a drop", async () => {
@@ -489,6 +500,9 @@ describe("openBoard", () => {
 		const store = await openBoard(pi, cwd, { agentDir });
 		expect(store.dir.startsWith(boardDirFor(agentDir, ""))).toBe(true);
 		expect(store.dir).toContain(join(agentDir, BOARD_DIR_NAME));
+		// Outside git the working directory is the identity, so it is also the name.
+		expect(store.root()).toBe(cwd);
+		expect(store.name()).toBe(basename(cwd));
 		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		expect(await store.read(card.id)).toEqual(card);
 	});

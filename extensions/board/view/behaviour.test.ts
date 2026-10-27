@@ -95,6 +95,10 @@ async function seedBoard(): Promise<void> {
 	}
 }
 
+/** The store's own path and the repository it belongs to, as the page is told them. */
+const WHERE = "~/.pi/agent/board/behaviour";
+const ROOT = "/Users/someone/my-pi-agent";
+
 /** The snapshot the page renders: the store, read fresh on every frame. */
 async function view() {
 	const now = clock.now();
@@ -104,7 +108,9 @@ async function view() {
 		now,
 		bytes: await store.bytes(),
 		skipped: (await store.skipped()).length,
-		where: "~/.pi/agent/board/behaviour",
+		repo: "my-pi-agent",
+		root: ROOT,
+		where: WHERE,
 	});
 }
 
@@ -195,15 +201,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("names itself in the tab, and links the mark the header draws", async () => {
 		const page = await openPage();
-		// A tab is read from a strip of other tabs: the store's own key tells two boards apart,
-		// and the count is the reason a tab is read at all. Both need the store, so the client
-		// paints them; the head's `board` is what a tab shows before the first frame.
+		// A tab is read from a strip of other tabs: the repository's own name tells two boards
+		// apart, and the count is the reason a tab is read at all. Both need the store, so the
+		// client paints them; the head's `board` is what a tab shows before the first frame.
 		await page.waitForFunction(
 			() => (globalThis as unknown as { document: Doc }).document.title.includes("open"),
 			undefined,
 			{ timeout: PAINT_MS },
 		);
-		expect(await page.title()).toBe("board · behaviour · 3 open");
+		expect(await page.title()).toBe("board · my-pi-agent · 3 open");
 
 		// The mark is the one the header draws, as a `data:` URI the page's own CSP allows.
 		const icons = await page.$$eval('link[rel="icon"]', (nodes) =>
@@ -456,9 +462,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			undefined,
 			{ timeout: PAINT_MS },
 		);
-		expect(await footer()).toContain("~/.pi/agent/board/behaviour");
+		expect(await footer()).toContain(`my-pi-agent · store ${WHERE}`);
 		expect(await footer()).toContain("10 cards");
 		expect(await footer()).not.toContain("unreadable");
+		// The name fits the line; the path is the hover, which is what tells two clones apart.
+		expect(await page.getAttribute("#board-where", "title")).toBe(ROOT);
 
 		// A file this build cannot read is counted beside the size, so a board that is not
 		// readable never reads as a board that is empty.

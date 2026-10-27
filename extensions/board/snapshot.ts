@@ -36,6 +36,8 @@ export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 		now: context.now(),
 		bytes: await context.store.bytes(),
 		skipped: (await context.store.skipped()).length,
+		repo: context.store.name(),
+		root: context.store.root(),
 		where: context.store.where(),
 		...(roster === undefined ? {} : { roster }),
 	});

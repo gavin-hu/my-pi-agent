@@ -56,6 +56,8 @@ function view(): BoardView {
 		},
 		bytes: 512,
 		sig: "4:1",
+		repo: "my-pi-agent",
+		root: "/Users/someone/my-pi-agent",
 		where: "~/.pi/agent/board/abc",
 	};
 }

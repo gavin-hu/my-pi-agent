@@ -248,14 +248,19 @@ __RUNTIME__
       // A footer that only counts read cards would say "2 cards" over a board holding
       // three files, so the unreadable ones are named beside the size.
       where.textContent =
-        "store " + view.where + " · " + plural(view.counts.total, "card") + " · " + size(view.bytes) +
+        view.repo + " · store " + view.where + " · " + plural(view.counts.total, "card") + " · " + size(view.bytes) +
         (view.skipped > 0 ? " · " + plural(view.skipped, "unreadable") : "");
+      // The name is what the line has room for; the path is what tells two clones of one
+      // repository apart when the name is the same.
+      where.title = view.root;
     }
-    // The tab has to tell two boards apart, and a board's own name is the last segment of
-    // its store: one board per repository, so that key is the subject. The count is what
-    // a browser full of tabs is read for, and an empty board says nothing rather than 0.
+    // The tab has to tell two boards apart, and a board's subject is its repository: one
+    // board per repository, named the way the directory holding it is. The store key is a
+    // hash, which no reader can say out loud, so it is not what a tab leads with. The count
+    // is what a browser full of tabs is read for, and an empty board says nothing rather
+    // than 0.
     var open = view.counts.total - view.counts.done;
-    document.title = tabTitle("board", view.where.split("/").pop(), open > 0 ? open + " open" : undefined);
+    document.title = tabTitle("board", view.repo, open > 0 ? open + " open" : undefined);
   }
 
   /** 1 card, 2 cards — the one body, handed in by the bundle's assembler. */

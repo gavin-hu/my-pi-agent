@@ -33,6 +33,8 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 
 const ME = { id: "s-lead", label: "billing-lead" };
 const WHERE = "~/.pi/agent/board/8872d3adda0e";
+const REPO = "my-pi-agent";
+const ROOT = "/Users/someone/my-pi-agent";
 
 describe("buildView", () => {
 	test("puts every card in its own lane, in lane order", () => {
@@ -47,6 +49,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 2_048,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(view.lanes.map((lane) => lane.status)).toEqual(["todo", "doing", "blocked", "done"]);
 		expect(view.lanes.map((lane) => lane.cards.map((entry) => entry.id))).toEqual([["1"], ["2"], ["3"], ["4"]]);
@@ -69,6 +73,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		const cards = view.lanes.flatMap((lane) => lane.cards);
 		expect(cards.find((entry) => entry.id === "1")?.since).toBe(4_000);
@@ -83,6 +89,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(view.lanes[0]?.cards.map((entry) => entry.priority)).toEqual(["normal", "high"]);
 	});
@@ -96,6 +104,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(blocked.lanes[0]?.cards[0]?.waits).toBe("#2 (doing)");
 
@@ -105,6 +115,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(cleared.lanes[0]?.cards[0]?.waits).toBeUndefined();
 	});
@@ -122,6 +134,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		const blocker = view.lanes.flatMap((lane) => lane.cards).find((entry) => entry.id === "2");
 		expect(blocker?.dependents).toBe("#4 (todo)");
@@ -139,6 +153,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(view.lanes[0]?.cards[0]?.offeredAt).toBe(NOW - 60_000);
 		expect(view.lanes[0]?.cards[1]?.offeredAt).toBeUndefined();
@@ -156,6 +172,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		const blocked = view.lanes.find((lane) => lane.status === "blocked")?.cards[0];
 		const done = view.lanes.find((lane) => lane.status === "done")?.cards[0];
@@ -172,6 +190,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(view.round.unassigned.map((entry) => entry.waits)).toEqual(["#2 (doing)"]);
 		expect(view.round.owners[0]?.cards[0]?.priority).toBe("normal");
@@ -180,7 +200,7 @@ describe("buildView", () => {
 	test("never writes a derived field onto the card it was handed", () => {
 		// The cards are the store's; a field added to one would outlive the read.
 		const one = card("1");
-		buildView({ me: ME, cards: [one], now: NOW, bytes: 0, where: WHERE });
+		buildView({ me: ME, cards: [one], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
 		expect(Object.keys(one).sort()).toEqual([
 			"by",
 			"createdAt",
@@ -203,6 +223,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(view.counts).toEqual({ total: 3, todo: 2, doing: 0, blocked: 0, done: 1 });
 	});
@@ -214,38 +236,76 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 		});
 		expect(view.round.owners.map((group) => group.label)).toEqual(["billing-core"]);
 		expect(view.round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("names the serving session, not the browser", () => {
-		const view = buildView({ me: { label: "ad-hoc" }, cards: [], now: NOW, bytes: 0, where: WHERE });
+		const view = buildView({
+			me: { label: "ad-hoc" },
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+			repo: REPO,
+			root: ROOT,
+		});
 		expect(view.me).toEqual({ label: "ad-hoc" });
 	});
 
 	test("signature starts from the cards' signature, so a bump or a drop moves it", () => {
 		const one = card("1");
-		const view = buildView({ me: ME, cards: [one], now: NOW, bytes: 0, where: WHERE });
+		const view = buildView({ me: ME, cards: [one], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
 		expect(view.sig.startsWith(signatureOf([one]))).toBe(true);
-		const bumped = buildView({ me: ME, cards: [{ ...one, rev: 2 }], now: NOW, bytes: 0, where: WHERE });
+		const bumped = buildView({
+			me: ME,
+			cards: [{ ...one, rev: 2 }],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+			repo: REPO,
+			root: ROOT,
+		});
 		expect(bumped.sig).not.toBe(view.sig);
-		const dropped = buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 0, where: WHERE });
+		const dropped = buildView({
+			me: ME,
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			skipped: 0,
+			where: WHERE,
+			repo: REPO,
+			root: ROOT,
+		});
 		expect(dropped.sig).not.toBe(view.sig);
 	});
 
 	test("carries the files it could not read, so the footer can say the board is not empty", () => {
-		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE }).skipped).toBe(0);
-		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 2, where: WHERE }).skipped).toBe(2);
+		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT }).skipped).toBe(0);
+		expect(
+			buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 2, where: WHERE, repo: REPO, root: ROOT }).skipped,
+		).toBe(2);
 		// The count is in the signature too: a file that became unreadable changes what the
 		// footer says, and a frame that is never pushed leaves the page saying the old thing.
-		const plain = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
-		const withSkips = buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 2, where: WHERE });
+		const plain = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
+		const withSkips = buildView({
+			me: ME,
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			skipped: 2,
+			where: WHERE,
+			repo: REPO,
+			root: ROOT,
+		});
 		expect(withSkips.sig).not.toBe(plain.sig);
 	});
 
 	test("carries the size and the directory, so an unpruned board says so", () => {
-		const view = buildView({ me: ME, cards: [], now: NOW, bytes: 6_144, where: WHERE });
+		const view = buildView({ me: ME, cards: [], now: NOW, bytes: 6_144, where: WHERE, repo: REPO, root: ROOT });
 		expect(view.bytes).toBe(6_144);
 		expect(view.where).toBe(WHERE);
 	});
@@ -257,6 +317,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 			roster: [
 				{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000, mail: 2 },
 				{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 },
@@ -277,6 +339,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 			roster: [
 				{
 					id: "s-core",
@@ -310,6 +374,8 @@ describe("buildView", () => {
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
+			repo: REPO,
+			root: ROOT,
 			roster: [{ id: "s-lead", label: "billing-lead", mode: "tui", lastSeen: NOW, mail: 0 }],
 		});
 		expect(view.me).toEqual({ id: "board:team-lead", label: "team-lead" });
@@ -318,9 +384,18 @@ describe("buildView", () => {
 	});
 
 	test("leaves the roster out when there is no bus, which is not the same as an empty one", () => {
-		const absent = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
+		const absent = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
 		expect(absent.teammates).toBeUndefined();
-		const empty = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, roster: [] });
+		const empty = buildView({
+			me: ME,
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			where: WHERE,
+			repo: REPO,
+			root: ROOT,
+			roster: [],
+		});
 		expect(empty.teammates).toEqual([]);
 		// A bus appearing is news — the State column stops saying "unknown" — so the two
 		// must not share a signature and leave the page without a frame.
@@ -329,7 +404,7 @@ describe("buildView", () => {
 
 	test("signature moves on a join, a quiet, and mail, and not on a heartbeat", () => {
 		const at = (roster: Parameters<typeof buildView>[0]["roster"]) =>
-			buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, roster }).sig;
+			buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT, roster }).sig;
 		const base = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW - 1_000, mail: 0 }]);
 		const heartbeat = at([{ id: "s-core", label: "billing-core", mode: "tui", lastSeen: NOW, mail: 0 }]);
 		expect(heartbeat).toBe(base);
@@ -358,7 +433,7 @@ describe("buildView", () => {
 	});
 
 	test("an empty board is four empty lanes", () => {
-		const view = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE });
+		const view = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
 		expect(view.lanes.map((lane) => lane.cards)).toEqual([[], [], [], []]);
 		expect(view.counts.total).toBe(0);
 	});

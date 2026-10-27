@@ -82,7 +82,7 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 			ctx.ui.notify(
 				started.kind === "attached"
 					? `board: ${started.seat} is serving this repository on :${started.port} — viewing · open ${started.url}${teamLine(joined)}`
-					: `board: ${started.seat} serving ${started.where} on :${started.port} · open ${started.url}${teamLine(joined)}`,
+					: `board: ${started.seat} serving ${started.repo} on :${started.port} · open ${started.url}${teamLine(joined)}`,
 				"info",
 			);
 		},
@@ -93,7 +93,7 @@ export function registerCommands(pi: ExtensionAPI, page: BoardPage, deps: { team
 export function statusLine(status: BoardPageStatus, team?: JoinResult): string {
 	if (status.running) {
 		const watching = plural(status.watchers ?? 0, "tab");
-		return `board: ${status.seat} serving on :${status.port} · ${watching} watching · ${status.where}${teamLine(team)}`;
+		return `board: ${status.seat} serving ${status.repo} on :${status.port} · ${watching} watching · ${status.where}${teamLine(team)}`;
 	}
 	if (status.stale === true) {
 		return `board: watching ${status.seat} on :${status.port} — that note answers nobody; /board stop drops it${teamLine(team)}`;
