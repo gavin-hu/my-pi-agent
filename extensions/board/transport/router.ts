@@ -23,6 +23,7 @@ import {
 	type ServeResponse,
 } from "../../../lib/http/index.ts";
 import type { BoardView } from "../../../lib/board/view.ts";
+import { PING_PATH, SNAPSHOT_PATH } from "../../../lib/board/page-pointer.ts";
 import { THEME_JS, THEME_JS_PATH } from "../../../lib/web/index.ts";
 import type { PageView } from "../view/page.ts";
 
@@ -45,12 +46,9 @@ export interface BoardRouterContext {
 	page: (view: PageView) => Promise<string>;
 	/** The client script. */
 	script: string;
-	/** The snapshot the page renders, and the body of `/api/board`. */
+	/** The snapshot the page renders, and the body of the snapshot route. */
 	view: () => Promise<BoardView>;
 }
-
-/** The cheap liveness route: a probe reads this, and never the snapshot. */
-export const PING_PATH = "/api/ping";
 
 /**
  * Handle one request. `method`, `rawUrl`, and `headers` are the raw HTTP values.
@@ -77,7 +75,7 @@ export async function handleBoardRequest(
 	// must not pay for the snapshot, which is a store read and a roster read on the same
 	// event loop the probe is racing.
 	if (pathname === PING_PATH) return jsonResponse(200, { ok: true });
-	if (pathname === "/api/board") return jsonResponse(200, await ctx.view());
+	if (pathname === SNAPSHOT_PATH) return jsonResponse(200, await ctx.view());
 	if (pathname === "/" || pathname === "/index.html") {
 		return { status: 200, headers: pageHeaders(), body: await ctx.page(viewOf(search.get("view"))) };
 	}

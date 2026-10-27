@@ -29,7 +29,7 @@ import {
 	settlePointer,
 	urlOf,
 } from "../../lib/board/page-pointer.ts";
-import { mintToken } from "../../lib/http/index.ts";
+import { mintToken, randomPort } from "../../lib/http/index.ts";
 import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
 import { type BoardConfig, loadBoardConfig } from "./config.ts";
@@ -38,15 +38,6 @@ import { viewOf } from "./snapshot.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
 import { BOARD_CLIENT_JS } from "./view/client.ts";
 import { type PageView, renderBoardPage } from "./view/page.ts";
-
-/**
- * A free port in the range the other loopback pages use, so a session's pages cluster.
- * Only the unpinned page draws one: `board.port` in `bytefly.json` states the port a
- * bookmarked URL keeps.
- */
-export function randomPort(): number {
-	return 4780 + Math.floor(Math.random() * 1000);
-}
 
 /**
  * How long the page waits for a tab after the last one leaves.

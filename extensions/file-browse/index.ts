@@ -16,7 +16,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { loadConfig, randomPort } from "./config/config.ts";
+import { randomPort } from "../../lib/http/index.ts";
+import { loadConfig } from "./config/config.ts";
 import { createGitDiff, createGitStatus } from "./git/git.ts";
 import { openInBrowser } from "../../lib/browser.ts";
 import { HttpError, resolveRequestPath } from "./files/paths.ts";

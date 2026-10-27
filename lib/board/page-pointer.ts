@@ -28,6 +28,18 @@ import { abortableSleep } from "../timer.ts";
 export const PAGE_FILE = "page.json";
 
 /**
+ * The two routes a probe asks for, named here because the probe and the page's router have
+ * to agree on them.
+ *
+ * `PING_PATH` is the cheap liveness answer this build serves; `SNAPSHOT_PATH` is what a
+ * page from an older build answers instead, which is why the probe falls back to it. A
+ * literal repeated in the router is a path that can move out from under the probe with
+ * every test still green — the probe would simply stop finding a live page.
+ */
+export const PING_PATH = "/api/ping";
+export const SNAPSHOT_PATH = "/api/board";
+
+/**
  * How long a probe waits before it calls the page gone.
  *
  * Long enough for a page that is busy answering a browser: the probe shares the event
@@ -276,12 +288,12 @@ export async function probePage(
 			signal: AbortSignal.timeout(timeoutMs),
 		});
 	try {
-		const ping = await ask("/api/ping");
+		const ping = await ask(PING_PATH);
 		if (ping.ok) return true;
 		// A page this build started always answers the ping; a 404 is one started by an
 		// older build, whose only liveness answer is its snapshot.
 		if (ping.status !== 404) return false;
-		return (await ask("/api/board")).ok;
+		return (await ask(SNAPSHOT_PATH)).ok;
 	} catch {
 		return false;
 	}

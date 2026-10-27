@@ -19,7 +19,7 @@ import type { BoardPage, BoardPageStatus } from "./page.ts";
 export const BOARD_COMMAND = "board";
 
 /** The words the command accepts, in the order a user is likely to want them. */
-export const BOARD_WORDS = ["status", "stop", "team"] as const;
+const BOARD_WORDS = ["status", "stop", "team"] as const;
 
 export function registerCommands(
 	pi: ExtensionAPI,

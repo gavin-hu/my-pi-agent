@@ -4,32 +4,13 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import {
-	DEFAULT_CONFIG,
-	LIVE_INTERVAL_MAX,
-	LIVE_INTERVAL_MIN,
-	normalizeConfig,
-	PORT_BASE,
-	PORT_RANGE,
-	randomPort,
-	type ServeConfig,
-} from "./config.ts";
+import { DEFAULT_CONFIG, LIVE_INTERVAL_MAX, LIVE_INTERVAL_MIN, normalizeConfig, type ServeConfig } from "./config.ts";
 
 interface NumericCase {
 	key: keyof ServeConfig;
 	raw: number;
 	expected: number;
 }
-
-describe("randomPort", () => {
-	test("stays inside the per-session range", () => {
-		for (let draw = 0; draw < 200; draw++) {
-			const port = randomPort();
-			expect(port).toBeGreaterThanOrEqual(PORT_BASE);
-			expect(port).toBeLessThan(PORT_BASE + PORT_RANGE);
-		}
-	});
-});
 
 describe("normalizeConfig defaults", () => {
 	test("keeps every default when the section is absent", () => {
