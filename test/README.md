@@ -288,7 +288,7 @@ test/
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
   architecture-doc.test.ts # docs/architecture.md: the paths and roadmap ids it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
-  extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, and a Files row for every module
+  extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, a Files row for every module (nested ones too), and a suite behind every `## Testing` stem
   project-docs-skill.test.ts # the `project-docs` skill's changelog state script: parse, report, and file lookup
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
   shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export

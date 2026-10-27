@@ -310,8 +310,14 @@ in that order, after every deep dive: user-facing content stays above the
 contributor sections.
 
 A `## Files` row names something that exists, and every non-test module under
-`extensions/<name>/` has one; `test/extension-docs.test.ts` holds both
-directions, so a page cannot keep describing a file the tree has dropped.
+`extensions/<name>/` has one — nested modules too, matched by the path a row
+names or by the directory a grouped row groups; `test/extension-docs.test.ts`
+holds both directions, so a page cannot keep describing a file the tree has
+dropped, and cannot leave one out because it sits in a subdirectory.
+
+A `## Testing` section names suites, so every backticked stem with a slash in it
+resolves to `extensions/<name>/<stem>.test.ts`, held by the same test: a stem
+with no suite is what a consolidation leaves behind in silence.
 
 **Capabilities is the key section.** It is what a reader arrives for and what
 the rest of the page elaborates, so it comes first and is a table:

@@ -1661,6 +1661,8 @@ columns, gauge), so the look follows the active theme.
 | `footer/register.ts` | Installs/restores the footer and owns its session lifecycle. |
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, alert and plan status keys, labels. |
 | `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
+| `footer/budget.ts` | The session spend guardrail: whether the configured ceiling has been crossed and the one notice that says so — an alert, never a limit. |
+| `footer/delegation.ts` | The child-run ledger: the pricing inputs of the last delegated runs, versioned so the footer re-prices when a subagent finishes. |
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan, context estimate, and session name per branch leaf. |
 | `footer/price/types.ts` | `Currency`, `ModelRates`, `PeakWindow`/`PeakSchedule`, `ByteflyConfig`. |
@@ -1675,6 +1677,7 @@ columns, gauge), so the look follows the active theme.
 | `footer/render/lines.ts` | Snapshot → two `LineSpec`s; status routing. |
 | `footer/render/layout.ts` | Width reduction and right-zone folding. |
 | `footer/render/footer.ts` | `StatusBar` component and footer factory. |
+| `footer/render/key.ts` | `snapshotKey`: the bar's repaint key, derived from the snapshot's own shape — sorted object keys, a map as sorted entries, a primitive by value — so a field added to `StatusSnapshot` is in the key the day it is added. |
 | `message/config.ts` | Nameplate tuning (`MESSAGE_CONFIG`): the label and the rule. |
 | `message/format.ts` | Pure `nameplate` and `styleUserMessage`: the two-row nameplate (label over a full-width rule) and its placement above the message. |
 | `message/register.ts` | Registers the Markdown transformer (the nameplate). |
@@ -1744,67 +1747,66 @@ columns, gauge), so the look follows the active theme.
 
 ## Testing
 
-`extensions/bytefly/` covers the install/restore/toggle lifecycle
-(`extension`), the header's rendering, width shedding, and live theme
-(`header/component`), its quiet-startup lifecycle (`header/register`),
-the formatters (`footer/render/format`), the status-chip transforms
-(`footer/render/status`), entry
-reduction and model inheritance (`footer/collect/entries`), snapshot assembly
-and its memoization (`footer/collect/snapshot`), rate matching
-(`footer/price/rates`), window parsing
-and peak evaluation in two zones (`footer/price/schedule`), the pricing formula,
-the off-peak multiplier, the built-in DeepSeek table with no config file, and the
-fallback (`footer/price/price`), the config schema, its clamping, the built-in
-defaults and their replacement, and the two file layers
-(`footer/price/config`), zone/priority
-assignment
-(`footer/render/lines`), the reduction, separator collapse, and right-zone
-folding across a width sweep from 6 to 120 plus wide characters
-(`footer/render/layout`), exact
-golden output at fixed widths (`footer/render/render`), and the install/skip/
-restore/toggle lifecycle plus a config-driven price (`extension`). The turn
-separator is covered by its pure formatting (`separator/format`, including the
-receipt's width ladder), its register/append/render/disable lifecycle
-(`separator/register`), and the run stats it records. The picker helpers are
-covered by the pure helpers (`picker/resources`), the toggle
-transforms (`picker/toggle`), discovery with an injected factory
-(`picker/discovery`), and the runtime state machine (`picker/runtime`). The
-unified screen is covered by its pure model merge (`panel/join`), its two
-filters and their chips (`panel/filter`), its text formatter (`panel/format`),
-the settings catalogue and its cycling (`panel/settings`), the scope-aware
-settings runtime (`panel/settings-runtime`, including a nested leaf write that
-keeps its siblings), the skill metadata join and loader (`panel/skills`, on real
-`SKILL.md` files), the key table whose hints and help it holds to one source
-(`panel/keys`), the frame and the one height all three sections agree on
-(`panel/layout`), the row grammar and the focused-row block beside and under the
-list (`panel/views`), the two-pane split and its `… N more lines` clip
-(`panel/panes`), the editing key map (`tui/editing`), the component's frames,
-keys, sections, settings, and probe lifecycle (`panel/component`,
-`panel/component-input`, `panel/component-sections`,
-`panel/component-settings`, `panel/component-probing`), and the command through
-the bytefly factory (`panel/commands`) — eighteen suites in all.
-The doctor surface is covered by its pure report
-formatting (`doctor/format`), its config loader (`doctor/config`), and
-registration, the proactive notice, the session cache, and `run_doctor`
-through the factory (`doctor/register`). The notify capability is covered by its section loader
-(`notify/config`), the pure text builders (`notify/format`), method selection and
-delivery over recording seams (`notify/dispatch`), and its four triggers,
-reload, and shutdown through `registerNotify` (`notify/register`). The update
-surface is covered by the version-ordering table (`update/version`), Pi's package
-list and the injected registry read (`update/check`), the host shim and its
-idempotent restore (`update/suppress`), the per-load store (`update/state`), the
-marker, multi-package notice, release URL, and recheck wording (`update/format`),
-the project-scoped snapshot and its window (`update/cache`), and its lifecycle —
-a fresh matching entry reused without a package-manager call, a stale one re-read
-and rewritten, silent on failure or an empty list, cache-only offline, skipped
-outside `tui`, an explicit `recheck()` that ignores the window, and immunity to a
-reply that lands after shutdown (`update/register`).
-The user-message nameplate is covered by its pure transform
-(`message/format`, including a render through pi-tui's real `Markdown`) and its
-registration (`message/register`), plus the factory check in `extension`.
-The notice surface is covered by its pure rows (`notice/component`), its
-renderer registration (`notice/register`), and the shared contract
-(`lib/notice`), plus the factory check in `extension`.
-The tool-block frame is covered by its pure `toolBlockLines` (`block/component`)
-and its generic fallback (`block/fallback`), plus the resolver's shell override,
-self-shell carve-out, and fallback framing (`block/register`).
+Every suite sits beside the code it covers, so a slash-prefixed stem below
+resolves to `extensions/bytefly/<stem>.test.ts`.
+
+`extension` covers the registration, the interactive surfaces, and the command
+wiring through the factory.
+
+`chrome` covers the chrome that frames a session: the config and its pad store;
+the header's frames, width shedding, identity ladder, update marker, live theme,
+quiet-startup lifecycle, and terminal-height shapes; the transcript notice's rows
+and registration; the turn separator's formatting (including the receipt's width
+ladder), component, and register/append/render/disable lifecycle with the run
+stats it records; and the user-message nameplate's transform — through pi-tui's
+real `Markdown` — and its registration.
+
+`footer/footer` covers the bar end to end: the price config, its schema, clamping,
+and defaults; rate matching, window parsing and peak evaluation in two zones, the
+pricing formula with its off-peak multiplier, the built-in DeepSeek table and the
+fallback, the usage records, and the delegation ledger; the snapshot reader and its
+memo, the unpriced notice, and the budget; the formatters, the status-chip
+transforms, the segment builders, line composition, and the repaint key that
+spares an unchanged frame a rebuild; the reduction, separator collapse, and
+right-zone folding across a width sweep from 6 to 120 plus wide characters; and the
+component with its install/skip/restore/toggle lifecycle and a config-driven price.
+
+`block/block` covers the tool-block frame: `toolBlockLines`, the call-headline
+rewrites, `ToolBlock`'s memo, the generic and call fallbacks, and the resolver's
+shell override and self-shell carve-out.
+
+`picker/picker` covers discovery with an injected factory, the resolver and its
+entries, the pattern helpers, and the runtime's toggling, scope, and project
+override across the four list operations.
+
+`panel/…` covers the control centre, one suite per capability: `panel/model` (the
+two panes' merged model and the text formatter), `panel/filter` and its chips, the settings
+catalogue and its cycling (`panel/settings`), the scope-aware runtime
+(`panel/settings-runtime`, including a nested leaf write that keeps its siblings),
+the skill metadata join and loader (`panel/skills`, on real `SKILL.md` files), the
+key table whose hints and help it holds to one source (`panel/keys`), the frame and
+the one height all three sections agree on (`panel/layout`), the row grammar and the
+focused-row block beside and under the list (`panel/views`), the two-pane split and
+its `… N more lines` clip (`panel/panes`), the editing key map (`panel/editing`),
+the update section's view (`panel/update`), the discovery probe (`panel/probe`), the
+component's frames, keys, sections, settings, and probe lifecycle
+(`panel/component`, `panel/component-input`, `panel/component-sections`,
+`panel/component-settings`, `panel/component-probing`), and the command through the
+bytefly factory (`panel/commands`) — eighteen suites in all.
+
+`doctor/doctor` covers the report counts and text, the config loader, the notify
+seam, the published search provider, the proactive probe, the session state,
+`run_doctor`, and the tool wiring.
+
+`notify/notify` covers its config loader, method selection, delivery over recording
+seams, the text builders, and its four triggers plus the handle.
+
+`update/update` covers the cache path and key, the cache read and write with its
+window, the check and the injected registry read, the version ordering, the
+formatters and the release notice, the prototype suppression with its idempotent
+restore, the per-load state, the lifecycle — a fresh matching entry reused without
+a package-manager call, a stale one re-read and rewritten, silent on failure or an
+empty list, cache-only offline, skipped outside `tui`, a `recheck()` that ignores
+the window, and a reply that lands after shutdown — and the `update` action.
+
+`working/working` covers the elapsed format, the counter, and the timer registration.
