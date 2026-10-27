@@ -160,9 +160,12 @@ hold themed strings in state unless `invalidate()` rebuilds them. A widget is
 derived from state, never authoritative.
 
 Pi renders the whole tree every frame, so a component that derives its lines from
-another one memoizes them with `RenderCache` (keyed on width and the source
-lines' identity) and drops the memo in `invalidate()`. Re-deriving every line per
-frame is what makes a long transcript feel slow.
+another one memoizes them with `RenderCache` — `lines()` keyed on width and the
+source lines' identity, or `keyed()` for a component with no inner component (a
+header's view, a footer's snapshot), keyed on the parts it read: primitives by
+value, an object such as the theme by identity — and drops the memo in
+`invalidate()`. Re-deriving every line per frame is what makes a long transcript
+feel slow.
 
 ## Focus
 

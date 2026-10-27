@@ -16,6 +16,7 @@ import { screenHint } from "../../../lib/tui/chrome.ts";
 import { keyHintText } from "../../../lib/tui/glyphs.ts";
 import { BODY_INDENT } from "../../../lib/tui/indent.ts";
 import { RULE_GLYPH } from "../../../lib/tui/rules.ts";
+import { RenderCache } from "../../../lib/tui/render-cache.ts";
 import { paint } from "../../../lib/tui/tokens.ts";
 import { HEADER_CONFIG, type HeaderHeight, type HelpEntry } from "./config.ts";
 import { identityCells } from "./identity.ts";
@@ -69,11 +70,7 @@ function helpParts(entry: HelpEntry): { key: string; description: string } {
 
 /** The themed header component. */
 export class ByteflyHeader implements Component {
-	private cachedWidth: number | null = null;
-	private cachedTheme: Theme | undefined;
-	private cachedView = "";
-	private cachedKeys = "";
-	private cachedLines: string[] = [];
+	private readonly cache = new RenderCache();
 
 	constructor(
 		private readonly getTheme: () => Theme,
@@ -82,7 +79,7 @@ export class ByteflyHeader implements Component {
 	) {}
 
 	invalidate(): void {
-		this.cachedWidth = null;
+		this.cache.invalidate();
 	}
 
 	/**
@@ -97,20 +94,7 @@ export class ByteflyHeader implements Component {
 		const view = this.view();
 		const viewKey = `${view.showVersion}:${view.halfBlocks}:${view.pad}:${view.latest ?? ""}:${view.rows ?? ""}`;
 		const keys = this.keySignature();
-		if (
-			this.cachedWidth === w &&
-			this.cachedTheme === theme &&
-			this.cachedView === viewKey &&
-			this.cachedKeys === keys
-		) {
-			return this.cachedLines;
-		}
-		this.cachedLines = this.build(w, theme, view);
-		this.cachedWidth = w;
-		this.cachedTheme = theme;
-		this.cachedView = viewKey;
-		this.cachedKeys = keys;
-		return this.cachedLines;
+		return this.cache.keyed([w, theme, viewKey, keys], () => this.build(w, theme, view));
 	}
 
 	/** The chord of every help binding, so a rebind repaints the help rows. */

@@ -31,6 +31,8 @@
 export class RenderCache {
 	private width: number | null = null;
 	private source: readonly string[] | undefined;
+	/** The last key's parts, for the value-keyed form; `undefined` until one is set. */
+	private parts: readonly unknown[] | undefined;
 	private cached: string[] = [];
 
 	/**
@@ -47,9 +49,36 @@ export class RenderCache {
 		return this.cached;
 	}
 
+	/**
+	 * The lines from `build()`, for a component that derives them from a key.
+	 *
+	 * The identity form above chains on the inner component's array. A component with no
+	 * inner component has nothing to chain on — a header's view and a footer's snapshot are
+	 * rebuilt every frame — so it describes its inputs instead, and this compares them:
+	 * primitives by value, and anything else by identity (a theme object is the case that
+	 * matters, since its strings are what get cached).
+	 *
+	 * The key is only as complete as the caller makes it: a part left out is a frame that
+	 * shows stale lines. Positions are compared, so an undefined part is a real one.
+	 */
+	keyed(parts: readonly unknown[], build: () => string[]): string[] {
+		const previous = this.parts;
+		if (
+			previous !== undefined &&
+			previous.length === parts.length &&
+			previous.every((part, at) => part === parts[at])
+		) {
+			return this.cached;
+		}
+		this.cached = build();
+		this.parts = [...parts];
+		return this.cached;
+	}
+
 	/** Drop the memo; call from the component's `invalidate()`. */
 	invalidate(): void {
 		this.width = null;
+		this.parts = undefined;
 		this.cached = [];
 	}
 }

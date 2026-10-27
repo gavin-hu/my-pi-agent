@@ -20,6 +20,7 @@ import {
 	WEB_LAYOUT_CSS,
 	WEB_THEME_CSS,
 } from "../../../lib/web/index.ts";
+import { unfilledPlaceholders } from "../../../test/helpers/bundle.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { renderBoardPage } from "./page.ts";
@@ -362,6 +363,13 @@ describe("the client bundle", () => {
 		}
 		expect(BOARD_CLIENT_JS).not.toContain("alert(");
 		expect(BOARD_CLIENT_JS).toContain("window.bfCard.open()");
+	});
+
+	test("fills every template rule it splices", () => {
+		// `renderJs` replaces five `__NAME__` rules with `lib/` sources; a lost `.replace`
+		// leaves the literal in the served script, where it is a ReferenceError on the
+		// page's first paint and nothing else sees it.
+		expect(unfilledPlaceholders(BOARD_CLIENT_JS)).toEqual([]);
 	});
 
 	test("is one self-contained script", () => {

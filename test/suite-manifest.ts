@@ -123,6 +123,7 @@ export const LIB_SUITES: readonly string[] = [
 	"http/token",
 	"session-label",
 	"tui/layout",
+	"tui/render-cache",
 	"tui/components",
 	"tui/interaction",
 	"tui/tool",

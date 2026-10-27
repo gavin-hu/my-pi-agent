@@ -63,6 +63,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   keeps the line it measured and a fitting line is returned as assembled: the footer's two
   lines cost 3.5–13 µs instead of 31–85, so the whole bar is under 20 µs per frame at the
   widths a terminal actually uses.
+- `bytefly`: the footer repaints from a key instead of rebuilding every frame. Its two
+  lines are derived from a snapshot the reader rebuilds each frame, so the bar could not
+  memoize on identity the way a transcript block does; it now derives a key from the
+  snapshot's own shape — every field, nested ones included, with a map walked as sorted
+  entries — and serves an unchanged frame from the memo. A frame where nothing moved costs
+  3.8 µs instead of 16–24 µs, and a frame that moved pays the key as well, which is the
+  trade: the footer changes on a session event, not on every repaint.
 
 ## [0.20.0] - 2026-10-26
 
