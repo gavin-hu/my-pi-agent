@@ -1661,6 +1661,8 @@ columns, gauge), so the look follows the active theme.
 | `footer/register.ts` | Installs/restores the footer and owns its session lifecycle. |
 | `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, alert and plan status keys, labels. |
 | `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
+| `footer/budget.ts` | The session spend guardrail: whether the configured ceiling has been crossed and the one notice that says so — an alert, never a limit. |
+| `footer/delegation.ts` | The child-run ledger: the pricing inputs of the last delegated runs, versioned so the footer re-prices when a subagent finishes. |
 | `footer/collect/entries.ts` | Session entries → usage records, each resolved to the model in effect. |
 | `footer/collect/snapshot.ts` | Snapshot assembly; memoized pricing scan, context estimate, and session name per branch leaf. |
 | `footer/price/types.ts` | `Currency`, `ModelRates`, `PeakWindow`/`PeakSchedule`, `ByteflyConfig`. |
@@ -1778,7 +1780,7 @@ entries, the pattern helpers, and the runtime's toggling, scope, and project
 override across the four list operations.
 
 `panel/…` covers the control centre, one suite per capability: `panel/model` (the
-two panes' merged model), `panel/filter` and its chips, `panel/format`, the settings
+two panes' merged model and the text formatter), `panel/filter` and its chips, the settings
 catalogue and its cycling (`panel/settings`), the scope-aware runtime
 (`panel/settings-runtime`, including a nested leaf write that keeps its siblings),
 the skill metadata join and loader (`panel/skills`, on real `SKILL.md` files), the

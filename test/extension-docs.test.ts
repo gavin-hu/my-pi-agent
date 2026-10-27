@@ -244,22 +244,70 @@ describe("the registered surface is in the capabilities", () => {
 	}
 });
 
+/** Every module under `extensions/<name>/`, as paths relative to the extension. */
+function modulesOf(name: string): string[] {
+	const walk = (directory: string, prefix: string): string[] =>
+		readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+			const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+			if (entry.isDirectory()) return walk(join(directory, entry.name), relative);
+			if (!entry.name.endsWith(".ts") || entry.name.endsWith(".test.ts")) return [];
+			return [relative];
+		});
+	// Recursive on purpose: a nested module is the one a table forgets, because the
+	// page's prose keeps talking about the directory it lives in.
+	return walk(join(root, "extensions", name), "").sort();
+}
+
 describe("the Files table", () => {
 	for (const name of names) {
 		test(`${name}.md`, () => {
 			const rows = (tablesOf(sectionOf(pageOf(name), "Files"))[0] ?? []).slice(1);
 			// Only the first column: a module named in a responsibility sentence is
 			// not a row, and would hide the one next to it that is missing.
-			const named = rows.map((row) => row[0] ?? "").join("\n");
-
-			const modules = readdirSync(join(root, "extensions", name)).filter(
-				(file) => file.endsWith(".ts") && !file.endsWith(".test.ts"),
-			);
-			const unnamed = modules.filter((file) => !new RegExp(`\\b${file.replaceAll(".", "\\.")}\\b`).test(named));
+			const extensionDir = resolve(root, "extensions", name);
+			// Coverage is by target, not by text: a row names a file — written bare, or as a
+			// link into the tree — or a directory it groups (`tools/`, whose modules the next
+			// cell lists). Matching the cell for a file name instead would let `web-write.ts`
+			// cover `tools/write.ts`, and would miss a grouped row that names its modules in
+			// prose.
+			const local = rows
+				.flatMap((row) => fileTargetsOf(row[0] ?? ""))
+				.map((target) => {
+					const inside = [resolve(extensionDir, target), resolve(docsDir, target)].find(
+						(path) => path.startsWith(`${extensionDir}/`) && existsSync(path),
+					);
+					return inside
+						?.slice(extensionDir.length + 1)
+						.replaceAll("\\", "/")
+						.replace(/\/+$/, "");
+				})
+				.filter((target): target is string => target !== undefined && target !== "");
+			const unnamed = modulesOf(name).filter((module) => {
+				if (local.includes(module)) return false;
+				return !local.some((target) => module.startsWith(`${target}/`));
+			});
 			expect(unnamed, "a module with no Files row").toEqual([]);
 
 			const broken = rows.flatMap((row) => fileTargetsOf(row[0] ?? "")).filter((target) => !namesAFile(target, name));
 			expect(broken, "a Files row naming no file or directory").toEqual([]);
+		});
+	}
+});
+
+describe("the Testing section names suites that exist", () => {
+	/** A token the section writes as a suite stem: lowercase, hyphenated, with a path. */
+	const STEM = /^[a-z][a-z0-9-]*(?:\/[a-z0-9-]+)+$/;
+
+	for (const name of names) {
+		test(`${name}.md`, () => {
+			// Backticked tokens with a slash, and only those: a bare `chrome` reads the same
+			// as a word, while a stale stem without one is what a consolidation leaves
+			// behind — `footer/render/format` after the footer's one suite absorbed it.
+			const stems = [...sectionOf(pageOf(name), "Testing").matchAll(/`([^`]+)`/g)]
+				.map((match) => match[1] ?? "")
+				.filter((token) => STEM.test(token));
+			const missing = stems.filter((stem) => !existsSync(join(root, "extensions", name, `${stem}.test.ts`)));
+			expect(missing, "a Testing stem with no suite").toEqual([]);
 		});
 	}
 });
