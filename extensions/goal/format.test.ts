@@ -264,4 +264,15 @@ describe("GoalHeader", () => {
 		view.update(achieved, theme);
 		expect(view.render(40)).toEqual(["", "Goal · achieved"]);
 	});
+
+	test("serves a repeat frame, and rebuilds when the goal moves", () => {
+		const view = new GoalHeader(active, theme);
+		const first = view.render(40);
+		expect(view.render(40)).toBe(first);
+		view.update(achieved, theme);
+		expect(view.render(40)).not.toBe(first);
+		expect(view.render(40)).toEqual(["", "Goal · achieved"]);
+		view.invalidate();
+		expect(view.render(40)).not.toBe(first);
+	});
 });

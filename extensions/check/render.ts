@@ -16,6 +16,7 @@ import type { Component } from "@earendil-works/pi-tui";
 import { sanitizeLine } from "../../lib/format.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { expandHint, GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { RenderCache } from "../../lib/tui/render-cache.ts";
 import { listRow } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { earlierHint } from "../../lib/tui/tool.ts";
@@ -134,6 +135,7 @@ export interface CheckResultInput {
 export class CheckResultBlock implements Component {
 	private input: CheckResultInput;
 	private theme: Theme;
+	private readonly cache = new RenderCache();
 
 	constructor(input: CheckResultInput, theme: Theme) {
 		this.input = input;
@@ -144,12 +146,19 @@ export class CheckResultBlock implements Component {
 	setInput(input: CheckResultInput, theme: Theme): void {
 		this.input = input;
 		this.theme = theme;
+		this.cache.invalidate();
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.cache.invalidate();
+	}
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
+		return this.cache.lines(w, undefined, () => this.build(w));
+	}
+
+	private build(w: number): string[] {
 		const theme = this.theme;
 		const { details, expanded } = this.input;
 		const role = statusRole(details.status);

@@ -12,7 +12,8 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 import { mailNotice } from "./notice.ts";
 import { messageRowLine, sessionDetailBlock, sessionRows, sessionRowLine, summaryCells } from "./rows.ts";
-import { collapsedLine, resultSections, SessionResult } from "./result.ts";
+import { TailResult } from "../../lib/tui/tool.ts";
+import { collapsedLine, resultSections } from "./result.ts";
 import { SessionListComponent } from "./tui.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
 import type { BoardSnapshot, BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
@@ -379,14 +380,14 @@ describe("the expanded result block", () => {
 	test("status lists the sessions and heads the claims", () => {
 		const input = resultSections({ action: "status", status: board() });
 		if (!input) throw new Error("no sections");
-		const lines = new SessionResult(input, fakeTheme).render(80);
+		const lines = new TailResult(input, fakeTheme).render(80);
 		expect(lines[0]).toBe("");
 		const text = lines.join("\n");
 		expect(text).toContain("frontend · you");
 		expect(text).toContain("Claims");
 		expect(text).toContain("src/api");
 		expectBounded(lines, 80);
-		expectBounded(new SessionResult(input, fakeTheme).render(40), 40);
+		expectBounded(new TailResult(input, fakeTheme).render(40), 40);
 	});
 
 	test("inbox lists the messages with their sender", () => {
@@ -395,7 +396,7 @@ describe("the expanded result block", () => {
 			messages: [message(), message({ id: "2-b", kind: "event", text: "contract v2" })],
 		});
 		if (!input) throw new Error("no sections");
-		const text = new SessionResult(input, fakeTheme).render(80).join("\n");
+		const text = new TailResult(input, fakeTheme).render(80).join("\n");
 		expect(text).toContain("is checkout.ts free?");
 		expect(text).toContain("backend · event");
 	});
@@ -403,7 +404,7 @@ describe("the expanded result block", () => {
 	test("release separates released paths from the ones it does not own", () => {
 		const input = resultSections({ action: "release", released: ["src/ok.ts"], notOwned: ["src/theirs.ts"] });
 		if (!input) throw new Error("no sections");
-		const text = new SessionResult(input, fakeTheme).render(80).join("\n");
+		const text = new TailResult(input, fakeTheme).render(80).join("\n");
 		expect(text).toContain("Released");
 		expect(text).toContain("Not yours");
 		expect(text).toContain("src/theirs.ts");

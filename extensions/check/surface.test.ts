@@ -409,6 +409,18 @@ function manyFailures(count: number): Failure[] {
 	return Array.from({ length: count }, (_, index) => ({ ...FAILURE, line: index + 1 }));
 }
 
+describe("check result block memo", () => {
+	test("serves a repeat frame, and rebuilds when the result moves", () => {
+		const view = new CheckResultBlock({ details: details({}), expanded: false }, fakeTheme);
+		const first = view.render(80);
+		expect(view.render(80)).toBe(first);
+		view.setInput({ details: details({ status: "passed" }), expanded: false }, fakeTheme);
+		expect(stripTerminalSequences(view.render(80).join("\n"))).not.toBe(first.join("\n"));
+		view.invalidate();
+		expect(view.render(80)).not.toBe(first);
+	});
+});
+
 describe("check result block", () => {
 	test("draws a pass in one line", () => {
 		const out = blockText({ status: "passed", exitCode: 0, failures: [] });

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { compareJobs, elapsedMs, formatJobDetail, jobCounts, shortLabel, statusGlyphChar } from "./format.ts";
-import { JobListComponent, JobResult } from "./tui.ts";
+import { TailResult } from "../../lib/tui/tool.ts";
+import { JobListComponent, jobTail } from "./tui.ts";
 import type { JobRecord } from "./types.ts";
 import { fakeTheme } from "../../test/helpers/fakes.ts";
 
@@ -118,10 +119,10 @@ describe("job tui format", () => {
 	});
 });
 
-describe("JobResult", () => {
+describe("the job result block", () => {
 	test("tags another session's row in the transcript result", () => {
 		const jobs = [record({ id: "j1", sessionId: "s1" }), record({ id: "j9", sessionId: "peer" })];
-		const lines = new JobResult({ kind: "list", jobs, more: 0, sessionId: "s1" }, fakeTheme).render(70);
+		const lines = new TailResult(jobTail({ kind: "list", jobs, more: 0, sessionId: "s1" }), fakeTheme).render(70);
 		expect(lines[1]).toContain("j1");
 		expect(lines[1]).not.toContain("peer");
 		expect(lines[2]).toContain("j9");

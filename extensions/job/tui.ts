@@ -15,13 +15,12 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
 import { formatDuration, sanitizeUntrustedLine } from "../../lib/format.ts";
 import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
 import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { statusRow, type StatusRow } from "../../lib/tui/rows.ts";
-import { TailResult, type TailResultInput } from "../../lib/tui/tool.ts";
+import type { TailResultInput } from "../../lib/tui/tool.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
 	compareJobs,
@@ -62,7 +61,7 @@ export type JobResultInput =
 	| { kind: "logs"; lines: string[]; earlier: number };
 
 /** Map the job vocabulary onto the shared transcript tail block. */
-function jobTail(input: JobResultInput): TailResultInput<JobRecord> {
+export function jobTail(input: JobResultInput): TailResultInput<JobRecord> {
 	if (input.kind === "logs") {
 		return { kind: "lines", lines: input.lines, earlier: input.earlier, earlierLabel: "lines" };
 	}
@@ -75,31 +74,6 @@ function jobTail(input: JobResultInput): TailResultInput<JobRecord> {
 			return jobRow(job, theme, width, { marker: false, foreign });
 		},
 	};
-}
-
-/**
- * Transcript result block for the `job` tool: the shared tail block over the
- * `/jobs`-style row rail or the themed log tail. Reused across renders.
- */
-export class JobResult implements Component {
-	private readonly view: TailResult<JobRecord>;
-
-	constructor(input: JobResultInput, theme: Theme) {
-		this.view = new TailResult(jobTail(input), theme);
-	}
-
-	/** Update in place so the transcript can reuse this component across renders. */
-	setInput(input: JobResultInput, theme: Theme): void {
-		this.view.setInput(jobTail(input), theme);
-	}
-
-	invalidate(): void {
-		this.view.invalidate();
-	}
-
-	render(width: number): string[] {
-		return this.view.render(width);
-	}
 }
 
 export interface JobListCallbacks {

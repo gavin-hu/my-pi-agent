@@ -10,6 +10,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type Component } from "@earendil-works/pi-tui";
+import { RenderCache } from "../../lib/tui/render-cache.ts";
 import { goalHeader, goalLine } from "./format.ts";
 import type { AchievedStyle, Goal } from "./types.ts";
 
@@ -47,6 +48,7 @@ export class GoalWidget implements Component {
 export class GoalHeader implements Component {
 	private goal: Goal;
 	private theme: Theme;
+	private readonly cache = new RenderCache();
 
 	constructor(goal: Goal, theme: Theme) {
 		this.goal = goal;
@@ -57,13 +59,21 @@ export class GoalHeader implements Component {
 	update(goal: Goal, theme: Theme): void {
 		this.goal = goal;
 		this.theme = theme;
+		this.cache.invalidate();
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.cache.invalidate();
+	}
 
 	render(width: number): string[] {
+		const w = Math.max(1, width);
+		return this.cache.lines(w, undefined, () => this.build(w));
+	}
+
+	private build(w: number): string[] {
 		// The leading blank line separates the header from the call line, matching
 		// the built-ins' header/output gap.
-		return ["", truncateToWidth(goalHeader(this.goal, this.theme), Math.max(1, width), "…")];
+		return ["", truncateToWidth(goalHeader(this.goal, this.theme), w, "…")];
 	}
 }

@@ -13,6 +13,7 @@ import { dockListFrame, screenHint, type ViewportRowsSource } from "../../lib/tu
 import { clip } from "../../lib/tui/columns.ts";
 import { emptyState, listRow } from "../../lib/tui/rows.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
+import { RenderCache } from "../../lib/tui/render-cache.ts";
 import { titleRule } from "../../lib/tui/rules.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -57,10 +58,19 @@ function todoLine(todos: Todo[], theme: Theme): string {
 	return `${head}${paint(theme, "faint", SEPARATORS.item)}${todoLabel(current, theme)}`;
 }
 
-/** Transcript result block: the indented glyph rail, wrapping at the render width. */
+/**
+ * Transcript result block: the indented glyph rail, wrapping at the render width.
+ *
+ * `render` runs on every frame Pi draws, for every block in the transcript, so the
+ * rail is memoized on the width (`RenderCache`) and rebuilt only when
+ * `setInput` hands over a new list or `invalidate` says the theme moved. The
+ * caller must go through `setInput`: mutating a list in place would leave the
+ * block showing what it drew last.
+ */
 export class TodoResult implements Component {
 	private input: TodoRailInput;
 	private theme: Theme;
+	private readonly cache = new RenderCache();
 
 	constructor(input: TodoRailInput, theme: Theme) {
 		this.input = input;
@@ -71,14 +81,22 @@ export class TodoResult implements Component {
 	setInput(input: TodoRailInput, theme: Theme): void {
 		this.input = input;
 		this.theme = theme;
+		this.cache.invalidate();
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.cache.invalidate();
+	}
 
 	render(width: number): string[] {
+		const w = Math.max(1, width);
+		return this.cache.lines(w, undefined, () => this.build(w));
+	}
+
+	private build(w: number): string[] {
 		// The leading blank line separates the rail from the call header, matching
 		// the built-ins' header/output gap.
-		return ["", ...todoRailLines(this.input, this.theme, Math.max(1, width))];
+		return ["", ...todoRailLines(this.input, this.theme, w)];
 	}
 }
 

@@ -21,6 +21,7 @@ import {
 	reuseCallText,
 	startToolProgress,
 	syncElapsedTimer,
+	isTailResult,
 	TailResult,
 	ToolCallText,
 	toolCallTitle,
@@ -324,6 +325,18 @@ describe("TailResult", () => {
 		view.invalidate();
 		view.render(20);
 		expect(built).toBe(7);
+	});
+});
+
+describe("isTailResult", () => {
+	test("recognises the kit's block through the erased row type", () => {
+		// The extensions reuse their block through `context.lastComponent`, so the guard is
+		// where the row type the caller drew is put back on the instance.
+		const view = new TailResult<string>({ kind: "lines", lines: ["x"], earlier: 0, earlierLabel: "lines" }, fakeTheme);
+		expect(isTailResult<string>(view)).toBe(true);
+		expect(isTailResult<string>({ render: () => [] })).toBe(false);
+		expect(isTailResult<string>(undefined)).toBe(false);
+		expect(isTailResult<string>("TailResult")).toBe(false);
 	});
 });
 

@@ -11,7 +11,15 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { errorResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { callLine, detailsOrLine, elapsedSuffix, rejectionLine, syncElapsedTimer } from "../../lib/tui/tool.ts";
+import {
+	callLine,
+	detailsOrLine,
+	elapsedSuffix,
+	isTailResult,
+	rejectionLine,
+	syncElapsedTimer,
+	TailResult,
+} from "../../lib/tui/tool.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import {
@@ -26,8 +34,8 @@ import {
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs, type JobCall } from "./schema.ts";
 import { toRecord } from "./store.ts";
-import { JobResult, type JobResultInput } from "./tui.ts";
-import type { JobDetails } from "./types.ts";
+import { jobTail, type JobResultInput } from "./tui.ts";
+import type { JobDetails, JobRecord } from "./types.ts";
 
 export const TOOL_NAME = "job";
 
@@ -224,8 +232,10 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				}
 				const shown = options.expanded ? all : all.slice(Math.max(0, all.length - RESULT_ROWS));
 				const input: JobResultInput = { kind: "logs", lines: shown, earlier: all.length - shown.length };
-				const view = context.lastComponent instanceof JobResult ? context.lastComponent : new JobResult(input, theme);
-				view.setInput(input, theme);
+				const previous = context.lastComponent;
+				const tail = jobTail(input);
+				const view = isTailResult<JobRecord>(previous) ? previous : new TailResult<JobRecord>(tail, theme);
+				view.setInput(tail, theme);
 				return view;
 			}
 
@@ -242,8 +252,10 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					more: ordered.length - shown.length,
 					sessionId: details.sessionId,
 				};
-				const view = context.lastComponent instanceof JobResult ? context.lastComponent : new JobResult(input, theme);
-				view.setInput(input, theme);
+				const previous = context.lastComponent;
+				const tail = jobTail(input);
+				const view = isTailResult<JobRecord>(previous) ? previous : new TailResult<JobRecord>(tail, theme);
+				view.setInput(tail, theme);
 				return view;
 			}
 

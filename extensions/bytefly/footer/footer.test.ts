@@ -1631,6 +1631,17 @@ describe("line layout", () => {
 	const render = (width: number, snapshot = fullSnapshot()): string[] =>
 		buildLines(snapshot, fakeTheme, "/home/u").map((line) => renderLine(line, width, fakeTheme));
 
+	test("a line that fits keeps its padding and never takes the truncation path", () => {
+		// The fit path returns the assembled line: padded to the width, no ellipsis. It is
+		// the branch that matters — `truncateToWidth` walks the string character by
+		// character, so reaching it on a line that already fits cost a frame's worth of
+		// work on every repaint.
+		const [line1] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line1, 200, fakeTheme);
+		expect(visibleWidth(rendered)).toBe(200);
+		expect(rendered).not.toContain("…");
+	});
+
 	test("fills the width and right-aligns the right zone", () => {
 		const [line1] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
 		const rendered = renderLine(line1, 100, fakeTheme);

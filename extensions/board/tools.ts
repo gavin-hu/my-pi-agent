@@ -14,7 +14,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import { cardRef, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
+import { type Card, cardRef, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import { type CardOp, holds } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
@@ -25,7 +25,7 @@ import { strayField } from "../../lib/stray-fields.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
 import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
-import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
+import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
 import {
 	archiveNote,
@@ -37,7 +37,7 @@ import {
 	formatSkipped,
 } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
-import { BoardResult, collapsedLine, resultInput } from "./result.ts";
+import { collapsedLine, resultInput } from "./result.ts";
 import { createInput } from "./input.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { BoardParams } from "./schema.ts";
@@ -239,8 +239,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 				text.setText(collapsedLine(theme, outcome.details));
 				return text;
 			}
-			const view =
-				context?.lastComponent instanceof BoardResult ? context.lastComponent : new BoardResult(input, theme);
+			const previous = context?.lastComponent;
+			const view = isTailResult<Card>(previous) ? previous : new TailResult<Card>(input, theme);
 			view.setInput(input, theme);
 			return view;
 		},
