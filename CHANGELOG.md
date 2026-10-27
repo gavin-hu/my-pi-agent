@@ -50,7 +50,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   <label>` is the one door that still does). A read, a new card, a note, a plan, an edit, or
   an archive no longer puts a session on the roster: a teammate is a session that holds
   work. `/board status` reports the join whichever door made it, including a claim made
-  with no page open, and the browser's `you` chip is the seat's own row.
+  with no page open, and the browser's `you` chip is the seat's own row. One session object
+  per host now holds that seat, so `team`'s writes name the session exactly as `board`'s do
+  while the page is served: `team` used to keep a session of its own and write
+  `team-agent-…` beside `board`'s `team-lead`.
 - `bytefly`: a transcript block derives its lines once, not once per frame. Pi re-renders
   every block on every repaint, and the shared tail block behind a board card, a session's
   peer list, and a shaped tail re-derived its rows and clipped every line each time — so a
