@@ -153,7 +153,11 @@ __RUNTIME__
     var shown = card.paths.slice(0, limit);
     for (var i = 0; i < shown.length; i++) {
       var item = el("li", "");
-      item.appendChild(chip(shown[i]));
+      var hint = chip(shown[i]);
+      // A path longer than the card elides, and the whole of it is on the hover title: the
+      // card is often the only place its hints are read before opening the record.
+      hint.title = shown[i];
+      item.appendChild(hint);
       list.appendChild(item);
     }
     if (card.paths.length > limit) {

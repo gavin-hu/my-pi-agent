@@ -83,6 +83,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   3.8 µs instead of 16–24 µs, and a frame that moved pays the key as well, which is the
   trade: the footer changes on a session event, not on every repaint.
 
+### Fixed
+
+- `board`: a card's path or owner chip longer than the card stays inside it. A chip is one
+  line by design, so a long path crossed the card's border and the lane beside it; it now
+  elides at the card's edge with the whole value on its hover title, and a title with no
+  spaces wraps into its two-line clamp instead of being cut mid-word.
+
 ## [0.20.0] - 2026-10-26
 
 ### Added
