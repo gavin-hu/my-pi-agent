@@ -40,6 +40,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   same table the shortcut sheet and the sidebar hint read, so a key that acts and a key the
   page documents cannot part company.
 
+### Changed
+
+- `bytefly`: a transcript block derives its lines once, not once per frame. Pi re-renders
+  every block on every repaint, and the shared tail block behind a board card, a session's
+  peer list, and a shaped tail re-derived its rows and clipped every line each time — so a
+  long session paid for blocks that had not changed, and a running tool's once-a-second
+  repaint paid again. That block now memoizes on the width and rebuilds only when its input
+  or the theme moves, like the tool frame, notice, and separator beside it: a 2000-block
+  frame falls from 6.2 ms to 2.6 ms median (p95 8.2 to 3.1), and the share served from a
+  render memo rises from 86% to 91%.
+
 ## [0.20.0] - 2026-10-26
 
 ### Added

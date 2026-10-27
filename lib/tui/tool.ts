@@ -22,6 +22,7 @@ import { type Component, truncateToWidth } from "@earendil-works/pi-tui";
 import { formatDuration, sanitizeLine, stripControlChars } from "../format.ts";
 import { clip, clipMiddle } from "./columns.ts";
 import { expandHint, SEPARATORS } from "./glyphs.ts";
+import { RenderCache } from "./render-cache.ts";
 import { paint } from "./tokens.ts";
 
 /** The parts of a tool result a renderer reads. */
@@ -223,10 +224,18 @@ export type TailResultInput<Row> =
  * section, or the themed tail with an "earlier" note. The caller owns the row
  * renderer, so the extension's own row grammar — a peer-session tag, a status
  * glyph — stays with its vocabulary.
+ *
+ * `render` runs on every frame Pi draws, for every block in the transcript, and
+ * this block is the shared one behind the board's card, a session's peer list and
+ * a shaped tail — each of which re-derived its rows and clipped every line per
+ * frame before this memo. The lines depend on the input, the theme and the width,
+ * and none of them changes without `setInput`, `invalidate`, or a new width, so
+ * the memo is keyed on the width and dropped by those two calls.
  */
 export class TailResult<Row> implements Component {
 	private input: TailResultInput<Row>;
 	private theme: Theme;
+	private readonly cache = new RenderCache();
 
 	constructor(input: TailResultInput<Row>, theme: Theme) {
 		this.input = input;
@@ -237,12 +246,19 @@ export class TailResult<Row> implements Component {
 	setInput(input: TailResultInput<Row>, theme: Theme): void {
 		this.input = input;
 		this.theme = theme;
+		this.cache.invalidate();
 	}
 
-	invalidate(): void {}
+	invalidate(): void {
+		this.cache.invalidate();
+	}
 
 	render(width: number): string[] {
 		const w = Math.max(1, width);
+		return this.cache.lines(w, undefined, () => this.build(w));
+	}
+
+	private build(w: number): string[] {
 		const lines: string[] = [""];
 		const input = this.input;
 		if (input.kind === "list") {
