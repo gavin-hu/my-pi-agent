@@ -11,7 +11,11 @@
  *   page's script and absent from it);
  * - a template rule is spliced by `__NAME__` replacement and one replacement is missing,
  *   so the served script carries the literal `__RUNTIME__` and dies where it is used
- *   (`extensions/board/view/render.ts` splices five).
+ *   (`extensions/board/view/render.ts` splices five);
+ * - two fragments declare the same constant, which is one word with two spellings waiting
+ *   to drift (`LANE_LABEL` in `render.ts` and `live.ts`);
+ * - a helper is published on the shared namespace and nothing reads it, so a caller that
+ *   went away leaves the body behind in a string no type checker sees (`board.laneLabel`).
  *
  * Both sides are read from source, not from imports: the failure is a function that exists
  * in a module and never reached the string, so the module's own text is the only complete
@@ -76,4 +80,42 @@ export function missingBundleBodies(bundle: string, names: readonly string[]): s
  */
 export function unfilledPlaceholders(bundle: string): string[] {
 	return [...new Set(bundle.match(/__[A-Z][A-Z0-9_]*__/g) ?? [])].sort();
+}
+
+/**
+ * Top-level `var NAME =` declarations that `bundle` states more than once, sorted.
+ *
+ * A page's fragments share one namespace and no import graph, so a constant two fragments
+ * both need is either declared once and published on the shared object, or declared twice.
+ * Two declarations are two spellings: `LANE_LABEL` shipped twice, and the lane head and
+ * the card dialog could have drifted a word apart. Uppercase and one indent only — a `var`
+ * inside a function is a local, and repeats by design.
+ */
+export function duplicateDeclarations(bundle: string): string[] {
+	const counts = new Map<string, number>();
+	for (const match of bundle.matchAll(/^ {2}var ([A-Z][A-Z0-9_]*) =/gm)) {
+		const name = match[1] ?? "";
+		counts.set(name, (counts.get(name) ?? 0) + 1);
+	}
+	return [...counts.entries()]
+		.filter(([, count]) => count > 1)
+		.map(([name]) => name)
+		.sort();
+}
+
+/**
+ * The names `bundle` publishes on its own namespace that nothing else in it reads, sorted.
+ *
+ * `board.laneLabel = …` with no `board.laneLabel(` anywhere is a helper that outlived its
+ * caller, and a string no type checker reads keeps it forever. The publication is itself
+ * one mention, so a name that works has to appear twice.
+ */
+export function unreadPublications(bundle: string, namespace = "board"): string[] {
+	const published = new Set<string>();
+	for (const match of bundle.matchAll(new RegExp(`\\b${namespace}\\.(\\w+)\\s*=(?!=)`, "g"))) {
+		published.add(match[1] ?? "");
+	}
+	return [...published]
+		.filter((name) => (bundle.match(new RegExp(`\\b${namespace}\\.${name}\\b`, "g")) ?? []).length < 2)
+		.sort();
 }

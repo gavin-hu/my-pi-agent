@@ -513,7 +513,6 @@ __RUNTIME__
   board.el = el;
   board.typing = typing;
   board.chip = chip;
-  board.actionButton = actionButton;
   board.ago = ago;
   board.findCard = findCard;
   board.drawnCards = drawnCards;

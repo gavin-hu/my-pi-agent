@@ -11,12 +11,6 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var token = new URLSearchParams(window.location.search).get("token") || "";
-  var LANE_LABEL = { todo: "To do", doing: "Doing", blocked: "Blocked", done: "Done" };
-
-  /** The lane's word, for the dialog's move buttons. */
-  board.laneLabel = function (lane) {
-    return LANE_LABEL[lane] || lane;
-  };
 
   /** The badge's text and its kit status role: connecting, live, reconnecting. */
   function badge(state, at) {
