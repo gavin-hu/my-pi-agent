@@ -86,61 +86,70 @@ export interface WebKey {
 	run?(deps: KeyDeps, key: string): void;
 }
 
-/** The page's keys, in the order the sheet lists them. */
-export const WEB_KEYS: readonly WebKey[] = [
-	{
-		id: "approve",
-		keys: ["a"],
-		offered: (surface) => surface.canApprove,
-		label: () => "Approve and run the plan",
-		hint: () => "to approve",
-		run: (deps) => deps.askApprove(),
-	},
-	{
-		id: "blocks",
-		keys: ["j", "k"],
-		label: () => "Next and previous block",
-		hint: () => "to move",
-		// The block keys share a row: `j` walks forward, `k` back.
-		run: (deps, key) => deps.moveActive(key === "k" ? -1 : 1),
-	},
-	{
-		id: "comment",
-		keys: ["c"],
-		label: () => "Comment on the current block",
-		hint: () => "to comment",
-		run: (deps) => deps.commentOnActive(),
-	},
-	{
-		id: "add",
-		keys: ["Enter"],
-		label: () => "Add the comment you are writing",
-	},
-	{
-		id: "settle",
-		keys: ["s"],
-		label: (surface) =>
-			surface.role === "owner" ? "Save feedback and return to Pi" : "Post your comments to the plan",
-		hint: (surface) => (surface.role === "owner" ? "to save" : "to post"),
-		run: (deps) => (deps.hasSaveControl() ? deps.save() : deps.postComments()),
-	},
-	{
-		id: "close",
-		keys: ["Esc"],
-		label: (surface) =>
-			surface.role === "owner" ? "Close the composer, the sheet, or the review" : "Close the composer or this sheet",
-	},
-	{
-		id: "sheet",
-		keys: ["?"],
-		label: () => "Toggle this sheet",
-		hint: () => "for all shortcuts",
-	},
-];
+/**
+ * The page's keys, in the order the sheet lists them.
+ *
+ * A function rather than a constant because the bundle carries it the way it carries
+ * every other rule here: `String()` of a body. A table spliced from data would lose the
+ * closures on `label`, `hint`, `offered`, and `run`, and a table the bundle does not
+ * carry is a keymap that throws on the first press.
+ */
+export function webKeys(): readonly WebKey[] {
+	return [
+		{
+			id: "approve",
+			keys: ["a"],
+			offered: (surface) => surface.canApprove,
+			label: () => "Approve and run the plan",
+			hint: () => "to approve",
+			run: (deps) => deps.askApprove(),
+		},
+		{
+			id: "blocks",
+			keys: ["j", "k"],
+			label: () => "Next and previous block",
+			hint: () => "to move",
+			// The block keys share a row: `j` walks forward, `k` back.
+			run: (deps, key) => deps.moveActive(key === "k" ? -1 : 1),
+		},
+		{
+			id: "comment",
+			keys: ["c"],
+			label: () => "Comment on the current block",
+			hint: () => "to comment",
+			run: (deps) => deps.commentOnActive(),
+		},
+		{
+			id: "add",
+			keys: ["Enter"],
+			label: () => "Add the comment you are writing",
+		},
+		{
+			id: "settle",
+			keys: ["s"],
+			label: (surface) =>
+				surface.role === "owner" ? "Save feedback and return to Pi" : "Post your comments to the plan",
+			hint: (surface) => (surface.role === "owner" ? "to save" : "to post"),
+			run: (deps) => (deps.hasSaveControl() ? deps.save() : deps.postComments()),
+		},
+		{
+			id: "close",
+			keys: ["Esc"],
+			label: (surface) =>
+				surface.role === "owner" ? "Close the composer, the sheet, or the review" : "Close the composer or this sheet",
+		},
+		{
+			id: "sheet",
+			keys: ["?"],
+			label: () => "Toggle this sheet",
+			hint: () => "for all shortcuts",
+		},
+	];
+}
 
 /** The rows this page offers, in sheet order. */
 export function keyRows(surface: KeySurface): WebKey[] {
-	return WEB_KEYS.filter((row) => row.offered === undefined || row.offered(surface));
+	return webKeys().filter((row) => row.offered === undefined || row.offered(surface));
 }
 
 /** The surface a handler sees, read off the controls it was given. */
@@ -153,7 +162,7 @@ function surfaceOf(deps: KeyDeps): KeySurface {
  *
  * A modified key is never a shortcut: `ctrl+s` belongs to the browser. A field owns the
  * keyboard while it has focus, and so does the shortcut sheet while it is open. The
- * content keys come from {@link WEB_KEYS}, so the key that acts and the key the sheet
+ * content keys come from {@link webKeys}, so the key that acts and the key the sheet
  * documents cannot part company.
  */
 export function handleKey(event: KeyEvent, deps: KeyDeps): void {
@@ -209,5 +218,11 @@ export function rememberSelection(target: unknown, deps: QuoteDeps): void {
 	deps.setPending(wrap && quote ? { wrap, quote } : null);
 }
 
-/** The keymap and the quote rule as source, for the client bundle. */
-export const WEB_KEYS_JS = [handleKey, rememberSelection].map(String).join("\n\n");
+/**
+ * The keymap and the quote rule as source, for the client bundle.
+ *
+ * Every name `handleKey` reads has to travel with it — the table, the rows it offers,
+ * and the surface those rows are offered for — or the first press throws instead of
+ * matching a row.
+ */
+export const WEB_KEYS_JS = [handleKey, surfaceOf, keyRows, webKeys, rememberSelection].map(String).join("\n\n");

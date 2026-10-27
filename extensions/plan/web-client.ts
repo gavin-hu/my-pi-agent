@@ -203,7 +203,9 @@ ${WEB_MARKDOWN_JS}
         button.title = comparable ? "Only what this review changed" : "No earlier review of this plan to compare against";
       }
     }
-    if (counts.hidden > 0) paintStatus("Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — the rest hidden");
+    // The page's own wrapper owns the element: the shared paint takes the node first, so
+    // the sentence goes through setStatus rather than being handed over as one.
+    if (counts.hidden > 0) setStatus("Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — the rest hidden");
   }
 
   function renderAll() {

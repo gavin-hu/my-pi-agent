@@ -85,9 +85,6 @@ export function blockAtLine(
 	return wrap && block ? { wrap, block } : null;
 }
 
-/** The block rules as source, for the client bundle. */
-export const WEB_BLOCKS_JS = [blockElements, setActive, moveActive, blockAtLine].map(String).join("\n\n");
-
 /** What the reader asked the plan to show. */
 export type ReviewView = "all" | "changed" | "comments";
 
@@ -132,3 +129,12 @@ export function applyView(planEl: ClientNode | null, view: ReviewView): ViewCoun
 	}
 	return { shown, hidden: blocks.length - shown };
 }
+
+/**
+ * The block rules as source, for the client bundle.
+ *
+ * `applyView` travels with them because the page's view control calls it on every render:
+ * a name the bundle does not carry is a `ReferenceError` at the first repaint, which
+ * aborts the boot before the composer and the progress bar are wired.
+ */
+export const WEB_BLOCKS_JS = [blockElements, setActive, moveActive, blockAtLine, applyView].map(String).join("\n\n");

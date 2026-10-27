@@ -148,6 +148,54 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		await page.close();
 	});
 
+	test("boots with no script error, and its keys and view control answer", async () => {
+		// The bundle is a string: no checker reads it, so the page itself is the only proof
+		// that every helper it calls travelled with it. An undefined name there is a
+		// ReferenceError on the first render, and the keymap's is on every content key.
+		// The comment sits on a paragraph, so the filtered view has something to keep that
+		// is not a heading.
+		const local = await serve({
+			...PAGE,
+			annotations: [{ anchor: 1, comment: "needs a rollback step", author: "priya" }],
+		});
+		const errors: string[] = [];
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		page.on("pageerror", (error) => errors.push(String(error)));
+		page.on("console", (message) => {
+			if (message.type() === "error") errors.push(message.text());
+		});
+		try {
+			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
+			expect(errors).toEqual([]);
+
+			// `j` walks the blocks the page drew, and `k` walks back: the two keys that read the
+			// table, the surface, and the block list the bundle has to carry.
+			const active = "#plan .bf-block--active";
+			await page.keyboard.press("j");
+			await page.keyboard.press("j");
+			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("1");
+			await page.keyboard.press("k");
+			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("0");
+
+			// The view control is one filter over what was drawn: the annotated block and the
+			// headings stay, and the status line says how much it is hiding.
+			await page.click('[data-view="comments"]');
+			expect(
+				await page.$$eval("#plan .bf-block:not([hidden])", (nodes) =>
+					nodes.map((node) => node.getAttribute("data-line")),
+				),
+			).toEqual(["0", "1", "3"]);
+			expect(await page.textContent("#status")).toContain("3 of 4");
+			// A throw inside a handler is invisible in an image and fatal to the feature, so
+			// the click gets the same clean-console assertion the boot did.
+			expect(errors).toEqual([]);
+		} finally {
+			await page.close();
+			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+		}
+	});
+
 	test("opens the composer from a block's control, and Escape peels it before the review", async () => {
 		const page = await openPage();
 		// The control is one per block and is what a reader clicks; it is inside the rail.
