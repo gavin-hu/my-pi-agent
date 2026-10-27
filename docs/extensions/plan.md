@@ -41,7 +41,8 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Inline comments | the page's `+ Comment`, **Save feedback** | Comments are saved into the plan file as `> [!REVIEW]` lines and returned to the model. | Shipped |
 | Live page | the page's `events` stream, the plan-file poll | An edit made elsewhere repaints every open page without a reload. | Shipped |
 | Changed sections | the `exit_plan_mode` review screen, the `/plan review` outline | After a refinement, only the sections that changed are marked. | Shipped |
-| Block-level change marks | the `/plan review` page's **Changed** view | After a refinement, each block that is new or edited is marked — an inserted step marks itself and leaves the rest of its section alone — and a section that lost blocks says how much shorter it became. **All** / **Changed** / **Comments** switch what the page shows, with the keyboard walking only what is visible, and a printed review always the whole plan. | Unreleased |
+| Block-level change marks | the `/plan review` page's **Changed** view | After a refinement, each block that is new or edited is marked — an inserted step marks itself and leaves the rest of its section alone — and a section that lost blocks says how much shorter it became. **All** / **Changed** / **Comments** switch what the page shows, `v` cycles them, `n`/`N` walk the blocks that carry a comment, and a printed review is always the whole plan. | Unreleased |
+| Settled comments | the page's `Resolve` / `Reopen` on a note you wrote | The note keeps its place, its quote and its history and is written `> [!REVIEW resolved]`, where a later review and the model read it as closed; the panel counts `2 open · 1 resolved`, and every card names who wrote it. | Unreleased |
 | Section navigation | the review screen, `n`/`p` | The screen names the section you are in and jumps between headings. | Shipped |
 | Remote review | `exit_plan_mode` on a WeChat turn | The plan file is sent, then one compact prompt to approve, keep planning, or exit. | Shipped |
 
@@ -563,6 +564,12 @@ reveals a **+ Comment** action on hover; select
 text first to quote it. **Save feedback** writes the comments into the plan
 file and returns them to the model.
 
+- **A comment can be settled.** **Resolve** (on your own note) keeps it — its place, its
+  quote, its history — and marks it `> [!REVIEW resolved]` in the file, where a later review
+  and the model both read it as closed; **Reopen** puts it back. The panel counts
+  `2 open · 1 resolved`. A note you wrote is labelled **You** on your page and **The owner**
+  on somebody else's, a reviewer's is `@name`, and one sentence beside the facts says what
+  **Approve & run** and **Save feedback** each do.
 - **Shared theme.** The page uses the same Bytefly tokens, base rules, and
   syntax-token colours as `file-browse` (`lib/web/`), follows the system light/dark
   preference until the header toggle sets an explicit choice, and remembers that
@@ -767,6 +774,10 @@ both.
   refuses a file it did not render (`409`). It is a poll rather than a file
   watcher, so a change on a filesystem that reports nothing at all is still seen
   at the next request, because every page read re-compares the file.
+- **A settled note is a flag in the marker.** `> [!REVIEW resolved]` (and
+  `moved resolved`) is read as open when absent; a build from before this one does not know
+  the flag and shows the marker line as body text, so a file reviewed on both sides of the
+  upgrade reads differently there.
 - A shared review holds at most eight links. Each is a live bearer credential, so
   a ninth is refused with the cap named rather than minted.
 

@@ -62,6 +62,7 @@ ${WEB_COMPONENTS_CSS}
 .review-status{flex:0 0 auto;max-width:42ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .review-status:empty{display:none}
 .review-controls{display:inline-flex;align-items:center;gap:var(--space-2);flex:0 0 auto}
+.review-caption{margin:0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-snug)}
 .review-progress{position:absolute;left:0;right:0;bottom:-1px;height:2px;overflow:hidden}
 .review-progress__fill{display:block;height:100%;width:0;background:var(--accent);transition:width var(--motion-fast) linear}
 /* Review panel: the plan's review facts, the section outline, then the keys. */
@@ -136,6 +137,9 @@ ${WEB_COMPONENTS_CSS}
 /* A note a refinement carried off its own block: muted, because the complaint is the guess, not the text. */
 .bf-comment__moved{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 6px}
 .bf-comment__spacer{flex:1 1 auto}
+/* A settled note keeps its quote and loses its body: the record stays, the eye moves on. */
+.bf-comment--resolved{border-left-color:var(--success);opacity:.72}
+.bf-comment__resolved{font:var(--fw-medium) var(--fs-xs) var(--font-mono);color:var(--success);text-transform:uppercase;letter-spacing:.06em}
 .bf-comment__actions{display:flex;gap:4px}
 .bf-comment__actions .bf-btn{padding:1px 8px;font-size:var(--fs-xs)}
 .bf-comment__quote{margin-bottom:6px;padding-left:8px;border-left:2px solid var(--border);color:var(--muted);font-size:var(--fs-sm);overflow-wrap:anywhere}
@@ -195,7 +199,7 @@ ${WEB_COMPONENTS_CSS}
  * not have to grow every time a binding is added.
  */
 function reviewHints(role: ReviewRole, canApprove: boolean): string {
-	const surface: KeySurface = { role, canApprove };
+	const surface: KeySurface = { role, canApprove, hasCommentWalk: true, hasViewCycle: true };
 	const parts = keyRows(surface)
 		.filter((row) => row.hint !== undefined)
 		.map(
@@ -206,7 +210,7 @@ function reviewHints(role: ReviewRole, canApprove: boolean): string {
 
 /** The shortcut sheet's rows: the same table the handler dispatches through. */
 function reviewKeys(role: ReviewRole, canApprove: boolean): KeyHint[] {
-	const surface: KeySurface = { role, canApprove };
+	const surface: KeySurface = { role, canApprove, hasCommentWalk: true, hasViewCycle: true };
 	return keyRows(surface).map((row) => ({ keys: [...row.keys], label: row.label(surface) }));
 }
 
@@ -260,12 +264,20 @@ function nameDialog(): string {
  */
 export function renderReviewPage(data: ReviewPageData): string {
 	const island = JSON.stringify(data).replace(/</g, "\\u003c");
+	// One sentence saying what the two decisions do, because the buttons are the same weight
+	// and the difference was only ever in the docs. It sits in the panel, not the sticky
+	// header: a taller header would hide the section an outline link just jumped to.
+	const caption =
+		data.role === "owner"
+			? "Approving runs the plan and returns these comments; saving keeps planning."
+			: "Your comments are signed with your name and returned to the plan.";
 	const hasOutline = data.outline.length > 0;
 	const bodyClass = hasOutline ? "bf-app__body" : "bf-app__body bf-app__body--single";
 	const outlinePanel = hasOutline
 		? `<details class="bf-app__sidebar review-outline" open>
 <summary class="bf-panel__summary">Sections</summary>
 <div class="bf-panel review-panel">
+<p class="review-caption">${caption}</p>
 ${reviewFacts()}
 <div class="review-view" role="group" aria-label="What to show" id="review-view">
 <button type="button" class="bf-btn" data-view="all" aria-pressed="true">All</button>
@@ -333,7 +345,7 @@ ${data.role === "owner" ? shareDialog() : nameDialog()}
  */
 function reviewFacts(): string {
 	return `<div class="review-facts" id="review-facts">
-<div class="review-fact" id="step-fact"><span>Steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>
+<div class="review-fact" id="step-fact"><span>Plan steps</span><span class="bf-progress"><span class="bf-progress__track"><span class="bf-progress__fill" id="step-fill"></span></span><span class="review-fact__value" id="step-count">0/0</span></span></div>
 <div class="review-fact"><span>Comments</span><span class="review-fact__value" id="comment-total">0</span></div>
 </div>`;
 }

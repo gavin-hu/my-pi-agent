@@ -115,6 +115,16 @@ describe("plan feedback codec", () => {
 		expect(summary).toContain("note");
 	});
 
+	test("says which of the notes are settled, so none is answered twice", () => {
+		// A settled note stays in the file and in the summary — it is the record of the
+		// question — and only the flag tells the model it needs no further answer.
+		const summary = feedbackSummary([
+			{ anchor: 0, comment: "burst case?", author: "priya" },
+			{ anchor: 1, comment: "age it by updatedAt", author: "priya", resolved: true },
+		]);
+		expect(summary).toBe("1. @priya: burst case?\n2. @priya: age it by updatedAt (resolved)");
+	});
+
 	test("accepts a well-formed annotation payload and drops an empty comment", () => {
 		expect(coerceAnnotations([{ anchor: 2, quote: "q", comment: "c" }])).toEqual([
 			{ anchor: 2, quote: "q", comment: "c" },
@@ -143,6 +153,53 @@ describe("plan feedback codec", () => {
 	test("caps the annotation count", () => {
 		const many = Array.from({ length: MAX_ANNOTATIONS + 1 }, () => ({ anchor: 0, comment: "c" }));
 		expect(coerceAnnotations(many)).toBeUndefined();
+	});
+});
+
+describe("a settled note", () => {
+	const plan = ["## Steps", "- One", "- Two"].join("\n");
+
+	test("round-trips the flag inside the marker tag", () => {
+		const written = formatFeedback("## Steps\n- One\n- Two", [{ anchor: 1, comment: "answered", resolved: true }]);
+		expect(written).toContain("> [!REVIEW resolved] answered");
+		expect(parseFeedback(written)[0]).toMatchObject({ comment: "answered", resolved: true });
+	});
+
+	test("carries both flags in one tag, in a fixed order", () => {
+		// The writer decides the signature, not the payload: a save writes one author's markers.
+		const written = formatFeedback(
+			"## Steps\n- One",
+			[{ anchor: 0, comment: "moved and settled", moved: true, resolved: true, author: "alice" }],
+			{ author: "alice" },
+		);
+		expect(written).toContain("> [!REVIEW moved resolved] @alice: moved and settled");
+		expect(parseFeedback(written)[0]).toMatchObject({ moved: true, resolved: true, author: "alice" });
+	});
+
+	test("reads a plan written before the flag as open", () => {
+		const before = parseFeedback("## Steps\n- One\n> [!REVIEW] still open")[0];
+		expect(before).toMatchObject({ comment: "still open" });
+		expect(before?.resolved).toBeUndefined();
+	});
+
+	test("a save keeps the flag the note was posted with, and writes one marker", () => {
+		const written = formatFeedback("## Steps\n- One", [{ anchor: 0, comment: "settled", resolved: true }]);
+		const resaved = formatFeedback(written, [{ anchor: 0, comment: "settled, reworded", resolved: true }]);
+		expect(resaved).toContain("> [!REVIEW resolved] settled, reworded");
+		expect(resaved.match(/\[!REVIEW/g)?.length).toBe(1);
+	});
+
+	test("a carry leaves a settled note settled", () => {
+		const carried = carryFeedback(
+			`${plan}\n> [!REVIEW resolved] already answered`,
+			`${plan}\n- Three\n> [!REVIEW resolved] already answered`,
+		);
+		expect(carried).toContain("> [!REVIEW resolved] already answered");
+	});
+
+	test("refuses a payload whose flag is not a boolean", () => {
+		expect(coerceAnnotations([{ anchor: 0, comment: "x", resolved: "yes" }])).toBeUndefined();
+		expect(coerceAnnotations([{ anchor: 0, comment: "x", resolved: true }])?.[0]?.resolved).toBe(true);
 	});
 });
 

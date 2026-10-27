@@ -43,6 +43,13 @@ export interface PlanAnnotation {
 	 * guess, and the page says so instead of presenting a guess as her own anchor.
 	 */
 	moved?: true;
+	/**
+	 * Set when the note is settled: its writer, or the owner, decided it needs no action, or
+	 * the revision answered it. The comment stays in the file — it is the record of the
+	 * question — and a review sends it flagged, so the model reads what is closed without
+	 * treating it as new.
+	 */
+	resolved?: true;
 }
 
 /** Most annotations one save may carry. */
@@ -59,10 +66,10 @@ export type AuthorClaim = { name: string } | { status: number; message: string }
 
 /**
  * A stored feedback line, capturing whether a refinement moved it, its author, and its
- * comment. The flag is inside the marker tag rather than the comment, so the text a
+ * comment. The flags are inside the marker tag rather than the comment, so the text a
  * reviewer wrote stays exactly what she typed.
  */
-const MARKER_LINE = /^\s*>\s*\[!REVIEW(\s+moved)?\]\s?(.*)$/;
+const MARKER_LINE = /^\s*>\s*\[!REVIEW((?:\s+(?:moved|resolved))*)\]\s?(.*)$/;
 /** The author prefix inside a marker body (`@alice: note`). */
 const AUTHOR_PREFIX = /^@([^:]{1,40}):\s?(.*)$/;
 
@@ -133,6 +140,8 @@ interface StoredMarker {
 	author: string;
 	/** Whether a refinement carried this comment off the text it was written on. */
 	moved: boolean;
+	/** Whether the note is settled: it stays in the file, and is no longer an open question. */
+	resolved: boolean;
 }
 
 /** The plan body without markers, plus the markers that were removed from it. */
@@ -151,17 +160,28 @@ function scanMarkers(plan: string): { clean: string; markers: StoredMarker[] } {
 		const authored = AUTHOR_PREFIX.exec(body);
 		const author = authored ? normalizeAuthor(authored[1]) : "";
 		const comment = (authored ? authored[2] : body).trim();
-		if (comment) markers.push({ at: clean.length - 1, comment, author, moved: match[1] !== undefined });
+		// The tag carries a set of flags, not one keyword: a note can be carried off its text
+		// and settled in the same write, and an older build reading it still finds the comment.
+		const flags = new Set((match[1] ?? "").trim().split(/\s+/).filter(Boolean));
+		if (comment) {
+			markers.push({
+				at: clean.length - 1,
+				comment,
+				author,
+				moved: flags.has("moved"),
+				resolved: flags.has("resolved"),
+			});
+		}
 	});
 	return { clean: clean.join("\n"), markers };
 }
 
 /** One marker line in its stored form. */
-function markerLine(author: string, comment: string, moved = false): string {
+function markerLine(author: string, comment: string, moved = false, resolved = false): string {
 	const body = sanitizeLine(comment);
-	// The flag rides inside the tag, where it cannot be confused with the comment: after
-	// the closing bracket, a comment that begins "moved …" would read as the flag.
-	const tag = moved ? "[!REVIEW moved]" : REVIEW_MARKER;
+	// The flags ride inside the tag, in a fixed order, where they cannot be confused with the
+	// comment: after the closing bracket, a comment that begins "moved …" would read as one.
+	const tag = moved || resolved ? `[!REVIEW${moved ? " moved" : ""}${resolved ? " resolved" : ""}]` : REVIEW_MARKER;
 	return author ? `> ${tag} @${author}: ${body}` : `> ${tag} ${body}`;
 }
 
@@ -236,6 +256,7 @@ export function readFeedback(plan: string): FeedbackRead {
 		};
 		if (marker.author) annotation.author = marker.author;
 		if (marker.moved) annotation.moved = true;
+		if (marker.resolved) annotation.resolved = true;
 		return annotation;
 	});
 	return { body: clean, blocks, annotations };
@@ -249,15 +270,21 @@ export function parseFeedback(plan: string): PlanAnnotation[] {
 /** Sanitized, non-empty comments with the anchor they land on. */
 function storableComments(
 	annotations: readonly PlanAnnotation[],
-): Array<{ anchor: number; comment: string; moved: boolean }> {
-	const items: Array<{ anchor: number; comment: string; moved: boolean }> = [];
+): Array<{ anchor: number; comment: string; moved: boolean; resolved: boolean }> {
+	const items: Array<{ anchor: number; comment: string; moved: boolean; resolved: boolean }> = [];
 	for (const annotation of annotations) {
 		const comment = sanitizeLine(annotation.comment);
 		if (comment.length === 0 || comment.length > MAX_COMMENT_LENGTH) continue;
 		// Editing a moved note's text does not put it back on its old block, so the fact
 		// that a refinement placed it where it sits survives the save: the page posts back
-		// the annotation it was handed, flag included, and this keeps it.
-		items.push({ anchor: annotation.anchor, comment, moved: annotation.moved === true });
+		// the annotation it was handed, flags included, and this keeps them. Settling is the
+		// writer's own decision of the same kind.
+		items.push({
+			anchor: annotation.anchor,
+			comment,
+			moved: annotation.moved === true,
+			resolved: annotation.resolved === true,
+		});
 	}
 	return items;
 }
@@ -272,13 +299,16 @@ export function formatFeedback(plan: string, annotations: PlanAnnotation[], opti
 	const { clean, markers } = scanMarkers(plan);
 	const kept = markers
 		.filter((marker) => marker.author !== author)
-		.map((marker) => ({ at: marker.at, line: markerLine(marker.author, marker.comment, marker.moved) }));
+		.map((marker) => ({
+			at: marker.at,
+			line: markerLine(marker.author, marker.comment, marker.moved, marker.resolved),
+		}));
 	const blocks = planBlocks(clean);
 	const added = storableComments(annotations).map((item) => ({
 		// A marker beside a block, never after a blank line: an anchor that names
 		// blank space is written where the page can read it back as a thread.
 		at: contentBlockAt(blocks, item.anchor)?.end ?? -1,
-		line: markerLine(author, item.comment, item.moved),
+		line: markerLine(author, item.comment, item.moved, item.resolved),
 	}));
 	return compose(clean, [...kept, ...added]);
 }
@@ -452,7 +482,9 @@ export function carryFeedback(previous: string, next: string): string {
 		// The flag means "this note is no longer on the text it was written about", so it
 		// is decided by the carry in hand: a block whose text survived proves the anchor,
 		// and anything after that is a guess the page has to admit to.
-		const keep = (moved: boolean): string => markerLine(marker.author, marker.comment, moved);
+		// Settling is the note's own history, not the carry's decision: a moved note that was
+		// resolved stays settled, and one whose text survived stays as it was.
+		const keep = (moved: boolean): string => markerLine(marker.author, marker.comment, moved, marker.resolved);
 		if (block === undefined) return { at: tail, line: keep(true) };
 		if (block.kind !== "blank") {
 			const match = queues.get(blockKey(block))?.shift();
@@ -503,13 +535,17 @@ export function feedbackSummary(annotations: PlanAnnotation[]): string {
 			// the plan owner chose, so it is normalized like every other author.
 			author: normalizeAuthor(annotation.author),
 			comment: sanitizeLine(annotation.comment),
+			resolved: annotation.resolved === true,
 		}))
 		.filter((item) => item.comment.length > 0);
 	return items
 		.map((item, index) => {
 			const who = item.author ? `@${item.author}: ` : "";
 			const where = item.quote ? `On "${item.quote}": ` : "";
-			return `${index + 1}. ${who}${where}${item.comment}`;
+			// A settled note is still sent — it is the record of the question — but saying so
+			// is what stops the model from answering it a second time.
+			const settled = item.resolved ? " (resolved)" : "";
+			return `${index + 1}. ${who}${where}${item.comment}${settled}`;
 		})
 		.join("\n");
 }
@@ -531,19 +567,21 @@ export function coerceAnnotations(value: unknown): PlanAnnotation[] | undefined 
 		if (typeof record.comment !== "string") return undefined;
 		if (record.quote !== undefined && typeof record.quote !== "string") return undefined;
 		if (record.author !== undefined && typeof record.author !== "string") return undefined;
+		if (record.resolved !== undefined && typeof record.resolved !== "boolean") return undefined;
 		const comment = sanitizeLine(record.comment);
 		if (comment.length > MAX_COMMENT_LENGTH) return undefined;
 		if (comment.length === 0) continue;
 		const quote = typeof record.quote === "string" ? sanitizeLine(record.quote).slice(0, MAX_QUOTE_LENGTH) : undefined;
 		const author = normalizeAuthor(record.author);
 		// A note a refinement carried onto another block keeps saying so when the page posts
-		// it back: only this body knows where the comment really belonged.
+		// it back, and a settled note keeps saying that too: only this body knows either.
 		annotations.push({
 			anchor,
 			comment,
 			...(quote ? { quote } : {}),
 			...(author ? { author } : {}),
 			...(record.moved === true ? { moved: true } : {}),
+			...(record.resolved === true ? { resolved: true } : {}),
 		});
 	}
 	return annotations;

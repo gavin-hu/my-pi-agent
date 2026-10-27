@@ -25,6 +25,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   always the whole plan. A comment a refinement carried onto another block keeps its
   `moved` marker through a save, and a reviewer's post is signed with the name the server
   bound to her link, so her earlier comments stay hers.
+- `plan`: a comment can be settled, and says who wrote every note. A card offers
+  **Resolve** to its writer — the note keeps its place, its quote and its history in the
+  file, as `> [!REVIEW resolved]`, and collapses to one line with a check — and **Reopen**
+  puts it back; a review sends it to the model marked `(resolved)`, so a closed question is
+  not answered twice. The panel counts `2 open · 1 resolved`, an own note reads **You** on
+  your page and **The owner** on a reviewer's instead of the category `Review`, the facts
+  say `Plan steps 4/8 ticked`, and one sentence beside the decisions says what approving
+  and saving each do.
+- `plan`: `n` and `N` walk from the block you are on to the next or previous one that
+  carries a comment — stepping over a block the view hides, so the keys never move the
+  reader somewhere they cannot see — and `v` cycles **All**, **Changed** and **Comments**,
+  refusing over a half-written comment the way the panel's buttons do. Both come from the
+  same table the shortcut sheet and the sidebar hint read, so a key that acts and a key the
+  page documents cannot part company.
 
 ## [0.20.0] - 2026-10-26
 

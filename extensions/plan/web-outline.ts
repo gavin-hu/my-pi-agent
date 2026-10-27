@@ -147,6 +147,8 @@ export function observeSections(
 /** One review comment, as the facts need it: the line it is anchored to. */
 export interface AnchoredComment {
 	anchor: number;
+	/** A settled note counts in the section's thread but not among the open ones. */
+	resolved?: true;
 }
 
 /** What a plan's step list says: the numbers the server counted. */
@@ -180,9 +182,17 @@ export function renderFacts(
 	const fill = doc.getElementById("step-fill");
 	if (fill) fill.style.width = (steps.total > 0 ? Math.round((steps.done / steps.total) * 100) : 0) + "%";
 	const count = doc.getElementById("step-count");
-	if (count) count.textContent = steps.done + "/" + steps.total;
+	// Named for what it counts: before approval these ticks are the plan's ambition, not
+	// work done, and after it completion belongs to `todo`.
+	if (count) count.textContent = steps.total === 0 ? "" : steps.done + "/" + steps.total + " ticked";
 	const total = doc.getElementById("comment-total");
-	if (total) total.textContent = String(comments.length);
+	if (total) {
+		// Open first, because a settled note is history: "3 open · 2 resolved" says what is
+		// left to answer, and the resolved half stays because the file keeps it.
+		const settled = comments.filter((comment) => comment.resolved === true).length;
+		const open = comments.length - settled;
+		total.textContent = settled === 0 ? String(open) : open + " open · " + settled + " resolved";
+	}
 	for (const line of Object.keys(counters)) {
 		const node = counters[Number(line)];
 		if (node) node.hidden = true;

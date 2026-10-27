@@ -212,6 +212,42 @@ ${WEB_MARKDOWN_JS}
       setStatus("Showing " + counts.shown + " of " + (counts.shown + counts.hidden) + " blocks — the rest hidden");
   }
 
+  /**
+   * Walk from the active block to the next one that carries a comment.
+   *
+   * The block order is the document's, so "next" means further down the plan, not the next
+   * comment by arrival: a reader walking notes is reading the document. A filtered view can
+   * hide a commented block, and a hidden one is not a place to send the reader, so the step
+   * skips it the way the block walk does. Nothing repaints, so no draft is at risk.
+   */
+  function moveComment(delta) {
+    var list = blockElements(planEl);
+    var start = activeIndex >= 0 ? activeIndex : delta > 0 ? -1 : list.length;
+    for (var step = start + delta; step >= 0 && step < list.length; step += delta) {
+      var block = list[step];
+      if (!block || block.hidden === true) continue;
+      if ((block.className || "").split(" ").indexOf("bf-block--commented") < 0) continue;
+      var next = setActive(planEl, step);
+      if (next !== null) activeIndex = next;
+      if (block.scrollIntoView) block.scrollIntoView({ block: "center" });
+      return;
+    }
+  }
+
+  /**
+   * Cycle the panel's views, skipping the one this page cannot offer.
+   *
+   * The repaint closes the composer, so a half-written comment refuses first, the way the
+   * view buttons do.
+   */
+  function cycleView() {
+    if (confirmNoDraft()) return;
+    var order = data.blockMarks === true ? ["all", "changed", "comments"] : ["all", "comments"];
+    var at = order.indexOf(view);
+    view = order[(at + 1) % order.length] || "all";
+    renderAll();
+  }
+
   function renderAll() {
     sectionObserver = renderPlanFrame(planFrame(), closeOpenComposer, observeSections, sectionObserver);
     syncView();
@@ -357,6 +393,8 @@ ${WEB_MARKDOWN_JS}
         var next = moveActive(planEl, activeIndex, delta);
         if (next !== null) activeIndex = next;
       },
+      moveComment: moveComment,
+      cycleView: cycleView,
       commentOnActive: function () { activeIndex = commentOnActive(composer(), activeIndex, blocks()); },
       askApprove: askApprove,
       save: save,
