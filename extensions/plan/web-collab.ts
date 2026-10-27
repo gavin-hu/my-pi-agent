@@ -88,19 +88,19 @@ export const WEB_COLLAB_JS = String.raw`  /**
   }
 
   function shareNow() {
-    shareAction("/api/share", null, "Could not share: ");
+    shareAction(pageBase() + "/api/share", null, "Could not share: ");
   }
 
   function newLink() {
-    shareAction("/api/share/link", null, "Could not mint a link: ");
+    shareAction(pageBase() + "/api/share/link", null, "Could not mint a link: ");
   }
 
   function revokeLink(id) {
-    shareAction("/api/share/revoke", { id: id }, "Could not revoke that link: ");
+    shareAction(pageBase() + "/api/share/revoke", { id: id }, "Could not revoke that link: ");
   }
 
   function stopSharing() {
-    fetch("/api/share/stop?token=" + encodeURIComponent(token), { method: "POST" })
+    fetch(pageBase() + "/api/share/stop?token=" + encodeURIComponent(token), { method: "POST" })
       .then(function (response) { return response.json(); })
       .then(function (payload) {
         if (payload && payload.share) showShare(payload.share, null);

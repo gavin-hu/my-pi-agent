@@ -17,7 +17,7 @@ section and every key with its type, default, and bounds.
 - [Section index](#section-index)
 - [Document metadata](#document-metadata)
 - [`check` — verification runs](#check--verification-runs)
-- [`board` — the shared board page](#board--the-shared-board-page)
+- [`serve` — the session's page server](#serve--the-sessions-page-server)
 - [`price` — cost calculation](#price--cost-calculation)
 - [`notify` — OS notifications](#notify--os-notifications)
 - [`doctor` — diagnostics](#doctor--diagnostics)
@@ -148,8 +148,7 @@ the file for the scope you want, and the next session reads it.
 | wake the agent on a watcher match | `watch.wakeOnMatch` below |
 | stop injecting memory notes | `memory.inject` below |
 | choose the worktree base, branch prefix, fetch, or prune age | `worktree` below |
-| pin the browser's port | [`file-browse`](#file-browse--the-local-file-server) |
-| pin the board page's port, so a bookmarked URL survives a restart | [`board`](#board--the-shared-board-page) |
+| pin the port every page of a session shares, so a bookmarked URL survives a restart | [`serve`](#serve--the-sessions-page-server) |
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
 
@@ -171,9 +170,9 @@ The sections, by what they are for:
 
 | Group | Sections |
 |---|---|
-| Plan and delegate | [`check`](#check--verification-runs), [`board`](#board--the-shared-board-page), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
+| Plan and delegate | [`check`](#check--verification-runs), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
 | Keep your work safe | [`worktree`](#worktree--isolated-worktrees), [`rewind`](#rewind--snapshots), [`memory`](#memory--durable-notes) |
-| Reach the world | [`web-access`](#web-access--search-and-fetch), [`file-browse`](#file-browse--the-local-file-server), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
+| Reach the world | [`web-access`](#web-access--search-and-fetch), [`serve`](#serve--the-sessions-page-server), [`file-browse`](#file-browse--the-local-file-server), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
 | Chrome and upkeep | [`price`](#price--cost-calculation), [`notify`](#notify--os-notifications), [`doctor`](#doctor--diagnostics), [`chrome`](#chrome--transcript-chrome) |
 
 Every table is checked against the defaults its loader exports by
@@ -189,10 +188,10 @@ repository root rather than the active working directory.
 | Extension | Section | Covers |
 |---|---|---|
 | [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
-| [`board`](../extensions/board/) | `board` | The port the board page is pinned to. |
+| [`serve`](../extensions/serve/) | `serve` | The port every page of a session shares. |
 | [`check`](../extensions/check/) | `check` | Detection override, run timeout, and log tail. |
 | [`file-read`](../extensions/file-read/) | `file-read` | Read limits, enabled formats. |
-| [`file-browse`](../extensions/file-browse/) | `file-browse` | Server port and page limits. |
+| [`file-browse`](../extensions/file-browse/) | `file-browse` | Page limits. |
 | [`goal`](../extensions/goal/) | `goal` | Widget behaviour, such as keeping an achieved goal visible. |
 | [`job`](../extensions/job/) | `job` | Log-tail size and other job limits. |
 | [`watch`](../extensions/watch/) | `watch` | Watch limits, wake behaviour, and poll interval. |
@@ -303,7 +302,6 @@ ignored, and an absent id keeps its registry default.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `port` | integer | `0` | `0`–`65535` | TCP port on `127.0.0.1`; `0` picks one random port for the session, a positive value pins it. |
 | `autoOpen` | boolean | `true` | | Open the default browser when the server starts. |
 | `maxFileBytes` | integer | `1048576` | `0`–`1073741824` | Files larger than this are not rendered inline. |
 | `maxThumbBytes` | integer | `5242880` | `0`–`1073741824` | Images larger than this get an icon instead of a thumbnail. |
@@ -416,15 +414,16 @@ unaffected.
 | `timeoutMs` | integer | `600000` | `0`–`3600000` | Wall-clock limit per command; `0` disables it. |
 | `maxLogBytes` | integer | `1048576` | `65536`–`16777216` | Bytes of output retained per command. |
 
-## `board` — the shared board page
+## `serve` — the session's page server
 
-`/bytefly settings` has no row for this; it is a `bytefly.json` edit. Pin it in the
-project document when more than one repository runs a board: a global value is one port
-for every board on the machine, and the second one to start would find it taken.
+`/bytefly settings` has no row for this; it is a `bytefly.json` edit. `/board`, `/browse`,
+and a browser plan review all answer on this one port, so it is the address to bookmark.
+Pin it in the project document when more than one repository serves pages on the machine: a
+global value is one port for every session, and the second one to start would find it taken.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `port` | integer | `0` | `0`–`65535` | TCP port on `127.0.0.1` for the page; `0` picks a free port for the session, a positive value pins it so a bookmarked URL survives a restart. A pinned port that is already in use fails `/board` with a message naming this key instead of serving on another one. |
+| `port` | integer | `0` | `0`–`65535` | TCP port on `127.0.0.1` for every page of the session; `0` picks a free port for the session, a positive value pins it so a bookmarked URL survives a restart. A pinned port that is already in use is reported with a message naming this key instead of moving the pages to another port. |
 
 ## `todo` — the todo widget
 

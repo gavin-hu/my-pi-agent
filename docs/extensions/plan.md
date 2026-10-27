@@ -662,14 +662,15 @@ file and returns them to the model.
   save that carries no comments asks for nothing, so the review screen comes back
   instead. `/plan review` sends them as a user message (a plan-mode revision or a
   plain update, depending on the mode).
-- **Loopback first, tokenized.** The server binds `127.0.0.1`, carries a random
-  per-session token in the URL, rejects a `Host` header it was not bound on,
-  refuses a cross-origin POST, serves only `GET`, `HEAD`, and `POST`, and caps the
-  request body. Sharing adds a second listener (below); it never widens the first. A save or cancel
-  resolves the session only after its HTTP response is delivered, so the browser
-  never sees a false "Failed to fetch". The last bound port is remembered per
-  plan, so reviewing the same plan again reuses the origin (and the browser's
-  saved theme with it). It is closed on the owner's save or cancel, on the owner's
+- **Loopback first, tokenized.** The review mounts `/plan/<id>` on the session's one
+  server, which binds `127.0.0.1`; the URL carries a random per-session token, a `Host`
+  header the server was not bound on is rejected, a cross-origin POST is refused, only
+  `GET`, `HEAD`, and `POST` are served, and the request body is capped. Sharing asks that
+  mount for one LAN listener (below); it never widens the loopback socket. A save or
+  cancel resolves the session only after its HTTP response is delivered, so the browser
+  never sees a false "Failed to fetch". The prefix is the review's, on the session's one
+  origin, so the browser's saved theme survives a review. It is closed on the owner's
+  save or cancel, on the owner's
   page going away, or on `session_shutdown`; a reload reconnects inside that grace,
   so refreshing or reloading a conflicted page does not end the review. A
   reviewer's tab opening or closing is not the review's lifetime.

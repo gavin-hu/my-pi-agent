@@ -24,7 +24,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Git diff view | `/diff`, `/diff/<rel>` | A change overview and one file's unified diff, scoped to `head`, `staged`, or `worktree`. | Shipped |
 | Live status | `/events`, the `◉ live` chip | An open page keeps its branch, change markers, and footer up to date without a reload. | Shipped |
 | Reload hint | `/api/dir-rev`, `⟳ reload` | A page whose folder gained or lost a file offers a reload control instead of changing its rows. | Shipped |
-| Terminal session chip | `browse` status key | The terminal footer shows `◉ <port>` while the page is served, so the session names its live server. | Shipped |
+| The session's page port | `serve`'s `◉ <port>` chip | The footer names the one port every page of the session answers on, this one included. | Shipped |
 | Listing controls | the `Name`, `Size`, and `Modified` headers | The current folder sorts by name, size, or modified time, directories first, and the choice is remembered per browser. | Shipped |
 | Keyboard navigation | the tree's keymap, `?` | The tree is one tab stop with arrow, fold, and open keys; a shortcut sheet lists the page's own keys. | Shipped |
 | Diff hunk navigation | `n`/`p` in `/diff` | Jump between changed hunks without scrolling the whole file. | Shipped |
@@ -35,7 +35,7 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 | Markdown preview | `/view/<rel>`, `/view/<rel>?raw=1` | A README renders as headings, lists, tables, code, and links, with a one-click raw view. | Shipped |
 | Copy and wrap | the page toolbar, `y`, `u` | Copy a file's path or contents or a `path:12-30` line reference, and toggle line wrapping for text and raw views. | Shipped |
 | Theme toggle | the header button, `/theme.js` | Dark and light palettes, following the system until an explicit choice is remembered per browser. | Shipped |
-| Idle stop and port reuse | `/browse stop`, the session port | The server stops when idle and reuses its port for the next session instead of leaking listeners. | Shipped |
+| Idle stop and prefix reuse | `/browse stop`, the idle grace | The page gives its prefix back when nobody is reading it, so a closed tab never holds the session's server. | Shipped |
 
 ## Quickstart
 
@@ -66,15 +66,14 @@ selects the root.
 
 - The root is the effective cwd, so an active `worktree` session serves the
   worktree. `<path>` must resolve inside it.
-- The port is fixed for the session: the first `/browse` picks a random port
-  in `4780`–`5779` and every later `/browse` in that session reuses it, so the
-  URL stays stable across roots and restarts. Set `"port"` to pin an explicit
-  port; a busy port is reported, not silently changed.
+- The port is the session's: `serve` picks one in `4780`–`5779` (and `serve.port` pins
+  it), so the origin stays stable across roots and restarts. A busy pinned port is
+  reported, not silently changed.
 - Starting while already running with the same root reprints the URL without
-  restarting; a different root (or a changed pinned port) restarts the server.
+  restarting; a different root restarts the page.
 - The server is closed when its last page has been gone for ten seconds, so
   closing the browser window ends the session's browse server and `/browse`
-  starts it again on the same port. A reload or a new tab inside that grace keeps
+  starts it again on the session's port. A reload or a new tab inside that grace keeps
   it. `session_shutdown` closes it too, and `/browse stop` closes it at once.
 
 ## Routes
@@ -102,7 +101,6 @@ global document then project document, project wins — are in
 
 | Key | Default | Meaning |
 |---|---|---|
-| `port` | `0` | `0` picks one random port fixed for the session; a positive value pins it. |
 | `autoOpen` | `true` | Open the browser on start; `false` for headless. |
 | `maxFileBytes` | `1048576` | Larger files show a download card only. |
 | `maxThumbBytes` | `5242880` | Larger images get an icon, not a thumbnail. |
@@ -342,12 +340,11 @@ old and new sides for `lib/highlight`.
 
 ## Live status
 
-While a server is running, the extension publishes a two-tone `◉ <port>` chip
-(a green circle-dot and a blue port) under the shared `browse` status key. The
-[`bytefly`](./bytefly.md) extension routes it to line 1's right zone, after
-`⎇ branch` and `⑂ worktree` and in the same run as the board page's port chip;
-it is cleared on stop and on `session_shutdown`. The chip is session-local: it
-reflects only this session's server, with no cross-session sharing.
+The page answers at the origin's root of the session's one server, so the footer's one
+`◉ <port>` chip is the session's, not this page's: [`serve`](./serve.md) publishes it
+while anything is mounted, and [`bytefly`](./bytefly.md) routes it to line 1's right
+zone, after `⎇ branch` and `⑂ worktree`. It is cleared when the session's server closes,
+so a session with no page open shows nothing at all.
 
 The page has its own live status, which is what a left-open tab reads. A `◉ live`
 chip beside `read-only` says whether status is flowing (green), still
@@ -458,15 +455,13 @@ stops at the first difference because the control, not the checker, is the fix.
 ## Design notes
 
 - **Lifecycle.** `/browse` resolves `resolveEffectiveCwd(ctx.cwd)`, loads config,
-  selects the port, parses args, and `await createFileServer(...)`: `realpath`
-  the root, bind `127.0.0.1`, await `listening`, return `{ url, port, root,
-  close }`. The port is chosen once for the session: a pinned config `port`
-  wins, otherwise a random port is drawn and cached after the first successful
-  bind, so later starts reuse it (a conflict is reported and the next `/browse`
-  rolls another). `/browse stop` and `session_shutdown` await the idempotent
-  `close()`; `session_shutdown` also clears the cached port. The page is the
-  server's only reader, so the channel reports the last page's departure after
-  `IDLE_STOP_MS` and the command closes the server and clears the chip — the
+  parses args, and mounts the page through `requestMount`: `realpath` the root, claim
+  the origin's root on the session's server, return `{ url, port, root, close }`. The
+  port belongs to `serve` — `serve.port` pins the session's origin — so nothing here
+  picks or retries one. `/browse stop` and `session_shutdown` await the idempotent
+  `close()`, which gives the prefix back. The page is the mount's only reader, so the
+  channel reports the last page's departure after `IDLE_STOP_MS` and the command
+  releases the prefix — the
   cached port survives, so the next `/browse` binds the same one.
 - **Pure routing.** `handleRequest(context, method, rawUrl, headers)` validates
   method and `Host`, parses the URL, matches a route, and runs every path
@@ -529,7 +524,7 @@ stops at the first difference because the control, not the checker, is the fix.
 | `view/diff-html.ts` | The unified-diff body: the gutter, the sign, the hunk sections, and per-hunk highlighting |
 | `transport/router.ts` | Pure request handler: routes, the `/raw` sandbox policy, and the error page |
 | `transport/server.ts` | This extension's routes over `lib/http`'s loopback server: the request count, the stream cap, and the idle policy |
-| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: one server entry (`serveLoopback`), page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, the event-stream sink and its idle grace |
+| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: one server entry (`serveHttp`) and the mount contract a page claims a prefix with (`requestMount`), page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, the event-stream sink and its idle grace |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |
 
 ## Testing

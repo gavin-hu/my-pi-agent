@@ -116,7 +116,33 @@ export function postJson(url: string, payload: unknown): Promise<PostResult> {
 }
 
 /**
- * The runtime, as a bundle receives it: four bodies, in the order a client reads them.
+ * The prefix this page was served under, as the server wrote it on `<html data-base>`.
+ *
+ * A session serves several pages on one origin, so a bundle cannot assume it owns the
+ * root: `""` at the origin's root, `/files` under a mount. The attribute is read every
+ * time rather than cached at load, because a fragment runs in whatever order the bundle
+ * lists it and none of them may depend on another having run first.
+ */
+export function pageBase(): string {
+	// Cast for the same reason as `el`: this project compiles without a DOM lib, and the
+	// page guarantees a document with a root element.
+	const root = (
+		globalThis as unknown as { document: { documentElement: { getAttribute(name: string): string | null } } }
+	).document.documentElement;
+	return root.getAttribute("data-base") ?? "";
+}
+
+/**
+ * {@link pageBase} on its own, for a bundle to splice at its **outermost** scope.
+ *
+ * A page's bundle is a stack of fragments, and a fragment's helper is only visible to the
+ * ones nested inside it — so this one goes where every fragment can reach it, which is not
+ * where the rest of the runtime goes.
+ */
+export const CLIENT_BASE_JS = String(pageBase);
+
+/**
+ * The runtime, as a bundle receives it: the four bodies, in the order a client reads them.
  *
  * `test` holds each to its module body and proves the string is safe to splice.
  */

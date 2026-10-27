@@ -1,44 +1,68 @@
 /**
- * The HTTP server for the browse extension.
+ * The browse page's mount: the prefix it holds on the session's one server, plus the
+ * live status channel it feeds.
  *
- * Wraps the pure `handleRequest` in `lib/http`'s loopback server: it resolves the
- * root once, feeds the live status channel, and exposes an idempotent `close()`.
- * The request handler is injectable so tests can avoid a socket when they only
- * need routing.
+ * `lib/http` owns the socket and `serve` owns the session's port, so this module owns
+ * only this page's own policy: the request handler, its request count, the cap that
+ * refuses a page rather than opening a stream for it, and how long a page with nobody
+ * reading it is worth keeping.
  *
- * What stays here is this extension's own policy: the request handler, its
- * request count, the catch that turns a thrown handler into a plain-text 500, the
- * cap that refuses a page rather than opening a stream for it, and how long a
- * server with nobody reading it is worth keeping.
+ * The page holds the origin's **root**, and that is deliberate: its links, its own
+ * scripts, and the destinations it rewrites out of Markdown are all root-absolute, so
+ * one path space is what keeps them correct. `BROWSE_BASE` is that claim, named where
+ * the mount and its suite can see it.
  */
 
 import { realpathSync } from "node:fs";
-import { type ServeResponse, serveLoopback, textResponse } from "../../../lib/http/index.ts";
+import {
+	type HttpMount,
+	type MountOutcome,
+	type MountSource,
+	type ServeResponse,
+	textResponse,
+} from "../../../lib/http/index.ts";
 import { IDLE_STOP_MS, type ServeConfig } from "../config/config.ts";
 import { createFileIndex } from "../files/files.ts";
 import type { GitDiffProvider, GitStatusProvider } from "../git/git.ts";
 import { createLiveChannel, createLiveStatus } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 
+/**
+ * The prefix this page answers under: the root of the session's origin.
+ *
+ * A page whose every emitted URL is root-absolute cannot be moved under a prefix
+ * without rewriting them, so the one path space it needs is the root, and `board` and
+ * `plan` take their own namespaces beside it.
+ */
+export const BROWSE_BASE = "";
+
+/** A mounted page. */
 export interface FileServer {
-	/** Origin URL, e.g. `http://127.0.0.1:49152/`. */
+	/** Origin URL, e.g. `http://127.0.0.1:4780/`. */
 	url: string;
-	/** The bound port. */
+	/** The port the session's server bound. */
 	port: number;
 	/** Resolved absolute root that is actually served. */
 	root: string;
-	/** Stop listening. Safe to call more than once or before `listen` settles. */
+	/** Give the prefix back. Safe to call more than once. */
 	close(): Promise<void>;
 }
+
+/** The page, or the reason the session's server has no place for it. */
+export type FileServerResult = { kind: "served"; server: FileServer } | { kind: "refused"; reason: string };
 
 export interface FileServerOptions {
 	root: string;
 	config: ServeConfig;
+	/** Where the prefix comes from: the session's server, or a suite's own. */
+	mount: MountSource;
+	/** The Pi session asking, so the prefix lands on this session's socket. */
+	session: string;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
 	/** Read-only diff provider for the change and diff views; omitted when unavailable. */
 	diff?: GitDiffProvider;
-	/** Called once the last page has been gone for `idleStopMs`; omitted, the server waits for `close()`. */
+	/** Called once the last page has been gone for `idleStopMs`; omitted, the mount waits for `close()`. */
 	onIdle?: () => void;
 	/** Grace before `onIdle`, in ms; defaults to `IDLE_STOP_MS`. */
 	idleStopMs?: number;
@@ -46,8 +70,8 @@ export interface FileServerOptions {
 	handler?: typeof handleRequest;
 }
 
-/** Start a read-only server rooted at `options.root` on 127.0.0.1. */
-export async function createFileServer(options: FileServerOptions): Promise<FileServer> {
+/** Mount a read-only page rooted at `options.root` on the session's server. */
+export async function createFileServer(options: FileServerOptions): Promise<FileServerResult> {
 	const root = realpathSync.native(options.root);
 	const { config } = options;
 	// The status feed's two server-owned facts: how long it has been up, and how
@@ -72,10 +96,13 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 	};
 	const handler = options.handler ?? handleRequest;
 
-	const server = await serveLoopback({
-		ports: [config.port],
-		idle: options.onIdle === undefined ? undefined : { ms: options.idleStopMs ?? IDLE_STOP_MS, onIdle: options.onIdle },
-		handler: async (request) => {
+	const outcome: MountOutcome = await options.mount({
+		session: options.session,
+		prefix: BROWSE_BASE,
+		...(options.onIdle === undefined
+			? {}
+			: { idle: { ms: options.idleStopMs ?? IDLE_STOP_MS, onIdle: options.onIdle } }),
+		async handler(request) {
 			requests += 1;
 			let result: ServeResponse;
 			try {
@@ -96,15 +123,19 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 			};
 		},
 	});
-
+	if (outcome.kind === "refused") return { kind: "refused", reason: outcome.reason };
+	const mount: HttpMount = outcome.mount;
 	return {
-		url: `${server.origin}/`,
-		port: server.port,
-		root,
-		close: async () => {
-			// End the streams first, so a connected page does not hold the close open.
-			live?.close();
-			await server.close();
+		kind: "served",
+		server: {
+			url: `${mount.origin}${mount.base}/`,
+			port: mount.port,
+			root,
+			close: async () => {
+				// End the streams first, so a connected page does not hold the mount open.
+				live?.close();
+				await mount.release();
+			},
 		},
 	};
 }

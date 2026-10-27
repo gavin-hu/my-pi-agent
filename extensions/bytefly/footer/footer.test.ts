@@ -1267,28 +1267,12 @@ describe("footer segments", () => {
 		).toEqual([GLYPHS.worktree]);
 	});
 
-	test("reads the two ports as one cluster, widest form first", () => {
-		const both = new Map([
-			[STATUS_KEYS.board, `${GLYPHS.board} 5043`],
-			[STATUS_KEYS.browse, `${GLYPHS.browse} 4909`],
-		]);
-		const segment = portsSegment(fullSnapshot({ statuses: both }), fakeTheme);
+	test("reads the session's one port, widest form first", () => {
+		const serving = new Map([[STATUS_KEYS.http, `${GLYPHS.http} 4780`]]);
+		const segment = portsSegment(fullSnapshot({ statuses: serving }), fakeTheme);
 
-		expect(segment?.forms).toEqual([
-			`${GLYPHS.board} 5043${CONFIG.separators.item}${GLYPHS.browse} 4909`,
-			`${GLYPHS.board} 5043 ${GLYPHS.browse} 4909`,
-			`${GLYPHS.board} ${GLYPHS.browse}`,
-		]);
+		expect(segment?.forms).toEqual([`${GLYPHS.http} 4780`, GLYPHS.http]);
 		expect(segment?.separator).toBe(CONFIG.separators.item);
-	});
-
-	test("keeps a page up when the bar is too narrow for its port", () => {
-		const one = new Map([[STATUS_KEYS.browse, `${GLYPHS.browse} 4780`]]);
-
-		expect(portsSegment(fullSnapshot({ statuses: one }), fakeTheme)?.forms).toEqual([
-			`${GLYPHS.browse} 4780`,
-			GLYPHS.browse,
-		]);
 	});
 
 	test("has no port segment when nothing is serving", () => {
@@ -1297,16 +1281,16 @@ describe("footer segments", () => {
 
 	test("paints the glyph as success and the port as accent", () => {
 		const theme = makeRecordingTheme() as any;
-		const statuses = new Map([[STATUS_KEYS.board, `${GLYPHS.board} 5043`]]);
+		const statuses = new Map([[STATUS_KEYS.http, `${GLYPHS.http} 4780`]]);
 		portsSegment(fullSnapshot({ statuses }), theme);
 
-		expect(theme.calls).toContainEqual(["success", GLYPHS.board]);
-		expect(theme.calls).toContainEqual(["accent", "5043"]);
+		expect(theme.calls).toContainEqual(["success", GLYPHS.http]);
+		expect(theme.calls).toContainEqual(["accent", "4780"]);
 	});
 
-	test("keeps the board port out of the mode slot", () => {
+	test("keeps the page port out of the mode slot", () => {
 		const statuses = new Map([
-			[STATUS_KEYS.board, `${GLYPHS.board} 5043`],
+			[STATUS_KEYS.http, `${GLYPHS.http} 4780`],
 			[STATUS_KEYS.rewind, `${GLYPHS.rewind} 13`],
 		]);
 
@@ -1356,9 +1340,7 @@ describe("footer segments", () => {
 		expect(
 			modesSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.worktree, GLYPHS.worktree]]) }), fakeTheme),
 		).toBeNull();
-		expect(
-			modesSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.browse, GLYPHS.browse]]) }), fakeTheme),
-		).toBeNull();
+		expect(modesSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.http, GLYPHS.http]]) }), fakeTheme)).toBeNull();
 	});
 
 	test("steps the context gauge down through its widths and colors by severity", () => {
@@ -1561,11 +1543,8 @@ describe("line composition", () => {
 		expect(ids(line1.right)).toEqual(["alert", "statuses", "branch"]);
 	});
 
-	test("routes the ports to line 1 right, as one segment", () => {
-		const statuses = new Map([
-			[STATUS_KEYS.board, `${GLYPHS.board} 5043`],
-			[STATUS_KEYS.browse, `${GLYPHS.browse} 4909`],
-		]);
+	test("routes the page port to line 1 right, as one segment", () => {
+		const statuses = new Map([[STATUS_KEYS.http, `${GLYPHS.http} 4780`]]);
 		const [line1, line2] = buildLines(fullSnapshot({ statuses }), fakeTheme, "/home/u");
 
 		expect(ids(line1.right)).toEqual(["branch", "ports"]);
@@ -1811,31 +1790,25 @@ describe("line layout", () => {
 		expect(renderLine(line1, 24, fakeTheme)).not.toContain(GLYPHS.plan);
 	});
 
-	test("keeps both pages on the bar as their glyphs once the ports stop fitting", () => {
-		const statuses = new Map([
-			[STATUS_KEYS.board, `${GLYPHS.board} 5043`],
-			[STATUS_KEYS.browse, `${GLYPHS.browse} 4909`],
-		]);
+	test("keeps the page up as its glyph once the port stops fitting", () => {
+		const statuses = new Map([[STATUS_KEYS.http, `${GLYPHS.http} 4780`]]);
 		const [line1] = buildLines(fullSnapshot({ statuses }), fakeTheme, "/home/u");
 
-		expect(renderLine(line1, 40, fakeTheme)).toContain(
-			`${GLYPHS.board} 5043${CONFIG.separators.item}${GLYPHS.browse} 4909`,
-		);
-		const narrow = renderLine(line1, 36, fakeTheme);
-		expect(narrow).toContain(`${GLYPHS.board} ${GLYPHS.browse}`);
-		expect(narrow).not.toContain("5043");
+		expect(renderLine(line1, 40, fakeTheme)).toContain(`${GLYPHS.http} 4780`);
+		// Narrower than the port fits, but wide enough for the glyph: the bar still says a
+		// page is up, and stops spending columns on the number.
+		const narrow = renderLine(line1, 30, fakeTheme);
+		expect(narrow).toContain(GLYPHS.http);
+		expect(narrow).not.toContain("4780");
 	});
 
-	test("drops the ports before the branch they sit beside", () => {
-		const statuses = new Map([
-			[STATUS_KEYS.board, `${GLYPHS.board} 5043`],
-			[STATUS_KEYS.browse, `${GLYPHS.browse} 4909`],
-		]);
+	test("drops the page port before the branch it sits beside", () => {
+		const statuses = new Map([[STATUS_KEYS.http, `${GLYPHS.http} 4780`]]);
 		const [line1] = buildLines(fullSnapshot({ statuses }), fakeTheme, "/home/u");
 		const rendered = renderLine(line1, 24, fakeTheme);
 
 		expect(rendered).toContain(`${GLYPHS.branch} main`);
-		expect(rendered).not.toContain(GLYPHS.board);
+		expect(rendered).not.toContain(GLYPHS.http);
 	});
 
 	test("drops tokens before cost", () => {

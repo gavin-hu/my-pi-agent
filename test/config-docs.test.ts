@@ -17,7 +17,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_CHROME_CONFIG } from "../extensions/bytefly/chrome.ts";
-import { DEFAULT_BOARD_CONFIG } from "../extensions/board/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_CHECK_CONFIG } from "../extensions/check/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG } from "../extensions/bytefly/doctor/config.ts";
 import { DEFAULT_BYTEFLY_CONFIG } from "../extensions/bytefly/footer/price/config.ts";
@@ -31,6 +30,7 @@ import { DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG } from "../extensions/rewind/co
 import { DEFAULT_SUBAGENT_CONFIG } from "../extensions/subagent/config.ts";
 import { DEFAULT_TODO_CONFIG } from "../extensions/todo/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WATCH_CONFIG } from "../extensions/watch/config.ts";
+import { DEFAULT_SERVE_CONFIG } from "../extensions/serve/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WECHAT_CONFIG } from "../extensions/wechat/config.ts";
 import { DEFAULT_FETCH_CONFIG } from "../extensions/web-access/fetch/config.ts";
 import { DEFAULT_SEARCH_CONFIG } from "../extensions/web-access/search/config.ts";
@@ -60,9 +60,9 @@ const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
 	notify: DEFAULT_NOTIFY_CONFIG,
 	doctor: DEFAULT_DOCTOR_CONFIG,
 	chrome: DEFAULT_CHROME_CONFIG,
-	board: DEFAULT_BOARD_CONFIG,
 	"file-read": DEFAULT_FILE_READ_CONFIG,
 	"file-browse": DEFAULT_FILE_BROWSE_CONFIG,
+	serve: DEFAULT_SERVE_CONFIG,
 	goal: DEFAULT_GOAL_CONFIG,
 	job: DEFAULT_JOB_CONFIG,
 	watch: DEFAULT_WATCH_CONFIG,

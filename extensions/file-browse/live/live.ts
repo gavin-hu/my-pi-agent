@@ -174,7 +174,7 @@ export interface LiveChannel {
  * attached, so an idle server does no status work at all; the last page leaving
  * parks it and the next page starts it again. What happens to a server nobody is
  * reading — the idle grace and the close it leads to — is the server's policy, so
- * the caller hands it to `lib/http`'s `serveLoopback` instead of configuring it
+ * the caller hands it to its own mount instead of configuring it
  * here.
  */
 export function createLiveChannel(options: LiveChannelOptions): LiveChannel {

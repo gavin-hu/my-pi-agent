@@ -2,7 +2,7 @@
  * Turn a `StatusSnapshot` into the two footer lines.
  *
  * Line 1 — state: left `pwd` and the session name, right the alert, the mode
- * chips, then `⎇ branch · ⑂ worktree · ⊞ 5043 · ◉ 4909`. Line 2 — meters: left
+ * chips, then `⎇ branch · ⑂ worktree · ◉ 4780`. Line 2 — meters: left
  * the context gauge and usage, right the model and thinking level.
  *
  * The split is one job per row. The state chips change while a session runs, so
@@ -46,9 +46,9 @@ export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string 
 			modesSegment(snapshot, theme),
 			branchSegment(snapshot, theme),
 			worktreeSegment(snapshot, theme),
-			// Last, so the two ports form one run behind the location chips. A page starting
-			// or stopping then changes the end of the line, and `⎇ branch · ⑂ worktree` stays
-			// the adjacent pair a reader scans for where the work lands.
+			// Last, so the page port rides behind the location chips. A page starting or
+			// stopping then changes the end of the line, and `⎇ branch · ⑂ worktree` stays the
+			// adjacent pair a reader scans for where the work lands.
 			portsSegment(snapshot, theme),
 		]),
 	};

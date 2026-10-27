@@ -1,16 +1,21 @@
 /**
- * One loopback server per served surface: bind, accept, route, stream, idle,
- * close.
+ * The one loopback server a session serves its pages on: bind once, dispatch by
+ * mount, stream, idle, close.
  *
- * Both browser surfaces build the same socket around `lib/http`'s pieces, so the
- * socket lives here: an extension supplies a handler that turns one request into
- * one reply, and this module owns everything the request does not decide — the
- * body cap, `HEAD` of a stream, the event-stream head, the port retry, the idle
- * grace, and a close that is safe to call twice.
+ * A session has one port, so the socket cannot belong to a page. A page *mounts* a
+ * path prefix on it — `/board`, `/files`, `/plan/<id>` — and the server owns
+ * everything a request does not decide: the longest-prefix dispatch, the body cap
+ * of whichever mount was reached, `HEAD` of a stream, the event-stream head, the
+ * port retry, and a close that is safe to call twice. A mount's handler is handed
+ * the request target *relative to its own prefix*, so a router keeps matching the
+ * paths it always matched.
  *
- * The `Host` rule stays with each router: the allowlist is per extension, and for
- * a shared review it grows while the server is up, so it cannot be passed in
- * once.
+ * The idle grace is per mount, not per socket: one page going quiet must not close
+ * another's, so a mount carries its own open-stream registry and release, and the
+ * socket closes when its last mount leaves.
+ *
+ * The `Host` rule stays with each router: the allowlist is per extension, and for a
+ * shared review it grows while the server is up, so it cannot be passed in once.
  *
  * Value-only: the only state is what a returned closure carries.
  */
@@ -25,6 +30,7 @@ import {
 import type { ArmTimer } from "../timer.ts";
 import { jsonHeaders } from "./headers.ts";
 import { type ServeResponse, textResponse } from "./response.ts";
+import { parseRequestUrl } from "./router.ts";
 import { bindHost, createCloser, openEventStream, respond } from "./server.ts";
 import { createSinks, type EventSink, type IdleGrace, type SinkRegistry } from "./sink.ts";
 
@@ -32,7 +38,7 @@ import { createSinks, type EventSink, type IdleGrace, type SinkRegistry } from "
 export interface LoopbackRequest {
 	/** Upper-cased method, e.g. `GET`. */
 	method: string;
-	/** The request target, path and query. */
+	/** The request target, path and query, relative to the mount's prefix. */
 	url: string;
 	/** Headers exactly as the socket carried them; the router applies its `Host` rule. */
 	headers: IncomingHttpHeaders;
@@ -57,33 +63,65 @@ export interface LoopbackReply {
 /** One request in, one reply out. A throw is answered as a plain 500. */
 export type LoopbackHandler = (request: LoopbackRequest) => Promise<LoopbackReply> | LoopbackReply;
 
-export interface LoopbackOptions {
+/** One page's claim on a path prefix. */
+export interface ServedMount {
+	/** The prefix it answers under: `/board`, or `""` for the whole origin. */
+	prefix: string;
+	handler: LoopbackHandler;
+	/** Largest body accepted here; absent, no body is read and a route sees `""`. */
+	maxBodyBytes?: number;
+	/** Grace after this mount's last stream leaves; omitted, it waits for `release()`. */
+	idle?: IdleGrace;
+	/** The timer this mount's idle grace is armed on. */
+	timer?: ArmTimer;
+}
+
+/** A prefix served on a running server. */
+export interface Mount {
+	/** The normalized prefix, e.g. `/board`. */
+	base: string;
+	/** The port the server bound. */
+	port: number;
+	/** `http://<host>:<port>`, the address this mount is reached on. */
+	origin: string;
+	/**
+	 * End this mount's streams and free its prefix. Idempotent, and the server closes
+	 * with its last mount.
+	 */
+	release(): Promise<void>;
+}
+
+export interface ServeOptions {
 	/** The address to bind; defaults to `127.0.0.1`. */
 	host?: string;
 	/** Ports tried in order, so a remembered port can fall back to an OS-chosen one. */
 	ports: readonly number[];
-	handler: LoopbackHandler;
-	/** Largest body accepted; absent, no body is read and a route sees `""`. */
-	maxBodyBytes?: number;
-	/** Grace after the last event stream leaves; omitted, the server waits for `close()`. */
-	idle?: IdleGrace;
-	/** The timer the idle grace is armed on. */
-	timer?: ArmTimer;
 }
 
-/** A bound loopback server. */
-export interface LoopbackServer {
+/** A bound server, before any page has mounted on it. */
+export interface ServedServer {
 	/** The port it actually bound. */
 	port: number;
 	/** `http://<host>:<port>`, the address the caller prints. */
 	origin: string;
 	/**
-	 * End every open stream, stop the idle grace, and close the socket. Idempotent.
-	 *
-	 * A last frame is the caller's to send before it calls this: closing is not a
-	 * conclusion, and only the route knows what its readers were waiting for.
+	 * Add one prefix. `undefined` means the prefix is already taken, which a caller
+	 * reports rather than lets two pages answer as one.
+	 */
+	mount(spec: ServedMount): Mount | undefined;
+	/**
+	 * End every mount's streams and close the socket. Idempotent, and what the last
+	 * mount's release does on its own.
 	 */
 	close(): Promise<void>;
+}
+
+/** One prefix as the server holds it: its spec, its streams, and its mount handle. */
+interface Route {
+	spec: ServedMount;
+	base: string;
+	sinks: SinkRegistry;
+	mount: Mount;
 }
 
 /** The one refusal this layer answers itself: a body it will not read. */
@@ -99,6 +137,10 @@ const STREAM_WITHOUT_SINK: ServeResponse = textResponse(500, "Internal error");
 /** A handler that threw, or a socket that failed after its head was written. */
 const INTERNAL_ERROR: ServeResponse = textResponse(500, "Internal error");
 
+/** A prefix no mount claims, and a target no URL parser accepts. */
+const NOT_FOUND: ServeResponse = textResponse(404, "Nothing is served at this path.");
+const MALFORMED: ServeResponse = textResponse(400, "Malformed request URL.");
+
 /**
  * Bind the first port that answers, falling back in order. Rejects with the last
  * bind error, so a caller can still name the reason (`EADDRINUSE` and friends).
@@ -113,6 +155,31 @@ async function bindFirst(server: Server, host: string, ports: readonly number[])
 		}
 	}
 	throw failure instanceof Error ? failure : new Error(`could not bind ${host}`);
+}
+
+/** One prefix, spelled the way dispatch compares it: no trailing slash, a leading one. */
+function normalizeBase(prefix: string): string {
+	const trimmed = prefix.replace(/\/+$/, "");
+	if (trimmed === "" || trimmed === "/") return "";
+	return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+/** Whether `base` is a prefix of `pathname` at a segment boundary; `""` covers everything. */
+function prefixCovers(base: string, pathname: string): boolean {
+	return base === "" || pathname === base || pathname.startsWith(`${base}/`);
+}
+
+/**
+ * The mount a path belongs to: the longest prefix that covers it, so `/plan/a` wins
+ * over a bare `/plan` and a root mount is the fallback rather than the rival.
+ */
+function routeFor(routes: Map<string, Route>, pathname: string): Route | undefined {
+	let best: Route | undefined;
+	for (const route of routes.values()) {
+		if (!prefixCovers(route.base, pathname)) continue;
+		if (best === undefined || route.base.length > best.base.length) best = route;
+	}
+	return best;
 }
 
 /**
@@ -157,22 +224,45 @@ function once(fn: (() => void) | undefined): (() => void) | undefined {
 	};
 }
 
-/** Route one request: read, dispatch, then answer, stream, or refuse. */
+/**
+ * Route one request: pick the mount, read, dispatch, then answer, stream, or refuse.
+ *
+ * A request that names a prefix without its slash is redirected to the slashed form,
+ * because a page's own links are relative to its directory and `/board` is not one.
+ */
 async function answer(
 	request: IncomingMessage,
 	response: ServerResponse,
-	options: LoopbackOptions,
-	sinks: SinkRegistry,
+	routes: Map<string, Route>,
+	redirect: (to: string) => ServeResponse,
 ): Promise<void> {
 	const method = request.method ?? "GET";
-	const body = options.maxBodyBytes === undefined ? "" : await readBody(request, options.maxBodyBytes);
+	const target = request.url ?? "/";
+	const parsed = parseRequestUrl(target);
+	if (!parsed) {
+		respond(request, response, MALFORMED);
+		return;
+	}
+	const route = routeFor(routes, parsed.pathname);
+	if (route === undefined) {
+		respond(request, response, NOT_FOUND);
+		return;
+	}
+	if (route.base !== "" && parsed.pathname === route.base) {
+		respond(request, response, redirect(`${route.base}/${parsed.search.toString() === "" ? "" : `?${parsed.search}`}`));
+		return;
+	}
+	const rest = target.slice(route.base.length);
+	const url = rest === "" ? "/" : rest.startsWith("?") ? `/${rest}` : rest;
+	const limit = route.spec.maxBodyBytes;
+	const body = limit === undefined ? "" : await readBody(request, limit);
 	if (body === undefined) {
 		respond(request, response, BODY_TOO_LARGE);
 		return;
 	}
 	let reply: LoopbackReply;
 	try {
-		reply = await options.handler({ method, url: request.url ?? "/", headers: request.headers, body });
+		reply = await route.spec.handler({ method, url, headers: request.headers, body });
 	} catch {
 		reply = { result: INTERNAL_ERROR };
 	}
@@ -186,7 +276,7 @@ async function answer(
 	// the client would otherwise wait on frames it asked not to get.
 	if (reply.openSink !== undefined && method.toUpperCase() !== "HEAD") {
 		openEventStream(response, reply.result);
-		const sink = sinks.open(response);
+		const sink = route.sinks.open(response);
 		const detach = reply.openSink(sink);
 		let closed = false;
 		const finish = (): void => {
@@ -205,33 +295,67 @@ async function answer(
 }
 
 /** Start a server on the first port that binds, and close it idempotently. */
-export async function serveLoopback(options: LoopbackOptions): Promise<LoopbackServer> {
+export async function serveHttp(options: ServeOptions): Promise<ServedServer> {
 	const host = options.host ?? "127.0.0.1";
-	const sinks = createSinks({ idle: options.idle, timer: options.timer });
+	const routes = new Map<string, Route>();
+	let closed = false;
+	let closeServer: (() => Promise<void>) | undefined;
+
+	const close = async (): Promise<void> => {
+		if (closed) return;
+		closed = true;
+		// Streams end first: a connected page must not hold the close open.
+		const open = [...routes.values()];
+		routes.clear();
+		for (const route of open) route.sinks.endAll();
+		await closeServer?.();
+	};
+
 	const server = createServer((request, response) => {
 		// A page that walks away mid-frame must not take the session down.
 		response.on("error", () => {});
-		void answer(request, response, options, sinks).catch(() => {
+		void answer(request, response, routes, (to) => ({
+			status: 301,
+			headers: { ...jsonHeaders(), Location: to },
+			body: "",
+		})).catch(() => {
 			// A route that failed after its head was written can only be cut off; ending
 			// the socket beats a client waiting on a reply that will not come.
 			if (!response.writableEnded) response.end();
 		});
 	});
 	const port = await bindFirst(server, host, options.ports);
-	// The socket is bound but no page may ever read it: a server that asked for a first
-	// grace arms it here, so a browser that never came up cannot hold the port all session.
-	sinks.start();
-	const closeServer = createCloser(server);
-	let closed = false;
+	closeServer = createCloser(server);
+	const origin = `http://${host}:${port}`;
+
 	return {
 		port,
-		origin: `http://${host}:${port}`,
-		close: async () => {
-			if (closed) return;
-			closed = true;
-			// Streams end first: a connected page must not hold the close open.
-			sinks.endAll();
-			await closeServer();
+		origin,
+		mount(spec) {
+			const base = normalizeBase(spec.prefix);
+			if (routes.has(base)) return undefined;
+			const sinks = createSinks({ idle: spec.idle, timer: spec.timer });
+			const route: Route = {
+				spec: { ...spec, prefix: base },
+				base,
+				sinks,
+				mount: {
+					base,
+					port,
+					origin,
+					release: async () => {
+						if (!routes.delete(base)) return;
+						sinks.endAll();
+						if (routes.size === 0) await close();
+					},
+				},
+			};
+			routes.set(base, route);
+			// A mount that asked for a first grace arms it here, so a browser that never
+			// came up cannot hold the prefix for the rest of the session.
+			sinks.start();
+			return route.mount;
 		},
+		close,
 	};
 }

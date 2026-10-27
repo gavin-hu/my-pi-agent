@@ -24,7 +24,7 @@ surface arrives with its limitation written in the same breath.
 
 ## Where we are
 
-- 21 extensions, 4 packaged skills, 2 themes, one shared `bytefly.json`.
+- 22 extensions, 4 packaged skills, 2 themes, one shared `bytefly.json`.
 - Foundations that hold: no build step, no fork, every extension optional,
   three-OS CI, a shared `lib/tui/` and `lib/web/` design system, budgeted prompt
   context, and package-level guards that hold the docs, the catalog, the release
@@ -411,8 +411,10 @@ Nothing here is queued: `test/doc-counts.test.ts` now derives the extension, ski
 theme, and tool counts every document states, so a count without a guard is the
 exception rather than the rule.
 
-Binding, the accept path, the close path, and idle grace are one server entry,
-and a page cannot outlive the session it describes.
+Binding, the accept path, the close path, and idle grace are one server per session:
+`serve` owns the socket, each page claims a path prefix on it (`/`, `/board/`,
+`/plan/<id>/`), and the socket closes with its last page — so a session has one port,
+one chip, and one close path, and a page cannot outlive the session it describes.
 
 **Next**
 

@@ -1,9 +1,9 @@
 /**
- * The socket primitives `serveLoopback` is built from: bind, write a response
- * out, and close.
+ * The socket primitives `serveHttp` is built from: bind, write a response out, and
+ * close.
  *
  * Internal to the layer: an extension starts a server through
- * `serveLoopback`, which composes these, so this module is reached from `lib/http`
+ * `serveHttp`, which composes these, so this module is reached from `lib/http`
  * and its own suite — not from the barrel. Everything here is behavior a caller
  * cannot get right by accident: a bind on an address the caller names (loopback
  * unless it asked for more), an accept-level `error` listener so a transient

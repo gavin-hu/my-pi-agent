@@ -16,13 +16,15 @@ read from outside it. Each one is built around an explicit boundary.
 
 ### Loopback HTTP servers
 
-Three surfaces serve local HTTP:
+One loopback server per session serves every page, and each page mounts a path prefix on
+  it: [`serve`](../extensions/serve/) binds `127.0.0.1` once and hands out those prefixes,
+  so the unit of exposure is the mount rather than the socket.
 
-- [`file-browse`](../extensions/file-browse/) binds `127.0.0.1` only, is
+- [`file-browse`](../extensions/file-browse/) holds the origin's root, is
   read-only, and is rooted at the working directory. Its `/events` stream carries
   the same status the page already renders — a branch, changed paths, an uptime,
   a request count — and can only be read; at most eight pages may hold it.
-- [`board`](../extensions/board/)'s page binds `127.0.0.1` and is the one that
+- [`board`](../extensions/board/)'s page mounts `/board` and is the one that
   **writes** — to the board store under the agent directory, never to the
   repository. It mints two 128-bit tokens when it starts: the lead's, which satisfies
   every route, and a viewer's, which satisfies the reads and is refused on every write.
@@ -35,18 +37,19 @@ Three surfaces serve local HTTP:
   the session that opened it — and claim, reclaim, drop, and assign confirm in the page
   first because a browser is not an identity. The page closes on `/board stop`, a minute
   after its last tab leaves (a viewer's tab counts), or at session shutdown.
-- [`plan`](../extensions/plan/)'s browser review binds `127.0.0.1`, is
-  tokenized, and closes its server on the owner's save or cancel, the owner's page
-  going away, or session shutdown. Sharing adds a second listener on one address
+- [`plan`](../extensions/plan/)'s browser review mounts `/plan/<id>`, is
+  tokenized, and gives its prefix back on the owner's save or cancel, the owner's page
+  going away, or session shutdown. Sharing asks that mount for a second listener on one address
   this machine has, only while the owner has sharing on; it serves the same routes
   under reviewer tokens that may comment and nothing else. Each token is one link
   and binds the one name its comments are signed with on its first post, so a link
   cannot write under another reviewer's markers. A link is revoked alone, and
   **Stop sharing** closes the listener and revokes every link.
 
-The loopback listeners never leave `127.0.0.1`; the only wider bind is the share
+The loopback socket never leaves `127.0.0.1`; the only wider bind is the share
 listener the owner starts and can revoke, and it answers only the one address the
-share dialog printed. All three answer from one shared policy in `lib/http` — the
+share dialog printed, carrying that one page's prefix. All three answer from one shared
+policy in `lib/http` — the
 same CSP (which refuses to be framed), the same `Host` allowlist shape, the same
 event-stream headers, and the same bind/close rules. The pages that can write
 share more than that: `envelopeRefusal` orders the method, `Host`, and origin

@@ -32,6 +32,8 @@ const PAINT_MS = 10_000;
 const ANNOTATION: PlanAnnotation = { anchor: 0, comment: "needs a rollback step", author: "priya" };
 
 const PAGE: ReviewPageData = {
+	// The fixture answers at the origin's root, which is what its own server serves.
+	base: "",
 	title: "Add rate limiting",
 	blocks: [
 		{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] },
@@ -78,10 +80,10 @@ function context(page: ReviewPageData): ReviewContext {
 		canApprove: true,
 		page: async () => page,
 		save: async (): Promise<SaveResult> => ({ ok: true }),
-		share: async () => ({ state: { sharing: false, port: 0, links: [] } }),
-		invite: async () => ({ state: { sharing: false, port: 0, links: [] } }),
-		revoke: async () => ({ state: { sharing: false, port: 0, links: [] } }),
-		stopShare: async () => ({ state: { sharing: false, port: 0, links: [] } }),
+		share: async () => ({ state: { sharing: false, origin: "", links: [] } }),
+		invite: async () => ({ state: { sharing: false, origin: "", links: [] } }),
+		revoke: async () => ({ state: { sharing: false, origin: "", links: [] } }),
+		stopShare: async () => ({ state: { sharing: false, origin: "", links: [] } }),
 		onSaved: () => {},
 		onApprove: () => {},
 		onCancel: () => {},

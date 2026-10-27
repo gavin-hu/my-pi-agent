@@ -155,7 +155,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
 
   /** The live channel: a reconnect is the browser's own retry, not a second request. */
   function stream() {
-    var source = new EventSource("/events?token=" + encodeURIComponent(token));
+    var source = new EventSource(pageBase() + "/events?token=" + encodeURIComponent(token));
     source.onopen = function () {
       badge("live", board.lastFrame);
     };

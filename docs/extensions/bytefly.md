@@ -263,9 +263,8 @@ Two lines, each with a left and right zone:
 
 - **Line 1 — identity:** `pwd` and the session name on the left; on the right the
   alert, then the mode chips (`≡ plan`), then `⎇ branch · ⑂ worktree`, then the
-  ports (`⊞ 5043 · ◉ 4909`) while a page is being served. The board page and the
-  file browser each publish one status key, and the bar reads both as a single
-  segment, so they share a weight, a position, and a floor.
+  session's page port (`◉ 4780`) while anything is served on it. One server serves
+  every page of a session, so it is one number from one status key.
 - **Line 2 — resources:** the context gauge and usage meters on the left, the
   child-run roll-up (`↳ 3 · ¥0.12`, present only once a subagent has finished),
   and the model and thinking level on the right. The gauge is anchored at column
@@ -293,11 +292,10 @@ With no plan mode the mode slot is simply absent:
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87%                               opus-4.5 · high
 ```
 
-While a page is served, its port joins the run beside the worktree — both pages as
-one cluster, in a fixed order, so the pair reads as a pair:
+While a page is served, the session's port joins the run beside the worktree:
 
 ```
-~/repo/my-pi-agent                                                          ⎇ main · ⊞ 5043 · ◉ 4909
+~/repo/my-pi-agent                                                                 ⎇ main · ◉ 4780
 ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87%                               opus-4.5 · high
 ```
 
@@ -315,12 +313,12 @@ fits, rather than collapsing to a bare glyph:
 ▰▰▰▰▰▰▱▱▱▱ 62%  opus-4.5
 ```
 
-A port is dropped before the pages it names are: the cluster compacts to
-`⊞ ◉` once the digits no longer fit, so the narrowest bar that fits the location
-chips still says a page is up.
+The port drops the digits before the page they name: it compacts to `◉` once
+the number no longer fits, so the narrowest bar that fits the location chips still
+says a page is up.
 
 ```
-~/repo/my-pi-agent          ⎇ main · ⊞ ◉
+~/repo/my-pi-agent            ⎇ main · ◉
 ▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31   opus-4.5 · high
 ```
 
@@ -346,7 +344,7 @@ Each segment reads a theme role and carries its own drop order:
 | session | 1 left | muted, bracketed | after worktree |
 | branch | 1 right | muted (warning when detached) | last |
 | worktree | 1 right | success | first |
-| ports `⊞ 5043 · ◉ 4909` | 1 right | success glyphs + accent ports | first, in one step |
+| port `◉ 4780` | 1 right | success glyph + accent port | first |
 | context gauge + `%` | 2 left | muted ≤70 · warning 71–90 · error >90 | never |
 | `/window` | 2 left | dim | before cost |
 | cost | 2 left | muted | after tokens |
@@ -357,15 +355,12 @@ Each segment reads a theme role and carries its own drop order:
 | thinking level | 2 right | thinking token | before cost |
 
 The worktree status is read from the `worktree` status key, so the
-[worktree](./worktree.md) extension and the bar agree. The ports are the `board`
-and `browse` status keys, published by [board](./board.md) and
-[file-browse](./file-browse.md) while their pages are served. One segment reads
-both, in a fixed order (board, then browse), each a two-tone `<glyph> <port>`
-with a green glyph and an accent port. That is one fact — "a page is up on this
-port" — so it gets one weight and one floor: the pair compacts from
-`⊞ 5043 · ◉ 4909` to `⊞ 5043 ◉ 4909` to `⊞ ◉`, and it drops as a unit, where
-separate chips once let the board port outlive the browse one by four columns
-for no reason a reader could see.
+[worktree](./worktree.md) extension and the bar agree. The port is the `http`
+status key, published by [serve](./serve.md) while anything is mounted on the
+session's server — one number, because one socket serves every page a session
+opens. It is a two-tone `<glyph> <port>` with a green glyph and an accent port,
+and it compacts from `◉ 4780` to `◉` before it drops, so a bar too narrow for
+the number still says a page is up.
 
 The mode slot holds everything else an extension publishes: a plan chip, a
 job count, a rewind timeline, the `✆` bridge, and an alert's front position. A
@@ -1474,11 +1469,10 @@ rather than showing a wrong value.
   segment, so the percentage cannot move at all.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line, so the bar sorts them by meaning instead:
-  `worktree` and `browse` are location, so the `◉ <port>` chip sits behind `⎇`
-  branch and `⑂` worktree; the `board` key is location too, and the two ports
-  are one segment because they are one fact, so they share a weight and a floor;
-  a plan is a mode, so it leads the state line beside them; a failed job is an
-  alert, so it is its own segment ahead of both. The
+  `worktree` is location, so the `◉ <port>` chip sits behind `⎇`
+  branch and `⑂` worktree, and it is the session's one page port, so it keeps a
+  weight and a floor of its own; a plan is a mode, so it leads the state line
+  beside them; a failed job is an alert, so it is its own segment ahead of both. The
   [wechat](./wechat.md) extension publishes `✆ wechat` while its bridge runs,
   which is why the bar has to render `getExtensionStatuses()` at all.
 - **A state chip leads its zone, so the zone does not move under it.** The right

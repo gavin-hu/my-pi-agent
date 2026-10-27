@@ -44,6 +44,8 @@ export interface ReviewOutlineItem {
 
 /** Everything the browser needs to render one plan review. */
 export interface ReviewPageData {
+	/** The mount prefix the review answers under, so its own script is named from there. */
+	base: string;
 	/** Plan title: the document's H1, or the file-name slug when it has none. */
 	title: string;
 	/** Source-line blocks of the feedback-stripped plan. */
@@ -93,6 +95,8 @@ export interface ReviewPageData {
 
 /** What one island build reads. */
 export interface ReviewPayloadInput {
+	/** The mount prefix the review answers under, e.g. `/plan/3f9c21aa`. */
+	base: string;
 	/** The plan's path, for the title's file-name fallback. */
 	path: string;
 	/** The plan as stored, feedback markers included. */
@@ -158,6 +162,7 @@ export function reviewPageData(input: ReviewPayloadInput): ReviewPageData {
 		if (language) code[String(block.start)] = highlightLines(codeBody(block), language);
 	}
 	return {
+		base: input.base,
 		// The document's own H1 reads better than the file-name slug, and the slug is
 		// still the fallback for a plan that starts with something else.
 		title: marks.find((mark) => mark.section.level === 1)?.section.title || planTitle(basename(input.path)),

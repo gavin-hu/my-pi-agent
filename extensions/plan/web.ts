@@ -10,18 +10,19 @@
  * the socket, and it takes injected seams so tests can run one on `127.0.0.1:0`.
  */
 
-import { networkInterfaces } from "node:os";
 import { openInBrowser } from "../../lib/browser.ts";
 import {
+	type HttpMount,
 	jsonHeaders,
 	type LoopbackRequest,
 	type LoopbackReply,
-	type LoopbackServer,
+	type MountOutcome,
+	type MountSource,
 	parseRequestUrl,
-	serveLoopback,
 	type ServeResponse,
 } from "../../lib/http/index.ts";
 import { type ArmTimer, defaultInterval, defaultTimer, type RepeatTimer } from "../../lib/timer.ts";
+import { mintToken } from "../../lib/http/index.ts";
 import { stripFeedback, type PlanAnnotation } from "./feedback.ts";
 import type { PlanStore, StoredPlan } from "./plans.ts";
 import type { SectionDigest } from "./plan-text.ts";
@@ -88,8 +89,10 @@ export interface PlanWebReviewDeps {
 	open?: (url: string) => void;
 	/** Override the session token (tests). */
 	token?: () => string;
-	/** Override the bind port; the default `0` lets the OS pick. */
-	port?: number;
+	/** Where the review's prefix comes from: the session's server, or a suite's own. */
+	mount: MountSource;
+	/** The Pi session asking, so the prefix lands on this session's socket. */
+	session: () => string;
 	/** Override the closed-tab grace; the default leaves a reload time to reconnect. */
 	dropGraceMs?: number;
 	/**
@@ -128,14 +131,22 @@ const DROP_GRACE_MS = 1500;
  */
 const PLAN_POLL_MS = 1000;
 
-export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = {}): PlanWebReview {
+/**
+ * The deps a caller that injects its own review leaves out.
+ *
+ * A review needs a place on the session's server, so a caller with no wiring says so
+ * rather than binding a socket of its own: the start is refused with a sentence.
+ */
+export const NO_SERVER_DEPS: PlanWebReviewDeps = {
+	mount: async () => ({ kind: "refused", reason: "this review has no server wired" }),
+	session: () => "",
+};
+
+export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): PlanWebReview {
 	const sessions = new Set<PlanReviewSession>();
 	// What each running review can do about sharing; the session itself stays the
 	// four things a caller awaits and closes.
 	const shares = new Map<PlanReviewSession, ShareSession>();
-	// Last bound port per plan path, so the same plan keeps one origin across
-	// review turns (and its saved browser theme with it).
-	const ports = new Map<string, number>();
 
 	const start = async (
 		cwd: string,
@@ -152,8 +163,8 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 		// the name each link has bound.
 		const tokens = createTokens(deps.token);
 		const token = tokens.mint("owner");
-		// The owner's bound port, so a shared listener can reuse it for the same URL shape.
-		let currentPort = 0;
+		// The review's own path segment: short, opaque, and stable for this review's life.
+		const id = mintToken().slice(0, 8);
 		let settled = false;
 		let resolveDone!: (result: PlanReviewResult) => void;
 		const done = new Promise<PlanReviewResult>((resolve) => {
@@ -233,6 +244,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			// The island is one function of what the page renders: the text, the baseline
 			// the previous review left, and who is asking.
 			return reviewPageData({
+				base,
 				path: plan.path,
 				content: stored.content,
 				baseline: options.baseline,
@@ -274,14 +286,26 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			return posted.save;
 		};
 
+		// One review, one prefix on the session's server: the id is the review's, so two
+		// reviews of two plans (or one plan twice) never share a namespace, and the origin
+		// is the session's single port.
+		const base = `/plan/${id}`;
+		const outcome: MountOutcome = await deps.mount({
+			session: deps.session(),
+			prefix: base,
+			maxBodyBytes: bodyLimit,
+			handler: handleRequest,
+		});
+		if (outcome.kind === "refused") return undefined;
+		const mount: HttpMount = outcome.mount;
+		const port = mount.port;
+
 		// The second listener, its reviewer token, and the state the page and
 		// `/plan share` read. It is handed the request handler, the role map, and the
 		// frame hooks, so sharing stays one concern instead of five fields here.
 		const shareSession = createShareSession({
-			handleRequest,
-			maxBodyBytes: bodyLimit,
-			ownerPort: () => currentPort,
-			networkInterfaces: deps.networkInterfaces ?? networkInterfaces,
+			mount,
+			base,
 			mintReviewer: () => tokens.mint("reviewer"),
 			revokeReviewer: (value) => tokens.revoke(value),
 			nameOf: (value) => tokens.get(value)?.name,
@@ -348,27 +372,11 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			};
 		}
 
-		const preferred = deps.port ?? ports.get(plan.path) ?? 0;
-		let server: LoopbackServer;
-		try {
-			server = await serveLoopback({
-				ports: preferred === 0 ? [0] : [preferred, 0],
-				maxBodyBytes: bodyLimit,
-				handler: handleRequest,
-			});
-		} catch {
-			// The remembered port may have been taken between turns; the fallback above
-			// covers that, so reaching here means neither port answered.
-			return undefined;
-		}
-		const port = server.port;
-		ports.set(plan.path, port);
-		currentPort = port;
 		// Armed only now: a review whose listener never bound has no page to keep current,
 		// and an interval started for it would outlive the session that failed to start.
 		stopTicker = (deps.tick ?? defaultInterval)(deps.pollMs ?? PLAN_POLL_MS, () => void checkPlanFile());
 
-		const url = `http://127.0.0.1:${port}/?token=${token}`;
+		const url = `${mount.origin}${base}/?token=${token}`;
 		let closed = false;
 		let abortHandler: (() => void) | undefined;
 		const close = async (): Promise<void> => {
@@ -383,7 +391,7 @@ export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps = 
 			stopTicker();
 			streams.clear();
 			await shareSession.close();
-			await server.close();
+			await mount.release();
 		};
 
 		const session: PlanReviewSession = { url, port, done, close };

@@ -8,24 +8,21 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { createServer, type Server } from "node:http";
 import { createConnection } from "node:net";
-import { eventHeaders, jsonHeaders, textResponse } from "./index.ts";
-import { type LoopbackServer, serveLoopback } from "./serve.ts";
+import { eventHeaders, textResponse } from "./index.ts";
+import { type ServedServer, serveHttp } from "./serve.ts";
 import type { ArmTimer } from "../timer.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 
-const running: LoopbackServer[] = [];
-const blockers: Server[] = [];
+const running: ServedServer[] = [];
 
 afterEach(async () => {
 	for (const server of running.splice(0)) await server.close();
-	for (const server of blockers.splice(0)) server.close();
 });
 
 /** Start a server under test and remember it for teardown. */
-async function start(options: Parameters<typeof serveLoopback>[0]): Promise<LoopbackServer> {
-	const server = await serveLoopback(options);
+async function start(ports: readonly number[] = [0]): Promise<ServedServer> {
+	const server = await serveHttp({ ports });
 	running.push(server);
 	return server;
 }
@@ -66,188 +63,114 @@ function graceTimer(): { timer: ArmTimer; fire(): void; armed: number; cancelled
 	return state;
 }
 
-describe("serveLoopback", () => {
-	test("answers the handler's reply, then closes once and stops accepting", async () => {
-		const server = await start({ ports: [0], handler: async () => ({ result: textResponse(200, "ok") }) });
-		expect(server.port).toBeGreaterThan(0);
-		expect(server.origin).toBe(`http://127.0.0.1:${server.port}`);
-		const reply = await fetch(`${server.origin}/`);
-		expect(reply.status).toBe(200);
-		expect(await reply.text()).toBe("ok");
-
-		expect(await connectionRefused(server.port)).toBe(false);
-		await server.close();
-		await server.close();
-		expect(await connectionRefused(server.port)).toBe(true);
-	});
-
-	test("reads a request body under the cap", async () => {
-		const server = await start({
-			ports: [0],
-			maxBodyBytes: 64,
-			handler: async (request) => ({ result: textResponse(200, `${request.method} ${request.body}`) }),
+describe("serveHttp", () => {
+	test("serves several mounts on one port, each under its own prefix", async () => {
+		const server = await start();
+		const board = server.mount({
+			prefix: "/board",
+			handler: async (r) => ({ result: textResponse(200, `board ${r.url}`) }),
 		});
-		const reply = await fetch(`${server.origin}/save`, { method: "POST", body: "notes" });
-		expect(await reply.text()).toBe("POST notes");
-	});
-
-	test("answers an oversize body 413 over the open socket", async () => {
-		const server = await start({
-			ports: [0],
-			maxBodyBytes: 8,
-			handler: async () => ({ result: textResponse(200, "should not run") }),
+		const files = server.mount({
+			prefix: "/files",
+			handler: async (r) => ({ result: textResponse(200, `files ${r.url}`) }),
 		});
-		const reply = await fetch(`${server.origin}/save`, { method: "POST", body: "x".repeat(64) });
-		expect(reply.status).toBe(413);
-		expect(reply.headers.get("content-type")).toBe(jsonHeaders()["Content-Type"]);
-		expect(await reply.json()).toEqual({ error: "The request body is too large." });
+		expect(board?.base).toBe("/board");
+		expect(files?.port).toBe(server.port);
+
+		// One socket, one port: the pages share the only listener the session has.
+		expect(await (await fetch(`${server.origin}/board/app.js?v=1`)).text()).toBe("board /app.js?v=1");
+		expect(await (await fetch(`${server.origin}/files/view/a.txt`)).text()).toBe("files /view/a.txt");
 	});
 
-	test("reads no body at all when no cap is set", async () => {
-		const server = await start({
-			ports: [0],
-			handler: async (request) => ({ result: textResponse(200, `[${request.body}]`) }),
+	test("answers a prefix nobody claimed, and no path, as a 404", async () => {
+		const server = await start();
+		server.mount({ prefix: "/board", handler: async () => ({ result: textResponse(200, "ok") }) });
+		expect((await fetch(`${server.origin}/plan/x/`)).status).toBe(404);
+		// A prefix is a directory: `/boardX` is not inside `/board`.
+		expect((await fetch(`${server.origin}/boardX`)).status).toBe(404);
+	});
+
+	test("redirects a prefix named without its slash, so relative links resolve", async () => {
+		const server = await start();
+		server.mount({ prefix: "/board", handler: async () => ({ result: textResponse(200, "page") }) });
+		const reply = await fetch(`${server.origin}/board?token=t`, { redirect: "manual" });
+		expect(reply.status).toBe(301);
+		expect(reply.headers.get("location")).toBe("/board/?token=t");
+	});
+
+	test("lets a root mount and a prefixed one answer side by side", async () => {
+		const server = await start();
+		server.mount({ prefix: "", handler: async () => ({ result: textResponse(200, "root") }) });
+		server.mount({ prefix: "/board", handler: async () => ({ result: textResponse(200, "board") }) });
+		expect(await (await fetch(`${server.origin}/`)).text()).toBe("root");
+		expect(await (await fetch(`${server.origin}/board/`)).text()).toBe("board");
+	});
+
+	test("reads each request under the cap of the mount it reached", async () => {
+		const server = await start();
+		server.mount({
+			prefix: "/small",
+			maxBodyBytes: 4,
+			handler: async (r) => ({ result: textResponse(200, `[${r.body}]`) }),
 		});
-		const reply = await fetch(`${server.origin}/save`, { method: "POST", body: "notes" });
-		expect(await reply.text()).toBe("[]");
+		server.mount({ prefix: "/big", handler: async (r) => ({ result: textResponse(200, `[${r.body}]`) }) });
+
+		const kept = await fetch(`${server.origin}/small/save`, { method: "POST", body: "ok" });
+		expect(await kept.text()).toBe("[ok]");
+		const refused = await fetch(`${server.origin}/small/save`, { method: "POST", body: "toolarge" });
+		expect(refused.status).toBe(413);
+		// The neighbour sets no cap, so it reads no body at all rather than inheriting one.
+		const uncapped = await fetch(`${server.origin}/big/save`, { method: "POST", body: "toolarge" });
+		expect(await uncapped.text()).toBe("[]");
 	});
 
-	test("streams frames until the client leaves, then detaches it", async () => {
-		let detached = 0;
-		const server = await start({
-			ports: [0],
-			handler: async () => ({
-				result: { status: 200, headers: eventHeaders(), stream: true },
-				openSink: (sink) => {
-					sink.write("data: one\n\n");
-					return () => {
-						detached += 1;
-					};
-				},
-			}),
-		});
-		const controller = new AbortController();
-		const reply = await fetch(`${server.origin}/events`, { signal: controller.signal });
-		expect(reply.headers.get("content-type")).toBe(eventHeaders()["Content-Type"]);
-		const reader = reply.body?.getReader();
-		const first = await reader?.read();
-		expect(new TextDecoder().decode(first?.value)).toStartWith("retry: 2000\n\ndata: one");
-		controller.abort();
-		// The client's departure reaches the server's socket asynchronously, so a fixed
-		// number of turns is a race on a loaded runner: wait for the fact, not for time.
-		await waitFor(() => detached === 1);
-		expect(detached).toBe(1);
+	test("refuses a prefix that is already taken", async () => {
+		const server = await start();
+		expect(
+			server.mount({ prefix: "/board", handler: async () => ({ result: textResponse(200, "one") }) }),
+		).toBeDefined();
+		expect(
+			server.mount({ prefix: "/board/", handler: async () => ({ result: textResponse(200, "two") }) }),
+		).toBeUndefined();
 	});
 
-	test("answers a HEAD of a stream as a plain response, opening nothing", async () => {
-		let opened = 0;
-		const server = await start({
-			ports: [0],
-			handler: async () => ({
-				result: { status: 200, headers: eventHeaders(), stream: true },
-				openSink: () => {
-					opened += 1;
-					return () => {};
-				},
-			}),
-		});
-		const reply = await fetch(`${server.origin}/events`, { method: "HEAD" });
-		expect(reply.status).toBe(200);
-		expect(opened).toBe(0);
-		expect(await reply.text()).toBe("");
-	});
-
-	test("refuses a stream reply that offers no sink", async () => {
-		const server = await start({
-			ports: [0],
-			handler: async () => ({ result: { status: 200, headers: eventHeaders(), stream: true } }),
-		});
-		const reply = await fetch(`${server.origin}/events`);
-		expect(reply.status).toBe(500);
-	});
-
-	test("answers a thrown handler as a 500 instead of dropping the request", async () => {
-		const server = await start({
-			ports: [0],
-			handler: () => {
-				throw new Error("route exploded");
-			},
-		});
-		const reply = await fetch(`${server.origin}/`);
-		expect(reply.status).toBe(500);
-		expect(await reply.text()).toBe("Internal error");
-	});
-
-	test("falls back to the next port when the first is taken", async () => {
-		const blocker = createServer(() => {});
-		blockers.push(blocker);
-		const taken = await new Promise<number>((resolve) => {
-			blocker.listen(0, "127.0.0.1", () => {
-				const address = blocker.address();
-				resolve(typeof address === "object" && address ? address.port : 0);
-			});
-		});
-		const server = await start({ ports: [taken, 0], handler: async () => ({ result: textResponse(200, "ok") }) });
-		expect(server.port).not.toBe(taken);
-		expect((await fetch(`${server.origin}/`)).status).toBe(200);
-	});
-
-	test("even the server's own idle grace leaves the grace to the caller", async () => {
+	test("arms the idle grace of the mount that asked, not of the socket", async () => {
 		const timer = graceTimer();
-		let idled = 0;
-		const server = await start({
-			ports: [0],
-			idle: { ms: 10, onIdle: () => (idled += 1) },
+		const idled: string[] = [];
+		const server = await start();
+		server.mount({
+			prefix: "/board",
+			idle: { ms: 10, onIdle: () => idled.push("board") },
 			timer: timer.timer,
 			handler: async () => ({
 				result: { status: 200, headers: eventHeaders(), stream: true },
 				openSink: () => () => {},
 			}),
 		});
+		server.mount({ prefix: "/files", handler: async () => ({ result: textResponse(200, "files") }) });
+
 		const controller = new AbortController();
-		await fetch(`${server.origin}/events`, { signal: controller.signal });
-		expect(timer.armed).toBe(0);
+		await fetch(`${server.origin}/board/events`, { signal: controller.signal });
 		controller.abort();
 		await waitFor(() => timer.armed === 1);
-		expect(timer.armed).toBe(1);
 		timer.fire();
-		expect(idled).toBe(1);
+		expect(idled).toEqual(["board"]);
+		// The other page is untouched: one mount going quiet is not the session going idle.
+		expect((await fetch(`${server.origin}/files/`)).status).toBe(200);
 	});
 
-	test("closes a server no tab ever opened, on the first grace", async () => {
-		const timer = graceTimer();
-		const reasons: string[] = [];
-		await start({
-			ports: [0],
-			// The no-tab grace is short in the test and two minutes in the board; the path is
-			// the same one a browser that never came up takes.
-			idle: { ms: 10, firstMs: 5, onIdle: (reason) => reasons.push(reason) },
-			timer: timer.timer,
-			handler: async () => ({ result: textResponse(200, "ok") }),
-		});
-		expect(timer.armed).toBe(1);
-		timer.fire();
-		expect(reasons).toEqual(["first"]);
-	});
+	test("closes the socket when its last mount is released, and not before", async () => {
+		const server = await start();
+		const board = server.mount({ prefix: "/board", handler: async () => ({ result: textResponse(200, "board") }) });
+		const files = server.mount({ prefix: "/files", handler: async () => ({ result: textResponse(200, "files") }) });
+		const port = server.port;
 
-	test("ends an open sink when the server closes", async () => {
-		let detached = 0;
-		const server = await serveLoopback({
-			ports: [0],
-			handler: async () => ({
-				result: { status: 200, headers: eventHeaders(), stream: true },
-				openSink: (sink) => {
-					sink.write("data: one\n\n");
-					return () => {
-						detached += 1;
-					};
-				},
-			}),
-		});
-		const reply = await fetch(`${server.origin}/events`);
-		await server.close();
-		// The stream completed rather than hanging, and the route was told to detach.
-		expect(await reply.text()).toBe("retry: 2000\n\ndata: one\n\n");
-		expect(detached).toBe(1);
+		await board?.release();
+		expect(await connectionRefused(port)).toBe(false);
+		expect((await fetch(`${server.origin}/board/`)).status).toBe(404);
+		expect((await fetch(`${server.origin}/files/`)).status).toBe(200);
+
+		await files?.release();
+		expect(await connectionRefused(port)).toBe(true);
 	});
 });

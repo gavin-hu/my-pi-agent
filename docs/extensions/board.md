@@ -305,17 +305,14 @@ it always meant: when the card was last touched, which is not when it last chang
 - **The page stops a minute after its last tab leaves, or two minutes after it starts
   with no tab at all.** Closing the tab to run a command and coming back is fine, and a
   teammate's watching tab counts as one. The second grace covers the page a browser never
-  opened — `openInBrowser` swallows a failure, and a port held by a page nobody saw is a
-  port held for the session. Either way `/board` starts it again, on the same port, and
-  prints the address it reopened.
-- **The port is found, or pinned.** With no setting the page prefers a free port in
-  4780–5779, falls back to whatever free port the OS gives it if that one is taken, and
-  remembers the answer for the session; `board.port` in `bytefly.json` pins it, so a
-  bookmarked URL survives a restart. A pinned port that is already taken fails the start —
-  `port 4780 is in use — change "port" in the bytefly.json board section, or stop what
-  answers on it` — because a quiet fallback would move the page out from under the
-  bookmark. A live note still wins: one repository has one page, so this session attaches to
-  the port that note names rather than serving a second one.
+  opened — `openInBrowser` swallows a failure, and a prefix held by a page nobody saw is a
+  prefix held for the session. Either way `/board` starts it again, on the session's port,
+  and prints the address it reopened.
+- **The prefix is `/board` on the session's one server.** The port belongs to `serve`, so
+  `/board`, `/browse`, and a browser plan review answer on one origin; `serve.port` in
+  `bytefly.json` pins that origin, so a bookmarked URL survives a restart. A live note still
+  wins: one repository has one page, so this session attaches to the page that note names
+  rather than serving a second one — and a session that attaches binds nothing at all.
 - **The note is believed only while it answers.** A page that crashed leaves its note
   behind; the next `/board` probes it, takes it over when nothing replies, and attaches to
   the page that won when two sessions start in the same instant. A clean exit — `/board
@@ -344,9 +341,9 @@ it always meant: when the card was last touched, which is not when it last chang
   forces a todo update, while `add` or `claim` counts as work like any other write.
 - **`worktree`**: the store is keyed by the repository's common git directory, so
   every worktree shares one board.
-- **`bytefly`**: the page's port appears as a `board` status chip, and `doctor`
-  reports nothing new — the board needs no binary and no per-machine setup; its one
-  setting, `board.port`, is a `bytefly.json` edit.
+- **`serve`**: the page mounts `/board` on the session's one server, which draws the
+  single `◉ <port>` chip. **`bytefly`**: the bar shows that chip, and `doctor` reports
+  nothing new — the board needs no binary and no per-machine setup.
 
 ## Design notes
 
@@ -431,8 +428,7 @@ it always meant: when the card was last touched, which is not when it last chang
   seat, and the token; it is created exclusively, so two sessions starting at
   once cannot both serve, and the loser attaches to the winner. The alternative —
   a setting that names the lead — was rejected: the role moves, the seat's name does
-  not. The port is the one thing a file may pin: `board.port` states where the page
-  listens, never who serves it.
+  not. The port in the note is the session's, never a number this page chose.
 - **The page is a view because a browser is not an identity.** Every page write was made
   as the seat, so a page `assign` had to write down that nobody had been told, and the
   client's copy of the card rules drifted from `lib/board/rules.ts` — it offered a drop
@@ -478,7 +474,6 @@ it always meant: when the card was last touched, which is not when it last chang
 | File | Responsibility |
 |---|---|
 | `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the page, register both, close on shutdown |
-| `config.ts` | The board's one setting: the port its page is pinned to, clamped, from the `bytefly.json` `board` section |
 | `schema.ts` | The tool's parameters |
 | `types.ts` | The shapes the tool registers and reports — the actions and the fields each acts on, the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
 | `tools.ts` | Action dispatch and the refusal shape |
@@ -486,7 +481,7 @@ it always meant: when the card was last touched, which is not when it last chang
 | `format.ts` | The model-facing text |
 | `rows.ts` | The transcript row grammar |
 | `result.ts` | The transcript block |
-| `page.ts` | The page's lifecycle: the port it remembers or is pinned to, the chip that names it, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
+| `page.ts` | The page's lifecycle: the `/board` prefix it holds on the session's server, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
 | `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |
 | `seat.ts` | The seat the page is served as: one name, and an id derived from it. The page cannot write, so it is a label now — but the id is still what a card claimed from an older page names |
@@ -513,9 +508,9 @@ The store, the rules, the rollup, and the snapshot are `lib/board/` — see
 record, the dependency graph, the note a page leaves, the rollup and its text, the card's
 transitions, the store a call opens and the identity it writes as, the files that store
 keeps, and the snapshot, and
-`extensions/board/{input,seat,tools,page,commands,config,extension,transport/router,view/pages,view/behaviour}`
+`extensions/board/{input,seat,tools,page,commands,extension,transport/router,view/pages,view/behaviour}`
 for the card body, the seat, every action, the page's lifecycle over a real socket (a page
 served, attached to, and taken over, and a write refused on the wire), the command, the
-`board.port` setting, the factory, the routes, the document and client bundle, and the
+factory, the routes, the document and client bundle, and the
 page driven in a browser — a card opened from its title, the filter, the fold, a live
 frame, and the dialog's ladder.

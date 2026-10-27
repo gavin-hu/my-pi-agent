@@ -9,7 +9,7 @@
  */
 
 import { afterAll, afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, realpathSync } from "node:fs";
 import { createConnection } from "node:net";
 import { join } from "node:path";
 import { type RepeatTimer } from "../../../lib/timer.ts";
@@ -18,13 +18,19 @@ import type { DiffList, GitDiffProvider } from "../git/git.ts";
 import fileBrowser from "../index.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
-import { createFileServer, type FileServer } from "./server.ts";
+import {
+	BROWSE_BASE,
+	createFileServer,
+	type FileServer,
+	type FileServerOptions,
+	type FileServerResult,
+} from "./server.ts";
+import { testMountSource } from "../../../test/helpers/serve.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../../lib/env.ts";
 import type { ServeResponse } from "../../../lib/http/index.ts";
-import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
 import { useEnv, withEnv } from "../../../test/helpers/env.ts";
-import { coloringTheme, createFakePi, emit } from "../../../test/helpers/fakes.ts";
+import { createFakePi, emit } from "../../../test/helpers/fakes.ts";
 import { fakeCtx, makeFixture, runCommand, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
 import { settle } from "../../../test/helpers/process.ts";
 
@@ -705,10 +711,37 @@ function connectionRefused(url: string): Promise<boolean> {
 	});
 }
 
+/**
+ * The shipped page, mounted on a real server: the socket `serve` would have given it.
+ *
+ * The page holds the origin's root, so `server.url` is the origin itself.
+ */
+async function serveHere(
+	root: string,
+	config: FileServerOptions["config"],
+	extra: Partial<FileServerOptions> = {},
+): Promise<FileServer> {
+	const outcome = await createFileServer({ root, config, mount: testMountSource(), session: "s1", ...extra });
+	if (outcome.kind !== "served") throw new Error(outcome.reason);
+	return outcome.server;
+}
+
 describe("loopback server", () => {
+	test("holds the origin's root, which is what its root-absolute URLs assume", async () => {
+		fixture = makeFixture();
+		// Every link, script and Markdown destination this page emits is root-absolute,
+		// so the mount is the origin itself. Moving it under a prefix without rewriting
+		// them would break every one of them silently — this case is that claim.
+		expect(BROWSE_BASE).toBe("");
+		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		expect(new URL(server.url).pathname).toBe("/");
+		// The page it serves names its own script from the root it answers on.
+		expect(await (await fetch(server.url)).text()).toContain('<script src="/app.js"');
+	});
+
 	test("serves listings, files, and the tree API over HTTP", async () => {
 		fixture = makeFixture();
-		server = await createFileServer({ root: fixture.root, config: { ...DEFAULT_CONFIG, autoOpen: false } });
+		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
 		expect(server.port).toBeGreaterThan(0);
 		expect(server.url.startsWith("http://127.0.0.1:")).toBe(true);
 
@@ -727,7 +760,7 @@ describe("loopback server", () => {
 
 	test("responds to HEAD without a body", async () => {
 		fixture = makeFixture();
-		server = await createFileServer({ root: fixture.root, config: DEFAULT_CONFIG });
+		server = await serveHere(fixture.root, DEFAULT_CONFIG);
 		const response = await fetch(server.url, { method: "HEAD" });
 		expect(response.status).toBe(200);
 		expect(await response.text()).toBe("");
@@ -735,11 +768,13 @@ describe("loopback server", () => {
 
 	test("streams a status frame as a page connects, and ends it on close", async () => {
 		fixture = makeFixture();
-		const started = await createFileServer({
-			root: fixture.root,
-			config: { ...DEFAULT_CONFIG, autoOpen: false },
-			git: async () => ({ branch: "main" }),
-		});
+		const started = await serveHere(
+			fixture.root,
+			{ ...DEFAULT_CONFIG, autoOpen: false },
+			{
+				git: async () => ({ branch: "main" }),
+			},
+		);
 		server = started;
 		const reply = await fetch(`${started.url}events`);
 		expect(reply.status).toBe(200);
@@ -766,7 +801,7 @@ describe("loopback server", () => {
 
 	test("answers /events with 404 when live status is off", async () => {
 		fixture = makeFixture();
-		server = await createFileServer({ root: fixture.root, config: { ...DEFAULT_CONFIG, live: false } });
+		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, live: false });
 		const reply = await fetch(`${server.url}events`);
 		expect(reply.status).toBe(404);
 		expect(await reply.text()).toContain("Live status is not available");
@@ -779,11 +814,13 @@ describe("loopback server", () => {
 			headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
 			stream: true,
 		};
-		server = await createFileServer({
-			root: fixture.root,
-			config: { ...DEFAULT_CONFIG, autoOpen: false },
-			handler: async () => stream,
-		});
+		server = await serveHere(
+			fixture.root,
+			{ ...DEFAULT_CONFIG, autoOpen: false },
+			{
+				handler: async () => stream,
+			},
+		);
 		const firstFrames: Promise<unknown>[] = [];
 		for (let page = 0; page < LIVE_MAX_CLIENTS; page++) {
 			const reply = await fetch(`${server.url}events`);
@@ -802,7 +839,7 @@ describe("loopback server", () => {
 
 	test("closes idempotently and stops accepting connections", async () => {
 		fixture = makeFixture();
-		const started = await createFileServer({ root: fixture.root, config: DEFAULT_CONFIG });
+		const started = await serveHere(fixture.root, DEFAULT_CONFIG);
 		const url = started.url;
 		await started.close();
 		await started.close();
@@ -816,14 +853,16 @@ describe("loopback server", () => {
 			closed = resolve;
 		});
 		let started: FileServer | undefined;
-		started = await createFileServer({
-			root: fixture.root,
-			config: { ...DEFAULT_CONFIG, autoOpen: false },
-			idleStopMs: 20,
-			onIdle: () => {
-				void started?.close().then(() => closed?.());
+		started = await serveHere(
+			fixture.root,
+			{ ...DEFAULT_CONFIG, autoOpen: false },
+			{
+				idleStopMs: 20,
+				onIdle: () => {
+					void started?.close().then(() => closed?.());
+				},
 			},
-		});
+		);
 		server = started;
 
 		// A raw socket, so closing it is the page leaving and nothing else.
@@ -838,8 +877,14 @@ describe("loopback server", () => {
 	});
 });
 
-function fakeServer(root: string): FileServer {
-	return { url: "http://127.0.0.1:4321/", port: 4321, root, close: async () => {} };
+function fakeServer(root: string): FileServerResult {
+	return { kind: "served", server: { url: "http://127.0.0.1:4321/", port: 4321, root, close: async () => {} } };
+}
+
+/** The page a fake result carries, for a case that only needs one field of it. */
+function servedOf(result: FileServerResult): FileServer {
+	if (result.kind !== "served") throw new Error(result.reason);
+	return result.server;
 }
 
 const noOpen = () => {};
@@ -880,10 +925,8 @@ describe("browse command", () => {
 		let closes = 0;
 		fileBrowser(pi, {
 			createServer: async () => ({
-				...fakeServer(fixture!.root),
-				close: async () => {
-					closes++;
-				},
+				kind: "served",
+				server: { ...servedOf(fakeServer(fixture!.root)), close: async () => void closes++ },
 			}),
 			open: (url) => {
 				opened.push(url);
@@ -903,158 +946,6 @@ describe("browse command", () => {
 		expect(notifications.at(-1)?.message).toContain("stopped");
 	});
 
-	test("closes the server when its only page leaves, and says why", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		let idle: (() => void) | undefined;
-		let closes = 0;
-		fileBrowser(pi, {
-			open: noOpen,
-			pickPort: () => 4321,
-			createServer: async (options) => {
-				idle = options.onIdle;
-				return {
-					...fakeServer(fixture!.root),
-					close: async () => {
-						closes++;
-					},
-				};
-			},
-		});
-		const { ctx, notifications, statuses } = fakeCtx(fixture.root);
-
-		await runCommand(pi, "browse", "", ctx);
-		expect(statuses.has(STATUS_KEYS.browse)).toBe(true);
-		expect(idle).toBeDefined();
-
-		idle?.();
-		await settle();
-		expect(closes).toBe(1);
-		expect(statuses.has(STATUS_KEYS.browse)).toBe(false);
-		expect(notifications.at(-1)?.message).toContain("last page was closed");
-
-		// The page is gone for good: a second idle report cannot close twice.
-		idle?.();
-		await settle();
-		expect(closes).toBe(1);
-	});
-
-	test("reprints without restarting when the root and port are unchanged", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		let creates = 0;
-		const opened: string[] = [];
-		fileBrowser(pi, {
-			open: (url) => {
-				opened.push(url);
-			},
-			pickPort: () => 4321,
-			createServer: async () => {
-				creates++;
-				return fakeServer(fixture!.root);
-			},
-		});
-		const { ctx, notifications } = fakeCtx(fixture.root);
-
-		await runCommand(pi, "browse", "", ctx);
-		await runCommand(pi, "browse", "", ctx);
-
-		expect(creates).toBe(1);
-		expect(opened).toEqual(["http://127.0.0.1:4321/"]);
-		expect(notifications.at(-1)?.message).toContain("already running");
-	});
-
-	test("publishes a two-tone browse chip and clears it on stop and shutdown", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		fileBrowser(pi, { createServer: async () => fakeServer(fixture!.root), open: noOpen });
-		const { ctx, statuses } = fakeCtx(fixture.root);
-
-		await runCommand(pi, "browse", "", ctx);
-		expect(statuses.get(STATUS_KEYS.browse)).toBe(`${GLYPHS.browse} 4321`);
-
-		await runCommand(pi, "browse", "stop", ctx);
-		expect(statuses.has(STATUS_KEYS.browse)).toBe(false);
-
-		await runCommand(pi, "browse", "", ctx);
-		const colored = fakeCtx(fixture.root, "print", { theme: coloringTheme });
-		await runCommand(pi, "browse", "stop", colored.ctx);
-		await runCommand(pi, "browse", "", colored.ctx);
-		expect(colored.statuses.get(STATUS_KEYS.browse)).toBe(`[success]${GLYPHS.browse} [accent]4321`);
-
-		await emit(pi, "session_shutdown", {}, ctx);
-		expect(statuses.has(STATUS_KEYS.browse)).toBe(false);
-	});
-
-	test("fixes one random port for the session across roots and restarts", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		const ports: number[] = [];
-		fileBrowser(pi, {
-			open: noOpen,
-			pickPort: () => 4321,
-			createServer: async (options) => {
-				ports.push(options.config.port);
-				return fakeServer(fixture!.root);
-			},
-		});
-		const { ctx } = fakeCtx(fixture.root);
-
-		await runCommand(pi, "browse", "", ctx);
-		await runCommand(pi, "browse", "sub", ctx);
-		await runCommand(pi, "browse", "stop", ctx);
-		await runCommand(pi, "browse", "", ctx);
-
-		expect(ports).toEqual([4321, 4321, 4321]);
-	});
-
-	test("rolls another random port after a conflict, then reuses it", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		const ports: number[] = [];
-		const picks = [1111, 2222];
-		let call = 0;
-		fileBrowser(pi, {
-			open: noOpen,
-			pickPort: () => picks[call++] ?? 9999,
-			createServer: async (options) => {
-				ports.push(options.config.port);
-				if (options.config.port === 1111) {
-					const error = new Error("in use") as NodeJS.ErrnoException;
-					error.code = "EADDRINUSE";
-					throw error;
-				}
-				return fakeServer(fixture!.root);
-			},
-		});
-		const { ctx, notifications } = fakeCtx(fixture.root);
-
-		await runCommand(pi, "browse", "", ctx);
-		expect(notifications.at(-1)?.level).toBe("error");
-		await runCommand(pi, "browse", "", ctx);
-		expect(notifications.at(-1)?.level).toBe("info");
-		await runCommand(pi, "browse", "", ctx);
-		expect(ports).toEqual([1111, 2222, 2222]);
-	});
-
-	test("uses a pinned config port instead of the session port", async () => {
-		fixture = makeFixture();
-		mkdirSync(join(fixture.root, ".pi"), { recursive: true });
-		writeFileSync(join(fixture.root, ".pi", "bytefly.json"), JSON.stringify({ "file-browse": { port: 8080 } }));
-		const { pi } = createFakePi();
-		const ports: number[] = [];
-		fileBrowser(pi, {
-			open: noOpen,
-			pickPort: () => 4321,
-			createServer: async (options) => {
-				ports.push(options.config.port);
-				return fakeServer(fixture!.root);
-			},
-		});
-		await runCommand(pi, "browse", "", fakeCtx(fixture.root).ctx);
-		expect(ports).toEqual([8080]);
-	});
-
 	test("closes the server on session shutdown", async () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
@@ -1062,10 +953,8 @@ describe("browse command", () => {
 		fileBrowser(pi, {
 			open: noOpen,
 			createServer: async () => ({
-				...fakeServer(fixture!.root),
-				close: async () => {
-					closes++;
-				},
+				kind: "served",
+				server: { ...servedOf(fakeServer(fixture!.root)), close: async () => void closes++ },
 			}),
 		});
 		const { ctx } = fakeCtx(fixture.root);
@@ -1074,21 +963,18 @@ describe("browse command", () => {
 		expect(closes).toBe(1);
 	});
 
-	test("reports a port conflict with a hint", async () => {
+	test("reports the reason the session's server refused the page", async () => {
 		fixture = makeFixture();
 		const { pi } = createFakePi();
 		fileBrowser(pi, {
 			open: noOpen,
-			createServer: async () => {
-				const error = new Error("in use") as NodeJS.ErrnoException;
-				error.code = "EADDRINUSE";
-				throw error;
-			},
+			// The one way a mount is refused: the prefix is another page's.
+			createServer: async () => ({ kind: "refused", reason: "the serve extension is not loaded" }),
 		});
 		const { ctx, notifications } = fakeCtx(fixture.root);
 		await runCommand(pi, "browse", "", ctx);
 		expect(notifications.at(-1)?.level).toBe("error");
-		expect(notifications.at(-1)?.message).toContain("in use");
+		expect(notifications.at(-1)?.message).toContain("serve extension is not loaded");
 	});
 
 	test("refuses a subpath that is not a folder", async () => {

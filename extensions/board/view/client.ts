@@ -14,7 +14,7 @@
  */
 
 import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
-import { CLIENT_RUNTIME_JS } from "../../../lib/web/index.ts";
+import { CLIENT_BASE_JS, CLIENT_RUNTIME_JS } from "../../../lib/web/index.ts";
 import { PLURAL_JS } from "../../../lib/board/round-text.ts";
 import { FORMAT_AGE_JS } from "../../../lib/format.ts";
 import { namesScript, TAB_TITLE_JS, THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
@@ -32,7 +32,8 @@ import { BOARD_TEAM_JS } from "./team.ts";
  * shape, what a `query` matches, and how an age reads: the browser has no import graph,
  * and a second copy of any of them is exactly what this bundle is not allowed to hold.
  */
-export const BOARD_CLIENT_JS = `${namesScript(BOARD_CLASS)}
+export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
+${namesScript(BOARD_CLASS)}
 ${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, age: FORMAT_AGE_JS, runtime: CLIENT_RUNTIME_JS })}
 ${BOARD_TEAM_JS}
 ${BOARD_DIALOG_JS}

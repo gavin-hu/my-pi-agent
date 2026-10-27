@@ -15,6 +15,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { requestMount } from "../../lib/http/index.ts";
 import { registerCommands } from "./commands.ts";
 import { type BoardPage, createBoardPage } from "./page.ts";
 import { type BoardSession, openBoardSession } from "../../lib/board/session.ts";
@@ -30,9 +31,20 @@ export interface BoardDeps {
 export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	if (!isExtensionEnabled("board")) return;
 	const session = deps.session ?? openBoardSession(pi);
-	const page = deps.page ?? createBoardPage(session);
+	/** The session the page serves as; the mount lands on this session's one server. */
+	let sessionId = "";
+	const page =
+		deps.page ??
+		createBoardPage(session, {
+			mount: (spec) => requestMount(pi, spec),
+			session: () => sessionId,
+		});
 	registerTools(pi, session);
 	registerCommands(pi, session, page);
+
+	pi.on("session_start", async (_event, ctx) => {
+		sessionId = ctx.sessionManager.getSessionId();
+	});
 
 	pi.on("session_shutdown", async () => {
 		await page.closeAll();

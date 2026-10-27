@@ -61,7 +61,7 @@ problems.
 | A file the assistant wrote is gone | It was written inside a worktree | `/worktree` shows the active folder; enter it or exit with the work |
 | A subagent cannot start | No runnable `pi` on `PATH`, or the run timed out | Check the doctor; the run's error names the limit |
 | `/open` does nothing | Not an interactive session, or the path is missing | Run it in the TUI; the command reports a missing path |
-| The browser page will not open | The server is not running, or a pinned port is busy | `/browse status`; the port conflict is reported rather than silently changed |
+| The browser page will not open | The server is not running, or a pinned port is busy (`serve.port`) | `/browse status`; the port conflict is reported rather than silently changed |
 | Web fetch refuses a URL | A private or internal address, an unsupported scheme, or a redirect into one | Use a public `http`/`https` URL; the error names the refusal |
 | A PDF URL is refused | The optional PDF reader is not installed | Install `unpdf`, or fetch an HTML version |
 | WeChat stopped answering | The login expired, or polling is paused | See [WeChat stopped answering](#wechat-stopped-answering) |
