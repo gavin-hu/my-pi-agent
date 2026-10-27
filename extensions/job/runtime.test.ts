@@ -582,29 +582,71 @@ describe("job status files", () => {
 	// on Windows, where the trap is a no-op.
 	const realShell = process.platform !== "win32";
 
+	/**
+	 * How long a real shell gets to exit before the test says it did not.
+	 *
+	 * A spawn can be starved for seconds while four test files run at once — the hazard
+	 * AGENTS.md names for `--parallel`, and the reason CI runs the suite serially — so the
+	 * wait is bounded here and reports that, instead of dying on the runner's own 30 s
+	 * timeout with a test name and no reason.
+	 */
+	const SHELL_EXIT_MS = 10_000;
+	/** How long the trap's write gets to land: it runs as the shell exits, past `close`. */
+	const STATUS_LAND_MS = 2_000;
+
 	/** Spawn `command` through a real shell with the status trap and wait for exit. */
 	async function run(command: string, statusPath: string): Promise<void> {
-		await new Promise<void>((resolve, reject) => {
-			const child = spawn(withExitTrap(command, false), {
-				shell: true,
-				stdio: "ignore",
-				env: { ...process.env, [STATUS_ENV]: statusPath },
-			});
-			child.on("close", () => resolve());
-			child.on("error", reject);
+		let closed = false;
+		let failure: Error | undefined;
+		const child = spawn(withExitTrap(command, false), {
+			shell: true,
+			stdio: "ignore",
+			env: { ...process.env, [STATUS_ENV]: statusPath },
 		});
+		child.on("close", () => {
+			closed = true;
+		});
+		child.on("error", (error) => {
+			failure = error;
+			closed = true;
+		});
+		try {
+			// `waitFor` is this suite's one clock; a spawn that never closes names itself
+			// here rather than at the runner's own timeout, which says only the test's name.
+			await waitFor(() => closed, SHELL_EXIT_MS);
+		} catch {
+			child.kill("SIGKILL");
+			throw new Error(`the shell did not exit within ${SHELL_EXIT_MS}ms`);
+		}
+		if (failure) throw failure;
+	}
+
+	/**
+	 * The code the trap recorded, once its write lands.
+	 *
+	 * The trap writes the file as the shell exits, so the write and the child's `close`
+	 * event race: read once and a slow machine reads nothing. `undefined` afterwards means
+	 * the trap never wrote, which is what the `exec` case asserts on its own.
+	 */
+	async function exitStatusOf(statusPath: string): Promise<number | undefined> {
+		try {
+			await waitFor(() => readExitStatus(statusPath) !== undefined, STATUS_LAND_MS);
+		} catch {
+			return undefined;
+		}
+		return readExitStatus(statusPath);
 	}
 
 	test.skipIf(!realShell)("the EXIT trap records a non-zero exit code", async () => {
 		const statusPath = join(statusDir(), "j1.status");
 		await run("exit 7", statusPath);
-		expect(readExitStatus(statusPath)).toBe(7);
+		expect(await exitStatusOf(statusPath)).toBe(7);
 	});
 
 	test.skipIf(!realShell)("the EXIT trap records zero for a normal command", async () => {
 		const statusPath = join(statusDir(), "j1.status");
 		await run("printf hello", statusPath);
-		expect(readExitStatus(statusPath)).toBe(0);
+		expect(await exitStatusOf(statusPath)).toBe(0);
 	});
 
 	test.skipIf(!realShell)("an exec that replaces the shell bypasses the trap", async () => {
