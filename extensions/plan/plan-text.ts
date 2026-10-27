@@ -124,7 +124,10 @@ export interface BlockChangeMarks {
  * blocks are numbered from its own heading, which is why the section's line is added
  * back. Sections are paired the way {@link changedSections} pairs them — by occurrence,
  * so a second `## Notes` is never compared with the first — and a section the baseline
- * never held (or held without block digests) contributes no marks.
+ * never held is all new: every block in it marks, because adding or renaming a heading is
+ * a refinement rather than a reason to refuse the comparison. Only a baseline section
+ * written before block digests is beyond comparing at that depth, and it alone clears
+ * `compared`.
  */
 export function blockChangeMarks(baseline: readonly SectionDigest[] | undefined, current: string): BlockChangeMarks {
 	const sections = extractSections(reviewText(current));
@@ -141,16 +144,17 @@ export function blockChangeMarks(baseline: readonly SectionDigest[] | undefined,
 		const section = sections[at];
 		if (section === undefined) return;
 		const prior = before.get(key);
-		if (prior?.blocks === undefined) {
+		if (prior !== undefined && prior.blocks === undefined) {
 			compared = false;
 			return;
 		}
 		const mine = planBlocks(section.text).filter((block) => block.kind !== "blank");
-		const priorBlocks = new Set(prior.blocks);
+		// An unheld section pairs with no blocks, so every block in it is new.
+		const priorBlocks = new Set(prior?.blocks ?? []);
 		for (const block of mine) {
 			if (!priorBlocks.has(blockDigest(block.lines))) starts.push(section.line + block.start);
 		}
-		const shrunk = Math.max(0, prior.blocks.length - mine.length);
+		const shrunk = Math.max(0, (prior?.blocks?.length ?? 0) - mine.length);
 		if (shrunk > 0) removed[section.line] = shrunk;
 	});
 	return { starts, removed, compared };

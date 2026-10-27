@@ -1684,6 +1684,22 @@ describe("review session", () => {
 		}
 	});
 
+	test("keeps the moved flag on a comment the page posts back", async () => {
+		// A refinement carried the note onto another block, and the page is the only place
+		// that still knows. A save must not rewrite it as though it sat there all along.
+		const session = await start("# Plan\n\nA paragraph.\n");
+		const response = await fetch(feedbackUrl(session), {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ annotations: [{ anchor: 2, comment: "check this", moved: true }] }),
+		});
+
+		expect(response.status).toBe(200);
+		const result = await session.done;
+		expect(result.status).toBe("saved");
+		if (result.status === "saved") expect(result.plan.content).toContain("> [!REVIEW moved] check this");
+	});
+
 	test("resolves cancelled when the user cancels", async () => {
 		const session = await start();
 		expect((await fetch(cancelUrl(session), { method: "POST" })).status).toBe(200);
