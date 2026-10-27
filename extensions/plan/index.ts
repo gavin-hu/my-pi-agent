@@ -21,6 +21,7 @@ import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
 import { hasPathInput } from "./path-guard.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { requestMount } from "../../lib/http/index.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import { READ_ONLY_SUMMARY, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
@@ -91,7 +92,12 @@ export default function planMode(pi: ExtensionAPI): void {
 	if (!isExtensionEnabled("plan")) return;
 	const policy = createPlanPolicy(pi);
 	const runtime = createPlanRuntime(pi, policy, { entryPath: extensionEntryPath() });
-	const web = createPlanWebReview(runtime.plans);
+	/** The session this review serves as; its prefix lands on that session's one server. */
+	let sessionId = "";
+	const web = createPlanWebReview(runtime.plans, {
+		mount: (spec) => requestMount(pi, spec),
+		session: () => sessionId,
+	});
 
 	registerTools(pi, runtime, web);
 	registerCommands(pi, runtime, web);

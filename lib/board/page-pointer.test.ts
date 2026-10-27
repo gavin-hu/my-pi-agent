@@ -46,7 +46,7 @@ describe("the pointer file", () => {
 		const dir = scratch();
 		expect(await createPointer(dir, pointer())).toBe(true);
 		expect(await readPointer(dir)).toEqual(pointer());
-		expect(urlOf(pointer())).toBe("http://127.0.0.1:4781/?token=0123456789abcdef0123456789abcdef");
+		expect(urlOf(pointer())).toBe("http://127.0.0.1:4781/board/?token=0123456789abcdef0123456789abcdef");
 	});
 
 	test("is the user's eyes only, like a card file", async () => {
@@ -241,7 +241,7 @@ describe("probePage", () => {
 		expect(live).toBe(true);
 		// Not the snapshot: a probe must not queue behind the page's own view on a busy
 		// event loop, which is how a live page got declared dead.
-		expect(asked).toEqual(["http://127.0.0.1:4781/api/ping?token=0123456789abcdef0123456789abcdef"]);
+		expect(asked).toEqual(["http://127.0.0.1:4781/board/api/ping?token=0123456789abcdef0123456789abcdef"]);
 	});
 
 	test("falls back to the snapshot for a page from a build without the ping", async () => {
@@ -251,7 +251,7 @@ describe("probePage", () => {
 			return url.includes("/api/ping") ? { ok: false, status: 404 } : { ok: true };
 		});
 		expect(live).toBe(true);
-		expect(asked.map((url) => new URL(url).pathname)).toEqual(["/api/ping", "/api/board"]);
+		expect(asked.map((url) => new URL(url).pathname)).toEqual(["/board/api/ping", "/board/api/board"]);
 	});
 
 	test("a page that refuses the token, or is gone, is not one to attach to", async () => {

@@ -64,7 +64,7 @@ export function registerCommands(
 					);
 					return;
 				}
-				const stopped = await page.stop(ctx);
+				const stopped = await page.stop();
 				// The word is this session saying it serves nothing now: the page clears the seat too
 				// when it closes itself (the idle grace), and both writes are the same fact.
 				session.serve(undefined);

@@ -12,10 +12,12 @@
  * failed. Everything else would print a link that cannot work.
  */
 
-import type { NetworkInterfaceInfo } from "node:os";
+import { lanAddresses, type NetworkInterfaces } from "../../lib/http/index.ts";
 
-/** The interfaces a review may be shared to, by name. */
-export type NetworkInterfaces = Record<string, NetworkInterfaceInfo[] | undefined>;
+/** The interfaces a review may be shared to, by name; `lib/http` owns the rule. */
+export type { NetworkInterfaces };
+
+export { lanAddresses };
 
 /** One address a reviewer can open the review at. */
 export interface ShareLink {
@@ -33,8 +35,12 @@ export interface ShareLink {
 export interface ShareState {
 	/** True while reviewer tokens exist and an address is bound. */
 	sharing: boolean;
-	/** The port reviewers connect to. */
-	port: number;
+	/**
+	 * The origin reviewers connect to, `http://192.168.1.24:4780`, or `""` when nothing is
+	 * shared. The port is the listener's own, which is why it is reported with its address
+	 * rather than as a number the review could have guessed.
+	 */
+	origin: string;
 	/** Every shared link, oldest first. */
 	links: ShareLink[];
 	/** Why sharing is unavailable, when it is. */
@@ -53,35 +59,11 @@ export const NO_SHARE_REASON =
 	"This machine has no network address to share on. Reviewers can still use a loopback link on this computer.";
 
 /**
- * IPv4 addresses another machine on this network can reach, deduplicated and
- * sorted, so the same machine prints the same link every time.
+ * The tokenized link for one reviewer: the origin the page answers on, its mount inside
+ * that origin, and the token the link carries.
  */
-export function lanAddresses(interfaces: NetworkInterfaces): string[] {
-	const addresses = new Set<string>();
-	for (const entries of Object.values(interfaces)) {
-		for (const entry of entries ?? []) {
-			if (entry.family !== "IPv4" || entry.internal) continue;
-			if (entry.address === "0.0.0.0" || entry.address.startsWith("169.254.")) continue;
-			addresses.add(entry.address);
-		}
-	}
-	return [...addresses].sort(byAddress);
-}
-
-/** Numeric IPv4 comparison, so `…1.9` sorts before `…1.24`. */
-function byAddress(a: string, b: string): number {
-	const left = a.split(".").map(Number);
-	const right = b.split(".").map(Number);
-	for (let index = 0; index < 4; index++) {
-		const difference = (left[index] ?? 0) - (right[index] ?? 0);
-		if (difference !== 0) return difference;
-	}
-	return 0;
-}
-
-/** The tokenized link for one address. */
-export function shareUrl(address: string, port: number, token: string): string {
-	return `http://${address}:${port}/?token=${token}`;
+export function shareUrl(base: string, origin: string, token: string): string {
+	return `${origin}${base}/?token=${token}`;
 }
 
 /**
@@ -129,7 +111,7 @@ export interface LinkTable {
 	/** The links currently shared, oldest first. */
 	list(): readonly SharedLink[];
 	/** The state the owner's page and the terminal read. */
-	state(port: number, address: string): ShareState;
+	state(base: string, origin: string, address: string): ShareState;
 }
 
 export function createLinkTable(deps: LinkTableDeps): LinkTable {
@@ -152,15 +134,15 @@ export function createLinkTable(deps: LinkTableDeps): LinkTable {
 			return true;
 		},
 		list: () => [...links],
-		state: (port, address) => ({
+		state: (base, origin, address) => ({
 			sharing: links.length > 0,
-			port,
+			origin,
 			links: links.map((link) => {
 				const name = deps.nameOf(link.token);
 				return {
 					id: link.id,
 					address,
-					url: shareUrl(address, port, link.token),
+					url: shareUrl(base, origin, link.token),
 					...(name === undefined ? {} : { name }),
 				};
 			}),

@@ -14,6 +14,7 @@
  */
 
 import {
+	baseAttribute,
 	brandLockup,
 	docHead,
 	type KeyHint,
@@ -311,9 +312,9 @@ ${reviewHints(data.role, data.canApprove)}
 		? `<button type="button" class="bf-btn" id="share">Share</button>`
 		: `<button type="button" class="bf-btn" id="reviewer-name" hidden></button>`;
 	return `<!doctype html>
-<html lang="en">
+<html lang="en"${baseAttribute(data.base)}>
 <head>
-${docHead({ title: tabTitle("plan review", data.title), css: REVIEW_CSS })}
+${docHead({ title: tabTitle("plan review", data.title), css: REVIEW_CSS, base: data.base })}
 </head>
 <body class="bf-app">
 <a class="skip" href="#plan">Skip to the plan</a>
@@ -336,7 +337,7 @@ ${keysSheet(reviewKeys(data.role, data.canApprove))}
 ${data.canApprove ? approveDialog() : ""}
 ${data.role === "owner" ? shareDialog() : nameDialog()}
 <script type="application/json" id="review-data">${island}</script>
-<script src="/client.js" defer></script>
+<script src="${data.base}/client.js" defer></script>
 </body>
 </html>
 `;

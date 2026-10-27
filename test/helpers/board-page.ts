@@ -16,6 +16,8 @@ import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import { pageActor } from "../../extensions/board/seat.ts";
+import { BOARD_BASE } from "../../lib/board/page-pointer.ts";
+import { testMountSource } from "./serve.ts";
 import { type BoardServer, createBoardServer } from "../../extensions/board/transport/server.ts";
 import { BOARD_CLIENT_JS } from "../../extensions/board/view/client.ts";
 import { renderBoardPage } from "../../extensions/board/view/page.ts";
@@ -81,11 +83,15 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 			where: display.where ?? store.where(),
 		});
 	};
-	const server = await createBoardServer({
-		ports: [0],
-		page: async (tab) => renderBoardPage({ view: tab }),
+	// The page mounts on a real server, which is the socket `serve` would have given it.
+	const started = await createBoardServer({
+		mount: testMountSource(),
+		session: "fixture",
+		page: async (tab) => renderBoardPage({ view: tab, base: BOARD_BASE }),
 		script: BOARD_CLIENT_JS,
 		view,
 	});
+	if (started.kind === "refused") throw new Error(started.reason);
+	const server = started.server;
 	return { url: server.url, server, close: () => server.close() };
 }

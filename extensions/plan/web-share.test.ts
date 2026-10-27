@@ -60,8 +60,10 @@ describe("lanAddresses", () => {
 });
 
 describe("shareUrl", () => {
-	test("builds a tokenized link for one address", () => {
-		expect(shareUrl("192.168.1.24", 51789, "abc")).toBe("http://192.168.1.24:51789/?token=abc");
+	test("builds a tokenized link from the origin and the review's own prefix", () => {
+		expect(shareUrl("/plan/3f9c21aa", "http://192.168.1.24:51789", "abc")).toBe(
+			"http://192.168.1.24:51789/plan/3f9c21aa/?token=abc",
+		);
 	});
 });
 
@@ -81,16 +83,16 @@ function table(names: Record<string, string> = {}) {
 }
 
 describe("createLinkTable", () => {
-	test("names each link once and builds its URL from the bound port and address", () => {
+	test("names each link once and builds its URL from the origin and the review", () => {
 		const { links } = table();
 		expect(links.add()).toEqual({ id: "link-1", token: "tok-1" });
 		expect(links.add()).toEqual({ id: "link-2", token: "tok-2" });
-		expect(links.state(51789, "192.168.1.24")).toEqual({
+		expect(links.state("/plan/3f9c21aa", "http://192.168.1.24:51789", "192.168.1.24")).toEqual({
 			sharing: true,
-			port: 51789,
+			origin: "http://192.168.1.24:51789",
 			links: [
-				{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=tok-1" },
-				{ id: "link-2", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=tok-2" },
+				{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/plan/3f9c21aa/?token=tok-1" },
+				{ id: "link-2", address: "192.168.1.24", url: "http://192.168.1.24:51789/plan/3f9c21aa/?token=tok-2" },
 			],
 		});
 	});
@@ -116,14 +118,18 @@ describe("createLinkTable", () => {
 		const { links } = table();
 		links.add();
 		links.remove("link-1");
-		expect(links.state(51789, "192.168.1.24")).toEqual({ sharing: false, port: 51789, links: [] });
+		expect(links.state("/plan/3f9c21aa", "http://192.168.1.24:51789", "192.168.1.24")).toEqual({
+			sharing: false,
+			origin: "http://192.168.1.24:51789",
+			links: [],
+		});
 	});
 
 	test("reports each link's bound name, so the owner can see who holds it", () => {
 		const { links } = table({ "tok-2": "priya" });
 		links.add();
 		links.add();
-		const [first, second] = links.state(51789, "192.168.1.24").links;
+		const [first, second] = links.state("/plan/3f9c21aa", "http://192.168.1.24:51789", "192.168.1.24").links;
 		expect(first).not.toHaveProperty("name");
 		expect(second?.name).toBe("priya");
 	});

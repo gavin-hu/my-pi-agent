@@ -19,7 +19,6 @@ describe("normalizeConfig defaults", () => {
 
 	test("defaults the server, the caps, the diff view, and live status", () => {
 		expect(DEFAULT_CONFIG).toMatchObject({
-			port: 0,
 			autoOpen: true,
 			maxFileBytes: 1024 * 1024,
 			maxThumbBytes: 5 * 1024 * 1024,
@@ -59,9 +58,6 @@ describe("normalizeConfig booleans", () => {
 
 describe("normalizeConfig numeric clamps", () => {
 	const cases: NumericCase[] = [
-		{ key: "port", raw: 8080, expected: 8080 },
-		{ key: "port", raw: 70_000, expected: 65_535 },
-		{ key: "port", raw: -1, expected: 0 },
 		{ key: "maxFileBytes", raw: 4096, expected: 4096 },
 		{ key: "maxFileBytes", raw: -1, expected: 0 },
 		{ key: "maxThumbBytes", raw: 2048, expected: 2048 },
@@ -87,17 +83,13 @@ describe("normalizeConfig numeric clamps", () => {
 			expect(normalizeConfig({ [key]: raw })[key]).toBe(expected);
 		});
 	}
-
-	test("keeps the zero port that asks for a per-session port", () => {
-		expect(normalizeConfig({ port: 0 }).port).toBe(0);
-	});
 });
 
 describe("normalizeConfig layering", () => {
 	test("applies a raw section over an explicit base", () => {
-		const base: ServeConfig = { ...DEFAULT_CONFIG, port: 5000, markdown: false, maxTextLines: 10 };
-		const normalized = normalizeConfig({ port: 6000, maxTextLines: 4 }, base);
-		expect(normalized.port).toBe(6000);
+		const base: ServeConfig = { ...DEFAULT_CONFIG, markdown: false, maxTextLines: 10 };
+		const normalized = normalizeConfig({ maxTextLines: 4, thumbnails: false }, base);
+		expect(normalized.thumbnails).toBe(false);
 		expect(normalized.maxTextLines).toBe(4);
 		expect(normalized.markdown).toBe(false);
 	});

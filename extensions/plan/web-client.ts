@@ -19,7 +19,13 @@
  * saved back to the server.
  */
 
-import { CLIENT_RUNTIME_JS, dialogScript, keysDialogScript, THEME_TOGGLE_JS } from "../../lib/web/index.ts";
+import {
+	CLIENT_BASE_JS,
+	CLIENT_RUNTIME_JS,
+	dialogScript,
+	keysDialogScript,
+	THEME_TOGGLE_JS,
+} from "../../lib/web/index.ts";
 import { WEB_CHROME_JS } from "./web-chrome.ts";
 import { WEB_COMMENTS_JS } from "./web-comments.ts";
 import { WEB_COLLAB_JS } from "./web-collab.ts";
@@ -34,6 +40,7 @@ import { WEB_SETTLE_JS } from "./web-settle.ts";
 
 export const REVIEW_CLIENT_JS = String.raw`(function () {
   "use strict";
+${CLIENT_BASE_JS}
 
   var dataNode = document.getElementById("review-data");
   // The caps come from the island, which takes them from the server's own
@@ -273,6 +280,7 @@ ${WEB_MARKDOWN_JS}
   function settlement() {
     return {
       token: function () { return token; },
+      base: pageBase,
       role: function () { return role; },
       mine: function () { return annotations.filter(isMine); },
       annotations: function () { return annotations; },
@@ -433,7 +441,7 @@ ${WEB_MARKDOWN_JS}
   if (planEl) planEl.addEventListener("scroll", updateProgress);
 
   try {
-    stream = new EventSource("/events?token=" + encodeURIComponent(token));
+    stream = new EventSource(pageBase() + "/events?token=" + encodeURIComponent(token));
     stream.addEventListener("open", function () { connected = true; everConnected = true; updateState(); });
     stream.addEventListener("message", function (event) { refreshFromServer(event); });
     stream.addEventListener("error", function () {

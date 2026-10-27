@@ -1,7 +1,7 @@
 # my-pi-agent user guide
 
 `my-pi-agent` is an add-on for [Pi](https://pi.dev), the assistant you talk to in
-a terminal. It adds 21 extensions, 4 packaged skills, and 2 colour themes to the
+a terminal. It adds 22 extensions, 4 packaged skills, and 2 colour themes to the
 Pi you already use: planning, verification, background work, isolation, memory,
 web access, a WeChat bridge, and a themed control centre. Nothing in Pi is
 forked or modified, and every extension can be switched off.
@@ -160,6 +160,7 @@ Every row names the page that owns it.
 | Feature | What it does | Walkthrough |
 |---|---|---|
 | `web-access` | Web search and page reading | [Searching and reading the web](./web-and-files.md#searching-and-reading-the-web) |
+| `serve` | The one port every page of a session answers on | [Browsing a project](./web-and-files.md#browsing-a-project) |
 | `file-read` | Reads PDF, Word, and Excel files as text | [Reading a document](./web-and-files.md#reading-a-document) |
 | `file-browse` | A read-only browser for the project | [Browsing a project](./web-and-files.md#browsing-a-project) |
 | `file-open` | Opens a file in its normal application | [Opening a file in its usual application](./web-and-files.md#opening-a-file-in-its-usual-application) |

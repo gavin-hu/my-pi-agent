@@ -43,7 +43,6 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"tools",
 		"page",
 		"commands",
-		"config",
 		"extension",
 		"transport/router",
 		"view/behaviour",
@@ -77,6 +76,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	team: ["commands", "dispatch", "tools", "extension"],
 	todo: ["tools", "runtime", "ui"],
 	watch: ["runtime", "tools", "ui"],
+	serve: ["config", "registry", "extension"],
 	"session-bus": ["format", "protocol", "store", "runtime", "tui", "tools", "overlap", "resolve", "extension"],
 	"web-access": ["fetch/fetch", "fetch/structured", "search/search", "http"],
 	wechat: [
@@ -117,6 +117,7 @@ export const LIB_SUITES: readonly string[] = [
 	"timer",
 	"git/index",
 	"http/http",
+	"http/mount",
 	"http/port",
 	"http/guard",
 	"http/serve",

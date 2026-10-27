@@ -224,12 +224,13 @@ Snapshots and their limits are configured in
 
 ## Extensions and tools
 
-The pack adds 21 extensions and 26 tools. `worktree` also re-registers Pi's path
+The pack adds 22 extensions and 26 tools. `worktree` also re-registers Pi's path
 tools (`bash`, `edit`, `find`, `grep`, `ls`, `read`, `write`) so they follow the
 active root; those are replacements, not additions.
 
 | Extension | Tools | Commands and flags |
 |---|---|---|
+| `serve` | — | — |
 | `plan` | `enter_plan_mode`, `write_plan`, `exit_plan_mode`, `cancel_plan_mode`, `set_plan_steps` | `/plan`, `/plan list`, `/plan review`, `/plan share`, `/plan cancel`, `--plan` |
 | `check` | `run_check` | `/check` |
 | `todo` | `todo` | `/todos` |

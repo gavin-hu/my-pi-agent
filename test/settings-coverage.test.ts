@@ -28,7 +28,6 @@ import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
 import { withLeaf } from "./helpers/config.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../extensions/bytefly/chrome.ts";
-import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../extensions/board/config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG,
 	normalizeConfig as normalizeDoctorConfig,
@@ -50,6 +49,7 @@ import {
 	normalizeConfig as normalizeJobConfig,
 } from "../extensions/job/config.ts";
 import { DEFAULT_MEMORY_CONFIG, normalizeMemoryConfig } from "../extensions/memory/config.ts";
+import { DEFAULT_SERVE_CONFIG, normalizeServeConfig } from "../extensions/serve/config.ts";
 import {
 	DEFAULT_CONFIG as DEFAULT_REWIND_CONFIG,
 	normalizeConfig as normalizeRewindConfig,
@@ -121,9 +121,9 @@ const SECTIONS: readonly SectionCase[] = [
 		jsonOnly: { rail: "a cosmetic glyph, set once" },
 	},
 	{
-		section: "board",
-		defaults: DEFAULT_BOARD_CONFIG,
-		normalize: (raw) => normalizeBoardConfig(raw, DEFAULT_BOARD_CONFIG),
+		section: "serve",
+		defaults: DEFAULT_SERVE_CONFIG,
+		normalize: (raw) => normalizeServeConfig(raw, DEFAULT_SERVE_CONFIG),
 		jsonOnly: { port: "a fixed port is an operator decision" },
 	},
 	{
@@ -142,7 +142,6 @@ const SECTIONS: readonly SectionCase[] = [
 		defaults: DEFAULT_FILE_BROWSE_CONFIG,
 		normalize: (raw) => normalizeFileBrowseConfig(raw, DEFAULT_FILE_BROWSE_CONFIG),
 		jsonOnly: {
-			port: "a fixed port is an operator decision",
 			autoOpen: "browser behaviour, not agent behaviour",
 			maxFileBytes: "a rendering limit, not a preference",
 			maxThumbBytes: "a rendering limit, not a preference",

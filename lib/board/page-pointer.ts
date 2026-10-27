@@ -28,6 +28,16 @@ import { abortableSleep } from "../timer.ts";
 export const PAGE_FILE = "page.json";
 
 /**
+ * The prefix the page answers under on the session's one server.
+ *
+ * Named here, beside the routes below, because three callers have to agree on it: the
+ * page's router (which matches the stripped path), the note a second session reads, and
+ * the probe that asks whether the page is alive. A session serves several pages on one
+ * origin, so the board is never at the root.
+ */
+export const BOARD_BASE = "/board";
+
+/**
  * The two routes a probe asks for, named here because the probe and the page's router have
  * to agree on them.
  *
@@ -35,6 +45,9 @@ export const PAGE_FILE = "page.json";
  * page from an older build answers instead, which is why the probe falls back to it. A
  * literal repeated in the router is a path that can move out from under the probe with
  * every test still green — the probe would simply stop finding a live page.
+ *
+ * Both are the paths *inside* the page, which is what its router sees: the server strips
+ * `BOARD_BASE` before the route runs, and the probe adds it back.
  */
 export const PING_PATH = "/api/ping";
 export const SNAPSHOT_PATH = "/api/board";
@@ -64,7 +77,7 @@ export type ProbeFetch = (url: string, init: { signal: AbortSignal }) => Promise
 
 /** The URL for this page, wherever it is opened from. */
 export function urlOf(pointer: PagePointer): string {
-	return `http://127.0.0.1:${pointer.port}/?token=${pointer.token}`;
+	return `http://127.0.0.1:${pointer.port}${BOARD_BASE}/?token=${pointer.token}`;
 }
 
 /**
@@ -284,7 +297,7 @@ export async function probePage(
 	timeoutMs: number = PROBE_MS,
 ): Promise<boolean> {
 	const ask = (path: string): Promise<{ ok: boolean; status?: number }> =>
-		fetchLike(`http://127.0.0.1:${pointer.port}${path}?token=${pointer.token}`, {
+		fetchLike(`http://127.0.0.1:${pointer.port}${BOARD_BASE}${path}?token=${pointer.token}`, {
 			signal: AbortSignal.timeout(timeoutMs),
 		});
 	try {

@@ -1,12 +1,13 @@
 /**
- * The page's lifecycle: one server per session, started by `/board` and closed by
+ * The page's lifecycle: one mount per session, started by `/board` and given back by
  * `/board stop`, by the idle grace once the last tab has been gone for a minute, or by
  * `session_shutdown`.
  *
- * Only the lifecycle lives here — the state machine, the port it remembers, the chip
- * that names it, and the three closes. What the page *reads* is `snapshot.ts`, and it
- * writes nothing: how a request reaches the snapshot is `transport/`, the router knows
- * nothing of the page's markup, and this is still the one place they meet.
+ * Only the lifecycle lives here — the state machine, the prefix it holds, the note that
+ * names it, and the three closes. The session's port belongs to `serve`, so nothing here
+ * picks one. What the page *reads* is `snapshot.ts`, and it writes nothing: how a request
+ * reaches the snapshot is `transport/`, the router knows nothing of the page's markup, and
+ * this is still the one place they meet.
  *
  * All state lives in this closure, not at module scope: Pi loads each extension with an
  * isolated module cache, so a module variable would be one copy per extension.
@@ -15,11 +16,10 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { openInBrowser } from "../../lib/browser.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
-import { paint } from "../../lib/tui/tokens.ts";
 import type { RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import {
+	BOARD_BASE,
 	clearPointer,
 	PAGE_FILE,
 	type PagePointer,
@@ -29,10 +29,9 @@ import {
 	settlePointer,
 	urlOf,
 } from "../../lib/board/page-pointer.ts";
-import { mintToken, randomPort } from "../../lib/http/index.ts";
+import { mintToken, type MountSource } from "../../lib/http/index.ts";
 import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
-import { type BoardConfig, loadBoardConfig } from "./config.ts";
 import { pageActor } from "./seat.ts";
 import { viewOf } from "./snapshot.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
@@ -94,7 +93,10 @@ export type PageStart =
 /** Test seams and the one place a caller may redirect the browser. */
 export interface BoardPageDeps {
 	open?: (url: string) => void;
-	pickPort?: () => number;
+	/** Where the prefix comes from: the session's server, or a suite's own. */
+	mount: MountSource;
+	/** The Pi session this page serves as, so the prefix lands on its socket. */
+	session: () => string;
 	interval?: RepeatTimer;
 	/** Grace after the last tab leaves; defaults to {@link IDLE_STOP_MS}. */
 	idleMs?: number;
@@ -102,14 +104,13 @@ export interface BoardPageDeps {
 	firstIdleMs?: number;
 	/** Whether a page another session left a note about is answering; a test drives it. */
 	probe?: ProbeFetch;
-	/** How the `board` section answers; a test drives it without a config file. */
-	config?: (cwd: string) => BoardConfig;
 }
 
 /** The page as `/board` and `session_shutdown` drive it. */
 export interface BoardPage {
 	start: (ctx: ExtensionContext, view?: PageView) => Promise<PageStart>;
-	stop: (ctx: ExtensionContext) => Promise<boolean>;
+	/** Give the prefix back; the session's server closes with its last mount. */
+	stop: () => Promise<boolean>;
 	/** What `/board status` prints: served here, watched, watched and dead, or absent. */
 	status: () => Promise<BoardPageStatus>;
 	/** Drop the note of a page that has stopped answering. False when it still answers. */
@@ -117,11 +118,10 @@ export interface BoardPage {
 	closeAll: () => Promise<void>;
 }
 
-export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {}): BoardPage {
+export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): BoardPage {
 	let running: { server: BoardServer; store: BoardStore; token: string } | undefined;
 	/** The page another session serves, when this session opened that one instead. */
 	let attachedTo: PagePointer | undefined;
-	let sessionPort: number | undefined;
 	// The page is a seat, not a session: one name and one id for its whole life, so a card
 	// a browser claimed is still the seat's after the session that served it ends.
 	const seat = pageActor();
@@ -131,12 +131,12 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 	/**
 	 * Close the page this session serves, and take its note with it.
 	 *
-	 * One close for both callers: `/board stop` has a context and clears the chip, and a
-	 * clean `session_shutdown` has none. The note must leave either way — a note nobody
+	 * One close for both callers: `/board stop` has a context and clears the status line, and
+	 * a clean `session_shutdown` has none. The note must leave either way — a note nobody
 	 * answers makes every open tab reconnect forever and costs the next `/board` a probe
 	 * and a takeover before it serves.
 	 */
-	const closeRunning = async (ctx?: ExtensionContext): Promise<boolean> => {
+	const closeRunning = async (): Promise<boolean> => {
 		if (running === undefined) return false;
 		const { server, store, token } = running;
 		running = undefined;
@@ -146,11 +146,10 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		// the one place all three closes pass — `/board stop`, the idle grace, and shutdown — so
 		// a page nobody is looking at cannot leave the session serving in name only.
 		runtime.serve(undefined);
-		if (ctx !== undefined) clearChip(ctx);
 		return true;
 	};
 
-	const stop = (ctx: ExtensionContext): Promise<boolean> => closeRunning(ctx);
+	const stop = (): Promise<boolean> => closeRunning();
 
 	const start = async (ctx: ExtensionContext, view: PageView = "board"): Promise<PageStart> => {
 		// `/board` is how the page is summoned, and a page whose tab was closed is one
@@ -159,11 +158,9 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			(deps.open ?? openInBrowser)(view === "board" ? running.server.url : `${running.server.url}&view=team`);
 			return describe(running);
 		}
-		const config = (deps.config ?? loadBoardConfig)(ctx.cwd);
-		const pinned = config.port > 0 ? config.port : undefined;
 		/** One refusal for every way a start can fail, named by what failed. */
 		const failed = (error: unknown): PageStart => {
-			const reason = failureReason(error, pinned);
+			const reason = error instanceof Error ? error.message : String(error);
 			ctx.ui.notify(`board: the page did not start (${reason})`, "error");
 			return { kind: "failed", reason };
 		};
@@ -197,24 +194,19 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 		attachedTo = undefined;
 		const actor = () => seat;
 		const now = () => runtime.now();
-		// Read above, so a pinned port names itself in a refusal; the port itself is
-		// remembered for the session so a closed and reopened page lands where it was.
-		const preferred = pinned ?? sessionPort ?? (deps.pickPort ?? randomPort)();
 		// Minted here rather than by the server: the note this session leaves has to carry it,
 		// and that is what a second session reads to attach instead of serving its own page.
 		const token = mintToken();
-		let server: BoardServer | undefined;
 		try {
-			server = await createBoardServer({
-				// A pinned port is tried alone: falling back would leave the bookmark pointing
-				// at a page that moved, which is the failure the setting exists to prevent.
-				ports: pinned === undefined ? [preferred, 0] : [pinned],
+			const started = await createBoardServer({
+				mount: deps.mount,
+				session: deps.session(),
 				token,
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
 				firstIdleMs: deps.firstIdleMs ?? IDLE_FIRST_MS,
 				onIdle: (reason) => void stopIdle(ctx, reason),
-				page: async (view) => renderBoardPage({ view }),
+				page: async (view) => renderBoardPage({ view, base: BOARD_BASE }),
 				script: BOARD_CLIENT_JS,
 				view: () =>
 					viewOf({
@@ -224,6 +216,11 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 						busDir: () => runtime.busDir(ctx.cwd),
 					}),
 			});
+			if (started.kind === "refused") {
+				ctx.ui.notify(`board: the page did not start (${started.reason})`, "error");
+				return { kind: "failed", reason: started.reason };
+			}
+			const server = started.server;
 			// The note and the seat: written last, on the port the server actually bound, and only if no
 			// other session got there first: the loser of that race attaches to the page that
 			// won rather than serving a second page nobody can find. A note that answers
@@ -260,22 +257,17 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 				ctx.ui.notify(`board: the page did not start (${reason})`, "error");
 				return { kind: "failed", reason };
 			}
-			sessionPort = server.port;
 			running = { server, store, token };
-			setChip(ctx, server.port);
 			open(server.url);
 			return describe(running);
 		} catch (error) {
-			// A bind that failed has no server to close; a seat that could not be written does,
-			// and leaving it bound would hold a port no note names — invisible until shutdown.
-			await server?.close();
 			return failed(error);
 		}
 	};
 
 	/** The idle grace closes the page and says which grace it was, once. */
 	const stopIdle = async (ctx: ExtensionContext, reason: IdleReason): Promise<void> => {
-		if (!(await stop(ctx))) return;
+		if (!(await stop())) return;
 		ctx.ui.notify(
 			reason === "first"
 				? "board: stopped — no tab ever opened; /board starts it again"
@@ -351,37 +343,4 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps = {})
 			await closeRunning();
 		},
 	};
-}
-
-/**
- * Why a start failed, naming the setting when the pinned port was the reason: a
- * bind error's own text says the address, not the key that chose it.
- */
-function failureReason(error: unknown, pinned: number | undefined): string {
-	// The bind path rejects with the `listen` error, so `code` is there to read.
-	const code = (error as NodeJS.ErrnoException | undefined)?.code;
-	if (pinned !== undefined && code === "EADDRINUSE") {
-		return `port ${pinned} is in use — change "port" in the bytefly.json board section, or stop what answers on it`;
-	}
-	return error instanceof Error ? error.message : String(error);
-}
-
-/** The chip naming the port, cleared with an empty text. */
-function setChip(ctx: ExtensionContext, port: number): void {
-	try {
-		ctx.ui.setStatus(
-			STATUS_KEYS.board,
-			`${paint(ctx.ui.theme, "ok", GLYPHS.board)} ${paint(ctx.ui.theme, "accent", String(port))}`,
-		);
-	} catch {
-		// A host without a status line is not a reason to keep the page from starting.
-	}
-}
-
-function clearChip(ctx: ExtensionContext): void {
-	try {
-		ctx.ui.setStatus(STATUS_KEYS.board, undefined);
-	} catch {
-		// Same as above: nothing to clear.
-	}
 }

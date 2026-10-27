@@ -9,12 +9,12 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { createServer } from "node:http";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
 import type { ArmTimer, RepeatTimer } from "../../lib/timer.ts";
 import { THEME_JS, WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../lib/web/index.ts";
 import { declaredFunctions, missingBundleBodies } from "../../test/helpers/bundle.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
+import { testMountSource } from "../../test/helpers/serve.ts";
 import {
 	coerceAnnotations,
 	feedbackSummary,
@@ -187,6 +187,7 @@ describe("browser comment codec", () => {
 const HOST = { host: "127.0.0.1:1234" };
 
 const PAGE_DATA: ReviewPageData = {
+	base: "",
 	title: "T",
 	blocks: [{ start: 0, end: 0, kind: "paragraph", lines: ["hello"] }],
 	annotations: [],
@@ -217,13 +218,21 @@ function router(overrides: Partial<ReviewContext> = {}) {
 			return nextSave;
 		},
 		share: async () => ({
-			state: { sharing: true, port: 1, links: [{ id: "link-1", address: "192.168.1.24", url: "http://x" }] },
+			state: {
+				sharing: true,
+				origin: "http://192.168.1.24:1",
+				links: [{ id: "link-1", address: "192.168.1.24", url: "http://x" }],
+			},
 		}),
 		invite: async () => ({
-			state: { sharing: true, port: 1, links: [{ id: "link-2", address: "192.168.1.24", url: "http://y" }] },
+			state: {
+				sharing: true,
+				origin: "http://192.168.1.24:1",
+				links: [{ id: "link-2", address: "192.168.1.24", url: "http://y" }],
+			},
 		}),
-		revoke: async () => ({ state: { sharing: false, port: 0, links: [] } }),
-		stopShare: async () => ({ state: { sharing: false, port: 0, links: [] } }),
+		revoke: async () => ({ state: { sharing: false, origin: "", links: [] } }),
+		stopShare: async () => ({ state: { sharing: false, origin: "", links: [] } }),
 		onSaved: (annotations) => ownerSaves.push(annotations),
 		onApprove: (annotations) => approved.push(annotations),
 		onCancel: () => cancelled.push(1),
@@ -456,6 +465,7 @@ describe("review router", () => {
 
 function page(overrides: Partial<ReviewPageData> = {}): string {
 	return renderReviewPage({
+		base: "",
 		title: "Add rate limiting",
 		blocks: [{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] }],
 		annotations: [],
@@ -699,10 +709,10 @@ describe("review client", () => {
 	test("uses only same-origin routes with the session token", () => {
 		// Every route a settlement writes to is in one module now; the stream stays in the
 		// bundle, because it is wiring rather than a rule.
-		expect(WEB_SETTLE_JS).toContain('"/api/feedback"');
-		expect(WEB_SETTLE_JS).toContain('"/api/comment"');
-		expect(WEB_SETTLE_JS).toContain('"/api/approve"');
-		expect(WEB_SETTLE_JS).toContain("/api/cancel?token=");
+		expect(WEB_SETTLE_JS).toContain('deps.base() + "/api/feedback"');
+		expect(WEB_SETTLE_JS).toContain('deps.base() + "/api/comment"');
+		expect(WEB_SETTLE_JS).toContain('deps.base() + "/api/approve"');
+		expect(WEB_SETTLE_JS).toContain('deps.base() + "/api/cancel?token="');
 		expect(WEB_SETTLE_JS).toContain('"?token=" + encodeURIComponent(deps.token())');
 		expect(REVIEW_CLIENT_JS).toContain("/events?token=");
 	});
@@ -711,13 +721,13 @@ describe("review client", () => {
 		// The two are read apart because the difference is which flags they touch: posting
 		// is transient, saving ends the review.
 		const post = String(postReviewComments);
-		expect(post).toContain('"/api/comment"');
+		expect(post).toContain('deps.base() + "/api/comment"');
 		expect(post).not.toContain("markSettled");
 		expect(post).not.toContain("settleStream");
 		expect(post).not.toContain("lockActions");
 
 		const save = String(saveReview);
-		expect(save).toContain('"/api/feedback"');
+		expect(save).toContain('deps.base() + "/api/feedback"');
 		expect(save).toContain('deps.markSettled("saved")');
 		expect(String(approveReview)).toContain('deps.markSettled("approved")');
 	});
@@ -871,8 +881,8 @@ describe("review client", () => {
 	});
 
 	test("mints and revokes single links from the owner's dialog", () => {
-		expect(REVIEW_CLIENT_JS).toContain('shareAction("/api/share/link"');
-		expect(REVIEW_CLIENT_JS).toContain('shareAction("/api/share/revoke", { id: id }');
+		expect(REVIEW_CLIENT_JS).toContain('shareAction(pageBase() + "/api/share/link"');
+		expect(REVIEW_CLIENT_JS).toContain('shareAction(pageBase() + "/api/share/revoke", { id: id }');
 		expect(REVIEW_CLIENT_JS).toContain("shareLinksEl.appendChild(row)");
 		// A row's name is the bound one, so the owner can tell two links apart.
 		expect(REVIEW_CLIENT_JS).toContain('"@" + link.name');
@@ -905,13 +915,15 @@ describe("review client", () => {
 /** The same URL with its path replaced, for a reviewer's API call. */
 function apiOf(link: string, route: string): string {
 	const url = new URL(link);
-	url.pathname = route;
+	// The link names the review's own mount (`/plan/<id>/`), so the route goes inside it
+	// rather than replacing the whole path.
+	url.pathname = `${url.pathname.replace(/\/+$/, "")}${route}`;
 	return url.toString();
 }
 
 /** One owner action on the share surface, as the page's own buttons drive it. */
 function ownerShares(session: PlanReviewSession, route: string, body?: unknown): Promise<Response> {
-	return fetch(`http://127.0.0.1:${session.port}${route}?token=tok`, {
+	return fetch(at(session, route), {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify(body ?? {}),
@@ -963,12 +975,12 @@ async function nextFrame(body: ReadableStream<Uint8Array> | null | undefined): P
 
 describe("review stream", () => {
 	test("tells an open page when a comment arrives", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
 		// The owner's page is open on the loopback stream when the comment lands.
-		const stream = await fetch(`http://127.0.0.1:${session.port}/events?token=tok`);
+		const stream = await fetch(eventsUrl(session));
 		const frame = nextFrame(stream.body);
 
 		await fetch(apiOf(link.url, "/api/comment"), {
@@ -981,8 +993,8 @@ describe("review stream", () => {
 	});
 
 	test("tells an open page when sharing starts and stops", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN });
-		const first = await fetch(`http://127.0.0.1:${session.port}/events?token=tok`);
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") });
+		const first = await fetch(eventsUrl(session));
 		const frame = nextFrame(first.body);
 
 		await review.share();
@@ -1059,20 +1071,15 @@ describe("plan poll", () => {
 });
 
 describe("shared review", () => {
-	test("reports why it cannot share when the machine has no address", async () => {
+	test("reports why it cannot share when no listener answers for it", async () => {
+		// `serve` decides whether there is an address to bind; a review whose mount cannot
+		// offer one says so instead of inventing a link.
 		const { review } = await startShared({
-			networkInterfaces: (): NetworkInterfaces => ({
-				lo0: [
-					{
-						address: "127.0.0.1",
-						netmask: "255.0.0.0",
-						family: "IPv4",
-						mac: "00:00:00:00:00:00",
-						internal: true,
-						cidr: "127.0.0.1/8",
-					},
-				],
-			}),
+			mount: async (spec) => {
+				const mounted = await testMountSource()(spec);
+				if (mounted.kind !== "mounted") return mounted;
+				return { kind: "mounted", mount: { ...mounted.mount, share: async () => undefined } };
+			},
 		});
 		const result = await review.share();
 
@@ -1083,7 +1090,7 @@ describe("shared review", () => {
 	});
 
 	test("mints a reviewer link with a QR and keeps the owner's page working", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const result = await review.share();
 
 		expect(result?.state.sharing).toBe(true);
@@ -1097,7 +1104,10 @@ describe("shared review", () => {
 	});
 
 	test("a reviewer comments under their own name and the owner sees it", async () => {
-		const { review, session, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review, session, content } = await startShared(
+			{ mount: testMountSource("127.0.0.1") },
+			{ canApprove: true },
+		);
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1114,7 +1124,10 @@ describe("shared review", () => {
 	});
 
 	test("a reviewer's post keeps the review open and tells the owner's page", async () => {
-		const { review, session, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review, session, content } = await startShared(
+			{ mount: testMountSource("127.0.0.1") },
+			{ canApprove: true },
+		);
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1139,7 +1152,11 @@ describe("shared review", () => {
 
 	test("a reviewer's second post replaces her comment and nobody else's", async () => {
 		const seeded = "# Plan\n- [ ] one\n> [!REVIEW] mine\n> [!REVIEW] @bob: theirs\n- [ ] two\n";
-		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true }, seeded);
+		const { review, content } = await startShared(
+			{ mount: testMountSource("127.0.0.1") },
+			{ canApprove: true },
+			seeded,
+		);
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 		const post = (comment: string) =>
@@ -1160,7 +1177,7 @@ describe("shared review", () => {
 	});
 
 	test("a reviewer must choose a name, and can never save, approve, or cancel", async () => {
-		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 		const origin = new URL(link.url).origin;
@@ -1182,7 +1199,7 @@ describe("shared review", () => {
 	});
 
 	test("stop sharing revokes the reviewer token and closes the shared listener", async () => {
-		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1232,7 +1249,11 @@ describe("shared review", () => {
 
 	test("a reviewer re-posting the page's comments does not duplicate them", async () => {
 		const seeded = "# Plan\n- [ ] one\n> [!REVIEW] mine\n> [!REVIEW] @bob: theirs\n- [ ] two";
-		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true }, seeded);
+		const { review, content } = await startShared(
+			{ mount: testMountSource("127.0.0.1") },
+			{ canApprove: true },
+			seeded,
+		);
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1258,7 +1279,7 @@ describe("shared review", () => {
 	});
 
 	test("a link posts under its own bound name, and the page learns it", async () => {
-		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 		const comment = (author: string, text: string) =>
@@ -1277,7 +1298,11 @@ describe("shared review", () => {
 
 	test("a bound link cannot post under another reviewer's name", async () => {
 		const seeded = "# Plan\n- [ ] one\n> [!REVIEW] @bob: theirs\n- [ ] two";
-		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true }, seeded);
+		const { review, content } = await startShared(
+			{ mount: testMountSource("127.0.0.1") },
+			{ canApprove: true },
+			seeded,
+		);
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 		const post = (author: string, text: string) =>
@@ -1299,7 +1324,7 @@ describe("shared review", () => {
 	});
 
 	test("a re-shared link may claim a name the revoked one released", async () => {
-		const { review } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const first = (await review.share())?.state.links[0];
 		if (!first) throw new Error("no share link");
 		await fetch(apiOf(first.url, "/api/comment"), {
@@ -1335,7 +1360,7 @@ describe("shared review", () => {
 	});
 
 	test("a reviewer's save with nothing new changes nothing", async () => {
-		const { review, content } = await startShared({ networkInterfaces: LAN }, { canApprove: true });
+		const { review, content } = await startShared({ mount: testMountSource("127.0.0.1") }, { canApprove: true });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 		const post = () =>
@@ -1352,7 +1377,7 @@ describe("shared review", () => {
 	});
 
 	test("mints one link per person, while sharing again re-reads the first", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") });
 		const first = (await review.share())?.state.links[0];
 		if (!first) throw new Error("no share link");
 
@@ -1365,7 +1390,7 @@ describe("shared review", () => {
 	});
 
 	test("two links post under their own names in one review", async () => {
-		const { review, session, content } = await startShared({ networkInterfaces: LAN });
+		const { review, session, content } = await startShared({ mount: testMountSource("127.0.0.1") });
 		const first = (await review.share())?.state.links[0];
 		if (!first) throw new Error("no share link");
 		const invited = (await (await ownerShares(session, "/api/share/link")).json()) as { share: ShareState };
@@ -1383,7 +1408,7 @@ describe("shared review", () => {
 	});
 
 	test("revoking one link ends only that link, and the others keep posting", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") });
 		const first = (await review.share())?.state.links[0];
 		if (!first) throw new Error("no share link");
 		const invited = (await (await ownerShares(session, "/api/share/link")).json()) as { share: ShareState };
@@ -1404,7 +1429,7 @@ describe("shared review", () => {
 	});
 
 	test("revoking the last link stops sharing and closes the listener", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1412,14 +1437,14 @@ describe("shared review", () => {
 			share: ShareState;
 		};
 
-		expect(result.share).toEqual({ sharing: false, port: 0, links: [] });
+		expect(result.share).toEqual({ sharing: false, origin: "", links: [] });
 		expect(review.shareState()?.sharing).toBe(false);
 		// The shared listener is gone, so even a remembered token cannot reach it.
 		await expect(fetch(link.url)).rejects.toThrow();
 	});
 
 	test("refuses a link id the review does not hold, and a body that names none", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") });
 		await review.share();
 
 		expect((await ownerShares(session, "/api/share/revoke", { id: "link-9" })).status).toBe(404);
@@ -1427,7 +1452,7 @@ describe("shared review", () => {
 	});
 
 	test("refuses a ninth link, and says why", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN });
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") });
 		await review.share();
 		for (let index = 1; index < MAX_SHARE_LINKS; index++) await ownerShares(session, "/api/share/link");
 
@@ -1438,7 +1463,7 @@ describe("shared review", () => {
 	});
 
 	test("a reviewer cannot mint, revoke, or stop sharing", async () => {
-		const { review } = await startShared({ networkInterfaces: LAN });
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") });
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1454,14 +1479,14 @@ describe("shared review", () => {
 	});
 
 	test("a second share reuses the link instead of minting another", async () => {
-		const { review } = await startShared({ networkInterfaces: LAN });
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") });
 		const first = (await review.share())?.state.links[0]?.url;
 		const second = (await review.share())?.state.links[0]?.url;
 		expect(second).toBe(first);
 	});
 
 	test("sharing twice from one review keeps one listener and one token", async () => {
-		const { review } = await startShared({ networkInterfaces: LAN });
+		const { review } = await startShared({ mount: testMountSource("127.0.0.1") });
 		const first = await review.share();
 		const second = await review.share();
 		expect(second?.state.links).toEqual(first?.state.links);
@@ -1520,7 +1545,8 @@ async function start(
 	const review = createPlanWebReview(store, {
 		open: (url) => opened.push(url),
 		token: () => "tok",
-		port: 0,
+		mount: testMountSource(),
+		session: () => "s1",
 		...deps,
 	});
 	reviews.push(review);
@@ -1538,30 +1564,29 @@ async function startShared(
 	plan = "# Plan\n- [ ] one\n- [ ] two\n",
 ) {
 	const { store, content, rewrite, remove } = fakeStore(plan);
-	const review = createPlanWebReview(store, { open: () => {}, token: () => "tok", port: 0, ...deps });
+	const review = createPlanWebReview(store, {
+		open: () => {},
+		token: () => "tok",
+		mount: testMountSource(),
+		session: () => "s1",
+		...deps,
+	});
 	reviews.push(review);
 	const session = await review.start("/repo", stored(content()), options);
 	if (!session) throw new Error("the review server did not start");
 	return { review, session, content, store, rewrite, remove };
 }
 
-/** A review that shares one remembered port across turns, as the extension does. */
-function sessionSource() {
-	const { store } = fakeStore("# Plan\n");
-	const review = createPlanWebReview(store, { open: () => {}, token: () => "tok" });
-	reviews.push(review);
-	const open = async (): Promise<PlanReviewSession> => {
-		const session = await review.start("/repo", stored("# Plan\n"));
-		if (!session) throw new Error("the review server did not start");
-		return session;
-	};
-	return { open };
-}
+/** One review route, on the page's own mount: `…/plan/<id>/api/feedback?token=…`. */
+const at = (session: PlanReviewSession, path: string): string => {
+	const url = new URL(session.url);
+	return `${url.origin}${url.pathname.replace(/\/+$/, "")}${path}${url.search}`;
+};
 
-const feedbackUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/feedback?token=tok`;
-const approveUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/approve?token=tok`;
-const cancelUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/api/cancel?token=tok`;
-const eventsUrl = (session: PlanReviewSession) => `http://127.0.0.1:${session.port}/events?token=tok`;
+const feedbackUrl = (session: PlanReviewSession) => at(session, "/api/feedback");
+const approveUrl = (session: PlanReviewSession) => at(session, "/api/approve");
+const cancelUrl = (session: PlanReviewSession) => at(session, "/api/cancel");
+const eventsUrl = (session: PlanReviewSession) => at(session, "/events");
 
 describe("review session", () => {
 	test("serves the review page from the plan", async () => {
@@ -1671,7 +1696,11 @@ describe("review session", () => {
 
 	test("rejects a request without the session token", async () => {
 		const session = await start();
-		const response = await fetch(`http://127.0.0.1:${session.port}/`);
+		// The page, addressed without its credential: the token is the only thing that
+		// opens a review.
+		const bare = new URL(session.url);
+		bare.search = "";
+		const response = await fetch(bare.toString());
 		expect(response.status).toBe(403);
 	});
 
@@ -1903,7 +1932,7 @@ describe("review session", () => {
 	});
 
 	test("stop sharing tells a reviewer why and leaves the review open", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN }, {});
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") }, {});
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1919,7 +1948,7 @@ describe("review session", () => {
 	});
 
 	test("closing the review tells a reviewer why it stopped", async () => {
-		const { review, session } = await startShared({ networkInterfaces: LAN }, {});
+		const { review, session } = await startShared({ mount: testMountSource("127.0.0.1") }, {});
 		const link = (await review.share())?.state.links[0];
 		if (!link) throw new Error("no share link");
 
@@ -1960,32 +1989,6 @@ describe("review session", () => {
 		await session.close();
 		await session.close();
 		expect((await session.done).status).toBe("cancelled");
-	});
-
-	test("reuses the same port for the same plan across turns", async () => {
-		const source = sessionSource();
-		const first = await source.open();
-		const port = first.port;
-		await first.close();
-
-		const second = await source.open();
-		expect(second.port).toBe(port);
-	});
-
-	test("falls back to a free port when the remembered one is busy", async () => {
-		const source = sessionSource();
-		const first = await source.open();
-		const port = first.port;
-		await first.close();
-
-		const blocker = createServer(() => {});
-		await new Promise<void>((resolve) => blocker.listen(port, "127.0.0.1", () => resolve()));
-		try {
-			const second = await source.open();
-			expect(second.port).not.toBe(port);
-		} finally {
-			await new Promise<void>((resolve) => blocker.close(() => resolve()));
-		}
 	});
 });
 
@@ -2748,6 +2751,8 @@ describe("review settlement", () => {
 		const buttons = { approve: { disabled: false }, save: { disabled: false }, post: { disabled: false } };
 		const deps = {
 			token: () => "s3cret",
+			// The fixture's review answers at the origin's root.
+			base: () => "",
 			role: () => "owner",
 			mine: () => [{ anchor: 1 }],
 			annotations: () => [{ anchor: 1 }, { anchor: 2 }],

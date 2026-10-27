@@ -13,7 +13,15 @@
  * contract test holds every class to the kit or to this page's stylesheet.
  */
 
-import { brandLockup, button, docHead, keysSheet, tabTitle, themeToggle } from "../../../lib/web/index.ts";
+import {
+	baseAttribute,
+	brandLockup,
+	button,
+	docHead,
+	keysSheet,
+	tabTitle,
+	themeToggle,
+} from "../../../lib/web/index.ts";
 import { BOARD_KEYS } from "./keys.ts";
 import { BOARD_CLASS as N } from "./names.ts";
 import { BOARD_CSS } from "./styles.ts";
@@ -28,12 +36,15 @@ export type PageView = "board" | "team";
  * shared link opens the tab it names. The document has no form and no write affordance:
  * a page that cannot change a card cannot offer a button the server would refuse.
  */
-export function renderBoardPage(input: { view: PageView }): string {
+export function renderBoardPage(input: { view: PageView; base?: string }): string {
 	const team = input.view === "team";
+	// The page answers under the session's mount, so its own script and theme are named
+	// from that prefix rather than from the origin's root.
+	const base = input.base ?? "";
 	return `<!doctype html>
-<html lang="en" data-view="${team ? "team" : "board"}">
+<html lang="en" data-view="${team ? "team" : "board"}"${baseAttribute(base)}>
 <head>
-${docHead({ title: tabTitle("board"), css: BOARD_CSS })}
+${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
 </head>
 <body class="bf-app">
 <h1 class="sr-only">board — the shared feature list for this repository</h1>
@@ -111,7 +122,7 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS })}
 </div>
 
 ${keysSheet(BOARD_KEYS)}
-<script src="/app.js" defer></script>
+<script src="${base}/app.js" defer></script>
 </body>
 </html>
 `;

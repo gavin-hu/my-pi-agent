@@ -244,7 +244,7 @@ Four layers sit below the extensions, each with one contract.
 | `lib/` core | configuration, environment, paths, formatting, errors, spawning, timers, and the one subsystem with its own seam: [`../lib/git/`](../lib/git/) | [`../lib/README.md`](../lib/README.md) |
 | [`../lib/tui/`](../lib/tui/) | the terminal design system: roles, rules, rows, columns, gauges, the transcript kit, the render cache | [`../lib/tui/README.md`](../lib/tui/README.md) |
 | [`../lib/web/`](../lib/web/) | the browser design system: tokens, base CSS, components, markup atoms | [`../lib/web/README.md`](../lib/web/README.md) |
-| [`../lib/http/`](../lib/http/) | the loopback policy every served page obeys: one server entry, binding, `Host` check, page headers, responses, event streams, the idempotent closer | [`../lib/README.md`](../lib/README.md) |
+| [`../lib/http/`](../lib/http/) | the loopback policy every served page obeys: one server entry, the mount a page claims a prefix with, binding, `Host` check, page headers, responses, event streams, the idempotent closer | [`../lib/README.md`](../lib/README.md) |
 
 Two rules keep the layers honest.
 
@@ -275,7 +275,7 @@ for the next session to reconcile it.**
 
 ```mermaid
 flowchart TD
-  S["one Pi session"] --> A["this process · a loopback server, a job"]
+  S["one Pi session"] --> A["this process · one loopback server with a mount per page, a job"]
   S --> B["child · a subagent, a verification run"]
   S --> C["peer · a WeChat conversation"]
   A --> Z["the owner stops it, or reconciles and prunes it"]
@@ -285,7 +285,7 @@ flowchart TD
 
 | Shape | Owner and stop path | What it must leave behind |
 |---|---|---|
-| Loopback server | Started on `session_start`, closed on shutdown, on the owner's command, and on idle. | Nothing: the page describes a session that is still running. |
+| Loopback server | `serve` binds it on the first mount, and closes it on shutdown or when its last mount leaves; a page gives its own prefix back on the owner's command or on idle. | Nothing: the page describes a session that is still running. |
 | Background job or watcher | Started by a tool call, tracked in a registry with its own log, reconciled on shutdown. | The log and the registry entry, so a restarted session can list and stop what is still running. |
 | Child `pi` process | `subagent` spawns it, enforces a deadline, escalates and reports the exit. | The transcript, if the user asked for one. |
 | Peer session | The bridge opens one per admitted sender; logout or shutdown stops the bridge. | Each peer's history, on disk, apart from the host session. |
@@ -295,8 +295,9 @@ Three rules keep that honest.
 - **A one-runtime resource takes a lock.** A second Pi cannot drive the same
   account or the same directory; the WeChat poller's lock is the example.
 - **A loopback server has one lifecycle.** Binding, the accept path, the close
-  path, and idle grace live in [`../lib/http/`](../lib/http/), and an extension
-  supplies routes rather than building a `node:http` server of its own.
+  path, and idle grace live in [`../lib/http/`](../lib/http/), and a page claims a
+  prefix through [`requestMount`](../lib/http/mount.ts) rather than building a
+  `node:http` server of its own: one socket per session, one port, one close.
 - **What outlives the process is pruned by its owner, not on exit.** A cap, or a
   command in the shape of `/worktree prune`.
 

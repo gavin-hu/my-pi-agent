@@ -2,15 +2,14 @@
  * Configuration for the browse extension.
  *
  * The `file-browse` section of the shared `bytefly.json` (global then project,
- * project wins). Everything
- * is validated and clamped so a typo cannot produce a nonsensical server.
+ * project wins). Everything is validated and clamped so a typo cannot produce a
+ * nonsensical page. The port is not here: the session serves every page on one, and
+ * `serve.port` is where that is pinned.
  */
 
 import { asBoolean, clampInteger, loadConfigSection } from "../../../lib/config.ts";
 
 export interface ServeConfig {
-	/** TCP port on 127.0.0.1; `0` picks one random port fixed for the session, a positive value pins it. */
-	port: number;
 	/** Open the default browser when the server starts. */
 	autoOpen: boolean;
 	/** Files larger than this are not rendered inline. */
@@ -42,7 +41,6 @@ export interface ServeConfig {
 }
 
 export const DEFAULT_CONFIG: ServeConfig = {
-	port: 0,
 	autoOpen: true,
 	maxFileBytes: 1024 * 1024,
 	maxThumbBytes: 5 * 1024 * 1024,
@@ -69,7 +67,7 @@ export const LIVE_INTERVAL_MAX = 60_000;
 /**
  * How long the server keeps listening once the last page has gone. A reload or a
  * navigation detaches the stream and re-attaches within a moment, so the grace has
- * to outlast one; a closed window never re-attaches, and the port is released
+ * to outlast one; a closed window never re-attaches, and the prefix is given back
  * instead of listening for nobody until the session ends.
  */
 export const IDLE_STOP_MS = 10_000;
@@ -90,7 +88,6 @@ export function normalizeConfig(
 ): ServeConfig {
 	if (!raw) return base;
 	return {
-		port: clampInteger(raw.port, base.port, 0, 65535),
 		autoOpen: asBoolean(raw.autoOpen, base.autoOpen),
 		maxFileBytes: clampInteger(raw.maxFileBytes, base.maxFileBytes, 0, 1024 * 1024 * 1024),
 		maxThumbBytes: clampInteger(raw.maxThumbBytes, base.maxThumbBytes, 0, 1024 * 1024 * 1024),

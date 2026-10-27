@@ -22,8 +22,8 @@
 import { readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { createPlanWebReview, type PlanReviewSession, type PlanWebReview } from "../../extensions/plan/web.ts";
-import type { NetworkInterfaces } from "../../extensions/plan/web-share.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
+import { testMountSource } from "../../test/helpers/serve.ts";
 import { anchorOf, captureStore, draftSeed, postAsReviewer, storedPlan } from "./plan-review-capture.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
 
@@ -111,24 +111,6 @@ const SHARE_READY = `(function () {
 	return false;
 })()`;
 
-/**
- * A reviewer shot needs a reachable address to share to. This snapshot reports
- * loopback as a LAN address, so the capture mints a real reviewer link without
- * opening a real interface.
- */
-const LOOPBACK_AS_LAN: NetworkInterfaces = {
-	lo0: [
-		{
-			address: "127.0.0.1",
-			netmask: "255.0.0.0",
-			family: "IPv4",
-			mac: "00:00:00:00:00:00",
-			internal: false,
-			cidr: "127.0.0.1/8",
-		},
-	],
-};
-
 /** Render one plan and capture it. */
 async function capture(options: ShotOptions): Promise<void> {
 	const plan = storedPlan(readFileSync(options.plan, "utf-8"), options.plan);
@@ -138,8 +120,10 @@ async function capture(options: ShotOptions): Promise<void> {
 	const review = createPlanWebReview(capture.store, {
 		open: () => {},
 		token: () => TOKEN,
-		port: 0,
-		networkInterfaces: () => LOOPBACK_AS_LAN,
+		// The review mounts on a server of its own, which is what `serve` gives it at
+		// runtime; sharing binds a second listener the same way.
+		mount: testMountSource(),
+		session: () => "screenshot",
 	});
 	const session = await review.start(process.cwd(), plan, { canApprove: true });
 	if (!session) throw new Error("could not bind the review server");
@@ -187,7 +171,7 @@ async function mintShareLinks(
 	const first = (await review.share())?.state.links[0];
 	if (!first) throw new Error("could not mint a reviewer link");
 	if (name !== undefined) await postAsReviewer(first.url, name, anchor);
-	const response = await fetch(`http://127.0.0.1:${session.port}/api/share/link?token=${TOKEN}`, { method: "POST" });
+	const response = await fetch(session.url.replace("/?token=", "/api/share/link?token="), { method: "POST" });
 	if (!response.ok) throw new Error(`the review refused a second link: ${response.status}`);
 }
 

@@ -1,14 +1,14 @@
 /**
  * The per-session port band the loopback pages share.
  *
- * Two pages draw from it — `/board` and `/browse` — so a session's pages cluster where a
- * person's bookmarks already point. The band is one product decision, stated here once:
- * a number repeated in each extension's config is two chances to move one of them, and
- * nothing would notice until a bookmark landed outside the range.
+ * `serve` draws the session's one port from it, so every page that session serves
+ * clusters where a person's bookmarks already point. The band is one product decision,
+ * stated here once: a number repeated in each extension's config is several chances to
+ * move one of them, and nothing would notice until a bookmark landed outside the range.
  *
- * A pick is a guess, not a reservation. `serveLoopback` binds it and falls back to
- * whatever free port the OS gives, so a port another process holds costs a retry rather
- * than a start.
+ * A pick is a guess, not a reservation. `serveHttp` binds it and falls back to whatever
+ * free port the OS gives, so a port another process holds costs a retry rather than a
+ * start.
  */
 
 import { randomInt } from "node:crypto";

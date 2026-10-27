@@ -14,9 +14,7 @@ import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
-import { paint } from "../../lib/tui/tokens.ts";
-import { randomPort } from "../../lib/http/index.ts";
+import { requestMount } from "../../lib/http/index.ts";
 import { loadConfig } from "./config/config.ts";
 import { createGitDiff, createGitStatus } from "./git/git.ts";
 import { openInBrowser } from "../../lib/browser.ts";
@@ -28,8 +26,6 @@ export interface FileBrowserDeps {
 	createServer?: typeof createFileServer;
 	/** Override the browser opener (tests). */
 	open?: typeof openInBrowser;
-	/** Override session-port selection (tests). */
-	pickPort?: () => number;
 }
 
 interface RunningServer {
@@ -41,40 +37,25 @@ interface RunningServer {
 export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}): void {
 	if (!isExtensionEnabled("file-browse")) return;
 	let running: RunningServer | undefined;
-	/** Random port fixed for the session after the first successful start. */
-	let sessionPort: number | undefined;
+	/** The session this page serves as; the mount lands on its one server. */
+	let sessionId = "";
 
-	/** Publish the browse chip, or clear it with `undefined`; best-effort UI. */
-	const setBrowseStatus = (ctx: ExtensionContext, port: number | undefined): void => {
-		try {
-			const value =
-				port === undefined
-					? undefined
-					: `${paint(ctx.ui.theme, "ok", GLYPHS.browse)} ${paint(ctx.ui.theme, "accent", String(port))}`;
-			ctx.ui.setStatus(STATUS_KEYS.browse, value);
-		} catch {
-			// A UI without a theme or setStatus must not break the command.
-		}
-	};
-
-	const stop = async (ctx?: ExtensionContext): Promise<boolean> => {
+	const stop = async (): Promise<boolean> => {
 		const current = running;
 		if (!current) return false;
 		running = undefined;
 		await current.server.close();
-		if (ctx) setBrowseStatus(ctx, undefined);
 		return true;
 	};
 
 	/**
-	 * Close the server once the page that was its only reader has gone: nothing is
-	 * left to serve, and the chip would otherwise advertise a port that answers no
-	 * one. `/browse` starts it again on the same session port.
+	 * Give the prefix back once the page that was its only reader has gone: nothing is
+	 * left to serve. `/browse` starts it again on the session's port.
 	 */
 	const stopWhenPageLeft = async (): Promise<void> => {
 		const current = running;
 		if (!current) return;
-		if (await stop(current.ctx)) current.ctx.ui.notify("browse: stopped — the last page was closed", "info");
+		if (await stop()) current.ctx.ui.notify("browse: stopped — the last page was closed", "info");
 	};
 
 	const start = async (args: string, ctx: ExtensionContext): Promise<void> => {
@@ -87,15 +68,12 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			return;
 		}
 		if (target === "stop") {
-			ctx.ui.notify((await stop(ctx)) ? "browse: stopped" : "browse: not running", "info");
+			ctx.ui.notify((await stop()) ? "browse: stopped" : "browse: not running", "info");
 			return;
 		}
 
 		const cwd = resolveEffectiveCwd(ctx.cwd);
 		const config = loadConfig(cwd);
-		// A pinned config port wins; otherwise one random port is fixed for the session.
-		const unpinned = config.port <= 0;
-		const port = unpinned ? (sessionPort ?? (deps.pickPort ?? randomPort)()) : config.port;
 		let root = cwd;
 		if (target) {
 			try {
@@ -118,17 +96,19 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		} catch {
 			// Keep the unresolved root; the server factory reports a real failure.
 		}
-		if (running && running.server.root === realRoot && running.server.port === port) {
+		if (running && running.server.root === realRoot) {
 			ctx.ui.notify(`browse: ${running.server.url} (already running)`, "info");
 			return;
 		}
 
-		await stop(ctx);
+		await stop();
 		const create = deps.createServer ?? createFileServer;
 		try {
-			const server = await create({
+			const outcome = await create({
 				root,
-				config: { ...config, port },
+				config,
+				mount: (spec) => requestMount(pi, spec),
+				session: sessionId,
 				git: createGitStatus(pi, root),
 				diff: createGitDiff(pi, root, {
 					context: config.diffContext,
@@ -138,21 +118,16 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 				}),
 				onIdle: () => void stopWhenPageLeft(),
 			});
-			if (unpinned) sessionPort = port;
+			if (outcome.kind === "refused") {
+				ctx.ui.notify(`browse: ${outcome.reason}`, "error");
+				return;
+			}
+			const server = outcome.server;
 			running = { server, ctx };
-			setBrowseStatus(ctx, server.port);
 			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
 			if (config.autoOpen) (deps.open ?? openInBrowser)(server.url);
 		} catch (error) {
-			const code = (error as NodeJS.ErrnoException | undefined)?.code;
-			if (code === "EADDRINUSE") {
-				ctx.ui.notify(
-					`browse: port ${port} is in use; run /browse again to try another or set "port" in the bytefly.json file-browse section`,
-					"error",
-				);
-			} else {
-				ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
-			}
+			ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 		}
 	};
 
@@ -169,8 +144,11 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		},
 	});
 
-	pi.on("session_shutdown", async (_event, ctx) => {
-		await stop(ctx);
-		sessionPort = undefined;
+	pi.on("session_start", async (_event, ctx) => {
+		sessionId = ctx.sessionManager.getSessionId();
+	});
+
+	pi.on("session_shutdown", async () => {
+		await stop();
 	});
 }

@@ -26,6 +26,7 @@ import { DEFAULT_CONFIG } from "../../extensions/file-browse/config/config.ts";
 import { createGitDiff, createGitStatus } from "../../extensions/file-browse/git/git.ts";
 import { encodePath } from "../../extensions/file-browse/files/paths.ts";
 import { createFileServer } from "../../extensions/file-browse/transport/server.ts";
+import { testMountSource } from "../../test/helpers/serve.ts";
 import { parseShotArgs, runCli } from "../cli.ts";
 import { type PageShotOptions, capturePage } from "../capture/page.ts";
 
@@ -215,12 +216,18 @@ async function capture(options: ShotOptions): Promise<void> {
 	const fixture = options.root ? undefined : createFixture();
 	const root = options.root ?? (fixture as string);
 	const api = execApi();
-	const server = await createFileServer({
+	// The page mounts on a server of its own, which is what `serve` gives it at runtime;
+	// the shot does not need a session behind it.
+	const outcome = await createFileServer({
 		root,
-		config: { ...DEFAULT_CONFIG, port: 0, autoOpen: false },
+		config: { ...DEFAULT_CONFIG, autoOpen: false },
+		mount: testMountSource(),
+		session: "screenshot",
 		git: createGitStatus(api, root),
 		diff: createGitDiff(api, root, {}),
 	});
+	if (outcome.kind !== "served") throw new Error(outcome.reason);
+	const server = outcome.server;
 	try {
 		await capturePage({
 			url: new URL(`view/${encodePath(options.file)}`, server.url).toString(),

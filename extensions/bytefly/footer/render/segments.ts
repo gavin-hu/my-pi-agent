@@ -101,41 +101,23 @@ export function worktreeSegment(snapshot: StatusSnapshot, theme: Theme): Segment
 }
 
 /**
- * The pages this session is serving, as one cluster.
+ * The session's page port, while anything is served on it.
  *
- * The board and file-browse chips say one thing — a page is up on this port — so they
- * share a segment, a weight, and a floor. Read separately they were a mode chip and a
- * port chip: `▤ 5043` rode the mode weight and outlived `◉ 4909` by four columns, which
- * made two facts of the same kind look like two kinds of fact. Shared, they also drop
- * together, and the surviving form is the pair of glyphs, so a bar too narrow for a port
- * still says a page is up.
+ * One server serves every page of a session, so there is one number to draw: the chip
+ * the `serve` extension publishes, with the glyph alone as the form that survives a bar
+ * too narrow for a port.
  */
 export function portsSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const open = [
-		{ key: CONFIG.boardStatusKey, icon: CONFIG.icons.board },
-		{ key: CONFIG.browseStatusKey, icon: CONFIG.icons.browse },
-	]
-		.filter((entry) => snapshot.statuses.has(entry.key))
-		.map((entry) => ({
-			icon: paint(theme, "ok", entry.icon),
-			port: chipLabel(snapshot.statuses.get(entry.key) ?? ""),
-		}));
-	if (open.length === 0) return null;
-	const joined = (separator: string): string =>
-		open
-			.map((entry) => (entry.port ? `${entry.icon} ${paint(theme, "accent", entry.port)}` : entry.icon))
-			.join(separator);
-	// Widest first: the item separator, then a single space, then the glyphs alone. A
-	// one-page session has two forms; two pages sharing a padded bar have three.
-	const forms = [
-		...new Set([joined(faint(theme, CONFIG.separators.item)), joined(" "), open.map((entry) => entry.icon).join(" ")]),
-	];
+	const chip = snapshot.statuses.get(CONFIG.httpStatusKey);
+	if (chip === undefined) return null;
+	const icon = paint(theme, "ok", CONFIG.icons.http);
+	const port = chipLabel(chip);
 	return {
 		id: "ports",
 		weight: 3,
 		droppable: true,
 		separator: faint(theme, CONFIG.separators.item),
-		forms,
+		forms: [...new Set([port ? `${icon} ${paint(theme, "accent", port)}` : icon, icon])],
 	};
 }
 
@@ -171,13 +153,7 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 
 export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
-		.filter(
-			([key]) =>
-				key !== CONFIG.worktreeStatusKey &&
-				key !== CONFIG.boardStatusKey &&
-				key !== CONFIG.browseStatusKey &&
-				!isAlert(key),
-		)
+		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.httpStatusKey && !isAlert(key))
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([key, value]) => {
 			const status = sanitize(value);

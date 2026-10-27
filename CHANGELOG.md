@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `serve`: one loopback server per session, with a mount per page. `/board`, `/browse`,
+  and a browser plan review each bound their own listener — four sockets for three
+  features — so a session held three ports, three chips, and three close paths. They now
+  claim a path prefix on the session's one server (`/board`, `/browse`, and `/plan/<id>`),
+  which `serve` binds on the first page that opens and closes with its last: one origin to
+  bookmark, one `◉ <port>` chip, and one idle policy per page rather than per socket. A
+  second session — a WeChat peer conversation, a session in another worktree, another Pi —
+  still gets its own server and its own port. Sharing a review asks that one page's mount
+  for a single LAN address, so a loopback-only page can never be reached from the network.
+
 - `board`: the page names the repository it belongs to. A board is filed under a store key —
   twelve hex characters — so its tab read `board · 8872d3adda0e · 3 open`, and three open
   tabs could not be told apart. The tab now leads with the repository root's own name, and
@@ -41,6 +51,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   page documents cannot part company.
 
 ### Changed
+
+- `board`, `file-browse`, `plan`: the port is the session's, not a page's. `board.port` and
+  `file-browse.port` are gone, and `serve.port` in `bytefly.json` replaces both — one
+  number, one bookmark, and a pinned port that is taken is still reported rather than
+  walked around. The board also loses its `board` section entirely (the port was its only
+  key), a browser review no longer remembers a port per plan, and the footer draws one
+  `◉ <port>` chip instead of a board chip and a browse chip that always said the same
+  number. The pages keep their own prefixes, so `/board status` and `/browse status` still
+  print the port they answer on.
 
 - `board`: a session joins the team when it claims a card, and under a name derived from its
   id. The team's two names are now `team-lead` for the session serving the page and

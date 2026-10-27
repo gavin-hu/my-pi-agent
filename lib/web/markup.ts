@@ -16,6 +16,12 @@ export interface DocHeadOptions {
 	title: string;
 	/** Trusted CSS assembled by the page. */
 	css: string;
+	/**
+	 * The mount prefix this page answers under, e.g. `/files`; `""` for the origin's
+	 * root. A page's scripts and links are emitted under it, because a session serves
+	 * several pages on one origin.
+	 */
+	base?: string;
 }
 
 /**
@@ -42,6 +48,17 @@ export function tabTitle(product: string, subject?: string, count?: string): str
 export const TAB_TITLE_JS = String(tabTitle);
 
 /**
+ * The `data-base` attribute a page's `<html>` carries, which its own bundle reads
+ * (`base()` in `client-runtime.ts`) to build every URL it emits.
+ *
+ * `""` — the origin's root — writes nothing at all, so a page served alone is markup
+ * without a mount to name.
+ */
+export function baseAttribute(base: string): string {
+	return base === "" ? "" : ` data-base="${escapeHtml(base)}"`;
+}
+
+/**
  * The shared document head: charset, viewport, colour scheme, title, the page
  * CSS, and the pre-paint theme bootstrap. The body and its scripts stay with
  * each page.
@@ -53,7 +70,7 @@ export function docHead(options: DocHeadOptions): string {
 <title>${escapeHtml(options.title)}</title>
 ${markIcon()}
 <style>${options.css}</style>
-<script src="${THEME_JS_PATH}"></script>`;
+<script src="${options.base ?? ""}${THEME_JS_PATH}"></script>`;
 }
 
 /**

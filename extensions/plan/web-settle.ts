@@ -15,6 +15,8 @@
 export interface SettleDeps {
 	/** The path a write goes to, without its query string. */
 	token(): string;
+	/** The review's mount on the session's server, e.g. `/plan/3f9c21aa`. */
+	base(): string;
 	role(): string;
 	/** The comments this writer may write: her own when she is a reviewer, all when owner. */
 	mine(): readonly { author?: string }[];
@@ -122,7 +124,7 @@ export function saveReview(deps: SettleDeps): Promise<SettleResult> | null {
 	deps.setStatus("Saving\u2026");
 	return submitAnnotations(
 		deps,
-		"/api/feedback",
+		deps.base() + "/api/feedback",
 		"Saved \u2014 return to Pi to continue.",
 		"Could not save: ",
 		function () {
@@ -145,7 +147,7 @@ export function postReviewComments(deps: SettleDeps): Promise<SettleResult> | nu
 	deps.setStatus("Posting\u2026");
 	return submitAnnotations(
 		deps,
-		"/api/comment",
+		deps.base() + "/api/comment",
 		"Comments posted \u2014 the owner sees them now.",
 		"Could not post: ",
 		null,
@@ -158,7 +160,7 @@ export function approveReview(deps: SettleDeps): Promise<SettleResult> | null {
 	deps.setStatus("Approving\u2026");
 	return submitAnnotations(
 		deps,
-		"/api/approve",
+		deps.base() + "/api/approve",
 		"Approved \u2014 return to Pi to continue.",
 		"Could not approve: ",
 		function () {
@@ -185,7 +187,7 @@ export function cancelReview(deps: SettleDeps): Promise<void> | null {
 	deps.setStatus("Closing\u2026");
 	deps.updateState();
 	return deps
-		.send("/api/cancel?token=" + encodeURIComponent(deps.token()))
+		.send(deps.base() + "/api/cancel?token=" + encodeURIComponent(deps.token()))
 		.catch(function () {})
 		.then(function () {
 			deps.setStatus("Closed \u2014 return to Pi.");

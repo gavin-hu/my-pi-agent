@@ -166,7 +166,7 @@ describe("/plan share", () => {
 		const web = shareWeb({
 			state: {
 				sharing: true,
-				port: 51789,
+				origin: "http://192.168.1.24:51789",
 				links: [{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" }],
 			},
 			svg: "<svg/>",
@@ -185,7 +185,7 @@ describe("/plan share", () => {
 	test("says why it cannot share when the machine has no address", async () => {
 		const { runtime } = fakeRuntime({ file: plan() });
 		const web = shareWeb({
-			state: { sharing: false, port: 0, links: [], reason: "no network address to share on." },
+			state: { sharing: false, origin: "", links: [], reason: "no network address to share on." },
 		});
 		const pi = makeFakePi();
 		registerCommands(pi.pi, runtime, web);
@@ -212,7 +212,7 @@ describe("/plan share", () => {
 		const web = shareWeb({
 			state: {
 				sharing: true,
-				port: 51789,
+				origin: "http://192.168.1.24:51789",
 				links: [
 					{ id: "link-1", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=abc" },
 					{ id: "link-2", address: "192.168.1.24", url: "http://192.168.1.24:51789/?token=def" },
@@ -236,11 +236,11 @@ describe("/plan share", () => {
 			{
 				state: {
 					sharing: true,
-					port: 51789,
+					origin: "http://192.168.1.24:51789",
 					links: [{ id: "link-1", address: "192.168.1.24", url: "http://x/?token=abc" }],
 				},
 			},
-			{ state: { sharing: false, port: 0, links: [] } },
+			{ state: { sharing: false, origin: "", links: [] } },
 		);
 		const pi = makeFakePi();
 		registerCommands(pi.pi, runtime, web);

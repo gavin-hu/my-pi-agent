@@ -165,7 +165,7 @@ fuzzy quick-open palette, and a read-only git diff view.
    ```
 
    A page opens at an address on your own machine, such as
-   `http://127.0.0.1:4820`, and an `◉` chip in the footer shows the port while
+   `http://127.0.0.1:4780/`, and an `◉` chip in the footer shows the port while
    the server is running.
 
    <img src="../../assets/screens/file-browse.png" alt="The loopback file browser: a path filter and file tree on the left, and a rendered Markdown page on the right" width="100%">
@@ -228,8 +228,9 @@ The command takes a path and the usual lifecycle subcommands:
   read. [Security](../security.md) explains the boundary.
 - The root is the effective working directory, so an active worktree serves the
   worktree. A path argument must resolve inside it.
-- The port is chosen once per session and reused. A setting can pin one; a pinned
-  port that is already in use is reported, not silently replaced.
+- The port is chosen once per session and shared with every other page the session
+  serves, so `/board` and a plan review answer on the same origin. `serve.port` can pin
+  it; a pinned port that is already in use is reported, not silently replaced.
 - Read caps bound large files, long rendered documents, large images, and long
   directory listings. Over-size content becomes a download card rather than a
   frozen page.
@@ -241,7 +242,7 @@ The command takes a path and the usual lifecycle subcommands:
   reloads the page when you click it. `"live": false` in the `file-browse`
   section turns all of it off.
 - The server stops when the session shuts down, and when you close the last
-  page: ten seconds after the last tab goes, the port is released and the footer
+  page: ten seconds after the last tab goes, the prefix is released and the footer
   chip clears. A reload or a new tab within those ten seconds keeps it, and
   `/browse` starts it again — on the same port — whenever you want it back.
 

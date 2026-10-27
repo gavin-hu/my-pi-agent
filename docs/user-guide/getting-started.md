@@ -239,7 +239,7 @@ drawn.*
 | Your message | A `You` label and rule above each request you type. |
 | Tool block | A headline naming the tool and its call (for example `read src/app.ts`), with the result indented underneath behind a thin vertical rail. |
 | Turn rule | A rule such as `╌╌╌ turn 3 ╌╌╌` after a completed turn. Where width allows, it adds the duration, the tool count, and any failures. |
-| Footer | Two lines below the input: the folder and session name, git branch and worktree, the file-browser port, the context gauge and cost, plan mode, subagent cost, and the model name. |
+| Footer | Two lines below the input: the folder and session name, git branch and worktree, the session's page port, the context gauge and cost, plan mode, subagent cost, and the model name. |
 | Widgets | Up to two one-line rows above the input: your **to-do list** and your **goal**, when either exists. |
 | Status chips | Small badges in the footer that report background state. |
 
@@ -254,8 +254,7 @@ The chips you will meet:
 | `↳ 1` | One background helper is running |
 | `⊚ 1` | One watcher is live |
 | `! 2` | A watcher has two matches you have not read |
-| `◉ 4820` | The file browser is serving on port 4820 |
-| `⊞ 5043` | The board page is serving on port 5043 |
+| `◉ 4780` | A page of this session is being served on port 4780 |
 | `✆ wechat expired` | A WeChat login has expired |
 
 ### While a turn runs

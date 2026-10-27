@@ -8,31 +8,25 @@
  * hooks, and the frame hooks, so it never reaches into the session's maps.
  */
 
-import { LOOPBACK_HOSTS, type LoopbackHandler, type LoopbackServer, serveLoopback } from "../../lib/http/index.ts";
+import { type HttpMount, LOOPBACK_HOSTS, type SharedListener } from "../../lib/http/index.ts";
 import { qrSvg } from "../../lib/qr.ts";
 import type { ReviewFrame, ReviewRole } from "./types.ts";
 import {
 	AT_CAP_REASON,
 	createLinkTable,
-	lanAddresses,
 	NO_SHARE_REASON,
 	shareUrl,
 	type LinkTable,
-	type NetworkInterfaces,
 	type ShareResult,
 	type ShareState,
 } from "./web-share.ts";
 
 /** What the share listener needs from the review session it belongs to. */
 export interface ShareSessionDeps {
-	/** The one request handler: a loopback page and a shared page are the same page. */
-	handleRequest: LoopbackHandler;
-	/** The body cap both listeners read under, so a shared page is not read differently. */
-	maxBodyBytes: number;
-	/** The owner's bound port, reused for the link when it is free. */
-	ownerPort: () => number;
-	/** The machine's interfaces, or a snapshot a test injected. */
-	networkInterfaces: () => NetworkInterfaces;
+	/** The review's mount on the session's server; sharing borrows its LAN listener. */
+	mount: HttpMount;
+	/** The mount's prefix, so a reviewer's link names the same page the owner has. */
+	base: string;
 	/** Add a reviewer token to the session's role map. */
 	mintReviewer: () => string;
 	/** Remove a reviewer token from the session's role map. */
@@ -64,16 +58,14 @@ export interface ShareSession {
 }
 
 export function createShareSession(deps: ShareSessionDeps): ShareSession {
-	let address = "";
-	let port = 0;
-	let server: LoopbackServer | undefined;
+	let shared: SharedListener | undefined;
 	const links: LinkTable = createLinkTable({
 		mint: deps.mintReviewer,
 		revoke: deps.revokeReviewer,
 		nameOf: deps.nameOf,
 	});
 	let reason: string | undefined;
-	const hosts = (): readonly string[] => (address ? [...LOOPBACK_HOSTS, address] : [...LOOPBACK_HOSTS]);
+	const hosts = (): readonly string[] => (shared ? [...LOOPBACK_HOSTS, shared.address] : [...LOOPBACK_HOSTS]);
 
 	/**
 	 * The share surface as it is now, read rather than cached: a link's bound name
@@ -81,42 +73,22 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 	 * another share action.
 	 */
 	const snapshot = (): ShareState => {
-		const base: ShareState = server === undefined ? { sharing: false, port: 0, links: [] } : links.state(port, address);
-		return reason === undefined ? base : { ...base, reason };
-	};
-
-	/** Bind the shared listener on `chosen`, reusing the owner's port when it is free. */
-	const bind = async (chosen: string): Promise<void> => {
-		try {
-			const bound = await serveLoopback({
-				host: chosen,
-				ports: [deps.ownerPort(), 0],
-				maxBodyBytes: deps.maxBodyBytes,
-				handler: deps.handleRequest,
-			});
-			server = bound;
-			address = chosen;
-			port = bound.port;
-		} catch {
-			// Neither the owner's port nor a free one answered: the caller reports it.
-			server = undefined;
-		}
+		const state: ShareState =
+			shared === undefined
+				? { sharing: false, origin: "", links: [] }
+				: links.state(deps.base, shared.origin, shared.address);
+		return reason === undefined ? state : { ...state, reason };
 	};
 
 	/**
-	 * Bind the one shared listener the first time a link needs it, or report why
-	 * there is nothing to bind to. Every link answers on this same listener, so this
-	 * runs once per share and the rest is bookkeeping.
+	 * Ask the session's server for the LAN listener the first time a link needs it, or
+	 * report why there is nothing to bind to. Every link answers on this same listener, so
+	 * this runs once per share and the rest is bookkeeping.
 	 */
 	const ensureListener = async (): Promise<boolean> => {
-		if (server !== undefined) return true;
-		const chosen = lanAddresses(deps.networkInterfaces())[0];
-		if (chosen === undefined) {
-			reason = NO_SHARE_REASON;
-			return false;
-		}
-		await bind(chosen);
-		if (server === undefined) {
+		if (shared !== undefined) return true;
+		shared = await deps.mount.share();
+		if (shared === undefined) {
 			reason = NO_SHARE_REASON;
 			return false;
 		}
@@ -129,7 +101,7 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 		deps.broadcast("share", "owner");
 		const state = snapshot();
 		if (minted === undefined) return { state };
-		return { state, svg: await qrSvg(shareUrl(address, port, minted)) };
+		return { state, svg: await qrSvg(shareUrl(deps.base, shared?.origin ?? "", minted)) };
 	};
 
 	const share = async (): Promise<ShareResult> => {
@@ -172,19 +144,16 @@ export function createShareSession(deps: ShareSessionDeps): ShareSession {
 		// The reviewers are told before their listener goes away; the review itself
 		// stays open for its owner.
 		deps.endStreams("revoked", { role: "reviewer" });
-		const closer = server;
-		server = undefined;
-		address = "";
-		port = 0;
+		shared = undefined;
 		reason = undefined;
-		if (closer) await closer.close();
+		await deps.mount.unshare();
 		return settle();
 	};
 
 	const close = async (): Promise<void> => {
-		const closer = server;
-		server = undefined;
-		if (closer) await closer.close();
+		if (shared === undefined) return;
+		shared = undefined;
+		await deps.mount.unshare();
 	};
 
 	return { share, invite, revoke, stop, state: snapshot, hosts, close };

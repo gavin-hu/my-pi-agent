@@ -17,6 +17,7 @@ sections behind them.
 | `job` | Long-lived shell commands in the background, with logs and a wait | [`job.md`](./job.md) |
 | `watch` | Tailing a file or command and matching new lines | [`watch.md`](./watch.md) |
 | `session-bus` | Coordination between parallel Pi sessions on one repository | [`session-bus.md`](./session-bus.md) |
+| `serve` | The session's one loopback server: every page mounts a path prefix on it | [`serve.md`](./serve.md) |
 | `board` | One shared feature board per repository, written by the tools and shown by one page a lead serves | [`board.md`](./board.md) |
 | `team` | The lead's round: hand a card to a running session, take one back, or print it with `/team` | [`team.md`](./team.md) |
 | `context` | Where the context window went, and compacting from the report | [`context.md`](./context.md) |
