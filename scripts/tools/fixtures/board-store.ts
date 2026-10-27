@@ -5,7 +5,8 @@
  * Shared by `scripts/shots/board.ts` (the page PNGs) and the tool gallery's fixture,
  * so the picture of the page and the picture of the tool cannot drift apart. Nothing
  * here names a real checkout: the paths are this repository's own directories, and
- * the store is a temporary directory.
+ * the store is a temporary directory. The page itself is served by
+ * `test/helpers/board-page.ts`, so this module only holds the cards and the sessions.
  */
 
 import { mkdtempSync } from "node:fs";
@@ -13,9 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Actor } from "../../../lib/board/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
-import { buildView, type BoardView } from "../../../lib/board/view.ts";
-import { createStore } from "../../../lib/board/store.ts";
-import { pageActor } from "../../../extensions/board/seat.ts";
+import { type BoardStore, createStore } from "../../../lib/board/store.ts";
 
 /** The two sessions the fixture's cards belong to. */
 export const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
@@ -148,29 +147,9 @@ export function fixtureRoster(now: number): RosterSession[] {
 	];
 }
 
-/** A fixture store in a temp directory, and the snapshot of it. */
-export async function fixtureBoard(): Promise<{ directory: string; view: () => Promise<BoardView> }> {
+/** A fixture store in a temp directory, for a caller that serves the page over it. */
+export async function fixtureBoard(): Promise<{ directory: string; store: BoardStore }> {
 	const directory = mkdtempSync(join(tmpdir(), "pi-board-shot-"));
 	await seedStore(directory);
-	const store = createStore(directory);
-	return {
-		directory,
-		view: async () => {
-			const now = Date.now();
-			return buildView({
-				// The page serves as its seat, and marks its own row: one actor, one name.
-				me: pageActor(),
-				cards: await store.list(),
-				now,
-				roster: fixtureRoster(now),
-				bytes: await store.bytes(),
-				skipped: (await store.skipped()).length,
-				// A capture prints the repository and the store path, so it names the shape rather
-				// than a temp dir.
-				repo: "my-pi-agent",
-				root: "/Users/someone/my-pi-agent",
-				where: "~/.pi/agent/board/8872d3adda0e",
-			});
-		},
-	};
+	return { directory, store: createStore(directory) };
 }
