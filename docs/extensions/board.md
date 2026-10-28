@@ -222,7 +222,7 @@ a card with `data-lane`, so a theme change repaints it without a rule of its own
 
 The board as a posting card — the same rules, drawn to be read at half width:
 
-<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; five lane trays — Backlog, Plan, Execute, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines and the counts unassigned, unplanned, blocked, idle and done" width="100%">
+<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; five lane trays — Backlog, Plan, Execute, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines — each dot in the colour of the state it reports, success for live and warn for quiet — and the counts unassigned, unplanned, awaiting approval, blocked, idle and done" width="100%">
 
 *`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `screenshot:cards board`.*
 
