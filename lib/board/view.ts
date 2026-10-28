@@ -50,14 +50,16 @@ export interface ViewCard extends Card {
 	/** The priority it acts on: a card that never set one is ordinary. */
 	priority: Priority;
 	/**
-	 * The unfinished cards it waits for, as `#2 (execute)`; absent when nothing blocks it.
+	 * The unfinished cards it waits for, as `#2 (execute) Patch the gateway`; absent when
+	 * nothing blocks it.
 	 *
 	 * `undefined` is the whole fact — a waiting card is one with a `waits` — because a
 	 * boolean beside it would be one more thing that can disagree with the string.
 	 */
 	waits?: string;
 	/**
-	 * The unfinished cards waiting on it, as `#9 (backlog)`; absent when none do.
+	 * The unfinished cards waiting on it, as `#9 (backlog) Ship the picker`; absent when none
+	 * do.
 	 *
 	 * The other side of `waits`: what leaving this card undone holds up. Derived here
 	 * rather than in the page's script for the same reason, and filtered to the unfinished
@@ -211,8 +213,11 @@ export function buildView(input: ViewInput): BoardView {
  * derived field written onto one would outlive the read that made it.
  */
 function viewCardOf(card: Card, index: ReadonlyMap<string, Card>): ViewCard {
-	const waits = lanesText(blockersOf(card, index));
-	const dependents = lanesText(openDependentsOf(card.id, index));
+	// The page draws these two as its own lines, and a reader has to know *which* card: the
+	// lane alone is a state, and the title is the card. The transcript asks for no titles —
+	// a refusal is a row, and the sentence is the point there.
+	const waits = lanesText(blockersOf(card, index), { titles: true });
+	const dependents = lanesText(openDependentsOf(card.id, index), { titles: true });
 	const since = laneSince(card);
 	return {
 		...card,

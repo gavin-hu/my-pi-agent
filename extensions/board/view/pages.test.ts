@@ -296,6 +296,46 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("why.title = entry.why");
 	});
 
+	test("draws a card's face from the snapshot, and never from its own reading", () => {
+		// The waits and the dependents arrive already named: the snapshot owns which cards
+		// block and what each is called, so the face draws them rather than looking them up.
+		expect(BOARD_CLIENT_JS).toContain("card.dependents");
+		expect(BOARD_CLIENT_JS).toContain('"holds up " + card.dependents');
+		// The hints past the third are on the chip's hover and in the list, never dropped.
+		expect(BOARD_CLIENT_JS).toContain("more.title = beyond.join");
+		expect(BOARD_CLIENT_JS).toContain('el("li", "sr-only", beyond[j])');
+		// The note count and its age, through the same plural the rest of the page counts with;
+		// the age only when it is not the card's own stamp printed twice.
+		expect(BOARD_CLIENT_JS).toContain('plural(card.notes.length, "note")');
+		expect(BOARD_CLIENT_JS).toContain("ago(last.at) !== ago(card.updatedAt)");
+		expect(BOARD_CLIENT_JS).toContain('"last note {age} by " + last.by');
+		// What the eye gets on a hover, the keyboard gets described: j/k only ever focuses.
+		expect(BOARD_CLIENT_JS).toContain('title.setAttribute("aria-describedby"');
+		// Where the reader is and has been: two marks the client owns alone.
+		expect(BOARD_CLIENT_JS).toContain("board.markCards = function");
+		expect(BOARD_CLIENT_JS).toContain('"data-current"');
+	});
+
+	test("keeps a stamp's own wording, so two ages on one card read as two facts", () => {
+		// A card now shows when it was written to and when its last note landed; a ticker
+		// that assumed "updated" would relabel the second one within a minute.
+		expect(BOARD_CLIENT_JS).toContain('stamp(card.updatedAt, "updated {age}")');
+		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-at-title", wording)');
+		expect(BOARD_CLIENT_JS).toContain("board.sentence(wording, next)");
+	});
+
+	test("marks the read card and the current one through tokens, not literals", () => {
+		// Both marks are edges on the card a reader has read and the one they are on.
+		expect(BOARD_CSS).toContain('.board-card[data-visited="true"]{box-shadow:inset 3px 0 0 var(--border-strong)}');
+		expect(BOARD_CSS).toContain(
+			'.board-card[data-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}',
+		);
+		// The line under the reason clamps like the reason, which is why it is described too,
+		// and it keeps the card's own voice: warn means a reader has to decide something.
+		expect(ownRules()).toMatch(/\.board-card__holds\{[^}]*-webkit-line-clamp:2/);
+		expect(ownRules()).toMatch(/\.board-card__holds\{[^}]*color:var\(--muted\)/);
+	});
+
 	test("draws the dashboard: a queue, a roster, and a Done strip that opens cards", () => {
 		expect(BOARD_CLIENT_JS).toContain("board-team__grid");
 		expect(BOARD_CLIENT_JS).toContain("board-team__decision");
@@ -547,6 +587,7 @@ describe("the class contract", () => {
 	/** Attributes whose only reader is the client: an element hook, or a stamp for the age ticker. */
 	const HOOKS: Readonly<Record<string, string>> = {
 		"data-at": "the age ticker rewrites the text from it",
+		"data-at-title": "a stamp's own wording, which the ticker fills from the same stamp",
 		"data-card": "the open card is found by its id",
 		"data-lane": "a lane section and a card carry the lane they are in",
 		"data-picker-lane": "the narrow picker reads which lane a button selects",

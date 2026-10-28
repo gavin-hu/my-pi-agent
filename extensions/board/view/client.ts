@@ -6,11 +6,12 @@
  * Served as one string, because a page that opens six requests before it can paint
  * is a page that looks broken for a moment. Nothing here is typed — no compiler sees
  * a template string — so the split is by job and the class-contract test reads the
- * result: `render.ts` paints, `team.ts` draws the round, `dialog.ts` opens one card,
- * `keys.ts` binds, and `live.ts` owns the tabs and the stream.
+ * result: `render.ts` paints a whole frame, `card.ts` draws one card's face, `team.ts`
+ * draws the round, `dialog.ts` opens one card, `keys.ts` binds, and `live.ts` owns the
+ * tabs and the stream.
  *
- * Load order is a dependency: `team` takes helpers from `render`, and `live` starts
- * last, after every `board.*` handler it wires exists.
+ * Load order is a dependency: `card` and `team` take helpers from `render`, and `live`
+ * starts last, after every `board.*` handler it wires exists.
  */
 
 import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
@@ -21,6 +22,7 @@ import { PLURAL_JS } from "../../../lib/board/round-text.ts";
 import { skippedText } from "../../../lib/board/skipped.ts";
 import { FORMAT_AGE_JS } from "../../../lib/format.ts";
 import { namesScript, TAB_TITLE_JS, THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
+import { BOARD_CARD_JS } from "./card.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { BOARD_EMPTY_JS } from "./empty.ts";
 import { BOARD_DIALOG_JS } from "./dialog.ts";
@@ -41,6 +43,7 @@ export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
 ${namesScript(BOARD_CLASS)}
 ${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, runtime: CLIENT_RUNTIME_JS, lanes: String(LANES.length), skipped: String(skippedText) })}
 ${BOARD_TEAM_JS}
+${BOARD_CARD_JS}
 ${BOARD_EMPTY_JS}
 ${BOARD_DIALOG_JS}
 ${BOARD_KEYS_JS}

@@ -1,6 +1,6 @@
 /**
- * The client's renderer: snapshot in, DOM out — the toolbar, the lanes, the cards,
- * and the card dialog's contents.
+ * The client's renderer: snapshot in, DOM out — the toolbar, the lanes, the cards, and the
+ * card dialog's contents.
  *
  * This file runs in the browser, where no type checker sees it, so it holds to one
  * rule: **every value from the snapshot is set as `textContent`** — never as
@@ -12,9 +12,9 @@
  * when its cards' revisions moved, so the filter input, a collapsed lane, the scroll
  * offset, and an open dialog all survive a peer's write.
  *
- * The client modules share one namespace, `window.bfBoard`: this one paints,
- * `team.ts` draws the round, `dialog.ts` opens a card, `keys.ts` binds, and `live.ts`
- * owns the frame stream and the wiring.
+ * The client modules share one namespace, `window.bfBoard`: this one paints the whole
+ * frame, `card.ts` draws one card's face, `team.ts` draws the round, `dialog.ts` opens a
+ * card, `keys.ts` binds, and `live.ts` owns the frame stream and the wiring.
  *
  * `plural`, `tabTitle`, `matchesQuery`, `reasonFor`, `el`, `typing`, and `paintStatus` are
  * not written here. Their one bodies live in `lib/` beside the rules they express, and the
@@ -56,13 +56,10 @@ const renderTemplate = String.raw`(function () {
   var board = window.bfBoard || (window.bfBoard = {});
 
   /**
-   * A lane's own words arrive with it: label, colour, limit, and count.
-   *
-   * The page holds no lane table, so a head, a picker button, and the transcript cannot
-   * name one lane two ways — the words are decided once, in lib/board/lanes.ts.
+   * The page holds no lane table: a lane's words, colour, limit, and count arrive with it
+   * from the snapshot, so a head, a picker button, and the transcript cannot name one lane
+   * two ways — the words are decided once, in lib/board/lanes.ts.
    */
-  /** Path chips a lane card shows before it counts the rest. */
-  var PATH_CHIPS = 3;
   /** How many placeholder trays the skeleton paints: the lane table's own length, spliced in. */
   var LANE_COUNT = __LANE_COUNT__;
   /**
@@ -73,13 +70,6 @@ const renderTemplate = String.raw`(function () {
    * past this it is history, and the count in the head says how much.
    */
   var DONE_FOLD_AT = 6;
-  /** The two tones a reason line can take, by the kind the reason rule reports. */
-  var REASON_TONE = {
-    blocked: N.cardReasonBlocked,
-    contract: N.cardReasonUnplanned,
-    approval: N.cardReasonUnplanned,
-    review: N.cardReasonUnplanned,
-  };
 
 __RUNTIME__
 
@@ -130,96 +120,6 @@ __RUNTIME__
     var all = cards(view);
     for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
     return undefined;
-  }
-
-  /** The one line under a card's meta: why it sits where it does. */
-  function reasonOf(card) {
-    // An order is the strongest reason a card is not being worked on, and the one a
-    // reader cannot see from the lane. The sentence is the snapshot's, so this line and
-    // the tool's refusal name one list.
-    if (card.waits !== undefined) return { text: "waits on " + card.waits, kind: "waiting" };
-    return reasonFor(card, ago);
-  }
-
-  /** A path hint, or the +N chip that points at the rest. */
-  function paths(card, limit) {
-    var list = el("ul", N.cardPaths);
-    var shown = card.paths.slice(0, limit);
-    for (var i = 0; i < shown.length; i++) {
-      var item = el("li", "");
-      var hint = chip(shown[i]);
-      // A path longer than the card elides, and the whole of it is on the hover title: the
-      // card is often the only place its hints are read before opening the record.
-      hint.title = shown[i];
-      item.appendChild(hint);
-      list.appendChild(item);
-    }
-    if (card.paths.length > limit) {
-      var rest = el("li", "");
-      rest.appendChild(chip("+" + (card.paths.length - limit)));
-      list.appendChild(rest);
-    }
-    return list;
-  }
-
-  /** Whether the reader is dragging a selection, which a click at the end of it would clear. */
-  function textSelected() {
-    var selection = window.getSelection ? window.getSelection() : null;
-    return selection !== null && String(selection) !== "";
-  }
-
-  /** One card in its lane. */
-  function cardNode(card) {
-    var item = el("li", N.card);
-    item.setAttribute("data-card", card.id);
-    item.setAttribute("data-lane", card.lane);
-    item.setAttribute("data-rev", String(card.rev));
-
-    var head = el("p", N.cardHead);
-    head.appendChild(el("span", N.cardId, "#" + card.id));
-    // The title is the page's only focusable thing inside a card, so Enter and the focus
-    // ring have one home; the card around it is the larger target for a pointer. A native
-    // button's Enter and Space arrive as a click that bubbles to the card, so the card is
-    // the one handler and the button needs none.
-    var title = el("button", N.cardTitle, card.title);
-    title.type = "button";
-    head.appendChild(title);
-    item.appendChild(head);
-    item.addEventListener("click", function () {
-      // A drag that ends on a card is a reader selecting a title to copy, not opening it.
-      if (textSelected()) return;
-      board.openCard(card.id);
-    });
-
-    var meta = el("p", N.cardMeta);
-    meta.appendChild(card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned"));
-    // The order inside a lane is the priority, so an urgent card says so: an order
-    // nobody can see reads as an accident. The lane's colour stays the card's own.
-    if (card.priority !== "normal") meta.appendChild(chip(card.priority, "outline"));
-    // The stamp, so the clock can keep the age honest between frames: a board can be
-    // quiet for ten minutes while the page still says "live".
-    var age = el("span", "", ago(card.updatedAt));
-    age.setAttribute("data-at", String(card.updatedAt));
-    // "2d" beside the owner reads as anything from a due date to a priority; the hover says
-    // which fact it is. The dialog spells the same row as "updated".
-    age.title = ago(card.updatedAt) === "now" ? "updated just now" : "updated " + ago(card.updatedAt) + " ago";
-    meta.appendChild(age);
-    item.appendChild(meta);
-
-    if (card.paths.length > 0) item.appendChild(paths(card, PATH_CHIPS));
-
-    var reason = reasonOf(card);
-    if (reason) {
-      // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
-      // test can compare with the stylesheet.
-      var tone = REASON_TONE[reason.kind];
-      var line = el("p", tone === undefined ? N.cardReason : N.cardReason + " " + tone, reason.text);
-      // It clamps to one line on the card, so the full sentence is the tooltip.
-      line.title = reason.text;
-      item.appendChild(line);
-    }
-
-    return item;
   }
 
   /**
@@ -295,15 +195,17 @@ __RUNTIME__
    * writing to the cards would slowly lie about how long they have sat there. The
    * ticker calls this; it touches nothing else, so a filter, a folded lane, or an
    * open dialog survives it.
+   *
+   * A stamp carries its own wording ("updated {age}", "last note {age} by …"), because a
+   * card now shows two ages and a ticker that assumed one of them would relabel the other.
    */
   function refreshAges() {
     var nodes = document.querySelectorAll("[data-at]");
     for (var i = 0; i < nodes.length; i++) {
       var next = ago(Number(nodes[i].getAttribute("data-at")));
       if (nodes[i].textContent !== next) nodes[i].textContent = next;
-      // The card's age also says what it is on the hover, and a tooltip frozen at paint time
-      // would disagree with the text beside it within a minute.
-      if (nodes[i].title !== "") nodes[i].title = next === "now" ? "updated just now" : "updated " + next + " ago";
+      var wording = nodes[i].getAttribute("data-at-title");
+      if (wording !== null) nodes[i].title = board.sentence(wording, next);
     }
   }
 
@@ -398,7 +300,7 @@ __RUNTIME__
         section.setAttribute("data-sig", sig);
         var list = section.querySelector(".board-lane__list");
         list.textContent = "";
-        for (var j = 0; j < shown.length; j++) list.appendChild(cardNode(shown[j]));
+        for (var j = 0; j < shown.length; j++) list.appendChild(board.cardNode(shown[j]));
       }
       var count = section.querySelector(".board-lane__count");
       var head = section.querySelector(".board-lane__head");
@@ -574,6 +476,9 @@ __RUNTIME__
       if (card) fillDialog(card, view);
       else board.closeCard();
     }
+    // The marks are painted after the frame, not with each card: a lane is rebuilt whole
+    // when its cards move, and a reader's place must survive that.
+    board.markCards();
   };
 
   board.el = el;

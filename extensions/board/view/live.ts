@@ -3,8 +3,9 @@
  *
  * A frame is a whole snapshot, so every message repaints from it rather than patching
  * it — the renderer decides what actually changed. The only client state is which tab
- * is showing, the filter text, which lanes are collapsed, and which card's dialog is
- * open; none of it is authoritative, and none of it is sent anywhere.
+ * is showing, the filter text, which lanes are collapsed, which card's dialog is open,
+ * and where the reader is on the board — the card they are on and the ones they have
+ * read; none of it is authoritative, and none of it is sent anywhere.
  */
 
 export const BOARD_LIVE_JS = String.raw`(function () {
@@ -224,6 +225,16 @@ export const BOARD_LIVE_JS = String.raw`(function () {
       });
     }
     bindTabKeys(tabs);
+    // A card's title button takes the keyboard from j/k, a Tab, or a click, and the mark
+    // follows focus rather than the key that moved it. A focus outside the cards leaves the
+    // last card marked, which is what a reader coming back from the filter expects.
+    document.addEventListener("focusin", function (event) {
+      var node = event.target;
+      var card = node && node.closest ? node.closest(".board-card") : null;
+      if (!card) return;
+      board.current = card.getAttribute("data-card");
+      board.markCards();
+    });
     var picker = document.getElementById("board-picker");
     if (picker) {
       picker.addEventListener("click", function (event) {
@@ -253,6 +264,10 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     board.openId = undefined;
     board.query = "";
     board.collapsed = {};
+    // Where the reader is and has been: the two marks a card face can wear, which live as
+    // long as the tab does and never reach the store.
+    board.current = undefined;
+    board.visited = {};
     showView(new URLSearchParams(window.location.search).get("view") === "team" ? "team" : "board");
     wireChrome();
     skeletons();

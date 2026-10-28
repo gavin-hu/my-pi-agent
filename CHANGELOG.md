@@ -27,6 +27,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   prove was a board action, so a second read verb would have been refused by plan mode
   and counted as work by the nudge, with every suite green. Nothing changes for a caller:
   `list` is still the only verb that reads.
+- `board`: the page's card face carries what a reader decided on without opening it — the cards
+  it waits for and the cards it holds up by title as well as id, its note count, with the last
+  note's age only where that reads differently from the card's own updated stamp (a note is a
+  write, so the same moment printed twice was two bare numbers), and the path hints past its
+  `+N` chip on that chip's hover and in the list itself.
+- `board`: a card's reason, its holds-up line, and the hints behind `+N` are named by the title
+  button's `aria-describedby`, so the sentence a hover shows is read by the keyboard that reaches
+  the card, and `j`/`k` steps from the card it is on rather than back to the lane's first card —
+  the card the reader is on wears an accent edge and the ones they have read keep a quiet one.
 - `board`: a lane of finished cards stops widening at three. Five of them used to take half the
   row while the one card still being worked sat on its floor and elided its own title.
 - `board`: two path hints on one card are set a gap apart rather than four pixels, so two mono
