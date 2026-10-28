@@ -314,3 +314,149 @@ describe("the Testing section names suites that exist", () => {
 		});
 	}
 });
+
+/**
+ * One place a module puts state under the agent directory, and what the page says about it.
+ *
+ * The row is the location as a page spells it; `page` is the page whose Files row must name
+ * it; `names` is the literal the module itself has to still contain, so a moved directory
+ * fails here rather than in a reader's terminal. `lib/`'s stores carry no `page`: their row
+ * is in `lib/README.md`, so they are declared here for the ratchet and checked on the code.
+ */
+interface StoreRow {
+	/** The location, written the way the extension pages write it. */
+	location: string;
+	/** The page whose Files row for this module must name the location; empty for `lib/`. */
+	page: string;
+	/** The module that decides where it goes, relative to the repository root. */
+	module: string;
+	/** The directory or file name, as the code spells it. */
+	names: string;
+	/** A second module that spells the name, when the first joins its constant. */
+	constantsIn?: string;
+}
+
+/** The modules that own a location under the agent directory. */
+const STORES: readonly StoreRow[] = [
+	{ location: "<agent-dir>/plans/", page: "plan.md", module: "extensions/plan/plans.ts", names: "plans" },
+	{
+		location: "<agent-dir>/subagents/",
+		page: "subagent.md",
+		module: "extensions/subagent/transcripts.ts",
+		names: "subagents",
+	},
+	{ location: "<agent-dir>/memory.md", page: "memory.md", module: "extensions/memory/store.ts", names: "memory.md" },
+	{
+		location: "<agent-dir>/session-bus/<repo-key>/",
+		page: "session-bus.md",
+		module: "extensions/session-bus/runtime.ts",
+		constantsIn: "lib/session-roster.ts",
+		names: "session-bus",
+	},
+	{
+		location: "<agent-dir>/wechat/",
+		page: "wechat.md",
+		module: "extensions/wechat/state/credentials.ts",
+		names: "wechat",
+	},
+	{ location: "<agent-dir>/jobs/<project>/", page: "job.md", module: "extensions/job/registry.ts", names: "jobs" },
+	{
+		location: "<agent-dir>/bytefly/update.json",
+		page: "bytefly.md",
+		module: "extensions/bytefly/update/cache.ts",
+		names: "update.json",
+	},
+	{ location: "<agent-dir>/board/<repo-key>/", page: "", module: "lib/board/store.ts", names: "board" },
+	{ location: "<agent-dir>/bytefly.json", page: "", module: "lib/config.ts", names: "bytefly.json" },
+];
+
+/**
+ * Modules that read the agent directory without owning a place in it.
+ *
+ * This is the ratchet: a module that starts anchoring a path on the agent directory is
+ * either a store row or listed here with a reason, so a new store cannot ship unannounced.
+ */
+const READS_AGENT_DIR = new Map<string, string>([
+	["extensions/bytefly/doctor/runtime.ts", "probes what the health report lists"],
+	["extensions/bytefly/panel/commands.ts", "opens the settings screen over Pi's own file"],
+	["extensions/bytefly/panel/settings-runtime.ts", "reads and writes Pi's own settings"],
+	["extensions/bytefly/picker/discovery.ts", "finds installed packages in the agent directory"],
+	["extensions/bytefly/picker/resources.ts", "reads a package's own metadata"],
+	["extensions/bytefly/picker/toggle.ts", "writes Pi's own settings through the host"],
+	["extensions/bytefly/update/check.ts", "asks the package manager what is installed"],
+	["extensions/bytefly/update/register.ts", "wires the update check to the cache"],
+	["extensions/subagent/agents.ts", "reads the agent definitions Pi ships"],
+	["extensions/wechat/commands/commands.ts", "opens the bridge's own directory for its report"],
+	["extensions/wechat/index.ts", "hands the agent directory to the bridge"],
+	["extensions/worktree/config.ts", "owns a location in the checkout, not one under the agent directory"],
+	["lib/board/session.ts", "derives the bus directory a card's owner is read from"],
+	["lib/requirements.ts", "checks the state files doctor reports on"],
+]);
+
+/** Every non-test module under `directory`, relative to the repository root. */
+function modulesIn(directory: string): string[] {
+	return readdirSync(join(root, directory), { withFileTypes: true }).flatMap((entry) => {
+		const path = `${directory}/${entry.name}`;
+		if (entry.isDirectory()) return modulesIn(path);
+		if (!entry.name.endsWith(".ts") || entry.name.endsWith(".test.ts")) return [];
+		return [path];
+	});
+}
+
+describe("the stores under the agent directory", () => {
+	/** The row a page gives a module, as its cells, or undefined when it has none. */
+	function rowOf(file: string, module: string): string[] | undefined {
+		const stem = module.replace(/^extensions\/[^/]+\//, "");
+		const rows = (tablesOf(sectionOf(pageOf(file.replace(/\.md$/, "")), "Files"))[0] ?? []).slice(1);
+		return rows.find((row) => fileTargetsOf(row[0] ?? "").some((target) => target === stem));
+	}
+
+	test("declares every module that anchors on the agent directory", () => {
+		const anchored = [...modulesIn("extensions"), ...modulesIn("lib")]
+			.filter((module) => /getAgentDir|CONFIG_DIR_NAME/.test(readFileSync(join(root, module), "utf-8")))
+			.sort();
+		// A scan that stopped matching would make the ratchet vacuous.
+		expect(anchored.length).toBeGreaterThan(10);
+		const declared = new Set([
+			...STORES.flatMap((store) => [store.module, store.constantsIn].filter((file) => file !== undefined)),
+			...READS_AGENT_DIR.keys(),
+		]);
+		expect(
+			anchored.filter((module) => !declared.has(module)),
+			"a module anchoring on the agent directory with no store row and no reader entry",
+		).toEqual([]);
+	});
+
+	test("names each store's location in the Files row for its module", () => {
+		const missing: string[] = [];
+		for (const store of STORES) {
+			if (store.page === "") continue;
+			const row = rowOf(store.page, store.module);
+			if (row === undefined) {
+				missing.push(`${store.page}: no Files row for ${store.module}`);
+				continue;
+			}
+			if (!row.join(" ").includes(store.location)) {
+				missing.push(`${store.page}: ${store.module} row omits ${store.location}`);
+			}
+		}
+		expect(missing, "a store whose page does not say where it lives").toEqual([]);
+	});
+
+	test("keeps each store under the name its own module spells", () => {
+		const problems: string[] = [];
+		for (const store of STORES) {
+			const sources = [store.module, ...(store.constantsIn === undefined ? [] : [store.constantsIn])];
+			const missing = sources.filter((file) => !existsSync(join(root, file)));
+			if (missing.length > 0) {
+				problems.push(`${store.location}: ${missing.join(", ")} does not exist`);
+				continue;
+			}
+			// Any source: a module often joins a constant the shared module spells.
+			if (!sources.some((file) => readFileSync(join(root, file), "utf-8").includes(store.names))) {
+				problems.push(`${store.location}: ${sources.join(", ")} no longer names ${store.names}`);
+			}
+		}
+		expect(problems, "a store whose module no longer spells its location").toEqual([]);
+	});
+});

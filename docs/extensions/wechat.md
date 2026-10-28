@@ -606,7 +606,7 @@ status, which is what the old start/stop guidance used to do.
 | `transport/inbound.ts` | Inbound media resolution (download, decrypt, save, attach) and the hand-off to a peer's session. |
 | `transport/media.ts` | Media key/encrypt/decrypt, padded size, upload/download URL, image MIME sniff (undefined when the bytes are no image), filename sanitize, and save helpers. |
 | `state/state.ts` | `state.json` (cursor, owner, per-peer tokens, recent message ids). |
-| `state/credentials.ts` | `credentials.json` (`0600`, every stored account and the active one). |
+| `state/credentials.ts` | `<agent-dir>/wechat/` and its `credentials.json` (`0600`, every stored account and the active one). |
 | `state/lock.ts` | Poller lockfile. |
 | `peer/peer-session.ts` | One SDK `AgentSession` per peer: workspace, model, history under the state dir, dialogs bound to that peer, this bridge excluded from its resources, and the channel prompt appended. |
 | `peer/peer-worker.ts` | Per-peer queue, two peers' turns at once (`PEER_CONCURRENCY`), the fair slot hand-off, prompt/abort/reset, streamed reply parts, idle-session sweep, and the notice an abandoning close sends. |
