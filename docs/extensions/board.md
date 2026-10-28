@@ -134,7 +134,7 @@ terminal.
 | `claim` | `card` | the card, pulled into `plan` and owned by this session — refused, naming the count, when `plan` is at its limit (the limit counts the whole board, not one session's cards) |
 | `release` | `card` | the card, back in `backlog` with no owner; the contract and its approval stay |
 | `reclaim` | `card` | the card, back in `backlog`, whoever held it |
-| `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked` and is recorded with `blockedBy` (one line, ≤200 characters) as the card's one `blocked` record, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
+| `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked` and is recorded with `blockedBy` (one line, ≤200 characters) as the card's one `blocked` record, a re-plan from `execute` is an entry into `plan` and so is held to that lane's limit, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
 | `note` | `card`, `text` | the card with the note appended |
 | `contract` | `card`, `path?`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line is an unapproved one |
 | `approve` | `card` | the card with its contract approved, by a session that does not hold it — the gate in front of `execute` |
@@ -573,11 +573,12 @@ the snapshot are `lib/board/` — see
 ## Testing
 
 `test/suite-manifest.ts` declares the suites:
-`lib/board/{card,contract,lanes,limits,links,page-pointer,reason,round,round-text,rules,session,store,view}`
-for the record and its legacy read, the contract and its boundary, the lane table and its
-transition matrix, the WIP limits and their config, the dependency graph, the note a page
-leaves, the one reason rule, the rollup and its text, the card's transitions, the store a
-call opens and the identity it writes as, the files that store keeps, and the snapshot, and
+`lib/board/{card,contract,lanes,limits,links,page-pointer,read,reason,round,round-text,rules,session,store,view}`
+for the record, the reader that maps a v1 file onto it, the contract and its boundary, the
+lane table and its transition matrix, the WIP limits and their config, the dependency graph,
+the note a page leaves, the one reason rule, the rollup and its text, the card's transitions,
+the store a call opens and the identity it writes as, the files that store keeps, and the
+snapshot, and
 `extensions/board/{input,seat,tools,page,commands,extension,transport/router,view/pages,view/behaviour}`
 for the card body, the seat, every action, the page's lifecycle over a real socket (a page
 served, attached to, and taken over, a board that stops being readable, and a write refused
