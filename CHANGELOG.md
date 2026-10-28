@@ -21,6 +21,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the docs tree's first cleanup pass. `security.md`'s loopback bullet described a board
+  page that writes and mints two tokens; the page has been a read view with one token since it
+  stopped writing, and the bullet now says so. The 33-word status legend the extension pages
+  each repeated now lives once, in `development.md`'s template, and the fourteen pages whose
+  every row said `Shipped` dropped the column. `docs/README.md` lost the section that only
+  pointed at the front door's own table, `docs/extensions/README.md`'s one-line-per-page table
+  became the list of links it existed for, and `architecture.md` counts seven trust boundaries,
+  which is how many `security.md` documents.
 - `board`: a card's notes are read as the inline Markdown they were typed as — `code`, **bold**,
   *italic*, and an `http`/`https`/`mailto` link become atoms, and a target the kit's policy
   refuses stays text — through the same renderer the plan review page uses. The dialog's fill

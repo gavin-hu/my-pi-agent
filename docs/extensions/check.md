@@ -8,22 +8,20 @@ framework, or CI system.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Plan-mode refusal | `/check`, the read-only policy | Plan mode refuses a check because tests still write caches, snapshots, or generated files; approve the plan first. | Shipped |
-| Single active run | `run_check`, `/check` | A second run is refused with the corrective action while one process is active, instead of starting a parallel check. | Shipped |
-| Supervised run | `/check`, `run_check` | One process per command, with a wall-clock timeout, a bounded log, and `Esc` to cancel the process tree. | Shipped |
-| Command detection | a project manifest, `check.command` | The project's test, lint, and typecheck commands are found without configuration, with a shell command override. | Shipped |
-| Target selection | `/check` with a target, `run_check.target` | Run `test`, `lint`, `typecheck`, or `all`; `all` is the default. | Shipped |
-| Structured failures | `run_check` | The model gets `path`, `line`, `column`, `test`, `message`, and `command` instead of a wall of log text. | Shipped |
-| Failure list | `/check` | A navigable list with a detail view for the focused failure, drawn from a source excerpt or the bounded tail. | Shipped |
-| Rerun from the list | `r` in the failure list | Rerun the same check after reading a failure; `Enter` opens its detail and `Esc` closes. | Shipped |
-| Live run screen | `/check` | A scrolling tail that repaints while the command runs, so a silent compiler still shows progress. | Shipped |
-| Capped transcript | `run_check` | One status summary and at most five failure rows, expanded with `ctrl+o` to the model's 20-failure cap. | Shipped |
-| Headless report | `/check`, `run_check` | RPC, JSON, and print sessions post the summary plus the failure list, with no screen. | Shipped |
-| Honest fallback | `/check`, `run_check` | An unparsed failure names the exit status and the last output lines, never an invented location. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Plan-mode refusal | `/check`, the read-only policy | Plan mode refuses a check because tests still write caches, snapshots, or generated files; approve the plan first. |
+| Single active run | `run_check`, `/check` | A second run is refused with the corrective action while one process is active, instead of starting a parallel check. |
+| Supervised run | `/check`, `run_check` | One process per command, with a wall-clock timeout, a bounded log, and `Esc` to cancel the process tree. |
+| Command detection | a project manifest, `check.command` | The project's test, lint, and typecheck commands are found without configuration, with a shell command override. |
+| Target selection | `/check` with a target, `run_check.target` | Run `test`, `lint`, `typecheck`, or `all`; `all` is the default. |
+| Structured failures | `run_check` | The model gets `path`, `line`, `column`, `test`, `message`, and `command` instead of a wall of log text. |
+| Failure list | `/check` | A navigable list with a detail view for the focused failure, drawn from a source excerpt or the bounded tail. |
+| Rerun from the list | `r` in the failure list | Rerun the same check after reading a failure; `Enter` opens its detail and `Esc` closes. |
+| Live run screen | `/check` | A scrolling tail that repaints while the command runs, so a silent compiler still shows progress. |
+| Capped transcript | `run_check` | One status summary and at most five failure rows, expanded with `ctrl+o` to the model's 20-failure cap. |
+| Headless report | `/check`, `run_check` | RPC, JSON, and print sessions post the summary plus the failure list, with no screen. |
+| Honest fallback | `/check`, `run_check` | An unparsed failure names the exit status and the last output lines, never an invented location. |
 
 ## Quickstart
 

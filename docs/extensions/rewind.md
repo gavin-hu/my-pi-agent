@@ -12,24 +12,22 @@ file, a selection, or the whole turn.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Automatic snapshots | the `autoSnapshots` key | One snapshot per prompt, taken before its first mutating call, so every task has a restore point. | Shipped |
-| Durable snapshots | `refNamespace` | Snapshots survive the session and are listed from git rather than from session state. | Shipped |
-| Prompt timeline | `/rewind` | Every user prompt on the active branch, newest first, marked `⬥` where a code snapshot was captured. | Shipped |
-| Scoped restore | `/rewind` | Code, conversation, or both, from the prompt you pick. | Shipped |
-| Undoable restore | the `safetySnapshot` key | A code restore snapshots the state it replaces first, so it can itself be undone. | Shipped |
-| Partial restore | `/rewind` | The changed paths grouped by directory, chosen with a checklist, and previewed as the subset you selected. | Shipped |
-| Latest-turn review | `/review` | The changed files of the latest prompt, with `M`/`A`/`D`/`R` marks and line counts. | Shipped |
-| File, batch, and hunk revert | `/review` | Revert one file, a selection, the whole turn, or chosen hunks, each with its own safety snapshot. | Shipped |
-| Busy-git refusal | `/rewind`, `/review` | A merge, rebase, cherry-pick, revert, or bisect in progress refuses the restore instead of fighting it. | Shipped |
-| Root-scoped snapshots | `refs/pi/rewind` | Worktrees share the ref store, while another root's snapshot is filtered out and refused. | Shipped |
-| Untracked capture | `autoSnapshots` | Non-ignored untracked files are captured, and a restore removes the ones that appeared after the snapshot. | Shipped |
-| Ref cap and auto-prune | `max`, `autoPrune` | The snapshot store is bounded and pruned instead of growing without limit. | Shipped |
-| Review plan guard | `/review` in plan mode | Review refuses while plan mode is on, matching the read-only planning rule. | Shipped |
-| Prompt-count chip | `↺ N`, the `showStatus` key | The status bar counts the prompts on the active branch, whether or not each has a snapshot. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Automatic snapshots | the `autoSnapshots` key | One snapshot per prompt, taken before its first mutating call, so every task has a restore point. |
+| Durable snapshots | `refNamespace` | Snapshots survive the session and are listed from git rather than from session state. |
+| Prompt timeline | `/rewind` | Every user prompt on the active branch, newest first, marked `⬥` where a code snapshot was captured. |
+| Scoped restore | `/rewind` | Code, conversation, or both, from the prompt you pick. |
+| Undoable restore | the `safetySnapshot` key | A code restore snapshots the state it replaces first, so it can itself be undone. |
+| Partial restore | `/rewind` | The changed paths grouped by directory, chosen with a checklist, and previewed as the subset you selected. |
+| Latest-turn review | `/review` | The changed files of the latest prompt, with `M`/`A`/`D`/`R` marks and line counts. |
+| File, batch, and hunk revert | `/review` | Revert one file, a selection, the whole turn, or chosen hunks, each with its own safety snapshot. |
+| Busy-git refusal | `/rewind`, `/review` | A merge, rebase, cherry-pick, revert, or bisect in progress refuses the restore instead of fighting it. |
+| Root-scoped snapshots | `refs/pi/rewind` | Worktrees share the ref store, while another root's snapshot is filtered out and refused. |
+| Untracked capture | `autoSnapshots` | Non-ignored untracked files are captured, and a restore removes the ones that appeared after the snapshot. |
+| Ref cap and auto-prune | `max`, `autoPrune` | The snapshot store is bounded and pruned instead of growing without limit. |
+| Review plan guard | `/review` in plan mode | Review refuses while plan mode is on, matching the read-only planning rule. |
+| Prompt-count chip | `↺ N`, the `showStatus` key | The status bar counts the prompts on the active branch, whether or not each has a snapshot. |
 
 ## Quickstart
 

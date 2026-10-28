@@ -8,8 +8,6 @@ subprocess per peer.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet in a tagged release, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
 ### Conversation
 
 | Capability | How | What you get | Status |
@@ -28,22 +26,22 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 ### Remote control
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Plan review over chat | automatic: an `exit_plan_mode` on a WeChat turn | The plan arrives as a file, then one compact editor prompt with three actions. | Shipped |
-| Forwarded dialogs | `remotePrompts` | A dialog raised inside a WeChat turn is asked and answered in that peer's chat. | Shipped |
-| Peer questions | `ask_user_question` | The peer answers their own question, numbered, and a reply cannot reach another peer's prompt. | Shipped |
-| Control screen | `/wechat` | Account, connection, per-peer rows, activity, and any waiting prompt on one live screen. | Shipped |
-| Prompt cancellation | `/wechat`, `c` on the control screen | One waiting question is withdrawn with a notice, without stopping the peer's turn. | Shipped |
-| Peer steering | `/wechat stop <peer>`, `/wechat reset <peer>` | One peer's running turn stops, or their conversation starts fresh. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Plan review over chat | automatic: an `exit_plan_mode` on a WeChat turn | The plan arrives as a file, then one compact editor prompt with three actions. |
+| Forwarded dialogs | `remotePrompts` | A dialog raised inside a WeChat turn is asked and answered in that peer's chat. |
+| Peer questions | `ask_user_question` | The peer answers their own question, numbered, and a reply cannot reach another peer's prompt. |
+| Control screen | `/wechat` | Account, connection, per-peer rows, activity, and any waiting prompt on one live screen. |
+| Prompt cancellation | `/wechat`, `c` on the control screen | One waiting question is withdrawn with a notice, without stopping the peer's turn. |
+| Peer steering | `/wechat stop <peer>`, `/wechat reset <peer>` | One peer's running turn stops, or their conversation starts fresh. |
 
 ### Security and admission
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Owner-only admission | `allowedPeers`, `/wechat allow [peer]` | Only the owner who scanned the QR drives the agent until another sender is named. | Shipped |
-| Per-peer tool allowlist | `peers[<id>].tools` | An extra admitted peer can be narrowed to named tools; an empty list leaves none. | Shipped |
-| One poller per account | `poller.lock` | A second `pi` process is refused instead of stealing the account's messages. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Owner-only admission | `allowedPeers`, `/wechat allow [peer]` | Only the owner who scanned the QR drives the agent until another sender is named. |
+| Per-peer tool allowlist | `peers[<id>].tools` | An extra admitted peer can be narrowed to named tools; an empty list leaves none. |
+| One poller per account | `poller.lock` | A second `pi` process is refused instead of stealing the account's messages. |
 
 ### Delivery and reliability
 
@@ -57,23 +55,23 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 ### Pairing and transport
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| QR login | `/wechat login` | One scan stores the account and the bridge starts polling it, replacing a running poller. | Shipped |
-| Reconnect after expiry | `/wechat login`, `l` on the control screen | A fresh login clears the expired chip and starts a new worker instead of leaving a dead token. | Shipped |
-| Automatic start | `session_start`, a stored account | The bridge runs whenever credentials exist: the account is the on/off switch, so there is no start command. | Shipped |
-| Pause and resume | `/wechat pause`, `/wechat resume` | Polling stops while running turns finish, the lock is released, and resume takes it back. | Shipped |
-| Status chip | `/wechat status` | The status bar names the state — `✆ wechat`, `✆ wechat paused`, or a persistent `✆ wechat expired`. | Shipped |
-| Logout | `/wechat logout` | One confirmation discards the credentials and stops polling. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| QR login | `/wechat login` | One scan stores the account and the bridge starts polling it, replacing a running poller. |
+| Reconnect after expiry | `/wechat login`, `l` on the control screen | A fresh login clears the expired chip and starts a new worker instead of leaving a dead token. |
+| Automatic start | `session_start`, a stored account | The bridge runs whenever credentials exist: the account is the on/off switch, so there is no start command. |
+| Pause and resume | `/wechat pause`, `/wechat resume` | Polling stops while running turns finish, the lock is released, and resume takes it back. |
+| Status chip | `/wechat status` | The status bar names the state — `✆ wechat`, `✆ wechat paused`, or a persistent `✆ wechat expired`. |
+| Logout | `/wechat logout` | One confirmation discards the credentials and stops polling. |
 
 ### Upkeep
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Health report | `/wechat doctor` | Connection, token age, last poll, lock holder, per-peer queues, and recent failures in one read-only report. | Shipped |
-| Idle session cleanup | automatic: the 30-minute idle sweep | An idle peer's Pi session is disposed, so idle conversations do not keep costing context or memory. | Shipped |
-| Peer history | `/wechat history <peer> [n]` | That peer's recent messages, ten by default and twenty at most, without a live session. | Shipped |
-| Command help | `/wechat help` | Every subcommand with a line each, printed in the transcript. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Health report | `/wechat doctor` | Connection, token age, last poll, lock holder, per-peer queues, and recent failures in one read-only report. |
+| Idle session cleanup | automatic: the 30-minute idle sweep | An idle peer's Pi session is disposed, so idle conversations do not keep costing context or memory. |
+| Peer history | `/wechat history <peer> [n]` | That peer's recent messages, ten by default and twenty at most, without a live session. |
+| Command help | `/wechat help` | Every subcommand with a line each, printed in the transcript. |
 
 ## Quickstart
 

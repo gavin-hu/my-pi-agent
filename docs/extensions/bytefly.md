@@ -10,35 +10,33 @@ default, and from `bytefly.json` otherwise.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
 ### Chrome
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Startup header | `quietStartup` | One two-tone nameplate with the agent and chrome versions and the live help keys, in place of Pi's startup header and resource listing. | Shipped |
-| Two-line footer | every `tui` session | State on one line — location, modes, and alerts — and meters on the other — context, spend, tokens, cache, and model — each shedding parts rather than clipping. | Shipped |
-| Extension status chips | `footerData.getExtensionStatuses()` | Worktree, browse, plan, and alert statuses appear in the footer, using each extension's own colour. A failed job is the one chip no width drops. | Shipped |
-| Priced session total | the `price` section of `bytefly.json` | The session's spend in yuan or dollars, with DeepSeek priced out of the box. | Shipped |
-| Delegated-run cost roll-up | the `↳` footer segment | A finished subagent's cost appears beside the session total, without merging the two ledgers. | Shipped |
-| User-message nameplate | every `tui` session | Each user message opens with a two-row `You` label and rule. | Shipped |
-| Turn receipt | the `bytefly-separator` entry | One rule per completed turn, recording its number, duration, tool count, and outcome. | Shipped |
-| Shared notices | the `my-pi-agent/notice` type | Any extension's notice renders at the transcript margin with a severity-coloured rail. | Shipped |
-| Compaction canvas | the shipped `themes/` palettes | Pi's `/compact` block keeps its content and loses its fill, so it sits on the canvas. | Shipped |
-| Tool-block frame | `registerToolRenderer` | Every tool block leads with its own call line and hangs its result from the transcript rail. | Shipped |
-| Working line | `ctx.ui.setWorkingMessage` | The working row counts seconds, then names the running tool and how many tools the run has started. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Startup header | `quietStartup` | One two-tone nameplate with the agent and chrome versions and the live help keys, in place of Pi's startup header and resource listing. |
+| Two-line footer | every `tui` session | State on one line — location, modes, and alerts — and meters on the other — context, spend, tokens, cache, and model — each shedding parts rather than clipping. |
+| Extension status chips | `footerData.getExtensionStatuses()` | Worktree, browse, plan, and alert statuses appear in the footer, using each extension's own colour. A failed job is the one chip no width drops. |
+| Priced session total | the `price` section of `bytefly.json` | The session's spend in yuan or dollars, with DeepSeek priced out of the box. |
+| Delegated-run cost roll-up | the `↳` footer segment | A finished subagent's cost appears beside the session total, without merging the two ledgers. |
+| User-message nameplate | every `tui` session | Each user message opens with a two-row `You` label and rule. |
+| Turn receipt | the `bytefly-separator` entry | One rule per completed turn, recording its number, duration, tool count, and outcome. |
+| Shared notices | the `my-pi-agent/notice` type | Any extension's notice renders at the transcript margin with a severity-coloured rail. |
+| Compaction canvas | the shipped `themes/` palettes | Pi's `/compact` block keeps its content and loses its fill, so it sits on the canvas. |
+| Tool-block frame | `registerToolRenderer` | Every tool block leads with its own call line and hangs its result from the transcript rail. |
+| Working line | `ctx.ui.setWorkingMessage` | The working row counts seconds, then names the running tool and how many tools the run has started. |
 
 ### Control center
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| One frame, three sections | `/bytefly`, `/bytefly skills`, `/bytefly settings` | Extensions, skills, and settings in one dock: the worst problem in the header, each section's count on the tabs, the write scope at the right, and one body height for all three, so changing section never resizes the screen. | Shipped |
-| Resource rows and the block | `Space`, `Enter`, `?` | A name-first row — `worktree`, not `worktree/index.ts` — with one checkbox, one status glyph and one verdict word, and the focused row's findings, path, source, state, and health beside the list at 96 columns and under it below. | Shipped |
-| Grouped settings | `/bytefly settings` | Twelve preferences under `Startup`, `Notifications`, `Session`, and `Price`, each value in one aligned column and editable in place; `J` shows the stored JSON section. | Shipped |
-| Theme selection | the `Theme` row in `/bytefly settings` | `system` and the package's `bytefly-dark` and `bytefly-light` palettes are one selection; a reload applies it. | Shipped |
-| Filters and scope | `/`, `!`, `s`, `x` | Narrow the rows by text or to what needs attention — the chips on the tab row say which — and choose where a toggle lands, the personal or project `settings.json`, with `x` clearing a project override. | Shipped |
-| Reload after changes | `R` | `unsaved changes` joins the header while a write is pending, and `R` reloads to apply it instead of leaving the session to be restarted by hand. | Shipped |
-| Health report | `run_doctor`, `/bytefly doctor` | Prerequisites, parse errors, and aged rate tables as text and typed data. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| One frame, three sections | `/bytefly`, `/bytefly skills`, `/bytefly settings` | Extensions, skills, and settings in one dock: the worst problem in the header, each section's count on the tabs, the write scope at the right, and one body height for all three, so changing section never resizes the screen. |
+| Resource rows and the block | `Space`, `Enter`, `?` | A name-first row — `worktree`, not `worktree/index.ts` — with one checkbox, one status glyph and one verdict word, and the focused row's findings, path, source, state, and health beside the list at 96 columns and under it below. |
+| Grouped settings | `/bytefly settings` | Twelve preferences under `Startup`, `Notifications`, `Session`, and `Price`, each value in one aligned column and editable in place; `J` shows the stored JSON section. |
+| Theme selection | the `Theme` row in `/bytefly settings` | `system` and the package's `bytefly-dark` and `bytefly-light` palettes are one selection; a reload applies it. |
+| Filters and scope | `/`, `!`, `s`, `x` | Narrow the rows by text or to what needs attention — the chips on the tab row say which — and choose where a toggle lands, the personal or project `settings.json`, with `x` clearing a project override. |
+| Reload after changes | `R` | `unsaved changes` joins the header while a write is pending, and `R` reloads to apply it instead of leaving the session to be restarted by hand. |
+| Health report | `run_doctor`, `/bytefly doctor` | Prerequisites, parse errors, and aged rate tables as text and typed data. |
 
 ### Upkeep
 

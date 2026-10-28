@@ -329,9 +329,12 @@ the rest of the page elaborates, so it comes first and is a table:
   loading the factory. A capability with no trigger — one that happens on its own
   — opens the cell with `automatic:` and names what sets it off.
 - `What you get` is one sentence of outcome, not mechanism.
-- A page may add a fourth `Status` column when some capabilities are not in a
-  tagged release: `Shipped`, `Unreleased`, or `Partial`. The guard accepts the
-  three-column form or this four-column form.
+- A page adds a fourth `Status` column only when some capability is not in a
+  tagged release: `Shipped` is in a tagged release, `Unreleased` is complete in the
+  current tree but not yet tagged, and `Partial` has one released part and one
+  unreleased part. The guard accepts either form, so a page whose every row would
+  say `Shipped` drops the column — the words above are the only place the three
+  values are defined, and no page repeats them.
 - The surface sections below elaborate the rows, and a deep dive with no row is
   either missing from the table or not worth a section.
 - A page with many capabilities groups the rows under `###` headings — one table

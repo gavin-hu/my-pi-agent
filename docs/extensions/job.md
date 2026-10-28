@@ -7,25 +7,23 @@ for it, or kill it.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Background execution | `job` (`start`) | A long build, test suite, server, or watcher keeps running while the turn moves on. | Shipped |
-| Job listing | `job` (`list`), `/jobs` | This session's jobs with status and elapsed time, and a live peer session's tagged `peer`. | Shipped |
-| Polling and waiting | `job` (`status`, `logs`, `wait`) | One call returns a job's status, a bounded output tail, or blocks until it finishes. | Shipped |
-| Stopping jobs | `job` (`kill` with `signal`) | A running job receives `SIGTERM`, `SIGKILL`, or `SIGINT`, and a finished one can be cleared. | Shipped |
-| Selective clear | `job` (`clear` with `id`, `all`) | Clear one finished record by id, or remove running jobs with `all` after a confirmation in the screen. | Shipped |
-| Start deadline | `timeoutMs` on `start` | A job is killed after the requested wall-clock limit instead of running until the session ends. | Shipped |
-| Kill escalation | `killGraceMs` | A kill sends `SIGTERM` first, then `SIGKILL` after the grace period, on a user kill and on shutdown. | Shipped |
-| Stdin driving | `job` (`send` with `input`, `newline`, `eof`) | A line or a bare keystroke reaches a running job started with `stdin: true`, and `eof` closes its input. | Shipped |
-| Rotating logs | `job` (`logs`), `job.maxLogBytes` | stdout and stderr stream to an append-only log that rotates at 8 MiB, so a chatty job cannot fill the disk. | Shipped |
-| Status chips | `job.showStatus` | `▸ N` running and `✗ N` unreported-failure counts in the footer. | Shipped |
-| Completion reporting | `job` (`wake`), `job.wakeOnFinish` | A finished job is reported at the next turn, or triggers one as soon as the agent is idle. | Shipped |
-| Job screen | `/jobs` | Select a job, open its log, kill it, or clear finished ones, with a confirmation on the destructive verbs. | Shipped |
-| Detached lifetime | `job` (`start`, `detached`) | A POSIX job outlives the session and is reattached next time; Windows refuses the detach instead of faking one. | Shipped |
-| Finished-job pruning | `maxJobs` | The registry drops the oldest finished records once the configured count is exceeded. | Shipped |
-| Structured result | tool-result `details` | Every call returns a `JobDetails` record of the job and the action's outcome. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Background execution | `job` (`start`) | A long build, test suite, server, or watcher keeps running while the turn moves on. |
+| Job listing | `job` (`list`), `/jobs` | This session's jobs with status and elapsed time, and a live peer session's tagged `peer`. |
+| Polling and waiting | `job` (`status`, `logs`, `wait`) | One call returns a job's status, a bounded output tail, or blocks until it finishes. |
+| Stopping jobs | `job` (`kill` with `signal`) | A running job receives `SIGTERM`, `SIGKILL`, or `SIGINT`, and a finished one can be cleared. |
+| Selective clear | `job` (`clear` with `id`, `all`) | Clear one finished record by id, or remove running jobs with `all` after a confirmation in the screen. |
+| Start deadline | `timeoutMs` on `start` | A job is killed after the requested wall-clock limit instead of running until the session ends. |
+| Kill escalation | `killGraceMs` | A kill sends `SIGTERM` first, then `SIGKILL` after the grace period, on a user kill and on shutdown. |
+| Stdin driving | `job` (`send` with `input`, `newline`, `eof`) | A line or a bare keystroke reaches a running job started with `stdin: true`, and `eof` closes its input. |
+| Rotating logs | `job` (`logs`), `job.maxLogBytes` | stdout and stderr stream to an append-only log that rotates at 8 MiB, so a chatty job cannot fill the disk. |
+| Status chips | `job.showStatus` | `▸ N` running and `✗ N` unreported-failure counts in the footer. |
+| Completion reporting | `job` (`wake`), `job.wakeOnFinish` | A finished job is reported at the next turn, or triggers one as soon as the agent is idle. |
+| Job screen | `/jobs` | Select a job, open its log, kill it, or clear finished ones, with a confirmation on the destructive verbs. |
+| Detached lifetime | `job` (`start`, `detached`) | A POSIX job outlives the session and is reattached next time; Windows refuses the detach instead of faking one. |
+| Finished-job pruning | `maxJobs` | The registry drops the oldest finished records once the configured count is exceeded. |
+| Structured result | tool-result `details` | Every call returns a `JobDetails` record of the job and the action's outcome. |
 
 ## Quickstart
 

@@ -8,8 +8,6 @@ reads a URL as text. Both are `direct`, active on registration, and read the
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Web search | `web_search` | Titles, URLs, snippets, and a direct answer when the provider has one. | Shipped |
