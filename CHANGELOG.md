@@ -6,12 +6,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-28
+
 ### Added
 
 - `serve`: one loopback server per session, with a mount per page. `/board`, `/browse`,
-  and a browser plan review each bound their own listener — four sockets for three
+  and a browser plan review each bound a listener of its own — four sockets for three
   features — so a session held three ports, three chips, and three close paths. They now
-  claim a path prefix on the session's one server (`/board`, `/browse`, and `/plan/<id>`),
+  claim a path prefix on the session's one server (`/board`, `/files`, and `/plan/<id>/`),
   which `serve` binds on the first page that opens and closes with its last: one origin to
   bookmark, one `◉ <port>` chip, and one idle policy per page rather than per socket. A
   second session — a WeChat peer conversation, a session in another worktree, another Pi —
@@ -4351,7 +4353,8 @@ one installable Pi package.
   the worktree it ran in, and the rewind end-to-end test seeds its snapshot with
   the native repo root.
 
-[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/gavin-hu/my-pi-agent/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/gavin-hu/my-pi-agent/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.20.0
 [0.19.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.19.0
 [0.18.0]: https://github.com/gavin-hu/my-pi-agent/releases/tag/v0.18.0
