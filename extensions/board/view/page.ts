@@ -127,7 +127,7 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
   </div>
 </div>
 
-${keysSheet(BOARD_KEYS)}
+${keysSheet(BOARD_KEYS, "A card dialog keeps /, t, and ? for itself; Esc closes it.")}
 <script src="${base}/app.js" defer></script>
 </body>
 </html>

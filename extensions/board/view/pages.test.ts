@@ -140,6 +140,8 @@ describe("the document", () => {
 		// matches nothing — reuses the block with its own sentence and one way back.
 		expect(page).toContain("<code>board add</code>");
 		expect(page).toContain('id="board-no-match-clear" hidden>Clear filter</button>');
+		// The sheet says what a dialog keeps, so a key that does nothing is not read as broken.
+		expect(page).toContain("A card dialog keeps /, t, and ? for itself; Esc closes it.");
 	});
 
 	test("carries no card text at all", () => {

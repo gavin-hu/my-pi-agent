@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card's age says what it is on the hover (`updated 2d ago`) and keeps that honest as
+  it ticks, and the key sheet carries a line saying a card dialog keeps `/`, `t`, and `?` for
+  itself — the kit's sheet takes an optional note for a rule that is not a key.
 - `board`: the whole card opens its dialog, not only the title. The card lifted and brightened
   on hover while just one line was clickable; the title stays the focusable button, so `Enter`
   and the focus ring are unchanged, and a drag across a card's text still selects it instead

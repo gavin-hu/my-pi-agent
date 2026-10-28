@@ -200,6 +200,9 @@ __RUNTIME__
     // quiet for ten minutes while the page still says "live".
     var age = el("span", "", ago(card.updatedAt));
     age.setAttribute("data-at", String(card.updatedAt));
+    // "2d" beside the owner reads as anything from a due date to a priority; the hover says
+    // which fact it is. The dialog spells the same row as "updated".
+    age.title = ago(card.updatedAt) === "now" ? "updated just now" : "updated " + ago(card.updatedAt) + " ago";
     meta.appendChild(age);
     item.appendChild(meta);
 
@@ -298,6 +301,9 @@ __RUNTIME__
     for (var i = 0; i < nodes.length; i++) {
       var next = ago(Number(nodes[i].getAttribute("data-at")));
       if (nodes[i].textContent !== next) nodes[i].textContent = next;
+      // The card's age also says what it is on the hover, and a tooltip frozen at paint time
+      // would disagree with the text beside it within a minute.
+      if (nodes[i].title !== "") nodes[i].title = next === "now" ? "updated just now" : "updated " + next + " ago";
     }
   }
 

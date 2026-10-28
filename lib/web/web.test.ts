@@ -541,6 +541,14 @@ describe("web markup", () => {
 		expect(sheet).toContain('<kbd class="bf-kbd">j</kbd> <kbd class="bf-kbd">k</kbd>');
 		expect(sheet).toContain("Move &lt;block&gt; &amp; comment");
 	});
+
+	test("puts a note under the sheet, escaped like every other label", () => {
+		// A rule that is not a key — what an open dialog keeps — belongs under the table, not
+		// in a row of its own with a key nobody presses.
+		const sheet = keysSheet([{ keys: "?", label: "this sheet" }], "A dialog keeps <t> for itself");
+		expect(sheet).toContain('<p class="bf-keys__note">A dialog keeps &lt;t&gt; for itself</p>');
+		expect(keysSheet([{ keys: "?", label: "this sheet" }])).not.toContain("bf-keys__note");
+	});
 });
 
 describe("web theme runtime", () => {

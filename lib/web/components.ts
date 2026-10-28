@@ -75,6 +75,8 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-keys{display:grid;grid-template-columns:auto 1fr;gap:8px var(--space-4);margin:0;padding:var(--space-4)}
 .bf-keys dt{white-space:nowrap}
 .bf-keys dd{margin:0;color:var(--muted);font-size:var(--fs-sm)}
+/* One line under the table, for a rule that is not a key: what an open dialog keeps. */
+.bf-keys__note{margin:0;padding:0 var(--space-4) var(--space-4);color:var(--muted);font-size:var(--fs-xs)}
 .bf-kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid var(--border);border-bottom-width:2px;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font:var(--fs-xs) var(--font-mono);text-align:center}
 .bf-tree{font-family:var(--font-mono);font-size:var(--fs-sm);overflow-x:auto}
 .bf-tree ul{list-style:none;margin:0;padding-left:14px}

@@ -219,7 +219,7 @@ export interface KeyHint {
  * for the sheet, `#keys-close` for its own close button — and the trigger button
  * is the page's own concern, since the two pages name it differently.
  */
-export function keysSheet(rows: readonly KeyHint[]): string {
+export function keysSheet(rows: readonly KeyHint[], note?: string): string {
 	const kbd = (key: string): string => `<kbd class="bf-kbd">${escapeHtml(key)}</kbd>`;
 	const body = rows
 		.map((row) => {
@@ -231,6 +231,7 @@ export function keysSheet(rows: readonly KeyHint[]): string {
 <div class="bf-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="keys-title">
 <div class="bf-dialog__head"><h2 id="keys-title">Keyboard shortcuts</h2><span class="bf-spacer"></span><button type="button" class="bf-btn" id="keys-close">Close</button></div>
 <dl class="bf-keys">${body}</dl>
+${note === undefined ? "" : `<p class="bf-keys__note">${escapeHtml(note)}</p>`}
 </div>
 </div>`;
 }

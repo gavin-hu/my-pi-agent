@@ -608,6 +608,18 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("says what a card's age is, on the hover, and keeps it honest", async () => {
+		const page = await openPage();
+		const age = await page.$eval("#lane-execute .board-card .board-card__meta [data-at]", (n) => ({
+			text: n.textContent ?? "",
+			title: n.getAttribute("title") ?? "",
+		}));
+		// The text is the compact age the row needs; the hover is the same fact in a sentence.
+		expect(age.text).toMatch(/^\d+[mhd]$|^now$/);
+		expect(age.title).toMatch(/^updated (just now|\d+[mhd] ago)$/);
+		await page.close();
+	});
+
 	test("wears its priority and its paths as fields, not as prose", async () => {
 		const page = await openPage();
 		// The executing card is the seeded one with a priority, so its meta line is the case.
