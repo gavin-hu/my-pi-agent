@@ -26,7 +26,8 @@ const StepUpdateParams = Type.Object({
 		description: "1-based step number, in the order the plan was approved.",
 	}),
 	status: StringEnum(["pending", "completed"] as const, {
-		description: "The step's new state.",
+		description:
+			"The step's new state: `completed` ticks it, `pending` reopens it. A plan step has no in-progress state.",
 	}),
 	expected: Type.String({
 		description:
