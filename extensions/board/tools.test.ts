@@ -23,7 +23,7 @@ import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
 import { registerTools } from "./tools.ts";
 import { ACTION_FIELDS, BOARD_ACTION_DOCS, BOARD_ACTIONS, type BoardDetails } from "./types.ts";
-import { BOARD_ACTIONS as LIB_BOARD_ACTIONS } from "../../lib/board/verbs.ts";
+import { BOARD_ACTIONS as LIB_BOARD_ACTIONS } from "../../lib/board/actions.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -123,7 +123,7 @@ describe("the registration", () => {
 	});
 
 	test("publishes the board's own verb list, so the read split and this enum cannot drift", () => {
-		// The verbs moved to `lib/board/verbs.ts` because plan mode has to classify a call
+		// The actions moved to `lib/board/actions.ts` because plan mode has to classify a call
 		// by the same list this schema publishes. A local copy here would read as one list
 		// and be another, which is how the old `BOARD_READ_ACTION` string went wrong.
 		expect(BOARD_ACTIONS).toBe(LIB_BOARD_ACTIONS);

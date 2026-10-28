@@ -11,11 +11,11 @@
  *
  * No host dependency beyond the annotation type: the caller supplies the
  * annotation lookup, the one reader name comes from `tool-names.ts`, and which board
- * verbs read comes from `board/verbs.ts`, so this module stays value-only.
+ * actions read comes from `board/actions.ts`, so this module stays value-only.
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { isBoardReadAction } from "./board/verbs.ts";
+import { isBoardReadAction } from "./board/actions.ts";
 import { READ_DOC_TOOL } from "./tool-names.ts";
 
 /**
@@ -25,7 +25,7 @@ import { READ_DOC_TOOL } from "./tool-names.ts";
  * cannot answer this. The action can, and it travels in the call's input — and in the
  * result's `details`, which is all a `tool_execution_end` event carries. Plan mode
  * asks before the call and the todo nudge after it, so the answer lives here once —
- * and the answer is the board's own table, because a verb list kept here is a list
+ * and the answer is the board's own table, because an action list kept here is a list
  * that drifts.
  */
 export function isBoardRead(call: unknown): boolean {
