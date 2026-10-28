@@ -38,6 +38,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that the claim would then refuse, because the precheck ran with the default limits. `offer`
   now carries the `plan`-lane room check as its own rule instead of running a claim as a
   stand-in, so an offer is never sent for work nobody can pick up.
+- `plan`: `set_plan_steps`' `status` names its two values — `completed` ticks a step,
+  `pending` reopens it — and says a plan step has no in-progress state, so a model arriving
+  from `todo`'s three-state enum does not have a whole batch refused for it.
 
 ## [0.21.0] - 2026-10-28
 
