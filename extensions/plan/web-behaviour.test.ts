@@ -1,7 +1,7 @@
 /**
  * The plan review page, driven the way a reviewer drives it.
  *
- * `web.test.ts` holds the router and reads the client bundle as text; neither can tell
+ * The `web-*.test.ts` suites hold the router and read the client bundle as text; neither can tell
  * whether the page works. This drives the shipped page and the shipped script through a
  * real browser: a block's comment control opens the composer, Escape peels the composer
  * before the review, a stored comment renders in its block's rail, and the outline jumps
