@@ -21,6 +21,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card's notes are read as the inline Markdown they were typed as — `code`, **bold**,
+  *italic*, and an `http`/`https`/`mailto` link become atoms, and a target the kit's policy
+  refuses stays text — through the same renderer the plan review page uses. The dialog's fill
+  moved into `view/dialog.ts`, which now keeps an open record current across frames instead of
+  the renderer filling it on every paint.
 - `lib`: the served pages share one inline Markdown renderer. `safeHref`, `INLINE`, and
   `renderInline` moved out of the plan review's client into `lib/web/markdown.ts`, so the
   review page and the board's card notes read one grammar and refuse one list of targets

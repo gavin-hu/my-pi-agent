@@ -746,6 +746,36 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		}
 	});
 
+	test("reads a note as the Markdown it was typed as, and refuses a target it should", async () => {
+		// A note is the one field the page hands to a parser, so what it may become is worth
+		// pinning: the kit's inline renderer appends text and four atoms, and a link is made
+		// only for a target its policy allows.
+		const note =
+			"see `retry.ts` and **do not** widen MAX_TRIES — https://example.com/notes and [x](javascript:alert(1))";
+		const added = await store.create({ title: "A card with Markdown in a note", paths: [], note }, CORE, clock.now());
+		try {
+			const page = await openPage();
+			await page.click(`.board-card[data-card="${added.id}"] .board-card__title`);
+			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+
+			const text = `#card-dialog-notes .board-dialog__note-text`;
+			// The atoms the note asked for, and their text without the delimiters that made them.
+			expect(await page.$$eval(`${text} code`, (nodes) => nodes.map((node) => node.textContent))).toEqual(["retry.ts"]);
+			expect(await page.$$eval(`${text} strong`, (nodes) => nodes.map((node) => node.textContent))).toEqual(["do not"]);
+			const links = await page.$$eval(`${text} a`, (nodes) =>
+				nodes.map((node) => ({ text: node.textContent ?? "", href: node.getAttribute("href") ?? "" })),
+			);
+			expect(links).toEqual([{ text: "https://example.com/notes", href: "https://example.com/notes" }]);
+			// The refused target is still readable, as the text it was: no anchor was made for it.
+			expect(await page.textContent(text)).toContain("[x](javascript:alert(1))");
+			expect(await page.$$eval(`${text} [href^="javascript:"]`, (nodes) => nodes.length)).toBe(0);
+			await page.keyboard.press("Escape");
+			await page.close();
+		} finally {
+			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
+		}
+	});
+
 	test("marks the card the reader is on, and the ones they have read", async () => {
 		const page = await openPage();
 		const markOf = (id: string): Promise<{ current: string | null; visited: string | null }> =>
