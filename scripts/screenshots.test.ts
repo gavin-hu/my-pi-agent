@@ -305,7 +305,7 @@ describe("file-browse shot arguments", () => {
 describe("posting card shot arguments", () => {
 	test("captures every card at 2x by default", () => {
 		const options = parseCardArgs([]);
-		expect(options.cards).toEqual(["flow", "graphic", "board", "team"]);
+		expect(options.cards).toEqual(["flow", "graphic", "board", "team", "parallel"]);
 		expect(options.out).toBe("");
 		expect(options.scale).toBe(2);
 		expect(options.waitMs).toBe(8000);
@@ -328,7 +328,7 @@ describe("posting card shot arguments", () => {
 	test("rejects a fixed width, an unknown card, and one output for two cards", () => {
 		const invalid: ReadonlyArray<readonly [argv: string[], message: string]> = [
 			[["--width", "900"], "--width is fixed: a card sizes itself in its own stylesheet"],
-			[["poster"], 'unknown card "poster"; expected flow, graphic, board, and team'],
+			[["poster"], 'unknown card "poster"; expected flow, graphic, board, team, and parallel'],
 			[["-o", "shot.png"], "-o names one file; capture one card at a time"],
 			[["board", "team", "-o", "shot.png"], "-o names one file; capture one card at a time"],
 			[["--theme", "sepia"], "--theme must be light or dark"],

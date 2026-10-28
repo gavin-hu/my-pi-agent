@@ -40,6 +40,7 @@ export const CARDS: Record<string, Card> = {
 	graphic: { page: "plan-flow-graphic.html", png: "plan-flow-graphic.png" },
 	board: { page: "board.html", png: "board.png" },
 	team: { page: "board-team.html", png: "board-team.png" },
+	parallel: { page: "board-parallel.html", png: "board-parallel.png" },
 };
 
 /** `assets/cards/`, anchored to this script so a capture does not depend on the cwd. */

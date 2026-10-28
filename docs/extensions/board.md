@@ -230,6 +230,10 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 *`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`screenshot:cards team`).*
 
+<img src="../../assets/cards/board-parallel.png" alt="Two lanes of three rows each. In the plan lane, #4 billing-core, #5 api-core, and #6 web-core each carry a contract node reading contract, 契约, and plan file, side by side, with goal, acceptance, and scope out named under them; every row crosses one vertical approve line, a signature only a session that does not hold the card may give. In the execute lane the same three run at once under their owners, each row crossing a vertical review spot-check line into done. Each lane's floor states its count — 3/3 contracts, 3/5 owners executing — and the round beneath counts 0 unplanned, 1 awaiting approval, and 2 done; the foot says execute opens only on a peer's approval and that assign and offer hand a card over without starting a turn" width="100%">
+
+*`board-parallel`: plan three at once, then execute three at once — `approve` is a peer's signature on the contract, `review` a peer's look before `done`, and both are lines every row crosses (`screenshot:cards parallel`).*
+
 ## Keys
 
 | Key | What it does |

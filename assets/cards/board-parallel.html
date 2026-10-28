@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=1200" />
+		<title>Plan in parallel, execute in parallel — @gavin-hu/my-pi-agent</title>
+		<link rel="stylesheet" href="./cards.css" />
+	</head>
+	<body>
+		<main class="card card--glow">
+			<div class="brand">
+				<span><span class="brand__chip">@gavin-hu/my-pi-agent</span> · board</span>
+				<span class="brand__right">
+					<span class="brand__state">team-lead</span>
+					<span class="live"><span class="live__dot"></span>live · 3m</span>
+				</span>
+			</div>
+
+			<h1 class="title title--compact">
+				Plan in parallel, execute in parallel<br /><span class="title__zh">并行规划，并行执行</span>
+			</h1>
+
+			<svg
+				class="diagram diagram--parallel"
+				viewBox="0 0 1104 380"
+				role="img"
+				aria-label="Two lanes, three rows each. In the plan lane three cards — #4 billing-core, #5 api-core, and #6 web-core — each write their contract, one contract per card, carrying goal, acceptance, scope out, and a plan file, side by side. Every row crosses one vertical approve line, which only a session that does not hold the card may sign. In the execute lane the same three run at once under their owners, and each row crosses a review spot-check line into done. Under the plan lane: three of three, three contracts side by side. Under the execute lane: three of five, three owners execute at once, and the round counting zero unplanned, one awaiting approval, and two done."
+			>
+				<defs>
+					<marker
+						id="tip"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+					<marker
+						id="tip-go"
+						viewBox="0 0 10 10"
+						refX="9"
+						refY="5"
+						markerWidth="7"
+						markerHeight="7"
+						orient="auto-start-reverse"
+					>
+						<path class="tip tip--go" d="M0,0 L10,5 L0,10 z" />
+					</marker>
+				</defs>
+
+				<!-- The two lanes: every row of each is worked at the same time. -->
+				<rect class="lane lane--plan" x="0" y="40" width="420" height="326" rx="16" />
+				<rect class="lane" x="500" y="40" width="604" height="326" rx="16" />
+				<text class="lane-label lane-label--plan" x="2" y="30">plan · 3/3 · 并行规划</text>
+				<text class="lane-label" x="516" y="30">execute · 3/5 · 并行执行</text>
+
+				<!-- The two gates sit on the lane head, over the line every row crosses. -->
+				<text class="edge-label edge-label--loop" x="460" y="30">approve</text>
+				<text class="edge-label edge-label--loop" x="950" y="30">review</text>
+
+				<!-- row ①: #4 -->
+				<rect class="node" x="14" y="70" width="170" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="99" y="103">#4 · billing-core</text>
+				<line class="edge" x1="184" y1="96" x2="192" y2="96" marker-end="url(#tip)" />
+				<rect class="node" x="196" y="70" width="216" height="52" rx="10" />
+				<text class="node-label" x="304" y="94">contract</text>
+				<text class="node-label node-label--zh" x="304" y="114">契约 · plan file</text>
+				<line class="edge" x1="412" y1="96" x2="452" y2="96" marker-end="url(#tip)" />
+				<line class="edge edge--go" x1="468" y1="96" x2="494" y2="96" marker-end="url(#tip-go)" />
+				<rect class="node" x="500" y="70" width="242" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="621" y="103">#4 · billing-core</text>
+				<line class="edge" x1="742" y1="96" x2="958" y2="96" marker-end="url(#tip)" />
+				<rect class="node" x="966" y="70" width="120" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="1026" y="103">#4 ✓ done</text>
+
+				<!-- row ②: #5 -->
+				<rect class="node" x="14" y="162" width="170" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="99" y="195">#5 · api-core</text>
+				<line class="edge" x1="184" y1="188" x2="192" y2="188" marker-end="url(#tip)" />
+				<rect class="node" x="196" y="162" width="216" height="52" rx="10" />
+				<text class="node-label" x="304" y="186">contract</text>
+				<text class="node-label node-label--zh" x="304" y="206">契约 · plan file</text>
+				<line class="edge" x1="412" y1="188" x2="452" y2="188" marker-end="url(#tip)" />
+				<line class="edge edge--go" x1="468" y1="188" x2="494" y2="188" marker-end="url(#tip-go)" />
+				<rect class="node" x="500" y="162" width="242" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="621" y="195">#5 · api-core</text>
+				<line class="edge" x1="742" y1="188" x2="958" y2="188" marker-end="url(#tip)" />
+				<rect class="node" x="966" y="162" width="120" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="1026" y="195">#5 ✓ done</text>
+
+				<!-- row ③: #6 -->
+				<rect class="node" x="14" y="254" width="170" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="99" y="287">#6 · web-core</text>
+				<line class="edge" x1="184" y1="280" x2="192" y2="280" marker-end="url(#tip)" />
+				<rect class="node" x="196" y="254" width="216" height="52" rx="10" />
+				<text class="node-label" x="304" y="278">contract</text>
+				<text class="node-label node-label--zh" x="304" y="298">契约 · plan file</text>
+				<line class="edge" x1="412" y1="280" x2="452" y2="280" marker-end="url(#tip)" />
+				<line class="edge edge--go" x1="468" y1="280" x2="494" y2="280" marker-end="url(#tip-go)" />
+				<rect class="node" x="500" y="254" width="242" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="621" y="287">#6 · web-core</text>
+				<line class="edge" x1="742" y1="280" x2="958" y2="280" marker-end="url(#tip)" />
+				<rect class="node" x="966" y="254" width="120" height="52" rx="10" />
+				<text class="node-label node-label--mono" x="1026" y="287">#6 ✓ done</text>
+
+				<!-- The approve gate every row crosses, and the spot-check before done. -->
+				<line class="edge edge--loop" x1="460" y1="52" x2="460" y2="316" />
+				<line class="edge edge--loop" x1="950" y1="52" x2="950" y2="316" />
+
+				<!-- Each lane's floor: what it holds, and the count it is held to. -->
+				<text class="verb-note verb-note--hi" x="14" y="338">3/3 · three contracts side by side</text>
+				<text class="verb-note" x="14" y="356">goal · acceptance · scopeOut + plan file</text>
+				<text class="verb-note verb-note--hi" x="516" y="338">3/5 · three owners execute at once</text>
+				<text class="verb-note" x="516" y="356">the round · 0 unplanned · 1 awaiting approval · 2 done</text>
+			</svg>
+
+			<div class="foot">
+				<div>
+					Execute opens only on a peer's approval.<br /><span class="foot__zh"
+						>只有不持有卡片的会话批准契约，才进入执行。</span
+					>
+				</div>
+				<div class="foot__right">
+					assign and offer hand a card over; neither starts a turn.<br /><span class="foot__zh"
+						>派发和招标只递卡片，不启动对端的一轮。</span
+					>
+				</div>
+			</div>
+		</main>
+	</body>
+</html>

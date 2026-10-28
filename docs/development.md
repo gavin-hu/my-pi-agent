@@ -35,7 +35,7 @@ repositories.
 | `bun run screenshot:board [--out <dir>]` | Render the board page and capture both tabs as full-page PNGs with Playwright driving the local Chrome. It starts the shipped board server over a fixture store in a temporary directory, so the image never names a real checkout; `--out`, `--width`, `--scale`, `--theme light\|dark`, `--wait`, and `--dialog card` (the card dialog — card 1, the fixture's fullest record — instead of the two tabs) tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:file-browse [--root <dir>]` | Render the loopback file browser's file page and capture it as a full-page PNG with Playwright driving the local Chrome. Without `--root` it serves a generated fixture project, so the image never names a real checkout; `--file`, `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:plan` <plan.md> | Render one plan through the browser review page and capture it as a full-page PNG with Playwright driving the local Chrome, for checking a plan's Markdown layout. `-o`, `--width`, `--scale`, `--theme light\|dark`, and `--wait` tune the shot, and `--as owner\|reviewer` picks the owner's page or the one a shared link opens. `--post <name>` posts one comment as that reviewer before the capture, so the frame shows the name bound to her link, and `--draft <text>` starts the tab with one unsaved comment, the state a reload restores; `--share` opens the owner's Share dialog with two links instead of the plan, so the per-person list is what the frame shows. Set `PI_CHROME` for a non-default Chrome. |
-| `bun run screenshot:cards [flow\|graphic\|board\|team]` | Capture the posting cards at 1200×675, 2× by default: the plan pair — `assets/cards/plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led — and the board pair — `board.html`, the five lanes, one card's atoms and the lead's round, and `board-team.html`, the three `team` verbs. Naming cards captures only those, and `-o` names the output for a single card; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
+| `bun run screenshot:cards [flow\|graphic\|board\|team\|parallel]` | Capture the posting cards at 1200×675, 2× by default: the plan pair — `assets/cards/plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`, the five lanes, one card's atoms and the lead's round, `board-team.html`, the three `team` verbs, and `board-parallel.html`, three cards planned side by side and then executed side by side, each row crossing the `approve` and `review` lines. Naming cards captures only those, and `-o` names the output for a single card; `--scale` and `--wait` tune the shot, and a card whose content outgrows its box fails the run instead of being captured clipped. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run tools:render <list\|render\|html\|gallery\|tools>` | The tool-renderings CLI: `list` names every rendering, `render <name> --width n` prints one block as ANSI on any OS, `html <out>` writes the gallery page, and `gallery <out>` / `tools <dir>` capture PNGs with Playwright driving the local Chrome. `screenshot:tools` and `screenshot:tool-pngs` are the last two with their asset paths filled in. Set `PI_CHROME` for a non-default Chrome. |
 | `bun run screenshot:tools` | Regenerate the tool call/result gallery (`assets/screens/tool-renderings.png`) with Playwright driving the local Chrome: every tool the package registers plus Pi's built-ins, each rendered by its real renderer through the shipped block frame. It is `bun run tools:render gallery assets/screens/tool-renderings.png`. |
 | `bun run screenshot:tool-pngs` | Regenerate the one-PNG-per-tool files under `assets/tools/` from the same renderings. |
@@ -95,12 +95,14 @@ toggle, which keeps the header glyph and the page in step.
 Not every headless capture is a screenshot of the product. The pages under
 `assets/cards/` are bilingual posters for posting a capability to a timeline: the
 plan pair — `plan-flow.html`, prose-led, and `plan-flow-graphic.html`, graphic-led —
-and the board pair — `board.html`, the five lanes, one card's atoms and the lead's round,
-and `board-team.html`, `assign`, `offer`, and `reclaim` as three bands. All four are
-captured at 1200×675 by `screenshot:cards`, and they share `assets/cards/cards.css`,
+and the board three — `board.html`, the five lanes, one card's atoms and the lead's round,
+`board-team.html`, `assign`, `offer`, and `reclaim` as three bands, and
+`board-parallel.html`, three cards planned side by side and then executed side by side,
+every row crossing the `approve` and `review` lines. Every card is captured at 1200×675
+by `screenshot:cards`, and they share `assets/cards/cards.css`,
 whose shell — palette, `.card`, `.title`, the `.strip` row, `.foot` — is what
-keeps the set from drifting apart; the board pair adds its own atoms under a banner of
-its own. A card whose content outgrows its box fails the capture rather than being
+keeps the set from drifting apart; the board three add their own atoms under a banner of
+their own. A card whose content outgrows its box fails the capture rather than being
 clipped.
 
 The screenshot grid in the root `README.md` is a curated set rather than the
