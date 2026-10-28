@@ -21,6 +21,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a lane, a reason, and a lead's queue row take their colour from one table, in
+  `lib/board/tone.ts`, which the page and the terminal transcript both read. Four colours were
+  wrong because the same fact was decided in seven places: an owner whose process had stopped
+  was the queue's second-strongest reason and drew its quietest edge; the transcript painted
+  every lane the same accent where the page gave each its own; a card owing a spot-check, an
+  approval, or a contract shared a rule named `--unplanned`; and a listing narrowed with
+  `mine` came back looking like any other. `gone` now ranks and reads as the loss it is, a
+  warning means a person has to act next, and a `mine` listing marks its own rows.
 - `lib`: the board's roster directory is keyed by the store's own repository key. The page's
   Teammates list and the lead's round used to find the bus by the last segment of the board's
   directory, so regrouping the board's files would have sent them to a directory no bus writes,

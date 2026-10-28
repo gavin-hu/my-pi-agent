@@ -39,6 +39,9 @@ export function renderJs(rules: {
 	runtime: string;
 	lanes: string;
 	skipped: string;
+	decisions: string;
+	decisionTones: string;
+	reasonTones: string;
 }): string {
 	return renderTemplate
 		.replace("__PLURAL__", rules.plural)
@@ -47,6 +50,9 @@ export function renderJs(rules: {
 		.replace("__MATCHES__", rules.matches)
 		.replace("__REASON__", rules.reason)
 		.replace("__LANE_COUNT__", rules.lanes)
+		.replace("__DECISION_RANK__", rules.decisions)
+		.replace("__DECISION_TONES__", rules.decisionTones)
+		.replace("__REASON_TONES__", rules.reasonTones)
 		.replace("__AGE__", rules.age)
 		.replace("__RUNTIME__", rules.runtime);
 }
@@ -70,6 +76,30 @@ const renderTemplate = String.raw`(function () {
    * past this it is history, and the count in the head says how much.
    */
   var DONE_FOLD_AT = 6;
+
+  /**
+   * The queue's order, its colours, and the tone a reason line wears — spliced in from
+   * lib/board/tone.ts, which the terminal reads through extensions/board/tone.ts. One
+   * table, so a row cannot be the second-strongest reason and the quietest colour.
+   */
+  var DECISION_RANK = __DECISION_RANK__;
+  var DECISION_TONE = __DECISION_TONES__;
+  var REASON_TONE = __REASON_TONES__;
+
+  /** Where a kind sits in the queue: the order the table states, not a copy. */
+  function rankOf(kind) {
+    return DECISION_RANK.indexOf(kind);
+  }
+
+  /** The colour a decision row is drawn in — its edge and its reason line. */
+  function decisionTone(kind) {
+    return DECISION_TONE[kind] || "dim";
+  }
+
+  /** The colour a card's reason line is drawn in, by the kind the rule reported. */
+  function reasonTone(kind) {
+    return REASON_TONE[kind] || "muted";
+  }
 
 __RUNTIME__
 
@@ -489,6 +519,9 @@ __RUNTIME__
   board.drawnCards = drawnCards;
   board.matches = matches;
   board.reasonFor = reasonFor;
+  board.rankOf = rankOf;
+  board.decisionTone = decisionTone;
+  board.reasonTone = reasonTone;
   board.laneCount = LANE_COUNT;
   board.fillDialog = fillDialog;
   board.refreshAges = refreshAges;

@@ -25,6 +25,7 @@ import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
 import { renderBoardPage } from "./page.ts";
 import { BOARD_CSS } from "./styles.ts";
+import { BOARD_TONES, DECISION_KINDS, DECISION_TONE } from "../../../lib/board/tone.ts";
 
 /** The page's own rules, without the shared blocks that define the palette. */
 function ownRules(): string {
@@ -356,7 +357,14 @@ describe("the client bundle", () => {
 		// queued with that reason instead of waiting for half an hour of silence.
 		expect(BOARD_CLIENT_JS).toContain('if (mate.state === "gone") return 1;');
 		expect(BOARD_CLIENT_JS).toContain("is not running");
-		expect(BOARD_CLIENT_JS).toContain("gone: 1");
+		// The queue's rank is the board's one list, spliced in: a killed owner sits second,
+		// above a card merely sitting still, and the row wears the tone the same table gives
+		// that kind — which is how it stopped being ranked second and drawn quietest.
+		expect(BOARD_CLIENT_JS).toContain(
+			'var DECISION_RANK = ["blocked","gone","approval","waiting","idle","unplanned","unassigned"]',
+		);
+		expect(BOARD_CLIENT_JS).toContain("board.rankOf");
+		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-tone", decisionTone(entry.kind))');
 	});
 
 	test("reads one card whole: its lane, its facts as a ladder, and its notes", () => {
@@ -623,6 +631,37 @@ describe("the class contract", () => {
 		// Both directions, so a dead rule and a missing rule are the same failure.
 		expect([...PAGE].filter((name) => !DRAWN.has(name)).sort(), "declared, never drawn").toEqual([]);
 		expect([...DRAWN].filter((name) => !PAGE.has(name)).sort(), "drawn, never declared").toEqual([]);
+	});
+
+	test("draws a decision row in the tone the table gives its kind, gone included", () => {
+		expect(DECISION_TONE.gone).toBe("danger");
+		for (const kind of DECISION_KINDS) {
+			const tone = DECISION_TONE[kind];
+			expect(BOARD_CSS, kind).toContain(`.board-team__decision[data-tone="${tone}"]{border-left-color:var(--${tone})}`);
+		}
+		// A refusal or a loss colours its sentence too; a warn row only its edge.
+		expect(BOARD_CSS).toContain('.board-team__decision[data-tone="danger"] .board-team__why{color:var(--danger)}');
+		// And the sentence every other row prints stays quiet. Without this the base rule can
+		// lose its colour and the queue's reasons read as loudly as its titles: `--text` is
+		// what an uncoloured paragraph inherits on the raised plane.
+		expect(BOARD_CSS).toContain(".board-team__why{grid-area:why;margin:0;color:var(--muted);");
+	});
+
+	test("tones a reason line by its tone, never by a class named after a kind", () => {
+		// The three gates a card can owe — a contract, an approval, a spot-check — are three
+		// kinds and one tone, and none of them is called "unplanned" any more.
+		expect(BOARD_CSS).toContain(".board-card__reason--warn{color:var(--warn)}");
+		expect(BOARD_CSS).not.toContain("board-card__reason--unplanned");
+		expect(BOARD_CSS).not.toContain("board-card__reason--blocked");
+		expect(BOARD_CSS).not.toContain("board-team__why--blocked");
+		// And it comes after the base rule, which is what makes it win: a tone class and the
+		// base class are one class each, so source order decides between them. Generated
+		// before the base, every tone was inert and a blocked card's reason drew muted.
+		for (const tone of BOARD_TONES) {
+			expect(BOARD_CSS.indexOf(`.board-card__reason--${tone}{`), tone).toBeGreaterThan(
+				BOARD_CSS.indexOf(".board-card__reason{margin:0"),
+			);
+		}
 	});
 
 	test("styles no attribute the page does not wear, and hooks every one it does", () => {

@@ -23,6 +23,8 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   var chip = board.chip;
   var ago = board.ago;
   var plural = board.plural;
+  var rankOf = board.rankOf;
+  var decisionTone = board.decisionTone;
 
   /** The word a teammate's state is read as; never a colour alone. */
   var STATE_WORD = { live: "live", quiet: "quiet", gone: "gone", absent: "no record", unknown: "\u2014" };
@@ -58,8 +60,6 @@ export const BOARD_TEAM_JS = String.raw`(function () {
    * one row, and the strongest reason is the one it keeps: a blocker outranks silence,
    * which outranks a missing plan, which outranks nobody holding it.
    */
-  var KIND_RANK = { blocked: 0, gone: 1, approval: 2, waiting: 3, idle: 4, unplanned: 5, unassigned: 6 };
-
   /** The labels of the sessions whose process is gone, in the roster's own spelling. */
   function goneLabels(view) {
     var roster = view.teammates;
@@ -83,7 +83,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
         if (seen === undefined) {
           byCard[card.id] = entry;
           entries.push(entry);
-        } else if (KIND_RANK[kind] < KIND_RANK[seen.kind]) {
+        } else if (rankOf(kind) < rankOf(seen.kind)) {
           seen.why = entry.why;
           seen.kind = kind;
         }
@@ -134,7 +134,11 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   function decision(entry, view) {
     var card = entry.card;
     var node = el("article", N.teamDecision);
+    // What the row is, and how it wears: data-kind names it for a test and a hook, and
+    // data-tone is the colour its edge is drawn in, from the table the page's stylesheet
+    // and the terminal share.
     node.setAttribute("data-kind", entry.kind);
+    node.setAttribute("data-tone", decisionTone(entry.kind));
 
     var open = el("button", N.teamOpen);
     open.type = "button";
@@ -158,7 +162,6 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     // rest, because this sentence is the lead's whole reason to look at the row.
     var why = el("p", N.teamWhy, entry.why);
     why.title = entry.why;
-    if (entry.kind === "blocked") why.className = N.teamWhy + " " + N.teamWhyBlocked;
     node.appendChild(why);
     return node;
   }

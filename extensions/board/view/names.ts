@@ -44,8 +44,13 @@ export const BOARD_CLASS = {
 	cardNotes: "board-card__notes",
 	cardPaths: "board-card__paths",
 	cardReason: "board-card__reason",
-	cardReasonBlocked: "board-card__reason--blocked",
-	cardReasonUnplanned: "board-card__reason--unplanned",
+	// One class per tone, never per reason kind: the same tone is what the terminal paints.
+	cardReasonMuted: "board-card__reason--muted",
+	cardReasonDim: "board-card__reason--dim",
+	cardReasonWarn: "board-card__reason--warn",
+	cardReasonAccent: "board-card__reason--accent",
+	cardReasonDanger: "board-card__reason--danger",
+	cardReasonSuccess: "board-card__reason--success",
 	cardHolds: "board-card__holds",
 
 	// The card dialog: the record of one card, as a ladder of facts and its notes.
@@ -81,7 +86,6 @@ export const BOARD_CLASS = {
 	teamTitle: "board-team__title",
 	teamFoot: "board-team__foot",
 	teamWhy: "board-team__why",
-	teamWhyBlocked: "board-team__why--blocked",
 	teamRoster: "board-team__roster",
 	teamMate: "board-team__mate",
 	teamDot: "board-team__dot",

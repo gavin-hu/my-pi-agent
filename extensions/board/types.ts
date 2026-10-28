@@ -85,6 +85,14 @@ export interface BoardDetails {
 	action: BoardAction;
 	/** The serving session: the id Pi knows, and the label a card records. */
 	me: Actor;
+	/**
+	 * Whether the read was narrowed to this session's own cards.
+	 *
+	 * Kept because the transcript says so: a listing that answers "what am I holding" draws
+	 * those rows in the accent, and a listing that answers "what is on the board" does not
+	 * pretend every row is the reader's.
+	 */
+	mine?: boolean;
 	/** The board a `list` read, in lane order. */
 	cards?: Card[];
 	/** The card an action produced, or the one a refusal left untouched. */

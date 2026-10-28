@@ -313,7 +313,12 @@ async function read(
 	const hiddenDone = args.lane === undefined ? listed.filter((card) => card.lane === "done").length : 0;
 	const shown = hiddenDone === 0 ? listed : listed.filter((card) => card.lane !== "done");
 	if (args.round !== true) {
-		return textResult(formatBoard(shown, { hiddenDone, archived, skipped }), { action, me, cards: shown });
+		return textResult(formatBoard(shown, { hiddenDone, archived, skipped }), {
+			action,
+			me,
+			cards: shown,
+			...(args.mine === true ? { mine: true } : {}),
+		});
 	}
 	const round = buildRound(cards, now);
 	// One line under the rollup, because a reader who cannot see a card file should know why,
@@ -321,7 +326,7 @@ async function read(
 	// smaller than the one on disk.
 	const notes = [skippedText(skipped), archiveNote(archived)].filter((line) => line !== "");
 	const text = [formatRound(cards, round), ...notes].join("\n");
-	return textResult(text, { action, me, cards: listed, round });
+	return textResult(text, { action, me, cards: listed, round, ...(args.mine === true ? { mine: true } : {}) });
 }
 
 /**
@@ -364,7 +369,12 @@ async function readArchive(
 	const shown = pile.cards.filter(
 		(card) => (args.query === undefined || matchesQuery(card, args.query)) && (args.mine !== true || holds(card, me)),
 	);
-	return textResult(formatArchive(shown, pile.skipped), { action, me, cards: shown });
+	return textResult(formatArchive(shown, pile.skipped), {
+		action,
+		me,
+		cards: shown,
+		...(args.mine === true ? { mine: true } : {}),
+	});
 }
 
 /** `add`: the only action that creates a card. */

@@ -24,15 +24,24 @@ export const BOARD_CARD_JS = String.raw`(function () {
   var ago = board.ago;
   var plural = board.plural;
   var reasonFor = board.reasonFor;
+  var reasonTone = board.reasonTone;
 
   /** Path chips a lane card shows before it counts the rest. */
   var PATH_CHIPS = 3;
-  /** The two tones a reason line can take, by the kind the reason rule reports. */
-  var REASON_TONE = {
-    blocked: N.cardReasonBlocked,
-    contract: N.cardReasonUnplanned,
-    approval: N.cardReasonUnplanned,
-    review: N.cardReasonUnplanned,
+  /**
+   * The class that draws each tone, in the page kit's own words.
+   *
+   * A tone is a colour and the class is named after it, so the reason line for a missing
+   * contract, an approval nobody gave, and a spot-check nobody did are three kinds drawn in
+   * one tone — instead of three kinds sharing a class named after the first of them.
+   */
+  var TONE_CLASS = {
+    muted: N.cardReasonMuted,
+    dim: N.cardReasonDim,
+    warn: N.cardReasonWarn,
+    accent: N.cardReasonAccent,
+    danger: N.cardReasonDanger,
+    success: N.cardReasonSuccess,
   };
 
   /** "3h", "just now" — the age a stamp is drawn with, read against the reader's clock. */
@@ -166,8 +175,7 @@ export const BOARD_CARD_JS = String.raw`(function () {
     if (reason) {
       // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
       // test can compare with the stylesheet.
-      var tone = REASON_TONE[reason.kind];
-      var line = el("p", tone === undefined ? N.cardReason : N.cardReason + " " + tone, reason.text);
+      var line = el("p", N.cardReason + " " + TONE_CLASS[reasonTone(reason.kind)], reason.text);
       line.id = "card-reason-" + card.id;
       // It clamps on the card, so the full sentence is the tooltip.
       line.title = reason.text;
