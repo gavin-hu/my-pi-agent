@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- dev: `assets/cards/board-parallel.html` is the board's third posting card:
+  `bun run screenshot:cards parallel`. It titles itself `Plan in parallel, execute in
+  parallel` — the English line, then the Chinese — and gives the rest of the card to two
+  lanes of three rows: three cards each carrying their contract through one `approve`
+  line, then the same three executing at once under their owners, each row crossing one
+  `review` line into `done`. It states the two rules a reader of the picture cannot see —
+  approval is given by a session that does not hold the card, and a handoff is a message
+  that never starts a peer's turn — in the shell's foot, and its lane floors carry the
+  WIP counts and the lead's round. The stylesheet gains the plan lane's own `--warn`
+  role and the 380px box the two-line head pays for.
+
 ### Changed
 
 - `board`: a lane of finished cards stops widening at three. Five of them used to take half the
@@ -141,16 +154,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refusing over a half-written comment the way the panel's buttons do. Both come from the
   same table the shortcut sheet and the sidebar hint read, so a key that acts and a key the
   page documents cannot part company.
-- dev: `assets/cards/board-parallel.html` is the board's third posting card:
-  `bun run screenshot:cards parallel`. It titles itself `Plan in parallel, execute in
-  parallel` — the English line, then the Chinese — and gives the rest of the card to two
-  lanes of three rows: three cards each carrying their contract through one `approve`
-  line, then the same three executing at once under their owners, each row crossing one
-  `review` line into `done`. It states the two rules a reader of the picture cannot see —
-  approval is given by a session that does not hold the card, and a handoff is a message
-  that never starts a peer's turn — in the shell's foot, and its lane floors carry the
-  WIP counts and the lead's round. The stylesheet gains the plan lane's own `--warn`
-  role and the 380px box the two-line head pays for.
 
 ### Changed
 
