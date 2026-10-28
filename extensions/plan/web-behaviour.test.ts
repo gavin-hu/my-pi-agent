@@ -13,13 +13,13 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createServer, type Server } from "node:http";
 import { type Browser, chromium, type Page } from "playwright-core";
 import { findChrome } from "../../scripts/capture/chrome.ts";
 import { LOOPBACK_HOSTS } from "../../lib/http/index.ts";
 import type { PlanAnnotation } from "./feedback.ts";
 import type { ReviewContext, SaveResult } from "./web-router.ts";
 import { handleReviewRequest } from "./web-router.ts";
+import { testMountSource } from "../../test/helpers/serve.ts";
 import type { ReviewPageData } from "./web-page.ts";
 
 /** The browser this machine has; absent means the whole suite is skipped. */
@@ -28,12 +28,19 @@ const CHROME = findChrome();
 /** How long the page gets to paint what the fixture holds. */
 const PAINT_MS = 10_000;
 
+/**
+ * The prefix the fixture review answers under.
+ *
+ * The review's own shape, `/plan/<id>`, because the mount is what strips it: a page served
+ * at the origin's root would not prove the page's own URLs are built from that prefix.
+ */
+const BASE = "/plan/probe";
+
 /** A plan with two sections and one stored comment, which is the rail's whole reason. */
 const ANNOTATION: PlanAnnotation = { anchor: 0, comment: "needs a rollback step", author: "priya" };
 
 const PAGE: ReviewPageData = {
-	// The fixture answers at the origin's root, which is what its own server serves.
-	base: "",
+	base: BASE,
 	title: "Add rate limiting",
 	blocks: [
 		{ start: 0, end: 0, kind: "heading", lines: ["# Add rate limiting"] },
@@ -57,8 +64,9 @@ const PAGE: ReviewPageData = {
 };
 
 let browser: Browser;
-let server: Server;
-let origin = "";
+/** The page's own address, prefix included, and how a case gives the mount back. */
+let reviewUrl = "";
+let closeReview: () => Promise<void> = async () => {};
 
 /**
  * The sliver of the DOM a predicate reads.
@@ -90,44 +98,38 @@ function context(page: ReviewPageData): ReviewContext {
 	};
 }
 
-/** Serve one review: the router decides, so the page is the page the extension ships. */
-function serve(
+/**
+ * Serve one review: the shipped router, on the shipped mount.
+ *
+ * `testMountSource()` is the server `serve` runs, so the prefix stripping, the SSE head and
+ * the close path are the real ones; the case owns the returned close.
+ */
+async function serve(
 	page: ReviewPageData = PAGE,
 	overrides: Partial<ReviewContext> = {},
-): Promise<{ server: Server; origin: string }> {
+): Promise<{ origin: string; url: string; close: () => Promise<void> }> {
 	const ctx = { ...context(page), ...overrides };
-	const started = createServer((request, response) => {
-		const chunks: Buffer[] = [];
-		request.on("data", (chunk: Buffer) => chunks.push(chunk));
-		request.on("end", async () => {
-			const url = request.url ?? "/";
-			const body = Buffer.concat(chunks).toString("utf8");
-			const answer = await handleReviewRequest(
-				ctx,
-				request.method ?? "GET",
-				url.replace(/^http:\/\/[^/]+/, ""),
-				{ host: request.headers.host ?? "" },
-				body,
-			);
-			response.writeHead(answer.status, answer.headers);
-			// The event stream is left open on purpose by the real router; a test does not
-			// need it, so an empty body closes it and the page paints what it already has.
-			response.end(answer.stream ? undefined : (answer.body ?? ""));
-		});
+	const mount = await testMountSource()({
+		session: "s1",
+		prefix: BASE,
+		// The mount reads the body, so a POST reaches the router with what the page wrote;
+		// the review's own cap is a megabyte.
+		maxBodyBytes: 1024 * 1024,
+		async handler(request) {
+			const answer = await handleReviewRequest(ctx, request.method, request.url, request.headers, request.body);
+			// The router answers a stream marker; the mount needs the sink that goes with it.
+			return answer.stream ? { result: answer, openSink: () => () => {} } : { result: answer };
+		},
 	});
-	return new Promise((resolve) => {
-		started.listen(0, "127.0.0.1", () => {
-			const address = started.address();
-			const port = typeof address === "object" && address ? address.port : 0;
-			resolve({ server: started, origin: `http://127.0.0.1:${port}` });
-		});
-	});
+	if (mount.kind !== "mounted") throw new Error(`the review did not mount: ${mount.reason}`);
+	const { origin, base, release } = mount.mount;
+	return { origin, url: `${origin}${base}/?token=tok`, close: release };
 }
 
 /** One tab on the served review, waited until its blocks have painted. */
 async function openPage(): Promise<Page> {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
-	await page.goto(`${origin}/?token=tok`, { waitUntil: "load" });
+	await page.goto(reviewUrl, { waitUntil: "load" });
 	await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
 	return page;
 }
@@ -135,14 +137,14 @@ async function openPage(): Promise<Page> {
 describe.skipIf(CHROME === undefined)("the served review", () => {
 	beforeAll(async () => {
 		const started = await serve();
-		server = started.server;
-		origin = started.origin;
+		reviewUrl = started.url;
+		closeReview = started.close;
 		browser = await chromium.launch({ executablePath: CHROME, headless: true });
 	}, 30_000);
 
 	afterAll(async () => {
 		await browser?.close();
-		await new Promise<void>((resolve) => server?.close(() => resolve()));
+		await closeReview();
 	});
 
 	test("draws the plan's blocks and names the plan in the header", async () => {
@@ -171,7 +173,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			if (message.type() === "error") errors.push(message.text());
 		});
 		try {
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
 			expect(errors).toEqual([]);
 
@@ -198,7 +200,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(errors).toEqual([]);
 		} finally {
 			await page.close();
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 
@@ -214,7 +216,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		});
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		try {
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
 			await page.click('[data-view="changed"]');
 			expect(await page.$eval("#plan .bf-comments", (node) => node.hidden)).toBe(true);
@@ -232,7 +234,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(await page.$eval(active, (node) => node.getAttribute("data-line"))).toBe("3");
 		} finally {
 			await page.close();
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 
@@ -267,7 +269,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			);
 		};
 		try {
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
 			await page.click("#reviewer-name");
 			await page.fill("#name-input", "@alice");
@@ -289,7 +291,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			]);
 		} finally {
 			await page.close();
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 
@@ -330,7 +332,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		const pressed = async (): Promise<string> =>
 			page.$eval('[data-view][aria-pressed="true"]', (node) => node.getAttribute("data-view") ?? "");
 		try {
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
 			expect(await pressed()).toBe("all");
 			await page.keyboard.press("v");
@@ -359,7 +361,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(await page.textContent("#status")).toContain("Add or discard the comment you are writing.");
 		} finally {
 			await page.close();
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 
@@ -380,7 +382,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		const active = async (): Promise<string | null> =>
 			page.$eval("#plan .bf-block--active", (node) => node.getAttribute("data-line"));
 		try {
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block", { timeout: PAINT_MS });
 			await page.keyboard.press("v");
 			await page.keyboard.press("n");
@@ -394,7 +396,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(await active()).toBe("0");
 		} finally {
 			await page.close();
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 
@@ -408,7 +410,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		});
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		try {
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-comment", { timeout: PAINT_MS });
 			expect(await page.textContent("#comment-total")).toBe("2");
 			// The owner's own note offers the action; the reviewer's does not.
@@ -425,7 +427,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(await page.textContent("#comment-total")).toBe("2");
 		} finally {
 			await page.close();
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 
@@ -470,7 +472,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		const local = await serve(carried);
 		try {
 			const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector(".bf-comment__moved", { timeout: PAINT_MS });
 			const chip = page.locator(".bf-comment__moved");
 			expect(await chip.textContent()).toBe("moved");
@@ -484,7 +486,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(await page.textContent("#plan .bf-comment__body")).toBe("needs a rollback step");
 			await page.close();
 		} finally {
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 
@@ -530,7 +532,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 		});
 		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 		try {
-			await page.goto(`${local.origin}/?token=tok`, { waitUntil: "load" });
+			await page.goto(local.url, { waitUntil: "load" });
 			await page.waitForSelector("#plan .bf-block__li", { timeout: PAINT_MS });
 			const markers = await page.$$eval("#plan .bf-block__li > span:first-child", (nodes) =>
 				nodes.map((node) => ({
@@ -548,7 +550,7 @@ describe.skipIf(CHROME === undefined)("the served review", () => {
 			expect(markers.every((marker) => marker.minWidth !== "auto")).toBe(true);
 		} finally {
 			await page.close();
-			await new Promise<void>((resolve) => local.server.close(() => resolve()));
+			await local.close();
 		}
 	});
 

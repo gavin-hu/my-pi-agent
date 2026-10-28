@@ -44,8 +44,8 @@ interface Served {
 	shared?: ServedServer;
 	/** The address `shared` was bound to, which a link prints. */
 	address?: string;
-	/** The prefixes currently answered on `shared`. */
-	sharedBases: Set<string>;
+	/** The prefixes answered on `shared`, each with the mount that frees it again. */
+	sharedMounts: Map<string, { release(): Promise<void> }>;
 }
 
 /** What the registry needs besides the request it is answering. */
@@ -101,7 +101,7 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 			const server = await serveHttp({ ports: usePin ? [pinned] : [preferred, 0] });
 			if (usePin) pinnedBy = session;
 			remembered.set(session, server.port);
-			const served: Served = { server, mounts: new Map(), sharedBases: new Set() };
+			const served: Served = { server, mounts: new Map(), sharedMounts: new Map() };
 			sessions.set(session, served);
 			deps.onPort?.(session, server.port);
 			return { kind: "open", served };
@@ -121,9 +121,17 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 		return started;
 	};
 
+	/** Withdraw one page from the LAN listener, whether it stopped sharing or closed. */
+	const withdraw = async (served: Served, base: string): Promise<void> => {
+		const mounted = served.sharedMounts.get(base);
+		if (mounted === undefined) return;
+		served.sharedMounts.delete(base);
+		await mounted.release();
+	};
+
 	/** Close the LAN listener once no page on this session is sharing itself. */
 	const closeLanIfEmpty = async (served: Served): Promise<void> => {
-		if (served.sharedBases.size > 0) return;
+		if (served.sharedMounts.size > 0) return;
 		const listener = served.shared;
 		served.shared = undefined;
 		served.address = undefined;
@@ -142,7 +150,9 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 		const held = served?.mounts.get(base);
 		if (served === undefined || held === undefined) return;
 		served.mounts.delete(base);
-		served.sharedBases.delete(base);
+		// A page that closes stops being reachable from the network as well: its prefix comes
+		// off the LAN listener before the loopback one, so no link outlives the page.
+		await withdraw(served, base);
 		await held.mount.release();
 		// The last prefix takes the LAN listener with it, then the socket: a session with
 		// no pages has no port to answer on.
@@ -170,16 +180,20 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 				return undefined;
 			}
 		}
-		if (!served.sharedBases.has(base) && served.shared.mount({ ...held.spec, prefix: base }) === undefined)
-			return undefined;
-		served.sharedBases.add(base);
+		if (!served.sharedMounts.has(base)) {
+			const lan = served.shared.mount({ ...held.spec, prefix: base });
+			if (lan === undefined) return undefined;
+			served.sharedMounts.set(base, lan);
+		}
 		return { address, origin: served.shared.origin };
 	};
 
 	const unshare = async (session: string, base: string): Promise<void> => {
 		const served = sessions.get(session);
 		if (served === undefined) return;
-		served.sharedBases.delete(base);
+		// Stop sharing is a page leaving the network, not a counter going down: the prefix
+		// comes off the listener, and the socket closes only with the last page that shared.
+		await withdraw(served, base);
 		await closeLanIfEmpty(served);
 	};
 
@@ -219,7 +233,7 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 		if (served === undefined) return;
 		closed(session, served);
 		served.mounts.clear();
-		served.sharedBases.clear();
+		served.sharedMounts.clear();
 		await served.shared?.close();
 		served.shared = undefined;
 		await served.server.close();

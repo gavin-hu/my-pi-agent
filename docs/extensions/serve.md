@@ -66,9 +66,10 @@ only what its page routes, and each page keeps its own `Host` allowlist, its own
 token, and its own method list in `lib/http`.
 
 A shared review is the one exception, and it is the reviewing page's own: it asks
-for a listener on a single LAN address, and that listener carries that one prefix.
-`file-browse` and `board` are never reachable that way, and a page that stops
-sharing closes its LAN listener at once.
+for a listener on a single LAN address, and that listener carries only the prefixes
+that asked for it. `file-browse` and `board` are never reachable that way, and a page
+that stops sharing leaves the listener at once — the socket closes with the last page
+that was still sharing it.
 
 ## Limitations
 

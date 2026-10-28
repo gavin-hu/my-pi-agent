@@ -46,7 +46,7 @@ export function renderLiveChrome(live: LivePage | undefined): string {
 	if (!live) return "";
 	const rev =
 		live.rev === undefined ? "" : ` data-dir="${escapeHtml(live.dir ?? "")}" data-rev="${escapeHtml(live.rev)}"`;
-	const chip = `<span class="bf-chip bf-chip--accent browse-live" id="live-state" title="Live status from the browse server" data-interval="${live.intervalMs}"${rev} hidden><span class="browse-live__glyph" aria-hidden="true">●</span><span class="browse-live__text">connecting</span></span>`;
+	const chip = `<span class="bf-chip bf-chip--accent browse-live" id="live-state" title="Live status from the browse server" data-interval="${live.intervalMs}"${rev} hidden><span class="browse-live__glyph" aria-hidden="true">◉</span><span class="browse-live__text">connecting</span></span>`;
 	if (live.rev === undefined) return chip;
 	return `${chip}<button type="button" class="bf-chip bf-chip--warn browse-reload" id="reload-hint" title="This folder changed on disk" hidden>⟳ reload</button>`;
 }

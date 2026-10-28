@@ -191,6 +191,28 @@ describe("sharing one page on the LAN", () => {
 		expect((await fetch(`${shared?.origin}/files/`)).status).toBe(404);
 	});
 
+	test("keeps the listener while another page still shares it, and closes it with the last", async () => {
+		const registry = registryWith({ interfaces: () => LAN });
+		const board = await mounted(registry, { session: "s1", prefix: "/board" });
+		const review = await mounted(registry, { session: "s1", prefix: "/plan/a" });
+		// Both pages ask the session's one server for a LAN listener, and both get the same
+		// one: a session has one address, not one per page.
+		const first = await board.share();
+		const second = await review.share();
+		expect(second?.origin).toBe(first?.origin);
+
+		await board.unshare();
+		// The board stopped sharing; the review on the same listener is still reachable, and
+		// the page that left is gone from it.
+		expect((await fetch(`${second?.origin}/plan/a/`)).status).toBe(200);
+		expect((await fetch(`${second?.origin}/board/`)).status).toBe(404);
+
+		await review.unshare();
+		// The last page leaving closes the listener, so a link that outlived it fails fast
+		// rather than hanging on a port nobody answers.
+		await expect(fetch(`${second?.origin}/plan/a/`)).rejects.toThrow();
+	});
+
 	test("reports no address instead of inventing one", async () => {
 		const registry = registryWith({ interfaces: () => ({}) });
 		const board = await mounted(registry, { session: "s1", prefix: "/board" });

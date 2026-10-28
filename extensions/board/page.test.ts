@@ -12,7 +12,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
+import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { testMountSource } from "../../test/helpers/serve.ts";
+import type { MountSource, MountSpec } from "../../lib/http/index.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
@@ -27,14 +29,24 @@ const NOW = 50_000;
 
 /** A page over a temp store, with a recorded browser open and an OS-chosen port. */
 function harness(
-	options: { cwd?: string; agentDir?: string; probe?: ProbeFetch; sessionName?: string; firstIdleMs?: number } = {},
+	options: {
+		cwd?: string;
+		agentDir?: string;
+		probe?: ProbeFetch;
+		sessionName?: string;
+		firstIdleMs?: number;
+		/** The git answers, for a directory that is a checkout of a repository. */
+		exec?: FakePiOptions["exec"];
+		/** The mount source, so a case can count the sockets the page asks for. */
+		mount?: MountSource;
+	} = {},
 ) {
 	const { ...boardOptions } = options;
 	const board = boardHarness({ now: NOW, track: temps.track, ...boardOptions });
 	const opened: string[] = [];
 	const page = createBoardPage(board.runtime, {
 		// A real server with no session behind it: the socket `serve` would have handed over.
-		mount: testMountSource(),
+		mount: options.mount ?? testMountSource(),
 		session: () => "s1",
 		open: (url) => opened.push(url),
 		idleMs: 40,
@@ -202,6 +214,46 @@ describe("the page this repository already serves", () => {
 		// An attached session serves nothing: nothing to stop, and status says whose page it is.
 		expect(await peer.page.stop()).toBe(false);
 		expect(await peer.page.status()).toMatchObject({ running: false, attached: true, seat: "team-lead" });
+		await lead.page.stop();
+	});
+
+	test("a session in another worktree opens the one page, and asks for no socket", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const main = temps.track(tempDir("pi-repo-"));
+		const worktree = temps.track(tempDir("pi-wt-"));
+		// One repository, two checkouts: both resolve the same common git directory, which is
+		// what files them under one board and one note.
+		const common = join(main, ".git");
+		const exec: FakePiOptions["exec"] = async (_command, args, options) => {
+			if (args.includes("--git-common-dir")) return { stdout: `${common}\n`, stderr: "", code: 0 };
+			const cwd = options?.cwd ?? main;
+			return { stdout: `${cwd}\n`, stderr: "", code: 0 };
+		};
+		/** A mount source that counts what the page asked for, then defers to a real server. */
+		const counting = () => {
+			const real = testMountSource();
+			const asked: MountSpec[] = [];
+			const mount: MountSource = (spec) => {
+				asked.push(spec);
+				return real(spec);
+			};
+			return { mount, asked };
+		};
+
+		const lead = harness({ cwd: main, agentDir, exec });
+		const first = served(await lead.page.start(lead.ctx));
+		// One board, filed under the shared key, with one note beside its cards.
+		const leadStore = await lead.runtime.store(main);
+		const peerRuntime = boardHarness({ cwd: worktree, agentDir, exec, now: NOW, track: temps.track });
+		expect((await peerRuntime.runtime.store(worktree)).dir).toBe(leadStore.dir);
+
+		const peerSocket = counting();
+		const peer = harness({ cwd: worktree, agentDir, exec, mount: peerSocket.mount });
+		const joined = attached(await peer.page.start(peer.ctx));
+		expect(joined.port).toBe(first.port);
+		// Attaching is not serving: the peer opened no prefix, so the session's one socket
+		// stayed the lead's.
+		expect(peerSocket.asked).toEqual([]);
 		await lead.page.stop();
 	});
 
