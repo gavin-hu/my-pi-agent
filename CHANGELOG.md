@@ -21,6 +21,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: the board's roster directory is keyed by the store's own repository key. The page's
+  Teammates list and the lead's round used to find the bus by the last segment of the board's
+  directory, so regrouping the board's files would have sent them to a directory no bus writes,
+  and every peer would have read as no record rather than the page failing where someone would
+  notice.
 - `lib`: the board's verbs and which of them only read it are one table in
   `lib/board/verbs.ts`. Plan mode's read-only admission and the todo nudge's "is this
   work" test each used to compare a call against a bare `"list"` string they could not

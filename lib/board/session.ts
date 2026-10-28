@@ -19,7 +19,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { agentLabel, defaultLabel, sessionNameOf } from "../session-label.ts";
 import { BUS_DIR_NAME } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
@@ -57,11 +57,12 @@ export interface BoardSession {
 	/** The clock, so a test drives a deadline instead of waiting on one. */
 	now(): number;
 	/**
-	 * Where this repository's session bus files its records, for the page's roster.
+	 * Where this repository's session bus files its records, for the roster.
 	 *
 	 * A path, not a dependency: the board reads those files when they are there and
 	 * behaves exactly as before when they are not, which is what keeps the page working
-	 * with `session-bus` unloaded.
+	 * with `session-bus` unloaded. Two callers read it — the page's snapshot, and the
+	 * lead's round — and both want the same directory.
 	 */
 	busDir(cwd: string): Promise<string>;
 	/** The seat this session serves the page as, or undefined when it is not serving. */
@@ -85,6 +86,20 @@ export type BoardTeam = Pick<BoardSession, "who" | "serving" | "serve" | "team">
 export interface BoardSessionOptions {
 	now?: () => number;
 	agentDir?: string;
+}
+
+/**
+ * Where this repository's session bus files its records.
+ *
+ * The board's store carries the repository key and `session-bus` files under the same one
+ * — `join(getAgentDir(), BUS_DIR_NAME, repo.key)` in `session-bus/runtime.ts` — so the two
+ * name one directory from one fact. A key read back off the board's own path would make
+ * the board's directory layout load-bearing for the roster, and regrouping those files
+ * would leave every peer reading as no record at all. It takes the key and nothing else,
+ * so there is no directory here to read one off.
+ */
+export function busDirFor(agentDir: string, store: Pick<BoardStore, "key">): string {
+	return join(agentDir, BUS_DIR_NAME, store.key);
 }
 
 /**
@@ -133,15 +148,10 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			return id === undefined ? { label } : { id, label };
 		},
 		now: options.now ?? Date.now,
-		// The board's own directory is `<agentDir>/board/<key>` and the bus's is
-		// `<agentDir>/session-bus/<key>`, both keyed by the same repository, so the key is
-		// read back off the board rather than resolved a second time through git.
 		busDir(cwd) {
 			const cached = busDirs.get(cwd);
 			if (cached) return cached;
-			const resolved = session
-				.store(cwd)
-				.then((store) => join(agentDir ?? getAgentDir(), BUS_DIR_NAME, basename(store.dir)));
+			const resolved = session.store(cwd).then((store) => busDirFor(agentDir ?? getAgentDir(), store));
 			busDirs.set(cwd, resolved);
 			return resolved;
 		},

@@ -111,6 +111,16 @@ export interface BoardStore {
 	/** The board's own directory, for `where` and for a refusal that names it. */
 	readonly dir: string;
 	/**
+	 * The repository key this board is filed under.
+	 *
+	 * Carried rather than read back off {@link dir}'s last segment: the same key is what
+	 * `session-bus` files this repository's records under, so a caller that needs it must
+	 * not learn it from the board's layout — otherwise regrouping the board's own files
+	 * moves the roster to a directory no bus writes to, and the page reads "no record" for
+	 * every peer instead of failing where someone would notice.
+	 */
+	readonly key: string;
+	/**
 	 * The WIP limits this board enforces.
 	 *
 	 * Read once when the store opened, and handed to every operation: the page shows the
@@ -182,11 +192,21 @@ export async function openBoard(
 	// Read once per store: the limits are a setting, not a card, and a board that re-read
 	// a file on every write would spend a stat to answer a question nobody changed.
 	const limits = readWip(resolveEffectiveCwd(cwd), { agentDir });
-	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root, limits });
+	// The key is handed on, not left to be read off the directory it named: `session-bus`
+	// files this repository's records under the same key, so the two must not be able to
+	// disagree about it.
+	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root, key: repo.key, limits });
 }
 
 /** Build a store over one directory. Exported for tests and for a second backend. */
-export function createStore(dir: string, options: { root?: string; limits?: WipLimits } = {}): BoardStore {
+export function createStore(
+	dir: string,
+	options: { root?: string; key?: string; limits?: WipLimits } = {},
+): BoardStore {
+	// A store built over a directory by hand has no repository to ask, so it is keyed by
+	// that directory's own name: the one place this fallback lives, and the one reason it
+	// is not a proof about `openBoard`'s boards.
+	const key = options.key ?? basename(dir);
 	// A store built over a directory by hand has no repository to name, so it names its
 	// own directory: the page then says something true instead of something blank.
 	const root = options.root ?? dir;
@@ -342,6 +362,7 @@ export function createStore(dir: string, options: { root?: string; limits?: WipL
 
 	return {
 		dir,
+		key,
 		limits: () => limits,
 		ensure,
 		list,

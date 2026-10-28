@@ -7,12 +7,13 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { openBoardSession } from "./session.ts";
+import { createStore } from "./store.ts";
+import { busDirFor, openBoardSession } from "./session.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
@@ -153,7 +154,18 @@ describe("busDir", () => {
 		const runtime = runtimeFor(agentDir);
 		const store = await runtime.store(cwd);
 		// The bus keys on the same repository key the board used, so the two never drift.
-		expect(await runtime.busDir(cwd)).toBe(join(agentDir, "session-bus", basename(store.dir)));
+		expect(await runtime.busDir(cwd)).toBe(join(agentDir, "session-bus", store.key));
+	});
+
+	test("follows the store's key, not the last segment of the board's own directory", () => {
+		// The discriminating case: a board whose directory is called something else entirely.
+		// A key read back off the path — the old `basename(store.dir)` — would put the roster
+		// in `<agentDir>/session-bus/<that directory's name>`, where no bus ever writes, and
+		// every peer would read as no record instead of the page failing where someone would
+		// notice.
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const store = createStore(temps.track(tempDir("board-")), { key: "0123456789ab" });
+		expect(busDirFor(agentDir, store)).toBe(join(agentDir, "session-bus", "0123456789ab"));
 	});
 
 	test("resolves once per working directory", async () => {
