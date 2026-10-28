@@ -214,6 +214,7 @@ describe("web components", () => {
 			".bf-btn--primary{",
 			".bf-btn--ghost{",
 			".bf-btn--icon{",
+			".bf-chip--outline{",
 			".bf-chip--warn{",
 			".bf-segmented{",
 			".bf-segmented__item{",

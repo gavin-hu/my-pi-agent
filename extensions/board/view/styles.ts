@@ -88,7 +88,7 @@ ${LANE_ROLE_CSS}
 
 /* A card: the title, then the facts a reader needs to act on it. Its lane says
    which state it is in, so the card itself carries no second colour bar. */
-.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);transition:border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease)}
+.board-card{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--canvas);cursor:pointer;transition:border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease)}
 .board-card:hover{border-color:var(--border-strong);transform:translateY(-1px)}
 .board-card[hidden]{display:none}
 .board-card__head{display:flex;align-items:baseline;gap:var(--space-2);margin:0;min-width:0}
@@ -107,6 +107,8 @@ ${LANE_ROLE_CSS}
    that shrinks, because a flex item's automatic minimum is its chip's width. */
 .board-card__paths li{min-width:0;max-width:100%}
 .board-card .bf-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+/* A path is something a reader types, so it wears the mono face the dialog's ladder uses. */
+.board-card__paths .bf-chip{font-family:var(--font-mono)}
 .board-card__reason{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-card__reason--blocked{color:var(--danger)}
 .board-card__reason--unplanned{color:var(--warn)}

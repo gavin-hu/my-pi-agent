@@ -28,6 +28,8 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-btn:disabled{opacity:.5;cursor:default}
 .bf-chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
 .bf-chip--accent{color:var(--accent);border:1px solid currentColor;border-radius:var(--radius-pill);padding:2px 10px}
+/* A field the card carries rather than a state it is in: the same pill, worn quietly. */
+.bf-chip--outline{color:var(--muted);border:1px solid currentColor;border-radius:var(--radius-pill);padding:2px 10px}
 .bf-chip--success{color:var(--success)}
 .bf-chip--warn{color:var(--warn)}
 .bf-chip--danger{color:var(--danger)}

@@ -160,6 +160,12 @@ __RUNTIME__
     return list;
   }
 
+  /** Whether the reader is dragging a selection, which a click at the end of it would clear. */
+  function textSelected() {
+    var selection = window.getSelection ? window.getSelection() : null;
+    return selection !== null && String(selection) !== "";
+  }
+
   /** One card in its lane. */
   function cardNode(card) {
     var item = el("li", N.card);
@@ -169,17 +175,25 @@ __RUNTIME__
 
     var head = el("p", N.cardHead);
     head.appendChild(el("span", N.cardId, "#" + card.id));
-    var title = actionButton(N.cardTitle, card.title, function () {
-      board.openCard(card.id);
-    });
+    // The title is the page's only focusable thing inside a card, so Enter and the focus
+    // ring have one home; the card around it is the larger target for a pointer. A native
+    // button's Enter and Space arrive as a click that bubbles to the card, so the card is
+    // the one handler and the button needs none.
+    var title = el("button", N.cardTitle, card.title);
+    title.type = "button";
     head.appendChild(title);
     item.appendChild(head);
+    item.addEventListener("click", function () {
+      // A drag that ends on a card is a reader selecting a title to copy, not opening it.
+      if (textSelected()) return;
+      board.openCard(card.id);
+    });
 
     var meta = el("p", N.cardMeta);
     meta.appendChild(card.owner ? chip(card.owner.label, "accent") : el("span", "", "unassigned"));
     // The order inside a lane is the priority, so an urgent card says so: an order
     // nobody can see reads as an accident. The lane's colour stays the card's own.
-    if (card.priority !== "normal") meta.appendChild(chip(card.priority));
+    if (card.priority !== "normal") meta.appendChild(chip(card.priority, "outline"));
     // The stamp, so the clock can keep the age honest between frames: a board can be
     // quiet for ten minutes while the page still says "live".
     var age = el("span", "", ago(card.updatedAt));
@@ -487,7 +501,7 @@ __RUNTIME__
 
     var priority = pair("priority", card.priority !== "normal");
     priority.textContent = "";
-    if (card.priority !== "normal") priority.appendChild(chip(card.priority));
+    if (card.priority !== "normal") priority.appendChild(chip(card.priority, "outline"));
 
     setRow("updated", true, ago(card.updatedAt));
     // How long the card has been in the lane it is in now, which updatedAt cannot say:

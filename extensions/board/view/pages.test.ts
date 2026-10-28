@@ -192,6 +192,13 @@ describe("the document", () => {
 		expect(BOARD_CSS).toContain(".board-dialog__value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}");
 	});
 
+	test("wears its priority as a filed chip and its paths as code", () => {
+		// A priority is a field a card carries, so it wears the kit's quiet pill rather than the
+		// same muted text as its age; a path hint is something a reader types, so it is mono.
+		expect(BOARD_CLIENT_JS).toContain('chip(card.priority, "outline")');
+		expect(BOARD_CSS).toContain(".board-card__paths .bf-chip{font-family:var(--font-mono)}");
+	});
+
 	test("keeps a card's text inside its border", () => {
 		// A chip is one line and nowrap by design, so an owner label or a path longer than the
 		// card used to spill past its border and across the lane beside it. The list item is

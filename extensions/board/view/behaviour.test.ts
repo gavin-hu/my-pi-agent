@@ -345,6 +345,29 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("opens a card from anywhere on it, and a drag is not a click", async () => {
+		const page = await openPage();
+		// The meta line is not the title, and it is inside the card: the whole card is the door.
+		await page.click('#lane-backlog .board-card[data-card="1"] .board-card__meta');
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		expect(await page.textContent("#card-dialog-id")).toBe("#1");
+		await page.keyboard.press("Escape");
+		expect(await hidden(page, "#board-card-dialog")).toBe(true);
+
+		// Selecting a line to copy ends in a click on the card; that click must not open it. A
+		// button's own text is not selectable, so the drag is over the reason line, which is
+		// prose and is what a reader copies.
+		const line = await page.$('#lane-backlog .board-card[data-card="1"] .board-card__reason');
+		const box = await line?.boundingBox();
+		if (box === undefined || box === null) throw new Error("the reason line has no box to drag across");
+		await page.mouse.move(box.x + 2, box.y + box.height / 2);
+		await page.mouse.down();
+		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
+		await page.mouse.up();
+		expect(await hidden(page, "#board-card-dialog")).toBe(true);
+		await page.close();
+	});
+
 	test("reads the card as a ladder of facts, one row each", async () => {
 		const page = await openPage();
 		await page.click("#lane-execute .board-card__title");
@@ -582,6 +605,22 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				).document.activeElement?.getAttribute("id"),
 			),
 		).toBe("board-filter");
+		await page.close();
+	});
+
+	test("wears its priority and its paths as fields, not as prose", async () => {
+		const page = await openPage();
+		// The executing card is the seeded one with a priority, so its meta line is the case.
+		expect(
+			await page.$eval("#lane-execute .board-card .board-card__meta .bf-chip--outline", (n) => n.textContent),
+		).toBe("high");
+		// A path is a value a reader types, so it wears the dialog's mono face on the card too.
+		const mono = await page.$eval("#lane-execute .board-card .board-card__paths .bf-chip", (n) =>
+			(globalThis as unknown as { getComputedStyle(node: ElementLike): { fontFamily: string } })
+				.getComputedStyle(n)
+				.fontFamily.toLowerCase(),
+		);
+		expect(mono).toContain("mono");
 		await page.close();
 	});
 

@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the whole card opens its dialog, not only the title. The card lifted and brightened
+  on hover while just one line was clickable; the title stays the focusable button, so `Enter`
+  and the focus ring are unchanged, and a drag across a card's text still selects it instead
+  of opening the record.
+- `board`: a card's priority wears a quiet pill and its path hints wear the mono face. The
+  two used the same muted text as the age, so the one field the lane sorts by read as a
+  footnote.
 - `board`: the flow is plan-then-execute now, in five lanes — `backlog`, `plan`, `execute`,
   `blocked`, `done` — instead of `todo`, `doing`, `blocked`, `done`. A card is pulled from
   `backlog` into `plan` by a claim, promises three lines (goal, acceptance, scope-out) and a
