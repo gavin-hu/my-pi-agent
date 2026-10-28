@@ -28,6 +28,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   subagent's `agents.ts` row shows both, and `test/extension-docs.test.ts` fails the other
   spelling in any page or comment, so a fourth sweep is a failing test rather than a review.
 
+- `docs`: the tool gallery and its per-tool images are recaptured after the board's five
+  lanes — three blocks the old frame could not show (`board-archived`, `board-contract`,
+  `board-gated`), a taller `board`, and a `board-round` that lost a wrapped line — and the
+  demo doctor line now derives its count from `pi.extensions` instead of naming 17, so it
+  reads `across 22 extensions` and cannot rot again.
+
 - `docs`: `ROADMAP.md` is gone, and with it the guard that pinned it. Planned work is a
   card on the board, so a second hand-maintained list of it was a plan of record nothing
   read; the three lists that were never plans move into `docs/architecture.md` — the
