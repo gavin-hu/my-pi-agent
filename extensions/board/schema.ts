@@ -8,7 +8,7 @@
  */
 
 import { Type } from "typebox";
-import { CARD_STATUSES, PRIORITIES } from "../../lib/board/card.ts";
+import { CARD_STATUSES, MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
 import { BOARD_ACTIONS } from "./types.ts";
 
 export const BoardParams = Type.Object({
@@ -49,8 +49,14 @@ export const BoardParams = Type.Object({
 				"`add` and `edit`: repository-relative hints (directories or files) where the work happens. Not claims.",
 		}),
 	),
-	note: Type.Optional(Type.String({ description: "`add`: a first note, e.g. why the card exists." })),
-	text: Type.Optional(Type.String({ description: "`note`: the note to append." })),
+	note: Type.Optional(
+		Type.String({
+			description: `\`add\`: a first note, e.g. why the card exists; one line, at most ${MAX_NOTE} characters.`,
+		}),
+	),
+	text: Type.Optional(
+		Type.String({ description: `\`note\`: the note to append; one line, at most ${MAX_NOTE} characters.` }),
+	),
 	path: Type.Optional(Type.String({ description: "`plan`: the plan file this card is executing." })),
 	priority: Type.Optional(
 		Type.Union(

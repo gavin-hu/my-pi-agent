@@ -27,11 +27,11 @@ decision.
 |---|---|---|
 | A shared feature list for one repository | `board` action `list` | Every open card in lane order — `todo`, `doing`, `blocked` — or one card, or one lane; the `done` cards are left out with a count of how many, and `status: "done"` reads them |
 | The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned, unplanned, blocked, idle, and done |
-| Publish a feature | `board` action `add` | A `todo` card with path hints and a first note |
+| Publish a feature | `board` action `add` | A `todo` card with path hints and a first note (one line, at most 1000 characters) |
 | Take a feature | `board` action `claim` | The card is `doing` and owned by this session |
 | Hand it back | `board` action `release` | The card is `todo` again, with no owner |
 | Change lane | `board` action `move` | Wherever the owner moves it: `doing`, `blocked`, `done` |
-| Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped |
+| Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped — one line, at most 1000 characters |
 | Record the plan | `board` action `plan` | The plan file the card is executing, so "unplanned" work is visible |
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
 | Say how urgent it is | `board` action `add` or `edit` with `priority` | `high` sorts first inside its lane, and the card says so |
