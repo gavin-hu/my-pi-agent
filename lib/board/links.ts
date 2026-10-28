@@ -43,13 +43,21 @@ export function blockersOf(card: Card, board: BoardIndex): Card[] {
  * A list of cards as a reader meets it: `#2 (execute), #3 (blocked)`.
  *
  * The lane is what turns ids into a decision — a finished card is about to start, a
- * `execute` one is to leave alone — so it is never left out. One wording serves the
+ * `execute` one is to leave alone — so it is never left out. One formatter serves the
  * refusal sentence, the page's reason line, and the mirror question of what a card is
  * holding up: every one of them is a list of cards read to decide something, so a second
  * formatter would be a second way for the same list to read.
+ *
+ * `titles` adds the card's own title after its lane, for the one audience with the room
+ * and the reason for it: a card's face on the page is where a reader decides what to do
+ * next, and an id alone would send them into the dialog to find out which card it is. A
+ * refusal stays ids and lanes — it is read in a transcript row, and a title there would
+ * push the sentence it belongs to off the line.
  */
-export function lanesText(cards: readonly Card[]): string {
-	return cards.map((card) => `${cardRef(card.id)} (${card.lane})`).join(", ");
+export function lanesText(cards: readonly Card[], options: { titles?: boolean } = {}): string {
+	return cards
+		.map((card) => `${cardRef(card.id)} (${card.lane})${options.titles === true ? ` ${card.title}` : ""}`)
+		.join(", ");
 }
 
 /** The cards that wait on `id`, oldest id first, so a report reads in board order. */

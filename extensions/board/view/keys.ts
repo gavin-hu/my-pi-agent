@@ -65,7 +65,12 @@ export const BOARD_KEYS_JS = String.raw`(function () {
     if (walk(delta)) return;
     var drawn = cards();
     if (drawn.length === 0) return;
-    var at = drawn.indexOf(document.activeElement);
+    // Focus sits on a card's title button, not on the card, so the step reads the card that
+    // holds it: an index of -1 for every card made j from one land on the first card in the
+    // lane instead of the next — which is the place a reader lost when they came back.
+    var here = document.activeElement;
+    var card = here && here.closest ? here.closest(".board-card") : null;
+    var at = card === null ? -1 : drawn.indexOf(card);
     var next = at < 0 ? (delta > 0 ? 0 : drawn.length - 1) : (at + delta + drawn.length) % drawn.length;
     var button = drawn[next].querySelector(".board-card__title");
     if (button) button.focus();

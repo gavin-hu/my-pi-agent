@@ -35,16 +35,18 @@ export const BOARD_CLASS = {
 	laneList: "board-lane__list",
 	laneEmpty: "board-lane__empty",
 
-	// One card, and the two tones its reason line can take.
+	// One card, the facts its meta line carries, and the two tones its reason line can take.
 	card: "board-card",
 	cardHead: "board-card__head",
 	cardId: "board-card__id",
 	cardTitle: "board-card__title",
 	cardMeta: "board-card__meta",
+	cardNotes: "board-card__notes",
 	cardPaths: "board-card__paths",
 	cardReason: "board-card__reason",
 	cardReasonBlocked: "board-card__reason--blocked",
 	cardReasonUnplanned: "board-card__reason--unplanned",
+	cardHolds: "board-card__holds",
 
 	// The card dialog: the record of one card, as a ladder of facts and its notes.
 	dialogPanel: "board-dialog__panel",

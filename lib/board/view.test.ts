@@ -106,19 +106,21 @@ describe("buildView", () => {
 		expect(view.lanes[0]?.cards.map((entry) => entry.priority)).toEqual(["normal", "high"]);
 	});
 
-	test("names what a card is blocked by, and nothing once that dependency is done", () => {
-		// The page prints this line; the tool prints its own, which also names finished
-		// links. Both read the same graph, so neither can invent a blocker.
+	test("names what a card is blocked by, title and all, and nothing once that dependency is done", () => {
+		// The page prints this line, so it names the card as well as its lane: an id alone
+		// would send a reader into the dialog to find out which card it is. The tool prints
+		// its own sentence, which names finished links too — both read the same graph, so
+		// neither can invent a blocker.
 		const blocked = buildView({
 			me: ME,
-			cards: [card("2", { lane: "execute" }), card("4", { dependsOn: ["2"] })],
+			cards: [card("2", { lane: "execute", title: "Patch the gateway" }), card("4", { dependsOn: ["2"] })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(blocked.lanes[0]?.cards[0]?.waits).toBe("#2 (execute)");
+		expect(blocked.lanes[0]?.cards[0]?.waits).toBe("#2 (execute) Patch the gateway");
 
 		const cleared = buildView({
 			me: ME,
@@ -149,7 +151,7 @@ describe("buildView", () => {
 			root: ROOT,
 		});
 		const blocker = view.lanes.flatMap((lane) => lane.cards).find((entry) => entry.id === "2");
-		expect(blocker?.dependents).toBe("#4 (backlog)");
+		expect(blocker?.dependents).toBe("#4 (backlog) Card 4");
 		// A card nothing waits on carries no field at all: absence is the fact.
 		const dependent = view.lanes.flatMap((lane) => lane.cards).find((entry) => entry.id === "4");
 		expect(dependent?.dependents).toBeUndefined();
@@ -208,7 +210,7 @@ describe("buildView", () => {
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(view.round.unassigned.map((entry) => entry.waits)).toEqual(["#2 (execute)"]);
+		expect(view.round.unassigned.map((entry) => entry.waits)).toEqual(["#2 (execute) Card 2"]);
 		expect(view.round.owners[0]?.cards[0]?.priority).toBe("normal");
 	});
 

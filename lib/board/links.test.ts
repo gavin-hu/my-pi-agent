@@ -64,8 +64,18 @@ describe("lanesText", () => {
 		expect(lanesText([board.get("3") as Card, board.get("2") as Card])).toBe("#3 (blocked), #2 (execute)");
 	});
 
+	test("adds the card's title when the reader is the page's card face", () => {
+		// The page has the room and the reader has to know which card it is; a refusal
+		// sentence stays ids and lanes, so the same list still reads short in a row.
+		const board = indexOf([held("2"), held("3", "blocked")]);
+		const cards = [board.get("3") as Card, board.get("2") as Card];
+		expect(lanesText(cards, { titles: true })).toBe("#3 (blocked) feature 3, #2 (execute) feature 2");
+		expect(lanesText(cards)).toBe(lanesText(cards, { titles: false }));
+	});
+
 	test("says nothing for an empty list", () => {
 		expect(lanesText([])).toBe("");
+		expect(lanesText([], { titles: true })).toBe("");
 	});
 });
 

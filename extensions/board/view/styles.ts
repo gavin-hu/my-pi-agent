@@ -108,6 +108,9 @@ ${LANE_ROLE_CSS}
 .board-card[data-lane="done"] .board-card__title:hover{color:var(--accent)}
 .board-card[data-lane="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
 .board-card__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
+/* How much history the card carries and how recent it is: a count and a stamp, in the
+   meta line's own voice, so a card with ten notes cannot look like one with none. */
+.board-card__notes{display:inline-flex;align-items:baseline;gap:var(--space-1);font-variant-numeric:tabular-nums}
 .board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none}
 /* A chip is one line and nowrap by design, so an owner label or a path longer than the card
    would spill past its border and across the lane beside it: clipped to the card instead,
@@ -120,6 +123,16 @@ ${LANE_ROLE_CSS}
 .board-card__reason{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-card__reason--blocked{color:var(--danger)}
 .board-card__reason--unplanned{color:var(--warn)}
+/* The other side of a link: what leaving this card undone holds up. It is a cost and not a
+   verdict, so it stays in the card's own voice: warn already means "a reader has to decide",
+   and a card can hold others up while nothing about it needs deciding. */
+.board-card__holds{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+/* Where the reader has been: j/k walks the drawn cards and wraps, so a lane walked and
+   come back to looked exactly like a lane arriving for the first time. A read card keeps
+   a quiet edge and the one the reader is on wears the accent one — after the hover rule,
+   so the mark outlives the pointer that made it. */
+.board-card[data-visited="true"]{box-shadow:inset 3px 0 0 var(--border-strong)}
+.board-card[data-current="true"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
 
 /* The Team tab: a queue and a roster side by side, then one quiet strip. */
 .board-team{display:grid;gap:var(--space-5);min-width:0}

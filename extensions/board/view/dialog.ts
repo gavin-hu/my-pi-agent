@@ -22,7 +22,12 @@ export const BOARD_DIALOG_JS = String.raw`(function () {
     var card = board.findCard(view, id);
     if (!card || !window.bfCard) return;
     board.openId = id;
+    // A card a reader opened is one they have read, and it is where they are: the board
+    // paints both marks from these two fields, so closing the record leaves the place.
+    board.visited[id] = true;
+    board.current = id;
     board.fillDialog(card, view);
+    board.markCards();
     window.bfCard.open();
   };
 

@@ -131,6 +131,8 @@ interface ElementLike {
 	scrollWidth: number;
 	clientWidth: number;
 	getAttribute(name: string): string | null;
+	/** The last child of the meta's notes chip: the age the ticker rewrites. */
+	lastElementChild: ElementLike | null;
 }
 
 /** Whether an element the page hides with the `hidden` attribute is hidden. */
@@ -433,9 +435,18 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		);
 		try {
 			const page = await openPage();
+			// The face says it too, and names the card rather than its id: a lead reading a lane
+			// decides on that, and the dialog was the only place it lived.
+			expect(await page.textContent('#lane-backlog .board-card[data-card="1"] .board-card__holds')).toBe(
+				"holds up #2 (backlog) Invoice totals round the wrong way",
+			);
+			expect(await page.textContent('#lane-backlog .board-card[data-card="2"] .board-card__reason')).toBe(
+				"waits on #1 (backlog) Export orders as CSV",
+			);
+
 			await page.click('#lane-backlog .board-card__title:text-is("Export orders as CSV")');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-			expect(await page.textContent("#card-dialog-dependents")).toBe("#2 (backlog)");
+			expect(await page.textContent("#card-dialog-dependents")).toBe("#2 (backlog) Invoice totals round the wrong way");
 			expect(await hidden(page, "#card-dialog-dependents-label")).toBe(false);
 			// The same card waits on nothing, so that row is absent rather than empty.
 			expect(await hidden(page, "#card-dialog-depends")).toBe(true);
@@ -444,7 +455,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			// The dependent's own dialog says the other direction, from the same link.
 			await page.click('#lane-backlog .board-card__title:text-is("Invoice totals round the wrong way")');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-			expect(await page.textContent("#card-dialog-depends")).toBe("#1 (backlog)");
+			expect(await page.textContent("#card-dialog-depends")).toBe("#1 (backlog) Export orders as CSV");
 			expect(await hidden(page, "#card-dialog-dependents")).toBe(true);
 			await page.close();
 		} finally {
@@ -633,6 +644,136 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				.fontFamily.toLowerCase(),
 		);
 		expect(mono).toContain("mono");
+		await page.close();
+	});
+
+	test("names the hints behind its +N chip, and lists them for a reader who never hovers", async () => {
+		const hints = ["src/a.ts", "src/b.ts", "src/c.ts", "src/d.ts", "src/e.ts"];
+		const added = await store.create({ title: "A card with five hints", paths: hints }, CORE, clock.now());
+		try {
+			const page = await openPage();
+			const card = `.board-card[data-card="${added.id}"]`;
+			await page.waitForSelector(`${card} .board-card__paths`, { timeout: PAINT_MS });
+
+			// The chip used to be a bare count: the hints past the third lived only in the dialog.
+			const rest = await page.$eval(`${card} .board-card__paths .bf-chip[aria-hidden="true"]`, (node) => ({
+				text: node.textContent ?? "",
+				title: node.getAttribute("title") ?? "",
+			}));
+			expect(rest.text).toBe("+2");
+			expect(rest.title).toBe("src/d.ts\nsrc/e.ts");
+
+			// And they are in the list, as text a screen reader reads and the title describes.
+			const listed = await page.$$eval(`${card} .board-card__paths .sr-only`, (nodes) =>
+				Array.from(nodes as ArrayLike<ElementLike>, (node) => node.textContent ?? ""),
+			);
+			expect(listed).toEqual(["src/d.ts", "src/e.ts"]);
+			expect(await page.getAttribute(`${card} .board-card__title`, "aria-describedby")).toBe(`card-paths-${added.id}`);
+			await page.close();
+		} finally {
+			await store.mutate(added.id, { kind: "drop" }, CORE, clock.now());
+		}
+	});
+
+	test("describes the reason a clamped card cannot show, so the keyboard reaches it", async () => {
+		const page = await openPage();
+		// The reason line clamps, and its whole sentence is only on a hover title, which j/k
+		// never shows: the title button carries the same line as its description, so focusing
+		// it — by walking or by Tab — says the sentence a reader came for.
+		const id = await page.$eval("#lane-execute .board-card", (node) => node.getAttribute("data-card") ?? "");
+		const line = `.board-card[data-card="${id}"] .board-card__reason`;
+		const reason = await page.textContent(line);
+		expect(reason ?? "").not.toBe("");
+		expect(await page.getAttribute(`.board-card[data-card="${id}"] .board-card__title`, "aria-describedby")).toContain(
+			`card-reason-${id}`,
+		);
+		expect(await page.textContent(`#card-reason-${id}`)).toBe(reason ?? "");
+		await page.focus(`.board-card[data-card="${id}"] .board-card__title`);
+		expect(await focusedClass(page)).toContain("board-card__title");
+		await page.close();
+	});
+
+	test("says how many notes a card carries, and the last note's age only when it adds a fact", async () => {
+		// A note is itself a write, so the newest note is usually the newest stamp on the card:
+		// printing its age beside the updated one gave the meta line two identical bare numbers.
+		const quiet = await store.create(
+			{ title: "A card whose note was its last write", paths: [], note: "one note" },
+			CORE,
+			clock.now(),
+		);
+		const busy = await store.create(
+			{ title: "A card written again after its note", paths: [], note: "one note" },
+			CORE,
+			clock.now(),
+		);
+		// Two days on, so the claim's stamp and the note's read as different ages: the fixture's
+		// clock is fixed, and a difference of minutes would round to the same day count.
+		await store.mutate(busy.id, { kind: "claim" }, CORE, clock.now() + 2 * 86_400_000);
+		try {
+			const page = await openPage();
+			const quietChip = `.board-card[data-card="${quiet.id}"] .board-card__notes`;
+			await page.waitForSelector(quietChip, { timeout: PAINT_MS });
+			expect(await page.textContent(quietChip)).toBe("1 note");
+			// No stamp of its own, so nothing to keep honest and nothing to hover for.
+			expect(await page.$$eval(`${quietChip} [data-at]`, (nodes) => nodes.length)).toBe(0);
+
+			// A later write that is not a note leaves the two ages saying different things, so
+			// the note's own earns its place: it says when the conversation went quiet, which
+			// the card's updated stamp cannot.
+			const busyChip = `.board-card[data-card="${busy.id}"] .board-card__notes`;
+			const updated = await page.textContent(`.board-card[data-card="${busy.id}"] .board-card__meta [data-at]`);
+			const written = await page.textContent(busyChip);
+			expect(written).toMatch(/^1 note \u00b7 \d+[a-z]+$/);
+			expect(written).not.toBe(`1 note \u00b7 ${updated}`);
+			expect(await page.$eval(`${busyChip} [data-at]`, (node) => node.getAttribute("data-at-title") ?? "")).toBe(
+				"last note {age} by billing-core",
+			);
+
+			// A card nobody has annotated draws nothing at all rather than "0 notes".
+			const bare = await store.create({ title: "A card with no history", paths: [] }, CORE, clock.now());
+			try {
+				await page.waitForSelector(`.board-card[data-card="${bare.id}"]`, { timeout: PAINT_MS });
+				expect(
+					await page.$$eval(`.board-card[data-card="${bare.id}"] .board-card__notes`, (nodes) => nodes.length),
+				).toBe(0);
+			} finally {
+				await store.mutate(bare.id, { kind: "drop" }, CORE, clock.now());
+			}
+			await page.close();
+		} finally {
+			await store.mutate(busy.id, { kind: "drop" }, CORE, clock.now());
+			await store.mutate(quiet.id, { kind: "drop" }, CORE, clock.now());
+		}
+	});
+
+	test("marks the card the reader is on, and the ones they have read", async () => {
+		const page = await openPage();
+		const markOf = (id: string): Promise<{ current: string | null; visited: string | null }> =>
+			page.$eval(`.board-card[data-card="${id}"]`, (node) => ({
+				current: node.getAttribute("data-current"),
+				visited: node.getAttribute("data-visited"),
+			}));
+
+		// j lands on the first drawn card, and the mark follows focus rather than the key.
+		await page.keyboard.press("j");
+		expect(await markOf("1")).toEqual({ current: "true", visited: null });
+
+		// Opening it is reading it, and Esc leaves the reader where they were rather than
+		// at the top of the lane.
+		await page.keyboard.press("Enter");
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		await page.keyboard.press("Escape");
+		expect(await markOf("1")).toEqual({ current: "true", visited: "true" });
+
+		// The next step moves the mark one card on and leaves the read one behind it, which
+		// is the place a wrap used to lose.
+		await page.keyboard.press("j");
+		expect(await markOf("1")).toEqual({ current: null, visited: "true" });
+		expect(await markOf("2")).toEqual({ current: "true", visited: null });
+
+		// k walks back, and the card is current again with its read mark intact.
+		await page.keyboard.press("k");
+		expect(await markOf("1")).toEqual({ current: "true", visited: "true" });
 		await page.close();
 	});
 
