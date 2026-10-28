@@ -128,6 +128,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `skills`: the `project-docs` skill is deleted — its `SKILL.md`, its five reference
+  modes, and the `scripts/state.ts` it shipped, together with `test/project-docs-skill.test.ts`,
+  its `ROOT_TEST_FILES` entry, and the `test/README.md` row. The two entry READMEs drop
+  its row and count three packaged skills, `docs/README.md` says three workflows, and
+  `next` no longer hands a doc-truth question to a sibling: a changelog bullet, a release
+  section, and the front door remain the same edits, made by hand against
+  `docs/development.md` and `docs/architecture.md`, which are where the rules live.
 - `docs`: `docs/user-guide/` is deleted — twelve chapters and its reference tables. Of
   the four guards that read it, one went with it and three were trimmed:
   `test/reference-coverage.test.ts` had no other subject, while `test/doc-counts.test.ts`,

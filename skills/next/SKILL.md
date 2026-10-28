@@ -15,11 +15,9 @@ project wins.
 The conversation decides where the candidates come from (section 3); the request
 decides only what to ask and where to look.
 
-Two sibling skills, where they are installed, own a narrower question: an audit
-of *where to refactor* is `refactor`, and *whether a document still tells the
-truth* — the changelog, the roadmap, the front door — is `project-docs`. When the
-request is already scoped to one of those, name the skill that answers it and
-hand over, instead of returning a generic list.
+A sibling skill, where it is installed, owns a narrower question: an audit of
+*where to refactor* is `refactor`. When the request is already scoped to it, name
+that skill and hand over, instead of returning a generic list.
 
 A next-steps block that the host draws itself is not this skill's output: that is
 the reply's suggested follow-up, a turn-level hint. This skill inspects state, so
