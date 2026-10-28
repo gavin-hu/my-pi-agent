@@ -7,10 +7,14 @@
  * the same limit `lib/plan-entry.ts` works around for plan mode — so the request
  * travels on `pi.events` and this module answers it with the runtime's own `join`.
  *
- * The answer always comes: every path here ends in `respond`, including a failure, so
+ * The answer always comes: every path here returns a result, including a failure, so
  * a caller never waits on a listener that threw. A caller that asks for `name` also gets
  * Pi's session name, because `/team join <label>` is the one door that means "call me
  * this from now on"; every other join leaves the footer alone.
+ *
+ * The claim is the answer, not the result: the bus starts and joins asynchronously, so
+ * this answers with the promise and stays claimed while it runs — which is what keeps
+ * the caller's fallback from settling a join that is still happening.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -22,10 +26,10 @@ export function registerJoinRequests(pi: ExtensionAPI, bus: SessionBus): void {
 	pi.events.on(TEAM_JOIN_REQUEST, (data) => {
 		const request = data as TeamJoinRequest | undefined;
 		if (!request || typeof request.respond !== "function") return;
-		void answer(request);
+		request.respond(answer(request));
 	});
 
-	async function answer(request: TeamJoinRequest): Promise<void> {
+	async function answer(request: TeamJoinRequest): Promise<JoinResult> {
 		let result: JoinResult;
 		try {
 			await bus.start(request.ctx);
@@ -38,6 +42,6 @@ export function registerJoinRequests(pi: ExtensionAPI, bus: SessionBus): void {
 		} catch (error) {
 			result = { ok: false, error: messageOf(error) };
 		}
-		request.respond(result);
+		return result;
 	}
 }
