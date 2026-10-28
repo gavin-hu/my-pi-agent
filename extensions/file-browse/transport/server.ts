@@ -7,10 +7,11 @@
  * refuses a page rather than opening a stream for it, and how long a page with nobody
  * reading it is worth keeping.
  *
- * The page holds the origin's **root**, and that is deliberate: its links, its own
- * scripts, and the destinations it rewrites out of Markdown are all root-absolute, so
- * one path space is what keeps them correct. `BROWSE_BASE` is that claim, named where
- * the mount and its suite can see it.
+ * The page takes the namespace `/files`, beside `/board` and `/plan/<id>`: every URL it
+ * emits is built from that `base` — the links, the scripts, the destinations it rewrites
+ * out of Markdown, and the client's own fetches — so one prefix is all it needs, and the
+ * origin's root stays free. `BROWSE_BASE` is that claim, named where the mount and its
+ * suite can see it.
  */
 
 import { realpathSync } from "node:fs";
@@ -28,17 +29,17 @@ import { createLiveChannel, createLiveStatus } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
 
 /**
- * The prefix this page answers under: the root of the session's origin.
+ * The prefix this page answers under: its own namespace on the session's origin.
  *
- * A page whose every emitted URL is root-absolute cannot be moved under a prefix
- * without rewriting them, so the one path space it needs is the root, and `board` and
- * `plan` take their own namespaces beside it.
+ * Route names inside the page (`/`, `/browse`, `/view`, `/raw`, `/diff`, `/api/*`,
+ * `/events`) are unchanged and relative to this prefix, so the same page is served under
+ * `/files` and nowhere else, and the origin's root answers nothing at all.
  */
-export const BROWSE_BASE = "";
+export const BROWSE_BASE = "/files";
 
 /** A mounted page. */
 export interface FileServer {
-	/** Origin URL, e.g. `http://127.0.0.1:4780/`. */
+	/** The page's URL, e.g. `http://127.0.0.1:4780/files/`. */
 	url: string;
 	/** The port the session's server bound. */
 	port: number;
@@ -88,6 +89,7 @@ export async function createFileServer(options: FileServerOptions): Promise<File
 	const live = status ? createLiveChannel({ status, intervalMs: config.liveIntervalMs }) : undefined;
 	const context: ServeContext = {
 		root,
+		base: BROWSE_BASE,
 		config,
 		git: options.git,
 		diff: options.diff,

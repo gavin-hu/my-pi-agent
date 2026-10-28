@@ -8,7 +8,15 @@
  * the page-only `browse-*` rules from `styles.ts`.
  */
 
-import { brandLockup, docHead, type KeyHint, keysSheet, tabTitle, themeToggle } from "../../../lib/web/index.ts";
+import {
+	baseAttribute,
+	brandLockup,
+	docHead,
+	type KeyHint,
+	keysSheet,
+	tabTitle,
+	themeToggle,
+} from "../../../lib/web/index.ts";
 import { escapeHtml } from "../../../lib/escape.ts";
 import { renderChanges, renderGit, renderLiveChrome, renderLiveStatus, type LivePage } from "./chrome.ts";
 import { type DirEntry, type FileView, type Listing, type TreeNode } from "../files/files.ts";
@@ -58,11 +66,19 @@ function changeMark(summary: ChangeSummary | undefined, rel: string, isDir: bool
 		: "";
 }
 
-function hrefFor(entry: { rel: string; isDir: boolean }): string {
-	return entry.isDir ? `/browse/${encodePath(entry.rel)}` : `/view/${encodePath(entry.rel)}`;
+/**
+ * The URL one tree or table entry links to, written under the page's `base`.
+ *
+ * Exported because the JSON `/api/tree` route answers with the same hrefs, so the rendered
+ * tree and the client's refresh cannot disagree about where an entry lives.
+ */
+export function hrefFor(entry: { rel: string; isDir: boolean }, base: string): string {
+	return entry.isDir ? `${base}/browse/${encodePath(entry.rel)}` : `${base}/view/${encodePath(entry.rel)}`;
 }
 
 interface Layout {
+	/** The mount prefix this page answers under, e.g. `/files`; `""` for the origin's root. */
+	base: string;
 	title: string;
 	rootLabel: string;
 	tree: TreeNode;
@@ -84,9 +100,9 @@ interface Layout {
 /** A full two-pane page. */
 function renderLayout(layout: Layout): string {
 	return `<!doctype html>
-<html lang="en">
+<html lang="en"${baseAttribute(layout.base)}>
 <head>
-${docHead({ title: layout.title, css: BROWSE_CSS })}
+${docHead({ title: layout.title, css: BROWSE_CSS, base: layout.base })}
 </head>
 <body class="bf-app">
 <a class="skip" href="#main">Skip to content</a>
@@ -97,7 +113,7 @@ ${SPRITE}
   ${brandLockup("browse")}
   <span class="bf-context browse-root">${escapeHtml(layout.rootLabel)}</span>
   ${renderGit(layout.git)}
-  ${renderChanges(layout.summary, layout.live)}
+  ${renderChanges(layout.summary, layout.live, layout.base)}
   <span class="bf-chip bf-chip--accent">read-only</span>
   ${renderLiveChrome(layout.live)}
   <button type="button" class="bf-btn bf-btn--icon browse-keys-btn" id="keys-open" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</button>
@@ -112,7 +128,7 @@ ${SPRITE}
         <label class="bf-field">⌕ <input class="bf-input" id="filter" type="search" placeholder="filter paths…" aria-label="Filter paths"></label>
         <button type="button" class="bf-btn" id="fold-all" title="Fold or expand every folder">fold all</button>
       </div>
-      <nav class="bf-tree" aria-label="File tree">${renderTree(layout.tree, layout.currentRel, layout.summary)}</nav>
+      <nav class="bf-tree" aria-label="File tree">${renderTree(layout.tree, layout.currentRel, layout.base, layout.summary)}</nav>
       <p class="bf-note" id="tree-empty" hidden>No matches.</p>
     </aside>
   </details>
@@ -123,36 +139,36 @@ ${layout.main}
 </div>
 <footer class="bf-app__footer">${layout.live ? renderLiveStatus() : ""}served from ${escapeHtml(layout.rootLabel)} · read-only · ${escapeHtml(layout.footerNote)}</footer>
 ${layout.keys && layout.keys.length > 0 ? keysSheet(layout.keys) : ""}
-<script src="/app.js" defer></script>
+<script src="${layout.base}/app.js" defer></script>
 </body>
 </html>
 `;
 }
 
 /** The breadcrumb trail for a root-relative path, up to (not including) the current page. */
-export function renderBreadcrumbs(rel: string): string {
+export function renderBreadcrumbs(rel: string, base: string): string {
 	const segments = rel.split("/").filter(Boolean);
 	if (segments.length === 0) return `<span aria-current="page">home</span>`;
 	// The last segment is the current page, which the heading or card title names;
 	// the trail stops at its parent so the name is not shown twice.
-	const parts = [`<a href="/browse/">home</a>`];
+	const parts = [`<a href="${base}/browse/">home</a>`];
 	let accumulated = "";
 	for (const segment of segments.slice(0, -1)) {
 		accumulated = accumulated ? `${accumulated}/${segment}` : segment;
-		parts.push(`<a href="/browse/${encodePath(accumulated)}">${escapeHtml(segment)}</a>`);
+		parts.push(`<a href="${base}/browse/${encodePath(accumulated)}">${escapeHtml(segment)}</a>`);
 	}
 	return parts.join(`<span class="bf-crumbs__sep">/</span>`);
 }
 
-function renderTree(node: TreeNode, currentRel: string, summary?: ChangeSummary): string {
-	return `<ul>${renderTreeNode(node, currentRel, summary)}</ul>`;
+function renderTree(node: TreeNode, currentRel: string, base: string, summary?: ChangeSummary): string {
+	return `<ul>${renderTreeNode(node, currentRel, base, summary)}</ul>`;
 }
 
-function renderTreeNode(node: TreeNode, currentRel: string, summary?: ChangeSummary): string {
+function renderTreeNode(node: TreeNode, currentRel: string, base: string, summary?: ChangeSummary): string {
 	const expanded = node.children.length > 0;
 	const isDir = node.isDir;
 	const spec = isDir ? FOLDER_ICON : languageOf(node.name);
-	const href = hrefFor(node);
+	const href = hrefFor(node, base);
 	const current = node.rel === currentRel ? ` aria-current="page"` : "";
 	const twisty = isDir
 		? `<button type="button" class="bf-tree__tw bf-tree__tw--toggle" tabindex="-1" aria-hidden="true">${expanded ? "▾" : "▸"}</button>`
@@ -160,7 +176,7 @@ function renderTreeNode(node: TreeNode, currentRel: string, summary?: ChangeSumm
 	const dataPath = ` data-path="${escapeHtml(node.rel)}"`;
 	const name = isDir ? `${escapeHtml(node.name)}/` : escapeHtml(node.name);
 	const children = expanded
-		? `<ul>${node.children.map((child) => renderTreeNode(child, currentRel, summary)).join("")}</ul>`
+		? `<ul>${node.children.map((child) => renderTreeNode(child, currentRel, base, summary)).join("")}</ul>`
 		: "";
 	const label = node.broken
 		? `<span class="browse-broken" title="broken symbolic link">${name}</span><span class="browse-link-mark">↩</span>`
@@ -170,11 +186,17 @@ function renderTreeNode(node: TreeNode, currentRel: string, summary?: ChangeSumm
 	return `<li data-open="${expanded}"><div class="bf-tree__row"${current}${dataPath}>${twisty}${iconMarkup(spec)}${label}${changeMark(summary, node.rel, isDir)}</div>${children}</li>`;
 }
 
-function renderRow(entry: DirEntry, maxThumbBytes: number, thumbnails: boolean, summary?: ChangeSummary): string {
+function renderRow(
+	entry: DirEntry,
+	maxThumbBytes: number,
+	thumbnails: boolean,
+	base: string,
+	summary?: ChangeSummary,
+): string {
 	const spec = entry.isDir ? FOLDER_ICON : languageOf(entry.name);
 	const showThumb = thumbnails && entry.isImage && !entry.broken && entry.size <= maxThumbBytes;
 	const visual = showThumb
-		? `<img class="bf-table__thumb" alt="" loading="lazy" decoding="async" src="/raw/${encodePath(entry.rel)}">${iconMarkup(spec, true)}`
+		? `<img class="bf-table__thumb" alt="" loading="lazy" decoding="async" src="${base}/raw/${encodePath(entry.rel)}">${iconMarkup(spec, true)}`
 		: iconMarkup(spec);
 	const name = entry.isDir ? `${escapeHtml(entry.name)}/` : escapeHtml(entry.name);
 	const classes = [entry.name.startsWith(".") ? "browse-dotfile" : "", entry.isSymlink ? "browse-symlink" : ""]
@@ -182,7 +204,7 @@ function renderRow(entry: DirEntry, maxThumbBytes: number, thumbnails: boolean, 
 		.join(" ");
 	const link = entry.broken
 		? `<span class="browse-broken" title="broken symbolic link">${name}</span>`
-		: `<a href="${hrefFor(entry)}" title="${escapeHtml(entry.rel)}">${name}</a>`;
+		: `<a href="${hrefFor(entry, base)}" title="${escapeHtml(entry.rel)}">${name}</a>`;
 	const mark = entry.isSymlink
 		? `<span class="browse-link-mark" title="${entry.broken ? "broken symbolic link" : "symbolic link"}">↩</span>`
 		: "";
@@ -191,6 +213,7 @@ function renderRow(entry: DirEntry, maxThumbBytes: number, thumbnails: boolean, 
 }
 
 export interface DirectoryPage {
+	base: string;
 	rootLabel: string;
 	rel: string;
 	listing: Listing;
@@ -212,7 +235,7 @@ export function renderDirectoryPage(page: DirectoryPage): string {
 	let body = `<table class="bf-table browse-listing" aria-labelledby="page-title">
 <thead><tr><th scope="col" aria-sort="ascending"><button type="button" class="bf-sort" data-sort="name" title="Sort by name">Name</button></th><th scope="col" class="bf-table__size"><button type="button" class="bf-sort" data-sort="size" title="Sort by size">Size</button></th><th scope="col" class="bf-table__when"><button type="button" class="bf-sort" data-sort="mtime" title="Sort by modified time">Modified</button></th></tr></thead>
 <tbody>
-${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.thumbnails, page.summary)).join("\n")}
+${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.thumbnails, page.base, page.summary)).join("\n")}
 </tbody>
 </table>`;
 	if (page.listing.entries.length === 0) body = `<div class="bf-empty">This folder is empty.</div>`;
@@ -220,11 +243,12 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 		body += `<p class="bf-note">Showing the first ${page.listing.entries.length} of ${page.listing.total} entries.</p>`;
 
 	return renderLayout({
+		base: page.base,
 		title: tabTitle("browse", page.rel || folderName),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
-		breadcrumbs: renderBreadcrumbs(page.rel),
+		breadcrumbs: renderBreadcrumbs(page.rel, page.base),
 		keys: pageKeys(),
 		main: `    ${heading}\n    ${body}`,
 		footerNote: `${page.listing.total} entr${page.listing.total === 1 ? "y" : "ies"}`,
@@ -235,6 +259,7 @@ ${page.listing.entries.map((entry) => renderRow(entry, page.maxThumbBytes, page.
 }
 
 export interface FilePage {
+	base: string;
 	rootLabel: string;
 	rel: string;
 	file: FileView;
@@ -290,12 +315,12 @@ function numberedLines(page: FilePage): boolean {
  * plus the download the diff head keeps in the same group. */
 function renderFileActions(page: FilePage, download: string): string {
 	const isMarkdown = page.file.kind === "markdown";
-	const rawHref = `/raw/${encodePath(page.rel)}`;
-	const viewHref = `/view/${encodePath(page.rel)}`;
+	const rawHref = `${page.base}/raw/${encodePath(page.rel)}`;
+	const viewHref = `${page.base}/view/${encodePath(page.rel)}`;
 	const groups: string[] = [];
 	if (page.changed) {
 		groups.push(
-			`<a class="bf-btn" href="/diff/${encodePath(page.rel)}" title="View this file's uncommitted changes">changes</a>`,
+			`<a class="bf-btn" href="${page.base}/diff/${encodePath(page.rel)}" title="View this file's uncommitted changes">changes</a>`,
 		);
 	}
 	if (isMarkdown) {
@@ -336,7 +361,7 @@ export function renderFilePage(page: FilePage): string {
 	// Text is always served as octet-stream, so the response type says nothing
 	// about the file; the language label, size, and date are the useful metadata.
 	const meta = `${spec.label} · ${formatSize(page.file.size)} · ${formatDate(page.file.mtimeMs)}`;
-	const download = `<a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a>`;
+	const download = `<a class="bf-btn" href="${page.base}/raw/${encodePath(page.rel)}" download>download</a>`;
 	const head = `<div class="bf-card__head">${iconMarkup(spec)}<h1 class="bf-card__title">${escapeHtml(name)}</h1><span class="bf-card__meta">${escapeHtml(meta)}</span><span class="bf-spacer"></span>${renderFileActions(page, download)}</div>`;
 
 	const isMarkdown = page.file.kind === "markdown";
@@ -354,6 +379,7 @@ export function renderFilePage(page: FilePage): string {
 		if (page.file.kind === "markdown" && !page.markdownRaw) {
 			const html = renderMarkdown(page.file.lines.join("\n"), markdownBaseDir(page.rel), {
 				html: page.markdownHtml !== false,
+				base: page.base,
 			});
 			content = `<article class="bf-md">${html}</article>`;
 		} else {
@@ -362,7 +388,7 @@ export function renderFilePage(page: FilePage): string {
 		if (page.file.truncated)
 			note = `<p class="bf-note">Showing the first ${page.file.lines.length} of ${page.file.totalLines} lines.</p>`;
 	} else if (page.file.kind === "image") {
-		content = `<div class="bf-media"><img src="/raw/${encodePath(page.rel)}" alt="${escapeHtml(name)}"></div>`;
+		content = `<div class="bf-media"><img src="${page.base}/raw/${encodePath(page.rel)}" alt="${escapeHtml(name)}"></div>`;
 	} else if (page.file.kind === "tooLarge") {
 		content = `<div class="bf-empty"><p class="bf-empty__title">File is ${escapeHtml(formatSize(page.file.size))}.</p><p class="bf-empty__sub">Larger than the ${escapeHtml(formatSize(page.maxFileBytes))} inline limit.</p>${download}</div>`;
 	} else {
@@ -370,11 +396,12 @@ export function renderFilePage(page: FilePage): string {
 	}
 
 	return renderLayout({
+		base: page.base,
 		title: tabTitle("browse", page.rel),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
-		breadcrumbs: renderBreadcrumbs(page.rel),
+		breadcrumbs: renderBreadcrumbs(page.rel, page.base),
 		mainClass: rendered ? "browse-page browse-measure" : "browse-page",
 		keys,
 		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
@@ -418,6 +445,7 @@ function renderModeControl(mode: DiffMode, build: (mode: DiffMode) => string): s
 }
 
 export interface DiffPage {
+	base: string;
 	rootLabel: string;
 	mode: DiffMode;
 	files: ChangedFile[];
@@ -431,23 +459,24 @@ export interface DiffPage {
 
 /** The change overview: `git diff --stat` plus every changed path. */
 export function renderDiffPage(page: DiffPage): string {
-	const modeHref = (mode: DiffMode) => (mode === "head" ? "/diff" : `/diff?mode=${mode}`);
+	const modeHref = (mode: DiffMode) => (mode === "head" ? `${page.base}/diff` : `${page.base}/diff?mode=${mode}`);
 	const body =
 		page.files.length === 0
 			? `<div class="bf-empty"><p class="bf-empty__title">No changes ${escapeHtml(modeScope(page.mode))}.</p><p class="bf-empty__sub">The working tree matches this scope.</p></div>`
 			: `<table class="bf-table browse-diff" aria-labelledby="page-title">
 <thead><tr><th scope="col" class="browse-diff-status">Status</th><th scope="col">Path</th><th scope="col" class="browse-diff-word">Changes</th></tr></thead>
 <tbody>
-${page.files.map((file) => renderChangedRow(file, page.mode)).join("\n")}
+${page.files.map((file) => renderChangedRow(file, page.mode, page.base)).join("\n")}
 </tbody>
 </table>`;
 	const stat = page.stat ? `<pre class="browse-diff-stat">${escapeHtml(page.stat)}</pre>` : "";
 	return renderLayout({
+		base: page.base,
 		title: tabTitle("browse", "changes"),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: "",
-		breadcrumbs: renderBreadcrumbs(""),
+		breadcrumbs: renderBreadcrumbs("", page.base),
 		mainClass: "browse-page",
 		keys: pageKeys(),
 		main: `    <h1 class="bf-title browse-heading" id="page-title">Changes <span class="browse-diff-scope">${escapeHtml(modeScope(page.mode))}</span></h1>\n    <div class="browse-diff-toolbar">${renderModeControl(page.mode, modeHref)}</div>\n    ${stat}\n    ${body}`,
@@ -458,16 +487,17 @@ ${page.files.map((file) => renderChangedRow(file, page.mode)).join("\n")}
 	});
 }
 
-function renderChangedRow(file: ChangedFile, mode: DiffMode): string {
+function renderChangedRow(file: ChangedFile, mode: DiffMode, base: string): string {
 	const letter = statusLetter(file);
 	const label = statusWord(letter);
 	const badge = `browse-diff-badge browse-diff-badge--${letter === "?" ? "Q" : letter}`;
 	const orig = file.origRel ? ` <span class="browse-diff-orig">from ${escapeHtml(file.origRel)}</span>` : "";
-	const href = `/diff/${encodePath(file.rel)}${mode === "head" ? "" : `?mode=${mode}`}`;
+	const href = `${base}/diff/${encodePath(file.rel)}${mode === "head" ? "" : `?mode=${mode}`}`;
 	return `<tr data-path="${escapeHtml(file.rel)}"><td><span class="${badge}" aria-label="${escapeHtml(label)}">${escapeHtml(letter)}</span></td><td><span class="bf-table__name">${iconMarkup(languageOf(file.rel))}<a href="${href}">${escapeHtml(file.rel)}</a>${orig}</span></td><td class="browse-diff-word">${escapeHtml(label)}</td></tr>`;
 }
 
 export interface FileDiffPage {
+	base: string;
 	rootLabel: string;
 	rel: string;
 	mode: DiffMode;
@@ -483,12 +513,12 @@ export interface FileDiffPage {
 export function renderFileDiffPage(page: FileDiffPage): string {
 	const name = page.rel.slice(page.rel.lastIndexOf("/") + 1);
 	const spec = languageOf(name);
-	const base = `/diff/${encodePath(page.rel)}`;
+	const diffBase = `${page.base}/diff/${encodePath(page.rel)}`;
 	const actions = [
-		renderModeControl(page.mode, (mode) => (mode === "head" ? base : `${base}?mode=${mode}`)),
-		`<a class="bf-btn" href="/view/${encodePath(page.rel)}" title="Open the file">view file</a>`,
+		renderModeControl(page.mode, (mode) => (mode === "head" ? diffBase : `${diffBase}?mode=${mode}`)),
+		`<a class="bf-btn" href="${page.base}/view/${encodePath(page.rel)}" title="Open the file">view file</a>`,
 		`<button type="button" class="bf-btn" id="wrap-toggle" aria-pressed="false" title="Toggle line wrapping">wrap</button>`,
-		`<a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a>`,
+		`<a class="bf-btn" href="${page.base}/raw/${encodePath(page.rel)}" download>download</a>`,
 		`<button type="button" class="bf-btn" data-copy="path" data-value="${escapeHtml(page.rel)}" title="Copy the root-relative path">copy path</button>`,
 	];
 	// A per-file change summary and hunk count, so the scope is visible before scrolling.
@@ -507,7 +537,7 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 	let content: string;
 	let note = "";
 	if (page.diff.binary) {
-		content = `<div class="bf-empty"><p class="bf-empty__title">Binary or unreadable change.</p><p class="bf-empty__sub">No text diff is shown for this file.</p><a class="bf-btn" href="/raw/${encodePath(page.rel)}" download>download</a></div>`;
+		content = `<div class="bf-empty"><p class="bf-empty__title">Binary or unreadable change.</p><p class="bf-empty__sub">No text diff is shown for this file.</p><a class="bf-btn" href="${page.base}/raw/${encodePath(page.rel)}" download>download</a></div>`;
 	} else if (page.diff.lines.length === 0) {
 		content = `<div class="bf-empty"><p class="bf-empty__title">No changes for this file.</p><p class="bf-empty__sub">It is unchanged in the selected scope.</p></div>`;
 	} else {
@@ -515,11 +545,12 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 		if (page.diff.truncated) note = `<p class="bf-note">Showing the first ${page.diff.lines.length} diff lines.</p>`;
 	}
 	return renderLayout({
+		base: page.base,
 		title: tabTitle("browse", page.rel),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: page.rel,
-		breadcrumbs: renderBreadcrumbs(page.rel),
+		breadcrumbs: renderBreadcrumbs(page.rel, page.base),
 		mainClass: "browse-page",
 		keys,
 		main: `    <div class="bf-card">${head}${content}</div>\n    ${note}`,
@@ -531,6 +562,7 @@ export function renderFileDiffPage(page: FileDiffPage): string {
 }
 
 export interface ErrorPage {
+	base: string;
 	rootLabel: string;
 	status: number;
 	message: string;
@@ -543,12 +575,13 @@ export interface ErrorPage {
 /** Render a status/error page with the same chrome. */
 export function renderErrorPage(page: ErrorPage): string {
 	return renderLayout({
+		base: page.base,
 		title: tabTitle("browse", String(page.status)),
 		rootLabel: page.rootLabel,
 		tree: page.tree,
 		currentRel: "",
-		breadcrumbs: renderBreadcrumbs(""),
-		main: `    <div class="bf-empty"><div class="bf-empty__code">${page.status}</div><p class="bf-empty__title">${escapeHtml(page.message)}</p><p class="bf-empty__sub"><a href="/browse/">back to the served folder</a></p></div>`,
+		breadcrumbs: renderBreadcrumbs("", page.base),
+		main: `    <div class="bf-empty"><div class="bf-empty__code">${page.status}</div><p class="bf-empty__title">${escapeHtml(page.message)}</p><p class="bf-empty__sub"><a href="${page.base}/browse/">back to the served folder</a></p></div>`,
 		footerNote: "error",
 		git: page.git,
 		live: page.live,

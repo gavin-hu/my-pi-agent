@@ -4,7 +4,7 @@
 
 | Capability | How | What you get |
 |---|---|---|
-| One port for every page of a session | automatic: the first page that opens binds it | the file browser at `/`, the board at `/board/`, and a review at `/plan/<id>/` answer on one origin, so a bookmark, a firewall rule, and a port to remember are one thing |
+| One port for every page of a session | automatic: the first page that opens binds it | the file browser at `/files/`, the board at `/board/`, and a review at `/plan/<id>/` answer on one origin, so a bookmark, a firewall rule, and a port to remember are one thing |
 | One chip for that port | `◉ <port>` in the status bar | the session's port while anything is served on it, and nothing when no page is open |
 | A port that survives a restart | `serve.port` in `bytefly.json` | the same address after `/resume`, so a saved URL still opens the page it names |
 | A second session on its own port | automatic: servers are keyed by Pi session | a WeChat peer conversation never answers on this session's port |
@@ -17,7 +17,7 @@ There is nothing to run: `serve` is infrastructure, and the pages that use it ar
 
 ```bash
 /board          # http://127.0.0.1:4780/board/?token=…
-/browse         # http://127.0.0.1:4780/
+/browse         # http://127.0.0.1:4780/files/
 /plan review    # http://127.0.0.1:4780/plan/3f9c21aa/?token=…
 ```
 
@@ -31,7 +31,7 @@ serves it, and a request reaches that extension with its prefix stripped:
 
 | Prefix | Served by | Note |
 |---|---|---|
-| `/` | `file-browse` | the file browser, which holds the origin's root because every URL it emits is root-absolute — its own script, its links, and the destinations it rewrites out of Markdown; `/browse/<path>` is one directory |
+| `/files/` | `file-browse` | the file browser: its tree, its file pages, its own script, and the links it rewrites out of Markdown, all built from this prefix; `/files/browse/<path>` is one directory |
 | `/board/` | `board` | the read-only board page, with its token in the query |
 | `/plan/<id>/` | `plan` | one review; the id is the review's, so two reviews never share a namespace |
 

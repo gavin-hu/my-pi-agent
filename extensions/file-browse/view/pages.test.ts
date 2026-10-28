@@ -27,16 +27,20 @@ import {
 	formatDate,
 	renderBreadcrumbs,
 	renderDiffPage,
+	hrefFor,
 	renderDirectoryPage,
 	renderErrorPage,
 	renderFileDiffPage,
 	renderFilePage,
 	type ChangeSummary,
+	type DiffPage,
 	type DirectoryPage,
 	type FilePage,
 } from "./html.ts";
+import { renderChanges } from "./chrome.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { renderMarkdown } from "./markdown.ts";
+import type { LinkBase } from "./urls.ts";
 import { PALETTE_CLIENT_JS } from "./palette.ts";
 import { BROWSE_CSS } from "./styles.ts";
 import { TREE_CLIENT_JS } from "./tree.ts";
@@ -121,6 +125,7 @@ function markdownView(lines: string[], overrides: Partial<Extract<FileView, { ki
 
 function directoryPage(overrides: Partial<DirectoryPage> = {}): string {
 	return renderDirectoryPage({
+		base: "",
 		rootLabel: ROOT_LABEL,
 		rel: "",
 		listing: listing([]),
@@ -131,8 +136,42 @@ function directoryPage(overrides: Partial<DirectoryPage> = {}): string {
 	});
 }
 
+function imageView(overrides: Partial<Extract<FileView, { kind: "image" }>> = {}) {
+	return {
+		kind: "image" as const,
+		lines: [],
+		truncated: false,
+		totalLines: 0,
+		size: 12,
+		mtimeMs: MTIME_MS,
+		mime: "image/png",
+		...overrides,
+	};
+}
+
+/** One diff overview, so a case reads as the page it is about. */
+function diffPage(overrides: Partial<DiffPage> = {}): string {
+	return renderDiffPage({
+		base: "",
+		rootLabel: ROOT_LABEL,
+		mode: "head",
+		files: [],
+		stat: "",
+		tree: TREE,
+		...overrides,
+	});
+}
+
 function filePage(rel: string, file: FileView, overrides: Partial<FilePage> = {}): string {
-	return renderFilePage({ rootLabel: ROOT_LABEL, rel, tree: TREE, maxFileBytes: 1_000_000, file, ...overrides });
+	return renderFilePage({
+		base: "",
+		rootLabel: ROOT_LABEL,
+		rel,
+		tree: TREE,
+		maxFileBytes: 1_000_000,
+		file,
+		...overrides,
+	});
 }
 
 const changed = (overrides: Partial<ChangedFile> = {}): ChangedFile => ({
@@ -250,6 +289,7 @@ describe("page chrome", () => {
 		const rows = [entry({ name: "CHANGELOG.md", rel: "CHANGELOG.md" })];
 		expect(directoryPage({ listing: listing(rows) })).toContain('<th scope="col" class="bf-table__when">');
 		const diff = renderDiffPage({
+			base: "",
 			rootLabel: ROOT_LABEL,
 			mode: "head",
 			files: [changed({ rel: "src/config.ts" })],
@@ -540,6 +580,7 @@ describe("file page", () => {
 describe("error page", () => {
 	test("renders the status, the reason, and a way back", () => {
 		const html = renderErrorPage({
+			base: "",
 			rootLabel: ROOT_LABEL,
 			status: 404,
 			message: "That page does not exist.",
@@ -553,6 +594,7 @@ describe("error page", () => {
 
 	test("escapes the message instead of rendering it", () => {
 		const html = renderErrorPage({
+			base: "",
 			rootLabel: ROOT_LABEL,
 			status: 400,
 			message: '<script>alert("x")</script>',
@@ -565,13 +607,13 @@ describe("error page", () => {
 
 describe("breadcrumbs", () => {
 	test("renders ancestor segments as links and stops before the current page", () => {
-		const html = renderBreadcrumbs("sub/extensions");
+		const html = renderBreadcrumbs("sub/extensions", "");
 		expect(html).toContain('<a href="/browse/sub">sub</a>');
 		expect(html).not.toContain("extensions</span>");
 	});
 
 	test("marks home current at the root", () => {
-		expect(renderBreadcrumbs("")).toContain(`aria-current="page">home</span>`);
+		expect(renderBreadcrumbs("", "")).toContain(`aria-current="page">home</span>`);
 	});
 });
 
@@ -590,6 +632,7 @@ describe("diff pages", () => {
 			changed({ rel: "x/y.md", origRel: "y/x.md", index: "R", worktree: " " }),
 		];
 		const html = renderDiffPage({
+			base: "",
 			rootLabel: ROOT_LABEL,
 			mode: "head",
 			files: rows,
@@ -609,13 +652,21 @@ describe("diff pages", () => {
 	});
 
 	test("shows an empty state when nothing changed", () => {
-		const html = renderDiffPage({ rootLabel: ROOT_LABEL, mode: "staged", files: [], stat: "", tree: TREE });
+		const html = renderDiffPage({
+			base: "",
+			rootLabel: ROOT_LABEL,
+			mode: "staged",
+			files: [],
+			stat: "",
+			tree: TREE,
+		});
 		expect(html).toContain("No changes staged vs HEAD.");
 		expect(html).toContain('aria-current="page">staged</a>');
 	});
 
 	test("escapes paths and stat text", () => {
 		const html = renderDiffPage({
+			base: "",
 			rootLabel: ROOT_LABEL,
 			mode: "head",
 			files: [changed({ rel: 'a"<b>.ts' })],
@@ -685,6 +736,7 @@ describe("diff pages", () => {
 
 	test("renders a per-file diff with mode links that keep the path", () => {
 		const html = renderFileDiffPage({
+			base: "",
 			rootLabel: ROOT_LABEL,
 			rel: "sub/b.md",
 			mode: "staged",
@@ -712,6 +764,7 @@ describe("diff pages", () => {
 	test("notes truncation and reports binary and empty diffs", () => {
 		const base = { rootLabel: ROOT_LABEL, rel: "a.ts", mode: "head" as const, tree: TREE };
 		const truncated = renderFileDiffPage({
+			base: "",
 			...base,
 			diff: {
 				mode: "head",
@@ -724,12 +777,14 @@ describe("diff pages", () => {
 		expect(truncated).toContain("Showing the first 1 diff lines.");
 
 		const binary = renderFileDiffPage({
+			base: "",
 			...base,
 			diff: { mode: "head", rel: "a.ts", lines: [], binary: true, truncated: false },
 		});
 		expect(binary).toContain("Binary or unreadable change.");
 
 		const empty = renderFileDiffPage({
+			base: "",
 			...base,
 			diff: { mode: "head", rel: "a.ts", lines: [], binary: false, truncated: false },
 		});
@@ -738,6 +793,7 @@ describe("diff pages", () => {
 
 	test("summarises a file diff and anchors each hunk", () => {
 		const html = renderFileDiffPage({
+			base: "",
 			rootLabel: ROOT_LABEL,
 			rel: "a.ts",
 			mode: "head",
@@ -1033,10 +1089,14 @@ describe("Markdown safety", () => {
 	});
 });
 
+/** A page holding the origin's root, and one served under a prefix: the two a renderer sees. */
+const AT_ROOT: LinkBase = { dir: "", base: "" };
+const UNDER_FILES: LinkBase = { dir: "", base: "/files" };
+
 /** Sanitize one block as a complete document, closing whatever it left open. */
-function block(source: string, baseDir = ""): string {
+function block(source: string, linkBase: LinkBase = AT_ROOT): string {
 	const sink = createHtmlSink();
-	return sanitizeHtmlBlock(source, baseDir, sink) + closeHtmlSink(sink);
+	return sanitizeHtmlBlock(source, linkBase, sink) + closeHtmlSink(sink);
 }
 
 describe("one emitter for both renderers", () => {
@@ -1133,12 +1193,12 @@ describe("raw HTML elements and attributes", () => {
 	});
 
 	test("resolves links and images through the shared URL policy", () => {
-		expect(block('<a href="docs/x.md">x</a>', "sub")).toBe('<a href="/view/sub/docs/x.md">x</a>');
+		expect(block('<a href="docs/x.md">x</a>', { dir: "sub", base: "" })).toBe('<a href="/view/sub/docs/x.md">x</a>');
 		expect(block('<a href="#usage">x</a>')).toBe('<a href="#usage">x</a>');
 		expect(block('<a href="https://e">x</a>')).toBe(
 			'<a href="https://e" target="_blank" rel="noopener noreferrer">x</a>',
 		);
-		expect(block('<img src="i.png" alt="pic" width="20" height="10">', "docs")).toBe(
+		expect(block('<img src="i.png" alt="pic" width="20" height="10">', { dir: "docs", base: "" })).toBe(
 			'<img class="md-img" src="/raw/docs/i.png" alt="pic" width="20" height="10" loading="lazy" decoding="async">',
 		);
 		expect(block('<img src="i.png" alt="pic" title="t">')).toContain('title="t"');
@@ -1177,22 +1237,22 @@ describe("raw HTML elements and attributes", () => {
 describe("inline HTML", () => {
 	test("accepts phrasing tags and settles leftover opens", () => {
 		const stack: string[] = [];
-		expect(sanitizeInlineTag("<kbd>Ctrl</kbd>", 0, "", stack)).toEqual({ html: "<kbd>", end: 5 });
-		expect(sanitizeInlineTag("<kbd>Ctrl</kbd>", 9, "", stack)).toEqual({ html: "</kbd>", end: 15 });
+		expect(sanitizeInlineTag("<kbd>Ctrl</kbd>", 0, AT_ROOT, stack)).toEqual({ html: "<kbd>", end: 5 });
+		expect(sanitizeInlineTag("<kbd>Ctrl</kbd>", 9, AT_ROOT, stack)).toEqual({ html: "</kbd>", end: 15 });
 		expect(stack).toEqual([]);
 	});
 
 	test("declines block, unknown, and non-tag input", () => {
-		expect(sanitizeInlineTag("<div>", 0, "", [])).toBeUndefined();
-		expect(sanitizeInlineTag("<center>", 0, "", [])).toBeUndefined();
-		expect(sanitizeInlineTag("<https://e>", 0, "", [])).toBeUndefined();
-		expect(sanitizeInlineTag("x", 0, "", [])).toBeUndefined();
+		expect(sanitizeInlineTag("<div>", 0, AT_ROOT, [])).toBeUndefined();
+		expect(sanitizeInlineTag("<center>", 0, AT_ROOT, [])).toBeUndefined();
+		expect(sanitizeInlineTag("<https://e>", 0, AT_ROOT, [])).toBeUndefined();
+		expect(sanitizeInlineTag("x", 0, AT_ROOT, [])).toBeUndefined();
 	});
 
 	test("drops an inline suppressed element and an unmatched end tag", () => {
-		expect(sanitizeInlineTag("a<script>x</script>b", 1, "", [])).toEqual({ html: "", end: 19 });
-		expect(sanitizeInlineTag("a<!-- note -->b", 1, "", [])).toEqual({ html: "", end: 14 });
-		expect(sanitizeInlineTag("</b>", 0, "", [])).toEqual({ html: "", end: 4 });
+		expect(sanitizeInlineTag("a<script>x</script>b", 1, AT_ROOT, [])).toEqual({ html: "", end: 19 });
+		expect(sanitizeInlineTag("a<!-- note -->b", 1, AT_ROOT, [])).toEqual({ html: "", end: 14 });
+		expect(sanitizeInlineTag("</b>", 0, AT_ROOT, [])).toEqual({ html: "", end: 4 });
 	});
 });
 
@@ -1380,6 +1440,18 @@ describe("browser script", () => {
 		expect(() => new Function(LIVE_CLIENT_JS)).not.toThrow();
 	});
 
+	test("builds every request URL from the base the page was served under", () => {
+		// The bundle cannot assume it owns the origin: the board and a plan review answer on
+		// the same server, and this page may sit under `/files`. Each route literal names
+		// `pageBase()`, which reads `<html data-base>`; a bare "/api/…" would reach the other
+		// page's root once the prefix moves.
+		expect(CLIENT_JS).toContain('fetch(pageBase() + "/api/tree?path="');
+		expect(CLIENT_JS).toContain('fetch(pageBase() + "/api/files?q="');
+		expect(CLIENT_JS).toContain('fetch(pageBase() + "/api/dir-rev?path="');
+		expect(CLIENT_JS).toContain('new EventSource(pageBase() + "/events")');
+		expect(CLIENT_JS).toContain('window.location.assign(pageBase() + "/view/"');
+	});
+
 	test("assembles the client from its fragments", () => {
 		expect(() => new Function(TREE_CLIENT_JS)).not.toThrow();
 		expect(() => new Function(PALETTE_CLIENT_JS)).not.toThrow();
@@ -1428,17 +1500,91 @@ describe("browser script", () => {
 
 	test("serves the client as a no-store script and the theme bootstrap before paint", async () => {
 		const root = "/srv/aurora";
-		const script = await handleRequest({ root, config: DEFAULT_CONFIG }, "GET", "/app.js", {});
+		const script = await handleRequest({ root, base: "", config: DEFAULT_CONFIG }, "GET", "/app.js", {});
 		expect(script.status).toBe(200);
 		expect(script.headers["Content-Type"]).toContain("text/javascript");
 		expect(script.headers["Cache-Control"]).toBe("no-store");
 		expect(script.body).toBe(CLIENT_JS);
 
-		const theme = await handleRequest({ root, config: DEFAULT_CONFIG }, "GET", "/theme.js", {});
+		const theme = await handleRequest({ root, base: "", config: DEFAULT_CONFIG }, "GET", "/theme.js", {});
 		expect(theme.status).toBe(200);
 		expect(theme.headers["Content-Type"]).toContain("text/javascript");
 		expect(theme.body).toBe(THEME_JS);
 		expect(THEME_JS).toContain(WEB_THEME_STORAGE_KEY);
 		expect(THEME_JS).toContain("data-theme");
+	});
+});
+
+describe("a page served under a prefix", () => {
+	// The mount names the page's namespace (`/files`), and every URL it emits has to carry
+	// it: a renderer that assumes the origin's root works alone and 404s beside `/board`.
+
+	test("writes the base on the document, its theme, and its script", () => {
+		const html = filePage("sub/b.md", textView(["x"]), { base: "/files" });
+		expect(html).toContain('<html lang="en" data-base="/files">');
+		expect(html).toContain('<script src="/files/theme.js"></script>');
+		expect(html).toContain('<script src="/files/app.js" defer></script>');
+	});
+
+	test("writes the tree, the thumbnails, and the breadcrumbs under it", () => {
+		const html = directoryPage({
+			base: "/files",
+			rel: "sub",
+			listing: listing([entry({ name: "i.png", rel: "sub/i.png", kind: "image", isImage: true })], 1),
+			thumbnails: true,
+			maxThumbBytes: 1_000,
+		});
+		expect(html).toContain('href="/files/browse/"');
+		expect(html).toContain('href="/files/browse/sub"');
+		expect(html).toContain('href="/files/view/sub/i.png"');
+		expect(html).toContain('src="/files/raw/sub/i.png"');
+	});
+
+	test("writes a file page's own actions, its image, and its Markdown links", () => {
+		const markdown = filePage("sub/b.md", markdownView(["# hi", "", "[x](docs/x.md)"], {}), { base: "/files" });
+		expect(markdown).toContain('href="/files/view/sub/b.md?raw=1"');
+		expect(markdown).toContain('href="/files/raw/sub/b.md"');
+		expect(markdown).toContain('href="/files/view/sub/docs/x.md"');
+		const image = filePage("sub/i.png", imageView(), { base: "/files" });
+		expect(image).toContain('src="/files/raw/sub/i.png"');
+	});
+
+	test("writes the changes chip and both diff pages under it", () => {
+		const changes = renderChanges(
+			{ count: 2, files: new Set(["a.ts"]), dirs: new Set(), insertions: 3, deletions: 1 },
+			undefined,
+			"/files",
+		);
+		expect(changes).toContain('href="/files/diff"');
+		const overview = diffPage({ base: "/files", mode: "staged", files: [changed({ rel: "a.ts" })] });
+		expect(overview).toContain('href="/files/diff?mode=staged"');
+		expect(overview).toContain('href="/files/diff/a.ts?mode=staged"');
+		const file = renderFileDiffPage({
+			base: "/files",
+			rootLabel: ROOT_LABEL,
+			rel: "a.ts",
+			mode: "head",
+			diff: {
+				mode: "head",
+				rel: "a.ts",
+				lines: [{ kind: "hunk", text: "@@ -1 +1 @@" }],
+				binary: false,
+				truncated: false,
+			},
+			tree: TREE,
+		});
+		expect(file).toContain('href="/files/diff/a.ts"');
+		expect(file).toContain('href="/files/view/a.ts"');
+		expect(file).toContain('href="/files/raw/a.ts"');
+	});
+
+	test("writes the error page's way back, and a Markdown link and raw-HTML tag under it", () => {
+		expect(
+			renderErrorPage({ base: "/files", rootLabel: ROOT_LABEL, status: 404, message: "gone", tree: TREE }),
+		).toContain('href="/files/browse/"');
+		expect(renderMarkdown("[x](docs/x.md)", "", { base: "/files" })).toContain('href="/files/view/docs/x.md"');
+		expect(renderMarkdown("![i](i.png)", "docs", { base: "/files" })).toContain('src="/files/raw/docs/i.png"');
+		expect(block('<a href="docs/x.md">x</a>', UNDER_FILES)).toBe('<a href="/files/view/docs/x.md">x</a>');
+		expect(hrefFor({ rel: "sub", isDir: true }, "/files")).toBe("/files/browse/sub");
 	});
 });

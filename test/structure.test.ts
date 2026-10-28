@@ -274,7 +274,7 @@ const MAX_MODULE_LINES = 600;
  */
 const LONG_MODULES: Record<string, { lines: number; why: string }> = {
 	"extensions/file-browse/view/markdown.ts": {
-		lines: 876,
+		lines: 875,
 		why: "one escape-first block and inline scan for README Markdown",
 	},
 	"extensions/job/runtime.ts": {
@@ -295,7 +295,7 @@ const LONG_MODULES: Record<string, { lines: number; why: string }> = {
  * The named modules' total, written down so raising one height has to lower
  * another. It falls whenever a module shrinks; it never rises.
  */
-const LONG_MODULE_TOTAL = 3641;
+const LONG_MODULE_TOTAL = 3640;
 
 /** Lines in a module, counted the way `wc -l` does (a trailing newline does not count). */
 function lineCount(file: string): number {

@@ -20,7 +20,7 @@ One loopback server per session serves every page, and each page mounts a path p
   it: [`serve`](../extensions/serve/) binds `127.0.0.1` once and hands out those prefixes,
   so the unit of exposure is the mount rather than the socket.
 
-- [`file-browse`](../extensions/file-browse/) holds the origin's root, is
+- [`file-browse`](../extensions/file-browse/) holds the `/files` prefix, is
   read-only, and is rooted at the working directory. Its `/events` stream carries
   the same status the page already renders — a branch, changed paths, an uptime,
   a request count — and can only be read; at most eight pages may hold it.

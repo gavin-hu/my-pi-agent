@@ -39,7 +39,7 @@ import {
 	sanitizeInlineTag,
 } from "./raw-html.ts";
 import { emitAnchor, emitImage, emitImageLink } from "./emit.ts";
-import { resolveImage, resolveLink } from "./urls.ts";
+import { type LinkBase, resolveImage, resolveLink } from "./urls.ts";
 
 /** A GFM extended autolink: `http(s)://` or `www.` followed by a domain. */
 const AUTOLINK = /^(?:https?:\/\/|www\.)[^\s<>]*/i;
@@ -65,12 +65,9 @@ interface LinkDefinition {
 	title?: string;
 }
 
-/**
- * Per-document render state: the resolution base, the reference definitions,
- * and the raw-HTML balancing state.
- */
+/** Per-document render state: where links resolve, the definitions, and the raw-HTML sink. */
 interface Context {
-	baseDir: string;
+	link: LinkBase;
 	defs: Map<string, LinkDefinition>;
 	/** Emit sanitized raw HTML; `false` escapes it as text. */
 	html: boolean;
@@ -82,6 +79,8 @@ interface Context {
 export interface MarkdownOptions {
 	/** Emit sanitized raw HTML (the default) or escape it (`false`). */
 	html?: boolean;
+	/** The prefix local links are written under, e.g. `/files`; `""` for the origin's root. */
+	base?: string;
 }
 
 /**
@@ -92,7 +91,7 @@ export interface MarkdownOptions {
 export function renderMarkdown(source: string, baseDir = "", options: MarkdownOptions = {}): string {
 	const html = options.html ?? true;
 	const { defs, body } = collectDefinitions(source.split(/\r\n|\r|\n/), html);
-	const context = createContext(baseDir, defs, html);
+	const context = createContext({ dir: baseDir, base: options.base ?? "" }, defs, html);
 	const rendered = renderBlocks(body, context);
 	return html ? rendered + closeHtmlSink(context.sink) : rendered;
 }
@@ -110,10 +109,10 @@ function headingSlug(text: string): string {
 }
 
 /** Build the per-document render state, suffixing repeated heading slugs. */
-function createContext(baseDir: string, defs: Map<string, LinkDefinition>, html: boolean): Context {
+function createContext(link: LinkBase, defs: Map<string, LinkDefinition>, html: boolean): Context {
 	const seen = new Map<string, number>();
 	return {
-		baseDir,
+		link,
 		defs,
 		html,
 		sink: createHtmlSink(),
@@ -338,7 +337,7 @@ function renderHtmlBlock(lines: string[], start: number, block: HtmlBlockStart, 
 		if (isBlank(lines[i])) break;
 		collected.push(lines[i]);
 	}
-	return [sanitizeHtmlBlock(collected.join("\n"), ctx.baseDir, ctx.sink), i];
+	return [sanitizeHtmlBlock(collected.join("\n"), ctx.link, ctx.sink), i];
 }
 
 interface Fence {
@@ -641,7 +640,7 @@ function parseReferenceLink(text: string, start: number, ctx: Context): ParsedLi
 
 function renderLink(parsed: ParsedLink, ctx: Context): string {
 	const label = renderInline(parsed.label, ctx);
-	const target = resolveLink(parsed.dest, ctx.baseDir);
+	const target = resolveLink(parsed.dest, ctx.link);
 	if (!target) return label;
 	// The anchor's shape is `emit.ts`'s, the same one the raw-HTML sanitizer emits: a link
 	// written in Markdown and the same link written as HTML are the same link.
@@ -650,7 +649,7 @@ function renderLink(parsed: ParsedLink, ctx: Context): string {
 
 function renderImage(parsed: ParsedLink, ctx: Context): string {
 	const alt = escapeHtml(parsed.label);
-	const target = resolveImage(parsed.dest, ctx.baseDir);
+	const target = resolveImage(parsed.dest, ctx.link);
 	if (!target) return alt;
 	if (!target.image) return emitImageLink(target.href, parsed.label || parsed.dest);
 	return emitImage({ href: target.href, alt, title: parsed.title });
@@ -811,13 +810,13 @@ function renderInline(text: string, ctx: Context): string {
 				const href = match[1];
 				// Resolved rather than pattern-matched: `urls.ts` owns which schemes open in a
 				// new tab, and a `<mailto:>` link is external but does not.
-				const external = resolveLink(href, ctx.baseDir)?.external ?? false;
+				const external = resolveLink(href, ctx.link)?.external ?? false;
 				out += emitAnchor({ href, content: escapeHtml(href), external });
 				i += match[0].length;
 				continue;
 			}
 			if (ctx.html) {
-				const tag = sanitizeInlineTag(text, i, ctx.baseDir, tags);
+				const tag = sanitizeInlineTag(text, i, ctx.link, tags);
 				if (tag) {
 					out += tag.html;
 					i = tag.end;

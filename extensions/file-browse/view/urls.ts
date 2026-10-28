@@ -26,6 +26,20 @@ export interface ResolvedLink {
 	external: boolean;
 }
 
+/**
+ * Where a destination resolves from, and what it is written under.
+ *
+ * `dir` is the root-relative directory the destination is relative to; `base` is the
+ * prefix the page answers under, so a page served at `/files` writes
+ * `/files/view/<path>` and one holding the origin's root writes `/view/<path>`. The two
+ * are one value because a caller that knows one almost always knows the other, and a
+ * second parameter is a second thing to thread through ten functions.
+ */
+export interface LinkBase {
+	dir: string;
+	base: string;
+}
+
 /** An image destination the page may emit; `image: false` means link to it instead. */
 export interface ResolvedImage {
 	href: string;
@@ -53,15 +67,15 @@ function resolveLocalPath(href: string, baseDir: string): { rel: string; suffix:
 }
 
 /** Resolve a link destination, or `undefined` when the scheme or path is not allowed. */
-export function resolveLink(dest: string, baseDir: string): ResolvedLink | undefined {
+export function resolveLink(dest: string, linkBase: LinkBase): ResolvedLink | undefined {
 	const value = dest.trim();
 	if (value === "") return undefined;
 	if (value.startsWith("#")) return { href: value, external: false };
 	if (SAFE_LINK_SCHEME.test(value)) return { href: value, external: HTTP_SCHEME.test(value) };
 	if (HAS_SCHEME.test(value)) return undefined;
-	const local = resolveLocalPath(value, baseDir);
+	const local = resolveLocalPath(value, linkBase.dir);
 	if (!local) return undefined;
-	return { href: `/view/${encodePath(local.rel)}${local.suffix}`, external: false };
+	return { href: `${linkBase.base}/view/${encodePath(local.rel)}${local.suffix}`, external: false };
 }
 
 /**
@@ -69,12 +83,12 @@ export function resolveLink(dest: string, baseDir: string): ResolvedLink | undef
  * URL resolves with `image: false` because the page CSP forbids remote images, so
  * the caller renders a link instead of an `<img>`.
  */
-export function resolveImage(dest: string, baseDir: string): ResolvedImage | undefined {
+export function resolveImage(dest: string, linkBase: LinkBase): ResolvedImage | undefined {
 	const value = dest.trim();
 	if (value === "") return undefined;
 	if (HTTP_SCHEME.test(value)) return { href: value, image: false };
 	if (HAS_SCHEME.test(value)) return undefined;
-	const local = resolveLocalPath(value, baseDir);
+	const local = resolveLocalPath(value, linkBase.dir);
 	if (!local) return undefined;
-	return { href: `/raw/${encodePath(local.rel)}${local.suffix}`, image: true };
+	return { href: `${linkBase.base}/raw/${encodePath(local.rel)}${local.suffix}`, image: true };
 }
