@@ -196,13 +196,13 @@ describe("list", () => {
 		// A board written by a newer build: its file is there, and this build refuses it.
 		const store = await runtime.store(ctx.cwd);
 		await store.ensure();
-		writeFileSync(join(store.dir, "cards", "0007.json"), JSON.stringify({ v: 2, id: "7", title: "Newer" }));
+		writeFileSync(join(store.dir, "cards", "0007.json"), JSON.stringify({ v: 3, id: "7", title: "Newer" }));
 
 		const listed = await call({ action: "list" });
-		expect(text(listed)).toContain("1 file this build cannot read: 0007.json (version 2)");
+		expect(text(listed)).toContain("1 file this build cannot read: 0007.json (version 3)");
 		const missing = await call({ action: "list", card: "7" });
 		expect(missing.isError).toBe(true);
-		expect(text(missing)).toContain("#7 is there and this build cannot read it (0007.json: version 2)");
+		expect(text(missing)).toContain("#7 is there and this build cannot read it (0007.json: version 3)");
 	});
 
 	test("lists in lane order, with the holder", async () => {
@@ -466,11 +466,16 @@ describe("claim, release, and move", () => {
 			blocker: "decision",
 			blockedBy: "legal has to sign",
 		});
-		expect(blocked.details.card?.blockedBy).toBe("legal has to sign");
-		expect(text(blocked)).toContain("blocked: legal has to sign");
-		expect(text(await call({ action: "list" }))).toContain("blocked: legal has to sign");
-		// Releasing keeps the sentence: the decision is still pending, whoever holds the card.
-		expect((await call({ action: "release", card: "1" })).details.card?.blockedBy).toBe("legal has to sign");
+		expect(blocked.details.card?.blocked).toEqual({ kind: "decision", note: "legal has to sign" });
+		// One line, the sentence with its kind beside it: the kind is what decides where the
+		// card goes back to, so a reader never has to open it to find out.
+		expect(text(blocked)).toContain("blocked: legal has to sign (decision)");
+		expect(text(await call({ action: "list" }))).toContain("blocked: legal has to sign (decision)");
+		// Releasing keeps the block: the decision is still pending, whoever holds the card.
+		expect((await call({ action: "release", card: "1" })).details.card?.blocked).toEqual({
+			kind: "decision",
+			note: "legal has to sign",
+		});
 	});
 
 	test("a move to done records the commit it landed as, when the directory has one", async () => {

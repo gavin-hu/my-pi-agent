@@ -28,7 +28,7 @@
  * state the other operations never produce.
  */
 
-import { type Card, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
+import { type Card, type CardBlock, CARD_VERSION, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
 import { DEFAULT_WIP, type WipLimits } from "./limits.ts";
 import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
@@ -108,7 +108,7 @@ export function createCard(
 	now: number,
 ): Card {
 	return {
-		v: 1,
+		v: CARD_VERSION,
 		id,
 		title: input.title,
 		lane: "backlog",
@@ -206,9 +206,22 @@ function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: Board
 	}
 }
 
-/** A card's log after one more transition, with the oldest dropped and counted. */
-function appendTransition(card: Card, lane: Lane, actor: Actor, now: number): Pick<Card, "log" | "logDropped"> {
-	const log = [...(card.log ?? []), { lane, at: now, by: actor.label }];
+/**
+ * A card's log after one more transition, with the oldest dropped and counted.
+ *
+ * The block travels with the entry that parked the card, because the card's own `blocked`
+ * is deleted on the way out: without it the answer to "why did this sit for two days" dies
+ * with the resume, and the notes are the only other place it could have been written.
+ */
+function appendTransition(
+	card: Card,
+	lane: Lane,
+	actor: Actor,
+	now: number,
+	block: CardBlock | undefined,
+): Pick<Card, "log" | "logDropped"> {
+	const entry = block === undefined ? { lane, at: now, by: actor.label } : { lane, at: now, by: actor.label, block };
+	const log = [...(card.log ?? []), entry];
 	const overflow = Math.max(0, log.length - MAX_LOG);
 	return {
 		log: overflow === 0 ? log : log.slice(overflow),
@@ -227,7 +240,10 @@ function appendTransition(card: Card, lane: Lane, actor: Actor, now: number): Pi
  */
 function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Card {
 	const lane = fields.lane;
-	const transition = lane !== undefined && lane !== card.lane ? appendTransition(card, lane, actor, now) : undefined;
+	const transition =
+		lane !== undefined && lane !== card.lane
+			? appendTransition(card, lane, actor, now, lane === "blocked" ? fields.blocked : undefined)
+			: undefined;
 	const next: Card = { ...card, ...fields, ...transition, rev: card.rev + 1, updatedAt: now, by: actor.label };
 	// `owner: undefined` must clear the field rather than store a key holding it, so a
 	// released card reads back exactly like one that was never claimed. Only an
@@ -236,7 +252,7 @@ function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Ca
 	// The same for a block and a spot-check: a card that left `blocked` has no reason and no
 	// kind, and one that left `execute` is not reviewed, so a key holding undefined would be
 	// one more shape for a reader to know about.
-	for (const field of ["blockedBy", "blocker", "offeredAt", "review"] as const) {
+	for (const field of ["blocked", "offeredAt", "review"] as const) {
 		if (field in fields && fields[field] === undefined) delete next[field];
 	}
 	return next;

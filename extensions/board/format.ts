@@ -11,7 +11,7 @@
  * The rollup's text is `lib/board/round-text.ts`, because `team` prints it too.
  */
 
-import { type Card, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
+import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import type { Skip } from "../../lib/board/store.ts";
 import { formatAge } from "../../lib/format.ts";
@@ -109,6 +109,12 @@ export function formatArchived(ids: readonly string[]): string {
 	return `${plural(ids.length, "card")} archived: ${ids.map(cardRef).join(", ")} — out of the board, ${theirs} notes and plan still readable with archived: true.`;
 }
 
+/** A block as one line: the sentence, and the kind beside it when one was recorded. */
+function blockText(block: CardBlock): string {
+	const note = block.note ?? "nothing recorded";
+	return block.kind === undefined ? note : `${note} (${block.kind})`;
+}
+
 /** A one-line listing: the id, the lane, the title, and who holds it. */
 function listLine(card: Card): string {
 	const holder = card.owner === undefined ? "unassigned" : card.owner.label;
@@ -116,7 +122,7 @@ function listLine(card: Card): string {
 	const waits = dependsOf(card).length === 0 ? "" : ` · waits on ${dependsOf(card).map(cardRef).join(", ")}`;
 	// The two lanes that carry a fact of their own say it here: what a block waits on, and
 	// what closed a finished card. Both are one short phrase, so a listing stays one line.
-	const blocked = card.blockedBy === undefined ? "" : ` · blocked: ${card.blockedBy}`;
+	const blocked = card.blocked === undefined ? "" : ` · blocked: ${blockText(card.blocked)}`;
 	const landed = card.landed === undefined ? "" : ` · landed ${card.landed.commit}`;
 	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${waits}${blocked}${landed}`;
 }
@@ -130,7 +136,7 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	if (card.offeredAt !== undefined && now !== undefined) {
 		lines.push(`  offered: ${formatAge(now, card.offeredAt)} ago, and nobody took it`);
 	}
-	if (card.blockedBy !== undefined) lines.push(`  blocked: ${card.blockedBy}`);
+	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
 	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.commit}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
 	if (card.planPath !== undefined) lines.push(`  plan: ${card.planPath}`);
@@ -145,7 +151,7 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 		lines.push(`  approved: ${approved === undefined ? "nobody yet" : approved.by}`);
 	}
 	if (card.review !== undefined) lines.push(`  reviewed: ${card.review.by}`);
-	if (card.blocker !== undefined) lines.push(`  blocker: ${card.blocker}`);
+
 	if (card.paths.length > 0) lines.push(`  paths: ${card.paths.join(", ")}`);
 	if (dependsOf(card).length > 0) lines.push(`  waits on: ${waitingOf(card, board)}`);
 	// The mirror question, for the same board: what leaving this card undone holds up. Only

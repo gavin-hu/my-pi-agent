@@ -108,6 +108,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/limits",
 	"board/links",
 	"board/page-pointer",
+	"board/read",
 	"board/reason",
 	"board/round",
 	"board/round-text",

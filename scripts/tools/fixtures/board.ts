@@ -19,7 +19,7 @@ const NOW = 1_760_000_000_000;
 /** One card, built the way the store would hold it. */
 function card(overrides: Partial<Card> & Pick<Card, "id" | "title">): Card {
 	return {
-		v: 1,
+		v: 2,
 		lane: "backlog",
 		paths: [],
 		notes: [],
@@ -80,8 +80,7 @@ const BLOCKED = card({
 	lane: "blocked",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/api/gateway"],
-	blocker: "decision",
-	blockedBy: "the gateway owner has to confirm the algorithm",
+	blocked: { kind: "decision", note: "the gateway owner has to confirm the algorithm" },
 	notes: [{ by: "billing-core", at: NOW - 60_000, text: "waiting on the gateway owner" }],
 	rev: 5,
 	by: "billing-core",

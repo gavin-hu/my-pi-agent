@@ -10,6 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	CARD_VERSION,
+	ENDED_VERSION,
 	type Card,
 	type CardTransition,
 	cardRef,
@@ -18,7 +19,6 @@ import {
 	isCard,
 	isEndedCard,
 	laneSince,
-	readCard,
 	MAX_DEPENDS,
 	MAX_LOG,
 	MAX_NOTE,
@@ -273,10 +273,11 @@ describe("laneSince", () => {
 describe("isEndedCard", () => {
 	test("holds the record a dropped card leaves to the shape this build writes", () => {
 		// The pile is a ledger nothing reads back, so the validator is the only statement of
-		// its shape: a record written before the lane was called a lane spells `status`, and
-		// this build does not migrate a file no code path opens.
+		// its shape: it carries its own version, which does not move when the card record
+		// does, and a record written before the lane was called a lane spells `status` and is
+		// not migrated, because no code path opens it.
 		const ended = {
-			v: CARD_VERSION,
+			v: ENDED_VERSION,
 			id: "4",
 			title: "Billing webhook",
 			lane: "execute",
@@ -289,31 +290,6 @@ describe("isEndedCard", () => {
 		expect(isEndedCard({ ...ended, lane: undefined, status: "execute" })).toBe(false);
 		expect(isEndedCard({ ...ended, why: "archived" })).toBe(false);
 		expect(isEndedCard({ ...ended, id: "four" })).toBe(false);
-	});
-});
-
-describe("readCard", () => {
-	test("reads a card written before the lane was called a lane", () => {
-		// The first version of the record said `status`; the field was renamed when a card
-		// grew an approval and a review beside its lane. The file is not rewritten, so the
-		// reader maps the name and hands back the record this build works with.
-		const { lane, ...rest } = card({ lane: "execute", owner: { id: "s1", label: "billing-core" } });
-		const read = readCard({ ...rest, status: lane });
-		expect(read?.lane).toBe("execute");
-		expect(read?.owner?.label).toBe("billing-core");
-		// The old spelling does not survive the read: one record, one name.
-		expect(read === undefined ? "unreadable" : "status" in read).toBe(false);
-	});
-
-	test("a card that already says lane keeps it, and is not repaired", () => {
-		expect(readCard(card())?.lane).toBe("backlog");
-		expect(readCard({ ...card(), lane: "execute", status: "backlog" })).toBeUndefined();
-	});
-
-	test("refuses what isCard refuses", () => {
-		expect(readCard({ ...card(), v: 2 })).toBeUndefined();
-		expect(readCard("not a card")).toBeUndefined();
-		expect(readCard(undefined)).toBeUndefined();
 	});
 });
 
@@ -338,7 +314,7 @@ describe("isCard", () => {
 	});
 
 	test("refuses another schema version", () => {
-		expect(isCard({ ...card(), v: 2 })).toBe(false);
+		expect(isCard({ ...card(), v: 3 })).toBe(false);
 		expect(isCard({ ...card(), v: undefined })).toBe(false);
 	});
 
@@ -363,9 +339,10 @@ describe("isCard", () => {
 	});
 
 	test("accepts a recorded block and a landing, and an older card with neither", () => {
-		expect(isCard(card({ lane: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }))).toBe(
-			true,
-		);
+		const block = { kind: "decision" as const, note: "legal has to sign" };
+		expect(isCard(card({ lane: "blocked", owner: { label: "billing-core" }, blocked: block }))).toBe(true);
+		// A block may hold the sentence alone: that is what a card written before the kind reads as.
+		expect(isCard(card({ lane: "blocked", owner: { label: "billing-core" }, blocked: { note: "legal" } }))).toBe(true);
 		expect(isCard(card({ lane: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: 1 } }))).toBe(
 			true,
 		);
@@ -373,11 +350,13 @@ describe("isCard", () => {
 		expect(isCard(card())).toBe(true);
 	});
 
-	test("refuses a block that is empty or over the cap, and a landing that is not one", () => {
+	test("refuses a block that is empty, unknown, or over the cap, and a landing that is not one", () => {
 		const blocked = { lane: "blocked" as const, owner: { label: "billing-core" } };
-		expect(isCard({ ...card(blocked), blockedBy: "" })).toBe(false);
-		expect(isCard({ ...card(blocked), blockedBy: "x".repeat(201) })).toBe(false);
-		expect(isCard({ ...card(blocked), blockedBy: 7 })).toBe(false);
+		expect(isCard({ ...card(blocked), blocked: {} })).toBe(false);
+		expect(isCard({ ...card(blocked), blocked: { kind: "paused" } })).toBe(false);
+		expect(isCard({ ...card(blocked), blocked: { note: "" } })).toBe(false);
+		expect(isCard({ ...card(blocked), blocked: { note: "x".repeat(201) } })).toBe(false);
+		expect(isCard({ ...card(blocked), blocked: 7 })).toBe(false);
 		const done = { lane: "done" as const, owner: { label: "billing-core" } };
 		expect(isCard({ ...card(done), landed: { commit: "", at: 1 } })).toBe(false);
 		expect(isCard({ ...card(done), landed: { commit: "not a sha", at: 1 } })).toBe(false);
@@ -420,7 +399,7 @@ describe("isCard", () => {
 describe("the recorded offer", () => {
 	test("round-trips as a whole number, and reads as absent when it is missing", () => {
 		const base = {
-			v: 1,
+			v: CARD_VERSION,
 			id: "2",
 			title: "Retry branches",
 			lane: "backlog",
@@ -434,8 +413,8 @@ describe("the recorded offer", () => {
 		};
 		expect(isCard(base)).toBe(true);
 		expect(isCard({ ...base, offeredAt: 5_000 })).toBe(true);
-		// A pre-existing card has no field, and the field is optional, so there is no version
-		// bump: a clock fragment or a string is what this build cannot read.
+		// A pre-existing card has no field, and the field is optional, so its absence needs no
+		// version: a clock fragment or a string is what this build cannot read.
 		for (const bad of [1.5, "5000", null]) {
 			expect(isCard({ ...base, offeredAt: bad })).toBe(false);
 		}

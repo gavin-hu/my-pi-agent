@@ -19,7 +19,7 @@ const TOKEN = "0123456789abcdef0123456789abcdef";
 /** A card that passes, so a case can change one thing. */
 function card(overrides: Partial<Card> = {}): Card {
 	return {
-		v: 1,
+		v: 2,
 		id: "4",
 		title: "Billing webhook accepts orders",
 		lane: "backlog",

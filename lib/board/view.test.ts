@@ -16,7 +16,7 @@ const NOW = 5_000;
 /** A card in one lane. */
 function card(id: string, overrides: Partial<Card> = {}): Card {
 	const base: Card = {
-		v: 1,
+		v: 2,
 		id,
 		title: `Card ${id}`,
 		lane: "backlog",
@@ -177,7 +177,11 @@ describe("buildView", () => {
 		const view = buildView({
 			me: ME,
 			cards: [
-				card("3", { lane: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }),
+				card("3", {
+					lane: "blocked",
+					owner: { label: "billing-core" },
+					blocked: { kind: "decision", note: "legal has to sign" },
+				}),
 				card("5", { lane: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: NOW } }),
 			],
 			now: NOW,
@@ -188,7 +192,7 @@ describe("buildView", () => {
 		});
 		const blocked = view.lanes.find((lane) => lane.key === "blocked")?.cards[0];
 		const done = view.lanes.find((lane) => lane.key === "done")?.cards[0];
-		expect(blocked?.blockedBy).toBe("legal has to sign");
+		expect(blocked?.blocked).toEqual({ kind: "decision", note: "legal has to sign" });
 		expect(done?.landed).toEqual({ commit: "4af1b4a", at: NOW });
 	});
 

@@ -49,11 +49,24 @@ describe("reasonFor", () => {
 	});
 
 	test("a blocked card says what it waits on, and never invents one", () => {
-		expect(reasonFor(card({ lane: "blocked", owner, blockedBy: "legal signs" }), ago)).toEqual({
+		expect(
+			reasonFor(card({ lane: "blocked", owner, blocked: { kind: "decision", note: "legal signs" } }), ago),
+		).toEqual({
 			kind: "blocked",
 			text: "legal signs",
 		});
 		expect(reasonFor(card({ lane: "blocked", owner }), ago)?.text).toBe("blocked, with nothing recorded");
+		// A kind with no sentence says where the card goes back to; the last note does not
+		// override a block that was recorded after it.
+		expect(reasonFor(card({ lane: "blocked", owner, blocked: { kind: "dependency" } }), ago)?.text).toBe(
+			"blocked on a dependency",
+		);
+		expect(
+			reasonFor(
+				card({ lane: "blocked", owner, blocked: { kind: "decision" }, notes: [{ by: "x", at: 1, text: "old" }] }),
+				ago,
+			)?.text,
+		).toBe("blocked on a decision");
 	});
 
 	test("a plan card names the missing contract line, then the approval it needs", () => {
@@ -113,7 +126,7 @@ describe("REASON_FOR_JS", () => {
 			card: Card,
 			ago: (at: number) => string,
 		) => { kind: string; text: string } | undefined;
-		const blocked = card({ lane: "blocked", owner, blockedBy: "legal signs" });
+		const blocked = card({ lane: "blocked", owner, blocked: { kind: "decision", note: "legal signs" } });
 		expect(browser(blocked, ago)).toEqual(reasonFor(blocked, ago));
 		for (const kind of REASON_KINDS) expect(typeof kind).toBe("string");
 	});

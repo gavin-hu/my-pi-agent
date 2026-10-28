@@ -16,7 +16,7 @@ const NOW = 1_000_000;
 /** A card in a given lane, held by `owner` unless it is a todo. */
 function card(id: string, overrides: Partial<Card> = {}): Card {
 	const base: Card = {
-		v: 1,
+		v: 2,
 		id,
 		title: `Card ${id}`,
 		lane: "backlog",

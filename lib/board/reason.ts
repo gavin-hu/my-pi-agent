@@ -50,7 +50,18 @@ export interface Reason {
 export function reasonFor(card: Card, ago: (at: number) => string): Reason | undefined {
 	const last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
 	if (card.lane === "blocked") {
-		return { kind: "blocked", text: card.blockedBy ?? (last ? last.text : "blocked, with nothing recorded") };
+		// The recorded block is the reason: its sentence if one was written, else the kind,
+		// which is what says where the card goes back to. Only a card with no block at all —
+		// one hand-edited, or released and parked again before this record existed — falls
+		// back to the last note, and then to saying it has nothing.
+		if (card.blocked !== undefined) {
+			const kind = card.blocked.kind;
+			return {
+				kind: "blocked",
+				text: card.blocked.note ?? "blocked on a " + (kind === undefined ? "decision" : kind),
+			};
+		}
+		return { kind: "blocked", text: last === undefined ? "blocked, with nothing recorded" : last.text };
 	}
 	if (card.lane === "backlog") {
 		if (card.offeredAt !== undefined) {

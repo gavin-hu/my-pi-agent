@@ -16,7 +16,7 @@ import { handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatc
 /** A claimed card, which is what a handoff describes. */
 function card(overrides: Partial<Card> = {}): Card {
 	return {
-		v: 1,
+		v: 2,
 		id: "4",
 		title: "Billing webhook accepts orders",
 		lane: "execute",

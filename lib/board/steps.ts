@@ -22,8 +22,7 @@ import {
 	dependsOf,
 	holds,
 	MAX_NOTES,
-	normalizeBlockedBy,
-	normalizeBlocker,
+	normalizeBlock,
 	normalizeNote,
 	normalizePathHints,
 	normalizePlanPath,
@@ -89,7 +88,7 @@ export function release(card: Card, actor: Actor): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} is not claimed.` };
 	if (!holds(card, actor)) return { error: `${heldBy(card)} Release is the owner's decision.` };
-	return { changed: true, fields: backToPool(card) };
+	return { changed: true, fields: backToPool() };
 }
 
 /** Take a card back from whoever holds it: the lead's repair, so no holder check. */
@@ -98,18 +97,18 @@ export function reclaim(card: Card): Prepared {
 		return { error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
 	}
 	if (card.owner === undefined) return { error: `${cardRef(card.id)} has no owner to reclaim.` };
-	return { changed: true, fields: backToPool(card) };
+	return { changed: true, fields: backToPool() };
 }
 
 /** What a card looks like back in the pool: nobody's, and no longer spot-checked. */
-function backToPool(card: Card): Partial<Card> {
+function backToPool(): Partial<Card> {
 	return {
 		lane: "backlog",
 		owner: undefined,
 		offeredAt: undefined,
 		// A review is a statement about work finished in `execute`; a card back in the pool
 		// is not finished, so the sign cannot travel with it.
-		review: card.review === undefined ? undefined : undefined,
+		review: undefined,
 	};
 }
 
@@ -149,10 +148,12 @@ export function move(
 	}
 	const fields: Partial<Card> = { lane: target };
 	if (block !== undefined && "fields" in block) Object.assign(fields, block.fields);
-	// Leaving a block ends it: the reason and its kind described a state the card is no
-	// longer in, and a stale sentence reads as a current one.
-	else if (card.lane === "blocked") Object.assign(fields, { blockedBy: undefined, blocker: undefined });
-	if (target === "plan" && card.lane === "execute") fields.review = undefined;
+	// Leaving a block ends it: the record described a state the card is no longer in, and a
+	// stale sentence reads as a current one. The log keeps what it was — see `appendTransition`.
+	else if (card.lane === "blocked") Object.assign(fields, { blocked: undefined });
+	// A spot-check signs the work as it stood. Parking a card is somebody deciding it is not
+	// finished, and re-planning changes the agreement, so neither exit carries the sign.
+	if (card.lane === "execute" && target !== "execute") fields.review = undefined;
 	if (target === "done" && op.landed !== undefined) fields.landed = { commit: op.landed.commit, at: now };
 	if (target === "execute" || target === "plan") return enter(card, target, board, limits, fields);
 	return { changed: true, fields };
@@ -176,20 +177,14 @@ function enter(
 	return { changed: true, fields: { ...fields, lane } };
 }
 
-/** What a lane change to `blocked` records: the kind, and the sentence when one is given. */
+/** What a lane change to `blocked` records: one block, holding the kind and the sentence. */
 function blockFields(rawBlocker: unknown, rawSentence: unknown): { error: string } | { fields: Partial<Card> } {
 	if (rawBlocker === undefined) {
 		return { error: `a block needs a blocker: ${BLOCKERS.join(", ")}.` };
 	}
-	const blocker = normalizeBlocker(rawBlocker);
-	if ("error" in blocker) return { error: blocker.error };
-	const fields: Partial<Card> = { blocker: blocker.blocker, blockedBy: undefined };
-	if (rawSentence !== undefined) {
-		const sentence = normalizeBlockedBy(rawSentence);
-		if ("error" in sentence) return { error: sentence.error };
-		fields.blockedBy = sentence.blockedBy;
-	}
-	return { fields };
+	const block = normalizeBlock(rawBlocker, rawSentence);
+	if ("error" in block) return { error: block.error };
+	return { fields: { blocked: block.blocked } };
 }
 
 /** Why a transition's requirement is not met, or `undefined` when it is. */
@@ -209,7 +204,7 @@ function unmet(need: Requirement, card: Card): string | undefined {
 		case "blocker":
 			return undefined;
 		case "contract-defect":
-			return card.blocker === "contract" ? undefined : notAContractDefect(card);
+			return card.blocked?.kind === "contract" ? undefined : notAContractDefect(card);
 	}
 }
 
@@ -233,7 +228,7 @@ function noArtifact(card: Card): string {
 }
 
 function notAContractDefect(card: Card): string {
-	return `${cardRef(card.id)} is blocked on a ${card.blocker ?? "unknown"}; only a contract defect sends it back to plan. Move it to execute, or record the block again.`;
+	return `${cardRef(card.id)} is blocked on a ${card.blocked?.kind ?? "unrecorded kind"}; only a contract defect sends it back to plan. Move it to execute, or record the block again.`;
 }
 
 export function note(card: Card, raw: unknown, actor: Actor, now: number): Prepared {

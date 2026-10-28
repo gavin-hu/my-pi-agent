@@ -130,7 +130,7 @@ describe("list and read", () => {
 		// Half-written, another schema version, an id that disagrees with its file
 		// name, a file that is not a card at all, and one that is not a card file.
 		writeFileSync(join(cards, "0002.json"), '{"v":1,');
-		writeFileSync(join(cards, "0003.json"), JSON.stringify({ ...cardLike("3"), v: 2 }));
+		writeFileSync(join(cards, "0003.json"), JSON.stringify({ ...cardLike("3"), v: 3 }));
 		writeFileSync(join(cards, "0004.json"), JSON.stringify(cardLike("9")));
 		writeFileSync(join(cards, "0005.json"), JSON.stringify({ hello: "world" }));
 		writeFileSync(join(cards, "notes.txt"), "ignored");
@@ -140,7 +140,7 @@ describe("list and read", () => {
 		// each refusal is reported with the file and the reason.
 		expect(await store.skipped()).toEqual([
 			{ file: "0002.json", id: "2", why: "bad JSON" },
-			{ file: "0003.json", id: "3", why: "version 2" },
+			{ file: "0003.json", id: "3", why: "version 3" },
 			{ file: "0004.json", id: "4", why: "names card 9" },
 			{ file: "0005.json", id: "5", why: "not a card record" },
 		]);
@@ -163,22 +163,28 @@ describe("list and read", () => {
 	test("a card file that is there but unreadable is named in the refusal", async () => {
 		const { dir, store } = scratchStore();
 		await store.ensure();
-		writeFileSync(join(dir, "cards", "0007.json"), JSON.stringify({ ...cardLike("7"), v: 2 }));
+		writeFileSync(join(dir, "cards", "0007.json"), JSON.stringify({ ...cardLike("7"), v: 3 }));
 		const result = await store.mutate("7", { kind: "claim" }, LEAD, NOW);
 		if (result.ok) throw new Error("expected a refusal");
-		expect(result.error).toBe("#7 is there and this build cannot read it (0007.json: version 2).");
+		expect(result.error).toBe("#7 is there and this build cannot read it (0007.json: version 3).");
 	});
 
-	test("reads a card written before the lane was called a lane", async () => {
-		// A published board holds these: the field was renamed, the files were not. The
-		// card reads, and its next write spells the new name.
+	test("reads a v1 card, and writes it back as the record this build keeps", async () => {
+		// A published board holds these: the fields were renamed and the version was not
+		// stamped, so a v1 file is read by mapping and rewritten in full on its next write.
 		const { dir, store } = scratchStore();
 		await store.ensure();
 		const { lane, ...rest } = cardLike("7");
-		writeFileSync(join(dir, "cards", "0007.json"), JSON.stringify({ ...rest, status: lane }));
+		writeFileSync(
+			join(dir, "cards", "0007.json"),
+			JSON.stringify({ ...rest, v: 1, status: lane, blockedBy: "legal has to sign", blocker: "decision" }),
+		);
 		expect((await store.list()).map((card) => card.lane)).toEqual(["backlog"]);
+		expect((await store.list())[0]?.blocked).toEqual({ kind: "decision", note: "legal has to sign" });
 		await store.mutate("7", { kind: "note", text: "read me" }, LEAD, NOW);
-		expect(JSON.parse(readFileSync(join(dir, "cards", "0007.json"), "utf-8")).lane).toBe("backlog");
+		const written = JSON.parse(readFileSync(join(dir, "cards", "0007.json"), "utf-8"));
+		expect(written).toMatchObject({ v: 2, lane: "backlog", blocked: { kind: "decision", note: "legal has to sign" } });
+		expect("status" in written).toBe(false);
 	});
 
 	test("a padded id inside the record is a disagreement, not a card", async () => {

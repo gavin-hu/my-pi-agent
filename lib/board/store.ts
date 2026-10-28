@@ -33,8 +33,17 @@ import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { type Card, CARD_VERSION, cardRef, type EndedCard, readCard, type Priority, priorityRank } from "./card.ts";
+import {
+	type Card,
+	cardRef,
+	type EndedCard,
+	ENDED_VERSION,
+	type Priority,
+	priorityRank,
+	SUPPORTED_VERSIONS,
+} from "./card.ts";
 import { LANES } from "./lanes.ts";
+import { readCard } from "./read.ts";
 import { indexOf } from "./links.ts";
 import { DEFAULT_WIP, type WipLimits, readWip } from "./limits.ts";
 import { type Actor, applyOp, type CardOp, createCard } from "./rules.ts";
@@ -371,10 +380,11 @@ async function readCardFile(pileDir: string, entry: string): Promise<{ card: Car
 	} catch {
 		return { skip: { file: entry, id, why: "bad JSON" } };
 	}
-	// A version above this build's is the one refusal a reader can act on: the file was
-	// written by a newer build, so the board is not empty, it is not readable here.
+	// A version this build does not read is the one refusal a reader can act on: the file was
+	// written by a newer build, so the board is not empty, it is not readable here. Every
+	// version `readCard` can map is read; the number is named rather than guessed at.
 	const version = typeof parsed === "object" && parsed !== null ? (parsed as { v?: unknown }).v : undefined;
-	if (typeof version === "number" && version !== CARD_VERSION) {
+	if (typeof version === "number" && !SUPPORTED_VERSIONS.some((known) => known === version)) {
 		return { skip: { file: entry, id, why: `version ${version}` } };
 	}
 	// The one gate a file read passes: an older spelling of the lane field is read as
@@ -420,7 +430,7 @@ async function nextCardId(cardsDir: string, endedDir: string, archiveDir: string
 async function writeEnded(endedDir: string, card: Card, actor: Actor, now: number): Promise<void> {
 	await mkdir(endedDir, { recursive: true, mode: DIR_MODE });
 	const ended: EndedCard = {
-		v: 1,
+		v: ENDED_VERSION,
 		id: card.id,
 		title: card.title,
 		lane: card.lane,

@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card, MAX_LOG, MAX_NOTES } from "./card.ts";
+import { type Card, CARD_VERSION, MAX_LOG, MAX_NOTES } from "./card.ts";
 import type { Contract } from "./contract.ts";
 import { DEFAULT_WIP, type WipLimits } from "./limits.ts";
 import { indexOf } from "./links.ts";
@@ -93,7 +93,7 @@ function ready(id: string, owner: Actor): Card {
 describe("createCard", () => {
 	test("is born in the backlog, unowned, at revision 1", () => {
 		const card = created();
-		expect(card).toMatchObject({ v: 1, id: "4", lane: "backlog", rev: 1, by: LEAD.label });
+		expect(card).toMatchObject({ v: CARD_VERSION, id: "4", lane: "backlog", rev: 1, by: LEAD.label });
 		expect("owner" in card).toBe(false);
 		expect(card.createdAt).toBe(1_000);
 		expect(card.log).toEqual([{ lane: "backlog", at: 1_000, by: LEAD.label }]);
@@ -417,7 +417,7 @@ describe("move", () => {
 			refusal(applyOp(card, { kind: "move", lane: "blocked", blockedBy: "legal signs" }, CORE, NOW, board(card))),
 		).toBe("a block needs a blocker: contract, dependency, decision.");
 		const blocked = step(card, { kind: "move", lane: "blocked", blocker: "decision", blockedBy: "legal signs" }, CORE);
-		expect(blocked).toMatchObject({ lane: "blocked", blocker: "decision", blockedBy: "legal signs" });
+		expect(blocked).toMatchObject({ lane: "blocked", blocked: { kind: "decision", note: "legal signs" } });
 	});
 
 	test("only a contract defect sends a blocked card back to plan", () => {
@@ -437,8 +437,24 @@ describe("move", () => {
 		);
 		const resumed = step(parked, { kind: "move", lane: "execute" }, CORE);
 		expect(resumed.lane).toBe("execute");
-		expect("blockedBy" in resumed).toBe(false);
-		expect("blocker" in resumed).toBe(false);
+		expect("blocked" in resumed).toBe(false);
+		// The transition that parked it keeps what it was: the present record is deleted, the
+		// history is not, so "why did this sit" survives the resume.
+		expect(resumed.log?.find((entry) => entry.lane === "blocked")?.block).toEqual({
+			kind: "dependency",
+			note: "a link",
+		});
+	});
+
+	test("a spot-check does not survive a park, so finishing needs a fresh look", () => {
+		// Reviewed, then blocked, then resumed: the look was at work somebody then decided was
+		// not finished, so the gate asks again rather than signing the older state.
+		const parked = step(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
+		expect("review" in parked).toBe(false);
+		const resumed = step(parked, { kind: "move", lane: "execute" }, CORE);
+		expect(refusal(applyOp(resumed, { kind: "move", lane: "done" }, CORE, NOW, board(resumed)))).toBe(
+			"#4 has no spot-check recorded; a session that does not hold it records one with `review`.",
+		);
 	});
 
 	test("execute to plan is re-planning, and it clears the spot-check", () => {

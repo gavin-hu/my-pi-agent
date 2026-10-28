@@ -9,8 +9,9 @@
  *
  * The record is untrusted when it comes back off disk: a file may be half-written
  * by a process that died, hand-edited, or left by an older version. {@link isCard}
- * is the one gate every read passes, so the router, the tool, and the page see
- * the same record or none. Value-only: no I/O, no state.
+ * is the shape every read is held to; the reader that maps an older shape onto this
+ * one is `read.ts`, so the router, the tool, and the page see the same record or none.
+ * Value-only: no I/O, no state.
  */
 
 import { sanitizeLine } from "../format.ts";
@@ -18,7 +19,26 @@ import { type Contract, isContract, isSign, type Sign } from "./contract.ts";
 import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
 
 /** The schema version this build writes. A file with another value is refused, never migrated in place. */
-export const CARD_VERSION = 1;
+export const CARD_VERSION = 2;
+
+/**
+ * The card versions this build can read.
+ *
+ * A v1 file is the record before the lane and the block were renamed: `readCard` maps it
+ * and hands back a v2 card, and the file itself is rewritten only when the card is next
+ * written. A version above {@link CARD_VERSION} is a newer build's record, which this one
+ * names rather than guesses at.
+ */
+export const SUPPORTED_VERSIONS = [1, CARD_VERSION] as const;
+
+/**
+ * The ended-card record's own version.
+ *
+ * The ledger is not the card: it is written once, never read back, and must not move when
+ * the card record does, or every record a past build wrote would disagree with its own
+ * validator.
+ */
+export const ENDED_VERSION = 1;
 
 /** Longest title, in characters. One line, so it cannot wrap a lane row. */
 export const MAX_TITLE = 120;
@@ -84,6 +104,22 @@ export interface CardOwner {
 	label: string;
 }
 
+/**
+ * Why a card is blocked: the kind, and the sentence a person reads.
+ *
+ * One record rather than two sibling keys, because one fact deserves one key. The kind is
+ * absent only on a card written before it existed — a v1 block may hold the sentence alone
+ * — and every block this build writes carries one, because the move into `blocked`
+ * requires it. `contract` is the kind that sends the card back to `plan`; the other two
+ * resume in `execute`.
+ */
+export interface CardBlock {
+	/** Why it is blocked, when it was recorded. */
+	kind?: BlockerKind;
+	/** What it waits on, in one line; absent means the block was recorded without a sentence. */
+	note?: string;
+}
+
 /** One note: who wrote it, when, and what it says. */
 export interface CardNote {
 	by: string;
@@ -103,6 +139,14 @@ export interface CardTransition {
 	lane: Lane;
 	at: number;
 	by: string;
+	/**
+	 * What the card was parked on, when the lane entered is `blocked`.
+	 *
+	 * The present block is deleted when the card leaves `blocked`, so without this the
+	 * answer to "why did this sit for two days" dies with the resume. The log keeps it for
+	 * as long as the transition lives, which is the same bounded history as every other transition.
+	 */
+	block?: CardBlock;
 }
 
 /**
@@ -121,7 +165,7 @@ export interface CardLanded {
 /** One feature on the board. */
 export interface Card {
 	/** Schema version; an unknown value is refused rather than guessed at. */
-	v: 1;
+	v: 2;
 	/** `"4"`, shown as `#4`. Allocated by the store, never by a caller. */
 	id: string;
 	/** One line, ≤ {@link MAX_TITLE} — the feature's outcome. */
@@ -137,21 +181,13 @@ export interface Card {
 	/** Who spot-checked the finished work, and when: what a move to `done` requires. */
 	review?: Sign;
 	/**
-	 * What a blocked card is waiting on: the decision, in one line.
+	 * What the card is blocked on, while it is in `blocked`.
 	 *
-	 * `blocked` exists to say a human has to decide something — a dependency is a
-	 * different thing, and `waits` is what refuses a claim. The sentence is optional: a
-	 * block may be recorded with only its kind, and the page then says `blocked, with
-	 * nothing recorded`.
+	 * A dependency is a different thing, and `waits` is what refuses a claim; this is the
+	 * human decision a card was parked on. Absent unless the card is blocked, and deleted
+	 * when it leaves — the transition log keeps what it was.
 	 */
-	blockedBy?: string;
-	/**
-	 * Why it is blocked, which is what decides whether it returns to `plan`.
-	 *
-	 * Required by the move into `blocked`, and absent on a card written before the field:
-	 * such a card reads as a block with no recorded kind, which resumes in `execute`.
-	 */
-	blocker?: BlockerKind;
+	blocked?: CardBlock;
 	/** What closed a finished card: the commit at the move to `done`, and when. */
 	landed?: CardLanded;
 	/**
@@ -203,7 +239,7 @@ export interface Card {
  * record no code path opens.
  */
 export interface EndedCard {
-	/** Schema version for the record itself; a reader refuses what it does not know. */
+	/** Schema version for the record itself; it moves with neither the card record nor time. */
 	v: 1;
 	/** The id that is now spent, without padding. */
 	id: string;
@@ -225,7 +261,7 @@ export interface EndedCard {
 export function isEndedCard(value: unknown): value is EndedCard {
 	if (typeof value !== "object" || value === null) return false;
 	const ended = value as Record<string, unknown>;
-	if (ended.v !== CARD_VERSION) return false;
+	if (ended.v !== ENDED_VERSION) return false;
 	if (typeof ended.id !== "string" || !/^[0-9]+$/.test(ended.id)) return false;
 	if (typeof ended.title !== "string" || ended.title === "") return false;
 	if (!LANES.includes(ended.lane as Lane)) return false;
@@ -367,28 +403,26 @@ export function normalizePlanPath(raw: unknown): { path: string } | FieldError {
 }
 
 /**
- * The sentence a block records: one line, and nothing more.
+ * The block a move records: one kind, and the sentence when one is given.
  *
- * The board never resolves it against anything — it is the reader's explanation of what
- * a person has to decide — so this only keeps it to a length a row can hold.
+ * The refusals name the tool's parameters (`blocker`, `blockedBy`) rather than the record's
+ * fields, because this is the boundary the model's arguments pass, and the model wrote a
+ * parameter. The kind is required here — a block this build writes always says what kind it
+ * is — and the sentence is not: a card may be parked with nothing written down.
  */
-export function normalizeBlockedBy(raw: unknown): { blockedBy: string } | FieldError {
-	if (typeof raw !== "string") return { error: "blockedBy must be text." };
-	const blockedBy = sanitizeLine(raw).trim();
-	if (blockedBy === "") return { error: "blockedBy must say what the card waits on." };
-	if (blockedBy.length > MAX_BLOCKED) {
+export function normalizeBlock(rawKind: unknown, rawNote: unknown): { blocked: CardBlock } | FieldError {
+	const allowed = BLOCKERS.join(", ");
+	const kind = typeof rawKind === "string" ? sanitizeLine(rawKind).trim().toLowerCase() : "";
+	const known = BLOCKERS.find((entry) => entry === kind);
+	if (known === undefined) return { error: `blocker must be one of ${allowed}.` };
+	if (rawNote === undefined) return { blocked: { kind: known } };
+	if (typeof rawNote !== "string") return { error: "blockedBy must be text." };
+	const note = sanitizeLine(rawNote).trim();
+	if (note === "") return { error: "blockedBy must say what the card waits on." };
+	if (note.length > MAX_BLOCKED) {
 		return { error: `blockedBy must be at most ${MAX_BLOCKED} characters.` };
 	}
-	return { blockedBy };
-}
-
-/** The kind of block a move records: one of {@link BLOCKERS}, or the reason it cannot be. */
-export function normalizeBlocker(raw: unknown): { blocker: BlockerKind } | FieldError {
-	const allowed = BLOCKERS.join(", ");
-	if (typeof raw !== "string") return { error: `blocker must be one of ${allowed}.` };
-	const blocker = sanitizeLine(raw).trim().toLowerCase();
-	const known = BLOCKERS.find((entry) => entry === blocker);
-	return known === undefined ? { error: `blocker must be one of ${allowed}.` } : { blocker: known };
+	return { blocked: { kind: known, note } };
 }
 
 /** A card id as a caller writes it (`4`, `#4`), or undefined when it is not one. */
@@ -415,34 +449,6 @@ export function signatureOf(cards: readonly Card[]): string {
 		.map((card) => `${card.id}:${card.rev}`)
 		.sort()
 		.join(",");
-}
-
-/**
- * The card as a file on disk holds it, or `undefined` when this build cannot trust it.
- *
- * Two versions of one record: a card written before the rename says `status` where this
- * build says `lane`, and `plan` where it says `planPath`. The map is read-time only — no
- * file is rewritten, and a card takes the new spelling on its next write — so a board
- * full of older cards reads as a board rather than as a pile of refusals. Everything else
- * is {@link isCard}'s decision.
- */
-export function readCard(value: unknown): Card | undefined {
-	const renamed = laneNamed(value);
-	return isCard(renamed) ? renamed : undefined;
-}
-
-/** `value` with the two fields that were renamed read as this build's names. */
-function laneNamed(value: unknown): unknown {
-	if (typeof value !== "object" || value === null) return value;
-	const record = value as Record<string, unknown>;
-	if (record.lane !== undefined && record.planPath === undefined && record.plan === undefined) return value;
-	const { status, plan, ...rest } = record;
-	if (status === undefined && plan === undefined) return value;
-	return {
-		...rest,
-		...(status === undefined || record.lane !== undefined ? {} : { lane: status }),
-		...(plan === undefined ? {} : { planPath: record.planPath ?? plan }),
-	};
 }
 
 /**
@@ -484,8 +490,7 @@ export function isCard(value: unknown): value is Card {
 	if (card.planPath !== undefined && typeof card.planPath !== "string") return false;
 	if (card.contract !== undefined && !isContract(card.contract)) return false;
 	if (card.review !== undefined && !isSign(card.review)) return false;
-	if (card.blockedBy !== undefined && !isBlockedBy(card.blockedBy)) return false;
-	if (card.blocker !== undefined && !BLOCKERS.includes(card.blocker as BlockerKind)) return false;
+	if (card.blocked !== undefined && !isBlock(card.blocked)) return false;
 	if (card.landed !== undefined && !isLanded(card.landed)) return false;
 	if (card.offeredAt !== undefined && (typeof card.offeredAt !== "number" || !Number.isInteger(card.offeredAt))) {
 		return false;
@@ -506,9 +511,18 @@ export function isCard(value: unknown): value is Card {
 	return LANE_RULES[lane].ownerless === (card.owner === undefined);
 }
 
-/** A recorded block: one line the reader can hold, within the cap this build writes. */
-function isBlockedBy(value: unknown): value is string {
-	return typeof value === "string" && value !== "" && value.length <= MAX_BLOCKED;
+/**
+ * A recorded block: a kind this build knows when one is there, and a sentence a row can
+ * hold when one is there — at least one of the two, because an empty block says nothing.
+ */
+function isBlock(value: unknown): value is CardBlock {
+	if (typeof value !== "object" || value === null) return false;
+	const block = value as Record<string, unknown>;
+	if (block.kind !== undefined && !BLOCKERS.includes(block.kind as BlockerKind)) return false;
+	if (block.note !== undefined) {
+		if (typeof block.note !== "string" || block.note === "" || block.note.length > MAX_BLOCKED) return false;
+	}
+	return block.kind !== undefined || block.note !== undefined;
 }
 
 /** A recorded landing: a commit id and the moment it closed the card. */
@@ -541,10 +555,11 @@ function isDepends(value: unknown): boolean {
 	return true;
 }
 
-/** A recorded lane change: a lane, a moment, and who moved it. */
+/** A recorded lane change: a lane, a moment, and who moved it, and what it parked on. */
 function isTransition(value: unknown): value is CardTransition {
 	if (typeof value !== "object" || value === null) return false;
 	const entry = value as Record<string, unknown>;
+	if (entry.block !== undefined && !isBlock(entry.block)) return false;
 	return (
 		LANES.includes(entry.lane as Lane) &&
 		typeof entry.at === "number" &&

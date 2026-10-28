@@ -23,6 +23,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   card is written again. The page shows the five lanes with their limit in the head, the
   contract and its two signatures in the dialog, and a reason line from one rule shared with
   the transcript.
+- `board`: a card file is version 2, and a block is one `blocked` record — `{ kind, note }`
+  — instead of the `blocker` and `blockedBy` pair. The tool's parameters do not change. The
+  lane log keeps the block it parked on, so a card that resumes still says why it sat, and a
+  spot-check is cleared on the way out of `execute` in either direction: a card that was
+  blocked and resumed needs another look before `done`. A version 1 file is read by mapping
+  it (the old field names, including a sentence with no kind) and is rewritten as version 2
+  on its next write.
 
 ### Fixed
 

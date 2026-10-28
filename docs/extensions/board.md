@@ -134,7 +134,7 @@ terminal.
 | `claim` | `card` | the card, pulled into `plan` and owned by this session — refused, naming the count, when `plan` is at its limit (the limit counts the whole board, not one session's cards) |
 | `release` | `card` | the card, back in `backlog` with no owner; the contract and its approval stay |
 | `reclaim` | `card` | the card, back in `backlog`, whoever held it |
-| `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked`, `blockedBy` (one line, ≤200 characters) is what it waits on, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
+| `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked` and is recorded with `blockedBy` (one line, ≤200 characters) as the card's one `blocked` record, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
 | `note` | `card`, `text` | the card with the note appended |
 | `contract` | `card`, `path?`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line is an unapproved one |
 | `approve` | `card` | the card with its contract approved, by a session that does not hold it — the gate in front of `execute` |
@@ -282,8 +282,11 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
 - **A card file this build cannot read is reported, not skipped.** A file written by a
   newer build, a half-written one, or a record moved under another name is named by
   `list` with the reason and counted in the page's footer beside the store's size, so a
-  board that is not readable never reads as a board that is empty. `done` stays
-  terminal until a `reopen` is designed.
+  board that is not readable never reads as a board that is empty. The record is version
+  `2`; a version `1` file — the shape before the lane and the block were named — is read by
+  mapping it and is rewritten as `2` on its next write, so nothing is lost and nothing is
+  migrated behind a read. A version above this build's is named by number rather than
+  guessed at. `done` stays terminal until a `reopen` is designed.
 - **Links are recorded by the tool.** A link names an id, so the page shows what a
   card waits for but does not edit it; `board edit` records it while the card is being
   planned, and `board drop` refuses to strand one.
@@ -516,13 +519,16 @@ it always meant: when the card was last touched, which is not when it last chang
   reads a plan), and an automatic archive past some number of finished cards (a threshold
   nobody stated would decide what a read returns, and nothing else here prunes).
 - **A block says why, and a finished card says with what.** `blocked` exists to ask a
-  person for a decision, so the move into it records the sentence — `blockedBy`, one
-  line — and the page draws that rather than the last note somebody wrote, which was a
-  guess. The kind travels with it — `contract`, `dependency`, or `decision` — because only
-  a contract defect sends a blocked card back to `plan`; anything else resumes in `execute`.
-  The reason survives a `release` (the decision is still pending) and is cleared on the way
-  out of `blocked` (a stale sentence reads as a current one), and a spot-check is cleared
-  when the card leaves `execute`, because it was about work that was finished there.
+  person for a decision, so the move into it records one record — `blocked: { kind, note }`
+  — rather than two sibling keys: the kind (`contract`, `dependency`, or `decision`, and
+  required by the move) and the sentence a person reads, which is optional. Only a contract
+  defect sends a blocked card back to `plan`; anything else resumes in `execute`. The
+  sentence survives a `release` (the decision is still pending) and the record is deleted on
+  the way out of `blocked` (a stale sentence reads as a current one), **but the lane log
+  keeps it**: the transition that parked the card carries the same `block`, so "why did this
+  sit for two days" outlives the resume. A spot-check is cleared when the card leaves
+  `execute` — a park is somebody deciding the work is not finished — so a card that was
+  blocked and resumed needs another look before `done`.
   `landed` is the commit `HEAD` resolved to at the move to `done`, recorded because
   `done` is terminal and nothing later can say which change closed the card. Of the three
   the move writes, only the blocker is required — a card cannot be parked without saying
