@@ -33,6 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the narrow lane switch is a group of pressed buttons, not a tablist. It has no
+  tabpanel behind it, so it said `role="tab"` over a panel that did not exist; it now carries
+  `aria-pressed`, and the pressed lane is the one the kit paints as current.
 - `board`: the Board|Team switch is a tablist a screen reader can read. It said
   `aria-current` and every tab was in the Tab order; it now says `aria-selected`, holds one
   tab in the order, and `ArrowLeft`/`ArrowRight`/`Home`/`End` move between the two.

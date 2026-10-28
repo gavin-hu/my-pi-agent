@@ -392,9 +392,11 @@ __RUNTIME__
     picker.textContent = "";
     for (var i = 0; i < view.lanes.length; i++) {
       (function (lane) {
+        // A lane switch, not a tablist: it shows one lane and there is no tabpanel behind
+        // each button, so the pressed state is the honest one rather than a tab without its
+        // panel. The counts stay on the face, where a reader chooses by them.
         var item = el("button", "bf-segmented__item", lane.label + " " + headCount(lane));
         item.type = "button";
-        item.setAttribute("role", "tab");
         item.setAttribute("data-picker-lane", lane.key);
         item.addEventListener("click", function () { board.showLane(lane.key); });
         picker.appendChild(item);

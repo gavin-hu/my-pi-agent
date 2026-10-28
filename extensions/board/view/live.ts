@@ -85,8 +85,9 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     }
     var items = document.querySelectorAll("#board-picker [data-picker-lane]");
     for (var j = 0; j < items.length; j++) {
-      if (items[j].getAttribute("data-picker-lane") === board.shown) items[j].setAttribute("aria-current", "page");
-      else items[j].removeAttribute("aria-current");
+      // A pressed button, because the picker shows one lane rather than joining a tablist:
+      // "true" is the lane a reader is looking at, and the kit paints it from this state.
+      items[j].setAttribute("aria-pressed", items[j].getAttribute("data-picker-lane") === board.shown ? "true" : "false");
     }
   }
 

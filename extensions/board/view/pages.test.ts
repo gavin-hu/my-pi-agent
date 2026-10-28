@@ -149,6 +149,9 @@ describe("the document", () => {
 		expect(page).toContain('role="tablist"');
 		expect(page).toContain('role="tab"');
 		expect(page).toContain('aria-controls="panel-board"');
+		// The narrow lane switch is a group of pressed buttons, not a second tablist: it has no
+		// tabpanel behind it, and a tab without one is what this used to be.
+		expect(page).toContain('id="board-picker" role="group" aria-label="Lane"');
 		// A tab says which one is showing through `aria-selected`, and the strip has one tab in
 		// the Tab order: the two attributes below are the whole of a roving tablist. The
 		// stylesheet still names `aria-current` for the segmented rows other pages use.

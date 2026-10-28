@@ -499,6 +499,33 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("switches lanes from the picker when the board is one column", async () => {
+		const page = await openPage();
+		await page.setViewportSize({ width: 860, height: 900 });
+		await page.waitForTimeout(200);
+		expect(await page.isVisible("#board-picker")).toBe(true);
+		// The picker names the lane it is showing through aria-pressed, and the other lanes are
+		// out of the document's flow: one column, one lane.
+		expect(await page.$eval('[data-picker-lane="backlog"]', (n) => n.getAttribute("aria-pressed"))).toBe("true");
+		await page.click('[data-picker-lane="execute"]');
+		// The picker shows one tray; a lane's list is the fold's own state, so the wait is on the
+		// section a reader sees rather than on the list inside it.
+		await page.waitForFunction(
+			() =>
+				(
+					globalThis as unknown as {
+						document: { querySelector(selector: string): { hidden: boolean } | null };
+					}
+				).document.querySelector('.board-lane[data-lane="backlog"]')?.hidden === true,
+			undefined,
+			{ timeout: PAINT_MS },
+		);
+		expect(await page.isVisible('.board-lane[data-lane="execute"]')).toBe(true);
+		expect(await page.$eval('[data-picker-lane="execute"]', (n) => n.getAttribute("aria-pressed"))).toBe("true");
+		expect(await page.$eval('[data-picker-lane="backlog"]', (n) => n.getAttribute("aria-pressed"))).toBe("false");
+		await page.close();
+	});
+
 	test("says an offer nobody took, in the words the queue uses", async () => {
 		// The offer is `team`'s verb; what the page owes a lead is the age, because that is
 		// the difference between nobody having looked and nobody taking it.

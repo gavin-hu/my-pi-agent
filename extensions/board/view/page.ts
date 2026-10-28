@@ -72,7 +72,7 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
 </div></header>
 <main class="bf-app__main ${N.main}" id="main" tabindex="-1">
   <section class="${N.panel}" id="panel-board" role="tabpanel" aria-labelledby="tab-board"${team ? " hidden" : ""}>
-    <div class="bf-segmented ${N.picker}" id="board-picker" role="tablist" aria-label="Lane"></div>
+    <div class="bf-segmented ${N.picker}" id="board-picker" role="group" aria-label="Lane"></div>
     <div class="${N.lanes}" id="board-lanes"></div>
     <div class="bf-empty ${N.noCards}" id="board-no-cards" hidden>
       <p class="bf-empty__title">No cards yet</p>
