@@ -21,6 +21,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: the two facts the deleted user-guide guard held are back. Every module that reads
+  `getAgentDir` is now either a declared store — its location named in the `Files` row for it,
+  and the literal still in its source — or a declared reader with a reason, so a new store
+  cannot ship without saying where it lives; nine extension pages now name their location.
+  The pack's total tool count is deliberately never stated: the README's tool column is
+  compared with the registered set, so a total could only rot, and the decision is recorded
+  in `test/doc-counts.test.ts` and in the doc rules rather than left to memory.
 - `docs`: the docs tree's first cleanup pass. `security.md`'s loopback bullet described a board
   page that writes and mints two tokens; the page has been a read view with one token since it
   stopped writing, and the bullet now says so. The 33-word status legend the extension pages

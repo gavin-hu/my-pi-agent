@@ -259,7 +259,7 @@ skill. Mitigations:
 | `types.ts` | `MemoryScope`, `MemoryAction`, `MemoryDetails`, the context type. |
 | `config.ts` | Defaults and the `memory` section of `bytefly.json` loading/clamping. |
 | `schema.ts` | TypeBox params/result and pure validation of action, scope, and text. |
-| `store.ts` | Paths, parse/read, file stamps, add/update/forget/merge/clear transforms, atomic queued write. |
+| `store.ts` | Paths (`<agent-dir>/memory.md` and the project's), parse/read, file stamps, add/update/forget/merge/clear transforms, atomic queued write. |
 | `doctor.ts` | The health report (pure): counts, file bytes, the injection plan's omissions, and near-duplicate pairs. |
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |

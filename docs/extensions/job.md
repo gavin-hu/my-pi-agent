@@ -387,11 +387,11 @@ rewritten.
 | `config.ts` | The `job` section of `bytefly.json`: loading and clamping. |
 | `format.ts` | Pure formatting, duration, and transcript outcome-line helpers; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
 | `paths.ts` | Session/marker/registry/status file-name helpers. |
-| `registry.ts` | Per-session registry load/merge, legacy migration, and pure reconciliation. |
+| `registry.ts` | Per-session registry load/merge under `<agent-dir>/jobs/<project>/`, legacy migration, and pure reconciliation. |
 | `reservations.ts` | Atomic `O_EXCL` job-id reservation and release. |
 | `status.ts` | `EXIT`-trap exit-status file (write path via env, read on reattach). |
 | `session.ts` | Per-session heartbeat markers and owner-liveness rules. |
-| `store.ts` | Durable store: registry dir, this session's atomic merge-write, deletions. |
+| `store.ts` | Durable store: the registry directory (`<agent-dir>/jobs/<project>/`), this session's atomic merge-write, deletions. |
 | `logs.ts` | Bounded, sanitized log-tail reading. |
 | `ui.ts` | Footer status chips and the failure alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
 | `waiters.ts` | `wait` resolver bookkeeping. |

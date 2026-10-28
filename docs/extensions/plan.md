@@ -940,7 +940,7 @@ both.
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
-| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or agent directory), containment, `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
+| `plans.ts` | Plan-file store: slug/stamp naming, directory resolution (repository, active worktree, or `<agent-dir>/plans/`), containment, `write`/`setSteps`/`saveFeedback`, and `read`/`latest`. |
 | `plan-files.ts` | How a plan file reaches the disk: `writeAtomic` (a dotfile temp, then a rename, so a crash cannot truncate the plan a review is reading) and `keepRevision`, which keeps the text a refinement replaces beside it, numbered, up to the newest five. |
 | `todos.ts` | Approval-time todo merge (pure): the last list replayed from the branch, and the merge of the plan's steps into it with the cap respected. |
 | `steps.ts` | Plan-document structure: the outline, step extraction and the `Steps`-section scope, the plan's own goal (`goalSection`), and the checkbox edit. |

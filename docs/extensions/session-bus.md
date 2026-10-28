@@ -272,7 +272,7 @@ listening watch is what raises the turn.
 |---|---|
 | `index.ts` | Disable guard, registration, the pending-report channel, and the session hooks. |
 | `join-request.ts` | The `board`/`team` join request: one `bus.join` answer, and the label it settles becomes Pi's session name. |
-| `runtime.ts` | Lifecycle, repo key, joining, heartbeat, and the session's own reads and writes. |
+| `runtime.ts` | Lifecycle, repo key (`<agent-dir>/session-bus/<repo-key>/`), joining, heartbeat, and the session's own reads and writes. |
 | `mail-watch.ts` | The armed inbox watch: the poll, the not-yet-reported queue, and its state. |
 | `store.ts` | Atomic JSON files, inbox, peek, claims, pruning, and the one release loop. |
 | `protocol.ts` | Pure labels, targets, paths, validation, conflict rules. |

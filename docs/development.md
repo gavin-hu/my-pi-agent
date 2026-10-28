@@ -310,9 +310,22 @@ names or by the directory a grouped row groups; `test/extension-docs.test.ts`
 holds both directions, so a page cannot keep describing a file the tree has
 dropped, and cannot leave one out because it sits in a subdirectory.
 
+A module that keeps state under the agent directory names that location in its
+row, in the tree's one spelling — `<agent-dir>/<place>/`, with the project's own
+`.pi/` locations written the same way. The same test holds it: a module that
+reads `getAgentDir` is either a declared store, whose row must name the location
+and whose source must still spell it, or a declared reader with a reason, so a
+new store cannot ship without saying where it lives.
+
 A `## Testing` section names suites, so every backticked stem with a slash in it
 resolves to `extensions/<name>/<stem>.test.ts`, held by the same test: a stem
 with no suite is what a consolidation leaves behind in silence.
+
+A doc states no total for the pack's tools. The entry README's "Tools and
+commands" column is compared with the registered set by `test/naming.test.ts`,
+which is the fact held exactly; a total beside it could only rot, and the one
+the guide used to carry did. A count for one extension's own tools is fine — it
+is prose about what the next table shows.
 
 **Capabilities is the key section.** It is what a reader arrives for and what
 the rest of the page elaborates, so it comes first and is a table:

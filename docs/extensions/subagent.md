@@ -456,7 +456,7 @@ step's `Output`.
 | `schema.ts` | TypeBox params, limits, and `resolveMode`. |
 | `invocation.ts` | `pi` subprocess invocation and argument construction. |
 | `stream.ts` | JSON-event parsing, guarded usage accounting, output helpers (pure). |
-| `transcripts.ts` | Per-run transcript buffer, run ids, the store directory, and pruning. |
+| `transcripts.ts` | Per-run transcript buffer, run ids, the store directory (`<agent-dir>/subagents/`), and pruning. |
 | `config.ts` | The `subagent` section of `bytefly.json`: deadline, transcripts, retention. |
 | `run.ts` | Runs one subagent process and captures its result (including the background abort-as-result path). |
 | `background.ts` | Background run entries, replay, capacity, cancel, collect, and shutdown. |

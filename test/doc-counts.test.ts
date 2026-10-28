@@ -14,6 +14,13 @@
  *
  * What it cannot do is tell whether a sentence is *well written*: a count that is right
  * in a confusing sentence still passes. That stays a review judgement.
+ *
+ * One count is deliberately **not** claimed here: the pack's total number of tools. The
+ * entry README's "Tools and commands" column is compared with the registered set by
+ * `test/naming.test.ts`, which is the same fact held exactly — a total beside it could
+ * only rot, and it did, for as long as the guide's reference page carried one. A page
+ * that states the count for its own extension is not this problem: it is prose about a
+ * handful of tools a reader can see in that extension's own table.
  */
 
 import { readFileSync } from "node:fs";
@@ -68,6 +75,14 @@ describe("doc counts", () => {
 		// The manifest is the registry: `extension-load.test.ts` holds it to the directories,
 		// and this file counts it rather than the directory again.
 		expect(counts.extensions).toBe(manifest.length);
+	});
+
+	test("claims no total of the pack's tools, because the registered set is the claim", () => {
+		// The decision, as a test: adding a tool-count claim means deleting this case and
+		// saying why in the header. `naming.test.ts` compares the README's column with the
+		// registrations, so a total would be the same fact with a way to drift.
+		expect(CLAIMS.every((claim) => claim.counts.length > 0)).toBe(true);
+		expect(/\(\d\+\) (?:tools|commands)\b/.test(CLAIMS.map((claim) => claim.pattern.source).join(" "))).toBe(false);
 	});
 
 	for (const claim of CLAIMS) {
