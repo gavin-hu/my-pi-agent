@@ -345,9 +345,7 @@ __RUNTIME__
       lanes.removeAttribute("data-skeleton");
     }
     var query = board.query || "";
-    var empty = document.getElementById("board-no-cards");
-    if (empty) empty.hidden = view.total !== 0;
-    lanes.hidden = view.total === 0;
+    var shownTotal = 0;
     for (var i = 0; i < view.lanes.length; i++) {
       var lane = view.lanes[i];
       var section = laneNode(lane);
@@ -368,6 +366,7 @@ __RUNTIME__
       // for want of a column the lane is not using. A count, never text.
       section.style.setProperty("--lane-count", String(lane.cards.length));
       var shown = lane.cards.filter(function (card) { return matches(card, query); });
+      shownTotal += shown.length;
       var sig = lane.cards.map(function (card) { return card.id + ":" + card.rev; }).join(",") + "|" + query;
       if (section.getAttribute("data-sig") !== sig) {
         section.setAttribute("data-sig", sig);
@@ -399,7 +398,38 @@ __RUNTIME__
       var toggle = section.querySelector(".board-lane__toggle");
       if (toggle) toggle.setAttribute("aria-expanded", String(!collapsed));
     }
+    renderEmpty(view, query, shownTotal);
     renderPicker(view);
+  }
+
+  /**
+   * What the board says when there is nothing to read.
+   *
+   * Two different emptinesses. No cards at all is the board's own state, and it teaches the
+   * verb that fills it. A filter that matches none of them is the reader's own query: the
+   * lanes go, because five trays saying "no match" read as a board with no work, and the way
+   * back is one button rather than a key a reader has to remember.
+   */
+  function renderEmpty(view, query, shownTotal) {
+    var block = document.getElementById("board-no-cards");
+    if (!block) return;
+    var lanes = document.getElementById("board-lanes");
+    var noCards = view.total === 0;
+    var noMatch = !noCards && query !== "" && shownTotal === 0;
+    block.hidden = !noCards && !noMatch;
+    if (lanes) lanes.hidden = noCards || noMatch;
+    var title = document.getElementById("board-no-cards-title");
+    var sub = document.getElementById("board-no-cards-sub");
+    var hint = document.getElementById("board-no-cards-hint");
+    var clear = document.getElementById("board-no-match-clear");
+    if (title) title.textContent = noMatch ? "No card matches \u201c" + query + "\u201d" : "No cards yet";
+    if (sub) {
+      sub.textContent = noMatch
+        ? "The filter reads a title, its owner, a path, a plan, and the notes."
+        : "One card per feature: what it delivers, who holds it, and where to start.";
+    }
+    if (hint) hint.hidden = noMatch;
+    if (clear) clear.hidden = !noMatch;
   }
 
   /** The lane selector the narrow layout shows instead of four columns. */

@@ -208,6 +208,15 @@ export const BOARD_LIVE_JS = String.raw`(function () {
         board.applyFilter();
       });
     }
+    // The no-match state's one control: a view action, like the tab switch, and it puts the
+    // reader back in the field they were typing in.
+    var clear = document.getElementById("board-no-match-clear");
+    if (clear) {
+      clear.addEventListener("click", function () {
+        board.clearFilter();
+        board.focusFilter();
+      });
+    }
     var tabs = document.querySelectorAll("[data-view][role='tab']");
     for (var i = 0; i < tabs.length; i++) {
       tabs[i].addEventListener("click", function (event) {

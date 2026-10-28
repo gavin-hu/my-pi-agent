@@ -33,6 +33,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a filter that matches nothing says so once — "No card matches “x”" with a
+  `Clear filter` button — instead of leaving five trays of "no match" over an empty page. The
+  button is a view action, not a card write: it clears the field and puts the reader back in
+  it.
 - `board`: a lane head and a Team panel name their count in words — "Plan, 1 of 3" — while the
   pill keeps `1/3`. The count was inside the heading's text, so a screen reader announced
   "Plan 1/3" as one word.

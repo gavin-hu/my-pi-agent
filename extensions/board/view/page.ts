@@ -75,9 +75,10 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
     <div class="bf-segmented ${N.picker}" id="board-picker" role="group" aria-label="Lane"></div>
     <div class="${N.lanes}" id="board-lanes"></div>
     <div class="bf-empty ${N.noCards}" id="board-no-cards" hidden>
-      <p class="bf-empty__title">No cards yet</p>
-      <p class="bf-empty__sub">One card per feature: what it delivers, who holds it, and where to start.</p>
-      <p class="bf-empty__sub"><code>board add</code> makes one — this page reads, and the tools write.</p>
+      <p class="bf-empty__title" id="board-no-cards-title">No cards yet</p>
+      <p class="bf-empty__sub" id="board-no-cards-sub">One card per feature: what it delivers, who holds it, and where to start.</p>
+      <p class="bf-empty__sub" id="board-no-cards-hint"><code>board add</code> makes one — this page reads, and the tools write.</p>
+      <button type="button" class="bf-btn" id="board-no-match-clear" hidden>Clear filter</button>
     </div>
   </section>
   <section class="${N.panel}" id="panel-team" role="tabpanel" aria-labelledby="tab-team"${team ? "" : " hidden"}>

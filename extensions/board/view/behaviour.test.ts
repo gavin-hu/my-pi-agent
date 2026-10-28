@@ -554,6 +554,37 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("says when the filter matches nothing, and gives the way back", async () => {
+		const page = await openPage();
+		await page.fill("#board-filter", "zzzznomatch");
+		await page.waitForFunction(
+			() =>
+				(
+					globalThis as unknown as { document: { getElementById(id: string): { hidden: boolean } | null } }
+				).document.getElementById("board-no-cards")?.hidden === false,
+			undefined,
+			{ timeout: PAINT_MS },
+		);
+		// One statement instead of five empty trays, naming the reader's own words.
+		expect(await page.textContent("#board-no-cards-title")).toBe("No card matches \u201czzzznomatch\u201d");
+		expect(await hidden(page, "#board-lanes")).toBe(true);
+
+		await page.click("#board-no-match-clear");
+		await cardCount(page, "backlog", 2);
+		expect(await page.inputValue("#board-filter")).toBe("");
+		expect(await hidden(page, "#board-no-cards")).toBe(true);
+		expect(await hidden(page, "#board-lanes")).toBe(false);
+		// The way back is also the way to keep typing: the field has the keyboard again.
+		expect(
+			await page.evaluate(() =>
+				(
+					globalThis as unknown as { document: { activeElement: ElementLike | null } }
+				).document.activeElement?.getAttribute("id"),
+			),
+		).toBe("board-filter");
+		await page.close();
+	});
+
 	test("says an offer nobody took, in the words the queue uses", async () => {
 		// The offer is `team`'s verb; what the page owes a lead is the age, because that is
 		// the difference between nobody having looked and nobody taking it.

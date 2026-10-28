@@ -53,6 +53,8 @@ ${WEB_COMPONENTS_CSS}
 .board-panel{display:flex;flex-direction:column;min-width:0}
 .board-panel[hidden]{display:none}
 .board-no-cards{max-width:32rem;margin:auto;padding:var(--space-8) var(--space-6)}
+/* One way back out of a filter that matched nothing, under the sentence that says so. */
+.board-no-cards .bf-btn{margin-top:var(--space-2)}
 
 /* Lanes: trays of cards, each with a head that sticks while the pane scrolls. A lane is
    sized by the work it holds rather than by its share of the row, so one holding nothing

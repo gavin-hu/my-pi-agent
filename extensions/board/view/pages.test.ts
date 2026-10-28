@@ -97,6 +97,10 @@ describe("the document", () => {
 			"board-picker",
 			"board-lanes",
 			"board-no-cards",
+			"board-no-cards-title",
+			"board-no-cards-sub",
+			"board-no-cards-hint",
+			"board-no-match-clear",
 			"board-team",
 			"board-where",
 			"board-card-dialog",
@@ -131,9 +135,11 @@ describe("the document", () => {
 
 	test("an empty board says how a card is made, in the terminal's words", () => {
 		const page = renderBoardPage({ view: "board" });
-		// The page cannot add one, so the empty state names the command that can instead of
-		// offering a button that would take a reader nowhere.
+		// The page cannot add a card, so the empty state names the command that can instead of
+		// offering a button that would take a reader nowhere. The other state — a filter that
+		// matches nothing — reuses the block with its own sentence and one way back.
 		expect(page).toContain("<code>board add</code>");
+		expect(page).toContain('id="board-no-match-clear" hidden>Clear filter</button>');
 	});
 
 	test("carries no card text at all", () => {
