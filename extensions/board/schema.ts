@@ -9,8 +9,9 @@
 
 import { Type } from "typebox";
 import { MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
+import { listOf } from "../../lib/format.ts";
 import { BLOCKERS } from "../../lib/board/card.ts";
-import { LANES } from "../../lib/board/lanes.ts";
+import { LANES, movableLanes } from "../../lib/board/lanes.ts";
 import { BOARD_ACTIONS } from "./types.ts";
 
 export const BoardParams = Type.Object({
@@ -33,8 +34,11 @@ export const BoardParams = Type.Object({
 		Type.Union(
 			LANES.map((lane) => Type.Literal(lane)),
 			{
+				// The lanes a move may name come from the transition table, so a route added
+				// there is offered here without a second list to forget.
 				description:
-					"`list`: show only this lane, and not skip the `done` cards. `move`: the lane to move to, which the board allows only where a transition exists from the card's own lane; `backlog` is `release`'s, not a move's.",
+					"`list`: show only this lane, and not skip the `done` cards. " +
+					`\`move\`: the lane to move to — ${listOf(movableLanes())}; \`backlog\` is \`release\`'s, not a move's, and a card may move only where a transition exists from its own lane.`,
 			},
 		),
 	),

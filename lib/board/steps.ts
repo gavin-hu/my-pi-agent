@@ -363,15 +363,20 @@ export function edit(card: Card, op: Extract<CardOp, { kind: "edit" }>, actor: A
 /**
  * Record that the card was offered to the team, and nobody has taken it.
  *
- * The same preconditions a claim would meet, because the offer asks a peer to claim: a
- * held card, a finished one, or one waiting on unfinished work is refused before anything
- * is broadcast. Re-offering refreshes the age rather than refusing as a no-op.
+ * The same preconditions a claim would meet, because the offer asks a peer to claim — and
+ * they are this operation's own, not a claim run as a stand-in: a held card, a finished
+ * one, one waiting on unfinished work, and a `plan` lane already at its limit are all
+ * refused here, before anything is broadcast. The limit is the one a claim would meet when
+ * the peer answers, so an offer can never send a handoff for work nobody can pick up.
+ * Re-offering refreshes the age rather than refusing as a no-op.
  */
-export function offer(card: Card, now: number, board: BoardIndex): Prepared {
+export function offer(card: Card, now: number, board: BoardIndex, limits: WipLimits): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be offered.` };
 	if (card.owner !== undefined) return { error: heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
+	const full = wipRefusal("plan", [...board.values()], limits);
+	if (full !== undefined) return { error: `${cardRef(card.id)} cannot be offered: ${full}` };
 	return { changed: true, fields: { offeredAt: now } };
 }
 

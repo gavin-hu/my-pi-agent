@@ -24,6 +24,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   contract and its two signatures in the dialog, and a reason line from one rule shared with
   the transcript.
 
+### Fixed
+
+- `team`: `assign` and `offer` check the board with its configured WIP limits before they
+  send anything. A board with `board.wip` set could hand a card off — or broadcast an offer —
+  that the claim would then refuse, because the precheck ran with the default limits. `offer`
+  now carries the `plan`-lane room check as its own rule instead of running a claim as a
+  stand-in, so an offer is never sent for work nobody can pick up.
+
 ## [0.21.0] - 2026-10-28
 
 ### Added

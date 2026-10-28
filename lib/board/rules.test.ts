@@ -14,7 +14,7 @@ import { type Card, MAX_LOG, MAX_NOTES } from "./card.ts";
 import type { Contract } from "./contract.ts";
 import { DEFAULT_WIP, type WipLimits } from "./limits.ts";
 import { indexOf } from "./links.ts";
-import { type Actor, applyOp, createCard, type OpResult } from "./rules.ts";
+import { type Actor, applyOp, createCard, mayOp, type OpResult } from "./rules.ts";
 import { holds } from "./card.ts";
 
 const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
@@ -490,6 +490,27 @@ describe("move", () => {
 	});
 });
 
+describe("mayOp", () => {
+	test("answers the refusal the write would, and nothing when the write would land", () => {
+		const card = claimed();
+		expect(mayOp(card, { kind: "claim" }, CORE, board(card))).toBeUndefined();
+		expect(mayOp(card, { kind: "claim" }, OTHER, board(card))).toBe("#4 is held by billing-core.");
+		expect(mayOp(card, { kind: "claim" }, OTHER, board(card))).toBe(
+			refusal(applyOp(card, { kind: "claim" }, OTHER, NOW, board(card))),
+		);
+	});
+
+	test("reads the limits it is given, not the defaults", () => {
+		// `team` asks this before it sends a handoff, so a board configured with a limit of
+		// one must refuse a second card before anything reaches the bus.
+		const full = [pulled("1", CORE)];
+		const pool = createCard("9", { title: "D", paths: [] }, LEAD, 1_000);
+		const limits: WipLimits = { plan: 1, execute: 1 };
+		expect(mayOp(pool, { kind: "claim" }, CORE, board(...full, pool), limits)).toContain("the limit is 1");
+		expect(mayOp(pool, { kind: "claim" }, CORE, board(...full, pool))).toBeUndefined();
+	});
+});
+
 describe("note and edit", () => {
 	test("a note is appended, attributed and stamped, and the oldest drops past the cap", () => {
 		const start = claimed();
@@ -542,6 +563,15 @@ describe("offer, archive, and drop", () => {
 	test("a held card cannot be offered", () => {
 		const card = claimed();
 		expect(refusal(applyOp(card, { kind: "offer" }, LEAD, NOW, board(card)))).toBe("#4 is held by billing-core.");
+	});
+
+	test("a card is not offered into a full plan lane, which is the claim the offer asks for", () => {
+		const full = pulled("1", CORE);
+		const pool = createCard("9", { title: "D", paths: [] }, LEAD, 1_000);
+		const limits: WipLimits = { plan: 1, execute: 5 };
+		expect(refusal(applyOp(pool, { kind: "offer" }, LEAD, NOW, board(full, pool), limits))).toContain(
+			"cannot be offered: 1 cards are already being planned (the limit is 1)",
+		);
 	});
 
 	test("only a finished card can be archived, and it changes no field", () => {

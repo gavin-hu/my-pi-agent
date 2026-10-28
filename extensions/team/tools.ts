@@ -16,7 +16,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
-import { type Actor, applyOp } from "../../lib/board/rules.ts";
+import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
@@ -134,8 +134,9 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 /**
  * `assign`: check the preconditions, send the handoff, then set the owner.
  *
- * The preconditions are checked with the same `applyOp` the store will use, so an
- * assignment the rules would refuse never sends a message at all.
+ * The preconditions are checked with `mayOp`, the same decision the store's `applyOp` will
+ * make — and with the store's own limits, so a configured WIP cap is the one the precheck
+ * sees — so an assignment the rules would refuse never sends a message at all.
  */
 async function assignCard(
 	store: BoardStore,
@@ -149,10 +150,11 @@ async function assignCard(
 	const card = await store.read(id);
 	if (!card) return refusal("assign", `${cardRef(id)} does not exist.`);
 	const owner: Actor = { label: to };
-	// The board, not just the card: a card that waits on unfinished work is refused here,
-	// so a handoff for it is never sent.
-	const dry = applyOp(card, { kind: "assign", to: owner }, me, now, indexOf(await store.list()));
-	if (!dry.ok) return refusal("assign", dry.error, card);
+	// The board, not just the card: a card that waits on unfinished work, or a `plan` lane
+	// with no room, is refused here, so a handoff for it is never sent. `mayOp` is the
+	// store's own check without the write, and the limits are the store's, not a default.
+	const refused = mayOp(card, { kind: "assign", to: owner }, me, indexOf(await store.list()), store.limits());
+	if (refused !== undefined) return refusal("assign", refused, card);
 
 	let delivered: string[];
 	try {
@@ -185,15 +187,6 @@ async function assignCard(
 }
 
 /**
- * The actor an offer's preconditions are judged as: nobody in particular.
- *
- * `claim` is what the offer asks a peer to do, so the dry run is a claim by someone who
- * holds nothing — the rules' own refusals decide whether a card may be offered at all,
- * without a second copy of the sentences.
- */
-const OFFER_CLAIMANT: Actor = { label: "*" };
-
-/**
  * `offer`: check the claim's preconditions, broadcast the card, then record the offer.
  *
  * The broadcast comes first and the record second, because a record of an offer nobody
@@ -212,10 +205,11 @@ async function offerCard(
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const card = await store.read(id);
 	if (!card) return refusal("offer", `${cardRef(id)} does not exist.`);
-	// The board, not just the card: a card that waits on unfinished work, or one somebody
-	// holds, is refused here, so a broadcast for it is never sent.
-	const dry = applyOp(card, { kind: "claim" }, OFFER_CLAIMANT, now, indexOf(await store.list()));
-	if (!dry.ok) return refusal("offer", dry.error, card);
+	// The board, not just the card: a card that waits on unfinished work, one somebody
+	// holds, or a `plan` lane with no room is refused here, so a broadcast for it is never
+	// sent. This is the offer's own rule, asked without the write.
+	const refused = mayOp(card, { kind: "offer" }, me, indexOf(await store.list()), store.limits());
+	if (refused !== undefined) return refusal("offer", refused, card);
 
 	let delivered: string[];
 	try {

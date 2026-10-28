@@ -7,6 +7,8 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
@@ -314,6 +316,40 @@ describe("offer", () => {
 		const result = await call({ action: "offer", card: id });
 		expect(text(result)).toContain("Not listening: billing-web");
 		expect(result.details.notListening).toEqual(["billing-web"]);
+	});
+});
+
+describe("the board's WIP limits", () => {
+	/** A harness whose project config caps `plan` at one card, written before the store opens. */
+	function capped() {
+		const board = harness();
+		mkdirSync(join(board.cwd, ".pi"), { recursive: true });
+		writeFileSync(join(board.cwd, ".pi", "bytefly.json"), JSON.stringify({ board: { wip: { plan: 1, execute: 1 } } }));
+		return board;
+	}
+
+	test("a full plan lane refuses the handoff before anything is sent", async () => {
+		const { call, seed, store, sent } = capped();
+		const first = await seed("First");
+		const second = await seed("Second");
+		await (await store()).mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
+		const refused = await call({ action: "assign", card: second, to: "billing-core" });
+		expect(refused.isError).toBe(true);
+		expect(text(refused)).toContain(`#${second} cannot enter plan`);
+		expect(text(refused)).toContain("the limit is 1");
+		expect(sent).toEqual([]);
+	});
+
+	test("a full plan lane refuses the offer, which is the claim it asks for", async () => {
+		const { call, seed, store, sent } = capped();
+		const first = await seed("First");
+		const second = await seed("Second");
+		await (await store()).mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
+		const refused = await call({ action: "offer", card: second });
+		expect(refused.isError).toBe(true);
+		expect(text(refused)).toContain(`#${second} cannot be offered`);
+		expect(text(refused)).toContain("the limit is 1");
+		expect(sent).toEqual([]);
 	});
 });
 

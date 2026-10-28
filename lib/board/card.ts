@@ -140,11 +140,17 @@ export interface Card {
 	 * What a blocked card is waiting on: the decision, in one line.
 	 *
 	 * `blocked` exists to say a human has to decide something — a dependency is a
-	 * different thing, and `waits` is what refuses a claim. Absent means the card was
-	 * blocked without saying why, which is a state the tool allows and the page names.
+	 * different thing, and `waits` is what refuses a claim. The sentence is optional: a
+	 * block may be recorded with only its kind, and the page then says `blocked, with
+	 * nothing recorded`.
 	 */
 	blockedBy?: string;
-	/** Why it is blocked, which is what decides whether it returns to `plan`. */
+	/**
+	 * Why it is blocked, which is what decides whether it returns to `plan`.
+	 *
+	 * Required by the move into `blocked`, and absent on a card written before the field:
+	 * such a card reads as a block with no recorded kind, which resumes in `execute`.
+	 */
 	blocker?: BlockerKind;
 	/** What closed a finished card: the commit at the move to `done`, and when. */
 	landed?: CardLanded;
@@ -189,6 +195,12 @@ export interface Card {
  * that comes back is worse than an id that is gone — the same number would answer for
  * two different features. The store keeps one of these per ended card, writes it
  * before the card file goes, and never allocates its id again.
+ *
+ * The pile is a ledger, and this build never reads it back: the spent ids are the file
+ * names the allocator skips, and the record itself is for a person opening the directory.
+ * {@link isEndedCard} is the shape a reader would have to hold one to, and it is why the
+ * field is `lane` rather than the `status` an older record spells — nothing migrates a
+ * record no code path opens.
  */
 export interface EndedCard {
 	/** Schema version for the record itself; a reader refuses what it does not know. */

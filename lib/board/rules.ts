@@ -194,7 +194,7 @@ function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: Board
 		case "reclaim":
 			return reclaim(card);
 		case "offer":
-			return offer(card, now, board);
+			return offer(card, now, board, limits);
 		case "archive":
 			return archive(card);
 		case "drop":

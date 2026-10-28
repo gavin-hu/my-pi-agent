@@ -280,6 +280,7 @@ test/
     git.ts    platform.ts  preload.ts  clock.ts  files.ts  comments.ts
     surface.ts             # the catalog and the registered surface, counted from the tree
     board-page.ts          # the shipped board page, served over a fixture store
+    board-flow.ts          # drive a card through the board's gates, for suites about something else
     serve.ts               # a real server a suite mounts a shipped page on, LAN share included
     fixtures/<name>.ts     # extension-specific fixtures
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)

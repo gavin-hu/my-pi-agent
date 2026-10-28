@@ -394,10 +394,16 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS.length).toBeGreaterThan(4_000);
 	});
 
-	test("declares a shared word once, so one lane has one name", () => {
-		// The fragments have no import graph, so a constant two of them need is either
-		// declared once and published, or declared twice and free to drift: `LANE_LABEL`
-		// shipped twice, and the lane head and the dialog could have spelled it apart.
+	test("declares no lane table of its own", () => {
+		// The words are the snapshot's now: a label, an empty word, a colour, and a limit arrive
+		// per lane, so the client cannot spell one lane two ways — the table it used to ship
+		// (`LANE_LABEL`) is gone, and this is the case that keeps it gone.
+		expect(BOARD_CLIENT_JS).not.toContain("LANE_LABEL");
+		expect(BOARD_CLIENT_JS).not.toContain("LANE_EMPTY");
+		expect(BOARD_CLIENT_JS).toContain("lane.label");
+		expect(BOARD_CLIENT_JS).toContain("lane.empty");
+		// The fragments still have no import graph, so a constant two of them need is either
+		// declared once and published, or declared twice and free to drift.
 		expect(duplicateDeclarations(BOARD_CLIENT_JS)).toEqual([]);
 	});
 

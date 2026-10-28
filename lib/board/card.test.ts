@@ -16,6 +16,7 @@ import {
 	DEFAULT_PRIORITY,
 	dependsOf,
 	isCard,
+	isEndedCard,
 	laneSince,
 	readCard,
 	MAX_DEPENDS,
@@ -266,6 +267,28 @@ describe("laneSince", () => {
 		expect(
 			laneSince(card({ lane: "execute", owner: { label: "c" }, log: [{ lane: "backlog", at: 1_000, by: "lead" }] })),
 		).toBeUndefined();
+	});
+});
+
+describe("isEndedCard", () => {
+	test("holds the record a dropped card leaves to the shape this build writes", () => {
+		// The pile is a ledger nothing reads back, so the validator is the only statement of
+		// its shape: a record written before the lane was called a lane spells `status`, and
+		// this build does not migrate a file no code path opens.
+		const ended = {
+			v: CARD_VERSION,
+			id: "4",
+			title: "Billing webhook",
+			lane: "execute",
+			by: "billing-lead",
+			owner: { id: "s1", label: "billing-core" },
+			at: 1_000,
+			why: "dropped",
+		};
+		expect(isEndedCard(ended)).toBe(true);
+		expect(isEndedCard({ ...ended, lane: undefined, status: "execute" })).toBe(false);
+		expect(isEndedCard({ ...ended, why: "archived" })).toBe(false);
+		expect(isEndedCard({ ...ended, id: "four" })).toBe(false);
 	});
 });
 
