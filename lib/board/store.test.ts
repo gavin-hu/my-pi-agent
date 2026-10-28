@@ -492,6 +492,20 @@ describe("bytes, where, and the signature", () => {
 		expect(createStore(join(dir, "8872d3adda0e"), { root }).root()).toBe(root);
 	});
 
+	test("carries the repository key it was opened with, not the one its directory is called", () => {
+		// The key is what `session-bus` files the same repository's records under, so it is
+		// data the store carries: a hand-built store whose directory is named anything at all
+		// still says which repository it belongs to.
+		expect(createStore(temps.track(tempDir("pi-board-")), { key: "0123456789ab" }).key).toBe("0123456789ab");
+	});
+
+	test("keys a store built over a bare directory by that directory's name", () => {
+		// The one fallback: a caller with no repository to ask. `openBoard` never takes it,
+		// because it has the key already.
+		const dir = temps.track(tempDir("pi-board-"));
+		expect(createStore(dir).key).toBe(basename(dir));
+	});
+
 	test("the signature moves with a revision, an add, and a drop", async () => {
 		const { store } = scratchStore();
 		const empty = signatureOf(await store.list());
@@ -537,6 +551,8 @@ describe("openBoard", () => {
 		// Outside git the working directory is the identity, so it is also the name.
 		expect(store.root()).toBe(cwd);
 		expect(store.name()).toBe(basename(cwd));
+		// Filed under a repository key, so the roster's directory and this board's agree.
+		expect(store.key).toBe(basename(store.dir));
 		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		expect(await store.read(card.id)).toEqual(card);
 	});
