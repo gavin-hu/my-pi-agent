@@ -15,9 +15,10 @@
  * The client modules share one namespace, `window.bfBoard`: this one paints the whole
  * frame, `card.ts` draws one card's face, `team.ts` draws the round, `dialog.ts` fills and
  * opens a card, `keys.ts` binds, and `live.ts` owns the frame stream and the wiring. The
- * browser runtime (`el`, `typing`, …) is spliced at the bundle's top level, in
- * `client.ts`, so a fragment that is not this one can build a node too — the inline
- * Markdown renderer a note is read with is the one that needed it.
+ * browser runtime (`el`, `typing`, …) is spliced in here, because a page's one global
+ * body is the runtime every fragment reads through `board.`; the note renderer a dialog
+ * reads with is spliced into that fragment instead, so nothing this page does not place
+ * on `board.` reaches `window.
  *
  * `plural`, `tabTitle`, `matchesQuery`, `reasonFor`, `el`, `typing`, and `paintStatus` are
  * not written here. Their one bodies live in `lib/` beside the rules they express, and the
@@ -44,6 +45,7 @@ export function renderJs(rules: {
 	decisions: string;
 	decisionTones: string;
 	reasonTones: string;
+	runtime: string;
 }): string {
 	return renderTemplate
 		.replace("__PLURAL__", rules.plural)
@@ -55,7 +57,8 @@ export function renderJs(rules: {
 		.replace("__DECISION_RANK__", rules.decisions)
 		.replace("__DECISION_TONES__", rules.decisionTones)
 		.replace("__REASON_TONES__", rules.reasonTones)
-		.replace("__AGE__", rules.age);
+		.replace("__AGE__", rules.age)
+		.replace("__RUNTIME__", rules.runtime);
 }
 
 const renderTemplate = String.raw`(function () {
@@ -77,6 +80,8 @@ const renderTemplate = String.raw`(function () {
    * past this it is history, and the count in the head says how much.
    */
   var DONE_FOLD_AT = 6;
+
+__RUNTIME__
 
   /**
    * The queue's order, its colours, and the tone a reason line wears — spliced in from

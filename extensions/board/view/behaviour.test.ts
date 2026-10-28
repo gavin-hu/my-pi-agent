@@ -766,6 +766,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				nodes.map((node) => ({ text: node.textContent ?? "", href: node.getAttribute("href") ?? "" })),
 			);
 			expect(links).toEqual([{ text: "https://example.com/notes", href: "https://example.com/notes" }]);
+			// The renderer is the dialog's own: the page's globals stay the runtime's bodies, so a
+			// fragment cannot reach a helper the dialog happens to carry.
+			expect(await page.evaluate(() => typeof (globalThis as unknown as { renderInline?: unknown }).renderInline)).toBe(
+				"undefined",
+			);
 			// The refused target is still readable, as the text it was: no anchor was made for it.
 			expect(await page.textContent(text)).toContain("[x](javascript:alert(1))");
 			expect(await page.$$eval(`${text} [href^="javascript:"]`, (nodes) => nodes.length)).toBe(0);

@@ -8,21 +8,36 @@
  * it used to fill are gone from the document, and the only way a card changes is a tool.
  *
  * A note is the one field that is not a `textContent` write: its prose is Markdown, read by
- * the kit's one inline renderer (`lib/web/markdown.ts`, spliced into the bundle as
- * `INLINE_MARKDOWN_JS`), which appends text nodes and the four inline atoms and never parses
- * markup. Everything else here is set as text, like the rest of the page.
+ * the kit's one inline renderer (`lib/web/markdown.ts`), which appends text nodes and the
+ * four inline atoms and never parses markup. That renderer is spliced into this fragment
+ * rather than the bundle's top level — it is only ever read here, and inside this closure it
+ * resolves `el` to `board.el` instead of making the page's builder a `window` global.
+ * Everything else here is set as text, like the rest of the page.
  *
  * The one thing it must not do is leave a stale panel behind: a dialog the kit closed —
  * `Esc`, a backdrop click, its own close button — forgets `openId`, so the next frame
  * stops filling something nobody can see.
  */
 
-export const BOARD_DIALOG_JS = String.raw`(function () {
+/**
+ * The dialog fragment, with the inline Markdown renderer a note is read through spliced in.
+ *
+ * The source crosses the boundary as text, because `lib/web/markdown.ts` is JavaScript and a
+ * page's bundle has no import graph; `__INLINE_MARKDOWN__` is a rule a served script must
+ * never carry, and `pages.test` fails an unfilled one.
+ */
+export function dialogJs(rules: { inlineMarkdown: string }): string {
+	return dialogTemplate.replace("__INLINE_MARKDOWN__", rules.inlineMarkdown);
+}
+
+const dialogTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
   var chip = board.chip;
   var ago = board.ago;
+
+__INLINE_MARKDOWN__
 
   /** Fill the dialog's contents from a card, without opening or closing it. */
   function fillDialog(card, view) {
