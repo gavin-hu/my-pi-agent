@@ -21,7 +21,7 @@ import { writeConfigFile } from "../../../lib/config.ts";
 import type { PackageUpdate } from "./types.ts";
 import { parseVersion } from "./version.ts";
 
-/** The file name under `<agentDir>/bytefly/`. */
+/** The file name under `<agent-dir>/bytefly/`. */
 export const UPDATE_CACHE_FILE = "update.json";
 
 /** How long a cached snapshot is reused before the next session re-reads. */

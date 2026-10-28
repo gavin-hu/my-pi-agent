@@ -2,7 +2,7 @@
  * The board store: one directory of card files per repository, and the only code
  * that writes one.
  *
- * A board is a directory — `<agentDir>/board/<repo-key>/cards/0004.json` — so a
+ * A board is a directory — `<agent-dir>/board/<repo-key>/cards/0004.json` — so a
  * reader needs no index, no daemon, and no dependency; the listing *is* the
  * index. The key comes from `lib/repo-key.ts`, so every worktree of one repository
  * shares one board, and a directory outside git keys on itself.

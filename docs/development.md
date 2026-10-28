@@ -312,11 +312,13 @@ holds both directions, so a page cannot keep describing a file the tree has
 dropped, and cannot leave one out because it sits in a subdirectory.
 
 A module that keeps state under the agent directory names that location in its
-row, in the tree's one spelling — `<agent-dir>/<place>/`, with the project's own
-`.pi/` locations written the same way. The same test holds it: a module that
-reads `getAgentDir` is either a declared store, whose row must name the location
-and whose source must still spell it, or a declared reader with a reason, so a
-new store cannot ship without saying where it lives.
+row, in the tree's one spelling — `<agent-dir>/<place>/` — and a project's own
+location is written the same way, `<repo>/.pi/<place>/`, as the `agents.ts` row of
+[`./extensions/subagent.md`](./extensions/subagent.md) shows. The same test holds
+the first half: a module that reads `getAgentDir` is either a declared store,
+whose row must name the location and whose source must still spell it, or a
+declared reader with a reason, so a new store cannot ship without saying where it
+lives.
 
 A `## Testing` section names suites, so every backticked stem with a slash in it
 resolves to `extensions/<name>/<stem>.test.ts`, held by the same test: a stem

@@ -2,7 +2,7 @@
  * Agent definitions and discovery.
  *
  * Built-in agents ship with the extension. User agents are loaded from
- * `<agentDir>/agents` and project agents from the nearest
+ * `<agent-dir>/agents` and project agents from the nearest
  * `<CONFIG_DIR_NAME>/agents` (for example `.pi/agents`). Each external file is
  * markdown with YAML frontmatter (`name`, `description`, `tools`, `model`) and
  * the system prompt as the body.

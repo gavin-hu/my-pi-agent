@@ -93,7 +93,7 @@ export interface BotCredentials {
 	createdAt: number;
 }
 
-/** Persisted `<agentDir>/wechat/credentials.json`. */
+/** Persisted `<agent-dir>/wechat/credentials.json`. */
 export interface CredentialsFile {
 	accounts: Record<string, BotCredentials>;
 	/**
@@ -111,7 +111,7 @@ export interface PeerState {
 	lastSeen: number;
 }
 
-/** Persisted `<agentDir>/wechat/state.json`. */
+/** Persisted `<agent-dir>/wechat/state.json`. */
 export interface WechatState {
 	cursor: string;
 	ownerId?: string;

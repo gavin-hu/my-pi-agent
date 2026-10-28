@@ -388,7 +388,7 @@ it always meant: when the card was last touched, which is not when it last chang
 
 ## Design notes
 
-- **One JSON file per card**, in `<agentDir>/board/<repo-key>/cards/`, one per ended
+- **One JSON file per card**, in `<agent-dir>/board/<repo-key>/cards/`, one per ended
   card in `ended/`, and one per archived card in `archive/`. The listing is the index, so
   a reader needs no cache and no daemon.
 - **An id is never reused.** The next id is the highest in `cards/`, `archive/` *or*

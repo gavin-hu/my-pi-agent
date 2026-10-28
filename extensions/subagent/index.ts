@@ -8,7 +8,7 @@
  * output).
  *
  * Agents are the built-ins in `agents.ts` plus optional user agents loaded from
- * `<agentDir>/agents` and project agents from the nearest `.pi/agents`; the
+ * `<agent-dir>/agents` and project agents from the nearest `.pi/agents`; the
  * `agentScope` parameter decides which external directories are consulted.
  * Subagents inherit the dispatching session's model and thinking level.
  *
