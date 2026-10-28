@@ -624,6 +624,32 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("keeps a 24px target and a whole lane switch on a phone", async () => {
+		const page = await openPage();
+		// The fold control is the head's only action, and the height a pointer aims at is the box.
+		const toggle = await (await page.$("#lane-head-plan"))?.boundingBox();
+		expect(Math.round(toggle?.height ?? 0)).toBeGreaterThanOrEqual(24);
+
+		// A finished card's id opens its record from the Team tab's strip.
+		await page.keyboard.press("t");
+		const doneId = await (await page.$(".board-team__id"))?.boundingBox();
+		expect(Math.round(doneId?.height ?? 0)).toBeGreaterThanOrEqual(24);
+
+		// 320px: the five lane buttons wrap, so none of them — least of all the pressed one — is
+		// out of reach without a sideways scroll nobody can see.
+		await page.keyboard.press("t");
+		await page.setViewportSize({ width: 320, height: 720 });
+		await page.waitForTimeout(200);
+		const picker = await page.evaluate(() => {
+			const box = (
+				globalThis as unknown as { document: { getElementById(id: string): ElementLike | null } }
+			).document.getElementById("board-picker");
+			return { scrollWidth: box?.scrollWidth ?? 0, clientWidth: box?.clientWidth ?? 0 };
+		});
+		expect(picker.scrollWidth).toBeLessThanOrEqual(picker.clientWidth + 1);
+		await page.close();
+	});
+
 	test("says an offer nobody took, in the words the queue uses", async () => {
 		// The offer is `team`'s verb; what the page owes a lead is the age, because that is
 		// the difference between nobody having looked and nobody taking it.

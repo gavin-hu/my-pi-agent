@@ -40,6 +40,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a lane head's fold control and a finished card's id are 24px targets, the empty
+  word and a note's age clear AA on the light theme, and the narrow lane switch wraps at
+  420px instead of scrolling the pressed lane out of sight.
 - `board`: a filter that matches nothing says so once — "No card matches “x”" with a
   `Clear filter` button — instead of leaving five trays of "no match" over an empty page. The
   button is a view action, not a card write: it clears the field and puts the reader back in

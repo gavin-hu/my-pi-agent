@@ -75,7 +75,9 @@ ${WEB_COMPONENTS_CSS}
    the same thing: there is nothing here to read. */
 .board-lane[data-empty="true"],.board-lane[data-folded="true"]{flex:0 0 8.5rem}
 .board-lane__head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:var(--space-2);margin:0 calc(-1 * var(--space-2)) var(--space-1);padding:var(--space-2) var(--space-2);background:var(--surface);border-bottom:1px solid var(--border);border-radius:var(--radius-lg) var(--radius-lg) 0 0;font:var(--fw-semibold) var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.board-lane__toggle{appearance:none;display:flex;align-items:center;gap:var(--space-2);border:0;background:none;padding:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer}
+/* The fold control is the only thing in the head that acts, and a 16px line is a poor target:
+   the padding gives it 24px without growing the row it sits in. */
+.board-lane__toggle{appearance:none;display:flex;align-items:center;gap:var(--space-2);border:0;background:none;padding:4px 0;margin:-4px 0;min-height:24px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer}
 .board-lane__toggle:hover{color:var(--accent)}
 .board-lane__toggle::after{content:"▾";margin-left:2px;font-size:var(--fs-sm);color:var(--muted)}
 .board-lane__toggle:hover::after{color:var(--accent)}
@@ -84,7 +86,7 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 ${LANE_ROLE_CSS}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
-.board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
+.board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted)}
 
 /* A card: the title, then the facts a reader needs to act on it. Its lane says
    which state it is in, so the card itself carries no second colour bar. */
@@ -168,7 +170,7 @@ ${LANE_ROLE_CSS}
 .board-team__done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
 /* An id in the Done strip is a button, so it wears the only affordance it has: a
    dotted line, visible before the pointer arrives. */
-.board-team__id{appearance:none;border:0;background:none;padding:0;margin:0;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
+.board-team__id{appearance:none;border:0;background:none;padding:5px 8px;margin:-5px -8px;min-height:24px;cursor:pointer;font:var(--fs-sm) var(--font-mono);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
 .board-team__id:hover{color:var(--accent);text-decoration:underline}
 
 /* The card dialog: the record of one card, in two named sections. Nothing here scrolls on
@@ -209,7 +211,7 @@ ${LANE_ROLE_CSS}
 /* Who and when is the footnote of the note above it. */
 .board-dialog__note-foot{display:flex;align-items:baseline;gap:var(--space-2);margin:0;max-width:68ch}
 .board-dialog__note-by{font:var(--fw-medium) var(--fs-xs) var(--font-ui);color:var(--muted)}
-.board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
+.board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 
@@ -236,6 +238,13 @@ ${LANE_ROLE_CSS}
   .board-controls{width:100%;justify-content:flex-start}
   .board-filter{order:9;width:100%}
   .board-team__foot{flex-wrap:wrap}
+}
+/* Five lane names do not fit a phone: the strip becomes wrapped pills rather than a
+   horizontal scroller that can hide the lane a reader is on. */
+@media (max-width:420px){
+  .board-picker{flex-wrap:wrap;border:0;background:none;gap:var(--space-1)}
+  .board-picker .bf-segmented__item{border:1px solid var(--border);border-radius:var(--radius-pill);padding:5px 10px}
+  .board-picker .bf-segmented__item[aria-pressed="true"]{border-color:var(--accent)}
 }
 @media (prefers-reduced-motion: reduce){
   .board-card,.board-team__decision{transition:none}

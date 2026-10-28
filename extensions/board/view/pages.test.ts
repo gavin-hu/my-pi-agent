@@ -192,6 +192,25 @@ describe("the document", () => {
 		expect(BOARD_CSS).toContain(".board-dialog__value{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}");
 	});
 
+	test("keeps its own text above AA and its targets at 24px", () => {
+		// `--dim` is held at 3:1 by the kit's contract, which is a gutter's threshold, not a
+		// sentence's: the empty word and a note's age are body text, so they read `--muted`.
+		expect(BOARD_CSS).toContain(".board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted)}");
+		expect(BOARD_CSS).toContain(".board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--muted)}");
+		// The fold control and a finished card's id are the two targets a row makes small.
+		expect(BOARD_CSS).toContain("min-height:24px");
+		expect(BOARD_CSS).toContain(
+			".board-team__id{appearance:none;border:0;background:none;padding:5px 8px;margin:-5px -8px;min-height:24px",
+		);
+	});
+
+	test("wraps the lane switch on a phone instead of hiding a lane", () => {
+		// Five labels do not fit 320px; a horizontal strip would clip the lane a reader is on, so
+		// the narrowest layout wraps the same buttons as pills.
+		expect(BOARD_CSS).toContain("@media (max-width:420px){");
+		expect(BOARD_CSS).toContain(".board-picker{flex-wrap:wrap;border:0;background:none;gap:var(--space-1)}");
+	});
+
 	test("wears its priority as a filed chip and its paths as code", () => {
 		// A priority is a field a card carries, so it wears the kit's quiet pill rather than the
 		// same muted text as its age; a path hint is something a reader types, so it is mono.
