@@ -3,9 +3,20 @@ node_modules/
 # Pi runtime state: session settings, plans, memory, and the managed worktrees.
 .pi/
 
-# OS scratch
+# Secrets kept locally; `.worktreeinclude` is how one crosses into a worktree.
+.env
+.env.*
+!.env.example
+
+# OS and editor scratch
 .DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
 
 # Build and packaging leftovers
 *.log
 *.tgz
+*.orig
+*.rej
