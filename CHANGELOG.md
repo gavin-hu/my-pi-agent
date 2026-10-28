@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a lane of finished cards stops widening at three. Five of them used to take half the
+  row while the one card still being worked sat on its floor and elided its own title.
+- `board`: two path hints on one card are set a gap apart rather than four pixels, so two mono
+  paths no longer read as one path that wrapped.
+- `board`: a lane's head pins to the pane's own top edge. The gutter sat on the pane, and a sticky
+  head pins below a scroll box's padding, so a scrolled card showed a strip of itself above it.
 - `board`: a card's age says what it is on the hover (`updated 2d ago`) and keeps that honest as
   it ticks, and the key sheet carries a line saying a card dialog keeps `/`, `t`, and `?` for
   itself — the kit's sheet takes an optional note for a rule that is not a key.

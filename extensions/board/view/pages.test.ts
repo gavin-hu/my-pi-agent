@@ -218,6 +218,11 @@ describe("the document", () => {
 		// same muted text as its age; a path hint is something a reader types, so it is mono.
 		expect(BOARD_CLIENT_JS).toContain('chip(card.priority, "outline")');
 		expect(BOARD_CSS).toContain(".board-card__paths .bf-chip{font-family:var(--font-mono)}");
+		// Two mono paths four pixels apart read as one path that wrapped, so the list keeps the
+		// dialog's taller column gap: the separation is the only thing saying where one ends.
+		expect(BOARD_CSS).toContain(
+			".board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none}",
+		);
 	});
 
 	test("keeps a card's text inside its border", () => {
@@ -342,6 +347,26 @@ describe("the client bundle", () => {
 		// reader is reading.
 		expect(BOARD_CLIENT_JS).toContain('setAttribute("data-empty", lane.cards.length === 0');
 		expect(BOARD_CLIENT_JS).toContain('section.setAttribute("data-folded"');
+	});
+
+	test("sizes a lane by the work it holds, except finished work", () => {
+		// Two cards earn more width than one, and history is the exception: five done cards used
+		// to take half the row while the one card still being worked sat on its floor and
+		// elided its own title. A fold decides how much finished work is drawn; this decides
+		// how much row it may take while it is drawn.
+		expect(BOARD_CSS).toContain("flex-grow:calc(1 + var(--lane-count))");
+		expect(BOARD_CSS).toContain('.board-lane[data-lane="done"]{flex-grow:calc(1 + min(3, var(--lane-count)))}');
+	});
+
+	test("pins a lane head to the pane's own edge", () => {
+		// A sticky head pins to the scroll box's padding edge, so a gutter left on the pane is a
+		// 20px strip along the top where the card above scrolls through unheaded. The gutter is
+		// the panel's, which scrolls with the lanes.
+		expect(BOARD_CSS).toContain(".board-main{flex:1 1 auto;padding-top:0}");
+		expect(BOARD_CSS).toContain(
+			".board-panel{display:flex;flex-direction:column;min-width:0;padding-top:var(--space-5)}",
+		);
+		expect(BOARD_CSS).toContain(".board-lane__head{position:sticky;top:0");
 	});
 
 	test("says why in one voice, and lets the reason carry it", () => {
