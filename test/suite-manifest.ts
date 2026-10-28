@@ -39,6 +39,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	],
 	board: [
 		"input",
+		"result",
 		"seat",
 		"tools",
 		"page",
@@ -102,6 +103,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 };
 
 export const LIB_SUITES: readonly string[] = [
+	"board/actions",
 	"board/card",
 	"board/contract",
 	"board/lanes",
@@ -116,7 +118,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/session",
 	"board/skipped",
 	"board/store",
-	"board/actions",
+	"board/tone",
 	"board/view",
 	"bus-request",
 	"core",

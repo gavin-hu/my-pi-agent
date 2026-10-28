@@ -13,6 +13,7 @@
  */
 
 import { LANE_RULES, LANES } from "../../../lib/board/lanes.ts";
+import { BOARD_TONES } from "../../../lib/board/tone.ts";
 import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
 
 /**
@@ -29,6 +30,33 @@ const LANE_ROLE_CSS = LANES.flatMap((lane) => {
 		`.board-dialog__state[data-lane="${lane}"]::before{background:var(--${role})}`,
 	];
 }).join("\n");
+
+/**
+ * A reason line's colour, one rule per tone the tone table names.
+ *
+ * The card face picks a tone from the reason's kind; it never picks a class named after the
+ * kind, so a card owing a spot-check is not drawn with a rule that says "unplanned".
+ */
+const REASON_TONE_CSS = BOARD_TONES.map((tone) => `.board-card__reason--${tone}{color:var(--${tone})}`).join("\n");
+
+/**
+ * A decision row's edge, one rule per tone the table names.
+ *
+ * Generated from the same table the terminal reads, so `gone` — ranked above `idle` — wears
+ * the refusal colour by being classified, not by a rule somebody remembered to add.
+ */
+const DECISION_TONE_CSS = BOARD_TONES.map(
+	(tone) => `.board-team__decision[data-tone="${tone}"]{border-left-color:var(--${tone})}`,
+).join("\n");
+
+/**
+ * The one tone whose sentence is coloured too.
+ *
+ * A danger row is a refusal or a loss, and that is the row's whole point; a warn row is
+ * somebody to ask, and colouring its sentence as well would spend the reader's attention on
+ * the words rather than on the edge that says "look here".
+ */
+const DECISION_WHY_CSS = `.board-team__decision[data-tone="danger"] .board-team__why{color:var(--danger)}`;
 
 /** The shared shell, the components, and the board's own layout. */
 export const BOARD_CSS = `${WEB_BASE_CSS}
@@ -91,6 +119,8 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__count{font-variant-numeric:tabular-nums;color:var(--muted);background:var(--canvas);border-radius:var(--radius-pill);padding:0 var(--space-2);font-size:var(--fs-xs);letter-spacing:0}
 .board-lane__dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
 ${LANE_ROLE_CSS}
+${DECISION_TONE_CSS}
+${DECISION_WHY_CSS}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted)}
 
@@ -121,8 +151,12 @@ ${LANE_ROLE_CSS}
 /* A path is something a reader types, so it wears the mono face the dialog's ladder uses. */
 .board-card__paths .bf-chip{font-family:var(--font-mono)}
 .board-card__reason{margin:0;font:var(--fs-sm)/var(--lh-snug) var(--font-ui);color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.board-card__reason--blocked{color:var(--danger)}
-.board-card__reason--unplanned{color:var(--warn)}
+/* The tone rules come *after* the base rule, and that is load-bearing: a tone class is one
+   class and so is the base, so the later of two equal selectors wins. Generated before it,
+   every tone was inert and a blocked card's reason drew muted — the one thing this table
+   exists to stop. The pages suite pins the order, not just the rule's presence. */
+${REASON_TONE_CSS}
+
 /* The other side of a link: what leaving this card undone holds up. It is a cost and not a
    verdict, so it stays in the card's own voice: warn already means "a reader has to decide",
    and a card can hold others up while nothing about it needs deciding. */
@@ -155,9 +189,7 @@ ${LANE_ROLE_CSS}
 }
 .board-team__decision{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"open foot" "why why";align-items:center;gap:var(--space-1) var(--space-3);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
 .board-team__decision:hover{border-color:var(--border-strong);transform:translateY(-1px)}
-.board-team__decision[data-kind="blocked"]{border-left-color:var(--danger)}
-.board-team__decision[data-kind="idle"]{border-left-color:var(--warn)}
-.board-team__decision[data-kind="approval"]{border-left-color:var(--warn)}
+/* The edge's colour comes from the row's tone, spliced below from the board's tone table. */
 /* Nobody holds it, so the edge is drawn but not filled: a shape, not a claim. */
 .board-team__decision[data-kind="unassigned"]{border-left-style:dashed}
 .board-team__open{grid-area:open;display:flex;align-items:baseline;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;text-align:left;cursor:pointer;color:var(--text);font:var(--fw-medium) var(--fs-md) var(--font-ui);min-width:0}
@@ -166,7 +198,6 @@ ${LANE_ROLE_CSS}
 .board-team__title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 /* Two lines, then a tooltip: the "why" is the reason the row is on this tab. */
 .board-team__why{grid-area:why;margin:0;color:var(--muted);font:var(--fs-sm)/var(--lh-snug) var(--font-ui);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-.board-team__why--blocked{color:var(--danger)}
 .board-team__foot{grid-area:foot;display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)}
 /* A row with no owner chip still puts its one action on the row's edge. */
 .board-team__foot>.bf-btn:only-child{margin-left:auto}

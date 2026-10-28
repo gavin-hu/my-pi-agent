@@ -22,7 +22,11 @@ export const LANES = ["backlog", "plan", "execute", "blocked", "done"] as const;
 /** One lane a card can sit in. */
 export type Lane = (typeof LANES)[number];
 
-/** The colours a lane may wear, as the roles `lib/tui` and the page's kit both name. */
+/**
+ * The colours a lane may wear: the page's kit names them as properties, and
+ * `extensions/board/tone.ts` bridges them to the terminal's own roles — the two
+ * vocabularies are not shared, which is what that bridge exists for.
+ */
 export type LaneRole = "muted" | "warn" | "accent" | "danger" | "success";
 
 /** What one lane means, in the words every surface uses. */

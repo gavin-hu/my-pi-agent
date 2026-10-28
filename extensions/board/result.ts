@@ -9,17 +9,19 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef } from "../../lib/board/card.ts";
+import { LANE_RULES } from "../../lib/board/lanes.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import type { TailResultInput, TailSection } from "../../lib/tui/tool.ts";
+import type { TailResultInput, TailSection, TailRowLine } from "../../lib/tui/tool.ts";
 import { plural } from "../../lib/board/round-text.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { boardRowLine } from "./rows.ts";
+import { boardRowLineFor } from "./rows.ts";
+import { TONE_ROLE } from "./tone.ts";
 import type { BoardDetails } from "./types.ts";
 
-/** One section of the expanded block. */
-function section(label: string | undefined, cards: readonly Card[]): TailSection<Card> {
-	return { label, rows: cards, more: 0, rowLine: boardRowLine };
+/** One section of the expanded block, drawn as the session that asked for it. */
+function section(label: string | undefined, cards: readonly Card[], rowLine: TailRowLine<Card>): TailSection<Card> {
+	return { label, rows: cards, more: 0, rowLine };
 }
 
 /**
@@ -32,19 +34,22 @@ function section(label: string | undefined, cards: readonly Card[]): TailSection
  */
 export function resultInput(details: BoardDetails): TailResultInput<Card> | undefined {
 	if (details.action !== "list") return undefined;
-	if (details.card) return { kind: "list", rows: [details.card], more: 0, rowLine: boardRowLine };
+	// Only a read narrowed to this session's own cards marks them, and it marks them with
+	// the rule the filter used: the rows and the filter agree about what "mine" means.
+	const rowLine = boardRowLineFor(details.mine === true ? details.me : undefined);
+	if (details.card) return { kind: "list", rows: [details.card], more: 0, rowLine };
 	const round = details.round;
 	if (!round) {
 		const cards = details.cards ?? [];
-		return cards.length === 0 ? undefined : { kind: "list", rows: cards, more: 0, rowLine: boardRowLine };
+		return cards.length === 0 ? undefined : { kind: "list", rows: cards, more: 0, rowLine };
 	}
 	const sections: TailSection<Card>[] = [];
-	for (const group of round.owners) sections.push(section(group.label, group.cards));
-	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned));
-	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned));
-	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked));
-	if (round.idle.length > 0) sections.push(section("Idle", round.idle));
-	if (round.done.length > 0) sections.push(section("Done", round.done));
+	for (const group of round.owners) sections.push(section(group.label, group.cards, rowLine));
+	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned, rowLine));
+	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned, rowLine));
+	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked, rowLine));
+	if (round.idle.length > 0) sections.push(section("Idle", round.idle, rowLine));
+	if (round.done.length > 0) sections.push(section("Done", round.done, rowLine));
 	return sections.length === 0 ? undefined : { kind: "sections", sections };
 }
 
@@ -77,9 +82,15 @@ export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${plural(owners, "owner")} ${SEPARATORS.item} ${me}`;
 }
 
-/** `#4 execute · Billing webhook accepts orders`, clipped by the caller's row helper. */
+/**
+ * `#4 execute · Billing webhook accepts orders`, clipped by the caller's row helper.
+ *
+ * The lane wears the colour the page gives it — `LANE_RULES`' role, through the tone
+ * bridge — rather than one accent for all five.
+ */
 function cardLine(theme: Theme, card: Card): string {
 	const id = paint(theme, "meta", cardRef(card.id));
-	const lane = paint(theme, "accent", card.lane);
-	return `${id} ${lane} ${SEPARATORS.item} ${paint(theme, "label", sanitizeLine(card.title))}`;
+	const lane = paint(theme, TONE_ROLE[LANE_RULES[card.lane].role], card.lane);
+	const title = paint(theme, "label", sanitizeLine(card.title));
+	return `${id} ${lane} ${SEPARATORS.item} ${title}`;
 }
