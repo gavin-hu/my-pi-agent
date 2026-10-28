@@ -27,7 +27,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: CARD_VERSION,
 		id,
 		title: `feature ${id}`,
-		lane: "todo",
+		lane: "backlog",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -39,8 +39,8 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 	};
 }
 
-/** A card somebody holds, which is the only way one leaves `todo`. */
-function held(id: string, lane: "doing" | "blocked" | "done" = "doing", overrides: Partial<Card> = {}): Card {
+/** A card somebody holds, which is the only way one leaves the pool. */
+function held(id: string, lane: "execute" | "blocked" | "done" = "execute", overrides: Partial<Card> = {}): Card {
 	return card(id, { lane, owner: { label: "billing-core" }, ...overrides });
 }
 
@@ -61,7 +61,7 @@ describe("lanesText", () => {
 	test("names each card with the lane that makes it a decision", () => {
 		const board = indexOf([held("2"), held("3", "blocked")]);
 		expect(lanesText(blockersOf(board.get("2") as Card, board))).toBe("");
-		expect(lanesText([board.get("3") as Card, board.get("2") as Card])).toBe("#3 (blocked), #2 (doing)");
+		expect(lanesText([board.get("3") as Card, board.get("2") as Card])).toBe("#3 (blocked), #2 (execute)");
 	});
 
 	test("says nothing for an empty list", () => {
@@ -72,12 +72,12 @@ describe("lanesText", () => {
 describe("waitingOn", () => {
 	test("says which card waits and what it waits on, lane and all", () => {
 		const board = indexOf([held("2"), card("4", { dependsOn: ["2"] })]);
-		expect(waitingOn(board.get("4") as Card, board)).toBe("#4 waits on #2 (doing).");
+		expect(waitingOn(board.get("4") as Card, board)).toBe("#4 waits on #2 (execute).");
 	});
 
 	test("lists every open blocker", () => {
 		const board = indexOf([card("1"), held("2"), card("4", { dependsOn: ["1", "2"] })]);
-		expect(waitingOn(board.get("4") as Card, board)).toBe("#4 waits on #1 (todo), #2 (doing).");
+		expect(waitingOn(board.get("4") as Card, board)).toBe("#4 waits on #1 (backlog), #2 (execute).");
 	});
 
 	test("says nothing once every dependency is done", () => {
@@ -116,7 +116,7 @@ describe("openDependentsOf", () => {
 		const board = indexOf([
 			card("1"),
 			card("5", { dependsOn: ["1"] }),
-			held("3", "doing", { dependsOn: ["1", "5"] }),
+			held("3", "execute", { dependsOn: ["1", "5"] }),
 			held("4", "done", { dependsOn: ["1"] }),
 		]);
 		// Open, in id order: #3 and #5, not the finished #4.

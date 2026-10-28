@@ -15,6 +15,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { type Card, signatureOf } from "./card.ts";
 import { type Actor, createCard } from "./rules.ts";
+import { advance } from "../../test/helpers/board-flow.ts";
 import { BOARD_DIR_NAME, boardDirFor, createStore, openBoard } from "./store.ts";
 
 const temps = makeTempTracker();
@@ -24,6 +25,9 @@ const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
 const CORE: Actor = { id: "s-core", label: "billing-core" };
 const OTHER: Actor = { id: "s-other", label: "billing-other" };
 const NOW = 10_000;
+
+/** The two sessions a seeded card needs: its owner, and the one who approves and reviews. */
+const SEED = { owner: CORE, reviewer: LEAD };
 
 /** A fresh store over a temp directory. */
 function scratchStore(): { dir: string; store: ReturnType<typeof createStore> } {
@@ -54,7 +58,7 @@ describe("create", () => {
 	test("writes a card this build's reader accepts, with the first note", async () => {
 		const { store } = scratchStore();
 		const card = await store.create({ title: "T", paths: ["src/billing"], note: "from the page" }, LEAD, NOW);
-		expect(card).toMatchObject({ lane: "todo", rev: 1, by: LEAD.label });
+		expect(card).toMatchObject({ lane: "backlog", rev: 1, by: LEAD.label });
 		expect(card.notes).toEqual([{ by: LEAD.label, at: NOW, text: "from the page" }]);
 		expect(await store.read(card.id)).toEqual(card);
 	});
@@ -90,16 +94,14 @@ describe("create", () => {
 describe("list and read", () => {
 	test("returns lane order, oldest first, with the id as the tie-break", async () => {
 		const { store } = scratchStore();
-		const todo = await store.create({ title: "todo", paths: [] }, LEAD, NOW);
-		const doing = await store.create({ title: "doing", paths: [] }, LEAD, NOW);
+		const todo = await store.create({ title: "backlog", paths: [] }, LEAD, NOW);
+		const doing = await store.create({ title: "execute", paths: [] }, LEAD, NOW);
 		const blocked = await store.create({ title: "blocked", paths: [] }, LEAD, NOW);
 		const done = await store.create({ title: "done", paths: [] }, LEAD, NOW);
-		await store.mutate(doing.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(blocked.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(blocked.id, { kind: "move", lane: "blocked" }, CORE, NOW);
-		await store.mutate(done.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(done.id, { kind: "move", lane: "done" }, CORE, NOW);
-		expect((await store.list()).map((card) => card.title)).toEqual(["todo", "doing", "blocked", "done"]);
+		await advance(store, doing.id, "execute", SEED, NOW);
+		await advance(store, blocked.id, "blocked", SEED, NOW);
+		await advance(store, done.id, "done", SEED, NOW);
+		expect((await store.list()).map((card) => card.title)).toEqual(["backlog", "execute", "blocked", "done"]);
 		expect((await store.list()).map((card) => card.id)).toEqual([todo.id, doing.id, blocked.id, done.id]);
 	});
 
@@ -110,8 +112,7 @@ describe("list and read", () => {
 		const ordinary = await store.create({ title: "ordinary", paths: [] }, LEAD, NOW);
 		// A done card stays history whatever its priority: the lane decides first.
 		const finished = await store.create({ title: "finished", paths: [], priority: "high" }, LEAD, NOW);
-		await store.mutate(finished.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(finished.id, { kind: "move", lane: "done" }, CORE, NOW);
+		await advance(store, finished.id, "done", SEED, NOW);
 		expect((await store.list()).map((card) => card.id)).toEqual([high.id, ordinary.id, low.id, finished.id]);
 	});
 
@@ -175,9 +176,9 @@ describe("list and read", () => {
 		await store.ensure();
 		const { lane, ...rest } = cardLike("7");
 		writeFileSync(join(dir, "cards", "0007.json"), JSON.stringify({ ...rest, status: lane }));
-		expect((await store.list()).map((card) => card.lane)).toEqual(["todo"]);
+		expect((await store.list()).map((card) => card.lane)).toEqual(["backlog"]);
 		await store.mutate("7", { kind: "note", text: "read me" }, LEAD, NOW);
-		expect(JSON.parse(readFileSync(join(dir, "cards", "0007.json"), "utf-8")).lane).toBe("todo");
+		expect(JSON.parse(readFileSync(join(dir, "cards", "0007.json"), "utf-8")).lane).toBe("backlog");
 	});
 
 	test("a padded id inside the record is a disagreement, not a card", async () => {
@@ -195,7 +196,7 @@ describe("mutate", () => {
 		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		const result = await store.mutate(card.id, { kind: "claim" }, CORE, NOW + 1);
 		if (!result.ok) throw new Error(result.error);
-		expect(result.card).toMatchObject({ lane: "doing", owner: { label: CORE.label }, rev: 2 });
+		expect(result.card).toMatchObject({ lane: "plan", owner: { label: CORE.label }, rev: 2 });
 		expect(result.dropped).toBe(false);
 		expect(await store.read(card.id)).toEqual(result.card);
 	});
@@ -232,10 +233,10 @@ describe("mutate", () => {
 		await first.mutate(card.id, { kind: "claim" }, CORE, NOW);
 		// …and the other session's "move done" is re-checked against that card rather
 		// than forced onto the copy it read.
-		const moved = await second.mutate(card.id, { kind: "move", lane: "done" }, OTHER, NOW);
+		const moved = await second.mutate(card.id, { kind: "move", lane: "blocked" }, OTHER, NOW);
 		if (moved.ok) throw new Error("expected the second session's move to be refused");
 		expect(moved.error).toBe("#1 is held by billing-core. Only its owner can move it.");
-		expect((await second.read(card.id))?.lane).toBe("doing");
+		expect((await second.read(card.id))?.lane).toBe("plan");
 	});
 
 	test("the owner's own later move is still applied", async () => {
@@ -245,7 +246,7 @@ describe("mutate", () => {
 		await first.ensure();
 		const card = await first.create({ title: "T", paths: [] }, LEAD, NOW);
 		await first.mutate(card.id, { kind: "claim" }, CORE, NOW);
-		const moved = await second.mutate(card.id, { kind: "move", lane: "blocked" }, CORE, NOW + 1);
+		const moved = await second.mutate(card.id, { kind: "move", lane: "blocked", blocker: "decision" }, CORE, NOW + 1);
 		if (!moved.ok) throw new Error(moved.error);
 		expect(moved.card).toMatchObject({ lane: "blocked", rev: 3 });
 	});
@@ -288,12 +289,11 @@ describe("mutate", () => {
 		);
 		const refused = await store.mutate(second.id, { kind: "claim" }, CORE, NOW);
 		if (refused.ok) throw new Error("expected the claim to be refused");
-		expect(refused.error).toBe(`#${second.id} waits on #${first.id} (todo).`);
-		await store.mutate(first.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(first.id, { kind: "move", lane: "done" }, CORE, NOW);
+		expect(refused.error).toBe(`#${second.id} waits on #${first.id} (backlog).`);
+		await advance(store, first.id, "done", SEED, NOW);
 		const claimed = await store.mutate(second.id, { kind: "claim" }, CORE, NOW);
 		if (!claimed.ok) throw new Error(claimed.error);
-		expect(claimed.card.lane).toBe("doing");
+		expect(claimed.card.lane).toBe("plan");
 	});
 
 	test("drop removes the file and its notes", async () => {
@@ -316,7 +316,7 @@ describe("mutate", () => {
 			v: 1,
 			id: "1",
 			title: "A card that ended",
-			lane: "todo",
+			lane: "backlog",
 			by: LEAD.label,
 			at: NOW + 5,
 			why: "dropped",
@@ -334,7 +334,7 @@ describe("mutate", () => {
 		await store.mutate(card.id, { kind: "claim" }, CORE, NOW);
 		await store.mutate(card.id, { kind: "drop" }, CORE, NOW);
 		const ended = JSON.parse(readFileSync(join(dir, "ended", "0001.json"), "utf-8"));
-		expect(ended.lane).toBe("doing");
+		expect(ended.lane).toBe("plan");
 		expect(ended.owner).toEqual({ id: CORE.id, label: CORE.label });
 	});
 });
@@ -343,9 +343,7 @@ describe("archive", () => {
 	/** A card that finished, which is the only kind the store will set aside. */
 	async function finished(store: ReturnType<typeof createStore>, title = "T"): Promise<string> {
 		const card = await store.create({ title, paths: [], note: "kept" }, LEAD, NOW);
-		await store.mutate(card.id, { kind: "claim" }, CORE, NOW);
-		const moved = await store.mutate(card.id, { kind: "move", lane: "done" }, CORE, NOW);
-		if (!moved.ok) throw new Error(moved.error);
+		await advance(store, card.id, "done", SEED, NOW);
 		return card.id;
 	}
 
@@ -394,7 +392,7 @@ describe("archive", () => {
 		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		const result = await store.mutate(card.id, { kind: "archive" }, LEAD, NOW);
 		if (result.ok) throw new Error("expected a refusal");
-		expect(result.error).toBe("#1 is in todo; only a finished card can be archived.");
+		expect(result.error).toBe("#1 is in backlog; only a finished card can be archived.");
 		expect(await store.list()).toHaveLength(1);
 	});
 
@@ -461,8 +459,7 @@ describe("bytes, where, and the signature", () => {
 		writeFileSync(join(dir, "cards", ".tmp-1-x"), "x".repeat(500));
 		expect(await store.bytes()).toBe(before);
 		// The page's size belongs to the cards it lists, so a card set aside lowers it.
-		await store.mutate("1", { kind: "claim" }, LEAD, NOW);
-		await store.mutate("1", { kind: "move", lane: "done" }, LEAD, NOW);
+		await advance(store, "1", "done", SEED, NOW);
 		await store.mutate("1", { kind: "archive" }, LEAD, NOW);
 		expect(await store.bytes()).toBe(0);
 	});

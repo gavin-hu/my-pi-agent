@@ -39,6 +39,19 @@ export function formatCount(count: number): string {
 }
 
 /**
+ * A list in a sentence: `a, b, or c`, or the same with `and`.
+ *
+ * One body, because a refusal that names the lanes a card may move to, one that names the
+ * fields a contract needs, and one that names the lanes a tool accepts are the same
+ * sentence, and a second copy drifts on the comma.
+ */
+export function listOf(entries: readonly string[], conjunction: "or" | "and" = "or"): string {
+	if (entries.length === 0) return "nothing";
+	if (entries.length === 1) return entries[0] ?? "nothing";
+	return `${entries.slice(0, -1).join(", ")}, ${conjunction} ${entries[entries.length - 1]}`;
+}
+
+/**
  * Compact duration: `450ms`, `3.2s`, `1m05s`, `2h03m`. Non-finite or
  * negative input reads `0ms`, so a missing timestamp never prints `NaN`.
  */

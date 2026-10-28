@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `board`: the flow is plan-then-execute now, in five lanes — `backlog`, `plan`, `execute`,
+  `blocked`, `done` — instead of `todo`, `doing`, `blocked`, `done`. A card is pulled from
+  `backlog` into `plan` by a claim, promises three lines (goal, acceptance, scope-out) and a
+  plan file, and may enter `execute` only once a session that does not hold it has approved
+  that contract (`approve`); it may be finished only once one has spot-checked the work
+  (`review`). A block records why it is one — `contract`, `dependency`, or `decision` — and
+  only a contract defect sends the card back to `plan`. `plan` and `execute` are held to a
+  WIP limit (`board.wip` in `bytefly.json`, three and five by default), so the refusal names
+  the count instead of the lane quietly filling up.
+  The tool is not backward compatible: `plan` is now `contract`, `status` is `lane`, and
+  `move` needs a `blocker` to block. A card file keeps reading, because `readCard` maps the
+  old `status` and `plan` field names on the way in; nothing on disk is rewritten until a
+  card is written again. The page shows the five lanes with their limit in the head, the
+  contract and its two signatures in the dialog, and a reason line from one rule shared with
+  the transcript.
+
 ## [0.21.0] - 2026-10-28
 
 ### Added

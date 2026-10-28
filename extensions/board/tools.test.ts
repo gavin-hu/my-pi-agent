@@ -11,6 +11,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { advance } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -72,6 +73,25 @@ function harness(options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin;
 	};
 }
 
+/** The session a harness writes as, and the reviewer a fixture uses for the gates. */
+const REVIEWER = { id: "s-reviewer", label: "reviewer" };
+
+/**
+ * Take a card to a lane through the gates, for a case that is not about the gates.
+ *
+ * The tool's own calls cannot do it: approving a contract and spot-checking work are refused
+ * to the session holding the card, so a fixture that reaches `done` needs a second one.
+ */
+async function seed(
+	board: { runtime: ReturnType<typeof harness>["runtime"]; ctx: ReturnType<typeof harness>["ctx"] },
+	id: string,
+	lane: "plan" | "execute" | "blocked" | "done",
+): Promise<void> {
+	const store = await board.runtime.store(board.ctx.cwd);
+	const me = board.runtime.who(board.ctx, board.ctx.cwd);
+	await advance(store, id, lane, { owner: me, reviewer: REVIEWER }, NOW);
+}
+
 /** The text the model reads. */
 function text(result: { content: Array<{ text: string }> }): string {
 	return result.content.map((block) => block.text).join("\n");
@@ -127,7 +147,7 @@ describe("a field the action does not act on", () => {
 			"add does not act on dependsOn, text: `edit` takes dependsOn; `note` takes text.",
 		);
 		// Two actions take this one, so the message has to name both and say "take".
-		const lane = await call({ action: "add", title: "x", lane: "doing" });
+		const lane = await call({ action: "add", title: "x", lane: "execute" });
 		expect(lane.details.error).toBe("add does not act on lane: `list` and `move` take it.");
 	});
 
@@ -146,7 +166,7 @@ describe("a field the action does not act on", () => {
 		const id = added.details.card?.id ?? "";
 		expect(text(await call({ action: "list", card: id }))).toContain("Retry the gateway");
 		expect(text(await call({ action: "claim", card: id }))).toContain("Retry the gateway");
-		expect(text(await call({ action: "move", card: id, lane: "doing" }))).toContain("doing");
+		expect(text(await call({ action: "move", card: id, lane: "blocked", blocker: "decision" }))).toContain("blocked");
 		// And a note is `add`'s, not `note`'s.
 		expect(text(await call({ action: "add", title: "Second", note: "from the thread" }))).toContain("Second");
 	});
@@ -193,9 +213,9 @@ describe("list", () => {
 		const later = await call({ action: "add", title: "Retry branches merge cleanly" });
 		expect(later.details.card?.id).toBe("2");
 		const result = await call({ action: "list" });
-		expect(result.details.cards?.map((card) => card.lane)).toEqual(["todo", "doing"]);
-		expect(text(result)).toContain("#2 todo · Retry branches merge cleanly · unassigned");
-		expect(text(result)).toContain(`#1 doing · Billing webhook accepts orders · ${LEAD}`);
+		expect(result.details.cards?.map((card) => card.lane)).toEqual(["backlog", "plan"]);
+		expect(text(result)).toContain("#2 backlog · Retry branches merge cleanly · unassigned");
+		expect(text(result)).toContain(`#1 plan · Billing webhook accepts orders · ${LEAD}`);
 	});
 
 	test("shows one card, however the id is written", async () => {
@@ -215,10 +235,10 @@ describe("list", () => {
 	});
 
 	test("names an owner who finished, with the count of what it finished", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "One" });
-		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", lane: "done" });
+		await seed(board, "1", "done");
 		const result = await call({ action: "list", round: true });
 		// The group survives its last card finishing, and the line says so plainly
 		// instead of leaving a bare "0" next to a teammate who did the work.
@@ -231,7 +251,7 @@ describe("list", () => {
 		await call({ action: "add", title: "One" });
 		await call({ action: "add", title: "Two" });
 		await call({ action: "claim", card: "2" });
-		const result = await call({ action: "list", lane: "doing" });
+		const result = await call({ action: "list", lane: "plan" });
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["2"]);
 	});
 
@@ -247,7 +267,7 @@ describe("list", () => {
 		expect((await lead.call({ action: "list", mine: true })).details.cards?.map((card) => card.id)).toEqual(["1"]);
 		// The same rule a claim is checked against: a lane filter narrows it, it does not
 		// widen it, and a session holding nothing gets an empty list rather than the board.
-		expect((await lead.call({ action: "list", mine: true, lane: "todo" })).details.cards).toEqual([]);
+		expect((await lead.call({ action: "list", mine: true, lane: "backlog" })).details.cards).toEqual([]);
 		const stranger = harness({ cwd, agentDir, sessionId: "s-other" });
 		expect((await stranger.call({ action: "list", mine: true })).details.cards).toEqual([]);
 	});
@@ -257,7 +277,14 @@ describe("list", () => {
 		await call({ action: "add", title: "Billing webhook", paths: ["src/billing"] });
 		await call({ action: "add", title: "Retry branches", paths: ["src/git"] });
 		await call({ action: "claim", card: "2" });
-		await call({ action: "plan", card: "2", path: "~/.pi/agent/plans/8872d3adda0e/retry-branches.md" });
+		await call({
+			action: "contract",
+			card: "2",
+			path: "~/.pi/agent/plans/8872d3adda0e/retry-branches.md",
+			goal: "g",
+			acceptance: "a",
+			scopeOut: "s",
+		});
 		await call({ action: "note", card: "1", text: "waiting on the gateway owner" });
 		const ids = async (query: string) => (await call({ action: "list", query })).details.cards?.map((card) => card.id);
 		expect(await ids("webhook")).toEqual(["1"]);
@@ -270,16 +297,16 @@ describe("list", () => {
 	});
 
 	test("leaves the finished cards out of a plain listing, and says how many", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "Open one" });
 		await call({ action: "add", title: "Finished one" });
-		await call({ action: "claim", card: "2" });
-		await call({ action: "move", card: "2", lane: "done" });
+		await seed(board, "2", "done");
 		const result = await call({ action: "list" });
 		// A finished card is history, not work: it is not in the rows, and the count is what
 		// stops the listing from reading as a one-card board.
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["1"]);
-		expect(text(result)).toContain("#1 todo · Open one");
+		expect(text(result)).toContain("#1 backlog · Open one");
 		expect(text(result)).not.toContain("Finished one");
 		expect(text(result)).toContain('1 done card hidden; pass lane: "done" to read it.');
 		// The escape is the lane that names it, and it lists nothing else.
@@ -290,10 +317,10 @@ describe("list", () => {
 	});
 
 	test("reads a board that is all finished as no open cards, and a query alone hides them", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "Finished one" });
-		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", lane: "done" });
+		await seed(board, "1", "done");
 		const all = await call({ action: "list" });
 		expect(text(all)).toBe('No open cards.\n1 done card hidden; pass lane: "done" to read it.');
 		// A query narrows the listing, it does not widen it past the lane rule: the card it
@@ -307,11 +334,11 @@ describe("list", () => {
 	});
 
 	test("the round still counts the finished cards a listing leaves out", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "Open one" });
 		await call({ action: "add", title: "Finished one" });
-		await call({ action: "claim", card: "2" });
-		await call({ action: "move", card: "2", lane: "done" });
+		await seed(board, "2", "done");
 		const result = await call({ action: "list", round: true });
 		expect(result.details.round?.done.map((card) => card.id)).toEqual(["2"]);
 		expect(text(result)).toContain("2 features");
@@ -322,7 +349,7 @@ describe("list", () => {
 		await call({ action: "add", title: "One" });
 		await call({ action: "add", title: "Two" });
 		await call({ action: "claim", card: "2" });
-		const result = await call({ action: "list", round: true, lane: "todo" });
+		const result = await call({ action: "list", round: true, lane: "backlog" });
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["1"]);
 		expect(result.details.round?.owners.map((group) => group.label)).toEqual([LEAD]);
 		expect(result.details.round?.unassigned.map((card) => card.id)).toEqual(["1"]);
@@ -341,7 +368,7 @@ describe("add", () => {
 			note: "from the lead",
 		});
 		expect(result.isError).toBeFalsy();
-		expect(result.details.card).toMatchObject({ id: "1", lane: "todo", paths: ["src/billing"] });
+		expect(result.details.card).toMatchObject({ id: "1", lane: "backlog", paths: ["src/billing"] });
 		expect(result.details.card?.notes).toHaveLength(1);
 		expect(result.details.me.label).toBe(LEAD);
 	});
@@ -359,7 +386,7 @@ describe("add", () => {
 		await call({ action: "add", title: "now", priority: "high" });
 		const result = await call({ action: "list" });
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["2", "1"]);
-		expect(text(result)).toContain("#2 todo · now · unassigned · high");
+		expect(text(result)).toContain("#2 backlog · now · unassigned · high");
 		expect(text(await call({ action: "add", title: "T", priority: "urgent" }))).toContain(
 			"priority must be one of high, normal, low.",
 		);
@@ -372,7 +399,7 @@ describe("claim, release, and move", () => {
 		await call({ action: "add", title: "One" });
 		const result = await call({ action: "claim", card: "1" });
 		expect(result.details.card).toMatchObject({
-			lane: "doing",
+			lane: "plan",
 			owner: { id: ctx.sessionManager.getSessionId(), label: LEAD },
 		});
 	});
@@ -390,12 +417,12 @@ describe("claim, release, and move", () => {
 		expect(result.details.card?.owner?.label).toBe(PEER);
 	});
 
-	test("release returns it to todo with no owner left", async () => {
+	test("release returns it to the pool with no owner left", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
 		const result = await call({ action: "release", card: "1" });
-		expect(result.details.card?.lane).toBe("todo");
+		expect(result.details.card?.lane).toBe("backlog");
 		expect(result.details.card?.owner).toBeUndefined();
 	});
 
@@ -403,19 +430,21 @@ describe("claim, release, and move", () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		expect((await call({ action: "move", card: "1", lane: "blocked" })).details.card?.lane).toBe("blocked");
-		expect(text(await call({ action: "move", card: "1", lane: "todo" }))).toContain("Use release");
+		expect((await call({ action: "move", card: "1", lane: "blocked", blocker: "decision" })).details.card?.lane).toBe(
+			"blocked",
+		);
+		expect(text(await call({ action: "move", card: "1", lane: "backlog" }))).toContain("release it instead");
 		expect(text(await call({ action: "move", card: "1" }))).toContain("move needs a target lane");
 	});
 
 	test("a finished card's line names the commit, and a blocked card's names its reason", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "Blocked one" });
 		await call({ action: "add", title: "Finished one" });
 		await call({ action: "claim", card: "1" });
-		await call({ action: "claim", card: "2" });
-		await call({ action: "move", card: "1", lane: "blocked", blockedBy: "legal has to sign" });
-		await call({ action: "move", card: "2", lane: "done" });
+		await call({ action: "move", card: "1", lane: "blocked", blocker: "decision", blockedBy: "legal has to sign" });
+		await seed(board, "2", "done");
 		const listing = text(await call({ action: "list" }));
 		expect(listing).toContain("blocked: legal has to sign");
 		// A plain listing leaves the finished card out, so its line is read from the lane
@@ -434,6 +463,7 @@ describe("claim, release, and move", () => {
 			action: "move",
 			card: "1",
 			lane: "blocked",
+			blocker: "decision",
 			blockedBy: "legal has to sign",
 		});
 		expect(blocked.details.card?.blockedBy).toBe("legal has to sign");
@@ -446,15 +476,20 @@ describe("claim, release, and move", () => {
 	test("a move to done records the commit it landed as, when the directory has one", async () => {
 		const cwd = temps.track(await makeRepo("pi-board-landed-"));
 		// A real repository: the board keys on it, and a move to done can ask git what closed it.
-		const { call } = harness({
+		const board = harness({
 			cwd,
 			exec: async (command: string, args: string[], options?: { cwd?: string }) => {
 				const result = await execP(command, args, { cwd: options?.cwd });
 				return { stdout: result.stdout, stderr: result.stderr, code: result.code };
 			},
 		});
+		const { call } = board;
 		await call({ action: "add", title: "One" });
-		await call({ action: "claim", card: "1" });
+		// The gates are not what this case is about, so a seed walks them; the move itself is
+		// still the tool's, because the commit it records is the tool's git read.
+		await seed(board, "1", "execute");
+		const store = await board.runtime.store(board.ctx.cwd);
+		await store.mutate("1", { kind: "review" }, REVIEWER, NOW);
 		const done = await call({ action: "move", card: "1", lane: "done" });
 		const commit = done.details.card?.landed?.commit ?? "";
 		expect(commit).toMatch(/^[0-9a-f]{7}$/);
@@ -463,9 +498,12 @@ describe("claim, release, and move", () => {
 	});
 
 	test("a move to done outside a repository finishes the card without a commit", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "One" });
-		await call({ action: "claim", card: "1" });
+		await seed(board, "1", "execute");
+		const store = await board.runtime.store(board.ctx.cwd);
+		await store.mutate("1", { kind: "review" }, REVIEWER, NOW);
 		const done = await call({ action: "move", card: "1", lane: "done" });
 		expect(done.details.card?.lane).toBe("done");
 		expect(done.details.card?.landed).toBeUndefined();
@@ -473,7 +511,7 @@ describe("claim, release, and move", () => {
 
 	test("every card action needs a card", async () => {
 		const { call } = harness();
-		for (const action of ["claim", "release", "reclaim", "move", "note", "plan", "drop"]) {
+		for (const action of ["claim", "release", "reclaim", "move", "note", "contract", "approve", "review", "drop"]) {
 			expect(text(await call({ action })), action).toContain("card is required");
 		}
 		expect(text(await call({ action: "edit", title: "T" }))).toContain("card is required");
@@ -488,7 +526,7 @@ describe("claim, release, and move", () => {
 		await peer.call({ action: "claim", card: "1" });
 		await peer.call({ action: "note", card: "1", text: "half done" });
 		const result = await lead.call({ action: "reclaim", card: "1" });
-		expect(result.details.card).toMatchObject({ lane: "todo", by: LEAD });
+		expect(result.details.card).toMatchObject({ lane: "backlog", by: LEAD });
 		expect(result.details.card?.owner).toBeUndefined();
 		expect(result.details.card?.notes.map((note) => note.text)).toEqual(["half done"]);
 	});
@@ -500,7 +538,7 @@ describe("edit and the links between cards", () => {
 		await call({ action: "add", title: "Billing webhok" });
 		const result = await call({ action: "edit", card: "1", title: "Billing webhook", paths: ["src/billing"] });
 		expect(result.details.card).toMatchObject({ title: "Billing webhook", paths: ["src/billing"] });
-		expect(text(result)).toContain("#1 todo · Billing webhook");
+		expect(text(result)).toContain("#1 backlog · Billing webhook");
 	});
 
 	test("refuses an edit with nothing to change, and one another session holds", async () => {
@@ -528,19 +566,24 @@ describe("edit and the links between cards", () => {
 		// The dependency is named; its lane is `list`'s to add, because the edit answer
 		// does not read the whole board.
 		expect(text(linked)).toContain("waits on: #1");
-		expect(text(await call({ action: "list", card: "2" }))).toContain("waits on: #1 (todo)");
+		expect(text(await call({ action: "list", card: "2" }))).toContain("waits on: #1 (backlog)");
 		// The blocker's own answer names what it holds up, which is the half a card cannot say
 		// about itself: it is the cost of leaving #1 undone.
-		expect(text(await call({ action: "list", card: "1" }))).toContain("waited on by 1 card: #2 (todo)");
+		expect(text(await call({ action: "list", card: "1" }))).toContain("waited on by 1 card: #2 (backlog)");
 		await call({ action: "add", title: "Third" });
 		await call({ action: "edit", card: "3", dependsOn: ["1"] });
-		expect(text(await call({ action: "list", card: "1" }))).toContain("waited on by 2 cards: #2 (todo), #3 (todo)");
+		expect(text(await call({ action: "list", card: "1" }))).toContain(
+			"waited on by 2 cards: #2 (backlog), #3 (backlog)",
+		);
 		const refused = await call({ action: "claim", card: "2" });
 		expect(refused.isError).toBe(true);
-		expect(text(refused)).toContain("#2 waits on #1 (todo).");
-		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", lane: "done" });
-		expect((await call({ action: "claim", card: "2" })).details.card?.lane).toBe("doing");
+		expect(text(refused)).toContain("#2 waits on #1 (backlog).");
+		const board = harness({ cwd: tempDir("pi-repo-") });
+		await board.call({ action: "add", title: "Retry branches" });
+		await board.call({ action: "add", title: "Billing webhook" });
+		await board.call({ action: "edit", card: "2", dependsOn: ["1"] });
+		await seed(board, "1", "done");
+		expect((await board.call({ action: "claim", card: "2" })).details.card?.lane).toBe("plan");
 	});
 
 	test("refuses a link to a card that is not there, to itself, and around a loop", async () => {
@@ -599,11 +642,90 @@ describe("note and plan", () => {
 		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
-		expect(text(await lead.call({ action: "plan", card: "1", path: "p.md" }))).toContain(
-			"Only its owner records a plan.",
+		expect(
+			text(await lead.call({ action: "contract", card: "1", path: "p.md", goal: "g", acceptance: "a", scopeOut: "s" })),
+		).toContain("Only its owner records a plan.");
+		const result = await peer.call({
+			action: "contract",
+			card: "1",
+			path: "~/.pi/agent/plans/k/one.md",
+			goal: "g",
+			acceptance: "a",
+			scopeOut: "s",
+		});
+		expect(result.details.card?.planPath).toBe("~/.pi/agent/plans/k/one.md");
+	});
+});
+
+describe("the flow: contract, approval, spot-check", () => {
+	test("writes the plan file and the three lines in one call", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		const result = await call({
+			action: "contract",
+			card: "1",
+			path: "plans/one.md",
+			goal: "An order is stored once",
+			acceptance: "A retry leaves one order",
+			scopeOut: "No refunds",
+		});
+		expect(result.isError).toBeFalsy();
+		expect(result.details.card?.contract).toEqual({
+			goal: "An order is stored once",
+			acceptance: "A retry leaves one order",
+			scopeOut: "No refunds",
+		});
+		expect(text(result)).toContain("plan: plans/one.md");
+		expect(text(result)).toContain("approved: nobody yet");
+	});
+
+	test("refuses a contract call that names nothing, and a line past its cap", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		expect(text(await call({ action: "contract", card: "1" }))).toBe(
+			"Error: contract needs a path, a goal, an acceptance, or a scopeOut.",
 		);
-		const result = await peer.call({ action: "plan", card: "1", path: "~/.pi/agent/plans/k/one.md" });
-		expect(result.details.card?.plan).toBe("~/.pi/agent/plans/k/one.md");
+		expect(text(await call({ action: "contract", card: "1", goal: "x".repeat(401) }))).toBe(
+			"Error: goal must be at most 400 characters.",
+		);
+	});
+
+	test("execute is refused until a session that does not hold the card approves", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await peer.call({ action: "contract", card: "1", goal: "g", acceptance: "a", scopeOut: "s" });
+		// The holder cannot approve its own wording, and the move is refused before it.
+		expect(text(await peer.call({ action: "approve", card: "1" }))).toContain(
+			"Its contract is approved by a session that does not hold it.",
+		);
+		expect(text(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain("is not approved yet");
+		const approved = await lead.call({ action: "approve", card: "1" });
+		expect(approved.details.card?.contract?.approved?.by).toBe(LEAD);
+		expect(text(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain("#1 execute");
+	});
+
+	test("done is refused until somebody else spot-checks the work", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		await peer.call({ action: "contract", card: "1", path: "p.md", goal: "g", acceptance: "a", scopeOut: "s" });
+		await lead.call({ action: "approve", card: "1" });
+		await peer.call({ action: "move", card: "1", lane: "execute" });
+		expect(text(await peer.call({ action: "review", card: "1" }))).toContain(
+			"A card is spot-checked by a session that does not hold it.",
+		);
+		expect(text(await peer.call({ action: "move", card: "1", lane: "done" }))).toContain("has no spot-check recorded");
+		await lead.call({ action: "review", card: "1" });
+		expect((await peer.call({ action: "move", card: "1", lane: "done" })).details.card?.lane).toBe("done");
 	});
 });
 
@@ -631,17 +753,12 @@ describe("drop", () => {
 });
 
 describe("archive", () => {
-	/** A finished card, which is the only kind the verb will take. */
-	async function finish(call: (args: Record<string, unknown>) => Promise<{ details: BoardDetails }>, id: string) {
-		await call({ action: "claim", card: id });
-		await call({ action: "move", card: id, lane: "done" });
-	}
-
 	test("sets a finished card aside and names the way to read it again", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "Finished one", note: "kept" });
 		await call({ action: "add", title: "Open one" });
-		await finish(call, "1");
+		await seed(board, "1", "done");
 		const result = await call({ action: "archive", card: "1" });
 		expect(result.details.archived).toEqual(["1"]);
 		expect(text(result)).toBe(
@@ -649,9 +766,9 @@ describe("archive", () => {
 		);
 		// The board no longer pays for it, and a listing that left it out says so rather
 		// than reading as history somebody deleted.
-		const board = await call({ action: "list" });
-		expect(board.details.cards?.map((card) => card.id)).toEqual(["2"]);
-		expect(text(board)).toContain("1 card is set aside in the archive; pass archived: true to read it.");
+		const listed = await call({ action: "list" });
+		expect(listed.details.cards?.map((card) => card.id)).toEqual(["2"]);
+		expect(text(listed)).toContain("1 card is set aside in the archive; pass archived: true to read it.");
 		// Gone and set aside are different answers.
 		const miss = await call({ action: "list", card: "1" });
 		expect(miss.isError).toBe(true);
@@ -694,8 +811,8 @@ describe("archive", () => {
 			};
 
 		for (const title of ["One", "Two", "Three"]) await call({ action: "add", title });
-		await finish(call, "1");
-		await finish(call, "2");
+		await seed({ runtime: board.runtime, ctx: board.ctx }, "1", "done");
+		await seed({ runtime: board.runtime, ctx: board.ctx }, "2", "done");
 		await call({ action: "claim", card: "3" });
 
 		const result = await call({ action: "archive" });
@@ -710,10 +827,11 @@ describe("archive", () => {
 	});
 
 	test("sets every finished card aside when no card is named", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		for (const title of ["One", "Two", "Three"]) await call({ action: "add", title });
-		await finish(call, "1");
-		await finish(call, "2");
+		await seed(board, "1", "done");
+		await seed(board, "2", "done");
 		await call({ action: "claim", card: "3" });
 		const result = await call({ action: "archive" });
 		expect(result.details.archived).toEqual(["1", "2"]);
@@ -725,20 +843,22 @@ describe("archive", () => {
 	});
 
 	test("refuses a card that has not finished, and one that is already aside", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "One" });
 		const refused = await call({ action: "archive", card: "1" });
 		expect(refused.isError).toBe(true);
-		expect(refused.details.error).toBe("#1 is in todo; only a finished card can be archived.");
-		await finish(call, "1");
+		expect(refused.details.error).toBe("#1 is in backlog; only a finished card can be archived.");
+		await seed(board, "1", "done");
 		await call({ action: "archive", card: "1" });
 		expect(text(await call({ action: "archive", card: "1" }))).toBe("#1 is already archived.");
 	});
 
 	test("keeps the id spent, so the next card takes a new one", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "One" });
-		await finish(call, "1");
+		await seed(board, "1", "done");
 		await call({ action: "archive", card: "1" });
 		const added = await call({ action: "add", title: "Two" });
 		expect(added.details.card?.id).toBe("2");
@@ -755,9 +875,10 @@ describe("archive", () => {
 	});
 
 	test("counts what it left aside under the rollup too, and reads one archived card by id", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "One" });
-		await finish(call, "1");
+		await seed(board, "1", "done");
 		await call({ action: "archive", card: "1" });
 		const round = await call({ action: "list", round: true });
 		expect(text(round)).toContain("0 features");
@@ -808,10 +929,11 @@ describe("the team", () => {
 
 	test("a refused claim wrote nothing, so it enlists nobody", async () => {
 		const { team, calls } = recordingTeam();
-		const { call } = harness({ team });
+		const board = harness({ team });
+		const { call } = board;
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", lane: "done" });
+		await seed(board, "1", "done");
 		// A done card cannot be claimed, so the refusal is not a second join.
 		const refused = await call({ action: "claim", card: "1" });
 		expect(refused.isError).toBe(true);

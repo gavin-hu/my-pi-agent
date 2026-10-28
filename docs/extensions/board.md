@@ -5,18 +5,26 @@ has **one** page that shows them: the session that starts it serves it under the
 `team-lead`, and every other session opens that same page instead of a second one. The
 page is a **view** — it cannot change a card — so what a browser shows and what the
 terminal holds cannot disagree. A card is one **feature**: its outcome, who holds it,
-where the work happens, the plan it is executing, how urgent it is, what it waits for,
-and the notes that explain how it got there.
+where the work happens, the contract it promises, the plan it is executed against, how
+urgent it is, what it waits for, and the notes that explain how it got there.
+
+A card moves through **five lanes**, and the flow is a pull one: `backlog` is the pool
+nobody holds, `plan` is where the contract is written and approved, `execute` is where the
+work happens, `blocked` is a card waiting on a person, and `done` is closed. Two gates are
+humans': a card cannot enter `execute` until a session that does not hold it has approved
+its contract, and cannot be finished until one has spot-checked the work. `plan` and
+`execute` are held to a WIP limit, so the board says "make room" instead of quietly
+accumulating work nobody is reviewing.
 
 The steps of the work are deliberately *not* on the board. They live in the
-owner's plan and in `todo`; the board answers who is doing what, and what needs a
+owner's plan and in `todo`; the board answers who is holding what, and what needs a
 decision.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the seat the page is served as, a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; four lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, path hints and a reason line, with no button on any of them" width="100%">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the seat the page is served as, a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; five lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, path hints and a reason line, with no button on any of them" width="100%">
 
-*`/board`: the four lanes, with the round one tab away and every card opened by its title.*
+*`/board`: the five lanes, with the round one tab away and every card opened by its title.*
 
-<img src="../../assets/screens/card-dialog.png" alt="The card dialog on one doing card: the id and title with the lane as a dot and a word, a head/value ladder reading owner, updated, in lane, last edited, plan and paths, each value on one line, then a Notes section whose sentences are attributed under them" width="100%">
+<img src="../../assets/screens/card-dialog.png" alt="The card dialog on one executing card: the id and title with the lane as a dot and a word, a head/value ladder reading owner, updated, in lane, last edited, plan, goal, acceptance, scope out, approved, reviewed and paths, each value on one line, then a Notes section whose sentences are attributed under them" width="100%">
 
 *The card dialog: the record of one card — a ladder of facts, then its notes at body size
 (`screenshot:board --dialog card`).*
@@ -25,23 +33,25 @@ decision.
 
 | Capability | How | What you get |
 |---|---|---|
-| A shared feature list for one repository | `board` action `list` | Every open card in lane order — `todo`, `doing`, `blocked` — or one card, or one lane; the `done` cards are left out with a count of how many, and `status: "done"` reads them |
-| The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned, unplanned, blocked, idle, and done |
-| Publish a feature | `board` action `add` | A `todo` card with path hints and a first note (one line, at most 1000 characters) |
-| Take a feature | `board` action `claim` | The card is `doing` and owned by this session |
-| Hand it back | `board` action `release` | The card is `todo` again, with no owner |
-| Change lane | `board` action `move` | Wherever the owner moves it: `doing`, `blocked`, `done` |
+| A shared feature list for one repository | `board` action `list` | Every open card in lane order — `backlog`, `plan`, `execute`, `blocked` — or one card, or one lane; the `done` cards are left out with a count of how many, and `lane: "done"` reads them |
+| The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned (the pool), unplanned (a contract still missing a line), awaiting approval, blocked, idle, and done |
+| Publish a feature | `board` action `add` | A `backlog` card with path hints and a first note (one line, at most 1000 characters) |
+| Take a feature | `board` action `claim` | The card is pulled into `plan` and owned by this session — or refused, naming the count, when `plan` is full |
+| Hand it back | `board` action `release` | The card is back in `backlog` with no owner; the contract and its approval stay, because the plan did not change |
+| Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; any change to a line drops the approval, because the sign named a wording |
+| Approve the contract | `board` action `approve` | A session that does not hold the card records that the wording is right; only then may the card enter `execute` |
+| Spot-check the work | `board` action `review` | A session that does not hold the card records that it looked at the finished work in `execute`; only then may the card be finished |
+| Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (contract approved) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (spot-checked, with a plan path), `blocked` back to `plan` (a contract defect) or `execute` |
 | Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped — one line, at most 1000 characters |
-| Record the plan | `board` action `plan` | The plan file the card is executing, so "unplanned" work is visible |
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
 | Say how urgent it is | `board` action `add` or `edit` with `priority` | `high` sorts first inside its lane, and the card says so |
-| Record what a card waits for | `board` action `edit` with `dependsOn` | An unfinished dependency refuses a claim and a move to `doing` or `done`, and the reason line names it; the card it waits on answers the other half — `list` on it names the cards waiting on it, and its dialog row `waited on by` says the same |
-| Hand a card to a teammate | `team` action `assign` | The owner is recorded **and** a handoff is sent to that session's inbox. The page cannot do this: a browser has no way to message a peer, so a page assignment that recorded an owner and told nobody is gone with the write path |
-| Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to To do, without the page and without `team` |
+| Record what a card waits for | `board` action `edit` with `dependsOn` | An unfinished dependency refuses a claim and a move to `execute` or `done`, and the reason line names it; the card it waits on answers the other half — `list` on it names the cards waiting on it, and its dialog row `waited on by` says the same |
+| Hand a card to a teammate | `team` action `assign` | The owner is recorded **and** a handoff is sent to that session's inbox; a pool card comes with `plan`, a held card keeps the lane it earned. The page cannot do this: a browser has no way to message a peer, so a page assignment that recorded an owner and told nobody is gone with the write path |
+| Take a card back from the tool | `board` action `reclaim` | The owner clears and the card returns to `backlog`, without the page and without `team` |
 | Find a card without reading every lane | `board` action `list` with `query` | The cards whose title, holder, path hint, plan, or note text matches — the same rule the page's filter uses, from one body (`MATCHES_QUERY_JS`) |
 | See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
-| Set a finished card aside | `board` action `archive` | A `done` card's file moves into an `archive/` pile beside the board with its notes, plan, owner, and landed commit still readable, and the board stops reading it: the card named by `card`, or every finished card when none is named. It is a decision a person makes, never a threshold in the background, and nothing un-archives |
-| Delete a card | `board` action `drop` | The card and its notes are gone, and its id is spent: a record of the title, the lane, who ended it, and when stays in `ended/`, so a note or a handoff that names that id cannot come to mean a different feature. A `todo` or `done` card is anyone's to drop, an archived one included, one in flight only its holder's, and one that a card waits on cannot leave at all |
+| Set a finished card aside | `board` action `archive` | A `done` card's file moves into an `archive/` pile beside the board with its notes, plan, contract, owner, and landed commit still readable, and the board stops reading it: the card named by `card`, or every finished card when none is named. It is a decision a person makes, never a threshold in the background, and nothing un-archives |
+| Delete a card | `board` action `drop` | The card and its notes are gone, and its id is spent: a record of the title, the lane, who ended it, and when stays in `ended/`, so a note or a handoff that names that id cannot come to mean a different feature. A `backlog` or `done` card is anyone's to drop, an archived one included, one in `plan`, `execute`, or `blocked` only its holder's, and one that a card waits on cannot leave at all |
 | One page per repository | `/board` | Serves a loopback page as `team-lead` with a **Board** and a **Team** tab, following the store live; a page already served is opened instead |
 | Watch somebody else's page | `/board` on a session that is not serving | The same page, because there is one: every page is a read view, so a second session gets exactly what the first one sees instead of a writable rival. It joins the team under its own name, so a handoff can still reach it |
 | Read a board at its real size | the `Done` fold, an empty lane's rail | `Done` starts folded at six cards or more, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, so the lanes carrying work keep the width |
@@ -57,12 +67,16 @@ you:  publish two features for the billing work
       → board add "Billing webhook accepts orders" paths ["src/billing"]
       → board add "Retry branches merge cleanly"
 lead: board edit 2 dependsOn ["1"] priority "high"
-      → #2 waits on #1 (todo), and sorts first in To do
-peer: claim the first, plan it, note the phases, finish it
-      → board claim 1 → /plan → board plan 1 <plan file> → board note 1 … → board move 1 done
+      → #2 waits on #1 (backlog), and sorts first in Backlog
+peer: pull the first, write its contract, hand it to the lead to read
+      → board claim 1 → /plan → board contract 1 path <plan file> goal … acceptance … scopeOut …
+      → board move 1 execute  — refused: the contract is not approved yet
+lead: board approve 1
+peer: board move 1 execute → board note 1 … → board review is the lead's:
+lead: board review 1 → peer: board move 1 done
       → board claim 2 — refused while #1 is unfinished, allowed once it is done
 lead: board list round: true
-      → 1 owner · 2 features · 0 unassigned · 1 unplanned
+      → 1 owner · 2 features · 0 unassigned · 0 unplanned · 0 awaiting approval
 ```
 
 ## Commands
@@ -115,14 +129,16 @@ terminal.
 
 | Action | Parameters | Result |
 |---|---|---|
-| `list` | `status?`, `mine?`, `card?`, `query?`, `round?`, `archived?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work; `round: true` adds the rollup, which always covers the whole board; `archived: true` reads the archive instead of the board, with `query` and `mine` narrowing it and `status`/`round` refused |
-| `add` | `title`, `paths?`, `priority?`, `note?` | the new `todo` card |
-| `claim` | `card` | the card, now `doing` and owned by this session |
-| `release` | `card` | the card, back in `todo`, keeping any block it recorded |
-| `reclaim` | `card` | the card, back in `todo`, whoever held it |
-| `move` | `card`, `status`, `blockedBy?` | the card in its new lane; `blockedBy` (one line, ≤200 characters) is what a block waits on, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
+| `list` | `lane?`, `mine?`, `card?`, `query?`, `round?`, `archived?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work; `round: true` adds the rollup, which always covers the whole board; `archived: true` reads the archive instead of the board, with `query` and `mine` narrowing it and `lane`/`round` refused |
+| `add` | `title`, `paths?`, `priority?`, `note?` | the new `backlog` card |
+| `claim` | `card` | the card, pulled into `plan` and owned by this session — refused, naming the count, when `plan` is at its limit |
+| `release` | `card` | the card, back in `backlog` with no owner; the contract and its approval stay |
+| `reclaim` | `card` | the card, back in `backlog`, whoever held it |
+| `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked`, `blockedBy` (one line, ≤200 characters) is what it waits on, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
 | `note` | `card`, `text` | the card with the note appended |
-| `plan` | `card`, `path` | the card with its plan recorded |
+| `contract` | `card`, `path?`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line is an unapproved one |
+| `approve` | `card` | the card with its contract approved, by a session that does not hold it — the gate in front of `execute` |
+| `review` | `card` | the card with a spot-check recorded, by a session that does not hold it — the gate in front of `done` |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
 | `archive` | `card?` | the ids set aside — one finished card, or every finished card when no card is named; a card still in flight is refused |
 | `drop` | `card` | the id that was dropped, whose number is now spent |
@@ -187,29 +203,30 @@ reason: a store key is a hash, and no reader can say it out loud.
 | Band | What it holds |
 |---|---|
 | Toolbar | the mark, the seat the page is served as, as a chip, a live badge (`connecting…`, `live` or `live · 3m`, `reconnecting…`), then one group: the Board\|Team switch, done-of-total progress, a filter, the keys button, and the theme toggle |
-| Lanes | trays, not a bare list: one column per lane, sized by the work it holds — a lane with two cards is wider than one with a single card, and a lane showing nothing, because it holds no cards or because it is folded, narrows to a rail of dot, word, and count — so the lanes carrying work keep the width. Three or four across above 1180px, two at 1180px or narrower, one lane plus the lane switch at 860px or narrower — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill, and folds its cards away: `Done` starts folded at six cards or more, since finished work is history, and a reader's toggle decides from then on |
-| Cards | the id and a two-line title (the page's loudest text and its only door), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, and one reason line in one voice — what a card waits for, a blocked card's recorded reason or else its last note (or `blocked, with nothing recorded`), `no plan recorded`, `planned`, `✓ done by <owner>` with the commit it landed as, and the last note of a card that is none of those — up to two lines at the Team tab's size, with the whole sentence as its tooltip, because the reason is the reason to act on the card. A title and a path chip elide **inside** the card: a chip is one line by design, so a path or a label longer than the card is clipped rather than crossing into the lane beside it, and its whole value is the hover title. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
+| Lanes | trays, not a bare list: one column per lane, sized by the work it holds — a lane with two cards is wider than one with a single card, and a lane showing nothing, because it holds no cards or because it is folded, narrows to a rail of dot, word, and count — so the lanes carrying work keep the width. Three across above 1180px, two at 1180px or narrower, one lane plus the lane switch at 860px or narrower — where it opens on the first lane that holds a card. Each head sticks while the pane scrolls, carries its count as a pill — `2/3` on `Plan` and `1/5` on `Execute`, the limit and the count in one fact — and folds its cards away: `Done` starts folded at six cards or more, since finished work is history, and a reader's toggle decides from then on |
+| Cards | the id and a two-line title (the page's loudest text and its only door), an owner chip and an age, a muted priority chip when it is not `normal`, path chips, and one reason line in one voice, from `lib/board/reason.ts`: what a card waits for, a blocked card's recorded reason or else its last note (or `blocked, with nothing recorded`), `no contract yet — missing …`, `contract ready — needs approval`, `contract approved by <who>`, `executing — no spot-check yet`, `spot-checked by <who>`, `offered 2h ago — nobody took it`, and `✓ done by <owner>` with the commit it landed as — up to two lines at the Team tab's size, with the whole sentence as its tooltip, because the reason is the reason to act on the card. A title and a path chip elide **inside** the card: a chip is one line by design, so a path or a label longer than the card is clipped rather than crossing into the lane beside it, and its whole value is the hover title. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted |
 | Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title and owner chip on the first, the reason on the second — a blocked card's recorded `blockedBy`, else its last note, and `offered 2h ago — nobody took it` for a card whose offer went unanswered — with the whole sentence as its tooltip, and its kind as a left edge (`--danger` blocked, `--warn` idle, `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). The row is a reason to pick the card up in the terminal, and it draws no button: claiming and reclaiming are the tools' work. An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
-| Card dialog | the record of one card, in two named sections. The head carries the id, the title, and the lane as a dot and a word. **The card** is a ladder — one fact per row, labels sized to the longest of them so the values line up: owner, priority when it is not `normal`, updated, in lane, last edited, landed, waits on, waited on by, plan, paths. `in lane` is the lane the card is in and how long it has held it, read from the card's transitions rather than from `updatedAt`, which a note or an edit moves; a card whose history does not say omits the row. The plan and each path are one line that elides, with the whole value on the hover title; what it waits for reads `#2 (doing)`, the lanes that make the id a decision. Empty rows take their labels with them. **Notes · N** is the cargo at body size on a 68ch measure, each sentence with its attribution under it and a rule between notes, and `M earlier notes dropped` when the store capped them. The body is the only scroll, so the head and `Close` stay put. Nothing in it writes, every field is a set as `textContent`, and the title underneath every card is the way in. `j`/`k` walk to the next or previous card without closing it, and an `sr-only` live region announces `card 2 of 3: <title>` — a title that changes inside an open modal is not announced on its own |
+| Card dialog | the record of one card, in two named sections. The head carries the id, the title, and the lane as a dot and a word. **The card** is a ladder — one fact per row, labels sized to the longest of them so the values line up: owner, priority when it is not `normal`, updated, in lane, last edited, landed, waits on, waited on by, plan, goal, acceptance, scope out, approved, reviewed, paths. `in lane` is the lane the card is in and how long it has held it, read from the card's transitions rather than from `updatedAt`, which a note or an edit moves; a card whose history does not say omits the row. The plan and each path are one line that elides, with the whole value on the hover title; what it waits for reads `#2 (execute)`, the lanes that make the id a decision, and the contract's three lines are rungs of their own so a reader compares what was promised with what was done. Empty rows take their labels with them. **Notes · N** is the cargo at body size on a 68ch measure, each sentence with its attribution under it and a rule between notes, and `M earlier notes dropped` when the store capped them. The body is the only scroll, so the head and `Close` stay put. Nothing in it writes, every field is a set as `textContent`, and the title underneath every card is the way in. `j`/`k` walk to the next or previous card without closing it, and an `sr-only` live region announces `card 2 of 3: <title>` — a title that changes inside an open modal is not announced on its own |
 (feat(team): an offer leaves a record, so its age can be read)
 
-Colour is a role: `--muted` for `todo`, `--accent` for `doing`, `--danger` for
-`blocked` and destructive choices, `--success` for `done`. The Team tab's decision
+Colour is a role, one per lane, read from `LANE_RULES`: `--muted` for `backlog`,
+`--warn` for `plan`, `--accent` for `execute`, `--danger` for `blocked` and destructive
+choices, `--success` for `done`. The Team tab's decision
 rows sit on the kit's `--raised`, the one step above `--surface` that lets a block read
 as a plane instead of an outline; every lane, `Done` included, keeps that `--surface`
 tray, so a finished card still sits on something and history recedes through its muted
 title and chip instead of through a hole in the row. A card takes its colour
 from the lane it sits in — the head's dot, and the reason line's tone — rather than
 from a bar of its own, so one card does not shout twice. The page states a lane and
-a card with `data-status`, so a theme change repaints it without a rule of its own.
+a card with `data-lane`, so a theme change repaints it without a rule of its own.
 
 The board as a posting card — the same rules, drawn to be read at half width:
 
-<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; four lane trays — To do, Doing, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines and the counts unassigned, unplanned, blocked, idle and done" width="100%">
+<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; five lane trays — Backlog, Plan, Execute, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines and the counts unassigned, unplanned, blocked, idle and done" width="100%">
 
 *`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `screenshot:cards board`.*
 
-<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and writes the card as doing, owned by that peer, before the peer reads the mail; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to To do with its notes kept and no handoff sent" width="100%">
+<img src="../../assets/cards/board-team.png" alt="The three team verbs as three bands: assign sends a handoff to a named peer and writes the card into plan, owned by that peer, before the peer reads the mail; offer broadcasts an event to every other live session without recording an owner, so the first claim wins; reclaim returns the card to Backlog with its notes kept and no handoff sent" width="100%">
 
 *`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`screenshot:cards team`).*
 
@@ -248,7 +265,7 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   the cards accumulate — most of this repository's own board was finished cards — and
   reading them on every call is a cost that grows with the history rather than with the
   work. A `list` that names no lane therefore leaves `done` out and prints the count, which
-  is what keeps the omission from reading as a smaller board; `status: "done"` reads them,
+  is what keeps the omission from reading as a smaller board; `lane: "done"` reads them,
   and `round` counts every card, because a rollup that hid half the board would not be one.
   The page bounds its own View the same way, folding a long `done` lane. `archive` is how a
   board stops paying for its history at all: the card leaves the board and its read.
@@ -336,11 +353,15 @@ it always meant: when the card was last touched, which is not when it last chang
   and never renames the session, so the footer stays the user's. A failed join is a clause
   on the `/board` line, not a failed page. The seat is the name the page is served and
   reported under, and `/board status` says which session is on the team through it.
-- **`plan`**: `board plan` records a plan file's path; the plan extension owns the
+- **`plan`**: `board contract` records a plan file's path; the plan extension owns the
   file. The board stays available while planning, and only `list` works: the same tool
   writes, so its read-only hint cannot say that, and plan mode reads the action in the
-  call instead — `add`, `claim`, or any other verb is refused with the exit guidance.
-  The plan is recorded **after** approval, when the writing verbs work again.
+  call instead (`lib/policy.ts`'s `isBoardRead`) — `add`, `claim`, `contract`, `approve`,
+  or any other verb is refused with the exit guidance. The contract is recorded **after**
+  approval, when the writing verbs work again.
+- **`bytefly`**: `board.wip` in the shared document is where a lead raises a limit —
+  `{ "plan": 3, "execute": 5 }` by default, each clamped to `1..20` — and the page's heads
+  show the same numbers, from the store that read them once.
 - **`todo`**: the approved plan's steps are seeded into `todo`. Steps never become
   cards. A `list` call is a read for the lag reminder too, so reading the board never
   forces a todo update, while `add` or `claim` counts as work like any other write.
@@ -367,7 +388,7 @@ it always meant: when the card was last touched, which is not when it last chang
   drop still leaves a record because the card is gone, while an archived card is not gone
   at all — and why a read by id looks in both piles: a card is where it lies. The
   decision is explicit because nothing in this board prunes by itself, and because an
-  automatic sweep would make `status: "done"` return something different past a threshold
+  automatic sweep would make `lane: "done"` return something different past a threshold
   nobody could see. The board, the rollup, and the page read `cards/` alone — the only
   look at the archive is the directory listing a lane-less `list` counts, so the omission
   cannot pass for a deleted history — and an archive therefore lowers the board's size
@@ -404,7 +425,7 @@ it always meant: when the card was last touched, which is not when it last chang
   the prefix and could not see the whole name, so a rule with nothing behind it (or a
   name with no rule) survived until a capture showed it.
 - **The page is given what it prints.** A card arrives with the priority it acts on and
-  the unfinished dependencies that block it (`waits`, as `#2 (doing)`), so the client
+  the unfinished dependencies that block it (`waits`, as `#2 (execute)`), so the client
   holds no copy of a rule `lib/board` owns — the copies it did hold had already drifted
   from the tool's. The one body that cannot cross as data is `plural`, and it crosses as
   source (`PLURAL_JS`), because a second wording for `1 card` is the same mistake in a
@@ -425,7 +446,7 @@ it always meant: when the card was last touched, which is not when it last chang
   a drift.
 - **A link is stored once, and read both ways.** `dependsOn` lives on the waiting card
   alone, so nothing on disk says what a card is holding up; `openDependentsOf` answers
-  it over the board, `list <card>` prints `waited on by N cards: #2 (todo)`, and the
+  it over the board, `list <card>` prints `waited on by N cards: #2 (backlog)`, and the
   dialog has the rung the card's own row cannot. Both skip a finished card, unlike the
   drop refusal, which keeps every edge: "what is held up" is about work, and "would this
   drop strand a link" is about the file.
@@ -444,30 +465,56 @@ it always meant: when the card was last touched, which is not when it last chang
   reverse edge is computed over the board, because a copy of the same edge on the card
   being waited for is a copy that drifts; the cycle check and the drop rule are what
   keep the graph whole instead.
-- **A priority is a field, not a lane.** The four lanes are the board's vocabulary and
-  a fifth would double the counts and the heads; inside a lane, priority then age is the
-  order, and a card says its priority only when it is not the ordinary one.
+- **A priority is a field, not a lane.** Urgency is not a stage of the work, so it stays
+  a field: inside a lane, priority then age is the order, and a card says its priority only
+  when it is not the ordinary one. The lanes are the flow's stages, which is why a fifth one
+  had to be argued for in the note below rather than added as "urgent".
 - **`edit` leaves an omitted field alone.** It is the one action whose job is "make it
   say this", so an absent field must mean "not this field" — a caller that sends only a
   title must not clear the path hints and links it never mentioned.
-- **A lane change is recorded where every transition ends.** `applyOp` decides each
+- **A lane change is recorded where every transition ends.** `steps.ts` decides each
   transition, but `write()` in `rules.ts` is the one place all of them pass through, so
-  the log is appended there rather than from six operations that would each have to
-  remember it. A write that leaves the lane alone — a note, a plan, an edit, a claim by
-  the holder — appends nothing, because the question the log answers is "how long has
-  this been blocked", and `updatedAt` cannot answer it: filing a note against a blocked
-  card moves that stamp without moving the card.
+  the log is appended there rather than from thirteen operations that would each have to
+  remember it. A write that leaves the lane alone — a note, a contract, an edit, a claim by
+  the holder — appends nothing, because the question the log answers is "how long has this
+  been blocked", and `updatedAt` cannot answer it: filing a note against a blocked card
+  moves that stamp without moving the card.
+- **Five lanes, and the gates are why.** This board used to say the four lanes were its
+  whole vocabulary and a fifth would double the counts and the heads. The flow changed
+  that: a card now moves `backlog → plan → execute → done`, and `blocked` is the pool a
+  decision parks in. Two of those lanes exist because an agent is a poor judge of itself —
+  `plan` holds a contract until a session that does not hold the card approves it, and
+  `done` is refused until one has spot-checked the work — and a WIP limit on `plan` and
+  `execute` is what keeps a review queue from turning into a shelf. The cost is real (one
+  more tray, one more head) and is paid once, in `lib/board/lanes.ts`: the label, the empty
+  word, the colour, the ownership rule, and the limit are that table's, and the page
+  receives them in its snapshot instead of keeping a copy.
+- **The gates are a label check, and say so.** `approve` and `review` refuse the card's own
+  holder, which is the half of "a person read this" a file can hold; the board cannot tell a
+  person from a session, and does not pretend it can. The contract is three one-line fields
+  written by `contract`, and a changed line drops the sign, because the sign named a
+  wording. A card too small to state an acceptance does not belong on the board — it belongs
+  in `todo` — which is the honest answer to "this is ceremony for a typo fix".
+- **`status` became `lane` because a card now has two states.** The field, the parameter, and
+  the page's attribute were renamed in one step with no behaviour change: once a card can be
+  approved and reviewed, "status" answers more than one question, and the docs had always
+  said *lane*. `readCard` maps an older file's `status` and `plan` onto `lane` and
+  `planPath`, so a published board keeps reading until each card is written again.
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), drag-and-drop (a lane change is a named `move`), a
-  priority lane (four lanes are the vocabulary), a reverse link field (two copies of
-  one edge), and an automatic archive past some number of finished cards (a threshold
+  reverse link field (two copies of one edge), a separate review lane (a review is a fact
+  about a card, not a place), deriving the contract from the plan file (the board never
+  reads a plan), and an automatic archive past some number of finished cards (a threshold
   nobody stated would decide what a read returns, and nothing else here prunes).
 - **A block says why, and a finished card says with what.** `blocked` exists to ask a
   person for a decision, so the move into it records the sentence — `blockedBy`, one
   line — and the page draws that rather than the last note somebody wrote, which was a
-  guess. The reason survives a `release` (the decision is still pending) and is cleared
-  on the way back into `doing` or `done` (a stale sentence reads as a current one).
+  guess. The kind travels with it — `contract`, `dependency`, or `decision` — because only
+  a contract defect sends a blocked card back to `plan`; anything else resumes in `execute`.
+  The reason survives a `release` (the decision is still pending) and is cleared on the way
+  out of `blocked` (a stale sentence reads as a current one), and a spot-check is cleared
+  when the card leaves `execute`, because it was about work that was finished there.
   `landed` is the commit `HEAD` resolved to at the move to `done`, recorded because
   `done` is terminal and nothing later can say which change closed the card. Both
   fields are optional and neither is required: a card may be blocked with nothing
@@ -503,16 +550,18 @@ it always meant: when the card was last touched, which is not when it last chang
 | `view/live.ts` | The client's tabs, filter, and frame stream |
 | `view/client.ts` | The one script served at `/app.js` |
 
-The store, the rules, the rollup, and the snapshot are `lib/board/` — see
+The lanes, the contract, the limits, the reason rule, the steps, the store, the rollup, and
+the snapshot are `lib/board/` — see
 [`lib/README.md`](../../lib/README.md).
 
 ## Testing
 
 `test/suite-manifest.ts` declares the suites:
-`lib/board/{card,links,page-pointer,round,round-text,rules,session,store,view}` for the
-record, the dependency graph, the note a page leaves, the rollup and its text, the card's
-transitions, the store a call opens and the identity it writes as, the files that store
-keeps, and the snapshot, and
+`lib/board/{card,contract,lanes,limits,links,page-pointer,reason,round,round-text,rules,session,store,view}`
+for the record and its legacy read, the contract and its boundary, the lane table and its
+transition matrix, the WIP limits and their config, the dependency graph, the note a page
+leaves, the one reason rule, the rollup and its text, the card's transitions, the store a
+call opens and the identity it writes as, the files that store keeps, and the snapshot, and
 `extensions/board/{input,seat,tools,page,commands,extension,transport/router,view/pages,view/behaviour}`
 for the card body, the seat, every action, the page's lifecycle over a real socket (a page
 served, attached to, and taken over, a board that stops being readable, and a write refused

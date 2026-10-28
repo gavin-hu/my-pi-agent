@@ -40,10 +40,10 @@ export function blockersOf(card: Card, board: BoardIndex): Card[] {
 }
 
 /**
- * A list of cards as a reader meets it: `#2 (doing), #3 (blocked)`.
+ * A list of cards as a reader meets it: `#2 (execute), #3 (blocked)`.
  *
  * The lane is what turns ids into a decision — a finished card is about to start, a
- * `doing` one is to leave alone — so it is never left out. One wording serves the
+ * `execute` one is to leave alone — so it is never left out. One wording serves the
  * refusal sentence, the page's reason line, and the mirror question of what a card is
  * holding up: every one of them is a list of cards read to decide something, so a second
  * formatter would be a second way for the same list to read.

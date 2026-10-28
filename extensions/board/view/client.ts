@@ -14,6 +14,8 @@
  */
 
 import { MATCHES_QUERY_JS } from "../../../lib/board/card.ts";
+import { REASON_FOR_JS } from "../../../lib/board/reason.ts";
+import { LANES } from "../../../lib/board/lanes.ts";
 import { CLIENT_BASE_JS, CLIENT_RUNTIME_JS } from "../../../lib/web/index.ts";
 import { PLURAL_JS } from "../../../lib/board/round-text.ts";
 import { FORMAT_AGE_JS } from "../../../lib/format.ts";
@@ -28,13 +30,14 @@ import { BOARD_TEAM_JS } from "./team.ts";
 /**
  * The whole client, in load order: paint, round, the card dialog, keys, wiring, start.
  *
- * Four rules cross the boundary as source — the count's wording, the tab title's
- * shape, what a `query` matches, and how an age reads: the browser has no import graph,
- * and a second copy of any of them is exactly what this bundle is not allowed to hold.
+ * Five rules cross the boundary as source — the count's wording, the tab title's
+ * shape, what a `query` matches, why a card sits where it does, and how an age reads:
+ * the browser has no import graph, and a second copy of any of them is exactly what this
+ * bundle is not allowed to hold.
  */
 export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
 ${namesScript(BOARD_CLASS)}
-${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, age: FORMAT_AGE_JS, runtime: CLIENT_RUNTIME_JS })}
+${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, runtime: CLIENT_RUNTIME_JS, lanes: String(LANES.length) })}
 ${BOARD_TEAM_JS}
 ${BOARD_DIALOG_JS}
 ${BOARD_KEYS_JS}

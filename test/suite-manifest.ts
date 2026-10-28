@@ -103,8 +103,12 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 
 export const LIB_SUITES: readonly string[] = [
 	"board/card",
+	"board/contract",
+	"board/lanes",
+	"board/limits",
 	"board/links",
 	"board/page-pointer",
+	"board/reason",
 	"board/round",
 	"board/round-text",
 	"board/rules",

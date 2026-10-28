@@ -20,7 +20,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: CARD_VERSION,
 		id,
 		title: `feature ${id}`,
-		lane: "todo",
+		lane: "backlog",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -36,7 +36,7 @@ describe("formatRound", () => {
 	test("counts what a lead decides on, then names each group's cards", () => {
 		const cards = [
 			card("1"),
-			card("2", { lane: "doing", owner: { label: "billing-core" } }),
+			card("2", { lane: "execute", owner: { label: "billing-core" } }),
 			card("3", {
 				lane: "blocked",
 				owner: { label: "billing-core" },
@@ -47,11 +47,10 @@ describe("formatRound", () => {
 		// The groups overlap on purpose: #2 is live for its owner and unplanned for the
 		// lead, and one line each is what says both.
 		expect(formatRound(cards, buildRound(cards, NOW)).split("\n")).toEqual([
-			"2 owners · 4 features · 1 unassigned · 1 unplanned · 1 blocked · 0 idle · 1 done",
-			"billing-core (2): #2 doing unplanned, #3 blocked",
+			"2 owners · 4 features · 1 unassigned · 0 unplanned · 0 awaiting approval · 1 blocked · 0 idle · 1 done",
+			"billing-core (2): #2 execute unplanned, #3 blocked",
 			"billing-other (0 live, 1 done)",
-			"unassigned (1): #1 todo",
-			"unplanned (1): #2 doing unplanned",
+			"unassigned (1): #1 backlog",
 			"blocked (1): #3 blocked — gateway",
 			"done (1): #4 done",
 		]);
@@ -63,20 +62,31 @@ describe("formatRound", () => {
 		expect(lines).toContain("billing-other (0 live, 1 done)");
 	});
 
-	test("names an unfinished plan, which is the one a lead looks at", () => {
-		const cards = [card("2", { lane: "doing", owner: { label: "billing-core" } })];
-		expect(formatRound(cards, buildRound(cards, NOW))).toContain("#2 doing unplanned");
+	test("names a contract that is still missing a line, which is the one a lead looks at", () => {
+		const cards = [card("2", { lane: "plan", owner: { label: "billing-core" } })];
+		expect(formatRound(cards, buildRound(cards, NOW))).toContain("unplanned (1): #2 plan");
+	});
+
+	test("names a complete contract nobody has read, as its own queue", () => {
+		const cards = [
+			card("2", {
+				lane: "plan",
+				owner: { label: "billing-core" },
+				contract: { goal: "g", acceptance: "a", scopeOut: "s" },
+			}),
+		];
+		expect(formatRound(cards, buildRound(cards, NOW))).toContain("unapproved (1): #2 plan");
 	});
 
 	test("an untouched card in flight is idle, not unplanned-by-accident", () => {
-		const stale = card("2", { lane: "doing", owner: { label: "billing-core" }, plan: "p.md" });
+		const stale = card("2", { lane: "execute", owner: { label: "billing-core" }, planPath: "p.md" });
 		const aged = { ...stale, updatedAt: NOW - IDLE_MS - 1 };
-		expect(formatRound([aged], buildRound([aged], NOW))).toContain("idle (1): #2 doing planned");
+		expect(formatRound([aged], buildRound([aged], NOW))).toContain("idle (1): #2 execute planned");
 	});
 
 	test("an empty board is a headline of zeroes, not a refusal", () => {
 		expect(formatRound([], buildRound([], NOW))).toBe(
-			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 blocked · 0 idle · 0 done",
+			"0 owners · 0 features · 0 unassigned · 0 unplanned · 0 awaiting approval · 0 blocked · 0 idle · 0 done",
 		);
 	});
 });

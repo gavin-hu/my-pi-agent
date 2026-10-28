@@ -109,6 +109,11 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
           <dt id="card-dialog-depends-label" hidden>waits on</dt><dd class="${N.dialogValue}" id="card-dialog-depends" hidden></dd>
           <dt id="card-dialog-dependents-label" hidden>waited on by</dt><dd class="${N.dialogValue}" id="card-dialog-dependents" hidden></dd>
           <dt id="card-dialog-plan-label" hidden>plan</dt><dd class="${N.dialogValue} ${N.dialogPlan}" id="card-dialog-plan" hidden></dd>
+          <dt id="card-dialog-goal-label" hidden>goal</dt><dd class="${N.dialogValue}" id="card-dialog-goal" hidden></dd>
+          <dt id="card-dialog-acceptance-label" hidden>acceptance</dt><dd class="${N.dialogValue}" id="card-dialog-acceptance" hidden></dd>
+          <dt id="card-dialog-scope-out-label" hidden>scope out</dt><dd class="${N.dialogValue}" id="card-dialog-scope-out" hidden></dd>
+          <dt id="card-dialog-approved-label" hidden>approved</dt><dd class="${N.dialogValue}" id="card-dialog-approved" hidden></dd>
+          <dt id="card-dialog-reviewed-label" hidden>reviewed</dt><dd class="${N.dialogValue}" id="card-dialog-reviewed" hidden></dd>
           <dt id="card-dialog-paths-label" hidden>paths</dt><dd id="card-dialog-paths" hidden><ul class="${N.dialogPaths}" id="card-dialog-path-list"></ul></dd>
         </dl>
       </section>

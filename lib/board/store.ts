@@ -33,17 +33,10 @@ import { resolveEffectiveCwd } from "../env.ts";
 import { hasErrorCode, messageOf } from "../errors.ts";
 import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import {
-	type Card,
-	LANES,
-	CARD_VERSION,
-	cardRef,
-	type EndedCard,
-	readCard,
-	type Priority,
-	priorityRank,
-} from "./card.ts";
+import { type Card, CARD_VERSION, cardRef, type EndedCard, readCard, type Priority, priorityRank } from "./card.ts";
+import { LANES } from "./lanes.ts";
 import { indexOf } from "./links.ts";
+import { DEFAULT_WIP, type WipLimits, readWip } from "./limits.ts";
 import { type Actor, applyOp, type CardOp, createCard } from "./rules.ts";
 
 /** The directory under the agent directory that holds every board. */
@@ -108,9 +101,16 @@ export interface Skip {
 export interface BoardStore {
 	/** The board's own directory, for `where` and for a refusal that names it. */
 	readonly dir: string;
+	/**
+	 * The WIP limits this board enforces.
+	 *
+	 * Read once when the store opened, and handed to every operation: the page shows the
+	 * same numbers a refusal would, so a head cannot claim room a claim would refuse.
+	 */
+	limits(): WipLimits;
 	/** Create the directories and sweep a temp file a dead process left. */
 	ensure(): Promise<void>;
-	/** Every card on the board, in lane order: todo, doing, blocked, done. */
+	/** Every card on the board, in lane order: backlog, plan, execute, blocked, done. */
 	list(): Promise<Card[]>;
 	/**
 	 * The board in one read: the cards, and the files it refused.
@@ -170,14 +170,18 @@ export async function openBoard(
 	// environment carries the active root, so the two are reconciled before the
 	// repository lookup — the same path `plan` and `session-bus` take.
 	const repo = await repoKeyFor(pi, resolveEffectiveCwd(cwd));
-	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root });
+	// Read once per store: the limits are a setting, not a card, and a board that re-read
+	// a file on every write would spend a stat to answer a question nobody changed.
+	const limits = readWip(resolveEffectiveCwd(cwd), { agentDir });
+	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root, limits });
 }
 
 /** Build a store over one directory. Exported for tests and for a second backend. */
-export function createStore(dir: string, options: { root?: string } = {}): BoardStore {
+export function createStore(dir: string, options: { root?: string; limits?: WipLimits } = {}): BoardStore {
 	// A store built over a directory by hand has no repository to name, so it names its
 	// own directory: the page then says something true instead of something blank.
 	const root = options.root ?? dir;
+	const limits = options.limits ?? DEFAULT_WIP;
 	const cardsDir = join(dir, CARDS_DIR_NAME);
 	const endedDir = join(dir, ENDED_DIR_NAME);
 	const archiveDir = join(dir, ARCHIVE_DIR_NAME);
@@ -278,7 +282,7 @@ export function createStore(dir: string, options: { root?: string } = {}): Board
 			// The preconditions are checked against the card as it is *now*, and against the
 			// board as it is now, so an operation re-applied to a card that changed is refused
 			// rather than forced.
-			const result = applyOp(card, op, actor, now, indexOf(await list()));
+			const result = applyOp(card, op, actor, now, indexOf(await list()), limits);
 			if (!result.ok) return { ok: false, error: result.error, card };
 			if (!result.changed) {
 				return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
@@ -329,6 +333,7 @@ export function createStore(dir: string, options: { root?: string } = {}): Board
 
 	return {
 		dir,
+		limits: () => limits,
 		ensure,
 		list,
 		scan,

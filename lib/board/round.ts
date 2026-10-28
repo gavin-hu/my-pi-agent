@@ -8,16 +8,17 @@
  * know — nobody has touched it in half an hour — not that its owner's process is
  * gone.
  *
- * The groups overlap on purpose. A `doing` card with no plan and no touch for half
- * an hour is both `unplanned` and `idle`, and hiding it in one of the two would lose
- * half the reason a lead should look at it.
+ * The groups overlap on purpose. A `plan` card with no contract and no touch for half
+ * an hour is both `unplanned` and, once it is executing, `idle`; hiding it in one of the
+ * two would lose half the reason a lead should look at it.
  *
  * Pure: no I/O and no clock of its own.
  */
 
 import type { Card } from "./card.ts";
+import { contractApproved, missingContractFields } from "./contract.ts";
 
-/** How long a `doing` card may go untouched before the rollup calls it idle. */
+/** How long an `execute` card may go untouched before the rollup calls it idle. */
 export const IDLE_MS = 30 * 60 * 1_000;
 
 /**
@@ -37,13 +38,15 @@ export interface RoundGroup<T extends Card = Card> {
 export interface RoundSummary<T extends Card = Card> {
 	/** Every owner with at least one unfinished card, ordered by label. */
 	owners: RoundGroup<T>[];
-	/** `todo` cards: nobody has taken them yet. */
+	/** `backlog` cards: nobody has taken them yet. */
 	unassigned: T[];
-	/** `doing` cards with no plan recorded: work started before it was planned. */
+	/** `plan` cards whose contract is still missing a line: work started before it was agreed. */
 	unplanned: T[];
+	/** `plan` cards whose contract is complete and nobody has approved: the lead's queue. */
+	unapproved: T[];
 	/** `blocked` cards, and the note that says why. */
 	blocked: T[];
-	/** `doing` cards untouched for {@link IDLE_MS}: possibly a dead owner. */
+	/** `execute` cards untouched for {@link IDLE_MS}: possibly a dead owner. */
 	idle: T[];
 	/** Finished cards, oldest first, kept as history. */
 	done: T[];
@@ -64,16 +67,23 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 	const groups = new Map<string, RoundGroup<T>>();
 	const unassigned: T[] = [];
 	const unplanned: T[] = [];
+	const unapproved: T[] = [];
 	const blocked: T[] = [];
 	const idle: T[] = [];
 	const done: T[] = [];
 
 	for (const card of cards) {
-		if (card.lane === "todo") unassigned.push(card);
+		// The pool is what nobody holds, and the two lanes a lead watches are the two a card
+		// is worked in: a plan with a contract still missing is work started before it was
+		// agreed, and an execute nothing has touched is work that may have stopped.
+		if (card.lane === "backlog") unassigned.push(card);
 		if (card.lane === "done") done.push(card);
 		if (card.lane === "blocked") blocked.push(card);
-		if (card.lane === "doing" && card.plan === undefined) unplanned.push(card);
-		if (card.lane === "doing" && now - card.updatedAt >= IDLE_MS) idle.push(card);
+		if (card.lane === "plan") {
+			if (missingContractFields(card.contract).length > 0) unplanned.push(card);
+			else if (!contractApproved(card.contract)) unapproved.push(card);
+		}
+		if (card.lane === "execute" && now - card.updatedAt >= IDLE_MS) idle.push(card);
 
 		if (card.owner === undefined) continue;
 		const key = card.owner.label.toLowerCase();
@@ -87,6 +97,7 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		owners: [...groups.values()].sort((a, b) => a.label.localeCompare(b.label)),
 		unassigned,
 		unplanned,
+		unapproved,
 		blocked,
 		idle,
 		done,

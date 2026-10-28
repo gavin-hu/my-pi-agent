@@ -21,12 +21,12 @@ owner whose label nothing answers to, and a teammate that is not listening.*
 | Capability | How | What you get |
 |---|---|---|
 | Join the team | `/board` as the lead, `/team join <label>` as a teammate, or the first card you claim | The session is on the team under a name peers address, listening, and `/team` and the Team tab list it |
-| Hand a feature to a running session | `team` action `assign` | The card is `doing`, owned by that session, and a handoff is in its inbox |
+| Hand a feature to a running session | `team` action `assign` | The card is `plan`, owned by that session, and a handoff is in its inbox |
 | Tell the peer what to do first | `team` action `assign` with `note` | The handoff carries the card, its paths, its plan, and that line |
 | Hand a feature to whoever is free | `team` action `offer` | Every other live session gets an event naming the card; the card stays unowned until one claims it, and it records when the offer was made, so a lead can tell an offer nobody took from a card nobody has looked at |
 | Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
-| Take a card back | `team` action `reclaim` | The owner clears, the card returns to To do, and its notes stay |
-| Keep the round to the team | `team` | Only `assign`, `offer`, and `reclaim`: no card is created, moved, planned, or finished here — that is `board`'s surface |
+| Take a card back | `team` action `reclaim` | The owner clears, the card returns to Backlog, and its notes stay |
+| Keep the round to the team | `team` | Only `assign`, `offer`, and `reclaim`: no card is created, moved, contracted, approved, or finished here — that is `board`'s surface |
 | See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one line naming the cards a dead owner left behind, and one presence line for who is live, who is not listening, who has gone quiet, and who is gone. The rollup itself is capped at ten lines, then `… N more`, and the gone and presence lines follow the cap rather than counting against it — the cap is a notify's limit, not a screen's. An empty board is one line |
 
 ## Quickstart
@@ -36,7 +36,8 @@ lead: /board                                            → on the team as team-
 peer: /team join billing-core                           → on the team as billing-core, listening
 lead: team({action:"assign", card:"4", to:"billing-core", note:"start with the webhook"})
       → #4 handed off to billing-core.
-peer: board({action:"plan", card:"4", path:"…"})        → the card records its plan
+peer: board({action:"contract", card:"4", path:"…", goal:"…", acceptance:"…", scopeOut:"…"})
+      → the card records its plan and its contract
 peer: board({action:"note", card:"4", text:"…"})        → a phase, as it happens
 later: team({action:"reclaim", card:"4"})               → #4 reclaimed from billing-core
 ```
@@ -82,7 +83,7 @@ is not: a card that session claimed is the session's, and `release` returns it.
 |---|---|---|
 | `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner |
 | `offer` | `card`, `note?` | Checks the preconditions a claim would meet, broadcasts the card as an `event` to every other live session, then records the offer on the card — the moment, and nothing else: status and owner are untouched |
-| `reclaim` | `card` | Clears the owner and returns the card to To do, keeping its notes and plan |
+| `reclaim` | `card` | Clears the owner and returns the card to Backlog, keeping its notes, contract, and plan |
 
 `card` takes `4` or `#4`. `to` is a teammate's label or id, as `/team` lists them — a
 label nobody answers to cannot be handed a card, and the result says so.
@@ -108,7 +109,7 @@ the sentence, and a test holds every published parameter to an action that acts 
 | What failed | What the card is | What the lead reads |
 |---|---|---|
 | the card is missing, `done`, held by a third session, or waiting on unfinished work | untouched | the refusal, with no message sent at all |
-| the send | untouched — `todo`, no owner | `#4 was not handed off to billing-core: …`, plus `The card is unchanged.` |
+| the send | untouched — `backlog`, no owner | `#4 was not handed off to billing-core: …`, plus `The card is unchanged.` |
 | the assignment, after a successful send | whatever the other writer left | `#4 was handed off to billing-core, but the card changed before it could be assigned: …`, and the peer is told to `board claim` it |
 
 `offer` broadcasts **before** it records, for the same reason: an offer nobody received
@@ -136,11 +137,12 @@ not name — goes back to `reclaim` if its holder renames.
 A handoff is an instruction, not a notification: the peer's notice is headlined
 `1 handoff`, carries enough of the body to be actionable, and says the work is theirs —
 read it with `session inbox`, record the plan, and start. The card is already theirs
-(`assign` wrote the owner), so there is no claim step; the peer plans, works, notes, and
-moves it to `done` or `blocked`.
+(`assign` wrote the owner), so there is no claim step; the peer writes the contract, works,
+notes, and moves it on — into `execute` once somebody else has approved the contract, and to
+`done` once somebody else has spot-checked it.
 
 An offer is advice: nothing is theirs until they claim it, and a card nobody claims stays
-`todo`, so it keeps showing up as unassigned in the round — with its age, which is the one
+`backlog`, so it keeps showing up as unassigned in the round — with its age, which is the one
 thing an event cannot carry. `board` prints it as `offered 1m ago, and nobody took it`, the
 card face says `offered 1m ago · nobody took it`, and the Team tab's queue says
 `offered 1m ago — nobody took it` in place of "nobody holds it". A lead reading that has a

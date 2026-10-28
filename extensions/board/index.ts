@@ -4,7 +4,7 @@
  * Every Pi session on a repository reads and writes the same cards, and `/board`
  * serves them as a page in the browser that follows the store live. A card is one
  * *feature*, not one step: the steps of the work live in the owner's plan and in
- * `todo`, and the board answers who is doing what and what needs a decision.
+ * `todo`, and the board answers who is holding what and what needs a decision.
  *
  * The factory only registers. The store is opened on first use by the session, the
  * page starts when `/board` asks for it, and `session_shutdown` closes it — so a

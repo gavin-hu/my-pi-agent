@@ -133,7 +133,19 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	if (card.blockedBy !== undefined) lines.push(`  blocked: ${card.blockedBy}`);
 	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.commit}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
-	if (card.plan !== undefined) lines.push(`  plan: ${card.plan}`);
+	if (card.planPath !== undefined) lines.push(`  plan: ${card.planPath}`);
+	// The contract is what a reader is asked to agree to, so the block says it in full and
+	// says who signed it: an approval is a fact about that wording, and a review about the
+	// work, and neither is inferable from the lane.
+	if (card.contract !== undefined) {
+		lines.push(`  goal: ${card.contract.goal}`);
+		lines.push(`  acceptance: ${card.contract.acceptance}`);
+		lines.push(`  scope out: ${card.contract.scopeOut}`);
+		const approved = card.contract.approved;
+		lines.push(`  approved: ${approved === undefined ? "nobody yet" : approved.by}`);
+	}
+	if (card.review !== undefined) lines.push(`  reviewed: ${card.review.by}`);
+	if (card.blocker !== undefined) lines.push(`  blocker: ${card.blocker}`);
 	if (card.paths.length > 0) lines.push(`  paths: ${card.paths.join(", ")}`);
 	if (dependsOf(card).length > 0) lines.push(`  waits on: ${waitingOf(card, board)}`);
 	// The mirror question, for the same board: what leaving this card undone holds up. Only
@@ -158,7 +170,7 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
  * The cards a card waits on, each with its lane when the board is there to say it.
  *
  * The lane is what turns a list of ids into a decision: `#2 (done)` is a card about to
- * start, and `#2 (doing)` is one to leave alone.
+ * start, and `#2 (execute)` is one to leave alone.
  */
 function waitingOf(card: Card, board: BoardIndex | undefined): string {
 	return dependsOf(card)

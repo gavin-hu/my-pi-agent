@@ -140,7 +140,14 @@ describe("start", () => {
 		// One identity for a page: the seat writes, and the seat is who is looking.
 		expect(snapshot.me).toEqual({ id: "board:team-lead", label: "team-lead" });
 		expect(snapshot).not.toHaveProperty("session");
-		expect(snapshot.counts.total).toBe(0);
+		expect(snapshot.total).toBe(0);
+		expect(snapshot.lanes.map((lane: { key: string }) => lane.key)).toEqual([
+			"backlog",
+			"plan",
+			"execute",
+			"blocked",
+			"done",
+		]);
 
 		const token = new URL(base).searchParams.get("token") ?? "";
 		// The token opens the page and nothing else: a write is refused by the method list,

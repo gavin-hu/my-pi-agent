@@ -7,7 +7,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card, LANES } from "./card.ts";
+import { type Card } from "./card.ts";
+import { LANES } from "./lanes.ts";
 import { buildRound, IDLE_MS } from "./round.ts";
 
 const NOW = 1_000_000;
@@ -18,7 +19,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id,
 		title: `Card ${id}`,
-		lane: "todo",
+		lane: "backlog",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -30,10 +31,21 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 	return { ...base, ...overrides };
 }
 
-/** A doing card, which is where most groups come from. */
+/** An executing card, which is where most groups come from. */
 function doing(id: string, overrides: Partial<Card> = {}): Card {
-	return card(id, { lane: "doing", owner: { id: `s-${id}`, label: "billing-core" }, ...overrides });
+	return card(id, { lane: "execute", owner: { id: `s-${id}`, label: "billing-core" }, ...overrides });
 }
+
+/** A card in `plan`, whose contract is or is not written yet. */
+function planning(id: string, contract: Card["contract"] = undefined): Card {
+	return card(id, {
+		lane: "plan",
+		owner: { id: `s-${id}`, label: "billing-core" },
+		...(contract === undefined ? {} : { contract }),
+	});
+}
+
+const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
 
 describe("buildRound", () => {
 	test("keeps an owner whose every card is done, and counts each kind once", () => {
@@ -83,14 +95,22 @@ describe("buildRound", () => {
 		expect(round.done.map((entry) => entry.id)).toEqual(["2"]);
 	});
 
-	test("unassigned is every todo card", () => {
+	test("unassigned is every backlog card", () => {
 		const round = buildRound([card("1"), doing("2"), card("3")], NOW);
 		expect(round.unassigned.map((entry) => entry.id)).toEqual(["1", "3"]);
 	});
 
-	test("unplanned is a doing card with no plan recorded, so a skipped plan shows", () => {
-		const round = buildRound([doing("1"), doing("2", { plan: "~/.pi/agent/plans/k/two.md" })], NOW);
+	test("unplanned is a plan card whose contract is still missing a line", () => {
+		const round = buildRound([planning("1"), planning("2", COMPLETE)], NOW);
 		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
+	});
+
+	test("unapproved is a complete contract nobody has signed, which is the lead's queue", () => {
+		const round = buildRound(
+			[planning("1", COMPLETE), planning("2", { ...COMPLETE, approved: { by: "billing-lead", at: NOW } })],
+			NOW,
+		);
+		expect(round.unapproved.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("blocked and done are their own lists", () => {
@@ -105,7 +125,7 @@ describe("buildRound", () => {
 		expect(round.done.map((entry) => entry.id)).toEqual(["2"]);
 	});
 
-	test("idle is a doing card nobody has touched for the idle window", () => {
+	test("idle is an executing card nobody has touched for the idle window", () => {
 		const round = buildRound(
 			[doing("1", { updatedAt: NOW - IDLE_MS }), doing("2", { updatedAt: NOW - IDLE_MS + 1 })],
 			NOW,
@@ -121,9 +141,12 @@ describe("buildRound", () => {
 	});
 
 	test("a card can be both unplanned and idle, because both are worth knowing", () => {
-		const round = buildRound([doing("1", { updatedAt: NOW - IDLE_MS })], NOW);
+		// A card re-planned after it started: still in the board's plan lane, and its owner
+		// has not touched it since. Both groups say something a lead acts on.
+		const round = buildRound([planning("1")], NOW);
 		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
-		expect(round.idle.map((entry) => entry.id)).toEqual(["1"]);
+		const executing = buildRound([doing("1", { updatedAt: NOW - IDLE_MS })], NOW);
+		expect(executing.idle.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("an empty board has empty groups", () => {
@@ -131,6 +154,7 @@ describe("buildRound", () => {
 			owners: [],
 			unassigned: [],
 			unplanned: [],
+			unapproved: [],
 			blocked: [],
 			idle: [],
 			done: [],
@@ -145,12 +169,13 @@ describe("buildRound", () => {
 			card("4", { lane: "done", owner: { label: "billing-core" } }),
 		];
 		const round = buildRound(cards, NOW);
-		const doingOf = round.owners.flatMap((group) => group.cards).filter((entry) => entry.lane === "doing");
-		const lanes = [...round.unassigned, ...doingOf, ...round.blocked, ...round.done];
+		const doingOf = round.owners.flatMap((group) => group.cards).filter((entry) => entry.lane === "execute");
+		const planned = [...round.unplanned, ...round.unapproved];
+		const lanes = [...round.unassigned, ...planned, ...doingOf, ...round.blocked, ...round.done];
 		expect(lanes.map((entry) => entry.id).sort()).toEqual(cards.map((entry) => entry.id).sort());
 		// An owner's panel shows the blocked card too, and the Blocked group is the
 		// same card from the lead's angle: two panels, one card.
 		expect(round.owners.flatMap((group) => group.cards).map((entry) => entry.id)).toEqual(["2", "3"]);
-		expect(LANES).toHaveLength(4);
+		expect(LANES).toHaveLength(5);
 	});
 });

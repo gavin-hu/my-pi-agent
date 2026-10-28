@@ -8,7 +8,9 @@
  */
 
 import { Type } from "typebox";
-import { LANES, MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
+import { MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
+import { BLOCKERS } from "../../lib/board/card.ts";
+import { LANES } from "../../lib/board/lanes.ts";
 import { BOARD_ACTIONS } from "./types.ts";
 
 export const BoardParams = Type.Object({
@@ -32,7 +34,7 @@ export const BoardParams = Type.Object({
 			LANES.map((lane) => Type.Literal(lane)),
 			{
 				description:
-					"`list`: show only this lane, and not skip the `done` cards. `move`: the lane to move to (not `todo` — use `release`).",
+					"`list`: show only this lane, and not skip the `done` cards. `move`: the lane to move to, which the board allows only where a transition exists from the card's own lane; `backlog` is `release`'s, not a move's.",
 			},
 		),
 	),
@@ -41,6 +43,15 @@ export const BoardParams = Type.Object({
 			description:
 				"`move` to `blocked`: what the card waits on — the decision a person has to make, one line, at most 200 characters.",
 		}),
+	),
+	blocker: Type.Optional(
+		Type.Union(
+			BLOCKERS.map((blocker) => Type.Literal(blocker)),
+			{
+				description:
+					"`move` to `blocked`, required: why it is blocked. `contract` sends the card back to `plan`; `dependency` and `decision` resume in `execute`.",
+			},
+		),
 	),
 	title: Type.Optional(Type.String({ description: "`add` and `edit`: the feature's outcome, one line." })),
 	paths: Type.Optional(
@@ -57,7 +68,16 @@ export const BoardParams = Type.Object({
 	text: Type.Optional(
 		Type.String({ description: `\`note\`: the note to append; one line, at most ${MAX_NOTE} characters.` }),
 	),
-	path: Type.Optional(Type.String({ description: "`plan`: the plan file this card is executing." })),
+	path: Type.Optional(Type.String({ description: "`contract`: the plan file this card is executed against." })),
+	goal: Type.Optional(
+		Type.String({ description: "`contract`: what the feature is for, one line, at most 400 characters." }),
+	),
+	acceptance: Type.Optional(
+		Type.String({ description: "`contract`: how a reader can tell it is done, one line, at most 400 characters." }),
+	),
+	scopeOut: Type.Optional(
+		Type.String({ description: "`contract`: what this deliberately does not do, one line, at most 400 characters." }),
+	),
 	priority: Type.Optional(
 		Type.Union(
 			PRIORITIES.map((priority) => Type.Literal(priority)),
@@ -70,7 +90,7 @@ export const BoardParams = Type.Object({
 	dependsOn: Type.Optional(
 		Type.Array(Type.String(), {
 			description:
-				"`edit`: the cards this one waits for, as ids. It cannot be claimed or moved to doing or done while one of them is unfinished; `[]` removes every link.",
+				"`edit`: the cards this one waits for, as ids. It cannot be claimed, or moved to execute or done, while one of them is unfinished; `[]` removes every link.",
 		}),
 	),
 	mine: Type.Optional(

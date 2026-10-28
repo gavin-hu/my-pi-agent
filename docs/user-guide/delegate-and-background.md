@@ -294,21 +294,31 @@ every session and every worktree sees the same cards.
 
 - A card is one **feature**, not one step: the steps of the work live in the
   owner's plan and in `todo`. A card carries the feature's outcome, the session
-  holding it, path hints, the plan file it is executing, and its notes.
-- `board` `action: "list"` reads the board — `query` finds a card by title, path
-  hint, or holder — `add` creates a `todo` card with a `priority`, `claim` takes one
-  for this session, `move` changes lane, `note` appends to its history, `plan`
-  records the plan file, `edit` fixes a card's title, hints, priority, or what it
-  waits for, `release` gives it back, `reclaim` takes it from whoever holds it, `archive`
-  sets a finished card aside without destroying it — its file, notes, plan, and landed
+  holding it, path hints, its contract, the plan file it is executed against, and its notes.
+- A card moves through five lanes: `backlog` (the pool), `plan`, `execute`, `blocked`, and
+  `done`. `board` `action: "list"` reads the board — `query` finds a card by title, path
+  hint, or holder — `add` creates a `backlog` card with a `priority`, `claim` pulls one
+  into `plan` for this session (or refuses, naming the count, when `plan` is full),
+  `contract` writes the plan file and the three lines the card promises (`goal`,
+  `acceptance`, `scopeOut`), `approve` records that somebody who does not hold the card has
+  read them, `move` changes lane, `note` appends to its history, `edit` fixes a card's title,
+  hints, priority, or what it waits for, `review` records a spot-check of the finished work,
+  `release` gives a card back, `reclaim` takes it from whoever holds it, `archive` sets a
+  finished card aside without destroying it — its file, notes, plan, contract, and landed
   commit stay, and `list` can read them back with `archived: true` — and `drop` deletes a
-  `todo`, a `done`, or one you hold. `round: true` adds the lead's
-  rollup: who holds what, what is unassigned, unplanned, blocked, or has gone quiet.
+  `backlog`, a `done`, or one you hold. `round: true` adds the lead's
+  rollup: who holds what, what is unassigned, unplanned, waiting for an approval, blocked,
+  or has gone quiet.
+- The two gates are the point of the flow: a card cannot enter `execute` until a session
+  that does not hold it has approved the contract, and cannot be finished until one has
+  spot-checked the work. Both verbs refuse the card's own holder, which is what makes them
+  a second pair of eyes rather than a formality. `board.wip` in `bytefly.json` sets how many
+  cards `plan` and `execute` may hold (three and five by default).
 - A card can wait on another (`edit` with `dependsOn`): the claim and the move to
-  `doing` or `done` are refused while that card is unfinished, so the order of a
+  `execute` or `done` are refused while that card is unfinished, so the order of a
   feature's work is on the board instead of in somebody's head.
 - A repository has **one page**, and the lead serves it: `/board` starts it under the
-  seat `team-lead` and opens it in your browser — a **Board** tab with the four lanes,
+  seat `team-lead` and opens it in your browser — a **Board** tab with the five lanes,
   and a **Team** tab with one panel per owner. The page is a **view**: the tools write,
   and the browser shows. The toolbar and footer stay put while the board scrolls, and
   the page follows the store live — a card another session moves appears within a
@@ -343,7 +353,7 @@ reach the session bus; `reclaim` writes the card alone.
 
 - `team` `action: "assign"` hands a card to a session that is **already running**.
   The peer gets a handoff in its inbox — the card, its paths, its plan, and a line
-  from you — and then the card becomes `doing`, owned by that peer. Nothing is
+  from you — and then the card is in `plan`, owned by that peer, where it writes its contract. Nothing is
   started: a peer that is not listening reads the message at its next turn, and
   `session status` lists the labels a handoff can go to.
 - What the peer wakes to is an instruction, not a notification: the notice names it as
@@ -355,10 +365,11 @@ reach the session bus; `reclaim` writes the card alone.
 - `team` `action: "offer"` names nobody. It broadcasts an unclaimed card to every other
   live session as one event and records no owner, so the first peer to `board claim` it
   takes it; two peers claiming at once are settled by the store, so one wins and the
-  other is refused with the owner named. A card nobody claims stays `todo`, which is how
+  other is refused with the owner named. A card nobody claims stays in `backlog`, which is how
   it keeps showing up as unassigned.
-- `team` `action: "reclaim"` takes a card back to To do when its owner has gone
-  quiet. The notes stay, so the next owner reads what happened. The board's Team tab can
+- `team` `action: "reclaim"` takes a card back to `backlog` when its owner has gone
+  quiet. The notes, the contract, and its approval stay, so the next owner reads what
+  happened before it re-plans. The board's Team tab can
   record an owner for an unowned card too, but a browser cannot message a peer, so that
   assignment says in the card's history that no handoff was sent.
 

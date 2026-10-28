@@ -305,21 +305,19 @@ describe("the client bundle", () => {
 	test("says what a block waits on, and what closed a finished card", () => {
 		// The reason slot carries the recorded reason rather than the last note somebody
 		// happened to write, and the commit is the one fact a finished card cannot say itself.
-		expect(BOARD_CLIENT_JS).toContain("card.blockedBy");
-		expect(BOARD_CLIENT_JS).toContain("blocked, with nothing recorded");
-		// The bundle escapes the separator, so the assertion names it the way the page sends it.
-		expect(BOARD_CLIENT_JS).toContain('\\u00B7 landed " + card.landed.commit');
-		// The Team tab's queue carries the same reason for the same card, from one field.
-		expect(BOARD_CLIENT_JS).toContain("if (card.blockedBy) return card.blockedBy");
+		// One body answers both, spliced in from lib/board/reason.ts.
+		expect(BOARD_CLIENT_JS).toContain('"blocked, with nothing recorded"');
+		expect(BOARD_CLIENT_JS).toContain('landed " + card.landed.commit');
+		// The Team tab's queue asks the same rule rather than re-deriving a sentence.
+		expect(BOARD_CLIENT_JS).toContain("board.reasonFor(card, ago)");
 	});
 
 	test("says an offer went unanswered, on the card and in the lead's queue", () => {
-		// One record, two readers: the card face says how long the broadcast has stood, and
-		// the Team tab's row says the same words about the same fact.
-		// The bundle escapes both separators, so the assertions name them the way the page
-		// sends them, the same as the landed-commit line above.
-		expect(BOARD_CLIENT_JS).toContain('"offered " + ago(card.offeredAt) + " ago \\u00B7 nobody took it"');
-		expect(BOARD_CLIENT_JS).toContain('"offered " + ago(card.offeredAt) + " ago \\u2014 nobody took it"');
+		// One record, one body: the card face says how long the broadcast has stood, and the
+		// Team tab's row reads the same sentence about the same fact, because the rule is
+		// spliced into the bundle once.
+		expect(BOARD_CLIENT_JS).toContain("offered ");
+		expect(BOARD_CLIENT_JS).toContain("nobody took it");
 		// The age itself is not a second copy: the bundle is handed `lib/format.ts`'s body.
 		expect(BOARD_CLIENT_JS).toContain("var ageText = function formatAge(");
 	});
@@ -355,7 +353,7 @@ describe("the client bundle", () => {
 	test("filters through the module's one query rule, spliced in", () => {
 		// Same reason as the plural: the filter box and `board list query:` must find the
 		// same cards, and a copy in the bundle is how they stopped doing that.
-		expect(BOARD_CLIENT_JS).toContain("card.plan.toLowerCase().includes(needle)");
+		expect(BOARD_CLIENT_JS).toContain("card.planPath.toLowerCase().includes(needle)");
 		expect(BOARD_CLIENT_JS).toContain("card.notes.some");
 		expect(BOARD_CLIENT_JS).not.toContain("__MATCHES__");
 		expect(BOARD_CLIENT_JS).toContain("board.matches = matches;");

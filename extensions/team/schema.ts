@@ -16,7 +16,7 @@ export const TeamParams = Type.Object({
 			description:
 				"`assign` hands a card to a running session and sends it a handoff; `offer` broadcasts an unclaimed card to " +
 				"every other live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back " +
-				"to To do. A lead's three actions — use `board` to create, claim, move, note, and finish the cards themselves.",
+				"to Backlog. A lead's three actions — use `board` to create, claim, move, note, and finish the cards themselves.",
 		},
 	),
 	card: Type.String({ description: 'The card to act on, e.g. "4" or "#4".' }),

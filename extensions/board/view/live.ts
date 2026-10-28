@@ -128,7 +128,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     var lanes = document.getElementById("board-lanes");
     if (!lanes || lanes.childElementCount > 0) return;
     lanes.setAttribute("data-skeleton", "1");
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < board.laneCount; i++) {
       var lane = board.el("section", N.lane);
       for (var j = 0; j < 2; j++) lane.appendChild(board.el("div", N.skeleton));
       lanes.appendChild(lane);
@@ -137,12 +137,12 @@ export const BOARD_LIVE_JS = String.raw`(function () {
 
   /**
    * The lane a narrow reader lands on: the first with a card in it, else the first
-   * lane. Opening on an empty To do while the only card sits in Blocked is a blank
+   * lane. Opening on an empty Backlog while the only card sits in Blocked is a blank
    * page with a picker nobody has a reason to press.
    */
   function laneWithWork(view) {
     for (var i = 0; i < view.lanes.length; i++) if (view.lanes[i].cards.length > 0) return view.lanes[i].key;
-    return view.lanes[0] ? view.lanes[0].key : "todo";
+    return view.lanes[0] ? view.lanes[0].key : "backlog";
   }
 
   /** One frame: paint and record when it arrived. */

@@ -23,7 +23,9 @@ export const BOARD_ACTIONS = [
 	"reclaim",
 	"move",
 	"note",
-	"plan",
+	"contract",
+	"approve",
+	"review",
 	"edit",
 	"archive",
 	"drop",
@@ -46,17 +48,22 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 		"instead of the board, and `round` adds the lead's rollup of owners, unassigned, unplanned, blocked, and " +
 		"idle, which always covers the whole board — and a listing that names no lane leaves out the `done` cards, " +
 		"saying how many it left out",
-	add: "creates a `todo` card",
-	claim: "takes one for this session",
-	release: "gives it back",
-	reclaim: "takes it from whoever holds it",
-	move: "changes lane",
+	add: "creates a `backlog` card",
+	claim: "pulls one into `plan` for this session, when `plan` has room",
+	release: "gives it back to `backlog`",
+	reclaim: "takes it from whoever holds it, back to `backlog`",
+	move: "changes lane, through the one transition the board allows from where the card is",
 	note: "appends to its history",
-	plan: "records the plan file being executed",
+	contract:
+		"records the plan file and the three lines a card promises — `goal`, `acceptance`, `scopeOut` — and drops any approval, because the wording changed",
+	approve:
+		"approves the contract: a session that does not hold the card says the wording is right, which is what `plan` to `execute` requires",
+	review:
+		"records a spot-check of the finished work: a session that does not hold the card, in `execute`, which is what `done` requires",
 	edit: "fixes what the card says — title, path hints, priority, and what it waits for",
 	archive:
 		"sets a finished card aside, out of the board and still readable, or every finished card when no `card` is named",
-	drop: "deletes a `todo`, a `done`, or one you hold",
+	drop: "deletes a `backlog` or a `done` card, or one you hold",
 };
 
 /**
@@ -76,9 +83,11 @@ export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
 	claim: ["card"],
 	release: ["card"],
 	reclaim: ["card"],
-	move: ["card", "lane", "blockedBy"],
+	move: ["card", "lane", "blockedBy", "blocker"],
 	note: ["card", "text"],
-	plan: ["card", "path"],
+	contract: ["card", "path", "goal", "acceptance", "scopeOut"],
+	approve: ["card"],
+	review: ["card"],
 	edit: ["card", "title", "paths", "priority", "dependsOn"],
 	archive: ["card"],
 	drop: ["card"],

@@ -113,7 +113,7 @@ export function formatRacedAssignment(card: Card, to: string, reason: string): s
 	);
 }
 
-/** A card taken back to To do. */
+/** A card taken back to the pool. */
 export function formatReclaimed(card: Card, previous: string): string {
-	return `${cardRef(card.id)} reclaimed from ${previous} and back in To do; its notes are kept.\n  ${card.title}`;
+	return `${cardRef(card.id)} reclaimed from ${previous} and back in Backlog; its notes are kept.\n  ${card.title}`;
 }

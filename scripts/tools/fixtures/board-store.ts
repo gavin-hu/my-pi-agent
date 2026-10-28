@@ -26,18 +26,25 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Billing webhook accepts orders",
 		paths: ["src/billing", "src/api"],
-		plan: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
+		planPath: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
 		owner: CORE,
-		lane: "doing" as const,
+		lane: "execute" as const,
 		notes: ["routes wired; tests next", "no retries yet"],
 	},
 	{
 		title: "Retry branches merge cleanly into main",
 		paths: ["src/billing/retry"],
 		owner: CORE,
-		lane: "doing" as const,
+		lane: "execute" as const,
 		priority: "high" as const,
 		notes: ["needs a plan before it goes further"],
+	},
+	{
+		title: "Round invoice totals at the boundary",
+		paths: ["src/billing/totals"],
+		owner: CORE,
+		lane: "plan" as const,
+		notes: ["contract written, waiting on the lead to read it"],
 	},
 	{
 		title: "Webhook signature drift on the gateway",
@@ -56,13 +63,13 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Invoice totals round the wrong way",
 		paths: ["src/billing/totals"],
-		lane: "todo" as const,
+		lane: "backlog" as const,
 		notes: ["from the support thread"],
 	},
 	{
 		title: "Document the retry policy",
 		paths: ["docs/extensions"],
-		lane: "todo" as const,
+		lane: "backlog" as const,
 		// The one card that waits: an order is the reason a lead cannot just claim it.
 		dependsOn: ["2"],
 		notes: ["after the retry branches land"],
@@ -90,12 +97,42 @@ export async function seedStore(directory: string): Promise<void> {
 		if (spec.owner !== undefined) await store.mutate(card.id, { kind: "claim" }, spec.owner, at + 1_000);
 		for (const note of spec.notes.slice(1))
 			await store.mutate(card.id, { kind: "note", text: note }, spec.owner ?? LEAD, at + 2_000);
-		if (spec.lane === "blocked")
-			await store.mutate(card.id, { kind: "move", lane: "blocked" }, spec.owner ?? LEAD, at + 3_000);
-		if (spec.lane === "done")
-			await store.mutate(card.id, { kind: "move", lane: "done" }, spec.owner ?? LEAD, at + 3_000);
-		if (spec.lane === "doing" && "plan" in spec && spec.plan !== undefined) {
-			await store.mutate(card.id, { kind: "plan", path: spec.plan }, spec.owner ?? LEAD, at + 4_000);
+		const owner = spec.owner ?? LEAD;
+		if (spec.lane === "blocked") {
+			await store.mutate(
+				card.id,
+				{ kind: "move", lane: "blocked", blocker: "decision", blockedBy: spec.notes.at(-1) },
+				owner,
+				at + 3_000,
+			);
+		}
+		if (spec.lane === "plan" || spec.lane === "execute" || spec.lane === "done") {
+			await store.mutate(
+				card.id,
+				{
+					kind: "contract",
+					// Every card that leaves the pool records a plan: a finished card must say
+					// what it was done against, so the seeding substitutes one when the spec
+					// does not name it.
+					path: spec.planPath ?? `plans/${card.id}.md`,
+					goal: `The feature the card names, working: ${spec.title}`,
+					acceptance: "A reader can tell it is done, and a test says so",
+					scopeOut: "Anything the card does not name",
+				},
+				owner,
+				at + 3_500,
+			);
+		}
+		// The gates are two sessions' work: this fixture's owner writes, the lead approves.
+		if (spec.lane === "execute" || spec.lane === "done") {
+			const approver = owner.label === LEAD.label ? CORE : LEAD;
+			await store.mutate(card.id, { kind: "approve" }, approver, at + 3_800);
+			await store.mutate(card.id, { kind: "move", lane: "execute" }, owner, at + 4_000);
+		}
+		if (spec.lane === "done") {
+			const reviewer = owner.label === LEAD.label ? CORE : LEAD;
+			await store.mutate(card.id, { kind: "review" }, reviewer, at + 4_200);
+			await store.mutate(card.id, { kind: "move", lane: "done", landed: { commit: "4af1b4a" } }, owner, at + 4_400);
 		}
 		if ("dependsOn" in spec && spec.dependsOn !== undefined) {
 			await store.mutate(

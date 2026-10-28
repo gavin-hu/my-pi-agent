@@ -20,7 +20,7 @@ const NOW = 1_760_000_000_000;
 function card(overrides: Partial<Card> & Pick<Card, "id" | "title">): Card {
 	return {
 		v: 1,
-		lane: "todo",
+		lane: "backlog",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -32,25 +32,45 @@ function card(overrides: Partial<Card> & Pick<Card, "id" | "title">): Card {
 	};
 }
 
+const CONTRACT = {
+	goal: "A webhook order is stored once, whatever the gateway retries",
+	acceptance: "A retried delivery leaves one order, and a test says so",
+	scopeOut: "Refunds and partial captures",
+};
+
 const PLANNED = card({
 	id: "1",
 	title: "Billing webhook accepts orders",
-	lane: "doing",
+	lane: "execute",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing", "src/api"],
-	plan: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
+	planPath: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
+	contract: { ...CONTRACT, approved: { by: "billing-lead", at: NOW - 200_000 } },
+	review: { by: "billing-lead", at: NOW - 90_000 },
 	notes: [{ by: "billing-core", at: NOW - 120_000, text: "routes wired; tests next" }],
-	rev: 4,
+	rev: 6,
 	by: "billing-core",
 });
 
 const UNPLANNED = card({
 	id: "2",
 	title: "Retry branches merge cleanly into main",
-	lane: "doing",
+	lane: "execute",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing/retry"],
 	rev: 3,
+	by: "billing-core",
+});
+
+/** A card whose contract is complete and nobody has read: the lead's queue. */
+const AWAITING = card({
+	id: "6",
+	title: "Round invoice totals at the boundary",
+	lane: "plan",
+	owner: { id: "s-core", label: "billing-core" },
+	paths: ["src/billing/totals"],
+	contract: CONTRACT,
+	rev: 4,
 	by: "billing-core",
 });
 
@@ -60,6 +80,8 @@ const BLOCKED = card({
 	lane: "blocked",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/api/gateway"],
+	blocker: "decision",
+	blockedBy: "the gateway owner has to confirm the algorithm",
 	notes: [{ by: "billing-core", at: NOW - 60_000, text: "waiting on the gateway owner" }],
 	rev: 5,
 	by: "billing-core",
@@ -71,6 +93,10 @@ const DONE = card({
 	lane: "done",
 	owner: { id: "s-other", label: "billing-other" },
 	paths: ["src/reports"],
+	planPath: "~/.pi/agent/plans/8872d3adda0e/export-orders.md",
+	contract: { ...CONTRACT, approved: { by: "billing-lead", at: NOW - 4_000_000 } },
+	review: { by: "billing-lead", at: NOW - 3_700_000 },
+	landed: { commit: "4af1b4a", at: NOW - 3_600_000 },
 	notes: [{ by: "billing-other", at: NOW - 3_600_000, text: "shipped behind a flag" }],
 	rev: 6,
 	by: "billing-other",
@@ -79,7 +105,7 @@ const DONE = card({
 const UNASSIGNED = card({ id: "5", title: "Invoice totals round the wrong way", paths: ["src/billing/totals"] });
 
 /** The board the listing and the rollup share. */
-const CARDS = [UNASSIGNED, PLANNED, UNPLANNED, BLOCKED, DONE];
+const CARDS = [UNASSIGNED, AWAITING, PLANNED, UNPLANNED, BLOCKED, DONE];
 
 const ME = { id: "s-lead", label: "billing-lead" };
 
@@ -100,7 +126,7 @@ const ASSIGNED: TeamDetails = {
 /** One reclaim, as the tool reports it. */
 const RECLAIMED: TeamDetails = {
 	action: "reclaim",
-	card: { ...UNPLANNED, lane: "todo", rev: 4 },
+	card: { ...UNPLANNED, lane: "backlog", rev: 4 },
 };
 
 /** One finished card set aside, as the tool reports it. */
@@ -158,6 +184,35 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		},
 	},
 	{
+		name: "board-contract",
+		tool: "board",
+		group: "package",
+		label: "a contract written, waiting for a session that does not hold the card",
+		args: { action: "contract", card: "6", path: "plans/totals.md" },
+		result: {
+			content: [{ type: "text", text: "#6 plan · Round invoice totals at the boundary" }],
+			details: { action: "contract", me: ME, card: AWAITING } as BoardDetails,
+		},
+	},
+	{
+		name: "board-gated",
+		tool: "board",
+		group: "package",
+		label: "a move to execute refused until the contract is approved",
+		args: { action: "move", card: "6", lane: "execute" },
+		result: {
+			content: [{ type: "text", text: "Error: #6 is in plan; its contract is not approved yet." }],
+			details: {
+				action: "move",
+				me: ME,
+				card: AWAITING,
+				error:
+					"#6 is in plan; its contract is not approved yet. A session that does not hold it approves with `approve`.",
+			} as BoardDetails,
+			isError: true,
+		},
+	},
+	{
 		name: "team",
 		group: "package",
 		label: "a card handed to a running session",
@@ -171,7 +226,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		name: "team-reclaimed",
 		tool: "team",
 		group: "package",
-		label: "a card taken back to To do",
+		label: "a card taken back to the pool, its notes kept",
 		args: { action: "reclaim", card: "2" },
 		result: {
 			content: [{ type: "text", text: "#2 reclaimed from billing-core" }],

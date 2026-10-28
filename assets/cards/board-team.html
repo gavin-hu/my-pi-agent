@@ -22,7 +22,7 @@
 				class="diagram diagram--team"
 				viewBox="0 0 1104 406"
 				role="img"
-				aria-label="Three bands, one per verb. Assign: the lead sends a handoff to a named peer, and the card becomes doing, owned by that peer. Offer: the lead broadcasts a card to every other live session as one event and nothing is written, so the first claim wins. Reclaim: the card returns to To do on its own, with its notes kept and no handoff sent."
+				aria-label="Three bands, one per verb. Assign: the lead sends a handoff to a named peer, and the card moves into plan, owned by that peer. Offer: the lead broadcasts a card to every other live session as one event and nothing is written, so the first claim wins. Reclaim: the card returns to Backlog on its own, with its notes kept and no handoff sent."
 			>
 				<defs>
 					<marker
@@ -73,9 +73,9 @@
 				<line class="edge edge--go" x1="620" y1="48" x2="706" y2="48" marker-end="url(#tip-go)" />
 				<text class="edge-label edge-label--go" x="663" y="34">owns</text>
 				<rect class="node" x="712" y="26" width="196" height="44" rx="10" />
-				<text class="node-label node-label--mono" x="810" y="54">#4 · doing</text>
+				<text class="node-label node-label--mono" x="810" y="54">#4 · plan</text>
 				<text class="verb-note verb-note--hi" x="930" y="54">one write: lane and owner</text>
-				<text class="verb-note" x="26" y="104">the handoff waits in the peer's inbox; the card is already doing and owned</text>
+				<text class="verb-note" x="26" y="104">the handoff waits in the peer's inbox; the card is in plan, and owned</text>
 
 				<!-- ② offer: nothing written, so the first claim is what takes the card. -->
 				<rect class="band" x="0" y="140" width="1104" height="120" rx="16" />
@@ -92,7 +92,7 @@
 				<line class="edge edge--go" x1="720" y1="188" x2="790" y2="188" marker-end="url(#tip-go)" />
 				<text class="edge-label edge-label--go" x="755" y="174">first claim</text>
 				<rect class="node" x="796" y="166" width="196" height="44" rx="10" />
-				<text class="node-label node-label--mono" x="894" y="194">#4 · doing</text>
+				<text class="node-label node-label--mono" x="894" y="194">#4 · plan</text>
 				<text class="verb-note" x="26" y="244">no owner is recorded and nothing is sent to one peer, so two claims are settled by the store</text>
 
 				<!-- ③ reclaim: the card alone, the notes kept, no bus involved. -->
@@ -100,11 +100,11 @@
 				<text class="verb-label verb-label--dim" x="26" y="318">reclaim</text>
 				<text class="verb-note" x="26" y="340">收回</text>
 				<rect class="node" x="170" y="306" width="196" height="44" rx="10" />
-				<text class="node-label node-label--mono" x="268" y="334">#4 · doing</text>
+				<text class="node-label node-label--mono" x="268" y="334">#4 · plan</text>
 				<line class="edge" x1="366" y1="328" x2="446" y2="328" marker-end="url(#tip)" />
 				<text class="edge-label" x="406" y="314">returns</text>
 				<rect class="node" x="452" y="306" width="150" height="44" rx="10" />
-				<text class="node-label" x="527" y="334">To do</text>
+				<text class="node-label" x="527" y="334">Backlog</text>
 				<text class="verb-note" x="630" y="334">the notes stay · no handoff sent · no bus needed</text>
 				<text class="verb-note" x="26" y="386">the owner clears, and the card is anyone's to claim again</text>
 			</svg>

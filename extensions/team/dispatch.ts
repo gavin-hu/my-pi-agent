@@ -42,9 +42,9 @@ export function handoffText(card: Card, to: string, note?: string): string {
 	const lines = [
 		`Handoff: ${cardRef(card.id)} "${card.title}" is yours, ${to}.`,
 		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
-		card.plan === undefined ? undefined : `Plan: ${card.plan}`,
+		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,
-		`It is already assigned to you — record the plan with board action "plan" if it has none, then note each phase and move it to done or blocked.`,
+		`It is already assigned to you — write its contract with board action "contract" if it has none, then note each phase and move it to execute, blocked, or done.`,
 	].filter((line): line is string => line !== undefined);
 	return withinLimit(lines.join("\n"));
 }
@@ -60,9 +60,9 @@ export function offerText(card: Card, note?: string): string {
 	const lines = [
 		`Offer: ${cardRef(card.id)} "${card.title}" is unclaimed.`,
 		card.paths.length > 0 ? `Paths: ${card.paths.join(", ")}` : undefined,
-		card.plan === undefined ? undefined : `Plan: ${card.plan}`,
+		card.planPath === undefined ? undefined : `Plan: ${card.planPath}`,
 		note === undefined ? undefined : `Note: ${note}`,
-		`First to claim it takes it: run board action "claim" with card "${card.id}", then note each phase and move it to done or blocked.`,
+		`First to claim it takes it: run board action "claim" with card "${card.id}", then write its contract and move it on from plan.`,
 	].filter((line): line is string => line !== undefined);
 	return withinLimit(lines.join("\n"));
 }

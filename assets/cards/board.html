@@ -18,19 +18,24 @@
 
 			<h1 class="title title--compact">One board, every session <span class="title__zh">一块看板，所有会话共享</span></h1>
 			<p class="lede">
-				The tools write the cards; the page only reads them. One page per repository, served by
-				one session under the seat, and anyone it is shown to sees the same live board.<br />
-				<span class="lede__zh">卡片由工具写入，页面只读。每个仓库一张页面，由一个会话以席位对外提供；拿到它的人看到同一块实时看板。</span>
+				The tools write the cards; the page only reads them. A card is planned before it is
+				executed, and finished only after somebody else has looked.<br />
+				<span class="lede__zh">卡片由工具写入，页面只读。先写契约、经人批准，才执行；完成后还要别人抽检。</span>
 			</p>
 
 			<div class="facets">
 				<section class="panel panel--facet">
 					<div class="panel__head"><span class="panel__no">①</span>Lanes<span class="panel__zh">车道</span></div>
 					<div class="panel__body">
-						<span class="tray"><span class="dot"></span>To do<span class="pill">2</span><span class="tray__fold">⌄</span></span>
+						<span class="tray"><span class="dot"></span>Backlog<span class="pill">2</span><span class="tray__fold">⌄</span></span>
 						<span class="tray"
-							><span class="dot dot--doing"></span>Doing<span class="pill">1</span><span class="tray__fold"
+							><span class="dot dot--plan"></span>Plan<span class="pill">2/3</span><span class="tray__fold"
 								>⌄</span
+							></span
+						>
+						<span class="tray"
+							><span class="dot dot--execute"></span>Execute<span class="pill">1/5</span><span
+								class="tray__fold">⌄</span
 							></span
 						>
 						<span class="tray"
@@ -43,10 +48,9 @@
 								>⌄</span
 							></span
 						>
-						<span class="note">trays, not a bare list</span>
-						<span class="note">the head sticks, the count is a pill</span>
+						<span class="note">the head sticks · n/limit while a lane is pulled</span>
 					</div>
-					<div class="panel__gloss">四列托盘，随时折叠</div>
+					<div class="panel__gloss">五条车道，随时折叠</div>
 				</section>
 
 				<section class="panel panel--facet">
@@ -60,10 +64,10 @@
 								<span>21m</span>
 							</div>
 							<div class="mini__paths"><span class="chip">src/billing</span></div>
-							<div class="mini__reason">no plan recorded</div>
+							<div class="mini__reason">no contract yet — missing acceptance</div>
 						</div>
-						<span class="note">one reason line, in one voice</span>
-						<span class="note">no buttons: the title opens the card whole</span>
+						<span class="note">goal · acceptance · scope out, one line each</span>
+						<span class="note">approved by a session that does not hold it</span>
 					</div>
 					<div class="panel__gloss">功能，不是步骤</div>
 				</section>
@@ -84,6 +88,7 @@
 						<div class="tally">
 							<span><b>2</b>unassigned</span>
 							<span><b>1</b>unplanned</span>
+							<span><b>1</b>to approve</span>
 							<span><b>1</b>blocked</span>
 							<span><b>1</b>idle</span>
 							<span><b>4</b>done</span>

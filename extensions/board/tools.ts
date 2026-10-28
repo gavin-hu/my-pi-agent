@@ -14,12 +14,14 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
-import { type Card, cardRef, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
+import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
+import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
-import { type CardOp, holds } from "../../lib/board/rules.ts";
+import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
+import { listOf } from "../../lib/format.ts";
 import { revParse } from "../../lib/git/read.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import { createExecRunner } from "../../lib/git/runner.ts";
@@ -127,14 +129,16 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 		label: "Board",
 		description:
 			"The shared feature list for this repository: one card per feature, which any session reads and writes. " +
-			"A card carries the feature's outcome, the session that holds it, path hints, the plan it is executing, " +
-			`its priority, what it waits for, and its notes. ${verbHelp()} A card's steps do not belong on the ` +
-			"board - they belong in the plan and in `todo`.",
+			"A card moves through five lanes - backlog, plan, execute, blocked, done - and carries the feature's " +
+			"outcome, the session that holds it, the contract it promises (goal, acceptance, scopeOut), the plan it " +
+			`is executed against, its priority, what it waits for, and its notes. ${verbHelp()} A card's steps do not ` +
+			"belong on the board - they belong in the plan and in `todo`.",
 		promptSnippet: `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`,
 		promptGuidelines: [
-			"Claim a card before working on it; release or finish it when you stop, and reclaim a card whose owner is gone.",
-			"Record the plan file with `board` action `plan` once the plan is approved, then execute it.",
-			"Note each phase of the work, and move the card to `done` or `blocked` when it changes state.",
+			"Claim a card to pull it from backlog into plan, write its contract with `contract` (goal, acceptance, scopeOut, and the plan file), and move it to execute only once a session that does not hold it has approved that contract.",
+			"Before a card is done, a session that does not hold it records a spot-check with `review`; `execute` also needs the plan path the work was done against.",
+			"Move a card to `blocked` with a `blocker` kind and one line about what is waited on: only `contract` sends it back to plan, and the other kinds resume in execute.",
+			"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
 			"A card that waits on another is linked with `edit` and `dependsOn`, so the order is on the board instead of in a refusal.",
 			"A feature's steps belong in `todo`, not on the board: one card is one feature, whatever it takes.",
 			"A `handoff` in your inbox is work you now own: read it with `session inbox`, record the plan, and start it.",
@@ -184,12 +188,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 					case "move": {
 						if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
 						const lane = args.lane;
-						if (lane === undefined || lane === "todo") {
-							return refusal(
-								action,
-								me,
-								'move needs a target lane: "doing", "blocked", or "done". Use release to return a card to todo.',
-							);
+						if (lane === undefined) {
+							return refusal(action, me, `move needs a target lane: ${listOf(movableLanes())}.`);
 						}
 						// Only the lane that has something to say reads for it: a move to `done`
 						// records the commit that closed the card, and a board outside a
@@ -199,13 +199,24 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 							kind: "move",
 							lane,
 							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
+							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(landed === undefined ? {} : { landed }),
 						});
 					}
 					case "note":
 						return await mutate(store, action, me, now, args, { kind: "note", text: args.text });
-					case "plan":
-						return await mutate(store, action, me, now, args, { kind: "plan", path: args.path });
+					case "contract":
+						return await mutate(store, action, me, now, args, {
+							kind: "contract",
+							path: args.path,
+							goal: args.goal,
+							acceptance: args.acceptance,
+							scopeOut: args.scopeOut,
+						});
+					case "approve":
+						return await mutate(store, action, me, now, args, { kind: "approve" });
+					case "review":
+						return await mutate(store, action, me, now, args, { kind: "review" });
 					case "edit": {
 						if (
 							args.title === undefined &&

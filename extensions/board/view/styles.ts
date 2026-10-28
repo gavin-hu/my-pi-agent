@@ -12,7 +12,23 @@
  * board (lanes, cards, and the Team tables), then its dialogs.
  */
 
+import { LANE_RULES, LANES } from "../../../lib/board/lanes.ts";
 import { WEB_BASE_CSS, WEB_COMPONENTS_CSS, WEB_LAYOUT_CSS, WEB_THEME_CSS } from "../../../lib/web/index.ts";
+
+/**
+ * A lane's colour, from the lane table: one role per lane, worn by the dot on its head and
+ * by the same dot in a card's dialog.
+ *
+ * Generated rather than written five times, so a lane added to `LANES` arrives with its
+ * colour and the two rules cannot drift from the table's `role`.
+ */
+const LANE_ROLE_CSS = LANES.flatMap((lane) => {
+	const role = LANE_RULES[lane].role;
+	return [
+		`.board-lane[data-lane="${lane}"] .board-lane__dot{background:var(--${role})}`,
+		`.board-dialog__state[data-lane="${lane}"]::before{background:var(--${role})}`,
+	];
+}).join("\n");
 
 /** The shared shell, the components, and the board's own layout. */
 export const BOARD_CSS = `${WEB_BASE_CSS}
@@ -50,8 +66,8 @@ ${WEB_COMPONENTS_CSS}
    one — and the floor is the narrowest a tray is still a tray at. It is set on the two
    states that draw one, so a rail keeps its own width, and both breakpoints below
    replace the basis, so the floor only ever applies to the row it was chosen for:
-   four lanes at 1180px are 60rem, which is inside the row before the wrap. */
-.board-lane[data-empty="false"][data-folded="false"]{min-width:15rem}
+   five lanes at 1180px are 60rem, which is inside the row before the wrap. */
+.board-lane[data-empty="false"][data-folded="false"]{min-width:12rem}
 /* The rail: a dot, a word, and a count — the fact that the lane is showing nothing, not a
    tray. A lane is a rail when it holds no cards and when it is folded, because both say
    the same thing: there is nothing here to read. */
@@ -64,9 +80,7 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__toggle[aria-expanded="false"]::after{content:"▸"}
 .board-lane__count{font-variant-numeric:tabular-nums;color:var(--muted);background:var(--canvas);border-radius:var(--radius-pill);padding:0 var(--space-2);font-size:var(--fs-xs);letter-spacing:0}
 .board-lane__dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
-.board-lane[data-lane="doing"] .board-lane__dot{background:var(--accent)}
-.board-lane[data-lane="blocked"] .board-lane__dot{background:var(--danger)}
-.board-lane[data-lane="done"] .board-lane__dot{background:var(--success)}
+${LANE_ROLE_CSS}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
 
@@ -118,6 +132,7 @@ ${WEB_COMPONENTS_CSS}
 .board-team__decision:hover{border-color:var(--border-strong);transform:translateY(-1px)}
 .board-team__decision[data-kind="blocked"]{border-left-color:var(--danger)}
 .board-team__decision[data-kind="idle"]{border-left-color:var(--warn)}
+.board-team__decision[data-kind="approval"]{border-left-color:var(--warn)}
 /* Nobody holds it, so the edge is drawn but not filled: a shape, not a claim. */
 .board-team__decision[data-kind="unassigned"]{border-left-style:dashed}
 .board-team__open{grid-area:open;display:flex;align-items:baseline;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;text-align:left;cursor:pointer;color:var(--text);font:var(--fw-medium) var(--fs-md) var(--font-ui);min-width:0}
@@ -193,9 +208,7 @@ ${WEB_COMPONENTS_CSS}
 .board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
-.board-dialog__state[data-lane="doing"]::before{background:var(--accent)}
-.board-dialog__state[data-lane="blocked"]::before{background:var(--danger)}
-.board-dialog__state[data-lane="done"]::before{background:var(--success)}
+
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 
 @media (max-width:1180px){

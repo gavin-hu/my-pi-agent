@@ -19,7 +19,7 @@ function card(overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id: "4",
 		title: "Billing webhook accepts orders",
-		lane: "doing",
+		lane: "execute",
 		owner: { id: "s-lead", label: "billing-lead" },
 		paths: ["src/billing"],
 		notes: [],
@@ -44,7 +44,11 @@ describe("handoffText", () => {
 	});
 
 	test("carries the plan when one is recorded, and the lead's note when there is one", () => {
-		const text = handoffText(card({ plan: "~/.pi/agent/plans/k/one.md" }), "billing-core", "start with the webhook");
+		const text = handoffText(
+			card({ planPath: "~/.pi/agent/plans/k/one.md" }),
+			"billing-core",
+			"start with the webhook",
+		);
 		expect(text).toContain("Plan: ~/.pi/agent/plans/k/one.md");
 		expect(text).toContain("Note: start with the webhook");
 	});
@@ -66,7 +70,7 @@ describe("offerText", () => {
 	});
 
 	test("carries the plan and the lead's note, and stays inside the send limit", () => {
-		const text = offerText(card({ plan: "~/.pi/agent/plans/k/one.md" }), "whoever is free");
+		const text = offerText(card({ planPath: "~/.pi/agent/plans/k/one.md" }), "whoever is free");
 		expect(text).toContain("Plan: ~/.pi/agent/plans/k/one.md");
 		expect(text).toContain("Note: whoever is free");
 		const long = card({ paths: Array.from({ length: 12 }, (_, index) => `${"x".repeat(190)}${index}`) });

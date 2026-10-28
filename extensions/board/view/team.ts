@@ -48,12 +48,12 @@ export const BOARD_TEAM_JS = String.raw`(function () {
    * The renderer filters this list, so it has to be the data: filtering the built
    * rows would test the element instead of the card.
    *
-   * The round's groups overlap on purpose — a doing card untouched for half an hour
+   * The round's groups overlap on purpose — an executing card untouched for half an hour
    * is both idle and unplanned — so a card can arrive twice. On the page one card is
    * one row, and the strongest reason is the one it keeps: a blocker outranks silence,
    * which outranks a missing plan, which outranks nobody holding it.
    */
-  var KIND_RANK = { blocked: 0, gone: 1, waiting: 2, idle: 3, unplanned: 4, unassigned: 5 };
+  var KIND_RANK = { blocked: 0, gone: 1, approval: 2, waiting: 3, idle: 4, unplanned: 5, unassigned: 6 };
 
   /** The labels of the sessions whose process is gone, in the roster's own spelling. */
   function goneLabels(view) {
@@ -84,13 +84,16 @@ export const BOARD_TEAM_JS = String.raw`(function () {
         }
       }
     }
-    // A blocked card in this queue is a person's decision: the reason the move recorded
-    // comes first, and the last note is only the fallback for a block nobody explained.
-    add(round.blocked, function (card) {
-      if (card.blockedBy) return card.blockedBy;
-      var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
-      return last ? last.text : "blocked";
-    }, "blocked");
+    // The card's own sentence, from the one rule: the page's faces and the transcript read
+    // the same body, so a block and a contract cannot be described two ways.
+    function why(card, fallback) {
+      var reason = board.reasonFor(card, ago);
+      return reason === undefined ? fallback : reason.text;
+    }
+    add(round.blocked, function (card) { return why(card, "blocked"); }, "blocked");
+    // A complete contract nobody has read is the lead's decision, and the one the flow
+    // stops on: the card cannot be executed until it is approved.
+    add(round.unapproved, function (card) { return why(card, "contract ready — needs approval"); }, "approval");
     // A dead owner is a fact, not an inference from silence: the card is anyone's now.
     var gone = goneLabels(view);
     add(
@@ -102,7 +105,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     );
     add(round.idle, function (card) { return "no touch for " + ago(card.updatedAt); }, "idle");
     // The board card says the same words for the same fact: one voice for one state.
-    add(round.unplanned, function () { return "no plan recorded"; }, "unplanned");
+    add(round.unplanned, function (card) { return why(card, "no contract yet"); }, "unplanned");
     add(round.unassigned, function () { return "nobody holds it"; }, "unassigned");
     // An order outranks nobody holding it: the claim would be refused, so the queue says
     // what it waits for instead of offering a button the rules would turn down.
@@ -274,7 +277,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     var decisions = all.filter(function (entry) { return keep(entry.card); });
     var queue = panel("Needs a decision", decisions.length, all.length);
     if (decisions.length === 0) {
-      queue.appendChild(el("p", N.teamEmpty, filtering ? noMatch : "nothing needs you: no blockers, nothing idle, every card planned and held"));
+      queue.appendChild(el("p", N.teamEmpty, filtering ? noMatch : "nothing needs you: no blockers, no contract waiting to be read, nothing idle"));
     } else {
       var list = el("div", N.teamQueue);
       for (var i = 0; i < decisions.length; i++) list.appendChild(decision(decisions[i], view));

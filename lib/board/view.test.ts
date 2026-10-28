@@ -1,10 +1,10 @@
 /**
- * The snapshot the page renders: lanes, tallies, the rollup, and the signature
- * that decides whether a frame is pushed at all.
+ * The snapshot the page renders: lanes, the total, the rollup, and the signature that
+ * decides whether a frame is pushed at all.
  *
- * The point of these cases is that the page cannot invent a state: every lane
- * holds exactly its status, the counts are summed from the lanes rather than
- * counted a second way, and `sig` moves only when a revision does.
+ * The point of these cases is that the page cannot invent a state: every lane holds
+ * exactly its own cards and carries its own words and limit, `total` is the cards the
+ * lanes carry rather than a count of its own, and `sig` moves only when a revision does.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -19,7 +19,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id,
 		title: `Card ${id}`,
-		lane: "todo",
+		lane: "backlog",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -42,7 +42,7 @@ describe("buildView", () => {
 			me: ME,
 			cards: [
 				card("1"),
-				card("2", { lane: "doing", owner: { label: "billing-core" } }),
+				card("2", { lane: "execute", owner: { label: "billing-core" } }),
 				card("3", { lane: "blocked", owner: { label: "billing-core" } }),
 				card("4", { lane: "done", owner: { label: "billing-core" } }),
 			],
@@ -52,22 +52,33 @@ describe("buildView", () => {
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(view.lanes.map((lane) => lane.key)).toEqual(["todo", "doing", "blocked", "done"]);
-		expect(view.lanes.map((lane) => lane.cards.map((entry) => entry.id))).toEqual([["1"], ["2"], ["3"], ["4"]]);
+		expect(view.lanes.map((lane) => lane.key)).toEqual(["backlog", "plan", "execute", "blocked", "done"]);
+		expect(view.lanes.map((lane) => lane.cards.map((entry) => entry.id))).toEqual([["1"], [], ["2"], ["3"], ["4"]]);
+		// The words, the colour, and the limit come with the lane: the page holds no table.
+		expect(view.lanes[1]).toMatchObject({
+			label: "Plan",
+			empty: "nothing being planned",
+			role: "warn",
+			limit: 3,
+			count: 0,
+		});
+		expect(view.lanes[0]?.label).toBe("Backlog");
+		expect(view.lanes[0]?.limit).toBeUndefined();
+		expect(view.total).toBe(4);
 	});
 
 	test("gives a card the moment it entered its lane, and nothing when its history is silent", () => {
 		const view = buildView({
 			me: ME,
 			cards: [
-				card("1", { log: [{ lane: "todo", at: 4_000, by: "billing-lead" }] }),
+				card("1", { log: [{ lane: "backlog", at: 4_000, by: "billing-lead" }] }),
 				// A card written before the log existed.
 				card("2"),
 				// A log whose last entry is another lane cannot say when this one began.
 				card("3", {
-					lane: "doing",
+					lane: "execute",
 					owner: { label: "billing-core" },
-					log: [{ lane: "todo", at: 1_000, by: "billing-lead" }],
+					log: [{ lane: "backlog", at: 1_000, by: "billing-lead" }],
 				}),
 			],
 			now: NOW,
@@ -100,14 +111,14 @@ describe("buildView", () => {
 		// links. Both read the same graph, so neither can invent a blocker.
 		const blocked = buildView({
 			me: ME,
-			cards: [card("2", { lane: "doing" }), card("4", { dependsOn: ["2"] })],
+			cards: [card("2", { lane: "execute" }), card("4", { dependsOn: ["2"] })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(blocked.lanes[0]?.cards[0]?.waits).toBe("#2 (doing)");
+		expect(blocked.lanes[0]?.cards[0]?.waits).toBe("#2 (execute)");
 
 		const cleared = buildView({
 			me: ME,
@@ -127,7 +138,7 @@ describe("buildView", () => {
 		const view = buildView({
 			me: ME,
 			cards: [
-				card("2", { lane: "doing" }),
+				card("2", { lane: "execute" }),
 				card("4", { dependsOn: ["2"] }),
 				card("5", { lane: "done", dependsOn: ["2"], owner: { label: "x" } }),
 			],
@@ -138,7 +149,7 @@ describe("buildView", () => {
 			root: ROOT,
 		});
 		const blocker = view.lanes.flatMap((lane) => lane.cards).find((entry) => entry.id === "2");
-		expect(blocker?.dependents).toBe("#4 (todo)");
+		expect(blocker?.dependents).toBe("#4 (backlog)");
 		// A card nothing waits on carries no field at all: absence is the fact.
 		const dependent = view.lanes.flatMap((lane) => lane.cards).find((entry) => entry.id === "4");
 		expect(dependent?.dependents).toBeUndefined();
@@ -186,14 +197,14 @@ describe("buildView", () => {
 		// without `waits` reads as "nobody holds it" and loses the reason it is queued.
 		const view = buildView({
 			me: ME,
-			cards: [card("2", { lane: "doing", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
+			cards: [card("2", { lane: "execute", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(view.round.unassigned.map((entry) => entry.waits)).toEqual(["#2 (doing)"]);
+		expect(view.round.unassigned.map((entry) => entry.waits)).toEqual(["#2 (execute)"]);
 		expect(view.round.owners[0]?.cards[0]?.priority).toBe("normal");
 	});
 
@@ -226,13 +237,20 @@ describe("buildView", () => {
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(view.counts).toEqual({ total: 3, todo: 2, doing: 0, blocked: 0, done: 1 });
+		expect(view.total).toBe(3);
+		expect(view.lanes.map((lane) => [lane.key, lane.count])).toEqual([
+			["backlog", 2],
+			["plan", 0],
+			["execute", 0],
+			["blocked", 0],
+			["done", 1],
+		]);
 	});
 
 	test("carries the rollup of the same cards", () => {
 		const view = buildView({
 			me: ME,
-			cards: [card("1", { lane: "doing", owner: { label: "billing-core" } })],
+			cards: [card("1", { lane: "execute", owner: { label: "billing-core" } })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
@@ -240,7 +258,10 @@ describe("buildView", () => {
 			root: ROOT,
 		});
 		expect(view.round.owners.map((group) => group.label)).toEqual(["billing-core"]);
-		expect(view.round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
+		// The card is executing and nothing has touched it since `updatedAt`, which is the
+		// rollup's one question a lane cannot answer.
+		expect(view.round.idle.map((entry) => entry.id)).toEqual([]);
+		expect(view.round.owners[0]?.cards.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("names the serving session, not the browser", () => {
@@ -430,9 +451,9 @@ describe("buildView", () => {
 		expect(listening).not.toBe(base);
 	});
 
-	test("an empty board is four empty lanes", () => {
+	test("an empty board is five empty lanes", () => {
 		const view = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
-		expect(view.lanes.map((lane) => lane.cards)).toEqual([[], [], [], []]);
-		expect(view.counts.total).toBe(0);
+		expect(view.lanes.map((lane) => lane.cards)).toEqual([[], [], [], [], []]);
+		expect(view.total).toBe(0);
 	});
 });

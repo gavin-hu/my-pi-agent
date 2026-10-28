@@ -530,7 +530,11 @@ body {
 	background: var(--muted);
 }
 
-.dot--doing {
+.dot--plan {
+	background: var(--warn, #d08770);
+}
+
+.dot--execute {
 	background: var(--accent);
 }
 

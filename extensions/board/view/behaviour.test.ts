@@ -21,6 +21,7 @@ import { type Browser, chromium, type Page } from "playwright-core";
 import { findChrome } from "../../../scripts/capture/chrome.ts";
 import type { Actor } from "../../../lib/board/rules.ts";
 import { createStore } from "../../../lib/board/store.ts";
+import { advance } from "../../../test/helpers/board-flow.ts";
 import { serveBoardPage, type ServedBoardPage } from "../../../test/helpers/board-page.ts";
 
 /** The browser this machine has; absent means the whole suite is skipped. */
@@ -68,26 +69,30 @@ async function seedBoard(): Promise<void> {
 		now - 120_000,
 	);
 	await store.mutate(doing.id, { kind: "claim" }, CORE, now - 119_000);
-	await store.mutate(doing.id, { kind: "note", text: "no retries yet" }, CORE, now - 118_000);
-	// A plan path long enough to elide, which is the whole point of the ladder's one-line
-	// rule: the value has to keep its whole text somewhere a reader can reach it.
+	// A contract and its approval, so the card can be executing: the page draws the plan
+	// path from the dialog's ladder, and the lane the gates put it in.
 	await store.mutate(
 		doing.id,
 		{
-			kind: "plan",
+			kind: "contract",
 			path: "~/.pi/agent/plans/8872d3adda0e/2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md",
+			goal: "A webhook order is stored once",
+			acceptance: "A retried delivery leaves one order",
+			scopeOut: "No refunds",
 		},
 		CORE,
-		now - 117_000,
+		now - 119_500,
 	);
+	await store.mutate(doing.id, { kind: "note", text: "no retries yet" }, CORE, now - 118_000);
+	await store.mutate(doing.id, { kind: "approve" }, LEAD, now - 118_500);
+	await store.mutate(doing.id, { kind: "move", lane: "execute" }, CORE, now - 118_000);
 	for (let index = 1; index <= 7; index++) {
 		const card = await store.create(
 			{ title: `Shipped change ${index}`, paths: ["src/old"] },
 			LEAD,
 			now - index * 300_000,
 		);
-		await store.mutate(card.id, { kind: "claim" }, CORE, now - index * 300_000 + 1_000);
-		await store.mutate(card.id, { kind: "move", lane: "done" }, CORE, now - index * 300_000 + 2_000);
+		await advance(store, card.id, "done", { owner: CORE, reviewer: LEAD }, now - index * 300_000 + 1_000);
 	}
 }
 
@@ -100,7 +105,7 @@ const REPO = "my-pi-agent";
 async function openPage(): Promise<Page> {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
 	await page.goto(server.url, { waitUntil: "load" });
-	await page.waitForSelector("#lane-todo .board-card", { timeout: PAINT_MS });
+	await page.waitForSelector("#lane-backlog .board-card", { timeout: PAINT_MS });
 	return page;
 }
 
@@ -172,11 +177,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("draws each lane with the cards the store holds", async () => {
 		const page = await openPage();
-		expect((await titlesIn(page, "todo")).sort()).toEqual([
+		expect((await titlesIn(page, "backlog")).sort()).toEqual([
 			"Export orders as CSV",
 			"Invoice totals round the wrong way",
 		]);
-		expect(await titlesIn(page, "doing")).toEqual(["Billing webhook accepts orders"]);
+		expect(await titlesIn(page, "execute")).toEqual(["Billing webhook accepts orders"]);
 		// Past six finished cards the lane starts folded, so its cards are in the document
 		// but hidden: a reader clicks the head to see them.
 		expect(await page.$eval("#lane-head-done", (node) => node.getAttribute("aria-expanded"))).toBe("false");
@@ -229,11 +234,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("opens a card from its title, and Esc closes it", async () => {
 		const page = await openPage();
-		await page.click("#lane-doing .board-card__title");
+		await page.click("#lane-execute .board-card__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-title")).toBe("Billing webhook accepts orders");
 		expect(await page.textContent("#card-dialog-owner")).toContain("billing-core");
-		expect(await page.textContent("#card-dialog-state")).toContain("doing");
+		expect(await page.textContent("#card-dialog-state")).toContain("Execute");
 
 		await page.keyboard.press("Escape");
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
@@ -242,7 +247,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("reads the card as a ladder of facts, one row each", async () => {
 		const page = await openPage();
-		await page.click("#lane-doing .board-card__title");
+		await page.click("#lane-execute .board-card__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		expect(await page.textContent("#card-dialog-id")).toBe("#3");
 		// The age is the page's own clock, not the seed's, so only its shape is asserted.
@@ -281,15 +286,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// `updatedAt` and the lane entry are different moments: the row that says how long
 		// the lane has held cannot be reading the last write.
 		const page = await openPage();
-		await page.click('#lane-doing .board-card__title:text-is("Billing webhook accepts orders")');
+		await page.click('#lane-execute .board-card__title:text-is("Billing webhook accepts orders")');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-		expect(await page.textContent("#card-dialog-lane")).toMatch(/^doing · /);
+		expect(await page.textContent("#card-dialog-lane")).toMatch(/^execute · /);
 		expect(await hidden(page, "#card-dialog-lane-label")).toBe(false);
 		// A card nobody has taken says the same about the lane it was born in.
 		await page.keyboard.press("Escape");
-		await page.click('#lane-todo .board-card__title:text-is("Export orders as CSV")');
+		await page.click('#lane-backlog .board-card__title:text-is("Export orders as CSV")');
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-		expect(await page.textContent("#card-dialog-lane")).toMatch(/^todo · /);
+		expect(await page.textContent("#card-dialog-lane")).toMatch(/^backlog · /);
 		await page.close();
 	});
 
@@ -305,18 +310,18 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		);
 		try {
 			const page = await openPage();
-			await page.click('#lane-todo .board-card__title:text-is("Export orders as CSV")');
+			await page.click('#lane-backlog .board-card__title:text-is("Export orders as CSV")');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-			expect(await page.textContent("#card-dialog-dependents")).toBe("#2 (todo)");
+			expect(await page.textContent("#card-dialog-dependents")).toBe("#2 (backlog)");
 			expect(await hidden(page, "#card-dialog-dependents-label")).toBe(false);
 			// The same card waits on nothing, so that row is absent rather than empty.
 			expect(await hidden(page, "#card-dialog-depends")).toBe(true);
 			await page.keyboard.press("Escape");
 
 			// The dependent's own dialog says the other direction, from the same link.
-			await page.click('#lane-todo .board-card__title:text-is("Invoice totals round the wrong way")');
+			await page.click('#lane-backlog .board-card__title:text-is("Invoice totals round the wrong way")');
 			await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
-			expect(await page.textContent("#card-dialog-depends")).toBe("#1 (todo)");
+			expect(await page.textContent("#card-dialog-depends")).toBe("#1 (backlog)");
 			expect(await hidden(page, "#card-dialog-dependents")).toBe(true);
 			await page.close();
 		} finally {
@@ -331,7 +336,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 
 	test("walks to the next card with j, and says where it landed", async () => {
 		const page = await openPage();
-		await page.click("#lane-todo .board-card__title");
+		await page.click("#lane-backlog .board-card__title");
 		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
 		// Three, not ten: the seven finished cards sit in the folded Done lane, and the
 		// step walks the board as it is drawn.
@@ -364,21 +369,21 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// Nothing on the card's face says "retries": the word lives in a note, and the
 		// filter runs the module's own predicate rather than a copy of it.
 		await page.fill("#board-filter", "retries");
-		await cardCount(page, "doing", 1);
-		expect(await titlesIn(page, "doing")).toEqual(["Billing webhook accepts orders"]);
-		await cardCount(page, "todo", 0);
+		await cardCount(page, "execute", 1);
+		expect(await titlesIn(page, "execute")).toEqual(["Billing webhook accepts orders"]);
+		await cardCount(page, "backlog", 0);
 		await page.close();
 	});
 
 	test("narrows the lanes from the one filter box", async () => {
 		const page = await openPage();
 		await page.fill("#board-filter", "invoice");
-		await cardCount(page, "todo", 1);
-		expect(await titlesIn(page, "todo")).toEqual(["Invoice totals round the wrong way"]);
-		expect(await titlesIn(page, "doing")).toEqual([]);
+		await cardCount(page, "backlog", 1);
+		expect(await titlesIn(page, "backlog")).toEqual(["Invoice totals round the wrong way"]);
+		expect(await titlesIn(page, "execute")).toEqual([]);
 		// Clearing it puts the board back: the filter is a view, never a store read.
 		await page.fill("#board-filter", "");
-		await cardCount(page, "todo", 2);
+		await cardCount(page, "backlog", 2);
 		await page.close();
 	});
 
@@ -401,14 +406,14 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await store.mutate("1", { kind: "offer" }, LEAD, now - 45_000);
 		try {
 			const page = await openPage();
-			const reason = await page.$eval('#lane-todo .board-card[data-card="1"] .board-card__reason', (node) => ({
+			const reason = await page.$eval('#lane-backlog .board-card[data-card="1"] .board-card__reason', (node) => ({
 				text: node.textContent ?? "",
 				tone: node.className,
 			}));
 			// The age is the browser's clock against the fixture's fixed one, so the test pins
 			// the sentence's shape and the fact; the age rule itself is `formatAge`'s own unit
 			// test, which is the only place it can be pinned without a clock.
-			expect(reason.text).toMatch(/^offered \d+[a-z] ago \u00B7 nobody took it$/);
+			expect(reason.text).toMatch(/^offered \d+[a-z] ago \u2014 nobody took it$/);
 			expect(reason.tone).toContain("board-card__reason");
 			await page.close();
 		} finally {
@@ -425,7 +430,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			await page.waitForFunction(
 				() =>
 					Array.from(
-						(globalThis as unknown as { document: Doc }).document.querySelectorAll("#lane-todo .board-card__title"),
+						(globalThis as unknown as { document: Doc }).document.querySelectorAll("#lane-backlog .board-card__title"),
 					).some((node) => node.textContent === "A card another session added"),
 				undefined,
 				{ timeout: PAINT_MS },

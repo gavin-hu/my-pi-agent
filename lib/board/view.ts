@@ -15,7 +15,9 @@
  */
 
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
-import { type Card, LANES, type Lane, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
+import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
+import { LANE_RULES, LANES, type Lane, type LaneRole } from "./lanes.ts";
+import { DEFAULT_WIP, limitOf, type WipLimits } from "./limits.ts";
 import { blockersOf, indexOf, lanesText, openDependentsOf } from "./links.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
@@ -47,14 +49,14 @@ export interface ViewCard extends Card {
 	/** The priority it acts on: a card that never set one is ordinary. */
 	priority: Priority;
 	/**
-	 * The unfinished cards it waits for, as `#2 (doing)`; absent when nothing blocks it.
+	 * The unfinished cards it waits for, as `#2 (execute)`; absent when nothing blocks it.
 	 *
 	 * `undefined` is the whole fact — a waiting card is one with a `waits` — because a
 	 * boolean beside it would be one more thing that can disagree with the string.
 	 */
 	waits?: string;
 	/**
-	 * The unfinished cards waiting on it, as `#9 (todo)`; absent when none do.
+	 * The unfinished cards waiting on it, as `#9 (backlog)`; absent when none do.
 	 *
 	 * The other side of `waits`: what leaving this card undone holds up. Derived here
 	 * rather than in the page's script for the same reason, and filtered to the unfinished
@@ -72,19 +74,24 @@ export interface ViewCard extends Card {
 	since?: number;
 }
 
-/** One lane and the cards in it, in the order the page draws them. */
+/**
+ * One lane, as the page draws it: the name, the words, the colour, the limit, and the cards.
+ *
+ * The page holds no lane table of its own — it renders this — so a lane's label, its empty
+ * word, and its head's `n/limit` cannot read one way here and another in the transcript.
+ */
 export interface ViewLane {
 	key: Lane;
+	/** The word a head, a row, and a sentence print. */
+	label: string;
+	/** What the tray says when it holds nothing. */
+	empty: string;
+	/** The colour role the lane's dot and its card faces take. */
+	role: LaneRole;
+	/** The WIP limit this lane is held to, for the heads that show `n/limit`; absent when it is not pulled. */
+	limit?: number;
+	count: number;
 	cards: ViewCard[];
-}
-
-/** The per-lane tallies the toolbar shows. */
-export interface ViewCounts {
-	total: number;
-	todo: number;
-	doing: number;
-	blocked: number;
-	done: number;
 }
 
 /** Everything the page is allowed to know. */
@@ -97,7 +104,8 @@ export interface BoardView {
 	 */
 	me: { id?: string; label: string };
 	lanes: ViewLane[];
-	counts: ViewCounts;
+	/** Every card on the board: the sum of the lanes, said once so a head need not add them up. */
+	total: number;
 	round: RoundSummary<ViewCard>;
 	/**
 	 * The sessions on this repository's bus, or absent when there is no bus here.
@@ -141,6 +149,8 @@ export interface ViewInput {
 	root: string;
 	/** The bus's records, when the page could read them at all. */
 	roster?: readonly RosterSession[];
+	/** The board's WIP limits, so a head can say `n/limit`; absent reads as the defaults. */
+	limits?: WipLimits;
 }
 
 /** Build the page's snapshot. */
@@ -152,16 +162,27 @@ export function buildView(input: ViewInput): BoardView {
 	// card the lane does, so a client reading `round.unassigned` is not handed a card
 	// missing the facts every other card has.
 	const cards = input.cards.map((card) => viewCardOf(card, index));
-	const lanes = LANES.map((key) => ({
-		key,
-		cards: cards.filter((card) => card.lane === key),
-	}));
+	const limits = input.limits ?? DEFAULT_WIP;
+	const lanes = LANES.map((key) => {
+		const rule = LANE_RULES[key];
+		const inLane = cards.filter((card) => card.lane === key);
+		const limit = limitOf(key, limits);
+		return {
+			key,
+			label: rule.label,
+			empty: rule.empty,
+			role: rule.role,
+			...(limit === undefined ? {} : { limit }),
+			count: inLane.length,
+			cards: inLane,
+		};
+	});
 	const reader = input.me;
 	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.now);
 	return {
 		me: input.me.id === undefined ? { label: input.me.label } : { id: input.me.id, label: input.me.label },
 		lanes,
-		counts: countOf(lanes),
+		total: cards.length,
 		round: buildRound(cards, input.now),
 		...(teammates === undefined ? {} : { teammates }),
 		bytes: input.bytes,
@@ -219,14 +240,4 @@ function rosterSignature(teammates: readonly ViewTeammate[] | undefined): string
 		"|" +
 		teammates.map((teammate) => `${teammate.label}:${teammate.state}:${teammate.mail}:${teammate.listening}`).join(",")
 	);
-}
-
-/** The tallies, summed from the lanes so the two can never disagree. */
-function countOf(lanes: readonly ViewLane[]): ViewCounts {
-	const counts: ViewCounts = { total: 0, todo: 0, doing: 0, blocked: 0, done: 0 };
-	for (const lane of lanes) {
-		counts[lane.key] = lane.cards.length;
-		counts.total += lane.cards.length;
-	}
-	return counts;
 }

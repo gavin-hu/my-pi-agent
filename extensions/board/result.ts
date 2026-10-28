@@ -77,7 +77,7 @@ export function collapsedLine(theme: Theme, details: BoardDetails): string {
 	return `${paint(theme, "label", plural(count, "card"))} ${SEPARATORS.item} ${plural(owners, "owner")} ${SEPARATORS.item} ${me}`;
 }
 
-/** `#4 doing · Billing webhook accepts orders`, clipped by the caller's row helper. */
+/** `#4 execute · Billing webhook accepts orders`, clipped by the caller's row helper. */
 function cardLine(theme: Theme, card: Card): string {
 	const id = paint(theme, "meta", cardRef(card.id));
 	const lane = paint(theme, "accent", card.lane);

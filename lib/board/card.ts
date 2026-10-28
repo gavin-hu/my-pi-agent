@@ -14,6 +14,8 @@
  */
 
 import { sanitizeLine } from "../format.ts";
+import { type Contract, isContract, isSign, type Sign } from "./contract.ts";
+import { LANE_RULES, LANES, type Lane } from "./lanes.ts";
 
 /** The schema version this build writes. A file with another value is refused, never migrated in place. */
 export const CARD_VERSION = 1;
@@ -32,6 +34,19 @@ export const MAX_PLAN = 300;
 
 /** Longest sentence saying what a blocked card is waiting on: one line, so it fits a row. */
 export const MAX_BLOCKED = 200;
+
+/**
+ * Why a card is blocked, which is what decides where it goes back to.
+ *
+ * A block is not one thing: a contract that turned out wrong sends the card back to
+ * planning, a dependency parks it where it is, and a decision a person owes it is the
+ * ordinary case. The kind is the card's own claim — the board records it and draws it, and
+ * nothing here can verify that a "contract" block really is one.
+ */
+export const BLOCKERS = ["contract", "dependency", "decision"] as const;
+
+/** One kind of block. */
+export type BlockerKind = (typeof BLOCKERS)[number];
 
 /** Longest single note, in characters. */
 export const MAX_NOTE = 1000;
@@ -60,12 +75,6 @@ export type Priority = (typeof PRIORITIES)[number];
 
 /** What an absent priority means: a card is ordinary until somebody says otherwise. */
 export const DEFAULT_PRIORITY: Priority = "normal";
-
-/** The lanes, in the order the page and the rollup read them. */
-export const LANES = ["todo", "doing", "blocked", "done"] as const;
-
-/** One lane a card can sit in. */
-export type Lane = (typeof LANES)[number];
 
 /** Who holds a card: the session id when it is known, and always the label it is addressed by. */
 export interface CardOwner {
@@ -121,8 +130,12 @@ export interface Card {
 	owner?: CardOwner;
 	/** Repository-relative hints, never claims. */
 	paths: string[];
-	/** The plan file being executed, once one is recorded. */
-	plan?: string;
+	/** The plan file the work is done against, once one is recorded. */
+	planPath?: string;
+	/** What the card promises before it may be executed, and who approved that wording. */
+	contract?: Contract;
+	/** Who spot-checked the finished work, and when: what a move to `done` requires. */
+	review?: Sign;
 	/**
 	 * What a blocked card is waiting on: the decision, in one line.
 	 *
@@ -131,6 +144,8 @@ export interface Card {
 	 * blocked without saying why, which is a state the tool allows and the page names.
 	 */
 	blockedBy?: string;
+	/** Why it is blocked, which is what decides whether it returns to `plan`. */
+	blocker?: BlockerKind;
 	/** What closed a finished card: the commit at the move to `done`, and when. */
 	landed?: CardLanded;
 	/**
@@ -309,7 +324,7 @@ export function matchesQuery(card: Card, query: string): boolean {
 	if (card.title.toLowerCase().includes(needle)) return true;
 	if (card.owner !== undefined && card.owner.label.toLowerCase().includes(needle)) return true;
 	if (card.paths.some((path) => path.toLowerCase().includes(needle))) return true;
-	if (card.plan !== undefined && card.plan.toLowerCase().includes(needle)) return true;
+	if (card.planPath !== undefined && card.planPath.toLowerCase().includes(needle)) return true;
 	return card.notes.some((note) => note.text.toLowerCase().includes(needle));
 }
 
@@ -355,6 +370,15 @@ export function normalizeBlockedBy(raw: unknown): { blockedBy: string } | FieldE
 	return { blockedBy };
 }
 
+/** The kind of block a move records: one of {@link BLOCKERS}, or the reason it cannot be. */
+export function normalizeBlocker(raw: unknown): { blocker: BlockerKind } | FieldError {
+	const allowed = BLOCKERS.join(", ");
+	if (typeof raw !== "string") return { error: `blocker must be one of ${allowed}.` };
+	const blocker = sanitizeLine(raw).trim().toLowerCase();
+	const known = BLOCKERS.find((entry) => entry === blocker);
+	return known === undefined ? { error: `blocker must be one of ${allowed}.` } : { blocker: known };
+}
+
 /** A card id as a caller writes it (`4`, `#4`), or undefined when it is not one. */
 export function normalizeCardId(raw: unknown): string | undefined {
 	if (typeof raw !== "string") return undefined;
@@ -384,24 +408,44 @@ export function signatureOf(cards: readonly Card[]): string {
 /**
  * The card as a file on disk holds it, or `undefined` when this build cannot trust it.
  *
- * Two versions of one record: a card written before the lane was called a lane says
- * `status`, and this build writes `lane`. The map is read-time only — no file is
- * rewritten, and a card takes the new spelling on its next write — so a board full of
- * older cards reads as a board rather than as a pile of refusals. Everything else is
- * {@link isCard}'s decision.
+ * Two versions of one record: a card written before the rename says `status` where this
+ * build says `lane`, and `plan` where it says `planPath`. The map is read-time only — no
+ * file is rewritten, and a card takes the new spelling on its next write — so a board
+ * full of older cards reads as a board rather than as a pile of refusals. Everything else
+ * is {@link isCard}'s decision.
  */
 export function readCard(value: unknown): Card | undefined {
 	const renamed = laneNamed(value);
 	return isCard(renamed) ? renamed : undefined;
 }
 
-/** `value` with an older `status` field read as `lane`, when it has no `lane` of its own. */
+/** `value` with the two fields that were renamed read as this build's names. */
 function laneNamed(value: unknown): unknown {
 	if (typeof value !== "object" || value === null) return value;
 	const record = value as Record<string, unknown>;
-	if (record.lane !== undefined || record.status === undefined) return value;
-	const { status, ...rest } = record;
-	return { ...rest, lane: status };
+	if (record.lane !== undefined && record.planPath === undefined && record.plan === undefined) return value;
+	const { status, plan, ...rest } = record;
+	if (status === undefined && plan === undefined) return value;
+	return {
+		...rest,
+		...(status === undefined || record.lane !== undefined ? {} : { lane: status }),
+		...(plan === undefined ? {} : { planPath: record.planPath ?? plan }),
+	};
+}
+
+/**
+ * Whether `actor` is the owner of `card`.
+ *
+ * The id decides when both sides have one — a session that renamed itself is still the same
+ * holder — and the label decides otherwise, case-insensitively, the way the bus resolves a
+ * target. A signature that takes the actor structurally is what lets the record own this
+ * rule while `rules.ts` and `steps.ts` share it without importing each other.
+ */
+export function holds(card: Card, actor: { id?: string; label: string }): boolean {
+	const owner = card.owner;
+	if (owner === undefined) return false;
+	if (owner.id !== undefined && actor.id !== undefined) return owner.id === actor.id;
+	return owner.label.toLowerCase() === actor.label.toLowerCase();
 }
 
 /**
@@ -419,11 +463,17 @@ export function isCard(value: unknown): value is Card {
 	if (typeof card.id !== "string" || !/^[0-9]+$/.test(card.id)) return false;
 	if (typeof card.title !== "string" || card.title === "") return false;
 	if (!LANES.includes(card.lane as Lane)) return false;
+	// The lane was just proved to be one of `LANES`, which is the whole guarantee the cast
+	// names: from here the table can be addressed by it.
+	const lane = card.lane as Lane;
 	if (!isOwner(card.owner)) return false;
 	if (!Array.isArray(card.paths) || card.paths.length > MAX_PATHS) return false;
 	if (!card.paths.every((path) => typeof path === "string")) return false;
-	if (card.plan !== undefined && typeof card.plan !== "string") return false;
+	if (card.planPath !== undefined && typeof card.planPath !== "string") return false;
+	if (card.contract !== undefined && !isContract(card.contract)) return false;
+	if (card.review !== undefined && !isSign(card.review)) return false;
 	if (card.blockedBy !== undefined && !isBlockedBy(card.blockedBy)) return false;
+	if (card.blocker !== undefined && !BLOCKERS.includes(card.blocker as BlockerKind)) return false;
 	if (card.landed !== undefined && !isLanded(card.landed)) return false;
 	if (card.offeredAt !== undefined && (typeof card.offeredAt !== "number" || !Number.isInteger(card.offeredAt))) {
 		return false;
@@ -439,7 +489,9 @@ export function isCard(value: unknown): value is Card {
 	if (typeof card.rev !== "number" || !Number.isInteger(card.rev) || card.rev < 1) return false;
 	if (typeof card.createdAt !== "number" || typeof card.updatedAt !== "number") return false;
 	if (typeof card.by !== "string") return false;
-	return (card.lane === "todo") === (card.owner === undefined);
+	// One ownerless lane, and the table says which: a pool card has no holder, and every
+	// card that is somebody's work has one.
+	return LANE_RULES[lane].ownerless === (card.owner === undefined);
 }
 
 /** A recorded block: one line the reader can hold, within the cap this build writes. */

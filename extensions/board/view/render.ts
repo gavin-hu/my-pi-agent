@@ -16,29 +16,35 @@
  * `team.ts` draws the round, `dialog.ts` opens a card, `keys.ts` binds, and `live.ts`
  * owns the frame stream and the wiring.
  *
- * `plural`, `tabTitle`, `matchesQuery`, `el`, `typing`, and `paintStatus` are not written
- * here. Their one bodies live in `lib/` beside the rules they express, and the assembler
- * hands the source in — a second copy in the bundle is a second wording for `1 card`, a
- * second shape for the tab, a filter that finds a different card than the tool does, or an
- * element builder and a typing test that drift from the review page's.
+ * `plural`, `tabTitle`, `matchesQuery`, `reasonFor`, `el`, `typing`, and `paintStatus` are
+ * not written here. Their one bodies live in `lib/` beside the rules they express, and the
+ * assembler hands the source in — a second copy in the bundle is a second wording for
+ * `1 card`, a second shape for the tab, a filter that finds a different card than the tool
+ * does, a second reason for the same lane, or an element builder and a typing test that
+ * drift from the review page's.
  */
 
 /**
- * The renderer, with what it needs spliced in: the counts' wording, the tab title's
- * shape, what a query matches, and the browser runtime's element builder and typing test —
- * each written once in `lib/` and handed in as source.
+ * The renderer, with what it needs spliced in: the counts' wording, the tab title's shape,
+ * what a query matches, why a card sits where it does, how many placeholders the skeleton
+ * paints, and the browser runtime's element builder and typing test — each written once, in
+ * `lib/`, and handed in as source.
  */
 export function renderJs(rules: {
 	plural: string;
 	tabTitle: string;
 	matches: string;
+	reason: string;
 	age: string;
 	runtime: string;
+	lanes: string;
 }): string {
 	return renderTemplate
 		.replace("__PLURAL__", rules.plural)
 		.replace("__TAB_TITLE__", rules.tabTitle)
 		.replace("__MATCHES__", rules.matches)
+		.replace("__REASON__", rules.reason)
+		.replace("__LANE_COUNT__", rules.lanes)
 		.replace("__AGE__", rules.age)
 		.replace("__RUNTIME__", rules.runtime);
 }
@@ -47,11 +53,16 @@ const renderTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
 
-  /** Lanes in the order the server sends them, with the words a reader expects. */
-  var LANE_LABEL = { todo: "To do", doing: "Doing", blocked: "Blocked", done: "Done" };
-  var LANE_EMPTY = { todo: "nothing waiting", doing: "nothing in flight", blocked: "nothing blocked", done: "nothing finished yet" };
+  /**
+   * A lane's own words arrive with it: label, colour, limit, and count.
+   *
+   * The page holds no lane table, so a head, a picker button, and the transcript cannot
+   * name one lane two ways — the words are decided once, in lib/board/lanes.ts.
+   */
   /** Path chips a lane card shows before it counts the rest. */
   var PATH_CHIPS = 3;
+  /** How many placeholder trays the skeleton paints: the lane table's own length, spliced in. */
+  var LANE_COUNT = __LANE_COUNT__;
   /**
    * Finished cards a lane may hold before it starts folded.
    *
@@ -60,8 +71,13 @@ const renderTemplate = String.raw`(function () {
    * past this it is history, and the count in the head says how much.
    */
   var DONE_FOLD_AT = 6;
-  /** The two tones a reason line can take, by the kind reasonOf reports. */
-  var REASON_TONE = { blocked: N.cardReasonBlocked, unplanned: N.cardReasonUnplanned };
+  /** The two tones a reason line can take, by the kind the reason rule reports. */
+  var REASON_TONE = {
+    blocked: N.cardReasonBlocked,
+    contract: N.cardReasonUnplanned,
+    approval: N.cardReasonUnplanned,
+    review: N.cardReasonUnplanned,
+  };
 
 __RUNTIME__
 
@@ -115,35 +131,12 @@ __RUNTIME__
   }
 
   /** The one line under a card's meta: why it sits where it does. */
-  function reasonOf(card, view) {
-    var last = card.notes.length > 0 ? card.notes[card.notes.length - 1] : undefined;
+  function reasonOf(card) {
     // An order is the strongest reason a card is not being worked on, and the one a
-    // reader cannot see from the lane: it comes before the note that says the same.
-    // The sentence is the snapshot's, so this line and the tool's refusal name one list.
+    // reader cannot see from the lane. The sentence is the snapshot's, so this line and
+    // the tool's refusal name one list.
     if (card.waits !== undefined) return { text: "waits on " + card.waits, kind: "waiting" };
-    if (card.lane === "blocked") {
-      // The lane already says blocked and the tone already says danger; the line says why.
-      // The recorded reason comes first: the note is what somebody happened to write last,
-      // and it is the reason a move to blocked asks for. The slot carries the reason alone —
-      // the lane head already says blocked, and a status prefix in it would be a second voice.
-      if (card.blockedBy) return { text: card.blockedBy, kind: "blocked" };
-      return { text: last ? last.text : "blocked, with nothing recorded", kind: "blocked" };
-    }
-    // An offer is a decision the lead already made once: the lane says nobody holds it, and
-    // this says how long the broadcast has gone unanswered, which is the difference between
-    // nobody having looked and nobody taking it.
-    if (card.lane === "todo" && card.offeredAt !== undefined) {
-      return { text: "offered " + ago(card.offeredAt) + " ago · nobody took it", kind: "waiting" };
-    }
-    if (card.lane === "doing" && !card.plan) {
-      return { text: "no plan recorded", kind: "unplanned" };
-    }
-    if (card.lane === "doing") return { text: "planned", kind: "plan" };
-    if (card.lane === "done") {
-      var landed = card.landed ? " · landed " + card.landed.commit : "";
-      return { text: "✓ done" + (card.owner ? " by " + card.owner.label : "") + landed, kind: "done" };
-    }
-    return last ? { text: last.text, kind: "note" } : undefined;
+    return reasonFor(card, ago);
   }
 
   /** A path hint, or the +N chip that points at the rest. */
@@ -168,7 +161,7 @@ __RUNTIME__
   }
 
   /** One card in its lane. */
-  function cardNode(card, view) {
+  function cardNode(card) {
     var item = el("li", N.card);
     item.setAttribute("data-card", card.id);
     item.setAttribute("data-lane", card.lane);
@@ -196,7 +189,7 @@ __RUNTIME__
 
     if (card.paths.length > 0) item.appendChild(paths(card, PATH_CHIPS));
 
-    var reason = reasonOf(card, view);
+    var reason = reasonOf(card);
     if (reason) {
       // The tone is a lookup, not a suffix: a name assembled from a prefix is a name no
       // test can compare with the stylesheet.
@@ -236,21 +229,23 @@ __RUNTIME__
       me.title = "This page is served as " + view.me.label + ", and it cannot change a card";
     }
     var progress = document.getElementById("board-progress");
+    var done = laneOf(view, "done");
+    var finished = done === undefined ? 0 : done.cards.length;
     if (progress) {
-      var total = view.counts.total;
+      var total = view.total;
       // One or two cards is not a ratio: an empty bar beside "0/1 done" is noise.
       progress.hidden = total < 3;
       var fill = document.getElementById("board-progress-fill");
-      if (fill) fill.style.width = total === 0 ? "0%" : Math.round((view.counts.done / total) * 100) + "%";
+      if (fill) fill.style.width = total === 0 ? "0%" : Math.round((finished / total) * 100) + "%";
       var text = document.getElementById("board-progress-text");
-      if (text) text.textContent = view.counts.done + "/" + total + " done";
+      if (text) text.textContent = finished + "/" + total + " done";
     }
     var where = document.getElementById("board-where");
     if (where) {
       // A footer that only counts read cards would say "2 cards" over a board holding
       // three files, so the unreadable ones are named beside the size.
       where.textContent =
-        view.repo + " · store " + view.where + " · " + plural(view.counts.total, "card") + " · " + size(view.bytes) +
+        view.repo + " · store " + view.where + " · " + plural(view.total, "card") + " · " + size(view.bytes) +
         (view.skipped > 0 ? " · " + plural(view.skipped, "unreadable") : "");
       // The name is what the line has room for; the path is what tells two clones of one
       // repository apart when the name is the same.
@@ -261,7 +256,7 @@ __RUNTIME__
     // hash, which no reader can say out loud, so it is not what a tab leads with. The count
     // is what a browser full of tabs is read for, and an empty board says nothing rather
     // than 0.
-    var open = view.counts.total - view.counts.done;
+    var open = view.total - finished;
     document.title = tabTitle("board", view.repo, open > 0 ? open + " open" : undefined);
   }
 
@@ -289,14 +284,28 @@ __RUNTIME__
   /** Whether the filter keeps a card: the module's one predicate, spliced in as source. */
   var matches = __MATCHES__;
 
-  /** The lane section for one status, created once and then reused. */
+  /** Why a card sits where it does: one body, spliced in from lib/board/reason.ts. */
+  var reasonFor = __REASON__;
+
+  /** One lane from the snapshot, by its name; absent when the snapshot no longer has it. */
+  function laneOf(view, key) {
+    for (var i = 0; i < view.lanes.length; i++) if (view.lanes[i].key === key) return view.lanes[i];
+    return undefined;
+  }
+
+  /** A lane head's count: n/limit while the lane is pulled, and n otherwise. */
+  function headCount(lane) {
+    return lane.limit === undefined ? String(lane.count) : lane.count + "/" + lane.limit;
+  }
+
+  /** The lane section for one lane, created once and then reused. */
   function laneNode(lane) {
     var section = document.querySelector('.board-lane[data-lane="' + lane.key + '"]');
     if (section) return section;
     section = el("section", N.lane);
     section.setAttribute("data-lane", lane.key);
     var head = el("h2", N.laneHead);
-    var toggle = actionButton(N.laneToggle, LANE_LABEL[lane.key] || lane.key, function () {
+    var toggle = actionButton(N.laneToggle, lane.label, function () {
       board.toggleLane(lane.key);
     });
     toggle.setAttribute("aria-expanded", "true");
@@ -309,7 +318,7 @@ __RUNTIME__
     var list = el("ol", N.laneList);
     list.id = "lane-" + lane.key;
     section.appendChild(list);
-    section.appendChild(el("p", N.laneEmpty, LANE_EMPTY[lane.key] || "nothing"));
+    section.appendChild(el("p", N.laneEmpty, lane.empty));
     return section;
   }
 
@@ -324,8 +333,8 @@ __RUNTIME__
     }
     var query = board.query || "";
     var empty = document.getElementById("board-no-cards");
-    if (empty) empty.hidden = view.counts.total !== 0;
-    lanes.hidden = view.counts.total === 0;
+    if (empty) empty.hidden = view.total !== 0;
+    lanes.hidden = view.total === 0;
     for (var i = 0; i < view.lanes.length; i++) {
       var lane = view.lanes[i];
       var section = laneNode(lane);
@@ -351,18 +360,17 @@ __RUNTIME__
         section.setAttribute("data-sig", sig);
         var list = section.querySelector(".board-lane__list");
         list.textContent = "";
-        for (var j = 0; j < shown.length; j++) list.appendChild(cardNode(shown[j], view));
+        for (var j = 0; j < shown.length; j++) list.appendChild(cardNode(shown[j]));
       }
       var count = section.querySelector(".board-lane__count");
       if (count) {
-        count.textContent = query === "" || shown.length === lane.cards.length
-          ? String(lane.cards.length)
-          : shown.length + "/" + lane.cards.length;
+        count.textContent =
+          query === "" || shown.length === lane.cards.length ? headCount(lane) : shown.length + "/" + lane.cards.length;
       }
       var none = section.querySelector(".board-lane__empty");
       if (none) {
         none.hidden = shown.length !== 0;
-        none.textContent = query !== "" && lane.cards.length > 0 ? "no match" : LANE_EMPTY[lane.key] || "nothing";
+        none.textContent = query !== "" && lane.cards.length > 0 ? "no match" : lane.empty;
       }
       var collapsed = board.collapsed && board.collapsed[lane.key] === true;
       var list = section.querySelector(".board-lane__list");
@@ -384,7 +392,7 @@ __RUNTIME__
     picker.textContent = "";
     for (var i = 0; i < view.lanes.length; i++) {
       (function (lane) {
-        var item = el("button", "bf-segmented__item", (LANE_LABEL[lane.key] || lane.key) + " " + lane.cards.length);
+        var item = el("button", "bf-segmented__item", lane.label + " " + headCount(lane));
         item.type = "button";
         item.setAttribute("role", "tab");
         item.setAttribute("data-picker-lane", lane.key);
@@ -402,8 +410,9 @@ __RUNTIME__
     // The lane is a status of its own, not a word inside a sentence: the same dot and
     // label a lane head wears, so the dialog and the board speak the same vocabulary.
     var state = document.getElementById("card-dialog-state");
+    var lane = laneOf(view, card.lane);
     state.setAttribute("data-lane", card.lane);
-    state.textContent = card.lane;
+    state.textContent = lane === undefined ? card.lane : lane.label;
 
     // One fact per row of the ladder, so a reader can pick out a value instead of
     // hunting for it in a sentence. A row with nothing to say takes its label with it:
@@ -448,7 +457,18 @@ __RUNTIME__
 
     // A long plan path elides on one line, and the whole of it is on the hover title and
     // in the text, so it stays copyable: the reason to open a card is often its plan.
-    setRow("plan", Boolean(card.plan), card.plan || "", card.plan || undefined);
+    setRow("plan", Boolean(card.planPath), card.planPath || "", card.planPath || undefined);
+
+    // The contract is three lines and a signature, and each is its own rung: a reader
+    // comparing what was promised with what was done reads them one at a time, and the
+    // approval's age is the fact that says whether anybody has looked.
+    var contract = card.contract;
+    setRow("goal", Boolean(contract), contract ? contract.goal : "", contract ? contract.goal : undefined);
+    setRow("acceptance", Boolean(contract), contract ? contract.acceptance : "", contract ? contract.acceptance : undefined);
+    setRow("scope-out", Boolean(contract), contract ? contract.scopeOut : "", contract ? contract.scopeOut : undefined);
+    var approved = contract && contract.approved;
+    setRow("approved", Boolean(approved), approved ? approved.by + " · " + ago(approved.at) : "");
+    setRow("reviewed", card.review !== undefined, card.review ? card.review.by + " · " + ago(card.review.at) : "");
 
     pair("paths", card.paths.length > 0);
     var pathList = document.getElementById("card-dialog-path-list");
@@ -518,6 +538,8 @@ __RUNTIME__
   board.findCard = findCard;
   board.drawnCards = drawnCards;
   board.matches = matches;
+  board.reasonFor = reasonFor;
+  board.laneCount = LANE_COUNT;
   board.fillDialog = fillDialog;
   board.refreshAges = refreshAges;
   board.plural = plural;

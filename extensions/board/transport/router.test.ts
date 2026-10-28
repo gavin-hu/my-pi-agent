@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { LOOPBACK_HOSTS, PAGE_CSP } from "../../../lib/http/index.ts";
-import type { BoardView } from "../../../lib/board/view.ts";
+import { buildView, type BoardView } from "../../../lib/board/view.ts";
 import type { Card } from "../../../lib/board/card.ts";
 import type { BoardRouterContext } from "./router.ts";
 import { handleBoardRequest } from "./router.ts";
@@ -22,7 +22,7 @@ function card(overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id: "4",
 		title: "Billing webhook accepts orders",
-		lane: "todo",
+		lane: "backlog",
 		paths: ["src/billing"],
 		notes: [],
 		notesDropped: 0,
@@ -36,30 +36,15 @@ function card(overrides: Partial<Card> = {}): Card {
 
 /** The snapshot a fake view answers with. Its one card is ordinary and waits on nothing. */
 function view(): BoardView {
-	return {
+	return buildView({
 		me: { id: "s-lead", label: "billing-lead" },
-		lanes: [
-			{ key: "todo", cards: [{ ...card(), priority: "normal" }] },
-			{ key: "doing", cards: [] },
-			{ key: "blocked", cards: [] },
-			{ key: "done", cards: [] },
-		],
-		counts: { total: 1, todo: 1, doing: 0, blocked: 0, done: 0 },
-		skipped: 0,
-		round: {
-			owners: [],
-			unassigned: [{ ...card(), priority: "normal" }],
-			unplanned: [],
-			blocked: [],
-			idle: [],
-			done: [],
-		},
+		cards: [card({ priority: "normal" })],
+		now: 1_000,
 		bytes: 512,
-		sig: "4:1",
+		where: "board/abc123",
 		repo: "my-pi-agent",
 		root: "/Users/someone/my-pi-agent",
-		where: "~/.pi/agent/board/abc",
-	};
+	});
 }
 
 /** A router context that records the pages it was asked for. */
@@ -195,7 +180,7 @@ describe("the snapshot", () => {
 		const { ctx } = context();
 		const response = await handleBoardRequest(ctx, "GET", url("/api/board"), SAME_ORIGIN);
 		expect(response.status).toBe(200);
-		expect(JSON.parse(String(response.body ?? "{}"))).toMatchObject({ sig: "4:1", counts: { total: 1 } });
+		expect(JSON.parse(String(response.body ?? "{}"))).toMatchObject({ sig: "4:1|skipped:0", total: 1 });
 	});
 
 	test("opens the stream route as a stream", async () => {

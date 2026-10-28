@@ -26,6 +26,7 @@ export function formatRound(cards: readonly Card[], round: RoundSummary): string
 		plural(cards.length, "feature"),
 		`${round.unassigned.length} unassigned`,
 		`${round.unplanned.length} unplanned`,
+		`${round.unapproved.length} awaiting approval`,
 		`${round.blocked.length} blocked`,
 		`${round.idle.length} idle`,
 		`${round.done.length} done`,
@@ -41,6 +42,7 @@ export function formatRound(cards: readonly Card[], round: RoundSummary): string
 	}
 	lines.push(...group("unassigned", round.unassigned));
 	lines.push(...group("unplanned", round.unplanned));
+	lines.push(...group("unapproved", round.unapproved));
 	lines.push(...group("blocked", round.blocked, true));
 	lines.push(...group("idle", round.idle));
 	lines.push(...group("done", round.done));
@@ -61,9 +63,12 @@ export function plural(count: number, noun: string): string {
 /** The same body, as the browser receives it: one wording for `1 card`, not two. */
 export const PLURAL_JS = String(plural);
 
-/** `#4 doing planned`, the brief a rollup group needs. */
+/** `#4 execute planned`, the brief a rollup group needs. */
 function brief(card: Card): string {
-	const planned = card.lane === "doing" ? (card.plan === undefined ? " unplanned" : " planned") : "";
+	// Only the two lanes a card is worked in say whether it was planned first: the pool has
+	// no plan yet, and a finished card is history.
+	const planned =
+		card.lane === "plan" || card.lane === "execute" ? (card.planPath === undefined ? " unplanned" : " planned") : "";
 	return `${cardRef(card.id)} ${card.lane}${planned}`;
 }
 

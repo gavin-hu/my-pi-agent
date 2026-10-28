@@ -8,6 +8,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Card, cardRef, DEFAULT_PRIORITY, priorityOf } from "../../lib/board/card.ts";
+import { LANE_RULES } from "../../lib/board/lanes.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { SEPARATORS } from "../../lib/tui/glyphs.ts";
 import { listRow } from "../../lib/tui/rows.ts";
@@ -24,14 +25,17 @@ function holderOf(card: Card): string {
  * not the ordinary one — how urgent it is.
  *
  * A row carries the lane because a flat listing has no section heading to say it, and
- * "planned" because a `doing` card nobody planned is the one a lead looks at. The
+ * "planned" because a card nobody planned is the one a lead looks at. The
  * priority rides along for the same reason: inside a lane the order is the priority,
  * and an order nobody can see reads as an accident.
  */
 function stateOf(card: Card): string[] {
 	const urgency = priorityOf(card) === DEFAULT_PRIORITY ? [] : [priorityOf(card)];
-	if (card.lane === "todo" || card.lane === "done") return [...urgency, card.lane];
-	return [...urgency, card.lane, card.plan === undefined ? "unplanned" : "planned"];
+	// The pool has no plan to speak of and a finished card is history, so only a lane
+	// somebody is working in says whether the work was planned first.
+	const rule = LANE_RULES[card.lane];
+	if (rule.ownerless || rule.terminal) return [...urgency, card.lane];
+	return [...urgency, card.lane, card.planPath === undefined ? "unplanned" : "planned"];
 }
 
 /** One card: the id and title, with its state trailing. */
