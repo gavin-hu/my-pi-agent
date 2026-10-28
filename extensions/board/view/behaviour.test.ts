@@ -138,6 +138,31 @@ async function hidden(page: Page, selector: string): Promise<boolean> {
 	return page.$eval(selector, (node) => (node as unknown as ElementLike).hidden);
 }
 
+/**
+ * The id and class of whatever has focus.
+ *
+ * The trap moves focus itself, so asserting where it landed is the only way to see it:
+ * a page can look modal while the keyboard is behind the scrim.
+ */
+async function focusedId(page: Page): Promise<string> {
+	return page.evaluate(
+		() =>
+			(
+				globalThis as unknown as { document: { activeElement: ElementLike | null } }
+			).document.activeElement?.getAttribute("id") ?? "",
+	);
+}
+
+/** The class list of whatever has focus, when the element has no id of its own. */
+async function focusedClass(page: Page): Promise<string> {
+	return page.evaluate(
+		() =>
+			(
+				globalThis as unknown as { document: { activeElement: ElementLike | null } }
+			).document.activeElement?.getAttribute("class") ?? "",
+	);
+}
+
 /** The titles a lane currently shows, in the order it shows them. */
 async function titlesIn(page: Page, lane: string): Promise<string[]> {
 	return page.$$eval(`#lane-${lane} .board-card__title`, (nodes) =>
@@ -240,6 +265,55 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		expect(await page.textContent("#card-dialog-owner")).toContain("billing-core");
 		expect(await page.textContent("#card-dialog-state")).toContain("Execute");
 
+		await page.keyboard.press("Escape");
+		expect(await hidden(page, "#board-card-dialog")).toBe(true);
+		await page.close();
+	});
+
+	test("keeps Tab and Shift+Tab inside the card dialog", async () => {
+		const page = await openPage();
+		await page.click("#lane-execute .board-card__title");
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+
+		// The panel is the close button's container and the dialog's first focusable, so a
+		// browser's own backwards step from Close had no sibling to land on and walked out
+		// behind the scrim. The trap moves focus itself, in both directions.
+		await page.focus("#card-dialog-close");
+		await page.keyboard.press("Shift+Tab");
+		expect(await focusedClass(page)).toContain("board-dialog__panel");
+		expect(await hidden(page, "#board-card-dialog")).toBe(false);
+
+		await page.keyboard.press("Tab");
+		expect(await focusedId(page)).toBe("card-dialog-close");
+		await page.keyboard.press("Tab");
+		expect(await focusedClass(page)).toContain("board-dialog__panel");
+		await page.close();
+	});
+
+	test("keeps the board's own keys out of a dialog", async () => {
+		const page = await openPage();
+		await page.keyboard.press("j");
+		await page.keyboard.press("Enter");
+		await page.waitForSelector("#board-card-dialog:not([hidden])", { timeout: PAINT_MS });
+		const opened = await page.textContent("#card-dialog-title");
+
+		// The slash used to pull focus into the filter behind the scrim, leaving the dialog
+		// above a field the reader was typing into.
+		await page.keyboard.press("/");
+		expect(await page.inputValue("#board-filter")).toBe("");
+		expect(await focusedClass(page)).toContain("board-dialog__panel");
+
+		// `t` used to switch the tab underneath an open record.
+		await page.keyboard.press("t");
+		expect(await hidden(page, "#panel-team")).toBe(true);
+
+		// `?` used to stack the sheet over the card, so one Esc then closed both.
+		await page.keyboard.press("?");
+		expect(await hidden(page, "#keys-dialog")).toBe(true);
+
+		// The keys that move inside it still work, and Esc still closes the record.
+		await page.keyboard.press("j");
+		expect(await page.textContent("#card-dialog-title")).not.toBe(opened);
 		await page.keyboard.press("Escape");
 		expect(await hidden(page, "#board-card-dialog")).toBe(true);
 		await page.close();

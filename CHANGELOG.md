@@ -33,6 +33,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a card dialog keeps the page's own keys. With a card open, `/` pulled focus into
+  the filter behind the scrim, `t` switched to the Team tab underneath the record, and `?`
+  stacked the key sheet on top of it — one `Esc` then closed both. The three now do nothing
+  while a dialog is open, and `j`, `k`, `Enter`, and `Esc` still work inside it.
 - `lib`: `Shift+Tab` no longer walks out of a dialog. The panel is the first focusable and
   the container of the rest, so the trap's two edge checks let a backwards step from the
   close button land on the page behind the scrim; every `Tab` is now redirected, and the

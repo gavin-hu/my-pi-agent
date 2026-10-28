@@ -75,7 +75,11 @@ export const BOARD_KEYS_JS = String.raw`(function () {
     doc.addEventListener("keydown", function (event) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       var target = event.target;
-      if (event.key === "?" && !typing(target)) {
+      // A dialog is modal for the pointer and for the keyboard alike: "/", "t", and "?"
+      // reach the page behind the scrim from nowhere else, so a modal keeps them and the
+      // keys that move inside it -- j, k, Enter, Esc -- are the ones still read.
+      var modal = (board.dialogOpen && board.dialogOpen()) || (board.keysOpen && board.keysOpen());
+      if (event.key === "?" && !typing(target) && !modal) {
         event.preventDefault();
         board.openKeys();
         return;
@@ -108,6 +112,7 @@ export const BOARD_KEYS_JS = String.raw`(function () {
         return;
       }
       if (event.key === "/") {
+        if (modal) return;
         event.preventDefault();
         board.focusFilter();
       } else if (event.key === "j") {
@@ -117,6 +122,7 @@ export const BOARD_KEYS_JS = String.raw`(function () {
         event.preventDefault();
         step(-1);
       } else if (event.key === "t") {
+        if (modal) return;
         event.preventDefault();
         board.showView(board.viewName() === "team" ? "board" : "team");
       }
