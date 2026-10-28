@@ -47,6 +47,15 @@ export interface BoardServerOptions {
 	idleMs?: number;
 	/** Grace for a page no tab ever attached to; absent leaves the mount open. */
 	firstIdleMs?: number;
+	/**
+	 * A read that failed while building a frame.
+	 *
+	 * A snapshot can fail for reasons the page does not control — the board directory removed
+	 * or made unreadable under a running page — and a ticker nobody awaits must not turn that
+	 * into an unhandled rejection in the session. The frame is dropped, the next tick tries
+	 * again, and this is the one place the failure is said. Absent, the page stays quiet.
+	 */
+	onError?: (error: unknown) => void;
 	/** The interval seam, so a test drives the ticker instead of waiting. */
 	interval?: RepeatTimer;
 }
@@ -70,6 +79,8 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 	const token = options.token ?? mintToken();
 	const clients = new Set<EventSink>();
 	const interval = options.interval ?? defaultInterval;
+	/** A frame that could not be built is not sent; the next tick tries again. */
+	const report = (error: unknown): void => options.onError?.(error);
 	let pushed = "";
 
 	const ctx: BoardRouterContext = {
@@ -117,10 +128,13 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 					clients.add(sink);
 					// A tab that just attached gets the current frame without waiting for a
 					// card to change — otherwise a quiet board looks like a dead page.
-					void options.view().then((view) => {
-						pushed = view.sig;
-						sink.write(`data: ${JSON.stringify(view)}\n\n`);
-					});
+					void options
+						.view()
+						.then((view) => {
+							pushed = view.sig;
+							sink.write(`data: ${JSON.stringify(view)}\n\n`);
+						})
+						.catch(report);
 					return () => {
 						clients.delete(sink);
 					};
@@ -131,7 +145,7 @@ export async function createBoardServer(options: BoardServerOptions): Promise<Bo
 	if (outcome.kind === "refused") return { kind: "refused", reason: outcome.reason };
 	const mount: HttpMount = outcome.mount;
 
-	const stopTicker = interval(PUSH_MS, () => void push());
+	const stopTicker = interval(PUSH_MS, () => void push().catch(report));
 	let closed = false;
 	const close = async (): Promise<void> => {
 		if (closed) return;

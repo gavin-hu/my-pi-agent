@@ -8,7 +8,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { join } from "node:path";
 import { boardHarness } from "../../test/helpers/board.ts";
@@ -20,6 +20,8 @@ import { makeTempTracker } from "../../test/helpers/git.ts";
 import { settle, waitFor } from "../../test/helpers/process.ts";
 import { type PagePointer, type ProbeFetch, readPointer, PAGE_FILE } from "../../lib/board/page-pointer.ts";
 import { createBoardPage, IDLE_FIRST_MS, IDLE_STOP_MS, type PageStart } from "./page.ts";
+import { CARDS_DIR_NAME } from "../../lib/board/store.ts";
+import type { RepeatTimer } from "../../lib/timer.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 
 const temps = makeTempTracker();
@@ -39,6 +41,8 @@ function harness(
 		exec?: FakePiOptions["exec"];
 		/** The mount source, so a case can count the sockets the page asks for. */
 		mount?: MountSource;
+		/** The ticker seam, so a case drives the push instead of waiting on a second. */
+		interval?: RepeatTimer;
 	} = {},
 ) {
 	const { ...boardOptions } = options;
@@ -50,6 +54,7 @@ function harness(
 		session: () => "s1",
 		open: (url) => opened.push(url),
 		idleMs: 40,
+		...(options.interval === undefined ? {} : { interval: options.interval }),
 		...(options.firstIdleMs === undefined ? {} : { firstIdleMs: options.firstIdleMs }),
 		...(options.probe === undefined ? {} : { probe: options.probe }),
 	});
@@ -455,6 +460,47 @@ describe("the idle grace", () => {
 		await waitFor(() => notifications.length > 0);
 		expect((await page.status()).running).toBe(false);
 		expect(notifications).toContain("board: stopped — the last page was closed");
+	});
+});
+
+describe("a board the page cannot read", () => {
+	test("drops the frame, says so once, and keeps serving", async () => {
+		const ticks: Array<() => void> = [];
+		const interval: RepeatTimer = (_ms, tick) => {
+			ticks.push(tick);
+			return () => {};
+		};
+		const { page, ctx, notifications, runtime, cwd } = harness({ interval });
+		const store = await runtime.store(cwd);
+		const status = served(await page.start(ctx));
+		const token = new URL(status.url ?? "").searchParams.get("token") ?? "";
+		const stream = await fetch(`http://127.0.0.1:${status.port}/board/events?token=${token}`);
+		expect(stream.status).toBe(200);
+		const reader = stream.body?.getReader();
+		// The attach frame has arrived, so the tab is counted and a tick is a read.
+		await reader?.read();
+		// The pile becomes a file: every read of it fails, and not with the `ENOENT` a board
+		// that is simply gone answers with — so this is the failure the ticker cannot absorb.
+		const cards = join(store.dir, CARDS_DIR_NAME);
+		rmSync(cards, { recursive: true, force: true });
+		writeFileSync(cards, "");
+		ticks.at(-1)?.();
+		await waitFor(() => notifications.some((line) => line.includes("cannot read the board")));
+		expect(notifications.join("\n")).toContain("board: the page cannot read the board");
+		// A failed frame is a dropped frame, not a stopped page: the mount is still serving.
+		expect((await page.status()).running).toBe(true);
+		// One notice, not one per tick: a failure that persists must not fill the transcript.
+		ticks.at(-1)?.();
+		await settle(30);
+		expect(notifications.filter((line) => line.includes("cannot read the board"))).toHaveLength(1);
+		// The board comes back, and so does the page's reading of it: no `/board` needed.
+		rmSync(cards, { force: true });
+		mkdirSync(cards, { recursive: true });
+		ticks.at(-1)?.();
+		await settle(30);
+		expect((await page.status()).running).toBe(true);
+		await reader?.cancel();
+		await page.stop();
 	});
 });
 

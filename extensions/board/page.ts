@@ -30,6 +30,7 @@ import {
 	urlOf,
 } from "../../lib/board/page-pointer.ts";
 import { mintToken, type MountSource } from "../../lib/http/index.ts";
+import { messageOf } from "../../lib/errors.ts";
 import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
 import { pageActor } from "./seat.ts";
@@ -197,12 +198,23 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 		// Minted here rather than by the server: the note this session leaves has to carry it,
 		// and that is what a second session reads to attach instead of serving its own page.
 		const token = mintToken();
+		/** Whether this page has already said it cannot read the board. */
+		let blind = false;
+		// A frame the page cannot build is a dropped frame, not a crash: the ticker asks again
+		// in a second. Said once, because a failure that persists would otherwise become one
+		// notice per tick — and unsaid, a page that stopped following the board looks frozen.
+		const warnBlind = (error: unknown): void => {
+			if (blind) return;
+			blind = true;
+			ctx.ui.notify(`board: the page cannot read the board (${messageOf(error)}) — it will keep trying`, "warning");
+		};
 		try {
 			const started = await createBoardServer({
 				mount: deps.mount,
 				session: deps.session(),
 				token,
 				...(deps.interval === undefined ? {} : { interval: deps.interval }),
+				onError: warnBlind,
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
 				firstIdleMs: deps.firstIdleMs ?? IDLE_FIRST_MS,
 				onIdle: (reason) => void stopIdle(ctx, reason),

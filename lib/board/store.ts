@@ -113,6 +113,14 @@ export interface BoardStore {
 	/** Every card on the board, in lane order: todo, doing, blocked, done. */
 	list(): Promise<Card[]>;
 	/**
+	 * The board in one read: the cards, and the files it refused.
+	 *
+	 * A page's snapshot needs both, and asking twice reads and parses every card twice to
+	 * answer one frame; `list` and `skipped` are the two halves of this for a caller that
+	 * wants only one.
+	 */
+	scan(): Promise<{ cards: Card[]; skipped: Skip[] }>;
+	/**
 	 * The cards set aside in the archive, in the same order, and the files there this build
 	 * refused. Read only when a caller asks: no other read opens the pile.
 	 */
@@ -183,7 +191,7 @@ export function createStore(dir: string, options: { root?: string } = {}): Board
 	};
 
 	/** Every card file of one pile, read once: what it shows and what it refused. */
-	const scan = async (pileDir: string): Promise<{ cards: Card[]; skipped: Skip[] }> => {
+	const scanPile = async (pileDir: string): Promise<{ cards: Card[]; skipped: Skip[] }> => {
 		const entries = await readdirSafe(pileDir);
 		const cards: Card[] = [];
 		const skipped: Skip[] = [];
@@ -197,16 +205,18 @@ export function createStore(dir: string, options: { root?: string } = {}): Board
 		return { cards: sortForLane(cards), skipped: skipped.sort((a, b) => a.file.localeCompare(b.file)) };
 	};
 
-	const list = async (): Promise<Card[]> => (await scan(cardsDir)).cards;
+	const scan = (): Promise<{ cards: Card[]; skipped: Skip[] }> => scanPile(cardsDir);
 
-	const archived = async (): Promise<{ cards: Card[]; skipped: Skip[] }> => scan(archiveDir);
+	const list = async (): Promise<Card[]> => (await scan()).cards;
+
+	const archived = async (): Promise<{ cards: Card[]; skipped: Skip[] }> => scanPile(archiveDir);
 
 	// A directory listing and a name pattern, with no file opened: a plain `list` prints this
 	// count so the archive it left out cannot read as history that was deleted.
 	const archivedCount = async (): Promise<number> =>
 		(await readdirSafe(archiveDir)).filter((entry) => CARD_FILE.test(entry)).length;
 
-	const skipped = async (): Promise<Skip[]> => (await scan(cardsDir)).skipped;
+	const skipped = async (): Promise<Skip[]> => (await scan()).skipped;
 
 	/**
 	 * One card and the pile its file is in, the board first.
@@ -255,7 +265,7 @@ export function createStore(dir: string, options: { root?: string } = {}): Board
 				if (changedUnderneath) return { ok: false, error: `${cardRef(id)} was dropped.` };
 				// A file that is there and refused is not a card that does not exist: the
 				// reader is told which file to look at instead of being sent to add one.
-				const skip = (await scan(cardsDir)).skipped.find((entry) => entry.id === id);
+				const skip = (await scan()).skipped.find((entry) => entry.id === id);
 				return {
 					ok: false,
 					error:
@@ -321,6 +331,7 @@ export function createStore(dir: string, options: { root?: string } = {}): Board
 		dir,
 		ensure,
 		list,
+		scan,
 		archived,
 		archivedCount,
 		read,
