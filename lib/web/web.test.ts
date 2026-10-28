@@ -28,6 +28,7 @@ import {
 	WEB_THEME_STORAGE_KEY,
 } from "./runtime.ts";
 import { KEBAB, namesScript } from "./names.ts";
+import { INLINE_MARKDOWN_JS } from "./markdown.ts";
 import { CLIENT_RUNTIME_JS, el, paintStatus, postJson, typing } from "./client-runtime.ts";
 import { WEB_THEME_CSS, WEB_THEME_TOKENS } from "./tokens.ts";
 
@@ -699,5 +700,111 @@ describe("web client runtime", () => {
 		} finally {
 			Object.assign(globalThis, { fetch: before });
 		}
+	});
+});
+
+describe("web markdown", () => {
+	/** One node the renderer made: an element, or a text node when the tag is `#text`. */
+	class FakeNode {
+		children: FakeNode[] = [];
+		href = "";
+		target = "";
+		rel = "";
+		textContent: string | null = null;
+		constructor(
+			readonly tag: string,
+			readonly className = "",
+		) {}
+		appendChild(child: FakeNode): void {
+			this.children.push(child);
+		}
+	}
+
+	/** What the fragment appends for one piece of inline Markdown. */
+	function render(text: string): FakeNode {
+		const container = new FakeNode("#root");
+		const document = {
+			createElement: (tag: string) => new FakeNode(tag),
+			createTextNode: (value: string) => Object.assign(new FakeNode("#text"), { textContent: value }),
+		};
+		const location = { href: "http://127.0.0.1:7000/board?token=t" };
+		const run = new Function(
+			"el",
+			"document",
+			"location",
+			`${INLINE_MARKDOWN_JS}\nreturn { safeHref: safeHref, renderInline: renderInline };`,
+		) as (
+			el: (tag: string, className?: string) => FakeNode,
+			doc: unknown,
+			loc: unknown,
+		) => {
+			safeHref: (url: string, base: string) => string | null;
+			renderInline: (into: FakeNode, text: string) => void;
+		};
+		const parsed = run((tag, className) => new FakeNode(tag, className), document, location);
+		parsed.renderInline(container, text);
+		return container;
+	}
+
+	/** The tag of each child, in the order the renderer appended it. */
+	function tags(node: FakeNode): string[] {
+		return node.children.map((child) => child.tag);
+	}
+
+	test("crosses as source, and appends text nodes and four atoms only", () => {
+		// The bundle is a template literal, so a backtick or an interpolation would end the
+		// script; and the point of the renderer is that it never assembles markup.
+		expect(INLINE_MARKDOWN_JS).not.toContain("`");
+		expect(INLINE_MARKDOWN_JS).not.toContain("${");
+		expect(INLINE_MARKDOWN_JS).not.toContain("innerHTML");
+		expect(INLINE_MARKDOWN_JS).not.toContain("<code");
+		expect(INLINE_MARKDOWN_JS).toContain("function renderInline(");
+		expect(INLINE_MARKDOWN_JS).toContain("function safeHref(");
+
+		const made = render("`retry` **twice** *soon* [docs](https://example.com/x)");
+		expect(tags(made)).toEqual(["code", "#text", "strong", "#text", "em", "#text", "a"]);
+		expect(made.children[0]?.textContent).toBe("retry");
+		expect(made.children[2]?.textContent).toBe("twice");
+		expect(made.children[4]?.textContent).toBe("soon");
+		const link = made.children[6];
+		expect(link?.textContent).toBe("docs");
+		expect(link?.href).toBe("https://example.com/x");
+		expect(link?.target).toBe("_blank");
+		expect(link?.rel).toBe("noreferrer noopener");
+	});
+
+	test("keeps a target it cannot vouch for as text, not as a link", () => {
+		// The URL parser strips a tab or a newline, so a target that only looks relative is
+		// cross-origin once parsed: it must stay text, like every scheme but three.
+		for (const target of [
+			"javascript:alert(1)",
+			"data:text/html,hi",
+			"//evil.example/x",
+			"https://user:pass@example.com/",
+			"/\t/evil.example",
+		]) {
+			const source = `[x](${target})`;
+			const made = render(source);
+			// A refused target is text, whole: an unbalanced parenthesis in one only splits the
+			// run of text nodes, and joining it back is what the reader sees.
+			expect(
+				tags(made).filter((tag) => tag === "a"),
+				target,
+			).toEqual([]);
+			expect(made.children.map((child) => child.textContent).join(""), target).toBe(source);
+		}
+	});
+
+	test("resolves a same-origin target and leaves markup as text", () => {
+		// A page's own paths are the one relative target it may hand a source at: the note
+		// and the plan both get a working link to the page they are read on.
+		const relative = render("[files](/files?p=docs)");
+		expect(tags(relative)).toEqual(["a"]);
+		expect(relative.children[0]?.href).toBe("http://127.0.0.1:7000/files?p=docs");
+
+		// `renderInline` never parses: an HTML tag a person typed is a sentence about one.
+		const markup = render("<b>hi</b> and <script>x</script>");
+		expect(tags(markup)).toEqual(["#text"]);
+		expect(markup.children[0]?.textContent).toBe("<b>hi</b> and <script>x</script>");
 	});
 });

@@ -8,6 +8,7 @@ export * from "./base.ts";
 export * from "./client-runtime.ts";
 export * from "./components.ts";
 export * from "./layout.ts";
+export * from "./markdown.ts";
 export * from "./markup.ts";
 export * from "./names.ts";
 export * from "./runtime.ts";

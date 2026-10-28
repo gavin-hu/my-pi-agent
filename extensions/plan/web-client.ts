@@ -23,6 +23,7 @@ import {
 	CLIENT_BASE_JS,
 	CLIENT_RUNTIME_JS,
 	dialogScript,
+	INLINE_MARKDOWN_JS,
 	keysDialogScript,
 	THEME_TOGGLE_JS,
 } from "../../lib/web/index.ts";
@@ -124,6 +125,8 @@ ${WEB_CHROME_JS}
 ${WEB_COMMENTS_JS}
 
 ${WEB_COLLAB_JS}
+
+${INLINE_MARKDOWN_JS}
 
 ${WEB_MARKDOWN_JS}
 

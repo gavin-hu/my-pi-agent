@@ -1,76 +1,18 @@
 /**
- * The Markdown half of the review client script.
+ * The block half of the plan review's Markdown: tables, fenced code, headings, quotes,
+ * and lists.
  *
  * It is a fragment of the same IIFE `web-client.ts` ships (`WEB_MARKDOWN_JS` is
  * interpolated into `REVIEW_CLIENT_JS`), kept in its own module so the client's
- * event wiring and its document rendering are read one at a time. Every value it
- * writes is a DOM text node: plan and comment text never becomes markup, and the
- * only HTML it copies is the server's own `tok-*` spans.
+ * event wiring and its document rendering are read one at a time. The text inside a
+ * block is rendered by `renderInline`, which crosses from `lib/web/markdown.ts` with
+ * the board's card notes — one inline grammar and one link policy for both pages.
+ *
+ * Every value it writes is a DOM text node: plan and comment text never becomes markup,
+ * and the only HTML it copies is the server's own `tok-*` spans.
  */
 
-export const WEB_MARKDOWN_JS = String.raw`  // A link is rendered only for an http(s) or mailto target. Resolving against
-  // the review origin is what catches a target that only looks relative: the
-  // URL parser strips a tab or newline, so "/\t/evil.com" is cross-origin once
-  // it is parsed, and a disguised target must stay text.
-  function safeHref(url, base) {
-    var trimmed = String(url).trim();
-    if (!trimmed || /^\/\//.test(trimmed)) return null;
-    var resolved;
-    try { resolved = new URL(trimmed, base); } catch (error) { return null; }
-    if (resolved.protocol === "mailto:") return trimmed;
-    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
-    if (resolved.username || resolved.password) return null;
-    if (resolved.origin === new URL(base).origin) return resolved.href;
-    return /^https?:\/\//i.test(trimmed) ? resolved.href : null;
-  }
-
-  // Inline token order matters: code, emphasis, and links are matched before a
-  // bare URL, so a URL inside a link target or a code span is never re-split.
-  var INLINE = /(\x60[^\x60]+\x60|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\)|(?:https?:\/\/|www\.)[^\s<]+)/g;
-
-  function renderInline(container, text) {
-    String(text).split(INLINE).forEach(function (part) {
-      if (!part) return;
-      var match;
-      if ((match = /^\x60([^\x60]+)\x60$/.exec(part))) {
-        var code = el("code"); code.textContent = match[1]; container.appendChild(code); return;
-      }
-      if ((match = /^\*\*([^*]+)\*\*$/.exec(part))) {
-        var strong = el("strong"); strong.textContent = match[1]; container.appendChild(strong); return;
-      }
-      if ((match = /^\*([^*]+)\*$/.exec(part))) {
-        var em = el("em"); em.textContent = match[1]; container.appendChild(em); return;
-      }
-      if ((match = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part))) {
-        var href = safeHref(match[2], location.href);
-        if (!href) { container.appendChild(document.createTextNode(part)); return; }
-        var link = el("a"); link.textContent = match[1]; link.href = href; link.target = "_blank"; link.rel = "noreferrer noopener";
-        container.appendChild(link); return;
-      }
-      // GFM extended autolink: a bare http(s) or www. URL in running text.
-      if ((match = /^(?:https?:\/\/|www\.)[^\s<]+$/.exec(part))) {
-        var url = match[0].replace(/[.,;:!?*_~]+$/, "");
-        while (url.charAt(url.length - 1) === ")" && (url.match(/\(/g) || []).length < (url.match(/\)/g) || []).length) {
-          url = url.slice(0, -1).replace(/[.,;:!?*_~]+$/, "");
-        }
-        var dot = url.indexOf(".");
-        var target = /^www\./i.test(url) ? "http://" + url : url;
-        var safe = dot > 0 && /\.[^./]/.test(url.slice(dot)) ? safeHref(target, location.href) : null;
-        if (safe) {
-          var auto = el("a");
-          auto.textContent = url;
-          auto.href = safe;
-          auto.target = "_blank";
-          auto.rel = "noreferrer noopener";
-          container.appendChild(auto);
-          return;
-        }
-      }
-      container.appendChild(document.createTextNode(part));
-    });
-  }
-
-  // Copy only text and tok-* spans out of server-highlighted HTML, so a code
+export const WEB_MARKDOWN_JS = String.raw`  // Copy only text and tok-* spans out of server-highlighted HTML, so a code
   // line can never introduce markup even though it arrives as a string.
   function copyTokens(from, to) {
     Array.prototype.forEach.call(from.childNodes, function (node) {

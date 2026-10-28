@@ -42,6 +42,27 @@ What stays page-side: what a status *says*. `paintStatus` owns the text, its too
 the `bf-status--<tone>` class; the board composes `live · 3m` and appends its own class.
 A shared runtime that also decided the wording would be a second copy of the page's voice.
 
+## One inline Markdown renderer, spliced in
+
+Two served pages read Markdown written by a model or a person: the plan review's document
+and the board's card notes. Both need the same two answers — what an inline token is, and
+which target a link may point at — so `markdown.ts` holds one body of each and exports
+`INLINE_MARKDOWN_JS` for a bundle to splice. The review page's block half
+([`../../extensions/plan/web-markdown.ts`](../../extensions/plan/web-markdown.ts)) calls
+`renderInline` for the text inside a block; the board calls it for each note. A page that
+writes its own is how one of them starts accepting a `javascript:` target the other refuses.
+
+The renderer appends a text node or one of four atoms — `code`, `strong`, `em`, `a` — and
+never parses markup, so the board's rule that a stored field is never `innerHTML` holds with
+Markdown in play. A link is made only when `safeHref` allows the target: `http`, `https`, or
+`mailto`, no credentials, and no protocol-relative or disguised relative target, resolved
+against the page's own URL at call time.
+
+The body is JavaScript on purpose, like the runtime's: no annotation survives into the
+string, and no backtick or `${` may appear in one. It is the inline half only — a card note
+is one sanitized line, so inline is the whole of it, while blocks, tables, and fenced code
+stay the review page's own half.
+
 ## Name a class once, in a table
 
 A page's document is TypeScript and its client is a string inside a template literal, so
