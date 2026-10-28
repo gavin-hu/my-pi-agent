@@ -66,8 +66,6 @@ export interface ServeRegistry {
 	handle(request: MountRequest): void;
 	/** Close one session's socket, LAN listener included. */
 	closeSession(session: string): Promise<void>;
-	/** Close every session's. */
-	closeAll(): Promise<void>;
 }
 
 /** A bind that failed, or the server it produced. */
@@ -235,8 +233,5 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 			request.respond(mount(request));
 		},
 		closeSession,
-		closeAll: async () => {
-			for (const session of [...sessions.keys()]) await closeSession(session);
-		},
 	};
 }

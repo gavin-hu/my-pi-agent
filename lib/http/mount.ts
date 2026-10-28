@@ -18,7 +18,7 @@
 import type { NetworkInterfaceInfo } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { IdleGrace } from "./sink.ts";
-import type { LoopbackHandler, Mount } from "./serve.ts";
+import type { LoopbackHandler } from "./serve.ts";
 
 /** EventBus channel on which a page asks the session's server for a prefix. */
 export const HTTP_MOUNT_CHANNEL = "my-pi-agent/http/mount";
@@ -105,17 +105,6 @@ function byAddress(a: string, b: string): number {
 		if (difference !== 0) return difference;
 	}
 	return a.localeCompare(b);
-}
-
-/**
- * The mount a bare `serveHttp` hands out, in the page-facing shape.
- *
- * A server started directly — a suite's, an embedder's — has no `serve` registry behind
- * it, so nothing can borrow a LAN listener from it. Reporting that honestly is better
- * than making every caller remember `share` is absent there.
- */
-export function localMount(mount: Mount): HttpMount {
-	return { ...mount, share: async () => undefined, unshare: async () => {} };
 }
 
 /** What a mount request answers with: the page's place, or the reason it has none. */
