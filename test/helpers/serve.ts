@@ -14,11 +14,6 @@ import {
 	type SharedListener,
 } from "../../lib/http/index.ts";
 
-/** Start a server a suite can mount shipped pages on. */
-export function createTestHttp(): Promise<ServedServer> {
-	return serveHttp({ ports: [0] });
-}
-
 /**
  * A mount source for one page under test.
  *
@@ -30,7 +25,8 @@ export function testMountSource(address = "127.0.0.1"): MountSource {
 	let server: Promise<ServedServer> | undefined;
 	let lan: ServedServer | undefined;
 	return async (spec) => {
-		server ??= createTestHttp();
+		// One server per suite fixture, on an OS-chosen port: the socket `serve` would give it.
+		server ??= serveHttp({ ports: [0] });
 		const bound = await server;
 		const mounted = bound.mount({
 			prefix: spec.prefix,

@@ -13,11 +13,16 @@ import type { LoopbackHandler, MountOutcome, MountRequest, MountSpec } from "../
 import { textResponse } from "../../lib/http/index.ts";
 import { createServeRegistry, type ServeRegistry, type ServeRegistryDeps } from "./registry.ts";
 
-const registries: ServeRegistry[] = [];
+/** One registry under test, and the sessions it was asked to serve. */
+const registries: Array<{ registry: ServeRegistry; sessions: Set<string> }> = [];
 const blockers: Server[] = [];
 
 afterEach(async () => {
-	for (const registry of registries.splice(0)) await registry.closeAll();
+	// The extension closes one session at a time, because a peer's shutdown must not
+	// reach the host's socket; the teardown takes the same path.
+	for (const { registry, sessions } of registries.splice(0)) {
+		for (const session of sessions) await registry.closeSession(session);
+	}
 	for (const blocker of blockers.splice(0)) blocker.close();
 });
 
@@ -28,7 +33,7 @@ function registryWith(deps: Partial<ServeRegistryDeps> = {}): ServeRegistry {
 		interfaces: () => ({}),
 		...deps,
 	});
-	registries.push(registry);
+	registries.push({ registry, sessions: new Set() });
 	return registry;
 }
 
@@ -41,6 +46,9 @@ function ask(
 	spec: Omit<MountSpec, "handler"> & { handler?: LoopbackHandler },
 ): Promise<MountOutcome> {
 	const request: MountSpec = { handler, ...spec };
+	// Teardown closes the sessions the case actually opened, which is how the extension
+	// shuts down: one session's socket at a time.
+	registries.find((entry) => entry.registry === registry)?.sessions.add(request.session);
 	return new Promise<MountOutcome>((resolve) => {
 		const mountRequest: MountRequest = {
 			spec: request,

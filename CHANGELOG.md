@@ -17,6 +17,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   second session — a WeChat peer conversation, a session in another worktree, another Pi —
   still gets its own server and its own port. Sharing a review asks that one page's mount
   for a single LAN address, so a loopback-only page can never be reached from the network.
+  `doctor` names the requirement, so a session loaded without `serve` says why its pages
+  refuse instead of leaving three silent 404s.
 
 - `board`: the page names the repository it belongs to. A board is filed under a store key —
   twelve hex characters — so its tab read `board · 8872d3adda0e · 3 open`, and three open
