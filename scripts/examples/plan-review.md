@@ -15,7 +15,7 @@ or the provider is down.
 
 ## Approach
 
-- Write the fetched table to `<agentDir>/prices.json` with the provider's
+- Write the fetched table to `<agent-dir>/prices.json` with the provider's
   `updatedAt` and the fetch time.
 - Read it before the network call; serve it when it is younger than a day.
 - Fetch in the background when it is stale and keep serving the cached copy.
@@ -35,7 +35,7 @@ prices   cached 2h ago   /Users/u/.pi/prices.json   1,204 models
 ## Steps
 
 - [x] Add a `PriceCache` module that reads and writes one JSON file
-  - `lib/env.ts` already resolves `<agentDir>`, so the module takes that path.
+  - `lib/env.ts` already resolves `<agent-dir>`, so the module takes that path.
 - [x] Stamp the fetch time next to the table
 - [x] Serve the cache when it is fresh
 - [x] Keep the bundled rates as the last fallback

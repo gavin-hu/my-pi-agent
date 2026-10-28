@@ -1,5 +1,5 @@
 /**
- * Reading and writing `<agentDir>/wechat/credentials.json`.
+ * Reading and writing `<agent-dir>/wechat/credentials.json`.
  *
  * The file is written `0600` and holds one entry per bot account, keyed by
  * `ilinkBotId`. Malformed or partial entries are dropped on read rather than

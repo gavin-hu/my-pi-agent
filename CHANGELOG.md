@@ -21,6 +21,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: an agent-directory location is spelled one way everywhere — `<agent-dir>` —
+  because 15 uses still wrote `<agentDir>` across three pages, the `plan-review` example,
+  and eight module comments, each sweep having fixed only the page it was reading. The
+  rule in `docs/development.md` now names the project form too (`<repo>/.pi/<place>/`) and
+  subagent's `agents.ts` row shows both, and `test/extension-docs.test.ts` fails the other
+  spelling in any page or comment, so a fourth sweep is a failing test rather than a review.
+
 - `docs`: `ROADMAP.md` is gone, and with it the guard that pinned it. Planned work is a
   card on the board, so a second hand-maintained list of it was a plan of record nothing
   read; the three lists that were never plans move into `docs/architecture.md` — the

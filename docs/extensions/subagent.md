@@ -452,7 +452,7 @@ step's `Output`.
 |---|---|
 | `index.ts` | Registers the `subagent` tool and assembles the mode context. |
 | `orchestrate.ts` | The `single`/`parallel`/`chain` mode runners. |
-| `agents.ts` | Built-in agent definitions, external markdown discovery, and pool resolution. |
+| `agents.ts` | Built-in agent definitions, external markdown discovery (`<agent-dir>/agents`, and the nearest `<repo>/.pi/agents`), and pool resolution. |
 | `schema.ts` | TypeBox params, limits, and `resolveMode`. |
 | `invocation.ts` | `pi` subprocess invocation and argument construction. |
 | `stream.ts` | JSON-event parsing, guarded usage accounting, output helpers (pure). |

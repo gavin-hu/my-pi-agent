@@ -4,7 +4,7 @@
  * The Team tab lists teammates, and `session-bus` owns those records. Neither
  * extension may import the other, and the board must keep working when the bus is
  * not loaded — so the records are read where the bus already put them,
- * `<agentDir>/session-bus/<repo-key>/`, as files rather than through its code. The
+ * `<agent-dir>/session-bus/<repo-key>/`, as files rather than through its code. The
  * directory names, the record fields this reader trusts, and the liveness rule live
  * here once, and `session-bus` imports them, so a layout change cannot land in one
  * copy and not the other.

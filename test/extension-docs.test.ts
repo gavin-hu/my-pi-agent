@@ -19,8 +19,9 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { walkFiles } from "./helpers/files.ts";
 import { registeredSurface } from "./helpers/surface.ts";
 
 const root = join(import.meta.dir, "..");
@@ -425,6 +426,20 @@ describe("the stores under the agent directory", () => {
 			anchored.filter((module) => !declared.has(module)),
 			"a module anchoring on the agent directory with no store row and no reader entry",
 		).toEqual([]);
+	});
+
+	test("spells an agent-directory location one way", () => {
+		// The rule in `docs/development.md` is one spelling, and prose is where it drifted:
+		// three sweeps each fixed the page they were reading and left `<agentDir>` in the rest,
+		// because only a store row was ever checked. This reads every page and every comment.
+		const scanned = ["docs", "extensions", "lib", "scripts", "skills"].flatMap((directory) =>
+			walkFiles(join(root, directory)),
+		);
+		const offenders = scanned
+			.filter((file) => file.endsWith(".md") || file.endsWith(".ts"))
+			.filter((file) => readFileSync(file, "utf-8").includes("<agentDir>"))
+			.map((file) => relative(root, file));
+		expect(offenders, "write `<agent-dir>`").toEqual([]);
 	});
 
 	test("names each store's location in the Files row for its module", () => {

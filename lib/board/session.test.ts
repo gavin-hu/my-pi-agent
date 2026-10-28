@@ -160,7 +160,7 @@ describe("busDir", () => {
 	test("follows the store's key, not the last segment of the board's own directory", () => {
 		// The discriminating case: a board whose directory is called something else entirely.
 		// A key read back off the path — the old `basename(store.dir)` — would put the roster
-		// in `<agentDir>/session-bus/<that directory's name>`, where no bus ever writes, and
+		// in `<agent-dir>/session-bus/<that directory's name>`, where no bus ever writes, and
 		// every peer would read as no record instead of the page failing where someone would
 		// notice.
 		const agentDir = temps.track(tempDir("pi-agent-"));

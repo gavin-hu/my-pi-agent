@@ -1,5 +1,5 @@
 /**
- * Reading and writing `<agentDir>/wechat/state.json`.
+ * Reading and writing `<agent-dir>/wechat/state.json`.
  *
  * Holds the long-poll cursor, the owner id, and per-peer reply tokens. It is
  * validated on read; a corrupt file degrades to empty state rather than losing
