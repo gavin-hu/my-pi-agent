@@ -27,7 +27,7 @@
 
 import { decodeCodePoint, escapeHtml } from "../../../lib/escape.ts";
 import { emitImage, emitImageLink, EXTERNAL_ATTRS } from "./emit.ts";
-import { resolveImage, resolveLink } from "./urls.ts";
+import { type LinkBase, resolveImage, resolveLink } from "./urls.ts";
 
 /** Elements re-emitted with sanitized attributes. */
 const BLOCK_ELEMENTS = new Set([
@@ -205,7 +205,7 @@ export function closesSuppressed(line: string, name: string): boolean {
 }
 
 /** Sanitize one HTML block, emitting text and allowlisted tags into `sink`. */
-export function sanitizeHtmlBlock(source: string, baseDir: string, sink: HtmlSink): string {
+export function sanitizeHtmlBlock(source: string, linkBase: LinkBase, sink: HtmlSink): string {
 	let out = "";
 	let i = 0;
 	while (i < source.length) {
@@ -235,7 +235,7 @@ export function sanitizeHtmlBlock(source: string, baseDir: string, sink: HtmlSin
 			out += closeTo(sink.stack, sink.stack.lastIndexOf(tag.name));
 			continue;
 		}
-		out += tag.name === "img" ? sanitizeImage(tag, baseDir) : sanitizeOpenTag(tag, baseDir);
+		out += tag.name === "img" ? sanitizeImage(tag, linkBase) : sanitizeOpenTag(tag, linkBase);
 		if (tag.name !== "img" && !VOID.has(tag.name) && !tag.selfClosing) sink.stack.push(tag.name);
 	}
 	return out;
@@ -250,7 +250,7 @@ export function sanitizeHtmlBlock(source: string, baseDir: string, sink: HtmlSin
 export function sanitizeInlineTag(
 	source: string,
 	start: number,
-	baseDir: string,
+	linkBase: LinkBase,
 	stack: string[],
 ): { html: string; end: number } | undefined {
 	const tag = parseRawTag(source, start);
@@ -260,7 +260,7 @@ export function sanitizeInlineTag(
 	if (SUPPRESSED.has(tag.name)) return { html: "", end: skipSuppressed(source, tag.next, tag) };
 	if (!ALLOWED.has(tag.name) || !PHRASING.has(tag.name)) return undefined;
 	if (tag.end) return { html: closeTo(stack, stack.lastIndexOf(tag.name)), end: tag.next };
-	const html = tag.name === "img" ? sanitizeImage(tag, baseDir) : sanitizeOpenTag(tag, baseDir);
+	const html = tag.name === "img" ? sanitizeImage(tag, linkBase) : sanitizeOpenTag(tag, linkBase);
 	if (tag.name !== "img" && !VOID.has(tag.name) && !tag.selfClosing) stack.push(tag.name);
 	return { html, end: tag.next };
 }
@@ -402,7 +402,7 @@ function skipSuppressed(source: string, from: number, tag: RawTag): number {
 }
 
 /** Rebuild an allowlisted start tag from its parsed name and allowed attributes. */
-function sanitizeOpenTag(tag: RawTag, baseDir: string): string {
+function sanitizeOpenTag(tag: RawTag, linkBase: LinkBase): string {
 	const out: string[] = [];
 	const id = attribute(tag, "id");
 	if (id !== undefined && id !== "") out.push(` id="${escapeHtml(id)}"`);
@@ -411,7 +411,7 @@ function sanitizeOpenTag(tag: RawTag, baseDir: string): string {
 	switch (tag.name) {
 		case "a": {
 			const href = attribute(tag, "href");
-			const target = href === undefined ? undefined : resolveLink(href, baseDir);
+			const target = href === undefined ? undefined : resolveLink(href, linkBase);
 			if (target !== undefined) {
 				out.push(` href="${escapeHtml(target.href)}"`);
 				if (target.external) out.push(EXTERNAL_ATTRS);
@@ -458,10 +458,10 @@ function sanitizeOpenTag(tag: RawTag, baseDir: string): string {
  * (the page CSP forbids remote images), and an unresolvable one leaves the alt
  * text, so a broken badge is still readable.
  */
-function sanitizeImage(tag: RawTag, baseDir: string): string {
+function sanitizeImage(tag: RawTag, linkBase: LinkBase): string {
 	const alt = attribute(tag, "alt") ?? "";
 	const src = attribute(tag, "src");
-	const target = src === undefined ? undefined : resolveImage(src, baseDir);
+	const target = src === undefined ? undefined : resolveImage(src, linkBase);
 	if (target === undefined) return alt === "" ? "" : escapeHtml(alt);
 	if (!target.image) return emitImageLink(target.href, alt === "" ? target.href : alt);
 	// The element is `emit.ts`'s, so an `<img>` written as HTML and the same one written as

@@ -18,9 +18,9 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 |---|---|---|---|
 | One-command browsing | `/browse` | The server starts at the effective working directory, prints its URL, and opens the browser. | Shipped |
 | Read-only serving | `/browse` | Nothing is edited or written, and the server binds `127.0.0.1` only. | Shipped |
-| Two-pane page | `/`, `/browse[/<rel>]` | A collapsible tree beside the current folder's listing, with the tree, filter, and quick-open trigger pinned in their own pane. | Shipped |
+| Two-pane page | `/files/`, `/files/browse[/<rel>]` | A collapsible tree beside the current folder's listing, with the tree, filter, and quick-open trigger pinned in their own pane. | Shipped |
 | File previews | `/view/<rel>` | Text, rendered Markdown, image thumbnails, and download cards for binary or over-size files, each with a per-language icon. | Shipped |
-| Quick open | `/`, `Ctrl/Cmd+K`, `/api/files` | A fuzzy path finder over the tree opens a file without walking the tree. | Shipped |
+| Quick open | `/files/`, `Ctrl/Cmd+K`, `/files/api/files` | A fuzzy path finder over the tree opens a file without walking the tree. | Shipped |
 | Git diff view | `/diff`, `/diff/<rel>` | A change overview and one file's unified diff, scoped to `head`, `staged`, or `worktree`. | Shipped |
 | Live status | `/events`, the `◉ live` chip | An open page keeps its branch, change markers, and footer up to date without a reload. | Shipped |
 | Reload hint | `/api/dir-rev`, `⟳ reload` | A page whose folder gained or lost a file offers a reload control instead of changing its rows. | Shipped |
@@ -80,18 +80,18 @@ selects the root.
 
 | Route | Result |
 |---|---|
-| `/`, `/browse[/<rel>]` | tree + directory listing |
-| `/view/<rel>` | tree + file page (text, Markdown, image, binary, or over-size) |
-| `/view/<rel>?raw=1` | raw Markdown/text source instead of the rendered view |
-| `/raw/<rel>` | raw bytes, streamed; downloads and image sources |
-| `/diff[?mode=head\|staged\|worktree]` | changed-file overview with `--stat` |
-| `/diff/<rel>[?mode=…]` | one file's unified diff |
-| `/api/tree?path=<rel>` | JSON children for lazy tree expansion |
-| `/api/files?q=<query>` | JSON fuzzy path matches for the quick-open palette |
-| `/api/dir-rev?path=<rel>` | JSON listing revision for the reload check |
-| `/events` | Server-Sent Events stream of `status` frames for the open page |
-| `/app.js` | the first-party client script |
-| `/theme.js` | the pre-paint theme bootstrap |
+| `/files/`, `/files/browse[/<rel>]` | tree + directory listing |
+| `/files/view/<rel>` | tree + file page (text, Markdown, image, binary, or over-size) |
+| `/files/view/<rel>?raw=1` | raw Markdown/text source instead of the rendered view |
+| `/files/raw/<rel>` | raw bytes, streamed; downloads and image sources |
+| `/files/diff[?mode=head\|staged\|worktree]` | changed-file overview with `--stat` |
+| `/files/diff/<rel>[?mode=…]` | one file's unified diff |
+| `/files/api/tree?path=<rel>` | JSON children for lazy tree expansion |
+| `/files/api/files?q=<query>` | JSON fuzzy path matches for the quick-open palette |
+| `/files/api/dir-rev?path=<rel>` | JSON listing revision for the reload check |
+| `/files/events` | Server-Sent Events stream of `status` frames for the open page |
+| `/files/app.js` | the first-party client script |
+| `/files/theme.js` | the pre-paint theme bootstrap |
 
 ## Configuration
 
@@ -340,7 +340,7 @@ old and new sides for `lib/highlight`.
 
 ## Live status
 
-The page answers at the origin's root of the session's one server, so the footer's one
+The page answers at `/files` on the session's one server, so the footer's one
 `◉ <port>` chip is the session's, not this page's: [`serve`](./serve.md) publishes it
 while anything is mounted, and [`bytefly`](./bytefly.md) routes it to line 1's right
 zone, after `⎇ branch` and `⑂ worktree`. It is cleared when the session's server closes,
@@ -456,7 +456,7 @@ stops at the first difference because the control, not the checker, is the fix.
 
 - **Lifecycle.** `/browse` resolves `resolveEffectiveCwd(ctx.cwd)`, loads config,
   parses args, and mounts the page through `requestMount`: `realpath` the root, claim
-  the origin's root on the session's server, return `{ url, port, root, close }`. The
+  `/files` on the session's server, return `{ url, port, root, close }`. The
   port belongs to `serve` — `serve.port` pins the session's origin — so nothing here
   picks or retries one. `/browse stop` and `session_shutdown` await the idempotent
   `close()`, which gives the prefix back. The page is the mount's only reader, so the

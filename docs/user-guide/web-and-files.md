@@ -165,7 +165,7 @@ fuzzy quick-open palette, and a read-only git diff view.
    ```
 
    A page opens at an address on your own machine, such as
-   `http://127.0.0.1:4780/`, and an `◉` chip in the footer shows the port while
+   `http://127.0.0.1:4780/files/`, and an `◉` chip in the footer shows the port while
    the server is running.
 
    <img src="../../assets/screens/file-browse.png" alt="The loopback file browser: a path filter and file tree on the left, and a rendered Markdown page on the right" width="100%">

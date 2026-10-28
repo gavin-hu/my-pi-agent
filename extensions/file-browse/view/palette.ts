@@ -122,7 +122,7 @@ export const PALETTE_CLIENT_JS = `	// Quick open: a fuzzy path palette backed by
 
 	function runSearch() {
 		var query = paletteInput.value.trim();
-		fetch("/api/files?q=" + encodeURIComponent(query))
+		fetch(pageBase() + "/api/files?q=" + encodeURIComponent(query))
 			.then(function (response) {
 				if (!response.ok) throw new Error("search failed");
 				return response.json();
@@ -212,7 +212,7 @@ export const PALETTE_CLIENT_JS = `	// Quick open: a fuzzy path palette backed by
 
 	function openActive() {
 		var result = paletteResults[paletteActive];
-		if (result) window.location.assign("/view/" + encodeSegments(result.path));
+		if (result) window.location.assign(pageBase() + "/view/" + encodeSegments(result.path));
 	}
 	var quickOpenButton = document.getElementById("quick-open");
 	if (quickOpenButton) quickOpenButton.addEventListener("click", openPalette);

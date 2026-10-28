@@ -12,13 +12,15 @@
  * and `bun build --no-bundle` needs no separate asset.
  */
 
-import { keysDialogScript, THEME_TOGGLE_JS } from "../../../lib/web/index.ts";
+import { CLIENT_BASE_JS, keysDialogScript, THEME_TOGGLE_JS } from "../../../lib/web/index.ts";
 import { LIVE_CLIENT_JS } from "./live-client.ts";
 import { PALETTE_CLIENT_JS } from "./palette.ts";
 import { TREE_CLIENT_JS } from "./tree.ts";
 
 export const CLIENT_JS = `(function () {
 	"use strict";
+	/* Spliced at the outermost scope: every fragment below builds its URLs from it. */
+${CLIENT_BASE_JS}
 	var rows = Array.prototype.slice.call(document.querySelectorAll("table.bf-table tbody tr"));
 ${TREE_CLIENT_JS}
 	Array.prototype.forEach.call(document.querySelectorAll("img.bf-table__thumb"), function (img) {

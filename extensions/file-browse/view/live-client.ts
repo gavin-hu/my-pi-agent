@@ -166,7 +166,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 
 		function checkLiveDir() {
 			if (document.hidden || liveTone !== "success") return;
-			fetch("/api/dir-rev?path=" + encodeURIComponent(liveDir))
+			fetch(pageBase() + "/api/dir-rev?path=" + encodeURIComponent(liveDir))
 				.then(function (response) {
 					if (!response.ok) throw new Error("check failed");
 					return response.json();
@@ -179,7 +179,7 @@ export const LIVE_CLIENT_JS = `	// Live status: one event stream feeds the heade
 		}
 
 		if (window.EventSource) {
-			var liveStream = new EventSource("/events");
+			var liveStream = new EventSource(pageBase() + "/events");
 			liveStream.addEventListener("open", function () {
 				if (liveTone !== "success") setLiveTone("accent", "connecting");
 			});

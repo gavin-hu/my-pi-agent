@@ -56,6 +56,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `file-browse`: the browser answers under `/files` on the session's one server, so every
+  page owns a named namespace (`/board`, `/plan/<id>`, `/files`) and nothing claims the
+  origin's root. Every URL the page emits — its tree, its file pages, its script, its API
+  calls, and the links it rewrites out of Markdown — is built from that prefix rather than
+  from the assumption that the root is its own. An old bookmark to
+  `http://127.0.0.1:<port>/` now answers 404; `/browse` prints and opens the new address,
+  and a page left open across the upgrade keeps its old paths until it reloads.
 - `board`, `file-browse`, `plan`: the port is the session's, not a page's. `board.port` and
   `file-browse.port` are gone, and `serve.port` in `bytefly.json` replaces both — one
   number, one bookmark, and a pinned port that is taken is still reported rather than

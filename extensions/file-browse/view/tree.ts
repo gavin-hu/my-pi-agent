@@ -189,7 +189,7 @@ export const TREE_CLIENT_JS = `	var tree = document.querySelector("nav.bf-tree")
 		li.dataset.loading = "true";
 		twisty.textContent = "\\u2026";
 		if (link) link.setAttribute("aria-busy", "true");
-		fetch("/api/tree?path=" + encodeURIComponent(path))
+		fetch(pageBase() + "/api/tree?path=" + encodeURIComponent(path))
 			.then(function (response) {
 				if (!response.ok) throw new Error("load failed");
 				return response.json();

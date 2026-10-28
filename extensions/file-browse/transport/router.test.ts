@@ -53,7 +53,9 @@ function text(response: ServeResponse): string {
 
 function context(overrides: Partial<ServeConfig> = {}): ServeContext {
 	if (!fixture) fixture = makeFixture();
-	return { root: realpathSync(fixture.root), config: { ...DEFAULT_CONFIG, ...overrides } };
+	// Route names are relative to the prefix the mount chose, so routing cases read them
+	// at the origin's root; the loopback cases below prove the shipped `/files` prefix.
+	return { root: realpathSync(fixture.root), base: "", config: { ...DEFAULT_CONFIG, ...overrides } };
 }
 
 /** A live status source that answers one idle snapshot. */
@@ -714,7 +716,7 @@ function connectionRefused(url: string): Promise<boolean> {
 /**
  * The shipped page, mounted on a real server: the socket `serve` would have given it.
  *
- * The page holds the origin's root, so `server.url` is the origin itself.
+ * The page holds `/files`, so `server.url` is the origin with that prefix.
  */
 async function serveHere(
 	root: string,
@@ -727,16 +729,29 @@ async function serveHere(
 }
 
 describe("loopback server", () => {
-	test("holds the origin's root, which is what its root-absolute URLs assume", async () => {
+	test("holds the /files namespace, which is what every URL it emits is built from", async () => {
 		fixture = makeFixture();
-		// Every link, script and Markdown destination this page emits is root-absolute,
-		// so the mount is the origin itself. Moving it under a prefix without rewriting
-		// them would break every one of them silently — this case is that claim.
-		expect(BROWSE_BASE).toBe("");
+		// The page owns a prefix, not the origin: `base` reaches the links, the scripts, and
+		// the Markdown destinations, so the mount and the document agree. This case is that
+		// claim, and it is meant to fail when the prefix moves.
+		expect(BROWSE_BASE).toBe("/files");
 		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
-		expect(new URL(server.url).pathname).toBe("/");
-		// The page it serves names its own script from the root it answers on.
-		expect(await (await fetch(server.url)).text()).toContain('<script src="/app.js"');
+		expect(new URL(server.url).pathname).toBe("/files/");
+		expect(await (await fetch(server.url)).text()).toContain('<script src="/files/app.js"');
+	});
+
+	test("leaves the origin's root to the other pages, and redirects a bare prefix", async () => {
+		fixture = makeFixture();
+		server = await serveHere(fixture.root, { ...DEFAULT_CONFIG, autoOpen: false });
+		const origin = new URL(server.url).origin;
+		// The root is unclaimed by decision: `board` and a plan review leave it free too.
+		const root = await fetch(`${origin}/`);
+		expect(root.status).toBe(404);
+		// `/files` without its slash is redirected, so the page's relative URLs resolve under
+		// the prefix rather than beside it.
+		const bare = await fetch(`${origin}/files`, { redirect: "manual" });
+		expect(bare.status).toBe(301);
+		expect(bare.headers.get("Location")).toBe("/files/");
 	});
 
 	test("serves listings, files, and the tree API over HTTP", async () => {
@@ -868,7 +883,7 @@ describe("loopback server", () => {
 		// A raw socket, so closing it is the page leaving and nothing else.
 		const { hostname, port } = new URL(started.url);
 		const socket = createConnection({ host: hostname, port: Number(port) }, () => {
-			socket.write("GET /events HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
+			socket.write(`GET ${BROWSE_BASE}/events HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n`);
 		});
 		socket.once("data", () => socket.destroy());
 
@@ -878,7 +893,7 @@ describe("loopback server", () => {
 });
 
 function fakeServer(root: string): FileServerResult {
-	return { kind: "served", server: { url: "http://127.0.0.1:4321/", port: 4321, root, close: async () => {} } };
+	return { kind: "served", server: { url: "http://127.0.0.1:4321/files/", port: 4321, root, close: async () => {} } };
 }
 
 /** The page a fake result carries, for a case that only needs one field of it. */
@@ -935,7 +950,7 @@ describe("browse command", () => {
 		const { ctx, notifications } = fakeCtx(fixture.root);
 
 		await runCommand(pi, "browse", "", ctx);
-		expect(opened).toEqual(["http://127.0.0.1:4321/"]);
+		expect(opened).toEqual(["http://127.0.0.1:4321/files/"]);
 		expect(notifications.at(-1)?.message).toContain("4321");
 
 		await runCommand(pi, "browse", "status", ctx);

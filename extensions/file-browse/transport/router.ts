@@ -46,13 +46,16 @@ import {
 	renderErrorPage,
 	renderFileDiffPage,
 	renderFilePage,
+	hrefFor,
 } from "../view/html.ts";
 import type { ChangeSummary } from "../view/html.ts";
-import { encodePath, HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "../files/paths.ts";
+import { HttpError, relativePath, resolveDecodedPath, resolveRequestPath } from "../files/paths.ts";
 import { listingRevision } from "../live/rev.ts";
 
 export interface ServeContext {
 	root: string;
+	/** The prefix this page answers under, e.g. `/files`; `""` for the origin's root. */
+	base: string;
 	config: ServeConfig;
 	/** Read-only git context for the page header; omitted when unavailable. */
 	git?: GitStatusProvider;
@@ -152,6 +155,7 @@ async function errorPage(
 		// Keep the minimal tree.
 	}
 	const body = renderErrorPage({
+		base: ctx.base,
 		rootLabel: ctx.root,
 		status,
 		message,
@@ -187,6 +191,7 @@ async function directoryResponse(ctx: ServeContext, rel: string): Promise<ServeR
 	return htmlResponse(
 		200,
 		renderDirectoryPage({
+			base: ctx.base,
 			rootLabel: ctx.root,
 			rel,
 			listing,
@@ -211,6 +216,7 @@ async function fileResponse(ctx: ServeContext, rel: string, raw: boolean): Promi
 	return htmlResponse(
 		200,
 		renderFilePage({
+			base: ctx.base,
 			rootLabel: ctx.root,
 			rel,
 			file,
@@ -235,6 +241,7 @@ async function diffOverview(ctx: ServeContext, mode: DiffMode): Promise<ServeRes
 	return htmlResponse(
 		200,
 		renderDiffPage({
+			base: ctx.base,
 			rootLabel: ctx.root,
 			mode,
 			files: list?.files ?? [],
@@ -267,6 +274,7 @@ async function diffFile(ctx: ServeContext, rawRel: string, mode: DiffMode): Prom
 	return htmlResponse(
 		200,
 		renderFileDiffPage({
+			base: ctx.base,
 			rootLabel: ctx.root,
 			rel,
 			mode,
@@ -303,12 +311,12 @@ async function raw(ctx: ServeContext, rawRel: string): Promise<ServeResponse> {
 	};
 }
 
-function treeApiEntry(entry: DirEntry): Record<string, unknown> {
+function treeApiEntry(entry: DirEntry, base: string): Record<string, unknown> {
 	const spec = entry.isDir ? FOLDER_ICON : languageOf(entry.name);
 	return {
 		name: entry.name,
 		path: entry.rel,
-		href: entry.isDir ? `/browse/${encodePath(entry.rel)}` : `/view/${encodePath(entry.rel)}`,
+		href: hrefFor(entry, base),
 		isDir: entry.isDir,
 		broken: entry.broken,
 		iconHref: iconHref(spec.icon),
@@ -323,7 +331,7 @@ async function treeApi(ctx: ServeContext, decodedPath: string): Promise<ServeRes
 	const info = await stat(abs).catch(() => undefined);
 	if (info && !info.isDirectory()) throw new HttpError(400, "That path is not a folder.");
 	const listing = await listDirectory(ctx.root, rel, ctx.config.maxDirEntries);
-	return jsonResponse(200, { path: rel, entries: listing.entries.map(treeApiEntry) });
+	return jsonResponse(200, { path: rel, entries: listing.entries.map((entry) => treeApiEntry(entry, ctx.base)) });
 }
 
 /** The revision of one folder's listing: what a page's reload control compares against. */
