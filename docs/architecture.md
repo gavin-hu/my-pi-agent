@@ -7,7 +7,7 @@ takes.
 
 It describes the shape this package commits to, not a snapshot of the tree. A
 rule is written in the present tense because it is meant to hold; every rule here
-holds today, and where work is queued it is [`../ROADMAP.md`](../ROADMAP.md) that
+holds today, and where work is queued it is a card on the repository's board that
 carries it. The rulebook that is *enforced today* — the invariants, the
 code-quality bar, the workflow — is [`../AGENTS.md`](../AGENTS.md).
 
@@ -34,6 +34,9 @@ and one extension's full surface on its page under
 - [Trust boundaries](#trust-boundaries)
 - [Where a change belongs](#where-a-change-belongs)
 - [Reading the code](#reading-the-code)
+- [Documented limits with no planned card](#documented-limits-with-no-planned-card)
+- [Explicit non-goals](#explicit-non-goals)
+- [1.0 readiness](#10-readiness)
 - [Related docs](#related-docs)
 
 ## Vocabulary
@@ -374,6 +377,106 @@ If you are new to the tree, this order teaches one idea per stop.
 | [`../extensions/bytefly/`](../extensions/bytefly/) | Chrome and renderers: one extension that draws the others |
 | [`../lib/tui/`](../lib/tui/) | The design system every surface above draws through |
 
+## Documented limits with no planned card
+
+A reader should be able to tell a gap that was triaged from one that was missed,
+without asking. Each row below is a limitation the tree has today and no card owns;
+the reason carries the condition that would reopen it. A limitation a card does own
+belongs to that card, and an extension's own page states the limitation itself, so
+neither is repeated here.
+
+| Limitation | Why it has no card |
+|---|---|
+| `board`: ownership is advisory | A card names an owner; the lock on a file is `session-bus`'s path claim, and two sessions editing one file is a conflict the board cannot see. Revisit if the board issued claims of its own. |
+| `board`: a link is checked when a card is taken and when it is finished | It never re-opens work that finished before the link was recorded, and `done` is terminal, so a dependency cannot un-finish. Revisit if a link must reorder completed work. |
+| `board`: assigning without messaging the peer went with the write path | A page assignment recorded an owner and had to say no handoff was sent; `team`'s `assign` messages the peer instead. Revisit if a silent assignment is worth a tool action of its own. |
+| `board`: a page stops a minute after its last tab leaves | An abandoned page must not answer a port for the rest of the session; `/board` starts it again on the same port. Revisit if a page must outlive its tabs. |
+| `board`: a page's note is believed only while it answers | A crash leaves the note behind; the next `/board` probes it, takes it over when nothing replies, and attaches to the page that won when two sessions start at once, so a dead note costs one probe rather than a second page. Revisit if a note must be reaped by something other than its page. |
+| `board`: nothing prunes, so finished cards accumulate | `drop` is the only deletion and the page shows the store's size. Revisit when the store's size is itself a reason to archive. |
+| `team`: nothing here can start a peer's turn | A handoff or an offer waits in the recipient's inbox until its next turn, where a listening session reports it; no turn is raised on a peer's behalf, and nothing spawns a session. Revisit if the bus can raise a turn directly. |
+| `team`: `to` must be on the team | A session that never opened the board, joined, or claimed a card cannot be handed one, and the refusal names the fix. A card's owner is its team name, derived from the session id, so a rename no longer strands it. Revisit if a peer can be handed work before it ever joins. |
+| `team`: plan mode makes `assign` and `offer` unavailable | The `session` call behind them is a mutating tool, which plan mode refuses; handing work over waits for approval. Revisit if a read-only bus call can dispatch. |
+| `plan`: no PowerShell while planning | The read-only shell is Git Bash by design; PowerShell needs a second parser and guard, which is also why the worktree guard refuses the tool rather than parsing it. Revisit with an OS sandbox. |
+| `plan`: a browser that never connects waits until the user cancels, closes the tab, or aborts | Waiting is the intended behavior — the page can be opened minutes later. The URL is announced, and auto-declining would lose a slow reader. |
+| `plan`: a step over 200 characters is shortened in the todo list and the approval listing | A display rule only: the plan file keeps the full text, and approval tracks the file. Revisit if an approval surface must show a full step. |
+| `plan`: the plans directory is the only index, so there is no cross-repository plan history | The directory is the record, and a registry would be state that can drift from it. The store reports its own size, in its header, without becoming one. |
+| `plan`: a shared review reaches one network, one address, and at most eight links | A tunnel, relay, or hosted review service is a product to operate, not a page to serve; the non-goals below name it. Revisit with a hosted deployment. |
+| `plan`: a reviewer's name is a label bound to a link, not an account | The owner still makes the only decision, so an account would add identity without adding a decision. Revisit if reviewers must be authenticated across restarts. |
+| `subagent`: a child run's cost never enters the parent total, and the roll-up restarts at `/resume` | A documented non-goal: the parent total prices the parent's own turns, and a transcript is an audit record rather than a cost ledger. |
+| `subagent`: background is single mode, and a background child is session-owned | Making a child resumable is a durable job queue, which the non-goals exclude. Revisit if a run must outlive its session. |
+| `watch`: a **wake** match raises a notification once the running turn settles | A match found mid-turn is raised when that run settles, so a long turn delays it but never drops it. Revisit if a turn must be interrupted mid-flight. |
+| `watch`: watcher state is memory-only | A watcher tails a live process or file; a resumed session cannot re-attach to a pipe it no longer has. Revisit if a watcher is given a durable source. |
+| `worktree`: `skipOverrides` leaves the skipped tool unguarded for relative paths | The override is the user's statement that the tool should not be guarded. Revisit if a guard stops meaning what it means today. |
+| `rewind`: `.gitignore`d files are not captured | An explicit non-goal; no card. |
+| `rewind`: the path checklist is TUI-only, so RPC, `print`, and `json` restore the whole tree | A non-interactive subset needs its own selector, validation, and preview. Revisit if a scripted caller needs a partial restore. |
+| `memory`: injection truncates a large store, and `forget` is an exact match | `/memory doctor` names the notes the cap drops and the near-duplicate pairs, and `m` merges them, so the cap is visible where it bites. |
+| `memory`: a store on a filesystem with coarse mtime can still hide a same-size edit | The stamp is nanoseconds, so every APFS/ext4 write is caught; a filesystem that reports one-second mtime cannot be beaten without reading the file on every run. Revisit if a store lives on such a filesystem. |
+| `job`: `exec cmd` and Windows can settle a job with no exit code | The shell owns the exit path there; the job reports `unknown` rather than guessing. Revisit if a wrapper can always observe the code. |
+| `job`: stdin is a pipe, a detached log is not rotated, and Windows cannot detach | Each is the price of a process that outlives its turn; the job page names all three where the option is offered. |
+| `question`: there is no timeout, and RPC multi-select degrades to an editor | A prompt exists to wait for a person, and RPC cannot forward the component. Revisit if a host adds a component channel. |
+| `context`: composition is an estimate, and no message can be trimmed or pinned | The report reads Pi's own bookkeeping; trimming is compaction's job. Revisit if Pi exposes a per-message API. |
+| `web-access`: the keyless search returns answers and related topics rather than a result list | That is the provider's shape, not a parsing gap; SearXNG and Brave return a list. |
+| `web-access`: DNS rebinding remains a residual SSRF risk | Every hop is checked by address, which cannot bind a later DNS answer. Revisit if a resolver-level guard is available. |
+| `file-read`: the extraction deadline cannot preempt a parser that never yields | JavaScript cannot interrupt a synchronous parse, so the deadline stops waiting and discards the result. |
+| `file-read`: formatting, tables, and images are flattened | Extraction returns text; layout fidelity is a different product. |
+| `file-browse`: live status patches only the rows already drawn | A snapshot plus one reload control is honest; making every subfolder live is a different server. |
+| `open_path`: Windows reports only that the launcher started | `explorer` exits non-zero after a successful open and reports nothing for a hidden window. Revisit with a platform API that answers. |
+| `wechat`: an abandoned turn's notice is one attempt and needs a live connection | A notice the transport cannot deliver in five seconds is reported on the terminal, not retried: the session is gone, so there is nothing left to retry from. Revisit if a notice must outlive the session. |
+| `wechat`: two peers' turns run at once, not more | Every concurrent turn is a full model run on the user's budget, and a phone chat rarely has more than two conversations in flight; the rest wait in a fair queue and are acknowledged. Revisit if `PEER_CONCURRENCY` needs to follow the hardware instead of the conversation. |
+| `bytefly`: `doctor.skip`, the `rates` table, and `price.peak` are JSON-only | One is a list, one a table, one a nested object: none is a scalar row. |
+| `bytefly`: built-in extensions are not listed in the picker | Pi does not expose their authoritative names, so this needs a host change rather than a picker row. |
+| `bytefly`: themes and prompts are not picker sections | A theme is one active selection — a scalar, global setting — and a prompt template is a file Pi discovers; neither is the scoped enable list this screen writes. A decision, not a deferral: revisit if Pi exposes a scoped theme or prompt setting. |
+| `bytefly`: the update cache window is fixed at 24 hours | One check per session reuses a younger entry; a setting would add a schema row and a `doctor` line for no failure it prevents. |
+| `bytefly`: only packages configured in Pi's settings get an update prompt | Pi's package manager owns the list; a second detector would restore the duplicate-block class the single-notice refactor removed. |
+| `bytefly`: the single update notice depends on patching `DefaultPackageManager.prototype.checkForAvailableUpdates` | Pi exposes no setting for its startup block. The shim is installed only in `tui`, restored on shutdown, and inert if the method shape changes. |
+| `bytefly`: five notify triggers fire per event rather than per unseen event | A notification is a nudge, not a state; the footer chip is the state. |
+| `session-bus`: a message file that does not parse is dropped | A message is written as a temp file and hard-linked into place, so this needs disk corruption; keeping it would leave an unreadable entry in every listing forever. |
+| `session-bus`: a claim cannot see branch divergence | Claims say who is where, not what will merge; a rebase on the baseline still decides. |
+| CI: macOS runs the suite serially while Windows and Linux use `--parallel=4` | Two open Bun bugs (`oven-sh/bun#41024`, `#39709`; a related one, `#45483`) can park a `--parallel` worker on macOS after its first subprocess spawn, which hangs a git-using test instead of failing it. Still open against Bun 1.4.3; revisit when both close, then delete `check:serial` from the matrix. |
+
+## Explicit non-goals
+
+These stay out unless a decision reverses one. The board is where work is planned, so
+a card that reverses an entry here says so in its contract rather than in its steps.
+
+- An OS sandbox, a general branch manager, or a Pi fork.
+- Semantic memory, embeddings, or automatic fact extraction.
+- OCR, PPTX, EPUB, or writing and converting documents.
+- Cron and scheduling, a durable job queue, or persisting watchers across sessions.
+- Group chats, outbound video or voice, or model-callable sends to arbitrary recipients.
+- Reviewer accounts, a relay, a tunnel, or a hosted review service.
+- A plan registry across repositories.
+- Auto-executing an approved plan without the user in the loop.
+- Auto-updating the package.
+
+## 1.0 readiness
+
+The pack is ready for 1.0 when all of these are true, not on a date. Each gate is
+reviewed against the tree at each release, and none of them is a checklist to tick.
+
+- Every README promise has shipped behavior, a named limitation, or a `doctor`
+  finding, and every limitation with no card has a row above. A review rule, not a test:
+  read the extension pages against this section at each release.
+- Every number a doc states about the code is derived by a test; the settings count is
+  the first, and a count without a guard is a promise waiting to rot.
+- No known path loses work: worktree cleanup, plan approval, job reattachment, a partial
+  rewind, a WeChat turn that is abandoned, and a message the bus cannot read each either
+  preserve the work or say what was lost.
+- State that claims to survive `/resume` and `/tree` does: goal, todo, plan mode,
+  worktree binding, and the rewind timeline — each a session entry or tool-result
+  `details` rebuilt from `getBranch()`, pinned by its extension's tests.
+- The full check suite runs on Windows, macOS, and Linux, including the slow git suites,
+  and the compat job names the newest Pi it passed against. macOS runs it serially until
+  the upstream hang is fixed.
+- A long-session benchmark stays within its budget — measured with `bun run bench:render`
+  at each release.
+- A release is one reviewed command path with provenance, and the tag, changelog, and npm
+  version cannot drift — `test/release.test.ts` holds the version, the install pins, and
+  the changelog's one-set-per-window shape.
+- Docs truth tests cover tool names and config keys, and every relative doc link and
+  heading anchor resolves — `test/naming.test.ts`, `test/config-docs.test.ts`, and the
+  doc-link guard in `test/structure.test.ts`.
+
 ## Related docs
 
 | Topic | Document |
@@ -387,4 +490,3 @@ If you are new to the tree, this order teaches one idea per stop.
 | Trust boundaries and the threat model | [`./security.md`](./security.md) |
 | Scripts, checks, and the release process | [`./development.md`](./development.md) |
 | What every feature does, for a user | [`./extensions/`](./extensions/) |
-| What comes next | [`../ROADMAP.md`](../ROADMAP.md) |

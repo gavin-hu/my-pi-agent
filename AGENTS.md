@@ -154,8 +154,8 @@ when its surface or a printed version is behind.
   no Markdown beside the code.
 - A behaviour change updates the catalog in both entry READMEs, the
   relevant `docs/` guide, and `CHANGELOG.md` under `## [Unreleased]`.
-- `ROADMAP.md` is hand-maintained: `test/roadmap.test.ts` pins its ids, links,
-  and caps, and a shipped item is renumbered or deleted in the same commit.
+- Work planned but not started is a card on the repo's board (`board`), never a
+  `TODO` comment or a second list in Markdown.
 - Renaming a heading or moving a file means fixing every relative link and
   `#anchor`; `test/structure.test.ts` resolves them.
 - One doc per audience: per-area contracts live in

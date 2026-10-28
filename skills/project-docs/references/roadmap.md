@@ -82,12 +82,14 @@ look thorough.
 
 ## In this repository
 
-- `ROADMAP.md` states its own rules under *How items are ordered*: an item is deleted
-  when it ships, never ticked, and `Now` and `Next` hold at most ten.
-- `test/roadmap.test.ts` pins the mechanical half — id uniqueness and contiguity, the
-  links, the citations, and the caps — and cannot tell that an item has shipped, which
-  is why the file states that rule in prose.
-- `AGENTS.md` requires the deletion or renumbering in the same commit as the change.
+- There is no roadmap here: planned work is a card on the board, and the
+  documented limitations, the non-goals, and the 1.0 gates live in
+  `docs/architecture.md`. A request to re-derive a roadmap in this repository is a
+  question about priorities — say so and stop.
+- A limitation that has no card belongs in that page's table, with the condition that
+  would reopen it, and the extension's own page states the limitation itself.
+- `AGENTS.md` holds the same rule from the other side: work planned but not started is a
+  card, never a `TODO` comment or a second list in Markdown.
 
 The paths are named, not linked: a skill is installed into projects that do not
 contain them, so a link would point nowhere from the place it is read.

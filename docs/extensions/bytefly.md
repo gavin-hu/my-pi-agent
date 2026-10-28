@@ -828,7 +828,8 @@ Themes and prompts have no section of their own, by decision rather than by
 omission: a theme is one active selection — a scalar, global setting — and a
 prompt template is a file Pi discovers from a directory, so neither is a scoped
 enable list this screen's checkbox rows can write. Themes stay with `pi config`;
-`ROADMAP.md` carries the reason under *Deliberately left thin*.
+[`architecture.md`](../architecture.md#documented-limits-with-no-planned-card) carries
+the reason.
 
 **Settings.** The third section is the same frame over the curated preferences,
 grouped by what they do rather than by which file holds them: `Startup (2)`,

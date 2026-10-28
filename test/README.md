@@ -53,7 +53,7 @@ gate is stated in the test.
    contracts.
 3. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
    `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
-   `test/tool-render.test.ts`, `test/roadmap.test.ts`,
+   `test/tool-render.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
    `test/doc-counts.test.ts`,
@@ -81,11 +81,7 @@ gate is stated in the test.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
    the tag is present; the tag assertion is skipped in a clone that has none.
-   `roadmap.test.ts` pins the mechanical half of `ROADMAP.md`: unique and
-   contiguous item ids, resolving links and id references, and the per-horizon
-   item cap. It cannot tell that an item has already shipped — that stays a
-   judgement made against `git log <last-tag>..main` when the roadmap is
-   reviewed. The tool names in both entry READMEs are pinned by
+   The tool names in both entry READMEs are pinned by
    `naming.test.ts`, and the configuration reference is pinned by
    `config-docs.test.ts`.
 
@@ -203,7 +199,7 @@ they are in the banned-pattern scan and the line bar but not in the renderer and
 boundary scans. It fails:
 
 - a `TODO` / `FIXME` / `HACK` / `XXX` marker — the work is finished, or it is a
-  `ROADMAP.md` item;
+  card on the board;
 - a suppression comment (`@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`,
   `biome-ignore`, `eslint-disable`) — fix the type or the rule instead;
 - `as any` / `: any` / `<any>` / `any[]` — use `unknown` at the boundary, or
@@ -288,7 +284,7 @@ test/
   drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
-  architecture-doc.test.ts # docs/architecture.md: the paths and roadmap ids it names, and every lib/ layer
+  architecture-doc.test.ts # docs/architecture.md: the paths it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, a Files row for every module (nested ones too), and a suite behind every `## Testing` stem
   project-docs-skill.test.ts # the `project-docs` skill's changelog state script: parse, report, and file lookup
@@ -298,7 +294,6 @@ test/
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
   config-docs.test.ts      # the configuration reference against the loaders
   release.test.ts          # package version, changelog heading, and newest tag
-  roadmap.test.ts          # ROADMAP.md ids, links, and per-horizon caps
   scripts-surface.test.ts  # the package scripts, and the docs that name them
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
   tool-render.test.ts      # every tool's call and result through the shared frame

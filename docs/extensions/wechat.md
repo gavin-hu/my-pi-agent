@@ -413,7 +413,7 @@ The same run answers a second question: every message it receives is printed wit
 the `group_id` and `session_id` the protocol supplied, when it supplied them.
 Nothing in the bridge routes on either — a conversation is keyed by sender — so a
 message posted in a group is the only way to learn whether rooms are delivered at
-all, which is what the roadmap's group-chat item turns on.
+all, a question a group-chat design would have to answer first.
 
 ## Troubleshooting
 

@@ -7,15 +7,13 @@
  *
  * - every repository path the page names in a code span exists;
  * - every directory under `lib/` is named, so a new layer cannot go unmentioned
- *   (the omission that is easiest to make: `lib/http/` was missing for months);
- * - every roadmap id the page cites resolves, so a closed gap cannot leave a
- *   dangling `F3` in the prose.
+ *   (the omission that is easiest to make: `lib/http/` was missing for months).
  *
  * Deliberately one-directional: it proves what the page names is real, not that
  * the page names everything. Completeness of the extension catalog belongs to
  * `test/extension-load.test.ts`, and the module index to `test/drift.test.ts`.
- * The remaining half — that the page's *rules* are true of the tree — is what
- * `ROADMAP.md` §5 records as gaps, which is why the third check exists.
+ * The remaining half — that the page's *rules* are true of the tree — is prose,
+ * and no test can read it.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -24,7 +22,6 @@ import { describe, expect, test } from "bun:test";
 
 const root = join(import.meta.dir, "..");
 const page = readFileSync(join(root, "docs/architecture.md"), "utf-8");
-const roadmap = readFileSync(join(root, "ROADMAP.md"), "utf-8");
 
 /** The roots a named path can start from; anything else in a code span is prose. */
 const PATH_ROOTS = ["docs/", "extensions/", "lib/", "scripts/", "skills/", "test/", "themes/"];
@@ -45,9 +42,6 @@ function namedPaths(markdown: string): string[] {
 	);
 }
 
-/** Every item id a roadmap defines, e.g. `F3`. */
-const ROADMAP_ITEM = /^- \*\*([PSWCF])(\d+) — /;
-
 describe("docs/architecture.md", () => {
 	test("names only paths that exist", () => {
 		const missing = namedPaths(page).filter((path) => !existsSync(join(root, path)));
@@ -60,20 +54,5 @@ describe("docs/architecture.md", () => {
 			.filter((name) => statSync(join(root, "lib", name)).isDirectory())
 			.filter((name) => !named.includes(`lib/${name}/`));
 		expect(layers).toEqual([]);
-	});
-
-	test("cites only roadmap items that exist", () => {
-		const known = new Set(
-			roadmap
-				.split("\n")
-				.map((line) => ROADMAP_ITEM.exec(line))
-				.filter((match) => match !== null)
-				.map((match) => `${match[1]}${match[2]}`),
-		);
-		const cited = new Set(
-			[...page.matchAll(/(?<![A-Za-z0-9])([PSWCF])(\d+)(?![0-9])/g)].map((match) => `${match[1]}${match[2]}`),
-		);
-		const dangling = [...cited].filter((id) => !known.has(id));
-		expect(dangling).toEqual([]);
 	});
 });

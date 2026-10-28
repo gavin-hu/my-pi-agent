@@ -151,8 +151,9 @@ worker on macOS can drop the subprocess exit notification for its first spawn
 and hang a git-using test. The cause is upstream: `oven-sh/bun#41024` and
 `#39709` are open against Bun 1.4.3, and `#45483` (filed 2026-10-16) describes
 the same lost-exit path. When both close, delete the `check:serial` step and run
-`bun run check` on all three systems; [`ROADMAP.md`](../ROADMAP.md)
-*Deliberately left thin* records the same condition.
+`bun run check` on all three systems;
+[`architecture.md`](./architecture.md#documented-limits-with-no-planned-card)
+records the same condition.
 
 ## Performance
 
@@ -381,10 +382,6 @@ Do not duplicate across these:
   the registered surface. A page is one job and stays near 200–400 lines; its
   title carries no number, so inserting one costs the map and the two footers and
   nothing else.
-- `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
-  its ids, links, citations, bucket caps, and the tag the file says it was written
-  against (the newest `vX.Y.Z`), so a release restates that sentence in its own
-  commit; shipping an item means renumbering or removing it in the same commit.
 - `AGENTS.md` — the machine-facing entry point: the four rules, the gates that
   hold them, and the traps with no other home.
 - `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,

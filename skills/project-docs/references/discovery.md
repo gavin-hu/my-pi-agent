@@ -111,17 +111,17 @@ When you are in this repository, the answers are already written down:
   holds the two to the same headings, table rows, and links.
 - `CHANGELOG.md` — Keep a Changelog preamble, categories in the standard order,
   `[Unreleased]` kept in the file, scope in backticks followed by a colon.
-- `ROADMAP.md` — items as `**P1 — …**`, `Now` and `Next` capped at ten, a promise
-  ledger, and the rule that a shipped item is deleted with its reason;
-  `test/roadmap.test.ts` pins the ids, links, and caps, and cannot see that an item
-  has shipped.
+- No roadmap and no plan-of-record file: work planned but not started is a card on the
+  repository's board, read and written with the `board` tool, so there are no item ids,
+  buckets, or caps to keep. The documented limitations, the non-goals, and the 1.0 gates
+  live in `docs/architecture.md`.
 - `CONTRIBUTING.md` and `AGENTS.md` — the entry lands in the same commit as the
   change, and a behavior change also updates the catalog table in both entry READMEs
   and the relevant guide.
 - `docs/development.md` — the normative release procedure.
 - `test/release.test.ts` — the guard on subsection names, order, emptiness, and the
   version pin against the newest tag.
-- `bun run check` — the finish line; `bun test test/roadmap.test.ts` for one guard alone.
+- `bun run check` — the finish line; `bun test test/structure.test.ts` for one guard alone.
 
 The paths are named, not linked: a skill is installed into projects that do not
 contain them, so a link would point nowhere from the place it is read.

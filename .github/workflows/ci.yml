@@ -48,8 +48,8 @@ jobs:
       # git-heavy test runs first burns its whole timeout and a different test
       # does it on each run. A related report, #45483, was filed 2026-10-16. The
       # macOS job runs the suite serially until that is fixed upstream; ubuntu
-      # and windows keep --parallel=4. `ROADMAP.md` carries the same gap in
-      # *Deliberately left thin* with the condition to revisit.
+      # and windows keep --parallel=4. `docs/architecture.md` carries the same gap,
+      # with the condition to revisit.
       # The default shell per OS is intentional: forcing bash on Windows would
       # reintroduce Git-Bash path conversion, which is itself platform-specific.
       # format:check, typecheck, test

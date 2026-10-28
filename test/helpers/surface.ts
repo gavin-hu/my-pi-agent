@@ -37,7 +37,7 @@ function countDirectories(directory: string, required?: string): number {
 	).length;
 }
 
-/** The catalog the entry READMEs and the roadmap advertise. */
+/** The catalog the entry READMEs advertise. */
 export function catalogCounts(): { extensions: number; skills: number; themes: number } {
 	return {
 		extensions: countDirectories("extensions"),

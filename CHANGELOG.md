@@ -21,6 +21,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `docs`: `ROADMAP.md` is gone, and with it the guard that pinned it. Planned work is a
+  card on the board, so a second hand-maintained list of it was a plan of record nothing
+  read; the three lists that were never plans move into `docs/architecture.md` — the
+  documented limitations that have no card, each with the condition that would reopen
+  it, the explicit non-goals, and the 1.0 gates. `test/roadmap.test.ts`, the roadmap
+  claim in `test/doc-counts.test.ts`, the roadmap-id scan in
+  `test/architecture-doc.test.ts`, and the ROADMAP rows in both entry READMEs go with
+  the file, and every doc that pointed at it now points at the section that carries the
+  fact.
+
 - `docs`: the two facts the deleted user-guide guard held are back. Every module that reads
   `getAgentDir` is now either a declared store — its location named in the `Files` row for it,
   and the literal still in its source — or a declared reader with a reason, so a new store
@@ -1065,7 +1075,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the hero's agent dir is seeded from an allowlist rather than copying every
   config of the capturing machine.
 - `docs`: the catalog now says its groups are the
-  promises the [roadmap](./ROADMAP.md) tracks and that the
+  promises the roadmap tracks and that the
   user guide (`docs/user-guide/`) covers the same ground chapter by chapter; and the
   Documentation table gains the [documentation index](./docs/README.md). The
   capture rule moves to
@@ -1152,7 +1162,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   boundaries, and where a change belongs. It owns no inventory — each list belongs
   to the doc that already has it — and the three rules the code has not reached yet
   are named there and carried as `F3`–`F5` in
-  [`ROADMAP.md`](./ROADMAP.md#5-foundations). `test/architecture-doc.test.ts` holds
+  `ROADMAP.md`. `test/architecture-doc.test.ts` holds
   the page's own claims: every path it names exists, every `lib/` directory is
   named, and every roadmap id it cites resolves.
 - `skills`: the `refactor` skill measures a scope instead of asking the model to eyeball
@@ -2675,7 +2685,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- docs: [`ROADMAP.md`](./ROADMAP.md) records the next work, grouped by the
+- docs: `ROADMAP.md` records the next work, grouped by the
   README's promises, with the evidence behind each item; the README and docs
   index link to it.
 - `bytefly`: the footer prices in CNY or USD, chosen by `price.currency.code` and
@@ -2718,7 +2728,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- docs: [`ROADMAP.md`](./ROADMAP.md) is re-derived from the tree rather than the
+- docs: `ROADMAP.md` is re-derived from the tree rather than the
   last tag. Items that had already shipped are gone, the step-budget gap is
   named, `Now` and `Next` hold at most ten items each, and a new *Deliberately
   left thin* table says why the remaining documented limitations have no item.

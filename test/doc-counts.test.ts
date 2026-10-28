@@ -59,11 +59,6 @@ const CLAIMS: Claim[] = [
 		pattern: /(\d+) 个扩展、(\d+) 个随包技能，以及 (\d+) 个主题/,
 		counts: ["extensions", "skills", "themes"],
 	},
-	{
-		file: "ROADMAP.md",
-		pattern: /(\d+) extensions, (\d+) packaged skills, (\d+) themes/,
-		counts: ["extensions", "skills", "themes"],
-	},
 ];
 
 const counts: Counts = catalogCounts();
