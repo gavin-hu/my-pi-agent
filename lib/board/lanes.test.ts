@@ -54,11 +54,14 @@ describe("the transitions", () => {
 		]);
 	});
 
-	test("carries the gates each route needs", () => {
-		expect(transitionOf("plan", "execute")?.needs).toEqual(["contract", "approval"]);
-		expect(transitionOf("execute", "done")?.needs).toEqual(["review", "artifact"]);
+	test("carries the gates each route needs, and the same ones at both doors into execute", () => {
+		expect(transitionOf("plan", "execute")?.needs).toEqual(["waiting", "contract", "approval"]);
+		expect(transitionOf("blocked", "execute")?.needs).toEqual(transitionOf("plan", "execute")?.needs);
+		expect(transitionOf("execute", "done")?.needs).toEqual(["waiting", "review", "artifact"]);
 		expect(transitionOf("plan", "blocked")?.needs).toEqual(["blocker"]);
-		expect(transitionOf("blocked", "plan")?.needs).toEqual(["contract-defect"]);
+		// Where a blocked card may go is what it has, not what it was parked on: nothing here
+		// reads the block's kind.
+		expect(transitionOf("blocked", "plan")?.needs).toEqual([]);
 		expect(transitionOf("execute", "plan")?.needs).toEqual([]);
 	});
 

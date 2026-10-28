@@ -56,12 +56,13 @@ export const MAX_PLAN = 300;
 export const MAX_BLOCKED = 200;
 
 /**
- * Why a card is blocked, which is what decides where it goes back to.
+ * Why a card is blocked: what a person has to read before it moves again.
  *
- * A block is not one thing: a contract that turned out wrong sends the card back to
- * planning, a dependency parks it where it is, and a decision a person owes it is the
- * ordinary case. The kind is the card's own claim — the board records it and draws it, and
- * nothing here can verify that a "contract" block really is one.
+ * A block is not one thing: a contract that turned out wrong, a dependency, and a decision
+ * a person owes the card are different errands. The kind is the card's own claim — the board
+ * records it and draws it, and nothing here can verify that a "contract" block really is
+ * one — so it explains the card rather than routing it: where a blocked card may go is
+ * decided by what it has, not by what it was parked on.
  */
 export const BLOCKERS = ["contract", "dependency", "decision"] as const;
 
@@ -110,8 +111,8 @@ export interface CardOwner {
  * One record rather than two sibling keys, because one fact deserves one key. The kind is
  * absent only on a card written before it existed — a v1 block may hold the sentence alone
  * — and every block this build writes carries one, because the move into `blocked`
- * requires it. `contract` is the kind that sends the card back to `plan`; the other two
- * resume in `execute`.
+ * requires it. It says what kind of errand parked the card, and it is not a route: the way
+ * out is the lane the card's contract lets it resume in.
  */
 export interface CardBlock {
 	/** Why it is blocked, when it was recorded. */

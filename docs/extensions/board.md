@@ -41,7 +41,7 @@ decision.
 | Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; any change to a line drops the approval, because the sign named a wording |
 | Approve the contract | `board` action `approve` | A session that does not hold the card records that the wording is right; only then may the card enter `execute` |
 | Spot-check the work | `board` action `review` | A session that does not hold the card records that it looked at the finished work in `execute`; only then may the card be finished |
-| Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (contract approved) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (spot-checked, with a plan path), `blocked` back to `plan` (a contract defect) or `execute` |
+| Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, contract approved) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, with a plan path), `blocked` back to `plan` or to `execute` once its contract is approved |
 | Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped — one line, at most 1000 characters |
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
 | Say how urgent it is | `board` action `add` or `edit` with `priority` | `high` sorts first inside its lane, and the card says so |
@@ -534,18 +534,21 @@ it always meant: when the card was last touched, which is not when it last chang
 - **A block says why, and a finished card says with what.** `blocked` exists to ask a
   person for a decision, so the move into it records one record — `blocked: { kind, note }`
   — rather than two sibling keys: the kind (`contract`, `dependency`, or `decision`, and
-  required by the move) and the sentence a person reads, which is optional. Only a contract
-  defect sends a blocked card back to `plan`; anything else resumes in `execute`. The
-  sentence survives a `release` (the decision is still pending) and the record is deleted on
-  the way out of `blocked` (a stale sentence reads as a current one), **but the lane log
-  keeps it**: the transition that parked the card carries the same `block`, so "why did this
-  sit for two days" outlives the resume. A spot-check is cleared when the card leaves
-  `execute` — a park is somebody deciding the work is not finished — so a card that was
-  blocked and resumed needs another look before `done`.
+  required by the move) and the sentence a person reads, which is optional. The kind is the
+  errand, not the route: where a blocked card may go is decided by what it has, so `blocked`
+  offers `plan` always and `execute` only with the same contract and approval the other door
+  asks for. A card parked while it was still being planned comes back to `plan`; one parked
+  mid-flight carries both and resumes. A block record is a fact about the `blocked` lane and
+  nothing else, so the board's one write deletes it the moment the card is somewhere else — a
+  release, a reclaim, and a claim cannot carry a sentence into a lane it was not written for
+  — **but the lane log keeps it**: the transition that parked the card carries the same
+  `block`, so "why did this sit for two days" outlives the resume. A spot-check is cleared
+  when the card leaves `execute` — a park is somebody deciding the work is not finished — so
+  a card that was blocked and resumed needs another look before `done`.
   `landed` is the commit `HEAD` resolved to at the move to `done`, recorded because
   `done` is terminal and nothing later can say which change closed the card. Of the three
   the move writes, only the blocker is required — a card cannot be parked without saying
-  what kind of block it is, because that is what decides where it goes back to. The
+  what kind of block it is, because a block is what a person is asked to answer. The
   sentence is optional (the page says `blocked, with nothing recorded`), and a card
   finished before the field, or outside a repository, has no commit to record — finishing
   never depends on a git read.

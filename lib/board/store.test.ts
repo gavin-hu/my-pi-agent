@@ -180,11 +180,16 @@ describe("list and read", () => {
 			JSON.stringify({ ...rest, v: 1, status: lane, blockedBy: "legal has to sign", blocker: "decision" }),
 		);
 		expect((await store.list()).map((card) => card.lane)).toEqual(["backlog"]);
+		// A read loses nothing: the old record's block is mapped, even though a card in the pool
+		// cannot be parked on anything.
 		expect((await store.list())[0]?.blocked).toEqual({ kind: "decision", note: "legal has to sign" });
 		await store.mutate("7", { kind: "note", text: "read me" }, LEAD, NOW);
 		const written = JSON.parse(readFileSync(join(dir, "cards", "0007.json"), "utf-8"));
-		expect(written).toMatchObject({ v: 2, lane: "backlog", blocked: { kind: "decision", note: "legal has to sign" } });
+		// A write enforces the lane's shape: `blocked` is a fact about the `blocked` lane, so the
+		// rewritten record drops it along with the v1 spelling.
+		expect(written).toMatchObject({ v: 2, lane: "backlog" });
 		expect("status" in written).toBe(false);
+		expect("blocked" in written).toBe(false);
 	});
 
 	test("a padded id inside the record is a disagreement, not a card", async () => {

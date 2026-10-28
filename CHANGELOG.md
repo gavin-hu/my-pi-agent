@@ -62,6 +62,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: `execute` asks the same gates at both doors. A card parked in `blocked` used to
+  enter `execute` with no contract at all — the transition asked nothing — so `plan` →
+  `blocked` → `execute` walked around the approval the flow is built on. Both doors now ask
+  for no unfinished dependency, the contract's three lines, and a session that does not hold
+  the card having approved them, so a card parked while it was being planned comes back to
+  `plan` — which a blocked card may now always do — instead of slipping past the gate.
+- `board`: a move to `done` is refused while a card it waits on is unfinished, which the docs
+  already said and the rule did not ask for. A link recorded with `edit` on a card that was
+  already executing is how a finished card could still read `waits on #1 (backlog)`.
+- `board`: a block record belongs to the `blocked` lane. A `release` kept the sentence on
+  purpose, but nothing removed it when the card was claimed again, so an executing or finished
+  card could still print `blocked: legal signs it (decision)`. The board's one write now
+  deletes it the moment the card is elsewhere, and the lane log keeps what the park was.
 - `board`: a card written by the four-lane board reads again. Its log entries spell the lane
   `status`, which `readCard` already mapped, but two of the values predate the lanes — `todo`
   was the pool and `doing` the work in hand — so the reader maps them to `backlog` and

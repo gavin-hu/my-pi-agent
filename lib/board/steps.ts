@@ -41,6 +41,9 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { changed: false, fields: null };
 	if (card.owner !== undefined) return { error: heldBy(card) };
+	// The wait is asked here rather than read off the table: a claim enters `plan` from the pool,
+	// which is not a lane change `move` can make, so `backlog → plan`'s requirements would be
+	// read by nobody.
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
 	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
@@ -137,20 +140,11 @@ export function move(
 	const transition = transitionOf(card.lane, target);
 	if (transition === undefined) return { error: noRoute(card, target) };
 	for (const need of transition.needs) {
-		const refusal = unmet(need, card);
+		const refusal = unmet(need, card, board);
 		if (refusal !== undefined) return { error: refusal };
-	}
-	// Parking is what a link is for, so only the lane that puts a card back in flight is
-	// gated: a card that waits may be blocked, it may not be executed.
-	if (target === "execute") {
-		const waiting = waitingOn(card, board);
-		if (waiting !== undefined) return { error: waiting };
 	}
 	const fields: Partial<Card> = { lane: target };
 	if (block !== undefined && "fields" in block) Object.assign(fields, block.fields);
-	// Leaving a block ends it: the record described a state the card is no longer in, and a
-	// stale sentence reads as a current one. The log keeps what it was — see `appendTransition`.
-	else if (card.lane === "blocked") Object.assign(fields, { blocked: undefined });
 	// A spot-check signs the work as it stood. Parking a card is somebody deciding it is not
 	// finished, and re-planning changes the agreement, so neither exit carries the sign.
 	if (card.lane === "execute" && target !== "execute") fields.review = undefined;
@@ -188,8 +182,10 @@ function blockFields(rawBlocker: unknown, rawSentence: unknown): { error: string
 }
 
 /** Why a transition's requirement is not met, or `undefined` when it is. */
-function unmet(need: Requirement, card: Card): string | undefined {
+function unmet(need: Requirement, card: Card, board: BoardIndex): string | undefined {
 	switch (need) {
+		case "waiting":
+			return waitingOn(card, board);
 		case "contract": {
 			const missing = missingContractFields(card.contract);
 			if (missing.length === 0) return undefined;
@@ -203,8 +199,6 @@ function unmet(need: Requirement, card: Card): string | undefined {
 			return card.planPath === undefined ? noArtifact(card) : undefined;
 		case "blocker":
 			return undefined;
-		case "contract-defect":
-			return card.blocked?.kind === "contract" ? undefined : notAContractDefect(card);
 	}
 }
 
@@ -225,10 +219,6 @@ function notReviewed(card: Card): string {
 
 function noArtifact(card: Card): string {
 	return `${cardRef(card.id)} has no plan recorded; record the file it was executed against with \`contract\`.`;
-}
-
-function notAContractDefect(card: Card): string {
-	return `${cardRef(card.id)} is blocked on a ${card.blocked?.kind ?? "unrecorded kind"}; only a contract defect sends it back to plan. Move it to execute, or record the block again.`;
 }
 
 export function note(card: Card, raw: unknown, actor: Actor, now: number): Prepared {
