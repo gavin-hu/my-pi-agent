@@ -149,6 +149,15 @@ describe("the document", () => {
 		expect(page).toContain('role="tablist"');
 		expect(page).toContain('role="tab"');
 		expect(page).toContain('aria-controls="panel-board"');
+		// A tab says which one is showing through `aria-selected`, and the strip has one tab in
+		// the Tab order: the two attributes below are the whole of a roving tablist. The
+		// stylesheet still names `aria-current` for the segmented rows other pages use.
+		expect(page).toContain(
+			'id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="true" tabindex="0"',
+		);
+		expect(page).toContain(
+			'id="tab-team" data-view="team" aria-controls="panel-team" aria-selected="false" tabindex="-1"',
+		);
 		expect(page).toContain("Skip to the cards");
 		expect(page).toContain('<h1 class="sr-only">');
 		expect(page).toContain('aria-live="polite"');

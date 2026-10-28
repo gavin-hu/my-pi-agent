@@ -33,6 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: the Board|Team switch is a tablist a screen reader can read. It said
+  `aria-current` and every tab was in the Tab order; it now says `aria-selected`, holds one
+  tab in the order, and `ArrowLeft`/`ArrowRight`/`Home`/`End` move between the two.
 - `board`: a card dialog keeps the page's own keys. With a card open, `/` pulled focus into
   the filter behind the scrim, `t` switched to the Team tab underneath the record, and `?`
   stacked the key sheet on top of it — one `Esc` then closed both. The three now do nothing

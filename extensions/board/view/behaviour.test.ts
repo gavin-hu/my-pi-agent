@@ -290,6 +290,32 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("switches the two tabs from the keyboard, with one in the Tab order", async () => {
+		const page = await openPage();
+		// One stop in the Tab order: the selected tab. The other is reached with an arrow.
+		expect(await page.$eval("#tab-board", (node) => node.getAttribute("tabindex"))).toBe("0");
+		expect(await page.$eval("#tab-team", (node) => node.getAttribute("tabindex"))).toBe("-1");
+		expect(await page.$eval("#tab-board", (node) => node.getAttribute("aria-selected"))).toBe("true");
+
+		await page.focus("#tab-board");
+		await page.keyboard.press("ArrowRight");
+		expect(await hidden(page, "#panel-team")).toBe(false);
+		expect(await page.$eval("#tab-team", (node) => node.getAttribute("aria-selected"))).toBe("true");
+		expect(
+			await page.evaluate(() =>
+				(
+					globalThis as unknown as { document: { activeElement: ElementLike | null } }
+				).document.activeElement?.getAttribute("id"),
+			),
+		).toBe("tab-team");
+
+		// Home goes back to the first tab, and it is the selected one again.
+		await page.keyboard.press("Home");
+		expect(await hidden(page, "#panel-team")).toBe(true);
+		expect(await page.$eval("#tab-board", (node) => node.getAttribute("aria-selected"))).toBe("true");
+		await page.close();
+	});
+
 	test("keeps the board's own keys out of a dialog", async () => {
 		const page = await openPage();
 		await page.keyboard.press("j");

@@ -56,8 +56,8 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
   <span class="bf-spacer"></span>
   <div class="${N.controls}">
     <div class="bf-segmented" role="tablist" aria-label="View">
-      <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board"${team ? "" : ' aria-current="page"'}>Board</button>
-      <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team"${team ? ' aria-current="page"' : ""}>Team</button>
+      <button type="button" class="bf-segmented__item" role="tab" id="tab-board" data-view="board" aria-controls="panel-board" aria-selected="${team ? "false" : "true"}" tabindex="${team ? "-1" : "0"}">Board</button>
+      <button type="button" class="bf-segmented__item" role="tab" id="tab-team" data-view="team" aria-controls="panel-team" aria-selected="${team ? "true" : "false"}" tabindex="${team ? "0" : "-1"}">Team</button>
     </div>
     <p class="bf-progress ${N.progress}" id="board-progress" hidden>
       <span class="bf-progress__track"><span class="bf-progress__fill" id="board-progress-fill"></span></span>

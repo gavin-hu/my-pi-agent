@@ -35,7 +35,7 @@ export const WEB_COMPONENTS_CSS = `.bf-brand{display:inline-flex;align-items:cen
 .bf-segmented__item{appearance:none;border:0;border-radius:0;background:transparent;color:var(--text);font:var(--fs-xs) var(--font-ui);padding:5px var(--space-3);cursor:pointer}
 .bf-segmented__item+.bf-segmented__item{border-left:1px solid var(--border)}
 .bf-segmented__item:hover{color:var(--accent);text-decoration:none}
-.bf-segmented__item[aria-current="page"],.bf-segmented__item[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.bf-segmented__item[aria-current="page"],.bf-segmented__item[aria-selected="true"],.bf-segmented__item[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 .bf-input{border:0;background:transparent;color:var(--text);font:var(--fs-sm) var(--font-mono);width:100%;outline:none}
 .bf-field{display:flex;align-items:center;gap:var(--space-1);background:var(--canvas);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-1) var(--space-2);color:var(--muted);font-size:var(--fs-sm)}
 /* The field is the control: ringing the input inside it drew a border within a border. */

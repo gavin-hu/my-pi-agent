@@ -28,7 +28,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     else node.textContent = "connecting…";
   }
 
-  /** Show one tab: the panel, aria-current, and the address so a link is shareable. */
+  /** Show one tab: the panel, the selected tab, and the address so a link is shareable. */
   function showView(view) {
     var team = view === "team";
     document.documentElement.setAttribute("data-view", team ? "team" : "board");
@@ -37,12 +37,38 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     var tabs = document.querySelectorAll("[data-view][role='tab']");
     for (var i = 0; i < tabs.length; i++) {
       var current = tabs[i].getAttribute("data-view") === (team ? "team" : "board");
-      if (current) tabs[i].setAttribute("aria-current", "page");
-      else tabs[i].removeAttribute("aria-current");
+      // A tablist is read through aria-selected, and a roving tabindex is what makes one
+      // Tab land on the strip rather than on each tab in turn. Both are the markup's own
+      // attributes: a state painted only in a class is a state a screen reader cannot read.
+      tabs[i].setAttribute("aria-selected", current ? "true" : "false");
+      tabs[i].setAttribute("tabindex", current ? "0" : "-1");
     }
     var url = new URL(window.location.href);
     url.searchParams.set("view", team ? "team" : "board");
     window.history.replaceState(null, "", url.toString());
+  }
+
+  /**
+   * Arrow keys move along the tab strip, the way a tablist is expected to behave.
+   *
+   * Automatic activation: the panels are both in the document already, so showing one is a
+   * hidden attribute rather than a request, and a reader who arrows across the strip sees
+   * each tab he lands on. Home and End are the ends of it.
+   */
+  function bindTabKeys(tabs) {
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener("keydown", function (event) {
+        var names = ["ArrowLeft", "ArrowRight", "Home", "End"];
+        if (names.indexOf(event.key) === -1) return;
+        event.preventDefault();
+        var at = 0;
+        for (var j = 0; j < tabs.length; j++) if (tabs[j] === event.currentTarget) at = j;
+        var step = event.key === "ArrowLeft" ? -1 : 1;
+        var next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (at + step + tabs.length) % tabs.length;
+        showView(tabs[next].getAttribute("data-view"));
+        tabs[next].focus();
+      });
+    }
   }
 
   board.viewName = function () {
@@ -187,6 +213,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
         showView(event.currentTarget.getAttribute("data-view"));
       });
     }
+    bindTabKeys(tabs);
     var picker = document.getElementById("board-picker");
     if (picker) {
       picker.addEventListener("click", function (event) {
