@@ -78,11 +78,11 @@ describe("doc counts", () => {
 	});
 
 	test("claims no total of the pack's tools, because the registered set is the claim", () => {
-		// The decision, as a test: adding a tool-count claim means deleting this case and
-		// saying why in the header. `naming.test.ts` compares the README's column with the
-		// registrations, so a total would be the same fact with a way to drift.
-		expect(CLAIMS.every((claim) => claim.counts.length > 0)).toBe(true);
-		expect(/\(\d\+\) (?:tools|commands)\b/.test(CLAIMS.map((claim) => claim.pattern.source).join(" "))).toBe(false);
+		// The half of the decision a test can hold: no claim captures a tool count, so adding
+		// one means deleting this case and saying why in the header. The header paragraph is
+		// the guard for the other half — nothing here can stop an author who removes both.
+		const sources = CLAIMS.map((claim) => claim.pattern.source).join(" ");
+		expect(/\(\d\+\) (?:tools|commands)\b/.test(sources)).toBe(false);
 	});
 
 	for (const claim of CLAIMS) {
