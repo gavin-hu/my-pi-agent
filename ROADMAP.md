@@ -97,7 +97,7 @@ screenshots.
 | Never wreck the checkout | Works, but isolation is best-effort | S1–S2 |
 | Remember across sessions | Works; the store reports its own health and notices an edit inside a millisecond | — |
 | Reach the web and your files | Broad; formats, remote media, and launch reporting are thin | W1–W4 |
-| Optional and upgradeable | Strong; the package updates through Pi's own package manager | C1, F1–F2 |
+| Optional and upgradeable | Strong; the package updates through Pi's own package manager | C1, F1 |
 
 The last row is a paraphrase: the README says "Everything is optional and
 independently toggleable" and "the package upgrades with Pi like any other."
@@ -426,13 +426,6 @@ exception.
 
 - **F1 — Signed artifacts and SBOM.** Generate an SBOM per release if consumers
   ask; do not add ceremony before then.
-- **F2 — Split the browse listing out of `files.ts`.** At 551 of the 600-line
-  bar, `extensions/file-browse/files/files.ts` still holds classification, Markdown
-  detection, text reads, listings, and the sidebar tree. The split is a
-  behaviour-neutral move of the listing half into its own module; it is deferred
-  until the bar is reached, because today it is one file-browse-local module
-  under the limit, and doing it alongside feature work would mix a structural
-  move into an unrelated diff.
 
 ## Deliberately left thin
 
