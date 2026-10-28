@@ -530,6 +530,15 @@ body {
 	background: var(--muted);
 }
 
+/* A teammate's state, in the page's own two roles: live is `--success`, quiet is `--warn`. */
+.dot--live {
+	background: var(--success);
+}
+
+.dot--quiet {
+	background: var(--warn);
+}
+
 .dot--plan {
 	background: var(--warn);
 }
