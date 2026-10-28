@@ -21,6 +21,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card's notes are read as the inline Markdown they were typed as — `code`, **bold**,
+  *italic*, and an `http`/`https`/`mailto` link become atoms, and a target the kit's policy
+  refuses stays text — through the same renderer the plan review page uses. The dialog's fill
+  moved into `view/dialog.ts`, which now keeps an open record current across frames instead of
+  the renderer filling it on every paint.
+- `lib`: the served pages share one inline Markdown renderer. `safeHref`, `INLINE`, and
+  `renderInline` moved out of the plan review's client into `lib/web/markdown.ts`, so the
+  review page and the board's card notes read one grammar and refuse one list of targets
+  instead of each keeping a copy; the body appends text nodes and `code`/`strong`/`em`/`a`
+  only, and a link is made only for an `http`, `https`, or `mailto` target with no
+  credentials.
 - `board`: a lane, a reason, and a lead's queue row take their colour from one table, in
   `lib/board/tone.ts`, which the page and the terminal transcript both read. Four colours were
   wrong because the same fact was decided in seven places: an owner whose process had stopped
@@ -80,6 +91,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   card is written again. The page shows the five lanes with their limit in the head, the
   contract and its two signatures in the dialog, and a reason line from one rule shared with
   the transcript.
+- `lib`: the served pages share one inline Markdown renderer. `safeHref`, `INLINE`, and
+  `renderInline` moved out of the plan review's client into `lib/web/markdown.ts`, so the
+  review page and the board's card notes read one grammar and refuse one list of targets
+  instead of each keeping a copy; the body appends text nodes and `code`/`strong`/`em`/`a`
+  only, and a link is made only for an `http`, `https`, or `mailto` target with no
+  credentials. Nothing on the review page renders differently.
 - `board`: a card file is version 2, and a block is one `blocked` record — `{ kind, note }`
   — instead of the `blocker` and `blockedBy` pair. The tool's parameters do not change. The
   lane log keeps the block it parked on, so a card that resumes still says why it sat, and a

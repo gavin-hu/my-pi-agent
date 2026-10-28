@@ -449,6 +449,16 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("var ageText = function formatAge(");
 	});
 
+	test("reads a note with the kit's one inline Markdown renderer, not a parser of its own", () => {
+		// A note is the one stored field that may become more than text, so the exception is
+		// named where the refusals are: the renderer is the shared one, and it appends nodes.
+		expect(BOARD_CLIENT_JS).toContain("function renderInline(container, text)");
+		expect(BOARD_CLIENT_JS).toContain("function safeHref(url, base)");
+		expect(BOARD_CLIENT_JS).toContain("renderInline(text, note.text)");
+		// One body: the page carries the kit's renderer rather than a copy of the grammar.
+		expect(BOARD_CLIENT_JS.split("function renderInline(container, text)")).toHaveLength(2);
+	});
+
 	test("never parses a stored field", () => {
 		// `innerHTML` is the whole injection surface of a page like this one.
 		expect(BOARD_CLIENT_JS).not.toContain("innerHTML");
