@@ -19,7 +19,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { registeredSurface } from "./helpers/surface.ts";
 
@@ -273,8 +273,11 @@ describe("the Files table", () => {
 			const local = rows
 				.flatMap((row) => fileTargetsOf(row[0] ?? ""))
 				.map((target) => {
+					// Containment is compared with the platform's own separator: `resolve` builds a
+					// native path, and a literal "/" made every row look like it named nothing on
+					// Windows, where the whole table then read as unrowed.
 					const inside = [resolve(extensionDir, target), resolve(docsDir, target)].find(
-						(path) => path.startsWith(`${extensionDir}/`) && existsSync(path),
+						(path) => path.startsWith(extensionDir + sep) && existsSync(path),
 					);
 					return inside
 						?.slice(extensionDir.length + 1)
