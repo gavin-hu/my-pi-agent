@@ -27,7 +27,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and every peer would have read as no record rather than the page failing where someone would
   notice.
 - `lib`: the board's verbs and which of them only read it are one table in
-  `lib/board/verbs.ts`. Plan mode's read-only admission and the todo nudge's "is this
+  `lib/board/actions.ts`. Plan mode's read-only admission and the todo nudge's "is this
   work" test each used to compare a call against a bare `"list"` string they could not
   prove was a board action, so a second read verb would have been refused by plan mode
   and counted as work by the nudge, with every suite green. Nothing changes for a caller:
