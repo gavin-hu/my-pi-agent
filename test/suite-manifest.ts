@@ -116,6 +116,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/session",
 	"board/skipped",
 	"board/store",
+	"board/verbs",
 	"board/view",
 	"bus-request",
 	"core",

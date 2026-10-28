@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: the board's verbs and which of them only read it are one table in
+  `lib/board/verbs.ts`. Plan mode's read-only admission and the todo nudge's "is this
+  work" test each used to compare a call against a bare `"list"` string they could not
+  prove was a board action, so a second read verb would have been refused by plan mode
+  and counted as work by the nudge, with every suite green. Nothing changes for a caller:
+  `list` is still the only verb that reads.
 - `board`: a lane of finished cards stops widening at three. Five of them used to take half the
   row while the one card still being worked sat on its floor and elided its own title.
 - `board`: two path hints on one card are set a gap apart rather than four pixels, so two mono

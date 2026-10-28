@@ -26,13 +26,8 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import { READ_ONLY_SUMMARY, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
 import { isBoardRead } from "../../lib/policy.ts";
-import {
-	ASK_USER_QUESTION_TOOL,
-	BOARD_READ_ACTION,
-	BOARD_TOOL,
-	SUBAGENT_READ_ONLY_PARAM,
-	SUBAGENT_TOOL,
-} from "../../lib/tool-names.ts";
+import { BOARD_READ_ACTIONS } from "../../lib/board/verbs.ts";
+import { ASK_USER_QUESTION_TOOL, BOARD_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
@@ -51,6 +46,16 @@ export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
  * the whole context inside the prompt-budget ceiling.
  */
 const GOAL_CONTEXT_CHARS = 64;
+
+/**
+ * The board's read verbs as one phrase — "`list` reads" — for the refusal that tells a
+ * model which action it may still use. Built from the board's own table, so a second
+ * read verb is named here rather than refused as a write.
+ */
+function readVerbsText(): string {
+	const verbs = BOARD_READ_ACTIONS.map((read) => `\`${read}\``).join(" or ");
+	return `${verbs} ${BOARD_READ_ACTIONS.length === 1 ? "reads" : "read"}`;
+}
 
 /**
  * Injected each turn while planning: the facts and the next action, not the tool
@@ -183,12 +188,12 @@ export default function planMode(pi: ExtensionAPI): void {
 		}
 		// `board` stays active so planning can read the board it is about to add cards
 		// to. The action is the truth here, not the annotation: the same tool writes, so
-		// `readOnlyHint` cannot say it, and every verb but the read is refused by name.
+		// `readOnlyHint` cannot say it, and every verb but the reads are refused by name.
 		if (toolName === BOARD_TOOL) {
 			if (isBoardRead(input)) return undefined;
 			const action = (input as { action?: unknown } | undefined)?.action;
 			const verb = typeof action === "string" && action.trim() !== "" ? action.trim() : "board";
-			return `Plan mode: \`${verb}\` changes the board — only \`${BOARD_READ_ACTION}\` reads it. ${BLOCKED_GUIDANCE}`;
+			return `Plan mode: \`${verb}\` changes the board — only ${readVerbsText()} it. ${BLOCKED_GUIDANCE}`;
 		}
 		const blocked = policy.check(toolName);
 		if (blocked) return `Plan mode: ${blocked.reason}`;
