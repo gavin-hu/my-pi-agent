@@ -26,12 +26,15 @@ export interface SnapshotContext {
 /** The snapshot the page renders, and the body of `/api/board`. */
 export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 	const roster = await readRoster(await context.busDir());
+	// One read of the pile answers both: a frame that asked `list` and `skipped` separately
+	// would parse every card twice, once a second, for as long as a tab is open.
+	const { cards, skipped } = await context.store.scan();
 	return buildView({
 		me: context.actor(),
-		cards: await context.store.list(),
+		cards,
 		now: context.now(),
 		bytes: await context.store.bytes(),
-		skipped: (await context.store.skipped()).length,
+		skipped: skipped.length,
 		repo: context.store.name(),
 		root: context.store.root(),
 		where: context.store.where(),

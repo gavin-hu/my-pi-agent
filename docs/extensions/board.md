@@ -320,6 +320,11 @@ it always meant: when the card was last touched, which is not when it last chang
   is the one a crash left. A note it cannot read at
   all is named with its path — "another session is serving" is only said of a page that was
   seen answering.
+- **A page that cannot read the board says so once.** A snapshot is built on every tick, and
+  a read can fail under a running page — the board's directory removed, or replaced by
+  something that is not one. The frame is dropped rather than raised, the session is told
+  once, and the next tick tries again, so a board that comes back is followed again without
+  a second `/board`; a notice per tick would be a transcript nobody reads.
 
 ## Pi integration
 
@@ -487,7 +492,7 @@ it always meant: when the card was last touched, which is not when it last chang
 | `seat.ts` | The seat the page is served as: one name, and an id derived from it. The page cannot write, so it is a label now — but the id is still what a card claimed from an older page names |
 | `join.ts` | The board's side of the team: when it asks (the page, or the first claimed card), the name it asks for, and how the outcome reads on a `/board` line |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |
-| `transport/server.ts` | The loopback listener, the frame push, and the close |
+| `transport/server.ts` | The loopback listener, the frame push — one read of the board per frame, and a failed read reported rather than thrown — and the close |
 | `view/page.ts` | The document: an inert shell the client fills, with no form on it |
 | `view/styles.ts` | The page's `board-*` layout rules |
 | `view/render.ts` | The client's snapshot → DOM renderer: toolbar, lanes, cards, the dialog's contents |
@@ -510,7 +515,8 @@ transitions, the store a call opens and the identity it writes as, the files tha
 keeps, and the snapshot, and
 `extensions/board/{input,seat,tools,page,commands,extension,transport/router,view/pages,view/behaviour}`
 for the card body, the seat, every action, the page's lifecycle over a real socket (a page
-served, attached to, and taken over, and a write refused on the wire), the command, the
+served, attached to, and taken over, a board that stops being readable, and a write refused
+on the wire), the command, the
 factory, the routes, the document and client bundle, and the
 page driven in a browser — a card opened from its title, the filter, the fold, a live
 frame, and the dialog's ladder.

@@ -145,6 +145,20 @@ describe("list and read", () => {
 		]);
 	});
 
+	test("one read answers with both the cards and the files it refused", async () => {
+		const { dir, store } = scratchStore();
+		const card = await store.create({ title: "good", paths: [] }, LEAD, NOW);
+		writeFileSync(join(dir, "cards", "0002.json"), '{"v":1,');
+		// The page's snapshot wants both halves, so it must be able to get them from one pass
+		// over the pile rather than reading every card twice for one frame.
+		expect(await store.scan()).toEqual({
+			cards: [card],
+			skipped: [{ file: "0002.json", id: "2", why: "bad JSON" }],
+		});
+		expect((await store.scan()).cards).toEqual(await store.list());
+		expect((await store.scan()).skipped).toEqual(await store.skipped());
+	});
+
 	test("a card file that is there but unreadable is named in the refusal", async () => {
 		const { dir, store } = scratchStore();
 		await store.ensure();

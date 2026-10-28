@@ -112,6 +112,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   line by design, so a long path crossed the card's border and the lane beside it; it now
   elides at the card's edge with the whole value on its hover title, and a title with no
   spaces wraps into its two-line clamp instead of being cut mid-word.
+- `board`: a page that cannot read the board says so once and keeps serving. A snapshot read
+  that failed under a running page — the board's directory removed or replaced by something
+  that is not one — was raised from the ticker with nobody to catch it, so one unreadable
+  board could take the session down with it; the frame is dropped, the failure is reported
+  once, and the next tick tries again, so the page follows the board again as soon as the
+  directory is back. One frame is also one read of the cards pile now, not two: the snapshot
+  asked for the cards and for the files it refused separately, which parsed every card twice
+  a second for as long as a tab was open.
 
 ## [0.20.0] - 2026-10-26
 

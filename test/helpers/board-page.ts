@@ -70,14 +70,15 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 	const { store, now, display = {}, roster } = options;
 	const view = async (): Promise<BoardView> => {
 		const at = now();
+		const { cards, skipped } = await store.scan();
 		return buildView({
 			// The page serves as its seat, and marks its own row: one actor, one name.
 			me: pageActor(),
-			cards: await store.list(),
+			cards,
 			now: at,
 			...(roster === undefined ? {} : { roster: roster(at) }),
 			bytes: await store.bytes(),
-			skipped: (await store.skipped()).length,
+			skipped: skipped.length,
 			repo: display.repo ?? store.name(),
 			root: display.root ?? store.root(),
 			where: display.where ?? store.where(),
