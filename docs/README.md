@@ -1,20 +1,11 @@
 # Documentation
 
-Guides for using, configuring, and extending `@gavin-hu/my-pi-agent`. Start with
-the [entry README](../README.md), then jump to the guide you need. Every feature
-has its own page under [`./extensions/`](./extensions/). The deep technical
-contracts live outside this directory and are linked below.
-
-## Guides
-
-The [entry README's Documentation table](../README.md#documentation) names every
-guide with what it covers, and each feature's own page under
-[`./extensions/`](./extensions/) has its keys and commands.
-
-Exhaustive listings that a hand edit is checked against: [Configuration](./configuration.md)
-carries the key list the configuration loaders are checked against, and each
-extension's page carries the tool and command surface the registered extensions
-are checked against.
+Guides for using, configuring, and extending `@gavin-hu/my-pi-agent`: the
+[entry README's Documentation table](../README.md#documentation) names each one with what it
+covers, and every feature has its own page under [`./extensions/`](./extensions/) carrying its
+tool and command surface — the same way [Configuration](./configuration.md) carries the key list
+the configuration loaders are checked against. This page is the map of the **contracts** behind
+them, the references a page is checked against rather than prose to read first.
 
 ## Deep contracts
 

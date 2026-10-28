@@ -8,32 +8,30 @@ after a running turn settles.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
 ### Watching
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Tail a source | `watch add` | A file is followed from its current end unless `fromStart` is set, and a shrinking file is re-read from the start; a command's merged stdout/stderr is streamed. | Shipped |
-| Line matching | `watch add` | An include pattern with an optional exclude list, case-insensitive unless `caseSensitive` is set. | Shipped |
-| Match delivery | `watch add`, `watch matches` | Pending matches are reported to the model at the start of the next turn. | Shipped |
-| Wake turn | `watch add`, the `wakeOnMatch` key | One triggered turn as soon as the agent is idle, including right after a running turn settles. | Shipped |
-| Desktop alert | `my-pi-agent/watch-match`, `notify.enabled`, `notify.matchFound` | A wake match leaves the terminal as an OS notification. | Shipped |
-| Live status | `watch add`, the `showStatus` key | A `⊚ N` running chip and a `! N` unreported-match chip, plus one alert per unreported burst. | Shipped |
-| Command outcome | `watch status`, `watch list` | A command watcher reports its exit code or error, including the captured signal, instead of only "stopped". | Shipped |
-| Liveness detail | `watch list`, `watch status` | A running watcher names its pid and elapsed time; list rows sort running watchers first, newest next. | Shipped |
-| Transcript rendering | the `watch` transcript block | The outcome line, at most eight rows, and a `(ctrl+o to expand)` hint keep the transcript compact. | Shipped |
-| Sanitized output | `watch matches`, `/watch matches` | Model- and remote-authored output is stripped of control characters before it reaches a terminal or a notification. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Tail a source | `watch add` | A file is followed from its current end unless `fromStart` is set, and a shrinking file is re-read from the start; a command's merged stdout/stderr is streamed. |
+| Line matching | `watch add` | An include pattern with an optional exclude list, case-insensitive unless `caseSensitive` is set. |
+| Match delivery | `watch add`, `watch matches` | Pending matches are reported to the model at the start of the next turn. |
+| Wake turn | `watch add`, the `wakeOnMatch` key | One triggered turn as soon as the agent is idle, including right after a running turn settles. |
+| Desktop alert | `my-pi-agent/watch-match`, `notify.enabled`, `notify.matchFound` | A wake match leaves the terminal as an OS notification. |
+| Live status | `watch add`, the `showStatus` key | A `⊚ N` running chip and a `! N` unreported-match chip, plus one alert per unreported burst. |
+| Command outcome | `watch status`, `watch list` | A command watcher reports its exit code or error, including the captured signal, instead of only "stopped". |
+| Liveness detail | `watch list`, `watch status` | A running watcher names its pid and elapsed time; list rows sort running watchers first, newest next. |
+| Transcript rendering | the `watch` transcript block | The outcome line, at most eight rows, and a `(ctrl+o to expand)` hint keep the transcript compact. |
+| Sanitized output | `watch matches`, `/watch matches` | Model- and remote-authored output is stripped of control characters before it reaches a terminal or a notification. |
 
 ### Reading and managing
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Watcher inventory | `watch list`, `watch status`, `/watch list` | Each watcher's source, state, and line and match counts, singly or as a table. | Shipped |
-| Matched lines | `watch matches`, `/watch matches` | The matching lines, sanitized and read from a bounded history. | Shipped |
-| Raw output | `watch logs`, `/watch logs` | The merged output tail, for checking a pattern that matches nothing. | Shipped |
-| Watcher screen | `/watch` | A dock screen with the watcher list, the focused watcher's detail, and its matches pane. | Shipped |
-| Stopping and cleanup | `watch stop`, `watch clear`, `/watch stop`, `/watch clear` | A running watcher stops, stopped ones are removed, and `all` takes the running ones too. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Watcher inventory | `watch list`, `watch status`, `/watch list` | Each watcher's source, state, and line and match counts, singly or as a table. |
+| Matched lines | `watch matches`, `/watch matches` | The matching lines, sanitized and read from a bounded history. |
+| Raw output | `watch logs`, `/watch logs` | The merged output tail, for checking a pattern that matches nothing. |
+| Watcher screen | `/watch` | A dock screen with the watcher list, the focused watcher's detail, and its matches pane. |
+| Stopping and cleanup | `watch stop`, `watch clear`, `/watch stop`, `/watch clear` | A running watcher stops, stopped ones are removed, and `all` takes the running ones too. |
 
 ## Quickstart
 

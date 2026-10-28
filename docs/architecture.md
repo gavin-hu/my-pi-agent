@@ -303,7 +303,7 @@ Three rules keep that honest.
 
 ## Trust boundaries
 
-Six boundaries, one guard module each. The guard is named here so that a change
+Seven boundaries, one guard module each. The guard is named here so that a change
 which moves one is visible; the threat model and the policy for each are
 [`./security.md`](./security.md).
 
@@ -314,6 +314,7 @@ which moves one is visible; the threat model and the policy for each are
 | A shell command escaping its root | [`../lib/shell.ts`](../lib/shell.ts), and the guards in `worktree` and `plan` | [`./security.md`](./security.md#worktree-and-shell-isolation) |
 | A tool mutating the tree while planning | Default-deny classification in [`../lib/policy.ts`](../lib/policy.ts), plus the path backstop in `plan` | [`./security.md`](./security.md#read-only-plan-mode) |
 | A local page reaching beyond its session | [`../lib/http/`](../lib/http/): loopback binding, `Host` checks, page headers, read-only routes | [`./security.md`](./security.md#loopback-http-servers) |
+| An outbound request reaching this machine's own network | The redirect check in [`../extensions/web-access/fetch/ssrf.ts`](../extensions/web-access/fetch/ssrf.ts) | [`./security.md`](./security.md#outbound-web-access) |
 | A remote chat reaching the terminal's session | Admission, owner-only proactive messages, and a peer session per sender | [`./security.md`](./security.md#child-processes-and-remote-control) |
 
 A boundary that two extensions answer has exactly one policy module, in `lib/`.

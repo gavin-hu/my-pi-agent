@@ -24,19 +24,19 @@ One loopback server per session serves every page, and each page mounts a path p
   read-only, and is rooted at the working directory. Its `/events` stream carries
   the same status the page already renders — a branch, changed paths, an uptime,
   a request count — and can only be read; at most eight pages may hold it.
-- [`board`](../extensions/board/)'s page mounts `/board` and is the one that
-  **writes** — to the board store under the agent directory, never to the
-  repository. It mints two 128-bit tokens when it starts: the lead's, which satisfies
-  every route, and a viewer's, which satisfies the reads and is refused on every write.
-  A state-changing request also has to pass the origin check, name
-  `application/json`, and stay inside the body cap. There is no cookie and no CORS, so
-  the token in the URL is the whole credential — and because a page is one per
-  repository, a viewer reaches it through the note the serving session leaves beside
-  the cards (`page.json`, owner-only): the port, the seat, and the viewer's token, never
-  the lead's. A write is made as the page's seat — a fixed name such as `team-lead`, not
-  the session that opened it — and claim, reclaim, drop, and assign confirm in the page
-  first because a browser is not an identity. The page closes on `/board stop`, a minute
-  after its last tab leaves (a viewer's tab counts), or at session shutdown.
+- [`board`](../extensions/board/)'s page mounts `/board` and is a **read view**: the
+  method list is `GET` and `HEAD`, so a `POST` or a `DELETE` is refused by the envelope
+  before the token is even read, and no route reaches the board store. It mints one
+  128-bit token when it starts, compared in constant time, and the URL the browser was
+  opened at is the whole credential — there is no cookie and no CORS. Two routes need
+  no token at all: `/theme.js` and `/app.js` are the same bytes to every reader and can
+  neither read nor change a card. Because a page is one per repository, a second
+  session reaches it through the note the serving page leaves beside the cards
+  (`page.json`, owner-only): the port, the seat, and that token. The page closes on
+  `/board stop`, a minute after its last tab leaves, or at session shutdown. Writing a
+  card is the tools' work, made as the session that called them, never as the page:
+  `claim`, `reclaim`, `drop`, and `assign` confirm in the terminal because a browser is
+  not an identity.
 - [`plan`](../extensions/plan/)'s browser review mounts `/plan/<id>`, is
   tokenized, and gives its prefix back on the owner's save or cancel, the owner's page
   going away, or session shutdown. Sharing asks that mount for a second listener on one address

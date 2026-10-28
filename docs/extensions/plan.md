@@ -8,28 +8,26 @@ executes.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
 ### Planning lifecycle
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Read-only planning | `enter_plan_mode`, `/plan`, `Ctrl+Alt+P`, `--plan` | The session keeps only its readers, so the model investigates and proposes without touching the tree. | Shipped |
-| Confirmed model entry | `enter_plan_mode` | The model asks before it takes write access away, and the user answers first. | Shipped |
-| Read-only git shell | `bash` with the read-only git allowlist | Plan mode can inspect `git status`, `diff`, `log`, and `show`; pipes, redirects, and non-git commands are refused. | Shipped |
-| Read-only delegation | `subagent` with forced `readOnly: true` | A delegated agent can read and search but cannot write, edit, or run a shell while the plan is being researched. | Shipped |
-| Absolute-path guard | `path-guard.ts` | A path outside the project is refused unless it is a known plan-safe reader, so planning cannot write through an absolute path. | Shipped |
-| One writable artifact | `write_plan` | The plan lands as markdown under the agent directory, one store per repository, shared by its worktrees. | Shipped |
-| Approval gate | `exit_plan_mode` | The plan is read back and presented; nothing is written until the user approves it. | Shipped |
-| Session goal at approval | `goal` at approval | A `planning` goal is promoted to the plan's objective, and a session with none gets it, without a second dialog; an active goal is left alone. | Shipped |
-| Steps as todos | `exit_plan_mode` | Approval seeds the plan's steps into the todo list, with the verification section as the last item; approving the same plan again replaces the items its earlier approval seeded. | Shipped |
-| Plan kept current | `set_plan_steps` | Ticking a step rewrites its checkbox in the file and its todo item in one call. | Shipped |
-| Stale-step protection | `expected` in `set_plan_steps` | A step whose number moved, is out of range, or no longer matches its text refuses the whole batch instead of ticking the wrong line. | Shipped |
-| Cancel without a plan | `cancel_plan_mode`, `/plan cancel` | Write access returns, and no todo items or goal are recorded. | Shipped |
-| Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first, under a header naming the store's size and its oldest plan. | Shipped |
-| Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. | Shipped |
-| Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. | Shipped |
-| Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Read-only planning | `enter_plan_mode`, `/plan`, `Ctrl+Alt+P`, `--plan` | The session keeps only its readers, so the model investigates and proposes without touching the tree. |
+| Confirmed model entry | `enter_plan_mode` | The model asks before it takes write access away, and the user answers first. |
+| Read-only git shell | `bash` with the read-only git allowlist | Plan mode can inspect `git status`, `diff`, `log`, and `show`; pipes, redirects, and non-git commands are refused. |
+| Read-only delegation | `subagent` with forced `readOnly: true` | A delegated agent can read and search but cannot write, edit, or run a shell while the plan is being researched. |
+| Absolute-path guard | `path-guard.ts` | A path outside the project is refused unless it is a known plan-safe reader, so planning cannot write through an absolute path. |
+| One writable artifact | `write_plan` | The plan lands as markdown under the agent directory, one store per repository, shared by its worktrees. |
+| Approval gate | `exit_plan_mode` | The plan is read back and presented; nothing is written until the user approves it. |
+| Session goal at approval | `goal` at approval | A `planning` goal is promoted to the plan's objective, and a session with none gets it, without a second dialog; an active goal is left alone. |
+| Steps as todos | `exit_plan_mode` | Approval seeds the plan's steps into the todo list, with the verification section as the last item; approving the same plan again replaces the items its earlier approval seeded. |
+| Plan kept current | `set_plan_steps` | Ticking a step rewrites its checkbox in the file and its todo item in one call. |
+| Stale-step protection | `expected` in `set_plan_steps` | A step whose number moved, is out of range, or no longer matches its text refuses the whole batch instead of ticking the wrong line. |
+| Cancel without a plan | `cancel_plan_mode`, `/plan cancel` | Write access returns, and no todo items or goal are recorded. |
+| Plans index | `/plan list` | Every saved plan with its title, modified time, and step progress, newest first, under a header naming the store's size and its oldest plan. |
+| Plan-store migration | `<repo>/.pi/plans` to the agent-dir store | A store left by an older version is moved in once, with a notice, so worktrees and main see the same index. |
+| Instruction-file bootstrap | `/skill:init` | The packaged `init` skill plans and gates a project's `AGENTS.md`, writing only after approval. |
+| Branch-following mode | the `plan-mode` session entry | `/resume` and `/tree` restore the mode and its tool set for the branch they land on. |
 
 ### Review
 
@@ -48,12 +46,12 @@ Status records what a reader can rely on: **Shipped** is in a tagged release, **
 
 ### Collaboration
 
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Shared review | `/plan share`, **Share** | A reviewer link, with a QR a phone can scan, opens the same plan from another machine on this Wi-Fi. | Shipped |
-| One link per teammate | **New link**, **Revoke**, `/plan share stop` | Each teammate holds a link of their own, and one is revoked without disturbing the rest. | Shipped |
-| Two roles | the owner's `token`, a reviewer's link | Only the owner saves, approves, cancels, and manages links; a reviewer reads and comments. | Shipped |
-| Signed comments | the page's `name` control | A reviewer's name binds to her link on its first post, so her notes are hers and the file records who wrote them. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Shared review | `/plan share`, **Share** | A reviewer link, with a QR a phone can scan, opens the same plan from another machine on this Wi-Fi. |
+| One link per teammate | **New link**, **Revoke**, `/plan share stop` | Each teammate holds a link of their own, and one is revoked without disturbing the rest. |
+| Two roles | the owner's `token`, a reviewer's link | Only the owner saves, approves, cancels, and manages links; a reviewer reads and comments. |
+| Signed comments | the page's `name` control | A reviewer's name binds to her link on its first post, so her notes are hers and the file records who wrote them. |
 
 ## Quickstart
 

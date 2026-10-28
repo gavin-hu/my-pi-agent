@@ -12,8 +12,6 @@ a running turn settles. There is no network service and no hidden context.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
 | Capability | How | What you get | Status |
 |---|---|---|---|
 | Membership | `session join [label]`, `/team join [<label>]`, `/board`, the first `board` claim, the board's `w` | The join: this session is on the bus under a stable label peers address, and listens for mail unless told not to. A label given to `session join` or `/team join` is also Pi's session name, so the footer and `/resume` agree with the record; `/board` joins as the page's seat (`team-lead`) or, on a page it is only watching, under its own `team-agent-<id>` name; the first `board` claim joins under that same name, and renames nothing; `w` joins under the name the bus derives and writes nothing to Pi. | Shipped |

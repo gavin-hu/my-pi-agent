@@ -8,22 +8,20 @@ Modelled on Claude Code's `AskUserQuestion`.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Mid-turn asking | `ask_user_question` | The model asks 1–4 questions and the turn waits until you answer or cancel. | Shipped |
-| Labelled options | `questions[].options` | Each question offers up to four choices, each with an optional second line describing it. | Shipped |
-| Free-form answers | the automatic `Other (type something)` row, `questions[].options` omitted | You can type an answer the options do not cover, and a question with no options asks for plain text. | Shipped |
-| Multiple selections | `questions[].multiSelect` | `Space` toggles options and `Enter` confirms the set. | Shipped |
-| Batched questions | `questions[]` | Up to four questions ride in one call and are answered in one pass. | Shipped |
-| Submit gating | the `Submit` tab | Submit refuses until every question is answered and names the missing ones; a single question submits on `Enter` without a Submit tab. | Shipped |
-| Tab headers | `questions[].header` | Each question gets a short tab label, defaulted to `Q{n}` and clipped to 12 columns. | Shipped |
-| Language-aware batch | `dialogUI.language` | A remote turn in Chinese gets the batch prompt, retry text, and format line in Chinese. | Shipped |
-| Dialog fallback | `select`, `input`, `editor` | RPC and remote turns answer the same questions without the TUI screen. | Shipped |
-| No-UI degradation | `print`, `json` | The tool returns `unavailable` with an error instead of hanging when no dialog channel exists. | Shipped |
-| Cancelling | `Esc` | The model is told you cancelled and can continue or ask in prose. | Shipped |
-| Branch-scoped answers | tool-result `details` | The answers stay with the transcript, so `/resume` and `/tree` show the same history. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Mid-turn asking | `ask_user_question` | The model asks 1–4 questions and the turn waits until you answer or cancel. |
+| Labelled options | `questions[].options` | Each question offers up to four choices, each with an optional second line describing it. |
+| Free-form answers | the automatic `Other (type something)` row, `questions[].options` omitted | You can type an answer the options do not cover, and a question with no options asks for plain text. |
+| Multiple selections | `questions[].multiSelect` | `Space` toggles options and `Enter` confirms the set. |
+| Batched questions | `questions[]` | Up to four questions ride in one call and are answered in one pass. |
+| Submit gating | the `Submit` tab | Submit refuses until every question is answered and names the missing ones; a single question submits on `Enter` without a Submit tab. |
+| Tab headers | `questions[].header` | Each question gets a short tab label, defaulted to `Q{n}` and clipped to 12 columns. |
+| Language-aware batch | `dialogUI.language` | A remote turn in Chinese gets the batch prompt, retry text, and format line in Chinese. |
+| Dialog fallback | `select`, `input`, `editor` | RPC and remote turns answer the same questions without the TUI screen. |
+| No-UI degradation | `print`, `json` | The tool returns `unavailable` with an error instead of hanging when no dialog channel exists. |
+| Cancelling | `Esc` | The model is told you cancelled and can continue or ask in prose. |
+| Branch-scoped answers | tool-result `details` | The answers stay with the transcript, so `/resume` and `/tree` show the same history. |
 
 ## Quickstart
 

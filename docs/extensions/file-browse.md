@@ -12,30 +12,28 @@ the shared loopback layer plus one small vanilla script.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| One-command browsing | `/browse` | The server starts at the effective working directory, prints its URL, and opens the browser. | Shipped |
-| Read-only serving | `/browse` | Nothing is edited or written, and the server binds `127.0.0.1` only. | Shipped |
-| Two-pane page | `/files/`, `/files/browse[/<rel>]` | A collapsible tree beside the current folder's listing, with the tree, filter, and quick-open trigger pinned in their own pane. | Shipped |
-| File previews | `/view/<rel>` | Text, rendered Markdown, image thumbnails, and download cards for binary or over-size files, each with a per-language icon. | Shipped |
-| Quick open | `/files/`, `Ctrl/Cmd+K`, `/files/api/files` | A fuzzy path finder over the tree opens a file without walking the tree. | Shipped |
-| Git diff view | `/diff`, `/diff/<rel>` | A change overview and one file's unified diff, scoped to `head`, `staged`, or `worktree`. | Shipped |
-| Live status | `/events`, the `◉ live` chip | An open page keeps its branch, change markers, and footer up to date without a reload. | Shipped |
-| Reload hint | `/api/dir-rev`, `⟳ reload` | A page whose folder gained or lost a file offers a reload control instead of changing its rows. | Shipped |
-| The session's page port | `serve`'s `◉ <port>` chip | The footer names the one port every page of the session answers on, this one included. | Shipped |
-| Listing controls | the `Name`, `Size`, and `Modified` headers | The current folder sorts by name, size, or modified time, directories first, and the choice is remembered per browser. | Shipped |
-| Keyboard navigation | the tree's keymap, `?` | The tree is one tab stop with arrow, fold, and open keys; a shortcut sheet lists the page's own keys. | Shipped |
-| Diff hunk navigation | `n`/`p` in `/diff` | Jump between changed hunks without scrolling the whole file. | Shipped |
-| Fold and expand all | the `fold all` control | Collapse or expand the whole tree in one click. | Shipped |
-| Reading progress | `browse-progress` hairline | A long directory or diff read shows how much has loaded, and printing hides the indicator. | Shipped |
-| Printing | `@media print` styles | The page prints without the toolbar, progress hairline, or other screen-only chrome. | Shipped |
-| Syntax highlighting | `/view/<rel>`, `/view/<rel>?raw=1` | Supported code files show keywords, strings, numbers, and comments in colour in both themes; other text stays plain. | Shipped |
-| Markdown preview | `/view/<rel>`, `/view/<rel>?raw=1` | A README renders as headings, lists, tables, code, and links, with a one-click raw view. | Shipped |
-| Copy and wrap | the page toolbar, `y`, `u` | Copy a file's path or contents or a `path:12-30` line reference, and toggle line wrapping for text and raw views. | Shipped |
-| Theme toggle | the header button, `/theme.js` | Dark and light palettes, following the system until an explicit choice is remembered per browser. | Shipped |
-| Idle stop and prefix reuse | `/browse stop`, the idle grace | The page gives its prefix back when nobody is reading it, so a closed tab never holds the session's server. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| One-command browsing | `/browse` | The server starts at the effective working directory, prints its URL, and opens the browser. |
+| Read-only serving | `/browse` | Nothing is edited or written, and the server binds `127.0.0.1` only. |
+| Two-pane page | `/files/`, `/files/browse[/<rel>]` | A collapsible tree beside the current folder's listing, with the tree, filter, and quick-open trigger pinned in their own pane. |
+| File previews | `/view/<rel>` | Text, rendered Markdown, image thumbnails, and download cards for binary or over-size files, each with a per-language icon. |
+| Quick open | `/files/`, `Ctrl/Cmd+K`, `/files/api/files` | A fuzzy path finder over the tree opens a file without walking the tree. |
+| Git diff view | `/diff`, `/diff/<rel>` | A change overview and one file's unified diff, scoped to `head`, `staged`, or `worktree`. |
+| Live status | `/events`, the `◉ live` chip | An open page keeps its branch, change markers, and footer up to date without a reload. |
+| Reload hint | `/api/dir-rev`, `⟳ reload` | A page whose folder gained or lost a file offers a reload control instead of changing its rows. |
+| The session's page port | `serve`'s `◉ <port>` chip | The footer names the one port every page of the session answers on, this one included. |
+| Listing controls | the `Name`, `Size`, and `Modified` headers | The current folder sorts by name, size, or modified time, directories first, and the choice is remembered per browser. |
+| Keyboard navigation | the tree's keymap, `?` | The tree is one tab stop with arrow, fold, and open keys; a shortcut sheet lists the page's own keys. |
+| Diff hunk navigation | `n`/`p` in `/diff` | Jump between changed hunks without scrolling the whole file. |
+| Fold and expand all | the `fold all` control | Collapse or expand the whole tree in one click. |
+| Reading progress | `browse-progress` hairline | A long directory or diff read shows how much has loaded, and printing hides the indicator. |
+| Printing | `@media print` styles | The page prints without the toolbar, progress hairline, or other screen-only chrome. |
+| Syntax highlighting | `/view/<rel>`, `/view/<rel>?raw=1` | Supported code files show keywords, strings, numbers, and comments in colour in both themes; other text stays plain. |
+| Markdown preview | `/view/<rel>`, `/view/<rel>?raw=1` | A README renders as headings, lists, tables, code, and links, with a one-click raw view. |
+| Copy and wrap | the page toolbar, `y`, `u` | Copy a file's path or contents or a `path:12-30` line reference, and toggle line wrapping for text and raw views. |
+| Theme toggle | the header button, `/theme.js` | Dark and light palettes, following the system until an explicit choice is remembered per browser. |
+| Idle stop and prefix reuse | `/browse stop`, the idle grace | The page gives its prefix back when nobody is reading it, so a closed tab never holds the session's server. |
 
 ## Quickstart
 

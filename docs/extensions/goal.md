@@ -5,21 +5,19 @@ every turn. The goal is the *what*; the [`todo`](./todo.md) list is the *how*.
 
 ## Capabilities
 
-Status records what a reader can rely on: **Shipped** is in a tagged release, **Unreleased** is complete in the current tree but not yet tagged, and **Partial** has one released part and one unreleased part. Rows are ordered by user value, highest first.
-
-| Capability | How | What you get | Status |
-|---|---|---|---|
-| Goal recording | `goal`, `/goal set`, `/goal raw`, `/goal clear` | The objective is replaced whole, cleared by an empty value, and recorded verbatim when you ask for it. | Shipped |
-| Phase tracking | `goal`, `/goal done` | The goal is `planning`, `active`, or `achieved`, and only the workflow can open a draft. | Shipped |
-| Plan-first question | `goal`, `/goal <prompt>`, `/goal raw` | One dialog decides whether a new goal enters plan mode before it is pursued. | Shipped |
-| Plan-mode allowlist | `goal` in plan mode | The model can record or update the objective while plan mode keeps the rest of the session read-only. | Shipped |
-| Plan-phase settlement | `planning` goal, `exit_plan_mode` | Leaving plan mode without approval makes the draft `active`; approving the plan writes its `## Goal` into it. | Shipped |
-| Understanding loop | `/goal <prompt>`, `/goal set`, `/goal edit` | A typed goal is restated, questioned when it is unclear, and confirmed in the editor before it is recorded. | Shipped |
-| Goal rail | the `Goal · active · …` widget, the `achieved` key | The objective stays one line above the editor while it is pursued. | Shipped |
-| Per-turn restatement | the `[SESSION GOAL]` reminder | The model reads the pursued objective before each turn, without it entering the transcript. | Shipped |
-| Open-list check | `goal`, `/goal done` | Completing the goal names the todo items the list still has open. | Shipped |
-| Branch-following state | tool-result `details`, the `goal` session entry | The goal survives `/resume` and `/tree`, and abandoned branches never leak in. | Shipped |
-| Command help | `/goal help`, `/goal -h`, `/goal --help` | The verb list and the usage of each form, without changing the goal. | Shipped |
+| Capability | How | What you get |
+|---|---|---|
+| Goal recording | `goal`, `/goal set`, `/goal raw`, `/goal clear` | The objective is replaced whole, cleared by an empty value, and recorded verbatim when you ask for it. |
+| Phase tracking | `goal`, `/goal done` | The goal is `planning`, `active`, or `achieved`, and only the workflow can open a draft. |
+| Plan-first question | `goal`, `/goal <prompt>`, `/goal raw` | One dialog decides whether a new goal enters plan mode before it is pursued. |
+| Plan-mode allowlist | `goal` in plan mode | The model can record or update the objective while plan mode keeps the rest of the session read-only. |
+| Plan-phase settlement | `planning` goal, `exit_plan_mode` | Leaving plan mode without approval makes the draft `active`; approving the plan writes its `## Goal` into it. |
+| Understanding loop | `/goal <prompt>`, `/goal set`, `/goal edit` | A typed goal is restated, questioned when it is unclear, and confirmed in the editor before it is recorded. |
+| Goal rail | the `Goal · active · …` widget, the `achieved` key | The objective stays one line above the editor while it is pursued. |
+| Per-turn restatement | the `[SESSION GOAL]` reminder | The model reads the pursued objective before each turn, without it entering the transcript. |
+| Open-list check | `goal`, `/goal done` | Completing the goal names the todo items the list still has open. |
+| Branch-following state | tool-result `details`, the `goal` session entry | The goal survives `/resume` and `/tree`, and abandoned branches never leak in. |
+| Command help | `/goal help`, `/goal -h`, `/goal --help` | The verb list and the usage of each form, without changing the goal. |
 
 ## Quickstart
 
