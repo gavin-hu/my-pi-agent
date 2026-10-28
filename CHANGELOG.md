@@ -40,6 +40,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a file the page could not read is named rather than counted. The footer says
+  "N cards could not be read" and its hover carries the tool's own sentence — `0099.json (not a
+  card record)` — from one body in `lib/board/skipped.ts`, and the snapshot carries the
+  refused files with their reasons (they are in the frame signature too, so a different file
+  refusing to read is news even when the count is the same).
 - `board`: a lane head's fold control and a finished card's id are 24px targets, the empty
   word and a note's age clear AA on the light theme, and the narrow lane switch wraps at
   420px instead of scrolling the pressed lane out of sight.

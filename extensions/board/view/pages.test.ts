@@ -261,11 +261,16 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("board.start();");
 	});
 
-	test("says how many files the board could not read, beside its size", () => {
+	test("says how many files the board could not read, and names them on the hover", () => {
 		// A footer counting only what it read would report "2 cards" over a directory
-		// holding three files, and a reader cannot tell that from an empty board.
-		expect(BOARD_CLIENT_JS).toContain("view.skipped");
-		expect(BOARD_CLIENT_JS).toContain('plural(view.skipped, "unreadable")');
+		// holding three files, and a reader cannot tell that from an empty board. The line
+		// carries the count; the hover carries the tool's own sentence, spliced in, so the
+		// page and `board list` name the same files for the same reason.
+		expect(BOARD_CLIENT_JS).toContain("view.skipped.length");
+		expect(BOARD_CLIENT_JS).toContain('" could not be read"');
+		expect(BOARD_CLIENT_JS).toContain("skippedText(view.skipped)");
+		expect(BOARD_CLIENT_JS).toContain("function skippedText(skipped)");
+		expect(BOARD_CLIENT_JS).not.toContain("__SKIPPED__");
 	});
 
 	test("keeps ages honest, which is the one thing a quiet board must still do", () => {

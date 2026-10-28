@@ -38,9 +38,11 @@ export function renderJs(rules: {
 	age: string;
 	runtime: string;
 	lanes: string;
+	skipped: string;
 }): string {
 	return renderTemplate
 		.replace("__PLURAL__", rules.plural)
+		.replace("__SKIPPED__", rules.skipped)
 		.replace("__TAB_TITLE__", rules.tabTitle)
 		.replace("__MATCHES__", rules.matches)
 		.replace("__REASON__", rules.reason)
@@ -260,10 +262,12 @@ __RUNTIME__
       // three files, so the unreadable ones are named beside the size.
       where.textContent =
         view.repo + " · store " + view.where + " · " + plural(view.total, "card") + " · " + size(view.bytes) +
-        (view.skipped > 0 ? " · " + plural(view.skipped, "unreadable") : "");
+        (view.skipped.length > 0 ? " · " + plural(view.skipped.length, "card") + " could not be read" : "");
       // The name is what the line has room for; the path is what tells two clones of one
-      // repository apart when the name is the same.
-      where.title = view.root;
+      // repository apart when the name is the same. A refused file is named on the second
+      // line of the hover: the line cannot hold a file name and a reason per file, and a
+      // count alone is a fact a reader cannot act on.
+      where.title = view.skipped.length > 0 ? view.root + "\n" + skippedText(view.skipped) : view.root;
     }
     // The tab has to tell two boards apart, and a board's subject is its repository: one
     // board per repository, named the way the directory holding it is. The store key is a
@@ -276,6 +280,8 @@ __RUNTIME__
 
   /** 1 card, 2 cards — the one body, handed in by the bundle's assembler. */
   var plural = __PLURAL__;
+  /** The refused files, named with their reasons: the tool's own sentence, handed in. */
+  var skippedText = __SKIPPED__;
   /** board · my-pi-agent · 3 open, the tab's one shape, handed in the same way. */
   var tabTitle = __TAB_TITLE__;
 
@@ -412,38 +418,8 @@ __RUNTIME__
       var toggle = section.querySelector(".board-lane__toggle");
       if (toggle) toggle.setAttribute("aria-expanded", String(!collapsed));
     }
-    renderEmpty(view, query, shownTotal);
+    board.renderEmpty(view, query, shownTotal);
     renderPicker(view);
-  }
-
-  /**
-   * What the board says when there is nothing to read.
-   *
-   * Two different emptinesses. No cards at all is the board's own state, and it teaches the
-   * verb that fills it. A filter that matches none of them is the reader's own query: the
-   * lanes go, because five trays saying "no match" read as a board with no work, and the way
-   * back is one button rather than a key a reader has to remember.
-   */
-  function renderEmpty(view, query, shownTotal) {
-    var block = document.getElementById("board-no-cards");
-    if (!block) return;
-    var lanes = document.getElementById("board-lanes");
-    var noCards = view.total === 0;
-    var noMatch = !noCards && query !== "" && shownTotal === 0;
-    block.hidden = !noCards && !noMatch;
-    if (lanes) lanes.hidden = noCards || noMatch;
-    var title = document.getElementById("board-no-cards-title");
-    var sub = document.getElementById("board-no-cards-sub");
-    var hint = document.getElementById("board-no-cards-hint");
-    var clear = document.getElementById("board-no-match-clear");
-    if (title) title.textContent = noMatch ? "No card matches \u201c" + query + "\u201d" : "No cards yet";
-    if (sub) {
-      sub.textContent = noMatch
-        ? "The filter reads a title, its owner, a path, a plan, and the notes."
-        : "One card per feature: what it delivers, who holds it, and where to start.";
-    }
-    if (hint) hint.hidden = noMatch;
-    if (clear) clear.hidden = !noMatch;
   }
 
   /** The lane selector the narrow layout shows instead of four columns. */

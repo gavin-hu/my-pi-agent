@@ -13,6 +13,7 @@
 
 import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priorityOf } from "../../lib/board/card.ts";
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
+import { skippedText } from "../../lib/board/skipped.ts";
 import type { Skip } from "../../lib/board/store.ts";
 import { formatAge } from "../../lib/format.ts";
 import { plural } from "../../lib/board/round-text.ts";
@@ -52,7 +53,7 @@ export function formatBoard(shown: readonly Card[], notes: ListingNotes): string
 		const them = notes.hiddenDone === 1 ? "it" : "them";
 		lines.push(`${plural(notes.hiddenDone, "done card")} hidden; pass lane: "done" to read ${them}.`);
 	}
-	for (const note of [archiveNote(notes.archived), formatSkipped(notes.skipped)]) {
+	for (const note of [archiveNote(notes.archived), skippedText(notes.skipped)]) {
 		if (note !== "") lines.push(note);
 	}
 	return lines.join("\n");
@@ -66,7 +67,7 @@ export function formatBoard(shown: readonly Card[], notes: ListingNotes): string
  */
 export function formatArchive(shown: readonly Card[], skipped: readonly Skip[]): string {
 	const lines = shown.length === 0 ? ["The archive is empty."] : shown.map(listLine);
-	const unreadable = formatSkipped(skipped);
+	const unreadable = skippedText(skipped);
 	if (unreadable !== "") lines.push(unreadable);
 	return lines.join("\n");
 }
@@ -79,18 +80,6 @@ export function formatArchive(shown: readonly Card[], skipped: readonly Skip[]):
 export function archiveNote(count: number): string {
 	if (count === 0) return "";
 	return `${plural(count, "card")} ${count === 1 ? "is" : "are"} set aside in the archive; pass archived: true to read ${count === 1 ? "it" : "them"}.`;
-}
-
-/**
- * The files the board could not read, or nothing when it read everything.
- *
- * A skipped file is not an absent one: a board written by a newer build would
- * otherwise read as "nobody has planned anything" while the work sits on disk.
- */
-export function formatSkipped(skipped: readonly Skip[]): string {
-	if (skipped.length === 0) return "";
-	const files = skipped.map((entry) => `${entry.file} (${entry.why})`).join(", ");
-	return `${plural(skipped.length, "file")} this build cannot read: ${files}`;
 }
 
 /** The dropped id, which is the only thing left of the card. */

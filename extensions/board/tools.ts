@@ -29,15 +29,8 @@ import { failedResult, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
-import {
-	archiveNote,
-	formatArchive,
-	formatArchived,
-	formatBoard,
-	formatCard,
-	formatDropped,
-	formatSkipped,
-} from "./format.ts";
+import { skippedText } from "../../lib/board/skipped.ts";
+import { archiveNote, formatArchive, formatArchived, formatBoard, formatCard, formatDropped } from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { joinOnClaim } from "./join.ts";
 import { collapsedLine, resultInput } from "./result.ts";
@@ -326,7 +319,7 @@ async function read(
 	// One line under the rollup, because a reader who cannot see a card file should know why,
 	// and one for the archive, because a rollup that silently left it out would be a board
 	// smaller than the one on disk.
-	const notes = [formatSkipped(skipped), archiveNote(archived)].filter((line) => line !== "");
+	const notes = [skippedText(skipped), archiveNote(archived)].filter((line) => line !== "");
 	const text = [formatRound(cards, round), ...notes].join("\n");
 	return textResult(text, { action, me, cards: listed, round });
 }

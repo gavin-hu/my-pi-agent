@@ -16,6 +16,7 @@
 
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
 import { type Card, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
+import type { Skip } from "./store.ts";
 import { LANE_RULES, LANES, type Lane, type LaneRole } from "./lanes.ts";
 import { DEFAULT_WIP, limitOf, type WipLimits } from "./limits.ts";
 import { blockersOf, indexOf, lanesText, openDependentsOf } from "./links.ts";
@@ -119,10 +120,11 @@ export interface BoardView {
 	/**
 	 * Card files the reader refused, so the footer can say the board is not empty.
 	 *
-	 * Zero is the ordinary answer and draws nothing; a count above it is the one fact
-	 * that separates "no work here" from "this build cannot read your work".
+	 * An empty list is the ordinary answer and draws nothing; anything in it is the one fact
+	 * that separates "no work here" from "this build cannot read your work" — and the file
+	 * names and reasons are what let a reader open the file, so the page carries them whole.
 	 */
-	skipped: number;
+	skipped: readonly Skip[];
 	/** Changes when a card's revision, a teammate's state, or its mail does. */
 	sig: string;
 	/** The root's last segment, e.g. `my-pi-agent`: what the tab and the footer lead with. */
@@ -141,7 +143,7 @@ export interface ViewInput {
 	now: number;
 	bytes: number;
 	/** Card files the reader refused; absent reads as none, which is the ordinary board. */
-	skipped?: number;
+	skipped?: readonly Skip[];
 	where: string;
 	/** The repository's name, from `BoardStore.name()`. */
 	repo: string;
@@ -186,12 +188,16 @@ export function buildView(input: ViewInput): BoardView {
 		round: buildRound(cards, input.now),
 		...(teammates === undefined ? {} : { teammates }),
 		bytes: input.bytes,
-		skipped: input.skipped ?? 0,
+		skipped: input.skipped ?? [],
 		// The roster enters the signature at its coarse facts only: a heartbeat every ten
 		// seconds is not news, while a join, a quiet and a letter are. A file that became
-		// readable, or unreadable, is news too: the footer counts it, and a frame that is
-		// not pushed leaves the page saying the board holds less than it does.
-		sig: signatureOf(input.cards) + rosterSignature(teammates) + `|skipped:${input.skipped ?? 0}`,
+		// readable, or unreadable, is news too, and so is a *different* file becoming
+		// unreadable: the footer names them, so the signature carries the names and reasons
+		// rather than a count that a swap would leave unchanged.
+		sig:
+			signatureOf(input.cards) +
+			rosterSignature(teammates) +
+			`|skipped:${(input.skipped ?? []).map((entry) => `${entry.file}:${entry.why}`).join(",")}`,
 		repo: input.repo,
 		root: input.root,
 		where: input.where,

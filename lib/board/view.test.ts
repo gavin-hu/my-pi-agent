@@ -300,7 +300,7 @@ describe("buildView", () => {
 			cards: [],
 			now: NOW,
 			bytes: 0,
-			skipped: 0,
+			skipped: [],
 			where: WHERE,
 			repo: REPO,
 			root: ROOT,
@@ -308,25 +308,44 @@ describe("buildView", () => {
 		expect(dropped.sig).not.toBe(view.sig);
 	});
 
-	test("carries the files it could not read, so the footer can say the board is not empty", () => {
-		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT }).skipped).toBe(0);
+	test("carries the files it could not read, so the footer can name them", () => {
+		const skips = [
+			{ file: "0042.json", why: "bad JSON" },
+			{ file: "0051.json", why: "version 3" },
+		];
+		expect(buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT }).skipped).toEqual(
+			[],
+		);
 		expect(
-			buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: 2, where: WHERE, repo: REPO, root: ROOT }).skipped,
-		).toBe(2);
-		// The count is in the signature too: a file that became unreadable changes what the
-		// footer says, and a frame that is never pushed leaves the page saying the old thing.
+			buildView({ me: ME, cards: [], now: NOW, bytes: 0, skipped: skips, where: WHERE, repo: REPO, root: ROOT })
+				.skipped,
+		).toEqual(skips);
+		// The files and their reasons are in the signature too: a different file refusing to
+		// read leaves the count alone and changes what the footer says, and a frame that is
+		// never pushed leaves the page naming the old one.
 		const plain = buildView({ me: ME, cards: [], now: NOW, bytes: 0, where: WHERE, repo: REPO, root: ROOT });
 		const withSkips = buildView({
 			me: ME,
 			cards: [],
 			now: NOW,
 			bytes: 0,
-			skipped: 2,
+			skipped: skips,
 			where: WHERE,
 			repo: REPO,
 			root: ROOT,
 		});
 		expect(withSkips.sig).not.toBe(plain.sig);
+		const swapped = buildView({
+			me: ME,
+			cards: [],
+			now: NOW,
+			bytes: 0,
+			skipped: [{ file: "0077.json", why: "bad JSON" }],
+			where: WHERE,
+			repo: REPO,
+			root: ROOT,
+		});
+		expect(swapped.sig).not.toBe(withSkips.sig);
 	});
 
 	test("carries the size and the directory, so an unpruned board says so", () => {

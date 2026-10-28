@@ -78,7 +78,7 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 			now: at,
 			...(roster === undefined ? {} : { roster: roster(at) }),
 			bytes: await store.bytes(),
-			skipped: skipped.length,
+			skipped,
 			repo: display.repo ?? store.name(),
 			root: display.root ?? store.root(),
 			where: display.where ?? store.where(),

@@ -18,9 +18,11 @@ import { REASON_FOR_JS } from "../../../lib/board/reason.ts";
 import { LANES } from "../../../lib/board/lanes.ts";
 import { CLIENT_BASE_JS, CLIENT_RUNTIME_JS } from "../../../lib/web/index.ts";
 import { PLURAL_JS } from "../../../lib/board/round-text.ts";
+import { skippedText } from "../../../lib/board/skipped.ts";
 import { FORMAT_AGE_JS } from "../../../lib/format.ts";
 import { namesScript, TAB_TITLE_JS, THEME_TOGGLE_JS, dialogScript, keysDialogScript } from "../../../lib/web/index.ts";
 import { BOARD_CLASS } from "./names.ts";
+import { BOARD_EMPTY_JS } from "./empty.ts";
 import { BOARD_DIALOG_JS } from "./dialog.ts";
 import { BOARD_KEYS_JS } from "./keys.ts";
 import { BOARD_LIVE_JS } from "./live.ts";
@@ -37,8 +39,9 @@ import { BOARD_TEAM_JS } from "./team.ts";
  */
 export const BOARD_CLIENT_JS = `${CLIENT_BASE_JS}
 ${namesScript(BOARD_CLASS)}
-${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, runtime: CLIENT_RUNTIME_JS, lanes: String(LANES.length) })}
+${renderJs({ plural: PLURAL_JS, tabTitle: TAB_TITLE_JS, matches: MATCHES_QUERY_JS, reason: REASON_FOR_JS, age: FORMAT_AGE_JS, runtime: CLIENT_RUNTIME_JS, lanes: String(LANES.length), skipped: String(skippedText) })}
 ${BOARD_TEAM_JS}
+${BOARD_EMPTY_JS}
 ${BOARD_DIALOG_JS}
 ${BOARD_KEYS_JS}
 ${BOARD_LIVE_JS}

@@ -727,12 +727,12 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		);
 		expect(await footer()).toContain(`my-pi-agent · store ${WHERE}`);
 		expect(await footer()).toContain("10 cards");
-		expect(await footer()).not.toContain("unreadable");
+		expect(await footer()).not.toContain("could not be read");
 		// The name fits the line; the path is the hover, which is what tells two clones apart.
 		expect(await page.getAttribute("#board-where", "title")).toBe(ROOT);
 
-		// A file this build cannot read is counted beside the size, so a board that is not
-		// readable never reads as a board that is empty.
+		// A file this build cannot read is counted beside the size, and named on the hover with
+		// the reason the store refused it: a count alone is a fact a reader cannot act on.
 		const unreadable = join(directory, "cards", "0099.json");
 		writeFileSync(unreadable, JSON.stringify({ v: 2, id: "99", title: "From a newer build" }));
 		try {
@@ -740,11 +740,15 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				() =>
 					(
 						(globalThis as unknown as { document: Doc }).document.getElementById("board-where")?.textContent ?? ""
-					).includes("unreadable"),
+					).includes("could not be read"),
 				undefined,
 				{ timeout: PAINT_MS },
 			);
-			expect(await footer()).toContain("1 unreadable");
+			expect(await footer()).toContain("1 card could not be read");
+			const title = (await page.getAttribute("#board-where", "title")) ?? "";
+			expect(title).toContain(ROOT);
+			expect(title).toContain("0099.json");
+			expect(title).toContain("not a card record");
 		} finally {
 			rmSync(unreadable, { force: true });
 			await page.close();

@@ -34,7 +34,7 @@ export async function viewOf(context: SnapshotContext): Promise<BoardView> {
 		cards,
 		now: context.now(),
 		bytes: await context.store.bytes(),
-		skipped: skipped.length,
+		skipped,
 		repo: context.store.name(),
 		root: context.store.root(),
 		where: context.store.where(),
