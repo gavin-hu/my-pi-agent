@@ -16,7 +16,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bookmark, one `◉ <port>` chip, and one idle policy per page rather than per socket. A
   second session — a WeChat peer conversation, a session in another worktree, another Pi —
   still gets its own server and its own port. Sharing a review asks that one page's mount
-  for a single LAN address, so a loopback-only page can never be reached from the network.
+  for a single LAN address, so a loopback-only page can never be reached from the network
+  and a page that stops sharing leaves it immediately, while another page of the session
+  keeps the address it still shares.
   `doctor` names the requirement, so a session loaded without `serve` says why its pages
   refuse instead of leaving three silent 404s.
 
