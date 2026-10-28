@@ -36,8 +36,13 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   function panel(text, count, total) {
     var node = el("section", N.teamGroup);
     node.setAttribute("aria-label", text);
+    var filtered = total !== undefined && total !== count;
     var caption = el("h2", N.teamCaption, text);
-    caption.appendChild(chip(total !== undefined && total !== count ? count + "/" + total : String(count)));
+    caption.appendChild(chip(filtered ? count + "/" + total : String(count)));
+    // The count is the reason the panel is read, but glued to its name a heading announces
+    // "Needs a decision 4" as one word. The label says the same fact in a sentence and the
+    // pill keeps the shape a reader scans.
+    caption.setAttribute("aria-label", text + ", " + (filtered ? count + " of " + total : String(count)));
     node.appendChild(caption);
     return node;
   }

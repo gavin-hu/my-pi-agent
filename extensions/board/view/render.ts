@@ -298,6 +298,19 @@ __RUNTIME__
     return lane.limit === undefined ? String(lane.count) : lane.count + "/" + lane.limit;
   }
 
+  /**
+   * The same count, in words a screen reader can read.
+   *
+   * The pill prints "1/3" because an eye takes the slash in at a glance; spoken, it is
+   * punctuation between two numbers. The heading therefore names itself from the same
+   * facts -- "Plan, 1 of 3" -- and the pill keeps the shape.
+   */
+  function headLabel(lane, shown) {
+    if (shown !== undefined) return lane.label + ", " + shown + " of " + lane.cards.length;
+    if (lane.limit !== undefined) return lane.label + ", " + lane.count + " of " + lane.limit;
+    return lane.label + ", " + plural(lane.count, "card");
+  }
+
   /** The lane section for one lane, created once and then reused. */
   function laneNode(lane) {
     var section = document.querySelector('.board-lane[data-lane="' + lane.key + '"]');
@@ -363,9 +376,13 @@ __RUNTIME__
         for (var j = 0; j < shown.length; j++) list.appendChild(cardNode(shown[j]));
       }
       var count = section.querySelector(".board-lane__count");
+      var head = section.querySelector(".board-lane__head");
       if (count) {
-        count.textContent =
-          query === "" || shown.length === lane.cards.length ? headCount(lane) : shown.length + "/" + lane.cards.length;
+        var filtered = query !== "" && shown.length !== lane.cards.length;
+        count.textContent = filtered ? shown.length + "/" + lane.cards.length : headCount(lane);
+        // The visible pill and the spoken name come from the same numbers, so a filtered lane
+        // says "1 of 2" rather than reading as a board of one card.
+        if (head) head.setAttribute("aria-label", headLabel(lane, filtered ? shown.length : undefined));
       }
       var none = section.querySelector(".board-lane__empty");
       if (none) {

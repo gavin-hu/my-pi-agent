@@ -33,6 +33,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a lane head and a Team panel name their count in words — "Plan, 1 of 3" — while the
+  pill keeps `1/3`. The count was inside the heading's text, so a screen reader announced
+  "Plan 1/3" as one word.
 - `board`: the narrow lane switch is a group of pressed buttons, not a tablist. It has no
   tabpanel behind it, so it said `role="tab"` over a panel that did not exist; it now carries
   `aria-pressed`, and the pressed lane is the one the kit paints as current.

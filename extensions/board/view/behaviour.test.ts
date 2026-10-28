@@ -526,6 +526,34 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		await page.close();
 	});
 
+	test("names a lane's count in words, so the heading is not one glued word", async () => {
+		const page = await openPage();
+		expect(
+			await page.$eval('.board-lane[data-lane="backlog"] .board-lane__head', (n) => n.getAttribute("aria-label")),
+		).toBe("Backlog, 2 cards");
+		// A pulled lane says the limit the pill prints as `0/3`.
+		expect(
+			await page.$eval('.board-lane[data-lane="plan"] .board-lane__head', (n) => n.getAttribute("aria-label")),
+		).toBe("Plan, 0 of 3");
+
+		// A filtered lane names what it shows against the cards it holds, not the limit.
+		await page.fill("#board-filter", "invoice");
+		await cardCount(page, "backlog", 1);
+		expect(
+			await page.$eval('.board-lane[data-lane="backlog"] .board-lane__head', (n) => n.getAttribute("aria-label")),
+		).toBe("Backlog, 1 of 2");
+
+		// The Team tab's two captions carry their count the same way.
+		await page.fill("#board-filter", "");
+		await page.keyboard.press("t");
+		const captions = await page.$$eval(".board-team__caption", (nodes) =>
+			Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("aria-label") ?? ""),
+		);
+		expect(captions[0]).toMatch(/^Needs a decision, \d+$/);
+		expect(captions[1]).toMatch(/^Teammates, \d+$/);
+		await page.close();
+	});
+
 	test("says an offer nobody took, in the words the queue uses", async () => {
 		// The offer is `team`'s verb; what the page owes a lead is the age, because that is
 		// the difference between nobody having looked and nobody taking it.
