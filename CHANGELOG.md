@@ -109,14 +109,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
-- `docs`: `docs/user-guide/` is deleted — twelve chapters and its reference tables —
-  with the four guards that existed only to hold it: `test/reference-coverage.test.ts`
-  is gone, `test/doc-counts.test.ts`, `test/settings-coverage.test.ts`, and
-  `test/extension-load.test.ts` keep the claims that outlive it, and the two entry
-  READMEs drop their guide links and Documentation row. Each feature's page under
-  `docs/extensions/` is now the whole per-feature surface. The one install pin the
-  guide offered moves to both READMEs' Quick start, so `test/release.test.ts` still
-  checks it.
+- `docs`: `docs/user-guide/` is deleted — twelve chapters and its reference tables. Of
+  the four guards that read it, one went with it and three were trimmed:
+  `test/reference-coverage.test.ts` had no other subject, while `test/doc-counts.test.ts`,
+  `test/settings-coverage.test.ts`, and `test/extension-load.test.ts` keep the claims that
+  outlive the guide. The two entry READMEs drop their guide links and Documentation row;
+  each feature's page under `docs/extensions/` is now the whole per-feature surface. The
+  one install pin the guide offered moves to both READMEs' Quick start, so
+  `test/release.test.ts` still checks it.
 
 ### Fixed
 
