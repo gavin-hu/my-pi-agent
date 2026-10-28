@@ -59,6 +59,37 @@ describe("readCard", () => {
 		expect(keys.filter((key) => ["status", "plan", "blockedBy", "blocker"].includes(key))).toEqual([]);
 	});
 
+	test("reads the four-lane board's log words as the lanes they became", () => {
+		// `todo` was the pool and `doing` was the work in hand; `blocked` and `done` kept their
+		// names. A card written then is finished now, so the last entry is what its `in lane`
+		// age reads — but the whole log has to pass the gate for the card to be read at all.
+		const { lane, ...rest } = card({ lane: "done", owner: { label: "billing-core" } });
+		const read = readCard({
+			...rest,
+			v: 1,
+			status: lane,
+			log: [
+				{ status: "todo", at: 1, by: "billing-core" },
+				{ status: "doing", at: 2, by: "billing-core" },
+				{ status: "done", at: 3, by: "billing-core" },
+			],
+		});
+		expect(read?.log).toEqual([
+			{ lane: "backlog", at: 1, by: "billing-core" },
+			{ lane: "execute", at: 2, by: "billing-core" },
+			{ lane: "done", at: 3, by: "billing-core" },
+		]);
+	});
+
+	test("refuses a log word that is neither a lane nor a word the old board wrote", () => {
+		// A guess would put the card in a lane its own history disagrees with, so the record is
+		// refused and the store names the file instead.
+		const { lane, ...rest } = card({ lane: "done", owner: { label: "billing-core" } });
+		expect(
+			readCard({ ...rest, v: 1, status: lane, log: [{ status: "paused", at: 1, by: "billing-core" }] }),
+		).toBeUndefined();
+	});
+
 	test("keeps a v1 sentence-only block as a sentence, and invents no kind for it", () => {
 		const { lane, ...rest } = card({ lane: "blocked", owner: { label: "billing-core" } });
 		const read = readCard({ ...rest, v: 1, status: lane, blockedBy: "legal has to sign" });

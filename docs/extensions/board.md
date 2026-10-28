@@ -514,7 +514,12 @@ it always meant: when the card was last touched, which is not when it last chang
   the page's attribute were renamed in one step with no behaviour change: once a card can be
   approved and reviewed, "status" answers more than one question, and the docs had always
   said *lane*. `readCard` maps an older file's `status` and `plan` onto `lane` and
-  `planPath`, so a published board keeps reading until each card is written again.
+  `planPath`, so a published board keeps reading until each card is written again. The log
+  needed the same map twice over: a file from before the rename spells a lane `status`, and
+  a file from before the *lanes* says `todo` or `doing` — the four-lane board's pool and its
+  work in hand — which read as `backlog` and `execute`. A word that is neither a lane nor one
+  of those two refuses the record, because a lane guessed from it would put the card
+  somewhere its own history disagrees with.
 - **Rejected:** steps as cards (they flood the board), a shared database (a file per
   card needs no dependency and no lock), an index file (every write maintains it,
   every read can find it stale), drag-and-drop (a lane change is a named `move`), a

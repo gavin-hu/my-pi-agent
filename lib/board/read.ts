@@ -13,6 +13,17 @@
  */
 
 import { BLOCKERS, type BlockerKind, type Card, type CardBlock, CARD_VERSION, isCard } from "./card.ts";
+import type { Lane } from "./lanes.ts";
+
+/**
+ * The lane words the four-lane board used, as this build's names.
+ *
+ * `todo` was the pool nobody held and `doing` was the work in hand; `blocked` and `done`
+ * kept their names, so they need no row here. A word with no row is not one this build can
+ * place, so the entry is left as it is and {@link isCard} refuses the record — a lane
+ * guessed from an unknown word would put a card somewhere its own history disagrees with.
+ */
+const LEGACY_LANES: Readonly<Record<string, Lane>> = { todo: "backlog", doing: "execute" };
 
 /**
  * The card as a file on disk holds it, or `undefined` when this build cannot trust it.
@@ -63,6 +74,10 @@ function logEntries(raw: unknown): unknown {
 		const record = entry as Record<string, unknown>;
 		if (record.status === undefined || record.lane !== undefined) return entry;
 		const { status, ...rest } = record;
-		return { ...rest, lane: status };
+		// The four-lane board's `todo` and `doing` are this build's `backlog` and `execute`;
+		// a status that is already a lane name passes through, and anything else is left for
+		// `isCard` to refuse rather than mapped onto a lane nobody wrote.
+		const lane = typeof status === "string" ? (LEGACY_LANES[status] ?? status) : status;
+		return { ...rest, lane };
 	});
 }

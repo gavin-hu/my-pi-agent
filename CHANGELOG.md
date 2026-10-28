@@ -43,6 +43,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `board`: a card written by the four-lane board reads again. Its log entries spell the lane
+  `status`, which `readCard` already mapped, but two of the values predate the lanes — `todo`
+  was the pool and `doing` the work in hand — so the reader maps them to `backlog` and
+  `execute`. A word that is neither a lane nor one of those two still refuses the record,
+  because a gap in a log does not have to be guessed at.
 - `board`: a file the page could not read is named rather than counted. The footer says
   "N cards could not be read" and its hover carries the tool's own sentence — `0099.json (not a
   card record)` — from one body in `lib/board/skipped.ts`, and the snapshot carries the
