@@ -145,9 +145,11 @@ export function move(
 	}
 	const fields: Partial<Card> = { lane: target };
 	if (block !== undefined && "fields" in block) Object.assign(fields, block.fields);
-	// A spot-check signs the work as it stood. Parking a card is somebody deciding it is not
-	// finished, and re-planning changes the agreement, so neither exit carries the sign.
-	if (card.lane === "execute" && target !== "execute") fields.review = undefined;
+	// A spot-check signs the work as it stood, and `done` is the one lane that sign is evidence
+	// for. Parking a card is somebody deciding it is not finished, and re-planning changes the
+	// agreement, so those two exits drop it — and `review` refuses a finished card, so a move
+	// that dropped the sign here could never be signed again.
+	if (card.lane === "execute" && (target === "blocked" || target === "plan")) fields.review = undefined;
 	if (target === "done" && op.landed !== undefined) fields.landed = { commit: op.landed.commit, at: now };
 	if (target === "execute" || target === "plan") return enter(card, target, board, limits, fields);
 	return { changed: true, fields };

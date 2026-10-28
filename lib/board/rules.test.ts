@@ -499,6 +499,15 @@ describe("move", () => {
 		expect("review" in replanned).toBe(false);
 	});
 
+	test("execute to done keeps the spot-check that let it through", () => {
+		// `done` is the lane the sign is evidence for, and `review` refuses a finished card, so a
+		// move that cleared it left the finished card's record telling nobody who had checked it.
+		const card = reviewed();
+		const finished = step(card, { kind: "move", lane: "done" }, CORE);
+		expect(finished.lane).toBe("done");
+		expect(finished.review).toEqual(card.review);
+	});
+
 	test("refuses the backlog as a target, an unclaimed card, a card held by another, and a finished one", () => {
 		const card = executing();
 		expect(refusal(applyOp(card, { kind: "move", lane: "backlog" }, CORE, NOW, board(card)))).toBe(
