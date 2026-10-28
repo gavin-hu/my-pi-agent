@@ -130,7 +130,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 		promptGuidelines: [
 			"Claim a card to pull it from backlog into plan, write its contract with `contract` (goal, acceptance, scopeOut, and the plan file), and move it to execute only once a session that does not hold it has approved that contract.",
 			"Before a card is done, a session that does not hold it records a spot-check with `review`; `execute` also needs the plan path the work was done against.",
-			"Move a card to `blocked` with a `blocker` kind and one line about what is waited on: only `contract` sends it back to plan, and the other kinds resume in execute.",
+			"Move a card to `blocked` with a `blocker` kind and one line about what is waited on: it resumes in `plan`, or in `execute` once its contract is approved.",
 			"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
 			"A card that waits on another is linked with `edit` and `dependsOn`, so the order is on the board instead of in a refusal.",
 			"A feature's steps belong in `todo`, not on the board: one card is one feature, whatever it takes.",

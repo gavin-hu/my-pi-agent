@@ -255,5 +255,11 @@ function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Ca
 	for (const field of ["blocked", "offeredAt", "review"] as const) {
 		if (field in fields && fields[field] === undefined) delete next[field];
 	}
+	// `blocked` is a fact about the `blocked` lane and nothing else: a card back in the pool, or
+	// one claimed out of it, is not parked on that decision any more. This is here rather than
+	// in each operation because every lane change ends in this one write — so a release, a
+	// reclaim, and a claim clean it without any of them having to remember, and the transition
+	// log keeps what the park was.
+	if (next.lane !== "blocked") delete next.blocked;
 	return next;
 }

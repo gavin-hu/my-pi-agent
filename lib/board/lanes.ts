@@ -96,10 +96,11 @@ export const LANE_RULES: Record<Lane, LaneRule> = {
  * Each name is one gate `rules.ts` can answer from the card and the board: `contract` is
  * the three lines being present, `approval` is somebody who does not hold the card having
  * read them, `review` is the same for the finished work, `artifact` is the plan path the
- * work was done against, `blocker` is the recorded reason and kind, and `contract-defect`
- * is the one kind of block that sends a card back to planning.
+ * work was done against, `blocker` is the recorded reason and kind, and `waiting` is no
+ * unfinished dependency. The blocker's own kind is a label: where a blocked card may go is
+ * decided by what it has, not by what it was parked on.
  */
-export const REQUIREMENTS = ["contract", "approval", "review", "artifact", "blocker", "contract-defect"] as const;
+export const REQUIREMENTS = ["contract", "approval", "review", "artifact", "blocker", "waiting"] as const;
 
 /** One requirement a transition may carry. */
 export type Requirement = (typeof REQUIREMENTS)[number];
@@ -118,18 +119,23 @@ export interface Transition {
  * Absent pairs are refused, and the two absences that matter are deliberate: nothing moves
  * *into* `backlog` (a card nobody holds is `release`'s or `reclaim`'s decision, not a
  * move's), and nothing moves *out of* `done` (finished work is history). Re-planning is
- * `execute → plan`, and resuming is `blocked → execute`; only a contract defect sends a
- * blocked card back to `plan`.
+ * `execute → plan`, and a blocked card can go back to `plan` or resume in `execute`.
+ *
+ * `execute` has two doors and asks the same gates at both: no unfinished dependency, the
+ * contract's three lines, and the approval a session that does not hold the card gave. So
+ * the way out of a block follows the card's state rather than the block's kind — a card
+ * parked from `plan` cannot enter `execute` until it has been planned and approved, and one
+ * parked from `execute` already carries both and resumes.
  */
 export const TRANSITIONS: readonly Transition[] = [
 	{ from: "backlog", to: "plan", needs: [] },
-	{ from: "plan", to: "execute", needs: ["contract", "approval"] },
+	{ from: "plan", to: "execute", needs: ["waiting", "contract", "approval"] },
 	{ from: "plan", to: "blocked", needs: ["blocker"] },
 	{ from: "execute", to: "plan", needs: [] },
 	{ from: "execute", to: "blocked", needs: ["blocker"] },
-	{ from: "execute", to: "done", needs: ["review", "artifact"] },
-	{ from: "blocked", to: "plan", needs: ["contract-defect"] },
-	{ from: "blocked", to: "execute", needs: [] },
+	{ from: "execute", to: "done", needs: ["waiting", "review", "artifact"] },
+	{ from: "blocked", to: "plan", needs: [] },
+	{ from: "blocked", to: "execute", needs: ["waiting", "contract", "approval"] },
 ];
 
 /** The one transition from `from` to `to`, or `undefined` when a move may not make it. */

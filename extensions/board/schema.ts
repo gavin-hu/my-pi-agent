@@ -53,7 +53,7 @@ export const BoardParams = Type.Object({
 			BLOCKERS.map((blocker) => Type.Literal(blocker)),
 			{
 				description:
-					"`move` to `blocked`, required: why it is blocked. `contract` sends the card back to `plan`; `dependency` and `decision` resume in `execute`.",
+					"`move` to `blocked`, required: why it is blocked — the errand, not the route. A blocked card resumes in `plan`, or in `execute` once its contract is approved.",
 			},
 		),
 	),

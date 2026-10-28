@@ -420,13 +420,30 @@ describe("move", () => {
 		expect(blocked).toMatchObject({ lane: "blocked", blocked: { kind: "decision", note: "legal signs" } });
 	});
 
-	test("only a contract defect sends a blocked card back to plan", () => {
-		const parked = step(executing(), { kind: "move", lane: "blocked", blocker: "dependency" }, CORE);
-		expect(refusal(applyOp(parked, { kind: "move", lane: "plan" }, CORE, NOW, board(parked)))).toBe(
-			"#4 is blocked on a dependency; only a contract defect sends it back to plan. Move it to execute, or record the block again.",
+	test("a blocked card routes by its contract, not by the kind it was parked on", () => {
+		// Parked from `plan`: the contract gate still stands in front of `execute`, so the way
+		// back is planning — the kind of block has nothing to do with where the card may go.
+		const planned = step(claimed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
+		expect(refusal(applyOp(planned, { kind: "move", lane: "execute" }, CORE, NOW, board(planned)))).toBe(
+			"#4 is in blocked; its contract needs goal, acceptance, and scopeOut — missing: goal, acceptance, scopeOut.",
 		);
-		const defect = step(executing(), { kind: "move", lane: "blocked", blocker: "contract" }, CORE);
-		expect(step(defect, { kind: "move", lane: "plan" }, CORE).lane).toBe("plan");
+		expect(step(planned, { kind: "move", lane: "plan" }, CORE).lane).toBe("plan");
+		// Parked from `execute`: it already carries the contract and its approval, so it resumes.
+		const parked = step(executing(), { kind: "move", lane: "blocked", blocker: "dependency" }, CORE);
+		expect(step(parked, { kind: "move", lane: "execute" }, CORE).lane).toBe("execute");
+		// And a parked card may still be re-planned, as it may from `execute`.
+		expect(step(parked, { kind: "move", lane: "plan" }, CORE).lane).toBe("plan");
+	});
+
+	test("a spot-check does not survive a park, so finishing needs a fresh look", () => {
+		// The look was at work somebody then decided was not finished, so the gate asks again
+		// rather than signing the older state.
+		const parked = step(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
+		expect("review" in parked).toBe(false);
+		const resumed = step(parked, { kind: "move", lane: "execute" }, CORE);
+		expect(refusal(applyOp(resumed, { kind: "move", lane: "done" }, CORE, NOW, board(resumed)))).toBe(
+			"#4 has no spot-check recorded; a session that does not hold it records one with `review`.",
+		);
 	});
 
 	test("a blocked card resumes in execute, and its block is cleared on the way", () => {
@@ -446,9 +463,27 @@ describe("move", () => {
 		});
 	});
 
+	test("a block lives only in the blocked lane: leaving it clears the record", () => {
+		const parked = step(executing(), { kind: "move", lane: "blocked", blocker: "decision", blockedBy: "legal" }, CORE);
+		// Release and reclaim are the two routes back to the pool, and neither may carry a block
+		// into a lane that does not have one. The log keeps what the park was.
+		for (const [op, actor] of [
+			[{ kind: "release" }, CORE],
+			[{ kind: "reclaim" }, LEAD],
+		] as const) {
+			const back = step(parked, op, actor);
+			expect(back.lane).toBe("backlog");
+			expect("blocked" in back).toBe(false);
+			expect(back.log?.find((entry) => entry.lane === "blocked")?.block).toEqual({ kind: "decision", note: "legal" });
+		}
+		// And a claim out of the pool starts clean, so an executing card never reads a block.
+		const released = step(parked, { kind: "release" }, CORE);
+		const reclaimed = step(released, { kind: "claim" }, CORE);
+		expect(reclaimed.lane).toBe("plan");
+		expect("blocked" in reclaimed).toBe(false);
+	});
+
 	test("a spot-check does not survive a park, so finishing needs a fresh look", () => {
-		// Reviewed, then blocked, then resumed: the look was at work somebody then decided was
-		// not finished, so the gate asks again rather than signing the older state.
 		const parked = step(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
 		expect("review" in parked).toBe(false);
 		const resumed = step(parked, { kind: "move", lane: "execute" }, CORE);
@@ -496,12 +531,18 @@ describe("move", () => {
 		);
 	});
 
-	test("an unfinished dependency gates execute, not planning", () => {
+	test("an unfinished dependency gates execute and done, not planning", () => {
 		const blocker = ready("1", OTHER);
 		const waiting = { ...ready("2", CORE), dependsOn: [blocker.id] };
 		// Planning a card that waits is allowed: the contract is what the wait is read against.
 		expect(refusal(applyOp(waiting, { kind: "move", lane: "execute" }, CORE, NOW, board(blocker, waiting)))).toContain(
 			"waits on",
+		);
+		// Finishing is the other question the link answers: work that starts late cannot close
+		// first, and a link recorded while the card was already executing is the way in.
+		const finished = { ...reviewed(), dependsOn: [blocker.id] };
+		expect(refusal(applyOp(finished, { kind: "move", lane: "done" }, CORE, NOW, board(blocker, finished)))).toBe(
+			"#4 waits on #1 (plan).",
 		);
 	});
 });
@@ -555,8 +596,8 @@ describe("note and edit", () => {
 	});
 
 	test("a lane change is one log entry, and the log is bounded", () => {
-		// A contract defect is the one block that goes back to `plan`, so it is the cheapest
-		// loop to drive the log with: each move is one entry, and the oldest drops.
+		// A park and a re-plan is the cheapest loop that changes lane twice, so each move is one
+		// entry and the oldest drops.
 		let card = claimed();
 		for (let round = 0; round < MAX_LOG + 2; round++) {
 			card = step(card, { kind: "move", lane: "blocked", blocker: "contract" }, CORE);

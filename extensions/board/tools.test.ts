@@ -467,15 +467,14 @@ describe("claim, release, and move", () => {
 			blockedBy: "legal has to sign",
 		});
 		expect(blocked.details.card?.blocked).toEqual({ kind: "decision", note: "legal has to sign" });
-		// One line, the sentence with its kind beside it: the kind is what decides where the
-		// card goes back to, so a reader never has to open it to find out.
+		// One line, the sentence with its kind beside it: the kind says what kind of errand parked
+		// the card, so a reader never has to open it to find out.
 		expect(text(blocked)).toContain("blocked: legal has to sign (decision)");
 		expect(text(await call({ action: "list" }))).toContain("blocked: legal has to sign (decision)");
-		// Releasing keeps the block: the decision is still pending, whoever holds the card.
-		expect((await call({ action: "release", card: "1" })).details.card?.blocked).toEqual({
-			kind: "decision",
-			note: "legal has to sign",
-		});
+		// Releasing clears it: `blocked` is a fact about the `blocked` lane, so a card back in the
+		// pool carries none, and the transition log keeps what the park was.
+		expect((await call({ action: "release", card: "1" })).details.card?.blocked).toBeUndefined();
+		expect(text(await call({ action: "list" }))).not.toContain("blocked: legal has to sign");
 	});
 
 	test("a move to done records the commit it landed as, when the directory has one", async () => {
