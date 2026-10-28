@@ -70,7 +70,6 @@ const ROOT_TEST_FILES = new Set([
 	"naming.test.ts",
 	"prompt-budget.test.ts",
 	"refactor-skill.test.ts",
-	"reference-coverage.test.ts",
 	"release.test.ts",
 	"roadmap.test.ts",
 	"scripts-surface.test.ts",

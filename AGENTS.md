@@ -24,7 +24,7 @@ bun run bench:render              # render benchmark, budgeted in docs/developme
 - `rewind`, `worktree`, and `session-bus`'s real-repository tests create real
   repositories and skip unless `CI` or `PI_SLOW_TESTS=1` is set. Touching one
   means running it explicitly.
-- A new package-level test also goes into `ROOT_TEST_FILES` in
+- A new package-level test goes into `ROOT_TEST_FILES` in
   `test/structure.test.ts`: that set is compared exactly.
 - A peer change is proved against the newest published Pi by the `compat` CI job;
   `docs/development.md` reproduces it locally. Never commit the peer bump.
@@ -102,12 +102,11 @@ Every tool declares `annotations.readOnlyHint` and `openWorldHint`, plus
 `destructiveHint` when it mutates; a missing hint defaults to the restrictive
 value. `executionMode: "sequential"` when a tool mutates session, UI, or runtime
 state. Every registered tool has a `promptSnippet`, and no channel restates
-another's job. `test/prompt-budget.test.ts` holds the always-on ceilings; the
-rules are in
+another's job. `test/prompt-budget.test.ts` holds the ceilings; see
 [`docs/development.md#tool-and-prompt-surface`](./docs/development.md#tool-and-prompt-surface).
 
 A tool rename updates `test/naming.test.ts` and the catalog table in both entry
-READMEs; a command rename updates `docs/user-guide/reference.md`.
+READMEs; a command rename updates its `docs/extensions/` page.
 
 ## Rules
 

@@ -99,6 +99,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it (the old field names, including a sentence with no kind) and is rewritten as version 2
   on its next write.
 
+### Removed
+
+- `docs`: `docs/user-guide/` is deleted — twelve chapters and its reference tables —
+  with the four guards that existed only to hold it: `test/reference-coverage.test.ts`
+  is gone, `test/doc-counts.test.ts`, `test/settings-coverage.test.ts`, and
+  `test/extension-load.test.ts` keep the claims that outlive it, and the two entry
+  READMEs drop their guide links and Documentation row. Each feature's page under
+  `docs/extensions/` is now the whole per-feature surface. The one install pin the
+  guide offered moves to both READMEs' Quick start, so `test/release.test.ts` still
+  checks it.
+
 ### Fixed
 
 - `board`: `execute` asks the same gates at both doors. A card parked in `blocked` used to
@@ -1038,7 +1049,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   config of the capturing machine.
 - `docs`: the catalog now says its groups are the
   promises the [roadmap](./ROADMAP.md) tracks and that the
-  [guide](./docs/user-guide/) covers the same ground chapter by chapter; and the
+  user guide (`docs/user-guide/`) covers the same ground chapter by chapter; and the
   Documentation table gains the [documentation index](./docs/README.md). The
   capture rule moves to
   [`docs/development.md`](./docs/development.md#screenshots), which now says the
@@ -1049,7 +1060,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   refreshed), so `bun run check` proves the package against the newest published
   peers instead of 1.1.0. The peers keep their `"*"` range; nothing a consumer
   installs changes.
-- `docs`: the [user guide](./docs/user-guide/) is re-cut so a page is one job —
+- `docs`: the user guide (`docs/user-guide/`) is re-cut so a page is one job —
   nine chapters and two lookup pages instead of eight chapters whose middle held
   a third of the manual. `plan-and-delegate` becomes `plan-and-verify`,
   `track-and-remember`, and `delegate-and-background`; the five packaged skills
@@ -2059,7 +2070,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   recorded assumptions, and the skill reviews an existing file instead of
   replacing it — nothing is written until the plan is approved.
 
-- docs: [`docs/user-guide/`](./docs/user-guide/) is an eight-chapter end-user
+- docs: `docs/user-guide/` is an eight-chapter end-user
   manual — guide home, getting started, plan and delegate, keep work safe, web
   and files, WeChat, settings, troubleshooting, and reference — with
   task-focused walkthroughs, key tables, limits, and cross-links. The

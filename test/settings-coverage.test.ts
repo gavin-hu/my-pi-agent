@@ -17,8 +17,8 @@
  * normalizer with an extreme value, not by exporting the limits for the test.
  *
  * The same catalogue is the source of truth for the prose that counts the
- * screen: the two entry READMEs, the extension page, the reference, and the
- * guide state how many rows it holds, and every count below is built from
+ * screen: the two entry READMEs, the extension page, and the configuration
+ * reference state how many rows it holds, and every count below is built from
  * `SETTING_ROWS`, so a fourteenth row fails here until the prose follows.
  */
 
@@ -433,7 +433,6 @@ const STATED: readonly { file: string; phrase: string }[] = [
 	{ file: "docs/extensions/bytefly.md", phrase: `at ${count(ROW_COUNT)} rows so the screen fits` },
 	{ file: "docs/extensions/bytefly.md", phrase: `catalogue: the ${count(ROW_COUNT)} descriptors` },
 	{ file: "docs/configuration.md", phrase: `${count(ROW_COUNT)} rows under four headings` },
-	{ file: "docs/user-guide/settings-and-customization.md", phrase: `${count(ROW_COUNT)} preferences` },
 ];
 
 /** The spellings those sentences carried before the last row landed, or before a reword. */

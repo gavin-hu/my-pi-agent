@@ -7,10 +7,10 @@
  * - **The catalog**: how many extensions the manifest declares, how many packaged
  *   skills, and how many themes. A prose count is the first thing to rot, because
  *   nothing breaks when it does.
- * - **The surface**: the tool names one extension registers, and the ones the pack
- *   adds beyond Pi's own. `worktree` re-registers Pi's seven path tools rather than
- *   adding tools of its own, so those are filtered out wherever the question is
- *   "what does this pack add".
+ * - **The surface**: the tool names one extension registers. `worktree`
+ *   re-registers Pi's seven path tools rather than adding tools of its own, so
+ *   those are filtered out wherever the question is "what does this extension
+ *   put in front of the model".
  *
  * Loading a factory needs the fake host and a temp agent directory, so every value
  * here is a cache of one load per process: `bun test` isolates files, and the load is
@@ -37,7 +37,7 @@ function countDirectories(directory: string, required?: string): number {
 	).length;
 }
 
-/** The catalog the entry READMEs, the roadmap, and the guide advertise. */
+/** The catalog the entry READMEs and the roadmap advertise. */
 export function catalogCounts(): { extensions: number; skills: number; themes: number } {
 	return {
 		extensions: countDirectories("extensions"),
@@ -64,24 +64,4 @@ export async function registeredSurface(entry: string): Promise<{ tools: string[
 			};
 		}),
 	);
-}
-
-/** The load runs once per process: every tool count below reads the same result. */
-let toolsPromise: Promise<string[]> | undefined;
-
-/**
- * Every tool the pack adds, deduplicated across the manifest.
- *
- * "Adds" matters: the seven names `worktree` re-registers are Pi's, and a doc that
- * counts the pack's tools does not count them.
- */
-export function addedTools(): Promise<string[]> {
-	toolsPromise ??= (async () => {
-		const names = new Set<string>();
-		for (const entry of manifest) {
-			for (const tool of (await registeredSurface(entry)).tools) names.add(tool);
-		}
-		return [...names].sort();
-	})();
-	return toolsPromise;
 }
