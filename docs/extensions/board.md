@@ -550,8 +550,10 @@ it always meant: when the card was last touched, which is not when it last chang
   release, a reclaim, and a claim cannot carry a sentence into a lane it was not written for
   — **but the lane log keeps it**: the transition that parked the card carries the same
   `block`, so "why did this sit for two days" outlives the resume. A spot-check is cleared
-  when the card leaves `execute` — a park is somebody deciding the work is not finished — so
-  a card that was blocked and resumed needs another look before `done`.
+  only when the card leaves `execute` for `blocked` or `plan` — a park is somebody deciding
+  the work is not finished, and re-planning changes what was agreed — so a card that was
+  blocked and resumed needs another look before `done`, while a card that lands keeps the
+  sign that let it through.
   `landed` is the commit `HEAD` resolved to at the move to `done`, recorded because
   `done` is terminal and nothing later can say which change closed the card. Of the three
   the move writes, only the blocker is required — a card cannot be parked without saying
