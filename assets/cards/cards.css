@@ -1,7 +1,8 @@
 /**
  * The shell every posting card shares: the plan pair — `plan-flow.html`, prose-led,
- * and `plan-flow-graphic.html`, graphic-led — and the board pair — `board.html` and
- * `board-team.html`. All four are captured at 1200×675 by `screenshot:cards`.
+ * and `plan-flow-graphic.html`, graphic-led — and the board three — `board.html`,
+ * `board-team.html`, and `board-parallel.html`. Every card is captured at 1200×675
+ * by `screenshot:cards`.
  *
  * The palette is `themes/bytefly-dark.json` — the one the terminal theme, the
  * README hero, and the browser pages all draw from — copied here because a page
@@ -296,6 +297,13 @@ body {
 	height: 406px;
 }
 
+/* The parallel card's head is two lines — the English then the Chinese — which is 46px
+ * of the 675 it has to pay back, so its drawing stands 26px shorter and still clears
+ * its own floor notes. */
+.diagram--parallel {
+	height: 380px;
+}
+
 .diagram text {
 	font-family: var(--font-sans);
 }
@@ -312,6 +320,13 @@ body {
 	stroke: rgba(var(--success-rgb), 0.36);
 }
 
+/* The board's plan lane wears the role `LANE_RULES` gives it, `--warn`, so a poster and
+ * the page say the same colour about the same lane; the execute lane is `.lane` itself. */
+.lane--plan {
+	fill: rgba(var(--warn-rgb), 0.06);
+	stroke: rgba(var(--warn-rgb), 0.36);
+}
+
 .lane-label {
 	font-family: var(--font-mono);
 	font-size: 14px;
@@ -322,6 +337,10 @@ body {
 
 .lane-label--write {
 	fill: var(--success);
+}
+
+.lane-label--plan {
+	fill: var(--warn);
 }
 
 .node {
