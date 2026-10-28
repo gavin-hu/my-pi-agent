@@ -53,12 +53,6 @@ export const SUBAGENT_READ_ONLY_PARAM = "readOnly";
 export const BOARD_TOOL = "board";
 
 /**
- * The one `board` action that reads. Plan mode admits it and refuses the rest, which
- * is the distinction the tool's `readOnlyHint` cannot carry: the same tool writes.
- */
-export const BOARD_READ_ACTION = "list";
-
-/**
  * The `read_doc` tool. `file-read` registers it, and the plan, rewind, and
  * subagent reader lists carry the name, so the document reader is one reader
  * everywhere instead of three spellings.

@@ -10,29 +10,16 @@
 import type { Card } from "../../lib/board/card.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { RoundSummary } from "../../lib/board/round.ts";
+import { BOARD_ACTIONS, type BoardAction } from "../../lib/board/verbs.ts";
 
 /** The tool's name. One extension registers it, so it stays here. */
 export const BOARD_TOOL = "board";
 
-/** The actions the tool accepts, in the order the description lists them. */
-export const BOARD_ACTIONS = [
-	"list",
-	"add",
-	"claim",
-	"release",
-	"reclaim",
-	"move",
-	"note",
-	"contract",
-	"approve",
-	"review",
-	"edit",
-	"archive",
-	"drop",
-] as const;
-
-/** One action. */
-export type BoardAction = (typeof BOARD_ACTIONS)[number];
+// The verbs are the board's, not the tool's: plan mode's read-only policy and the todo
+// nudge classify a call by the same table, and nothing under `lib/` may import this
+// file. Re-exported here so the schema, the description, and the suites keep one import
+// for the tool's own vocabulary.
+export { BOARD_ACTIONS, type BoardAction };
 
 /**
  * What each verb does, in one sentence.

@@ -10,24 +10,27 @@
  * `write`/`edit` being the only mutators.
  *
  * No host dependency beyond the annotation type: the caller supplies the
- * annotation lookup, and the one reader name comes from `tool-names.ts`, so this
- * module stays value-only.
+ * annotation lookup, the one reader name comes from `tool-names.ts`, and which board
+ * verbs read comes from `board/verbs.ts`, so this module stays value-only.
  */
 
 import type { ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { BOARD_READ_ACTION, READ_DOC_TOOL } from "./tool-names.ts";
+import { isBoardReadAction } from "./board/verbs.ts";
+import { READ_DOC_TOOL } from "./tool-names.ts";
 
 /**
  * Whether a call to the `board` tool only reads it.
  *
- * The board is one tool over ten actions, so its `readOnlyHint` says "may write" and
+ * The board is one tool over many actions, so its `readOnlyHint` says "may write" and
  * cannot answer this. The action can, and it travels in the call's input — and in the
  * result's `details`, which is all a `tool_execution_end` event carries. Plan mode
- * asks before the call and the todo nudge after it, so the answer lives here once.
+ * asks before the call and the todo nudge after it, so the answer lives here once —
+ * and the answer is the board's own table, because a verb list kept here is a list
+ * that drifts.
  */
 export function isBoardRead(call: unknown): boolean {
 	if (typeof call !== "object" || call === null) return false;
-	return (call as { action?: unknown }).action === BOARD_READ_ACTION;
+	return isBoardReadAction((call as { action?: unknown }).action);
 }
 
 /**
