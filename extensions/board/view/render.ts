@@ -15,10 +15,10 @@
  * The client modules share one namespace, `window.bfBoard`: this one paints the whole
  * frame, `card.ts` draws one card's face, `team.ts` draws the round, `dialog.ts` fills and
  * opens a card, `keys.ts` binds, and `live.ts` owns the frame stream and the wiring. The
- * browser runtime (`el`, `typing`, …) is spliced in here, because a page's one global
- * body is the runtime every fragment reads through `board.`; the note renderer a dialog
- * reads with is spliced into that fragment instead, so nothing this page does not place
- * on `board.` reaches `window.
+ * browser runtime (`el`, `typing`, …) is spliced in here, because a page's one global body
+ * is the runtime every fragment reads through `board.`; the note renderer a dialog reads
+ * with is spliced into that fragment instead, so nothing reaches `window` that this page
+ * does not place on `board.`.
  *
  * `plural`, `tabTitle`, `matchesQuery`, `reasonFor`, `el`, `typing`, and `paintStatus` are
  * not written here. Their one bodies live in `lib/` beside the rules they express, and the
