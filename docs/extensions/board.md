@@ -578,16 +578,17 @@ the snapshot are `lib/board/` — see
 ## Testing
 
 `test/suite-manifest.ts` declares the suites:
-`lib/board/{card,contract,lanes,limits,links,page-pointer,read,reason,round,round-text,rules,session,store,view}`
+`lib/board/{card,contract,lanes,limits,links,page-pointer,read,reason,round,round-text,rules,session,skipped,store,view}`
 for the record, the reader that maps a v1 file onto it, the contract and its boundary, the
 lane table and its transition matrix, the WIP limits and their config, the dependency graph,
-the note a page leaves, the one reason rule, the rollup and its text, the card's transitions,
-the store a call opens and the identity it writes as, the files that store keeps, and the
-snapshot, and
+the note a page leaves, the one reason rule, the rollup and its text, the sentence for a
+refused file, the card's transitions, the store a call opens and the identity it writes as,
+the files that store keeps, and the snapshot, and
 `extensions/board/{input,seat,tools,page,commands,extension,transport/router,view/pages,view/behaviour}`
 for the card body, the seat, every action, the page's lifecycle over a real socket (a page
 served, attached to, and taken over, a board that stops being readable, and a write refused
 on the wire), the command, the
 factory, the routes, the document and client bundle, and the
-page driven in a browser — a card opened from its title, the filter, the fold, a live
-frame, and the dialog's ladder.
+page driven in a browser — a card opened from its title or anywhere on it, the filter and
+the no-match state, the fold, the lane switch, a live frame, the dialog's ladder, and the
+keyboard a dialog keeps.
