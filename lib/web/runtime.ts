@@ -156,20 +156,19 @@ export function dialogScript(options: DialogOptions): string {
   });
 
   // Tab cycles inside the dialog: leaving it would put focus behind the scrim,
-  // where the page looks inert but is not.
+  // where the page looks inert but is not. Every Tab is redirected rather than only
+  // the two that wrap, because the panel is the first node and the *container* of the
+  // others: a browser's own backwards step from the last node has no sibling to land
+  // on and walks out of the dialog instead.
   dialog.addEventListener("keydown", function (event) {
     if (event.key !== "Tab") return;
     var nodes = focusables();
     if (nodes.length === 0) { event.preventDefault(); return; }
-    var first = nodes[0];
-    var last = nodes[nodes.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    var at = nodes.indexOf(document.activeElement);
+    var step = event.shiftKey ? -1 : 1;
+    var next = at === -1 ? (event.shiftKey ? nodes.length - 1 : 0) : (at + step + nodes.length) % nodes.length;
+    event.preventDefault();
+    nodes[next].focus();
   });
 
   // Capture, so Esc closes the dialog before a page handler peels another layer.

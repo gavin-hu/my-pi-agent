@@ -582,6 +582,10 @@ describe("web theme runtime", () => {
 		expect(script).toContain('getElementById("approve-cancel")');
 		expect(script).toContain("window.bfApprove");
 		expect(script).toContain('if (event.key !== "Tab") return;');
+		// Every Tab is redirected, not only the two that wrap: the panel is the container of
+		// the rest, so a browser's own backwards step from the last node leaves the dialog.
+		expect(script).toContain("nodes.indexOf(document.activeElement)");
+		expect(script).toContain("nodes[next].focus();");
 		expect(script).toContain("opener.focus()");
 		expect(script).toContain("}, true);");
 		expect(script).toContain("event.stopPropagation();");

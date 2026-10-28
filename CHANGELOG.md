@@ -33,6 +33,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `lib`: `Shift+Tab` no longer walks out of a dialog. The panel is the first focusable and
+  the container of the rest, so the trap's two edge checks let a backwards step from the
+  close button land on the page behind the scrim; every `Tab` is now redirected, and the
+  cycle holds in both directions.
 - `team`: `assign` and `offer` check the board with its configured WIP limits before they
   send anything. A board with `board.wip` set could hand a card off — or broadcast an offer —
   that the claim would then refuse, because the precheck ran with the default limits. `offer`
