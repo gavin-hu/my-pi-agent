@@ -11,9 +11,9 @@
 of extensions, skills, and themes to the agent you already use — install the pack, turn
 off what you do not want, and keep using Pi unchanged.
 
-This page is the catalog and the setup instructions. For how to use a feature —
-the keys, the commands, and what you should see — start with the
-[user guide](./docs/user-guide/).
+This page is the catalog and the setup instructions. Each feature's own page
+under [`docs/extensions/`](./docs/extensions/) carries the keys, the commands, and
+what you should see.
 
 ![A terminal window running the Pi TUI: the bytefly header naming Pi and bytefly's versions, three key-hint rows, a nameplated message with its answer and an edit diff behind the rail, a notice that two background jobs finished, naming the test run that passed and the build that failed, the turn rule, the goal and todo rails, the input editor with a half-typed request between its two rules, and the two-line footer — the plan chip and the branch above, the context gauge, the priced cost against its $5 budget, and the model below](assets/screens/chrome.png)
 
@@ -57,12 +57,9 @@ like any other.
 Requires a working [Pi](https://pi.dev) installation.
 
 ```bash
-pi install npm:@gavin-hu/my-pi-agent
+pi install npm:@gavin-hu/my-pi-agent                        # the latest release
+pi install git:github.com/gavin-hu/my-pi-agent@v0.21.0      # a pinned release
 ```
-
-[User guide](./docs/user-guide/) has the other sources — git, a
-pinned release, a project-local install, and a trial that writes nothing — plus
-the fit decision, the first workflows, and how to remove the pack.
 
 `git` on `PATH` is needed by [`worktree`](./docs/extensions/worktree.md) and
 [`rewind`](./docs/extensions/rewind.md); everything else degrades or disables cleanly,
@@ -109,9 +106,8 @@ document. `PI_OFFLINE` skips the check;
 ## What you get
 
 22 extensions, 4 packaged skills, and 2 themes, grouped by the promises the
-[roadmap](./ROADMAP.md) tracks; the [guide](./docs/user-guide/) covers the same
-ground chapter by chapter. Each extension's own page in `docs/extensions/` has
-the full tool and command surface, opening with its capabilities.
+[roadmap](./ROADMAP.md) tracks. Each extension's own page in `docs/extensions/`
+has the full tool and command surface, opening with its capabilities.
 
 ### Plan and delegate
 
@@ -208,8 +204,8 @@ is the `chrome.rail` setting.
 `bun run screenshot:tools` regenerates it; `bun run screenshot:tool-pngs` writes
 one image per tool under [`assets/tools/`](./assets/tools).
 
-Ready to use one? The [user guide](./docs/user-guide/) has a walkthrough for
-each: the first run, the keys that matter, and what to expect on screen.
+Ready to use one? Each extension's page under [`docs/extensions/`](./docs/extensions/)
+opens with what it does and the keys and commands it answers.
 
 ## Configuration
 
@@ -239,7 +235,6 @@ stops the factories from registering; to drop the whole package, use Pi's
 
 | Guide | What it covers |
 |---|---|
-| [User guide](./docs/user-guide/) | A chaptered manual: install, every feature, settings, troubleshooting, and a command reference. |
 | [Configuration](./docs/configuration.md) | Resolution, the settings screen, and every `bytefly.json` key with its default and bounds. |
 | [Architecture](./docs/architecture.md) | The target shape: the load path, the extension contract, the turn, state, layers, lifetimes, and where a change belongs. |
 | [Extension docs](./docs/extensions/) | One page per extension, opening with its capabilities: the tool and command surface, the integration contract, and the design notes. |

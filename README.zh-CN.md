@@ -10,8 +10,8 @@
 `my-pi-agent` 是一个 [Pi](https://pi.dev) 包，在你已经使用的智能体之上新增一组精选
 扩展、技能和主题 —— 安装整个包，关掉你不需要的部分，其余照常使用 Pi。
 
-本页是目录与安装说明。要了解某个功能怎么用 —— 按键、命令以及应有的效果 ——
-请先看[用户指南](./docs/user-guide/)。
+本页是目录与安装说明。每个功能在 [`docs/extensions/`](./docs/extensions/) 下都有自己的页面，
+写清按键、命令以及应有的效果。
 
 ![一个运行 Pi TUI 的终端窗口：bytefly 头部标出 Pi 与 bytefly 的版本、三行按键提示、带名板的消息及其回答与编辑差异（位于竖线内）、两个后台任务完成的通知（一个通过的测试任务与一个失败的构建任务）、回合分隔线、目标与待办栏、夹在两条横线之间且已输入半句的输入框，以及两行页脚（上下文指示、按价目计算的费用、模型名）](assets/screens/chrome.png)
 
@@ -50,11 +50,9 @@ Pi 通过 [`package.json`](./package.json) 里的 `pi` manifest 发现这些资�
 需要一个可用的 [Pi](https://pi.dev) 安装。
 
 ```bash
-pi install npm:@gavin-hu/my-pi-agent
+pi install npm:@gavin-hu/my-pi-agent                        # 最新发布版
+pi install git:github.com/gavin-hu/my-pi-agent@v0.21.0      # 固定版本
 ```
-
-[用户指南](./docs/user-guide/) 介绍其余安装方式——git、固定版本、
-仅项目本地安装，以及不写入任何内容的试用——还有适用性判断、首个工作流和移除方式。
 
 `git` 需在 `PATH` 上，供 [`worktree`](./docs/extensions/worktree.md) 与
 [`rewind`](./docs/extensions/rewind.md) 使用；其余部分会优雅降级或禁用，
@@ -92,9 +90,8 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 
 ## 包含内容
 
-22 个扩展、4 个随包技能，以及 2 个主题，按 [路线图](./ROADMAP.md) 追踪的承诺分组；
-[用户指南](./docs/user-guide/) 按章节讲述同样的内容。每个扩展在 `docs/extensions/`
-下的页面提供完整的工具与命令说明，并以能力表开头。
+22 个扩展、4 个随包技能，以及 2 个主题，按 [路线图](./ROADMAP.md) 追踪的承诺分组。
+每个扩展在 `docs/extensions/` 下的页面提供完整的工具与命令说明，并以能力表开头。
 
 ### 规划与委派
 
@@ -187,8 +184,8 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 `bun run screenshot:tools` 重新生成它；`bun run screenshot:tool-pngs` 在
 [`assets/tools/`](./assets/tools) 下为每个工具输出一张图。
 
-准备上手了？[用户指南](./docs/user-guide/) 为每个扩展都准备了分步讲解：
-第一次运行、关键按键，以及屏幕上会出现什么。
+准备上手了？每个扩展在 [`docs/extensions/`](./docs/extensions/) 下的页面开头便说明它做什么，
+以及它对应的按键与命令。
 
 ## 配置
 
@@ -213,7 +210,6 @@ Pi 的 `--no-extensions`，或从你的设置中删除该包。
 
 | 指南 | 内容 |
 |---|---|
-| [用户指南](./docs/user-guide/) | 分章手册：安装、每项功能、设置、故障排查与命令参考。 |
 | [配置](./docs/configuration.md) | 解析规则、设置界面，以及 `bytefly.json` 每个键的默认值与取值范围。 |
 | [架构](./docs/architecture.md) | 目标形态：加载路径、扩展契约、一次回合、状态、分层、长生命周期，以及改动应放在哪里。 |
 | [扩展文档](./docs/extensions/) | 每个扩展一页，以能力表开头：工具与命令面、集成契约，以及设计说明。 |

@@ -385,5 +385,5 @@ If you are new to the tree, this order teaches one idea per stop.
 | Config resolution and the section index | [`./configuration.md`](./configuration.md) |
 | Trust boundaries and the threat model | [`./security.md`](./security.md) |
 | Scripts, checks, and the release process | [`./development.md`](./development.md) |
-| What every feature does, for a user | [`./user-guide/`](./user-guide/) |
+| What every feature does, for a user | [`./extensions/`](./extensions/) |
 | What comes next | [`../ROADMAP.md`](../ROADMAP.md) |

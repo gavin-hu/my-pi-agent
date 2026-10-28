@@ -126,18 +126,11 @@ The suite is organized by tier; the full contract is in
 2. **Library suites** — the same grouping over a `lib/` subsystem, keeping
    pure-unit and platform-seam contracts.
 3. **Package-level tests** — cross-cutting contracts (`naming`,
-   `extension-load`, `config-docs`, `settings-coverage`, `reference-coverage`,
+   `extension-load`, `config-docs`, `settings-coverage`,
    `prompt-budget`, `release`, `structure`, `drift`, `theme`, `dependencies`).
    `dependencies` walks each extension
    entrypoint's static import graph, so a parser library loads in the function
    that needs it rather than on every start — the `extract/xlsx.ts` pattern.
-   `reference-coverage` derives the user guide's reference tables from the code:
-   the command rows from the registrations, each extension's tools, commands, and
-   flags from one load of the manifest, the launch rows from the registered flags
-   and `lib/env.ts`, and the files-on-disk rows from the modules that place a
-   store. A new command, tool, flag, or store with no row therefore fails the
-   check instead of waiting for a reader to notice, and the modules that anchor a
-   path on the agent directory are listed there so a store cannot ship unnoticed.
 
 Tests are deterministic by construction: inject `now`, `spawn`, `kill`,
 `liveness`, and a clock rather than stubbing globals. Real git is allowed only
@@ -363,17 +356,15 @@ Do not duplicate across these:
   relative links. Deep docs stay English until a translation owner exists.
 - `CONTRIBUTING.md` — the human contributor entry point; points at `AGENTS.md`
   for the invariants and here for the conventions rather than restating them.
-- `docs/` — repo-level guides: `user-guide/` (the chaptered end-user manual),
-  `configuration` (resolution, the settings screen, and every key with its
-  default), `architecture`, `development`, and `security`. The catalog lives in
-  `README.md`. Inside the guide, a chapter owns its walkthrough and the keys of
-  the screen it describes, and `user-guide/reference.md` owns the one-line
-  description of every command — a chapter repeats that sentence only in a
-  table a reader is standing in, so the two never disagree. A page is one job
-  and stays near 200–400 lines; its title carries no number, so inserting one
-  costs the map and the two footers and nothing else; and every extension and
-  skill has exactly one page, listed in the guide home's index, which
-  `test/extension-load.test.ts` holds against the manifest and `skills/`.
+- `docs/` — repo-level guides: `configuration` (resolution, the settings screen,
+  and every key with its default), `architecture`, `development`, and `security`;
+  the catalog lives in `README.md`, and every extension's own page is
+  `docs/extensions/<name>.md`. That page is where the extension's keys and
+  commands live: it opens with its capabilities and owns the one-line description
+  of every command it registers, which `test/extension-docs.test.ts` holds against
+  the registered surface. A page is one job and stays near 200–400 lines; its
+  title carries no number, so inserting one costs the map and the two footers and
+  nothing else.
 - `ROADMAP.md` — the horizon list, hand-maintained: `test/roadmap.test.ts` pins
   its ids, links, citations, bucket caps, and the tag the file says it was written
   against (the newest `vX.Y.Z`), so a release restates that sentence in its own
@@ -448,17 +439,12 @@ authenticates with npm trusted publishing (OIDC). See
    entries in [`../CHANGELOG.md`](../CHANGELOG.md) under
    `## [X.Y.Z] - YYYY-MM-DD`, leave `## [Unreleased]` in place and empty, and
    update the link refs at the bottom of that file. Bump the `@vX.Y.Z` install
-   pin in the [getting-started chapter](./user-guide/getting-started.md#install)
-   in the same commit — that is the one place that offers a pin;
-   `test/release.test.ts` fails on a stale pin. Recapture the hero in the same
-   step: `bun run screenshots chrome` re-renders `assets/screens/chrome.png` from the new
-   `package.json`, and nothing else can, because the capture needs macOS and
-   Terminal.app — see [Screenshots](#screenshots). Bump the pack version in the
-   edition line on the [user guide home](./user-guide/README.md) in the same
-   commit, and the Pi version there if the guide was rechecked against a newer
-   one, so the stamp does not lag the package. The two Pi numbers are separate
-   claims: the hero prints the floor `bun.lock` resolved, so it can name a newer
-   Pi than the edition line, which records the version the guide was checked on.
+   pin in both entry READMEs in the same commit — they are the only docs that
+   offer a pin; `test/release.test.ts` fails on a stale pin. Recapture the hero
+   in the same step: `bun run screenshots chrome` re-renders
+   `assets/screens/chrome.png` from the new `package.json`, and nothing else can,
+   because the capture needs macOS and Terminal.app — see
+   [Screenshots](#screenshots).
 3. Run `bun run check`.
 4. Commit as `chore(release): X.Y.Z` and merge the branch into `main`.
 5. Tag `main`'s HEAD and push it with `main`, never after it:

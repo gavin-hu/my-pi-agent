@@ -533,7 +533,7 @@ the extension and need no attention.
 
 | Variable | Meaning |
 |---|---|
-| `PI_DISABLED_EXTENSIONS` | Comma- or whitespace-separated extension names to load without; case-insensitive, unknown names ignored. See [User guide → Turning features off](./user-guide/settings-and-customization.md#turning-features-off-or-removing-the-pack). |
+| `PI_DISABLED_EXTENSIONS` | Comma- or whitespace-separated extension names to load without; case-insensitive, unknown names ignored. See [README → Configuration](../README.md#configuration). |
 | `PI_OFFLINE` | Turns off Pi's automatic network activity; `bytefly`'s update check reads it too, so an offline session makes no package-update or version request. |
 | `PI_CODING_AGENT_DIR` | The agent directory the global document resolves against. |
 
@@ -554,14 +554,14 @@ The `wechat` extension keeps runtime state under `<agent-dir>/wechat/`:
 `state.json` (the poll cursor, the owner, per-peer reply tokens, and the recent
 message ids used to ignore a replay), `media/` (downloaded inbound files), and
 `poller.lock` (one runtime owns the account at a time). This is login and runtime
-state, not configuration; the [user guide's files table](./user-guide/reference.md#files-on-disk)
-lists everything else the package writes.
+state, not configuration; each extension's page under
+[`docs/extensions/`](./extensions/) names the files it writes.
 
 ## Related docs
 
 | Topic | Document |
 |---|---|
-| Changing settings on screen, for a user | [User guide](./user-guide/) |
+| Changing settings on screen, for a user | [`bytefly`](./extensions/bytefly.md) |
 | Where configuration sits in the runtime | [Architecture](./architecture.md) |
 | Trust boundaries around state and credentials | [Security](./security.md) |
 | One extension's own configuration section | [`docs/extensions/<name>.md`](./extensions/) |

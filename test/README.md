@@ -58,7 +58,6 @@ gate is stated in the test.
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
    `test/doc-counts.test.ts`,
    `test/config-docs.test.ts`, `test/settings-coverage.test.ts`,
-   `test/reference-coverage.test.ts`,
    `test/dependencies.test.ts`, `test/skill-bank.test.ts`,
    `test/scripts-surface.test.ts`) — cross-cutting
    contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
@@ -302,7 +301,6 @@ test/
   roadmap.test.ts          # ROADMAP.md ids, links, and per-horizon caps
   scripts-surface.test.ts  # the package scripts, and the docs that name them
   settings-coverage.test.ts # the settings catalogue, the loaders it shows, and the docs that count it
-  reference-coverage.test.ts # the user guide's reference tables against the registered surface and the places the pack writes
   tool-render.test.ts      # every tool's call and result through the shared frame
   wait-budget.test.ts      # no test waits on `waitFor` for a literal budget under a second
 ```

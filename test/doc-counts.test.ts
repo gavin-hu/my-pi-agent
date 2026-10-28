@@ -4,7 +4,7 @@
  * A prose count is the first thing to rot: nothing breaks when "21 extensions"
  * becomes 22, so it stays 21 until somebody notices. `test/settings-coverage.test.ts`
  * solved the same problem for one number by deriving it from `SETTING_ROWS`; this file
- * is the same idea for the catalog and the tool surface.
+ * is the same idea for the catalog.
  *
  * Each statement is a **pattern plus what it claims**, not a sentence rebuilt from the
  * numbers: the pattern captures the numbers in the order the sentence names them, and
@@ -19,7 +19,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { addedTools, catalogCounts, manifest } from "./helpers/surface.ts";
+import { catalogCounts, manifest } from "./helpers/surface.ts";
 
 const root = join(import.meta.dir, "..");
 
@@ -33,15 +33,14 @@ interface Claim {
 	counts: Array<keyof Counts>;
 }
 
-/** What the tree holds: the catalog, and the tools the pack adds. */
+/** What the tree holds: the catalog. */
 interface Counts {
 	extensions: number;
 	skills: number;
 	themes: number;
-	tools: number;
 }
 
-/** The six places a count of the code is stated. */
+/** The three places a count of the code is stated. */
 const CLAIMS: Claim[] = [
 	{
 		file: "README.md",
@@ -58,24 +57,9 @@ const CLAIMS: Claim[] = [
 		pattern: /(\d+) extensions, (\d+) packaged skills, (\d+) themes/,
 		counts: ["extensions", "skills", "themes"],
 	},
-	{
-		file: "docs/user-guide/README.md",
-		pattern: /adds (\d+) extensions, (\d+) packaged skills, and (\d+) colour themes/,
-		counts: ["extensions", "skills", "themes"],
-	},
-	{
-		file: "docs/user-guide/reference.md",
-		pattern: /The pack adds (\d+) extensions and (\d+) tools\./,
-		counts: ["extensions", "tools"],
-	},
-	{
-		file: "docs/user-guide/getting-started.md",
-		pattern: /The pack adds (\d+) tools that were/,
-		counts: ["tools"],
-	},
 ];
 
-const counts: Counts = { ...catalogCounts(), tools: (await addedTools()).length };
+const counts: Counts = catalogCounts();
 
 describe("doc counts", () => {
 	test("derives the counts from the tree, and finds something to count", () => {
