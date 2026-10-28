@@ -47,10 +47,12 @@ ${WEB_COMPONENTS_CSS}
 .board-picker{display:none;margin-bottom:var(--space-3)}
 
 /* The main pane is this page's only child of the shell, so it grows to fill the
-   column and the footer stays at the bottom however short the board is. */
-.board-main{flex:1 1 auto}
+   column and the footer stays at the bottom however short the board is. Its top
+   padding moves to the panels: a sticky head pins to the scroll box's padding
+   edge, so a gutter above it is a strip a card scrolls through unheaded. */
+.board-main{flex:1 1 auto;padding-top:0}
 /* One panel per tab; the shell's main pane is the only scroll box. */
-.board-panel{display:flex;flex-direction:column;min-width:0}
+.board-panel{display:flex;flex-direction:column;min-width:0;padding-top:var(--space-5)}
 .board-panel[hidden]{display:none}
 .board-no-cards{max-width:32rem;margin:auto;padding:var(--space-8) var(--space-6)}
 /* One way back out of a filter that matched nothing, under the sentence that says so. */
@@ -70,6 +72,10 @@ ${WEB_COMPONENTS_CSS}
    replace the basis, so the floor only ever applies to the row it was chosen for:
    five lanes at 1180px are 60rem, which is inside the row before the wrap. */
 .board-lane[data-empty="false"][data-folded="false"]{min-width:12rem}
+/* Except finished work: it is history, and a lane of five finished cards used to take
+   half the row while the one card still being worked sat on the floor and elided its
+   own title. A done lane draws as if it held three cards, however many it holds. */
+.board-lane[data-lane="done"]{flex-grow:calc(1 + min(3, var(--lane-count)))}
 /* The rail: a dot, a word, and a count — the fact that the lane is showing nothing, not a
    tray. A lane is a rail when it holds no cards and when it is folded, because both say
    the same thing: there is nothing here to read. */
@@ -102,7 +108,7 @@ ${LANE_ROLE_CSS}
 .board-card[data-lane="done"] .board-card__title:hover{color:var(--accent)}
 .board-card[data-lane="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
 .board-card__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
-.board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1);margin:0;padding:0;list-style:none}
+.board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-2);margin:0;padding:0;list-style:none}
 /* A chip is one line and nowrap by design, so an owner label or a path longer than the card
    would spill past its border and across the lane beside it: clipped to the card instead,
    with the whole of it on the hover title the renderer sets. The list item has to be the one
