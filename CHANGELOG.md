@@ -24,7 +24,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs`: the two facts the deleted user-guide guard held are back. Every module that reads
   `getAgentDir` is now either a declared store — its location named in the `Files` row for it,
   and the literal still in its source — or a declared reader with a reason, so a new store
-  cannot ship without saying where it lives; nine extension pages now name their location.
+  cannot ship without saying where it lives; seven extension pages now name their location — the
+  other two declared stores are `lib/` modules, whose row is in `lib/README.md`.
   The pack's total tool count is deliberately never stated: the README's tool column is
   compared with the registered set, so a total could only rot, and the decision is recorded
   in `test/doc-counts.test.ts` and in the doc rules rather than left to memory.
