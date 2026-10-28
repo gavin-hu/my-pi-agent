@@ -449,7 +449,7 @@ stops at the first difference because the control, not the checker, is the fix.
 | Integration point | How |
 |---|---|
 | Command | `/browse` registers a single command from the factory; no tools are exposed. |
-| State | The running server, its root, and the session port live in a module-local closure; nothing is persisted and no session entries are written. |
+| State | The running mount, its root, and the session id live in a module-local closure; nothing is persisted and no session entries are written. The port is `serve`'s, not this extension's. |
 | Lifecycle | The factory opens no socket; the server is created on `/browse` and closed idempotently by `/browse stop`, by `session_shutdown`, and once its last page has been gone for the idle grace, which also ends every attached status stream. |
 
 ## Design notes
@@ -461,8 +461,8 @@ stops at the first difference because the control, not the checker, is the fix.
   picks or retries one. `/browse stop` and `session_shutdown` await the idempotent
   `close()`, which gives the prefix back. The page is the mount's only reader, so the
   channel reports the last page's departure after `IDLE_STOP_MS` and the command
-  releases the prefix — the
-  cached port survives, so the next `/browse` binds the same one.
+  releases the prefix — and the session's port is `serve`'s, remembered per session,
+  so the next `/browse` answers on the same origin.
 - **Pure routing.** `handleRequest(context, method, rawUrl, headers)` validates
   method and `Host`, parses the URL, matches a route, and runs every path
   through `paths.ts`. It returns a plain `ServeResponse`, so routing is tested
