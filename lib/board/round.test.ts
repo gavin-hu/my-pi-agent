@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card, CARD_STATUSES } from "./card.ts";
+import { type Card, LANES } from "./card.ts";
 import { buildRound, IDLE_MS } from "./round.ts";
 
 const NOW = 1_000_000;
@@ -18,7 +18,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id,
 		title: `Card ${id}`,
-		status: "todo",
+		lane: "todo",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -32,7 +32,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 
 /** A doing card, which is where most groups come from. */
 function doing(id: string, overrides: Partial<Card> = {}): Card {
-	return card(id, { status: "doing", owner: { id: `s-${id}`, label: "billing-core" }, ...overrides });
+	return card(id, { lane: "doing", owner: { id: `s-${id}`, label: "billing-core" }, ...overrides });
 }
 
 describe("buildRound", () => {
@@ -40,8 +40,8 @@ describe("buildRound", () => {
 		const round = buildRound(
 			[
 				doing("1"),
-				card("2", { status: "done", owner: { id: "s-ben", label: "ben" } }),
-				card("3", { status: "done", owner: { id: "s-ben", label: "ben" } }),
+				card("2", { lane: "done", owner: { id: "s-ben", label: "ben" } }),
+				card("3", { lane: "done", owner: { id: "s-ben", label: "ben" } }),
 			],
 			NOW,
 		);
@@ -78,7 +78,7 @@ describe("buildRound", () => {
 	});
 
 	test("a finished card is history, not an owner's live work", () => {
-		const round = buildRound([doing("1"), card("2", { status: "done", owner: { label: "billing-core" } })], NOW);
+		const round = buildRound([doing("1"), card("2", { lane: "done", owner: { label: "billing-core" } })], NOW);
 		expect(round.owners[0]?.cards.map((entry) => entry.id)).toEqual(["1"]);
 		expect(round.done.map((entry) => entry.id)).toEqual(["2"]);
 	});
@@ -96,8 +96,8 @@ describe("buildRound", () => {
 	test("blocked and done are their own lists", () => {
 		const round = buildRound(
 			[
-				card("1", { status: "blocked", owner: { label: "billing-core" } }),
-				card("2", { status: "done", owner: { label: "x" } }),
+				card("1", { lane: "blocked", owner: { label: "billing-core" } }),
+				card("2", { lane: "done", owner: { label: "x" } }),
 			],
 			NOW,
 		);
@@ -141,16 +141,16 @@ describe("buildRound", () => {
 		const cards = [
 			card("1"),
 			doing("2"),
-			card("3", { status: "blocked", owner: { label: "billing-core" } }),
-			card("4", { status: "done", owner: { label: "billing-core" } }),
+			card("3", { lane: "blocked", owner: { label: "billing-core" } }),
+			card("4", { lane: "done", owner: { label: "billing-core" } }),
 		];
 		const round = buildRound(cards, NOW);
-		const doingOf = round.owners.flatMap((group) => group.cards).filter((entry) => entry.status === "doing");
+		const doingOf = round.owners.flatMap((group) => group.cards).filter((entry) => entry.lane === "doing");
 		const lanes = [...round.unassigned, ...doingOf, ...round.blocked, ...round.done];
 		expect(lanes.map((entry) => entry.id).sort()).toEqual(cards.map((entry) => entry.id).sort());
 		// An owner's panel shows the blocked card too, and the Blocked group is the
 		// same card from the lead's angle: two panels, one card.
 		expect(round.owners.flatMap((group) => group.cards).map((entry) => entry.id)).toEqual(["2", "3"]);
-		expect(CARD_STATUSES).toHaveLength(4);
+		expect(LANES).toHaveLength(4);
 	});
 });

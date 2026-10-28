@@ -76,14 +76,14 @@ function callSubject(action: BoardAction, args: Record<string, unknown>): string
 	if (action === "list") {
 		const parts = ["list"];
 		if (args.round === true) parts.push("round");
-		if (typeof args.status === "string") parts.push(args.status);
+		if (typeof args.lane === "string") parts.push(args.lane);
 		if (typeof args.query === "string" && args.query.trim() !== "") parts.push(`"${args.query.trim()}"`);
 		if (card !== "") parts.push(card);
 		return parts.join(" ");
 	}
 	if (card === "") return action;
-	const status = typeof args.status === "string" ? ` ${args.status}` : "";
-	return `${action} ${card}${status}`;
+	const lane = typeof args.lane === "string" ? ` ${args.lane}` : "";
+	return `${action} ${card}${lane}`;
 }
 
 /** One refusal: the reason for the model, the state for the renderer. */
@@ -183,8 +183,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 						return await mutate(store, action, me, now, args, { kind: "reclaim" });
 					case "move": {
 						if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
-						const status = args.status;
-						if (status === undefined || status === "todo") {
+						const lane = args.lane;
+						if (lane === undefined || lane === "todo") {
 							return refusal(
 								action,
 								me,
@@ -194,10 +194,10 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 						// Only the lane that has something to say reads for it: a move to `done`
 						// records the commit that closed the card, and a board outside a
 						// repository simply has none to record.
-						const landed = status === "done" ? await headCommit(pi, ctx.cwd) : undefined;
+						const landed = lane === "done" ? await headCommit(pi, ctx.cwd) : undefined;
 						return await mutate(store, action, me, now, args, {
 							kind: "move",
-							status,
+							lane,
 							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
 							...(landed === undefined ? {} : { landed }),
 						});
@@ -296,7 +296,7 @@ async function read(
 	}
 	const listed = cards.filter(
 		(card) =>
-			(args.status === undefined || card.status === args.status) &&
+			(args.lane === undefined || card.lane === args.lane) &&
 			(args.query === undefined || matchesQuery(card, args.query)) &&
 			// The same rule a claim is checked against, so "mine" cannot list a card this
 			// session could not release.
@@ -306,8 +306,8 @@ async function read(
 	// repository's own board is mostly finished cards — so a listing that names no lane
 	// leaves them out and says how many. A named lane, `card`, and `round` are unchanged;
 	// the rollup counts the whole board, which is what makes it a rollup.
-	const hiddenDone = args.status === undefined ? listed.filter((card) => card.status === "done").length : 0;
-	const shown = hiddenDone === 0 ? listed : listed.filter((card) => card.status !== "done");
+	const hiddenDone = args.lane === undefined ? listed.filter((card) => card.lane === "done").length : 0;
+	const shown = hiddenDone === 0 ? listed : listed.filter((card) => card.lane !== "done");
 	if (args.round !== true) {
 		return textResult(formatBoard(shown, { hiddenDone, archived, skipped }), { action, me, cards: shown });
 	}
@@ -334,7 +334,7 @@ async function readArchive(
 	args: BoardArgs,
 	now: number,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
-	const wrong = (["status", "round"] as const).filter((field) => args[field] !== undefined);
+	const wrong = (["lane", "round"] as const).filter((field) => args[field] !== undefined);
 	if (wrong.length > 0) {
 		return refusal(
 			action,
@@ -415,7 +415,7 @@ async function archiveCards(
 		if (!result.changed) return textResult(`${cardRef(id)} is already archived.`, { action: "archive", me });
 		return textResult(formatArchived([id]), { action: "archive", me, card: result.card, archived: [id] });
 	}
-	const finished = (await store.list()).filter((card) => card.status === "done");
+	const finished = (await store.list()).filter((card) => card.lane === "done");
 	const moved: string[] = [];
 	const failed: Array<{ card: string; error: string }> = [];
 	for (const card of finished) {

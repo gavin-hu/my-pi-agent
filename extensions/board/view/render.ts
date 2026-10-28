@@ -121,7 +121,7 @@ __RUNTIME__
     // reader cannot see from the lane: it comes before the note that says the same.
     // The sentence is the snapshot's, so this line and the tool's refusal name one list.
     if (card.waits !== undefined) return { text: "waits on " + card.waits, kind: "waiting" };
-    if (card.status === "blocked") {
+    if (card.lane === "blocked") {
       // The lane already says blocked and the tone already says danger; the line says why.
       // The recorded reason comes first: the note is what somebody happened to write last,
       // and it is the reason a move to blocked asks for. The slot carries the reason alone —
@@ -132,14 +132,14 @@ __RUNTIME__
     // An offer is a decision the lead already made once: the lane says nobody holds it, and
     // this says how long the broadcast has gone unanswered, which is the difference between
     // nobody having looked and nobody taking it.
-    if (card.status === "todo" && card.offeredAt !== undefined) {
+    if (card.lane === "todo" && card.offeredAt !== undefined) {
       return { text: "offered " + ago(card.offeredAt) + " ago · nobody took it", kind: "waiting" };
     }
-    if (card.status === "doing" && !card.plan) {
+    if (card.lane === "doing" && !card.plan) {
       return { text: "no plan recorded", kind: "unplanned" };
     }
-    if (card.status === "doing") return { text: "planned", kind: "plan" };
-    if (card.status === "done") {
+    if (card.lane === "doing") return { text: "planned", kind: "plan" };
+    if (card.lane === "done") {
       var landed = card.landed ? " · landed " + card.landed.commit : "";
       return { text: "✓ done" + (card.owner ? " by " + card.owner.label : "") + landed, kind: "done" };
     }
@@ -171,7 +171,7 @@ __RUNTIME__
   function cardNode(card, view) {
     var item = el("li", N.card);
     item.setAttribute("data-card", card.id);
-    item.setAttribute("data-status", card.status);
+    item.setAttribute("data-lane", card.lane);
     item.setAttribute("data-rev", String(card.rev));
 
     var head = el("p", N.cardHead);
@@ -291,25 +291,25 @@ __RUNTIME__
 
   /** The lane section for one status, created once and then reused. */
   function laneNode(lane) {
-    var section = document.querySelector('.board-lane[data-status="' + lane.status + '"]');
+    var section = document.querySelector('.board-lane[data-lane="' + lane.key + '"]');
     if (section) return section;
     section = el("section", N.lane);
-    section.setAttribute("data-status", lane.status);
+    section.setAttribute("data-lane", lane.key);
     var head = el("h2", N.laneHead);
-    var toggle = actionButton(N.laneToggle, LANE_LABEL[lane.status] || lane.status, function () {
-      board.toggleLane(lane.status);
+    var toggle = actionButton(N.laneToggle, LANE_LABEL[lane.key] || lane.key, function () {
+      board.toggleLane(lane.key);
     });
     toggle.setAttribute("aria-expanded", "true");
-    toggle.setAttribute("aria-controls", "lane-" + lane.status);
-    toggle.id = "lane-head-" + lane.status;
+    toggle.setAttribute("aria-controls", "lane-" + lane.key);
+    toggle.id = "lane-head-" + lane.key;
     head.appendChild(el("span", N.laneDot));
     head.appendChild(toggle);
     head.appendChild(el("span", N.laneCount));
     section.appendChild(head);
     var list = el("ol", N.laneList);
-    list.id = "lane-" + lane.status;
+    list.id = "lane-" + lane.key;
     section.appendChild(list);
-    section.appendChild(el("p", N.laneEmpty, LANE_EMPTY[lane.status] || "nothing"));
+    section.appendChild(el("p", N.laneEmpty, LANE_EMPTY[lane.key] || "nothing"));
     return section;
   }
 
@@ -333,9 +333,9 @@ __RUNTIME__
       // Finished work starts folded, once: the default is what the page opens with, and
       // toggleLane writes a boolean from then on, so a reader who unfolds Done keeps it
       // unfolded through every frame a peer's write causes.
-      if (lane.status === "done" && lane.cards.length >= DONE_FOLD_AT) {
+      if (lane.key === "done" && lane.cards.length >= DONE_FOLD_AT) {
         board.collapsed = board.collapsed || {};
-        if (board.collapsed[lane.status] === undefined) board.collapsed[lane.status] = true;
+        if (board.collapsed[lane.key] === undefined) board.collapsed[lane.key] = true;
       }
       // A lane holding nothing is a rail: its dot, its word, and its count, in the width
       // the fact deserves. The filter never does this — filtering is a view of the cards,
@@ -362,9 +362,9 @@ __RUNTIME__
       var none = section.querySelector(".board-lane__empty");
       if (none) {
         none.hidden = shown.length !== 0;
-        none.textContent = query !== "" && lane.cards.length > 0 ? "no match" : LANE_EMPTY[lane.status] || "nothing";
+        none.textContent = query !== "" && lane.cards.length > 0 ? "no match" : LANE_EMPTY[lane.key] || "nothing";
       }
-      var collapsed = board.collapsed && board.collapsed[lane.status] === true;
+      var collapsed = board.collapsed && board.collapsed[lane.key] === true;
       var list = section.querySelector(".board-lane__list");
       if (list) list.hidden = collapsed;
       // A folded lane shows nothing, so it takes the rail's width the way an empty one
@@ -384,11 +384,11 @@ __RUNTIME__
     picker.textContent = "";
     for (var i = 0; i < view.lanes.length; i++) {
       (function (lane) {
-        var item = el("button", "bf-segmented__item", (LANE_LABEL[lane.status] || lane.status) + " " + lane.cards.length);
+        var item = el("button", "bf-segmented__item", (LANE_LABEL[lane.key] || lane.key) + " " + lane.cards.length);
         item.type = "button";
         item.setAttribute("role", "tab");
-        item.setAttribute("data-lane", lane.status);
-        item.addEventListener("click", function () { board.showLane(lane.status); });
+        item.setAttribute("data-picker-lane", lane.key);
+        item.addEventListener("click", function () { board.showLane(lane.key); });
         picker.appendChild(item);
       })(view.lanes[i]);
     }
@@ -402,8 +402,8 @@ __RUNTIME__
     // The lane is a status of its own, not a word inside a sentence: the same dot and
     // label a lane head wears, so the dialog and the board speak the same vocabulary.
     var state = document.getElementById("card-dialog-state");
-    state.setAttribute("data-status", card.status);
-    state.textContent = card.status;
+    state.setAttribute("data-lane", card.lane);
+    state.textContent = card.lane;
 
     // One fact per row of the ladder, so a reader can pick out a value instead of
     // hunting for it in a sentence. A row with nothing to say takes its label with it:
@@ -435,7 +435,7 @@ __RUNTIME__
     // How long the card has been in the lane it is in now, which updatedAt cannot say:
     // a note filed against a blocked card moves that stamp without moving the card. Absent
     // for a card written before the log existed, so the row takes its label with it.
-    setRow("lane", card.since !== undefined, card.status + " · " + ago(card.since));
+    setRow("lane", card.since !== undefined, card.lane + " · " + ago(card.since));
     setRow("by", true, card.by);
     setRow("landed", card.landed !== undefined, card.landed ? card.landed.commit : "", card.landed ? card.landed.commit : undefined);
 

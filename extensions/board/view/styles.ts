@@ -6,7 +6,7 @@
  * follows the theme and `lib/web/web.test.ts`'s "draws every colour through a token"
  * rule holds without an exception here. Colour is a role: a lane's dot, its head,
  * and the reason line read `--muted`, `--accent`, `--danger`, and `--success`
- * through `data-status`, never a literal.
+ * through `data-lane`, never a literal.
  *
  * The sheet is in three parts, in the order the page stacks: the toolbar, the
  * board (lanes, cards, and the Team tables), then its dialogs.
@@ -64,9 +64,9 @@ ${WEB_COMPONENTS_CSS}
 .board-lane__toggle[aria-expanded="false"]::after{content:"▸"}
 .board-lane__count{font-variant-numeric:tabular-nums;color:var(--muted);background:var(--canvas);border-radius:var(--radius-pill);padding:0 var(--space-2);font-size:var(--fs-xs);letter-spacing:0}
 .board-lane__dot{width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
-.board-lane[data-status="doing"] .board-lane__dot{background:var(--accent)}
-.board-lane[data-status="blocked"] .board-lane__dot{background:var(--danger)}
-.board-lane[data-status="done"] .board-lane__dot{background:var(--success)}
+.board-lane[data-lane="doing"] .board-lane__dot{background:var(--accent)}
+.board-lane[data-lane="blocked"] .board-lane__dot{background:var(--danger)}
+.board-lane[data-lane="done"] .board-lane__dot{background:var(--success)}
 .board-lane__list{display:flex;flex-direction:column;gap:var(--space-3);margin:0;padding:0;list-style:none}
 .board-lane__empty{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--dim)}
 
@@ -80,9 +80,9 @@ ${WEB_COMPONENTS_CSS}
 .board-card__title{margin:0;padding:0;border:0;background:none;text-align:left;cursor:pointer;font:var(--fw-semibold) var(--fs-base)/var(--lh-snug) var(--font-ui);color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .board-card__title:hover{color:var(--accent)}
 /* Finished work recedes: it is history, and the live lanes should not compete with it. */
-.board-card[data-status="done"] .board-card__title{color:var(--muted)}
-.board-card[data-status="done"] .board-card__title:hover{color:var(--accent)}
-.board-card[data-status="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
+.board-card[data-lane="done"] .board-card__title{color:var(--muted)}
+.board-card[data-lane="done"] .board-card__title:hover{color:var(--accent)}
+.board-card[data-lane="done"] .bf-chip--accent{color:var(--muted);border-color:var(--border)}
 .board-card__meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin:0;font:var(--fs-xs) var(--font-ui);color:var(--muted)}
 .board-card__paths{display:flex;flex-wrap:wrap;gap:var(--space-1);margin:0;padding:0;list-style:none}
 /* A chip is one line and nowrap by design, so an owner label or a path longer than the card
@@ -193,9 +193,9 @@ ${WEB_COMPONENTS_CSS}
 .board-dialog__note-at{font:var(--fs-xs) var(--font-mono);color:var(--dim)}
 .board-dialog__state{display:inline-flex;align-items:center;gap:var(--space-2);font:var(--fs-xs) var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .board-dialog__state::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:var(--radius-pill);background:var(--muted)}
-.board-dialog__state[data-status="doing"]::before{background:var(--accent)}
-.board-dialog__state[data-status="blocked"]::before{background:var(--danger)}
-.board-dialog__state[data-status="done"]::before{background:var(--success)}
+.board-dialog__state[data-lane="doing"]::before{background:var(--accent)}
+.board-dialog__state[data-lane="blocked"]::before{background:var(--danger)}
+.board-dialog__state[data-lane="done"]::before{background:var(--success)}
 .board-skeleton{height:4.5rem;border:1px dashed var(--border);border-radius:var(--radius-md);background:var(--surface)}
 
 @media (max-width:1180px){

@@ -87,7 +87,7 @@ async function seedBoard(): Promise<void> {
 			now - index * 300_000,
 		);
 		await store.mutate(card.id, { kind: "claim" }, CORE, now - index * 300_000 + 1_000);
-		await store.mutate(card.id, { kind: "move", status: "done" }, CORE, now - index * 300_000 + 2_000);
+		await store.mutate(card.id, { kind: "move", lane: "done" }, CORE, now - index * 300_000 + 2_000);
 	}
 }
 

@@ -171,7 +171,7 @@ describe("assign", () => {
 		expect(sent[0]?.text).toContain("Note: start with the webhook");
 		// The id comes from the bus, so a peer that renames itself still holds its card.
 		expect(result.details.card).toMatchObject({
-			status: "doing",
+			lane: "doing",
 			owner: { id: "s-billing-core", label: "billing-core" },
 		});
 		expect(result.details.delivered).toEqual(["billing-core"]);
@@ -211,7 +211,7 @@ describe("assign", () => {
 		// Finish it as its owner would.
 		const board = await store();
 		await board.mutate(id, { kind: "claim" }, { label: "billing-core" }, NOW);
-		await board.mutate(id, { kind: "move", status: "done" }, { label: "billing-core" }, NOW);
+		await board.mutate(id, { kind: "move", lane: "done" }, { label: "billing-core" }, NOW);
 		const result = await call({ action: "assign", card: id, to: "billing-other" });
 		expect(result.isError).toBe(true);
 		expect(text(result)).toContain("is done");
@@ -226,7 +226,7 @@ describe("assign", () => {
 		expect(text(result)).toContain("was not handed off to billing-core: the bus is not loaded.");
 		expect(text(result)).toContain("The card is unchanged.");
 		expect(sent).toEqual([]);
-		expect(result.details.card).toMatchObject({ status: "todo" });
+		expect(result.details.card).toMatchObject({ lane: "todo" });
 		expect(result.details.card?.owner).toBeUndefined();
 	});
 });
@@ -248,7 +248,7 @@ describe("offer", () => {
 		const after = await (await store()).read(id);
 		expect(after?.rev).toBe((before?.rev ?? 0) + 1);
 		expect(after?.offeredAt).toBe(NOW);
-		expect(after?.status).toBe("todo");
+		expect(after?.lane).toBe("todo");
 		expect(after?.owner).toBeUndefined();
 		expect(result.details.card?.offeredAt).toBe(NOW);
 		expect(text(result)).toContain("#1 offered to billing-core, billing-web.");
@@ -321,7 +321,7 @@ describe("reclaim", () => {
 
 		const result = await call({ action: "reclaim", card: id });
 		expect(result.isError).toBeFalsy();
-		expect(result.details.card).toMatchObject({ status: "todo" });
+		expect(result.details.card).toMatchObject({ lane: "todo" });
 		expect(result.details.card?.owner).toBeUndefined();
 		expect(result.details.card?.notes.map((note) => note.text)).toEqual(["half done"]);
 		expect(text(result)).toContain("#1 reclaimed from billing-core");
@@ -335,7 +335,7 @@ describe("reclaim", () => {
 		const board = await store();
 		const other = await board.create({ title: "Second", paths: [] }, { label: "billing-lead" }, NOW);
 		await board.mutate(other.id, { kind: "claim" }, { label: "billing-core" }, NOW);
-		await board.mutate(other.id, { kind: "move", status: "done" }, { label: "billing-core" }, NOW);
+		await board.mutate(other.id, { kind: "move", lane: "done" }, { label: "billing-core" }, NOW);
 		expect(text(await call({ action: "reclaim", card: other.id }))).toContain("is done");
 	});
 

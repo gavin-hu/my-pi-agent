@@ -19,7 +19,7 @@ function card(overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id: "4",
 		title: "Billing webhook accepts orders",
-		status: "doing",
+		lane: "doing",
 		owner: { id: "s-lead", label: "billing-lead" },
 		paths: ["src/billing"],
 		notes: [],

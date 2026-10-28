@@ -35,11 +35,11 @@ import { shortenPath } from "../format.ts";
 import { repoKeyFor } from "../repo-key.ts";
 import {
 	type Card,
-	CARD_STATUSES,
+	LANES,
 	CARD_VERSION,
 	cardRef,
 	type EndedCard,
-	isCard,
+	readCard,
 	type Priority,
 	priorityRank,
 } from "./card.ts";
@@ -372,13 +372,16 @@ async function readCardFile(pileDir: string, entry: string): Promise<{ card: Car
 	if (typeof version === "number" && version !== CARD_VERSION) {
 		return { skip: { file: entry, id, why: `version ${version}` } };
 	}
-	if (!isCard(parsed)) return { skip: { file: entry, id, why: "not a card record" } };
+	// The one gate a file read passes: an older spelling of the lane field is read as
+	// this build's, and everything else is a shape this build does not trust.
+	const card = readCard(parsed);
+	if (card === undefined) return { skip: { file: entry, id, why: "not a card record" } };
 	// The file name is the id's canonical spelling: a padded id inside the record
 	// (or a record moved under another name) is a disagreement, not a card.
-	if (parsed.id !== String(Number(match[1]))) {
-		return { skip: { file: entry, id, why: `names card ${parsed.id}` } };
+	if (card.id !== String(Number(match[1]))) {
+		return { skip: { file: entry, id, why: `names card ${card.id}` } };
 	}
-	return { card: parsed };
+	return { card };
 }
 
 /** The highest id a directory holds, or 0 when it holds none. */
@@ -415,7 +418,7 @@ async function writeEnded(endedDir: string, card: Card, actor: Actor, now: numbe
 		v: 1,
 		id: card.id,
 		title: card.title,
-		status: card.status,
+		lane: card.lane,
 		by: actor.label,
 		...(card.owner === undefined ? {} : { owner: card.owner }),
 		at: now,
@@ -510,7 +513,7 @@ async function readdirSafe(dir: string): Promise<string[]> {
  * history, and a lane that mixed the two would have to say so in its head.
  */
 function sortForLane(cards: Card[]): Card[] {
-	const lane = (card: Card): number => CARD_STATUSES.indexOf(card.status);
+	const lane = (card: Card): number => LANES.indexOf(card.lane);
 	return cards.sort((a, b) => {
 		const byLane = lane(a) - lane(b);
 		if (byLane !== 0) return byLane;

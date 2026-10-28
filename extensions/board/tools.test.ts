@@ -127,8 +127,8 @@ describe("a field the action does not act on", () => {
 			"add does not act on dependsOn, text: `edit` takes dependsOn; `note` takes text.",
 		);
 		// Two actions take this one, so the message has to name both and say "take".
-		const lane = await call({ action: "add", title: "x", status: "doing" });
-		expect(lane.details.error).toBe("add does not act on status: `list` and `move` take it.");
+		const lane = await call({ action: "add", title: "x", lane: "doing" });
+		expect(lane.details.error).toBe("add does not act on lane: `list` and `move` take it.");
 	});
 
 	test("does not reach for the board, so a refused call enlists nobody", async () => {
@@ -146,7 +146,7 @@ describe("a field the action does not act on", () => {
 		const id = added.details.card?.id ?? "";
 		expect(text(await call({ action: "list", card: id }))).toContain("Retry the gateway");
 		expect(text(await call({ action: "claim", card: id }))).toContain("Retry the gateway");
-		expect(text(await call({ action: "move", card: id, status: "doing" }))).toContain("doing");
+		expect(text(await call({ action: "move", card: id, lane: "doing" }))).toContain("doing");
 		// And a note is `add`'s, not `note`'s.
 		expect(text(await call({ action: "add", title: "Second", note: "from the thread" }))).toContain("Second");
 	});
@@ -193,7 +193,7 @@ describe("list", () => {
 		const later = await call({ action: "add", title: "Retry branches merge cleanly" });
 		expect(later.details.card?.id).toBe("2");
 		const result = await call({ action: "list" });
-		expect(result.details.cards?.map((card) => card.status)).toEqual(["todo", "doing"]);
+		expect(result.details.cards?.map((card) => card.lane)).toEqual(["todo", "doing"]);
 		expect(text(result)).toContain("#2 todo · Retry branches merge cleanly · unassigned");
 		expect(text(result)).toContain(`#1 doing · Billing webhook accepts orders · ${LEAD}`);
 	});
@@ -218,7 +218,7 @@ describe("list", () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", status: "done" });
+		await call({ action: "move", card: "1", lane: "done" });
 		const result = await call({ action: "list", round: true });
 		// The group survives its last card finishing, and the line says so plainly
 		// instead of leaving a bare "0" next to a teammate who did the work.
@@ -231,7 +231,7 @@ describe("list", () => {
 		await call({ action: "add", title: "One" });
 		await call({ action: "add", title: "Two" });
 		await call({ action: "claim", card: "2" });
-		const result = await call({ action: "list", status: "doing" });
+		const result = await call({ action: "list", lane: "doing" });
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["2"]);
 	});
 
@@ -247,7 +247,7 @@ describe("list", () => {
 		expect((await lead.call({ action: "list", mine: true })).details.cards?.map((card) => card.id)).toEqual(["1"]);
 		// The same rule a claim is checked against: a lane filter narrows it, it does not
 		// widen it, and a session holding nothing gets an empty list rather than the board.
-		expect((await lead.call({ action: "list", mine: true, status: "todo" })).details.cards).toEqual([]);
+		expect((await lead.call({ action: "list", mine: true, lane: "todo" })).details.cards).toEqual([]);
 		const stranger = harness({ cwd, agentDir, sessionId: "s-other" });
 		expect((await stranger.call({ action: "list", mine: true })).details.cards).toEqual([]);
 	});
@@ -274,16 +274,16 @@ describe("list", () => {
 		await call({ action: "add", title: "Open one" });
 		await call({ action: "add", title: "Finished one" });
 		await call({ action: "claim", card: "2" });
-		await call({ action: "move", card: "2", status: "done" });
+		await call({ action: "move", card: "2", lane: "done" });
 		const result = await call({ action: "list" });
 		// A finished card is history, not work: it is not in the rows, and the count is what
 		// stops the listing from reading as a one-card board.
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["1"]);
 		expect(text(result)).toContain("#1 todo · Open one");
 		expect(text(result)).not.toContain("Finished one");
-		expect(text(result)).toContain('1 done card hidden; pass status: "done" to read it.');
+		expect(text(result)).toContain('1 done card hidden; pass lane: "done" to read it.');
 		// The escape is the lane that names it, and it lists nothing else.
-		const finished = await call({ action: "list", status: "done" });
+		const finished = await call({ action: "list", lane: "done" });
 		expect(finished.details.cards?.map((card) => card.id)).toEqual(["2"]);
 		expect(text(finished)).toContain("#2 done · Finished one");
 		expect(text(finished)).not.toContain("hidden");
@@ -293,9 +293,9 @@ describe("list", () => {
 		const { call } = harness();
 		await call({ action: "add", title: "Finished one" });
 		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", status: "done" });
+		await call({ action: "move", card: "1", lane: "done" });
 		const all = await call({ action: "list" });
-		expect(text(all)).toBe('No open cards.\n1 done card hidden; pass status: "done" to read it.');
+		expect(text(all)).toBe('No open cards.\n1 done card hidden; pass lane: "done" to read it.');
 		// A query narrows the listing, it does not widen it past the lane rule: the card it
 		// would have matched is one the listing left out, and the count says so.
 		const queried = await call({ action: "list", query: "Finished" });
@@ -311,7 +311,7 @@ describe("list", () => {
 		await call({ action: "add", title: "Open one" });
 		await call({ action: "add", title: "Finished one" });
 		await call({ action: "claim", card: "2" });
-		await call({ action: "move", card: "2", status: "done" });
+		await call({ action: "move", card: "2", lane: "done" });
 		const result = await call({ action: "list", round: true });
 		expect(result.details.round?.done.map((card) => card.id)).toEqual(["2"]);
 		expect(text(result)).toContain("2 features");
@@ -322,7 +322,7 @@ describe("list", () => {
 		await call({ action: "add", title: "One" });
 		await call({ action: "add", title: "Two" });
 		await call({ action: "claim", card: "2" });
-		const result = await call({ action: "list", round: true, status: "todo" });
+		const result = await call({ action: "list", round: true, lane: "todo" });
 		expect(result.details.cards?.map((card) => card.id)).toEqual(["1"]);
 		expect(result.details.round?.owners.map((group) => group.label)).toEqual([LEAD]);
 		expect(result.details.round?.unassigned.map((card) => card.id)).toEqual(["1"]);
@@ -341,7 +341,7 @@ describe("add", () => {
 			note: "from the lead",
 		});
 		expect(result.isError).toBeFalsy();
-		expect(result.details.card).toMatchObject({ id: "1", status: "todo", paths: ["src/billing"] });
+		expect(result.details.card).toMatchObject({ id: "1", lane: "todo", paths: ["src/billing"] });
 		expect(result.details.card?.notes).toHaveLength(1);
 		expect(result.details.me.label).toBe(LEAD);
 	});
@@ -372,7 +372,7 @@ describe("claim, release, and move", () => {
 		await call({ action: "add", title: "One" });
 		const result = await call({ action: "claim", card: "1" });
 		expect(result.details.card).toMatchObject({
-			status: "doing",
+			lane: "doing",
 			owner: { id: ctx.sessionManager.getSessionId(), label: LEAD },
 		});
 	});
@@ -395,7 +395,7 @@ describe("claim, release, and move", () => {
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
 		const result = await call({ action: "release", card: "1" });
-		expect(result.details.card?.status).toBe("todo");
+		expect(result.details.card?.lane).toBe("todo");
 		expect(result.details.card?.owner).toBeUndefined();
 	});
 
@@ -403,8 +403,8 @@ describe("claim, release, and move", () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		expect((await call({ action: "move", card: "1", status: "blocked" })).details.card?.status).toBe("blocked");
-		expect(text(await call({ action: "move", card: "1", status: "todo" }))).toContain("Use release");
+		expect((await call({ action: "move", card: "1", lane: "blocked" })).details.card?.lane).toBe("blocked");
+		expect(text(await call({ action: "move", card: "1", lane: "todo" }))).toContain("Use release");
 		expect(text(await call({ action: "move", card: "1" }))).toContain("move needs a target lane");
 	});
 
@@ -414,14 +414,14 @@ describe("claim, release, and move", () => {
 		await call({ action: "add", title: "Finished one" });
 		await call({ action: "claim", card: "1" });
 		await call({ action: "claim", card: "2" });
-		await call({ action: "move", card: "1", status: "blocked", blockedBy: "legal has to sign" });
-		await call({ action: "move", card: "2", status: "done" });
+		await call({ action: "move", card: "1", lane: "blocked", blockedBy: "legal has to sign" });
+		await call({ action: "move", card: "2", lane: "done" });
 		const listing = text(await call({ action: "list" }));
 		expect(listing).toContain("blocked: legal has to sign");
 		// A plain listing leaves the finished card out, so its line is read from the lane
 		// that asks for it. No repository behind this harness, so it names no commit: the
 		// silence is the honest answer, not a word saying "none".
-		const finished = text(await call({ action: "list", status: "done" }));
+		const finished = text(await call({ action: "list", lane: "done" }));
 		expect(finished).toContain(`#2 done · Finished one · ${LEAD}`);
 		expect(finished).not.toContain("landed");
 	});
@@ -433,7 +433,7 @@ describe("claim, release, and move", () => {
 		const blocked = await call({
 			action: "move",
 			card: "1",
-			status: "blocked",
+			lane: "blocked",
 			blockedBy: "legal has to sign",
 		});
 		expect(blocked.details.card?.blockedBy).toBe("legal has to sign");
@@ -455,19 +455,19 @@ describe("claim, release, and move", () => {
 		});
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		const done = await call({ action: "move", card: "1", status: "done" });
+		const done = await call({ action: "move", card: "1", lane: "done" });
 		const commit = done.details.card?.landed?.commit ?? "";
 		expect(commit).toMatch(/^[0-9a-f]{7}$/);
 		expect(text(done)).toContain(`landed: ${commit}`);
-		expect(text(await call({ action: "list", status: "done" }))).toContain(`landed ${commit}`);
+		expect(text(await call({ action: "list", lane: "done" }))).toContain(`landed ${commit}`);
 	});
 
 	test("a move to done outside a repository finishes the card without a commit", async () => {
 		const { call } = harness();
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		const done = await call({ action: "move", card: "1", status: "done" });
-		expect(done.details.card?.status).toBe("done");
+		const done = await call({ action: "move", card: "1", lane: "done" });
+		expect(done.details.card?.lane).toBe("done");
 		expect(done.details.card?.landed).toBeUndefined();
 	});
 
@@ -488,7 +488,7 @@ describe("claim, release, and move", () => {
 		await peer.call({ action: "claim", card: "1" });
 		await peer.call({ action: "note", card: "1", text: "half done" });
 		const result = await lead.call({ action: "reclaim", card: "1" });
-		expect(result.details.card).toMatchObject({ status: "todo", by: LEAD });
+		expect(result.details.card).toMatchObject({ lane: "todo", by: LEAD });
 		expect(result.details.card?.owner).toBeUndefined();
 		expect(result.details.card?.notes.map((note) => note.text)).toEqual(["half done"]);
 	});
@@ -539,8 +539,8 @@ describe("edit and the links between cards", () => {
 		expect(refused.isError).toBe(true);
 		expect(text(refused)).toContain("#2 waits on #1 (todo).");
 		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", status: "done" });
-		expect((await call({ action: "claim", card: "2" })).details.card?.status).toBe("doing");
+		await call({ action: "move", card: "1", lane: "done" });
+		expect((await call({ action: "claim", card: "2" })).details.card?.lane).toBe("doing");
 	});
 
 	test("refuses a link to a card that is not there, to itself, and around a loop", async () => {
@@ -634,7 +634,7 @@ describe("archive", () => {
 	/** A finished card, which is the only kind the verb will take. */
 	async function finish(call: (args: Record<string, unknown>) => Promise<{ details: BoardDetails }>, id: string) {
 		await call({ action: "claim", card: id });
-		await call({ action: "move", card: id, status: "done" });
+		await call({ action: "move", card: id, lane: "done" });
 	}
 
 	test("sets a finished card aside and names the way to read it again", async () => {
@@ -706,7 +706,7 @@ describe("archive", () => {
 		expect(text(result)).toContain("1 card archived: #1");
 		expect(text(result)).toContain("#2 was not archived (#2 kept changing while it was written; read it again.)");
 		// And the card is still on the board, in its lane: a refusal never half-applies.
-		expect((await call({ action: "list", status: "done" })).details.cards?.map((card) => card.id)).toEqual(["2"]);
+		expect((await call({ action: "list", lane: "done" })).details.cards?.map((card) => card.id)).toEqual(["2"]);
 	});
 
 	test("sets every finished card aside when no card is named", async () => {
@@ -746,10 +746,10 @@ describe("archive", () => {
 
 	test("refuses a lane and a rollup, which an out-of-board pile has no answer for", async () => {
 		const { call } = harness();
-		const lane = await call({ action: "list", archived: true, status: "done" });
+		const lane = await call({ action: "list", archived: true, lane: "done" });
 		expect(lane.isError).toBe(true);
 		expect(lane.details.error).toBe(
-			"archived does not read status: the archive is one pile of finished cards, out of the board.",
+			"archived does not read lane: the archive is one pile of finished cards, out of the board.",
 		);
 		expect((await call({ action: "list", archived: true, round: true })).details.error).toContain("round");
 	});
@@ -811,7 +811,7 @@ describe("the team", () => {
 		const { call } = harness({ team });
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		await call({ action: "move", card: "1", status: "done" });
+		await call({ action: "move", card: "1", lane: "done" });
 		// A done card cannot be claimed, so the refusal is not a second join.
 		const refused = await call({ action: "claim", card: "1" });
 		expect(refused.isError).toBe(true);

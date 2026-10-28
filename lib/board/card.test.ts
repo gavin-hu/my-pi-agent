@@ -17,6 +17,7 @@ import {
 	dependsOf,
 	isCard,
 	laneSince,
+	readCard,
 	MAX_DEPENDS,
 	MAX_LOG,
 	MAX_NOTE,
@@ -44,7 +45,7 @@ function card(overrides: Partial<Card> = {}): Card {
 		v: CARD_VERSION,
 		id: "4",
 		title: "Billing webhook accepts orders",
-		status: "todo",
+		lane: "todo",
 		paths: ["src/billing"],
 		notes: [],
 		notesDropped: 0,
@@ -171,7 +172,7 @@ describe("matchesQuery", () => {
 	test("matches a title, a path hint, or the holder, case-insensitively", () => {
 		expect(matchesQuery(card(), "WEBHOOK")).toBe(true);
 		expect(matchesQuery(card(), "src/bill")).toBe(true);
-		expect(matchesQuery(card({ status: "doing", owner: { label: "billing-core" } }), "CORE")).toBe(true);
+		expect(matchesQuery(card({ lane: "doing", owner: { label: "billing-core" } }), "CORE")).toBe(true);
 	});
 
 	test("matches the plan, which is the file a reader is holding", () => {
@@ -211,7 +212,7 @@ describe("MATCHES_QUERY_JS", () => {
 	test("answers what the module answers", () => {
 		const browserMatches = new Function(`return (${MATCHES_QUERY_JS});`)() as (card: Card, query: string) => boolean;
 		const worked = card({
-			status: "doing",
+			lane: "doing",
 			owner: { label: "billing-core" },
 			plan: "~/.pi/agent/plans/8872d3adda0e/the-query.md",
 			notes: [{ by: "billing-core", at: 2_000, text: "waiting on the gateway" }],
@@ -244,13 +245,13 @@ describe("normalizeCardId", () => {
 
 describe("laneSince", () => {
 	test("answers with the moment the current lane was entered", () => {
-		expect(laneSince(card({ log: [{ status: "todo", at: 4_000, by: "billing-lead" }] }))).toBe(4_000);
+		expect(laneSince(card({ log: [{ lane: "todo", at: 4_000, by: "billing-lead" }] }))).toBe(4_000);
 		const moved = card({
-			status: "doing",
+			lane: "doing",
 			owner: { label: "billing-core" },
 			log: [
-				{ status: "todo", at: 1_000, by: "billing-lead" },
-				{ status: "doing", at: 2_000, by: "billing-core" },
+				{ lane: "todo", at: 1_000, by: "billing-lead" },
+				{ lane: "doing", at: 2_000, by: "billing-core" },
 			],
 		});
 		expect(laneSince(moved)).toBe(2_000);
@@ -261,27 +262,52 @@ describe("laneSince", () => {
 		// has dropped off the front of a full log: both are absence, not a guess from
 		// `updatedAt`, which moves on every write.
 		expect(laneSince(card())).toBeUndefined();
-		expect(laneSince(card({ status: "doing", owner: { label: "c" }, log: [] }))).toBeUndefined();
+		expect(laneSince(card({ lane: "doing", owner: { label: "c" }, log: [] }))).toBeUndefined();
 		expect(
-			laneSince(card({ status: "doing", owner: { label: "c" }, log: [{ status: "todo", at: 1_000, by: "lead" }] })),
+			laneSince(card({ lane: "doing", owner: { label: "c" }, log: [{ lane: "todo", at: 1_000, by: "lead" }] })),
 		).toBeUndefined();
+	});
+});
+
+describe("readCard", () => {
+	test("reads a card written before the lane was called a lane", () => {
+		// The first version of the record said `status`; the field was renamed when a card
+		// grew an approval and a review beside its lane. The file is not rewritten, so the
+		// reader maps the name and hands back the record this build works with.
+		const { lane, ...rest } = card({ lane: "doing", owner: { id: "s1", label: "billing-core" } });
+		const read = readCard({ ...rest, status: lane });
+		expect(read?.lane).toBe("doing");
+		expect(read?.owner?.label).toBe("billing-core");
+		// The old spelling does not survive the read: one record, one name.
+		expect(read === undefined ? "unreadable" : "status" in read).toBe(false);
+	});
+
+	test("a card that already says lane keeps it, and is not repaired", () => {
+		expect(readCard(card())?.lane).toBe("todo");
+		expect(readCard({ ...card(), lane: "doing", status: "todo" })).toBeUndefined();
+	});
+
+	test("refuses what isCard refuses", () => {
+		expect(readCard({ ...card(), v: 2 })).toBeUndefined();
+		expect(readCard("not a card")).toBeUndefined();
+		expect(readCard(undefined)).toBeUndefined();
 	});
 });
 
 describe("isCard", () => {
 	test("accepts a card this build writes", () => {
-		expect(isCard(card({ log: [{ status: "todo", at: 1_000, by: "billing-lead" }], logDropped: 0 }))).toBe(true);
+		expect(isCard(card({ log: [{ lane: "todo", at: 1_000, by: "billing-lead" }], logDropped: 0 }))).toBe(true);
 		expect(isCard(card())).toBe(true);
-		expect(isCard(card({ status: "doing", owner: { id: "s1", label: "billing-core" } }))).toBe(true);
-		expect(isCard(card({ status: "done", owner: { label: "billing-core" }, plan: "p.md" }))).toBe(true);
+		expect(isCard(card({ lane: "doing", owner: { id: "s1", label: "billing-core" } }))).toBe(true);
+		expect(isCard(card({ lane: "done", owner: { label: "billing-core" }, plan: "p.md" }))).toBe(true);
 	});
 
 	test("refuses a log this build cannot trust", () => {
-		const entry: CardTransition = { status: "doing", at: 1_000, by: "billing-core" };
+		const entry: CardTransition = { lane: "doing", at: 1_000, by: "billing-core" };
 		expect(isCard(card({ log: [entry] }))).toBe(true);
 		// A lane the build does not know, a moment that is not a moment, and a writer with
 		// no name are each a record this reader refuses rather than repairs.
-		expect(isCard({ ...card(), log: [{ ...entry, status: "paused" }] })).toBe(false);
+		expect(isCard({ ...card(), log: [{ ...entry, lane: "paused" }] })).toBe(false);
 		expect(isCard({ ...card(), log: [{ ...entry, at: 1.5 }] })).toBe(false);
 		expect(isCard({ ...card(), log: [{ ...entry, by: "" }] })).toBe(false);
 		expect(isCard({ ...card(), log: Array.from({ length: MAX_LOG + 1 }, () => entry) })).toBe(false);
@@ -297,39 +323,39 @@ describe("isCard", () => {
 		expect(isCard({ ...card(), id: "four" })).toBe(false);
 		expect(isCard({ ...card(), id: 4 })).toBe(false);
 		expect(isCard({ ...card(), title: "" })).toBe(false);
-		expect(isCard({ ...card(), status: "archived" })).toBe(false);
+		expect(isCard({ ...card(), lane: "archived" })).toBe(false);
 	});
 
 	test("refuses an owner that is not one", () => {
-		expect(isCard({ ...card({ status: "doing" }), owner: {} })).toBe(false);
-		expect(isCard({ ...card({ status: "doing" }), owner: { label: "" } })).toBe(false);
-		expect(isCard({ ...card({ status: "doing" }), owner: { label: "x", id: 7 } })).toBe(false);
+		expect(isCard({ ...card({ lane: "doing" }), owner: {} })).toBe(false);
+		expect(isCard({ ...card({ lane: "doing" }), owner: { label: "" } })).toBe(false);
+		expect(isCard({ ...card({ lane: "doing" }), owner: { label: "x", id: 7 } })).toBe(false);
 	});
 
 	test("holds the two ownership invariants: todo has no owner, every other lane has one", () => {
 		expect(isCard(card({ owner: { label: "billing-core" } }))).toBe(false);
-		for (const status of ["doing", "blocked", "done"] as const) {
-			expect(isCard(card({ status })), status).toBe(false);
+		for (const lane of ["doing", "blocked", "done"] as const) {
+			expect(isCard(card({ lane })), lane).toBe(false);
 		}
 	});
 
 	test("accepts a recorded block and a landing, and an older card with neither", () => {
-		expect(isCard(card({ status: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }))).toBe(
+		expect(isCard(card({ lane: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }))).toBe(
 			true,
 		);
-		expect(
-			isCard(card({ status: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: 1 } })),
-		).toBe(true);
+		expect(isCard(card({ lane: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: 1 } }))).toBe(
+			true,
+		);
 		// The two fields are optional, so every card written before them still reads.
 		expect(isCard(card())).toBe(true);
 	});
 
 	test("refuses a block that is empty or over the cap, and a landing that is not one", () => {
-		const blocked = { status: "blocked" as const, owner: { label: "billing-core" } };
+		const blocked = { lane: "blocked" as const, owner: { label: "billing-core" } };
 		expect(isCard({ ...card(blocked), blockedBy: "" })).toBe(false);
 		expect(isCard({ ...card(blocked), blockedBy: "x".repeat(201) })).toBe(false);
 		expect(isCard({ ...card(blocked), blockedBy: 7 })).toBe(false);
-		const done = { status: "done" as const, owner: { label: "billing-core" } };
+		const done = { lane: "done" as const, owner: { label: "billing-core" } };
 		expect(isCard({ ...card(done), landed: { commit: "", at: 1 } })).toBe(false);
 		expect(isCard({ ...card(done), landed: { commit: "not a sha", at: 1 } })).toBe(false);
 		expect(isCard({ ...card(done), landed: { commit: "4af1b4a" } })).toBe(false);
@@ -374,7 +400,7 @@ describe("the recorded offer", () => {
 			v: 1,
 			id: "2",
 			title: "Retry branches",
-			status: "todo",
+			lane: "todo",
 			paths: [],
 			notes: [],
 			notesDropped: 0,

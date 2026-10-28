@@ -27,7 +27,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: CARD_VERSION,
 		id,
 		title: `feature ${id}`,
-		status: "todo",
+		lane: "todo",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -56,10 +56,10 @@ describe("roundText", () => {
 
 	test("names a dead owner's cards, and says who is gone rather than quiet", () => {
 		const cards = [
-			card("1", { status: "doing", owner: { label: "billing-core" }, updatedAt: NOW - 2 * 60_000 }),
-			card("2", { status: "blocked", owner: { label: "billing-core" } }),
-			card("3", { status: "done", owner: { label: "billing-core" } }),
-			card("4", { status: "doing", owner: { label: "ops-helper" }, updatedAt: NOW - 2 * 60_000 }),
+			card("1", { lane: "doing", owner: { label: "billing-core" }, updatedAt: NOW - 2 * 60_000 }),
+			card("2", { lane: "blocked", owner: { label: "billing-core" } }),
+			card("3", { lane: "done", owner: { label: "billing-core" } }),
+			card("4", { lane: "doing", owner: { label: "ops-helper" }, updatedAt: NOW - 2 * 60_000 }),
 		];
 		const roster = [mate("billing-lead", NOW), dead("billing-core"), mate("ops-helper", NOW - 20 * 60_000)];
 		const lines = roundText(cards, NOW, roster).split("\n");
@@ -74,9 +74,9 @@ describe("roundText", () => {
 	test("prints the rollup, then who is live and who has gone quiet", () => {
 		const cards = [
 			card("1"),
-			card("2", { status: "doing", owner: { label: "billing-core" } }),
+			card("2", { lane: "doing", owner: { label: "billing-core" } }),
 			card("3", {
-				status: "blocked",
+				lane: "blocked",
 				owner: { label: "billing-core" },
 				notes: [{ by: "x", at: NOW, text: "gateway" }],
 			}),
@@ -125,7 +125,7 @@ describe("roundText", () => {
 
 	test("caps a long round and says how many lines it left out", () => {
 		const cards = Array.from({ length: 20 }, (_, index) =>
-			card(String(index + 1), { status: "doing", owner: { label: `owner-${index}` } }),
+			card(String(index + 1), { lane: "doing", owner: { label: `owner-${index}` } }),
 		);
 		const lines = roundText(cards, NOW).split("\n");
 		expect(lines).toHaveLength(MAX_ROUND_LINES + 1);

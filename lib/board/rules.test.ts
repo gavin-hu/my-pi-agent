@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { type Card, type CardStatus, MAX_LOG, MAX_NOTES } from "./card.ts";
+import { type Card, type Lane, MAX_LOG, MAX_NOTES } from "./card.ts";
 import { indexOf } from "./links.ts";
 import { type Actor, applyOp, createCard, holds, type OpResult } from "./rules.ts";
 
@@ -41,7 +41,7 @@ function refusal(result: OpResult): string {
 describe("createCard", () => {
 	test("is born todo, unowned, at revision 1", () => {
 		const card = createCard("4", { title: "T", paths: ["src"] }, LEAD, NOW);
-		expect(card).toMatchObject({ v: 1, id: "4", status: "todo", rev: 1, by: LEAD.label });
+		expect(card).toMatchObject({ v: 1, id: "4", lane: "todo", rev: 1, by: LEAD.label });
 		expect("owner" in card).toBe(false);
 		expect(card.createdAt).toBe(NOW);
 		expect(card.updatedAt).toBe(NOW);
@@ -58,7 +58,7 @@ describe("claim", () => {
 		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
 		const { card, changed } = accepted(applyOp(created, { kind: "claim" }, CORE, NOW, indexOf([created])));
 		expect(changed).toBe(true);
-		expect(card).toMatchObject({ status: "doing", owner: { id: CORE.id, label: CORE.label }, rev: 2, by: CORE.label });
+		expect(card).toMatchObject({ lane: "doing", owner: { id: CORE.id, label: CORE.label }, rev: 2, by: CORE.label });
 		expect(card.updatedAt).toBe(NOW);
 	});
 
@@ -82,7 +82,7 @@ describe("claim", () => {
 	});
 
 	test("refuses a finished card", () => {
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(refusal(applyOp(done, { kind: "claim" }, LEAD, NOW, indexOf([done])))).toBe(
 			"#4 is done; it cannot be claimed.",
 		);
@@ -105,7 +105,7 @@ describe("assign", () => {
 	test("hands an unclaimed card to the target, and records the lead as the writer", () => {
 		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
 		const { card } = accepted(applyOp(created, { kind: "assign", to: CORE }, LEAD, NOW, indexOf([created])));
-		expect(card).toMatchObject({ status: "doing", owner: { id: CORE.id, label: CORE.label }, by: LEAD.label });
+		expect(card).toMatchObject({ lane: "doing", owner: { id: CORE.id, label: CORE.label }, by: LEAD.label });
 	});
 
 	test("refuses a card a third session holds", () => {
@@ -115,7 +115,7 @@ describe("assign", () => {
 	});
 
 	test("refuses a finished card", () => {
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(refusal(applyOp(done, { kind: "assign", to: OTHER }, LEAD, NOW, indexOf([done])))).toBe(
 			"#4 is done; it cannot be assigned.",
 		);
@@ -158,7 +158,7 @@ describe("assign", () => {
 describe("release", () => {
 	test("clears the owner and returns the card to todo, with no owner key left behind", () => {
 		const { card } = accepted(applyOp(claimed(), { kind: "release" }, CORE, NOW, indexOf([claimed()])));
-		expect(card.status).toBe("todo");
+		expect(card.lane).toBe("todo");
 		expect("owner" in card).toBe(false);
 		expect(card.notes).toEqual([]);
 	});
@@ -177,7 +177,7 @@ describe("release", () => {
 	test("refuses a finished card, so done cannot be undone", () => {
 		// The one transition that could have reopened history: a released done card would put
 		// a dependency back in To do under a card that already finished against it.
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(refusal(applyOp(done, { kind: "release" }, CORE, NOW, indexOf([done])))).toBe(
 			"#4 is done; it cannot be released.",
 		);
@@ -187,38 +187,38 @@ describe("release", () => {
 describe("move", () => {
 	test("an owner parks a card and picks it up again", () => {
 		const blocked = accepted(
-			applyOp(claimed(), { kind: "move", status: "blocked" }, CORE, NOW, indexOf([claimed()])),
+			applyOp(claimed(), { kind: "move", lane: "blocked" }, CORE, NOW, indexOf([claimed()])),
 		).card;
-		expect(blocked.status).toBe("blocked");
-		expect(
-			accepted(applyOp(blocked, { kind: "move", status: "doing" }, CORE, NOW, indexOf([blocked]))).card.status,
-		).toBe("doing");
+		expect(blocked.lane).toBe("blocked");
+		expect(accepted(applyOp(blocked, { kind: "move", lane: "doing" }, CORE, NOW, indexOf([blocked]))).card.lane).toBe(
+			"doing",
+		);
 	});
 
 	test("blocked may finish without going back through doing", () => {
 		const blocked = accepted(
-			applyOp(claimed(), { kind: "move", status: "blocked" }, CORE, NOW, indexOf([claimed()])),
+			applyOp(claimed(), { kind: "move", lane: "blocked" }, CORE, NOW, indexOf([claimed()])),
 		).card;
-		expect(
-			accepted(applyOp(blocked, { kind: "move", status: "done" }, CORE, NOW, indexOf([blocked]))).card.status,
-		).toBe("done");
+		expect(accepted(applyOp(blocked, { kind: "move", lane: "done" }, CORE, NOW, indexOf([blocked]))).card.lane).toBe(
+			"done",
+		);
 	});
 
 	test("moving to the lane it is already in writes nothing", () => {
 		const card = claimed();
-		const { changed } = accepted(applyOp(card, { kind: "move", status: "doing" }, CORE, NOW, indexOf([card])));
+		const { changed } = accepted(applyOp(card, { kind: "move", lane: "doing" }, CORE, NOW, indexOf([card])));
 		expect(changed).toBe(false);
 	});
 
 	test("refuses a card someone else holds", () => {
-		expect(refusal(applyOp(claimed(), { kind: "move", status: "done" }, OTHER, NOW, indexOf([claimed()])))).toBe(
+		expect(refusal(applyOp(claimed(), { kind: "move", lane: "done" }, OTHER, NOW, indexOf([claimed()])))).toBe(
 			"#4 is held by billing-core. Only its owner can move it.",
 		);
 	});
 
 	test("refuses an unclaimed card, naming claim", () => {
 		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
-		expect(refusal(applyOp(created, { kind: "move", status: "doing" }, LEAD, NOW, indexOf([created])))).toBe(
+		expect(refusal(applyOp(created, { kind: "move", lane: "doing" }, LEAD, NOW, indexOf([created])))).toBe(
 			"#4 is unclaimed; claim it before moving it to doing.",
 		);
 	});
@@ -228,7 +228,7 @@ describe("move", () => {
 		const blocked = accepted(
 			applyOp(
 				card,
-				{ kind: "move", status: "blocked", blockedBy: "waiting on the marketing copy" },
+				{ kind: "move", lane: "blocked", blockedBy: "waiting on the marketing copy" },
 				CORE,
 				NOW,
 				indexOf([card]),
@@ -238,20 +238,20 @@ describe("move", () => {
 		// The decision is what `blocked` is for, so the sentence belongs to the lane: a card
 		// that goes back to work no longer says it is waiting on anything.
 		expect(
-			accepted(applyOp(blocked, { kind: "move", status: "doing" }, CORE, NOW, indexOf([blocked]))).card.blockedBy,
+			accepted(applyOp(blocked, { kind: "move", lane: "doing" }, CORE, NOW, indexOf([blocked]))).card.blockedBy,
 		).toBeUndefined();
 	});
 
 	test("a card may be blocked with nothing recorded, and a repeated block may change the sentence", () => {
 		const card = claimed();
-		const unrecorded = accepted(applyOp(card, { kind: "move", status: "blocked" }, CORE, NOW, indexOf([card])));
+		const unrecorded = accepted(applyOp(card, { kind: "move", lane: "blocked" }, CORE, NOW, indexOf([card])));
 		expect(unrecorded.card.blockedBy).toBeUndefined();
 		expect(unrecorded.changed).toBe(true);
 
 		const recorded = accepted(
 			applyOp(
 				unrecorded.card,
-				{ kind: "move", status: "blocked", blockedBy: "legal has to sign" },
+				{ kind: "move", lane: "blocked", blockedBy: "legal has to sign" },
 				CORE,
 				NOW,
 				indexOf([unrecorded.card]),
@@ -264,17 +264,17 @@ describe("move", () => {
 	test("a release keeps the block, because the decision is still pending", () => {
 		const card = claimed();
 		const blocked = accepted(
-			applyOp(card, { kind: "move", status: "blocked", blockedBy: "legal has to sign" }, CORE, NOW, indexOf([card])),
+			applyOp(card, { kind: "move", lane: "blocked", blockedBy: "legal has to sign" }, CORE, NOW, indexOf([card])),
 		).card;
 		const released = accepted(applyOp(blocked, { kind: "release" }, CORE, NOW, indexOf([blocked]))).card;
-		expect(released.status).toBe("todo");
+		expect(released.lane).toBe("todo");
 		expect(released.blockedBy).toBe("legal has to sign");
 	});
 
 	test("a move to done records the commit that closed the card", () => {
 		const card = claimed();
 		const done = accepted(
-			applyOp(card, { kind: "move", status: "done", landed: { commit: "4af1b4a" } }, CORE, NOW, indexOf([card])),
+			applyOp(card, { kind: "move", lane: "done", landed: { commit: "4af1b4a" } }, CORE, NOW, indexOf([card])),
 		).card;
 		expect(done.landed).toEqual({ commit: "4af1b4a", at: NOW });
 		expect(done.blockedBy).toBeUndefined();
@@ -282,26 +282,24 @@ describe("move", () => {
 
 	test("a move to done without a commit still finishes the card", () => {
 		const card = claimed();
-		const done = accepted(applyOp(card, { kind: "move", status: "done" }, CORE, NOW, indexOf([card]))).card;
+		const done = accepted(applyOp(card, { kind: "move", lane: "done" }, CORE, NOW, indexOf([card]))).card;
 		expect(done.landed).toBeUndefined();
-		expect(done.status).toBe("done");
+		expect(done.lane).toBe("done");
 	});
 
 	test("refuses a block whose sentence is empty or too long", () => {
 		const card = claimed();
+		expect(refusal(applyOp(card, { kind: "move", lane: "blocked", blockedBy: "  " }, CORE, NOW, indexOf([card])))).toBe(
+			"blockedBy must say what the card waits on.",
+		);
 		expect(
-			refusal(applyOp(card, { kind: "move", status: "blocked", blockedBy: "  " }, CORE, NOW, indexOf([card]))),
-		).toBe("blockedBy must say what the card waits on.");
-		expect(
-			refusal(
-				applyOp(card, { kind: "move", status: "blocked", blockedBy: "x".repeat(201) }, CORE, NOW, indexOf([card])),
-			),
+			refusal(applyOp(card, { kind: "move", lane: "blocked", blockedBy: "x".repeat(201) }, CORE, NOW, indexOf([card]))),
 		).toBe("blockedBy must be at most 200 characters.");
 	});
 
 	test("refuses to move a finished card anywhere", () => {
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
-		expect(refusal(applyOp(done, { kind: "move", status: "blocked" }, CORE, NOW, indexOf([done])))).toBe(
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		expect(refusal(applyOp(done, { kind: "move", lane: "blocked" }, CORE, NOW, indexOf([done])))).toBe(
 			"#4 is done; it cannot be moved.",
 		);
 	});
@@ -353,7 +351,7 @@ describe("plan", () => {
 	});
 
 	test("a finished card keeps the plan it finished with", () => {
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(refusal(applyOp(done, { kind: "plan", path: "p.md" }, CORE, NOW, indexOf([done])))).toBe(
 			"#4 is done; its plan cannot change.",
 		);
@@ -372,7 +370,7 @@ describe("offer", () => {
 		const before = free();
 		const { card, changed } = accepted(applyOp(before, { kind: "offer" }, LEAD, NOW, board));
 		expect(card.offeredAt).toBe(NOW);
-		expect(card.status).toBe("todo");
+		expect(card.lane).toBe("todo");
 		expect("owner" in card).toBe(false);
 		expect(card.rev).toBe(before.rev + 1);
 		expect(changed).toBe(true);
@@ -390,7 +388,7 @@ describe("offer", () => {
 	test("refuses a held card, a finished one, and one that waits", () => {
 		const held = indexOf([claimed()]);
 		expect(refusal(applyOp(claimed(), { kind: "offer" }, LEAD, NOW, held))).toBe("#4 is held by billing-core.");
-		const done = { ...claimed(), status: "done" as const };
+		const done = { ...claimed(), lane: "done" as const };
 		expect(refusal(applyOp(done, { kind: "offer" }, LEAD, NOW, indexOf([done])))).toContain("is done");
 		// A card that waits is refused before anything is broadcast, so no peer is asked to
 		// claim a card the claim would refuse.
@@ -445,7 +443,7 @@ describe("reclaim", () => {
 			applyOp(claimed(), { kind: "note", text: "half done" }, CORE, NOW, indexOf([claimed()])),
 		).card;
 		const { card } = accepted(applyOp(noted, { kind: "reclaim" }, LEAD, NOW, indexOf([noted])));
-		expect(card.status).toBe("todo");
+		expect(card.lane).toBe("todo");
 		expect("owner" in card).toBe(false);
 		expect(card.notes.map((entry) => entry.text)).toEqual(["half done"]);
 		expect(card.by).toBe(LEAD.label);
@@ -456,7 +454,7 @@ describe("reclaim", () => {
 		expect(refusal(applyOp(created, { kind: "reclaim" }, LEAD, NOW, indexOf([created])))).toBe(
 			"#4 has no owner to reclaim.",
 		);
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(refusal(applyOp(done, { kind: "reclaim" }, LEAD, NOW, indexOf([done])))).toBe(
 			"#4 is done; there is nothing to reclaim.",
 		);
@@ -470,7 +468,7 @@ describe("drop", () => {
 	});
 
 	test("finished history is anyone's to drop", () => {
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(accepted(applyOp(done, { kind: "drop" }, OTHER, NOW, indexOf([done]))).changed).toBe(true);
 	});
 
@@ -488,7 +486,7 @@ describe("drop", () => {
 describe("archive", () => {
 	/** A card that finished, which is the only kind that may be set aside. */
 	function finished(): Card {
-		return accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		return accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 	}
 
 	test("a finished card is anyone's to set aside, and its record does not move", () => {
@@ -516,22 +514,22 @@ describe("archive", () => {
 		const { card } = accepted(applyOp(done, { kind: "archive" }, LEAD, NOW, indexOf([done])));
 		expect(card.rev).toBe(done.rev);
 		expect(card.updatedAt).toBe(done.updatedAt);
-		expect(card.status === "todo").toBe(card.owner === undefined);
+		expect(card.lane === "todo").toBe(card.owner === undefined);
 	});
 });
 
 describe("the transition log", () => {
 	test("a new card is born in todo, and says so", () => {
 		const card = createCard("4", { title: "T", paths: ["src"] }, LEAD, NOW);
-		expect(card.log).toEqual([{ status: "todo", at: NOW, by: LEAD.label }]);
+		expect(card.log).toEqual([{ lane: "todo", at: NOW, by: LEAD.label }]);
 		expect(card.logDropped).toBe(0);
 	});
 
 	test("a lane change appends, credited to the session that moved it", () => {
 		const created = createCard("4", { title: "T", paths: ["src"] }, LEAD, 1_000);
 		const claimedCard = accepted(applyOp(created, { kind: "claim" }, CORE, NOW, indexOf([created]))).card;
-		expect(claimedCard.log?.map((entry) => entry.status)).toEqual(["todo", "doing"]);
-		expect(claimedCard.log?.at(-1)).toEqual({ status: "doing", at: NOW, by: CORE.label });
+		expect(claimedCard.log?.map((entry) => entry.lane)).toEqual(["todo", "doing"]);
+		expect(claimedCard.log?.at(-1)).toEqual({ lane: "doing", at: NOW, by: CORE.label });
 	});
 
 	test("a write that leaves the lane alone is not a transition", () => {
@@ -547,7 +545,7 @@ describe("the transition log", () => {
 	test("the oldest transition drops past the cap and is counted", () => {
 		let card = createCard("4", { title: "T", paths: ["src"] }, LEAD, 0);
 		card = accepted(applyOp(card, { kind: "claim" }, CORE, 1, indexOf([card]))).card;
-		const lanes: Array<Exclude<CardStatus, "todo">> = [
+		const lanes: Array<Exclude<Lane, "todo">> = [
 			"blocked",
 			"doing",
 			"blocked",
@@ -557,12 +555,12 @@ describe("the transition log", () => {
 			"blocked",
 			"doing",
 		];
-		for (const [index, status] of lanes.entries()) {
-			card = accepted(applyOp(card, { kind: "move", status }, CORE, 10 + index, indexOf([card]))).card;
+		for (const [index, lane] of lanes.entries()) {
+			card = accepted(applyOp(card, { kind: "move", lane }, CORE, 10 + index, indexOf([card]))).card;
 		}
 		expect(card.log).toHaveLength(MAX_LOG);
 		expect(card.logDropped).toBe(2);
-		expect(card.log?.at(-1)).toEqual({ status: "doing", at: 17, by: CORE.label });
+		expect(card.log?.at(-1)).toEqual({ lane: "doing", at: 17, by: CORE.label });
 	});
 });
 
@@ -617,7 +615,7 @@ describe("edit", () => {
 	});
 
 	test("a finished card keeps a readable title, because its owner may still correct it", () => {
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		const { card } = accepted(
 			applyOp(
 				done,
@@ -698,12 +696,12 @@ describe("links between cards", () => {
 		const { card, board } = waiting();
 		const started = accepted(applyOp(card, { kind: "claim" }, CORE, NOW, indexOf([card]))).card;
 		const withBoard = indexOf([board.get("2") as Card, started]);
-		const blocked = accepted(applyOp(started, { kind: "move", status: "blocked" }, CORE, NOW, withBoard)).card;
-		expect(blocked.status).toBe("blocked");
-		expect(refusal(applyOp(blocked, { kind: "move", status: "doing" }, CORE, NOW, withBoard))).toBe(
+		const blocked = accepted(applyOp(started, { kind: "move", lane: "blocked" }, CORE, NOW, withBoard)).card;
+		expect(blocked.lane).toBe("blocked");
+		expect(refusal(applyOp(blocked, { kind: "move", lane: "doing" }, CORE, NOW, withBoard))).toBe(
 			"#4 waits on #2 (doing).",
 		);
-		expect(refusal(applyOp(blocked, { kind: "move", status: "done" }, CORE, NOW, withBoard))).toBe(
+		expect(refusal(applyOp(blocked, { kind: "move", lane: "done" }, CORE, NOW, withBoard))).toBe(
 			"#4 waits on #2 (doing).",
 		);
 	});
@@ -713,7 +711,7 @@ describe("links between cards", () => {
 		const done = accepted(
 			applyOp(
 				accepted(applyOp(first, { kind: "claim" }, CORE, 1_000, indexOf([first]))).card,
-				{ kind: "move", status: "done" },
+				{ kind: "move", lane: "done" },
 				CORE,
 				NOW,
 				indexOf([first]),
@@ -730,7 +728,7 @@ describe("links between cards", () => {
 			),
 		).card;
 		const board = indexOf([done, linked]);
-		expect(accepted(applyOp(linked, { kind: "claim" }, LEAD, NOW, board)).card.status).toBe("doing");
+		expect(accepted(applyOp(linked, { kind: "claim" }, LEAD, NOW, board)).card.lane).toBe("doing");
 	});
 
 	test("a drop is refused while another card waits on it", () => {
@@ -749,7 +747,7 @@ describe("re-applying an operation to a card that changed underneath", () => {
 	// preconditions: an operation says "apply when this holds", never "force this".
 	test("a move the owner was going to make is refused once the card was released", () => {
 		const released = accepted(applyOp(claimed(), { kind: "release" }, CORE, NOW, indexOf([claimed()]))).card;
-		expect(refusal(applyOp(released, { kind: "move", status: "done" }, CORE, NOW, indexOf([released])))).toBe(
+		expect(refusal(applyOp(released, { kind: "move", lane: "done" }, CORE, NOW, indexOf([released])))).toBe(
 			"#4 is unclaimed; claim it before moving it to done.",
 		);
 	});
@@ -762,7 +760,7 @@ describe("re-applying an operation to a card that changed underneath", () => {
 	});
 
 	test("a note still applies, because noting has no precondition to lose", () => {
-		const done = accepted(applyOp(claimed(), { kind: "move", status: "done" }, CORE, NOW, indexOf([claimed()]))).card;
+		const done = accepted(applyOp(claimed(), { kind: "move", lane: "done" }, CORE, NOW, indexOf([claimed()]))).card;
 		expect(
 			accepted(applyOp(done, { kind: "note", text: "shipped" }, LEAD, NOW, indexOf([done]))).card.notes,
 		).toHaveLength(1);
@@ -772,7 +770,7 @@ describe("re-applying an operation to a card that changed underneath", () => {
 describe("the invariants hold after every accepted operation", () => {
 	const ops = [
 		(card: Card) => applyOp(card, { kind: "note", text: "n" }, LEAD, NOW, indexOf([card])),
-		(card: Card) => applyOp(card, { kind: "move", status: "blocked" }, CORE, NOW, indexOf([card])),
+		(card: Card) => applyOp(card, { kind: "move", lane: "blocked" }, CORE, NOW, indexOf([card])),
 		(card: Card) => applyOp(card, { kind: "plan", path: "p.md" }, CORE, NOW, indexOf([card])),
 		(card: Card) => applyOp(card, { kind: "release" }, CORE, NOW, indexOf([card])),
 		(card: Card) => applyOp(card, { kind: "reclaim" }, LEAD, NOW, indexOf([card])),
@@ -792,7 +790,7 @@ describe("the invariants hold after every accepted operation", () => {
 			const result = op(claimed());
 			if (!result.ok) continue;
 			const card = result.card;
-			expect(card.status === "todo").toBe(card.owner === undefined);
+			expect(card.lane === "todo").toBe(card.owner === undefined);
 		}
 	});
 

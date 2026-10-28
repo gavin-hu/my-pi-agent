@@ -101,7 +101,7 @@ function goneLines(cards: readonly Card[], roster: readonly RosterSession[] | un
 	if (gone.size === 0) return [];
 	const byOwner = new Map<string, string[]>();
 	for (const card of cards) {
-		if (card.owner === undefined || card.status === "done") continue;
+		if (card.owner === undefined || card.lane === "done") continue;
 		const label = gone.get(card.owner.label.toLowerCase());
 		if (label === undefined) continue;
 		byOwner.set(label, [...(byOwner.get(label) ?? []), cardRef(card.id)]);

@@ -15,15 +15,7 @@
  */
 
 import { type RosterSession, type RosterState, rosterStateOf } from "../session-roster.ts";
-import {
-	type Card,
-	CARD_STATUSES,
-	type CardStatus,
-	laneSince,
-	priorityOf,
-	type Priority,
-	signatureOf,
-} from "./card.ts";
+import { type Card, LANES, type Lane, laneSince, priorityOf, type Priority, signatureOf } from "./card.ts";
 import { blockersOf, indexOf, lanesText, openDependentsOf } from "./links.ts";
 import type { Actor } from "./rules.ts";
 import { buildRound, type RoundSummary } from "./round.ts";
@@ -82,7 +74,7 @@ export interface ViewCard extends Card {
 
 /** One lane and the cards in it, in the order the page draws them. */
 export interface ViewLane {
-	status: CardStatus;
+	key: Lane;
 	cards: ViewCard[];
 }
 
@@ -160,9 +152,9 @@ export function buildView(input: ViewInput): BoardView {
 	// card the lane does, so a client reading `round.unassigned` is not handed a card
 	// missing the facts every other card has.
 	const cards = input.cards.map((card) => viewCardOf(card, index));
-	const lanes = CARD_STATUSES.map((status) => ({
-		status,
-		cards: cards.filter((card) => card.status === status),
+	const lanes = LANES.map((key) => ({
+		key,
+		cards: cards.filter((card) => card.lane === key),
 	}));
 	const reader = input.me;
 	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.now);
@@ -233,7 +225,7 @@ function rosterSignature(teammates: readonly ViewTeammate[] | undefined): string
 function countOf(lanes: readonly ViewLane[]): ViewCounts {
 	const counts: ViewCounts = { total: 0, todo: 0, doing: 0, blocked: 0, done: 0 };
 	for (const lane of lanes) {
-		counts[lane.status] = lane.cards.length;
+		counts[lane.key] = lane.cards.length;
 		counts.total += lane.cards.length;
 	}
 	return counts;

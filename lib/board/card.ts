@@ -62,10 +62,10 @@ export type Priority = (typeof PRIORITIES)[number];
 export const DEFAULT_PRIORITY: Priority = "normal";
 
 /** The lanes, in the order the page and the rollup read them. */
-export const CARD_STATUSES = ["todo", "doing", "blocked", "done"] as const;
+export const LANES = ["todo", "doing", "blocked", "done"] as const;
 
 /** One lane a card can sit in. */
-export type CardStatus = (typeof CARD_STATUSES)[number];
+export type Lane = (typeof LANES)[number];
 
 /** Who holds a card: the session id when it is known, and always the label it is addressed by. */
 export interface CardOwner {
@@ -91,7 +91,7 @@ export interface CardNote {
  * page needs and the one a reader has no way to reconstruct.
  */
 export interface CardTransition {
-	status: CardStatus;
+	lane: Lane;
 	at: number;
 	by: string;
 }
@@ -117,7 +117,7 @@ export interface Card {
 	id: string;
 	/** One line, ≤ {@link MAX_TITLE} — the feature's outcome. */
 	title: string;
-	status: CardStatus;
+	lane: Lane;
 	owner?: CardOwner;
 	/** Repository-relative hints, never claims. */
 	paths: string[];
@@ -183,7 +183,7 @@ export interface EndedCard {
 	/** What the card was called, so a note that names its id still reads. */
 	title: string;
 	/** The lane it was in when it ended. */
-	status: CardStatus;
+	lane: Lane;
 	/** Who ended it. */
 	by: string;
 	/** The owner it had, when it had one. */
@@ -201,7 +201,7 @@ export function isEndedCard(value: unknown): value is EndedCard {
 	if (ended.v !== CARD_VERSION) return false;
 	if (typeof ended.id !== "string" || !/^[0-9]+$/.test(ended.id)) return false;
 	if (typeof ended.title !== "string" || ended.title === "") return false;
-	if (!CARD_STATUSES.includes(ended.status as CardStatus)) return false;
+	if (!LANES.includes(ended.lane as Lane)) return false;
 	if (typeof ended.by !== "string" || ended.by === "") return false;
 	if (!isOwner(ended.owner)) return false;
 	if (typeof ended.at !== "number" || !Number.isInteger(ended.at)) return false;
@@ -283,7 +283,7 @@ export function dependsOf(card: Card): readonly string[] {
  */
 export function laneSince(card: Card): number | undefined {
 	const last = card.log?.at(-1);
-	return last !== undefined && last.status === card.status ? last.at : undefined;
+	return last !== undefined && last.lane === card.lane ? last.at : undefined;
 }
 
 /** Where a card's priority sits in {@link PRIORITIES}: the lane sort's first key after the lane. */
@@ -382,12 +382,35 @@ export function signatureOf(cards: readonly Card[]): string {
 }
 
 /**
+ * The card as a file on disk holds it, or `undefined` when this build cannot trust it.
+ *
+ * Two versions of one record: a card written before the lane was called a lane says
+ * `status`, and this build writes `lane`. The map is read-time only — no file is
+ * rewritten, and a card takes the new spelling on its next write — so a board full of
+ * older cards reads as a board rather than as a pile of refusals. Everything else is
+ * {@link isCard}'s decision.
+ */
+export function readCard(value: unknown): Card | undefined {
+	const renamed = laneNamed(value);
+	return isCard(renamed) ? renamed : undefined;
+}
+
+/** `value` with an older `status` field read as `lane`, when it has no `lane` of its own. */
+function laneNamed(value: unknown): unknown {
+	if (typeof value !== "object" || value === null) return value;
+	const record = value as Record<string, unknown>;
+	if (record.lane !== undefined || record.status === undefined) return value;
+	const { status, ...rest } = record;
+	return { ...rest, lane: status };
+}
+
+/**
  * Whether `value` is a card this build can trust.
  *
- * Shape *and* the two invariants a bug could otherwise smuggle past the rules: a
- * `todo` card has no owner, and the other three lanes always have one. A card that
- * fails here is dropped by the reader rather than repaired, because a repair would
- * guess at which half of the record was meant.
+ * Shape *and* the invariants a bug could otherwise smuggle past the rules: the one
+ * ownerless lane really has no owner, and the others always have one. A card that fails
+ * here is dropped by the reader rather than repaired, because a repair would guess at
+ * which half of the record was meant.
  */
 export function isCard(value: unknown): value is Card {
 	if (typeof value !== "object" || value === null) return false;
@@ -395,7 +418,7 @@ export function isCard(value: unknown): value is Card {
 	if (card.v !== CARD_VERSION) return false;
 	if (typeof card.id !== "string" || !/^[0-9]+$/.test(card.id)) return false;
 	if (typeof card.title !== "string" || card.title === "") return false;
-	if (!CARD_STATUSES.includes(card.status as CardStatus)) return false;
+	if (!LANES.includes(card.lane as Lane)) return false;
 	if (!isOwner(card.owner)) return false;
 	if (!Array.isArray(card.paths) || card.paths.length > MAX_PATHS) return false;
 	if (!card.paths.every((path) => typeof path === "string")) return false;
@@ -416,7 +439,7 @@ export function isCard(value: unknown): value is Card {
 	if (typeof card.rev !== "number" || !Number.isInteger(card.rev) || card.rev < 1) return false;
 	if (typeof card.createdAt !== "number" || typeof card.updatedAt !== "number") return false;
 	if (typeof card.by !== "string") return false;
-	return (card.status === "todo") === (card.owner === undefined);
+	return (card.lane === "todo") === (card.owner === undefined);
 }
 
 /** A recorded block: one line the reader can hold, within the cap this build writes. */
@@ -459,7 +482,7 @@ function isTransition(value: unknown): value is CardTransition {
 	if (typeof value !== "object" || value === null) return false;
 	const entry = value as Record<string, unknown>;
 	return (
-		CARD_STATUSES.includes(entry.status as CardStatus) &&
+		LANES.includes(entry.lane as Lane) &&
 		typeof entry.at === "number" &&
 		Number.isInteger(entry.at) &&
 		typeof entry.by === "string" &&

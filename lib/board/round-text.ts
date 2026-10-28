@@ -63,8 +63,8 @@ export const PLURAL_JS = String(plural);
 
 /** `#4 doing planned`, the brief a rollup group needs. */
 function brief(card: Card): string {
-	const planned = card.status === "doing" ? (card.plan === undefined ? " unplanned" : " planned") : "";
-	return `${cardRef(card.id)} ${card.status}${planned}`;
+	const planned = card.lane === "doing" ? (card.plan === undefined ? " unplanned" : " planned") : "";
+	return `${cardRef(card.id)} ${card.lane}${planned}`;
 }
 
 /** One rollup group, or nothing when it is empty. */

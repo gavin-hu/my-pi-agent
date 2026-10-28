@@ -19,7 +19,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id,
 		title: `Card ${id}`,
-		status: "todo",
+		lane: "todo",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -42,9 +42,9 @@ describe("buildView", () => {
 			me: ME,
 			cards: [
 				card("1"),
-				card("2", { status: "doing", owner: { label: "billing-core" } }),
-				card("3", { status: "blocked", owner: { label: "billing-core" } }),
-				card("4", { status: "done", owner: { label: "billing-core" } }),
+				card("2", { lane: "doing", owner: { label: "billing-core" } }),
+				card("3", { lane: "blocked", owner: { label: "billing-core" } }),
+				card("4", { lane: "done", owner: { label: "billing-core" } }),
 			],
 			now: NOW,
 			bytes: 2_048,
@@ -52,7 +52,7 @@ describe("buildView", () => {
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(view.lanes.map((lane) => lane.status)).toEqual(["todo", "doing", "blocked", "done"]);
+		expect(view.lanes.map((lane) => lane.key)).toEqual(["todo", "doing", "blocked", "done"]);
 		expect(view.lanes.map((lane) => lane.cards.map((entry) => entry.id))).toEqual([["1"], ["2"], ["3"], ["4"]]);
 	});
 
@@ -60,14 +60,14 @@ describe("buildView", () => {
 		const view = buildView({
 			me: ME,
 			cards: [
-				card("1", { log: [{ status: "todo", at: 4_000, by: "billing-lead" }] }),
+				card("1", { log: [{ lane: "todo", at: 4_000, by: "billing-lead" }] }),
 				// A card written before the log existed.
 				card("2"),
 				// A log whose last entry is another lane cannot say when this one began.
 				card("3", {
-					status: "doing",
+					lane: "doing",
 					owner: { label: "billing-core" },
-					log: [{ status: "todo", at: 1_000, by: "billing-lead" }],
+					log: [{ lane: "todo", at: 1_000, by: "billing-lead" }],
 				}),
 			],
 			now: NOW,
@@ -100,7 +100,7 @@ describe("buildView", () => {
 		// links. Both read the same graph, so neither can invent a blocker.
 		const blocked = buildView({
 			me: ME,
-			cards: [card("2", { status: "doing" }), card("4", { dependsOn: ["2"] })],
+			cards: [card("2", { lane: "doing" }), card("4", { dependsOn: ["2"] })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
@@ -111,7 +111,7 @@ describe("buildView", () => {
 
 		const cleared = buildView({
 			me: ME,
-			cards: [card("2", { status: "done", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
+			cards: [card("2", { lane: "done", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
@@ -127,9 +127,9 @@ describe("buildView", () => {
 		const view = buildView({
 			me: ME,
 			cards: [
-				card("2", { status: "doing" }),
+				card("2", { lane: "doing" }),
 				card("4", { dependsOn: ["2"] }),
-				card("5", { status: "done", dependsOn: ["2"], owner: { label: "x" } }),
+				card("5", { lane: "done", dependsOn: ["2"], owner: { label: "x" } }),
 			],
 			now: NOW,
 			bytes: 0,
@@ -166,8 +166,8 @@ describe("buildView", () => {
 		const view = buildView({
 			me: ME,
 			cards: [
-				card("3", { status: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }),
-				card("5", { status: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: NOW } }),
+				card("3", { lane: "blocked", owner: { label: "billing-core" }, blockedBy: "legal has to sign" }),
+				card("5", { lane: "done", owner: { label: "billing-core" }, landed: { commit: "4af1b4a", at: NOW } }),
 			],
 			now: NOW,
 			bytes: 0,
@@ -175,8 +175,8 @@ describe("buildView", () => {
 			repo: REPO,
 			root: ROOT,
 		});
-		const blocked = view.lanes.find((lane) => lane.status === "blocked")?.cards[0];
-		const done = view.lanes.find((lane) => lane.status === "done")?.cards[0];
+		const blocked = view.lanes.find((lane) => lane.key === "blocked")?.cards[0];
+		const done = view.lanes.find((lane) => lane.key === "done")?.cards[0];
 		expect(blocked?.blockedBy).toBe("legal has to sign");
 		expect(done?.landed).toEqual({ commit: "4af1b4a", at: NOW });
 	});
@@ -186,7 +186,7 @@ describe("buildView", () => {
 		// without `waits` reads as "nobody holds it" and loses the reason it is queued.
 		const view = buildView({
 			me: ME,
-			cards: [card("2", { status: "doing", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
+			cards: [card("2", { lane: "doing", owner: { label: "x" } }), card("4", { dependsOn: ["2"] })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
@@ -205,11 +205,11 @@ describe("buildView", () => {
 			"by",
 			"createdAt",
 			"id",
+			"lane",
 			"notes",
 			"notesDropped",
 			"paths",
 			"rev",
-			"status",
 			"title",
 			"updatedAt",
 			"v",
@@ -219,7 +219,7 @@ describe("buildView", () => {
 	test("counts each lane, and the total is their sum", () => {
 		const view = buildView({
 			me: ME,
-			cards: [card("1"), card("2"), card("3", { status: "done", owner: { label: "x" } })],
+			cards: [card("1"), card("2"), card("3", { lane: "done", owner: { label: "x" } })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,
@@ -232,7 +232,7 @@ describe("buildView", () => {
 	test("carries the rollup of the same cards", () => {
 		const view = buildView({
 			me: ME,
-			cards: [card("1", { status: "doing", owner: { label: "billing-core" } })],
+			cards: [card("1", { lane: "doing", owner: { label: "billing-core" } })],
 			now: NOW,
 			bytes: 0,
 			where: WHERE,

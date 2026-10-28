@@ -80,6 +80,6 @@ export function collapsedLine(theme: Theme, details: BoardDetails): string {
 /** `#4 doing · Billing webhook accepts orders`, clipped by the caller's row helper. */
 function cardLine(theme: Theme, card: Card): string {
 	const id = paint(theme, "meta", cardRef(card.id));
-	const lane = paint(theme, "accent", card.status);
+	const lane = paint(theme, "accent", card.lane);
 	return `${id} ${lane} ${SEPARATORS.item} ${paint(theme, "label", sanitizeLine(card.title))}`;
 }

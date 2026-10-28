@@ -27,7 +27,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: CARD_VERSION,
 		id,
 		title: `feature ${id}`,
-		status: "todo",
+		lane: "todo",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -40,8 +40,8 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 }
 
 /** A card somebody holds, which is the only way one leaves `todo`. */
-function held(id: string, status: "doing" | "blocked" | "done" = "doing", overrides: Partial<Card> = {}): Card {
-	return card(id, { status, owner: { label: "billing-core" }, ...overrides });
+function held(id: string, lane: "doing" | "blocked" | "done" = "doing", overrides: Partial<Card> = {}): Card {
+	return card(id, { lane, owner: { label: "billing-core" }, ...overrides });
 }
 
 describe("blockersOf", () => {

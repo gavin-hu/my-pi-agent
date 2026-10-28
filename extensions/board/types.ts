@@ -41,7 +41,7 @@ export type BoardAction = (typeof BOARD_ACTIONS)[number];
  */
 export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	list:
-		"shows the board — `status` filters one lane, `mine` only what this session holds, " +
+		"shows the board — `lane` filters one lane, `mine` only what this session holds, " +
 		"`query` matches a title, a holder, a path hint, the plan, or a note's text, `card` reads that one card " +
 		"instead of the board, and `round` adds the lead's rollup of owners, unassigned, unplanned, blocked, and " +
 		"idle, which always covers the whole board — and a listing that names no lane leaves out the `done` cards, " +
@@ -71,12 +71,12 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
  * a new field cannot be published without an action that acts on it.
  */
 export const ACTION_FIELDS: Record<BoardAction, readonly string[]> = {
-	list: ["card", "status", "mine", "query", "round", "archived"],
+	list: ["card", "lane", "mine", "query", "round", "archived"],
 	add: ["title", "paths", "priority", "note"],
 	claim: ["card"],
 	release: ["card"],
 	reclaim: ["card"],
-	move: ["card", "status", "blockedBy"],
+	move: ["card", "lane", "blockedBy"],
 	note: ["card", "text"],
 	plan: ["card", "path"],
 	edit: ["card", "title", "paths", "priority", "dependsOn"],

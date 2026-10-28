@@ -8,7 +8,7 @@
  */
 
 import { Type } from "typebox";
-import { CARD_STATUSES, MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
+import { LANES, MAX_NOTE, PRIORITIES } from "../../lib/board/card.ts";
 import { BOARD_ACTIONS } from "./types.ts";
 
 export const BoardParams = Type.Object({
@@ -27,9 +27,9 @@ export const BoardParams = Type.Object({
 				'The card id for one card, e.g. "4" or "#4". `list` reads that card; every other action but `add` acts on it.',
 		}),
 	),
-	status: Type.Optional(
+	lane: Type.Optional(
 		Type.Union(
-			CARD_STATUSES.map((status) => Type.Literal(status)),
+			LANES.map((lane) => Type.Literal(lane)),
 			{
 				description:
 					"`list`: show only this lane, and not skip the `done` cards. `move`: the lane to move to (not `todo` — use `release`).",
@@ -90,7 +90,7 @@ export const BoardParams = Type.Object({
 	archived: Type.Optional(
 		Type.Boolean({
 			description:
-				"`list`: read the archive instead of the board — the finished cards `archive` set aside, which no other read opens. `query` and `mine` narrow it; `status` and `round` do not apply to a pile that is out of the board.",
+				"`list`: read the archive instead of the board — the finished cards `archive` set aside, which no other read opens. `query` and `mine` narrow it; `lane` and `round` do not apply to a pile that is out of the board.",
 		}),
 	),
 });

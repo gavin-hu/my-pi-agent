@@ -30,8 +30,8 @@ function holderOf(card: Card): string {
  */
 function stateOf(card: Card): string[] {
 	const urgency = priorityOf(card) === DEFAULT_PRIORITY ? [] : [priorityOf(card)];
-	if (card.status === "todo" || card.status === "done") return [...urgency, card.status];
-	return [...urgency, card.status, card.plan === undefined ? "unplanned" : "planned"];
+	if (card.lane === "todo" || card.lane === "done") return [...urgency, card.lane];
+	return [...urgency, card.lane, card.plan === undefined ? "unplanned" : "planned"];
 }
 
 /** One card: the id and title, with its state trailing. */

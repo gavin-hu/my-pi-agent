@@ -54,7 +54,7 @@ describe("create", () => {
 	test("writes a card this build's reader accepts, with the first note", async () => {
 		const { store } = scratchStore();
 		const card = await store.create({ title: "T", paths: ["src/billing"], note: "from the page" }, LEAD, NOW);
-		expect(card).toMatchObject({ status: "todo", rev: 1, by: LEAD.label });
+		expect(card).toMatchObject({ lane: "todo", rev: 1, by: LEAD.label });
 		expect(card.notes).toEqual([{ by: LEAD.label, at: NOW, text: "from the page" }]);
 		expect(await store.read(card.id)).toEqual(card);
 	});
@@ -96,9 +96,9 @@ describe("list and read", () => {
 		const done = await store.create({ title: "done", paths: [] }, LEAD, NOW);
 		await store.mutate(doing.id, { kind: "claim" }, CORE, NOW);
 		await store.mutate(blocked.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(blocked.id, { kind: "move", status: "blocked" }, CORE, NOW);
+		await store.mutate(blocked.id, { kind: "move", lane: "blocked" }, CORE, NOW);
 		await store.mutate(done.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(done.id, { kind: "move", status: "done" }, CORE, NOW);
+		await store.mutate(done.id, { kind: "move", lane: "done" }, CORE, NOW);
 		expect((await store.list()).map((card) => card.title)).toEqual(["todo", "doing", "blocked", "done"]);
 		expect((await store.list()).map((card) => card.id)).toEqual([todo.id, doing.id, blocked.id, done.id]);
 	});
@@ -111,7 +111,7 @@ describe("list and read", () => {
 		// A done card stays history whatever its priority: the lane decides first.
 		const finished = await store.create({ title: "finished", paths: [], priority: "high" }, LEAD, NOW);
 		await store.mutate(finished.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(finished.id, { kind: "move", status: "done" }, CORE, NOW);
+		await store.mutate(finished.id, { kind: "move", lane: "done" }, CORE, NOW);
 		expect((await store.list()).map((card) => card.id)).toEqual([high.id, ordinary.id, low.id, finished.id]);
 	});
 
@@ -168,6 +168,18 @@ describe("list and read", () => {
 		expect(result.error).toBe("#7 is there and this build cannot read it (0007.json: version 2).");
 	});
 
+	test("reads a card written before the lane was called a lane", async () => {
+		// A published board holds these: the field was renamed, the files were not. The
+		// card reads, and its next write spells the new name.
+		const { dir, store } = scratchStore();
+		await store.ensure();
+		const { lane, ...rest } = cardLike("7");
+		writeFileSync(join(dir, "cards", "0007.json"), JSON.stringify({ ...rest, status: lane }));
+		expect((await store.list()).map((card) => card.lane)).toEqual(["todo"]);
+		await store.mutate("7", { kind: "note", text: "read me" }, LEAD, NOW);
+		expect(JSON.parse(readFileSync(join(dir, "cards", "0007.json"), "utf-8")).lane).toBe("todo");
+	});
+
 	test("a padded id inside the record is a disagreement, not a card", async () => {
 		const { dir, store } = scratchStore();
 		const cards = join(dir, "cards");
@@ -183,7 +195,7 @@ describe("mutate", () => {
 		const card = await store.create({ title: "T", paths: [] }, LEAD, NOW);
 		const result = await store.mutate(card.id, { kind: "claim" }, CORE, NOW + 1);
 		if (!result.ok) throw new Error(result.error);
-		expect(result.card).toMatchObject({ status: "doing", owner: { label: CORE.label }, rev: 2 });
+		expect(result.card).toMatchObject({ lane: "doing", owner: { label: CORE.label }, rev: 2 });
 		expect(result.dropped).toBe(false);
 		expect(await store.read(card.id)).toEqual(result.card);
 	});
@@ -220,10 +232,10 @@ describe("mutate", () => {
 		await first.mutate(card.id, { kind: "claim" }, CORE, NOW);
 		// …and the other session's "move done" is re-checked against that card rather
 		// than forced onto the copy it read.
-		const moved = await second.mutate(card.id, { kind: "move", status: "done" }, OTHER, NOW);
+		const moved = await second.mutate(card.id, { kind: "move", lane: "done" }, OTHER, NOW);
 		if (moved.ok) throw new Error("expected the second session's move to be refused");
 		expect(moved.error).toBe("#1 is held by billing-core. Only its owner can move it.");
-		expect((await second.read(card.id))?.status).toBe("doing");
+		expect((await second.read(card.id))?.lane).toBe("doing");
 	});
 
 	test("the owner's own later move is still applied", async () => {
@@ -233,9 +245,9 @@ describe("mutate", () => {
 		await first.ensure();
 		const card = await first.create({ title: "T", paths: [] }, LEAD, NOW);
 		await first.mutate(card.id, { kind: "claim" }, CORE, NOW);
-		const moved = await second.mutate(card.id, { kind: "move", status: "blocked" }, CORE, NOW + 1);
+		const moved = await second.mutate(card.id, { kind: "move", lane: "blocked" }, CORE, NOW + 1);
 		if (!moved.ok) throw new Error(moved.error);
-		expect(moved.card).toMatchObject({ status: "blocked", rev: 3 });
+		expect(moved.card).toMatchObject({ lane: "blocked", rev: 3 });
 	});
 
 	test("an operation on a dropped card reports it gone", async () => {
@@ -278,10 +290,10 @@ describe("mutate", () => {
 		if (refused.ok) throw new Error("expected the claim to be refused");
 		expect(refused.error).toBe(`#${second.id} waits on #${first.id} (todo).`);
 		await store.mutate(first.id, { kind: "claim" }, CORE, NOW);
-		await store.mutate(first.id, { kind: "move", status: "done" }, CORE, NOW);
+		await store.mutate(first.id, { kind: "move", lane: "done" }, CORE, NOW);
 		const claimed = await store.mutate(second.id, { kind: "claim" }, CORE, NOW);
 		if (!claimed.ok) throw new Error(claimed.error);
-		expect(claimed.card.status).toBe("doing");
+		expect(claimed.card.lane).toBe("doing");
 	});
 
 	test("drop removes the file and its notes", async () => {
@@ -304,7 +316,7 @@ describe("mutate", () => {
 			v: 1,
 			id: "1",
 			title: "A card that ended",
-			status: "todo",
+			lane: "todo",
 			by: LEAD.label,
 			at: NOW + 5,
 			why: "dropped",
@@ -322,7 +334,7 @@ describe("mutate", () => {
 		await store.mutate(card.id, { kind: "claim" }, CORE, NOW);
 		await store.mutate(card.id, { kind: "drop" }, CORE, NOW);
 		const ended = JSON.parse(readFileSync(join(dir, "ended", "0001.json"), "utf-8"));
-		expect(ended.status).toBe("doing");
+		expect(ended.lane).toBe("doing");
 		expect(ended.owner).toEqual({ id: CORE.id, label: CORE.label });
 	});
 });
@@ -332,7 +344,7 @@ describe("archive", () => {
 	async function finished(store: ReturnType<typeof createStore>, title = "T"): Promise<string> {
 		const card = await store.create({ title, paths: [], note: "kept" }, LEAD, NOW);
 		await store.mutate(card.id, { kind: "claim" }, CORE, NOW);
-		const moved = await store.mutate(card.id, { kind: "move", status: "done" }, CORE, NOW);
+		const moved = await store.mutate(card.id, { kind: "move", lane: "done" }, CORE, NOW);
 		if (!moved.ok) throw new Error(moved.error);
 		return card.id;
 	}
@@ -450,7 +462,7 @@ describe("bytes, where, and the signature", () => {
 		expect(await store.bytes()).toBe(before);
 		// The page's size belongs to the cards it lists, so a card set aside lowers it.
 		await store.mutate("1", { kind: "claim" }, LEAD, NOW);
-		await store.mutate("1", { kind: "move", status: "done" }, LEAD, NOW);
+		await store.mutate("1", { kind: "move", lane: "done" }, LEAD, NOW);
 		await store.mutate("1", { kind: "archive" }, LEAD, NOW);
 		expect(await store.bytes()).toBe(0);
 	});

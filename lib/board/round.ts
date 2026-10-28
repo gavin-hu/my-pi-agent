@@ -69,16 +69,16 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 	const done: T[] = [];
 
 	for (const card of cards) {
-		if (card.status === "todo") unassigned.push(card);
-		if (card.status === "done") done.push(card);
-		if (card.status === "blocked") blocked.push(card);
-		if (card.status === "doing" && card.plan === undefined) unplanned.push(card);
-		if (card.status === "doing" && now - card.updatedAt >= IDLE_MS) idle.push(card);
+		if (card.lane === "todo") unassigned.push(card);
+		if (card.lane === "done") done.push(card);
+		if (card.lane === "blocked") blocked.push(card);
+		if (card.lane === "doing" && card.plan === undefined) unplanned.push(card);
+		if (card.lane === "doing" && now - card.updatedAt >= IDLE_MS) idle.push(card);
 
 		if (card.owner === undefined) continue;
 		const key = card.owner.label.toLowerCase();
 		const group = groups.get(key) ?? { label: card.owner.label, cards: [], done: [] };
-		if (card.status === "done") group.done.push(card);
+		if (card.lane === "done") group.done.push(card);
 		else group.cards.push(card);
 		groups.set(key, group);
 	}

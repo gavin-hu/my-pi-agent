@@ -20,7 +20,7 @@ const NOW = 1_760_000_000_000;
 function card(overrides: Partial<Card> & Pick<Card, "id" | "title">): Card {
 	return {
 		v: 1,
-		status: "todo",
+		lane: "todo",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -35,7 +35,7 @@ function card(overrides: Partial<Card> & Pick<Card, "id" | "title">): Card {
 const PLANNED = card({
 	id: "1",
 	title: "Billing webhook accepts orders",
-	status: "doing",
+	lane: "doing",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing", "src/api"],
 	plan: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
@@ -47,7 +47,7 @@ const PLANNED = card({
 const UNPLANNED = card({
 	id: "2",
 	title: "Retry branches merge cleanly into main",
-	status: "doing",
+	lane: "doing",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing/retry"],
 	rev: 3,
@@ -57,7 +57,7 @@ const UNPLANNED = card({
 const BLOCKED = card({
 	id: "3",
 	title: "Webhook signature drift on the gateway",
-	status: "blocked",
+	lane: "blocked",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/api/gateway"],
 	notes: [{ by: "billing-core", at: NOW - 60_000, text: "waiting on the gateway owner" }],
@@ -68,7 +68,7 @@ const BLOCKED = card({
 const DONE = card({
 	id: "4",
 	title: "Export orders as CSV",
-	status: "done",
+	lane: "done",
 	owner: { id: "s-other", label: "billing-other" },
 	paths: ["src/reports"],
 	notes: [{ by: "billing-other", at: NOW - 3_600_000, text: "shipped behind a flag" }],
@@ -100,7 +100,7 @@ const ASSIGNED: TeamDetails = {
 /** One reclaim, as the tool reports it. */
 const RECLAIMED: TeamDetails = {
 	action: "reclaim",
-	card: { ...UNPLANNED, status: "todo", rev: 4 },
+	card: { ...UNPLANNED, lane: "todo", rev: 4 },
 };
 
 /** One finished card set aside, as the tool reports it. */

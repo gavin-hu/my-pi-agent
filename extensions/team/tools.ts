@@ -263,5 +263,5 @@ function summaryOf(details: TeamDetails): string {
 	}
 	const who = details.assigned?.label ?? card.owner?.label;
 	const target = details.action === "assign" && who !== undefined ? ` → ${who}` : "";
-	return `${cardRef(card.id)} ${card.status}${target}`;
+	return `${cardRef(card.id)} ${card.lane}${target}`;
 }

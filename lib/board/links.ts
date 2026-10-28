@@ -36,7 +36,7 @@ export function indexOf(cards: readonly Card[]): BoardIndex {
 export function blockersOf(card: Card, board: BoardIndex): Card[] {
 	return dependsOf(card)
 		.map((id) => board.get(id))
-		.filter((other): other is Card => other !== undefined && other.status !== "done");
+		.filter((other): other is Card => other !== undefined && other.lane !== "done");
 }
 
 /**
@@ -49,7 +49,7 @@ export function blockersOf(card: Card, board: BoardIndex): Card[] {
  * formatter would be a second way for the same list to read.
  */
 export function lanesText(cards: readonly Card[]): string {
-	return cards.map((card) => `${cardRef(card.id)} (${card.status})`).join(", ");
+	return cards.map((card) => `${cardRef(card.id)} (${card.lane})`).join(", ");
 }
 
 /** The cards that wait on `id`, oldest id first, so a report reads in board order. */
@@ -66,7 +66,7 @@ export function dependentsOf(id: string, board: BoardIndex): Card[] {
  * refusal is about a link that would be stranded rather than about work that is held up.
  */
 export function openDependentsOf(id: string, board: BoardIndex): Card[] {
-	return dependentsOf(id, board).filter((card) => card.status !== "done");
+	return dependentsOf(id, board).filter((card) => card.lane !== "done");
 }
 
 /** The sentence a claim, a move, or an assignment is refused with while `card` waits, or undefined. */

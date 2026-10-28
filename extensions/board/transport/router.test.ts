@@ -22,7 +22,7 @@ function card(overrides: Partial<Card> = {}): Card {
 		v: 1,
 		id: "4",
 		title: "Billing webhook accepts orders",
-		status: "todo",
+		lane: "todo",
 		paths: ["src/billing"],
 		notes: [],
 		notesDropped: 0,
@@ -39,10 +39,10 @@ function view(): BoardView {
 	return {
 		me: { id: "s-lead", label: "billing-lead" },
 		lanes: [
-			{ status: "todo", cards: [{ ...card(), priority: "normal" }] },
-			{ status: "doing", cards: [] },
-			{ status: "blocked", cards: [] },
-			{ status: "done", cards: [] },
+			{ key: "todo", cards: [{ ...card(), priority: "normal" }] },
+			{ key: "doing", cards: [] },
+			{ key: "blocked", cards: [] },
+			{ key: "done", cards: [] },
 		],
 		counts: { total: 1, todo: 1, doing: 0, blocked: 0, done: 0 },
 		skipped: 0,

@@ -19,7 +19,7 @@ import { plural } from "../../lib/board/round-text.ts";
 
 /** One card: the headline, then the state a reader needs in order to act on it. */
 export function formatCard(card: Card, board?: BoardIndex, now?: number): string {
-	return [`${cardRef(card.id)} ${card.status} · ${card.title}`, ...detailLines(card, board, now)].join("\n");
+	return [`${cardRef(card.id)} ${card.lane} · ${card.title}`, ...detailLines(card, board, now)].join("\n");
 }
 
 /**
@@ -50,7 +50,7 @@ export function formatBoard(shown: readonly Card[], notes: ListingNotes): string
 	// them out; the count is what keeps the omission from reading as a smaller board.
 	if (notes.hiddenDone > 0) {
 		const them = notes.hiddenDone === 1 ? "it" : "them";
-		lines.push(`${plural(notes.hiddenDone, "done card")} hidden; pass status: "done" to read ${them}.`);
+		lines.push(`${plural(notes.hiddenDone, "done card")} hidden; pass lane: "done" to read ${them}.`);
 	}
 	for (const note of [archiveNote(notes.archived), formatSkipped(notes.skipped)]) {
 		if (note !== "") lines.push(note);
@@ -118,7 +118,7 @@ function listLine(card: Card): string {
 	// what closed a finished card. Both are one short phrase, so a listing stays one line.
 	const blocked = card.blockedBy === undefined ? "" : ` · blocked: ${card.blockedBy}`;
 	const landed = card.landed === undefined ? "" : ` · landed ${card.landed.commit}`;
-	return `${cardRef(card.id)} ${card.status} · ${card.title} · ${holder}${urgency}${waits}${blocked}${landed}`;
+	return `${cardRef(card.id)} ${card.lane} · ${card.title} · ${holder}${urgency}${waits}${blocked}${landed}`;
 }
 
 /** The state lines under a card's headline. */
@@ -164,7 +164,7 @@ function waitingOf(card: Card, board: BoardIndex | undefined): string {
 	return dependsOf(card)
 		.map((id) => {
 			const blocker = board?.get(id);
-			return blocker === undefined ? cardRef(id) : `${cardRef(id)} (${blocker.status})`;
+			return blocker === undefined ? cardRef(id) : `${cardRef(id)} (${blocker.lane})`;
 		})
 		.join(", ");
 }

@@ -54,12 +54,12 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     var narrow = window.matchMedia && window.matchMedia("(max-width: 860px)").matches;
     var lanes = document.querySelectorAll(".board-lane");
     for (var i = 0; i < lanes.length; i++) {
-      var selected = lanes[i].getAttribute("data-status") === board.lane;
+      var selected = lanes[i].getAttribute("data-lane") === board.shown;
       lanes[i].hidden = narrow && !selected;
     }
-    var items = document.querySelectorAll("#board-picker [data-lane]");
+    var items = document.querySelectorAll("#board-picker [data-picker-lane]");
     for (var j = 0; j < items.length; j++) {
-      if (items[j].getAttribute("data-lane") === board.lane) items[j].setAttribute("aria-current", "page");
+      if (items[j].getAttribute("data-picker-lane") === board.shown) items[j].setAttribute("aria-current", "page");
       else items[j].removeAttribute("aria-current");
     }
   }
@@ -67,14 +67,14 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   board.applyLane = applyLane;
 
   board.showLane = function (lane) {
-    board.lane = lane;
+    board.shown = lane;
     applyLane();
   };
 
   /** Fold a lane's cards away and leave its head, count and all. */
-  board.toggleLane = function (status) {
+  board.toggleLane = function (key) {
     board.collapsed = board.collapsed || {};
-    board.collapsed[status] = board.collapsed[status] !== true;
+    board.collapsed[key] = board.collapsed[key] !== true;
     if (board.view) board.render(board.view);
   };
 
@@ -121,7 +121,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
    * The grey cards a page shows while it waits for its first frame.
    *
    * They are marked as placeholders rather than given a lane status: the renderer
-   * looks lanes up by data-status, so a skeleton that carried one would be adopted
+   * looks lanes up by data-lane, so a skeleton that carried one would be adopted
    * as the real lane and the cards would never be drawn into it.
    */
   function skeletons() {
@@ -141,14 +141,14 @@ export const BOARD_LIVE_JS = String.raw`(function () {
    * page with a picker nobody has a reason to press.
    */
   function laneWithWork(view) {
-    for (var i = 0; i < view.lanes.length; i++) if (view.lanes[i].cards.length > 0) return view.lanes[i].status;
-    return view.lanes[0] ? view.lanes[0].status : "todo";
+    for (var i = 0; i < view.lanes.length; i++) if (view.lanes[i].cards.length > 0) return view.lanes[i].key;
+    return view.lanes[0] ? view.lanes[0].key : "todo";
   }
 
   /** One frame: paint and record when it arrived. */
   function paint(view) {
     board.lastFrame = Date.now();
-    board.lane = board.lane || laneWithWork(view);
+    board.shown = board.shown || laneWithWork(view);
     badge("live", board.lastFrame);
     board.render(view);
   }
@@ -190,7 +190,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     var picker = document.getElementById("board-picker");
     if (picker) {
       picker.addEventListener("click", function (event) {
-        var lane = event.target && event.target.getAttribute ? event.target.getAttribute("data-lane") : null;
+        var lane = event.target && event.target.getAttribute ? event.target.getAttribute("data-picker-lane") : null;
         if (lane) board.showLane(lane);
       });
     }
@@ -212,7 +212,7 @@ export const BOARD_LIVE_JS = String.raw`(function () {
   }
 
   board.start = function () {
-    board.lane = undefined;
+    board.shown = undefined;
     board.openId = undefined;
     board.query = "";
     board.collapsed = {};

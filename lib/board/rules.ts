@@ -27,7 +27,7 @@
 import {
 	type Card,
 	type CardOwner,
-	type CardStatus,
+	type Lane,
 	cardRef,
 	DEFAULT_PRIORITY,
 	dependsOf,
@@ -65,7 +65,7 @@ export type CardOp =
 	 * because a card may be blocked with nothing recorded and a `done` card may predate the
 	 * field or live outside a repository.
 	 */
-	| { kind: "move"; status: Exclude<CardStatus, "todo">; blockedBy?: unknown; landed?: { commit: string } }
+	| { kind: "move"; lane: Exclude<Lane, "todo">; blockedBy?: unknown; landed?: { commit: string } }
 	// `text` and `path` are whatever the model sent: `card.ts` validates them, and the
 	// refusal it produces is the one the caller shows.
 	| { kind: "note"; text: unknown }
@@ -100,7 +100,7 @@ export function createCard(
 		v: 1,
 		id,
 		title: input.title,
-		status: "todo",
+		lane: "todo",
 		paths: [...input.paths],
 		// A new card says its priority out loud, even when it is the ordinary one, so a
 		// file on disk tells a reader the whole story without a default to know.
@@ -109,7 +109,7 @@ export function createCard(
 		notesDropped: 0,
 		// A card is born in `todo`, and that is a transition like any other: a reader asking
 		// "how long has this been waiting" gets an answer rather than an absence.
-		log: [{ status: "todo", at: now, by: actor.label }],
+		log: [{ lane: "todo", at: now, by: actor.label }],
 		logDropped: 0,
 		rev: 1,
 		createdAt: now,
@@ -166,25 +166,25 @@ export function applyOp(card: Card, op: CardOp, actor: Actor, now: number, board
 }
 
 function claim(card: Card, actor: Actor, now: number, board: BoardIndex): OpResult {
-	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be claimed.` };
+	if (card.lane === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be claimed.` };
 	if (holds(card, actor)) return { ok: true, card, changed: false };
 	if (card.owner !== undefined) return { ok: false, error: heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { ok: false, error: waiting };
 	return {
 		ok: true,
-		card: write(card, actor, now, { status: "doing", owner: ownerOf(actor), offeredAt: undefined }),
+		card: write(card, actor, now, { lane: "doing", owner: ownerOf(actor), offeredAt: undefined }),
 		changed: true,
 	};
 }
 
 function assign(card: Card, to: Actor, rawNote: unknown, actor: Actor, now: number, board: BoardIndex): OpResult {
-	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be assigned.` };
+	if (card.lane === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be assigned.` };
 	if (card.owner !== undefined && !holds(card, to)) return { ok: false, error: heldBy(card) };
-	if (holds(card, to) && card.status === "doing") return { ok: true, card, changed: false };
+	if (holds(card, to) && card.lane === "doing") return { ok: true, card, changed: false };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { ok: false, error: waiting };
-	const fields: Partial<Card> = { status: "doing", owner: ownerOf(to), offeredAt: undefined };
+	const fields: Partial<Card> = { lane: "doing", owner: ownerOf(to), offeredAt: undefined };
 	if (rawNote !== undefined) {
 		const parsed = normalizeNote(rawNote);
 		if ("error" in parsed) return { ok: false, error: parsed.error };
@@ -199,12 +199,12 @@ function release(card: Card, actor: Actor, now: number): OpResult {
 	// Finished work is history: every other transition refuses it, and a release that did
 	// not would be the one way a `done` card could go backwards — reopening the order a
 	// dependency was recorded against.
-	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be released.` };
+	if (card.lane === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be released.` };
 	if (card.owner === undefined) return { ok: false, error: `${cardRef(card.id)} is not claimed.` };
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Release is the owner's decision.` };
 	return {
 		ok: true,
-		card: write(card, actor, now, { status: "todo", owner: undefined, offeredAt: undefined }),
+		card: write(card, actor, now, { lane: "todo", owner: undefined, offeredAt: undefined }),
 		changed: true,
 	};
 }
@@ -216,28 +216,28 @@ function move(
 	now: number,
 	board: BoardIndex,
 ): OpResult {
-	const status = op.status;
-	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be moved.` };
+	const lane = op.lane;
+	if (card.lane === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be moved.` };
 	if (card.owner === undefined) {
-		return { ok: false, error: `${cardRef(card.id)} is unclaimed; claim it before moving it to ${status}.` };
+		return { ok: false, error: `${cardRef(card.id)} is unclaimed; claim it before moving it to ${lane}.` };
 	}
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Only its owner can move it.` };
 	// A block's reason is checked before the no-op: a caller that repeats a move with a new
 	// sentence meant to change it, and a refusal is clearer than a silent nothing.
 	let blockedBy: string | undefined;
-	if (status === "blocked" && op.blockedBy !== undefined) {
+	if (lane === "blocked" && op.blockedBy !== undefined) {
 		const parsed = normalizeBlockedBy(op.blockedBy);
 		if ("error" in parsed) return { ok: false, error: parsed.error };
 		blockedBy = parsed.blockedBy;
 	}
-	if (card.status === status && blockedBy === undefined) return { ok: true, card, changed: false };
+	if (card.lane === lane && blockedBy === undefined) return { ok: true, card, changed: false };
 	// Parking is what a link is for, so only the two lanes that put a card back in flight
 	// are gated: a card that waits may be blocked, it may not be taken or finished.
-	if (status !== "blocked") {
+	if (lane !== "blocked") {
 		const waiting = waitingOn(card, board);
 		if (waiting !== undefined) return { ok: false, error: waiting };
 	}
-	return { ok: true, card: write(card, actor, now, laneFields(status, blockedBy, op, now)), changed: true };
+	return { ok: true, card: write(card, actor, now, laneFields(lane, blockedBy, op, now)), changed: true };
 }
 
 /**
@@ -249,18 +249,18 @@ function move(
  * commit — a board outside git still finishes cards, it just cannot say with what.
  */
 function laneFields(
-	status: Exclude<CardStatus, "todo">,
+	lane: Exclude<Lane, "todo">,
 	blockedBy: string | undefined,
 	op: Extract<CardOp, { kind: "move" }>,
 	now: number,
 ): Partial<Card> {
-	const fields: Partial<Card> = { status };
-	if (status === "blocked") {
+	const fields: Partial<Card> = { lane };
+	if (lane === "blocked") {
 		if (blockedBy !== undefined) fields.blockedBy = blockedBy;
 	} else {
 		fields.blockedBy = undefined;
 	}
-	if (status === "done" && op.landed !== undefined) fields.landed = { commit: op.landed.commit, at: now };
+	if (lane === "done" && op.landed !== undefined) fields.landed = { commit: op.landed.commit, at: now };
 	return fields;
 }
 
@@ -281,8 +281,8 @@ function appendNote(card: Card, actor: Actor, now: number, text: string): Pick<C
 }
 
 /** A card's log after one more transition, with the oldest dropped and counted. */
-function appendTransition(card: Card, status: CardStatus, actor: Actor, now: number): Pick<Card, "log" | "logDropped"> {
-	const log = [...(card.log ?? []), { status, at: now, by: actor.label }];
+function appendTransition(card: Card, lane: Lane, actor: Actor, now: number): Pick<Card, "log" | "logDropped"> {
+	const log = [...(card.log ?? []), { lane, at: now, by: actor.label }];
 	const overflow = Math.max(0, log.length - MAX_LOG);
 	return {
 		log: overflow === 0 ? log : log.slice(overflow),
@@ -291,7 +291,7 @@ function appendTransition(card: Card, status: CardStatus, actor: Actor, now: num
 }
 
 function plan(card: Card, raw: unknown, actor: Actor, now: number): OpResult {
-	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; its plan cannot change.` };
+	if (card.lane === "done") return { ok: false, error: `${cardRef(card.id)} is done; its plan cannot change.` };
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} Only its owner records a plan.` };
 	const parsed = normalizePlanPath(raw);
 	if ("error" in parsed) return { ok: false, error: parsed.error };
@@ -354,7 +354,7 @@ function edit(
  * who offers again is asking again, and the age is the record of when they last did.
  */
 function offer(card: Card, actor: Actor, now: number, board: BoardIndex): OpResult {
-	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be offered.` };
+	if (card.lane === "done") return { ok: false, error: `${cardRef(card.id)} is done; it cannot be offered.` };
 	if (card.owner !== undefined) return { ok: false, error: heldBy(card) };
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { ok: false, error: waiting };
@@ -362,11 +362,11 @@ function offer(card: Card, actor: Actor, now: number, board: BoardIndex): OpResu
 }
 
 function reclaim(card: Card, actor: Actor, now: number): OpResult {
-	if (card.status === "done") return { ok: false, error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
+	if (card.lane === "done") return { ok: false, error: `${cardRef(card.id)} is done; there is nothing to reclaim.` };
 	if (card.owner === undefined) return { ok: false, error: `${cardRef(card.id)} has no owner to reclaim.` };
 	return {
 		ok: true,
-		card: write(card, actor, now, { status: "todo", owner: undefined, offeredAt: undefined }),
+		card: write(card, actor, now, { lane: "todo", owner: undefined, offeredAt: undefined }),
 		changed: true,
 	};
 }
@@ -380,8 +380,8 @@ function reclaim(card: Card, actor: Actor, now: number): OpResult {
  * which is the store's write. `changed` is still true, because the board lost a card.
  */
 function archive(card: Card): OpResult {
-	if (card.status !== "done") {
-		return { ok: false, error: `${cardRef(card.id)} is in ${card.status}; only a finished card can be archived.` };
+	if (card.lane !== "done") {
+		return { ok: false, error: `${cardRef(card.id)} is in ${card.lane}; only a finished card can be archived.` };
 	}
 	return { ok: true, card, changed: true };
 }
@@ -391,7 +391,7 @@ function drop(card: Card, actor: Actor, board: BoardIndex): OpResult {
 	// remaining link would name nothing, and nothing on the board would say so.
 	const depended = dependedOn(card.id, board);
 	if (depended !== undefined) return { ok: false, error: depended };
-	if (card.status === "todo" || card.status === "done") return { ok: true, card, changed: true };
+	if (card.lane === "todo" || card.lane === "done") return { ok: true, card, changed: true };
 	if (!holds(card, actor)) return { ok: false, error: `${heldBy(card)} It cannot be dropped while someone holds it.` };
 	return { ok: true, card, changed: true };
 }
@@ -411,9 +411,8 @@ function sameList(left: readonly string[], right: readonly string[]): boolean {
  * later cannot forget it.
  */
 function write(card: Card, actor: Actor, now: number, fields: Partial<Card>): Card {
-	const status = fields.status;
-	const transition =
-		status !== undefined && status !== card.status ? appendTransition(card, status, actor, now) : undefined;
+	const lane = fields.lane;
+	const transition = lane !== undefined && lane !== card.lane ? appendTransition(card, lane, actor, now) : undefined;
 	const next: Card = { ...card, ...fields, ...transition, rev: card.rev + 1, updatedAt: now, by: actor.label };
 	// `owner: undefined` must clear the field rather than store a key holding it, so a
 	// released card reads back exactly like one that was never claimed. Only an

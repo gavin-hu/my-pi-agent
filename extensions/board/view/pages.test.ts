@@ -282,9 +282,9 @@ describe("the client bundle", () => {
 		// Nineteen done cards is history the three live lanes should not have to sit
 		// beside unfolded; the count in the head is the fact. The default is written only
 		// while unset, so a reader's toggle decides from the first click on.
-		expect(BOARD_CLIENT_JS).toContain('lane.status === "done"');
+		expect(BOARD_CLIENT_JS).toContain('lane.key === "done"');
 		expect(BOARD_CLIENT_JS).toContain("DONE_FOLD_AT");
-		expect(BOARD_CLIENT_JS).toContain("board.collapsed[lane.status] === undefined");
+		expect(BOARD_CLIENT_JS).toContain("board.collapsed[lane.key] === undefined");
 		// The rail is about what the lane is showing, never about the filter: filtering is a
 		// view of the cards, not a statement that the lane holds none. A folded lane shows
 		// nothing either, so it takes the same width and hands the rest to the lanes a
@@ -465,7 +465,8 @@ describe("the class contract", () => {
 	const HOOKS: Readonly<Record<string, string>> = {
 		"data-at": "the age ticker rewrites the text from it",
 		"data-card": "the open card is found by its id",
-		"data-lane": "the narrow picker reads which lane a button selects",
+		"data-lane": "a lane section and a card carry the lane they are in",
+		"data-picker-lane": "the narrow picker reads which lane a button selects",
 		"data-rev": "a lane rebuilds only when a card's revision moves",
 		"data-sig": "a lane remembers what it last drew",
 		"data-skeleton": "the placeholders are removed once the first frame lands",

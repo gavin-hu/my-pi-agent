@@ -28,14 +28,14 @@ export const FIXTURE_CARDS = [
 		paths: ["src/billing", "src/api"],
 		plan: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
 		owner: CORE,
-		status: "doing" as const,
+		lane: "doing" as const,
 		notes: ["routes wired; tests next", "no retries yet"],
 	},
 	{
 		title: "Retry branches merge cleanly into main",
 		paths: ["src/billing/retry"],
 		owner: CORE,
-		status: "doing" as const,
+		lane: "doing" as const,
 		priority: "high" as const,
 		notes: ["needs a plan before it goes further"],
 	},
@@ -43,26 +43,26 @@ export const FIXTURE_CARDS = [
 		title: "Webhook signature drift on the gateway",
 		paths: ["src/api/gateway"],
 		owner: CORE,
-		status: "blocked" as const,
+		lane: "blocked" as const,
 		notes: ["waiting on the gateway owner to confirm the algorithm"],
 	},
 	{
 		title: "Export orders as CSV",
 		paths: ["src/reports"],
 		owner: OTHER,
-		status: "done" as const,
+		lane: "done" as const,
 		notes: ["shipped behind a flag"],
 	},
 	{
 		title: "Invoice totals round the wrong way",
 		paths: ["src/billing/totals"],
-		status: "todo" as const,
+		lane: "todo" as const,
 		notes: ["from the support thread"],
 	},
 	{
 		title: "Document the retry policy",
 		paths: ["docs/extensions"],
-		status: "todo" as const,
+		lane: "todo" as const,
 		// The one card that waits: an order is the reason a lead cannot just claim it.
 		dependsOn: ["2"],
 		notes: ["after the retry branches land"],
@@ -90,11 +90,11 @@ export async function seedStore(directory: string): Promise<void> {
 		if (spec.owner !== undefined) await store.mutate(card.id, { kind: "claim" }, spec.owner, at + 1_000);
 		for (const note of spec.notes.slice(1))
 			await store.mutate(card.id, { kind: "note", text: note }, spec.owner ?? LEAD, at + 2_000);
-		if (spec.status === "blocked")
-			await store.mutate(card.id, { kind: "move", status: "blocked" }, spec.owner ?? LEAD, at + 3_000);
-		if (spec.status === "done")
-			await store.mutate(card.id, { kind: "move", status: "done" }, spec.owner ?? LEAD, at + 3_000);
-		if (spec.status === "doing" && "plan" in spec && spec.plan !== undefined) {
+		if (spec.lane === "blocked")
+			await store.mutate(card.id, { kind: "move", lane: "blocked" }, spec.owner ?? LEAD, at + 3_000);
+		if (spec.lane === "done")
+			await store.mutate(card.id, { kind: "move", lane: "done" }, spec.owner ?? LEAD, at + 3_000);
+		if (spec.lane === "doing" && "plan" in spec && spec.plan !== undefined) {
 			await store.mutate(card.id, { kind: "plan", path: spec.plan }, spec.owner ?? LEAD, at + 4_000);
 		}
 		if ("dependsOn" in spec && spec.dependsOn !== undefined) {

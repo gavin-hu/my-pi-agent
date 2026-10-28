@@ -20,7 +20,7 @@ function card(id: string, overrides: Partial<Card> = {}): Card {
 		v: CARD_VERSION,
 		id,
 		title: `feature ${id}`,
-		status: "todo",
+		lane: "todo",
 		paths: [],
 		notes: [],
 		notesDropped: 0,
@@ -36,13 +36,13 @@ describe("formatRound", () => {
 	test("counts what a lead decides on, then names each group's cards", () => {
 		const cards = [
 			card("1"),
-			card("2", { status: "doing", owner: { label: "billing-core" } }),
+			card("2", { lane: "doing", owner: { label: "billing-core" } }),
 			card("3", {
-				status: "blocked",
+				lane: "blocked",
 				owner: { label: "billing-core" },
 				notes: [{ by: "x", at: NOW, text: "gateway" }],
 			}),
-			card("4", { status: "done", owner: { label: "billing-other" } }),
+			card("4", { lane: "done", owner: { label: "billing-other" } }),
 		];
 		// The groups overlap on purpose: #2 is live for its owner and unplanned for the
 		// lead, and one line each is what says both.
@@ -58,18 +58,18 @@ describe("formatRound", () => {
 	});
 
 	test("an owner who finished everything keeps its line and its count", () => {
-		const cards = [card("4", { status: "done", owner: { label: "billing-other" } })];
+		const cards = [card("4", { lane: "done", owner: { label: "billing-other" } })];
 		const lines = formatRound(cards, buildRound(cards, NOW)).split("\n");
 		expect(lines).toContain("billing-other (0 live, 1 done)");
 	});
 
 	test("names an unfinished plan, which is the one a lead looks at", () => {
-		const cards = [card("2", { status: "doing", owner: { label: "billing-core" } })];
+		const cards = [card("2", { lane: "doing", owner: { label: "billing-core" } })];
 		expect(formatRound(cards, buildRound(cards, NOW))).toContain("#2 doing unplanned");
 	});
 
 	test("an untouched card in flight is idle, not unplanned-by-accident", () => {
-		const stale = card("2", { status: "doing", owner: { label: "billing-core" }, plan: "p.md" });
+		const stale = card("2", { lane: "doing", owner: { label: "billing-core" }, plan: "p.md" });
 		const aged = { ...stale, updatedAt: NOW - IDLE_MS - 1 };
 		expect(formatRound([aged], buildRound([aged], NOW))).toContain("idle (1): #2 doing planned");
 	});
