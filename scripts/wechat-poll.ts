@@ -8,7 +8,7 @@
  * can the bot react". Second, a message carries a `group_id` and a `session_id`
  * when the protocol supplies them, and the bridge routes on the sender alone; the
  * probe prints both, so a message sent in a group answers whether rooms are
- * delivered at all, which is what the roadmap's group-chat item turns on.
+ * delivered at all, a question a group-chat design would have to answer first.
  *
  * This is a manual experiment, so it refuses to run while a bridge is polling: two
  * clients on one account can steal each other's messages.

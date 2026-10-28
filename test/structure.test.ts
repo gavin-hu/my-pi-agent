@@ -71,7 +71,6 @@ const ROOT_TEST_FILES = new Set([
 	"prompt-budget.test.ts",
 	"refactor-skill.test.ts",
 	"release.test.ts",
-	"roadmap.test.ts",
 	"scripts-surface.test.ts",
 	"settings-coverage.test.ts",
 	"shared-helpers.test.ts",
@@ -147,7 +146,7 @@ const SOURCE_BANS: Ban[] = [
 	{
 		name: "todo",
 		matches: (line) => /\b(?:TODO|FIXME|HACK|XXX)\b/.test(line),
-		reason: "do it, or file it in ROADMAP.md",
+		reason: "do it, or file a card on the board",
 	},
 	{
 		name: "suppression",

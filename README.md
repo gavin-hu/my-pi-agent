@@ -105,8 +105,8 @@ document. `PI_OFFLINE` skips the check;
 
 ## What you get
 
-22 extensions, 4 packaged skills, and 2 themes, grouped by the promises the
-[roadmap](./ROADMAP.md) tracks. Each extension's own page in `docs/extensions/`
+22 extensions, 4 packaged skills, and 2 themes, grouped by the promises this
+README makes. Each extension's own page in `docs/extensions/`
 has the full tool and command surface, opening with its capabilities.
 
 ### Plan and delegate
@@ -240,7 +240,6 @@ stops the factories from registering; to drop the whole package, use Pi's
 | [Extension docs](./docs/extensions/) | One page per extension, opening with its capabilities: the tool and command surface, the integration contract, and the design notes. |
 | [Development](./docs/development.md) | Local setup, checks, tests, cross-platform notes, and the release process. |
 | [Security](./docs/security.md) | Trust boundaries for the loopback and remote surfaces. |
-| [Roadmap](./ROADMAP.md) | Where the pack is going, grouped by the README's promises, with the evidence behind each item. |
 | [Documentation index](./docs/README.md) | The map of everything: the guides, and the deep contracts behind them, by audience. |
 
 ## Contributing
