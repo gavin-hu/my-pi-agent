@@ -68,13 +68,12 @@ __RUNTIME__
   /**
    * One button that calls back, so nothing on the page is a click handler in markup.
    *
-   * 'plain' is the bordered kit button, 'ghost' the text one: a card's primary
-   * action (Claim, Move) is bordered and the rest are text, which is what makes one
-   * of three controls on a card the obvious one.
+   * The class comes from the caller: a card's title and a lane's head are buttons drawn
+   * by the page's own rule, not by the kit's chip-with-border look — and a card draws no
+   * action button at all, since claiming, moving, and editing are the tools' work.
    */
-  function actionButton(label, onClick, variant) {
-    var kind = variant === "plain" ? "" : variant ? " bf-btn--" + variant : " bf-btn--ghost";
-    var node = el("button", "bf-btn" + kind, label);
+  function actionButton(className, label, onClick) {
+    var node = el("button", className, label);
     node.type = "button";
     node.addEventListener("click", onClick);
     return node;
@@ -177,10 +176,9 @@ __RUNTIME__
 
     var head = el("p", N.cardHead);
     head.appendChild(el("span", N.cardId, "#" + card.id));
-    var title = actionButton(card.title, function () {
+    var title = actionButton(N.cardTitle, card.title, function () {
       board.openCard(card.id);
     });
-    title.className = N.cardTitle;
     head.appendChild(title);
     item.appendChild(head);
 
@@ -298,10 +296,9 @@ __RUNTIME__
     section = el("section", N.lane);
     section.setAttribute("data-status", lane.status);
     var head = el("h2", N.laneHead);
-    var toggle = actionButton(LANE_LABEL[lane.status] || lane.status, function () {
+    var toggle = actionButton(N.laneToggle, LANE_LABEL[lane.status] || lane.status, function () {
       board.toggleLane(lane.status);
     });
-    toggle.className = N.laneToggle;
     toggle.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-controls", "lane-" + lane.status);
     toggle.id = "lane-head-" + lane.status;
