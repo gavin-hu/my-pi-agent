@@ -131,7 +131,7 @@ terminal.
 |---|---|---|
 | `list` | `lane?`, `mine?`, `card?`, `query?`, `round?`, `archived?` | the cards in lane order, one card, or what a query or `mine` matches — a query reads a card's title, holder, path hints, plan, and the text of its notes; a listing that names no lane leaves out the `done` cards and says how many, since a finished card is history rather than work; `round: true` adds the rollup, which always covers the whole board; `archived: true` reads the archive instead of the board, with `query` and `mine` narrowing it and `lane`/`round` refused |
 | `add` | `title`, `paths?`, `priority?`, `note?` | the new `backlog` card |
-| `claim` | `card` | the card, pulled into `plan` and owned by this session — refused, naming the count, when `plan` is at its limit |
+| `claim` | `card` | the card, pulled into `plan` and owned by this session — refused, naming the count, when `plan` is at its limit (the limit counts the whole board, not one session's cards) |
 | `release` | `card` | the card, back in `backlog` with no owner; the contract and its approval stay |
 | `reclaim` | `card` | the card, back in `backlog`, whoever held it |
 | `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked`, `blockedBy` (one line, ≤200 characters) is what it waits on, and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
@@ -269,17 +269,16 @@ pages. A field keeps its keys: `/` inside the filter box types a slash.
   and `round` counts every card, because a rollup that hid half the board would not be one.
   The page bounds its own View the same way, folding a long `done` lane. `archive` is how a
   board stops paying for its history at all: the card leaves the board and its read.
-- **A finished card stays finished.** `done` is terminal for every transition — claim,
-  assign, release, move, and plan all refuse it — so a card a dependency was recorded
-  against cannot un-finish and reopen the order after the fact, and `archive` does not
-  change that: it moves a `done` card's file, and never its lane. The one exception is
-  `edit`: a title, path hints, priority, or `dependsOn` can still be corrected by whoever
-  holds it, or by anyone while nobody does, because a title is what a reader reads and a
-  finished feature whose title is wrong would stay wrong for as long as the board keeps
-  history. A card finished by
-  mistake is dropped and added again: the new card takes a new number, and the dropped
-  one's title and lane stay in `ended/` under the id nothing will use again. Its notes
-  do not come with it.
+- **A finished card stays finished.** `done` is terminal — claim, assign, release,
+  reclaim, move, contract, approve, review, and offer all refuse it — so a card a
+  dependency was recorded against cannot un-finish and reopen the order after the fact,
+  and `archive` does not change that: it moves a `done` card's file, and never its lane.
+  The one exception is `edit`: a title, path hints, priority, or `dependsOn` can still be
+  corrected by whoever holds it, or by anyone while nobody does, because a title is what a
+  reader reads and a finished feature whose title is wrong would stay wrong for as long as
+  the board keeps history. A card finished by mistake is dropped and added again: the new
+  card takes a new number, and the dropped one's title and lane stay in `ended/` under the
+  id nothing will use again. Its notes do not come with it.
 - **A card file this build cannot read is reported, not skipped.** A file written by a
   newer build, a half-written one, or a record moved under another name is named by
   `list` with the reason and counted in the page's footer beside the store's size, so a
@@ -493,10 +492,11 @@ it always meant: when the card was last touched, which is not when it last chang
   decision parks in. Two of those lanes exist because an agent is a poor judge of itself —
   `plan` holds a contract until a session that does not hold the card approves it, and
   `done` is refused until one has spot-checked the work — and a WIP limit on `plan` and
-  `execute` is what keeps a review queue from turning into a shelf. The cost is real (one
-  more tray, one more head) and is paid once, in `lib/board/lanes.ts`: the label, the empty
-  word, the colour, the ownership rule, and the limit are that table's, and the page
-  receives them in its snapshot instead of keeping a copy.
+  `execute`, counted over the whole board because a repository has one, is what keeps a
+  review queue from turning into a shelf. The cost is real (one more tray, one more head)
+  and is paid once, in `lib/board/lanes.ts`: the label, the empty word, the colour, the
+  ownership rule, and the limit are that table's, and the page receives them in its
+  snapshot instead of keeping a copy.
 - **The gates are a label check, and say so.** `approve` and `review` refuse the card's own
   holder, which is the half of "a person read this" a file can hold; the board cannot tell a
   person from a session, and does not pretend it can. The contract is three one-line fields

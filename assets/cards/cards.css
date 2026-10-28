@@ -531,7 +531,7 @@ body {
 }
 
 .dot--plan {
-	background: var(--warn, #d08770);
+	background: var(--warn);
 }
 
 .dot--execute {
