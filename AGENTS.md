@@ -5,7 +5,7 @@ helpers. Pi reads the `pi` manifest in `package.json` and loads each extension a
 plain TypeScript, so there is no build step to run one.
 
 The reasoning lives in the linked docs; do not restate it. `test/drift.test.ts`
-holds it to a word budget: a new paragraph replaces one.
+holds the word budget: a new paragraph replaces one.
 
 ## Commands
 
@@ -16,14 +16,13 @@ bun run format                    # biome format --write .
 bun test <path>                   # one test file or directory
 PI_SLOW_TESTS=1 bun run test      # include the gated git suites
 bun run check:serial              # what macOS CI runs: --parallel can hang
-bun run bench:render              # render benchmark, budgeted in docs/development.md
+bun run bench:render              # render benchmark; see docs/development.md
 ```
 
 - `bun run check` is what a change must pass: run the test you touched while
   iterating, and the whole check when done.
-- `rewind`, `worktree`, and `session-bus`'s real-repository tests create real
-  repositories and skip unless `CI` or `PI_SLOW_TESTS=1` is set. Touching one
-  means running it explicitly.
+- `rewind`, `worktree`, and `session-bus`'s real-repository tests skip unless
+  `CI` or `PI_SLOW_TESTS=1` is set. Touching one means running it explicitly.
 - A new package-level test goes into `ROOT_TEST_FILES` in
   `test/structure.test.ts`: that set is compared exactly.
 - A peer change is proved against the newest published Pi by the `compat` CI job;
@@ -57,8 +56,8 @@ plus a GitHub release whose body is that version's changelog section.
   [`docs/development.md#release`](./docs/development.md#release); follow them in
   order.
 - Publish only through `publish.yml`, never `npm publish` locally. Get the user's
-  approval for that specific dispatch — approval for an earlier release is
-  expired — and wait for the environment review.
+  approval for each dispatch — an earlier one expires — and wait for the
+  environment review.
 - Push the tag with `main`: `git push origin vX.Y.Z main`. A `main`-first push
   races CI's `fetch-depth: 0` checkout and fails `test/release.test.ts`.
 - The `[Unreleased]` bullet lands in the same commit as its change; read it
@@ -165,6 +164,7 @@ when its surface or a printed version is behind.
 ## How to work
 
 - Be short and direct: answer before editing, state agreement or disagreement.
+- Ask before adding a runtime dependency to `package.json`.
 - Ask before removing functionality that looks intentional; add no backward
   compatibility unless asked.
 - If an instruction conflicts with this file, ask before overriding it.
