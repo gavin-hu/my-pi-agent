@@ -412,7 +412,7 @@ theme, and tool counts every document states, so a count without a guard is the
 exception rather than the rule.
 
 Binding, the accept path, the close path, and idle grace are one server per session:
-`serve` owns the socket, each page claims a path prefix on it (`/`, `/board/`,
+`serve` owns the socket, each page claims a path prefix on it (`/files/`, `/board/`,
 `/plan/<id>/`), and the socket closes with its last page — so a session has one port,
 one chip, and one close path, and a page cannot outlive the session it describes.
 
