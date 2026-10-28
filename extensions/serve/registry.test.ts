@@ -52,7 +52,8 @@ function ask(
 	return new Promise<MountOutcome>((resolve) => {
 		const mountRequest: MountRequest = {
 			spec: request,
-			respond: (pending) => void pending.then(resolve),
+			// The answer may be the outcome itself or a bind still running, so settle on either.
+			respond: (answer) => void Promise.resolve(answer).then(resolve),
 		};
 		registry.handle(mountRequest);
 	});

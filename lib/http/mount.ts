@@ -4,8 +4,8 @@
  * A session has one port and `serve` owns it, so a page cannot bind: it *mounts* a
  * prefix and is handed back where it answers. Pi loads every extension with an
  * isolated module cache and forbids one extension importing another, so the request
- * travels on `pi.events` as an in-process request/response — the same shape as
- * `PLAN_ENTER_REQUEST` in `lib/plan-entry.ts`.
+ * travels on `pi.events` as an in-process request/response, on the handshake in
+ * `lib/bus-request.ts`.
  *
  * The handshake is claimed, not awaited: a mount binds, and `server.listen` cannot
  * answer synchronously, so `respond` takes the *pending* outcome and only a request
@@ -17,6 +17,8 @@
 
 import type { NetworkInterfaceInfo } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { type BusAnswer, requestOverBus } from "../bus-request.ts";
+import { messageOf } from "../errors.ts";
 import type { IdleGrace } from "./sink.ts";
 import type { LoopbackHandler } from "./serve.ts";
 
@@ -117,7 +119,7 @@ export interface MountRequest {
 	 * Called once, by the owner, **synchronously** with the bind it just started. A
 	 * request nobody claims is a session without a server.
 	 */
-	respond(pending: Promise<MountOutcome>): void;
+	respond(pending: BusAnswer<MountOutcome>): void;
 }
 
 /** How a page asks for its prefix; the seam a caller substitutes in a test. */
@@ -131,26 +133,10 @@ export type MountSource = (spec: MountSpec) => Promise<MountOutcome>;
  * hanging or binding a rival socket.
  */
 export function requestMount(pi: Pick<ExtensionAPI, "events">, spec: MountSpec): Promise<MountOutcome> {
-	return new Promise<MountOutcome>((resolve) => {
-		let claimed = false;
-		let settled = false;
-		const settle = (outcome: MountOutcome): void => {
-			if (settled) return;
-			settled = true;
-			resolve(outcome);
-		};
-		const respond = (pending: Promise<MountOutcome>): void => {
-			if (claimed) return;
-			claimed = true;
-			pending.then(settle, (error: unknown) =>
-				settle({ kind: "refused", reason: error instanceof Error ? error.message : String(error) }),
-			);
-		};
-		pi.events.emit(HTTP_MOUNT_CHANNEL, { spec, respond } satisfies MountRequest);
-		// The listener answers synchronously whether or not the bind has finished, so an
-		// unclaimed request is one no extension is listening for.
-		queueMicrotask(() => {
-			if (!claimed) settle({ kind: "refused", reason: NO_SERVER_REASON });
-		});
+	return requestOverBus<MountOutcome, MountRequest>(pi, {
+		channel: HTTP_MOUNT_CHANNEL,
+		payload: (respond) => ({ spec, respond }),
+		unclaimed: () => ({ kind: "refused", reason: NO_SERVER_REASON }),
+		failed: (error) => ({ kind: "refused", reason: messageOf(error) }),
 	});
 }

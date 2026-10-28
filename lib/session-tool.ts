@@ -22,6 +22,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from "@earendil-works/pi-coding-agent";
+import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { messageOf } from "./errors.ts";
 import { watchingOf } from "./session-roster.ts";
 import { SESSION_TOOL } from "./tool-names.ts";
@@ -75,8 +76,8 @@ export interface TeamJoinRequest {
 	ctx: ExtensionContext;
 	/** What to join as and how to listen. */
 	input: TeamJoinInput;
-	/** Called once, when the bus has answered. */
-	respond(result: JoinResult): void;
+	/** Claimed once, with what the bus answered; the caller settles on that claim. */
+	respond(result: BusAnswer<JoinResult>): void;
 }
 
 /** What a send did. */
@@ -127,6 +128,9 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
 	};
 }
 
+/** What a caller is told when there is no bus to join: one sentence on both paths. */
+const NO_BUS = "the session bus is not loaded";
+
 /**
  * Join the team: on the bus, named when a label is given, and listening for mail.
  *
@@ -137,24 +141,20 @@ export function createTeamJoin(pi: Pick<ExtensionAPI, "events" | "getAllTools">)
  *
  * With no bus loaded there is no listener, so the answer is the sentence the caller
  * reports rather than a promise that never settles: the `session` tool's presence is
- * the same check `lib/plan-entry.ts` makes, and the listener always answers.
+ * checked here, and the shared handshake refuses the same way if a bus is loaded but
+ * listening for nothing.
  */
 export async function join(
 	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
 	ctx: ExtensionContext,
 	input: TeamJoinInput = {},
 ): Promise<JoinResult> {
-	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) {
-		return { ok: false, error: "the session bus is not loaded" };
-	}
-	return new Promise<JoinResult>((resolve) => {
-		let settled = false;
-		const respond = (result: JoinResult): void => {
-			if (settled) return;
-			settled = true;
-			resolve(result);
-		};
-		pi.events.emit(TEAM_JOIN_REQUEST, { ctx, input, respond } satisfies TeamJoinRequest);
+	if (!pi.getAllTools().some((tool) => tool.name === SESSION_TOOL)) return { ok: false, error: NO_BUS };
+	return requestOverBus<JoinResult, TeamJoinRequest>(pi, {
+		channel: TEAM_JOIN_REQUEST,
+		payload: (respond) => ({ ctx, input, respond }),
+		unclaimed: () => ({ ok: false, error: NO_BUS }),
+		failed: (error) => ({ ok: false, error: messageOf(error) }),
 	});
 }
 

@@ -16,6 +16,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { type BusAnswer, requestOverBus } from "./bus-request.ts";
 import { isPlanModeEnabled } from "./plan-state.ts";
 import { PLAN_ENTER_TOOL } from "./tool-names.ts";
 
@@ -56,8 +57,8 @@ export function planModeRefusal(action: string): string {
 export interface PlanEnterRequest {
 	/** The caller's context; `plan` uses it for the footer status. */
 	ctx: ExtensionContext;
-	/** Called once, synchronously, with whether plan mode is on. */
-	respond(entered: boolean): void;
+	/** Claimed once, with whether plan mode is on; the caller settles on that claim. */
+	respond(entered: BusAnswer<boolean>): void;
 }
 
 /**
@@ -65,8 +66,8 @@ export interface PlanEnterRequest {
  *
  * Resolves `true` without asking when the branch is already planning, and
  * `false` when the `plan` tool is not registered — so `goal` loaded alone keeps
- * working and nothing waits on a listener that is not there. The listener answers
- * synchronously; the microtask is the fallback that guarantees resolution.
+ * working and nothing waits on a listener that is not there. The listener claims
+ * synchronously; the shared handshake is what guarantees a resolution.
  */
 export function requestPlanMode(
 	pi: Pick<ExtensionAPI, "events" | "getAllTools">,
@@ -74,14 +75,9 @@ export function requestPlanMode(
 ): Promise<boolean> {
 	if (isPlanModeEnabled(ctx.sessionManager.getBranch())) return Promise.resolve(true);
 	if (!pi.getAllTools().some((tool) => tool.name === PLAN_ENTER_TOOL)) return Promise.resolve(false);
-	return new Promise<boolean>((resolve) => {
-		let settled = false;
-		const respond = (entered: boolean): void => {
-			if (settled) return;
-			settled = true;
-			resolve(entered);
-		};
-		pi.events.emit(PLAN_ENTER_REQUEST, { ctx, respond } satisfies PlanEnterRequest);
-		queueMicrotask(() => respond(false));
+	return requestOverBus<boolean, PlanEnterRequest>(pi, {
+		channel: PLAN_ENTER_REQUEST,
+		payload: (respond) => ({ ctx, respond }),
+		unclaimed: () => false,
 	});
 }
