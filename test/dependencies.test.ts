@@ -195,6 +195,9 @@ describe("dependency budget", () => {
  */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or exit_plan_mode",
+	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first /plan review or exit_plan_mode",
+	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
+	"extensions/plan/path-guard.ts": "the path backstop loads when plan mode vets a tool call",
 	"extensions/board/page.ts": "the board page loads on the first /board",
 	"extensions/file-browse/transport/server.ts": "the browse server loads when /browse opens a page",
 	"extensions/file-browse/config/config.ts": "the browse config loads when /browse opens a page",
@@ -218,7 +221,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * Like `LONG_MODULES`, the bar may only fall: a feature that needs more modules
  * has to justify the raise here, and a deferral that lands lowers it.
  */
-const MODULE_BUDGET = 870;
+const MODULE_BUDGET = 859;
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {
