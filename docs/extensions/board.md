@@ -51,7 +51,7 @@ decision.
 | Capability | How | What you get |
 |---|---|---|
 | A shared feature list for one repository | `board` action `list` | Every open card in lane order — `backlog`, `plan`, `execute`, `blocked` — or one card, or one lane; the `done` cards are left out with a count of how many, and `lane: "done"` reads them |
-| The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned (the pool), unplanned (a contract still missing a line, or a plan never recorded — either one refuses `execute`), awaiting approval, blocked, idle, and done |
+| The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed, and the owners a bus has no record of and that hold nothing are one line, `18 owners with no record · 76 done` — then unassigned (the pool), unplanned (a contract still missing a line, or a plan never recorded — either one refuses `execute`), awaiting approval, blocked, idle, and done |
 | Publish a feature | `board` action `add` | A `backlog` card with path hints and a first note (one line, at most 1000 characters) |
 | Take a feature | `board` action `claim` | The card is pulled into `plan` and owned by this session — or refused, naming the count, when `plan` is full. The result names the next step, because the claim is what commits the session to a plan |
 | Hand it back | `board` action `release` | The card is back in `backlog` with no owner; the contract and its approval stay, because the plan did not change |

@@ -64,8 +64,9 @@ export interface BoardSession {
 	 *
 	 * A path, not a dependency: the board reads those files when they are there and
 	 * behaves exactly as before when they are not, which is what keeps the page working
-	 * with `session-bus` unloaded. Two callers read it — the page's snapshot, and the
-	 * lead's round — and both want the same directory.
+	 * with `session-bus` unloaded. Three callers read it — the page's snapshot, `/team`'s
+	 * round, and the tool's rollup, which folds the owners a bus has no record of — and all
+	 * of them want the same directory.
 	 */
 	busDir(cwd: string): Promise<string>;
 	/**

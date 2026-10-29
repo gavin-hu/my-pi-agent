@@ -122,6 +122,22 @@ describe("roundText", () => {
 		expect(roundText([card("1")], NOW, [])).not.toContain("live:");
 	});
 
+	test("folds the owners a bus has no record of, so the queue keeps its lines", () => {
+		// The round's cap is a notify's limit, and one line per finished owner used to spend it:
+		// the owners nobody answers for are one line now, and the cards that need a decision are
+		// the lines a lead reads.
+		const cards = [
+			card("1", { lane: "done", owner: { label: "billing-old" } }),
+			card("2", { lane: "done", owner: { label: "billing-older" } }),
+			card("3", { lane: "done", owner: { label: "billing-older" } }),
+			card("4"),
+		];
+		const lines = roundText(cards, NOW, [mate("billing-lead", NOW)]).split("\n");
+		expect(lines).toContain("2 owners with no record · 3 done");
+		expect(lines).toContain("unassigned (1): #4 backlog");
+		expect(lines.some((line) => line.startsWith("billing-older"))).toBe(false);
+	});
+
 	test("caps a long round and says how many lines it left out", () => {
 		const cards = Array.from({ length: 20 }, (_, index) =>
 			card(String(index + 1), { lane: "execute", owner: { label: `owner-${index}` } }),

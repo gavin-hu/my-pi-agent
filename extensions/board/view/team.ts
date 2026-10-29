@@ -13,6 +13,11 @@
  * the three slots are refilled only when what they print has moved, so a peer's write does
  * not take the reader's scroll or their focus with it.
  *
+ * Which owners are history, and the sentence that states them, are not decided here: the
+ * terminal's round prints the same fold, so both read `lib/board/round-text.ts`'s two bodies
+ * through {@link teamJs}. A second copy in this fragment is how the page and `/team` came to
+ * describe one board two ways.
+ *
  * The roster is optional throughout: `view.teammates` is absent when `session-bus`
  * has no records here, and every state then reads `—` rather than claiming the
  * session is gone. A card is the only thing that can make a row a decision, so the
@@ -22,7 +27,18 @@
  * Same rule as the rest of the client: every value arrives as `textContent`.
  */
 
-export const BOARD_TEAM_JS = String.raw`(function () {
+/**
+ * The tab's fragment, with the fold's rule and its sentence spliced in.
+ *
+ * The source crosses as text, because a page's bundle has no import graph, and the two
+ * `__NAME__` placeholders are rules a served script must never carry — `pages.test` fails an
+ * unfilled one.
+ */
+export function teamJs(rules: { historyOwner: string; historyLine: string }): string {
+	return teamTemplate.replace("__HISTORY_OWNER__", rules.historyOwner).replace("__HISTORY_LINE__", rules.historyLine);
+}
+
+const teamTemplate = String.raw`(function () {
   "use strict";
   var board = window.bfBoard || (window.bfBoard = {});
   var el = board.el;
@@ -31,6 +47,10 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   var plural = board.plural;
   var rankOf = board.rankOf;
   var decisionTone = board.decisionTone;
+
+__HISTORY_OWNER__
+
+__HISTORY_LINE__
 
   /** The word a teammate's state is read as; never a colour alone. */
   var STATE_WORD = { live: "live", quiet: "quiet", gone: "gone", absent: "no record", unknown: "\u2014" };
@@ -266,10 +286,12 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     var head = [];
     var tail = [];
     for (var r = 0; r < rows.length; r++) {
-      // "We cannot say" is not "there is no record": with no bus on this machine every owner
-      // reads unknown, and folding that would claim an absence the page cannot prove.
-      if (rows[r].state === "absent" && rows[r].cards.live.length === 0) tail.push(rows[r]);
-      else head.push(rows[r]);
+      // The rule is the round text's own (isHistoryOwner), so the tab and /team cannot answer
+      // "which owners are only history" two ways. A null roster is a machine with no bus: the
+      // rule folds nobody there, because nobody can be called absent.
+      if (isHistoryOwner(rows[r].label, rows[r].cards.live.length, roster === null ? undefined : roster)) {
+        tail.push(rows[r]);
+      } else head.push(rows[r]);
     }
     // Unfolded, history is read by what it finished and then by name, so the list says which
     // labels did the work rather than which sorts first.
@@ -347,9 +369,7 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     button.appendChild(dot);
     // The row counts in the rows' own words — "no record", "11 done" — so the summary is not
     // a second way of saying what a teammate row says.
-    button.appendChild(
-      document.createTextNode(plural(tail.length, "owner") + " with no record \u00B7 " + finished + " done"),
-    );
+    button.appendChild(document.createTextNode(historyLine(tail.length, finished)));
     button.addEventListener("click", function () { board.toggleFold("team-roster"); });
     row.appendChild(button);
     return row;

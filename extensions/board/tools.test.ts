@@ -110,6 +110,22 @@ async function writePlan(
 	return path;
 }
 
+/**
+ * A session on this repository's bus, written where `readRoster` reads it.
+ *
+ * The round folds the owners a bus has no record of, so a case that wants one folded has to
+ * put somebody on the bus first — an empty directory is "no record" for every label.
+ */
+async function joinBus(
+	board: { runtime: ReturnType<typeof harness>["runtime"]; ctx: ReturnType<typeof harness>["ctx"] },
+	id: string,
+	label: string,
+): Promise<void> {
+	const dir = join(await board.runtime.busDir(board.ctx.cwd), "sessions");
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, `${id}.json`), JSON.stringify({ id, label, mode: "tui", lastSeen: NOW, mail: 0 }));
+}
+
 /** The text the model reads. */
 function text(result: { content: Array<{ text: string }> }): string {
 	return result.content.map((block) => block.text).join("\n");
@@ -309,6 +325,37 @@ describe("list", () => {
 		// instead of leaving a bare "0" next to a teammate who did the work.
 		expect(result.details.round?.owners.map((group) => group.label)).toEqual([LEAD]);
 		expect(text(result)).toContain(`${LEAD} (0 live, 1 done)`);
+	});
+
+	test("folds the owners a bus has no record of into one line, in the Team tab's words", async () => {
+		const board = harness();
+		const { call } = board;
+		const store = await board.runtime.store(board.ctx.cwd);
+		// A label that ever claimed a card stays an owner, so a board that has been worked for a
+		// while is mostly owners nothing answers to: one fact, stated once.
+		const finished: Array<[string, string]> = [
+			["s-old", "billing-old"],
+			["s-older", "billing-older"],
+		];
+		for (const [index, [id, label]] of finished.entries()) {
+			const owner = { id, label };
+			const card = await store.create({ title: `${label} shipped ${index}`, paths: [] }, owner, NOW);
+			await advance(store, card.id, "done", { owner, reviewer: REVIEWER }, NOW);
+		}
+		// This session is on the bus, so its own row is not history — and the rollup is the only
+		// read that goes near it.
+		await joinBus(board, LEAD_ID, LEAD);
+		await call({ action: "add", title: "Held here" });
+		await call({ action: "claim", card: "3" });
+		const result = await call({ action: "list", round: true });
+		expect(text(result)).toContain("2 owners with no record · 2 done");
+		expect(text(result)).not.toContain("billing-old (0 live, 1 done)");
+		// The details are unchanged: the fold is what the text does, not what the rollup holds.
+		expect(result.details.round?.owners.map((group) => group.label).sort()).toEqual([
+			"billing-old",
+			"billing-older",
+			LEAD,
+		]);
 	});
 
 	test("filters one lane", async () => {
