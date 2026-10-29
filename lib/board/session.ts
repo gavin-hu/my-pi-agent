@@ -20,6 +20,9 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
+import { resolveEffectiveCwd } from "../env.ts";
+import { plansDirFor } from "../plans/paths.ts";
+import { repoKeyFor } from "../repo-key.ts";
 import { agentLabel, defaultLabel, sessionNameOf } from "../session-label.ts";
 import { BUS_DIR_NAME } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
@@ -65,6 +68,15 @@ export interface BoardSession {
 	 * lead's round — and both want the same directory.
 	 */
 	busDir(cwd: string): Promise<string>;
+	/**
+	 * This repository's plan store, where a card's plan file has to live.
+	 *
+	 * The board records the artifact a card is executed against, so it has to answer the
+	 * question `plan` answers: which directory that store is. One key rule — `repoKeyFor`
+	 * over the effective cwd — and the unkeyed branch outside a repository, so a card cannot
+	 * name a plan the plan tool would refuse to read.
+	 */
+	planDir(cwd: string): Promise<string>;
 	/** The seat this session serves the page as, or undefined when it is not serving. */
 	serving(): string | undefined;
 	/** Serve the page under `seat`, or stand it down when the page stops. */
@@ -74,13 +86,23 @@ export interface BoardSession {
 }
 
 /**
- * The part of a session a command needs: what it is called, and where it stands.
+ * The person at the keyboard, as a write is made.
  *
- * `/board` joins, sets the seat, and reports the standing; it never opens a store or
- * reads the bus, so a command takes this much and no more. A test drives it with four
- * stand-ins instead of a whole session with a temp agent directory.
+ * The two signs — `approve` and `review` — are refused to the session holding the card, and
+ * a repository worked by one session would otherwise never get past `plan`. The person is
+ * the one actor a file can name that is not the holder: `/board approve` and `/board review`
+ * write as this label, so the rule ("somebody other than the holder") is unchanged and the
+ * record says who signed.
  */
-export type BoardTeam = Pick<BoardSession, "who" | "serving" | "serve" | "team">;
+export const PERSON_LABEL = "you";
+
+/** The id the person's actor carries: a prefix no session id uses, so a label cannot stand in. */
+export const PERSON_ID = "person:you";
+
+/** The actor a command writes as: the person's label, and an id a session cannot have. */
+export function personActor(): Actor {
+	return { id: PERSON_ID, label: PERSON_LABEL };
+}
 
 /** Test seams and the one place a caller may redirect the store. */
 export interface BoardSessionOptions {
@@ -127,6 +149,7 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 	if (shared !== undefined) return shared;
 	const stores = new Map<string, Promise<BoardStore>>();
 	const busDirs = new Map<string, Promise<string>>();
+	const planDirs = new Map<string, Promise<string>>();
 	let seat: string | undefined;
 	let standing: JoinResult | undefined;
 	const agentDir = options.agentDir;
@@ -153,6 +176,15 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			if (cached) return cached;
 			const resolved = session.store(cwd).then((store) => busDirFor(agentDir ?? getAgentDir(), store));
 			busDirs.set(cwd, resolved);
+			return resolved;
+		},
+		planDir(cwd) {
+			const cached = planDirs.get(cwd);
+			if (cached) return cached;
+			const resolved = repoKeyFor(pi, resolveEffectiveCwd(cwd)).then((repo) =>
+				plansDirFor(agentDir ?? getAgentDir(), repo),
+			);
+			planDirs.set(cwd, resolved);
 			return resolved;
 		},
 		serving: () => seat,

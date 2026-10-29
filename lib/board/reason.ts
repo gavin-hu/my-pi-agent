@@ -83,6 +83,9 @@ export function reasonFor(card: Card, ago: (at: number) => string): Reason | und
 		}
 		const approved = card.contract === undefined ? undefined : card.contract.approved;
 		if (approved === undefined) return { kind: "approval", text: "contract ready — needs approval" };
+		// A card planned before the plan was required: its contract names no artifact, which
+		// `execute` now refuses, so the line says what is missing rather than who signed.
+		if (card.planPath === undefined) return { kind: "contract", text: "contract approved — no plan recorded" };
 		return { kind: "approval", text: "contract approved by " + approved.by };
 	}
 	if (card.lane === "execute") {

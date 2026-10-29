@@ -97,11 +97,12 @@ export const LANE_RULES: Record<Lane, LaneRule> = {
 /**
  * What a move must satisfy before it is allowed.
  *
- * Each name is one gate `rules.ts` can answer from the card and the board: `contract` is
- * the three lines being present, `approval` is somebody who does not hold the card having
- * read them, `review` is the same for the finished work, `artifact` is the plan path the
- * work was done against, `blocker` is the recorded reason and kind, and `waiting` is no
- * unfinished dependency. The blocker's own kind is a label: where a blocked card may go is
+ * Each name is one gate `rules.ts` can answer from the card, the board, and the fact the
+ * caller handed in: `contract` is the three lines being present, `approval` is somebody who
+ * does not hold the card having read them, `review` is the same for the finished work,
+ * `artifact` is the plan file the card is executed against — recorded, and proved to be in
+ * this repository's plan store — `blocker` is the recorded reason and kind, and `waiting` is
+ * no unfinished dependency. The blocker's own kind is a label: where a blocked card may go is
  * decided by what it has, not by what it was parked on.
  */
 export const REQUIREMENTS = ["contract", "approval", "review", "artifact", "blocker", "waiting"] as const;
@@ -126,20 +127,23 @@ export interface Transition {
  * `execute → plan`, and a blocked card can go back to `plan` or resume in `execute`.
  *
  * `execute` has two doors and asks the same gates at both: no unfinished dependency, the
- * contract's three lines, and the approval a session that does not hold the card gave. So
- * the way out of a block follows the card's state rather than the block's kind — a card
- * parked from `plan` cannot enter `execute` until it has been planned and approved, and one
- * parked from `execute` already carries both and resumes.
+ * contract's three lines, the plan file the card is executed against, and the approval a
+ * session that does not hold the card gave. The plan joins the contract rather than `done`
+ * because a plan recorded after the work began is a note about what happened, not the
+ * agreement the work was done against. So the way out of a block follows the card's state
+ * rather than the block's kind — a card parked from `plan` cannot enter `execute` until it
+ * has been planned, proved, and approved, and one parked from `execute` already carries all
+ * three and resumes.
  */
 export const TRANSITIONS: readonly Transition[] = [
 	{ from: "backlog", to: "plan", needs: [] },
-	{ from: "plan", to: "execute", needs: ["waiting", "contract", "approval"] },
+	{ from: "plan", to: "execute", needs: ["waiting", "contract", "artifact", "approval"] },
 	{ from: "plan", to: "blocked", needs: ["blocker"] },
 	{ from: "execute", to: "plan", needs: [] },
 	{ from: "execute", to: "blocked", needs: ["blocker"] },
 	{ from: "execute", to: "done", needs: ["waiting", "review", "artifact"] },
 	{ from: "blocked", to: "plan", needs: [] },
-	{ from: "blocked", to: "execute", needs: ["waiting", "contract", "approval"] },
+	{ from: "blocked", to: "execute", needs: ["waiting", "contract", "artifact", "approval"] },
 ];
 
 /** The one transition from `from` to `to`, or `undefined` when a move may not make it. */

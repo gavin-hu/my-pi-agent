@@ -28,6 +28,7 @@
  * state the other operations never produce.
  */
 
+import type { ArtifactCheck } from "./artifact.ts";
 import { type Card, type CardBlock, CARD_VERSION, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
 import { DEFAULT_WIP, type WipLimits } from "./limits.ts";
 import type { Lane } from "./lanes.ts";
@@ -66,14 +67,28 @@ export type CardOp =
 	| { kind: "assign"; to: Actor; note?: unknown }
 	| { kind: "release" }
 	/**
-	 * Change lane. `blockedBy` and `blocker` are what a block records, and `landed` says
-	 * which commit closed a card: each is read only by the lane it belongs to.
+	 * Change lane. `blockedBy` and `blocker` are what a block records, `landed` says which
+	 * commit closed a card, and `artifact` is the plan proof a card entering `execute` or
+	 * `done` carries: each is read only by the lanes that ask for it.
 	 */
-	| { kind: "move"; lane: Lane; blockedBy?: unknown; blocker?: unknown; landed?: { commit: string } }
+	| {
+			kind: "move";
+			lane: Lane;
+			blockedBy?: unknown;
+			blocker?: unknown;
+			landed?: { commit: string };
+			artifact?: ArtifactCheck;
+	  }
 	// `text` and the contract fields are whatever the model sent: the modules that own
 	// them validate them, and the refusal they produce is the one the caller shows.
 	| { kind: "note"; text: unknown }
-	| { kind: "contract"; path?: unknown; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
+	/**
+	 * Write the contract and the plan it is executed against. `artifact` is what the caller
+	 * proved: a resolved, existing plan file, or the sentence refusing it. The state machine
+	 * decides — nothing here touches a filesystem — and a contract naming neither is refused,
+	 * so a caller cannot skip the check by omitting it.
+	 */
+	| { kind: "contract"; artifact?: ArtifactCheck; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
 	/** Read the contract and approve it: a session that does not hold the card. */
 	| { kind: "approve" }
 	/** Spot-check the finished work: a session that does not hold the card, in `execute`. */

@@ -86,6 +86,19 @@ export function readActionsText(actions: readonly BoardAction[] = BOARD_READ_ACT
 }
 
 /**
+ * The refusal a board write meets while plan mode is on.
+ *
+ * Plan mode owns the rule and supplies its own exit guidance; the sentence is here because
+ * it is {@link readActionsText}'s sentence, and because the order it names is the board's:
+ * a claim comes before planning, and the plan is recorded once it is approved. Written once
+ * so the refusal and the docs cannot teach two different orders.
+ */
+export function boardWriteRefusal(rawAction: unknown, guidance: string): string {
+	const verb = typeof rawAction === "string" && rawAction.trim() !== "" ? rawAction.trim() : "board";
+	return `Plan mode: \`${verb}\` changes the board — only ${readActionsText()} it; claim the card before you plan, and record its plan once the plan is approved. ${guidance}`;
+}
+
+/**
  * Whether a value is a board action that only reads.
  *
  * A call's `action` is whatever the model sent, so an unknown string is not a read:

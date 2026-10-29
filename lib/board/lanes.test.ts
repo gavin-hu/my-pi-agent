@@ -55,7 +55,7 @@ describe("the transitions", () => {
 	});
 
 	test("carries the gates each route needs, and the same ones at both doors into execute", () => {
-		expect(transitionOf("plan", "execute")?.needs).toEqual(["waiting", "contract", "approval"]);
+		expect(transitionOf("plan", "execute")?.needs).toEqual(["waiting", "contract", "artifact", "approval"]);
 		expect(transitionOf("blocked", "execute")?.needs).toEqual(transitionOf("plan", "execute")?.needs);
 		expect(transitionOf("execute", "done")?.needs).toEqual(["waiting", "review", "artifact"]);
 		expect(transitionOf("plan", "blocked")?.needs).toEqual(["blocker"]);

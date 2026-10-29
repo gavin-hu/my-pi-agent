@@ -104,6 +104,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 
 export const LIB_SUITES: readonly string[] = [
 	"board/actions",
+	"board/artifact",
 	"board/card",
 	"board/contract",
 	"board/lanes",
@@ -124,6 +125,7 @@ export const LIB_SUITES: readonly string[] = [
 	"core",
 	"format",
 	"lines",
+	"plans/paths",
 	"process",
 	"report",
 	"repo-key",

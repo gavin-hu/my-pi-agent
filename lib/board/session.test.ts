@@ -12,6 +12,7 @@ import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
+import { repoKeyOf } from "../repo-key.ts";
 import { createStore } from "./store.ts";
 import { busDirFor, openBoardSession } from "./session.ts";
 
@@ -23,6 +24,18 @@ const NOW = 42_000;
 /** A pi whose git calls fail, so a directory keys on itself. */
 function offlinePi() {
 	return createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
+}
+
+/** A pi whose git calls report `root` as a repository's root and common dir. */
+function repoPi(root: string) {
+	return createFakePi({
+		exec: async (_command, args) => {
+			const line = args.join(" ");
+			if (line.includes("--git-common-dir")) return { stdout: join(root, ".git"), stderr: "", code: 0 };
+			if (line.includes("--show-toplevel")) return { stdout: root, stderr: "", code: 0 };
+			return { stdout: "", stderr: "", code: 1 };
+		},
+	});
 }
 
 /** A runtime with a temp agent directory and a fixed clock. */
@@ -173,6 +186,29 @@ describe("busDir", () => {
 		const runtime = runtimeFor(agentDir);
 		const first = runtime.busDir("/repo/billing");
 		expect(runtime.busDir("/repo/billing")).toBe(first);
+		await first;
+	});
+});
+
+describe("planDir", () => {
+	test("names the plan store keyed by the same repository the board filed itself under", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const repo = temps.track(tempDir("pi-repo-"));
+		const runtime = openBoardSession(repoPi(repo).pi, { now: () => NOW, agentDir });
+		expect(await runtime.planDir(repo)).toBe(join(agentDir, "plans", repoKeyOf(join(repo, ".git"))));
+	});
+
+	test("keeps the unkeyed store for a directory outside a repository", async () => {
+		// The branch a copy gets wrong: the board is always keyed, plans are not.
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const runtime = runtimeFor(agentDir);
+		expect(await runtime.planDir("/repo/billing")).toBe(join(agentDir, "plans"));
+	});
+
+	test("resolves once per working directory", async () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const first = runtime.planDir("/repo/billing");
+		expect(runtime.planDir("/repo/billing")).toBe(first);
 		await first;
 	});
 });

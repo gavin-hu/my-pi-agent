@@ -1,15 +1,17 @@
 /**
- * `/board` — the page's one entry point.
+ * `/board` — the page's one entry point, and the person's door to the two signs.
  *
- * Three words, and everything else opens the page: `team` opens it on the Team tab,
- * `status` prints one line, `stop` closes it. The command is a thin parser over the
- * lifecycle in `page.ts`, so the idle grace and `session_shutdown` close the same
- * server this opens.
+ * `team` opens the page on the Team tab, `status` prints one line, `stop` closes it, and
+ * `approve <id>` / `review <id>` write the two signs a session that holds the card may not
+ * give. Everything else opens the page. The command is a thin parser — the lifecycle is
+ * `page.ts`'s, the transitions are `lib/board/steps.ts`'s — so the idle grace and
+ * `session_shutdown` close the same server this opens.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { plural } from "../../lib/board/round-text.ts";
-import type { BoardTeam } from "../../lib/board/session.ts";
+import { type BoardSession, PERSON_LABEL, personActor } from "../../lib/board/session.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { teamLine } from "./join.ts";
@@ -19,17 +21,26 @@ import type { BoardPage, BoardPageStatus } from "./page.ts";
 export const BOARD_COMMAND = "board";
 
 /** The words the command accepts, in the order a user is likely to want them. */
-const BOARD_WORDS = ["status", "stop", "team"] as const;
+const BOARD_WORDS = ["approve", "review", "status", "stop", "team"] as const;
+
+/** The two signs a person gives, and where each is written. */
+const SIGN_WORDS = ["approve", "review"] as const;
+
+/** One of the signs, or undefined when the word is not one. */
+function signOf(word: string): (typeof SIGN_WORDS)[number] | undefined {
+	return SIGN_WORDS.find((sign) => sign === word);
+}
 
 export function registerCommands(
 	pi: ExtensionAPI,
-	session: BoardTeam,
+	session: BoardSession,
 	page: BoardPage,
 	deps: { team?: TeamJoin } = {},
 ): void {
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
-		description: "Open the shared board in a local browser: /board [team | status | stop]",
+		description:
+			"Open the shared board in a local browser, or sign its two gates: /board [team | status | stop | approve <id> | review <id>]",
 		getArgumentCompletions: (prefix: string) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
@@ -37,7 +48,12 @@ export function registerCommands(
 			return items.length > 0 ? items.map((value) => ({ value, label: value })) : null;
 		},
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
-			const word = args.trim().toLowerCase();
+			const [word = "", rawCard] = args.trim().toLowerCase().split(/\s+/);
+			const sign = signOf(word);
+			if (sign !== undefined) {
+				ctx.ui.notify(await signLine(session, sign, rawCard, ctx), "info");
+				return;
+			}
 			if (word === "status") {
 				ctx.ui.notify(statusLine(await page.status(), session.team.last()), "info");
 				return;
@@ -72,10 +88,7 @@ export function registerCommands(
 				return;
 			}
 			if (word !== "" && word !== "team") {
-				ctx.ui.notify(
-					`board: "${word}" is not a word this command knows — try /board, /board team, /board status, /board stop`,
-					"warning",
-				);
+				ctx.ui.notify(`board: "${word}" is not a word this command knows — try ${wordHelp()}`, "warning");
 				return;
 			}
 			const started = await page.start(ctx, word === "team" ? "team" : "board");
@@ -98,6 +111,40 @@ export function registerCommands(
 			);
 		},
 	});
+}
+
+/** The words, as the warning that names them. */
+function wordHelp(): string {
+	return BOARD_WORDS.map((entry) =>
+		/^(approve|review)$/.test(entry) ? `/board ${entry} <id>` : `/board ${entry}`,
+	).join(", ");
+}
+
+/**
+ * Sign one of the card's two gates as the person at the keyboard.
+ *
+ * The write is the same `mutate` the tool uses, so the rules are the state machine's: an
+ * `approve` outside `plan`, a `review` outside `execute`, an unknown id, and a card already
+ * signed are each refused with the sentence the tool would give. The one thing that differs
+ * is the actor — a label with no session id — which is what makes the sign allowed.
+ */
+async function signLine(
+	session: BoardSession,
+	sign: (typeof SIGN_WORDS)[number],
+	rawCard: string | undefined,
+	ctx: ExtensionCommandContext,
+): Promise<string> {
+	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
+	if (id === undefined) {
+		return `board: ${sign} needs a card id — try /board ${sign} 4`;
+	}
+	const store = await session.store(ctx.cwd);
+	const result = await store.mutate(id, { kind: sign }, personActor(), session.now());
+	if (!result.ok) return `board: ${result.error}`;
+	const done = sign === "approve" ? "approved" : "reviewed";
+	return result.changed
+		? `board: ${cardRef(id)} ${done} by ${PERSON_LABEL}`
+		: `board: ${cardRef(id)} is already ${done} by ${PERSON_LABEL}`;
 }
 
 /** One line for `/board status`: the page this session serves, watches, or does not have. */

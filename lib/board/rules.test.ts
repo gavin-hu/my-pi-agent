@@ -59,9 +59,25 @@ const CONTRACT = {
 	scopeOut: "No refunds",
 };
 
+/**
+ * The plan artifact a caller hands in once it has proved the file.
+ *
+ * The board's state machine decides; the tool is what touches the plan store, so a pure
+ * test passes the fact the way the tool would and the path is only a string here.
+ */
+function proved(path = "plans/webhook.md") {
+	return { path };
+}
+
+/** The proof a move carries: bound to the record it was computed for. */
+function provedFor(card: Card) {
+	const recorded = card.planPath ?? "plans/webhook.md";
+	return { path: recorded, recorded };
+}
+
 /** A card whose contract is written, still in `plan`. */
 function written(owner: Actor = CORE, contract: Partial<Contract> = {}): Card {
-	return step(claimed(owner), { kind: "contract", path: "plans/webhook.md", ...CONTRACT, ...contract }, owner);
+	return step(claimed(owner), { kind: "contract", artifact: proved(), ...CONTRACT, ...contract }, owner);
 }
 
 /** A card whose contract somebody who does not hold it has approved, still in `plan`. */
@@ -71,7 +87,7 @@ function approved(owner: Actor = CORE, approver: Actor = LEAD): Card {
 
 /** A card executing: past the contract gate. */
 function executing(card: Card = approved()): Card {
-	return step(card, { kind: "move", lane: "execute" }, CORE);
+	return step(card, { kind: "move", lane: "execute", artifact: provedFor(card) }, CORE);
 }
 
 /** A card whose work somebody else has spot-checked, still in `execute`. */
@@ -86,7 +102,7 @@ function pulled(id: string, owner: Actor): Card {
 
 /** A card in `plan` with its contract written and approved, ready for `execute`. */
 function ready(id: string, owner: Actor): Card {
-	const card = step(pulled(id, owner), { kind: "contract", path: `plans/${id}.md`, ...CONTRACT }, owner);
+	const card = step(pulled(id, owner), { kind: "contract", artifact: proved(`plans/${id}.md`), ...CONTRACT }, owner);
 	return step(card, { kind: "approve" }, LEAD);
 }
 
@@ -131,7 +147,7 @@ describe("claim", () => {
 	});
 
 	test("refuses a finished card", () => {
-		const done = step(reviewed(), { kind: "move", lane: "done" }, CORE);
+		const done = step(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
 		expect(refusal(applyOp(done, { kind: "claim" }, LEAD, NOW, board(done)))).toBe("#4 is done; it cannot be claimed.");
 	});
 
@@ -188,7 +204,7 @@ describe("assign", () => {
 	});
 
 	test("refuses a finished card", () => {
-		const done = step(reviewed(), { kind: "move", lane: "done" }, CORE);
+		const done = step(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
 		expect(refusal(applyOp(done, { kind: "assign", to: OTHER }, LEAD, NOW, board(done)))).toBe(
 			"#4 is done; it cannot be assigned.",
 		);
@@ -235,7 +251,7 @@ describe("release and reclaim", () => {
 	test("release refuses a card nobody holds, and a finished one", () => {
 		const pool = created();
 		expect(refusal(applyOp(pool, { kind: "release" }, CORE, NOW, board(pool)))).toBe("#4 is not claimed.");
-		const done = step(reviewed(), { kind: "move", lane: "done" }, CORE);
+		const done = step(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
 		expect(refusal(applyOp(done, { kind: "release" }, CORE, NOW, board(done)))).toBe(
 			"#4 is done; it cannot be released.",
 		);
@@ -265,44 +281,50 @@ describe("the contract", () => {
 
 	test("a changed line drops the approval, because the sign named a wording", () => {
 		const card = approved();
-		const reworded = step(card, { kind: "contract", scopeOut: "No refunds, no partial captures" }, CORE);
+		const reworded = step(
+			card,
+			{ kind: "contract", artifact: proved(), scopeOut: "No refunds, no partial captures" },
+			CORE,
+		);
 		expect(reworded.contract?.scopeOut).toBe("No refunds, no partial captures");
 		expect(reworded.contract?.approved).toBeUndefined();
 	});
 
 	test("re-writing the same lines is a no-op", () => {
 		const card = written();
-		const same = accepted(applyOp(card, { kind: "contract", ...CONTRACT }, CORE, NOW, board(card)));
+		const same = accepted(applyOp(card, { kind: "contract", artifact: proved(), ...CONTRACT }, CORE, NOW, board(card)));
 		expect(same.changed).toBe(false);
 	});
 
-	test("refuses a call that names nothing", () => {
+	test("refuses a contract with no plan, naming where the path comes from", () => {
 		const card = claimed();
-		expect(refusal(applyOp(card, { kind: "contract" }, CORE, NOW, board(card)))).toBe(
-			"contract needs a path, a goal, an acceptance, or a scopeOut.",
+		expect(refusal(applyOp(card, { kind: "contract", ...CONTRACT }, CORE, NOW, board(card)))).toBe(
+			"contract needs the plan file #4 is executed against: pass `path` as write_plan returned it.",
 		);
 	});
 
 	test("refuses a lane other than plan, and a session that does not hold it", () => {
 		const pool = created();
-		expect(refusal(applyOp(pool, { kind: "contract", ...CONTRACT }, LEAD, NOW, board(pool)))).toBe(
+		expect(refusal(applyOp(pool, { kind: "contract", artifact: proved(), ...CONTRACT }, LEAD, NOW, board(pool)))).toBe(
 			"#4 is in backlog; its contract is written in plan.",
 		);
 		const card = claimed();
-		expect(refusal(applyOp(card, { kind: "contract", ...CONTRACT, path: "p.md" }, OTHER, NOW, board(card)))).toBe(
-			"#4 is held by billing-core. Only its owner records a plan.",
-		);
+		expect(
+			refusal(applyOp(card, { kind: "contract", ...CONTRACT, artifact: proved("p.md") }, OTHER, NOW, board(card))),
+		).toBe("#4 is held by billing-core. Only its owner records a plan.");
 	});
 
 	test("holds each line to one line and its cap", () => {
 		const card = claimed();
 		// A line is flattened at the boundary: a goal that arrives with a newline is stored as
 		// the one line a row and a dialog rung can hold.
-		const multi = accepted(applyOp(card, { kind: "contract", goal: "two\nlines" }, CORE, NOW, board(card))).card;
+		const multi = accepted(
+			applyOp(card, { kind: "contract", artifact: proved(), goal: "two\nlines" }, CORE, NOW, board(card)),
+		).card;
 		expect(multi.contract?.goal).toBe("two lines");
-		expect(refusal(applyOp(card, { kind: "contract", goal: "x".repeat(401) }, CORE, NOW, board(card)))).toBe(
-			"goal must be at most 400 characters.",
-		);
+		expect(
+			refusal(applyOp(card, { kind: "contract", artifact: proved(), goal: "x".repeat(401) }, CORE, NOW, board(card))),
+		).toBe("goal must be at most 400 characters.");
 	});
 });
 
@@ -321,7 +343,7 @@ describe("approve", () => {
 	});
 
 	test("refuses an incomplete contract, naming the missing lines", () => {
-		const card = step(claimed(), { kind: "contract", path: "p.md", goal: "G" }, CORE);
+		const card = step(claimed(), { kind: "contract", artifact: proved("p.md"), goal: "G" }, CORE);
 		expect(refusal(applyOp(card, { kind: "approve" }, LEAD, NOW, board(card)))).toBe(
 			"#4 has no contract to approve yet: acceptance, scopeOut are missing.",
 		);
@@ -367,48 +389,68 @@ describe("review", () => {
 
 describe("move", () => {
 	test("plan to execute needs a complete and approved contract", () => {
-		const written = step(claimed(), { kind: "contract", path: "p.md", goal: "G" }, CORE);
-		expect(refusal(applyOp(written, { kind: "move", lane: "execute" }, CORE, NOW, board(written)))).toBe(
-			"#4 is in plan; its contract needs goal, acceptance, and scopeOut — missing: acceptance, scopeOut.",
-		);
+		const written = step(claimed(), { kind: "contract", artifact: proved("p.md"), goal: "G" }, CORE);
+		expect(
+			refusal(
+				applyOp(written, { kind: "move", lane: "execute", artifact: provedFor(written) }, CORE, NOW, board(written)),
+			),
+		).toBe("#4 is in plan; its contract needs goal, acceptance, and scopeOut — missing: acceptance, scopeOut.");
 		const complete = approved();
-		expect(refusal(applyOp(complete, { kind: "move", lane: "execute" }, LEAD, NOW, board(complete)))).toBe(
-			"#4 is held by billing-core. Only its owner can move it.",
+		expect(
+			refusal(
+				applyOp(complete, { kind: "move", lane: "execute", artifact: provedFor(complete) }, LEAD, NOW, board(complete)),
+			),
+		).toBe("#4 is held by billing-core. Only its owner can move it.");
+		expect(step(complete, { kind: "move", lane: "execute", artifact: provedFor(complete) }, CORE).lane).toBe("execute");
+	});
+
+	test("execute refuses a proof that belongs to another recorded path", () => {
+		const card = approved();
+		const elsewhere = { path: "plans/other.md", recorded: "plans/other.md" };
+		expect(refusal(applyOp(card, { kind: "move", lane: "execute", artifact: elsewhere }, CORE, NOW, board(card)))).toBe(
+			"#4's plan changed while it was being read; record it with `contract`.",
 		);
-		expect(step(complete, { kind: "move", lane: "execute" }, CORE).lane).toBe("execute");
+	});
+
+	test("execute refuses a caller that recorded a plan but did not prove it", () => {
+		// Fail closed: a surface that forgets the check cannot open the gate by omission.
+		const card = approved();
+		expect(refusal(applyOp(card, { kind: "move", lane: "execute" }, CORE, NOW, board(card)))).toBe(
+			"#4's plan was not checked; record it with `contract`.",
+		);
 	});
 
 	test("plan to execute refuses an approved contract that is not there yet", () => {
 		const card = written(CORE);
-		expect(refusal(applyOp(card, { kind: "move", lane: "execute" }, CORE, NOW, board(card)))).toBe(
-			"#4 is in plan; its contract is not approved yet. A session that does not hold it approves with `approve`.",
-		);
+		expect(
+			refusal(applyOp(card, { kind: "move", lane: "execute", artifact: provedFor(card) }, CORE, NOW, board(card))),
+		).toBe("#4 is in plan; its contract is not approved yet. A session that does not hold it approves with `approve`.");
 	});
 
 	test("execute to done needs a spot-check and a recorded plan", () => {
 		const card = executing();
-		expect(refusal(applyOp(card, { kind: "move", lane: "done" }, CORE, NOW, board(card)))).toBe(
-			"#4 has no spot-check recorded; a session that does not hold it records one with `review`.",
-		);
+		expect(
+			refusal(applyOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE, NOW, board(card))),
+		).toBe("#4 has no spot-check recorded; a session that does not hold it records one with `review`.");
 		const checked = reviewed();
 		const noPlan = { ...checked, planPath: undefined } as Card;
-		expect(refusal(applyOp(noPlan, { kind: "move", lane: "done" }, CORE, NOW, board(noPlan)))).toBe(
-			"#4 has no plan recorded; record the file it was executed against with `contract`.",
-		);
-		expect(step(checked, { kind: "move", lane: "done" }, CORE).lane).toBe("done");
+		expect(
+			refusal(applyOp(noPlan, { kind: "move", lane: "done", artifact: provedFor(noPlan) }, CORE, NOW, board(noPlan))),
+		).toBe("#4 has no plan recorded; move it back to plan, then record it with `contract`.");
+		expect(step(checked, { kind: "move", lane: "done", artifact: provedFor(checked) }, CORE).lane).toBe("done");
 	});
 
 	test("a done move records the commit that closed the card", () => {
 		const card = reviewed();
-		const done = step(card, { kind: "move", lane: "done", landed: { commit: "4af1b4a" } }, CORE);
+		const done = step(card, { kind: "move", lane: "done", landed: { commit: "4af1b4a" }, artifact: proved() }, CORE);
 		expect(done.landed).toEqual({ commit: "4af1b4a", at: NOW });
 	});
 
 	test("plan to done is not a route, and the refusal names the ones that are", () => {
 		const card = approved();
-		expect(refusal(applyOp(card, { kind: "move", lane: "done" }, CORE, NOW, board(card)))).toBe(
-			"#4 is in plan; it can move to execute, or blocked, not done.",
-		);
+		expect(
+			refusal(applyOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE, NOW, board(card))),
+		).toBe("#4 is in plan; it can move to execute, or blocked, not done.");
 	});
 
 	test("a block records its kind and its sentence, and both are required of the kind", () => {
@@ -424,13 +466,17 @@ describe("move", () => {
 		// Parked from `plan`: the contract gate still stands in front of `execute`, so the way
 		// back is planning — the kind of block has nothing to do with where the card may go.
 		const planned = step(claimed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
-		expect(refusal(applyOp(planned, { kind: "move", lane: "execute" }, CORE, NOW, board(planned)))).toBe(
+		expect(
+			refusal(
+				applyOp(planned, { kind: "move", lane: "execute", artifact: provedFor(planned) }, CORE, NOW, board(planned)),
+			),
+		).toBe(
 			"#4 is in blocked; its contract needs goal, acceptance, and scopeOut — missing: goal, acceptance, scopeOut.",
 		);
 		expect(step(planned, { kind: "move", lane: "plan" }, CORE).lane).toBe("plan");
 		// Parked from `execute`: it already carries the contract and its approval, so it resumes.
 		const parked = step(executing(), { kind: "move", lane: "blocked", blocker: "dependency" }, CORE);
-		expect(step(parked, { kind: "move", lane: "execute" }, CORE).lane).toBe("execute");
+		expect(step(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE).lane).toBe("execute");
 		// And a parked card may still be re-planned, as it may from `execute`.
 		expect(step(parked, { kind: "move", lane: "plan" }, CORE).lane).toBe("plan");
 	});
@@ -440,10 +486,12 @@ describe("move", () => {
 		// rather than signing the older state.
 		const parked = step(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
 		expect("review" in parked).toBe(false);
-		const resumed = step(parked, { kind: "move", lane: "execute" }, CORE);
-		expect(refusal(applyOp(resumed, { kind: "move", lane: "done" }, CORE, NOW, board(resumed)))).toBe(
-			"#4 has no spot-check recorded; a session that does not hold it records one with `review`.",
-		);
+		const resumed = step(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE);
+		expect(
+			refusal(
+				applyOp(resumed, { kind: "move", lane: "done", artifact: provedFor(resumed) }, CORE, NOW, board(resumed)),
+			),
+		).toBe("#4 has no spot-check recorded; a session that does not hold it records one with `review`.");
 	});
 
 	test("a blocked card resumes in execute, and its block is cleared on the way", () => {
@@ -452,7 +500,7 @@ describe("move", () => {
 			{ kind: "move", lane: "blocked", blocker: "dependency", blockedBy: "a link" },
 			CORE,
 		);
-		const resumed = step(parked, { kind: "move", lane: "execute" }, CORE);
+		const resumed = step(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE);
 		expect(resumed.lane).toBe("execute");
 		expect("blocked" in resumed).toBe(false);
 		// The transition that parked it keeps what it was: the present record is deleted, the
@@ -486,10 +534,12 @@ describe("move", () => {
 	test("a spot-check does not survive a park, so finishing needs a fresh look", () => {
 		const parked = step(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
 		expect("review" in parked).toBe(false);
-		const resumed = step(parked, { kind: "move", lane: "execute" }, CORE);
-		expect(refusal(applyOp(resumed, { kind: "move", lane: "done" }, CORE, NOW, board(resumed)))).toBe(
-			"#4 has no spot-check recorded; a session that does not hold it records one with `review`.",
-		);
+		const resumed = step(parked, { kind: "move", lane: "execute", artifact: provedFor(parked) }, CORE);
+		expect(
+			refusal(
+				applyOp(resumed, { kind: "move", lane: "done", artifact: provedFor(resumed) }, CORE, NOW, board(resumed)),
+			),
+		).toBe("#4 has no spot-check recorded; a session that does not hold it records one with `review`.");
 	});
 
 	test("execute to plan is re-planning, and it clears the spot-check", () => {
@@ -503,7 +553,7 @@ describe("move", () => {
 		// `done` is the lane the sign is evidence for, and `review` refuses a finished card, so a
 		// move that cleared it left the finished card's record telling nobody who had checked it.
 		const card = reviewed();
-		const finished = step(card, { kind: "move", lane: "done" }, CORE);
+		const finished = step(card, { kind: "move", lane: "done", artifact: provedFor(card) }, CORE);
 		expect(finished.lane).toBe("done");
 		expect(finished.review).toEqual(card.review);
 	});
@@ -517,25 +567,39 @@ describe("move", () => {
 		expect(refusal(applyOp(pool, { kind: "move", lane: "plan" }, CORE, NOW, board(pool)))).toBe(
 			"#4 is unclaimed; claim it before moving it to plan.",
 		);
-		expect(refusal(applyOp(card, { kind: "move", lane: "done" }, OTHER, NOW, board(card)))).toBe(
-			"#4 is held by billing-core. Only its owner can move it.",
-		);
-		const done = step(reviewed(), { kind: "move", lane: "done" }, CORE);
-		expect(refusal(applyOp(done, { kind: "move", lane: "execute" }, CORE, NOW, board(done)))).toBe(
-			"#4 is done; it cannot be moved.",
-		);
+		expect(
+			refusal(applyOp(card, { kind: "move", lane: "done", artifact: provedFor(card) }, OTHER, NOW, board(card))),
+		).toBe("#4 is held by billing-core. Only its owner can move it.");
+		const done = step(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
+		expect(
+			refusal(applyOp(done, { kind: "move", lane: "execute", artifact: provedFor(done) }, CORE, NOW, board(done))),
+		).toBe("#4 is done; it cannot be moved.");
 	});
 
 	test("the same lane again is a no-op", () => {
 		const card = executing();
-		expect(accepted(applyOp(card, { kind: "move", lane: "execute" }, CORE, NOW, board(card))).changed).toBe(false);
+		expect(
+			accepted(applyOp(card, { kind: "move", lane: "execute", artifact: provedFor(card) }, CORE, NOW, board(card)))
+				.changed,
+		).toBe(false);
 	});
 
 	test("refuses the execute pull when that lane is full", () => {
 		const full = ["1", "2", "3", "4", "5"].map((id) => executing(ready(id, CORE)));
 		const queued = ready("9", CORE);
 		const limits: WipLimits = { plan: 3, execute: 5 };
-		expect(refusal(applyOp(queued, { kind: "move", lane: "execute" }, CORE, NOW, board(...full, queued), limits))).toBe(
+		expect(
+			refusal(
+				applyOp(
+					queued,
+					{ kind: "move", lane: "execute", artifact: provedFor(queued) },
+					CORE,
+					NOW,
+					board(...full, queued),
+					limits,
+				),
+			),
+		).toBe(
 			"#9 cannot enter execute: 5 cards are already executing (the limit is 5); finish, block, or release one first.",
 		);
 	});
@@ -544,15 +608,31 @@ describe("move", () => {
 		const blocker = ready("1", OTHER);
 		const waiting = { ...ready("2", CORE), dependsOn: [blocker.id] };
 		// Planning a card that waits is allowed: the contract is what the wait is read against.
-		expect(refusal(applyOp(waiting, { kind: "move", lane: "execute" }, CORE, NOW, board(blocker, waiting)))).toContain(
-			"waits on",
-		);
+		expect(
+			refusal(
+				applyOp(
+					waiting,
+					{ kind: "move", lane: "execute", artifact: provedFor(waiting) },
+					CORE,
+					NOW,
+					board(blocker, waiting),
+				),
+			),
+		).toContain("waits on");
 		// Finishing is the other question the link answers: work that starts late cannot close
 		// first, and a link recorded while the card was already executing is the way in.
 		const finished = { ...reviewed(), dependsOn: [blocker.id] };
-		expect(refusal(applyOp(finished, { kind: "move", lane: "done" }, CORE, NOW, board(blocker, finished)))).toBe(
-			"#4 waits on #1 (plan).",
-		);
+		expect(
+			refusal(
+				applyOp(
+					finished,
+					{ kind: "move", lane: "done", artifact: provedFor(finished) },
+					CORE,
+					NOW,
+					board(blocker, finished),
+				),
+			),
+		).toBe("#4 waits on #1 (plan).");
 	});
 });
 
@@ -645,7 +725,7 @@ describe("offer, archive, and drop", () => {
 		expect(refusal(applyOp(executingCard, { kind: "archive" }, CORE, NOW, board(executingCard)))).toBe(
 			"#4 is in execute; only a finished card can be archived.",
 		);
-		const done = step(reviewed(), { kind: "move", lane: "done" }, CORE);
+		const done = step(reviewed(), { kind: "move", lane: "done", artifact: proved() }, CORE);
 		const result = accepted(applyOp(done, { kind: "archive" }, LEAD, NOW, board(done)));
 		expect(result.changed).toBe(true);
 		expect(result.card).toEqual(done);

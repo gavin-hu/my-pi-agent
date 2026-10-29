@@ -30,6 +30,7 @@ import {
 	normalizeTitle,
 	priorityOf,
 } from "./card.ts";
+import { type ArtifactCheck, contractRoute } from "./artifact.ts";
 import { CONTRACT_FIELDS, mergedContract, missingContractFields, normalizeContractField } from "./contract.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
 import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
@@ -140,7 +141,7 @@ export function move(
 	const transition = transitionOf(card.lane, target);
 	if (transition === undefined) return { error: noRoute(card, target) };
 	for (const need of transition.needs) {
-		const refusal = unmet(need, card, board);
+		const refusal = unmet(need, card, board, op.artifact);
 		if (refusal !== undefined) return { error: refusal };
 	}
 	const fields: Partial<Card> = { lane: target };
@@ -184,7 +185,12 @@ function blockFields(rawBlocker: unknown, rawSentence: unknown): { error: string
 }
 
 /** Why a transition's requirement is not met, or `undefined` when it is. */
-function unmet(need: Requirement, card: Card, board: BoardIndex): string | undefined {
+function unmet(
+	need: Requirement,
+	card: Card,
+	board: BoardIndex,
+	artifact: ArtifactCheck | undefined,
+): string | undefined {
 	switch (need) {
 		case "waiting":
 			return waitingOn(card, board);
@@ -197,8 +203,19 @@ function unmet(need: Requirement, card: Card, board: BoardIndex): string | undef
 			return card.contract?.approved === undefined ? notApproved(card) : undefined;
 		case "review":
 			return card.review === undefined ? notReviewed(card) : undefined;
-		case "artifact":
-			return card.planPath === undefined ? noArtifact(card) : undefined;
+		case "artifact": {
+			if (card.planPath === undefined) return noArtifact(card);
+			// Fail closed: a lane that requires a proved plan refuses when the caller did not
+			// hand one in, so a surface added later cannot pass the gate by forgetting it. A
+			// check that failed speaks with its own sentence, built where the file was read.
+			if (artifact === undefined) return unprovedPlan(card);
+			if ("error" in artifact) return artifact.error;
+			// The proof is bound to the record it was computed for: a fact about one path cannot
+			// open a card whose path is another, and a plan re-recorded between the read and the
+			// write is a card to read again rather than one to force. A fact that names no
+			// record is bound by its own path, which is what a caller holding one file means.
+			return (artifact.recorded ?? artifact.path) === card.planPath ? undefined : stalePlan(card);
+		}
 		case "blocker":
 			return undefined;
 	}
@@ -220,7 +237,17 @@ function notReviewed(card: Card): string {
 }
 
 function noArtifact(card: Card): string {
-	return `${cardRef(card.id)} has no plan recorded; record the file it was executed against with \`contract\`.`;
+	return `${cardRef(card.id)} has no plan recorded; ${contractRoute(card)}`;
+}
+
+/** The refusal for a caller that recorded a plan but did not prove it. */
+function unprovedPlan(card: Card): string {
+	return `${cardRef(card.id)}'s plan was not checked; ${contractRoute(card)}`;
+}
+
+/** The refusal for a proof that belongs to a different recorded path. */
+function stalePlan(card: Card): string {
+	return `${cardRef(card.id)}'s plan changed while it was being read; ${contractRoute(card)}`;
 }
 
 export function note(card: Card, raw: unknown, actor: Actor, now: number): Prepared {
@@ -243,8 +270,10 @@ function appendNote(card: Card, actor: Actor, now: number, text: string): Pick<C
  * Write the contract, and the plan file it is executed against.
  *
  * The plan lane's one act: a card is planned by saying what it promises, and the wording is
- * what the approval names, so any change to it drops the signature. A call that names none
- * of the four fields is refused rather than quietly changing nothing.
+ * what the approval names, so any change to it drops the signature. The plan is required —
+ * a contract is a promise plus the agreement it will be read against, and a card whose
+ * contract names no artifact has nothing to execute. A contract call that names nothing at
+ * all is refused rather than quietly changing nothing.
  */
 export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>, actor: Actor): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; its plan cannot change.` };
@@ -252,14 +281,16 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 		return { error: `${cardRef(card.id)} is in ${card.lane}; its contract is written in plan.` };
 	}
 	if (!holds(card, actor)) return { error: `${heldBy(card)} Only its owner records a plan.` };
-	const named = [op.path, op.goal, op.acceptance, op.scopeOut].some((field) => field !== undefined);
-	if (!named) return { error: "contract needs a path, a goal, an acceptance, or a scopeOut." };
-	const fields: Partial<Card> = {};
-	if (op.path !== undefined) {
-		const parsed = normalizePlanPath(op.path);
-		if ("error" in parsed) return { error: parsed.error };
-		if (parsed.path !== card.planPath) fields.planPath = parsed.path;
+	if (op.artifact === undefined) {
+		return {
+			error: `contract needs the plan file ${cardRef(card.id)} is executed against: pass \`path\` as write_plan returned it.`,
+		};
 	}
+	if ("error" in op.artifact) return { error: op.artifact.error };
+	const fields: Partial<Card> = {};
+	const parsedPlan = normalizePlanPath(op.artifact.path);
+	if ("error" in parsedPlan) return { error: parsedPlan.error };
+	if (parsedPlan.path !== card.planPath) fields.planPath = parsedPlan.path;
 	const changed: Partial<Record<(typeof CONTRACT_FIELDS)[number], string>> = {};
 	for (const field of CONTRACT_FIELDS) {
 		const raw = op[field];
