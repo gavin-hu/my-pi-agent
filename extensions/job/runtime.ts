@@ -22,23 +22,15 @@
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
-import {
-	defaultKillTree,
-	defaultSpawn,
-	isPidAlive,
-	type KillTreeFn,
-	type SpawnedProcess,
-	type SpawnFn,
-	startTokenOf,
-	type StdinSink,
-} from "../../lib/spawn.ts";
-import { loadConfig, type JobsConfig } from "./config.ts";
+import type { LineSplitter } from "../../lib/lines.ts";
+import type { KillTreeFn, SpawnedProcess, SpawnFn, StdinSink } from "../../lib/spawn.ts";
+import { DEFAULT_CONFIG, loadConfig, type JobsConfig } from "./config.ts";
 import { createLogWriter, type LogHandle } from "./log-writer.ts";
+import { readLogTail } from "./logs.ts";
 import { sanitizeUntrustedLine } from "../../lib/format.ts";
 import { defaultInterval } from "../../lib/timer.ts";
 import { clipLabel } from "../../lib/tui/columns.ts";
 import { compareJobs, formatLogs } from "./format.ts";
-import { readLogTail } from "./logs.ts";
 import {
 	loadRegistries,
 	mergeRecords,
@@ -58,7 +50,7 @@ import {
 import { LOG_ENV, STATUS_ENV, readExitStatus, withExitTrap } from "./status.ts";
 import { type Job, type JobRecord, type JobStatus, type KillSignal } from "./types.ts";
 import { createUiController } from "./ui.ts";
-import { createJobStore, toRecord } from "./store.ts";
+import { createJobStore, type JobStore, toRecord } from "./store.ts";
 import { createWaiters } from "./waiters.ts";
 
 /** Characters of sanitized log sent to the model. */
@@ -112,11 +104,21 @@ export interface SendResult {
 	closed: boolean;
 }
 
+/** The process seam a started job uses: the spawn, the three questions about a pid, and the log splitter. */
+interface JobSeams {
+	spawn: SpawnFn;
+	liveness: (pid: number) => boolean;
+	killTree: KillTreeFn;
+	startToken: (pid: number) => string | undefined;
+	/** A fresh line splitter for one job's log (`lib/lines.ts`, loaded with the seam). */
+	newSplitter: () => LineSplitter;
+}
+
 export interface RuntimeOptions {
 	spawn?: SpawnFn;
-	liveness?: typeof isPidAlive;
+	liveness?: (pid: number) => boolean;
 	killTree?: KillTreeFn;
-	startToken?: typeof startTokenOf;
+	startToken?: (pid: number) => string | undefined;
 	now?: () => number;
 	/** Platform seam: whether this is Windows. Defaults to the running platform. */
 	isWindows?: () => boolean;
@@ -142,8 +144,8 @@ export interface JobsRuntime {
 	/** Effective working directory, honoring an active worktree root. */
 	effectiveCwd(ctx: ExtensionContext): string;
 	/** Load and reconcile the registry, then paint the UI. */
-	load(ctx: ExtensionContext): void;
-	start(options: StartOptions, ctx: ExtensionContext): Job;
+	load(ctx: ExtensionContext): Promise<void>;
+	start(options: StartOptions, ctx: ExtensionContext): Promise<Job>;
 	list(): JobRecord[];
 	get(id: string): Job | undefined;
 	logs(id: string, lines?: number): LogResult | undefined;
@@ -152,7 +154,7 @@ export interface JobsRuntime {
 	 * gone, was started without `stdin: true`, or belongs to another session.
 	 */
 	send(id: string, options: SendOptions): SendResult;
-	kill(id: string, signal?: KillSignal): Job | undefined;
+	kill(id: string, signal?: KillSignal): Promise<Job | undefined>;
 	wait(
 		id: string,
 		timeoutMs: number | undefined,
@@ -180,18 +182,49 @@ export interface JobsRuntime {
 }
 
 export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
-	const spawn = options.spawn ?? defaultSpawn;
-	const liveness = options.liveness ?? isPidAlive;
-	const killTree = options.killTree ?? defaultKillTree;
-	const startToken = options.startToken ?? startTokenOf;
+	/**
+	 * The process seam, loaded when a session first loads the registry.
+	 *
+	 * Building the runtime is registration: it happens on every Pi start, and
+	 * `lib/spawn.ts` pulls `node:child_process` with it. The load itself has to answer
+	 * whether recorded pids are alive, so the seam arrives with the first `load`
+	 * rather than with the factory — and a runtime whose pids are all its own never
+	 * needs the platform's default at all.
+	 */
+	let seams: Promise<JobSeams> | undefined;
+	const jobSeams = (): Promise<JobSeams> => {
+		seams ??= Promise.all([import("../../lib/spawn.ts"), import("../../lib/lines.ts")]).then(([spawn, lines]) => ({
+			spawn: options.spawn ?? spawn.defaultSpawn,
+			liveness: options.liveness ?? spawn.isPidAlive,
+			killTree: options.killTree ?? spawn.defaultKillTree,
+			startToken: options.startToken ?? spawn.startTokenOf,
+			newSplitter: () => new lines.LineSplitter(),
+		}));
+		return seams;
+	};
+	/** The seam once it has loaded; every path that asks about a pid has awaited it. */
+	let syncSeams: JobSeams | undefined;
+
+	/** Load the seam when it is not here yet, so a pid question can be asked. */
+	const openSeam = async (): Promise<void> => {
+		syncSeams ??= await jobSeams();
+	};
+
 	const now = options.now ?? (() => Date.now());
 	const isWindows = options.isWindows ?? (() => process.platform === "win32");
+
+	// The config is read by `load`, once the session has a cwd; until then the shipped
+	// defaults answer, and a test's fixed config overrides both.
+	let config: JobsConfig = options.config ?? DEFAULT_CONFIG;
+	let jobStore: JobStore | undefined;
+	const store = (): JobStore => {
+		jobStore ??= createJobStore();
+		return jobStore;
+	};
 
 	const jobs = new Map<string, Job>();
 	const handles = new Map<string, Handle>();
 	const waiters = createWaiters();
-	const store = createJobStore();
-	let config: JobsConfig = options.config ?? loadConfig(process.cwd());
 	let sessionId = "session";
 	let disposed = false;
 	let clock: (() => void) | undefined;
@@ -204,15 +237,21 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	const effectiveCwd = (ctx: ExtensionContext): string => resolveEffectiveCwd(ctx.cwd);
 
-	const persist = (): void => store.persist(jobs.values());
+	const persist = (): void => store().persist(jobs.values());
+
+	/** A fresh line splitter for one job's log, loaded with the seam that starts it. */
+	const newSplitter = (): LineSplitter => {
+		if (syncSeams === undefined) throw new Error("the job process seam is not loaded yet.");
+		return syncSeams.newSplitter();
+	};
 
 	/** Delete a job's log file, best-effort. */
 	const removeLog = (job: JobRecord): void => {
 		try {
-			const path = store.safeLogPath(job);
+			const path = store().safeLogPath(job);
 			if (path && existsSync(path)) unlinkSync(path);
 			// Both segments are the job's own log; drop the rotated one too.
-			const rotated = store.safeRotatedLogPath(job);
+			const rotated = store().safeRotatedLogPath(job);
 			if (rotated && existsSync(rotated)) unlinkSync(rotated);
 		} catch {
 			// Log cleanup is best-effort.
@@ -222,7 +261,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	/** Delete a job's status file once its code has been observed, best-effort. */
 	const removeStatus = (job: JobRecord): void => {
 		try {
-			const path = store.safeStatusPath(job);
+			const path = store().safeStatusPath(job);
 			if (path && existsSync(path)) unlinkSync(path);
 		} catch {
 			// Status cleanup is best-effort.
@@ -231,7 +270,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 	/** Remove every durable artifact a job leaves behind. */
 	const removeArtifacts = (job: JobRecord): void => {
-		store.releaseId(job.id);
+		store().releaseId(job.id);
 		removeStatus(job);
 		removeLog(job);
 	};
@@ -239,13 +278,13 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	/** Refresh this session's liveness marker while it runs jobs. */
 	const touchMarker = (): void => {
 		if (disposed) return;
-		touchSessionMarker(store.directory(), sessionId, process.pid, now());
+		touchSessionMarker(store().directory(), sessionId, process.pid, now());
 	};
 
 	/** Whether the session that owns a job is still alive. */
 	const ownerAlive = (owner: string): boolean =>
 		owner === sessionId ||
-		isSessionAlive(readSessionMarker(store.directory(), owner), now(), config.sessionTtlMs, liveness);
+		isSessionAlive(readSessionMarker(store().directory(), owner), now(), config.sessionTtlMs, isAlive);
 
 	const stopClock = (): void => {
 		clock?.();
@@ -277,6 +316,14 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		ui.paint();
 	};
 
+	/** Whether a pid is still running, asked through the loaded seam. */
+	const isAlive = (pid: number): boolean => syncSeams?.liveness(pid) ?? true;
+
+	/** Signal a pid, through the held seam; a job cannot run before the seam is held. */
+	const killPid = (pid: number, signal: NodeJS.Signals, force = false): void => {
+		syncSeams?.killTree(pid, signal, force);
+	};
+
 	/**
 	 * Whether a persisted start-time token still matches the live pid.
 	 * Returns true when either side is unavailable, so callers fall back to
@@ -284,12 +331,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	 */
 	const tokenMatches = (job: JobRecord): boolean => {
 		if (!job.startToken || job.pid === null) return true;
-		const current = startToken(job.pid);
+		const current = syncSeams?.startToken(job.pid);
 		return !current || current === job.startToken;
 	};
 
 	/** Recover an exit code from a job's status file, guarded by the trusted path. */
-	const exitCodeFor = (job: JobRecord): number | undefined => readExitStatus(store.safeStatusPath(job));
+	const exitCodeFor = (job: JobRecord): number | undefined => readExitStatus(store().safeStatusPath(job));
 
 	/** A completion listener, published from the index; `undefined` after shutdown. */
 	let onCompleteHandler: ((job: JobRecord) => void) | undefined;
@@ -322,7 +369,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	 * every clock tick would be a notification storm.
 	 */
 	const settleGoneJob = (job: Job): boolean => {
-		Object.assign(job, settleGone(job, { isAlive: liveness, tokenMatches, readExitCode: exitCodeFor, now: now() }));
+		Object.assign(job, settleGone(job, { isAlive, tokenMatches, readExitCode: exitCodeFor, now: now() }));
 		if (job.status === "running") return false;
 		announceComplete(job);
 		return true;
@@ -338,7 +385,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			const alive = peer ? ownerAlive(job.sessionId) : true;
 			// A live peer session owns this job; leave its state to that owner.
 			if (peer && alive) continue;
-			if (job.pid === null || !liveness(job.pid)) {
+			if (job.pid === null || !isAlive(job.pid)) {
 				// A record with no pid cannot be judged gone; leave it alone rather than
 				// announcing (and waking) on every tick.
 				if (!settleGoneJob(job)) continue;
@@ -353,7 +400,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			if (peer && !job.detached) {
 				if (tokenMatches(job)) {
 					try {
-						killTree(job.pid, "SIGTERM");
+						killPid(job.pid, "SIGTERM");
 					} catch {
 						// Already gone.
 					}
@@ -392,16 +439,26 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (clean) job.lastLine = clean;
 	};
 
-	/** The per-job log sink: stream, line split, rotation, and the repaint window. */
-	const logWriter = createLogWriter({
-		now,
-		logPath: (job) => store.safeLogPath(job),
-		rotatedPath: (job) => store.safeRotatedLogPath(job),
-		maxBytes: () => config.maxLogBytes,
-		repaintMs: () => config.repaintMs,
-		onLine: recordLine,
-		onPaint: paint,
-	});
+	/**
+	 * The per-job log sink: stream, line split, rotation, and the repaint window.
+	 *
+	 * Built on first use, because the line splitter arrives with the process seam: a
+	 * session that never starts a job never writes one.
+	 */
+	let sink: ReturnType<typeof createLogWriter> | undefined;
+	const logWriter = (): ReturnType<typeof createLogWriter> => {
+		sink ??= createLogWriter({
+			now,
+			newSplitter,
+			logPath: (job) => store().safeLogPath(job),
+			rotatedPath: (job) => store().safeRotatedLogPath(job),
+			maxBytes: () => config.maxLogBytes,
+			repaintMs: () => config.repaintMs,
+			onLine: recordLine,
+			onPaint: paint,
+		});
+		return sink;
+	};
 
 	/** Clear a handle's timers, close its log stream, and drop it. */
 	const disposeHandle = (id: string, options: { endStream: boolean }): void => {
@@ -409,7 +466,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		if (!handle) return;
 		if (handle.killTimer) clearTimeout(handle.killTimer);
 		if (handle.timeoutTimer) clearTimeout(handle.timeoutTimer);
-		logWriter.dispose(handle.log, options);
+		logWriter().dispose(handle.log, options);
 		// Release the stdin pipe so a child waiting on input sees EOF instead of a
 		// half-open pipe nobody can write to.
 		if (handle.stdin && !handle.stdinClosed) {
@@ -428,7 +485,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const handle = handles.get(id);
 		const job = jobs.get(id);
 		if (!handle || !job) return;
-		logWriter.write(handle.log, job, chunk);
+		logWriter().write(handle.log, job, chunk);
 	};
 
 	const finalize = (id: string, code: number | null, signal: string | null): void => {
@@ -436,10 +493,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const job = jobs.get(id);
 		if (!handle || !job || job.status !== "running") return;
 		// Commit any buffered output, including a final line without a newline.
-		for (const line of logWriter.flush(handle.log)) recordLine(job, line);
+		for (const line of logWriter().flush(handle.log)) recordLine(job, line);
 		// A detached job keeps no parent stream; read its last line from the log.
 		if (!handle.log.stream) {
-			const last = readLogTail(store.safeLogPath(job), 1).lines.at(-1);
+			const last = readLogTail(store().safeLogPath(job), 1).lines.at(-1);
 			if (last) job.lastLine = last;
 		}
 		disposeHandle(id, { endStream: true });
@@ -510,7 +567,10 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		},
 	};
 
-	function load(ctx: ExtensionContext): void {
+	async function load(ctx: ExtensionContext): Promise<void> {
+		// The seam comes with the first load: this is the first path that asks whether a
+		// recorded pid is still alive, and the only one that needs `child_process`.
+		await openSeam();
 		// A reload or session replacement can reuse this runtime after `shutdown`,
 		// so reset all session state before re-reading the registry.
 		disposed = false;
@@ -523,17 +583,17 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		// out from under the records already collected here. Jobs still run in the
 		// effective root (`start` uses `effectiveCwd`).
 		config = options.config ?? loadConfig(ctx.cwd);
-		store.setDirectory(registryDirFor(ctx.cwd, config.registryDir));
+		store().setDirectory(registryDirFor(ctx.cwd, config.registryDir));
 		sessionId = ctx.sessionManager.getSessionId();
-		store.setSession(sessionId);
+		store().setSession(sessionId);
 		ui.attach(ctx);
 
 		// Announce this session, and drop markers for sessions that are gone.
 		touchMarker();
-		pruneSessionMarkers(store.directory(), now(), config.sessionTtlMs, liveness);
+		pruneSessionMarkers(store().directory(), now(), config.sessionTtlMs, isAlive);
 
-		const { files, counter } = loadRegistries(store.directory());
-		store.setCounter(counter);
+		const { files, counter } = loadRegistries(store().directory());
+		store().setCounter(counter);
 
 		// Merge every session's records. A file whose owner is gone is adopted: its
 		// records will be rewritten under this session and its file deleted.
@@ -549,9 +609,9 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 		// Resolve dead pids (recovering exit codes), then classify the survivors.
 		const settled = [...merged.values()].map((record) =>
-			settleGone(record, { isAlive: liveness, tokenMatches, readExitCode: exitCodeFor, now: now() }),
+			settleGone(record, { isAlive, tokenMatches, readExitCode: exitCodeFor, now: now() }),
 		);
-		const { jobs: reconciled, orphans } = planReconcile(settled, liveness, now(), {
+		const { jobs: reconciled, orphans } = planReconcile(settled, isAlive, now(), {
 			isOwnerAlive: ownerAlive,
 			currentSessionId: sessionId,
 		});
@@ -559,7 +619,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		for (const record of orphans) {
 			if (record.pid !== null) {
 				try {
-					killTree(record.pid, "SIGTERM");
+					killPid(record.pid, "SIGTERM");
 				} catch {
 					// The process may already be gone.
 				}
@@ -576,17 +636,17 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		}
 
 		// The adopted records now live in this session's file; drop the peers' files.
-		for (const dead of deadSessions) removeRegistry(store.directory(), dead);
-		removeLegacyRegistry(store.directory());
+		for (const dead of deadSessions) removeRegistry(store().directory(), dead);
+		removeLegacyRegistry(store().directory());
 		// Ids now committed to a registry no longer need their reservation.
-		store.pruneReservations(jobs.keys());
+		store().pruneReservations(jobs.keys());
 
 		pruneFinished();
 		persist();
 		paint();
 	}
 
-	function start(startOptions: StartOptions, ctx: ExtensionContext): Job {
+	async function start(startOptions: StartOptions, ctx: ExtensionContext): Promise<Job> {
 		if (!config.enabled) throw new Error("jobs are disabled.");
 		ui.attach(ctx);
 		const wantsStdin = startOptions.stdin === true;
@@ -613,15 +673,15 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const cwd = startOptions.cwd ? startOptions.cwd : effectiveCwd(ctx);
 		// The registry directory must exist before `nextId`, which reserves the id
 		// with an `O_EXCL` lock file inside it.
-		mkdirSync(store.directory(), { recursive: true });
-		// `store.nextId` folds in the on-disk counters and ids from every session,
+		mkdirSync(store().directory(), { recursive: true });
+		// `store().nextId` folds in the on-disk counters and ids from every session,
 		// so a peer that advanced the shared counter cannot hand us a live job's id.
-		const id = store.nextId(jobs.keys());
-		const logPath = store.logPath(id);
+		const id = store().nextId(jobs.keys());
+		const logPath = store().logPath(id);
 		// Only a POSIX shell has an `EXIT` trap to record a status, and only a detached
 		// job points its own output at the log so it keeps logging after this process
 		// ends (which on Windows is never: `detached` is false there).
-		const statusPath = windows ? null : store.statusPath(id);
+		const statusPath = windows ? null : store().statusPath(id);
 		const detachOutput = detached;
 
 		// Wrap the command so a POSIX shell records its exit status; the path travels
@@ -630,12 +690,15 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const env: NodeJS.ProcessEnv = { ...process.env };
 		if (statusPath) env[STATUS_ENV] = statusPath;
 		if (detachOutput) env[LOG_ENV] = logPath;
+		// A start before `load` still needs the seam; load it rather than refusing.
+		await openSeam();
+		const seam = syncSeams as JobSeams;
 		let process_: SpawnedProcess;
 		try {
-			process_ = spawn(program, { cwd, env, detachOutput, stdin: wantsStdin });
+			process_ = seam.spawn(program, { cwd, env, detachOutput, stdin: wantsStdin });
 		} catch (error) {
 			// A failed spawn must not leave the reserved id behind.
-			store.releaseId(id);
+			store().releaseId(id);
 			throw error;
 		}
 		const pid = process_.pid ?? null;
@@ -666,12 +729,12 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			sessionId,
 			seen: false,
 			lastLine: "",
-			startToken: pid !== null ? (startToken(pid) ?? null) : null,
+			startToken: pid !== null ? (seam.startToken(pid) ?? null) : null,
 			owned: true,
 		};
 
 		const handle: Handle = {
-			log: logWriter.create(detachOutput ? undefined : logPath),
+			log: logWriter().create(detachOutput ? undefined : logPath),
 		};
 		if (wantsStdin) {
 			const sink = process_.stdin ?? null;
@@ -691,7 +754,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 
 		if (startOptions.timeoutMs !== undefined) {
 			handle.timeoutTimer = setTimeout(() => {
-				if (jobs.get(id)?.status === "running") kill(id, "SIGTERM");
+				if (jobs.get(id)?.status === "running") void kill(id, "SIGTERM");
 			}, startOptions.timeoutMs);
 			handle.timeoutTimer.unref?.();
 		}
@@ -709,14 +772,14 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 	function logs(id: string, lines = config.maxLogLines): LogResult | undefined {
 		const job = jobs.get(id);
 		if (!job) return undefined;
-		const current = readLogTail(store.safeLogPath(job), lines);
+		const current = readLogTail(store().safeLogPath(job), lines);
 		let all = current.lines;
 		let more = current.more;
 		let truncated = current.truncated;
 		// Keep `logs` continuous across a rotation: fill the request from the
 		// previous segment when the live one holds fewer lines.
 		if (all.length < lines) {
-			const previous = readLogTail(store.safeRotatedLogPath(job), lines - all.length);
+			const previous = readLogTail(store().safeRotatedLogPath(job), lines - all.length);
 			if (previous.lines.length > 0) {
 				all = [...previous.lines, ...all];
 				more = more || previous.more;
@@ -739,7 +802,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		};
 	}
 
-	function kill(id: string, signal: KillSignal = "SIGTERM"): Job | undefined {
+	async function kill(id: string, signal: KillSignal = "SIGTERM"): Promise<Job | undefined> {
 		const job = jobs.get(id);
 		if (!job) return undefined;
 		if (job.status !== "running") return job;
@@ -765,7 +828,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		job.sessionId = sessionId;
 
 		try {
-			killTree(pid, signal, signal === "SIGKILL");
+			killPid(pid, signal, signal === "SIGKILL");
 		} catch {
 			// Best-effort; liveness below decides the final state.
 		}
@@ -777,7 +840,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 				handle.killTimer = setTimeout(() => {
 					if (jobs.get(id)?.status === "running") {
 						try {
-							killTree(pid, "SIGKILL", true);
+							killPid(pid, "SIGKILL", true);
 						} catch {
 							// Already gone.
 						}
@@ -791,11 +854,11 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 			setTimeout(() => {
 				const current = jobs.get(id);
 				if (current?.status !== "running") return;
-				if (!liveness(pid)) {
+				if (!isAlive(pid)) {
 					settle(current, { status: "killed", signal });
 				} else {
 					try {
-						killTree(pid, "SIGKILL", true);
+						killPid(pid, "SIGKILL", true);
 					} catch {
 						// Best-effort.
 					}
@@ -895,7 +958,7 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 				if (!all) continue;
 				if (job.pid !== null) {
 					try {
-						killTree(job.pid, "SIGKILL", true);
+						killPid(job.pid, "SIGKILL", true);
 					} catch {
 						// Best-effort.
 					}
@@ -939,17 +1002,17 @@ export function createJobsRuntime(options: RuntimeOptions = {}): JobsRuntime {
 		const running = [...jobs.values()].filter(
 			(job) => job.status === "running" && !job.detached && job.sessionId === sessionId,
 		);
-		for (const job of running) kill(job.id, "SIGTERM");
+		for (const job of running) await kill(job.id, "SIGTERM");
 		if (running.length > 0) {
 			await new Promise((resolve) => setTimeout(resolve, Math.min(config.killGraceMs, 2000)));
 		}
 		for (const job of running) {
-			if (jobs.get(job.id)?.status === "running") kill(job.id, "SIGKILL");
+			if (jobs.get(job.id)?.status === "running") await kill(job.id, "SIGKILL");
 		}
 		for (const id of [...handles.keys()]) disposeHandle(id, { endStream: true });
 		waiters.resolveAll();
 		persist();
-		removeSessionMarker(store.directory(), sessionId);
+		removeSessionMarker(store().directory(), sessionId);
 		ui.detach();
 	}
 

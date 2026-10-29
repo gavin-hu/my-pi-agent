@@ -6,10 +6,14 @@
  * plumbing can be read separately. The writer owns no job state: every path and
  * limit is a callback over the runtime's live config, and a buffered line is
  * handed back through `onLine`.
+ *
+ * The line splitter is a seam rather than an import: `lib/lines.ts` is loaded with
+ * the process seam on the first job, so a session that never starts one never
+ * loads it.
  */
 
 import { createWriteStream, existsSync, renameSync, unlinkSync, type WriteStream } from "node:fs";
-import { LineSplitter } from "../../lib/lines.ts";
+import type { LineSplitter } from "../../lib/lines.ts";
 import type { Job, JobRecord } from "./types.ts";
 
 /** Bytes held while a rotation swaps the log stream before writes resume. */
@@ -36,6 +40,13 @@ export interface LogHandle {
 export interface LogWriterOptions {
 	/** The clock the repaint window is measured on. */
 	now(): number;
+	/**
+	 * A fresh line splitter for one job's stream.
+	 *
+	 * Injected rather than imported: the splitter is the only piece of `lib/lines.ts`
+	 * a writer needs, and a runtime that never starts a job must not load it.
+	 */
+	newSplitter(): LineSplitter;
 	/** The live segment for a job, or undefined when it cannot be used. */
 	logPath(job: JobRecord): string | undefined;
 	/** The rotated segment for a job, or undefined when it cannot be used. */
@@ -163,7 +174,7 @@ export function createLogWriter(options: LogWriterOptions): LogWriter {
 			stream?.on("error", () => {});
 			return {
 				stream,
-				lines: new LineSplitter(),
+				lines: options.newSplitter(),
 				queue: [],
 				queuedBytes: 0,
 				rotating: false,

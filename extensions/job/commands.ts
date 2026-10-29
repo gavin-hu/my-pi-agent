@@ -6,10 +6,8 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { withPolledScreen } from "../../lib/screen-session.ts";
 import { formatJobList } from "./format.ts";
 import type { JobsRuntime } from "./runtime.ts";
-import { JobListComponent } from "./tui.ts";
 
 /** How often the open log pane re-reads the log file. */
 const LOG_POLL_MS = 500;
@@ -23,6 +21,10 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 				return;
 			}
 
+			// The screen and the dock it mounts are the TUI's, not the listener's: the text
+			// listing above and registration load neither.
+			const { withPolledScreen } = await import("../../lib/screen-session.ts");
+			const { JobListComponent } = await import("./tui.ts");
 			await withPolledScreen(
 				pi,
 				ctx,

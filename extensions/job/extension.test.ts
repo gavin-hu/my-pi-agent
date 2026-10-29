@@ -32,11 +32,11 @@ function setup(options: Parameters<typeof suite.makeHarness>[0] = {}) {
 }
 
 describe("job config", () => {
-	test("normalizeConfig returns the base for an absent section", () => {
+	test("normalizeConfig returns the base for an absent section", async () => {
 		expect(normalizeConfig(undefined, DEFAULT_CONFIG)).toBe(DEFAULT_CONFIG);
 	});
 
-	test("takes booleans and ignores wrongly typed ones", () => {
+	test("takes booleans and ignores wrongly typed ones", async () => {
 		const config = normalizeConfig(
 			{ enabled: false, showStatus: "no", wakeOnFinish: true, detachedByDefault: true },
 			DEFAULT_CONFIG,
@@ -47,7 +47,7 @@ describe("job config", () => {
 		expect(config.detachedByDefault).toBe(true);
 	});
 
-	test("clamps numeric fields into range", () => {
+	test("clamps numeric fields into range", async () => {
 		const config = normalizeConfig(
 			{
 				maxJobs: 0,
@@ -67,13 +67,13 @@ describe("job config", () => {
 		expect(config.sessionTtlMs).toBe(5000);
 	});
 
-	test("keeps the default for a non-numeric value", () => {
+	test("keeps the default for a non-numeric value", async () => {
 		const config = normalizeConfig({ maxJobs: null, repaintMs: "fast" }, DEFAULT_CONFIG);
 		expect(config.maxJobs).toBe(DEFAULT_CONFIG.maxJobs);
 		expect(config.repaintMs).toBe(DEFAULT_CONFIG.repaintMs);
 	});
 
-	test("trims registryDir and treats a blank one as unset", () => {
+	test("trims registryDir and treats a blank one as unset", async () => {
 		expect(normalizeConfig({ registryDir: " /custom/dir " }, DEFAULT_CONFIG).registryDir).toBe("/custom/dir");
 		expect(normalizeConfig({ registryDir: "   " }, DEFAULT_CONFIG).registryDir).toBeUndefined();
 	});
@@ -118,7 +118,7 @@ describe("jobs extension", () => {
 		});
 	});
 
-	test("registers the tool and the /jobs command", () => {
+	test("registers the tool and the /jobs command", async () => {
 		const { tools, commands } = setup();
 		expect(tools.has(TOOL_NAME)).toBe(true);
 		expect(commands.has("jobs")).toBe(true);
@@ -133,7 +133,7 @@ describe("jobs extension", () => {
 	test("injects a completion note before the next turn", async () => {
 		const { h, pi, ctx } = setup();
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1" }, ctx);
+		await h.runtime.start({ command: "sleep 1" }, ctx);
 		h.children[0].close(0);
 
 		const result = await emitFirst(pi, "before_agent_start", {}, ctx);
@@ -149,7 +149,7 @@ describe("jobs extension", () => {
 		await emit(pi, "session_start", {}, ctx);
 		const seen: unknown[] = [];
 		pi.events.on(JOB_FINISHED_CHANNEL, (data: unknown) => seen.push(data));
-		h.runtime.start({ command: "sleep 1", label: "build" }, ctx);
+		await h.runtime.start({ command: "sleep 1", label: "build" }, ctx);
 		h.children[0].close(2);
 		expect(seen).toEqual([{ id: "j1", label: "build", status: "failed", exitCode: 2, signal: null }]);
 	});
@@ -181,7 +181,7 @@ describe("jobs extension", () => {
 		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
 
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		await h.runtime.start({ command: "sleep 1", wake: true }, ctx);
 		h.children[0].close(0);
 
 		expect(sent).toHaveLength(1);
@@ -196,7 +196,7 @@ describe("jobs extension", () => {
 
 		await emit(pi, "session_start", {}, ctx);
 		await emit(pi, "agent_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		await h.runtime.start({ command: "sleep 1", wake: true }, ctx);
 		h.children[0].close(0);
 		expect(sent).toHaveLength(0);
 
@@ -211,7 +211,7 @@ describe("jobs extension", () => {
 		// its own turn.
 		await emit(pi, "agent_start", {}, ctx);
 		await emit(pi, "agent_settled", { aborted: false }, ctx);
-		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		await h.runtime.start({ command: "sleep 1", wake: true }, ctx);
 		h.children[1].close(0);
 		expect(sent).toHaveLength(2);
 	});
@@ -223,7 +223,7 @@ describe("jobs extension", () => {
 
 		await emit(pi, "session_start", {}, ctx);
 		await emit(pi, "agent_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		await h.runtime.start({ command: "sleep 1", wake: true }, ctx);
 		h.children[0].close(0);
 
 		await emit(pi, "agent_settled", { aborted: true }, ctx);
@@ -240,8 +240,8 @@ describe("jobs extension", () => {
 
 		await emit(pi, "session_start", {}, ctx);
 		// j1 finishes first and is not yet reported; j2 wakes the agent.
-		h.runtime.start({ command: "a" }, ctx);
-		h.runtime.start({ command: "b", wake: true }, ctx);
+		await h.runtime.start({ command: "a" }, ctx);
+		await h.runtime.start({ command: "b", wake: true }, ctx);
 		h.children[0].close(0);
 		h.children[1].close(0);
 
@@ -256,8 +256,8 @@ describe("jobs extension", () => {
 		pi.sendMessage = (message: any, options: any) => sent.push({ message, options });
 
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "a", wake: true }, ctx);
-		h.runtime.start({ command: "b", wake: true }, ctx);
+		await h.runtime.start({ command: "a", wake: true }, ctx);
+		await h.runtime.start({ command: "b", wake: true }, ctx);
 		// Both close before the triggered turn has started, so the second one
 		// must queue rather than raise a second turn.
 		h.children[0].close(0);
@@ -276,7 +276,7 @@ describe("jobs extension", () => {
 			throw new Error("session busy");
 		};
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		await h.runtime.start({ command: "sleep 1", wake: true }, ctx);
 		h.children[0].close(0);
 
 		// The wake send threw, so the completion is still unreported.
@@ -289,7 +289,7 @@ describe("jobs extension", () => {
 		const sent: unknown[] = [];
 		pi.sendMessage = (...args: unknown[]) => sent.push(args);
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1" }, ctx);
+		await h.runtime.start({ command: "sleep 1" }, ctx);
 		h.children[0].close(0);
 		expect(sent).toHaveLength(0);
 	});
@@ -302,7 +302,7 @@ describe("jobs extension", () => {
 		for (const handler of (pi.handlers.get("session_shutdown") ?? []) as AnyHandler[]) await handler({}, ctx);
 		// The runtime is reused on the next session; onFinish must be re-armed.
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1", wake: true }, ctx);
+		await h.runtime.start({ command: "sleep 1", wake: true }, ctx);
 		h.children[0].close(0);
 		expect(sent).toHaveLength(1);
 	});
@@ -310,7 +310,7 @@ describe("jobs extension", () => {
 	test("session_tree re-asserts the status chip", async () => {
 		const { h, pi, ctx, statuses } = setup();
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1" }, ctx);
+		await h.runtime.start({ command: "sleep 1" }, ctx);
 		expect(statuses.has("jobs")).toBe(true);
 		statuses.delete("jobs");
 		await emit(pi, "session_tree", {}, ctx);
@@ -320,7 +320,7 @@ describe("jobs extension", () => {
 	test("clears the status chips on shutdown", async () => {
 		const { h, pi, ctx, statuses } = setup();
 		await emit(pi, "session_start", {}, ctx);
-		h.runtime.start({ command: "sleep 1" }, ctx);
+		await h.runtime.start({ command: "sleep 1" }, ctx);
 		h.children[0].close(1); // unreported failure
 		h.runtime.setStatus(ctx);
 		expect(statuses.get("jobs-failure")).toBe("✗ 1");
@@ -333,8 +333,8 @@ describe("jobs extension", () => {
 describe("jobs command", () => {
 	test("prints a text summary outside the TUI", async () => {
 		const { h, ctx, command } = setup();
-		h.runtime.load(ctx);
-		h.runtime.start({ command: "sleep 1" }, ctx);
+		await h.runtime.load(ctx);
+		await h.runtime.start({ command: "sleep 1" }, ctx);
 		await command.handler("", ctx);
 		expect(ctx.notices.at(-1)?.message).toContain("Jobs (1)");
 		expect(ctx.customCalls).toHaveLength(0);
@@ -343,8 +343,8 @@ describe("jobs command", () => {
 	test("opens the jobs screen in the TUI and restores the rails", async () => {
 		const { h, pi, ctx, command } = setup();
 		ctx.mode = "tui";
-		h.runtime.load(ctx);
-		h.runtime.start({ command: "sleep 1" }, ctx);
+		await h.runtime.load(ctx);
+		await h.runtime.start({ command: "sleep 1" }, ctx);
 
 		let component: JobListComponent | undefined;
 		ctx.ui.custom = async (factory: any) => {

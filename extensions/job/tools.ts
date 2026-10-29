@@ -73,7 +73,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 			try {
 				switch (call.action) {
 					case "start": {
-						const job = runtime.start(
+						const job = await runtime.start(
 							{
 								command: call.command,
 								cwd: call.cwd,
@@ -145,7 +145,7 @@ export function registerTools(pi: ExtensionAPI, runtime: JobsRuntime): void {
 					case "kill": {
 						const before = runtime.get(call.id);
 						if (!before) return errorResult("kill", `no job "${call.id}".`);
-						const job = runtime.kill(call.id, call.signal);
+						const job = await runtime.kill(call.id, call.signal);
 						if (!job) return errorResult("kill", `no job "${call.id}".`);
 						const wasRunning = before.status === "running";
 						return textResult(
