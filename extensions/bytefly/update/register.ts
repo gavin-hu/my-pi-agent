@@ -30,7 +30,7 @@ import {
 import { applyUpdates, fetchAvailableUpdates, fetchLatestVersion } from "./check.ts";
 import { isOwnPackage, updateNotice } from "./format.ts";
 import { paintLatest, type UpdateOutcome, type UpdateSource } from "./state.ts";
-import { suppressPiPackageUpdates, type UpdateSuppression } from "./suppress.ts";
+import type { UpdateSuppression } from "./suppress.ts";
 import type { PackageUpdate, PackageUpdateCheck } from "./types.ts";
 import { isNewerVersion } from "./version.ts";
 
@@ -112,7 +112,7 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 	const offline = deps.isOffline ?? isOffline;
 	const cache = deps.cache ?? diskCache();
 	const now = deps.now ?? Date.now;
-	const suppress = deps.suppress ?? suppressPiPackageUpdates;
+	const suppress = deps.suppress ?? (async () => (await import("./suppress.ts")).suppressPiPackageUpdates());
 	// A session is announced at most once per load, even if `session_start` fires
 	// again after a resume or a session replacement.
 	let announced = false;
@@ -203,12 +203,12 @@ export function registerUpdate(pi: ExtensionAPI, updates: UpdateSource, deps: Up
 		}
 	};
 
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", async (_event, ctx) => {
 		// `/bytefly update` can answer in any mode; only the TUI installs the host
 		// shim and posts a notice.
 		context = ctx;
 		if (ctx.mode !== "tui") return;
-		suppression ??= suppress();
+		suppression ??= await suppress();
 		const cached = cache.read();
 		const key = keyFor(ctx);
 		if (offline()) {
