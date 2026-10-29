@@ -14,16 +14,12 @@ import { realpathSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
-import { requestMount } from "../../lib/http/index.ts";
-import { loadConfig } from "./config/config.ts";
-import { createGitDiff, createGitStatus } from "./git/git.ts";
-import { openInBrowser } from "../../lib/browser.ts";
-import { HttpError, resolveRequestPath } from "./files/paths.ts";
-import { createFileServer, type FileServer } from "./transport/server.ts";
+import type { openInBrowser } from "../../lib/browser.ts";
+import type { FileServer } from "./transport/server.ts";
 
 export interface FileBrowserDeps {
 	/** Override the server factory (tests). */
-	createServer?: typeof createFileServer;
+	createServer?: typeof import("./transport/server.ts").createFileServer;
 	/** Override the browser opener (tests). */
 	open?: typeof openInBrowser;
 }
@@ -73,9 +69,11 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		}
 
 		const cwd = resolveEffectiveCwd(ctx.cwd);
+		const { loadConfig } = await import("./config/config.ts");
 		const config = loadConfig(cwd);
 		let root = cwd;
 		if (target) {
+			const { HttpError, resolveRequestPath } = await import("./files/paths.ts");
 			try {
 				root = await resolveRequestPath(cwd, target);
 			} catch (error) {
@@ -102,12 +100,15 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		}
 
 		await stop();
-		const create = deps.createServer ?? createFileServer;
+		// The server and its helpers are the page's, not the command's: registration and
+		// `/browse status` must not load the HTTP surface, git, or the web kit.
+		const create = deps.createServer ?? (await import("./transport/server.ts")).createFileServer;
+		const { createGitDiff, createGitStatus } = await import("./git/git.ts");
 		try {
 			const outcome = await create({
 				root,
 				config,
-				mount: (spec) => requestMount(pi, spec),
+				mount: async (spec) => (await import("../../lib/http/index.ts")).requestMount(pi, spec),
 				session: sessionId,
 				git: createGitStatus(pi, root),
 				diff: createGitDiff(pi, root, {
@@ -125,7 +126,10 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			const server = outcome.server;
 			running = { server, ctx };
 			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
-			if (config.autoOpen) (deps.open ?? openInBrowser)(server.url);
+			if (config.autoOpen) {
+				const open = deps.open ?? (await import("../../lib/browser.ts")).openInBrowser;
+				open(server.url);
+			}
 		} catch (error) {
 			ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 		}

@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- the package loads 168 fewer modules at startup (1,044 → 876). The plan review server, the
+  board page, the browse server, the worktree screen, and the bytefly panel screen are imported
+  on first use, so registration, `/plan cancel`, `/board status`, `/browse status`, text-mode
+  listings, and session shutdown no longer load them; `session-bus` reads its process start token
+  when it starts instead of in its factory, so a session that never joins no longer spawns `ps`
+  on every Pi start.
 - `board`: the page's toolbar names the repository it is a board of — `my-pi-agent` as a
   quiet chip, with the root's whole path on its hover — instead of the seat the page is
   served as, which was `team-lead` to every reader who opened it. The name arrives in the

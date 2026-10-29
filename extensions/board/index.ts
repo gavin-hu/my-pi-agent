@@ -17,7 +17,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/index.ts";
 import { registerCommands } from "./commands.ts";
-import { type BoardPage, createBoardPage } from "./page.ts";
+import { createLazyBoardPage } from "./lazy-page.ts";
+import type { BoardPage } from "./page.ts";
 import { type BoardSession, openBoardSession } from "../../lib/board/session.ts";
 import { registerTools } from "./tools.ts";
 
@@ -35,7 +36,7 @@ export default function board(pi: ExtensionAPI, deps: BoardDeps = {}): void {
 	let sessionId = "";
 	const page =
 		deps.page ??
-		createBoardPage(session, {
+		createLazyBoardPage(session, {
 			mount: (spec) => requestMount(pi, spec),
 			session: () => sessionId,
 		});

@@ -77,7 +77,9 @@ gate is stated in the test.
    through the TypeScript AST and fails when one of `package.json`'s
    `dependencies` loads at registration; a dynamic `import()` ends the walk,
    because deferring the load is the fix, and an exception names its reason in
-   the file.
+   the file. The same walker holds the local-module budget: five handler-only
+   surfaces are named in `DEFERRED_FROM_REGISTRATION`, and the total static
+   evaluations across every entry may not exceed `MODULE_BUDGET`.
    `release.test.ts` ties `package.json`, the newest dated changelog heading,
    and the newest `vX.Y.Z` tag together. CI checks out with `fetch-depth: 0` so
    the tag is present; the tag assertion is skipped in a clone that has none.

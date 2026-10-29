@@ -35,7 +35,7 @@ import { checkReadOnlyGit } from "./git-bash.ts";
 import { createPlanPolicy, BASH_BLOCKED_GUIDANCE, BLOCKED_GUIDANCE, PLAN_SAFE_TOOLS } from "./policy.ts";
 import { createPlanRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
-import { createPlanWebReview } from "./web.ts";
+import { createLazyPlanWebReview } from "./web-lazy.ts";
 
 /** Marker embedded in the injected prompt and used to filter stale context. */
 export const PLAN_MODE_MARKER = "[PLAN MODE ACTIVE]";
@@ -89,7 +89,7 @@ export default function planMode(pi: ExtensionAPI): void {
 	const runtime = createPlanRuntime(pi, policy, { entryPath: extensionEntryPath() });
 	/** The session this review serves as; its prefix lands on that session's one server. */
 	let sessionId = "";
-	const web = createPlanWebReview(runtime.plans, {
+	const web = createLazyPlanWebReview(runtime.plans, {
 		mount: (spec) => requestMount(pi, spec),
 		session: () => sessionId,
 	});

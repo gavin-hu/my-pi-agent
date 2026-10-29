@@ -959,6 +959,7 @@ both.
 | `plan-index.ts` | `/plan list`: the notice text and the docked index screen (store size and oldest plan, title, step progress, age, focused path; Enter reviews). |
 | `blocks.ts` | Source-line block model (fence-aware headings, paragraphs, list items, code, quotes, tables, rules, blanks), and `contentBlockAt`: the block with content a comment beside blank space belongs to. |
 | `feedback.ts` | Comment codec: authored markers, `stripFeedback`, `readFeedback`/`parseFeedback` (body, blocks, and comments out of one parse), `formatFeedback` (writer-scoped), `displayFeedback`, `carryFeedback`, `feedbackSummary`, and payload validation. |
+| `web-lazy.ts` | The review behind `lib/lazy`: `NO_SERVER_DEPS`, and the proxy `/plan` and the tools share, so `web.ts` loads on the first review and shutdown closes only an opened one |
 | `web.ts` | `createPlanWebReview`: the review session (per-token roles, the change stream, the plan-file poll, the body cap, settle-after-flush, abort) over `lib/http`'s one loopback server, and the router wiring — the island is `web-payload.ts` and the writes are `web-write.ts`. |
 | `web-tokens.ts` | The token table: the role each token names, the collision rule that keeps two roles off one token, and the names the other live links have bound. |
 | `web-streams.ts` | The event streams: who is listening, what a frame is addressed to, and the closed-tab grace that ends the review when the owner's page goes away. |

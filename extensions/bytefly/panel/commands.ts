@@ -38,7 +38,6 @@ import { buildPanelModel, buildSkillModel, extensionName } from "./join.ts";
 import { createSettingsRuntime, type SettingsRuntime, type SettingsRuntimeDeps } from "./settings-runtime.ts";
 import { loadSkillIndex, resolvedSkillPaths, type SkillIndex } from "./skills.ts";
 import { shippedThemeNames } from "./themes.ts";
-import { PanelComponent } from "./tui.ts";
 import type { PanelSection } from "./types.ts";
 
 /** Host seams for the panel command, injected by tests and the composition root. */
@@ -208,7 +207,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// the frame, not appended to the transcript behind it. Before the screen
 		// exists (the non-TUI settings path, a pre-mount failure) the transcript is
 		// the only surface.
-		let panel: PanelComponent | undefined;
+		let panel: InstanceType<typeof import("./tui.ts").PanelComponent> | undefined;
 		const surfaceNotice = (message: string, kind: "warning" | "error" = "warning"): void => {
 			if (panel) panel.notify(message);
 			else ctx.ui.notify(message, kind);
@@ -321,6 +320,9 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			return;
 		}
 
+		// The screen is the one thing this command needs only in the TUI: registration
+		// and every text-mode listing must not load the panel kit.
+		const { PanelComponent } = await import("./tui.ts");
 		// The dock screen owns the editor slot; hide the rails for its lifetime.
 		await withRailsSuppressed(pi, () =>
 			ctx.ui.custom<void>((tui, theme, _keybindings, done) => {

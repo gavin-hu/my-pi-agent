@@ -15,20 +15,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { messageOf } from "../../lib/errors.ts";
-import { planModeRefusal } from "../../lib/plan-entry.ts";
-import { isPlanModeEnabled } from "../../lib/plan-state.ts";
-import { withRailsSuppressed } from "../../lib/rails.ts";
-import {
-	enterWorktree,
-	exitWorktree,
-	formatWorktreeStatus,
-	isWorktreeCancelled,
-	pruneWorktrees,
-	enteredWorktree,
-	worktreeSnapshot,
-} from "./lifecycle.ts";
-import { type WorktreeAction, WorktreeListComponent } from "./screen.ts";
+import type { WorktreeAction } from "./screen.ts";
 
 interface Completion {
 	value: string;
@@ -45,8 +32,10 @@ const SUBCOMMANDS: Completion[] = [
 const USAGE = "Usage: /worktree [enter [name]|exit|prune]";
 
 /** Refuse a lifecycle change while plan mode is read-only, as `/check` does. */
-function refuseInPlanMode(ctx: ExtensionContext): boolean {
+async function refuseInPlanMode(ctx: ExtensionContext): Promise<boolean> {
+	const { isPlanModeEnabled } = await import("../../lib/plan-state.ts");
 	if (!isPlanModeEnabled(ctx.sessionManager.getBranch())) return false;
+	const { planModeRefusal } = await import("../../lib/plan-entry.ts");
 	ctx.ui.notify(planModeRefusal("changing worktrees"), "warning");
 	return true;
 }
@@ -59,6 +48,8 @@ function refuseInPlanMode(ctx: ExtensionContext): boolean {
  * info, and everything else is a failure that names the verb that failed.
  */
 async function reportLifecycle(ctx: ExtensionContext, verb: string, run: () => Promise<string>): Promise<void> {
+	const { messageOf } = await import("../../lib/errors.ts");
+	const { isWorktreeCancelled } = await import("./lifecycle.ts");
 	try {
 		ctx.ui.notify(await run(), "info");
 	} catch (error) {
@@ -71,27 +62,31 @@ async function reportLifecycle(ctx: ExtensionContext, verb: string, run: () => P
 }
 
 async function runEnter(pi: ExtensionAPI, ctx: ExtensionContext, name: string | undefined): Promise<void> {
-	if (refuseInPlanMode(ctx)) return;
+	if (await refuseInPlanMode(ctx)) return;
 	// The path on its own line: a command's answer is read without a tool result beside it,
 	// and "which directory am I in now" is the question entering answers.
 	await reportLifecycle(ctx, "Enter", async () => {
+		const { enteredWorktree, enterWorktree } = await import("./lifecycle.ts");
 		const { state } = await enterWorktree(pi, ctx, { name });
 		return `${enteredWorktree(state)}\n${state.path}`;
 	});
 }
 
 async function runExit(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
-	if (refuseInPlanMode(ctx)) return;
+	if (await refuseInPlanMode(ctx)) return;
+	const { exitWorktree } = await import("./lifecycle.ts");
 	await reportLifecycle(ctx, "Exit", async () => (await exitWorktree(pi, ctx, {})).output);
 }
 
 async function runPrune(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
-	if (refuseInPlanMode(ctx)) return;
+	if (await refuseInPlanMode(ctx)) return;
+	const { pruneWorktrees } = await import("./lifecycle.ts");
 	ctx.ui.notify(await pruneWorktrees(pi, ctx), "info");
 }
 
 /** The bare command: the list screen in a terminal, the status text elsewhere. */
 async function showWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+	const { formatWorktreeStatus, pruneWorktrees, worktreeSnapshot } = await import("./lifecycle.ts");
 	const snapshot = await worktreeSnapshot(pi, ctx);
 	if (ctx.mode !== "tui") {
 		ctx.ui.notify(formatWorktreeStatus(snapshot), "info");
@@ -100,6 +95,9 @@ async function showWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<v
 	// The screen closes before an enter or exit runs: both change the session
 	// binding, and `exitWorktree` asks through `ctx.ui.select`, which cannot nest
 	// inside a mounted screen. Prune runs in place, so its verb stays on the screen.
+	const { withRailsSuppressed } = await import("../../lib/rails.ts");
+	const { WorktreeListComponent } = await import("./screen.ts");
+	const { isPlanModeEnabled } = await import("../../lib/plan-state.ts");
 	const action = await withRailsSuppressed(pi, () =>
 		ctx.ui.custom<WorktreeAction | undefined>((tui, theme, _keybindings, done) => {
 			return new WorktreeListComponent({

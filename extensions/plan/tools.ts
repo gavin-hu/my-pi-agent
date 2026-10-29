@@ -28,12 +28,13 @@ import { registerEnterTool } from "./tools/enter.ts";
 import { registerExitTool } from "./tools/exit.ts";
 import { registerSetPlanStepsTool } from "./tools/steps.ts";
 import { registerWriteTool } from "./tools/write.ts";
-import { createPlanWebReview, NO_SERVER_DEPS, type PlanWebReview } from "./web.ts";
+import { createLazyPlanWebReview, NO_SERVER_DEPS } from "./web-lazy.ts";
+import type { PlanWebReview } from "./web.ts";
 
 export function registerTools(
 	pi: ExtensionAPI,
 	runtime: PlanRuntime,
-	web: PlanWebReview = createPlanWebReview(runtime.plans, NO_SERVER_DEPS),
+	web: PlanWebReview = createLazyPlanWebReview(runtime.plans, NO_SERVER_DEPS),
 ): void {
 	registerEnterTool(pi, runtime);
 	registerCancelTool(pi, runtime);

@@ -185,3 +185,71 @@ describe("dependency budget", () => {
 		]);
 	});
 });
+
+/**
+ * A surface that loads on first use, with the sentence that says when.
+ *
+ * The entry modules are what Pi calls on every start, so a static import here is
+ * the regression: the feature is registered, but its page, server, or screen is
+ * not needed until a command or a TUI branch asks for it.
+ */
+const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
+	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or exit_plan_mode",
+	"extensions/board/page.ts": "the board page loads on the first /board",
+	"extensions/file-browse/transport/server.ts": "the browse server loads when /browse opens a page",
+	"extensions/worktree/screen.ts": "the worktree screen loads in the TUI branch of /worktree",
+	"extensions/bytefly/panel/tui.ts": "the panel screen loads in the TUI branch of /bytefly",
+};
+
+/**
+ * The total static module evaluations the entries may have.
+ *
+ * Like `LONG_MODULES`, the bar may only fall: a feature that needs more modules
+ * has to justify the raise here, and a deferral that lands lowers it.
+ */
+const MODULE_BUDGET = 876;
+
+/** A repo-relative path with forward slashes, the form the maps use. */
+function repoRelative(file: string): string {
+	return relative(REPO, file).replaceAll("\\", "/");
+}
+
+/** Every local module one entrypoint loads statically, its entry included. */
+function staticGraph(entry: string): Set<string> {
+	const seen = new Set<string>();
+	const queue = [entry];
+	while (queue.length > 0) {
+		const file = queue.shift() as string;
+		if (seen.has(file)) continue;
+		seen.add(file);
+		for (const specifier of staticSpecifiers(file)) {
+			const target = resolveFile(file, specifier);
+			if (target !== null) queue.push(target);
+		}
+	}
+	return seen;
+}
+
+describe("registration module budget", () => {
+	test("the deferred surfaces do not load when an extension registers", () => {
+		const offenders: string[] = [];
+		for (const entry of entrypoints()) {
+			const graph = staticGraph(entry);
+			for (const [path, when] of Object.entries(DEFERRED_FROM_REGISTRATION)) {
+				if (!graph.has(join(REPO, path))) continue;
+				offenders.push(`${repoRelative(entry)} statically imports ${path}; ${when}`);
+			}
+		}
+		expect(
+			offenders,
+			"load the module inside the command, handler, or TUI branch that needs it; a static import pays it on every start",
+		).toEqual([]);
+	});
+
+	test("the registration graph stays inside its module budget", () => {
+		const total = entrypoints().reduce((sum, entry) => sum + staticGraph(entry).size, 0);
+		expect(total, "static module evaluations across every entry; MODULE_BUDGET may only fall").toBeLessThanOrEqual(
+			MODULE_BUDGET,
+		);
+	});
+});

@@ -131,9 +131,6 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 	const interval = options.interval ?? defaultInterval;
 	const pid = options.pid ?? process.pid;
 	const seams: RosterSeams = { alive: options.alive ?? isPidAlive, token: options.startTokenFn ?? startTokenOf };
-	// Asked once, here: a reused pid is settled from the record afterwards, so no
-	// heartbeat tick spawns `ps`.
-	const processToken = (seams.token ?? startTokenOf)(pid);
 
 	/**
 	 * What one record says about its session.
@@ -178,6 +175,10 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			await store.ensure();
 			const id = context.sessionManager.getSessionId();
 			const mode = sessionMode(context.mode);
+			// Asked once, when the bus starts: a reused pid is settled from the record
+			// afterwards, so no heartbeat tick spawns `ps`, and a session that never
+			// joins pays nothing in its factory.
+			const processToken = (seams.token ?? startTokenOf)(pid);
 			record = {
 				id,
 				label: defaultLabel(sessionNameOf(context), cwd, id),

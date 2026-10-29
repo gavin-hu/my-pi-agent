@@ -19,7 +19,8 @@ import { PlanIndexComponent, formatPlanIndex } from "./plan-index.ts";
 import { runBrowserReview } from "./review.ts";
 import type { PlanRuntime } from "./runtime.ts";
 import type { PlanSummary } from "./plans.ts";
-import { createPlanWebReview, NO_SERVER_DEPS, type PlanWebReview } from "./web.ts";
+import { createLazyPlanWebReview, NO_SERVER_DEPS } from "./web-lazy.ts";
+import type { PlanWebReview } from "./web.ts";
 
 const ENABLED_NOTICE = `Plan mode enabled — ${READ_ONLY_SUMMARY}.`;
 const DISABLED_NOTICE = "Plan mode disabled — full access restored.";
@@ -219,7 +220,7 @@ async function openPlanIndex(
 export function registerCommands(
 	pi: ExtensionAPI,
 	runtime: PlanRuntime,
-	web: PlanWebReview = createPlanWebReview(runtime.plans, NO_SERVER_DEPS),
+	web: PlanWebReview = createLazyPlanWebReview(runtime.plans, NO_SERVER_DEPS),
 ): void {
 	pi.registerCommand("plan", {
 		description:

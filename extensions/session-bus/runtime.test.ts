@@ -56,6 +56,23 @@ async function acting(session: SessionBus, ctx: ExtensionContext): Promise<void>
 }
 
 describe("registration", () => {
+	test("reads the start token when the bus starts, not when the bus is constructed", async () => {
+		const dir = busDir();
+		let calls = 0;
+		const session = runtime(dir, {
+			repo: { root: "/repo/frontend", key: "shared" },
+			startTokenFn: () => {
+				calls++;
+				return "started-here";
+			},
+		});
+		// The factory an extension loads must not spawn `ps`; the record is stamped on start.
+		expect(calls).toBe(0);
+		await session.start(context("/repo/frontend", "s-token", "frontend"));
+		expect(calls).toBe(1);
+		await session.stop();
+	});
+
 	test("no mode joins on start; a name joins, and a reader stays off the bus", async () => {
 		const dir = busDir();
 		const now = () => 1_000;

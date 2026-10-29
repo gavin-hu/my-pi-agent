@@ -129,8 +129,11 @@ The suite is organized by tier; the full contract is in
    `extension-load`, `config-docs`, `settings-coverage`,
    `prompt-budget`, `release`, `structure`, `drift`, `theme`, `dependencies`).
    `dependencies` walks each extension
-   entrypoint's static import graph, so a parser library loads in the function
-   that needs it rather than on every start — the `extract/xlsx.ts` pattern.
+   entrypoint's static import graph, so a parser library and a page or screen a
+   command needs loads in the function that needs it rather than on every start
+   — the `extract/xlsx.ts` pattern. The same walker names the deferred surfaces
+   and the total module budget, so a new static import cannot quietly undo a
+   deferral.
 
 Tests are deterministic by construction: inject `now`, `spawn`, `kill`,
 `liveness`, and a clock rather than stubbing globals. Real git is allowed only

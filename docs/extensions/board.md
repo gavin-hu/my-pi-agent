@@ -628,7 +628,7 @@ it always meant: when the card was last touched, which is not when it last chang
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the page, register both, close on shutdown |
+| `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the lazy page, register both, close on shutdown |
 | `schema.ts` | The tool's parameters |
 | `types.ts` | The shapes the tool registers and reports — the actions and the fields each acts on, the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
 | `tools.ts` | Action dispatch and the refusal shape |
@@ -637,6 +637,7 @@ it always meant: when the card was last touched, which is not when it last chang
 | `rows.ts` | The transcript row grammar: one card as a line, its lane and its facts painted in the tones `lib/board/tone.ts` gives them, and the accent on the holder's own rows in a `mine` listing |
 | `result.ts` | The transcript block: the collapsed line, and the rows a `list` expands to |
 | `tone.ts` | The terminal's word for a board tone: `TONE_ROLE`, because the page wears a tone as a CSS property and the terminal's roles are its own five words |
+| `lazy-page.ts` | The page behind `lib/lazy`: the command paths load `page.ts` once, and `closeAll` closes only a page that was already opened, so a session that never touches the board imports none of the server |
 | `page.ts` | The page's lifecycle: the `/board` prefix it holds on the session's server, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
 | `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |

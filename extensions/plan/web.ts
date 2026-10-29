@@ -131,17 +131,6 @@ const DROP_GRACE_MS = 1500;
  */
 const PLAN_POLL_MS = 1000;
 
-/**
- * The deps a caller that injects its own review leaves out.
- *
- * A review needs a place on the session's server, so a caller with no wiring says so
- * rather than binding a socket of its own: the start is refused with a sentence.
- */
-export const NO_SERVER_DEPS: PlanWebReviewDeps = {
-	mount: async () => ({ kind: "refused", reason: "this review has no server wired" }),
-	session: () => "",
-};
-
 export function createPlanWebReview(store: PlanStore, deps: PlanWebReviewDeps): PlanWebReview {
 	const sessions = new Set<PlanReviewSession>();
 	// What each running review can do about sharing; the session itself stays the
