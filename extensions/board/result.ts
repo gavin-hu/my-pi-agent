@@ -47,6 +47,9 @@ export function resultInput(details: BoardDetails): TailResultInput<Card> | unde
 	for (const group of round.owners) sections.push(section(group.label, group.cards, rowLine));
 	if (round.unassigned.length > 0) sections.push(section("Unassigned", round.unassigned, rowLine));
 	if (round.unplanned.length > 0) sections.push(section("Unplanned", round.unplanned, rowLine));
+	// The lead's queue: a contract nobody has signed is a card the flow stops on, so it is
+	// drawn in the order `formatRound` prints it rather than left to the text above.
+	if (round.unapproved.length > 0) sections.push(section("Awaiting approval", round.unapproved, rowLine));
 	if (round.blocked.length > 0) sections.push(section("Blocked", round.blocked, rowLine));
 	if (round.idle.length > 0) sections.push(section("Idle", round.idle, rowLine));
 	if (round.done.length > 0) sections.push(section("Done", round.done, rowLine));

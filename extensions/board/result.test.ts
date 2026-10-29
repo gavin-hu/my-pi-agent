@@ -12,6 +12,7 @@ import { coloringTheme } from "../../test/helpers/fakes.ts";
 import { type Card, CARD_VERSION } from "../../lib/board/card.ts";
 import { LANE_RULES } from "../../lib/board/lanes.ts";
 import type { Actor } from "../../lib/board/rules.ts";
+import type { RoundSummary } from "../../lib/board/round.ts";
 import { REASON_TONE } from "../../lib/board/tone.ts";
 import { collapsedLine, resultInput } from "./result.ts";
 import { boardRowLineFor } from "./rows.ts";
@@ -97,5 +98,35 @@ describe("the rows a mine listing draws", () => {
 		};
 		expect(rowOf(marked)).toContain(`${colour("accent")}#4`);
 		expect(rowOf(plain)).toContain(`${colour("label")}#4`);
+	});
+});
+
+describe("the rollup's sections", () => {
+	test("draws every group the round reports, in the order the text prints it", () => {
+		// Every group carries one card, and the group it belongs to is the assertion: a
+		// rollup group that loses its section is invisible in the text above it.
+		const round: RoundSummary = {
+			owners: [{ label: PEER.label, cards: [card()], done: [] }],
+			unassigned: [card({ id: "1", lane: "backlog", owner: undefined })],
+			unplanned: [card({ id: "2" })],
+			unapproved: [card({ id: "3" })],
+			blocked: [card({ id: "4", lane: "blocked", blocked: { kind: "decision" } })],
+			idle: [card({ id: "5", lane: "execute" })],
+			done: [card({ id: "6", lane: "done" })],
+		};
+		const input = resultInput({ action: "list", me: ME, round, cards: [] });
+		if (input?.kind !== "sections") throw new Error("a rollup is sections");
+		expect(input.sections.map((entry) => entry.label)).toEqual([
+			PEER.label,
+			"Unassigned",
+			"Unplanned",
+			"Awaiting approval",
+			"Blocked",
+			"Idle",
+			"Done",
+		]);
+		// The lead's queue is the one group a reader acts on, so the card is named there.
+		const approval = input.sections.find((entry) => entry.label === "Awaiting approval");
+		expect(approval?.rows.map((row) => row.id)).toEqual(["3"]);
 	});
 });

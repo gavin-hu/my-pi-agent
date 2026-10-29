@@ -412,7 +412,7 @@ describe("buildView", () => {
 
 	test("marks the seat's row, because the page is the seat and not the session behind it", () => {
 		// A page outlives the session that serves it, so `you` is the seat: whoever opened it
-		// reads the roster as the name the page writes as.
+		// reads the roster as the seat's own name.
 		const view = buildView({
 			me: { id: "board:team-lead", label: "team-lead" },
 			cards: [],

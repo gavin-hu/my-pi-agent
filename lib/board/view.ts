@@ -34,7 +34,7 @@ export interface ViewTeammate {
 	mail: number;
 	/** Whether it is listening for mail; absent means its record does not say so. */
 	listening?: boolean;
-	/** Whether this is the session the page writes as. */
+	/** Whether this is the seat the page is read as. */
 	you: boolean;
 }
 
@@ -100,7 +100,7 @@ export interface ViewLane {
 /** Everything the page is allowed to know. */
 export interface BoardView {
 	/**
-	 * The session a page write is made as, and the one the page is read as: its seat.
+	 * The seat the page is read as, and the identity a reader's own row is marked against.
 	 *
 	 * The page is not a session that happens to be serving — it is a seat that outlives
 	 * whichever session serves it — so the browser is told one identity and no other.
@@ -139,7 +139,7 @@ export interface BoardView {
 
 /** What the server read before building one snapshot. */
 export interface ViewInput {
-	/** The page's own actor, which is both who it writes as and who is looking. */
+	/** The page's own actor: the seat the snapshot is read as. */
 	me: Actor;
 	cards: readonly Card[];
 	now: number;

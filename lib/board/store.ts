@@ -316,6 +316,15 @@ export function createStore(
 			if (!result.changed) {
 				return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
 			}
+			// Last look before the write, asked for every path that writes: a writer that landed
+			// in between is the re-read the next pass applies against. The move and the removal
+			// are writes too — without this, a note landing between the read above and the
+			// rename puts the card back on the board while its copy lies in the other pile.
+			const current = await read(id);
+			if (!current || current.rev !== card.rev) {
+				changedUnderneath = true;
+				continue;
+			}
 			if (op.kind === "drop") {
 				// The record lands first: a crash between the two leaves a card that still
 				// exists with a note explaining it, never a card that is gone unexplained.
@@ -331,13 +340,6 @@ export function createStore(
 				}
 				await moveCard(cardsDir, archiveDir, id);
 				return { ok: true, card: result.card, changed: true, dropped: false, archived: true };
-			}
-			// Last look before the rename: a writer that landed in between is the
-			// re-read the next pass applies against.
-			const current = await read(id);
-			if (!current || current.rev !== card.rev) {
-				changedUnderneath = true;
-				continue;
 			}
 			await writeCardFile(pile, id, result.card);
 			return { ok: true, card: result.card, changed: true, dropped: false, archived: false };
@@ -511,7 +513,6 @@ async function writeCardFile(dir: string, id: string, card: Card): Promise<void>
 	}
 }
 
-/** One card's bytes, ending in a newline so the file reads well in an editor. */
 /** One record as the bytes a file holds: tab-indented JSON with a closing newline. */
 function serialize(record: Card | EndedCard): string {
 	return `${JSON.stringify(record, null, "\t")}\n`;

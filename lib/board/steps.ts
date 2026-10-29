@@ -50,38 +50,23 @@ export function claim(card: Card, actor: Actor, board: BoardIndex, limits: WipLi
 	return enter(card, "plan", board, limits, { owner: ownerOf(actor), offeredAt: undefined });
 }
 
-/** Hand a card to somebody: a pool card comes with the lane, a held one only changes hands. */
-export function assign(
-	card: Card,
-	to: Actor,
-	rawNote: unknown,
-	actor: Actor,
-	now: number,
-	board: BoardIndex,
-	limits: WipLimits,
-): Prepared {
+/**
+ * Hand a pool card to somebody: the owner is recorded and the card enters `plan`.
+ *
+ * A held card is refused rather than handed over, because the owner a handoff would skip is
+ * the one the rules protect: changing hands is `reclaim` and a second assignment. Naming the
+ * session that already holds it is the one held case left, and it is a no-op.
+ */
+export function assign(card: Card, to: Actor, board: BoardIndex, limits: WipLimits): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be assigned.` };
-	if (card.owner !== undefined && !holds(card, to)) return { error: heldBy(card) };
-	if (holds(card, to)) return { changed: false, fields: null };
+	if (card.owner !== undefined) {
+		return holds(card, to) ? { changed: false, fields: null } : { error: heldBy(card) };
+	}
 	const waiting = waitingOn(card, board);
 	if (waiting !== undefined) return { error: waiting };
-	// Assignment moves a card only out of the pool: a card already in `plan`, `execute`, or
-	// `blocked` keeps the lane it earned, and the new holder inherits the state.
-	const fields: Partial<Card> = { owner: ownerOf(to), offeredAt: undefined };
-	if (card.owner === undefined) {
-		const entered = enter(card, "plan", board, limits, fields);
-		if ("error" in entered) return entered;
-		if (entered.fields === null) return entered;
-		Object.assign(fields, entered.fields);
-	}
-	if (rawNote !== undefined) {
-		const parsed = normalizeNote(rawNote);
-		if ("error" in parsed) return { error: parsed.error };
-		// One revision, not two: the history says who it went to in the same write that
-		// recorded the owner, so a reader never sees the assignment without the sentence.
-		Object.assign(fields, appendNote(card, actor, now, parsed.text));
-	}
-	return { changed: true, fields };
+	// A pool card is the only card this moves, so it comes with the lane a claim would give it:
+	// the owner inherits the work from its first step.
+	return enter(card, "plan", board, limits, { owner: ownerOf(to), offeredAt: undefined });
 }
 
 /** Hand a card back to the pool. The contract and its approval stay: the plan did not change. */
@@ -168,7 +153,7 @@ function enter(
 	board: BoardIndex,
 	limits: WipLimits,
 	fields: Partial<Card>,
-): Prepared {
+): { error: string } | { fields: Partial<Card>; changed: true } {
 	const full = wipRefusal(lane, [...board.values()], limits);
 	if (full !== undefined) return { error: `${cardRef(card.id)} cannot enter ${lane}: ${full}` };
 	return { changed: true, fields: { ...fields, lane } };
@@ -323,15 +308,17 @@ export function approve(card: Card, actor: Actor, now: number): Prepared {
 	if (holds(card, actor)) {
 		return { error: `${heldBy(card)} Its contract is approved by a session that does not hold it.` };
 	}
-	const missing = missingContractFields(card.contract);
-	if (missing.length > 0) {
-		return {
-			error: `${cardRef(card.id)} has no contract to approve yet: ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} missing.`,
-		};
+	const contract = card.contract;
+	const missing = missingContractFields(contract);
+	// One refusal for both shapes: a card with no contract names every field, and one with a
+	// line still blank names the blank one. A complete contract is never undefined, so the
+	// check above is also what narrows it.
+	if (contract === undefined || missing.length > 0) {
+		const gaps = missing.length === 0 ? "" : `: ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} missing`;
+		return { error: `${cardRef(card.id)} has no contract to approve yet${gaps}.` };
 	}
-	if (card.contract === undefined) return { error: `${cardRef(card.id)} has no contract to approve yet.` };
-	if (card.contract.approved?.by === actor.label) return { changed: false, fields: null };
-	return { changed: true, fields: { contract: { ...card.contract, approved: { by: actor.label, at: now } } } };
+	if (contract.approved?.by === actor.label) return { changed: false, fields: null };
+	return { changed: true, fields: { contract: { ...contract, approved: { by: actor.label, at: now } } } };
 }
 
 /** Record the spot-check of finished work, by a session that does not hold the card. */
