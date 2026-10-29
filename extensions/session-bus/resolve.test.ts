@@ -45,18 +45,14 @@ describe("resolveClaimPaths", () => {
 			expect(claimPathMessage(escaped.error)).toBe('path "../elsewhere" does not resolve to a file in the repository.');
 	});
 
-	test("refuses an absolute path rather than re-rooting it under the repository", () => {
-		expect(resolveClaimPaths(repo(), ["/etc"])).toMatchObject({
-			error: { path: "/etc", reason: "is absolute; a claim is relative to the repository root" },
-		});
-	});
-
 	test("refuses the root itself, which would own the repository", () => {
 		const root = repo();
 		expect(resolveClaimPaths(root, ["."])).toMatchObject({
 			error: { path: ".", reason: "is the repository, not a path in it" },
 		});
 		expect(resolveClaimPaths(root, [""])).toMatchObject({ error: { path: "" } });
+		// The spelling a caller used survives into the refusal they read.
+		expect(resolveClaimPaths(root, ["src/../."])).toMatchObject({ error: { path: "src/../." } });
 	});
 
 	test("refuses the first bad path of a list, before writing anything", () => {

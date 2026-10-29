@@ -54,7 +54,7 @@ collapsed line that expands to the board's rows.
 | Action | Inputs | Result |
 |---|---|---|
 | `status` | — | Active sessions with unread counts, their state, claims, and this session's identity. A session whose process is gone is listed as `gone` until its heartbeat ages out, and its claims are not listed at all. Prunes stale records. A read: it never adds this session to the bus. |
-| `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. |
+| `send` | `to`, `text`, optional `kind`, optional `paths` | Writes one message per recipient. `to: "*"` is only valid with `kind: "event"`. A session whose process is gone is not a recipient: naming it is refused, and a broadcast skips it. |
 | `inbox` | optional `limit` | Returns and deletes up to `limit` messages, oldest first (default 20, max 50). |
 | `claim` | `paths` | Claims repository-relative files or directory prefixes; returns conflicts with their owner. |
 | `release` | `paths` | Removes claims owned by this session; reports paths owned by someone else. |
@@ -66,7 +66,10 @@ a directory conflicts with claims below it and above it, so `src/api` and
 takeover; wait for the owner, ask it to release, or let the session expire.
 
 Paths resolve against the caller's working directory and are stored relative to
-its repository root; a path outside the repository is refused.
+its repository root; a path outside the repository is refused, and so is one that
+resolves to the repository itself — `path "." is the repository, not a path in
+it.` — because a claim on the root would own every file in it. Below the root,
+the same `.` claims the directory the session is in.
 
 `wake` is the mode, not an arm-time switch: `join({ wake: true })` raises a turn
 for a session that was reporting at the next turn, and `join({ wake: false })` —
@@ -179,6 +182,11 @@ listening watch is what raises the turn.
   both sides to keep replying; the answer is to stop listening on one of them.
 - **No broadcast history.** A broadcast reaches the sessions active at send time;
   a session that joins later does not receive it.
+- **Mail to a gone session is refused, not queued.** A record whose process has
+  exited is not a recipient: `send` naming it answers `no active session`, and a
+  broadcast skips it. Its inbox outlives a `/resume`, but a sender is never told a
+  message arrived at a process that has exited — the bus's rule for a claim, and
+  for `status`, is the same one.
 - **No forced claims.** There is no takeover while an owner can still answer: a
   claim is released by its owner, or by the next bus call once the owner's process
   is gone. A *hung* owner still blocks its paths until the session TTL expires,
@@ -231,7 +239,11 @@ listening watch is what raises the turn.
   started through a link named differently is named after the directory it is
   actually in. An absolute path argument that sits outside the repository is
   refused before it is re-keyed, and a relative one whose target leaves the
-  repository is refused by the re-keying itself.
+  repository is refused by the re-keying itself. A path whose target is the
+  repository root is refused there too, and by that one rule: the spelling check
+  hands the root on rather than pre-empting it, so the sentence a caller reads
+  says what happened (`is the repository, not a path in it`) instead of claiming
+  a path inside the repository is outside it.
 - **One file per item.** Sessions never append to a shared registry: each session
   writes its own record, each message is its own file, and a claim is a temp file
   hard-linked into place — an exclusive create no reader can see half-written.

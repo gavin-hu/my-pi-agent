@@ -57,6 +57,13 @@ describe("validation", () => {
 		});
 		expect(normalizePaths("/repo", "/repo", [])).toHaveProperty("error");
 	});
+	test("hands a path that resolves to the root on in the caller's own spelling", () => {
+		// The refusal is `resolve.ts`'s, so this module does not pre-empt it with a worse one.
+		expect(normalizePaths("/repo", "/repo", ["."])).toEqual({ paths: ["."] });
+		expect(normalizePaths("/repo", "/repo", ["src/.."])).toEqual({ paths: ["src/.."] });
+		// From below the root, the same spelling is an ordinary claim on that directory.
+		expect(normalizePaths("/repo", "/repo/src", ["."])).toEqual({ paths: ["src"] });
+	});
 });
 
 describe("claim targets", () => {

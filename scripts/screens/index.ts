@@ -288,7 +288,7 @@ export const SCREENS: Record<string, Screen> = {
 		size: { width: 100, rows: 13 },
 		render: (width, rows) =>
 			new SessionListComponent({
-				latest: () => BUS_BOARD,
+				board: BUS_BOARD,
 				theme,
 				callbacks: { toggleWatch: async () => "Inbox watch off.", releaseClaim: async () => "Released." },
 				onClose: noop,

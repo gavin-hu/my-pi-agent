@@ -29,6 +29,14 @@ export interface WatchingState {
 	wake: boolean;
 }
 
+/**
+ * How many ids one watch remembers.
+ *
+ * More than the 50 messages one `peek` returns, so a backlog larger than a single
+ * read cannot make the watch forget an id it already announced.
+ */
+const MAX_REPORTED = 200;
+
 export interface MailWatch {
 	/** Arm or disarm this session's inbox watch. */
 	watch(input: { wake?: boolean; stop?: boolean }): Promise<WatchingState>;
@@ -62,24 +70,35 @@ export function createMailWatch(options: MailWatchOptions): MailWatch {
 		pendingMail = pendingMail.filter((message) => !ids.has(message.id));
 	}
 
+	/**
+	 * Remember an id, and the count of ids this watch holds.
+	 *
+	 * A count, not the set of what is on disk: one `peek` returns at most `MAX_LIMIT`
+	 * messages, so a watch that narrowed itself to that window forgot an id it had
+	 * already announced the moment newer mail sorted ahead of it, and announced it
+	 * again once the front was consumed. A `Set` keeps insertion order, so the oldest
+	 * id is the first one it yields.
+	 */
+	function remember(id: string): void {
+		reported.add(id);
+		if (reported.size <= MAX_REPORTED) return;
+		const oldest = reported.values().next();
+		if (!oldest.done) reported.delete(oldest.value);
+	}
+
 	function markReported(ids: readonly string[]): void {
-		for (const id of ids) reported.add(id);
+		for (const id of ids) remember(id);
 		dropFromPending(new Set(ids));
 	}
 
 	/**
 	 * Queue what arrived since the last poll, once, and wake a turn when this
 	 * session asked for one.
-	 *
-	 * The reported set is narrowed to the mail still on disk, so it is bounded by
-	 * the unread count rather than by the session's whole history; an id is unique
-	 * for good, so a message that was consumed can never be queued again.
 	 */
 	async function pollOnce(): Promise<void> {
 		if (!armed) return;
 		const mail = await peek();
 		const unread = new Set(mail.map((message) => message.id));
-		reported = new Set([...reported].filter((id) => unread.has(id)));
 		// A message that expired or was consumed leaves the queue with its file.
 		pendingMail = pendingMail.filter((message) => unread.has(message.id));
 		const queued = new Set(pendingMail.map((message) => message.id));

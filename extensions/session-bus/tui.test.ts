@@ -172,7 +172,7 @@ describe("the /sessions screen", () => {
 
 	function screen(initial: BoardSnapshot, recorded: Events): SessionListComponent {
 		return new SessionListComponent({
-			latest: () => initial,
+			board: initial,
 			theme: fakeTheme,
 			callbacks: {
 				toggleWatch: async (armed) => {

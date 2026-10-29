@@ -6,10 +6,14 @@
  * spelling inside the repository and the file it names are one claim, and a path
  * that leaves the repository is refused before anything is written.
  *
+ * The caller hands in paths that are already relative to the repository (the
+ * spelling rule is `protocol.ts`'s), so what is decided here is what they *resolve*
+ * to: the root itself, a target outside it, or a claim.
+ *
  * `lib/path.ts` owns the containment predicates; this owns the claim's shape.
  */
 
-import { isAbsolute, join, relative, sep } from "node:path";
+import { join, relative, sep } from "node:path";
 import { isInside, realPathOfNearest } from "../../lib/path.ts";
 
 /** A path this module declined, with the reason a caller can print. */
@@ -40,9 +44,6 @@ const ROOT_ITSELF = "is the repository, not a path in it";
 /** What a path outside the root resolves to. */
 const OUTSIDE = "does not resolve to a file in the repository";
 
-/** What an absolute path is refused for: it is not the claim's to place. */
-const ABSOLUTE = "is absolute; a claim is relative to the repository root";
-
 /**
  * Resolve `paths` against `root`, or refuse the first one that is not in it.
  *
@@ -53,9 +54,6 @@ export function resolveClaimPaths(root: string, paths: readonly string[]): Resol
 	const realRoot = realPathOfNearest(root);
 	const canonical: string[] = [];
 	for (const path of paths) {
-		// `join` would re-root an absolute path under the repository, which is not what
-		// a caller meant: refuse it rather than claim a directory it never named.
-		if (isAbsolute(path)) return { error: { path, reason: ABSOLUTE } };
 		const target = realPathOfNearest(join(root, path));
 		const rel = relative(realRoot, target);
 		if (rel === "") return { error: { path, reason: ROOT_ITSELF } };
