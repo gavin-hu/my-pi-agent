@@ -1000,9 +1000,10 @@ bun test extensions/plan
 
 Twelve co-located suites, declared in `test/suite-manifest.ts`:
 
-- `plans.test.ts` — the plan-file store: naming, directory resolution, atomic
-  writes, `read`/`latest`/`index`, containment, `setSteps`, `saveFeedback`, and
-  step extraction.
+- `plans.test.ts` — the plan-file store: naming, the store's directory, atomic
+  writes, `read`/`latest`/`index`, `setSteps`, `saveFeedback`, and step extraction;
+  the location and path rules it runs through (`plansDir`, `plansDirFor`, the name
+  rule, symlink-safe containment) are `lib/plans/paths.ts` and its own suite.
 - `feedback.test.ts` — the comment codec: authored markers, stripping and
   parsing, who a reviewer's write is signed by, carrying feedback onto a
   revision, and displaying stored comments.

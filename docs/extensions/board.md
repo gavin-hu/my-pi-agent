@@ -51,11 +51,11 @@ decision.
 | Capability | How | What you get |
 |---|---|---|
 | A shared feature list for one repository | `board` action `list` | Every open card in lane order — `backlog`, `plan`, `execute`, `blocked` — or one card, or one lane; the `done` cards are left out with a count of how many, and `lane: "done"` reads them |
-| The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned (the pool), unplanned (a contract still missing a line), awaiting approval, blocked, idle, and done |
+| The lead's rollup | `board` action `list` with `round: true` | Every owner with its live cards and, beside the count, what it has finished — an owner whose last card is done stays listed — then unassigned (the pool), unplanned (a contract still missing a line, or a plan never recorded — either one refuses `execute`), awaiting approval, blocked, idle, and done |
 | Publish a feature | `board` action `add` | A `backlog` card with path hints and a first note (one line, at most 1000 characters) |
 | Take a feature | `board` action `claim` | The card is pulled into `plan` and owned by this session — or refused, naming the count, when `plan` is full. The result names the next step, because the claim is what commits the session to a plan |
 | Hand it back | `board` action `release` | The card is back in `backlog` with no owner; the contract and its approval stay, because the plan did not change |
-| Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `write_plan` saved in this repository's plan store, so a contract cannot name a file that does not exist. Any change to a line drops the approval, because the sign named a wording |
+| Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `write_plan` saved in this repository's plan store, so a contract cannot name a file that does not exist. Any change to a line or to the file drops the approval, because the sign named both |
 | Approve the contract | `board` action `approve`, or `/board approve <id>` | Somebody who does not hold the card records that the wording is right — a peer session, or the person at the keyboard; only then may the card enter `execute` |
 | Spot-check the work | `board` action `review`, or `/board review <id>` | Somebody who does not hold the card records that they looked at the finished work in `execute` — a peer session, or the person; only then may the card be finished |
 | Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, a complete contract, a plan that is still in the store, an approval by somebody other than the holder) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, the same plan check), `blocked` back to `plan` or to `execute` once its contract is approved and its plan is there |
@@ -571,8 +571,8 @@ it always meant: when the card was last touched, which is not when it last chang
   one session alone would otherwise hold a card it could never sign. That is a weaker sign
   than a peer's and reads differently on the card, which is the honest way to say it: `you`
   is the person who read the plan, a peer is a second pair of eyes. The contract is three one-line fields
-  written by `contract`, and a changed line drops the sign, because the sign named a
-  wording. A card too small to state an acceptance does not belong on the board — it belongs
+  written by `contract`, and a changed line or a different plan file drops the sign, because
+  the sign named both the wording and the artifact. A card too small to state an acceptance does not belong on the board — it belongs
   in `todo` — which is the honest answer to "this is ceremony for a typo fix".
 - **`status` became `lane` because a card now has two states.** The field, the parameter, and
   the page's attribute were renamed in one step with no behaviour change: once a card can be
@@ -648,14 +648,14 @@ it always meant: when the card was last touched, which is not when it last chang
 | `view/client.ts` | The one script served at `/app.js` |
 
 The lanes, the contract, the limits, the reason rule, the steps, the store, the rollup, and
-the snapshot are `lib/board/` — see
+the snapshot, and the rule that a plan path is a plan file are `lib/board/` — see
 [`lib/README.md`](../../lib/README.md).
 
 ## Testing
 
 `test/suite-manifest.ts` declares the suites:
-`lib/board/{card,contract,lanes,limits,links,page-pointer,read,reason,round,round-text,rules,session,skipped,store,view}`
-for the record, the reader that maps a v1 file onto it, the contract and its boundary, the
+`lib/board/{artifact,card,contract,lanes,limits,links,page-pointer,read,reason,round,round-text,rules,session,skipped,store,view}`
+for the plan a card is executed against, the record, the reader that maps a v1 file onto it, the contract and its boundary, the
 lane table and its transition matrix, the WIP limits and their config, the dependency graph,
 the note a page leaves, the one reason rule, the rollup and its text, the sentence for a
 refused file, the card's transitions, the store a call opens and the identity it writes as,

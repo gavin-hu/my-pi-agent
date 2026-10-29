@@ -279,6 +279,23 @@ describe("the contract", () => {
 		expect(card.lane).toBe("plan");
 	});
 
+	test("a different plan drops the approval too, because the sign named an artifact", () => {
+		// Otherwise a peer could read one plan and the card be executed against another: the
+		// three lines are the same, and the file they are read against is not.
+		const card = approved();
+		const repointed = step(card, { kind: "contract", artifact: proved("plans/other.md"), ...CONTRACT }, CORE);
+		expect(repointed.planPath).toBe("plans/other.md");
+		expect(repointed.contract?.approved).toBeUndefined();
+		expect(repointed.contract?.goal).toBe(CONTRACT.goal);
+	});
+
+	test("re-recording the same plan and lines keeps the sign, and is a no-op", () => {
+		const card = approved();
+		const same = accepted(applyOp(card, { kind: "contract", artifact: proved(), ...CONTRACT }, CORE, NOW, board(card)));
+		expect(same.changed).toBe(false);
+		expect(same.card.contract?.approved).toEqual({ by: LEAD.label, at: NOW });
+	});
+
 	test("a changed line drops the approval, because the sign named a wording", () => {
 		const card = approved();
 		const reworded = step(

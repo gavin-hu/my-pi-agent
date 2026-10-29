@@ -810,9 +810,12 @@ describe("the flow: contract, approval, spot-check", () => {
 		expect(refused.isError).toBe(true);
 		expect(text(refused)).toContain("the plan recorded for #1 is gone");
 		expect(text(refused)).toContain("record it with `contract`");
-		// Re-recording a plan that is there opens the gate again.
+		// Re-recording a plan that is there is what the refusal asked for, and a different file
+		// is a different promise: the old sign does not travel, so the lead reads it again.
 		const again = await writePlan(peer, "again.md");
-		await peer.call({ action: "contract", card: "1", path: again });
+		const recontracted = await peer.call({ action: "contract", card: "1", path: again });
+		expect(recontracted.details.card?.contract?.approved).toBeUndefined();
+		await lead.call({ action: "approve", card: "1" });
 		const moved = await peer.call({ action: "move", card: "1", lane: "execute" });
 		expect(moved.details.card?.lane).toBe("execute");
 	});
@@ -836,6 +839,24 @@ describe("the flow: contract, approval, spot-check", () => {
 		expect(refused.isError).toBe(true);
 		expect(text(refused)).toContain("the plan recorded for #1 is gone");
 		expect(text(refused)).toContain("move it back to plan, then record it with `contract`");
+	});
+
+	test("a re-pointed plan loses the sign, so execute waits for a new approval", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		const first = await writePlan(peer, "first.md");
+		await peer.call({ action: "contract", card: "1", path: first, goal: "g", acceptance: "a", scopeOut: "s" });
+		await lead.call({ action: "approve", card: "1" });
+		// The same three lines, a different file: what the peer read is not what would run.
+		const second = await writePlan(peer, "second.md");
+		const recontracted = await peer.call({ action: "contract", card: "1", path: second });
+		expect(recontracted.details.card?.planPath).toBe(second);
+		expect(recontracted.details.card?.contract?.approved).toBeUndefined();
+		expect(text(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain("is not approved yet");
 	});
 
 	test("done is refused until somebody else spot-checks the work", async () => {

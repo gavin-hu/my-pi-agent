@@ -27,7 +27,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   move to `execute` or `done` re-checks that it is still there — so the plan a card promises
   is a file, not a string. A claim's result ends with the next step (plan mode, then
   `contract`), plan mode's board refusal names the same order, and a card planned before the
-  rule must record its plan again before it can execute.
+  rule must record its plan again before it can execute. Pointing the card at a different
+  plan drops the approval, because the sign covers the file as well as the three lines, and
+  a plan card with no plan recorded now counts as unplanned in the lead's round instead of
+  disappearing from it.
 
 - `board`: `/board approve <id>` and `/board review <id>` sign the two gates as `you`, so a
   repository worked by one session can move a card past `plan` and `execute`. The rule is

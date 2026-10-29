@@ -72,6 +72,7 @@ describe("formatRound", () => {
 			card("2", {
 				lane: "plan",
 				owner: { label: "billing-core" },
+				planPath: "plans/demo.md",
 				contract: { goal: "g", acceptance: "a", scopeOut: "s" },
 			}),
 		];

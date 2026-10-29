@@ -36,13 +36,18 @@ function doing(id: string, overrides: Partial<Card> = {}): Card {
 	return card(id, { lane: "execute", owner: { id: `s-${id}`, label: "billing-core" }, ...overrides });
 }
 
-/** A card in `plan`, whose contract is or is not written yet. */
+/** A card in `plan` whose plan was never recorded: the contract may or may not be written. */
 function planning(id: string, contract: Card["contract"] = undefined): Card {
 	return card(id, {
 		lane: "plan",
 		owner: { id: `s-${id}`, label: "billing-core" },
 		...(contract === undefined ? {} : { contract }),
 	});
+}
+
+/** A card in `plan` with its plan recorded, which is what `execute` asks for. */
+function planned(id: string, contract: Card["contract"] = undefined): Card {
+	return { ...planning(id, contract), planPath: `plans/${id}.md` };
 }
 
 const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };
@@ -100,14 +105,28 @@ describe("buildRound", () => {
 		expect(round.unassigned.map((entry) => entry.id)).toEqual(["1", "3"]);
 	});
 
+	test("a complete, approved contract with no plan is unplanned, not awaiting approval", () => {
+		// The migration case: `execute` refuses a card with no artifact, so the queue that
+		// leads somewhere has to keep it rather than filing it as done with its decision.
+		const approvedNoPlan = planning("1", {
+			goal: "g",
+			acceptance: "a",
+			scopeOut: "s",
+			approved: { by: "lead", at: NOW },
+		});
+		const round = buildRound([approvedNoPlan], NOW);
+		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
+		expect(round.unapproved).toEqual([]);
+	});
+
 	test("unplanned is a plan card whose contract is still missing a line", () => {
-		const round = buildRound([planning("1"), planning("2", COMPLETE)], NOW);
+		const round = buildRound([planning("1"), planned("2", COMPLETE)], NOW);
 		expect(round.unplanned.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
 	test("unapproved is a complete contract nobody has signed, which is the lead's queue", () => {
 		const round = buildRound(
-			[planning("1", COMPLETE), planning("2", { ...COMPLETE, approved: { by: "billing-lead", at: NOW } })],
+			[planned("1", COMPLETE), planned("2", { ...COMPLETE, approved: { by: "billing-lead", at: NOW } })],
 			NOW,
 		);
 		expect(round.unapproved.map((entry) => entry.id)).toEqual(["1"]);
