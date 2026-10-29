@@ -151,15 +151,35 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 	};
 }
 
+/**
+ * The mode: plan's own chip while planning, `▶ auto` otherwise.
+ *
+ * Plan owns the flag and paints its chip, so the bar shows that status verbatim
+ * minus the plan file name; bytefly supplies the other state. It leads the resource
+ * line, before the gauge, so the mode is read before how much room is left. A
+ * session without `plan` still reads `auto`: that is the mode it is in.
+ */
+export function modeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
+	const raw = snapshot.statuses.get(CONFIG.planStatusKey);
+	if (raw !== undefined) {
+		const plan = dropStatusDetail(sanitize(raw));
+		if (plan) return { id: "mode", weight: 1, droppable: false, separator: "", forms: [plan, compactStatus(plan)] };
+	}
+	const auto = paint(theme, "ok", `${CONFIG.icons.autoMode} ${CONFIG.labels.autoMode}`);
+	return { id: "mode", weight: 1, droppable: false, separator: "", forms: [auto] };
+}
+
 export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
 	const others = [...snapshot.statuses.entries()]
-		.filter(([key]) => key !== CONFIG.worktreeStatusKey && key !== CONFIG.httpStatusKey && !isAlert(key))
+		.filter(
+			([key]) =>
+				key !== CONFIG.planStatusKey &&
+				key !== CONFIG.worktreeStatusKey &&
+				key !== CONFIG.httpStatusKey &&
+				!isAlert(key),
+		)
 		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([key, value]) => {
-			const status = sanitize(value);
-			// The plan chip trails the plan file name; the slot shows the mode only.
-			return key === CONFIG.planStatusKey ? dropStatusDetail(status) : status;
-		})
+		.map(([, value]) => sanitize(value))
 		.filter(Boolean);
 	if (others.length === 0) return null;
 	const full = others.join(faint(theme, CONFIG.separators.item));
@@ -169,7 +189,7 @@ export function modesSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 	const icons = others.map((status) => compactStatus(status)).join(" ");
 	return {
 		id: "statuses",
-		// Weight 2, ahead of the branch: a mode is stated again by the session, while
+		// Weight 2, ahead of the branch: a status is stated again by the session, while
 		// `⎇` is the only thing on the bar that says where the work will land.
 		weight: 2,
 		droppable: true,
@@ -188,7 +208,9 @@ export function contextSegment(snapshot: StatusSnapshot, theme: Theme): Segment 
 	const forms = widths.map((blocks) =>
 		blocks > 0 ? `${gaugeBar(theme, { percent, blocks, role, emptyRole: "faint" })} ${percentText}` : percentText,
 	);
-	return { id: "context", weight: 1, droppable: false, separator: "", forms };
+	// The mode always leads this segment, so the separator prints on every frame;
+	// the gauge's offset is the mode's width, not whether one is present.
+	return { id: "context", weight: 1, droppable: false, separator: faint(theme, CONFIG.separators.item), forms };
 }
 
 export function windowSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {

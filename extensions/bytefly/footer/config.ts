@@ -30,12 +30,13 @@ export const CONFIG = {
 		worktree: GLYPHS.worktree,
 		http: GLYPHS.http,
 		delegation: GLYPHS.delegation,
+		autoMode: GLYPHS.autoMode,
 	},
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
 	worktreeStatusKey: STATUS_KEYS.worktree,
 	/** Status key `serve` publishes the session's one page port under. */
 	httpStatusKey: STATUS_KEYS.http,
-	/** Status key whose ` · detail` suffix (the plan file name) is dropped. */
+	/** Status key whose chip is the plan state; the mode segment renders it. */
 	planStatusKey: STATUS_KEYS.planMode,
 	/**
 	 * Status keys that are alerts rather than modes, and so are never dropped.
@@ -43,7 +44,7 @@ export const CONFIG = {
 	 * once its chip is off the bar.
 	 */
 	alertStatusKeys: ALERT_STATUS_KEYS,
-	labels: { noModel: "no model", detached: "detached" },
+	labels: { noModel: "no model", detached: "detached", autoMode: "auto" },
 	/** Minimum gap kept between the left and right zones. */
 	minGap: 2,
 	/** Worktree label length before the compact form truncates it. */

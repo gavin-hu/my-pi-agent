@@ -12,7 +12,7 @@ executes.
 
 | Capability | How | What you get |
 |---|---|---|
-| Read-only planning | `enter_plan_mode`, `/plan`, `Ctrl+Alt+P`, `--plan` | The session keeps only its readers, so the model investigates and proposes without touching the tree. |
+| Read-only planning | `enter_plan_mode`, `/plan`, `Shift+Tab` (bytefly), `--plan` | The session keeps only its readers, so the model investigates and proposes without touching the tree. |
 | Confirmed model entry | `enter_plan_mode` | The model asks before it takes write access away, and the user answers first. |
 | Read-only git shell | `bash` with the read-only git allowlist | Plan mode can inspect `git status`, `diff`, `log`, and `show`; pipes, redirects, and non-git commands are refused. |
 | Read-only delegation | `subagent` with forced `readOnly: true` | A delegated agent can read and search but cannot write, edit, or run a shell while the plan is being researched. |
@@ -64,10 +64,13 @@ pi install ./                      # install the package for a user
 ```text
 /plan                                       # toggle plan mode
 /plan add rate limiting to the public API   # enter plan mode and send the task
+Shift+Tab                                   # toggle too, from bytefly's editor
 ```
 
 The model calls `enter_plan_mode` before a non-trivial task; `/plan` and
-`Ctrl+Alt+P` are the user's own switch.
+`Shift+Tab` are the user's own switch. Shift+Tab is bytefly's: the editor binds
+it and asks plan through `PLAN_TOGGLE_REQUEST`, so a session that loads `plan`
+without bytefly uses `/plan` (or `--plan`) instead.
 
 ## Tools
 
@@ -255,7 +258,7 @@ exit_plan_mode submitted a plan
 | `/plan share [stop]` | the user, handing the review to a teammate | immediate |
 | `/plan cancel` | the user, leaving plan mode without approving | immediate |
 | `/skill:init` | the user, creating or updating `AGENTS.md` | enters plan mode; write waits for plan approval |
-| `Ctrl+Alt+P` | the user | immediate |
+| `Shift+Tab` (bytefly) | the user | immediate |
 | `--plan` | the user, at launch | immediate |
 
 `/plan` with no argument toggles plan mode; `/plan <prompt>` enters it (if it is
@@ -267,10 +270,10 @@ already runs read-only:
 ```
 
 `/plan <prompt>` never disables plan mode; only the argument-less `/plan` (or
-`Ctrl+Alt+P`) toggles. Because slash commands go through Pi directly, `/plan` is
-the toggle that works in every terminal (for example Zed's integrated terminal,
-which does not forward `Ctrl+Alt+P`). The footer shows `≡ plan` while plan mode
-is on, and `≡ plan · <plan-file>` once the model has written a plan.
+`Shift+Tab`, through bytefly) toggles. Because slash commands go through Pi
+directly, `/plan` is the toggle that works with or without bytefly. Bytefly's
+footer shows `▶ auto` in its mode segment, and `≡ plan` there while plan mode is
+on, dropping the plan file name from that chip.
 
 `/plan list` walks the plans directory and shows every plan with its title,
 modified time, and step progress, newest first — in the TUI as a docked list
@@ -793,9 +796,9 @@ both.
 | Integration point | How |
 |---|---|
 | Tools | `enter_plan_mode` (active; `readOnlyHint: true`), `write_plan` (`defaultActive: false`; `readOnlyHint: false`, `destructiveHint: true`), `exit_plan_mode` (`defaultActive: false`; `readOnlyHint: true`), `cancel_plan_mode` (`defaultActive: false`; `readOnlyHint: true`), `set_plan_steps` (active; `readOnlyHint: false`, `idempotentHint: true`). All five are `executionMode: "sequential"` and closed-world, and the read-only policy default-denies `set_plan_steps` while planning. Each returns typed `details` (`EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`), and `ExitPlanModeDetails` carries the review's `annotations` when a browser approval or save supplied comments; no `outputSchema`/`structuredContent`. |
-| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/plan share [stop]` (reviewer link), `/plan cancel` (leave without approving), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag, `Ctrl+Alt+P` shortcut. |
+| Commands and flags | `/plan` (toggle, or enter and send a task), `/plan list` (plans index), `/plan review [path]` (browser review), `/plan share [stop]` (reviewer link), `/plan cancel` (leave without approving), `/skill:init` (skill-backed `AGENTS.md` bootstrap), `--plan` launch flag. `Shift+Tab` is bytefly's editor chord, not a registered shortcut: `app.thinking.cycle` is reserved, so the editor requests a toggle over the event bus instead. |
 | State | Enabled flag and the tools it hid persisted with `pi.appendEntry("plan-mode", { enabled, removed })`, and each review's baseline persisted with `pi.appendEntry("plan-baseline", { path, sections })` as one digest per heading section; both rebuilt from `ctx.sessionManager.getBranch()`, so `/resume` and `/tree` restore the mode and the changed markers of the branch they land on. Plan writes a goal only at approval, through `ctx.executeTool("goal", { objective })` when the `goal` tool is registered: a `planning` goal is promoted to the plan's `## Goal`, a session with none is given the same objective, and an `active`/`achieved` goal is left alone — no path asks first. A review that shows the same content appends nothing. The last plan path lives in runtime memory for the footer chip, and a bare `/plan review` falls back to the newest plan file in the directory. |
-| Entry requests | `pi.events` channel `PLAN_ENTER_REQUEST` from `lib/plan-entry.ts`: the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog. Subscribed on `session_start`, released on `session_shutdown`. |
+| Entry requests | `pi.events` channels from `lib/plan-entry.ts`: `PLAN_ENTER_REQUEST` (the `goal` workflow asks, with the shared consent sentence, and plan enables the mode on the caller's context without a second dialog) and `PLAN_TOGGLE_REQUEST` (bytefly's Shift+Tab asks to flip it and gets the state back). Both share one `PlanModeRequest` payload and `isPlanExtensionLoaded`. Subscribed on `session_start`, released on `session_shutdown`. |
 | `board` while planning | The board is one action-shaped tool, so its annotation cannot say it reads: plan mode reads the action instead, through `lib/policy.ts`'s `isBoardRead` and `lib/board/actions.ts`'s table. The refusal is built by `boardWriteRefusal` in that same module — the board's words, because the sentence names the board's order: claim a card before you plan, and record its plan once it is approved. |
 | Hooks | `tool_call` blocks non-read-only calls and forces `subagent` read-only; `before_agent_start` injects the hidden `[PLAN MODE ACTIVE]` context, with a pursued session goal read from the branch through `lib/goal-state.ts`; `context` keeps only the newest plan context while enabled and drops stale ones otherwise. |
 | Lifecycle | `session_start`/`session_tree` restore state; `session_shutdown` clears the footer status and closes any browser review server. |
@@ -821,9 +824,11 @@ both.
 - **Two tools, not one.** `EnterPlanMode`/`ExitPlanMode` are a pair: entering is
   consent to explore read-only, exiting is consent to act. A single toggle tool
   cannot express "the model wants to plan but the user declines".
-- **User entry is instant, model entry confirmed.** `/plan`, `Ctrl+Alt+P`, and
+- **User entry is instant, model entry confirmed.** `/plan`, `Shift+Tab`, and
   `--plan` are the user's own action and take effect at once; `enter_plan_mode`
-  changes the mode on the user's behalf, so it confirms first.
+  changes the mode on the user's behalf, so it confirms first. Shift+Tab travels
+  through bytefly's editor and `PLAN_TOGGLE_REQUEST`, so the mode stays owned by
+  `plan` even when the key is pressed in another extension's surface.
 - **Review the file, decide in a screen.** The plan is a file, so it is the
   artifact already on screen. `ctx.ui.confirm()` is a non-scrollable selector
   that pushes buttons off-screen for a long plan, so the TUI gets a scrollable
@@ -937,7 +942,7 @@ both.
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | Wiring: tools, command, flag, shortcut, events, context injection. |
+| `index.ts` | Wiring: tools, command, flag, events, context injection. |
 | `types.ts` | `PlanModeEntry`, `EnterPlanModeDetails`, `WritePlanDetails`, `ExitPlanModeDetails`, `CancelPlanModeDetails`, `SetPlanStepsDetails`. |
 | `policy.ts` | Plan mode's read-only policy, the shared prompt summary, and the bash-refusal guidance. |
 | `git-bash.ts` | `checkReadOnlyGit`: the pure allowlist that restricts `bash` to read-only git commands. |
@@ -1036,6 +1041,5 @@ Twelve co-located suites, declared in `test/suite-manifest.ts`:
   refine editor, and the changed-section markers.
 - `sections.test.ts` — the fence-aware scan: heading shape, fences, the preamble,
 source lines and levels, and the occurrence key.
-- `extension.test.ts` — the Pi wiring: registration, the entry request, the
-  session lifecycle, the tool-call guard, injected context, the command, and the
-  shortcut.
+- `extension.test.ts` — the Pi wiring: registration, the enter and toggle requests,
+  the session lifecycle, the tool-call guard, injected context, and the command.

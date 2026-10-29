@@ -55,6 +55,7 @@ import {
 	costSegment,
 	delegationSegment,
 	modelSegment,
+	modeSegment,
 	modesSegment,
 	portsSegment,
 	pwdSegment,
@@ -1325,7 +1326,7 @@ describe("footer segments", () => {
 
 	test("drops the plan file name from the mode chip and keeps the wechat chip", () => {
 		const themed = `\x1b[33m${GLYPHS.plan} plan · add-rate-limiting\x1b[39m`;
-		const plan = modesSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }), fakeTheme);
+		const plan = modeSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }), fakeTheme);
 		expect(plan?.forms[0]).toBe(`\x1b[33m${GLYPHS.plan} plan\x1b[39m`);
 
 		const wechat = modesSegment(
@@ -1333,6 +1334,14 @@ describe("footer segments", () => {
 			fakeTheme,
 		);
 		expect(wechat?.forms).toEqual([`${GLYPHS.wechat} wechat`, GLYPHS.wechat]);
+	});
+
+	test("names auto in success when no plan chip is published", () => {
+		const theme = makeRecordingTheme() as any;
+		expect(modeSegment(fullSnapshot({ statuses: new Map() }), fakeTheme)?.forms).toEqual([`${GLYPHS.autoMode} auto`]);
+
+		modeSegment(fullSnapshot({ statuses: new Map() }), theme);
+		expect(theme.calls).toContainEqual(["success", `${GLYPHS.autoMode} auto`]);
 	});
 
 	test("has no status slot when every status is routed elsewhere", () => {
@@ -1528,14 +1537,14 @@ describe("line composition", () => {
 		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
 
 		expect(ids(line1.left)).toEqual(["pwd"]);
-		expect(ids(line1.right)).toEqual(["statuses", "branch", "worktree"]);
-		expect(ids(line2.left)).toEqual(["context", "window", "cost", "tokens", "cache"]);
+		expect(ids(line1.right)).toEqual(["branch", "worktree"]);
+		expect(ids(line2.left)).toEqual(["mode", "context", "window", "cost", "tokens", "cache"]);
 		expect(ids(line2.right)).toEqual(["model", "thinking"]);
 	});
 
-	test("puts an alert ahead of the modes it rides with", () => {
+	test("puts an alert ahead of the statuses it rides with", () => {
 		const statuses = new Map([
-			[STATUS_KEYS.planMode, `${GLYPHS.plan} plan`],
+			[STATUS_KEYS.jobs, "▸ 1"],
 			[STATUS_KEYS.jobsFailure, `${GLYPHS.jobsFailure} 1`],
 		]);
 		const [line1] = buildLines(fullSnapshot({ statuses }), fakeTheme, "/home/u");
@@ -1576,7 +1585,7 @@ describe("line composition", () => {
 			"/home/u",
 		);
 
-		expect(ids(line2.left)).toEqual(["context", "window", "cost", "delegation", "tokens"]);
+		expect(ids(line2.left)).toEqual(["mode", "context", "window", "cost", "delegation", "tokens"]);
 		const parent = line2.left.find((segment) => segment.id === "cost");
 		const delegation = line2.left.find((segment) => segment.id === "delegation");
 		expect(parent?.forms[0]).toBe("¥0.25");
@@ -1771,7 +1780,8 @@ describe("line layout", () => {
 		for (const text of ["62%", "$0.31", "R96k CH 87%", "opus-4.5", "high"]) {
 			expect(rendered).toContain(text);
 		}
-		expect(renderLine(line1, 100, fakeTheme)).toContain(`${GLYPHS.plan} plan`);
+		expect(renderLine(line2, 100, fakeTheme)).toContain(`${GLYPHS.plan} plan`);
+		expect(renderLine(line1, 100, fakeTheme)).not.toContain(`${GLYPHS.plan} plan`);
 	});
 
 	test("drops low-priority segments as the width shrinks", () => {
@@ -1850,11 +1860,12 @@ describe("line layout", () => {
 		expect(rendered.startsWith(" ")).toBe(true);
 	});
 
-	test("reads the identity line as modes, then where the work happens", () => {
-		const [line1] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
-		const rendered = renderLine(line1, 100, fakeTheme);
+	test("reads the resource line as the mode, then the room it qualifies", () => {
+		const [line1, line2] = buildLines(fullSnapshot(), fakeTheme, "/home/u");
+		const rendered = renderLine(line2, 100, fakeTheme);
 
-		expect(rendered).toContain(`${GLYPHS.plan} plan${CONFIG.separators.item}${GLYPHS.branch} main`);
+		expect(rendered).toContain(`${GLYPHS.plan} plan${CONFIG.separators.item}`);
+		expect(renderLine(line1, 100, fakeTheme)).not.toContain(`${GLYPHS.plan} plan`);
 	});
 
 	test("keeps a failed job when the identity line sheds everything else", () => {

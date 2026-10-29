@@ -23,6 +23,9 @@ import { PLAN_ENTER_TOOL } from "./tool-names.ts";
 /** EventBus channel on which a caller asks `plan` to enable plan mode. */
 export const PLAN_ENTER_REQUEST = "my-pi-agent/plan-mode/enter";
 
+/** EventBus channel on which a caller asks `plan` to flip the mode. */
+export const PLAN_TOGGLE_REQUEST = "my-pi-agent/plan-mode/toggle";
+
 /** One clause describing the read-only guarantee, reused across prompts. */
 export const READ_ONLY_SUMMARY =
 	"write and edit are disabled, bash is limited to read-only git commands, and other mutating tools are blocked; " +
@@ -53,12 +56,19 @@ export function planModeRefusal(action: string): string {
 	return `Plan mode is read-only. Approve the plan before ${action}.`;
 }
 
-/** What a caller sends on {@link PLAN_ENTER_REQUEST}. */
-export interface PlanEnterRequest {
+/** What a caller sends on {@link PLAN_ENTER_REQUEST} or {@link PLAN_TOGGLE_REQUEST}. */
+export interface PlanModeRequest {
 	/** The caller's context; `plan` uses it for the footer status. */
 	ctx: ExtensionContext;
 	/** Claimed once, with whether plan mode is on; the caller settles on that claim. */
-	respond(entered: BusAnswer<boolean>): void;
+	respond(enabled: BusAnswer<boolean>): void;
+}
+
+/**
+ * Whether the `plan` extension registered its tools in this session.
+ */
+export function isPlanExtensionLoaded(pi: Pick<ExtensionAPI, "getAllTools">): boolean {
+	return pi.getAllTools().some((tool) => tool.name === PLAN_ENTER_TOOL);
 }
 
 /**
@@ -74,10 +84,28 @@ export function requestPlanMode(
 	ctx: ExtensionContext,
 ): Promise<boolean> {
 	if (isPlanModeEnabled(ctx.sessionManager.getBranch())) return Promise.resolve(true);
-	if (!pi.getAllTools().some((tool) => tool.name === PLAN_ENTER_TOOL)) return Promise.resolve(false);
-	return requestOverBus<boolean, PlanEnterRequest>(pi, {
+	if (!isPlanExtensionLoaded(pi)) return Promise.resolve(false);
+	return requestOverBus<boolean, PlanModeRequest>(pi, {
 		channel: PLAN_ENTER_REQUEST,
 		payload: (respond) => ({ ctx, respond }),
 		unclaimed: () => false,
+	});
+}
+
+/**
+ * Ask `plan` to flip the mode, and report the state it left behind.
+ *
+ * A toggle has no branch precondition: the owner reads the flag it persisted and
+ * resolves the opposite. `undefined` means nothing is listening (the `plan`
+ * extension is not loaded), so the caller can leave its own key alone.
+ */
+export function requestPlanToggle(
+	pi: Pick<ExtensionAPI, "events">,
+	ctx: ExtensionContext,
+): Promise<boolean | undefined> {
+	return requestOverBus<boolean | undefined, PlanModeRequest>(pi, {
+		channel: PLAN_TOGGLE_REQUEST,
+		payload: (respond) => ({ ctx, respond }),
+		unclaimed: () => undefined,
 	});
 }

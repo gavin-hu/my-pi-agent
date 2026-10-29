@@ -25,6 +25,7 @@ default, and from `bytefly.json` otherwise.
 | Compaction canvas | the shipped `themes/` palettes | Pi's `/compact` block keeps its content and loses its fill, so it sits on the canvas. |
 | Tool-block frame | `registerToolRenderer` | Every tool block leads with its own call line and hangs its result from the transcript rail. |
 | Working line | `ctx.ui.setWorkingMessage` | The working row counts seconds, then names the running tool and how many tools the run has started. |
+| Plan-mode chord | `Shift+Tab` at the main editor | Flips `auto` and plan through `plan`'s request channel; the footer mode segment and the composer border follow. Shift+Tab is taken from Pi's thinking cycle only while `plan` is loaded, and restored on shutdown. |
 
 ### Control center
 
@@ -227,7 +228,9 @@ A nameplate: a two-tone half-block mark from the active theme's `accent` /
 identity (`enhanced by bytefly` and the package version), a signature rule whose
 `accent` lead sits under the mark, and a grouped help block. The help keys
 resolve live from Pi's keybindings, so a rebound key shows the user's chord; the
-identity and help text are `meta` / `faint` so the mark keeps the eye. It opens
+one raw hint, `shift+tab to toggle plan`, is bytefly's own editor chord rather
+than a bindable Pi action. The identity and help text are `meta` / `faint` so the
+mark keeps the eye. It opens
 with a blank row, so the nameplate clears the top edge. It is installed only in
 interactive (`tui`) sessions when Pi's `quietStartup` is `true` — the Settings
 row **Startup screen** — and `false`, `"header"`, and unset leave Pi's
@@ -260,13 +263,14 @@ identity, and grouped help are tuned in
 Two lines, each with a left and right zone:
 
 - **Line 1 — identity:** `pwd` and the session name on the left; on the right the
-  alert, then the mode chips (`≡ plan`), then `⎇ branch · ⑂ worktree`, then the
-  session's page port (`◉ 4780`) while anything is served on it. One server serves
-  every page of a session, so it is one number from one status key.
-- **Line 2 — resources:** the context gauge and usage meters on the left, the
-  child-run roll-up (`↳ 3 · ¥0.12`, present only once a subagent has finished),
-  and the model and thinking level on the right. The gauge is anchored at column
-  0, so `%` is always in the same place.
+  alert, then the remaining status chips (a job count, a rewind timeline, the
+  `✆` bridge), then `⎇ branch · ⑂ worktree`, then the session's page port
+  (`◉ 4780`) while anything is served on it. One server serves every page of a
+  session, so it is one number from one status key.
+- **Line 2 — resources:** the mode (`▶ auto` or `≡ plan`), the context gauge and
+  usage meters on the left, the child-run roll-up (`↳ 3 · ¥0.12`, present only
+  once a subagent has finished), and the model and thinking level on the right.
+  The gauge follows the mode, so `%` stays put once the mode stops changing.
   The roll-up is its own number, never folded into the session's cost: a subagent
   runs in its own process, and the footer prices those runs with the same rate
   table and currency as the session so a currency change moves both. It covers
@@ -274,8 +278,8 @@ Two lines, each with a left and right zone:
   `/resume` (the events are not session entries).
 
 ```
-~/repo/my-pi-agent                                                         ≡ plan · ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↳ 2 · ¥0.06 · ↑42k ↓8.0k · R96k CH 87%                 opus-4.5 · high
+~/repo/my-pi-agent                                                                  ⎇ main · ⑂ smoke
+≡ plan · ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↳ 2 · ¥0.06 · ↑42k ↓8.0k · R96k CH 87%      opus-4.5 · high
 ```
 
 (The examples show the default `¥` symbol. A model that neither `rates` nor the
@@ -283,11 +287,11 @@ built-in table covers contributes nothing in `CNY` mode, so the bar shows no
 figure rather than a guessed one; `USD` mode adds Pi's recorded dollars for that
 record instead — see [Cost calculation](#cost-calculation).)
 
-With no plan mode the mode slot is simply absent:
+With no plan mode the mode segment reads its other state:
 
 ```
 ~/repo/my-pi-agent                                                                  ⎇ main · ⑂ smoke
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87%                               opus-4.5 · high
+▶ auto · ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31 · ↑42k ↓8.0k · R96k CH 87%                    opus-4.5 · high
 ```
 
 While a page is served, the session's port joins the run beside the worktree:
@@ -302,13 +306,13 @@ clipping. The branch keeps its name and is dropped when the name no longer
 fits, rather than collapsing to a bare glyph:
 
 ```
-~/repo/my-pi-agent       ≡ plan · ⎇ main · ⑂
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31  opus-4.5 · high
+~/repo/my-pi-agent       ⎇ main · ⑂
+≡ plan · ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31   opus-4.5 · high
 ```
 
 ```
 ~/my-pi-agent     ⎇ main
-▰▰▰▰▰▰▱▱▱▱ 62%  opus-4.5
+▶ auto · ▰▰▰▰▰▰▱▱▱▱ 62%  opus-4.5
 ```
 
 The port drops the digits before the page they name: it compacts to `◉` once
@@ -317,14 +321,14 @@ says a page is up.
 
 ```
 ~/repo/my-pi-agent            ⎇ main · ◉
-▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31   opus-4.5 · high
+≡ plan · ▰▰▰▰▰▰▱▱▱▱ 62% · ¥0.31   opus-4.5 · high
 ```
 
 With a named session, the name follows the path and truncates before it drops:
 
 ```
 ~/repo/project · [feature-refac…]         ⎇ main
-▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31      opus-4.5 · high
+▶ auto · ▰▰▰▰▰▰▱▱▱▱ 62%/200k · ¥0.31      opus-4.5 · high
 ```
 
 Zero-value meters are omitted, so a fresh session shows only `?/window` instead
@@ -343,6 +347,7 @@ Each segment reads a theme role and carries its own drop order:
 | branch | 1 right | muted (warning when detached) | last |
 | worktree | 1 right | success | first |
 | port `◉ 4780` | 1 right | success glyph + accent port | first |
+| mode `≡ plan` / `▶ auto` | 2 left | plan's own chip / success for auto | never |
 | context gauge + `%` | 2 left | muted ≤70 · warning 71–90 · error >90 | never |
 | `/window` | 2 left | dim | before cost |
 | cost | 2 left | muted | after tokens |
@@ -360,13 +365,21 @@ opens. It is a two-tone `<glyph> <port>` with a green glyph and an accent port,
 and it compacts from `◉ 4780` to `◉` before it drops, so a bar too narrow for
 the number still says a page is up.
 
-The mode slot holds everything else an extension publishes: a plan chip, a
-job count, a rewind timeline, the `✆` bridge, and an alert's front position. A
-plan chip's trailing plan file name is dropped, so the slot reads `≡ plan` even
-though the built-in footer keeps the name, and an alert (a failed job) sorts to
-the front of it. It keeps each extension's own colour when it compacts, and it is
-droppable: a tight bar drops the slot rather than truncating the model, which
-sits at the end of the line.
+The mode segment leads the resource line: plan's own `≡ plan` chip while planning
+(the trailing plan file name is dropped, so it reads `≡ plan` even though the
+built-in footer keeps the name) and `▶ auto` in success otherwise. `Shift+Tab` at
+the main editor asks [plan](./plan.md) to flip it; the chip and the composer
+border are read from the branch, so `/plan` and the model's own `exit_plan_mode`
+move them too. Bytefly unsets Pi's `app.thinking.cycle` chord while it holds the
+key, so `/hotkeys` and the header stop claiming Shift+Tab, and restores it on
+shutdown. A session without `plan` still reads `▶ auto` and keeps the thinking
+cycle.
+
+The status slot beside the branch holds everything else an extension publishes: a
+job count, a rewind timeline, the `✆` bridge, and an alert's front position. An
+alert (a failed job) sorts to the front of it. It keeps each extension's own
+colour when it compacts, and it is droppable: a tight bar drops the slot rather
+than truncating the model, which sits at the end of the line.
 
 ## Cost calculation
 
@@ -1461,17 +1474,19 @@ rather than showing a wrong value.
   the session's; it prices the `my-pi-agent/subagent-finished` events with the
   same pricer and renders them as `↳`, so "this session" keeps meaning the
   dispatching process and the delegated work stays visible beside it.
-- **The gauge is anchored at column 0, and nothing can displace it.** A leading
-  mode slot used to push the context percentage left and right as plan mode came
-  and went, which is why the mode chip trailed the meters after a `│`; moving the
-  mode slot to the state line leaves the gauge as the resource line's first
-  segment, so the percentage cannot move at all.
+- **The mode leads the resource line, and the gauge follows it.** A tight bar used
+  to push the context percentage around as plan mode came and went; putting the
+  mode first gives the gauge a fixed offset after a segment of fixed width, so the
+  percentage no longer moves as statuses are published. The mode is never
+  dropped: a reader knows which mode the next request lands in before reading how
+  much room is left.
 - **Statuses are routed, not repeated.** The built-in footer renders every
   `setStatus` value on its own line, so the bar sorts them by meaning instead:
   `worktree` is location, so the `◉ <port>` chip sits behind `⎇`
   branch and `⑂` worktree, and it is the session's one page port, so it keeps a
-  weight and a floor of its own; a plan is a mode, so it leads the state line
-  beside them; a failed job is an alert, so it is its own segment ahead of both. The
+  weight and a floor of its own; a plan is a mode, so its chip leads the resource
+  line and bytefly fills in `▶ auto` when it is absent; a failed job is an alert,
+  so it is its own segment ahead of the state chips. The
   [wechat](./wechat.md) extension publishes `✆ wechat` while its bridge runs,
   which is why the bar has to render `getExtensionStatuses()` at all.
 - **A state chip leads its zone, so the zone does not move under it.** The right
@@ -1652,7 +1667,7 @@ columns, gauge), so the look follows the active theme.
 | `header/identity.ts` | `IdentityInput` and `identityCells`: the agent and chrome cells, each with its `↑` marker, in the ladder that sheds the chrome marker, the chrome version, the chrome line, and finally the agent's marker with the row. |
 | `header/register.ts` | Installs/restores the header and owns its session lifecycle. |
 | `footer/register.ts` | Installs/restores the footer and owns its session lifecycle. |
-| `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, alert and plan status keys, labels. |
+| `footer/config.ts` | Bar tuning (`CONFIG`): thresholds, gauge, separators, icons, alert and mode status keys, labels. |
 | `footer/types.ts` | `StatusSnapshot`, `Segment`, `LineSpec`, `UsageRecord`, and footer/TUI shapes. |
 | `footer/budget.ts` | The session spend guardrail: whether the configured ceiling has been crossed and the one notice that says so — an alert, never a limit. |
 | `footer/delegation.ts` | The child-run ledger: the pricing inputs of the last delegated runs, versioned so the footer re-prices when a subagent finishes. |
@@ -1674,6 +1689,7 @@ columns, gauge), so the look follows the active theme.
 | `message/config.ts` | Nameplate tuning (`MESSAGE_CONFIG`): the label and the rule. |
 | `message/format.ts` | Pure `nameplate` and `styleUserMessage`: the two-row nameplate (label over a full-width rule) and its placement above the message. |
 | `message/register.ts` | Registers the Markdown transformer (the nameplate). |
+| `mode/editor.ts` | The main editor with `Shift+Tab` bound to plan mode: `isShiftTab` consumption, the mode-aware border (`success`/`warning`) applied in `render`, the `app.thinking.cycle` unbind/restore, and `attachModeKey(pi, ctx)` with its idempotent cleanup. Loads on the first TUI session through a dynamic import. |
 | `notice/config.ts` | Notice tuning (`NOTICE_CONFIG`): source/title/detail roles, the severity glyphs and roles, the shared rail roles, and the item cap. |
 | `notice/component.ts` | Pure `noticeLines` and `NoticeComponent`: the headline at the margin, the rail-led severity rows, sanitized and width-clipped. |
 | `notice/register.ts` | Registers the message renderer for the shared notice type and hands it the rail source. |

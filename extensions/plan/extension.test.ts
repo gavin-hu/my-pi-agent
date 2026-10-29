@@ -1,7 +1,7 @@
 /**
- * The plan extension's Pi integration: registration and disablement, the entry
- * request from another extension, session restore and shutdown, the tool-call
- * guard, injected context, the command, and the shortcut.
+ * The plan extension's Pi integration: registration and disablement, the enter and
+ * toggle requests from other extensions, session restore and shutdown, the tool-call
+ * guard, injected context, and the command.
  *
  * Every hook is driven through the shared fake runtime and context doubles, so
  * the suite proves the wiring rather than the runtime's own state machine.
@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import planMode, { PLAN_MODE_MARKER } from "./index.ts";
 import { ENTER_TOOL, EXIT_TOOL, WRITE_PLAN_TOOL } from "./runtime.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { requestPlanMode } from "../../lib/plan-entry.ts";
+import { requestPlanMode, requestPlanToggle } from "../../lib/plan-entry.ts";
 import { SUBAGENT_READ_ONLY_PARAM } from "../../lib/tool-names.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
 import { otherMessage } from "../../test/helpers/entries.ts";
@@ -42,7 +42,7 @@ describe("plan-mode registration", () => {
 		});
 	});
 
-	test("registers the tools, the command, the shortcut, and the flag", () => {
+	test("registers the tools, the command, and the flag", () => {
 		const { pi, tools, commands, shortcuts, flags } = makeFakePi();
 		planMode(pi);
 
@@ -50,7 +50,7 @@ describe("plan-mode registration", () => {
 		expect(tools.has(EXIT_TOOL)).toBe(true);
 		expect(tools.has(WRITE_PLAN_TOOL)).toBe(true);
 		expect(commands.has("plan")).toBe(true);
-		expect(shortcuts.size).toBe(1);
+		expect(shortcuts.size).toBe(0);
 		expect(flags.has("plan")).toBe(true);
 	});
 });
@@ -98,6 +98,31 @@ describe("plan-mode entry requests", () => {
 		await emit(fakePi.pi, "session_shutdown", {}, fakeCtx().ctx);
 
 		expect(await requestPlanMode(fakePi.pi, fakeCtx().ctx)).toBe(false);
+	});
+
+	test("toggles for a caller, answering with each state", async () => {
+		const fakePi = await listening();
+		const caller = fakeCtx({ mode: "rpc", hasUI: true });
+
+		expect(await requestPlanToggle(fakePi.pi, caller.ctx)).toBe(true);
+		expect(fakePi.activeTools()).not.toContain("write");
+		expect(caller.notifications.at(-1)).toContain("Plan mode enabled");
+
+		expect(await requestPlanToggle(fakePi.pi, caller.ctx)).toBe(false);
+		expect(fakePi.activeTools()).toContain("write");
+		expect(caller.notifications.at(-1)).toContain("Plan mode disabled");
+	});
+
+	test("reports no answer to a toggle when the plan extension is not loaded", async () => {
+		const bare = makeFakePi();
+		expect(await requestPlanToggle(bare.pi, fakeCtx().ctx)).toBeUndefined();
+	});
+
+	test("stops answering toggle requests after shutdown", async () => {
+		const fakePi = await listening();
+		await emit(fakePi.pi, "session_shutdown", {}, fakeCtx().ctx);
+
+		expect(await requestPlanToggle(fakePi.pi, fakeCtx().ctx)).toBeUndefined();
 	});
 });
 
@@ -470,22 +495,5 @@ describe("/plan command", () => {
 		expect(fakePi.activeTools()).not.toContain("write");
 		expect(notifications).toHaveLength(noticesAfterToggle);
 		expect(fakePi.sentMessages).toEqual([{ content: "refactor auth", options: undefined }]);
-	});
-});
-
-describe("Ctrl+Alt+P shortcut", () => {
-	test("toggles plan mode and notifies", () => {
-		const fakePi = makeFakePi({ active: ["read", "bash", "write", "edit", ENTER_TOOL] });
-		planMode(fakePi.pi);
-		const { ctx, notifications } = fakeCtx();
-		const shortcut = [...fakePi.shortcuts.values()][0];
-
-		shortcut?.handler(ctx);
-		expect(fakePi.activeTools()).not.toContain("write");
-		expect(notifications.at(-1)).toContain("Plan mode enabled");
-
-		shortcut?.handler(ctx);
-		expect(fakePi.activeTools()).toContain("write");
-		expect(notifications.at(-1)).toContain("Plan mode disabled");
 	});
 });

@@ -2,7 +2,7 @@
  * Slash command for the plan-mode extension.
  *
  * `/plan` toggles plan mode, or enters it and sends an optional task;
- * `Ctrl+Alt+P` toggles too. Four subcommands are reserved: `/plan review [path]`
+ * Shift+Tab toggles too, through bytefly's editor. Four subcommands are reserved: `/plan review [path]`
  * opens a plan in the browser (and sends saved comments to the model as a
  * refinement), `/plan share [stop]` prints or revokes the link a teammate opens,
  * `/plan list` shows the plans directory, newest first with Enter opening a
@@ -28,7 +28,7 @@ const SHARE_PREFIX = "share";
 const LIST_PREFIX = "list";
 const CANCEL_PREFIX = "cancel";
 
-/** Notice text for the current mode; shared by `/plan` and the `Ctrl+Alt+P` shortcut. */
+/** Notice text for the current mode; shared by `/plan` and the toggle request. */
 export function planModeNotice(enabled: boolean): string {
 	return enabled ? ENABLED_NOTICE : DISABLED_NOTICE;
 }
@@ -261,7 +261,7 @@ export function registerCommands(
 				return;
 			}
 
-			// No task: toggle, exactly like Ctrl+Alt+P.
+			// No task: toggle, exactly like Shift+Tab.
 			if (!prompt) {
 				runtime.toggle(ctx);
 				ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");

@@ -21,6 +21,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly` + `plan`: `Shift+Tab` at the main editor toggles plan mode. The footer's mode
+  segment leads the resource line with `▶ auto` in success or plan's own `≡ plan` in warning,
+  and the composer border follows the mode (`success` in auto, `warning` while planning).
+  Bytefly unsets the reserved `app.thinking.cycle` chord while it holds the key and restores
+  it on shutdown, so `/hotkeys` tells the truth; `plan` no longer registers `Ctrl+Alt+P`,
+  and `/plan` remains the toggle when bytefly is not loaded.
 - the package loads 185 fewer modules at startup (1,044 → 859). The plan review server and the
   review gate behind it, the board page, the browse server, the worktree screen, the bytefly panel
   screen and its picker and settings surface, the `/jobs` screen, and the job runtime's process seam
