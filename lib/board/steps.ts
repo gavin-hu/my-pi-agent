@@ -235,7 +235,17 @@ function stalePlan(card: Card): string {
 	return `${cardRef(card.id)}'s plan changed while it was being read; ${contractRoute(card)}`;
 }
 
+/**
+ * Add a note to the card's history: the holder's, or anyone's while nobody holds it.
+ *
+ * A note is content, not a sign, so it follows `edit` and not `approve` — and freeing the gate
+ * is also what keeps the rollup's idle clock honest: `updatedAt` moves on every write, so a
+ * note from a session that does not hold the card would hide an idle card from the lead.
+ */
 export function note(card: Card, raw: unknown, actor: Actor, now: number): Prepared {
+	if (card.owner !== undefined && !holds(card, actor)) {
+		return { error: `${heldBy(card)} Only its owner can add a note.` };
+	}
 	const parsed = normalizeNote(raw);
 	if ("error" in parsed) return { error: parsed.error };
 	return { changed: true, fields: appendNote(card, actor, now, parsed.text) };
@@ -363,7 +373,7 @@ export function edit(card: Card, op: Extract<CardOp, { kind: "edit" }>, actor: A
 		if (parsed.priority !== priorityOf(card)) fields.priority = parsed.priority;
 	}
 	if (op.dependsOn !== undefined) {
-		const parsed = normalizeDepends(op.dependsOn, card.id, board);
+		const parsed = normalizeDepends(op.dependsOn, card, board);
 		if ("error" in parsed) return { error: parsed.error };
 		if (!sameList(parsed.dependsOn, dependsOf(card))) fields.dependsOn = parsed.dependsOn;
 	}
