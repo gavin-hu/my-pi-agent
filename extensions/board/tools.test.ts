@@ -10,8 +10,9 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
-import { advance } from "../../test/helpers/board-flow.ts";
+import { advance, TEST_CONTRACT } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
 import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
@@ -259,6 +260,24 @@ describe("list", () => {
 			expect(result.details.card?.id).toBe("1");
 			expect(text(result)).toContain(`last note (${LEAD}): why it exists`);
 		}
+	});
+
+	test("prints a plan under the home directory the way the plan tool names it", async () => {
+		const board = harness();
+		const { call, runtime, ctx } = board;
+		await call({ action: "add", title: "One" });
+		const store = await runtime.store(ctx.cwd);
+		const me = runtime.who(ctx, ctx.cwd);
+		await advance(store, "1", "plan", { owner: me, reviewer: REVIEWER }, NOW);
+		// The card stores the path resolved, so a read of it is where the home directory
+		// has to be elided: it is the same plan whoever reads the board, and the prefix is
+		// not the part that says which one.
+		const plan = join(homedir(), "plans", "one.md");
+		await store.mutate("1", { kind: "contract", artifact: { path: plan }, ...TEST_CONTRACT }, me, NOW);
+		const result = await call({ action: "list", card: "1" });
+		expect(text(result)).toContain("plan: ~/plans/one.md");
+		// Shortened on the line, absolute in the details: only the transcript elides.
+		expect(result.details.card?.planPath).toBe(plan);
 	});
 
 	test("refuses an id that is not a card id, and one that is not there", async () => {
