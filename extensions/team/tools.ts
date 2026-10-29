@@ -102,7 +102,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			if (stray !== undefined) return refusal(action, stray);
 			const id = normalizeCardId(args.card);
 			if (id === undefined) return refusal(action, `"${String(args.card)}" is not a card id.`);
-			const me = session.who(ctx, ctx.cwd);
+			const me = await session.who(ctx, ctx.cwd);
 			try {
 				const store = await session.store(ctx.cwd);
 				const now = session.now();

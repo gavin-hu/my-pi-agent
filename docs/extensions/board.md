@@ -74,7 +74,7 @@ decision.
 | Read a board at its real size | the `Done` fold, an empty lane's rail, the Team tab's own folds | `Done` starts folded at six cards or more, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, and a lane of finished cards stops widening at three, so the lanes carrying work keep the width. On the Team tab the queue and the roster share one cap, so both stay on one screen, and the ids past the strip's sixth fold behind its count |
 | Open a card | the card, or `Enter` on a focused one | The whole card is the door — its title stays the focusable button — and it opens the dialog holding the card whole: its lane, its owner, its paths, what it waits for, its plan, and every note. A drag across a card's prose selects it instead of opening it |
 | See the lead's round at a glance | `/board team`, or `/team` with no browser | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
-| Join the team | `/board`, or the first card you claim | Opening the page joins this session to the team — as `team-lead` when it serves the page, under its own `team-agent-…` name when it opens one somebody else serves — and so does the first card it claims, so nothing has to be armed by hand. Joining never renames Pi's session: the footer keeps the name you gave it. `/board status` reports the team this session is on, whichever door it used |
+| Join the team | `/board`, or the first card you claim | Opening the page joins this session to the team — as `team-lead` when it serves the page, under the name it already holds when it opens one somebody else serves — and so does the first card it claims, so nothing has to be armed by hand. Joining never renames Pi's session: the footer keeps the name you gave it, and a `/team join` name is kept rather than replaced by the id-derived one. `/board status` reports the team this session is on, whichever door it used |
 | See who is around | `/board team` | The Teammates list: every session this repository's bus has recorded, plus every owner a card names, each stating `live`, `quiet`, `no record`, or `—` when no bus is loaded. An owner the bus has no record of and that holds nothing is one row stating how many there are and what they finished, unfolded by a click — the list only grows, because a label that ever claimed a card stays an owner — while one that still holds a card keeps its own row |
 
 ## Quickstart
@@ -139,13 +139,16 @@ that session's next turn, and no turn is raised, so being on the team never spen
 A session that has neither opened the board nor claimed a card is not on it.
 
 **The two names.** A session's team name is the seat — `team-lead` — while it serves the
-page, and `team-agent-` plus the last six characters of its session id otherwise, so
-`billing-core` on this machine is `team-agent-9f21ac` to the team. The name is derived from
-the id and not from Pi's session name, which means a rename cannot strand a card, two
-sessions cannot settle on one name, and nothing here ever renames your session: `/team join
-<label>` is the one door that does. A card records that name as its owner, so the chip, the
-roster, and the bus record are one word — and `/board status` says it whichever door put
-this session on the team, including a claim made with no page open.
+page; otherwise it is the name the session already holds: `/team join billing-core` names
+it, and the cards it claims, the notes it writes, and the join a claim makes all say
+`billing-core` rather than a name derived past it. A session the bus has no record of is
+`team-agent-` plus the last six characters of its id, so `billing-core` before it names
+itself is `team-agent-9f21ac` to the team. The name is never Pi's session name, which means a
+rename cannot strand a card, two sessions cannot settle on one name, and nothing here ever
+renames your session: `/team join <label>` is the one door that does. Ownership is the id,
+so a name that changes leaves the card where it was. A card records the name as its owner,
+so the chip, the roster, and the bus record are one word — and `/board status` says it
+whichever door put this session on the team, including a claim made with no page open.
 
 The page still serves as a seat: `/board status` names `team-lead`, the Team tab marks the
 seat's own row `you`, and a card a browser claimed **before** the page stopped writing still

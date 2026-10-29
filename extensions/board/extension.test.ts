@@ -22,7 +22,7 @@ function stubSession(): BoardSession {
 		store: () => {
 			throw new Error("the factory must not open a store");
 		},
-		who: () => ({ label: "billing-lead" }),
+		who: async () => ({ label: "billing-lead" }),
 		now: () => 0,
 		busDir: async () => {
 			throw new Error("the factory must not read the bus");

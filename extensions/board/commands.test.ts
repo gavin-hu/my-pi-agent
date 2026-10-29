@@ -149,7 +149,7 @@ function fakeSession(name = "team-agent-slead"): BoardSession & { seat(): string
 			throw new Error("the page's words must not read the bus");
 		},
 		now: () => 0,
-		who: () => ({ id: "s-lead", label: seat ?? name }),
+		who: async () => ({ id: "s-lead", label: seat ?? name }),
 		serving: () => seat,
 		serve: (label) => {
 			seat = label;
