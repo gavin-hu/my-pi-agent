@@ -85,4 +85,14 @@ describe("wipRefusal", () => {
 	test("a configured limit is the one the sentence states", () => {
 		expect(wipRefusal("execute", cards("execute", 2), { plan: 3, execute: 2 })).toContain("the limit is 2");
 	});
+
+	test("a resume out of blocked is told the two exits it has", () => {
+		// The ordinary sentence offers `finish`, `block`, and `release`, and a parked card can do
+		// none of the first two: it is blocked, and it cannot finish from there.
+		expect(wipRefusal("plan", cards("plan", 3), DEFAULT_WIP, "blocked")).toBe(
+			"3 cards are already being planned (the limit is 3); wait for a slot, or release it back to the pool.",
+		);
+		// Every other caller keeps the sentence it had.
+		expect(wipRefusal("plan", cards("plan", 3), DEFAULT_WIP, "backlog")).toContain("finish, block, or release");
+	});
 });

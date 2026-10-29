@@ -58,7 +58,7 @@ decision.
 | Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `write_plan` saved in this repository's plan store, so a contract cannot name a file that does not exist. Any change to a line or to the file drops the approval, because the sign named both |
 | Approve the contract | `board` action `approve`, or `/board approve <id>` | Somebody who does not hold the card records that the wording is right — a peer session, or the person at the keyboard; only then may the card enter `execute` |
 | Spot-check the work | `board` action `review`, or `/board review <id>` | Somebody who does not hold the card records that they looked at the finished work in `execute` — a peer session, or the person; only then may the card be finished |
-| Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, a complete contract, a plan that is still in the store, an approval by somebody other than the holder) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, the same plan check), `blocked` back to `plan` or to `execute` once its contract is approved and its plan is there |
+| Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, a complete contract, a plan that is still in the store, an approval by somebody other than the holder) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, the same plan check), `blocked` back to `plan` when that lane has room, or to `execute` once its contract is approved and its plan is there |
 | Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped — one line, at most 1000 characters; its holder writes it, or anyone while nobody holds the card, the way `edit` works |
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
 | Say how urgent it is | `board` action `add` or `edit` with `priority` | `high` sorts first inside its lane, and the card says so |
@@ -165,7 +165,7 @@ name there is the project's, and the seat is read off the roster where it belong
 | `claim` | `card` | the card, pulled into `plan` and owned by this session — refused, naming the count, when `plan` is at its limit (the limit counts the whole board, not one session's cards); the result ends with the next step, which is plan mode |
 | `release` | `card` | the card, back in `backlog` with no owner; the contract and its approval stay |
 | `reclaim` | `card` | the card, back in `backlog`, whoever held it |
-| `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked` and is recorded with `blockedBy` (one line, ≤200 characters) as the card's one `blocked` record, a re-plan from `execute` is an entry into `plan` and so is held to that lane's limit. A move to `execute` or `done` re-checks the plan the card recorded — a deleted file, or one outside the store, is refused with `contract` as the way out — and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
+| `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked` and is recorded with `blockedBy` (one line, ≤200 characters) as the card's one `blocked` record — sent with any other lane it is refused, and it cannot change while the card is parked, because a reason is what the card was parked on; a re-plan from `execute` or a resume from `blocked` is an entry into `plan` and so is held to that lane's limit. A move to `execute` or `done` re-checks the plan the card recorded — a deleted file, or one outside the store, is refused with `contract` as the way out — and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
 | `note` | `card`, `text` | the card with the note appended |
 | `contract` | `card`, `path`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line is an unapproved one. `path` is required and must resolve inside this repository's plan store (a bare name is read there, `~/…` is accepted) and exist; a path outside it is refused with the store named |
 | `approve` | `card` | the card with its contract approved, by a session that does not hold it — the gate in front of `execute`. The person signs the same gate with `/board approve <id>` |
@@ -602,8 +602,11 @@ it always meant: when the card was last touched, which is not when it last chang
   — rather than two sibling keys: the kind (`contract`, `dependency`, or `decision`, and
   required by the move) and the sentence a person reads, which is optional. The kind is the
   errand, not the route: where a blocked card may go is decided by what it has, so `blocked`
-  offers `plan` always and `execute` only with the same contract and approval the other door
-  asks for. A card parked while it was still being planned comes back to `plan`; one parked
+  offers `plan` whenever that lane has room and `execute` only with the same contract and
+  approval the other door asks for. A park frees a slot rather than reserving one, which is
+  why a resume can be refused: the lane may have refilled while the card waited, and the
+  refusal says so — `wait for a slot, or release it back to the pool` — rather than naming
+  the `finish` and `block` exits a parked card does not have. A card parked while it was still being planned comes back to `plan`; one parked
   mid-flight carries both and resumes. A block record is a fact about the `blocked` lane and
   nothing else, so the board's one write deletes it the moment the card is somewhere else — a
   release, a reclaim, and a claim cannot carry a sentence into a lane it was not written for

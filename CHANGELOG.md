@@ -245,12 +245,21 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   live path handed to nobody — and the watch remembered only the ids one read returned, so
   mail a peer's lagging clock sorted ahead of them could be announced again once the front
   was consumed. The batch gives back what it published, and the watch remembers a count.
+- `board`: a blocked card is told what it can do about a full lane, and three refusals around
+  a block say what they mean. A resume into `plan` or `execute` is held to that lane's limit —
+  a park frees a slot rather than reserving one — but the refusal offered `finish, block, or
+  release`, and a parked card can do neither of the first two; it now reads `wait for a slot,
+  or release it back to the pool`, and the docs, `lanes.ts` and an unreleased bullet stop
+  promising that `blocked` offers `plan` always. A `blocker` sent with a target that does not
+  record one is refused instead of silently dropped, and repeating a park with a new sentence
+  says the reason is fixed while the card is parked rather than listing the routes it may take.
 - `board`: `execute` asks the same gates at both doors. A card parked in `blocked` used to
   enter `execute` with no contract at all — the transition asked nothing — so `plan` →
   `blocked` → `execute` walked around the approval the flow is built on. Both doors now ask
   for no unfinished dependency, the contract's three lines, and a session that does not hold
   the card having approved them, so a card parked while it was being planned comes back to
-  `plan` — which a blocked card may now always do — instead of slipping past the gate.
+  `plan` — which a blocked card may now do whenever that lane has room — instead of slipping
+  past the gate.
 - `board`: a move to `done` is refused while a card it waits on is unfinished, which the docs
   already said and the rule did not ask for. A link recorded with `edit` on a card that was
   already executing is how a finished card could still read `waits on #1 (backlog)`.

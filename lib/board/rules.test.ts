@@ -539,6 +539,48 @@ describe("move", () => {
 		expect("blocked" in reclaimed).toBe(false);
 	});
 
+	test("a resume into a full lane says what a blocked card can do about it", () => {
+		const limits: WipLimits = { plan: 3, execute: 5 };
+		// A park frees a slot rather than reserving one, so the lane can refill while it waits.
+		const parked = step(executing(), { kind: "move", lane: "blocked", blocker: "decision", blockedBy: "legal" }, CORE);
+		const full = [pulled("1", CORE), pulled("2", OTHER), pulled("3", LEAD)];
+		expect(refusal(applyOp(parked, { kind: "move", lane: "plan" }, CORE, NOW, board(...full, parked), limits))).toBe(
+			"#4 cannot enter plan: 3 cards are already being planned (the limit is 3); wait for a slot, or release it back to the pool.",
+		);
+	});
+
+	test("a blocker belongs to a move into blocked, and nowhere else", () => {
+		const card = approved();
+		expect(
+			refusal(
+				applyOp(
+					card,
+					{ kind: "move", lane: "execute", blocker: "decision", artifact: provedFor(card) },
+					CORE,
+					NOW,
+					board(card),
+				),
+			),
+		).toBe("a blocker is recorded by a move to blocked, not to execute.");
+	});
+
+	test("a reason is fixed while the card is parked, and the refusal says how to change it", () => {
+		const parked = step(executing(), { kind: "move", lane: "blocked", blocker: "decision", blockedBy: "legal" }, CORE);
+		expect(
+			refusal(
+				applyOp(
+					parked,
+					{ kind: "move", lane: "blocked", blocker: "dependency", blockedBy: "a link" },
+					CORE,
+					NOW,
+					board(parked),
+				),
+			),
+		).toBe(
+			"#4 is blocked; its reason is fixed while the card is parked — resume it, then park it again with the new sentence.",
+		);
+	});
+
 	test("a spot-check does not survive a park, so finishing needs a fresh look", () => {
 		const parked = step(reviewed(), { kind: "move", lane: "blocked", blocker: "decision" }, CORE);
 		expect("review" in parked).toBe(false);

@@ -59,8 +59,8 @@ describe("the transitions", () => {
 		expect(transitionOf("blocked", "execute")?.needs).toEqual(transitionOf("plan", "execute")?.needs);
 		expect(transitionOf("execute", "done")?.needs).toEqual(["waiting", "review", "artifact"]);
 		expect(transitionOf("plan", "blocked")?.needs).toEqual(["blocker"]);
-		// Where a blocked card may go is what it has, not what it was parked on: nothing here
-		// reads the block's kind.
+		// The dependency gate is the pull's and `execute`'s, not planning's: the wait is read
+		// against the contract, so a blocked card comes back to `plan` with one unfinished.
 		expect(transitionOf("blocked", "plan")?.needs).toEqual([]);
 		expect(transitionOf("execute", "plan")?.needs).toEqual([]);
 	});

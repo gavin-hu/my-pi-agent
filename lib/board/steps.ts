@@ -118,11 +118,23 @@ export function move(
 	if (target === "backlog") {
 		return { error: `${cardRef(card.id)} cannot be moved to backlog; release it instead.` };
 	}
+	// A block's kind and sentence belong to a move into `blocked`, so a caller that sent them
+	// with any other target hears that instead of a success that recorded nothing.
+	if (target !== "blocked" && (op.blocker !== undefined || op.blockedBy !== undefined)) {
+		return { error: `a blocker is recorded by a move to blocked, not to ${target}.` };
+	}
 	// A block's reason and kind are checked before the no-op: a caller that repeats a move
 	// with a new sentence meant to change it, and a refusal is clearer than a silent nothing.
 	const block = target === "blocked" ? blockFields(op.blocker, op.blockedBy) : undefined;
 	if (block !== undefined && "error" in block) return { error: block.error };
-	if (card.lane === target && block === undefined) return { changed: false, fields: null };
+	// A reason is what the card was parked on, so it is fixed for as long as the card is: changing
+	// it means leaving the lane, and a caller asking to is told which way.
+	if (card.lane === "blocked" && target === "blocked") {
+		return {
+			error: `${cardRef(card.id)} is blocked; its reason is fixed while the card is parked — resume it, then park it again with the new sentence.`,
+		};
+	}
+	if (card.lane === target) return { changed: false, fields: null };
 	const transition = transitionOf(card.lane, target);
 	if (transition === undefined) return { error: noRoute(card, target) };
 	for (const need of transition.needs) {
@@ -154,7 +166,7 @@ function enter(
 	limits: WipLimits,
 	fields: Partial<Card>,
 ): { error: string } | { fields: Partial<Card>; changed: true } {
-	const full = wipRefusal(lane, [...board.values()], limits);
+	const full = wipRefusal(lane, [...board.values()], limits, card.lane);
 	if (full !== undefined) return { error: `${cardRef(card.id)} cannot enter ${lane}: ${full}` };
 	return { changed: true, fields: { ...fields, lane } };
 }
@@ -202,6 +214,8 @@ function unmet(
 			return (artifact.recorded ?? artifact.path) === card.planPath ? undefined : stalePlan(card);
 		}
 		case "blocker":
+			// Asked and answered by `blockFields`, which needs the op this gate cannot see: the
+			// requirement is named in the table so a reader sees the whole of what `blocked` wants.
 			return undefined;
 	}
 }
