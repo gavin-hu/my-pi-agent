@@ -26,8 +26,8 @@ import { formatExtension, formatReport, hasProblems } from "../doctor/format.ts"
 import type { DoctorRuntime } from "../doctor/runtime.ts";
 import { updateOutcomeText } from "../update/format.ts";
 import type { UpdateHandle } from "../update/register.ts";
-import { createSettingsStores, discoverResources, type DiscoveryDeps } from "../picker/discovery.ts";
-import { createPickerRuntime, type PickerRuntime } from "../picker/runtime.ts";
+import type { DiscoveryDeps } from "../picker/discovery.ts";
+import type { PickerRuntime } from "../picker/runtime.ts";
 import type { Discovery } from "../picker/types.ts";
 import { usageRecords } from "../footer/collect/entries.ts";
 import { loadByteflyConfig } from "../footer/price/config.ts";
@@ -35,8 +35,8 @@ import { createPricer } from "../footer/price/price.ts";
 import { formatListing, formatSettingsListing, SKILL_NOUN } from "./format.ts";
 import { pricesReport } from "./prices.ts";
 import { buildPanelModel, buildSkillModel, extensionName } from "./join.ts";
-import { createSettingsRuntime, type SettingsRuntime, type SettingsRuntimeDeps } from "./settings-runtime.ts";
-import { loadSkillIndex, resolvedSkillPaths, type SkillIndex } from "./skills.ts";
+import type { SettingsRuntime, SettingsRuntimeDeps } from "./settings-runtime.ts";
+import type { SkillIndex } from "./skills.ts";
 import { shippedThemeNames } from "./themes.ts";
 import type { PanelSection } from "./types.ts";
 
@@ -175,10 +175,6 @@ function settingsThemeNames(ctx: ExtensionCommandContext): string[] {
 
 /** Register the single `/bytefly` command. */
 export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
-	const discover = deps.discover ?? discoverResources;
-	const makeSettings = deps.settings ?? createSettingsRuntime;
-	const loadSkills = deps.skills ?? loadSkillIndex;
-
 	const handler = async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
 		const { mode, section, name, refresh } = parseArgs(args);
 		// Only the Extensions section takes an extension argument; a stray word is a
@@ -242,6 +238,12 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			return;
 		}
 
+		// Settings, discovery, and the picker are the command's, not registration's: the
+		// price, update, and upgrade answers above resolve none of them.
+		const makeSettings = deps.settings ?? (await import("./settings-runtime.ts")).createSettingsRuntime;
+		const { createSettingsStores, discoverResources } = await import("../picker/discovery.ts");
+		const discover = deps.discover ?? discoverResources;
+
 		// Settings outside `tui` prints its grouped listing without resolving
 		// packages or probing the doctor.
 		if (section === "settings" && ctx.mode !== "tui") {
@@ -268,6 +270,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			onError: settingsNotice,
 		});
 
+		const { createPickerRuntime } = await import("../picker/runtime.ts");
 		const runtime = createPickerRuntime({
 			discovery,
 			cwd,
@@ -281,6 +284,9 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 			ctx.ui.notify(`bytefly: no extension named "${sanitizeLine(name)}"`, "warning");
 			return;
 		}
+
+		const { loadSkillIndex, resolvedSkillPaths } = await import("./skills.ts");
+		const loadSkills = deps.skills ?? loadSkillIndex;
 
 		// Skills outside `tui` print the same grouped listing, from the metadata Pi's
 		// loader reads; there is no report to probe for and no package to resolve.

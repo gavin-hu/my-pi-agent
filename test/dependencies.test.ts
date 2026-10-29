@@ -207,7 +207,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * Like `LONG_MODULES`, the bar may only fall: a feature that needs more modules
  * has to justify the raise here, and a deferral that lands lowers it.
  */
-const MODULE_BUDGET = 876;
+const MODULE_BUDGET = 870;
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {
