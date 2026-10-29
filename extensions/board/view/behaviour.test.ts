@@ -966,6 +966,9 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		const history = createStore(folder);
 		await history.ensure();
 		const at = clock.now();
+		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one
+		// printed fact, which is the frame that must leave the roster where the reader put it.
+		let beat = 0;
 		const gone = ["billing-old", "billing-older", "billing-oldest"].map((label, index) => ({
 			id: `s-gone-${index}`,
 			label,
@@ -991,11 +994,11 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				id: "s-lead",
 				label: "team-lead",
 				mode: "tui",
-				lastSeen: when - 10_000,
+				lastSeen: when - 10_000 + beat,
 				mail: 0,
 				watching: { armed: true, wake: true },
 			},
-			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000, mail: 0 },
+			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000 + beat, mail: 0 },
 		];
 		const long = await serveBoardPage({
 			store: history,
@@ -1061,24 +1064,40 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect((await caption())[1]).toBe("Teammates, 3 of 6");
 
 			// A frame that changes nothing in the roster leaves the reader's fold — and the focus on
-			// it — exactly where they left them.
+			// it — exactly where they left them. The signature carries the minute a quiet row's age
+			// falls in, not the raw stamp the bus moves every ten seconds.
+			const peopleSig = () =>
+				page.$eval(".board-team__group + .board-team__group", (node) => node.getAttribute("data-sig"));
+			const frameWith = async (title: string) => {
+				// The frame that lands is one the roster does not print, so the footer is what says it
+				// arrived: the Team tab is showing, and a lane's card is in a panel that is hidden.
+				const was = await page.textContent("#board-where");
+				await history.create({ title, paths: [] }, LEAD, clock.now());
+				await page.waitForFunction(
+					(previous) =>
+						((globalThis as unknown as { document: Doc }).document.getElementById("board-where")?.textContent ?? "") !==
+						previous,
+					was,
+					{ timeout: PAINT_MS },
+				);
+			};
 			await page.fill("#board-filter", "");
 			await page.waitForSelector(".board-team__tail", { timeout: PAINT_MS });
 			await page.click(".board-team__tail");
 			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
-			const footer = await page.textContent("#board-where");
-			await history.create({ title: "A card in the pool", paths: [] }, LEAD, clock.now());
-			// The frame that lands is one the roster does not print, so the footer is what says it
-			// arrived: the Team tab is showing, and a lane's card is in a panel that is hidden.
-			await page.waitForFunction(
-				(was) =>
-					((globalThis as unknown as { document: Doc }).document.getElementById("board-where")?.textContent ?? "") !==
-					was,
-				footer,
-				{ timeout: PAINT_MS },
-			);
+			const settled = await peopleSig();
+
+			// A heartbeat: ten seconds on the bus, and not one printed fact.
+			beat += 10_000;
+			await frameWith("A card in the pool");
+			expect(await peopleSig()).toBe(settled);
 			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
 			expect(await foldFocus()).toBe("team-roster");
+
+			// Past a minute the printed age moves a unit, so the row is redrawn: a bucket, not a mute.
+			beat += 120_000;
+			await frameWith("Another card in the pool");
+			expect(await peopleSig()).not.toBe(settled);
 		} finally {
 			await page.close();
 			await long.close();

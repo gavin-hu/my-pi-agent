@@ -424,7 +424,12 @@ __HISTORY_LINE__
     function row(mate) {
       var ids = [];
       for (var i = 0; i < mate.cards.live.length; i++) ids.push(mate.cards.live[i].id + ":" + mate.cards.live[i].rev);
-      return mate.label + "," + mate.state + "," + mate.seen + "," + mate.mail + "," + mate.listening +
+      // The bus moves a session's lastSeen every few seconds, and a quiet row prints that as a
+      // stamped age the ticker rewrites — so the minute it falls in is the whole fact this row
+      // has to guard. The raw stamp rebuilt the roster on the first frame after a heartbeat,
+      // taking the reader's scroll offset and focus with it, which is what the signature is for.
+      var seen = mate.seen === undefined ? "" : Math.floor(mate.seen / 60000);
+      return mate.label + "," + mate.state + "," + seen + "," + mate.mail + "," + mate.listening +
         "," + (mate.you ? 1 : 0) + "," + ids.join("+") + "," + mate.cards.done.length;
     }
     var parts = [query, folded ? "folded" : "open", noBus ? "no bus" : "bus"];
