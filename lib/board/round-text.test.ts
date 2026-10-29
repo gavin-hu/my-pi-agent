@@ -9,7 +9,16 @@
 import { describe, expect, test } from "bun:test";
 import { CARD_VERSION, type Card } from "./card.ts";
 import { buildRound } from "./round.ts";
-import { formatRound, PLURAL_JS, plural } from "./round-text.ts";
+import {
+	formatRound,
+	HISTORY_LINE_JS,
+	HISTORY_OWNER_JS,
+	historyLine,
+	isHistoryOwner,
+	PLURAL_JS,
+	plural,
+	type RosterLabel,
+} from "./round-text.ts";
 
 const NOW = 1_760_000_000_000;
 const IDLE_MS = 30 * 60 * 1_000;
@@ -92,6 +101,63 @@ describe("formatRound", () => {
 	});
 });
 
+describe("the owners who are only history", () => {
+	/** A bus that has recorded `labels`. */
+	const bus = (...labels: string[]): RosterLabel[] => labels.map((label) => ({ label }));
+	const finished = [
+		card("1", { lane: "done", owner: { label: "billing-old" } }),
+		card("2", { lane: "done", owner: { label: "billing-older" } }),
+		card("3", { lane: "done", owner: { label: "billing-older" } }),
+	];
+	const working = card("4", { lane: "execute", owner: { label: "billing-core" }, planPath: "p.md" });
+
+	test("are one line, in the Team tab's own words, where they were a line each", () => {
+		const cards = [...finished, working];
+		const lines = formatRound(cards, buildRound(cards, NOW), bus("billing-core")).split("\n");
+		expect(lines).toContain("2 owners with no record · 3 done");
+		expect(lines.some((line) => line.startsWith("billing-old"))).toBe(false);
+		// The fold is a line of the owner block, so the queue still follows it.
+		expect(lines.indexOf("2 owners with no record · 3 done")).toBeLessThan(
+			lines.indexOf("done (3): #1 done, #2 done, #3 done"),
+		);
+	});
+
+	test("are named one at a time when the bus has no record of nobody", () => {
+		// No roster is "we cannot say", not "there is no record": a board with the bus unloaded
+		// prints what it printed before the fold existed.
+		const cards = [...finished, working];
+		const lines = formatRound(cards, buildRound(cards, NOW)).split("\n");
+		expect(lines.some((line) => line.startsWith("billing-old (0 live, 1 done)"))).toBe(true);
+		expect(lines.some((line) => line.startsWith("2 owners with no record"))).toBe(false);
+	});
+
+	test("keep a row when the bus knows them, even holding nothing", () => {
+		const lines = formatRound(finished, buildRound(finished, NOW), bus("billing-old", "billing-older")).split("\n");
+		expect(lines).toContain("billing-old (0 live, 1 done)");
+		expect(lines).toContain("billing-older (0 live, 2 done)");
+		expect(lines.some((line) => line.includes("with no record"))).toBe(false);
+	});
+
+	test("keep a row when they hold a card, because the queue is reporting its work", () => {
+		// An owner the bus has no record of and that holds nothing is history; one holding a card
+		// is the row a lead acts on, and folding it would hide a free card behind a count.
+		const lines = formatRound([working], buildRound([working], NOW), bus()).split("\n");
+		expect(lines).toContain("billing-core (1): #4 execute planned");
+	});
+
+	test("read as one owner when there is only one", () => {
+		const one = [card("1", { lane: "done", owner: { label: "billing-old" } })];
+		expect(formatRound(one, buildRound(one, NOW), bus())).toContain("1 owner with no record · 1 done");
+	});
+
+	test("are counted once, whatever they finished", () => {
+		expect(isHistoryOwner("billing-old", 0, bus())).toBe(true);
+		expect(isHistoryOwner("Billing-Old", 0, bus("billing-old"))).toBe(false);
+		expect(isHistoryOwner("billing-core", 1, bus())).toBe(false);
+		expect(isHistoryOwner("billing-old", 0, undefined)).toBe(false);
+	});
+});
+
 describe("PLURAL_JS", () => {
 	test("is the same body, safe to splice into a script", () => {
 		// The page's bundle carries this string; a backtick or an interpolation would end
@@ -117,5 +183,44 @@ describe("plural", () => {
 	test("adds one s, and only one", () => {
 		expect(plural(1, "owner")).toBe("1 owner");
 		expect(plural(0, "note")).toBe("0 notes");
+	});
+});
+
+describe("the history line the browser receives", () => {
+	test("is the same body, safe to splice into a script", () => {
+		// The page's history row and this line are one sentence, so the count of owners and the
+		// work they finished cannot read two ways.
+		expect(HISTORY_LINE_JS).toBe(String(historyLine));
+		expect(HISTORY_OWNER_JS).toBe(String(isHistoryOwner));
+		for (const source of [HISTORY_LINE_JS, HISTORY_OWNER_JS]) {
+			expect(source).not.toContain("`");
+			expect(source).not.toContain("${");
+		}
+	});
+
+	test("answers what the module answers, with `plural` in the fragment's scope", () => {
+		// The body calls `plural` rather than carrying a second wording for `1 owner`, the same
+		// way the fragment it is spliced into holds one `plural` for the whole page.
+		const browserLine = new Function("plural", `return (${HISTORY_LINE_JS});`)(plural) as (
+			owners: number,
+			done: number,
+		) => string;
+		const browserPlural = new Function(`return (${PLURAL_JS});`)() as (count: number, noun: string) => string;
+		expect(browserLine(1, 1)).toBe(historyLine(1, 1));
+		expect(browserLine(2, 3)).toBe("2 owners with no record · 3 done");
+		expect(historyLine(1, 1)).toContain(browserPlural(1, "owner"));
+		const browserHistory = new Function(`return (${HISTORY_OWNER_JS});`)() as (
+			label: string,
+			held: number,
+			roster: readonly RosterLabel[] | undefined,
+		) => boolean;
+		for (const [label, held, roster] of [
+			["billing-old", 0, []],
+			["billing-core", 0, [{ label: "billing-core" }]],
+			["billing-old", 2, []],
+			["billing-old", 0, undefined],
+		] as const) {
+			expect(browserHistory(label, held, roster)).toBe(isHistoryOwner(label, held, roster));
+		}
 	});
 });

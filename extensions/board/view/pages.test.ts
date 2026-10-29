@@ -371,10 +371,20 @@ describe("the client bundle", () => {
 		// The roster is the other list that only grows: every label that ever claimed a card stays
 		// an owner, so a board with a long history drew eighteen rows of "no record · no cards ·
 		// 1 done". The rule is stated once — absent, and holding nothing — and the row it makes
-		// says what the rows would have said one at a time.
+		// says what the rows would have said one at a time. Both are `lib/board/round-text.ts`'s
+		// bodies, because the terminal's round folds the same owners.
 		expect(BOARD_CLIENT_JS).toContain("board-team__tail");
-		expect(BOARD_CLIENT_JS).toContain('rows[r].state === "absent" && rows[r].cards.live.length === 0');
-		expect(BOARD_CLIENT_JS).toContain('" with no record \\u00B7 "');
+		expect(BOARD_CLIENT_JS).toContain(
+			"isHistoryOwner(rows[r].label, rows[r].cards.live.length, roster === null ? undefined : roster)",
+		);
+		// The rule and the sentence are the terminal round's own bodies, spliced in like `plural`,
+		// so the tab cannot grow a second answer to who is history.
+		expect(BOARD_CLIENT_JS).toContain("function isHistoryOwner(label, held, roster)");
+		expect(BOARD_CLIENT_JS).toContain("function historyLine(owners, done)");
+		expect(BOARD_CLIENT_JS).toContain('plural(owners, "owner")');
+		expect(BOARD_CLIENT_JS).toContain("with no record");
+		expect(BOARD_CLIENT_JS).toContain("historyLine(tail.length, finished)");
+		expect(unfilledPlaceholders(BOARD_CLIENT_JS)).toEqual([]);
 		// A filter is a view of the rows, so it unfolds the history rather than hiding a match.
 		expect(BOARD_CLIENT_JS).toContain("var folded = filtering ? false : historyFolded(everyone.tail)");
 		// Both lists fold through one table and one map, and the keys say which kind they are

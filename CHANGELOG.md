@@ -21,6 +21,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the terminal round folds the owners a bus has no record of and that hold
+  nothing into one line — `18 owners with no record · 76 done` — for `board list
+  round: true` and `/team`, so a board that has been worked for a while prints its queue
+  instead of a row per finished owner (24 lines to 8 on this repository's board, where the
+  cap had been swallowing the decisions). The rule and the sentence are
+  `lib/board/round-text.ts`'s and cross to the Team tab as source, the way `plural` does, so
+  the two surfaces cannot disagree about who is history; a board read with the bus unloaded
+  prints what it printed before, and the rollup's details still carry every owner.
+
 - `board`: the Team tab states the owners a bus has no record of in one row — `18 owners with
   no record · 71 done`, unfolded by a click and ordered by what each finished — caps the
   roster with the queue's own rule, prints a teammate on one line, and folds the ids past the

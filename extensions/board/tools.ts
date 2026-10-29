@@ -20,6 +20,7 @@ import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
 import type { CardOp } from "../../lib/board/rules.ts";
 import { buildRound } from "../../lib/board/round.ts";
+import { readRoster, type RosterSession } from "../../lib/session-roster.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { listOf } from "../../lib/format.ts";
@@ -170,7 +171,9 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 				const now = runtime.now();
 				switch (action) {
 					case "list":
-						return await read(store, action, me, args, now);
+						// The round folds the owners a bus has no record of, and the rollup is the only read
+						// that needs the bus: a lazy source, so a plain `list` reads no bus files at all.
+						return await read(store, action, me, args, now, async () => readRoster(await runtime.busDir(ctx.cwd)));
 					case "add":
 						return await add(store, me, args, now);
 					case "claim": {
@@ -326,6 +329,7 @@ async function read(
 	me: BoardDetails["me"],
 	args: BoardArgs,
 	now: number,
+	roster: () => Promise<readonly RosterSession[] | undefined>,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	if (args.archived === true) return readArchive(store, action, me, args, now);
 	const cards = await store.list();
@@ -383,7 +387,7 @@ async function read(
 	// and one for the archive, because a rollup that silently left it out would be a board
 	// smaller than the one on disk.
 	const notes = [skippedText(skipped), archiveNote(archived)].filter((line) => line !== "");
-	const text = [formatRound(cards, round), ...notes].join("\n");
+	const text = [formatRound(cards, round, await roster()), ...notes].join("\n");
 	return textResult(text, { action, me, cards: listed, round, ...(args.mine === true ? { mine: true } : {}) });
 }
 

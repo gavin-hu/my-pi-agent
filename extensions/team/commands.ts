@@ -76,7 +76,7 @@ export function joinedLine(result: JoinResult): string {
  */
 export function roundText(cards: readonly Card[], now: number, roster?: readonly RosterSession[]): string {
 	if (cards.length === 0) return "team: nothing to report — the board is empty";
-	const round = formatRound(cards, buildRound(cards, now)).split("\n");
+	const round = formatRound(cards, buildRound(cards, now), roster).split("\n");
 	const shown = round.slice(0, MAX_ROUND_LINES);
 	if (round.length > MAX_ROUND_LINES) shown.push(`… ${plural(round.length - MAX_ROUND_LINES, "line")} more`);
 	for (const line of goneLines(cards, roster, now)) shown.push(line);
