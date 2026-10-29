@@ -579,6 +579,38 @@ describe("board fixture plan paths", () => {
 	});
 });
 
+describe("plan fixture plan paths", () => {
+	/** The store the plan tool writes into: `<agent-dir>/plans/<repo-key>`, under the fake home. */
+	const STORE = "/home/u/.pi/agent/plans/8872d3adda0e/";
+
+	/** The two fields a plan tool's result carries: the absolute path and the `~` form of it. */
+	function planDetails(name: string): { path: string; relativePath: string } | undefined {
+		const details: unknown = FIXTURES.find((item) => item.name === name)?.result?.details;
+		if (typeof details !== "object" || details === null) return undefined;
+		const path = "path" in details ? details.path : "planPath" in details ? details.planPath : undefined;
+		const relativePath = "relativePath" in details ? details.relativePath : undefined;
+		return typeof path === "string" && typeof relativePath === "string" ? { path, relativePath } : undefined;
+	}
+
+	test("every plan fixture names a plan the store could hold, in both forms the tool returns", () => {
+		// The three tools whose result carries a plan: `write_plan` and `exit_plan_mode` draw the
+		// `~` form, and `set_plan_steps` carries both without drawing either.
+		for (const name of ["write_plan", "exit_plan_mode", "set_plan_steps"]) {
+			const plan = planDetails(name);
+			expect(plan, name).toBeDefined();
+			if (plan === undefined) continue;
+			expect(plan.path.startsWith(STORE), name).toBe(true);
+			// One file directly in the store: `write_plan` writes no subdirectory of it, and the
+			// in-checkout `.pi/plans` directory it used to picture is the one nothing writes now.
+			const fileName = plan.path.slice(STORE.length);
+			expect(fileName.includes("/"), name).toBe(false);
+			expect(fileName.endsWith(".md"), name).toBe(true);
+			// The stored path and the path the user is shown are one path in two spellings.
+			expect(plan.relativePath, name).toBe(plan.path.replace("/home/u", "~"));
+		}
+	});
+});
+
 describe("tool renderings", () => {
 	test("every rendering renders something at the gallery width", () => {
 		for (const rendering of renderings()) {

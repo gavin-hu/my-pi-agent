@@ -23,8 +23,9 @@ export interface Seeded {
 	/**
 	 * The plan file the seed records, proved as the tool proves it.
 	 *
-	 * Absent means `plans/<id>.md`, which is enough for a suite that never lets the tool
-	 * check the store itself; a suite that does passes a path inside its plan directory.
+	 * Absent means `<id>.md` — a plan name, which the store resolves inside itself, so the
+	 * record has the shape `contract` accepts even though no file is there. A suite that
+	 * lets the tool re-check the store passes a path inside its own plan directory.
 	 */
 	planPath?: string;
 }
@@ -45,6 +46,7 @@ export const TEST_CONTRACT = {
  * a broken fixture, and a silent one would make every assertion after it a guess.
  */
 export async function advance(store: BoardStore, id: string, lane: Lane, who: Seeded, now: number): Promise<void> {
+	const plan = who.planPath ?? `${id}.md`;
 	const fail = (error: string): never => {
 		throw new Error(`seeding #${id} for ${lane}: ${error}`);
 	};
@@ -69,7 +71,7 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	const planned = await read();
 	if (planned.contract === undefined) {
 		// The artifact is the fact the tool proves; a seed records the path it names.
-		await apply({ kind: "contract", artifact: { path: who.planPath ?? `plans/${id}.md` }, ...TEST_CONTRACT });
+		await apply({ kind: "contract", artifact: { path: plan }, ...TEST_CONTRACT });
 	}
 	const written = await read();
 	if (written.contract?.approved === undefined) {
@@ -78,7 +80,7 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	}
 	const contract = (await read()).planPath;
 	if ((await read()).lane === "plan") {
-		await apply({ kind: "move", lane: "execute", artifact: { path: contract ?? `plans/${id}.md` } });
+		await apply({ kind: "move", lane: "execute", artifact: { path: contract ?? plan } });
 	}
 	if (lane === "execute") return;
 	if ((await read()).review === undefined) {
@@ -89,12 +91,12 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	// without one, and a test of that state must not be handed a fake.
 	await apply(
 		who.landed === undefined
-			? { kind: "move", lane: "done", artifact: { path: contract ?? `plans/${id}.md` } }
+			? { kind: "move", lane: "done", artifact: { path: contract ?? plan } }
 			: {
 					kind: "move",
 					lane: "done",
 					landed: { commit: who.landed },
-					artifact: { path: contract ?? `plans/${id}.md` },
+					artifact: { path: contract ?? plan },
 				},
 	);
 }

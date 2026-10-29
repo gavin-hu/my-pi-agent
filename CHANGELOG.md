@@ -50,6 +50,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   hides the argument, and a seeded card's plan decides its `planned` fact, which is the same
   before and after.
 
+- dev: the plan-side fixtures name the plan store the tools write into. The gallery pictured
+  `write_plan` and `exit_plan_mode` saving to `.pi/plans/add-rate-limiting.md` — the retired
+  in-checkout directory the plan tool migrates away from — so both now show
+  `~/.pi/agent/plans/<key>/2026-10-29-1015-add-rate-limiting.md` with the absolute form in
+  their `details`, and a `plan fixture plan paths` test pins the two spellings to one path.
+  `test/helpers/board-flow.ts` seeds `<id>.md` instead of `plans/<id>.md`, a name the store
+  resolves inside itself rather than a subdirectory no writer makes. The recapture also picks
+  up `assets/tools/board.png` and `board-round.png`, which lagged the board fixture's `planned`
+  fact since the plan gate landed.
+
 - `docs`: an agent-directory location is spelled one way everywhere — `<agent-dir>` —
   because 15 uses still wrote `<agentDir>` across three pages, the `plan-review` example,
   and eight module comments, each sweep having fixed only the page it was reading. The
