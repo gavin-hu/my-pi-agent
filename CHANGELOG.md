@@ -37,6 +37,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unchanged — a sign still comes from somebody other than the holder — and the card records
   who signed, which reads differently from a peer's sign.
 
+- dev: the board's render fixtures name a plan the shipped `contract` accepts. The gallery's
+  contract call passed `plans/totals.md` and the page's seeded cards defaulted to
+  `plans/<id>.md`, both of which the new gate refuses — a nested directory `write_plan` never
+  writes, holding no file. `fixturePlanPath` now spells every one against the store, the
+  seeding throws instead of inventing a path, and a `board fixture plan paths` test proves
+  each is accepted and that the old spelling is not. No image moved: the gallery's call line
+  hides the argument, and a seeded card's plan decides its `planned` fact, which is the same
+  before and after.
+
 - `docs`: an agent-directory location is spelled one way everywhere — `<agent-dir>` —
   because 15 uses still wrote `<agentDir>` across three pages, the `plan-review` example,
   and eight module comments, each sweep having fixed only the page it was reading. The

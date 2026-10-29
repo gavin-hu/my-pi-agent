@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
@@ -28,6 +28,8 @@ import { cacheHitRateOf } from "../extensions/bytefly/footer/collect/entries.ts"
 import { CURRENCY_DEFAULTS, DEFAULT_RATES_USD } from "../extensions/bytefly/footer/price/config.ts";
 import { createPricer } from "../extensions/bytefly/footer/price/price.ts";
 import { TRANSCRIPT_NOTICE } from "./transcript-fixture.ts";
+import { FIXTURE_CARDS } from "./tools/fixtures/board-store.ts";
+import { FIXTURE_PLAN_STORE } from "./tools/fixtures/board.ts";
 import { JOB_RECORDS } from "./tools/fixtures/index.ts";
 import { HERO_GOAL, HERO_TODOS } from "./screens/fixtures/index.ts";
 import { GoalWidget } from "../extensions/goal/tui.ts";
@@ -35,6 +37,7 @@ import { TodoWidget } from "../extensions/todo/tui.ts";
 import { pageColors, readPageColors, repo, setThemeInstance, theme } from "./theme.ts";
 import { FIXTURES } from "./tools/fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./tools/index.ts";
+import { planForContract } from "../lib/board/artifact.ts";
 
 /** Every capturable frame, the whole-chrome preview included. */
 const FRAMES = SCREENS;
@@ -516,6 +519,63 @@ describe("tool fixtures", () => {
 			const args = JSON.stringify(fixture.args ?? {});
 			expect(args.startsWith("/Users/"), fixture.name).toBe(false);
 		}
+	});
+});
+
+/**
+ * The plan paths the board's fixtures record.
+ *
+ * The shipped `contract` records only a plan inside this repository's store, so a fixture
+ * that named one anywhere else would picture a call the tool refuses. The spelling starts at
+ * `~` — the capture machine's home — so the store is laid out in a temp directory instead
+ * and the proof does not depend on whose machine runs it.
+ */
+describe("board fixture plan paths", () => {
+	/** An empty plan store of the fixture's own shape: `<agent-dir>/plans/<key>`. */
+	function storeDir(): string {
+		const dir = join(mkdtempSync(join(tmpdir(), "pi-board-fixture-plans-")), "plans", basename(FIXTURE_PLAN_STORE));
+		mkdirSync(dir, { recursive: true });
+		return dir;
+	}
+
+	/** Every plan the fixtures record: the page's cards, and the gallery's contract call. */
+	function recorded(): string[] {
+		const spelled = FIXTURE_CARDS.flatMap((card) => {
+			const plan = "planPath" in card ? card.planPath : undefined;
+			return plan === undefined ? [] : [plan];
+		});
+		for (const fixture of FIXTURES) {
+			if ((fixture.tool ?? fixture.name) !== "board") continue;
+			const args: unknown = fixture.args;
+			if (typeof args !== "object" || args === null) continue;
+			if (!("action" in args) || args.action !== "contract") continue;
+			if ("path" in args && typeof args.path === "string") spelled.push(args.path);
+		}
+		return spelled;
+	}
+
+	test("every plan a fixture records is one the shipped contract accepts", () => {
+		const dir = storeDir();
+		const plans = recorded();
+		// Four of the page's cards record a plan and the gallery's contract call names a fifth:
+		// a shape proved on nothing would pass as readily as one proved on the whole set.
+		expect(plans.length).toBe(5);
+		for (const spelled of plans) {
+			expect(spelled.startsWith(`${FIXTURE_PLAN_STORE}/`), spelled).toBe(true);
+			const name = spelled.slice(FIXTURE_PLAN_STORE.length + 1);
+			// One file directly in the store: `write_plan` writes no subdirectory of it.
+			expect(name.includes("/"), spelled).toBe(false);
+			writeFileSync(join(dir, name), "# A fixture plan\n- [ ] one\n");
+			expect(planForContract(dir, join(dir, name)), spelled).toEqual({ path: join(dir, name) });
+		}
+	});
+
+	test("the relative spelling the fixtures used to carry is refused", () => {
+		const dir = storeDir();
+		// Resolved against the store, `plans/<id>.md` names a nested directory no writer makes,
+		// which is why the shipped contract refuses it and the fixtures no longer spell it.
+		const refused = planForContract(dir, "plans/3.md");
+		expect("error" in refused).toBe(true);
 	});
 });
 
