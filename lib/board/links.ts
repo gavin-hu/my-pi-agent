@@ -114,21 +114,34 @@ export function wouldCycle(id: string, dependsOn: readonly string[], board: Boar
  *
  * `[]` is a legal answer and means "waits on nothing", so an edit can remove a link
  * — the caller decides whether an absent list means "leave it alone" or "none".
+ *
+ * A link the card already carries is kept even when the card it names has left the board:
+ * `archive` moves a finished card's file rather than deleting its record, the link is inert
+ * (a finished dependency stops blocking), and refusing it would make `edit` unable to
+ * reproduce what the card says. A link the card does not already carry still has to name a
+ * card on the board, so an id nobody can see cannot be added.
  */
-export function normalizeDepends(raw: unknown, id: string, board: BoardIndex): { dependsOn: string[] } | FieldError {
+export function normalizeDepends(
+	raw: unknown,
+	card: Pick<Card, "id" | "dependsOn">,
+	board: BoardIndex,
+): { dependsOn: string[] } | FieldError {
 	if (!Array.isArray(raw)) return { error: "dependsOn must be a list of card ids." };
+	const held = dependsOf(card);
 	const dependsOn: string[] = [];
 	for (const entry of raw) {
 		const parsed = normalizeCardId(entry);
 		// The file name is the canonical spelling of an id, so `#04` and `4` are one card.
 		const dependency = parsed === undefined ? undefined : String(Number(parsed));
 		if (dependency === undefined) return { error: `${JSON.stringify(entry)} is not a card id.` };
-		if (dependency === id) return { error: `${cardRef(id)} cannot wait on itself.` };
-		if (!board.has(dependency)) return { error: `${cardRef(dependency)} does not exist.` };
+		if (dependency === card.id) return { error: `${cardRef(card.id)} cannot wait on itself.` };
+		if (!board.has(dependency) && !held.includes(dependency)) {
+			return { error: `${cardRef(dependency)} does not exist.` };
+		}
 		if (!dependsOn.includes(dependency)) dependsOn.push(dependency);
 	}
 	if (dependsOn.length > MAX_DEPENDS) return { error: `at most ${MAX_DEPENDS} dependencies are allowed.` };
-	const loop = wouldCycle(id, dependsOn, board);
+	const loop = wouldCycle(card.id, dependsOn, board);
 	if (loop !== undefined) return { error: loop };
 	return { dependsOn };
 }

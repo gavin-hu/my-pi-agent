@@ -338,7 +338,7 @@ export function priorityOf(card: Card): Priority {
 }
 
 /** A card's dependencies, with the absent field read as its meaning. */
-export function dependsOf(card: Card): readonly string[] {
+export function dependsOf(card: Pick<Card, "dependsOn">): readonly string[] {
 	return card.dependsOn ?? [];
 }
 

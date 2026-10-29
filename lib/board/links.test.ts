@@ -157,38 +157,46 @@ describe("wouldCycle", () => {
 describe("normalizeDepends", () => {
 	test("keeps existing ids, deduplicated and canonical", () => {
 		const board = indexOf([card("2"), card("3"), card("4")]);
-		expect(normalizeDepends(["2", "#03", "2"], "4", board)).toEqual({ dependsOn: ["2", "3"] });
+		expect(normalizeDepends(["2", "#03", "2"], card("4"), board)).toEqual({ dependsOn: ["2", "3"] });
 	});
 
 	test("an empty list is legal: it removes every link", () => {
-		expect(normalizeDepends([], "4", indexOf([card("4")]))).toEqual({ dependsOn: [] });
+		expect(normalizeDepends([], card("4"), indexOf([card("4")]))).toEqual({ dependsOn: [] });
 	});
 
 	test("refuses what is not a list at all", () => {
-		expect(normalizeDepends("2", "4", indexOf([card("4")]))).toEqual({
+		expect(normalizeDepends("2", card("4"), indexOf([card("4")]))).toEqual({
 			error: "dependsOn must be a list of card ids.",
 		});
 	});
 
 	test("refuses an entry that is not a card id", () => {
 		const board = indexOf([card("4")]);
-		expect(normalizeDepends(["two"], "4", board)).toEqual({ error: '"two" is not a card id.' });
+		expect(normalizeDepends(["two"], card("4"), board)).toEqual({ error: '"two" is not a card id.' });
 	});
 
 	test("refuses the card itself", () => {
 		const board = indexOf([card("4")]);
-		expect(normalizeDepends(["4"], "4", board)).toEqual({ error: "#4 cannot wait on itself." });
+		expect(normalizeDepends(["4"], card("4"), board)).toEqual({ error: "#4 cannot wait on itself." });
 	});
 
-	test("refuses an id the board does not hold", () => {
+	test("refuses a new link to an id the board does not hold", () => {
 		const board = indexOf([card("4")]);
-		expect(normalizeDepends(["7"], "4", board)).toEqual({ error: "#7 does not exist." });
+		expect(normalizeDepends(["7"], card("4"), board)).toEqual({ error: "#7 does not exist." });
+	});
+
+	test("keeps a link the card already carries when its card has left the board", () => {
+		// `archive` moves a finished card's file, so an id can be off the board and still be
+		// what this card says it waits for; the link is inert, and refusing it would make
+		// `edit` unable to reproduce the record it was given.
+		const board = indexOf([card("4", { dependsOn: ["7"] })]);
+		expect(normalizeDepends(["7"], card("4", { dependsOn: ["7"] }), board)).toEqual({ dependsOn: ["7"] });
 	});
 
 	test("refuses more links than a card may carry", () => {
 		const ids = Array.from({ length: MAX_DEPENDS + 1 }, (_, at) => String(at + 1));
 		const board = indexOf([card("20"), ...ids.map((id) => card(id))]);
-		expect(normalizeDepends(ids, "20", board)).toEqual({
+		expect(normalizeDepends(ids, card("20"), board)).toEqual({
 			error: `at most ${MAX_DEPENDS} dependencies are allowed.`,
 		});
 	});

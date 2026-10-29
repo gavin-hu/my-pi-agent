@@ -5,12 +5,15 @@
 
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { isContainedPlan, isPlanFileName, PLANS_DIR_NAME, plansDir, plansDirFor, resolvePlanArg } from "./paths.ts";
 
-const AGENT = "/agent";
+// A path the store can be built under, spelled the way the platform roots one: the
+// POSIX literal `/agent` is drive-less on Windows, and `resolve` would then return a path
+// that the join below cannot produce.
+const AGENT = resolve("/agent");
 const STORE = join(AGENT, PLANS_DIR_NAME, "abc123");
 
 const ROOT = realpathSync.native(mkdtempSync(join(tmpdir(), "pi-plan-paths-")));

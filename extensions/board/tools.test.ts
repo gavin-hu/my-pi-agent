@@ -20,6 +20,8 @@ import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
 import { agentLabel } from "../../lib/session-label.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
+import { shortenPath } from "../../lib/format.ts";
+import { buildRound } from "../../lib/board/round.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import type { TeamJoin } from "./join.ts";
 import { registerTools } from "./tools.ts";
@@ -142,6 +144,17 @@ describe("the registration", () => {
 		// by the same list this schema publishes. A local copy here would read as one list
 		// and be another, which is how the old `BOARD_READ_ACTION` string went wrong.
 		expect(BOARD_ACTIONS).toBe(LIB_BOARD_ACTIONS);
+	});
+
+	test("names every group the lead's rollup reports", () => {
+		// The groups come from a round rather than a second list, so a group added to the rollup
+		// cannot reach the model as an unnamed count. Both surfaces are checked: the action's
+		// description and the parameter's own sentence, in which one group is spelled rather
+		// than named after its field.
+		const { tool } = harness();
+		const groups = Object.keys(buildRound([], NOW)).map((key) => (key === "unapproved" ? "awaiting approval" : key));
+		const described = `${BOARD_ACTION_DOCS.list} ${tool.parameters.properties.round.description}`.toLowerCase();
+		for (const group of groups) expect(described, group).toContain(group);
 	});
 
 	test("refuses an action it does not have, without throwing", async () => {
@@ -736,7 +749,9 @@ describe("the flow: contract, approval, spot-check", () => {
 			acceptance: "A retry leaves one order",
 			scopeOut: "No refunds",
 		});
-		expect(text(result)).toContain(`plan: ${plan}`);
+		// The card prints the plan the way `write_plan` shows it — shortened, with `/` — so the
+		// expectation is the display form rather than the native spelling the card stores.
+		expect(text(result)).toContain(`plan: ${shortenPath(plan)}`);
 		expect(text(result)).toContain("approved: nobody yet");
 	});
 

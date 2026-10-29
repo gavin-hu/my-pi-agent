@@ -36,7 +36,7 @@ export interface RoundGroup<T extends Card = Card> {
 
 /** The lead's rollup of one board. */
 export interface RoundSummary<T extends Card = Card> {
-	/** Every owner with at least one unfinished card, ordered by label. */
+	/** Every owner the board names, ordered by label, with its live cards and the ones it finished. */
 	owners: RoundGroup<T>[];
 	/** `backlog` cards: nobody has taken them yet. */
 	unassigned: T[];
@@ -51,7 +51,7 @@ export interface RoundSummary<T extends Card = Card> {
 	blocked: T[];
 	/** `execute` cards untouched for {@link IDLE_MS}: possibly a dead owner. */
 	idle: T[];
-	/** Finished cards, oldest first, kept as history. */
+	/** Finished cards, in the board's own order — priority, then age — kept as history. */
 	done: T[];
 }
 

@@ -679,6 +679,16 @@ describe("note and edit", () => {
 		expect(card.notesDropped).toBe(3);
 	});
 
+	test("a note is the holder's, and a pool card is anybody's to note", () => {
+		const held = claimed(CORE);
+		expect(refusal(applyOp(held, { kind: "note", text: "n" }, LEAD, NOW, board(held)))).toBe(
+			"#4 is held by billing-core. Only its owner can add a note.",
+		);
+		// Nobody holds the pool, so a note there is not a write on somebody else's card.
+		const pool = created();
+		expect(accepted(applyOp(pool, { kind: "note", text: "n" }, OTHER, NOW, board(pool))).changed).toBe(true);
+	});
+
 	test("edit fixes the title and hints whichever lane the card is in, and is a no-op when nothing changes", () => {
 		const held = executing();
 		const edited = step(held, { kind: "edit", title: "Billing webhook stores orders" }, CORE);

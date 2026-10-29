@@ -271,6 +271,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that instant recreate `cards/<id>.json` after the card was set aside — the card then sat on
   the board and in the archive at once, with the board's copy winning every read, and it
   could come back the same way beside a dropped card's `ended/` record.
+- `board`: a dependency link that names a card which has since been archived is kept.
+  `archive` moves a finished card's file rather than deleting its record, so `edit` now keeps
+  a link the card already carries instead of refusing it as `#N does not exist` — re-sending
+  the list a card holds is a no-op again — while a new link still has to name a card on the
+  board, and clearing the list is the way out. `normalizeDepends` takes the card rather than
+  its id for that reason.
+- `board`: a note belongs to the card's holder, or to anyone while nobody holds it — the rule
+  `edit` already followed, and the one that keeps the lead's rollup honest: `updatedAt` moves
+  on every write, so a note from a session that did not hold an idle `execute` card hid it
+  from the idle group. The capability table states the rule beside `edit`'s.
+- `board`: the rollup's description names all seven groups it reports — awaiting approval and
+  done were missing from both the action's sentence and the parameter's — and the two
+  comments on `RoundSummary` match what `buildRound` does: done-only owners are kept, and
+  finished cards are in the board's own order, not oldest first. A test derives the names
+  from a round, so a group added there cannot reach the model unnamed.
+- dev: the two assertions that kept `check (windows-latest)` red. `lib/plans/paths.test.ts`
+  built its store from the POSIX literal `/agent`, which is drive-less on Windows while
+  `resolve` answers `D:\agent`; `extensions/board/tools.test.ts` expected the native spelling
+  of a plan path from a line `shortenPath` prints with `/`. The first is rooted with `resolve`
+  and the second asserts the display form — macOS and Ubuntu were green through both.
 
 ## [0.21.0] - 2026-10-28
 
