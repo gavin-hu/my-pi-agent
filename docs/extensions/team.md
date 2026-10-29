@@ -163,6 +163,9 @@ decision the plain unassigned row never offered: re-offer, `assign` it, or take 
   turn; a session that is not listening at all reads it only when it reads its inbox.
 - **`to` must be on the team.** A session that never opened the board, joined, or claimed a
   card cannot be handed a card, and an offer to nobody says so.
+- **A held card is not assignable.** `assign` moves a pool card; one somebody already holds
+  is refused, because a handoff cannot take work away from its owner — `reclaim` it, then
+  assign.
 - **`team-lead` is a label, not a person.** The seat is not a session, so its actor id
   `board:team-lead` answers no message; the label is the one the session serving the page
   joins under, so a handoff to `team-lead` reaches whoever is serving the page just now —

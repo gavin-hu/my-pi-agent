@@ -49,7 +49,6 @@ export const MAX_PATHS = 12;
 /** Longest path hint, in characters. */
 export const MAX_PATH = 200;
 
-/** Longest recorded plan path, in characters. */
 /**
  * Longest recorded plan path, in characters.
  *
@@ -399,8 +398,10 @@ export function normalizeNote(raw: unknown): { text: string } | FieldError {
 /**
  * The recorded plan path: one line, and nothing more.
  *
- * The board never reads the plan, so it does not resolve or check the path — this
- * is a note to the reader about which plan the card is executing.
+ * The board never reads the plan: `artifact.ts` resolves the caller's path against this
+ * repository's plan store and proves it is there, and `contract` stores what came back, so
+ * what arrives here is already an absolute path. This only holds it to one line and
+ * {@link MAX_PLAN}.
  */
 export function normalizePlanPath(raw: unknown): { path: string } | FieldError {
 	if (typeof raw !== "string") return { error: "path is required." };

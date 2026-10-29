@@ -60,11 +60,11 @@ export type CardOp =
 	/** Pull a backlog card into `plan`: the only way a card starts moving. */
 	| { kind: "claim" }
 	/**
-	 * Hand a card to `to`, and — from the page, which cannot message a peer — a note that
-	 * says so. `team assign` sends a handoff instead and passes none. A backlog card comes
-	 * with the owner (`plan`); a held card only changes hands.
+	 * Hand a pool card to `to`: the owner is recorded and the card enters `plan`. A held card is
+	 * refused — `reclaim` is how it changes hands — and `team assign` sends the handoff, which
+	 * the state machine knows nothing about.
 	 */
-	| { kind: "assign"; to: Actor; note?: unknown }
+	| { kind: "assign"; to: Actor }
 	| { kind: "release" }
 	/**
 	 * Change lane. `blockedBy` and `blocker` are what a block records, `landed` says which
@@ -191,7 +191,7 @@ function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: Board
 		case "claim":
 			return claim(card, actor, board, limits);
 		case "assign":
-			return assign(card, op.to, op.note, actor, now, board, limits);
+			return assign(card, op.to, board, limits);
 		case "release":
 			return release(card, actor);
 		case "move":

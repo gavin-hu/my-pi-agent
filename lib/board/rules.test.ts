@@ -181,8 +181,8 @@ describe("assign", () => {
 	});
 
 	test("assignment is not a lane change: a card in plan stays there", () => {
-		// A card is assigned to its own holder, which is the one case a held card can be
-		// assigned at all; the lane it earned is what the new holder inherits.
+		// Naming the session that already holds a card is the one held case assign accepts, and
+		// it is a no-op: the lane it earned is unchanged and no revision is spent.
 		const card = approved();
 		const result = accepted(applyOp(card, { kind: "assign", to: CORE }, LEAD, NOW, board(card)));
 		expect(result.changed).toBe(false);
@@ -216,15 +216,6 @@ describe("assign", () => {
 		expect(refusal(applyOp(pool, { kind: "assign", to: CORE }, LEAD, NOW, board(...full, pool)))).toContain(
 			"cannot enter plan",
 		);
-	});
-
-	test("carries a note in the same write when one is given", () => {
-		const created = createCard("4", { title: "T", paths: [] }, LEAD, 1_000);
-		const card = accepted(
-			applyOp(created, { kind: "assign", to: CORE, note: "start with the webhook" }, LEAD, NOW, board(created)),
-		).card;
-		expect(card.notes.at(-1)).toEqual({ by: LEAD.label, at: NOW, text: "start with the webhook" });
-		expect(card.rev).toBe(2);
 	});
 });
 

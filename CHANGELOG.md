@@ -178,6 +178,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it (the old field names, including a sentence with no kind) and is rewritten as version 2
   on its next write.
 
+- `docs`: the board's `team assign` row says what the rules do — a card somebody already holds
+  is refused, and `reclaim` is how it changes hands — and `team`'s limits gain the same
+  sentence. The row described a held card keeping the lane it earned, which no path could
+  reach: the owner check refuses it before the lane is read.
+
 ### Removed
 
 - `skills`: the `project-docs` skill is deleted — its `SKILL.md`, its five reference
@@ -253,6 +258,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plan`: `set_plan_steps`' `status` names its two values — `completed` ticks a step,
   `pending` reopens it — and says a plan step has no in-progress state, so a model arriving
   from `todo`'s three-state enum does not have a whole batch refused for it.
+- `board`: `list` with `round: true` draws the lead's awaiting-approval queue in the
+  transcript's expanded block again. The block sectioned owners, unassigned, unplanned,
+  blocked, idle, and done while the rollup has a seventh group, so the text above it counted
+  `1 awaiting approval` and the block below named nothing that needed a signature — the one
+  group a reader acts on. A round-section test now pins every label to the rollup's own
+  groups, so a group cannot lose its section unnoticed again, and
+  `assets/tools/board-round.png` is captured again from the same fixture.
+- `board`: `archive` and `drop` re-check the card's revision before the file is moved or
+  removed. The ordinary write path already did, so a writer that landed between the read and
+  the rename was re-applied; the two pile moves returned first, which let a note landing in
+  that instant recreate `cards/<id>.json` after the card was set aside — the card then sat on
+  the board and in the archive at once, with the board's copy winning every read, and it
+  could come back the same way beside a dropped card's `ended/` record.
 
 ## [0.21.0] - 2026-10-28
 

@@ -66,7 +66,7 @@ export interface PagePointer {
 	port: number;
 	/** The page's one token: every read, and nothing else to authorise. */
 	token: string;
-	/** The seat the page writes as. */
+	/** The seat the page is read as. */
 	seat: { id?: string; label: string };
 	/** When the page started, so a reader can tell a fresh note from a stale one. */
 	startedAt: number;

@@ -1,14 +1,9 @@
 /**
- * A card body as both surfaces read it: the tool's arguments and the page's JSON.
+ * A card body as `add` reads it: the four fields the tool creates a card from.
  *
- * `add` is reachable two ways, and the fields it takes are the same four — title,
- * path hints, priority, and an optional first note. The normalization, the order the
- * refusals come in, and the shape handed to the store were written twice, which is how
- * a field added to one surface reaches the store unnormalized from the other. This is
- * that body's one owner.
- *
- * Only the *fields* are shared: a refusal is translated per surface, because the tool
- * answers a model with a failed result and the page answers a browser with a status.
+ * The normalization, the order the refusals come in, and the shape handed to the store are
+ * one body, so a field added to `add` cannot reach the store unnormalized. This is the
+ * boundary in front of `store.create`; a refusal is the first field that cannot be one.
  */
 
 import {
