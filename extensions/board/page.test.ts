@@ -134,11 +134,15 @@ describe("start", () => {
 
 		const document = await fetch(base);
 		expect(document.status).toBe(200);
-		expect(await document.text()).toContain('data-view="board"');
+		// The toolbar names the repository the page is a board of, so the document is readable
+		// before the first frame; nothing in it names a seat.
+		const html = await document.text();
+		expect(html).toContain('data-view="board"');
+		expect(html).toContain('id="board-repo"');
 
 		const snapshot = JSON.parse(await (await fetch(base.replace("/?token=", "/api/board?token="))).text());
-		// One identity for a page: the seat writes, and the seat is who is looking.
-		expect(snapshot.me).toEqual({ id: "board:team-lead", label: "team-lead" });
+		// The page shows no identity of its own: the seat is the roster row it marks `you`.
+		expect(snapshot).not.toHaveProperty("me");
 		expect(snapshot).not.toHaveProperty("session");
 		expect(snapshot.total).toBe(0);
 		expect(snapshot.lanes.map((lane: { key: string }) => lane.key)).toEqual([

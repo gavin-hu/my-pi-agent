@@ -917,6 +917,18 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		}
 	});
 
+	test("names the repository in the header and the root on its hover", async () => {
+		const page = await openPage();
+		// The toolbar's one permanent fact is the board it is a board of: the file says it, so it
+		// is readable before a frame arrives, and the client keeps it true from the snapshot. The
+		// seat the page is served as is not a fact about the cards, and the page no longer says it.
+		expect(await page.textContent("#board-repo")).toBe(REPO);
+		expect(await page.getAttribute("#board-repo", "title")).toBe(ROOT);
+		expect(await page.$("#board-me")).toBeNull();
+		expect(await page.textContent("header")).not.toContain("team-lead");
+		await page.close();
+	});
+
 	test("names the store, its cards, and its size in the footer — and what it could not read", async () => {
 		const page = await openPage();
 		const footer = () => page.textContent("#board-where");
@@ -928,11 +940,13 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			undefined,
 			{ timeout: PAINT_MS },
 		);
-		expect(await footer()).toContain(`my-pi-agent · store ${WHERE}`);
+		// The name is the header's fact, so the footer starts with the store: one owner per fact.
+		expect(await footer()).toContain(`store ${WHERE}`);
+		expect(await footer()).not.toContain(REPO);
 		expect(await footer()).toContain("10 cards");
 		expect(await footer()).not.toContain("could not be read");
-		// The name fits the line; the path is the hover, which is what tells two clones apart.
-		expect(await page.getAttribute("#board-where", "title")).toBe(ROOT);
+		// Nothing is refused, so the line has no second statement to make on hover.
+		expect(await page.getAttribute("#board-where", "title")).toBeNull();
 
 		// A file this build cannot read is counted beside the size, and named on the hover with
 		// the reason the store refused it: a count alone is a fact a reader cannot act on.
@@ -949,7 +963,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			);
 			expect(await footer()).toContain("1 card could not be read");
 			const title = (await page.getAttribute("#board-where", "title")) ?? "";
-			expect(title).toContain(ROOT);
+			expect(title).not.toContain(ROOT);
 			expect(title).toContain("0099.json");
 			expect(title).toContain("not a card record");
 		} finally {

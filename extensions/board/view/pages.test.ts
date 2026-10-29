@@ -23,9 +23,18 @@ import {
 import { duplicateDeclarations, unfilledPlaceholders, unreadPublications } from "../../../test/helpers/bundle.ts";
 import { BOARD_CLIENT_JS } from "./client.ts";
 import { BOARD_CLASS } from "./names.ts";
-import { renderBoardPage } from "./page.ts";
+import { type PageView, renderBoardPage } from "./page.ts";
 import { BOARD_CSS } from "./styles.ts";
 import { BOARD_TONES, DECISION_KINDS, DECISION_TONE } from "../../../lib/board/tone.ts";
+
+/** The repository the document's tests are a board of. */
+const REPO = "my-pi-agent";
+const ROOT = "/Users/someone/my-pi-agent";
+
+/** The document as the server renders it, for the structure these tests read. */
+function pageOf(view: PageView): string {
+	return renderBoardPage({ view, base: "", repo: REPO, root: ROOT });
+}
 
 /** The page's own rules, without the shared blocks that define the palette. */
 function ownRules(): string {
@@ -34,7 +43,7 @@ function ownRules(): string {
 
 describe("the document", () => {
 	test("is a complete page under the shared head", () => {
-		const page = renderBoardPage({ view: "board" });
+		const page = pageOf("board");
 		expect(page.startsWith("<!doctype html>")).toBe(true);
 		expect(page).toContain('<html lang="en" data-view="board">');
 		expect(page).toContain("/app.js");
@@ -42,7 +51,7 @@ describe("the document", () => {
 	});
 
 	test("names the board in the tab, and lets the count refine it", () => {
-		const page = renderBoardPage({ view: "board" });
+		const page = pageOf("board");
 		// The head answers before a frame arrives; the count needs the store, so the client
 		// paints the rest — one sentence, in the one place a browser reads it.
 		expect(page).toContain("<title>board</title>");
@@ -53,10 +62,24 @@ describe("the document", () => {
 		expect(BOARD_CLIENT_JS).toContain('tabTitle("board", view.repo');
 	});
 
+	test("names the repository in the header, and the root on its hover", () => {
+		// The board's subject is its repository, so the toolbar says which one it is rather than
+		// which seat is serving it: the seat is the Team tab's business, and the project is what
+		// a reader of the page needs before the first frame arrives.
+		const page = pageOf("board");
+		expect(page).toContain(`<span class="bf-chip bf-chip--outline" id="board-repo" title="${ROOT}">${REPO}</span>`);
+		expect(page).not.toContain('id="board-me"');
+		// Both are server data, and a repository path can hold a quote: it is escaped, because the
+		// root goes in an attribute.
+		const odd = renderBoardPage({ view: "board", base: "", repo: "a&b", root: '/tmp/"x"' });
+		expect(odd).toContain('title="/tmp/&quot;x&quot;"');
+		expect(odd).toContain(">a&amp;b<");
+	});
+
 	test("carries no write surface at all", () => {
 		// The page reads. A form, a composer, a banner, or a footer of verbs would each be
 		// a promise the server refuses, so none of them is in the document to begin with.
-		const page = renderBoardPage({ view: "board" });
+		const page = pageOf("board");
 		for (const gone of [
 			"data-writes",
 			'id="board-new"',
@@ -78,17 +101,17 @@ describe("the document", () => {
 	});
 
 	test("opens on the tab it was asked for, with the other one hidden", () => {
-		const board = renderBoardPage({ view: "board" });
-		const team = renderBoardPage({ view: "team" });
+		const board = pageOf("board");
+		const team = pageOf("team");
 		expect(board).toContain('id="panel-team" role="tabpanel" aria-labelledby="tab-team" hidden');
 		expect(team).toContain('id="panel-team" role="tabpanel" aria-labelledby="tab-team"');
 		expect(team).toContain('id="panel-board" role="tabpanel" aria-labelledby="tab-board" hidden');
 	});
 
 	test("carries the regions and the one dialog the client fills", () => {
-		const page = renderBoardPage({ view: "board" });
+		const page = pageOf("board");
 		for (const id of [
-			"board-me",
+			"board-repo",
 			"board-status",
 			"board-progress",
 			"board-progress-fill",
@@ -135,7 +158,7 @@ describe("the document", () => {
 	});
 
 	test("an empty board says how a card is made, in the terminal's words", () => {
-		const page = renderBoardPage({ view: "board" });
+		const page = pageOf("board");
 		// The page cannot add a card, so the empty state names the command that can instead of
 		// offering a button that would take a reader nowhere. The other state — a filter that
 		// matches nothing — reuses the block with its own sentence and one way back.
@@ -148,13 +171,13 @@ describe("the document", () => {
 	test("carries no card text at all", () => {
 		// Card text arrives only as a JSON frame, so nothing model-written can reach
 		// the document's markup.
-		const page = renderBoardPage({ view: "board" });
+		const page = pageOf("board");
 		expect(page).not.toContain("Billing webhook");
 		expect(page).not.toContain("waiting on the gateway");
 	});
 
 	test("names both tabs in a tablist, and the page's own landmarks", () => {
-		const page = renderBoardPage({ view: "board" });
+		const page = pageOf("board");
 		expect(page).toContain('role="tablist"');
 		expect(page).toContain('role="tab"');
 		expect(page).toContain('aria-controls="panel-board"');
@@ -279,6 +302,19 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain("skippedText(view.skipped)");
 		expect(BOARD_CLIENT_JS).toContain("function skippedText(skipped)");
 		expect(BOARD_CLIENT_JS).not.toContain("__SKIPPED__");
+	});
+
+	test("keeps the header and the footer on the facts each owns", () => {
+		// The header carries the board's subject and the path that tells two clones apart; the
+		// footer carries the store, the counts, and the size. Neither says the other's fact, and
+		// no surface paints the seat this page is served as — the Team tab's `you` row is where
+		// that identity is read.
+		expect(BOARD_CLIENT_JS).toContain('getElementById("board-repo")');
+		expect(BOARD_CLIENT_JS).toContain("repo.textContent = view.repo;");
+		expect(BOARD_CLIENT_JS).toContain("repo.title = view.root;");
+		expect(BOARD_CLIENT_JS).toContain('"store " + view.where');
+		expect(BOARD_CLIENT_JS).not.toContain('view.repo + " · store "');
+		expect(BOARD_CLIENT_JS).not.toContain("view.me");
 	});
 
 	test("keeps ages honest, which is the one thing a quiet board must still do", () => {
@@ -650,7 +686,7 @@ describe("the class contract", () => {
 		for (const name of used(atom, "bf-")) KIT.add(name);
 	}
 
-	const DOCUMENTS = [renderBoardPage({ view: "board" }), renderBoardPage({ view: "team" })];
+	const DOCUMENTS = [pageOf("board"), pageOf("team")];
 	const SOURCES = [...DOCUMENTS, BOARD_CLIENT_JS];
 	/** The page's own vocabulary: what its table declares. */
 	const PAGE = new Set<string>(Object.values(BOARD_CLASS));

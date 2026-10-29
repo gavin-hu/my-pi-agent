@@ -99,13 +99,6 @@ export interface ViewLane {
 
 /** Everything the page is allowed to know. */
 export interface BoardView {
-	/**
-	 * The seat the page is read as, and the identity a reader's own row is marked against.
-	 *
-	 * The page is not a session that happens to be serving — it is a seat that outlives
-	 * whichever session serves it — so the browser is told one identity and no other.
-	 */
-	me: { id?: string; label: string };
 	lanes: ViewLane[];
 	/** Every card on the board: the sum of the lanes, said once so a head need not add them up. */
 	total: number;
@@ -139,7 +132,13 @@ export interface BoardView {
 
 /** What the server read before building one snapshot. */
 export interface ViewInput {
-	/** The page's own actor: the seat the snapshot is read as. */
+	/**
+	 * The page's own actor: the seat the snapshot is read as.
+	 *
+	 * The page is not a session that happens to be serving — it is a seat that outlives
+	 * whichever session serves it — so this is the one identity the browser's roster is marked
+	 * against, and the page shows no other.
+	 */
 	me: Actor;
 	cards: readonly Card[];
 	now: number;
@@ -184,7 +183,6 @@ export function buildView(input: ViewInput): BoardView {
 	const reader = input.me;
 	const teammates = input.roster === undefined ? undefined : teammatesOf(input.roster, reader.label, input.now);
 	return {
-		me: input.me.id === undefined ? { label: input.me.label } : { id: input.me.id, label: input.me.label },
 		lanes,
 		total: cards.length,
 		round: buildRound(cards, input.now),

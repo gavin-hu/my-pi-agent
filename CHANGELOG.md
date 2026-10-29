@@ -21,6 +21,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the page's toolbar names the repository it is a board of — `my-pi-agent` as a
+  quiet chip, with the root's whole path on its hover — instead of the seat the page is
+  served as, which was `team-lead` to every reader who opened it. The name arrives in the
+  document, so a slow frame no longer leaves the toolbar blank before the first snapshot.
+  The footer stops repeating it and now carries only the store, the count, the size, and
+  the files it could not read; the seat is still in the Team tab, whose roster marks the
+  page's own row `you`.
+
 - `board`: the terminal round folds the owners a bus has no record of and that hold
   nothing into one line — `18 owners with no record · 76 done` — for `board list
   round: true` and `/team`, so a board that has been worked for a while prints its queue

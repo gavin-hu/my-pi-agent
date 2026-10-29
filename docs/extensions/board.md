@@ -37,7 +37,7 @@ The steps of the work are deliberately *not* on the board. They live in the
 owner's plan and in `todo`; the board answers who is holding what, and what needs a
 decision.
 
-<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the seat the page is served as, a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; five lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, a note count and its age, path hints, a line naming what the card waits for, a line naming the cards it holds up, and a reason line, with no button on any of them" width="100%">
+<img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name and a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; five lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, a note count and its age, path hints, a line naming what the card waits for, a line naming the cards it holds up, and a reason line, with no button on any of them" width="100%">
 
 *`/board`: the five lanes, with the round one tab away and every card opened by its title.*
 
@@ -147,10 +147,11 @@ sessions cannot settle on one name, and nothing here ever renames your session: 
 roster, and the bus record are one word — and `/board status` says it whichever door put
 this session on the team, including a claim made with no page open.
 
-The page still serves as a seat: `/board status` names `team-lead`, the toolbar chip says
-so, and a card a browser claimed **before** the page stopped writing still names
-`board:team-lead` as its owner — `reclaim` is how a lead takes that back from the
-terminal.
+The page still serves as a seat: `/board status` names `team-lead`, the Team tab marks the
+seat's own row `you`, and a card a browser claimed **before** the page stopped writing still
+names `board:team-lead` as its owner — `reclaim` is how a lead takes that back from the
+terminal. The toolbar does not print the seat: a board's subject is its repository, so the
+name there is the project's, and the seat is read off the roster where it belongs.
 
 ## Tool
 
@@ -227,17 +228,19 @@ answering its browser would otherwise be declared dead and taken over.
 
 One page, two tabs, one lifecycle. The kit shell keeps the toolbar and the footer
 pinned and makes the main pane the only scroll box; the page adds no second one. The
-footer is one line about the board itself: the repository's name, the store's path, the
-count of cards, and the size they occupy — plus how many card files this build could not
-read, named with the store's own reason on the hover (`0099.json (not a card record)`), so
-a board that is not readable never reads as a board that is empty. The hover title starts
-with the repository root's whole path, which is what tells two clones of one repository
-apart. The tab carries the repository's name for the same
-reason: a store key is a hash, and no reader can say it out loud.
+toolbar leads with the repository the page is a board of, as a quiet chip named the way the
+directory holding it is, with the root's whole path on its hover — the name fits the line,
+and the path is what tells two clones of one repository apart. That name arrives in the
+document, so a slow frame does not leave the toolbar unnamed. The tab carries the same name
+for the same reason: a store key is a hash, and no reader can say it out loud. The footer
+is the board's own account: the store's path, the count of cards, and the size they occupy
+— plus how many card files this build could not read, named with the store's own reason on
+the hover (`0099.json (not a card record)`), so a board that is not readable never reads as
+a board that is empty.
 
 | Band | What it holds |
 |---|---|
-| Toolbar | the mark, the seat the page is served as, as a chip, a live badge (`connecting…`, `live` or `live · 3m`, `reconnecting…`), then one group: the Board\|Team switch, done-of-total progress (from three cards up, and only above 1180px), a filter, the keys button, and the theme toggle |
+| Toolbar | the mark, the repository's name as a quiet chip with the root's whole path on hover, a live badge (`connecting…`, `live` or `live · 3m`, `reconnecting…`), then one group: the Board\|Team switch, done-of-total progress (from three cards up, and only above 1180px), a filter, the keys button, and the theme toggle |
 | Lanes | trays, not a bare list: one column per lane, sized by the work it holds — a lane with two cards is wider than one with a single card, and one holding no cards, or folded, narrows to a rail of dot, word, and count — except `done`, which draws as if it held three cards however much history it has, because the lanes still being worked are the ones a reader is working in. One row of five above 1180px, two per row at 1180px or narrower, one lane plus the lane switch at 860px or narrower — where it opens on the first lane that holds a card, and the switch is a group of pressed buttons rather than a second set of tabs, because there is no tabpanel behind it. A filter that matches nothing replaces the lanes with one sentence — `No card matches “x”` — and a `Clear filter` button, so five trays of `no match` never read as a board with no work. Each head sticks to the pane's own top edge while the pane scrolls, carries its count as a pill — `2/3` on `Plan` and `1/5` on `Execute`, the limit and the count in one fact — names itself from the same numbers for a screen reader (`Plan, 1 of 3`, `Backlog, 2 cards`, `Backlog, 1 of 2` under a filter), and folds its cards away: `Done` starts folded at six cards or more, since finished work is history, and a reader's toggle decides from then on |
 | Cards | the id and a two-line title (the page's loudest text, and the focusable half of its door: the whole card opens it), an owner chip and an age whose hover says which fact it is (`updated 2d ago`), a quiet outlined chip for a priority that is not `normal`, `2 notes` when it carries any history — the count, with the last note's age beside it only when that age reads differently from the card's own updated stamp, since a note is itself a write and the same moment printed twice is two bare numbers nobody can tell apart, and a card with ten notes and one with none used to draw the same face — path hints in the mono face, and one reason line in one voice, from `lib/board/reason.ts`: what a card waits for, named by title as well as id (`waits on #31 (execute) The page's roster key…`), a blocked card's recorded reason or else its last note (or `blocked, with nothing recorded`), `no contract yet — missing …`, `contract ready — needs approval`, `contract approved by <who>`, `executing — no spot-check yet`, `spot-checked by <who>`, `offered 2h ago — nobody took it`, and `✓ done by <owner>` with the commit it landed as — up to two lines at the Team tab's size, with the whole sentence as its tooltip, because the reason is the reason to act on the card. A card holding others up says so below it — `holds up #79 (backlog) The page's roster key…` — the one fact its own row cannot carry. A title and a path hint elide **inside** the card: a chip is one line by design, so a path or a label longer than the card is clipped rather than crossing into the lane beside it, and its whole value is the hover title. The hints past the third are counted by a `+N` chip whose hover lists them one per line, and which are in the list again as text a screen reader reads. What a card cannot show — the reason, the holds-up line, the hints behind a `+N` chip — is named by the title button's `aria-describedby`, so the keyboard that reaches the card by `j`/`k` reads the same sentences a pointer gets on hover. A card draws **no button**: claiming, moving, editing, and annotating are the tools' work, and a face that offered them would be offering a refusal. A hovered card lifts a pixel; a finished one recedes, title and owner chip muted; the card the reader is on wears an accent edge and the ones they have opened keep a quiet one, so walking a lane and coming back does not look like arriving for the first time |
 | Team | two panels and a strip. **Needs a decision** is one row per card — a card that is both idle and unplanned arrives once, keeping its strongest reason — laid out as two lines: the id, title and owner chip on the first, the reason on the second — a blocked card's recorded `blockedBy`, else its last note, and `offered 2h ago — nobody took it` for a card whose offer went unanswered — with the whole sentence as its tooltip, and its kind as a left edge, in the tone `lib/board/tone.ts` gives that kind (`--danger` blocked, and `gone` — an owner whose process is not running, ranked above a card merely sitting still; `--warn` approval, and idle; `--dim` unplanned or waiting, the same `--dim` dashed for nobody's). The tone is read from one table, so the row's rank and its colour cannot disagree, and a danger row is the only one whose reason sentence is coloured with its edge. The row is a reason to pick the card up in the terminal, and it draws no button: claiming and reclaiming are the tools' work. An unassigned card that waits on unfinished work is a row of its own kind, ranked just under a blocker. Above 1180px the queue stops at one screen's height and scrolls inside its panel, so the roster and the Done strip stay on the same page as its top. **Teammates** is one row per person — a state dot, the label, a `you` chip, a `not listening` chip on a live peer whose inbox watch is off, a mail badge, then `live · 3 held · 1 done · oldest 21m` (a quiet session reads `quiet for 2h`, because a word without an age is no reason to reclaim) — sorted you, live, quiet, no record, and an owner whose label nothing answers to keeps its row. Done is one quiet strip whose ids open their cards. Both panels honour the toolbar's filter, and their headings read `shown/total` the way a lane head does. Below 1180px the queue comes first and the roster follows |
@@ -260,7 +263,7 @@ a rule of its own.
 
 The board as a posting card — the same rules, drawn to be read at half width:
 
-<img src="../../assets/cards/board.png" alt="One board, every session: the page's seat and live badge; five lane trays — Backlog, Plan, Execute, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines — each dot in the colour of the state it reports, success for live and warn for quiet — and the counts unassigned, unplanned, awaiting approval, blocked, idle and done" width="100%">
+<img src="../../assets/cards/board.png" alt="One board, every session: the page's repository name and live badge; five lane trays — Backlog, Plan, Execute, Blocked, Done — each with a dot, a count pill and a fold; one card carrying an id, a title, an owner chip, a priority chip, its age, a path chip and one reason line, with no action on it; and the lead's round with two owner lines — each dot in the colour of the state it reports, success for live and warn for quiet — and the counts unassigned, unplanned, awaiting approval, blocked, idle and done" width="100%">
 
 *`board`: the lanes, one card's atoms, and the lead's round — three readings of one board, drawn by `screenshot:cards board`.*
 
@@ -469,9 +472,9 @@ it always meant: when the card was last touched, which is not when it last chang
   heartbeat every ten seconds is not news, and a frame nobody needs costs the page a
   parse. The snapshot carries the lanes rather than a count beside them — each with its
   key, label, empty word, colour role, limit (where it has one), and count — plus `total`,
-  the rollup, the session reading it, the store's size and path, the files it could not
-  read, and the repository's name and root. There is no `counts` object to disagree with
-  the trays, and no lane table in the browser.
+  the rollup, the store's size and path, the files it could not read, and the repository's
+  name and root. There is no `counts` object to disagree with the trays, and no lane table
+  in the browser.
 - **A query reads what a card says, not just what it is called.** A card's reasoning lives
   in its notes and in the plan it is executing, so leaving both out of the search made the
   two fields that hold the argument the two a reader could not find. The order is the
@@ -638,7 +641,7 @@ it always meant: when the card was last touched, which is not when it last chang
 | `join.ts` | The board's side of the team: when it asks (the page, or the first claimed card), the name it asks for, and how the outcome reads on a `/board` line |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push — one read of the board per frame, and a failed read reported rather than thrown — and the close |
-| `view/page.ts` | The document: an inert shell the client fills, with no form on it |
+| `view/page.ts` | The document: an inert shell the client fills, named after the repository it is a board of so the toolbar is not blank before the first frame, with no form on it |
 | `view/styles.ts` | The page's `board-*` layout rules |
 | `view/render.ts` | The client's snapshot → DOM renderer: the toolbar, the lanes, and the frame that keeps the dialog current |
 | `view/card.ts` | The client's card face: one card's title and facts, the path hints behind `+N`, the note count, what it holds up, and the read/current marks |

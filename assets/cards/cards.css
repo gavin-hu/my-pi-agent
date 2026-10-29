@@ -93,8 +93,7 @@ body {
 	color: var(--accent);
 }
 
-/* The one chip on the brand row: plan mode's `≡ plan` as the footer shows it, or the
- * board page's seat. */
+/* The one chip on the brand row: plan mode's `≡ plan`, as the footer shows it. */
 .brand__state {
 	padding: 3px 10px;
 	border: 1px solid var(--line-strong);

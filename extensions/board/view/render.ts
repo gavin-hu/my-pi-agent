@@ -181,12 +181,16 @@ __RUNTIME__
     return seen;
   }
 
-  /** The toolbar's identity, progress, footer, and the tab's own name. */
+  /** The toolbar's subject, its progress, the footer, and the tab's own name. */
   function renderChrome(view) {
-    var me = document.getElementById("board-me");
-    if (me) {
-      me.textContent = view.me.label;
-      me.title = "This page is served as " + view.me.label + ", and it cannot change a card";
+    // The board's subject, which the header carries: the repository's name, with the root's
+    // whole path on the hover, because a name alone cannot tell two clones of one repository
+    // apart. It arrives in the document too, so the toolbar is complete before the first
+    // frame; this keeps it true if a frame ever names a different store.
+    var repo = document.getElementById("board-repo");
+    if (repo) {
+      repo.textContent = view.repo;
+      repo.title = view.root;
     }
     var progress = document.getElementById("board-progress");
     var done = laneOf(view, "done");
@@ -202,16 +206,16 @@ __RUNTIME__
     }
     var where = document.getElementById("board-where");
     if (where) {
-      // A footer that only counts read cards would say "2 cards" over a board holding
-      // three files, so the unreadable ones are named beside the size.
+      // The footer adds only what the header does not: which store these cards are filed
+      // under, how many, and what they weigh. A footer that only counted read cards would
+      // say "2 cards" over a directory holding three files, so the refused ones are counted
+      // beside the size and named with the store's own reason on the hover — the line has no
+      // room for a file and a reason each, and a count alone is a fact a reader cannot act on.
       where.textContent =
-        view.repo + " · store " + view.where + " · " + plural(view.total, "card") + " · " + size(view.bytes) +
+        "store " + view.where + " · " + plural(view.total, "card") + " · " + size(view.bytes) +
         (view.skipped.length > 0 ? " · " + plural(view.skipped.length, "card") + " could not be read" : "");
-      // The name is what the line has room for; the path is what tells two clones of one
-      // repository apart when the name is the same. A refused file is named on the second
-      // line of the hover: the line cannot hold a file name and a reason per file, and a
-      // count alone is a fact a reader cannot act on.
-      where.title = view.skipped.length > 0 ? view.root + "\n" + skippedText(view.skipped) : view.root;
+      if (view.skipped.length > 0) where.title = skippedText(view.skipped);
+      else where.removeAttribute("title");
     }
     // The tab has to tell two boards apart, and a board's subject is its repository: one
     // board per repository, named the way the directory holding it is. The store key is a

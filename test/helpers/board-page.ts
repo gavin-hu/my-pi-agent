@@ -24,9 +24,9 @@ import { renderBoardPage } from "../../extensions/board/view/page.ts";
 
 /** What the page prints for the repository and the store it reads. */
 export interface PageDisplay {
-	/** The repository's name, as the tab and the footer lead with it. */
+	/** The repository's name, as the tab and the header lead with it. */
 	repo?: string;
-	/** The repository root, absolute, as the footer's hover title carries it. */
+	/** The repository root, absolute, as the header name's hover title carries it. */
 	root?: string;
 	/** The store's directory, shortened. */
 	where?: string;
@@ -68,6 +68,10 @@ export interface ServedBoardPage {
 /** Serve the shipped page over `store`, with a snapshot re-read for every frame. */
 export async function serveBoardPage(options: ServedBoardPageOptions): Promise<ServedBoardPage> {
 	const { store, now, display = {}, roster } = options;
+	// What the page prints for its repository, resolved once so the document and every frame
+	// name the same board: the toolbar is named before the first frame rather than after it.
+	const repo = display.repo ?? store.name();
+	const root = display.root ?? store.root();
 	const view = async (): Promise<BoardView> => {
 		const at = now();
 		const { cards, skipped } = await store.scan();
@@ -79,8 +83,8 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 			...(roster === undefined ? {} : { roster: roster(at) }),
 			bytes: await store.bytes(),
 			skipped,
-			repo: display.repo ?? store.name(),
-			root: display.root ?? store.root(),
+			repo,
+			root,
 			where: display.where ?? store.where(),
 		});
 	};
@@ -88,7 +92,7 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 	const started = await createBoardServer({
 		mount: testMountSource(),
 		session: "fixture",
-		page: async (tab) => renderBoardPage({ view: tab, base: BOARD_BASE }),
+		page: async (tab) => renderBoardPage({ view: tab, base: BOARD_BASE, repo, root }),
 		script: BOARD_CLIENT_JS,
 		view,
 	});
