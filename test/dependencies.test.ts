@@ -197,8 +197,19 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or exit_plan_mode",
 	"extensions/board/page.ts": "the board page loads on the first /board",
 	"extensions/file-browse/transport/server.ts": "the browse server loads when /browse opens a page",
+	"extensions/file-browse/config/config.ts": "the browse config loads when /browse opens a page",
+	"extensions/file-browse/files/paths.ts": "the browse path guard loads when /browse resolves or serves a path",
+	"extensions/file-browse/git/git.ts": "the browse status and diff load when /browse opens a page",
 	"extensions/worktree/screen.ts": "the worktree screen loads in the TUI branch of /worktree",
+	"extensions/worktree/plan-state.ts": "the worktree verbs read plan mode when the command runs",
+	"extensions/worktree/plan-entry.ts": "the plan-mode refusal text loads when a worktree verb or screen runs",
+	"extensions/worktree/rails.ts": "rail suppression for the worktree screen loads when the TUI screen opens",
 	"extensions/bytefly/panel/tui.ts": "the panel screen loads in the TUI branch of /bytefly",
+	"extensions/bytefly/panel/settings-runtime.ts":
+		"the settings runtime loads when /bytefly opens settings or the panel",
+	"extensions/bytefly/picker/discovery.ts": "resource discovery loads when /bytefly lists or opens the panel",
+	"extensions/bytefly/picker/runtime.ts": "the picker runtime loads when /bytefly opens its panel or a listing",
+	"extensions/bytefly/skills.ts": "the skill lookup loads when /bytefly lists skills or opens the panel",
 };
 
 /**
