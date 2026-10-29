@@ -61,7 +61,7 @@ async function openSessionsScreen(pi: ExtensionAPI, ctx: ExtensionCommandContext
 			// construction, so a holder keeps the wiring one-directional.
 			const holder: { screen?: SessionListComponent } = {};
 			const component = new SessionListComponent({
-				latest: () => first,
+				board: first,
 				theme: screen.theme,
 				callbacks: {
 					toggleWatch: async (armed) => {

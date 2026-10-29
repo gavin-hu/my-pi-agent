@@ -220,6 +220,23 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `session-bus`: a message to a session whose process has exited is refused instead of
+  reported delivered. `status` and the prune already called that record `gone` and freed the
+  paths it held, while `send` resolved it from the roster on disk and answered `Delivered to
+  ghost` — so `team assign` could report a handoff delivered to a crashed peer. Naming it now
+  answers `no active session "ghost"`, a broadcast skips it, and the doc says mail is never
+  queued for a process that is gone.
+- `session-bus`: a claim on the repository root says what is wrong with it. `.` at the top of
+  a checkout was refused as `outside the repository` — the path is inside it, and is the whole
+  of it — because the spelling check refused the root before the rule that owns the sentence
+  could. The root is now handed on, and the refusal reads `path "." is the repository, not a
+  path in it.`, the same wording a claim's approval uses.
+- `session-bus`: a claim batch that loses a create race keeps the claims its session already
+  held, and an armed watch no longer announces mail twice after a backlog. The rollback gave
+  back every path the batch had listed, including one the session held before the call — a
+  live path handed to nobody — and the watch remembered only the ids one read returned, so
+  mail a peer's lagging clock sorted ahead of them could be announced again once the front
+  was consumed. The batch gives back what it published, and the watch remembers a count.
 - `board`: `execute` asks the same gates at both doors. A card parked in `blocked` used to
   enter `execute` with no contract at all — the transition asked nothing — so `plan` →
   `blocked` → `execute` walked around the approval the flow is built on. Both doors now ask

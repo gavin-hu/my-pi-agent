@@ -148,6 +148,39 @@ describe("messages", () => {
 		await first.stop();
 		await second.stop();
 	});
+
+	test("a peer whose process is gone is not a recipient", async () => {
+		const dir = busDir();
+		const now = () => 1_000;
+		const store = createBusStore({ dir });
+		await store.ensure();
+		// What a crash leaves behind: a fresh heartbeat and a process that has exited.
+		await store.writeSession({
+			id: "dead",
+			label: "ghost",
+			pid: 4242,
+			cwd: "/repo",
+			repoRoot: "/repo",
+			mode: "tui",
+			startedAt: 0,
+			lastSeen: 1_000,
+		});
+		const dead = (pid: number) => pid !== 4242;
+		const first = runtime(dir, { repo: { root: "/repo", key: "shared" }, now, alive: dead });
+		const second = runtime(dir, { repo: { root: "/repo", key: "shared" }, now, alive: dead });
+		await acting(first, context("/repo", "s1", "frontend"));
+		await acting(second, context("/repo", "s2", "backend"));
+
+		// Named, it is refused in the sentence a name nobody answers gets — not confirmed.
+		await expect(first.send({ to: "ghost", text: "hi" })).rejects.toThrow('no active session "ghost"');
+		// A broadcast skips it, and the live peer still gets the event.
+		expect(await first.send({ to: "*", text: "build failed", kind: "event" })).toMatchObject({
+			delivered: ["backend"],
+		});
+		expect(await store.peek("dead", 10)).toEqual([]);
+		await first.stop();
+		await second.stop();
+	});
 });
 
 describe("claims and labels", () => {
@@ -165,6 +198,21 @@ describe("claims and labels", () => {
 		expect((await second.release(["src/api"])).notOwned).toEqual(["src/api"]);
 		await first.stop();
 		await second.stop();
+	});
+
+	test("refuses a claim on the repository root in the sentence that owns it", async () => {
+		const dir = busDir();
+		const atRoot = bus(dir, "/repo", () => 1_000);
+		await acting(atRoot, context("/repo", "s1", "root"));
+		// Not "outside the repository": the path is inside it, and is the whole of it.
+		await expect(atRoot.claim(["."])).rejects.toThrow('path "." is the repository, not a path in it.');
+		// The same argument below the root is an ordinary claim on that directory: the
+		// session's cwd is what the path resolves against, not the repository it is filed under.
+		const below = runtime(dir, { repo: { root: "/repo", key: "shared" }, now: () => 1_000 });
+		await acting(below, context("/repo/src", "s2", "below"));
+		expect((await below.claim(["."])).claimed).toEqual(["src"]);
+		await atRoot.stop();
+		await below.stop();
 	});
 
 	test("joins under a unique label", async () => {
@@ -342,6 +390,41 @@ describe("the inbox watch", () => {
 		await backend.poll();
 		expect(backend.pending()).toEqual([]);
 		expect(await backend.inbox()).toHaveLength(1);
+		await frontend.stop();
+		await backend.stop();
+	});
+
+	test("a peer whose clock is behind cannot make the watch announce mail twice", async () => {
+		const dir = busDir();
+		const { frontend, backend } = await pair(dir);
+		const store = createBusStore({ dir });
+		// One millisecond, fifty messages: the watch remembers what it reported from the only
+		// read it gets, and the ids are ordered so a later arrival can sort before them.
+		const ids = (from: number, count: number) =>
+			Array.from({ length: count }, (_, index) => `1000-${(from + index).toString(16).padStart(2, "0")}`);
+		const write = async (id: string) =>
+			store.writeMessage("s2", {
+				id,
+				from: "s1",
+				fromLabel: "frontend",
+				to: "s2",
+				toLabel: "backend",
+				kind: "message",
+				text: "hi",
+				at: 1_000,
+			});
+		for (const id of ids(0xb0, 50)) await write(id);
+		await backend.join({ listen: true });
+		expect(backend.pending()).toHaveLength(50);
+		backend.markReported(backend.pending().map((queued) => queued.id));
+
+		// A peer whose clock is behind sends five that sort ahead of the reported fifty, which
+		// pushes the tail of them past one read: the watch must still remember it reported them.
+		for (const id of ids(0x00, 5)) await write(id);
+		await backend.poll();
+		await backend.inbox(5);
+		await backend.poll();
+		expect(backend.pending()).toEqual([]);
 		await frontend.stop();
 		await backend.stop();
 	});

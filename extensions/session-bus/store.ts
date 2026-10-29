@@ -8,7 +8,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
-import { mkdir, link, readdir, rename, rm, rmdir, writeFile } from "node:fs/promises";
+import { mkdir, link, readdir, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { asRecord, readJson } from "../../lib/config.ts";
 import { claimsConflict } from "./overlap.ts";
@@ -42,6 +42,8 @@ export interface BusStore {
 		owner: string,
 		ownerLabel: string,
 		at: number,
+		/** Test seam: runs after each path is published, so a suite can interleave a rival. */
+		afterClaim?: (path: string) => Promise<void>,
 	): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }>;
 	release(path: string, owner: string): Promise<boolean>;
 	releaseAll(owner: string): Promise<string[]>;
@@ -168,6 +170,32 @@ async function dropIfEmpty(dir: string): Promise<void> {
 	await rmdir(dir).catch(() => {});
 }
 
+/**
+ * How long a writer's temp file may sit before it is debris.
+ *
+ * A record and a claim are published by renaming or linking a temp file, so the file
+ * exists for milliseconds; one left behind is a process that stopped between the
+ * write and the publish. The window is measured on the filesystem's own clock, not
+ * the bus's, because that is the clock the timestamps came from.
+ */
+const TEMP_TTL_MS = 60_000;
+
+/**
+ * Remove the temp files a crashed writer left in one directory.
+ *
+ * Readers only ever look at `*.json`, so this debris is invisible and would live
+ * forever without a pass of its own.
+ */
+async function dropStaleTemps(dir: string): Promise<void> {
+	const cut = Date.now() - TEMP_TTL_MS;
+	for (const name of await readdir(dir).catch(() => [] as string[])) {
+		if (name.endsWith(".json")) continue;
+		const path = join(dir, name);
+		const info = await stat(path).catch(() => undefined);
+		if (info !== undefined && info.mtimeMs < cut) await rm(path, { force: true });
+	}
+}
+
 /** Create a store rooted at one repository's bus directory. */
 export function createBusStore(options: BusStoreOptions): BusStore {
 	const { dir } = options;
@@ -215,7 +243,7 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		owner: string,
 		ownerLabel: string,
 		at: number,
-	): Promise<{ claim: ClaimRecord; conflict?: ClaimRecord }> {
+	): Promise<{ claim: ClaimRecord; conflict?: ClaimRecord; created: boolean }> {
 		await mkdir(claimsDir, { recursive: true, mode: DIR_MODE });
 		const file = claimFile(path);
 		const claim: ClaimRecord = { path, owner, ownerLabel, at };
@@ -227,19 +255,21 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		try {
 			try {
 				await link(temp, file);
-				return { claim };
+				return { claim, created: true };
 			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
 			}
 			const existing = readTyped(file, isClaim);
 			if (existing) {
-				return existing.owner === owner ? { claim: existing } : { claim, conflict: existing };
+				return existing.owner === owner
+					? { claim: existing, created: false }
+					: { claim, conflict: existing, created: false };
 			}
 			// A claim file that does not parse is debris from before claims were
 			// published whole; clear it once so a stale path cannot block forever.
 			await rm(file, { force: true });
 			await link(temp, file);
-			return { claim };
+			return { claim, created: true };
 		} finally {
 			await rm(temp, { force: true });
 		}
@@ -258,13 +288,19 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 	 *
 	 * The pre-check reads the claims once and reports every blocking owner, so a
 	 * batch that cannot be satisfied touches no file. A create that loses a race
-	 * after the pre-check releases the paths this batch already took.
+	 * after the pre-check gives back only what this batch published: a path the
+	 * owner already held carries an older `at` and is not this batch's to release.
+	 *
+	 * `afterClaim` is a test seam: it runs after a path is published, which is the
+	 * only way a suite can put a rival claim in the window between the pre-check and
+	 * the next create.
 	 */
 	async function claimAll(
 		paths: readonly string[],
 		owner: string,
 		ownerLabel: string,
 		at: number,
+		afterClaim?: (path: string) => Promise<void>,
 	): Promise<{ claimed: string[]; conflicts: ClaimConflict[] }> {
 		const existing = await readClaims();
 		const conflicts: ClaimConflict[] = [];
@@ -277,14 +313,17 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 		}
 		if (conflicts.length > 0) return { claimed: [], conflicts };
 		const claimed: string[] = [];
+		const created: string[] = [];
 		for (const path of paths) {
 			const result = await claimOne(path, owner, ownerLabel, at);
 			if (result.conflict) {
-				for (const done of claimed) await releaseOne(done, owner);
+				for (const done of created) await releaseOne(done, owner);
 				const { owner: holder, ownerLabel: holderLabel } = result.conflict;
 				return { claimed: [], conflicts: [{ path, owner: holder, ownerLabel: holderLabel }] };
 			}
 			claimed.push(path);
+			if (result.created) created.push(path);
+			if (afterClaim) await afterClaim(path);
 		}
 		return { claimed, conflicts: [] };
 	}
@@ -364,12 +403,15 @@ export function createBusStore(options: BusStoreOptions): BusStore {
 			for (const claim of await readClaims()) {
 				if (!live.has(claim.owner)) await rm(claimFile(claim.path), { force: true });
 			}
+			await dropStaleTemps(sessionsDir);
+			await dropStaleTemps(claimsDir);
 			for (const name of await readdir(inboxRoot).catch(() => [] as string[])) {
 				const directory = join(inboxRoot, name);
 				for (const file of await listFiles(directory)) {
 					const message = readTyped(join(directory, file), isMessage);
 					if (!message || at - message.at > messageTtlMs) await rm(join(directory, file), { force: true });
 				}
+				await dropStaleTemps(directory);
 				await dropIfEmpty(directory);
 			}
 		},

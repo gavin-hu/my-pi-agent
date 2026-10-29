@@ -482,7 +482,14 @@ export function createSessionBus(pi: ExtensionAPI, options: SessionBusOptions = 
 			if ("error" in text) throw new Error(text.error);
 			const kind = normalizeKind(input.kind);
 			if (input.to.trim() === "*" && kind !== "event") throw new Error('a broadcast needs kind: "event".');
-			const sessions = await store.sessions();
+			// Mail reaches a session that can still answer, by the rule `status` and the prune
+			// already use: a record whose process is gone is not a recipient, so naming it is
+			// refused instead of confirmed, and a broadcast skips it. This session is always its
+			// own recipient, which is what a note to itself is.
+			const at = now();
+			const sessions = (await store.sessions()).filter(
+				(session) => session.id === me.id || stateOf(session, at) !== "gone",
+			);
 			const resolved = resolveRecipients(sessions, input.to, me.id);
 			if ("error" in resolved) throw new Error(resolved.error);
 			let paths: string[] | undefined;

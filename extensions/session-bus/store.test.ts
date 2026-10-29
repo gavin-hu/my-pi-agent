@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
-import { readdir, writeFile } from "node:fs/promises";
+import { readdir, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createBusStore } from "./store.ts";
@@ -166,6 +166,25 @@ describe("claims", () => {
 		expect(new Set(held.map((claim) => claim.owner)).size).toBe(1);
 	});
 
+	test("a batch that loses a race gives back only what it created", async () => {
+		const { dir, store } = fixture();
+		// One path held before the call, one this batch would create, and one a rival takes
+		// in the window between the pre-check and that batch's own create.
+		expect((await store.claimAll(["src/api"], "s1", "one", 100)).claimed).toEqual(["src/api"]);
+		const rival = createBusStore({ dir });
+		const lost = await store.claimAll(["src/api", "src/ui", "src/web"], "s1", "one", 101, async (path) => {
+			if (path === "src/ui") await rival.claimAll(["src/web"], "s2", "two", 101);
+		});
+		expect(lost.claimed).toEqual([]);
+		expect(lost.conflicts).toEqual([{ path: "src/web", owner: "s2", ownerLabel: "two" }]);
+		// The rollback took back the path this batch published, and left alone the one the
+		// same session already held — releasing that would hand a live path to nobody.
+		expect((await store.claims()).map((claim) => [claim.path, claim.owner])).toEqual([
+			["src/api", "s1"],
+			["src/web", "s2"],
+		]);
+	});
+
 	test("releases all claims owned by a session", async () => {
 		const { store } = fixture();
 		await store.claimAll(["src/a.ts"], "s1", "one", 100);
@@ -249,5 +268,20 @@ describe("prune", () => {
 		await store.prune({ now: 1_000, activeIds: new Set(["s2", "s3"]), sessionTtlMs: 500, messageTtlMs: 500 });
 		expect(await readdir(join(dir, "inbox"))).toHaveLength(1);
 		expect(await store.peek("s3", 10)).toHaveLength(1);
+	});
+
+	test("collects the temp file a crashed writer left, and leaves a live one alone", async () => {
+		const { dir, store } = fixture();
+		await store.ensure();
+		const sessions = join(dir, "sessions");
+		const stale = join(sessions, "abcd.json.123.9999.tmp");
+		const live = join(sessions, "abcd.json.456.8888.tmp");
+		await writeFile(stale, "{}");
+		await writeFile(live, "{}");
+		// The temp file of a write still in flight is milliseconds old; a crashed writer's
+		// sits until the next prune, where the filesystem's own timestamp decides.
+		await utimes(stale, 1_000_000, 1_000_000);
+		await store.prune({ now: 1_000, activeIds: new Set(), sessionTtlMs: 500, messageTtlMs: 500 });
+		expect(await readdir(sessions)).toEqual(["abcd.json.456.8888.tmp"]);
 	});
 });

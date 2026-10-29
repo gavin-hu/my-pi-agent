@@ -112,8 +112,8 @@ export interface SessionListCallbacks {
 }
 
 interface SessionListOptions {
-	/** The latest board, or undefined before the first read. */
-	latest(): BoardSnapshot | undefined;
+	/** The board the screen opens on; the command's poll replaces it, and it is never read back. */
+	board: BoardSnapshot | undefined;
 	theme: Theme;
 	callbacks: SessionListCallbacks;
 	onClose(): void;
@@ -150,7 +150,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 		});
 		this.callbacks = options.callbacks;
 		this.now = options.now ?? Date.now;
-		this.board = options.latest();
+		this.board = options.board;
 	}
 
 	/** Replace the board; a poll that changed nothing does not repaint. */

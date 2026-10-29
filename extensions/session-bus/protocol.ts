@@ -65,16 +65,28 @@ export function normalizeLimit(raw: unknown): number {
 	return Math.min(MAX_LIMIT, Math.max(1, Math.floor(raw)));
 }
 
-/** Repository-relative, posix-normalized paths, or an error. */
+/**
+ * Repository-relative, posix-normalized paths, or an error.
+ *
+ * A path that resolves to the repository root is handed on in the caller's own spelling
+ * rather than refused here: what it resolves to is the whole repository, and that
+ * refusal, with the sentence it is worded in, belongs to `resolve.ts` — one rule, one
+ * wording, and one module that owns both.
+ */
 export function normalizePaths(repoRoot: string, cwd: string, raw: unknown): { paths: string[] } | { error: string } {
 	if (!Array.isArray(raw) || raw.length === 0) return { error: "paths must contain at least one path." };
 	if (raw.length > MAX_PATHS) return { error: `at most ${MAX_PATHS} paths are allowed.` };
 	const paths: string[] = [];
 	for (const entry of raw) {
 		if (typeof entry !== "string" || entry.trim() === "") return { error: "every path must be a non-empty string." };
-		const absolute = resolve(cwd, entry.trim());
+		const given = entry.trim();
+		const absolute = resolve(cwd, given);
 		const rel = relative(repoRoot, absolute);
-		if (rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+		if (rel === "") {
+			if (!paths.includes(given)) paths.push(given);
+			continue;
+		}
+		if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
 			return { error: `path "${entry}" is outside the repository.` };
 		}
 		const normalized = rel.split(sep).join("/");
