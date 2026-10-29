@@ -15,6 +15,7 @@ import { stat } from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled, resolveEffectiveCwd } from "../../lib/env.ts";
 import type { openInBrowser } from "../../lib/browser.ts";
+import type { ServeConfig } from "./config/config.ts";
 import type { FileServer } from "./transport/server.ts";
 
 export interface FileBrowserDeps {
@@ -54,21 +55,10 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		if (await stop()) current.ctx.ui.notify("browse: stopped — the last page was closed", "info");
 	};
 
-	const start = async (args: string, ctx: ExtensionContext): Promise<void> => {
-		const target = args.trim();
-		if (target === "status") {
-			ctx.ui.notify(
-				running ? `browse: ${running.server.root} at ${running.server.url}` : "browse: not running",
-				"info",
-			);
-			return;
-		}
-		if (target === "stop") {
-			ctx.ui.notify((await stop()) ? "browse: stopped" : "browse: not running", "info");
-			return;
-		}
+	type ResolvedRoot = { root: string; config: ServeConfig };
 
-		const cwd = resolveEffectiveCwd(ctx.cwd);
+	/** The folder `/browse [path]` names, or undefined after telling the user why. */
+	const resolveRoot = async (target: string, cwd: string, ctx: ExtensionContext): Promise<ResolvedRoot | undefined> => {
 		const { loadConfig } = await import("./config/config.ts");
 		const config = loadConfig(cwd);
 		let root = cwd;
@@ -79,36 +69,27 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			} catch (error) {
 				const message = error instanceof HttpError ? error.message : String(error);
 				ctx.ui.notify(`browse: ${message}`, "error");
-				return;
+				return undefined;
 			}
 			const info = await stat(root).catch(() => undefined);
 			if (!info?.isDirectory()) {
 				ctx.ui.notify(`browse: ${target} is not a folder inside the working directory`, "error");
-				return;
+				return undefined;
 			}
 		}
+		return { root, config };
+	};
 
-		let realRoot = root;
-		try {
-			realRoot = realpathSync.native(root);
-		} catch {
-			// Keep the unresolved root; the server factory reports a real failure.
-		}
-		if (running && running.server.root === realRoot) {
-			ctx.ui.notify(`browse: ${running.server.url} (already running)`, "info");
-			return;
-		}
-
-		await stop();
-		// The server and its helpers are the page's, not the command's: registration and
-		// `/browse status` must not load the HTTP surface, git, or the web kit.
+	/** Open the page's server; the server, git, HTTP, and browser modules live here. */
+	const openServer = async (root: string, config: ServeConfig, ctx: ExtensionContext): Promise<void> => {
 		const create = deps.createServer ?? (await import("./transport/server.ts")).createFileServer;
 		const { createGitDiff, createGitStatus } = await import("./git/git.ts");
+		const { requestMount } = await import("../../lib/http/index.ts");
 		try {
 			const outcome = await create({
 				root,
 				config,
-				mount: async (spec) => (await import("../../lib/http/index.ts")).requestMount(pi, spec),
+				mount: (spec) => requestMount(pi, spec),
 				session: sessionId,
 				git: createGitStatus(pi, root),
 				diff: createGitDiff(pi, root, {
@@ -133,6 +114,40 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		} catch (error) {
 			ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 		}
+	};
+
+	const start = async (args: string, ctx: ExtensionContext): Promise<void> => {
+		const target = args.trim();
+		if (target === "status") {
+			ctx.ui.notify(
+				running ? `browse: ${running.server.root} at ${running.server.url}` : "browse: not running",
+				"info",
+			);
+			return;
+		}
+		if (target === "stop") {
+			ctx.ui.notify((await stop()) ? "browse: stopped" : "browse: not running", "info");
+			return;
+		}
+
+		const cwd = resolveEffectiveCwd(ctx.cwd);
+		const resolved = await resolveRoot(target, cwd, ctx);
+		if (resolved === undefined) return;
+		const { root, config } = resolved;
+
+		let realRoot = root;
+		try {
+			realRoot = realpathSync.native(root);
+		} catch {
+			// Keep the unresolved root; the server factory reports a real failure.
+		}
+		if (running && running.server.root === realRoot) {
+			ctx.ui.notify(`browse: ${running.server.url} (already running)`, "info");
+			return;
+		}
+
+		await stop();
+		await openServer(root, config, ctx);
 	};
 
 	pi.registerCommand("browse", {
