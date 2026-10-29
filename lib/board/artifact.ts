@@ -84,10 +84,22 @@ function at(path: string): string {
  * How a card records the plan again, which depends on the lane it is in.
  *
  * `contract` is written in `plan` and nowhere else, so a refusal that names it from
- * `execute` would send a reader into another refusal.
+ * `execute` would send a reader into another refusal — and from the pool the missing step is
+ * the claim. A finished card cannot be re-planned at all; that branch is unreachable through
+ * a gate, and says the fact rather than a route so the table is complete for its type.
  */
 export function contractRoute(card: Pick<Card, "lane">): string {
-	return card.lane === "plan" ? "record it with `contract`." : "move it back to plan, then record it with `contract`.";
+	switch (card.lane) {
+		case "plan":
+			return "record it with `contract`.";
+		case "backlog":
+			return "claim it, then record it with `contract`.";
+		case "blocked":
+		case "execute":
+			return "move it back to plan, then record it with `contract`.";
+		case "done":
+			return "a finished card's plan cannot change.";
+	}
 }
 
 /** What `contract` may record: a plan of this repository, already written. */

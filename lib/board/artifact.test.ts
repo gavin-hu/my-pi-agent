@@ -63,6 +63,13 @@ describe("planForContract", () => {
 		});
 	});
 
+	test("expands the `~/…` form, and refuses it when it is not in the store", () => {
+		// The form `write_plan` displays; a home path is outside a store under a temp dir.
+		const checked = planForContract(STORE, "~/nowhere/one.md");
+		expect("error" in checked && checked.error).toContain("is not in this repository's plan store");
+		expect("error" in checked && checked.error).toContain(shortenPath(STORE));
+	});
+
 	test("refuses a plan that was never written", () => {
 		const future = join(STORE, "future.md");
 		expect(planForContract(STORE, future)).toEqual({
@@ -131,10 +138,13 @@ describe("planForExecute", () => {
 });
 
 describe("contractRoute", () => {
-	test("says where contract is written, from the lane the card is in", () => {
+	test("names a route that is legal in the lane the card is in", () => {
 		expect(contractRoute({ lane: "plan" })).toBe("record it with `contract`.");
-		for (const lane of ["execute", "blocked", "backlog", "done"] as const) {
-			expect(contractRoute({ lane })).toBe("move it back to plan, then record it with `contract`.");
-		}
+		// `contract` is written in plan, so a card elsewhere has to get back there first.
+		expect(contractRoute({ lane: "execute" })).toBe("move it back to plan, then record it with `contract`.");
+		expect(contractRoute({ lane: "blocked" })).toBe("move it back to plan, then record it with `contract`.");
+		// From the pool the missing step is the claim, not the move.
+		expect(contractRoute({ lane: "backlog" })).toBe("claim it, then record it with `contract`.");
+		expect(contractRoute({ lane: "done" })).toBe("a finished card's plan cannot change.");
 	});
 });

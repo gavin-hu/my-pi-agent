@@ -269,8 +269,9 @@ function appendNote(card: Card, actor: Actor, now: number, text: string): Pick<C
 /**
  * Write the contract, and the plan file it is executed against.
  *
- * The plan lane's one act: a card is planned by saying what it promises, and the wording is
- * what the approval names, so any change to it drops the signature. The plan is required —
+ * The plan lane's one act: a card is planned by saying what it promises, and the wording and
+ * the file it names are what the approval covers, so a change to either drops the signature.
+ * The plan is required —
  * a contract is a promise plus the agreement it will be read against, and a card whose
  * contract names no artifact has nothing to execute. A contract call that names nothing at
  * all is refused rather than quietly changing nothing.
@@ -290,7 +291,8 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 	const fields: Partial<Card> = {};
 	const parsedPlan = normalizePlanPath(op.artifact.path);
 	if ("error" in parsedPlan) return { error: parsedPlan.error };
-	if (parsedPlan.path !== card.planPath) fields.planPath = parsedPlan.path;
+	const rePointed = parsedPlan.path !== card.planPath;
+	if (rePointed) fields.planPath = parsedPlan.path;
 	const changed: Partial<Record<(typeof CONTRACT_FIELDS)[number], string>> = {};
 	for (const field of CONTRACT_FIELDS) {
 		const raw = op[field];
@@ -300,6 +302,10 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 		if (parsed.text !== card.contract?.[field]) changed[field] = parsed.text;
 	}
 	if (Object.keys(changed).length > 0) fields.contract = mergedContract(card.contract, changed);
+	// The sign names a promise *and* the file it will be read against, so pointing the card at
+	// a different plan is a change to what was approved even when the three lines are the same:
+	// keeping it would let a session swap the artifact after a peer read the old one.
+	else if (rePointed && card.contract?.approved !== undefined) fields.contract = mergedContract(card.contract, {});
 	if (Object.keys(fields).length === 0) return { changed: false, fields: null };
 	return { changed: true, fields };
 }

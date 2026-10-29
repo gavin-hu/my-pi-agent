@@ -40,7 +40,10 @@ export interface RoundSummary<T extends Card = Card> {
 	owners: RoundGroup<T>[];
 	/** `backlog` cards: nobody has taken them yet. */
 	unassigned: T[];
-	/** `plan` cards whose contract is still missing a line: work started before it was agreed. */
+	/**
+	 * `plan` cards whose contract is still missing a line, or whose plan was never recorded:
+	 * work started before it was agreed, and either one refuses `execute`.
+	 */
 	unplanned: T[];
 	/** `plan` cards whose contract is complete and nobody has approved: the lead's queue. */
 	unapproved: T[];
@@ -80,7 +83,9 @@ export function buildRound<T extends Card = Card>(cards: readonly T[], now: numb
 		if (card.lane === "done") done.push(card);
 		if (card.lane === "blocked") blocked.push(card);
 		if (card.lane === "plan") {
-			if (missingContractFields(card.contract).length > 0) unplanned.push(card);
+			// A complete contract still needs a file to execute against: a card planned before
+			// the artifact rule has neither, and it belongs in the queue that leads somewhere.
+			if (missingContractFields(card.contract).length > 0 || card.planPath === undefined) unplanned.push(card);
 			else if (!contractApproved(card.contract)) unapproved.push(card);
 		}
 		if (card.lane === "execute" && now - card.updatedAt >= IDLE_MS) idle.push(card);

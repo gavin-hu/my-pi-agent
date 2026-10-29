@@ -407,6 +407,16 @@ describe("/board approve and /board review", () => {
 		board.temps.flush();
 	});
 
+	test("refuses a sign in the lane the gate does not live in", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		const pool = await store.create({ title: "Two", paths: [] }, board.me, 1_000);
+		expect(await board.say(`approve ${pool.id}`)).toBe(
+			`board: #${pool.id} is in backlog; a contract is approved in plan.`,
+		);
+		board.temps.flush();
+	});
+
 	test("says which word needs a card id", async () => {
 		const board = await signingBoard();
 		expect(await board.say("approve")).toBe("board: approve needs a card id — try /board approve 4");
