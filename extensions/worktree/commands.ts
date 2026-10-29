@@ -15,6 +15,16 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { messageOf } from "../../lib/errors.ts";
+import {
+	enteredWorktree,
+	enterWorktree,
+	exitWorktree,
+	formatWorktreeStatus,
+	isWorktreeCancelled,
+	pruneWorktrees,
+	worktreeSnapshot,
+} from "./lifecycle.ts";
 import type { WorktreeAction } from "./screen.ts";
 
 interface Completion {
@@ -48,8 +58,6 @@ async function refuseInPlanMode(ctx: ExtensionContext): Promise<boolean> {
  * info, and everything else is a failure that names the verb that failed.
  */
 async function reportLifecycle(ctx: ExtensionContext, verb: string, run: () => Promise<string>): Promise<void> {
-	const { messageOf } = await import("../../lib/errors.ts");
-	const { isWorktreeCancelled } = await import("./lifecycle.ts");
 	try {
 		ctx.ui.notify(await run(), "info");
 	} catch (error) {
@@ -66,7 +74,6 @@ async function runEnter(pi: ExtensionAPI, ctx: ExtensionContext, name: string | 
 	// The path on its own line: a command's answer is read without a tool result beside it,
 	// and "which directory am I in now" is the question entering answers.
 	await reportLifecycle(ctx, "Enter", async () => {
-		const { enteredWorktree, enterWorktree } = await import("./lifecycle.ts");
 		const { state } = await enterWorktree(pi, ctx, { name });
 		return `${enteredWorktree(state)}\n${state.path}`;
 	});
@@ -74,19 +81,16 @@ async function runEnter(pi: ExtensionAPI, ctx: ExtensionContext, name: string | 
 
 async function runExit(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	if (await refuseInPlanMode(ctx)) return;
-	const { exitWorktree } = await import("./lifecycle.ts");
 	await reportLifecycle(ctx, "Exit", async () => (await exitWorktree(pi, ctx, {})).output);
 }
 
 async function runPrune(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	if (await refuseInPlanMode(ctx)) return;
-	const { pruneWorktrees } = await import("./lifecycle.ts");
 	ctx.ui.notify(await pruneWorktrees(pi, ctx), "info");
 }
 
 /** The bare command: the list screen in a terminal, the status text elsewhere. */
 async function showWorktrees(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
-	const { formatWorktreeStatus, pruneWorktrees, worktreeSnapshot } = await import("./lifecycle.ts");
 	const snapshot = await worktreeSnapshot(pi, ctx);
 	if (ctx.mode !== "tui") {
 		ctx.ui.notify(formatWorktreeStatus(snapshot), "info");
