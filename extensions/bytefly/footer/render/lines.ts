@@ -1,13 +1,14 @@
 /**
  * Turn a `StatusSnapshot` into the two footer lines.
  *
- * Line 1 — state: left `pwd` and the session name, right the alert, the mode
- * chips, then `⎇ branch · ⑂ worktree · ◉ 4780`. Line 2 — meters: left
- * the context gauge and usage, right the model and thinking level.
+ * Line 1 — state: left `pwd` and the session name, right the alert, the remaining
+ * status chips, then `⎇ branch · ⑂ worktree · ◉ 4780`. Line 2 — meters: left the
+ * mode, the context gauge, and the usage; right the model and thinking level.
  *
  * The split is one job per row. The state chips change while a session runs, so
  * they ride the line with slack; the meters are the dense row, and a fact that
- * moves onto the top row is one the bottom row stops dropping to fit.
+ * moves onto the top row is one the bottom row stops dropping to fit. The mode
+ * leads the meters because it qualifies every number after it.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -19,6 +20,7 @@ import {
 	costSegment,
 	delegationSegment,
 	modelSegment,
+	modeSegment,
 	modesSegment,
 	portsSegment,
 	pwdSegment,
@@ -54,6 +56,7 @@ export function buildLines(snapshot: StatusSnapshot, theme: Theme, home: string 
 	};
 
 	const line2Left = defined([
+		modeSegment(snapshot, theme),
 		contextSegment(snapshot, theme),
 		windowSegment(snapshot, theme),
 		costSegment(snapshot, theme),

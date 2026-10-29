@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { NOTICE_TYPE } from "../../lib/notice.ts";
+import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { withEnv } from "../../test/helpers/env.ts";
-import { emit, fakeTheme } from "../../test/helpers/fakes.ts";
+import { createFakePi, emit, fakeTheme } from "../../test/helpers/fakes.ts";
 import { bootBytefly, fakeFooterCtx, makeFakePi, OFFLINE_UPDATE } from "../../test/helpers/fixtures/bytefly.ts";
 import { makeDiscovery, makeItem } from "../../test/helpers/fixtures/picker.ts";
 
@@ -148,6 +149,29 @@ describe("bytefly interactive surfaces", () => {
 
 		expect(footers).toHaveLength(0);
 		expect(headers).toHaveLength(0);
+	});
+
+	test("installs the Shift+Tab mode editor only when plan is loaded", async () => {
+		const { ctx, footers } = fakeFooterCtx({ mode: "tui" });
+		let installed: unknown;
+		ctx.ui.setEditorComponent = (factory?: unknown) => {
+			installed = factory;
+		};
+		ctx.ui.getEditorComponent = () => installed;
+
+		const bare = makeFakePi();
+		bootBytefly(bare.pi);
+		await emit(bare.pi, "session_start", { reason: "startup" }, ctx);
+		expect(installed).toBeUndefined();
+
+		const withPlan = createFakePi({ allTools: [{ name: PLAN_ENTER_TOOL }] });
+		bootBytefly(withPlan.pi);
+		await emit(withPlan.pi, "session_start", { reason: "startup" }, ctx);
+		expect(installed).toBeFunction();
+		expect(footers).toHaveLength(2);
+
+		await emit(withPlan.pi, "session_shutdown", {}, ctx);
+		expect(installed).toBeUndefined();
 	});
 });
 

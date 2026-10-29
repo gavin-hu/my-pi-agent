@@ -16,7 +16,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { ScreenHint } from "../../../../lib/tui/chrome.ts";
 import { clip, padTo } from "../../../../lib/tui/columns.ts";
-import { isCloseKey } from "../../../../lib/tui/cursor.ts";
+import { isCloseKey, isShiftTab } from "../../../../lib/tui/cursor.ts";
 import { BODY_INDENT } from "../../../../lib/tui/indent.ts";
 import { paint } from "../../../../lib/tui/tokens.ts";
 import type { PanelSection } from "../types.ts";
@@ -58,9 +58,6 @@ export interface PanelKey {
 const ALL: readonly PanelSection[] = ["extensions", "skills", "settings"];
 const LISTS: readonly PanelSection[] = ["extensions", "skills"];
 
-/** Shift+Tab arrives as this sequence on terminals without the Kitty protocol. */
-const SHIFT_TAB = "\u001b[Z";
-
 /** The screen's keys, in help order. */
 export const PANEL_KEYS: readonly PanelKey[] = [
 	{
@@ -75,8 +72,7 @@ export const PANEL_KEYS: readonly PanelKey[] = [
 		label: "←",
 		sections: ALL,
 		help: "Previous section",
-		match: (data) =>
-			matchesKey(data, Key.left) || data === "h" || matchesKey(data, Key.shift("tab")) || data === SHIFT_TAB,
+		match: (data) => matchesKey(data, Key.left) || data === "h" || isShiftTab(data),
 	},
 	{
 		id: "nextSection",

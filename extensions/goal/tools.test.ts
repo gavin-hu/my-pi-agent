@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { PLAN_CONSENT, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
+import { PLAN_CONSENT, PLAN_ENTER_REQUEST, type PlanModeRequest } from "../../lib/plan-entry.ts";
 import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";
 import { fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
@@ -79,10 +79,10 @@ describe("goal phase routing", () => {
 	test("asks with the shared consent sentence and records the draft when accepted", async () => {
 		const { pi } = planPi();
 		const { ctx, confirms } = fakeCtx({ confirm: true });
-		const requests: PlanEnterRequest[] = [];
+		const requests: PlanModeRequest[] = [];
 		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => {
-			requests.push(data as PlanEnterRequest);
-			(data as PlanEnterRequest).respond(true);
+			requests.push(data as PlanModeRequest);
+			(data as PlanModeRequest).respond(true);
 		});
 
 		expect(await goalPhase(pi, ctx, null, { ask: true })).toBe("planning");
@@ -94,8 +94,8 @@ describe("goal phase routing", () => {
 	test("records the objective when the offer is declined, without requesting plan mode", async () => {
 		const { pi } = planPi();
 		const { ctx, confirms } = fakeCtx({ confirm: false });
-		const requests: PlanEnterRequest[] = [];
-		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => requests.push(data as PlanEnterRequest));
+		const requests: PlanModeRequest[] = [];
+		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => requests.push(data as PlanModeRequest));
 
 		expect(await goalPhase(pi, ctx, null, { ask: true })).toBe("active");
 		expect(confirms).toHaveLength(1);
@@ -573,7 +573,7 @@ describe("goal tool", () => {
 	test("records a draft when the user accepts the plan offer", async () => {
 		const { tool, pi } = setup({ plan: true });
 		const { ctx, confirms } = fakeCtx({ confirm: true });
-		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanEnterRequest).respond(true));
+		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanModeRequest).respond(true));
 
 		const result = await call(tool, { objective: "Ship the parser" }, ctx);
 
@@ -597,7 +597,7 @@ describe("goal tool", () => {
 	test("an explicit active status finalizes a draft without asking", async () => {
 		const { tool, pi } = setup({ plan: true });
 		const { ctx, confirms } = fakeCtx({ confirm: true });
-		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanEnterRequest).respond(true));
+		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanModeRequest).respond(true));
 
 		const draft = await call(tool, { objective: "Ship the parser" }, ctx);
 		expect(draft.details.goal.status).toBe("planning");

@@ -93,7 +93,7 @@ export const HEADER_CONFIG: HeaderConfig = {
 			{ binding: "app.thinking.toggle", description: "to expand thinking" },
 			{ binding: "app.model.select", description: "to select model" },
 			{ binding: "app.model.cycleForward", description: "to cycle models" },
-			{ binding: "app.thinking.cycle", description: "to cycle thinking" },
+			{ raw: "shift+tab", description: "to toggle plan" },
 			{ binding: "app.editor.external", description: "for external editor" },
 		],
 		[

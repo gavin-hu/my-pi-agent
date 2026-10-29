@@ -9,7 +9,8 @@
  * which saves the plan in the agent directory. The model investigates, saves the
  * plan, and calls `exit_plan_mode` to read the file back and ask for approval.
  *
- * Toggle with `/plan`, `Ctrl+Alt+P`, or start with `--plan`. The state is
+ * Toggle with `/plan` (or Shift+Tab, which bytefly's editor binds), or start with
+ * `--plan`. The state is
  * persisted as a custom session entry, so it follows the active branch.
  *
  * Load with:  pi --extension ./extensions/plan
@@ -17,13 +18,17 @@
 
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/index.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
-import { READ_ONLY_SUMMARY, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
+import {
+	READ_ONLY_SUMMARY,
+	PLAN_ENTER_REQUEST,
+	PLAN_TOGGLE_REQUEST,
+	type PlanModeRequest,
+} from "../../lib/plan-entry.ts";
 import { isBoardRead } from "../../lib/policy.ts";
 import { boardWriteRefusal } from "../../lib/board/actions.ts";
 import { ASK_USER_QUESTION_TOOL, BOARD_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
@@ -101,33 +106,36 @@ export default function planMode(pi: ExtensionAPI): void {
 		default: false,
 	});
 
-	pi.registerShortcut(Key.ctrlAlt("p"), {
-		description: "Toggle plan mode",
-		handler: (ctx) => {
-			runtime.toggle(ctx);
-			ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
-		},
-	});
-
-	// Another extension that offers plan mode (the goal workflow) asks on this
-	// channel instead of calling a tool it cannot reach from a command context. It
-	// owns the user's answer; enabling here must therefore not ask again.
+	// Another extension asks on these channels instead of calling a tool it cannot
+	// reach from a command or editor context: `goal` offers plan mode as a phase, and
+	// bytefly's editor binds Shift+Tab to the toggle. The asker owns the user's answer,
+	// so enabling here must not ask again, and a toggle answers with the state it left.
 	const unsubscribes: Array<() => void> = [];
-	const listenForEntryRequests = (): void => {
+	const listenForRequests = (): void => {
 		for (const unsubscribe of unsubscribes) unsubscribe();
 		unsubscribes.length = 0;
-		unsubscribes.push(
-			pi.events.on(PLAN_ENTER_REQUEST, (data) => {
-				const request = data as Partial<PlanEnterRequest> | undefined;
-				if (!request?.ctx || typeof request.respond !== "function") return;
-				if (!runtime.isEnabled()) runtime.enable(request.ctx);
-				request.respond(true);
-			}),
-		);
+		const listen = (channel: string, handle: (request: PlanModeRequest) => void): void => {
+			unsubscribes.push(
+				pi.events.on(channel, (data) => {
+					const request = data as Partial<PlanModeRequest> | undefined;
+					if (!request?.ctx || typeof request.respond !== "function") return;
+					handle(request as PlanModeRequest);
+				}),
+			);
+		};
+		listen(PLAN_ENTER_REQUEST, (request) => {
+			if (!runtime.isEnabled()) runtime.enable(request.ctx);
+			request.respond(true);
+		});
+		listen(PLAN_TOGGLE_REQUEST, (request) => {
+			runtime.toggle(request.ctx);
+			request.ctx.ui.notify(planModeNotice(runtime.isEnabled()), "info");
+			request.respond(runtime.isEnabled());
+		});
 	};
 
 	pi.on("session_start", (_event, ctx) => {
-		listenForEntryRequests();
+		listenForRequests();
 		runtime.restore(ctx);
 	});
 	pi.on("session_tree", (_event, ctx) => runtime.restore(ctx));

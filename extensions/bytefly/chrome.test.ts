@@ -251,12 +251,12 @@ describe("ByteflyHeader", () => {
 		expect(lines[2]?.indexOf("enhanced by")).toBe(6);
 	});
 
-	test("omits a help row whose keybindings are all unbound", () => {
+	test("omits a help row whose keybindings are all unbound and keeps the raw keys", () => {
 		setKeybindings(new KeybindingsManager(TUI_KEYBINDINGS));
 		const lines = header().render(80);
 
 		expect(lines[4]).toBe("");
-		expect(lines[5]).toBe("");
+		expect(lines[5]).toContain("shift+tab to toggle plan");
 		const row = lines[6] ?? "";
 		expect(row.indexOf("/")).toBe(3);
 		expect(row).toContain("/ commands · ! bash · !! bash (no context) · /bytefly extensions");

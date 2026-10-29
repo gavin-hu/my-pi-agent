@@ -50,6 +50,7 @@ export const GLYPHS = {
 	prev: "‹",
 	next: "›",
 	update: "↑",
+	autoMode: "▶",
 	prompt: "❯",
 } as const;
 

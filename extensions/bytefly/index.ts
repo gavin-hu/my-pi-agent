@@ -1,5 +1,5 @@
 /**
- * bytefly — the package's terminal chrome and diagnostics, composed from eleven
+ * bytefly — the package's terminal chrome and diagnostics, composed from twelve
  * feature folders: `header/` (the themed startup mark and version), `footer/`
  * (the two-line, width-adaptive status bar with its price calculation),
  * `message/` (the user-message nameplate), `notice/` (the shared transcript
@@ -7,8 +7,9 @@
  * transcript turn rule), `working/` (the live run line on Pi's working row),
  * `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
- * probe runtime), `notify/` (OS notifications for unattended runs), and
- * `update/` (Pi's package list, the host suppression, and the header marker).
+ * probe runtime), `notify/` (OS notifications for unattended runs), `mode/`
+ * (the editor's Shift+Tab plan-mode toggle and its border), and `update/` (Pi's
+ * package list, the host suppression, and the header marker).
  *
  * The header, footer, turn rule, and working line are installed
  * only in interactive (`tui`) sessions, and are always on; the user-message
@@ -22,7 +23,7 @@
  * Load with:  pi --extension ./extensions/bytefly
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { registerToolBlocks } from "./block/register.ts";
 import { registerChrome } from "./chrome.ts";
@@ -87,4 +88,29 @@ export default function bytefly(pi: ExtensionAPI, deps: ByteflyDeps = {}): void 
 	// the one repaint hook rather than installing a header of its own.
 	registerPiRelease(pi, piUpdates, { ...deps.release, onUpdate: () => header.refresh() });
 	registerPanel(pi, { doctor, update, discover: deps.extensions?.discover });
+
+	// Shift+Tab is a chord Pi reserves for the thinking cycle, so the mode key is
+	// an editor rather than a shortcut. It loads on the first TUI session and only
+	// when `plan` is loaded, so a session without it keeps Pi's key and pays for
+	// nothing; the mode module owns that availability check.
+	let detachModeKey: (() => void) | undefined;
+	let modeEpoch = 0;
+	const installModeKey = async (ctx: ExtensionContext): Promise<void> => {
+		const epoch = ++modeEpoch;
+		detachModeKey?.();
+		detachModeKey = undefined;
+		if (ctx.mode !== "tui") return;
+		const { attachModeKey } = await import("./mode/editor.ts");
+		// A shutdown or a newer session may land while the module loads; the stale
+		// reply must not install an editor nothing will release.
+		if (epoch !== modeEpoch) return;
+		detachModeKey = attachModeKey(pi, ctx);
+	};
+	pi.on("session_start", (_event, ctx) => installModeKey(ctx));
+	pi.on("session_tree", (_event, ctx) => installModeKey(ctx));
+	pi.on("session_shutdown", () => {
+		modeEpoch++;
+		detachModeKey?.();
+		detachModeKey = undefined;
+	});
 }

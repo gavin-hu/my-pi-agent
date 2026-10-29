@@ -247,6 +247,20 @@ export function isCloseKey(data: string): boolean {
 	return matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"));
 }
 
+/** Shift+Tab arrives as this sequence on terminals without the Kitty protocol. */
+export const SHIFT_TAB = "\u001b[Z";
+
+/**
+ * Whether `data` is Shift+Tab, in either encoding.
+ *
+ * `matchesKey` decodes the Kitty and modifyOtherKeys forms but not the legacy
+ * `\u001b[Z` one, so every screen or editor that binds Shift+Tab needs both tests;
+ * this is that one test.
+ */
+export function isShiftTab(data: string): boolean {
+	return data === SHIFT_TAB || matchesKey(data, Key.shift("tab"));
+}
+
 /**
  * The next scroll offset for a standard navigation key, or `undefined` when
  * `data` is not a navigation key.
