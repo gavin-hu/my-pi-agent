@@ -124,7 +124,12 @@ export interface Transition {
  * Absent pairs are refused, and the two absences that matter are deliberate: nothing moves
  * *into* `backlog` (a card nobody holds is `release`'s or `reclaim`'s decision, not a
  * move's), and nothing moves *out of* `done` (finished work is history). Re-planning is
- * `execute → plan`, and a blocked card can go back to `plan` or resume in `execute`.
+ * `execute → plan`, and a blocked card goes back to `plan` or resumes in `execute` — either
+ * one into a lane that has room for it, since a park frees a slot rather than reserving one.
+ *
+ * The dependency gate is not one of these: it belongs to the pull out of the pool, which
+ * `claim` asks itself, and to `execute` and `done`. Planning is where a wait is read against
+ * the contract, so a card may be planned before the work it waits on is finishable.
  *
  * `execute` has two doors and asks the same gates at both: no unfinished dependency, the
  * contract's three lines, the plan file the card is executed against, and the approval a

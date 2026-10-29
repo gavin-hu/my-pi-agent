@@ -61,11 +61,22 @@ export function countIn(lane: Lane, cards: readonly { lane: Lane }[]): number {
  *
  * The sentence names the lane, the number, the limit, and the ways out, because a refusal
  * that only says "full" sends the reader looking for a setting they were never shown.
+ *
+ * `from` is the lane the card is leaving, and the one case that changes the advice is a
+ * resume out of `blocked`: that card cannot finish, and it is already parked, so the two
+ * exits the ordinary sentence offers are the two it does not have.
  */
-export function wipRefusal(lane: LimitedLane, cards: readonly { lane: Lane }[], limits: WipLimits): string | undefined {
+export function wipRefusal(
+	lane: LimitedLane,
+	cards: readonly { lane: Lane }[],
+	limits: WipLimits,
+	from?: Lane,
+): string | undefined {
 	const limit = limitOf(lane, limits) ?? DEFAULT_WIP[lane];
 	const held = countIn(lane, cards);
 	if (held < limit) return undefined;
 	const what = lane === "plan" ? "being planned" : "executing";
-	return `${held} cards are already ${what} (the limit is ${limit}); finish, block, or release one first.`;
+	const waysOut =
+		from === "blocked" ? "wait for a slot, or release it back to the pool" : "finish, block, or release one first";
+	return `${held} cards are already ${what} (the limit is ${limit}); ${waysOut}.`;
 }
