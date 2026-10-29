@@ -73,13 +73,19 @@ const renderTemplate = String.raw`(function () {
   /** How many placeholder trays the skeleton paints: the lane table's own length, spliced in. */
   var LANE_COUNT = __LANE_COUNT__;
   /**
-   * Finished cards a lane may hold before it starts folded.
+   * How many rows a list may show before it starts folded, by list — one table, because two
+   * lists are the same pile and a second threshold is a second answer to "how much is history".
    *
    * A board of 26 cards is 19 of them finished, and an open Done lane is four times the
-   * height of the three that carry work. Three or four is work a reader still checks;
-   * past this it is history, and the count in the head says how much.
+   * height of the three that carry work: three or four is work a reader still checks, past
+   * six it is history, and the count says how much. The roster has the same problem for the
+   * same reason — a label that ever claimed a card stays an owner for good, so a long
+   * history is a wall of no-record rows — and three is where it stops being a team.
    */
-  var DONE_FOLD_AT = 6;
+  var FOLD_AT = { done: 6, roster: 3 };
+
+  /** The same table, for the fragments painted after this one: team folds two lists. */
+  board.foldAt = FOLD_AT;
 
 __RUNTIME__
 
@@ -282,8 +288,9 @@ __RUNTIME__
     section.setAttribute("data-lane", lane.key);
     var head = el("h2", N.laneHead);
     var toggle = actionButton(N.laneToggle, lane.label, function () {
-      board.toggleLane(lane.key);
+      board.toggleFold(lane.key);
     });
+    toggle.setAttribute("data-fold", lane.key);
     toggle.setAttribute("aria-expanded", "true");
     toggle.setAttribute("aria-controls", "lane-" + lane.key);
     toggle.id = "lane-head-" + lane.key;
@@ -316,7 +323,7 @@ __RUNTIME__
       // Finished work starts folded, once: the default is what the page opens with, and
       // toggleLane writes a boolean from then on, so a reader who unfolds Done keeps it
       // unfolded through every frame a peer's write causes.
-      if (lane.key === "done" && lane.cards.length >= DONE_FOLD_AT) {
+      if (lane.key === "done" && lane.cards.length >= FOLD_AT.done) {
         board.collapsed = board.collapsed || {};
         if (board.collapsed[lane.key] === undefined) board.collapsed[lane.key] = true;
       }
@@ -385,6 +392,22 @@ __RUNTIME__
     board.applyLane();
   }
 
+  /**
+   * Put focus back on the control a reader just moved.
+   *
+   * A fold repaints the panel it lives in, so the element that was clicked is gone by the
+   * time the frame lands and focus would fall to the document — a reader who folds with the
+   * keyboard would then start again from the top of the page. toggleFold records the key
+   * and each control names itself with it, so this is the whole lookup.
+   */
+  function restoreFoldFocus() {
+    var key = board.foldFocus;
+    if (key === undefined) return;
+    board.foldFocus = undefined;
+    var control = document.querySelector('[data-fold="' + key + '"]');
+    if (control) control.focus();
+  }
+
   /** Paint a whole snapshot. */
   board.render = function (view) {
     board.view = view;
@@ -397,6 +420,8 @@ __RUNTIME__
     // The marks are painted after the frame, not with each card: a lane is rebuilt whole
     // when its cards move, and a reader's place must survive that.
     board.markCards();
+    // Last, because the control it looks for is one this frame has just built.
+    restoreFoldFocus();
   };
 
   board.el = el;

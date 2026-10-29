@@ -99,10 +99,22 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     applyLane();
   };
 
-  /** Fold a lane's cards away and leave its head, count and all. */
-  board.toggleLane = function (key) {
+  /**
+   * Fold one list away and leave its control standing.
+   *
+   * Three things on the page fold: a lane, the roster's tail of owners nothing answers to, and
+   * the Done strip. They share one map, and a key says which kind it is: a lane keeps its own
+   * name, and the two the Team tab owns are team-roster and team-done, because done is
+   * already a lane.
+   *
+   * The key is also recorded, because the panel a fold lives in is repainted: the element the
+   * reader clicked no longer exists when the frame lands, and the renderer focuses
+   * data-fold="<key>" to put the keyboard back where it was.
+   */
+  board.toggleFold = function (key) {
     board.collapsed = board.collapsed || {};
     board.collapsed[key] = board.collapsed[key] !== true;
+    board.foldFocus = key;
     if (board.view) board.render(board.view);
   };
 
@@ -264,6 +276,10 @@ export const BOARD_LIVE_JS = String.raw`(function () {
     board.openId = undefined;
     board.query = "";
     board.collapsed = {};
+    // The fold a reader just moved, and the panels' remembered signatures: both belong to the
+    // tab, and a fresh tab is a fresh read of what the store holds.
+    board.foldFocus = undefined;
+    board.teamPanels = undefined;
     // Where the reader is and has been: the two marks a card face can wear, which live as
     // long as the tab does and never reach the store.
     board.current = undefined;

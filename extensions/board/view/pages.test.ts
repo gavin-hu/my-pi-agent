@@ -291,7 +291,7 @@ describe("the client bundle", () => {
 		// well as by a card; a narrow reader should not open on an empty lane; and a
 		// clipped line should still be readable on hover.
 		expect(BOARD_CLIENT_JS).toContain("board.matches(card, query)");
-		expect(BOARD_CLIENT_JS).toContain("matchesLabel(m.label)");
+		expect(BOARD_CLIENT_JS).toContain("matchesLabel(mate.label)");
 		expect(BOARD_CLIENT_JS).toContain("laneWithWork(view)");
 		expect(BOARD_CLIENT_JS).toContain("line.title = reason.text");
 		expect(BOARD_CLIENT_JS).toContain("why.title = entry.why");
@@ -367,6 +367,47 @@ describe("the client bundle", () => {
 		expect(BOARD_CLIENT_JS).toContain('node.setAttribute("data-tone", decisionTone(entry.kind))');
 	});
 
+	test("folds the owners a bus has no record of, and the ids past the strip's sixth", () => {
+		// The roster is the other list that only grows: every label that ever claimed a card stays
+		// an owner, so a board with a long history drew eighteen rows of "no record · no cards ·
+		// 1 done". The rule is stated once — absent, and holding nothing — and the row it makes
+		// says what the rows would have said one at a time.
+		expect(BOARD_CLIENT_JS).toContain("board-team__tail");
+		expect(BOARD_CLIENT_JS).toContain('rows[r].state === "absent" && rows[r].cards.live.length === 0');
+		expect(BOARD_CLIENT_JS).toContain('" with no record \\u00B7 "');
+		// A filter is a view of the rows, so it unfolds the history rather than hiding a match.
+		expect(BOARD_CLIENT_JS).toContain("var folded = filtering ? false : historyFolded(everyone.tail)");
+		// Both lists fold through one table and one map, and the keys say which kind they are
+		// because `done` is already a lane.
+		expect(BOARD_CLIENT_JS).toContain("board.foldAt.roster");
+		expect(BOARD_CLIENT_JS).toContain("board.foldAt.done");
+		expect(BOARD_CLIENT_JS).toContain('board.toggleFold("team-roster")');
+		expect(BOARD_CLIENT_JS).toContain('board.toggleFold("team-done")');
+		expect(BOARD_CLIENT_JS).toContain("board-team__ids");
+		expect(BOARD_CLIENT_JS).toContain('rest.id = "team-done-ids"');
+		// A fold repaints the panel it lives in, so focus is put back on the control by key.
+		expect(BOARD_CLIENT_JS).toContain("data-fold");
+		expect(BOARD_CLIENT_JS).toContain("document.querySelector('[data-fold=\"' + key + '\"]')");
+		// And a frame that changes nothing in a panel neither rebuilds it nor moves the reader.
+		expect(BOARD_CLIENT_JS).toContain('if (slot.getAttribute("data-sig") === sig) return;');
+		expect(BOARD_CLIENT_JS).toContain("board.teamPanels");
+	});
+
+	test("caps both Team lists with one rule, and draws a teammate row on one line", () => {
+		expect(BOARD_CSS).toContain(".board-team__queue,.board-team__roster{max-height:max(18rem,calc(100dvh - 16rem))");
+		// One line: the metrics take the rest of the row instead of always starting a second.
+		expect(BOARD_CSS).toContain(".board-team__mets{flex:1 1 auto;min-width:0;margin:0;text-align:right;");
+		expect(BOARD_CSS).toContain(
+			".board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+		);
+		// The fold controls are pointer targets, like the ids beside them.
+		expect(BOARD_CSS).toContain(".board-team__tail{display:flex;flex:1 1 100%;");
+		expect(BOARD_CSS).toMatch(/\.board-team__tail\{[^}]*min-height:24px/);
+		expect(BOARD_CSS).toMatch(/\.board-team__fold\{[^}]*min-height:24px/);
+		// The strip's hidden ids take the strip's own gap and wrapping rather than jamming.
+		expect(BOARD_CSS).toContain(".board-team__ids{display:contents}");
+	});
+
 	test("reads one card whole: its lane, its facts as a ladder, and its notes", () => {
 		expect(BOARD_CLIENT_JS).toContain('getElementById("card-dialog-state")');
 		// Names come from the page's table, so the bundle holds the lookup, not the class.
@@ -387,7 +428,7 @@ describe("the client bundle", () => {
 		// beside unfolded; the count in the head is the fact. The default is written only
 		// while unset, so a reader's toggle decides from the first click on.
 		expect(BOARD_CLIENT_JS).toContain('lane.key === "done"');
-		expect(BOARD_CLIENT_JS).toContain("DONE_FOLD_AT");
+		expect(BOARD_CLIENT_JS).toContain("board.foldAt");
 		expect(BOARD_CLIENT_JS).toContain("board.collapsed[lane.key] === undefined");
 		// The rail is about what the lane is showing, never about the filter: filtering is a
 		// view of the cards, not a statement that the lane holds none. A folded lane shows
@@ -607,6 +648,7 @@ describe("the class contract", () => {
 		"data-at": "the age ticker rewrites the text from it",
 		"data-at-title": "a stamp's own wording, which the ticker fills from the same stamp",
 		"data-card": "the open card is found by its id",
+		"data-fold": "a fold control names its key, so focus finds it again after the repaint it caused",
 		"data-lane": "a lane section and a card carry the lane they are in",
 		"data-picker-lane": "the narrow picker reads which lane a button selects",
 		"data-rev": "a lane rebuilds only when a card's revision moves",

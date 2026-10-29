@@ -21,6 +21,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the Team tab states the owners a bus has no record of in one row — `18 owners with
+  no record · 71 done`, unfolded by a click and ordered by what each finished — caps the
+  roster with the queue's own rule, prints a teammate on one line, and folds the ids past the
+  strip's sixth behind its count. The owners a bus knows still get a row each, and one that
+  holds a card keeps its own row even with no record, because the queue is reporting its work
+  as free. Each panel is now refilled only when what it prints has moved, so a peer's write
+  no longer takes the reader's scroll offset or the focus they put on a fold.
+
 - `board`: a card reads its plan as `~/…`, the form `write_plan` shows, instead of the
   absolute path the card stores — so the same plan reads the same way to whoever opens the
   card, and the stored path in the tool's details is unchanged.
