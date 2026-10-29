@@ -62,6 +62,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 		"plans",
 		"feedback",
 		"tools",
+		"review-lazy",
 		"review-prompt",
 		"web-lazy",
 		"web-behaviour",

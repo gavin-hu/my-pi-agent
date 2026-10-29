@@ -23,7 +23,7 @@ import { feedbackSummary } from "../feedback.ts";
 import { mergeSummary, overCap, preview, verificationNote } from "../format.ts";
 import { sanitizePlanText } from "../plan-text.ts";
 import { planTitle, type StoredPlan } from "../plans.ts";
-import { reviewPlan } from "../review.ts";
+import { reviewPlan } from "../review-lazy.ts";
 import { EXIT_TOOL, SET_PLAN_STEPS_TOOL, type PlanRuntime } from "../runtime.ts";
 import { goalSection, MAX_STEPS, planStepSummary } from "../steps.ts";
 import type { ExitPlanModeDetails } from "../types.ts";

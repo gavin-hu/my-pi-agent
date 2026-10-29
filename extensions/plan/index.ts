@@ -19,7 +19,6 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 import { fileURLToPath } from "node:url";
-import { hasPathInput } from "./path-guard.ts";
 import { isExtensionEnabled } from "../../lib/env.ts";
 import { requestMount } from "../../lib/http/index.ts";
 import { sanitizeLine } from "../../lib/format.ts";
@@ -31,7 +30,6 @@ import { ASK_USER_QUESTION_TOOL, BOARD_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { planModeNotice, registerCommands } from "./commands.ts";
-import { checkReadOnlyGit } from "./git-bash.ts";
 import { createPlanPolicy, BASH_BLOCKED_GUIDANCE, BLOCKED_GUIDANCE, PLAN_SAFE_TOOLS } from "./policy.ts";
 import { createPlanRuntime } from "./runtime.ts";
 import { registerTools } from "./tools.ts";
@@ -156,7 +154,7 @@ export default function planMode(pi: ExtensionAPI): void {
 	 * proceed. Two layers: the policy (readers, `readOnlyHint`, deny list), then
 	 * the path backstop (a hint on a path-carrying tool is only a claim).
 	 */
-	const blockedReason = (toolName: string, input: unknown): string | undefined => {
+	const blockedReason = async (toolName: string, input: unknown): Promise<string | undefined> => {
 		// Plan-owned tools are the sanctioned exception: `write_plan` saves the
 		// artifact, `exit_plan_mode` presents it, `cancel_plan_mode` restores access,
 		// and `enter_plan_mode` answers "already" to a call that was in flight when
@@ -194,9 +192,11 @@ export default function planMode(pi: ExtensionAPI): void {
 			if (typeof command !== "string" || command.trim() === "") {
 				return `Plan mode: an empty bash command is not allowed. ${BASH_BLOCKED_GUIDANCE}`;
 			}
+			const { checkReadOnlyGit } = await import("./git-bash.ts");
 			const verdict = checkReadOnlyGit(command);
 			if (!verdict.ok) return `Plan mode: ${verdict.reason} ${BASH_BLOCKED_GUIDANCE}`;
 		}
+		const { hasPathInput } = await import("./path-guard.ts");
 		if (hasPathInput(input) && !PLAN_SAFE_TOOLS.includes(toolName)) {
 			return `Plan mode: "${toolName}" takes a file path and is not a known reader. ${BLOCKED_GUIDANCE}`;
 		}
@@ -207,9 +207,9 @@ export default function planMode(pi: ExtensionAPI): void {
 	// above hides most of these; this is the second layer for tools already
 	// declared in an in-flight request, and the guard for tools we did not know
 	// about when the extension loaded (MCP servers, future extensions).
-	pi.on("tool_call", (event) => {
+	pi.on("tool_call", async (event) => {
 		if (!runtime.isEnabled()) return undefined;
-		const reason = blockedReason(event.toolName, event.input);
+		const reason = await blockedReason(event.toolName, event.input);
 		return reason ? { block: true, reason } : undefined;
 	});
 
