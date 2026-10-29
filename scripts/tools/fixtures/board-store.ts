@@ -15,6 +15,7 @@ import { join } from "node:path";
 import type { Actor } from "../../../lib/board/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../../lib/board/store.ts";
+import { fixturePlanPath } from "./board.ts";
 
 /** The two sessions the fixture's cards belong to. */
 export const LEAD: Actor = { id: "s-lead", label: "billing-lead" };
@@ -26,7 +27,7 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Billing webhook accepts orders",
 		paths: ["src/billing", "src/api"],
-		planPath: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
+		planPath: fixturePlanPath("billing-webhook"),
 		owner: CORE,
 		lane: "execute" as const,
 		notes: ["routes wired; tests next", "no retries yet"],
@@ -34,6 +35,7 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Retry branches merge cleanly into main",
 		paths: ["src/billing/retry"],
+		planPath: fixturePlanPath("retry-branches"),
 		owner: CORE,
 		lane: "execute" as const,
 		priority: "high" as const,
@@ -42,6 +44,7 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Round invoice totals at the boundary",
 		paths: ["src/billing/totals"],
+		planPath: fixturePlanPath("totals-rounding"),
 		owner: CORE,
 		lane: "plan" as const,
 		notes: ["contract written, waiting on the lead to read it"],
@@ -56,6 +59,7 @@ export const FIXTURE_CARDS = [
 	{
 		title: "Export orders as CSV",
 		paths: ["src/reports"],
+		planPath: fixturePlanPath("export-orders"),
 		owner: OTHER,
 		lane: "done" as const,
 		notes: ["shipped behind a flag"],
@@ -75,6 +79,19 @@ export const FIXTURE_CARDS = [
 		notes: ["after the retry branches land"],
 	},
 ];
+
+/**
+ * The plan a spec records on the way out of the pool.
+ *
+ * A card that records a contract names its own plan, because the shipped `contract` records
+ * only a file inside this repository's store; a fixture that invented a path would picture a
+ * card the tool cannot make, so a spec that names none is a broken fixture and says so.
+ */
+function planOf(spec: (typeof FIXTURE_CARDS)[number]): string {
+	const plan = "planPath" in spec ? spec.planPath : undefined;
+	if (plan === undefined) throw new Error(`the fixture card "${spec.title}" leaves the pool with no plan`);
+	return plan;
+}
 
 /** A store with the fixture's cards in it, in a temp directory. */
 export async function seedStore(directory: string): Promise<void> {
@@ -111,10 +128,9 @@ export async function seedStore(directory: string): Promise<void> {
 				card.id,
 				{
 					kind: "contract",
-					// Every card that leaves the pool records a plan: a finished card must say
-					// what it was done against, so the seeding substitutes one when the spec
-					// does not name it.
-					artifact: { path: spec.planPath ?? `plans/${card.id}.md` },
+					// Every card that leaves the pool records a plan, and it is the one its spec
+					// names: the store's own shape, so the record is one `contract` would accept.
+					artifact: { path: planOf(spec) },
 					goal: `The feature the card names, working: ${spec.title}`,
 					acceptance: "A reader can tell it is done, and a test says so",
 					scopeOut: "Anything the card does not name",
@@ -129,7 +145,7 @@ export async function seedStore(directory: string): Promise<void> {
 			await store.mutate(card.id, { kind: "approve" }, approver, at + 3_800);
 			await store.mutate(
 				card.id,
-				{ kind: "move", lane: "execute", artifact: { path: spec.planPath ?? `plans/${card.id}.md` } },
+				{ kind: "move", lane: "execute", artifact: { path: planOf(spec) } },
 				owner,
 				at + 4_000,
 			);
@@ -143,7 +159,7 @@ export async function seedStore(directory: string): Promise<void> {
 					kind: "move",
 					lane: "done",
 					landed: { commit: "4af1b4a" },
-					artifact: { path: spec.planPath ?? `plans/${card.id}.md` },
+					artifact: { path: planOf(spec) },
 				},
 				owner,
 				at + 4_400,

@@ -16,6 +16,20 @@ import type { ToolFixture } from "./types.ts";
 
 const NOW = 1_760_000_000_000;
 
+/**
+ * The store the fixture's plans live in: the default agent directory, and this repository's key.
+ *
+ * `write_plan` saves into `<agent-dir>/plans/<repo-key>` and the board's `contract` records only
+ * a file there, so this is the one spelling both halves of the fixture use — a path outside it
+ * is one the shipped tool refuses.
+ */
+export const FIXTURE_PLAN_STORE = "~/.pi/agent/plans/8872d3adda0e";
+
+/** One plan the fixture's cards are executed against, one file directly in that store. */
+export function fixturePlanPath(slug: string): string {
+	return `${FIXTURE_PLAN_STORE}/${slug}.md`;
+}
+
 /** One card, built the way the store would hold it. */
 function card(overrides: Partial<Card> & Pick<Card, "id" | "title">): Card {
 	return {
@@ -44,7 +58,7 @@ const PLANNED = card({
 	lane: "execute",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing", "src/api"],
-	planPath: "~/.pi/agent/plans/8872d3adda0e/billing-webhook.md",
+	planPath: fixturePlanPath("billing-webhook"),
 	contract: { ...CONTRACT, approved: { by: "billing-lead", at: NOW - 200_000 } },
 	review: { by: "billing-lead", at: NOW - 90_000 },
 	notes: [{ by: "billing-core", at: NOW - 120_000, text: "routes wired; tests next" }],
@@ -69,6 +83,7 @@ const AWAITING = card({
 	lane: "plan",
 	owner: { id: "s-core", label: "billing-core" },
 	paths: ["src/billing/totals"],
+	planPath: fixturePlanPath("totals-rounding"),
 	contract: CONTRACT,
 	rev: 4,
 	by: "billing-core",
@@ -92,7 +107,7 @@ const DONE = card({
 	lane: "done",
 	owner: { id: "s-other", label: "billing-other" },
 	paths: ["src/reports"],
-	planPath: "~/.pi/agent/plans/8872d3adda0e/export-orders.md",
+	planPath: fixturePlanPath("export-orders"),
 	contract: { ...CONTRACT, approved: { by: "billing-lead", at: NOW - 4_000_000 } },
 	review: { by: "billing-lead", at: NOW - 3_700_000 },
 	landed: { commit: "4af1b4a", at: NOW - 3_600_000 },
@@ -187,7 +202,7 @@ export const BOARD_FIXTURES: ToolFixture[] = [
 		tool: "board",
 		group: "package",
 		label: "a contract written, waiting for a session that does not hold the card",
-		args: { action: "contract", card: "6", path: "plans/totals.md" },
+		args: { action: "contract", card: "6", path: fixturePlanPath("totals-rounding") },
 		result: {
 			content: [{ type: "text", text: "#6 plan · Round invoice totals at the boundary" }],
 			details: { action: "contract", me: ME, card: AWAITING } as BoardDetails,
