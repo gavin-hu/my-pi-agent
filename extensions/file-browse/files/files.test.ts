@@ -157,8 +157,10 @@ describe("directory listings", () => {
 	test("marks symlinks and images", async () => {
 		const base = root();
 		const listing = await listDirectory(base, "", 100);
-		expect(listing.entries.find((entry) => entry.name === "link.txt")?.isSymlink).toBe(true);
+		// The image half holds everywhere; the symlink half needs a host that can create one.
 		expect(listing.entries.find((entry) => entry.name === "image.png")?.isImage).toBe(true);
+		if (!fixture?.hasSymlinks) return;
+		expect(listing.entries.find((entry) => entry.name === "link.txt")?.isSymlink).toBe(true);
 	});
 
 	test("caps entries and reports the full total", async () => {
