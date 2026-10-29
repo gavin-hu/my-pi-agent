@@ -304,6 +304,21 @@ async function recordedPlan(
 	return planForExecute(await runtime.planDir(cwd), card);
 }
 
+/** The `list` fields that narrow a listing, in the order a refusal names them. */
+const CARD_FILTERS = ["lane", "query", "mine", "round"] as const;
+
+/**
+ * The refusal for the filters a `list` that names a card would otherwise drop.
+ *
+ * `card` answers for that one card, so a filter beside it changes nothing — and a call that
+ * sent both meant one of them. A dropped field is what `strayField` exists to prevent one
+ * level up, so it is refused here in the same voice the archive's own reader uses.
+ */
+function cardFiltersRefusal(args: BoardArgs, fields: readonly (keyof BoardArgs)[] = CARD_FILTERS): string | undefined {
+	const given = fields.filter((field) => args[field] !== undefined);
+	return given.length === 0 ? undefined : `card does not read ${given.join(", ")}: it answers for that one card.`;
+}
+
 /** `list`: the board, one card, the lead's rollup, or the archive. */
 async function read(
 	store: BoardStore,
@@ -320,6 +335,8 @@ async function read(
 	// A directory listing, not a read: a listing says what it left aside without opening one.
 	const archived = await store.archivedCount();
 	if (args.card !== undefined) {
+		const ignored = cardFiltersRefusal(args);
+		if (ignored !== undefined) return refusal(action, me, ignored);
 		const id = normalizeCardId(args.card);
 		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 		const card = cards.find((entry) => entry.id === id);
@@ -394,6 +411,9 @@ async function readArchive(
 	}
 	const pile = await store.archived();
 	if (args.card !== undefined) {
+		// `query` and `mine` narrow the pile, not the one card it would answer for.
+		const ignored = cardFiltersRefusal(args, ["query", "mine"]);
+		if (ignored !== undefined) return refusal(action, me, ignored);
 		const id = normalizeCardId(args.card);
 		if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 		const card = pile.cards.find((entry) => entry.id === id);

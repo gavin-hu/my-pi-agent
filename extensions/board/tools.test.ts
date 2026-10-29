@@ -424,6 +424,29 @@ describe("list", () => {
 	});
 });
 
+describe("a listing narrowed to one card", () => {
+	test("refuses the filters that would only narrow a listing", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		// Each of these changes nothing about a one-card answer, and a dropped field is what
+		// `strayField` refuses one level up — so the call hears about it instead of the filter
+		// disappearing.
+		for (const filter of [{ lane: "backlog" }, { query: "One" }, { mine: true }, { round: true }]) {
+			const result = await call({ action: "list", card: "1", ...filter });
+			expect(result.isError, JSON.stringify(filter)).toBe(true);
+			expect(result.details.error).toBe(`card does not read ${Object.keys(filter)[0]}: it answers for that one card.`);
+		}
+		// The archive answers the same way for the two fields it would otherwise drop, and a
+		// card it does not hold still gets the archive's own refusal.
+		const narrowed = await call({ action: "list", card: "1", archived: true, mine: true });
+		expect(narrowed.details.error).toBe("card does not read mine: it answers for that one card.");
+		const missing = await call({ action: "list", card: "1", archived: true });
+		expect(missing.details.error).toBe("#1 is on the board, not in the archive.");
+		// The one field a card read keeps is `archived`, which decides the pile it answers from.
+		expect((await call({ action: "list", card: "1" })).isError).toBeFalsy();
+	});
+});
+
 describe("add", () => {
 	test("creates a todo card held by nobody, with its first note", async () => {
 		const { call } = harness();

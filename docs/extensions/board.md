@@ -174,7 +174,10 @@ terminal.
 | `drop` | `card` | the id that was dropped, whose number is now spent |
 
 `card` takes `4` or `#4`. A refused call is an error result that still carries the
-card, so the next attempt starts from the truth.
+card, so the next attempt starts from the truth. A `list` that names a card refuses the
+fields that only narrow a listing — `lane`, `query`, `mine`, and `round` — because its
+answer is that one card; `archived` is kept, because it decides which pile the card is
+read from.
 
 The parameters are one flat object, so a field is published to every action at once.
 An action reads only the fields in its row above, and a call carrying one that its
