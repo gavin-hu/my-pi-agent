@@ -173,6 +173,184 @@ function settingsThemeNames(ctx: ExtensionCommandContext): string[] {
 	}
 }
 
+/** The state one `/bytefly` invocation carries into the branch that answers it. */
+interface PanelRun {
+	pi: ExtensionAPI;
+	deps: PanelCommandDeps;
+	ctx: ExtensionCommandContext;
+	cwd: string;
+	agentDir: string;
+	trusted: boolean;
+	themes: string[];
+	section: PanelSection;
+	name: string | undefined;
+	refresh: boolean;
+	mode: PanelMode;
+}
+
+/** The mounted panel, so a notice before the screen exists still reaches the transcript. */
+interface PanelHolder {
+	current: InstanceType<typeof import("./tui.ts").PanelComponent> | undefined;
+}
+
+/** `/bytefly prices`: one question about the transcript, no discovery. */
+function pricesAnswer(ctx: ExtensionCommandContext, cwd: string): void {
+	const config = loadByteflyConfig(cwd);
+	const active = ctx.model ? { provider: ctx.model.provider, model: ctx.model.id } : undefined;
+	const scanned = usageRecords(ctx.sessionManager.getEntries(), active);
+	ctx.ui.notify(pricesReport(createPricer(config)(scanned.records), config.currency).join("\n"), "info");
+}
+
+/** `/bytefly update` and `/bytefly upgrade`: the check, and the install it offers. */
+async function updateAnswer(
+	deps: PanelCommandDeps,
+	mode: "update" | "upgrade",
+	ctx: ExtensionCommandContext,
+): Promise<void> {
+	if (mode === "update") {
+		const outcome = await deps.update.recheck();
+		const { text, severity } = updateOutcomeText(outcome, pkg.version);
+		ctx.ui.notify(text, severity);
+		return;
+	}
+	const confirmed = await ctx.ui.confirm(
+		"Update packages?",
+		`Run Pi's package manager for every configured package, then reload to use it.`,
+	);
+	if (!confirmed) {
+		ctx.ui.notify("bytefly: update cancelled.", "info");
+		return;
+	}
+	const outcome = await deps.update.apply();
+	const { text, severity } = updateOutcomeText(outcome, pkg.version);
+	ctx.ui.notify(text, severity);
+}
+
+/** Settings outside `tui`: the grouped listing without resolving packages. */
+function settingsText(
+	run: PanelRun,
+	makeSettings: NonNullable<PanelCommandDeps["settings"]>,
+	createSettingsStores: (cwd: string, agentDir: string, trusted: boolean) => Discovery["stores"],
+	surfaceNotice: (message: string, kind?: "warning" | "error") => void,
+): void {
+	const stores = createSettingsStores(run.cwd, run.agentDir, run.trusted);
+	const settings = makeSettings({
+		stores,
+		cwd: run.cwd,
+		agentDir: run.agentDir,
+		trusted: run.trusted,
+		themes: run.themes,
+		onError: (message) => surfaceNotice(message, "warning"),
+	});
+	run.ctx.ui.notify(formatSettingsListing(settings.views("global")), "info");
+}
+
+/** Skills outside `tui`: the grouped listing from Pi's metadata, with no probe. */
+function skillsText(
+	run: PanelRun,
+	runtime: PickerRuntime,
+	discovery: Discovery,
+	loadSkills: (paths: readonly string[], cwd: string, agentDir: string) => SkillIndex,
+	resolveSkillPaths: (discovery: Discovery) => string[],
+): void {
+	const index = loadSkills(resolveSkillPaths(discovery), run.cwd, run.agentDir);
+	const model = buildSkillModel({ items: runtime.items("skills"), index, agentDir: run.agentDir });
+	run.ctx.ui.notify(
+		formatListing(model, runtime.scope(), { noun: SKILL_NOUN, emptyLabel: "No skills found." }),
+		"info",
+	);
+}
+
+/** Text modes: probe now, then print the report, a named extension, or the listing. */
+async function reportText(run: PanelRun, runtime: PickerRuntime): Promise<void> {
+	let reports: ExtensionReport[];
+	try {
+		reports = await run.deps.doctor.probeAll({ refresh: run.refresh });
+	} catch (error) {
+		run.ctx.ui.notify(`Could not probe extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
+		return;
+	}
+	if (run.name !== undefined) {
+		notifyExtension(run.ctx, run.name, reports, runtime);
+		return;
+	}
+	if (run.mode === "doctor") {
+		run.ctx.ui.notify(formatReport(reports), hasProblems(reports) ? "warning" : "info");
+		return;
+	}
+	const model = buildPanelModel({ items: runtime.items("extensions"), reports, agentDir: run.agentDir });
+	run.ctx.ui.notify(formatListing(model, runtime.scope()), "info");
+}
+
+/** The TUI branch: mount the screen, then apply any pending write. */
+async function mountPanel(
+	run: PanelRun,
+	state: {
+		runtime: PickerRuntime;
+		settings: SettingsRuntime;
+		discovery: Discovery;
+		loadSkills: (paths: readonly string[], cwd: string, agentDir: string) => SkillIndex;
+		resolveSkillPaths: (discovery: Discovery) => string[];
+		cached: ExtensionReport[] | undefined;
+		holder: PanelHolder;
+	},
+): Promise<void> {
+	const { runtime, settings, discovery, loadSkills, resolveSkillPaths, cached, holder } = state;
+	const { ctx, section, name, refresh, agentDir, cwd } = run;
+	let reports: ExtensionReport[] = cached ?? [];
+
+	const { PanelComponent } = await import("./tui.ts");
+	// The dock screen owns the editor slot; hide the rails for its lifetime.
+	await withRailsSuppressed(run.pi, () =>
+		ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+			const unsubscribe = runtime.onChange(() => tui.requestRender());
+			// The settings runtime re-reads its snapshot after a write; without a
+			// subscriber that repaint depends on every write chain's own callback.
+			const unsubscribeSettings = settings.onChange(() => tui.requestRender());
+			const component = new PanelComponent({
+				runtime,
+				reports: () => reports,
+				settings,
+				filter: section === "extensions" ? name : undefined,
+				section,
+				theme,
+				agentDir,
+				cwd,
+				// A cached session probes only when the command asked for it.
+				needsProbe: cached === undefined || refresh,
+				initialRefresh: refresh,
+				viewportRows: () => tui.terminal?.rows,
+				requestRender: () => tui.requestRender(),
+				skills: () => loadSkills(resolveSkillPaths(discovery), cwd, agentDir),
+				refresh: async (force) => {
+					reports = await run.deps.doctor.probeAll({ refresh: force === true });
+				},
+				reload: async () => {
+					// The reload takes the session, so the screen asks first and says
+					// what will change; a refusal leaves the dock exactly as it was.
+					const reload = await ctx.ui.confirm("Reload to apply changes?", "Changes take effect after a reload.");
+					if (!reload) return;
+					await ctx.reload();
+				},
+				onClose: () => {
+					// A late error falls back to the transcript, never a disposed screen.
+					holder.current = undefined;
+					unsubscribe();
+					unsubscribeSettings();
+					done();
+				},
+			});
+			holder.current = component;
+			component.prime();
+			return component;
+		}),
+	);
+
+	if (!runtime.isDirty() && !settings.isDirty()) return;
+	const reload = await ctx.ui.confirm("Reload to apply changes?", "Changes take effect after a reload.");
+	if (reload) await ctx.reload();
+}
+
 /** Register the single `/bytefly` command. */
 export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 	const handler = async (args: string, ctx: ExtensionCommandContext): Promise<void> => {
@@ -188,13 +366,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// prices what the transcript already recorded and names what that left out. It runs
 		// in every mode, because the footer that would carry the same fact exists only in
 		// `tui`.
-		if (mode === "prices") {
-			const config = loadByteflyConfig(cwd);
-			const active = ctx.model ? { provider: ctx.model.provider, model: ctx.model.id } : undefined;
-			const scanned = usageRecords(ctx.sessionManager.getEntries(), active);
-			ctx.ui.notify(pricesReport(createPricer(config)(scanned.records), config.currency).join("\n"), "info");
-			return;
-		}
+		if (mode === "prices") return pricesAnswer(ctx, cwd);
 
 		const agentDir = getAgentDir();
 		const trusted = ctx.isProjectTrusted();
@@ -203,40 +375,17 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// the frame, not appended to the transcript behind it. Before the screen
 		// exists (the non-TUI settings path, a pre-mount failure) the transcript is
 		// the only surface.
-		let panel: InstanceType<typeof import("./tui.ts").PanelComponent> | undefined;
+		const holder: PanelHolder = { current: undefined };
 		const surfaceNotice = (message: string, kind: "warning" | "error" = "warning"): void => {
-			if (panel) panel.notify(message);
+			if (holder.current) holder.current.notify(message);
 			else ctx.ui.notify(message, kind);
 		};
 		const settingsNotice = (message: string): void => surfaceNotice(message, "warning");
+		const run: PanelRun = { pi, deps, ctx, cwd, agentDir, trusted, themes, section, name, refresh, mode };
 
-		// `/bytefly update` answers one question and resolves nothing: no package
-		// discovery, no doctor probe, no screen. It is the one path a version check
-		// takes on demand, so the request happens here and nowhere else.
-		if (mode === "update") {
-			const outcome = await deps.update.recheck();
-			const { text, severity } = updateOutcomeText(outcome, pkg.version);
-			ctx.ui.notify(text, severity);
-			return;
-		}
-
-		// `/bytefly upgrade` is the only path here that writes, and it writes outside
-		// the session: Pi's package manager replaces the installed files, so the
-		// confirmation and the reload line are part of the answer, not decoration.
-		if (mode === "upgrade") {
-			const confirmed = await ctx.ui.confirm(
-				"Update packages?",
-				`Run Pi's package manager for every configured package, then reload to use it.`,
-			);
-			if (!confirmed) {
-				ctx.ui.notify("bytefly: update cancelled.", "info");
-				return;
-			}
-			const outcome = await deps.update.apply();
-			const { text, severity } = updateOutcomeText(outcome, pkg.version);
-			ctx.ui.notify(text, severity);
-			return;
-		}
+		// `/bytefly update` answers one question and resolves nothing; `upgrade` is the
+		// same subject one verb further, behind a confirmation because it writes.
+		if (mode === "update" || mode === "upgrade") return updateAnswer(deps, mode, ctx);
 
 		// Settings, discovery, and the picker are the command's, not registration's: the
 		// price, update, and upgrade answers above resolve none of them.
@@ -247,9 +396,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// Settings outside `tui` prints its grouped listing without resolving
 		// packages or probing the doctor.
 		if (section === "settings" && ctx.mode !== "tui") {
-			const stores = createSettingsStores(cwd, agentDir, trusted);
-			const settings = makeSettings({ stores, cwd, agentDir, trusted, themes, onError: settingsNotice });
-			ctx.ui.notify(formatSettingsListing(settings.views("global")), "info");
+			settingsText(run, makeSettings, createSettingsStores, surfaceNotice);
 			return;
 		}
 
@@ -291,12 +438,7 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// Skills outside `tui` print the same grouped listing, from the metadata Pi's
 		// loader reads; there is no report to probe for and no package to resolve.
 		if (section === "skills" && ctx.mode !== "tui") {
-			const index = loadSkills(resolvedSkillPaths(discovery), cwd, agentDir);
-			const model = buildSkillModel({ items: runtime.items("skills"), index, agentDir });
-			ctx.ui.notify(
-				formatListing(model, runtime.scope(), { noun: SKILL_NOUN, emptyLabel: "No skills found." }),
-				"info",
-			);
+			skillsText(run, runtime, discovery, loadSkills, resolvedSkillPaths);
 			return;
 		}
 
@@ -304,80 +446,20 @@ export function registerPanel(pi: ExtensionAPI, deps: PanelCommandDeps): void {
 		// the session cache and probes on its first Extensions view instead, which
 		// keeps `/bytefly` and `/bytefly settings` instant.
 		const cached = deps.doctor.peek();
-		let reports: ExtensionReport[] = cached ?? [];
-
 		if (ctx.mode !== "tui") {
-			try {
-				reports = await deps.doctor.probeAll({ refresh });
-			} catch (error) {
-				ctx.ui.notify(`Could not probe extensions: ${error instanceof Error ? error.message : String(error)}`, "error");
-				return;
-			}
-			if (name !== undefined) {
-				notifyExtension(ctx, name, reports, runtime);
-				return;
-			}
-			if (mode === "doctor") {
-				ctx.ui.notify(formatReport(reports), hasProblems(reports) ? "warning" : "info");
-				return;
-			}
-			const model = buildPanelModel({ items: runtime.items("extensions"), reports, agentDir });
-			ctx.ui.notify(formatListing(model, runtime.scope()), "info");
+			await reportText(run, runtime);
 			return;
 		}
 
-		// The screen is the one thing this command needs only in the TUI: registration
-		// and every text-mode listing must not load the panel kit.
-		const { PanelComponent } = await import("./tui.ts");
-		// The dock screen owns the editor slot; hide the rails for its lifetime.
-		await withRailsSuppressed(pi, () =>
-			ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-				const unsubscribe = runtime.onChange(() => tui.requestRender());
-				// The settings runtime re-reads its snapshot after a write; without a
-				// subscriber that repaint depends on every write chain's own callback.
-				const unsubscribeSettings = settings.onChange(() => tui.requestRender());
-				const component = new PanelComponent({
-					runtime,
-					reports: () => reports,
-					settings,
-					filter: section === "extensions" ? name : undefined,
-					section,
-					theme,
-					agentDir,
-					cwd,
-					// A cached session probes only when the command asked for it.
-					needsProbe: cached === undefined || refresh,
-					initialRefresh: refresh,
-					viewportRows: () => tui.terminal?.rows,
-					requestRender: () => tui.requestRender(),
-					skills: () => loadSkills(resolvedSkillPaths(discovery), cwd, agentDir),
-					refresh: async (force) => {
-						reports = await deps.doctor.probeAll({ refresh: force === true });
-					},
-					reload: async () => {
-						// The reload takes the session, so the screen asks first and says
-						// what will change; a refusal leaves the dock exactly as it was.
-						const reload = await ctx.ui.confirm("Reload to apply changes?", "Changes take effect after a reload.");
-						if (!reload) return;
-						await ctx.reload();
-					},
-					onClose: () => {
-						// A late error falls back to the transcript, never a disposed screen.
-						panel = undefined;
-						unsubscribe();
-						unsubscribeSettings();
-						done();
-					},
-				});
-				panel = component;
-				component.prime();
-				return component;
-			}),
-		);
-
-		if (!runtime.isDirty() && !settings.isDirty()) return;
-		const reload = await ctx.ui.confirm("Reload to apply changes?", "Changes take effect after a reload.");
-		if (reload) await ctx.reload();
+		await mountPanel(run, {
+			runtime,
+			settings,
+			discovery,
+			loadSkills,
+			resolveSkillPaths: resolvedSkillPaths,
+			cached,
+			holder,
+		});
 	};
 
 	pi.registerCommand("bytefly", {
