@@ -21,6 +21,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card reads its plan as `~/…`, the form `write_plan` shows, instead of the
+  absolute path the card stores — so the same plan reads the same way to whoever opens the
+  card, and the stored path in the tool's details is unchanged.
+
 - `board`: a card can no longer be executed against a path to nothing. `contract` requires
   the plan file `write_plan` returned, `lib/board/artifact.ts` checks that it is a markdown
   file inside this repository's plan store (`lib/plans/paths.ts`, shared with `plan`), and a

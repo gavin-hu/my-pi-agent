@@ -15,7 +15,7 @@ import { type Card, type CardBlock, cardRef, DEFAULT_PRIORITY, dependsOf, priori
 import { type BoardIndex, lanesText, openDependentsOf } from "../../lib/board/links.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
 import type { Skip } from "../../lib/board/store.ts";
-import { formatAge } from "../../lib/format.ts";
+import { formatAge, shortenPath } from "../../lib/format.ts";
 import { plural } from "../../lib/board/round-text.ts";
 
 /**
@@ -137,7 +137,9 @@ function detailLines(card: Card, board?: BoardIndex, now?: number): string[] {
 	if (card.blocked !== undefined) lines.push(`  blocked: ${blockText(card.blocked)}`);
 	if (card.landed !== undefined) lines.push(`  landed: ${card.landed.commit}`);
 	if (priorityOf(card) !== DEFAULT_PRIORITY) lines.push(`  priority: ${priorityOf(card)}`);
-	if (card.planPath !== undefined) lines.push(`  plan: ${card.planPath}`);
+	// The card stores the path resolved, so the line is shortened the way `write_plan` shows
+	// it: an absolute home directory is noise in every read of the same card.
+	if (card.planPath !== undefined) lines.push(`  plan: ${shortenPath(card.planPath)}`);
 	// The contract is what a reader is asked to agree to, so the block says it in full and
 	// says who signed it: an approval is a fact about that wording, and a review about the
 	// work, and neither is inferable from the lane.
