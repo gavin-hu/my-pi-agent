@@ -94,4 +94,7 @@ export const BOARD_CLASS = {
 	teamEmpty: "board-team__empty",
 	teamDone: "board-team__done",
 	teamId: "board-team__id",
+	teamDoneIds: "board-team__ids",
+	teamTail: "board-team__tail",
+	teamFold: "board-team__fold",
 } as const satisfies Readonly<Record<string, string>>;

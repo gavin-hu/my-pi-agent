@@ -3,9 +3,15 @@
  *
  * Two panels and one strip. **Needs a decision** is the queue — one row per card,
  * carrying why it is there and the action that fixes it — and **Teammates** is the
- * people: the sessions this repository's bus knows, plus every owner a card names,
- * so a session holding nothing and a label that stopped answering are both visible.
- * Done is a quiet strip of ids that open their cards.
+ * people: the sessions this repository's bus knows, plus every owner a card names, so a
+ * session holding nothing and a label that stopped answering are both visible. Done is a
+ * quiet strip of ids that open their cards.
+ *
+ * Two of those lists only grow: an owner a card names stays one, and a finished card is
+ * finished for good. Both therefore fold — the owners the bus has no record of into one row
+ * that states what they finished, and the strip past its sixth id behind its own count — and
+ * the three slots are refilled only when what they print has moved, so a peer's write does
+ * not take the reader's scroll or their focus with it.
  *
  * The roster is optional throughout: `view.teammates` is absent when `session-bus`
  * has no records here, and every state then reads `—` rather than claiming the
@@ -30,23 +36,61 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   var STATE_WORD = { live: "live", quiet: "quiet", gone: "gone", absent: "no record", unknown: "\u2014" };
 
   /**
-   * A panel: its heading row, then its body.
+   * A slot's heading row: the panel's name and the count a reader came for.
    *
-   * With a filter on, the count reads shown/total the way a lane head does, so a
-   * reader can tell "nothing here" from "nothing matches".
+   * With a filter on, the count reads shown/total the way a lane head does, so a reader can
+   * tell "nothing here" from "nothing matches".
    */
-  function panel(text, count, total) {
-    var node = el("section", N.teamGroup);
-    node.setAttribute("aria-label", text);
+  function caption(slot, text, count, total) {
     var filtered = total !== undefined && total !== count;
-    var caption = el("h2", N.teamCaption, text);
-    caption.appendChild(chip(filtered ? count + "/" + total : String(count)));
+    var head = el("h2", N.teamCaption, text);
+    head.appendChild(chip(filtered ? count + "/" + total : String(count)));
     // The count is the reason the panel is read, but glued to its name a heading announces
     // "Needs a decision 4" as one word. The label says the same fact in a sentence and the
     // pill keeps the shape a reader scans.
-    caption.setAttribute("aria-label", text + ", " + (filtered ? count + " of " + total : String(count)));
-    node.appendChild(caption);
-    return node;
+    head.setAttribute("aria-label", text + ", " + (filtered ? count + " of " + total : String(count)));
+    slot.setAttribute("aria-label", text);
+    slot.appendChild(head);
+  }
+
+  /**
+   * The tab's three slots, built once and then refilled in place.
+   *
+   * A lane has always been rebuilt only when its cards moved; the Team tab used to clear
+   * itself and start again on every frame, which threw away the scroll offset of a capped
+   * roster and put the reader's focus back on the document. A slot is a fixed element, and
+   * what a signature guards is its contents.
+   */
+  function slots() {
+    if (board.teamPanels !== undefined) return board.teamPanels;
+    var root = document.getElementById("board-team");
+    if (!root) return undefined;
+    root.textContent = "";
+    var grid = el("div", N.teamGrid);
+    var queue = el("section", N.teamGroup);
+    var people = el("section", N.teamGroup);
+    grid.appendChild(queue);
+    grid.appendChild(people);
+    root.appendChild(grid);
+    var strip = el("p", N.teamDone);
+    root.appendChild(strip);
+    board.teamPanels = { queue: queue, people: people, strip: strip };
+    return board.teamPanels;
+  }
+
+  /**
+   * Refill one slot, but only when what it draws has moved.
+   *
+   * The signature is the facts the slot prints — ids, revisions, states, counts — plus the
+   * filter and the slot's own folded state, so a frame that changed nothing here leaves the
+   * rows, the scroll offset, and whatever the reader has focused alone. The data-sig hook is
+   * the lanes' own, not a second one.
+   */
+  function fill(slot, sig, build) {
+    if (slot.getAttribute("data-sig") === sig) return;
+    slot.setAttribute("data-sig", sig);
+    slot.textContent = "";
+    build(slot);
   }
 
   /**
@@ -167,10 +211,15 @@ export const BOARD_TEAM_JS = String.raw`(function () {
   }
 
   /**
-   * Every teammate: the bus's sessions and the owners a card names, as one list.
+   * Every teammate: the bus's sessions and the owners a card names, split in two.
    *
-   * An owner with no live session is the interesting row — work is held by a label
-   * nothing answers to — so it stays, with "no record" where a heartbeat would be.
+   * The head is who is here to read: the bus's sessions, and any owner a card names that the
+   * bus has no record of **and** that holds no card — that second kind is the one the queue
+   * reports, and folding it would hide the row the tab exists for.
+   *
+   * The tail is history: an owner the bus has no record of, holding nothing. The interesting
+   * case is why the row stays at all, but the set grows with every label that ever claimed a
+   * card, so the page states it once and unfolds it on a click.
    */
   function teammates(view, roster) {
     var round = view.round;
@@ -213,7 +262,19 @@ export const BOARD_TEAM_JS = String.raw`(function () {
       return 4;
     }
     rows.sort(function (a, b) { return rank(a) - rank(b) || a.label.localeCompare(b.label); });
-    return rows;
+
+    var head = [];
+    var tail = [];
+    for (var r = 0; r < rows.length; r++) {
+      // "We cannot say" is not "there is no record": with no bus on this machine every owner
+      // reads unknown, and folding that would claim an absence the page cannot prove.
+      if (rows[r].state === "absent" && rows[r].cards.live.length === 0) tail.push(rows[r]);
+      else head.push(rows[r]);
+    }
+    // Unfolded, history is read by what it finished and then by name, so the list says which
+    // labels did the work rather than which sorts first.
+    tail.sort(function (a, b) { return b.cards.done.length - a.cards.done.length || a.label.localeCompare(b.label); });
+    return { head: head, tail: tail };
   }
 
   /** A text node carrying its stamp, so refreshAges rewrites it with every other age. */
@@ -265,10 +326,103 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     return node;
   }
 
+  /**
+   * The history row: how many owners nothing answers to, and what they finished.
+   *
+   * One row instead of eighteen, because a label that ever claimed a card stays an owner for
+   * good: eighteen rows of "no record · no cards · 1 done" are one fact printed eighteen
+   * times. The row wears the same absence its rows do, so its dot is the hollow ring.
+   */
+  function tailRow(tail, folded) {
+    var finished = 0;
+    for (var i = 0; i < tail.length; i++) finished += tail[i].cards.done.length;
+    var row = el("li", N.teamMate);
+    row.setAttribute("data-state", "absent");
+    var button = el("button", N.teamTail);
+    button.type = "button";
+    button.setAttribute("data-fold", "team-roster");
+    button.setAttribute("aria-expanded", String(!folded));
+    var dot = el("span", N.teamDot);
+    dot.setAttribute("aria-hidden", "true");
+    button.appendChild(dot);
+    // The row counts in the rows' own words — "no record", "11 done" — so the summary is not
+    // a second way of saying what a teammate row says.
+    button.appendChild(
+      document.createTextNode(plural(tail.length, "owner") + " with no record \u00B7 " + finished + " done"),
+    );
+    button.addEventListener("click", function () { board.toggleFold("team-roster"); });
+    row.appendChild(button);
+    return row;
+  }
+
+  /** Whether the history row starts folded: once, like the Done lane, and the reader decides after. */
+  function historyFolded(tail) {
+    if (tail.length < board.foldAt.roster) return false;
+    board.collapsed = board.collapsed || {};
+    if (board.collapsed["team-roster"] === undefined) board.collapsed["team-roster"] = true;
+    return board.collapsed["team-roster"] === true;
+  }
+
+  /**
+   * Whether the strip starts folded, and stays as the reader left it.
+   *
+   * The lane folds at six because a tray of finished cards is history the moment it reaches
+   * one more than a reader checks; the strip shows six ids and folds the seventh on, because
+   * it is one line and six is what fits before it becomes a wall of underlined numbers.
+   */
+  function doneFolded(count) {
+    if (count <= board.foldAt.done) return false;
+    board.collapsed = board.collapsed || {};
+    if (board.collapsed["team-done"] === undefined) board.collapsed["team-done"] = true;
+    return board.collapsed["team-done"] === true;
+  }
+
+  /** One finished id in the strip: a button, because it opens its card. */
+  function doneId(card) {
+    var id = el("button", N.teamId, "#" + card.id);
+    id.type = "button";
+    id.setAttribute("aria-haspopup", "dialog");
+    id.addEventListener("click", function () { board.openCard(card.id); });
+    return id;
+  }
+
+  /**
+   * What a slot prints, in one string — the facts its rows are drawn from, plus the filter and
+   * the slot's own fold. A signature that leaves a fact out is a row that goes stale, so each
+   * one is built from the same expressions the rows read.
+   */
+  function queueSig(decisions, total, query) {
+    var parts = [query, String(total)];
+    for (var i = 0; i < decisions.length; i++) {
+      var card = decisions[i].card;
+      parts.push(card.id + ":" + card.rev + ":" + decisions[i].kind + ":" + decisions[i].why);
+    }
+    return parts.join("|");
+  }
+
+  function peopleSig(head, tail, query, folded, noBus) {
+    function row(mate) {
+      var ids = [];
+      for (var i = 0; i < mate.cards.live.length; i++) ids.push(mate.cards.live[i].id + ":" + mate.cards.live[i].rev);
+      return mate.label + "," + mate.state + "," + mate.seen + "," + mate.mail + "," + mate.listening +
+        "," + (mate.you ? 1 : 0) + "," + ids.join("+") + "," + mate.cards.done.length;
+    }
+    var parts = [query, folded ? "folded" : "open", noBus ? "no bus" : "bus"];
+    for (var i = 0; i < head.length; i++) parts.push(row(head[i]));
+    parts.push("--");
+    for (var j = 0; j < tail.length; j++) parts.push(row(tail[j]));
+    return parts.join("|");
+  }
+
+  function stripSig(done, filtering, folded, total) {
+    var ids = [];
+    for (var i = 0; i < done.length; i++) ids.push(done[i].id);
+    return ids.join(",") + "|" + (filtering ? "filtered" : "all") + "|" + (folded ? "folded" : "open") + "|" + total;
+  }
+
   board.renderTeam = function (view) {
-    var root = document.getElementById("board-team");
-    if (!root) return;
-    root.textContent = "";
+    var shell = slots();
+    if (shell === undefined) return;
     var round = view.round;
     // Absent, not empty: null means no bus here, so every state reads unknown.
     var roster = view.teammates === undefined ? null : view.teammates;
@@ -279,60 +433,91 @@ export const BOARD_TEAM_JS = String.raw`(function () {
     var filtering = query !== "";
     var noMatch = "no card here matches \"" + query + "\"";
 
-    var grid = el("div", N.teamGrid);
-
     var all = needs(view);
     var decisions = all.filter(function (entry) { return keep(entry.card); });
-    var queue = panel("Needs a decision", decisions.length, all.length);
-    if (decisions.length === 0) {
-      queue.appendChild(el("p", N.teamEmpty, filtering ? noMatch : "nothing needs you: no blockers, no contract waiting to be read, nothing idle"));
-    } else {
+    fill(shell.queue, queueSig(decisions, all.length, query), function (slot) {
+      caption(slot, "Needs a decision", decisions.length, all.length);
+      if (decisions.length === 0) {
+        slot.appendChild(el("p", N.teamEmpty, filtering ? noMatch : "nothing needs you: no blockers, no contract waiting to be read, nothing idle"));
+        return;
+      }
       var list = el("div", N.teamQueue);
       for (var i = 0; i < decisions.length; i++) list.appendChild(decision(decisions[i], view));
-      queue.appendChild(list);
-    }
-    grid.appendChild(queue);
+      slot.appendChild(list);
+    });
 
     var everyone = teammates(view, roster);
-    var shown = everyone.filter(function (m) {
+    var keepRow = function (mate) {
       if (!filtering) return true;
-      if (matchesLabel(m.label)) return true;
-      var held = m.cards.live.concat(m.cards.done);
+      if (matchesLabel(mate.label)) return true;
+      var held = mate.cards.live.concat(mate.cards.done);
       for (var k = 0; k < held.length; k++) if (keep(held[k])) return true;
       return false;
+    };
+    var head = everyone.head.filter(keepRow);
+    var history = everyone.tail.filter(keepRow);
+    var people = everyone.head.length + everyone.tail.length;
+    // A filter is a view of the rows, so it unfolds the history: a matching owner hidden
+    // inside a fold would make the panel say "nothing matches" about somebody who is here.
+    var folded = filtering ? false : historyFolded(everyone.tail);
+    fill(shell.people, peopleSig(head, history, query, folded, roster === null), function (slot) {
+      caption(slot, "Teammates", head.length + history.length, people);
+      if (head.length + history.length === 0) {
+        slot.appendChild(el("p", N.teamEmpty, filtering ? noMatch : roster === null ? "session-bus is not loaded here" : "nobody is here yet"));
+        return;
+      }
+      var list = el("ul", N.teamRoster);
+      for (var i = 0; i < head.length; i++) list.appendChild(mate(head[i]));
+      if (history.length > 0) {
+        // While a filter asks for people by name, the matches are rows like any other; unfolded,
+        // they follow the one row that states them.
+        if (!filtering) {
+          list.appendChild(tailRow(history, folded));
+          if (folded) {
+            slot.appendChild(list);
+            return;
+          }
+        }
+        for (var j = 0; j < history.length; j++) list.appendChild(mate(history[j]));
+      }
+      slot.appendChild(list);
     });
-    var people = panel("Teammates", shown.length, everyone.length);
-    if (shown.length === 0) {
-      people.appendChild(el("p", N.teamEmpty, filtering ? noMatch : roster === null ? "session-bus is not loaded here" : "nobody is here yet"));
-    } else {
-      var rosterList = el("ul", N.teamRoster);
-      for (var j = 0; j < shown.length; j++) rosterList.appendChild(mate(shown[j]));
-      people.appendChild(rosterList);
-    }
-    grid.appendChild(people);
-    root.appendChild(grid);
 
     var done = round.done.filter(keep);
-    var strip = el("p", N.teamDone);
-    if (done.length === 0) {
-      // While filtering, a third "no card here matches" line adds nothing; the two
-      // panels above already said it.
-      if (filtering) return root;
-      strip.textContent = "nothing finished yet";
-    } else {
-      strip.appendChild(document.createTextNode("Done \u00B7 "));
-      for (var m = 0; m < done.length; m++) {
-        (function (card) {
-          var id = el("button", N.teamId, "#" + card.id);
-          id.type = "button";
-          id.setAttribute("aria-haspopup", "dialog");
-          id.addEventListener("click", function () { board.openCard(card.id); });
-          strip.appendChild(id);
-        })(done[m]);
+    var stripFolded = doneFolded(done.length);
+    fill(shell.strip, stripSig(done, filtering, stripFolded, round.done.length), function (slot) {
+      if (done.length === 0) {
+        // While filtering, a third "no card here matches" line adds nothing; the two panels
+        // above already said it.
+        if (!filtering) slot.textContent = "nothing finished yet";
+        return;
       }
-      strip.appendChild(document.createTextNode(" \u00B7 " + plural(done.length, "card") +
-        (filtering && done.length !== round.done.length ? " of " + round.done.length : "")));
-    }
-    root.appendChild(strip);
+      slot.appendChild(document.createTextNode("Done \u00B7 "));
+      var shown = Math.min(done.length, board.foldAt.done);
+      for (var i = 0; i < shown; i++) slot.appendChild(doneId(done[i]));
+      if (done.length > board.foldAt.done) {
+        var rest = el("span", N.teamDoneIds);
+        rest.id = "team-done-ids";
+        rest.hidden = stripFolded;
+        for (var j = board.foldAt.done; j < done.length; j++) rest.appendChild(doneId(done[j]));
+        slot.appendChild(rest);
+      }
+      slot.appendChild(document.createTextNode(" \u00B7 "));
+      var count = plural(done.length, "card") +
+        (filtering && done.length !== round.done.length ? " of " + round.done.length : "");
+      if (done.length > board.foldAt.done) {
+        // The count is the fold's control here, the way a lane's head is its own: the strip has
+        // no room for a second button, and the number is what says how much is out of sight.
+        var toggle = el("button", N.teamFold, count);
+        toggle.type = "button";
+        toggle.setAttribute("data-fold", "team-done");
+        toggle.setAttribute("aria-expanded", String(!stripFolded));
+        toggle.setAttribute("aria-controls", "team-done-ids");
+        toggle.addEventListener("click", function () { board.toggleFold("team-done"); });
+        slot.appendChild(toggle);
+      } else {
+        slot.appendChild(document.createTextNode(count));
+      }
+    });
   };
 })();`;

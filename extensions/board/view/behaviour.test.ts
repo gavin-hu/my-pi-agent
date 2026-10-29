@@ -22,6 +22,7 @@ import { findChrome } from "../../../scripts/capture/chrome.ts";
 import type { Actor } from "../../../lib/board/rules.ts";
 import { createStore } from "../../../lib/board/store.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
+import type { RosterSession } from "../../../lib/session-roster.ts";
 import { serveBoardPage, type ServedBoardPage } from "../../../test/helpers/board-page.ts";
 
 /** The browser this machine has; absent means the whole suite is skipped. */
@@ -953,6 +954,135 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		} finally {
 			rmSync(unreadable, { force: true });
 			await page.close();
+		}
+	});
+
+	test("folds the owners a bus has no record of, and the ids past the strip's sixth", async () => {
+		// A board with a long history: three labels that finished their work and are gone, one
+		// that still holds a card, and two sessions that are here. The three are history — the
+		// list only grows, which is why the page states them once — and the holder is the row the
+		// fold must not take, because the queue is reporting its work as free.
+		const folder = mkdtempSync(join(tmpdir(), "pi-board-history-"));
+		const history = createStore(folder);
+		await history.ensure();
+		const at = clock.now();
+		const gone = ["billing-old", "billing-older", "billing-oldest"].map((label, index) => ({
+			id: `s-gone-${index}`,
+			label,
+		}));
+		for (const [index, owner] of gone.entries()) {
+			// Seven finished cards in all, so the strip has one id past the sixth it shows.
+			const cards = index === 0 ? 3 : 2;
+			for (let n = 0; n < cards; n++) {
+				const card = await history.create(
+					{ title: `${owner.label} shipped ${n}`, paths: [] },
+					owner,
+					at - index * 1_000,
+				);
+				await advance(history, card.id, "done", { owner, reviewer: LEAD }, at - index * 1_000 + 1);
+			}
+		}
+		const holder: Actor = { id: "s-holder", label: "billing-holder" };
+		const held = await history.create({ title: "A card nobody answers for", paths: [] }, holder, at);
+		await history.mutate(held.id, { kind: "claim" }, holder, at);
+
+		const sessions = (when: number): RosterSession[] => [
+			{
+				id: "s-lead",
+				label: "team-lead",
+				mode: "tui",
+				lastSeen: when - 10_000,
+				mail: 0,
+				watching: { armed: true, wake: true },
+			},
+			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000, mail: 0 },
+		];
+		const long = await serveBoardPage({
+			store: history,
+			now: clock.now,
+			roster: sessions,
+			display: { repo: REPO, root: ROOT, where: WHERE },
+		});
+		const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
+		try {
+			await page.goto(`${long.url}&view=team`, { waitUntil: "load" });
+			const rows = () => page.$$eval(".board-team__mate", (nodes) => nodes.length);
+			const foldFocus = () =>
+				page.evaluate(
+					() =>
+						(
+							globalThis as unknown as { document: { activeElement: ElementLike | null } }
+						).document.activeElement?.getAttribute("data-fold") ?? "",
+				);
+			await page.waitForSelector(".board-team__tail", { timeout: PAINT_MS });
+
+			// Two live rows, the one absent owner that holds a card, and one row for the three that
+			// are only history: a panel of six people drawn as four rows.
+			expect(await rows()).toBe(4);
+			expect((await page.textContent(".board-team__tail"))?.trim()).toBe("3 owners with no record · 7 done");
+			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
+			// The absent owner that holds a card is a row of its own, not part of the history: the
+			// queue is saying its work is free, and that sentence needs a name beside it.
+			expect(await page.textContent(".board-team__roster")).toContain("billing-holder");
+			expect(await page.textContent(".board-team__roster")).toContain("1 held");
+			// The caption counts people, not rows, so the fold does not change it.
+			const caption = () =>
+				page.$$eval(".board-team__caption", (nodes) =>
+					Array.from(nodes as ArrayLike<ElementLike>, (node) => node.getAttribute("aria-label") ?? ""),
+				);
+			expect((await caption())[1]).toBe("Teammates, 6");
+
+			// The strip shows six ids and folds the seventh behind its own count.
+			expect(await page.$eval("#team-done-ids", (node) => (node as unknown as ElementLike).hidden)).toBe(true);
+			expect((await page.textContent(".board-team__fold"))?.trim()).toBe("7 cards");
+			expect(await page.getAttribute(".board-team__fold", "aria-expanded")).toBe("false");
+
+			// Opening the history draws the rows it stood for, and puts focus back on the control
+			// that was repainted rather than on the document.
+			await page.click(".board-team__tail");
+			expect(await rows()).toBe(7);
+			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("true");
+			expect(await foldFocus()).toBe("team-roster");
+
+			await page.click(".board-team__fold");
+			expect(await page.$eval("#team-done-ids", (node) => (node as unknown as ElementLike).hidden)).toBe(false);
+			expect(await page.getAttribute(".board-team__fold", "aria-expanded")).toBe("true");
+			expect(await foldFocus()).toBe("team-done");
+
+			// A filter is a view of the rows, so it unfolds the history and shows the owners that
+			// match instead of saying nobody does.
+			await page.fill("#board-filter", "billing-old");
+			await page.waitForFunction(
+				() => (globalThis as unknown as { document: Doc }).document.querySelectorAll(".board-team__mate").length === 3,
+				undefined,
+				{ timeout: PAINT_MS },
+			);
+			expect(await page.$(".board-team__tail")).toBeNull();
+			expect((await caption())[1]).toBe("Teammates, 3 of 6");
+
+			// A frame that changes nothing in the roster leaves the reader's fold — and the focus on
+			// it — exactly where they left them.
+			await page.fill("#board-filter", "");
+			await page.waitForSelector(".board-team__tail", { timeout: PAINT_MS });
+			await page.click(".board-team__tail");
+			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
+			const footer = await page.textContent("#board-where");
+			await history.create({ title: "A card in the pool", paths: [] }, LEAD, clock.now());
+			// The frame that lands is one the roster does not print, so the footer is what says it
+			// arrived: the Team tab is showing, and a lane's card is in a panel that is hidden.
+			await page.waitForFunction(
+				(was) =>
+					((globalThis as unknown as { document: Doc }).document.getElementById("board-where")?.textContent ?? "") !==
+					was,
+				footer,
+				{ timeout: PAINT_MS },
+			);
+			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
+			expect(await foldFocus()).toBe("team-roster");
+		} finally {
+			await page.close();
+			await long.close();
+			rmSync(folder, { recursive: true, force: true });
 		}
 	});
 });

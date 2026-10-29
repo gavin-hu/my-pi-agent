@@ -11,10 +11,11 @@ The report says what the peer will actually do with it.
 Nothing starts a process. A message lands in the peer's inbox and is reported at its next
 turn, so `assign` and `offer` are messages, not launches.
 
-<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and the owner as a chip on the row's right; on the right, a Teammates list with a state dot, label, you chip, mail badge, a not listening chip on a peer whose watch is off, and a line of what each holds; and one muted Done line under both" width="100%">
+<img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and the owner as a chip on the row's right; on the right, a Teammates list of one-line rows, each a state dot, a label, a you chip, a mail badge, a not listening chip on a peer whose watch is off, and what that teammate holds at the row's right; and one muted Done line under both" width="100%">
 
 *The Team tab: the cards that need the lead, then who is on the team — including an
-owner whose label nothing answers to, and a teammate that is not listening.*
+owner whose label nothing answers to, and a teammate that is not listening. A row is one
+line; the owners a bus has no record of collapse to one row*
 
 ## Capabilities
 

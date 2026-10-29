@@ -178,14 +178,16 @@ ${REASON_TONE_CSS}
 /* The queue: one row per card, its kind as an edge, its way out in the foot. */
 .board-team__queue{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
 /* The queue is the tallest thing here and it can be unbounded; capping it keeps the two
-   panels on one screen. Stacked below 1180px there is no second column to balance, and a
-   nested scroll on a phone is worse than the page's own. */
+   panels on one screen. The roster can be unbounded the same way — a board with a long
+   history names an owner per label that ever claimed a card — so it takes the same cap and
+   the same shade. Stacked below 1180px there is no second column to balance, and a nested
+   scroll on a phone is worse than the page's own. */
 @media (min-width:1181px){
   /* A row cut at the edge reads as a bug unless something says the list continues, and a
      mac's scrollbars are hidden until it moves: an inset shade in the page's own colour
      marks the edge without a literal. */
   /* A floor, because a short window must not turn three rows into a scroll box. */
-  .board-team__queue{max-height:max(18rem,calc(100dvh - 16rem));overflow:auto;overscroll-behavior:contain;padding-right:var(--space-1);box-shadow:inset 0 calc(-1 * var(--space-6)) var(--space-6) calc(-1 * var(--space-6)) var(--canvas)}
+  .board-team__queue,.board-team__roster{max-height:max(18rem,calc(100dvh - 16rem));overflow:auto;overscroll-behavior:contain;padding-right:var(--space-1);box-shadow:inset 0 calc(-1 * var(--space-6)) var(--space-6) calc(-1 * var(--space-6)) var(--canvas)}
 }
 .board-team__decision{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"open foot" "why why";align-items:center;gap:var(--space-1) var(--space-3);padding:var(--space-2) var(--space-3);background:var(--raised);border:1px solid var(--border);border-left:3px solid var(--dim);border-radius:var(--radius-md);transition:border-color var(--motion-base) var(--motion-ease),transform var(--motion-base) var(--motion-ease)}
 .board-team__decision:hover{border-color:var(--border-strong);transform:translateY(-1px)}
@@ -205,6 +207,9 @@ ${REASON_TONE_CSS}
 .board-team__roster{display:flex;flex-direction:column;gap:var(--space-1);margin:0;padding:0;list-style:none;min-width:0}
 /* No row rule: the caption already delimits the list, and a second hairline beside it
    was the same pen drawn twice. */
+/* One row is one line: the name shrinks, the metrics take the rest, and a narrow column
+   wraps them under the name rather than clipping either. A row that always broke after the
+   name cost 56px, which is what made a roster of twenty a wall. */
 .board-team__mate{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-1) var(--space-2);padding:var(--space-2) 0;min-width:0}
 .board-team__dot{width:8px;height:8px;border-radius:var(--radius-pill);background:var(--muted);flex:0 0 auto;align-self:center}
 .board-team__mate[data-state="live"] .board-team__dot{background:var(--success)}
@@ -213,9 +218,20 @@ ${REASON_TONE_CSS}
 .board-team__mate[data-state="gone"] .board-team__dot{background:var(--danger)}
 /* A record that is not there is a hollow ring, never a colour that claims it is. */
 .board-team__mate[data-state="absent"] .board-team__dot,.board-team__mate[data-state="unknown"] .board-team__dot{background:transparent;box-shadow:inset 0 0 0 1px var(--border-strong)}
-.board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text)}
-.board-team__mets{flex:1 0 100%;margin:0;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
+.board-team__name{font:var(--fw-medium) var(--fs-md) var(--font-ui);color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-team__mets{flex:1 1 auto;min-width:0;margin:0;text-align:right;color:var(--muted);font:var(--fs-xs) var(--font-ui)}
 .board-team__empty{margin:0;color:var(--muted);font:var(--fs-sm) var(--font-ui)}
+/* The roster's one control: the owners the bus has no record of, counted in one row and
+   opened from it. Full width, because it stands for a group of rows rather than a row. */
+.board-team__tail{display:flex;flex:1 1 100%;align-items:center;gap:var(--space-2);appearance:none;border:0;background:none;padding:0;margin:0;min-height:24px;cursor:pointer;text-align:left;color:var(--muted);font:var(--fs-md) var(--font-ui);text-decoration:underline dotted;text-underline-offset:3px}
+.board-team__tail:hover{color:var(--text);text-decoration:underline}
+/* The strip's ids past the sixth: one span, hidden whole, so the count that opens them
+   controls a single node. Its contents are the strip's own flex items, which is what gives
+   them the strip's gap and wrapping rather than jamming #7#8#9 together. */
+.board-team__ids{display:contents}
+/* The strip's count is its fold control: the number is what says how much is out of sight. */
+.board-team__fold{appearance:none;border:0;background:none;padding:5px 8px;margin:-5px -8px;min-height:24px;cursor:pointer;color:var(--muted);font:var(--fs-sm) var(--font-ui);text-decoration:underline dotted;text-underline-offset:3px}
+.board-team__fold:hover{color:var(--accent);text-decoration:underline}
 /* Done stays quiet; its ids are buttons only because they open their card. */
 .board-team__done{margin:0;font:var(--fs-sm) var(--font-ui);color:var(--muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
 /* An id in the Done strip is a button, so it wears the only affordance it has: a
