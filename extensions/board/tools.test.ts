@@ -9,7 +9,7 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { boardHarness } from "../../test/helpers/board.ts";
@@ -90,7 +90,21 @@ async function seed(
 ): Promise<void> {
 	const store = await board.runtime.store(board.ctx.cwd);
 	const me = board.runtime.who(board.ctx, board.ctx.cwd);
-	await advance(store, id, lane, { owner: me, reviewer: REVIEWER }, NOW);
+	// The plan is a real file in this board's plan store: `move` re-checks it, so a seed
+	// that named a path to nothing would be a board the tool refuses.
+	await advance(store, id, lane, { owner: me, reviewer: REVIEWER, planPath: await writePlan(board) }, NOW);
+}
+
+/** A plan file in this board's plan store, which is what `contract` requires. */
+async function writePlan(
+	board: { runtime: ReturnType<typeof harness>["runtime"]; ctx: ReturnType<typeof harness>["ctx"] },
+	name = "one.md",
+): Promise<string> {
+	const dir = await board.runtime.planDir(board.ctx.cwd);
+	mkdirSync(dir, { recursive: true });
+	const path = join(dir, name);
+	writeFileSync(path, "# One\n");
+	return path;
 }
 
 /** The text the model reads. */
@@ -213,6 +227,17 @@ describe("list", () => {
 		expect(text(missing)).toContain("#7 is there and this build cannot read it (0007.json: version 3)");
 	});
 
+	test("names the next step, because the claim is what commits the session to a plan", async () => {
+		const { call } = harness();
+		await call({ action: "add", title: "One" });
+		const claimed = await call({ action: "claim", card: "1" });
+		expect(text(claimed)).toContain(
+			"next: design it in plan mode, write_plan, then `contract` with the path it returned",
+		);
+		// Only a claim says it: the card's other writes do not repeat the instruction.
+		expect(text(await call({ action: "release", card: "1" }))).not.toContain("next:");
+	});
+
 	test("lists in lane order, with the holder", async () => {
 		const { call } = harness();
 		const added = await call({ action: "add", title: "Billing webhook accepts orders", paths: ["src/billing"] });
@@ -281,14 +306,15 @@ describe("list", () => {
 	});
 
 	test("filters by a query over the title, the holder, a path hint, the plan, or a note", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "Billing webhook", paths: ["src/billing"] });
 		await call({ action: "add", title: "Retry branches", paths: ["src/git"] });
 		await call({ action: "claim", card: "2" });
 		await call({
 			action: "contract",
 			card: "2",
-			path: "~/.pi/agent/plans/8872d3adda0e/retry-branches.md",
+			path: await writePlan(board, "retry-branches.md"),
 			goal: "g",
 			acceptance: "a",
 			scopeOut: "s",
@@ -657,27 +683,30 @@ describe("note and plan", () => {
 		expect(
 			text(await lead.call({ action: "contract", card: "1", path: "p.md", goal: "g", acceptance: "a", scopeOut: "s" })),
 		).toContain("Only its owner records a plan.");
+		const plan = await writePlan(peer, "one.md");
 		const result = await peer.call({
 			action: "contract",
 			card: "1",
-			path: "~/.pi/agent/plans/k/one.md",
+			path: plan,
 			goal: "g",
 			acceptance: "a",
 			scopeOut: "s",
 		});
-		expect(result.details.card?.planPath).toBe("~/.pi/agent/plans/k/one.md");
+		expect(result.details.card?.planPath).toBe(plan);
 	});
 });
 
 describe("the flow: contract, approval, spot-check", () => {
 	test("writes the plan file and the three lines in one call", async () => {
-		const { call } = harness();
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
+		const plan = await writePlan(board);
 		const result = await call({
 			action: "contract",
 			card: "1",
-			path: "plans/one.md",
+			path: plan,
 			goal: "An order is stored once",
 			acceptance: "A retry leaves one order",
 			scopeOut: "No refunds",
@@ -688,18 +717,20 @@ describe("the flow: contract, approval, spot-check", () => {
 			acceptance: "A retry leaves one order",
 			scopeOut: "No refunds",
 		});
-		expect(text(result)).toContain("plan: plans/one.md");
+		expect(text(result)).toContain(`plan: ${plan}`);
 		expect(text(result)).toContain("approved: nobody yet");
 	});
 
-	test("refuses a contract call that names nothing, and a line past its cap", async () => {
-		const { call } = harness();
+	test("refuses a contract with no plan, and a line past its cap", async () => {
+		const board = harness();
+		const { call } = board;
 		await call({ action: "add", title: "One" });
 		await call({ action: "claim", card: "1" });
-		expect(text(await call({ action: "contract", card: "1" }))).toBe(
-			"Error: contract needs a path, a goal, an acceptance, or a scopeOut.",
+		expect(text(await call({ action: "contract", card: "1", goal: "g", acceptance: "a", scopeOut: "s" }))).toBe(
+			"Error: contract needs the plan file #1 is executed against: pass `path` as write_plan returned it.",
 		);
-		expect(text(await call({ action: "contract", card: "1", goal: "x".repeat(401) }))).toBe(
+		const plan = await writePlan(board);
+		expect(text(await call({ action: "contract", card: "1", path: plan, goal: "x".repeat(401) }))).toBe(
 			"Error: goal must be at most 400 characters.",
 		);
 	});
@@ -711,7 +742,14 @@ describe("the flow: contract, approval, spot-check", () => {
 		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
-		await peer.call({ action: "contract", card: "1", goal: "g", acceptance: "a", scopeOut: "s" });
+		await peer.call({
+			action: "contract",
+			card: "1",
+			path: await writePlan(peer),
+			goal: "g",
+			acceptance: "a",
+			scopeOut: "s",
+		});
 		// The holder cannot approve its own wording, and the move is refused before it.
 		expect(text(await peer.call({ action: "approve", card: "1" }))).toContain(
 			"Its contract is approved by a session that does not hold it.",
@@ -722,6 +760,84 @@ describe("the flow: contract, approval, spot-check", () => {
 		expect(text(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain("#1 execute");
 	});
 
+	test("refuses a plan that is not in this repository's store, and writes nothing", async () => {
+		const board = harness({ cwd: temps.track(tempDir("pi-repo-")) });
+		const { call } = board;
+		await call({ action: "add", title: "One" });
+		await call({ action: "claim", card: "1" });
+		const elsewhere = join(temps.track(tempDir("pi-elsewhere-")), "one.md");
+		writeFileSync(elsewhere, "# elsewhere\n");
+		const result = await call({
+			action: "contract",
+			card: "1",
+			path: elsewhere,
+			goal: "g",
+			acceptance: "a",
+			scopeOut: "s",
+		});
+		expect(result.isError).toBe(true);
+		expect(text(result)).toContain("is not in this repository's plan store");
+		expect(text(result)).toContain("write_plan");
+		// A refused call leaves the card exactly as it was.
+		expect((await call({ action: "list", card: "1" })).details.card?.contract).toBeUndefined();
+	});
+
+	test("hears the ownership refusal before the plan's, so the first fix is the right one", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		// Both facts are wrong; the state machine's rule is the one a caller can act on.
+		expect(text(await lead.call({ action: "contract", card: "1", path: "/tmp/nowhere.md", goal: "g" }))).toContain(
+			"Only its owner records a plan.",
+		);
+	});
+
+	test("refuses execute when the plan it recorded is gone", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		const plan = await writePlan(peer);
+		await peer.call({ action: "contract", card: "1", path: plan, goal: "g", acceptance: "a", scopeOut: "s" });
+		await lead.call({ action: "approve", card: "1" });
+		unlinkSync(plan);
+		const refused = await peer.call({ action: "move", card: "1", lane: "execute" });
+		expect(refused.isError).toBe(true);
+		expect(text(refused)).toContain("the plan recorded for #1 is gone");
+		expect(text(refused)).toContain("record it with `contract`");
+		// Re-recording a plan that is there opens the gate again.
+		const again = await writePlan(peer, "again.md");
+		await peer.call({ action: "contract", card: "1", path: again });
+		const moved = await peer.call({ action: "move", card: "1", lane: "execute" });
+		expect(moved.details.card?.lane).toBe("execute");
+	});
+
+	test("tells a card already executing to come back to plan when its plan is gone", async () => {
+		// `contract` is written in plan and nowhere else, so "record it again" alone would send
+		// an executing card into a second refusal.
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		await lead.call({ action: "add", title: "One" });
+		await peer.call({ action: "claim", card: "1" });
+		const plan = await writePlan(peer);
+		await peer.call({ action: "contract", card: "1", path: plan, goal: "g", acceptance: "a", scopeOut: "s" });
+		await lead.call({ action: "approve", card: "1" });
+		await peer.call({ action: "move", card: "1", lane: "execute" });
+		await lead.call({ action: "review", card: "1" });
+		unlinkSync(plan);
+		const refused = await peer.call({ action: "move", card: "1", lane: "done" });
+		expect(refused.isError).toBe(true);
+		expect(text(refused)).toContain("the plan recorded for #1 is gone");
+		expect(text(refused)).toContain("move it back to plan, then record it with `contract`");
+	});
+
 	test("done is refused until somebody else spot-checks the work", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
@@ -729,7 +845,14 @@ describe("the flow: contract, approval, spot-check", () => {
 		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
-		await peer.call({ action: "contract", card: "1", path: "p.md", goal: "g", acceptance: "a", scopeOut: "s" });
+		await peer.call({
+			action: "contract",
+			card: "1",
+			path: await writePlan(peer),
+			goal: "g",
+			acceptance: "a",
+			scopeOut: "s",
+		});
 		await lead.call({ action: "approve", card: "1" });
 		await peer.call({ action: "move", card: "1", lane: "execute" });
 		expect(text(await peer.call({ action: "review", card: "1" }))).toContain(
@@ -738,6 +861,53 @@ describe("the flow: contract, approval, spot-check", () => {
 		expect(text(await peer.call({ action: "move", card: "1", lane: "done" }))).toContain("has no spot-check recorded");
 		await lead.call({ action: "review", card: "1" });
 		expect((await peer.call({ action: "move", card: "1", lane: "done" })).details.card?.lane).toBe("done");
+	});
+});
+
+describe("the whole flow, two sessions", () => {
+	test("walks claim, contract, approval, execute, review, done, and refuses the gate it skips", async () => {
+		const cwd = temps.track(tempDir("pi-repo-"));
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		const board = harness({ cwd, agentDir, sessionId: "s-lead" });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		await board.call({ action: "add", title: "One" });
+
+		// The claim is the last call with no plan behind it, and it says so.
+		const claimed = await peer.call({ action: "claim", card: "1" });
+		expect(claimed.details.card?.lane).toBe("plan");
+		expect(text(claimed)).toContain("next: design it in plan mode");
+
+		// No contract yet: `execute` names the contract, not the plan.
+		expect(text(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain(
+			"its contract needs goal, acceptance, and scopeOut",
+		);
+
+		const plan = await writePlan(peer, "the-plan.md");
+		const contracted = await peer.call({
+			action: "contract",
+			card: "1",
+			path: plan,
+			goal: "An order is stored once",
+			acceptance: "A retry leaves one order",
+			scopeOut: "No refunds",
+		});
+		expect(contracted.details.card?.planPath).toBe(plan);
+		expect(text(contracted)).toContain("approved: nobody yet");
+
+		// The holder's own signature is refused; the lead's opens the gate.
+		expect(text(await peer.call({ action: "approve", card: "1" }))).toContain(
+			"approved by a session that does not hold it",
+		);
+		expect(text(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain("is not approved yet");
+		expect((await board.call({ action: "approve", card: "1" })).details.card?.contract?.approved?.by).toBe(LEAD);
+		expect((await peer.call({ action: "move", card: "1", lane: "execute" })).details.card?.lane).toBe("execute");
+
+		// Finished work needs somebody else's look, and the plan must have survived.
+		expect(text(await peer.call({ action: "move", card: "1", lane: "done" }))).toContain("has no spot-check recorded");
+		expect((await board.call({ action: "review", card: "1" })).details.card?.review?.by).toBe(LEAD);
+		const done = await peer.call({ action: "move", card: "1", lane: "done" });
+		expect(done.details.card?.lane).toBe("done");
+		expect(done.details.card?.landed).toBeUndefined();
 	});
 });
 

@@ -72,7 +72,12 @@ export const BoardParams = Type.Object({
 	text: Type.Optional(
 		Type.String({ description: `\`note\`: the note to append; one line, at most ${MAX_NOTE} characters.` }),
 	),
-	path: Type.Optional(Type.String({ description: "`contract`: the plan file this card is executed against." })),
+	path: Type.Optional(
+		Type.String({
+			description:
+				"`contract`, required: the plan file this card is executed against — the path `write_plan` returned, inside this repository's plan store.",
+		}),
+	),
 	goal: Type.Optional(
 		Type.String({ description: "`contract`: what the feature is for, one line, at most 400 characters." }),
 	),

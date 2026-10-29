@@ -18,6 +18,15 @@ import type { Skip } from "../../lib/board/store.ts";
 import { formatAge } from "../../lib/format.ts";
 import { plural } from "../../lib/board/round-text.ts";
 
+/**
+ * What a claim adds to the card: the next step, in the order the board enforces.
+ *
+ * A claim is the one call that commits a session to a card, and the board will not record
+ * that card's plan until one exists — so the call that opens the work is the one place the
+ * order has to be said. It is a line of the transcript, not a field: nothing reads it back.
+ */
+export const CLAIM_NEXT = "  next: design it in plan mode, write_plan, then `contract` with the path it returned";
+
 /** One card: the headline, then the state a reader needs in order to act on it. */
 export function formatCard(card: Card, board?: BoardIndex, now?: number): string {
 	return [`${cardRef(card.id)} ${card.lane} · ${card.title}`, ...detailLines(card, board, now)].join("\n");

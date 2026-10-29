@@ -75,7 +75,9 @@ async function seedBoard(): Promise<void> {
 		doing.id,
 		{
 			kind: "contract",
-			path: "~/.pi/agent/plans/8872d3adda0e/2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md",
+			artifact: {
+				path: "~/.pi/agent/plans/8872d3adda0e/2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md",
+			},
 			goal: "A webhook order is stored once",
 			acceptance: "A retried delivery leaves one order",
 			scopeOut: "No refunds",
@@ -85,7 +87,18 @@ async function seedBoard(): Promise<void> {
 	);
 	await store.mutate(doing.id, { kind: "note", text: "no retries yet" }, CORE, now - 118_000);
 	await store.mutate(doing.id, { kind: "approve" }, LEAD, now - 118_500);
-	await store.mutate(doing.id, { kind: "move", lane: "execute" }, CORE, now - 118_000);
+	await store.mutate(
+		doing.id,
+		{
+			kind: "move",
+			lane: "execute",
+			artifact: {
+				path: "~/.pi/agent/plans/8872d3adda0e/2026-10-26-1105-the-card-dialog-reads-like-the-record-it-carries.md",
+			},
+		},
+		CORE,
+		now - 118_000,
+	);
 	for (let index = 1; index <= 7; index++) {
 		const card = await store.create(
 			{ title: `Shipped change ${index}`, paths: ["src/old"] },

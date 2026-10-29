@@ -10,7 +10,14 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { BOARD_ACTION_KIND, BOARD_ACTIONS, BOARD_READ_ACTIONS, isBoardReadAction, readActionsText } from "./actions.ts";
+import {
+	BOARD_ACTION_KIND,
+	BOARD_ACTIONS,
+	BOARD_READ_ACTIONS,
+	boardWriteRefusal,
+	isBoardReadAction,
+	readActionsText,
+} from "./actions.ts";
 
 describe("the action table", () => {
 	test("classifies every action it lists, and lists nothing it does not classify", () => {
@@ -59,5 +66,22 @@ describe("readActionsText", () => {
 		// The phrase is read as "only … it" in a refusal, so no reads at all would say
 		// "only  it". The table is what keeps that impossible.
 		expect(BOARD_READ_ACTIONS.length).toBeGreaterThan(0);
+	});
+});
+
+describe("boardWriteRefusal", () => {
+	test("names the verb, the reads, and the order that avoids the refusal", () => {
+		const text = boardWriteRefusal("claim", "exit_plan_mode to proceed.");
+		expect(text).toContain("`claim` changes the board");
+		expect(text).toContain("only `list` reads it");
+		expect(text).toContain("claim the card before you plan");
+		expect(text).toContain("record its plan once the plan is approved");
+		// Plan mode supplies its own exit guidance, so the sentence has one source per fact.
+		expect(text.endsWith("exit_plan_mode to proceed.")).toBe(true);
+	});
+
+	test("names the tool itself when the call carried no verb", () => {
+		expect(boardWriteRefusal(undefined, "guidance")).toContain("`board` changes the board");
+		expect(boardWriteRefusal("  ", "guidance")).toContain("`board` changes the board");
 	});
 });

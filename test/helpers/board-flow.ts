@@ -5,7 +5,9 @@
  * finished without a spot-check, so a suite that wants a card in a lane would otherwise
  * repeat four operations — and repeat them slightly differently. The helpers here perform
  * exactly what the tool does, through `store.mutate`, so a test that seeds a board cannot
- * seed a state the rules would refuse.
+ * seed a state the rules would refuse. The plan proof is the one fact a helper cannot mint
+ * for the tool: a suite that seeds here and then drives `board move` passes `planPath` inside
+ * its own plan directory, because the tool re-checks that the file is there.
  */
 
 import type { Actor } from "../../lib/board/rules.ts";
@@ -18,6 +20,13 @@ export interface Seeded {
 	reviewer: Actor;
 	/** The commit a seed records on the way to `done`; absent leaves the card with none. */
 	landed?: string;
+	/**
+	 * The plan file the seed records, proved as the tool proves it.
+	 *
+	 * Absent means `plans/<id>.md`, which is enough for a suite that never lets the tool
+	 * check the store itself; a suite that does passes a path inside its plan directory.
+	 */
+	planPath?: string;
 }
 
 /** A contract a test card can carry: three lines, and nothing about the feature. */
@@ -59,14 +68,18 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	if (lane === "plan") return;
 	const planned = await read();
 	if (planned.contract === undefined) {
-		await apply({ kind: "contract", path: `plans/${id}.md`, ...TEST_CONTRACT });
+		// The artifact is the fact the tool proves; a seed records the path it names.
+		await apply({ kind: "contract", artifact: { path: who.planPath ?? `plans/${id}.md` }, ...TEST_CONTRACT });
 	}
 	const written = await read();
 	if (written.contract?.approved === undefined) {
 		const result = await store.mutate(id, { kind: "approve" }, who.reviewer, now);
 		if (!result.ok) fail(result.error);
 	}
-	if ((await read()).lane === "plan") await apply({ kind: "move", lane: "execute" });
+	const contract = (await read()).planPath;
+	if ((await read()).lane === "plan") {
+		await apply({ kind: "move", lane: "execute", artifact: { path: contract ?? `plans/${id}.md` } });
+	}
 	if (lane === "execute") return;
 	if ((await read()).review === undefined) {
 		const result = await store.mutate(id, { kind: "review" }, who.reviewer, now);
@@ -76,7 +89,12 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	// without one, and a test of that state must not be handed a fake.
 	await apply(
 		who.landed === undefined
-			? { kind: "move", lane: "done" }
-			: { kind: "move", lane: "done", landed: { commit: who.landed } },
+			? { kind: "move", lane: "done", artifact: { path: contract ?? `plans/${id}.md` } }
+			: {
+					kind: "move",
+					lane: "done",
+					landed: { commit: who.landed },
+					artifact: { path: contract ?? `plans/${id}.md` },
+				},
 	);
 }

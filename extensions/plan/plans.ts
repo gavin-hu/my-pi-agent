@@ -33,13 +33,12 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import { join } from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { keepRevision, writeAtomic } from "./plan-files.ts";
 import { sanitizeLine, shortenPath } from "../../lib/format.ts";
-import { isInside, isInsideReal } from "../../lib/path.ts";
+import { isContainedPlan, isPlanFileName, plansDirFor, resolvePlanArg } from "../../lib/plans/paths.ts";
 import { repoKeyFor } from "../../lib/repo-key.ts";
 import { carryFeedback, formatFeedback, normalizeAuthor, type PlanAnnotation } from "./feedback.ts";
 import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } from "./steps.ts";
@@ -48,14 +47,6 @@ import { extractPlanSteps, matchesStepText, setStepStatuses, type StepUpdate } f
 export const MAX_PLAN_BYTES = 256 * 1024;
 /** Longest slug derived from a plan title. */
 const MAX_SLUG_LENGTH = 60;
-/** The agent-directory entry plans are filed under. */
-const PLANS_DIRNAME = "plans";
-
-/** The plan store: `<agent-dir>/plans`, or `<agent-dir>/plans/<key>` inside a repository. */
-function plansDir(agentDir: string, key?: string): string {
-	return key === undefined ? join(agentDir, PLANS_DIRNAME) : join(agentDir, PLANS_DIRNAME, key);
-}
-
 /** A plan read from disk. */
 export interface StoredPlan {
 	/** Absolute path. */
@@ -160,46 +151,6 @@ export function stamp(date: Date): string {
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
 }
 
-/** A plan file name: markdown and not a dotfile, so the self-ignore file is never a target. */
-function isPlanFileName(path: string): boolean {
-	const name = basename(path);
-	return name.toLowerCase().endsWith(".md") && !name.startsWith(".");
-}
-
-/**
- * Whether `path` may be read, written, or deleted as a plan. Beyond lexical
- * containment (shared with the other path guards through `lib/path.ts`), this
- * rejects dotfiles (including the directory's own `.gitignore`) and resolves
- * symlinks, so a link placed inside the plans directory cannot redirect a read
- * or write outside it.
- */
-function isContainedPlan(dir: string, path: string): boolean {
-	if (!isInside(dir, path) || !isPlanFileName(path)) return false;
-	try {
-		// A symlink itself must never be the target; a missing file is a new plan.
-		if (lstatSync(path).isSymbolicLink()) return false;
-	} catch {
-		// Missing (ENOENT) is expected; any other error falls through to the
-		// real-path check, which rejects the path if it cannot be resolved.
-	}
-	return isInsideReal(dir, dirname(path));
-}
-
-/**
- * Resolve a `plan_path` argument against the store.
- *
- * A plan lives outside the project, so a path relative to the working directory
- * can no longer name one. Absolute paths and the `~/…` form the tools display are
- * accepted, and a bare name resolves inside the store — which is what a reader of
- * a tool result has in hand.
- */
-function resolvePlanArg(dir: string, planPath: string): string {
-	const text = planPath.trim();
-	if (text === "~") return homedir();
-	if (text.startsWith("~/") || text.startsWith(`~${sep}`)) return resolve(homedir(), text.slice(2));
-	return isAbsolute(text) ? resolve(text) : resolve(dir, text);
-}
-
 function uniquePath(dir: string, base: string): string {
 	const taken = (candidate: string): boolean => {
 		try {
@@ -300,7 +251,7 @@ export function createPlanStore(pi: ExtensionAPI, options: { now?: () => Date } 
 		const cached = dirCache.get(base);
 		if (cached) return cached;
 		const repo = await repoKeyFor(pi, base);
-		const dir = plansDir(getAgentDir(), repo.fromGit ? repo.key : undefined);
+		const dir = plansDirFor(getAgentDir(), repo);
 		dirCache.set(base, { dir, root: repo.fromGit ? repo.root : undefined });
 		if (repo.fromGit) {
 			// The keyed directory is the store; a store an older version left in the

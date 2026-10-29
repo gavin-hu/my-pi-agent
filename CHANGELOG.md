@@ -21,6 +21,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: a card can no longer be executed against a path to nothing. `contract` requires
+  the plan file `write_plan` returned, `lib/board/artifact.ts` checks that it is a markdown
+  file inside this repository's plan store (`lib/plans/paths.ts`, shared with `plan`), and a
+  move to `execute` or `done` re-checks that it is still there — so the plan a card promises
+  is a file, not a string. A claim's result ends with the next step (plan mode, then
+  `contract`), plan mode's board refusal names the same order, and a card planned before the
+  rule must record its plan again before it can execute.
+
+- `board`: `/board approve <id>` and `/board review <id>` sign the two gates as `you`, so a
+  repository worked by one session can move a card past `plan` and `execute`. The rule is
+  unchanged — a sign still comes from somebody other than the holder — and the card records
+  who signed, which reads differently from a peer's sign.
+
 - `docs`: an agent-directory location is spelled one way everywhere — `<agent-dir>` —
   because 15 uses still wrote `<agentDir>` across three pages, the `plan-review` example,
   and eight module comments, each sweep having fixed only the page it was reading. The

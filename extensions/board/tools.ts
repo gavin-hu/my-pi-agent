@@ -14,6 +14,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
+import { type ArtifactCheck, planForContract, planForExecute } from "../../lib/board/artifact.ts";
 import { type Card, cardRef, holds, matchesQuery, normalizeCardId } from "../../lib/board/card.ts";
 import { movableLanes } from "../../lib/board/lanes.ts";
 import { indexOf } from "../../lib/board/links.ts";
@@ -30,7 +31,15 @@ import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine, isTailResult, TailResult } from "../../lib/tui/tool.ts";
 import { formatRound } from "../../lib/board/round-text.ts";
 import { skippedText } from "../../lib/board/skipped.ts";
-import { archiveNote, formatArchive, formatArchived, formatBoard, formatCard, formatDropped } from "./format.ts";
+import {
+	archiveNote,
+	CLAIM_NEXT,
+	formatArchive,
+	formatArchived,
+	formatBoard,
+	formatCard,
+	formatDropped,
+} from "./format.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { joinOnClaim } from "./join.ts";
 import { collapsedLine, resultInput } from "./result.ts";
@@ -128,8 +137,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 			"belong on the board - they belong in the plan and in `todo`.",
 		promptSnippet: `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`,
 		promptGuidelines: [
-			"Claim a card to pull it from backlog into plan, write its contract with `contract` (goal, acceptance, scopeOut, and the plan file), and move it to execute only once a session that does not hold it has approved that contract.",
-			"Before a card is done, a session that does not hold it records a spot-check with `review`; `execute` also needs the plan path the work was done against.",
+			"Claim a card to pull it from backlog into plan, design it in plan mode, then record the contract with `contract`: goal, acceptance, scopeOut, and the plan file `write_plan` returned — a path outside this repository's plan store is refused. Move it to execute only once a session that does not hold it has approved that contract, or the person has signed with `/board approve`.",
+			"Before a card is done, a session that does not hold it records a spot-check with `review`, or the person signs with `/board review`; the plan it recorded must still be in the store, and `contract` is how it is re-recorded.",
 			"Move a card to `blocked` with a `blocker` kind and one line about what is waited on: it resumes in `plan`, or in `execute` once its contract is approved.",
 			"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
 			"A card that waits on another is linked with `edit` and `dependsOn`, so the order is on the board instead of in a refusal.",
@@ -165,7 +174,7 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 					case "add":
 						return await add(store, me, args, now);
 					case "claim": {
-						const claimed = await mutate(store, action, me, now, args, { kind: "claim" });
+						const claimed = await mutate(store, action, me, now, args, { kind: "claim" }, CLAIM_NEXT);
 						// Taking a card is what makes this session a teammate. It is the one action here
 						// worth being addressed about, and the board is the user's surface for the team, so
 						// nobody has to know the bus exists. A refused claim wrote nothing and enlists
@@ -184,28 +193,39 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 						if (lane === undefined) {
 							return refusal(action, me, `move needs a target lane: ${listOf(movableLanes())}.`);
 						}
-						// Only the lane that has something to say reads for it: a move to `done`
-						// records the commit that closed the card, and a board outside a
-						// repository simply has none to record.
+						// Only the lanes that have something to say read for it: a move to `done`
+						// records the commit that closed the card, and both `execute` and `done` carry
+						// the proof that the plan the card recorded is still there. A board outside a
+						// repository simply has no commit to record.
 						const landed = lane === "done" ? await headCommit(pi, ctx.cwd) : undefined;
+						const proved =
+							lane === "execute" || lane === "done"
+								? await recordedPlan(runtime, ctx.cwd, store, args.card)
+								: undefined;
 						return await mutate(store, action, me, now, args, {
 							kind: "move",
 							lane,
 							...(args.blockedBy === undefined ? {} : { blockedBy: args.blockedBy }),
 							...(args.blocker === undefined ? {} : { blocker: args.blocker }),
 							...(landed === undefined ? {} : { landed }),
+							...(proved === undefined ? {} : { artifact: proved }),
 						});
 					}
 					case "note":
 						return await mutate(store, action, me, now, args, { kind: "note", text: args.text });
-					case "contract":
+					case "contract": {
+						// The plan is proved here, at the boundary: the state machine decides, but only
+						// a caller holding the working directory can answer whether the file is there.
+						const plan =
+							args.path === undefined ? undefined : planForContract(await runtime.planDir(ctx.cwd), args.path);
 						return await mutate(store, action, me, now, args, {
 							kind: "contract",
-							path: args.path,
+							...(plan === undefined ? {} : { artifact: plan }),
 							goal: args.goal,
 							acceptance: args.acceptance,
 							scopeOut: args.scopeOut,
 						});
+					}
 					case "approve":
 						return await mutate(store, action, me, now, args, { kind: "approve" });
 					case "review":
@@ -261,6 +281,27 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 			return view;
 		},
 	});
+}
+
+/**
+ * The plan file a card entering `execute` recorded, proved to be there.
+ *
+ * A `move` names the card, not its plan, so the tool reads the card — one read, on the one
+ * lane whose gate needs it — and hands `steps.ts` the fact. A card with no plan recorded
+ * gets no fact and the state machine refuses it; a recorded plan that is gone, or outside
+ * this repository's store, is refused here with the sentence that names the card and the
+ * way out.
+ */
+async function recordedPlan(
+	runtime: BoardSession,
+	cwd: string,
+	store: BoardStore,
+	rawCard: string | undefined,
+): Promise<ArtifactCheck | undefined> {
+	const id = rawCard === undefined ? undefined : normalizeCardId(rawCard);
+	const card = id === undefined ? undefined : await store.read(id);
+	if (card?.planPath === undefined) return undefined;
+	return planForExecute(await runtime.planDir(cwd), card);
 }
 
 /** `list`: the board, one card, the lead's rollup, or the archive. */
@@ -398,13 +439,16 @@ async function mutate(
 	now: number,
 	args: BoardArgs,
 	op: CardOp,
+	/** One line a card's own text does not carry, for the action that has a next step. */
+	next?: string,
 ): Promise<ReturnType<typeof textResult<BoardDetails>>> {
 	if (args.card === undefined) return refusal(action, me, 'card is required: pass the id, e.g. "4".');
 	const id = normalizeCardId(args.card);
 	if (id === undefined) return refusal(action, me, `"${args.card}" is not a card id.`);
 	const result = await store.mutate(id, op, me, now);
 	if (!result.ok) return refusal(action, me, result.error, result.card);
-	return textResult(formatCard(result.card), { action, me, card: result.card });
+	const lines = [formatCard(result.card), ...(next === undefined ? [] : [next])];
+	return textResult(lines.join("\n"), { action, me, card: result.card });
 }
 
 /**

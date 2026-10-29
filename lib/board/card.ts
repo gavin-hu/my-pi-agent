@@ -50,7 +50,14 @@ export const MAX_PATHS = 12;
 export const MAX_PATH = 200;
 
 /** Longest recorded plan path, in characters. */
-export const MAX_PLAN = 300;
+/**
+ * Longest recorded plan path, in characters.
+ *
+ * The board records the *resolved* absolute path (a `~/…` form is expanded before it is
+ * stored), so this cap holds a machine path rather than a caller's shorthand: a deep agent
+ * directory plus a stamped plan name, with room for a platform's own limit.
+ */
+export const MAX_PLAN = 1024;
 
 /** Longest sentence saying what a blocked card is waiting on: one line, so it fits a row. */
 export const MAX_BLOCKED = 200;

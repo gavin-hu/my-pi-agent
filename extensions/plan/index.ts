@@ -26,7 +26,7 @@ import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import { READ_ONLY_SUMMARY, PLAN_ENTER_REQUEST, type PlanEnterRequest } from "../../lib/plan-entry.ts";
 import { isBoardRead } from "../../lib/policy.ts";
-import { readActionsText } from "../../lib/board/actions.ts";
+import { boardWriteRefusal } from "../../lib/board/actions.ts";
 import { ASK_USER_QUESTION_TOOL, BOARD_TOOL, SUBAGENT_READ_ONLY_PARAM, SUBAGENT_TOOL } from "../../lib/tool-names.ts";
 import { clip } from "../../lib/tui/columns.ts";
 import { STATUS_KEYS } from "../../lib/tui/glyphs.ts";
@@ -181,9 +181,7 @@ export default function planMode(pi: ExtensionAPI): void {
 		// `readOnlyHint` cannot say it, and every verb but the reads are refused by name.
 		if (toolName === BOARD_TOOL) {
 			if (isBoardRead(input)) return undefined;
-			const action = (input as { action?: unknown } | undefined)?.action;
-			const verb = typeof action === "string" && action.trim() !== "" ? action.trim() : "board";
-			return `Plan mode: \`${verb}\` changes the board — only ${readActionsText()} it. ${BLOCKED_GUIDANCE}`;
+			return boardWriteRefusal((input as { action?: unknown } | undefined)?.action, BLOCKED_GUIDANCE);
 		}
 		const blocked = policy.check(toolName);
 		if (blocked) return `Plan mode: ${blocked.reason}`;

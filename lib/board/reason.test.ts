@@ -81,10 +81,21 @@ describe("reasonFor", () => {
 			text: "contract ready — needs approval",
 		});
 		expect(
-			reasonFor(card({ lane: "plan", owner, contract: { ...COMPLETE, approved: { by: "lead", at: NOW } } }), ago),
+			reasonFor(
+				card({ lane: "plan", owner, planPath: "p.md", contract: { ...COMPLETE, approved: { by: "lead", at: NOW } } }),
+				ago,
+			),
 		).toEqual({
 			kind: "approval",
 			text: "contract approved by lead",
+		});
+		// A card planned before the artifact was required: `execute` refuses it, so the line
+		// names the missing plan instead of the signature.
+		expect(
+			reasonFor(card({ lane: "plan", owner, contract: { ...COMPLETE, approved: { by: "lead", at: NOW } } }), ago),
+		).toEqual({
+			kind: "contract",
+			text: "contract approved — no plan recorded",
 		});
 	});
 

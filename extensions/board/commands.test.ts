@@ -7,10 +7,14 @@
  * like a broken command.
  */
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
+import { boardHarness } from "../../test/helpers/board.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
-import type { BoardTeam } from "../../lib/board/session.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
+import type { BoardSession } from "../../lib/board/session.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { BOARD_COMMAND, registerCommands } from "./commands.ts";
 import type { TeamJoin } from "./join.ts";
@@ -130,10 +134,21 @@ function fakeTeam(
  * The seat is held here the way the real session holds it, so a served page changes the
  * name the join asks for.
  */
-function fakeSession(name = "team-agent-slead"): BoardTeam & { seat(): string | undefined } {
+function fakeSession(name = "team-agent-slead"): BoardSession & { seat(): string | undefined } {
 	let seat: string | undefined;
 	let standing: JoinResult | undefined;
 	return {
+		// The page's words open no store and read no clock of their own.
+		store: () => {
+			throw new Error("the page's words must not open a store");
+		},
+		planDir: async () => {
+			throw new Error("the page's words must not read the plan store");
+		},
+		busDir: async () => {
+			throw new Error("the page's words must not read the bus");
+		},
+		now: () => 0,
 		who: () => ({ id: "s-lead", label: seat ?? name }),
 		serving: () => seat,
 		serve: (label) => {
@@ -145,7 +160,7 @@ function fakeSession(name = "team-agent-slead"): BoardTeam & { seat(): string | 
 }
 
 /** The command as the host invokes it. */
-async function run(args: string, options: { page?: BoardPage; team?: TeamJoin; session?: BoardTeam } = {}) {
+async function run(args: string, options: { page?: BoardPage; team?: TeamJoin; session?: BoardSession } = {}) {
 	const { page: recording, calls } = fakePage();
 	const target = options.page ?? recording;
 	const session = options.session ?? fakeSession();
@@ -288,7 +303,7 @@ describe("/board", () => {
 	test("warns about a word it does not know, and lists the ones it does", async () => {
 		const { calls, notifications } = await run("archive");
 		expect(calls).toEqual([]);
-		expect(notifications.at(-1)).toContain("try /board, /board team, /board status, /board stop");
+		expect(notifications.at(-1)).toContain("try /board approve <id>, /board review <id>, /board status, /board stop");
 	});
 
 	test("completes only the words it has", async () => {
@@ -306,7 +321,9 @@ describe("/board", () => {
 	test("names itself in the command table", async () => {
 		const fake = createFakePi();
 		registerCommands(fake.pi, fakeSession(), page());
-		expect(fake.commands.get(BOARD_COMMAND)?.description).toContain("/board [team | status | stop]");
+		expect(fake.commands.get(BOARD_COMMAND)?.description).toContain(
+			"/board [team | status | stop | approve <id> | review <id>]",
+		);
 	});
 });
 
@@ -320,3 +337,102 @@ function page(): BoardPage {
 		closeAll: async () => {},
 	};
 }
+
+/** A real board in a temp directory, and the command registered over it. */
+async function signingBoard() {
+	const temps = makeTempTracker();
+	const harness = boardHarness({ now: 1_000 });
+	const me = { id: "s-lead", label: "team-agent-slead" };
+	const store = await harness.runtime.store(harness.ctx.cwd);
+	const card = await store.create({ title: "One", paths: [] }, me, 1_000);
+	await store.mutate(card.id, { kind: "claim" }, me, 1_000);
+	// A plan file in this repository's store, which `contract` now requires.
+	const dir = await harness.runtime.planDir(harness.ctx.cwd);
+	mkdirSync(dir, { recursive: true });
+	const plan = join(dir, "one.md");
+	writeFileSync(plan, "# One\n");
+	const fake = createFakePi();
+	registerCommands(fake.pi, harness.runtime, fakePage().page, { team: fakeTeam().team });
+	const command = fake.commands.get(BOARD_COMMAND);
+	if (!command) throw new Error("the board command was not registered");
+	const { ctx, notifications } = fakeCtx({ cwd: harness.ctx.cwd });
+	const say = async (args: string) => {
+		await command.handler(args, ctx);
+		return notifications.at(-1);
+	};
+	return { store, id: card.id, plan, say, temps, me };
+}
+
+describe("/board approve and /board review", () => {
+	test("signs the contract as the person, not as the session that holds the card", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		await store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		expect(await board.say("approve 1")).toBe("board: #1 approved by you");
+		expect((await store.read(board.id))?.contract?.approved?.by).toBe("you");
+		board.temps.flush();
+	});
+
+	test("walks a one-session card past both gates, which the holder alone could not", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		await store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		// The holder's own approval is refused, which is why the person has a door.
+		const own = await store.mutate(board.id, { kind: "approve" }, board.me, 1_000);
+		expect(own.ok).toBe(false);
+		expect(await board.say("approve 1")).toContain("approved by you");
+		expect(
+			(await store.mutate(board.id, { kind: "move", lane: "execute", artifact: { path: board.plan } }, board.me, 1_000))
+				.ok,
+		).toBe(true);
+		expect(await board.say("review 1")).toBe("board: #1 reviewed by you");
+		expect((await store.read(board.id))?.review?.by).toBe("you");
+		const done = await store.mutate(
+			board.id,
+			{ kind: "move", lane: "done", artifact: { path: board.plan } },
+			board.me,
+			1_000,
+		);
+		expect(done.ok).toBe(true);
+		board.temps.flush();
+	});
+
+	test("says which word needs a card id", async () => {
+		const board = await signingBoard();
+		expect(await board.say("approve")).toBe("board: approve needs a card id — try /board approve 4");
+		board.temps.flush();
+	});
+
+	test("gives the state machine's refusal, so a sign in the wrong lane reads like the tool's", async () => {
+		const board = await signingBoard();
+		// Still in `plan` with no contract: the approval's own gate answers.
+		expect(await board.say("approve 1")).toContain("#1 has no contract to approve yet");
+		expect(await board.say("review 1")).toBe("board: #1 is in plan; finished work is spot-checked in execute.");
+		expect(await board.say("approve 99")).toContain("#99 does not exist");
+		board.temps.flush();
+	});
+
+	test("says so when the sign is already there, rather than pretending to write", async () => {
+		const board = await signingBoard();
+		const store = board.store;
+		await store.mutate(
+			board.id,
+			{ kind: "contract", artifact: { path: board.plan }, goal: "g", acceptance: "a", scopeOut: "s" },
+			board.me,
+			1_000,
+		);
+		await board.say("approve 1");
+		expect(await board.say("approve 1")).toBe("board: #1 is already approved by you");
+		board.temps.flush();
+	});
+});

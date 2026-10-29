@@ -339,7 +339,13 @@ interface StoreRow {
 
 /** The modules that own a location under the agent directory. */
 const STORES: readonly StoreRow[] = [
-	{ location: "<agent-dir>/plans/", page: "plan.md", module: "extensions/plan/plans.ts", names: "plans" },
+	{
+		location: "<agent-dir>/plans/",
+		page: "plan.md",
+		module: "extensions/plan/plans.ts",
+		constantsIn: "lib/plans/paths.ts",
+		names: "plans",
+	},
 	{
 		location: "<agent-dir>/subagents/",
 		page: "subagent.md",
@@ -390,7 +396,10 @@ const READS_AGENT_DIR = new Map<string, string>([
 	["extensions/wechat/commands/commands.ts", "opens the bridge's own directory for its report"],
 	["extensions/wechat/index.ts", "hands the agent directory to the bridge"],
 	["extensions/worktree/config.ts", "owns a location in the checkout, not one under the agent directory"],
-	["lib/board/session.ts", "derives the bus directory a card's owner is read from"],
+	[
+		"lib/board/session.ts",
+		"derives the bus directory a card's owner is read from, and the plan store a plan is proved against",
+	],
 	["lib/requirements.ts", "checks the state files doctor reports on"],
 ]);
 

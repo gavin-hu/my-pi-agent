@@ -114,7 +114,7 @@ export async function seedStore(directory: string): Promise<void> {
 					// Every card that leaves the pool records a plan: a finished card must say
 					// what it was done against, so the seeding substitutes one when the spec
 					// does not name it.
-					path: spec.planPath ?? `plans/${card.id}.md`,
+					artifact: { path: spec.planPath ?? `plans/${card.id}.md` },
 					goal: `The feature the card names, working: ${spec.title}`,
 					acceptance: "A reader can tell it is done, and a test says so",
 					scopeOut: "Anything the card does not name",
@@ -127,12 +127,27 @@ export async function seedStore(directory: string): Promise<void> {
 		if (spec.lane === "execute" || spec.lane === "done") {
 			const approver = owner.label === LEAD.label ? CORE : LEAD;
 			await store.mutate(card.id, { kind: "approve" }, approver, at + 3_800);
-			await store.mutate(card.id, { kind: "move", lane: "execute" }, owner, at + 4_000);
+			await store.mutate(
+				card.id,
+				{ kind: "move", lane: "execute", artifact: { path: spec.planPath ?? `plans/${card.id}.md` } },
+				owner,
+				at + 4_000,
+			);
 		}
 		if (spec.lane === "done") {
 			const reviewer = owner.label === LEAD.label ? CORE : LEAD;
 			await store.mutate(card.id, { kind: "review" }, reviewer, at + 4_200);
-			await store.mutate(card.id, { kind: "move", lane: "done", landed: { commit: "4af1b4a" } }, owner, at + 4_400);
+			await store.mutate(
+				card.id,
+				{
+					kind: "move",
+					lane: "done",
+					landed: { commit: "4af1b4a" },
+					artifact: { path: spec.planPath ?? `plans/${card.id}.md` },
+				},
+				owner,
+				at + 4_400,
+			);
 		}
 		if ("dependsOn" in spec && spec.dependsOn !== undefined) {
 			await store.mutate(
