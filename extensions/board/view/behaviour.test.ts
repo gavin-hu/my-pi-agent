@@ -132,6 +132,7 @@ async function openPage(): Promise<Page> {
  * document through this shape by name, inside its own body.
  */
 interface Doc {
+	querySelector(selector: string): ElementLike | null;
 	querySelectorAll(selector: string): ArrayLike<ElementLike>;
 	getElementById(id: string): ElementLike | null;
 	/** What the tab strip shows: the page's own name, once a frame has painted it. */
@@ -969,6 +970,8 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one
 		// printed fact, which is the frame that must leave the roster where the reader put it.
 		let beat = 0;
+		// And a fact the bus does carry: mail, which the roster signature does watch.
+		let mail = 0;
 		const gone = ["billing-old", "billing-older", "billing-oldest"].map((label, index) => ({
 			id: `s-gone-${index}`,
 			label,
@@ -998,7 +1001,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 				mail: 0,
 				watching: { armed: true, wake: true },
 			},
-			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000 + beat, mail: 0 },
+			{ id: "s-peer", label: "billing-peer", mode: "tui", lastSeen: when - 20_000 + beat, mail },
 		];
 		const long = await serveBoardPage({
 			store: history,
@@ -1064,8 +1067,9 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect((await caption())[1]).toBe("Teammates, 3 of 6");
 
 			// A frame that changes nothing in the roster leaves the reader's fold — and the focus on
-			// it — exactly where they left them. The signature carries the minute a quiet row's age
-			// falls in, not the raw stamp the bus moves every ten seconds.
+			// it — exactly where they left them. A heartbeat is not in the signature at all: a live row
+			// prints no age, and a quiet session that pings is live again on the next snapshot, which
+			// moves its state and refills the row anyway.
 			const peopleSig = () =>
 				page.$eval(".board-team__group + .board-team__group", (node) => node.getAttribute("data-sig"));
 			const frameWith = async (title: string) => {
@@ -1087,16 +1091,29 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
 			const settled = await peopleSig();
 
-			// A heartbeat: ten seconds on the bus, and not one printed fact.
+			// A heartbeat, at any distance: ten seconds, then two minutes on the bus, and not one
+			// printed fact — so the roster is not refilled and the reader's place survives both.
 			beat += 10_000;
 			await frameWith("A card in the pool");
 			expect(await peopleSig()).toBe(settled);
 			expect(await page.getAttribute(".board-team__tail", "aria-expanded")).toBe("false");
 			expect(await foldFocus()).toBe("team-roster");
-
-			// Past a minute the printed age moves a unit, so the row is redrawn: a bucket, not a mute.
 			beat += 120_000;
 			await frameWith("Another card in the pool");
+			expect(await peopleSig()).toBe(settled);
+
+			// A real fact does move it: the peer's mail arrives, the server pushes the frame on its own
+			// because the roster's signature carries mail, and the row is redrawn carrying the chip.
+			mail = 1;
+			await page.waitForFunction(
+				() =>
+					(
+						(globalThis as unknown as { document: Doc }).document.querySelector(".board-team__roster")?.textContent ??
+						""
+					).includes("1 mail"),
+				undefined,
+				{ timeout: PAINT_MS },
+			);
 			expect(await peopleSig()).not.toBe(settled);
 		} finally {
 			await page.close();

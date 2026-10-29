@@ -401,11 +401,13 @@ describe("the client bundle", () => {
 		// And a frame that changes nothing in a panel neither rebuilds it nor moves the reader.
 		expect(BOARD_CLIENT_JS).toContain('if (slot.getAttribute("data-sig") === sig) return;');
 		expect(BOARD_CLIENT_JS).toContain("board.teamPanels");
-		// A heartbeat is not news: the bus moves a session's lastSeen every few seconds, so the
-		// signature carries the minute a quiet row's age falls in and not the raw stamp — otherwise
-		// the first frame after every heartbeat refills the list and takes the reader's place with it.
-		expect(BOARD_CLIENT_JS).toContain("Math.floor(mate.seen / 60000)");
-		expect(BOARD_CLIENT_JS).not.toContain('mate.state + "," + mate.seen');
+		// A heartbeat is not news either: `seen` is not in the signature at all, because a live row
+		// prints no age and a quiet session that pings is live again on the next snapshot — so the
+		// frame after every heartbeat no longer refills the list and takes the reader's place.
+		expect(BOARD_CLIENT_JS).toContain('mate.label + "," + mate.state + "," + mate.mail + "," + mate.listening');
+		expect(BOARD_CLIENT_JS).not.toContain("Math.floor(mate.seen / 60000)");
+		// The stamp is still what draws a quiet row's age; it is the *signature* that leaves it out.
+		expect(BOARD_CLIENT_JS).toContain("stamped(ago(mate.seen), mate.seen)");
 	});
 
 	test("caps both Team lists with one rule, and draws a teammate row on one line", () => {
