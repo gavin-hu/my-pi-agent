@@ -270,7 +270,9 @@ describe("buildView", () => {
 		expect(view.round.owners[0]?.cards.map((entry) => entry.id)).toEqual(["1"]);
 	});
 
-	test("names the serving session, not the browser", () => {
+	test("carries the repository, and no seat of its own", () => {
+		// The page's one identity is the roster row it marks `you`; the snapshot names the board's
+		// subject instead, because that is what a reader of the toolbar needs.
 		const view = buildView({
 			me: { label: "ad-hoc" },
 			cards: [],
@@ -280,7 +282,9 @@ describe("buildView", () => {
 			repo: REPO,
 			root: ROOT,
 		});
-		expect(view.me).toEqual({ label: "ad-hoc" });
+		expect(view.repo).toBe(REPO);
+		expect(view.root).toBe(ROOT);
+		expect(view).not.toHaveProperty("me");
 	});
 
 	test("signature starts from the cards' signature, so a bump or a drop moves it", () => {
@@ -423,7 +427,6 @@ describe("buildView", () => {
 			root: ROOT,
 			roster: [{ id: "board:team-lead", label: "team-lead", mode: "tui", lastSeen: NOW, mail: 0 }],
 		});
-		expect(view.me).toEqual({ id: "board:team-lead", label: "team-lead" });
 		expect(view.teammates?.map((mate) => [mate.label, mate.you])).toEqual([["team-lead", true]]);
 	});
 

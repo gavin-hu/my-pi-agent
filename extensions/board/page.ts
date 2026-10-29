@@ -218,7 +218,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				idleMs: deps.idleMs ?? IDLE_STOP_MS,
 				firstIdleMs: deps.firstIdleMs ?? IDLE_FIRST_MS,
 				onIdle: (reason) => void stopIdle(ctx, reason),
-				page: async (view) => renderBoardPage({ view, base: BOARD_BASE }),
+				page: async (view) => renderBoardPage({ view, base: BOARD_BASE, repo: store.name(), root: store.root() }),
 				script: BOARD_CLIENT_JS,
 				view: () =>
 					viewOf({

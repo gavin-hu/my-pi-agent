@@ -13,6 +13,7 @@
  * contract test holds every class to the kit or to this page's stylesheet.
  */
 
+import { escapeHtml } from "../../../lib/escape.ts";
 import {
 	baseAttribute,
 	brandLockup,
@@ -36,7 +37,14 @@ export type PageView = "board" | "team";
  * shared link opens the tab it names. The document has no form and no write affordance:
  * a page that cannot change a card cannot offer a button the server would refuse.
  */
-export function renderBoardPage(input: { view: PageView; base?: string }): string {
+export function renderBoardPage(input: {
+	view: PageView;
+	base?: string;
+	/** The repository this page is a board of, which its header names. */
+	repo: string;
+	/** The repository root, which is the header name's hover: a name alone cannot tell two clones apart. */
+	root: string;
+}): string {
 	const team = input.view === "team";
 	// The page answers under the session's mount, so its own script and theme are named
 	// from that prefix rather than from the origin's root.
@@ -51,7 +59,7 @@ ${docHead({ title: tabTitle("board"), css: BOARD_CSS, base })}
 <a class="skip" href="#main">Skip to the cards</a>
 <header class="bf-app__header"><div class="bf-toolbar ${N.toolbar}">
   ${brandLockup("board")}
-  <span class="bf-chip bf-chip--accent" id="board-me" title="This page is served as this session, and it cannot change a card">board</span>
+  <span class="bf-chip bf-chip--outline" id="board-repo" title="${escapeHtml(input.root)}">${escapeHtml(input.repo)}</span>
   <p class="bf-status ${N.status}" id="board-status" data-state="connecting" aria-live="polite">connecting…</p>
   <span class="bf-spacer"></span>
   <div class="${N.controls}">
