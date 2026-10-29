@@ -201,7 +201,20 @@ export async function openBoard(
 /** Build a store over one directory. Exported for tests and for a second backend. */
 export function createStore(
 	dir: string,
-	options: { root?: string; key?: string; limits?: WipLimits } = {},
+	options: {
+		root?: string;
+		key?: string;
+		limits?: WipLimits;
+		/**
+		 * A suite's seam: called once an operation is ready to write and before the re-read that
+		 * decides whether it still may.
+		 *
+		 * A race between a write and a pile move cannot be made deterministic from outside — the
+		 * window is inside one `mutate` — so a test stands here and lets the other write land. The
+		 * product supplies nothing.
+		 */
+		beforeWrite?: (id: string, kind: CardOp["kind"]) => Promise<void> | void;
+	} = {},
 ): BoardStore {
 	// A store built over a directory by hand has no repository to ask, so it is keyed by
 	// that directory's own name: the one place this fallback lives, and the one reason it
@@ -316,12 +329,14 @@ export function createStore(
 			if (!result.changed) {
 				return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
 			}
-			// Last look before the write, asked for every path that writes: a writer that landed
-			// in between is the re-read the next pass applies against. The move and the removal
-			// are writes too — without this, a note landing between the read above and the
-			// rename puts the card back on the board while its copy lies in the other pile.
-			const current = await read(id);
-			if (!current || current.rev !== card.rev) {
+			// Last look before the write, asked for every path that writes: the card must still be
+			// where it was read and at the revision it had. A writer that landed in between is the
+			// re-read the next pass applies against — and the pile is part of the answer, because
+			// `archive` moves the file without moving its revision, so a write carrying a stale
+			// pile would recreate the card on the board beside its copy in the archive.
+			await options.beforeWrite?.(id, op.kind);
+			const current = await locate(id);
+			if (current === undefined || current.card.rev !== card.rev || current.pile !== pile) {
 				changedUnderneath = true;
 				continue;
 			}

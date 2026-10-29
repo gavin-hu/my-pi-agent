@@ -270,7 +270,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the rename was re-applied; the two pile moves returned first, which let a note landing in
   that instant recreate `cards/<id>.json` after the card was set aside — the card then sat on
   the board and in the archive at once, with the board's copy winning every read, and it
-  could come back the same way beside a dropped card's `ended/` record.
+  could come back the same way beside a dropped card's `ended/` record. The guard asks which
+  pile the card is in as well as which revision it had, because `archive` moves the file
+  without moving the revision — a note holding the board pile while the archive takes the
+  file would otherwise recreate it — and a test drives that ordering through
+  `createStore`'s `beforeWrite` seam.
+- `board`: a `list` that names a card refuses `lane`, `query`, `mine`, and `round` instead of
+  dropping them: the answer is that one card, and a field a call sent is never silently
+  ignored. `archived` is kept, because it chooses the pile the card is read from, and the
+  archive read refuses the two fields it would otherwise drop in the same sentence. Both
+  descriptions say so.
 - `board`: a dependency link that names a card which has since been archived is kept.
   `archive` moves a finished card's file rather than deleting its record, so `edit` now keeps
   a link the card already carries instead of refusing it as `#N does not exist` — re-sending

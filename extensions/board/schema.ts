@@ -27,7 +27,7 @@ export const BoardParams = Type.Object({
 	card: Type.Optional(
 		Type.String({
 			description:
-				'The card id for one card, e.g. "4" or "#4". `list` reads that card; every other action but `add` acts on it.',
+				'The card id for one card, e.g. "4" or "#4". `list` reads that card, and refuses `lane`, `query`, `mine`, and `round` with it; every other action but `add` acts on it.',
 		}),
 	),
 	lane: Type.Optional(

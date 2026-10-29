@@ -29,10 +29,13 @@ const NOW = 10_000;
 /** The two sessions a seeded card needs: its owner, and the one who approves and reviews. */
 const SEED = { owner: CORE, reviewer: LEAD };
 
-/** A fresh store over a temp directory. */
-function scratchStore(): { dir: string; store: ReturnType<typeof createStore> } {
+/** A fresh store over a temp directory, possibly with a suite's seam. */
+function scratchStore(options: Parameters<typeof createStore>[1] = {}): {
+	dir: string;
+	store: ReturnType<typeof createStore>;
+} {
 	const dir = temps.track(tempDir("pi-board-"));
-	return { dir, store: createStore(dir) };
+	return { dir, store: createStore(dir, options) };
 }
 
 /** The files actually on disk in a store's cards directory. */
@@ -396,6 +399,30 @@ describe("archive", () => {
 		if (!again.ok) throw new Error(again.error);
 		expect(again.changed).toBe(false);
 		expect(again.archived).toBe(false);
+	});
+
+	test("a note that lands after the file moves follows it into the archive", async () => {
+		let armed = false;
+		const { dir, store } = scratchStore({
+			beforeWrite: async (id, kind) => {
+				if (!armed || kind !== "note") return;
+				armed = false;
+				// The archive takes the file while this note still holds the pile it read.
+				const archived = await store.mutate(id, { kind: "archive" }, LEAD, NOW + 1);
+				if (!archived.ok) throw new Error(archived.error);
+			},
+		});
+		const id = await finished(store);
+		armed = true;
+		const noted = await store.mutate(id, { kind: "note", text: "late" }, CORE, NOW + 2);
+		if (!noted.ok) throw new Error(noted.error);
+		// The note follows the card instead of resurrecting it: one file, in the archive, and the
+		// board reads as empty — the pile a write carried is part of the compare-and-set.
+		expect(filesOf(dir)).toEqual([]);
+		expect(archivedFilesOf(dir)).toEqual(["0001.json"]);
+		const archived = JSON.parse(readFileSync(join(dir, "archive", "0001.json"), "utf-8")) as Card;
+		expect(archived.notes.at(-1)?.text).toBe("late");
+		expect(await store.list()).toEqual([]);
 	});
 
 	test("refuses a card that has not finished", async () => {
