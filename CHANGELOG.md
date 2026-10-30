@@ -44,6 +44,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `file-browse`: **every `/browse` opens the page**, including one that finds it already
+  served for the same root — a second command reprints the URL and puts the page in front of
+  you, where it used to only print it and leave you to paste it. The server does not restart
+  for a second command, and `autoOpen: false` still keeps a headless project headless.
 - `serve`: **the default port is the project's own number** — its repository key hashed into
   `4780`–`5779` — instead of a fresh random draw per session, so a bookmarked `/board` or
   `/browse` URL opens the same page after a restart without setting `serve.port`. Two

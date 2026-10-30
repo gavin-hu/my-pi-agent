@@ -55,7 +55,7 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	check: ["check", "surface", "extension"],
 	context: ["report", "view/context-report", "extension"],
 	"file-read": ["extract/extract", "tool"],
-	"file-browse": ["view/pages", "transport/router", "files/files", "config/config", "extension"],
+	"file-browse": ["view/pages", "transport/router", "command", "files/files", "config/config", "extension"],
 	"file-open": ["extension"],
 	goal: ["format", "tools", "runtime", "extension"],
 	job: ["runtime", "tools", "view/jobs-screen", "extension"],

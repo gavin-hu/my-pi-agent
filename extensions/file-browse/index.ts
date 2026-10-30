@@ -80,6 +80,19 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		return { root, config };
 	};
 
+	/**
+	 * Put the page in front of the user, unless the project asked to stay headless.
+	 *
+	 * Every `/browse` opens it, including one that finds the page already served: the
+	 * command's job is showing the page, and a URL printed over a running server leaves
+	 * the user to paste it.
+	 */
+	const openPage = async (url: string, config: ServeConfig): Promise<void> => {
+		if (!config.autoOpen) return;
+		const open = deps.open ?? (await import("../../lib/browser.ts")).openInBrowser;
+		open(url);
+	};
+
 	/** Open the page's server; the server, git, HTTP, and browser modules live here. */
 	const openServer = async (root: string, config: ServeConfig, ctx: ExtensionContext): Promise<void> => {
 		const create = deps.createServer ?? (await import("./transport/server.ts")).createFileServer;
@@ -107,10 +120,7 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 			const server = outcome.server;
 			running = { server, ctx };
 			ctx.ui.notify(`browse: ${server.root} at ${server.url}`, "info");
-			if (config.autoOpen) {
-				const open = deps.open ?? (await import("../../lib/browser.ts")).openInBrowser;
-				open(server.url);
-			}
+			await openPage(server.url, config);
 		} catch (error) {
 			ctx.ui.notify(`browse: ${error instanceof Error ? error.message : String(error)}`, "error");
 		}
@@ -143,6 +153,8 @@ export default function fileBrowser(pi: ExtensionAPI, deps: FileBrowserDeps = {}
 		}
 		if (running && running.server.root === realRoot) {
 			ctx.ui.notify(`browse: ${running.server.url} (already running)`, "info");
+			// The page is already served, so this is an open and not a restart.
+			await openPage(running.server.url, config);
 			return;
 		}
 
