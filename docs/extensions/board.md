@@ -145,8 +145,10 @@ it, and the cards it claims, the notes it writes, and the join a claim makes all
 takes a preset teammate name — `tom`, `lily`, `ben` — drawn from its id and walked past the
 names live teammates hold, so `billing-core` before it names itself is `lily` to the team;
 once every preset name is held it is `team-agent-` plus the last six characters of its id
-(`team-agent-9f21ac`). The name is never Pi's session name, which means a
-rename cannot strand a card, two sessions cannot settle on one name, and nothing here ever
+(`team-agent-9f21ac`). Until it joins, that name is only a draw: a live peer that takes it
+moves the session on to the next free one, and a card written before then keeps the name it
+was written with. The name is never Pi's session name, which means a rename cannot strand a
+card and the bus will not let two live sessions settle on one name, while nothing here ever
 renames your session: `/team join <label>` is the one door that does. Ownership is the id,
 so a name that changes leaves the card where it was. A card records the name as its owner,
 so the chip, the roster, and the bus record are one word — and `/board status` says it

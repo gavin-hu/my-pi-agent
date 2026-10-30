@@ -55,9 +55,10 @@ export interface BoardSession {
 	 * Three answers, in order: the seat while this session serves the page; else the name
 	 * the bus already records for it, so `/team join core-claims` is what its cards and
 	 * its notes carry and a claim does not rename it back; else a preset teammate name
-	 * drawn from the id — `team-agent-<id>` once every preset name is held by a live peer,
-	 * or, on a host that reports no id, the readable chain. One name on every surface is
-	 * the point: the card, the bus record, and the roster say the same word.
+	 * drawn from the id, or `team-agent-<id>` once every preset name is held by a live
+	 * peer. A host that reports no id has no record to read, so it keeps the readable
+	 * chain instead. One name on every surface is the point: the card, the bus record,
+	 * and the roster say the same word.
 	 *
 	 * Read rather than remembered, because a join is not this session's event alone: the
 	 * label can arrive through `/team join`, through the bus's own `join`, or on the record
@@ -140,8 +141,8 @@ export function busDirFor(agentDir: string, store: Pick<BoardStore, "key">): str
  */
 function liveLabels(roster: readonly RosterSession[] | undefined, id: string, now: number): Set<string> {
 	const held = new Set<string>();
-	for (const session of roster ?? []) {
-		if (session.id !== id && rosterStateOf(session, now) === "live") held.add(session.label.toLowerCase());
+	for (const record of roster ?? []) {
+		if (record.id !== id && rosterStateOf(record, now) === "live") held.add(record.label.toLowerCase());
 	}
 	return held;
 }
