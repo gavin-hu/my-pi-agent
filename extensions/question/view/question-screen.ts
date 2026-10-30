@@ -15,15 +15,15 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../lib/format.ts";
-import { flowCells } from "../../lib/tui/columns.ts";
-import { clampScroll, formatRange, keepVisible, selectionMarker, wheelDelta } from "../../lib/tui/cursor.ts";
-import { editorTheme, screenHint, type ScreenHint } from "../../lib/tui/chrome.ts";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { checkbox } from "../../lib/tui/rows.ts";
-import { plainRule, titleRule } from "../../lib/tui/rules.ts";
-import { paint } from "../../lib/tui/tokens.ts";
-import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "./answers.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { flowCells } from "../../../lib/tui/columns.ts";
+import { clampScroll, formatRange, keepVisible, selectionMarker, wheelDelta } from "../../../lib/tui/cursor.ts";
+import { editorTheme, screenHint, type ScreenHint } from "../../../lib/tui/chrome.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { checkbox } from "../../../lib/tui/rows.ts";
+import { plainRule, titleRule } from "../../../lib/tui/rules.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { OTHER_LABEL, cancelledResult, collectAnswers, completedResult, describeSelection } from "../answers.ts";
 import {
 	allAnswered,
 	applyCustomText,
@@ -34,8 +34,8 @@ import {
 	type Effect,
 	type KeyAction,
 	type TuiState,
-} from "./tui-state.ts";
-import type { AskResult, Question, Selection } from "./types.ts";
+} from "../tui-state.ts";
+import type { AskResult, Question, Selection } from "../types.ts";
 
 type Outcome =
 	| { type: "cancelled"; selections: Map<string, Selection> }

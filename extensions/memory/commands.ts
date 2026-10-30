@@ -10,12 +10,10 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { withPolledScreen } from "../../lib/screen-session.ts";
 import { messageOf } from "./errors.ts";
 import { formatHealth, memoryHealth } from "./doctor.ts";
 import { formatNotice, scopeLabel } from "./format.ts";
 import type { MemoryRuntime } from "./runtime.ts";
-import { MemoryPickerComponent } from "./tui.ts";
 import { MEMORY_SCOPES, type MemoryScope } from "./types.ts";
 
 /** How often the open picker re-checks the stores for an external edit. */
@@ -55,6 +53,10 @@ async function openPicker(pi: ExtensionAPI, runtime: MemoryRuntime, ctx: Extensi
 		return;
 	}
 
+	// The dock screen and its poll loop are the TUI's: the plain listing above and
+	// registration load neither.
+	const { withPolledScreen } = await import("../../lib/screen-session.ts");
+	const { MemoryPickerComponent } = await import("./view/memory-picker.ts");
 	await withPolledScreen(
 		pi,
 		ctx,

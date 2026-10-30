@@ -193,6 +193,37 @@ describe("dependency budget", () => {
  * the regression: the feature is registered, but its page, server, or screen is
  * not needed until a command or a TUI branch asks for it.
  */
+/**
+ * The surfaces a rule keeps out, rather than a list that keeps growing.
+ *
+ * A full-screen surface lives under `view/` — the `wechat` doc's "`view/` draws a
+ * full-screen surface" is the same rule — and the served-page kit (`lib/http/`,
+ * `mount.ts` excepted) is only reachable from one. Filing a screen under `view/`
+ * is therefore what makes it lazy; there is no row to remember.
+ */
+const DEFERRED_BY_RULE: readonly RegExp[] = [
+	/^extensions\/[^/]+\/view\/[^/]+\.ts$/,
+	/^lib\/http\/(?!mount\.ts$)[^/]+\.ts$/,
+];
+
+/** Whether a repo-relative module is one the rules keep off the registration path. */
+function deferredByRule(path: string): boolean {
+	return DEFERRED_BY_RULE.some((rule) => rule.test(path));
+}
+
+/** Why a rule-matched module is deferred, for the failure message. */
+function ruleOf(path: string): string {
+	return path.startsWith("lib/http/")
+		? "the served-page kit loads when a page is served, never at registration"
+		: "a full-screen surface loads in the TUI branch that opens it";
+}
+
+/**
+ * The deferrals a rule cannot express, each with the sentence that says when it loads.
+ *
+ * A row here is an exception to `DEFERRED_BY_RULE`'s filing rule: a module that is
+ * not a screen but still must not be paid at start.
+ */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or exit_plan_mode",
 	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first /plan review or exit_plan_mode",
@@ -204,15 +235,12 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
 	"extensions/file-browse/files/paths.ts": "the browse path guard loads when /browse resolves or serves a path",
 	"extensions/file-browse/git/git.ts": "the browse status and diff load when /browse opens a page",
 	"extensions/worktree/screen.ts": "the worktree screen loads in the TUI branch of /worktree",
-	"extensions/worktree/plan-state.ts": "the worktree verbs read plan mode when the command runs",
-	"extensions/worktree/plan-entry.ts": "the plan-mode refusal text loads when a worktree verb or screen runs",
-	"extensions/worktree/rails.ts": "rail suppression for the worktree screen loads when the TUI screen opens",
 	"extensions/bytefly/panel/tui.ts": "the panel screen loads in the TUI branch of /bytefly",
 	"extensions/bytefly/panel/settings-runtime.ts":
 		"the settings runtime loads when /bytefly opens settings or the panel",
 	"extensions/bytefly/picker/discovery.ts": "resource discovery loads when /bytefly lists or opens the panel",
 	"extensions/bytefly/picker/runtime.ts": "the picker runtime loads when /bytefly opens its panel or a listing",
-	"extensions/bytefly/skills.ts": "the skill lookup loads when /bytefly lists skills or opens the panel",
+	"extensions/bytefly/panel/skills.ts": "the skill lookup loads when /bytefly lists skills or opens the panel",
 };
 
 /**
@@ -221,11 +249,25 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * Like `LONG_MODULES`, the bar may only fall: a feature that needs more modules
  * has to justify the raise here, and a deferral that lands lowers it.
  */
-const MODULE_BUDGET = 859;
+const MODULE_BUDGET = 747;
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {
 	return relative(REPO, file).replaceAll("\\", "/");
+}
+
+/** Every `.ts` module under `extensions/` and `lib/`, for the rule and map checks. */
+function sourceFiles(): string[] {
+	const found: string[] = [];
+	const walk = (dir: string): void => {
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			const path = join(dir, entry.name);
+			if (entry.isDirectory()) walk(path);
+			else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) found.push(path);
+		}
+	};
+	for (const dir of ["extensions", "lib"]) walk(join(REPO, dir));
+	return found;
 }
 
 /** Every local module one entrypoint loads statically, its entry included. */
@@ -249,8 +291,12 @@ describe("registration module budget", () => {
 		const offenders: string[] = [];
 		for (const entry of entrypoints()) {
 			const graph = staticGraph(entry);
+			const reached = new Set([...graph].map(repoRelative));
+			for (const path of reached) {
+				if (deferredByRule(path)) offenders.push(`${repoRelative(entry)} statically imports ${path}; ${ruleOf(path)}`);
+			}
 			for (const [path, when] of Object.entries(DEFERRED_FROM_REGISTRATION)) {
-				if (!graph.has(join(REPO, path))) continue;
+				if (!reached.has(path)) continue;
 				offenders.push(`${repoRelative(entry)} statically imports ${path}; ${when}`);
 			}
 		}
@@ -258,6 +304,19 @@ describe("registration module budget", () => {
 			offenders,
 			"load the module inside the command, handler, or TUI branch that needs it; a static import pays it on every start",
 		).toEqual([]);
+	});
+
+	test("the deferral map carries no stale entry", () => {
+		const stale = Object.keys(DEFERRED_FROM_REGISTRATION).filter((path) => !existsSync(join(REPO, path)));
+		expect(stale, "drop the row, or restore the module it names").toEqual([]);
+	});
+
+	test("every rule still names a module on disk", () => {
+		// A rule that matches nothing has quietly stopped applying, the same failure
+		// mode `LONG_MODULES`' stale-entry test covers.
+		const files = sourceFiles().map(repoRelative);
+		const dead = DEFERRED_BY_RULE.filter((rule) => !files.some((file) => rule.test(file)));
+		expect(dead.map(String), "a rule that matches nothing has stopped applying; fix it or drop it").toEqual([]);
 	});
 
 	test("the registration graph stays inside its module budget", () => {

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, jest, test } from "bun:test";
 import { DEFAULT_CONFIG, loadConfig, normalizeConfig } from "./config.ts";
 import jobs from "./index.ts";
 import { TOOL_NAME } from "./tools.ts";
-import { JobListComponent } from "./tui.ts";
+import { JobListComponent } from "./view/jobs-screen.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { JOB_FINISHED_CHANNEL } from "../../lib/events.ts";
 import { SHARED_CONFIG_FILE } from "../../lib/config.ts";

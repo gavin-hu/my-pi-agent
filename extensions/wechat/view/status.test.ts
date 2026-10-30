@@ -14,16 +14,8 @@ import {
 	sanitizeInbound,
 	toWechatText,
 } from "../text/format.ts";
-import {
-	connectionOf,
-	type StatusAction,
-	type StatusActions,
-	StatusScreenComponent,
-	statusBody,
-	statusLine,
-	statusView,
-	type StatusView,
-} from "./status-screen.ts";
+import { connectionOf, statusLine, statusView, type StatusView } from "../text/status.ts";
+import { type StatusAction, type StatusActions, StatusScreenComponent, statusBody } from "./status-screen.ts";
 import type { BotCredentials } from "../types.ts";
 
 const screenAccount: BotCredentials = {

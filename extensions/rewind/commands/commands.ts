@@ -10,15 +10,14 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { withRailsSuppressed } from "../../../lib/rails.ts";
 import { formatRewindListText, formatRewindRow } from "../text/format.ts";
-import { openReview } from "./review.ts";
-import { rewindTo } from "./rewind.ts";
 import type { RewindRuntime } from "../state/runtime.ts";
-import { RewindListComponent } from "../view/rewind-tui.ts";
 import { buildRewindPoints, type RewindPoint } from "../state/timeline.ts";
 
 /** Pick a point from the timeline, or undefined when the user cancels. */
 async function choosePoint(ctx: ExtensionCommandContext, points: RewindPoint[]): Promise<RewindPoint | undefined> {
 	if (ctx.mode === "tui") {
+		// The timeline is the TUI's: the picker below and registration load neither.
+		const { RewindListComponent } = await import("../view/rewind-tui.ts");
 		return ctx.ui.custom<RewindPoint | undefined>(
 			(tui, theme, _keybindings, done) =>
 				new RewindListComponent({
@@ -62,6 +61,9 @@ async function openRewind(pi: ExtensionAPI, runtime: RewindRuntime, ctx: Extensi
 
 	const point = await withRailsSuppressed(pi, () => choosePoint(ctx, points));
 	if (!point) return;
+	// The rewind run and the review gate both load on the verb that needs them: the
+	// listing above and registration load neither.
+	const { rewindTo } = await import("./rewind.ts");
 	await rewindTo(pi, runtime, ctx, root, point);
 }
 
@@ -76,6 +78,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: RewindRuntime): void
 	pi.registerCommand("review", {
 		description: "Review the latest turn's changes and revert a file or the whole turn",
 		handler: async (_args, ctx) => {
+			const { openReview } = await import("./review.ts");
 			await openReview(pi, runtime, ctx);
 		},
 	});

@@ -8,10 +8,8 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { withPolledScreen } from "../../lib/screen-session.ts";
 import { formatWatchList, shortLabel } from "./format.ts";
 import type { WatchRuntime } from "./runtime.ts";
-import { WatchListComponent } from "./tui.ts";
 
 /** How often the open screen re-reads live state. */
 const REFRESH_MS = 500;
@@ -92,6 +90,10 @@ export function registerCommands(pi: ExtensionAPI, runtime: WatchRuntime): void 
 				return;
 			}
 
+			// The dock screen and its poll loop are the TUI's: the listing above and
+			// registration load neither.
+			const { withPolledScreen } = await import("../../lib/screen-session.ts");
+			const { WatchListComponent } = await import("./view/watch-screen.ts");
 			await withPolledScreen(
 				pi,
 				ctx,

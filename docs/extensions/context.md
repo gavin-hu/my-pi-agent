@@ -195,7 +195,7 @@ categories above.
 | `collect.ts` | The host boundary: one read of usage, prompt, tools, settings, projection, and branch. |
 | `report.ts` | The pure builder: composition, reserve resolution, compaction history, largest messages. |
 | `format.ts` | The plain-text report for non-TUI modes. |
-| `tui.ts` | `ContextComponent`: gauge, rows, scroll, confirmation, feedback. |
+| `view/context-report.ts` | `ContextComponent`: gauge, rows, scroll, confirmation, feedback, loaded on first use. |
 | `types.ts` | `ContextInputs`, `ContextReport`, buckets, and the host types named through `ReturnType<…>`. |
 
 ## Testing

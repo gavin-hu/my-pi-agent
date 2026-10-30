@@ -11,19 +11,19 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { formatDuration, sanitizeLine } from "../../lib/format.ts";
-import { dockListFrame, screenHint, type ScreenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { fitRows, formatRange, isCloseKey, wheelDelta } from "../../lib/tui/cursor.ts";
-import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { LinePane } from "../../lib/tui/line-pane.ts";
-import { emptyState, listRow } from "../../lib/tui/rows.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
-import { paint } from "../../lib/tui/tokens.ts";
-import { formatFailureDetail, formatFailureLocation, formatResultSummary } from "./format.ts";
-import { readSourceExcerpt } from "./source.ts";
-import type { CheckResult, Failure } from "./types.ts";
+import { formatDuration, sanitizeLine } from "../../../lib/format.ts";
+import { dockListFrame, screenHint, type ScreenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { fitRows, formatRange, isCloseKey, wheelDelta } from "../../../lib/tui/cursor.ts";
+import { DockListScreen, type DetailContents } from "../../../lib/tui/dock-screen.ts";
+import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { LinePane } from "../../../lib/tui/line-pane.ts";
+import { emptyState, listRow } from "../../../lib/tui/rows.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { formatFailureDetail, formatFailureLocation, formatResultSummary } from "../format.ts";
+import { readSourceExcerpt } from "../source.ts";
+import type { CheckResult, Failure } from "../types.ts";
 
 const RUN_DEFAULT_ROWS = 20;
 const RUN_CHROME_ROWS = 5;

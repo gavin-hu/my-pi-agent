@@ -10,13 +10,13 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { buildReport } from "./report.ts";
-import { ContextComponent, type ContextCompactCallbacks, type ContextScreenOptions } from "./tui.ts";
-import type { ContextReport } from "./types.ts";
-import { bracketedTheme, coloringTheme, fakeTheme, unpaintedText } from "../../test/helpers/fakes.ts";
-import { sampleContext } from "../../test/helpers/fixtures/context.ts";
-import { GLYPHS } from "../../lib/tui/glyphs.ts";
-import { TUI_TOKENS } from "../../lib/tui/tokens.ts";
+import { buildReport } from "../report.ts";
+import { ContextComponent, type ContextCompactCallbacks, type ContextScreenOptions } from "./context-report.ts";
+import type { ContextReport } from "../types.ts";
+import { bracketedTheme, coloringTheme, fakeTheme, unpaintedText } from "../../../test/helpers/fakes.ts";
+import { sampleContext } from "../../../test/helpers/fixtures/context.ts";
+import { GLYPHS } from "../../../lib/tui/glyphs.ts";
+import { TUI_TOKENS } from "../../../lib/tui/tokens.ts";
 
 /** A screen with recorder callbacks and a mutable report source. */
 function makeScreen(overrides: Partial<ContextScreenOptions> = {}, next?: ContextReport) {

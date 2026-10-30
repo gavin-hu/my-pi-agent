@@ -626,7 +626,8 @@ status, which is what the old start/stop guidance used to do.
 | `dialog/prompt.ts` | Pure prompt formatting and reply parsing. |
 | `dialog/remote-ui.ts` | The peer session's UI context: dialogs and notices bound to that peer, the `askHuman` marker that delivers the file/text preface, and the `remotePrompts` switch. |
 | `view/login-screen.ts` | The `/wechat login` screen (`ctx.ui.custom`), drawn from the `lib/tui/` kit (`titleRule`, `clip`, `isCloseKey`). |
-| `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list with stop/reset/history keys, and the pure one-line/body renderers, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
+| `text/status.ts` | The status facts (`statusView`) and the one-line summary (`statusLine`) the text modes print. |
+| `view/status-screen.ts` | The `/wechat` control screen (`ctx.ui.custom`): live facts, a focusable peer list with stop/reset/history keys and the body renderer, loaded on first use, drawn from the `lib/tui/` kit (`titleRule`, `keyValueRow`, `listRow`, `paint`, `IdCursor`). |
 
 Modules are grouped by the role they play: `transport/` is the only place that talks to iLink, `state/` owns the three files a session leaves on disk, `peer/` runs one peer's session and its queue, `commands/` holds a slash verb, `text/` words everything a peer reads, `dialog/` asks a question over WeChat, and `view/` draws a full-screen surface. `index.ts`, `bridge.ts`, `tools.ts`, `config.ts`, `types.ts`, `errors.ts`, and `timer.ts` stay at the root — the factory, the composition root, the public surface, and the seams the directories import.
 

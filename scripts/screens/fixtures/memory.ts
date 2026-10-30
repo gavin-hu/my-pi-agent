@@ -3,7 +3,7 @@
  */
 
 import type { MemoryEntries } from "../../../extensions/memory/format.ts";
-import type { MemoryPickerCallbacks } from "../../../extensions/memory/tui.ts";
+import type { MemoryPickerCallbacks } from "../../../extensions/memory/view/memory-picker.ts";
 
 /** Notes the `/memory` picker lists, project scope first. */
 export const MEMORY_ENTRIES: MemoryEntries = {

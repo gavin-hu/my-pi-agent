@@ -10,14 +10,14 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, Key } from "@earendil-works/pi-tui";
-import { messageOf } from "../../lib/errors.ts";
-import { formatDuration, sanitizeLine } from "../../lib/format.ts";
-import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { type DetailContents, DockListScreen } from "../../lib/tui/dock-screen.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { keyValueRow } from "../../lib/tui/rows.ts";
-import { paint } from "../../lib/tui/tokens.ts";
-import { idSuffix } from "./format.ts";
+import { messageOf } from "../../../lib/errors.ts";
+import { formatDuration, sanitizeLine } from "../../../lib/format.ts";
+import type { ScreenHint, ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { type DetailContents, DockListScreen } from "../../../lib/tui/dock-screen.ts";
+import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { keyValueRow } from "../../../lib/tui/rows.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { idSuffix } from "../format.ts";
 import {
 	type SessionRow,
 	claimRowLine,
@@ -27,8 +27,8 @@ import {
 	sessionRowLine,
 	sessionRows,
 	summaryCells,
-} from "./rows.ts";
-import type { BoardSnapshot, BusMessage, ClaimRecord } from "./types.ts";
+} from "../rows.ts";
+import type { BoardSnapshot, BusMessage, ClaimRecord } from "../types.ts";
 
 /** The scopes `Tab` cycles through. */
 export type BoardScope = "sessions" | "inbox" | "claims";

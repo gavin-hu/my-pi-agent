@@ -11,7 +11,7 @@ import {
 	type BackgroundRun,
 	type BackgroundStartInput,
 } from "./background.ts";
-import { AgentsBoardComponent } from "./background-tui.ts";
+import { AgentsBoardComponent } from "./view/agents-board.ts";
 import { formatBackgroundDuration } from "./format.ts";
 import { runSingleAgent, type RunOptions } from "./run.ts";
 import {

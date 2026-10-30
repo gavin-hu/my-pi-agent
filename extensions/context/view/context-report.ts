@@ -14,17 +14,17 @@
 
 import type { CompactionResult, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type Component } from "@earendil-works/pi-tui";
-import { messageOf } from "../../lib/errors.ts";
-import { formatTokens } from "../../lib/format.ts";
-import { screenFooter, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { ConfirmState } from "../../lib/tui/confirm.ts";
-import { clampScroll, fitRows, formatRange, isCloseKey, navigateScroll } from "../../lib/tui/cursor.ts";
-import { gaugeBar, gaugeRole } from "../../lib/tui/gauge.ts";
-import { BODY_INDENT } from "../../lib/tui/indent.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
-import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
-import { formatBudget, formatCompaction, formatDrift } from "./format.ts";
-import type { ContextBucket, ContextReport } from "./types.ts";
+import { messageOf } from "../../../lib/errors.ts";
+import { formatTokens } from "../../../lib/format.ts";
+import { screenFooter, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { ConfirmState } from "../../../lib/tui/confirm.ts";
+import { clampScroll, fitRows, formatRange, isCloseKey, navigateScroll } from "../../../lib/tui/cursor.ts";
+import { gaugeBar, gaugeRole } from "../../../lib/tui/gauge.ts";
+import { BODY_INDENT } from "../../../lib/tui/indent.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
+import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
+import { formatBudget, formatCompaction, formatDrift } from "../format.ts";
+import type { ContextBucket, ContextReport } from "../types.ts";
 
 /** Fixed rows around the scrollable body: title, gauge, budget, blank, blank, footer, closing rule. */
 const CHROME_ROWS = 7;

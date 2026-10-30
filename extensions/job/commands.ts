@@ -24,7 +24,7 @@ export function registerCommands(pi: ExtensionAPI, runtime: JobsRuntime): void {
 			// The screen and the dock it mounts are the TUI's, not the listener's: the text
 			// listing above and registration load neither.
 			const { withPolledScreen } = await import("../../lib/screen-session.ts");
-			const { JobListComponent } = await import("./tui.ts");
+			const { JobListComponent } = await import("./view/jobs-screen.ts");
 			await withPolledScreen(
 				pi,
 				ctx,

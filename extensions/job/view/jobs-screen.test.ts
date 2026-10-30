@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { compareJobs, elapsedMs, formatJobDetail, jobCounts, shortLabel, statusGlyphChar } from "./format.ts";
-import { TailResult } from "../../lib/tui/tool.ts";
-import { JobListComponent, jobTail } from "./tui.ts";
-import type { JobRecord } from "./types.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { compareJobs, elapsedMs, formatJobDetail, jobCounts, shortLabel, statusGlyphChar } from "../format.ts";
+import { TailResult } from "../../../lib/tui/tool.ts";
+import { jobTail } from "../render.ts";
+import { JobListComponent } from "./jobs-screen.ts";
+import type { JobRecord } from "../types.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
 
 function record(overrides: Partial<JobRecord> = {}): JobRecord {
 	return {

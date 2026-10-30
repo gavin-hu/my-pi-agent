@@ -3,10 +3,8 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { withRailsSuppressed } from "../../lib/rails.ts";
 import { formatTodoList, progressSummary } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
-import { TodoListComponent } from "./tui.ts";
 
 export function registerCommands(pi: ExtensionAPI, runtime: TodoRuntime): void {
 	pi.registerCommand("todos", {
@@ -17,6 +15,10 @@ export function registerCommands(pi: ExtensionAPI, runtime: TodoRuntime): void {
 				ctx.ui.notify(todos.length === 0 ? "No todos." : `${progressSummary(todos)}\n${formatTodoList(todos)}`, "info");
 				return;
 			}
+			// The screen and its rails wrapper are the TUI's: the listing above and
+			// registration load neither.
+			const { withRailsSuppressed } = await import("../../lib/rails.ts");
+			const { TodoListComponent } = await import("./view/todo-screen.ts");
 			let unsubscribe: (() => void) | undefined;
 			try {
 				await withRailsSuppressed(pi, () =>

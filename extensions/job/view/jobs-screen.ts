@@ -1,80 +1,26 @@
 /**
- * Terminal rendering for jobs' `/jobs` screen.
+ * The `/jobs` screen: a dismissible list with a focused detail pane and a log
+ * view, drawn as a `DockListScreen`.
  *
- * `JobListComponent` is the dismissible `/jobs` screen with a focused detail
- * pane and a log view. It is stateless with respect to time: elapsed values are
- * computed from `Date.now()` at render, so the command can refresh the screen
- * without rebuilding the component.
+ * It is stateless with respect to time: elapsed values are computed from
+ * `Date.now()` at render, so the command can refresh the screen without
+ * rebuilding the component. The frame, the navigation keys, the y/N
+ * confirmation, and the log pane come from the shared `DockListScreen`, so this
+ * module owns only the job vocabulary: the rows, the focus block, the counts,
+ * the hints, and what the verbs do.
  *
- * The frame, the navigation keys, the y/N confirmation, and the log pane come
- * from the shared `DockListScreen`, so this module owns only the job vocabulary:
- * the row, the focus block, the counts, the hints, and what the verbs do.
- *
- * Log text arrives already sanitized by the runtime, so no untrusted escape
- * sequence reaches the terminal through here.
+ * Full-screen surfaces live under `view/` and load on first use: the `/jobs`
+ * command imports this module behind its TUI branch, so registration never
+ * pays for it. See `docs/extensions/job.md`.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { formatDuration, sanitizeUntrustedLine } from "../../lib/format.ts";
-import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
-import { SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { statusRow, type StatusRow } from "../../lib/tui/rows.ts";
-import type { TailResultInput } from "../../lib/tui/tool.ts";
-import { paint } from "../../lib/tui/tokens.ts";
-import {
-	compareJobs,
-	elapsedMs,
-	formatJobDetail,
-	jobCounts,
-	shortLabel,
-	statusGlyphChar,
-	statusRole,
-	type JobCounts,
-} from "./format.ts";
-import type { JobRecord } from "./types.ts";
-
-/** One job row: selection marker, status glyph, id, label, and a right-aligned
- *  elapsed value, tagged `peer` when another session owns it. `statusRow` owns
- *  the clipping and the alignment. */
-function jobRow(
-	job: JobRecord,
-	theme: Theme,
-	width: number,
-	options: Pick<StatusRow, "selected" | "marker"> & { foreign?: boolean } = {},
-): string {
-	const elapsed = formatDuration(elapsedMs(job, Date.now()));
-	return statusRow(theme, width, {
-		...options,
-		glyph: statusGlyphChar(job.status),
-		glyphRole: statusRole(job.status),
-		label: `${job.id}  ${shortLabel(job)}`,
-		labelRole: options.selected ? "accent" : "label",
-		// The tag rides the right-aligned cell, which survives a narrow terminal.
-		trailing: options.foreign ? `${elapsed}${SEPARATORS.item}peer` : elapsed,
-	});
-}
-
-/** Input for the transcript result: a themed job list or a log tail. */
-export type JobResultInput =
-	| { kind: "list"; jobs: JobRecord[]; more: number; sessionId?: string }
-	| { kind: "logs"; lines: string[]; earlier: number };
-
-/** Map the job vocabulary onto the shared transcript tail block. */
-export function jobTail(input: JobResultInput): TailResultInput<JobRecord> {
-	if (input.kind === "logs") {
-		return { kind: "lines", lines: input.lines, earlier: input.earlier, earlierLabel: "lines" };
-	}
-	return {
-		kind: "list",
-		rows: input.jobs,
-		more: input.more,
-		rowLine: (job, width, theme) => {
-			const foreign = input.sessionId !== undefined && job.sessionId !== input.sessionId;
-			return jobRow(job, theme, width, { marker: false, foreign });
-		},
-	};
-}
+import { sanitizeUntrustedLine } from "../../../lib/format.ts";
+import type { ScreenHint, ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { DockListScreen, type DetailContents } from "../../../lib/tui/dock-screen.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { compareJobs, formatJobDetail, jobCounts, type JobCounts, jobRow, shortLabel } from "../format.ts";
+import type { JobRecord } from "../types.ts";
 
 export interface JobListCallbacks {
 	/** This session's id: a record with another id belongs to a peer session. */

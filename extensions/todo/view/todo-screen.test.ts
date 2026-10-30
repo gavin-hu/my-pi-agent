@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
-import { fakeTheme as theme } from "../../test/helpers/fakes.ts";
-import { formatCallText, formatTodoList, formatTodoText, progressSummary, todoRailLines } from "./format.ts";
-import { TodoListComponent, TodoResult, TodoWidget } from "./tui.ts";
-import type { Todo } from "./types.ts";
+import { fakeTheme as theme } from "../../../test/helpers/fakes.ts";
+import { formatCallText, formatTodoList, formatTodoText, progressSummary, todoRailLines } from "../format.ts";
+import { TodoResult } from "../render.ts";
+import { TodoWidget } from "../widget.ts";
+import { TodoListComponent } from "./todo-screen.ts";
+import type { Todo } from "../types.ts";
 
 const todos: Todo[] = [
 	{ content: "Write schema", status: "completed" },

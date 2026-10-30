@@ -248,9 +248,10 @@ outlive the session.
 | `types.ts` | `WatchAction`/`WatchStatus`, `WatchRecord`, `WatchDetails`, `PendingMatch`. |
 | `runtime.ts` | The session-scoped watcher table, matcher, poll tick, and shutdown; spawning and tree-kill come from `child.ts`, line splitting from `lib/lines.ts`. |
 | `child.ts` | A command watcher's process lifecycle: spawn, the SIGTERM → SIGKILL grace, and the shutdown drain, over the injected `SpawnFn`/`KillTreeFn` seams. |
-| `format.ts` | Pure text formatting; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
+| `format.ts` | Pure text formatting, including the watcher row both surfaces draw; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
 | `ui.ts` | Status chips and the match alert, over the shared `lib/tui/status-controller.ts` (chips, attached context, `notify`). |
-| `tui.ts` | The `WatchResult` transcript block over the shared `TailResult`, and the `/watch` screen as a `DockListScreen` subclass: watcher rows, focus block, counts, verbs. |
+| `render.ts` | The `WatchResult` transcript block over the shared `TailResult`. |
+| `view/watch-screen.ts` | The `/watch` screen as a `DockListScreen` subclass: watcher rows, focus block, counts, verbs, loaded on first use. |
 | `commands.ts` | The `/watch` command and its completions. |
 | `config.ts` | The `watch` config section load and normalization. |
 
@@ -258,6 +259,6 @@ outlive the session.
 
 `runtime.test.ts` covers config, schema, the child supervisor, and the tailer
 with a fake clock and fake children; `tools.test.ts` covers the tool and command;
-`ui.test.ts` covers registration, formatting, the status chips, and the screen
+`view/watch-screen.test.ts` covers registration, formatting, the status chips, and the screen
 through the shared `createFakePi`/`fakeCtx` doubles. The test harness is
 `test/helpers/fixtures/watch.ts`.

@@ -181,7 +181,7 @@ UI.
   for free.
 - **A pure state machine behind the TUI.** `tui-state.ts` holds a reducer
   (`reduce(state, action) → { state, effect }`) so navigation, toggling, tab
-  movement, and submit gating are tested without a terminal; `tui.ts` only maps
+  movement, and submit gating are tested without a terminal; `view/question-screen.ts` only maps
   state to lines and forwards input. Render output is cached and cleared from
   `invalidate()`, and themed strings are never stored across renders.
 - **Claude-Code-compatible parameter shape.** `{ label, description? }` options
@@ -210,7 +210,7 @@ UI.
 | [`types.ts`](../../extensions/question/types.ts) | Shared raw/normalized types |
 | [`answers.ts`](../../extensions/question/answers.ts) | Answer normalization and model-facing formatting (pure) |
 | [`tui-state.ts`](../../extensions/question/tui-state.ts) | Pure keyboard/navigation state machine |
-| [`tui.ts`](../../extensions/question/tui.ts) | Custom terminal component (render + input), drawn from the `lib/tui/` kit (`titleRule`/`plainRule`, `checkbox`, `flowCells`, `screenHint`, `editorTheme`). |
+| [`view/question-screen.ts`](../../extensions/question/view/question-screen.ts) | Custom terminal component (render + input), loaded on first use, drawn from the `lib/tui/` kit (`titleRule`/`plainRule`, `checkbox`, `flowCells`, `screenHint`, `editorTheme`). |
 | [`dialogs.ts`](../../extensions/question/dialogs.ts) | `select`/`input`/`editor` fallback driver |
 | [`tools.ts`](../../extensions/question/tools.ts) | Tool registration and transcript renderers |
 

@@ -522,7 +522,7 @@ stops at the first difference because the control, not the checker, is the fix.
 | `view/diff-html.ts` | The unified-diff body: the gutter, the sign, the hunk sections, and per-hunk highlighting |
 | `transport/router.ts` | Pure request handler: routes, the `/raw` sandbox policy, and the error page |
 | `transport/server.ts` | This extension's routes over `lib/http`'s loopback server: the request count, the stream cap, and the idle policy |
-| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `plan`: one server entry (`serveHttp`) and the mount contract a page claims a prefix with (`requestMount`), page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, the event-stream sink and its idle grace |
+| [`../../lib/http/index.ts`](../../lib/http/index.ts) | The served-page kit shared with `plan`: one server entry (`serveHttp`), page/script/JSON/event-stream headers, `ServeResponse`, the request-envelope helpers, the event-stream sink and its idle grace. The mount contract is the leaf [`mount.ts`](../../lib/http/mount.ts), which is the only one a registration graph may reach |
 | [`../../lib/browser.ts`](../../lib/browser.ts) | Cross-platform browser opener (shared with `plan`) |
 
 ## Testing

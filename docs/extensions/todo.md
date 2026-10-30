@@ -236,10 +236,12 @@ depends on config.
 | `schema.ts` | TypeBox parameters; the parser and limits live in `lib/todo-state.ts`. |
 | `state.ts` | Status queries over the replayed list (pure). |
 | `nudge.ts` | Lag detection: mutating and file-write classification, due check, reminder text (pure). |
-| `format.ts` | Model-facing and transcript text (pure). |
-| `tui.ts` | Widget and scrollable `/todos` components, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
+| `format.ts` | Model-facing and transcript text, plus the item row both surfaces draw (pure). |
+| `render.ts` | The `TodoResult` transcript block over the memoized rail, drawn from `lib/tui/render-cache.ts`. |
+| `widget.ts` | The persistent one-line widget and its `WIDGET_KEY`, drawn from the `lib/tui/` kit. |
+| `view/todo-screen.ts` | The scrollable `/todos` screen, loaded on first use (`titleRule`, `dockListFrame`, `emptyState`). |
 | `config.ts` | Widget config load/validation (the `todo` section of `bytefly.json`). |
 | `runtime.ts` | Session-scoped state, lag tracking, and widget synchronization. |
 | `tools.ts` | `todo` tool registration and rendering. |
 | `commands.ts` | `/todos`. |
-| `tools.test.ts`, `runtime.test.ts`, `ui.test.ts` | The capability suites, declared in `test/suite-manifest.ts`. |
+| `tools.test.ts`, `runtime.test.ts`, `view/todo-screen.test.ts` | The capability suites, declared in `test/suite-manifest.ts`. |

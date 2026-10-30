@@ -11,7 +11,7 @@
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import { formatDuration, sanitizeLine } from "../../../lib/format.ts";
+import { formatDuration } from "../../../lib/format.ts";
 import { screenFooter, screenHint, type ScreenHint } from "../../../lib/tui/chrome.ts";
 import { clip } from "../../../lib/tui/columns.ts";
 import { formatRange, IdCursor, isCloseKey, navIntent } from "../../../lib/tui/cursor.ts";
@@ -19,12 +19,7 @@ import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { keyValueRow, listRow } from "../../../lib/tui/rows.ts";
 import { titleRule } from "../../../lib/tui/rules.ts";
 import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
-import type { BridgeStatus } from "../bridge.ts";
-import { peerLabel } from "../text/format.ts";
-import type { BotCredentials } from "../types.ts";
-
-/** User-facing connection word; the internal `BridgeState` stays running/stopped. */
-export type StatusConnection = "open" | "expired" | "paused" | "closed";
+import { type PeerRow, refusedValue, type StatusConnection, type StatusView } from "../text/status.ts";
 
 /**
  * What the status screen closed with: a global action, a peer history request,
@@ -32,105 +27,11 @@ export type StatusConnection = "open" | "expired" | "paused" | "closed";
  */
 export type StatusAction = "close" | "login" | "new" | "logout" | { kind: "history"; peer: string } | { kind: "allow" };
 
-/** The facts the status screen and the one-line summary render. */
-export interface StatusView {
-	/** Whether a bridge exists, so the activity counters are meaningful. */
-	bridge: boolean;
-	account?: string;
-	connection: StatusConnection;
-	owner?: string;
-	peers: number;
-	queued: number;
-	/** Per-peer activity, so an operator can see who is waiting and for how long. */
-	peerRows: PeerRow[];
-	refused: number;
-	/** Labels of the refused senders, so an operator can allowlist one. */
-	refusedPeers: string[];
-	mediaDropped: number;
-	promptPending: boolean;
-	/** Every waiting prompt, one per peer that was asked something. */
-	prompts: Array<{ peer: string; title: string; startedAt: number }>;
-	/** The clock the view was built with, for the prompt age. */
-	now?: number;
-}
-
-/** One peer's line in the control screen. */
-export interface PeerRow {
-	/** The raw peer id, so an action targets the right person; falls back to `label`. */
-	id?: string;
-	label: string;
-	status: "idle" | "queued" | "running";
-	queued: number;
-	runningMs?: number;
-}
-
 /** How many peer rows the screen lists before scrolling. */
 const MAX_PEER_ROWS = 5;
 
-/** The connection word for a bridge status, or `closed` when there is none. */
-export function connectionOf(status: BridgeStatus | undefined): StatusConnection {
-	return status?.paused ? "paused" : status?.open ? "open" : status?.expired ? "expired" : "closed";
-}
-
-/** Build the view from the stored account and the live bridge status. */
-export function statusView(
-	account: BotCredentials | undefined,
-	status: BridgeStatus | undefined,
-	now: number = Date.now(),
-): StatusView {
-	return {
-		bridge: status !== undefined,
-		account: account ? peerLabel(account.ilinkUserId) : undefined,
-		connection: connectionOf(status),
-		owner: status?.owner ? peerLabel(status.owner) : undefined,
-		peers: status?.peerCount ?? 0,
-		queued: status?.queued ?? 0,
-		peerRows: (status?.peerStates ?? []).map((entry) => ({
-			id: entry.peer,
-			label: peerLabel(entry.peer),
-			status: entry.state.status,
-			queued: entry.state.queued,
-			runningMs: entry.state.runningMs,
-		})),
-		refused: status?.refused ?? 0,
-		refusedPeers: status?.refusedPeers ?? [],
-		mediaDropped: status?.mediaDropped ?? 0,
-		promptPending: status?.promptPending ?? false,
-		prompts: (status?.prompts ?? []).map((prompt) => ({
-			peer: sanitizeLine(peerLabel(prompt.peer)),
-			title: sanitizeLine(prompt.title),
-			startedAt: prompt.startedAt,
-		})),
-		now,
-	};
-}
-
-/** The one-line summary used outside the TUI. */
-export function statusLine(view: StatusView): string {
-	const parts = [view.account ? `account ${view.account}` : "not logged in", view.connection];
-	if (view.bridge) {
-		parts.push(`${view.peers} peer(s)`, `${view.queued} queued`);
-		if (view.refused > 0) parts.push(`refused ${refusedValue(view)}`);
-		if (view.mediaDropped > 0) parts.push(`${view.mediaDropped} media dropped`);
-		if (view.owner) parts.push(`owner ${view.owner}`);
-		const active = view.peerRows.find((row) => row.status === "running");
-		if (active) parts.push(`running ${active.label}`);
-	}
-	const recovery = view.connection === "expired" ? " — run /wechat login to reconnect" : "";
-	return `wechat: ${parts.join(SEPARATORS.item)}${recovery}`;
-}
-
 /** Label column width in the screen body. */
 const LABEL_WIDTH = 11;
-
-/**
- * The refusal count with the senders named: naming them is what makes
- * `allowedPeers` usable, and either id form can be pasted into the config.
- */
-function refusedValue(view: StatusView): string {
-	const who = view.refusedPeers.length > 0 ? ` (${view.refusedPeers.join(", ")})` : "";
-	return `${view.refused}${who}`;
-}
 
 /** One body row: a `meta` label column and a value in `valueRole`. */
 function row(theme: Theme, width: number, label: string, value: string, valueRole: TuiRole = "label"): string {

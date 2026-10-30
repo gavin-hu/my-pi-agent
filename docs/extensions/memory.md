@@ -264,7 +264,7 @@ skill. Mitigations:
 | `runtime.ts` | Session view of both stores, stamp-based refresh, trust gating, mutations. |
 | `format.ts` | Pure call/result/notice text and the bounded injection body. |
 | `errors.ts` | Re-exports `messageOf`, the shared error-text extraction (defined in `lib/errors.ts`) for the tool and command. |
-| `tui.ts` | The `/memory` picker component (note list, inline editor, merge mark, scope move, scope filter), drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
+| `view/memory-picker.ts` | The `/memory` picker component (note list, inline editor, merge mark, scope move, scope filter), loaded on first use, drawn from the `lib/tui/` kit (`titleRule`, `dockListFrame`, `listRow`, `emptyState`). |
 | `tools.ts` | `registerTool("memory", …)`. |
 | `commands.ts` | `registerCommand("memory", …)`. |
 
@@ -273,7 +273,7 @@ skill. Mitigations:
 `bun test extensions/memory` covers the pure store transforms (including the
 near-duplicate comparison key and the `add` guard), file stamps, schema and
 config validation, formatting/injection truncation, the `/memory` picker
-(`tui.test.ts`: rendering, navigation, scope filter, inline add/edit, forget
+(`view/memory-picker.test.ts`: rendering, navigation, scope filter, inline add/edit, forget
 confirm, trust), and the extension surface (registration, `session_start`
 loading, injection and dedup, external-edit refresh, `/memory reload`, update
 and trust gating, and the `/memory` command) through the

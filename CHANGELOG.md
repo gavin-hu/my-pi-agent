@@ -54,6 +54,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Bytefly unsets the reserved `app.thinking.cycle` chord while it holds the key and restores
   it on shutdown, so `/hotkeys` tells the truth; `plan` no longer registers `Ctrl+Alt+P`,
   and `/plan` remains the toggle when bytefly is not loaded.
+- every full-screen surface now lives under `view/` and loads on first use, and a rule keeps it
+  there: `test/dependencies.test.ts` refuses a registration graph that reaches `extensions/*/view/`
+  or any `lib/http/` module but `mount.ts`, so a new screen is lazy by where it is filed rather
+  than by a row someone remembers. `/memory`, `/sessions`, `/watch`, `/check`, `/agents`, `/rewind`,
+  `/review`, `/todos`, `/wechat login` and `/wechat status`, the question tool's questionnaire, and
+  the rewind review gate are imported in the TUI branch that opens them; `web_fetch` loads its
+  page reader and passage finder in `execute`, so a session that never fetches pays neither;
+  `serve`, `board` and `plan` import the mount contract from `lib/http/mount.ts` and load the
+  rest of that kit on the first bind. Registration drops from 817 to 781 modules and the summed
+  static graph from 857 to 747; `lib/tui/index.ts` (fifteen re-exports, no importers) is gone
+  with the `tui.ts` files it sat beside. The split moves a renderer or a rail widget out of the
+  way of its screen, never into it: `job`, `watch`, `todo` and `wechat` gain `render.ts`,
+  `widget.ts` or `text/status.ts` beside their `view/`.
 - the package loads 185 fewer modules at startup (1,044 → 859). The plan review server and the
   review gate behind it, the board page, the browse server, the worktree screen, the bytefly panel
   screen and its picker and settings surface, the `/jobs` screen, and the job runtime's process seam

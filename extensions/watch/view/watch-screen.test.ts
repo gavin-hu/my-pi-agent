@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { WATCH_MATCH_CHANNEL } from "../../lib/events.ts";
-import { NOTICE_TYPE } from "../../lib/notice.ts";
-import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
-import { createFakePi, emit, emitFirst, fakeTheme } from "../../test/helpers/fakes.ts";
-import { withEnv } from "../../test/helpers/env.ts";
-import { makeCtx, makeHarnessSuite } from "../../test/helpers/fixtures/watch.ts";
-import { DEFAULT_CONFIG } from "./config.ts";
+import { ENV_DISABLED_EXTENSIONS } from "../../../lib/env.ts";
+import { WATCH_MATCH_CHANNEL } from "../../../lib/events.ts";
+import { NOTICE_TYPE } from "../../../lib/notice.ts";
+import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
+import { createFakePi, emit, emitFirst, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { withEnv } from "../../../test/helpers/env.ts";
+import { makeCtx, makeHarnessSuite } from "../../../test/helpers/fixtures/watch.ts";
+import { DEFAULT_CONFIG } from "../config.ts";
 import {
 	compileRegex,
 	formatCallText,
@@ -21,12 +21,13 @@ import {
 	statusGlyphChar,
 	statusRole,
 	statusWord,
-} from "./format.ts";
-import watch, { buildWatchContext } from "./index.ts";
-import { TOOL_NAME } from "./tools.ts";
-import { WatchListComponent, WatchResult } from "./tui.ts";
-import type { PendingMatch, WatchRecord } from "./types.ts";
-import { createUiController } from "./ui.ts";
+} from "../format.ts";
+import watch, { buildWatchContext } from "../index.ts";
+import { TOOL_NAME } from "../tools.ts";
+import { WatchResult } from "../render.ts";
+import { WatchListComponent } from "./watch-screen.ts";
+import type { PendingMatch, WatchRecord } from "../types.ts";
+import { createUiController } from "../ui.ts";
 
 const suite = makeHarnessSuite();
 afterEach(() => suite.cleanup());

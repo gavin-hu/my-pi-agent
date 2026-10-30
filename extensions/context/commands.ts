@@ -10,12 +10,10 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { formatTokens } from "../../lib/format.ts";
-import { withRailsSuppressed } from "../../lib/rails.ts";
 import { messageOf } from "../../lib/errors.ts";
 import { collectInputs } from "./collect.ts";
 import { formatReport } from "./format.ts";
 import { buildReport } from "./report.ts";
-import { ContextComponent } from "./tui.ts";
 
 /** The command's argument surface, shared by the description and the usage warning. */
 const CONTEXT_USAGE = "/context [compact [instructions]]";
@@ -37,6 +35,8 @@ async function openReport(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promi
 	}
 
 	// The dock screen owns the editor slot; hide the rails for its lifetime.
+	const { withRailsSuppressed } = await import("../../lib/rails.ts");
+	const { ContextComponent } = await import("./view/context-report.ts");
 	await withRailsSuppressed(pi, () =>
 		ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 			return new ContextComponent({

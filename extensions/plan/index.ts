@@ -20,7 +20,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { fileURLToPath } from "node:url";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { requestMount } from "../../lib/http/index.ts";
+import { requestMount } from "../../lib/http/mount.ts";
 import { sanitizeLine } from "../../lib/format.ts";
 import { lastGoal, isPursuedGoal, type PublishedGoal } from "../../lib/goal-state.ts";
 import {

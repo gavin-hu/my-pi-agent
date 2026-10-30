@@ -12,10 +12,8 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { resolveEffectiveCwd } from "../../lib/env.ts";
 import { planModeRefusal } from "../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
-import { withRailsSuppressed } from "../../lib/rails.ts";
 import { formatCheckReport, formatCheckSummary } from "./format.ts";
 import { CheckError, type CheckRuntime } from "./runtime.ts";
-import { CheckResultComponent, CheckRunComponent } from "./tui.ts";
 import type { CheckResult, CheckTarget } from "./types.ts";
 
 /** The accepted targets and their completion descriptions. */
@@ -42,6 +40,8 @@ function runLabel(commands: readonly string[]): string {
 
 /** The TUI loop: run, then list/detail, with rerun. */
 async function runTui(runtime: CheckRuntime, ctx: ExtensionCommandContext, target: CheckTarget): Promise<void> {
+	// The screens are the TUI's: a text run above and registration load neither.
+	const { CheckResultComponent, CheckRunComponent } = await import("./view/check-screens.ts");
 	while (true) {
 		let active: ReturnType<CheckRuntime["start"]>;
 		try {
@@ -123,6 +123,7 @@ export function registerCheckCommand(pi: ExtensionAPI, runtime: CheckRuntime): v
 				return;
 			}
 
+			const { withRailsSuppressed } = await import("../../lib/rails.ts");
 			await withRailsSuppressed(pi, () => runTui(runtime, ctx, target));
 		},
 	});

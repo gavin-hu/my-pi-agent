@@ -11,10 +11,10 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme, createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
-import { OTHER_LABEL } from "./answers.ts";
-import { askViaDialogs, batchPrompt, parseBatchAnswers, parseMultiSelect, type QuestionUI } from "./dialogs.ts";
-import { askViaTui } from "./tui.ts";
+import { coloringTheme, createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { OTHER_LABEL } from "../answers.ts";
+import { askViaDialogs, batchPrompt, parseBatchAnswers, parseMultiSelect, type QuestionUI } from "../dialogs.ts";
+import { askViaTui } from "./question-screen.ts";
 import {
 	allAnswered,
 	applyCustomText,
@@ -24,9 +24,9 @@ import {
 	reduce,
 	type KeyAction,
 	type TuiState,
-} from "./tui-state.ts";
-import { TOOL_NAME, registerTools } from "./tools.ts";
-import type { Question, Selection } from "./types.ts";
+} from "../tui-state.ts";
+import { TOOL_NAME, registerTools } from "../tools.ts";
+import type { Question, Selection } from "../types.ts";
 
 const auth: Question = {
 	id: "q1",
