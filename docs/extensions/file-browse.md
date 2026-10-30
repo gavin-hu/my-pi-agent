@@ -14,7 +14,7 @@ the shared loopback layer plus one small vanilla script.
 
 | Capability | How | What you get |
 |---|---|---|
-| One-command browsing | `/browse` | The server starts at the effective working directory, prints its URL, and opens the browser. |
+| One-command browsing | `/browse` | The server starts at the effective working directory, prints its URL, and opens the browser; every later `/browse` opens the page it already serves. |
 | Read-only serving | `/browse` | Nothing is edited or written, and the server binds `127.0.0.1` only. |
 | Two-pane page | `/files/`, `/files/browse[/<rel>]` | A collapsible tree beside the current folder's listing, with the tree, filter, and quick-open trigger pinned in their own pane. |
 | File previews | `/view/<rel>` | Text, rendered Markdown, image thumbnails, and download cards for binary or over-size files, each with a per-language icon. |
@@ -67,8 +67,9 @@ selects the root.
 - The port is the project's: `serve` hashes the repository key into `4780`–`5779`
   (and `serve.port` pins it), so the origin stays stable across roots and restarts. A
   busy pinned port is reported, not silently changed.
-- Starting while already running with the same root reprints the URL without
-  restarting; a different root restarts the page.
+- Starting while already running with the same root opens that page again and
+  reprints its URL, without restarting the server; a different root restarts the page.
+  With `autoOpen` off, the second `/browse` only reprints the URL.
 - The server is closed when its last page has been gone for ten seconds, so
   closing the browser window ends the session's browse server and `/browse`
   starts it again on the session's port. A reload or a new tab inside that grace keeps
@@ -99,7 +100,7 @@ global document then project document, project wins — are in
 
 | Key | Default | Meaning |
 |---|---|---|
-| `autoOpen` | `true` | Open the browser on start; `false` for headless. |
+| `autoOpen` | `true` | Open the browser on start and on every later `/browse`; `false` for headless. |
 | `maxFileBytes` | `1048576` | Larger files show a download card only. |
 | `maxThumbBytes` | `5242880` | Larger images get an icon, not a thumbnail. |
 | `maxTextLines` | `5000` | Rendered lines before truncation. |

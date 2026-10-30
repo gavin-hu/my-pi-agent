@@ -42,7 +42,7 @@ const LONG_SUITES: Record<string, number> = {
 	"extensions/check/check.test.ts": 598,
 	"extensions/check/surface.test.ts": 1092,
 	"extensions/file-browse/files/files.test.ts": 911,
-	"extensions/file-browse/transport/router.test.ts": 1003,
+	"extensions/file-browse/transport/router.test.ts": 884,
 	"extensions/file-browse/view/pages.test.ts": 1590,
 	"extensions/file-read/tool.test.ts": 697,
 	"extensions/goal/extension.test.ts": 724,

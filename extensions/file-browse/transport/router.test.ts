@@ -1,7 +1,7 @@
 /**
- * The routing and runtime capability: request handling and its guards, the
- * loopback server and its live stream, the status snapshot/channel, and the
- * `/browse` command lifecycle.
+ * The transport capability: request routing and its guards, the loopback server and
+ * its live stream, and the status snapshot/channel. The `/browse` command's own
+ * surface is `../command.test.ts`.
  *
  * Routers are driven directly for request shapes; only the two server cases open
  * a real loopback socket. The live channel uses an injected ticker, so no test
@@ -15,23 +15,14 @@ import { join } from "node:path";
 import { type RepeatTimer } from "../../../lib/timer.ts";
 import { DEFAULT_CONFIG, LIVE_MAX_CLIENTS, type ServeConfig } from "../config/config.ts";
 import type { DiffList, GitDiffProvider } from "../git/git.ts";
-import fileBrowser from "../index.ts";
 import { changeIndexOf, createLiveChannel, createLiveStatus, frameOf, type LiveClient } from "../live/live.ts";
 import { handleRequest, type ServeContext } from "./router.ts";
-import {
-	BROWSE_BASE,
-	createFileServer,
-	type FileServer,
-	type FileServerOptions,
-	type FileServerResult,
-} from "./server.ts";
+import { BROWSE_BASE, createFileServer, type FileServer, type FileServerOptions } from "./server.ts";
 import { testMountSource } from "../../../test/helpers/serve.ts";
-import { ENV_DISABLED_EXTENSIONS } from "../../../lib/env.ts";
 import type { ServeResponse } from "../../../lib/http/index.ts";
 import { makeClock } from "../../../test/helpers/clock.ts";
-import { useEnv, withEnv } from "../../../test/helpers/env.ts";
-import { createFakePi, emit } from "../../../test/helpers/fakes.ts";
-import { fakeCtx, makeFixture, runCommand, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
+import { useEnv } from "../../../test/helpers/env.ts";
+import { makeFixture, type Fixture } from "../../../test/helpers/fixtures/file-browse.ts";
 import { settle } from "../../../test/helpers/process.ts";
 
 const env = useEnv({ PI_WORKTREE_ROOT: undefined });
@@ -889,115 +880,5 @@ describe("loopback server", () => {
 
 		await done;
 		expect(await connectionRefused(started.url)).toBe(true);
-	});
-});
-
-function fakeServer(root: string): FileServerResult {
-	return { kind: "served", server: { url: "http://127.0.0.1:4321/files/", port: 4321, root, close: async () => {} } };
-}
-
-/** The page a fake result carries, for a case that only needs one field of it. */
-function servedOf(result: FileServerResult): FileServer {
-	if (result.kind !== "served") throw new Error(result.reason);
-	return result.server;
-}
-
-const noOpen = () => {};
-
-describe("browse command", () => {
-	test("registers nothing when disabled", async () => {
-		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "file-browse" }, () => {
-			const { pi, commands, handlers } = createFakePi();
-			fileBrowser(pi);
-			expect(commands.size).toBe(0);
-			expect(handlers.size).toBe(0);
-		});
-	});
-
-	test("registers /browse and completes its subcommands", () => {
-		const { pi, commands } = createFakePi();
-		fileBrowser(pi);
-		expect(commands.has("browse")).toBe(true);
-		const complete = (prefix: string): string[] =>
-			(commands.get("browse").getArgumentCompletions(prefix) ?? []).map((item: { label: string }) => item.label);
-		expect(complete("")).toEqual(["status", "stop"]);
-		expect(complete("stat")).toEqual(["status"]);
-		expect(complete("status ")).toEqual([]);
-	});
-
-	test("reports not running before a start", async () => {
-		const { pi } = createFakePi();
-		fileBrowser(pi);
-		const { ctx, notifications } = fakeCtx("/tmp/repo");
-		await runCommand(pi, "browse", "status", ctx);
-		expect(notifications.at(-1)?.message).toContain("not running");
-	});
-
-	test("starts, opens the browser, reports status, and stops", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		const opened: string[] = [];
-		let closes = 0;
-		fileBrowser(pi, {
-			createServer: async () => ({
-				kind: "served",
-				server: { ...servedOf(fakeServer(fixture!.root)), close: async () => void closes++ },
-			}),
-			open: (url) => {
-				opened.push(url);
-			},
-		});
-		const { ctx, notifications } = fakeCtx(fixture.root);
-
-		await runCommand(pi, "browse", "", ctx);
-		expect(opened).toEqual(["http://127.0.0.1:4321/files/"]);
-		expect(notifications.at(-1)?.message).toContain("4321");
-
-		await runCommand(pi, "browse", "status", ctx);
-		expect(notifications.at(-1)?.message).toContain("4321");
-
-		await runCommand(pi, "browse", "stop", ctx);
-		expect(closes).toBe(1);
-		expect(notifications.at(-1)?.message).toContain("stopped");
-	});
-
-	test("closes the server on session shutdown", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		let closes = 0;
-		fileBrowser(pi, {
-			open: noOpen,
-			createServer: async () => ({
-				kind: "served",
-				server: { ...servedOf(fakeServer(fixture!.root)), close: async () => void closes++ },
-			}),
-		});
-		const { ctx } = fakeCtx(fixture.root);
-		await runCommand(pi, "browse", "", ctx);
-		await emit(pi, "session_shutdown", {}, ctx);
-		expect(closes).toBe(1);
-	});
-
-	test("reports the reason the session's server refused the page", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		fileBrowser(pi, {
-			open: noOpen,
-			// The one way a mount is refused: the prefix is another page's.
-			createServer: async () => ({ kind: "refused", reason: "the serve extension is not loaded" }),
-		});
-		const { ctx, notifications } = fakeCtx(fixture.root);
-		await runCommand(pi, "browse", "", ctx);
-		expect(notifications.at(-1)?.level).toBe("error");
-		expect(notifications.at(-1)?.message).toContain("serve extension is not loaded");
-	});
-
-	test("refuses a subpath that is not a folder", async () => {
-		fixture = makeFixture();
-		const { pi } = createFakePi();
-		fileBrowser(pi, { createServer: async () => fakeServer(fixture!.root), open: noOpen });
-		const { ctx, notifications } = fakeCtx(fixture.root);
-		await runCommand(pi, "browse", "a.txt", ctx);
-		expect(notifications.at(-1)?.level).toBe("error");
 	});
 });
