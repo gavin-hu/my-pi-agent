@@ -13,7 +13,8 @@
  */
 
 import { asRecord, loadConfigSection } from "../config.ts";
-import { DEFAULT_LEAD, type Lead, normalizeLead } from "./lead.ts";
+import { type Lead, normalizeLead } from "./lead.ts";
+import { DEFAULT_SEAT } from "./seat.ts";
 import { DEFAULT_WIP, normalizeWip, type WipLimits } from "./limits.ts";
 
 /** What one board's `board` section says. */
@@ -24,8 +25,15 @@ export interface BoardConfig {
 	lead: Lead;
 }
 
-/** A board's settings when nobody said otherwise: three planning, five in flight, and the lead. */
-export const DEFAULT_BOARD_CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: DEFAULT_LEAD };
+/**
+ * A board's settings when nobody said otherwise: three planning, five in flight, and the lead.
+ *
+ * The lead defaults to the page's seat — the role a session takes by serving `/board` — so the
+ * shipped board has a signer without being configured, and `board.lead` is the override. It is
+ * stated here and nowhere else: `lead.ts` knows the rule, `seat.ts` knows the name, and this is
+ * the one place a default is chosen.
+ */
+export const DEFAULT_BOARD_CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: DEFAULT_SEAT };
 
 /**
  * The settings a config section asks for.

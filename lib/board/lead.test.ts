@@ -8,7 +8,6 @@
 import { describe, expect, test } from "bun:test";
 import { numberedCard } from "../../test/helpers/fixtures/board.ts";
 import {
-	DEFAULT_LEAD,
 	holderRefusal,
 	isLead,
 	isPerson,
@@ -28,15 +27,14 @@ const CARD = numberedCard("4");
 
 describe("normalizeLead", () => {
 	test("a name is a label: flattened, trimmed, and capped", () => {
-		expect(normalizeLead("  billing   lead ")).toBe("billing lead");
-		expect(normalizeLead("x".repeat(60))).toHaveLength(40);
+		expect(normalizeLead("  billing   lead ", LEAD)).toBe("billing lead");
+		expect(normalizeLead("x".repeat(60), LEAD)).toHaveLength(40);
 	});
 
 	test("anything else keeps the name the layer below gave", () => {
 		expect(normalizeLead(undefined, LEAD)).toBe(LEAD);
 		expect(normalizeLead("   ", LEAD)).toBe(LEAD);
 		expect(normalizeLead({ name: "lead" }, LEAD)).toBe(LEAD);
-		expect(DEFAULT_LEAD).toBe("lead");
 	});
 });
 
@@ -44,7 +42,7 @@ describe("isLead and isPerson", () => {
 	test("a name is compared the way a teammate is addressed", () => {
 		expect(isLead(THE_LEAD, LEAD)).toBe(true);
 		expect(isLead(PEER, LEAD)).toBe(false);
-		expect(isLead({ label: "lead" }, DEFAULT_LEAD)).toBe(true);
+		expect(isLead({ label: "team-lead" }, LEAD)).toBe(true);
 	});
 
 	test("the person is the actor no session can be", () => {

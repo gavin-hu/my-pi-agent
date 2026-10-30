@@ -27,7 +27,6 @@
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
 import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../../../lib/board/config.ts";
-import { DEFAULT_LEAD } from "../../../lib/board/lead.ts";
 import { MAX_LABEL } from "../../../lib/session-label.ts";
 import { MAX_WIP } from "../../../lib/board/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
@@ -338,7 +337,7 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 			"The team name whose signature approves a contract and spot-checks the work; a card's holder never signs.",
 		source: "bytefly",
 		kind: "text",
-		fallback: DEFAULT_LEAD,
+		fallback: DEFAULT_BOARD_CONFIG.lead,
 		options: [],
 		text: {
 			maxLength: MAX_LABEL,

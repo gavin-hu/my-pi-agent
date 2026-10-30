@@ -15,7 +15,7 @@
 import type { BoardStore } from "../../lib/board/store.ts";
 import { buildView, type BoardView } from "../../lib/board/view.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
-import { pageActor } from "../../extensions/board/seat.ts";
+import { pageActor } from "../../lib/board/seat.ts";
 import { BOARD_BASE } from "../../lib/board/page-pointer.ts";
 import { testMountSource } from "./serve.ts";
 import { type BoardServer, createBoardServer } from "../../extensions/board/transport/server.ts";

@@ -4,9 +4,10 @@
  * `approve` and `review` are the board's one human judgement — a contract somebody read and a
  * piece of work somebody looked at — so the signature has to belong to somebody accountable
  * rather than to whichever peer answered first. The lead is a team name in `bytefly.json`
- * (`board.lead`), because that is the one identity a pure rule can be handed and a card file can
- * record; the person is the one actor a file can name that is not a holder, which is what keeps
- * a repository worked by one session able to close a card at all.
+ * (`board.lead`, defaulting to the page's seat — `board/seat.ts` — in `config.ts`), because that is
+ * the one identity a pure rule can be handed and a card file can record; the person is the one
+ * actor a file can name that is not a holder, which is what keeps a repository worked by one
+ * session able to close a card at all.
  *
  * The signer is refused in two shapes and this module owns both: a session that is not the lead
  * (`signRefusal`), and a lead that holds the card it means to sign (`holderRefusal` — release it
@@ -23,15 +24,6 @@ import type { Actor } from "./rules.ts";
 
 /** The lead's team name: the label a signature has to carry. */
 export type Lead = string;
-
-/**
- * The lead when nobody said otherwise.
- *
- * A session signs by joining under this name (`/team join lead`), so the default is a role
- * rather than a session: a board nobody configured has a lead the team can still be, and the
- * person's `/board approve` is the other way in.
- */
-export const DEFAULT_LEAD: Lead = "lead";
 
 /**
  * The person at the keyboard, as a write is made.
@@ -60,7 +52,7 @@ export function isPerson(actor: Pick<Actor, "id">): boolean {
  * A blank string is not a lead called nothing: it is a file that said nothing, so the layer
  * below keeps its answer, and a name is flattened and capped by the same rule every label is.
  */
-export function normalizeLead(raw: unknown, base: Lead = DEFAULT_LEAD): Lead {
+export function normalizeLead(raw: unknown, base: Lead): Lead {
 	return typeof raw === "string" ? normalizeLabel(raw, base) : base;
 }
 

@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   **Execute limit**, and **Lead** — under a `Board` group, so the WIP numbers and the name the
   two gates take are editable where the rest of a session's preferences are. Both numbers are
   clamped to `1`–`20` and the lead to a 40-character team name by the same rules the loader
-  applies. The list is fifteen rows under five headings now: it wants a 28-row terminal to be
+  applies; the **Lead** row shows `team-lead` until a repository names its own. The list is fifteen rows under five headings now: it wants a 28-row terminal to be
   seen whole, and a 24-row one scrolls it and says `showing 1–11 of 15`.
 - `board` + `team`: a session with no name of its own joins under a preset teammate name —
   `tom`, `lily`, `ben` — instead of `team-agent-<id>`, drawn from its id and walked past the
@@ -44,8 +44,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `board`: the lead's name defaults to the page's seat, `team-lead`, instead of `lead` — a
+  breaking change, because a board that relied on the old default (or on nothing, signing with
+  `/board`) now has a lead the session serving `/board` already is. Set `board.lead` to name
+  another session, or to a name nobody joins if the person alone should sign.
 - `board`: `approve` and `review` take the lead's signature, and nobody else's. The lead is a
-  team name in `bytefly.json` (`{"board": {"lead": "team-lead"}}`, `lead` by default), so it
+  team name in `bytefly.json` (`{"board": {"lead": "team-lead"}}`), so it
   signs as a session that joined under it, and never while holding the card — a lead releases a
   card before signing it. Two peers can no longer sign each other's cards. `/board approve` and
   `/board review` remain the other way in, writing as the person `you`, which is what lets a
