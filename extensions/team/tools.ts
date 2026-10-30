@@ -1,18 +1,21 @@
 /**
  * The `team` tool: the lead's round over the same cards `board` owns.
  *
- * Two actions, because those are the two that need the bus. `assign` sends the
- * handoff **first** and sets the owner **second**: a card assigned without a message
- * is a card nobody knows about, while a message for a card that then changed is one
- * the peer can still claim. Either failure is reported with the card as it actually
- * is, so the lead's next call starts from the truth.
+ * Four actions, because they are the four a lead takes at the round: hand a card out,
+ * offer it, take one back, and take one itself. `assign` sends the handoff **first** and
+ * sets the owner **second**: a card assigned without a message is a card nobody knows
+ * about, while a message for a card that then changed is one the peer can still claim.
+ * Either failure is reported with the card as it actually is, so the lead's next call
+ * starts from the truth.
  *
- * `reclaim` needs no message — it is the compensation for a dispatch that did not
- * land — and it belongs here rather than in `board` because it only makes sense in
- * the lead's context.
+ * `claim` is the lead's own work, and it is the same store operation `board`'s claim
+ * makes, so the lane rules, the WIP limit, and the offer record cleared are the store's —
+ * not a second answer the round would keep in step by hand. Everything after the claim
+ * (plan, contract, move, finish) is `board`'s, because that is the card's life and not
+ * the round's.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Static } from "typebox";
 import { type Card, cardRef, normalizeCardId } from "../../lib/board/card.ts";
 import { indexOf } from "../../lib/board/links.ts";
@@ -20,6 +23,7 @@ import { type Actor, mayOp } from "../../lib/board/rules.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 import { messageOf } from "../../lib/errors.ts";
+import type { TeamJoin } from "../../lib/session-tool.ts";
 import { failedResult, type ToolFailure, textResult } from "../../lib/tool-result.ts";
 import { reuseText, toolDetails } from "../../lib/tui/chrome.ts";
 import { callLine, detailsOrLine } from "../../lib/tui/tool.ts";
@@ -27,6 +31,7 @@ import { plural } from "../../lib/board/round-text.ts";
 import { strayField } from "../../lib/stray-fields.ts";
 import { type Dispatch, handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
 import {
+	formatClaimed,
 	formatHandoff,
 	formatHandoffFailure,
 	formatOffer,
@@ -64,10 +69,19 @@ function callSubject(action: TeamAction, args: Record<string, unknown>): string 
 export interface TeamToolsDeps {
 	/** Test seam: the handoff transport. */
 	dispatch?: (ctx: Parameters<typeof sessionDispatch>[0]) => Dispatch;
+	/** Test seam: the join a claim makes, so a suite records it instead of asking a bus. */
+	team?: TeamJoin;
 }
 
 export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: TeamToolsDeps = {}): void {
 	const dispatchFor = deps.dispatch ?? sessionDispatch;
+	/** The join, built on the first claim: a round that never takes a card pays nothing. */
+	let joinBuilder: Promise<TeamJoin> | undefined;
+	const teamFor = (): Promise<TeamJoin> => {
+		if (deps.team !== undefined) return Promise.resolve(deps.team);
+		joinBuilder ??= import("../../lib/session-tool.ts").then(({ createTeamJoin }) => createTeamJoin(pi));
+		return joinBuilder;
+	};
 
 	pi.registerTool({
 		name: TEAM_TOOL,
@@ -76,12 +90,15 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 			"Run a round of work over the shared board: `assign` hands a card to a running session and sends it a handoff " +
 			"(`to` is a teammate's label or id, as `/team` lists them); `offer` broadcasts an unclaimed card to every other " +
 			"live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back to Backlog and " +
-			"sends nothing, so it needs no team. Use `board` for everything else. Nothing here starts a peer's turn: a " +
-			"message waits in its inbox, and a peer that is listening reports it at its next turn.",
-		promptSnippet: "Run a round over the board: assign a card to a running session, offer one, or reclaim one.",
+			"sends nothing, so it needs no team; `claim` takes one for yourself, and the card's plan, contract, moves, and " +
+			"finish are `board`'s. Nothing here starts a peer's turn: a message waits in its inbox, and a peer that is " +
+			"listening reports it at its next turn.",
+		promptSnippet:
+			"Run a round over the board: assign a card to a running session, offer one, reclaim one, or claim one.",
 		promptGuidelines: [
 			"Open the board with `/board` or work a card first, so this session and its peers are on the team.",
-			"Offer a card nobody has taken; assign one you mean a particular peer to hold.",
+			"Offer a card nobody has taken; assign one you mean a particular peer to hold; claim one you will take " +
+				"yourself, then plan and record it with `board`.",
 			"When a result says `Not listening`, say so: the message waits for that peer's next turn.",
 			"Reclaim a card whose owner is gone or has gone quiet rather than editing someone else's work. A " +
 				"`gone:` owner's process is not running, so what it held is anyone's to reclaim.",
@@ -108,6 +125,7 @@ export function registerTools(pi: ExtensionAPI, session: BoardSession, deps: Tea
 				const now = session.now();
 				if (action === "reclaim") return await reclaimCard(store, me, id, now);
 				if (action === "offer") return await offerCard(store, me, id, args.note, now, dispatchFor(ctx));
+				if (action === "claim") return await claimCard(store, session, teamFor, ctx, me, id, now);
 				const to = typeof args.to === "string" ? args.to.trim() : "";
 				if (to === "") return refusal("assign", 'assign needs a peer: pass `to`, e.g. "billing-core".');
 				return await assignCard(store, me, id, to, args.note, now, dispatchFor(ctx));
@@ -149,6 +167,10 @@ async function assignCard(
 ): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
 	const card = await store.read(id);
 	if (!card) return refusal("assign", `${cardRef(id)} does not exist.`);
+	// A handoff to yourself is not a claim: it writes a message into your own inbox and
+	// records you as the owner without the claim's next step. `claim` is that act.
+	if (namesSelf(me, to))
+		return refusal("assign", `${cardRef(id)} cannot be handed to yourself: \`claim\` takes one.`, card);
 	const owner: Actor = { label: to };
 	// The board, not just the card: a card that waits on unfinished work, or a `plan` lane
 	// with no room, is refused here, so a handoff for it is never sent. `mayOp` is the
@@ -231,6 +253,40 @@ async function offerCard(
 	});
 }
 
+/** Whether `to` names this session: its id, or its label ignoring case. */
+function namesSelf(me: Actor, to: string): boolean {
+	const target = to.trim();
+	return (me.id !== undefined && target === me.id) || target.toLowerCase() === me.label.toLowerCase();
+}
+
+/**
+ * `claim`: the lead takes a card itself, through the store operation `board`'s claim makes.
+ *
+ * The lane rules, the WIP limit, the waiting refusal, and the offer record cleared are the
+ * store's, so the two doors cannot answer them differently. The join is the claim's one
+ * side effect outside the card: taking work is what makes this session a teammate, and it
+ * is the same ask-once call `board` makes.
+ */
+async function claimCard(
+	store: BoardStore,
+	session: BoardSession,
+	teamFor: () => Promise<TeamJoin>,
+	ctx: ExtensionContext,
+	me: Actor,
+	id: string,
+	now: number,
+): Promise<ReturnType<typeof textResult<TeamDetails>> | ToolFailure<TeamDetails>> {
+	const before = await store.read(id);
+	if (!before) return refusal("claim", `${cardRef(id)} does not exist.`);
+	const result = await store.mutate(id, { kind: "claim" }, me, now);
+	if (!result.ok) return refusal("claim", result.error, result.card ?? before);
+	// Both loaded here, not at registration: a round that never takes a card pays nothing
+	// for the bus, and the registration graph stays the size it was.
+	const { joinOnce } = await import("../../lib/board/join.ts");
+	await joinOnce(session.team, await teamFor(), ctx, me.label);
+	return textResult(formatClaimed(result.card), { action: "claim", card: result.card });
+}
+
 /** `reclaim`: the owner clears and the card returns to the pool, notes and all. */
 async function reclaimCard(
 	store: BoardStore,
@@ -251,6 +307,7 @@ async function reclaimCard(
 function summaryOf(details: TeamDetails): string {
 	const card = details.card;
 	if (!card) return details.action === "reclaim" ? "reclaimed" : "handed off";
+	if (details.action === "claim") return `${cardRef(card.id)} claimed`;
 	if (details.action === "offer") {
 		const count = details.delivered?.length ?? 0;
 		return `${cardRef(card.id)} offered to ${plural(count, "session")}`;

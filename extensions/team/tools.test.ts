@@ -15,6 +15,7 @@ import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { openBoardSession } from "../../lib/board/session.ts";
+import type { TeamJoin } from "../../lib/session-tool.ts";
 import type { Peer } from "../../lib/session-tool.ts";
 import type { Dispatch } from "./dispatch.ts";
 import { registerTools } from "./tools.ts";
@@ -26,7 +27,7 @@ afterAll(() => temps.flush());
 const NOW = 90_000;
 
 /** A tool, its context, and the dispatch it records into. */
-function harness(options: { fail?: string; peers?: Peer[] } = {}) {
+function harness(options: { fail?: string; peers?: Peer[]; joinLabel?: string } = {}) {
 	const agentDir = temps.track(tempDir("pi-agent-"));
 	const cwd = temps.track(tempDir("pi-repo-"));
 	const fake = createFakePi({ exec: async () => ({ stdout: "", stderr: "", code: 1 }) });
@@ -44,7 +45,16 @@ function harness(options: { fail?: string; peers?: Peer[] } = {}) {
 			return options.peers ?? sent.map((input) => ({ id: `s-${input.to}`, label: input.to, listening: true }));
 		},
 	};
-	registerTools(fake.pi, session, { dispatch: () => dispatch });
+	// The join a claim makes: recorded, so no case asks a bus that is not there.
+	const joined: string[] = [];
+	const team: TeamJoin = {
+		async join(_ctx, input) {
+			const label = input?.label ?? options.joinLabel ?? "billing-lead";
+			joined.push(label);
+			return { ok: true, label, watching: { armed: true, wake: false } };
+		},
+	};
+	registerTools(fake.pi, session, { dispatch: () => dispatch, team });
 	const tool = fake.tools.get("team");
 	if (!tool) throw new Error("the team tool was not registered");
 	const { ctx } = fakeCtx({ cwd, sessionId: "s-lead", sessionName: "billing-lead" });
@@ -52,7 +62,12 @@ function harness(options: { fail?: string; peers?: Peer[] } = {}) {
 		tool,
 		ctx,
 		sent,
+		joined,
 		cwd,
+		/** Who this session writes as — the label and id a refusal has to compare against. */
+		async me() {
+			return await session.who(ctx, cwd);
+		},
 		/** The store this session works on, so a case seeds the same board it reads. */
 		store: () => session.store(cwd),
 		/** Publish one card on that board and return its id. */
@@ -237,6 +252,87 @@ describe("assign", () => {
 		expect(result.details.card).toMatchObject({ lane: "backlog" });
 		expect(result.details.card?.owner).toBeUndefined();
 	});
+
+	test("refuses a handoff to the lead's own label or id, and names the claim", async () => {
+		const { call, seed, store, sent, me } = harness();
+		const id = await seed();
+		const self = await me();
+		// Both ways a caller can name itself: the label it writes cards as, and the id a
+		// card records — a handoff through either door is the same act.
+		const targets = [self.label, self.label.toUpperCase()];
+		if (self.id !== undefined) targets.push(self.id);
+		for (const to of targets) {
+			const result = await call({ action: "assign", card: id, to });
+			expect(result.isError, to).toBe(true);
+			expect(text(result)).toContain(`#${id} cannot be handed to yourself: \`claim\` takes one.`);
+		}
+		// Nothing was mailed into the lead's own inbox, and the card never moved.
+		expect(sent).toEqual([]);
+		expect((await (await store()).read(id))?.owner).toBeUndefined();
+	});
+});
+
+describe("claim", () => {
+	test("takes the card into plan for this session, and asks to join once", async () => {
+		const { call, seed, joined, me } = harness();
+		const self = await me();
+		const id = await seed();
+		const result = await call({ action: "claim", card: id });
+		expect(result.isError).toBeFalsy();
+		expect(result.details.card).toMatchObject({ lane: "plan", owner: { label: self.label } });
+		expect(text(result)).toContain(`#${id} is yours, in plan.`);
+		// The claim's one side effect outside the card: a claim is what makes the session a
+		// teammate, so it asks the same join `board`'s claim asks for — once per session.
+		expect(joined).toEqual([self.label]);
+		const second = await seed("Second");
+		expect((await call({ action: "claim", card: second })).isError).toBeFalsy();
+		expect(joined).toEqual([self.label]);
+	});
+
+	test("a claim answers an offer, clearing the record with the write", async () => {
+		const { call, seed, store } = harness();
+		const id = await seed();
+		await call({ action: "offer", card: id });
+		expect((await (await store()).read(id))?.offeredAt).toBe(NOW);
+		await call({ action: "claim", card: id });
+		expect((await (await store()).read(id))?.offeredAt).toBeUndefined();
+	});
+
+	test("refuses a card somebody holds, and one that waits", async () => {
+		const { call, seed, store } = harness();
+		const board = await store();
+		const first = await seed("First");
+		await board.mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
+		const held = await call({ action: "claim", card: first });
+		expect(held.isError).toBe(true);
+		expect(text(held)).toContain("is held by billing-core");
+
+		const second = await seed("Second");
+		await board.mutate(
+			second,
+			{ kind: "edit", title: undefined, paths: undefined, priority: undefined, dependsOn: [first] },
+			{ label: "billing-core" },
+			NOW,
+		);
+		const waiting = await call({ action: "claim", card: second });
+		expect(waiting.isError).toBe(true);
+		expect(text(waiting)).toContain("waits on");
+	});
+
+	test("refuses a field the action does not read", async () => {
+		const { call, seed, store } = harness();
+		const id = await seed();
+		const result = await call({ action: "claim", card: id, to: "billing-core" });
+		expect(result.details.error).toBe("claim does not act on to: `assign` takes it.");
+		expect((await (await store()).read(id))?.lane).toBe("backlog");
+	});
+
+	test("refuses a card that does not exist", async () => {
+		const { call } = harness();
+		const result = await call({ action: "claim", card: "9" });
+		expect(result.isError).toBe(true);
+		expect(text(result)).toContain("#9 does not exist.");
+	});
 });
 
 describe("offer", () => {
@@ -350,6 +446,19 @@ describe("the board's WIP limits", () => {
 		expect(text(refused)).toContain(`#${second} cannot be offered`);
 		expect(text(refused)).toContain("the limit is 1");
 		expect(sent).toEqual([]);
+	});
+
+	test("a full plan lane refuses the lead's own claim, with the same sentence", async () => {
+		const { call, seed, store } = capped();
+		const first = await seed("First");
+		const second = await seed("Second");
+		await (await store()).mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
+		const refused = await call({ action: "claim", card: second });
+		expect(refused.isError).toBe(true);
+		// The store's own refusal: the round adds no rule of its own to a claim.
+		expect(text(refused)).toContain(`#${second} cannot enter plan`);
+		expect(text(refused)).toContain("the limit is 1");
+		expect((await (await store()).read(second))?.lane).toBe("backlog");
 	});
 });
 

@@ -1,10 +1,11 @@
 /**
  * team — the lead's round over the shared board.
  *
- * `board` owns the cards and never touches the session bus; `team` owns the two
- * actions that need it. `assign` hands a card to a session that is already running
- * and sends it a handoff — dispatch cannot start a peer's turn, and the page and the
- * docs say so — and `reclaim` takes a card back when its owner is gone or has gone quiet.
+ * `board` owns the cards; `team` owns the leads round over them. `assign` hands a card to
+ * a session that is already running and sends it a handoff — dispatch cannot start a
+ * peer's turn, and the page and the docs say so — `offer` broadcasts one to whoever is
+ * free, `reclaim` takes one back when its owner is gone or has gone quiet, and `claim`
+ * takes one for the lead itself. The card's life after that is `board`'s.
  * Its one
  * command, `/team`, prints the round the board's Team tab draws, without a browser.
  *
