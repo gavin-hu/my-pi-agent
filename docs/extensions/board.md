@@ -1,8 +1,9 @@
 # board — one shared feature board per repository
 
 Every Pi session on a repository works the same cards through the tools, and a repository
-has **one** page that shows them: the session that starts it serves it under the seat
-`team-lead`, and every other session opens that same page instead of a second one. The
+has **one** page that shows them: the session that starts it serves it under the seat —
+the board's lead, `board.lead`, `lead` by default — and every other session opens that same
+page instead of a second one. The
 page is a **view** — it cannot change a card — so what a browser shows and what the
 terminal holds cannot disagree. A card is one **feature**: its outcome, who holds it,
 where the work happens, the contract it promises, the plan it is executed against, how
@@ -25,7 +26,7 @@ board move 4 done
 ```
 
 Two gates are humans'. A card cannot enter `execute` until **the lead** — `board.lead` in
-`bytefly.json`, the page's seat `team-lead` by default — has approved the contract, and cannot be
+`bytefly.json`, `lead` by default — has approved the contract, and cannot be
 finished until the lead has spot-checked the work. The lead is a team name, so it signs as a session that
 joined under it, and never while holding the card: a lead releases a card before signing it.
 The person at the keyboard is the other way in — `/board approve` and `/board review` write
@@ -90,12 +91,12 @@ row as an opt-in extension and names the switch.
 | See the work you hold | `board` action `list` with `mine` | The cards this session holds, by the same rule a claim is checked against |
 | Set a finished card aside | `board` action `archive` | A `done` card's file moves into an `archive/` pile beside the board with its notes, plan, contract, owner, and landed commit still readable, and the board stops reading it: the card named by `card`, or every finished card when none is named. A card that already names it keeps that link — it is inert, because a finished dependency stops blocking — though a new link has to name a card on the board. It is a decision a person makes, never a threshold in the background, and nothing un-archives |
 | Delete a card | `board` action `drop` | The card and its notes are gone, and its id is spent: a record of the title, the lane, who ended it, and when stays in `ended/`, so a note or a handoff that names that id cannot come to mean a different feature. A `backlog` or `done` card is anyone's to drop, an archived one included, one in `plan`, `execute`, or `blocked` only its holder's, and one that a card waits on cannot leave at all |
-| One page per repository | `/board` | Serves a loopback page as `team-lead` with a **Board** and a **Team** tab, following the store live; a page already served is opened instead |
+| One page per repository | `/board` | Serves a loopback page as the board's lead with a **Board** and a **Team** tab, following the store live; a page already served is opened instead |
 | Watch somebody else's page | `/board` on a session that is not serving | The same page, because there is one: every page is a read view, so a second session gets exactly what the first one sees instead of a writable rival. It joins the team under its own name, so a handoff can still reach it |
 | Read a board at its real size | the `Done` fold, an empty lane's rail, the Team tab's own folds | `Done` starts folded at six cards or more, its count in the head, and a reader's toggle decides from then on. A lane holding no cards narrows to its head, word, and count, and a lane of finished cards stops widening at three, so the lanes carrying work keep the width. On the Team tab the queue and the roster share one cap, so both stay on one screen, and the ids past the strip's sixth fold behind its count |
 | Open a card | the card, or `Enter` on a focused one | The whole card is the door — its title stays the focusable button — and it opens the dialog holding the card whole: its lane, its owner, its paths, what it waits for, its plan, and every note. A drag across a card's prose selects it instead of opening it |
 | See the lead's round at a glance | `/board team`, or `/team` with no browser | A queue of cards that need a decision, each with the reason and its way out, then who is on the team and what they hold |
-| Join the team | `/board`, or the first card you claim | Opening the page joins this session to the team — as `team-lead` when it serves the page, under the name it already holds when it opens one somebody else serves — and so does the first card it claims, so nothing has to be armed by hand. Joining never renames Pi's session: the footer keeps the name you gave it, and a `/team join` name is kept rather than replaced by the id-derived one. `/board status` reports the team this session is on, whichever door it used |
+| Join the team | `/board`, or the first card you claim | Opening the page joins this session to the team — as the lead's name when it serves the page, under the name it already holds when it opens one somebody else serves — and so does the first card it claims, so nothing has to be armed by hand. Joining never renames Pi's session: the footer keeps the name you gave it, and a `/team join` name is kept rather than replaced by the id-derived one. `/board status` reports the team this session is on, whichever door it used |
 | See who is around | `/board team` | The Teammates list: every session this repository's bus has recorded, plus every owner a card names, each stating `live`, `quiet`, `no record`, or `—` when no bus is loaded. An owner the bus has no record of and that holds nothing is one row stating how many there are and what they finished, unfolded by a click — the list only grows, because a label that ever claimed a card stays an owner — while one that still holds a card keeps its own row |
 
 ## Quickstart
@@ -125,7 +126,7 @@ lead: board list round: true
 
 | Command | Who | Effect |
 |---|---|---|
-| `/board` | lead | Serves the page as `team-lead`, or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the repository and the address |
+| `/board` | the lead | Serves the page as the board's lead (`board.lead`, `lead` by default), or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the repository and the address |
 | `/board team` | lead | The same, opened on the Team tab |
 | `/board approve <id>` | the person | Signs the card's contract as `you`, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence |
 | `/board review <id>` | the person | Records the spot-check of finished work as `you`; only a card in `execute` can be signed |
@@ -148,10 +149,11 @@ keeps its own note) instead of waiting for the next `/board` to trip over it.
 **Who signs.** The two gates take the lead's signature and nothing else: `approve` and
 `review` accept a session only while its team name is `board.lead`, and never while that
 session holds the card — a lead releases a card before signing it, so the gate is never its
-own. `board.lead` **defaults to the page's seat**, `team-lead`, which is the role a session
-takes by serving `/board`: the shipped board therefore has a signer without being configured,
-and a repository that wants another name sets `{"board": {"lead": "billing-lead"}}`. It is a
-label check and nothing more, which is the half of "somebody read this" a file can hold.
+own. **The page serves as `board.lead`** (`lead` by default), so the session that opens
+`/board` takes that name and can sign — the shipped board has a signer without being
+configured. A repository that wants its own name sets `{"board": {"lead": "gavin"}}`, and the
+page, the roster, and the gate follow it. It is a label check and nothing more, which is the
+half of "somebody read this" a file can hold.
 
 **The person's door.** A repository worked by one session would otherwise never get a card
 past `plan` or `execute`, so `/board approve` and `/board review` write the same two signs as
@@ -161,13 +163,13 @@ because they are different: `you` is the person who read the plan, the lead is a
 of eyes.
 
 **Joining.** One thing, done for you: `/board` puts this session on the team — as
-`team-lead` when it serves the page, under its own name when it watches one — and so does
+the lead's name when it serves the page, under its own name when it watches one — and so does
 the first card it claims. A read, a new card, a note, a plan, or an edit enlists nobody: a
 teammate is a session that holds work. The join is also the listening: mail is reported at
 that session's next turn, and no turn is raised, so being on the team never spends a turn.
 A session that has neither opened the board nor claimed a card is not on it.
 
-**The two names.** A session's team name is the seat — `team-lead` — while it serves the
+**The two names.** A session's team name is the seat — the board's lead — while it serves the
 page, which is also what makes it the lead unless `board.lead` names someone else; otherwise
 it is the name the session already holds: `/team join billing-core` names
 it, and the cards it claims, the notes it writes, and the join a claim makes all say
@@ -184,10 +186,9 @@ so a name that changes leaves the card where it was. A card records the name as 
 so the chip, the roster, and the bus record are one word — and `/board status` says it
 whichever door put this session on the team, including a claim made with no page open.
 
-The page still serves as a seat: `/board status` names `team-lead`, the Team tab marks the
-seat's own row `you`, and a card a browser claimed **before** the page stopped writing still
-names `board:team-lead` as its owner — `reclaim` is how a lead takes that back from the
-terminal. The toolbar does not print the seat: a board's subject is its repository, so the
+The page still serves as a seat: `/board status` names the lead, the Team tab marks that
+row `you`, and a card a browser claimed **before** the page stopped writing still names
+`board:<lead>` as its owner — `reclaim` is how a lead takes that back from the terminal. The toolbar does not print the seat: a board's subject is its repository, so the
 name there is the project's, and the seat is read off the roster where it belongs.
 
 ## Tool
@@ -400,7 +401,7 @@ button stays on that button.
   with no tool-side twin is assigning **without** messaging the peer: `team`'s `assign`
   sends a handoff, and nothing else records an owner silently.
 - **A seat can outlive its writes.** A card claimed from the page before this change still
-  names `board:team-lead` as its owner, and `reclaim` is how a lead takes it back.
+  names `board:<lead>` as its owner, and `reclaim` is how a lead takes it back.
 - **A lane history is short, and it starts when the field did.** A card keeps the last
 eight lane transitions, dropping the oldest and counting what it dropped, so the record
 is bounded at write time rather than by a janitor — nothing prunes a board. A card
@@ -458,11 +459,10 @@ it always meant: when the card was last touched, which is not when it last chang
   approved — so a model that tries to claim mid-plan is told what to do instead. The contract
   is recorded **after** the plan is approved, when the writing verbs work again.
 - **`bytefly`**: the board's own section of the shared document, in one place:
-  `{"board": {"wip": {"plan": 3, "execute": 5}, "lead": "team-lead"}}`. Each number is clamped
-  to `1..20` and the page's heads show the numbers the store read once; `lead` is the team name
-  the two signatures must carry, and it defaults to the page's seat — the role serving `/board`
-  takes — so overriding it is what a repository does to name a different lead. The project
-  file overrides the global one. Every key falls
+  `{"board": {"wip": {"plan": 3, "execute": 5}, "lead": "gavin"}}`. Each number is clamped to
+  `1..20` and the page's heads show the numbers the store read once; `lead` is the team name the
+  two signatures must carry **and** the name the page serves as, so setting it renames the lead
+  everywhere at once. The project file overrides the global one. Every key falls
   back on its own, so setting one leaves the others alone. `/bytefly settings` carries all
   three as rows — `Plan limit`, `Execute limit`, and `Lead` — and a change lands in the file at
   once and in the board at the next session, because the section is read when the store

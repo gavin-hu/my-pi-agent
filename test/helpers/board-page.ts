@@ -76,8 +76,8 @@ export async function serveBoardPage(options: ServedBoardPageOptions): Promise<S
 		const at = now();
 		const { cards, skipped } = await store.scan();
 		return buildView({
-			// The page serves as its seat, and marks its own row: one actor, one name.
-			me: pageActor(),
+			// The page serves as its seat — the board's lead — and marks its own row: one name.
+			me: pageActor(store.config().lead),
 			cards,
 			now: at,
 			...(roster === undefined ? {} : { roster: roster(at) }),

@@ -1,44 +1,30 @@
 /**
- * The seat: the fixed name a page serves as.
+ * The seat: the name a page serves as, derived from the board's lead.
  *
- * The id is derived from the name, so the cases that matter are the ones a handover
- * depends on — the same name is always the same actor, and a name that needs flattening
- * is flattened before the id is derived from it.
+ * The name is the lead's, and it arrives normalized — `config.ts` runs `normalizeLabel` over
+ * `board.lead` — so the only rule left here is the id: two spellings of one team name must be
+ * one actor, because a handover depends on a new session holding what the last one claimed.
  */
 
 import { describe, expect, test } from "bun:test";
-import { MAX_LABEL } from "../session-label.ts";
-import { DEFAULT_SEAT, pageActor, SEAT_ID_PREFIX } from "./seat.ts";
+import { pageActor, SEAT_ID_PREFIX } from "./seat.ts";
 
 describe("pageActor", () => {
-	test("serves as the seat by default, with an id derived from the name", () => {
-		expect(pageActor()).toEqual({ id: `${SEAT_ID_PREFIX}${DEFAULT_SEAT}`, label: DEFAULT_SEAT });
-		expect(DEFAULT_SEAT).toBe("team-lead");
+	test("serves as the name it is given, with an id derived from it", () => {
+		expect(pageActor("gavin")).toEqual({ id: `${SEAT_ID_PREFIX}gavin`, label: "gavin" });
 	});
 
 	test("the same name is always the same actor, whatever the spelling", () => {
 		// A handover depends on this: a new session serving the seat must hold what the
 		// previous one claimed, and `holds` compares ids first.
 		expect(pageActor("Team-Lead").id).toBe(pageActor("team-lead").id);
-		expect(pageActor("  team-lead  ").id).toBe(pageActor().id);
 	});
 
 	test("keeps the name as given, so a label a person wrote is not silently lowercased", () => {
 		expect(pageActor("Billing Lead").label).toBe("Billing Lead");
 	});
 
-	test("an empty name falls back to the seat rather than leaving a blank chip", () => {
-		expect(pageActor("   ")).toEqual(pageActor(DEFAULT_SEAT));
-	});
-
-	test("a name that needs flattening is flattened before the id is taken from it", () => {
-		const actor = pageActor("billing\nlead");
-		expect(actor.label).toBe("billing lead");
-		expect(actor.id).toBe(`${SEAT_ID_PREFIX}billing lead`);
-	});
-
-	test("a page's id is never a session id, and a long name is capped before it is one", () => {
-		expect(pageActor("x".repeat(MAX_LABEL + 10)).label).toHaveLength(MAX_LABEL);
-		expect(pageActor().id).toStartWith(SEAT_ID_PREFIX);
+	test("a page's id is never a session id", () => {
+		expect(pageActor("billing lead").id).toStartWith(SEAT_ID_PREFIX);
 	});
 });

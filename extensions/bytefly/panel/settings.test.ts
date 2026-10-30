@@ -105,7 +105,7 @@ describe("settings catalogue", () => {
 			["doctor.proactive", "true", "On", "default"],
 			["board.wip.plan", "3", "3", "default"],
 			["board.wip.execute", "5", "5", "default"],
-			["board.lead", "team-lead", "team-lead", "default"],
+			["board.lead", "lead", "lead", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.budget", "0", "Off", "default"],
 		]);

@@ -11,8 +11,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig, readBoardConfig } from "./config.ts";
-import { DEFAULT_SEAT } from "./seat.ts";
+import { DEFAULT_BOARD_CONFIG, DEFAULT_LEAD, normalizeBoardConfig, readBoardConfig } from "./config.ts";
+
 import { MAX_WIP } from "./limits.ts";
 
 const temps = makeTempTracker();
@@ -36,7 +36,7 @@ function agentWith(document: unknown): string {
 describe("normalizeBoardConfig", () => {
 	test("an absent section is the default board", () => {
 		expect(normalizeBoardConfig(undefined)).toEqual(DEFAULT_BOARD_CONFIG);
-		expect(DEFAULT_BOARD_CONFIG).toEqual({ wip: { plan: 3, execute: 5 }, lead: DEFAULT_SEAT });
+		expect(DEFAULT_BOARD_CONFIG).toEqual({ wip: { plan: 3, execute: 5 }, lead: DEFAULT_LEAD });
 	});
 
 	test("each key falls back on its own", () => {
@@ -44,13 +44,13 @@ describe("normalizeBoardConfig", () => {
 			wip: { plan: 3, execute: 5 },
 			lead: "billing-lead",
 		});
-		expect(normalizeBoardConfig({ wip: { plan: 2 } })).toEqual({ wip: { plan: 2, execute: 5 }, lead: DEFAULT_SEAT });
+		expect(normalizeBoardConfig({ wip: { plan: 2 } })).toEqual({ wip: { plan: 2, execute: 5 }, lead: DEFAULT_LEAD });
 	});
 
 	test("a limit is clamped, and a lead is a label", () => {
 		expect(normalizeBoardConfig({ wip: { plan: 0, execute: 99 } })).toEqual({
 			wip: { plan: 1, execute: MAX_WIP },
-			lead: DEFAULT_SEAT,
+			lead: DEFAULT_LEAD,
 		});
 		// A name is flattened and capped by the same rule every label obeys.
 		expect(normalizeBoardConfig({ lead: "  billing   lead  " }).lead).toBe("billing lead");

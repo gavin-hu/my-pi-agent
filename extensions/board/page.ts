@@ -33,6 +33,7 @@ import { mintToken, type MountSource } from "../../lib/http/index.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
+import type { Actor } from "../../lib/board/rules.ts";
 import { pageActor } from "../../lib/board/seat.ts";
 import { viewOf } from "./snapshot.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
@@ -120,13 +121,9 @@ export interface BoardPage {
 }
 
 export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): BoardPage {
-	let running: { server: BoardServer; store: BoardStore; token: string } | undefined;
+	let running: { server: BoardServer; store: BoardStore; token: string; seat: Actor } | undefined;
 	/** The page another session serves, when this session opened that one instead. */
 	let attachedTo: PagePointer | undefined;
-	// The page is a seat, not a session: one name and one id for its whole life, so a card
-	// a browser claimed is still the seat's after the session that served it ends.
-	const seat = pageActor();
-
 	const storeOf = async (ctx: ExtensionContext): Promise<BoardStore> => runtime.store(ctx.cwd);
 
 	/**
@@ -174,6 +171,11 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 		} catch (error) {
 			return failed(error);
 		}
+		// The page is a seat, not a session: one name and one id for its whole life, so a card a
+		// browser claimed is still the seat's after the session that served it ends. That name is
+		// the board's lead, so serving the page is what makes a session the lead — a repository
+		// that names one gets a page served under that name, and the gate accepts it.
+		const seat = pageActor(store.config().lead);
 		const open = (url: string) => (deps.open ?? openInBrowser)(view === "board" ? url : `${url}&view=team`);
 		/** Watch the page another session serves: its note is the URL, its seat the name. */
 		const attach = (pointer: PagePointer): PageStart => {
@@ -269,7 +271,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 				ctx.ui.notify(`board: the page did not start (${reason})`, "error");
 				return { kind: "failed", reason };
 			}
-			running = { server, store, token };
+			running = { server, store, token, seat };
 			open(server.url);
 			return describe(running);
 		} catch (error) {
@@ -288,9 +290,9 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 		);
 	};
 
-	const describe = (state: { server: BoardServer; store: BoardStore }): PageStart => ({
+	const describe = (state: { server: BoardServer; store: BoardStore; seat: Actor }): PageStart => ({
 		kind: "served",
-		seat: seat.label,
+		seat: state.seat.label,
 		port: state.server.port,
 		url: state.server.url,
 		repo: state.store.name(),
@@ -309,7 +311,7 @@ export function createBoardPage(runtime: BoardSession, deps: BoardPageDeps): Boa
 		if (running !== undefined) {
 			return {
 				running: true,
-				seat: seat.label,
+				seat: running.seat.label,
 				port: running.server.port,
 				url: running.server.url,
 				repo: running.store.name(),

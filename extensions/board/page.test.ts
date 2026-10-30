@@ -43,10 +43,10 @@ function harness(
 		mount?: MountSource;
 		/** The ticker seam, so a case drives the push instead of waiting on a second. */
 		interval?: RepeatTimer;
+		lead?: string; // the board's `board.lead`: the name the page serves as
 	} = {},
 ) {
-	const { ...boardOptions } = options;
-	const board = boardHarness({ now: NOW, track: temps.track, ...boardOptions });
+	const board = boardHarness({ now: NOW, track: temps.track, ...options });
 	const opened: string[] = [];
 	const page = createBoardPage(board.runtime, {
 		// A real server with no session behind it: the socket `serve` would have handed over.
@@ -95,7 +95,7 @@ describe("the roster", () => {
 	}
 
 	test("names the bus's sessions on the snapshot", async () => {
-		const { page, ctx, cwd, runtime } = harness();
+		const { page, ctx, cwd, runtime } = harness({ lead: "team-lead" });
 		await seedBus(runtime, cwd, [
 			{ id: "s-core", label: "team-agent-score", mode: "tui", lastSeen: NOW - 1_000 },
 			{ id: "s-lead", label: "team-lead", mode: "tui", lastSeen: NOW },
@@ -216,14 +216,14 @@ describe("the page this repository already serves", () => {
 	test("a second session attaches to it instead of serving a second one", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
-		const lead = harness({ cwd, agentDir });
+		const lead = harness({ cwd, agentDir, lead: "team-lead" });
 		const servedFirst = served(await lead.page.start(lead.ctx));
 		const note = await noteOf(lead.runtime, cwd);
 		expect(note?.port).toBe(servedFirst.port);
 		// One token: the note carries the page's own, and holding it cannot change a card.
 		expect(note?.token).toBe(new URL(servedFirst.url).searchParams.get("token") ?? undefined);
 
-		const peer = harness({ cwd, agentDir });
+		const peer = harness({ cwd, agentDir, lead: "team-lead" });
 		const joined = attached(await peer.page.start(peer.ctx));
 		expect(joined).toMatchObject({ seat: "team-lead", port: servedFirst.port });
 		expect(peer.opened[0]).toBe(`http://127.0.0.1:${servedFirst.port}/board/?token=${note?.token}`);
@@ -285,7 +285,7 @@ describe("the page this repository already serves", () => {
 	test("losing the race for the note attaches this session to the winner", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
-		const lead = harness({ cwd, agentDir });
+		const lead = harness({ cwd, agentDir, lead: "team-lead" });
 		const first = served(await lead.page.start(lead.ctx));
 		// Somebody else's note is there, but the page is not answering yet: this session
 		// serves, loses the exclusive write, and then finds the winner answering.
@@ -389,7 +389,7 @@ describe("the page this repository already serves", () => {
 	test("attaches on the cheap liveness answer, not on the snapshot being free", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
-		const lead = harness({ cwd, agentDir });
+		const lead = harness({ cwd, agentDir, lead: "team-lead" });
 		const first = served(await lead.page.start(lead.ctx));
 		// A peer whose probe only ever gets the ping through — which is what a page busy
 		// answering its own browser looks like when the question is the snapshot.
@@ -412,7 +412,7 @@ describe("the page this repository already serves", () => {
 	test("names a watched note that answers nobody, and drops it when asked", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-repo-"));
-		const lead = harness({ cwd, agentDir });
+		const lead = harness({ cwd, agentDir, lead: "team-lead" });
 		const first = served(await lead.page.start(lead.ctx));
 		let answering = true;
 		const viewer = harness({ cwd, agentDir, probe: async () => ({ ok: answering }) });
@@ -446,7 +446,7 @@ describe("the page this repository already serves", () => {
 	});
 
 	test("status reports the seat and the tabs watching it", async () => {
-		const { page, ctx } = harness();
+		const { page, ctx } = harness({ lead: "team-lead" });
 		const status = served(await page.start(ctx));
 		expect(await page.status()).toMatchObject({ running: true, seat: "team-lead", port: status.port, watchers: 0 });
 		await page.stop();
