@@ -274,6 +274,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   sentence. The row described a held card keeping the lane it earned, which no path could
   reach: the owner check refuses it before the lane is read.
 
+- `board`: the extension is opt-in, so a session that does not work a board no longer
+  registers its tool or `/board`. Set `PI_ENABLED_EXTENSIONS` to the opt-in names to load
+  them (`PI_ENABLED_EXTENSIONS=board pi`); `PI_DISABLED_EXTENSIONS` still wins over it, and
+  `doctor` names the switch the row is waiting on. The extension stays in the package
+  manifest, so Pi still discovers it and its documented surface does not move.
+
 ### Removed
 
 - `skills`: the `project-docs` skill is deleted — its `SKILL.md`, its five reference

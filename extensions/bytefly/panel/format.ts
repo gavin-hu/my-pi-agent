@@ -9,9 +9,9 @@
  * from a probe or a settings file is sanitized before it is printed.
  *
  * A row has two enablement axes: the picker's settings (`◼`/`◻`) and this
- * session's `PI_DISABLED_EXTENSIONS`. `rowBadge` is the one place that decides
- * how they read, so the screen, the text listing, and the counts cannot
- * contradict each other.
+ * session's environment — the disable list, and the opt-in list a default-off
+ * extension needs. `rowBadge` is the one place that decides how they read, so
+ * the screen, the text listing, and the counts cannot contradict each other.
  */
 
 import { sanitizeLine } from "../../../lib/format.ts";
@@ -182,7 +182,7 @@ interface RowBadge {
 /**
  * The row's badge. Settings is the enablement axis the checkbox already shows,
  * so an off row gets one verdict (`off`) instead of a health word that
- * contradicts it. `PI_DISABLED_EXTENSIONS` is a different axis, so it is named
+ * contradicts it. The environment switch is a different axis, so it is named
  * rather than sharing the word: `env disabled`. A skill has no probed report, so
  * its own file supplies the verdict: `not loaded` when Pi refused it, `hidden`
  * when it is reachable only through `/skill:<name>`. The glyph marks what needs

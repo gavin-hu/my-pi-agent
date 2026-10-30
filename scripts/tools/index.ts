@@ -55,6 +55,7 @@ import watch from "../../extensions/watch/index.ts";
 import webAccess from "../../extensions/web-access/index.ts";
 import wechat from "../../extensions/wechat/index.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
+import { ALL_EXTENSIONS_ENV, useEnv } from "../../test/helpers/env.ts";
 import { escapeHtml } from "../../lib/escape.ts";
 import { ansiLinesToHtml } from "../ansi-html.ts";
 import { captureFullPage } from "../capture/chrome.ts";
@@ -83,6 +84,10 @@ function withDecorations(base: Theme): Theme {
 }
 
 const theme: Theme = withDecorations(baseTheme);
+
+/** The gallery draws every tool the pack registers, so the fake session it
+ * builds loads the whole pack: nothing disabled, every opt-in extension named. */
+useEnv(ALL_EXTENSIONS_ENV);
 /** Columns the gallery blocks are wrapped at. */
 const DEFAULT_WIDTH = 100;
 /** A synthetic cwd, so a capture never names the real workspace. */

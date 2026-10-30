@@ -322,8 +322,8 @@ export interface ProbeSeams {
 	readJson: (path: string) => JsonReadResult;
 	dirs: DirSeams;
 	platform: NodeJS.Platform;
-	/** Whether the package will actually load this extension this session. */
-	isEnabled: (extension: string) => boolean;
+	/** Why this session is not loading the extension, or undefined when it loads it. */
+	disabledReason: (extension: string) => string | undefined;
 	/** Load an optional package; defaults to a real dynamic import. */
 	loadModule?: (name: string) => Promise<unknown>;
 	/** Resolve the nested-pi command; defaults to {@link getPiInvocation}. */
@@ -718,11 +718,11 @@ function configFindings(extension: string, spec: ExtensionRequirements, seams: P
 /** Probe one extension against its declaration and the current environment. */
 export async function probeExtension(extension: string, seams: ProbeSeams): Promise<ExtensionReport> {
 	const spec = REQUIREMENTS[extension];
-	const enabled = seams.isEnabled(extension);
+	const disabledReason = seams.disabledReason(extension);
 	if (!spec) {
 		return {
 			extension,
-			enabled,
+			enabled: disabledReason === undefined,
 			findings: [
 				{
 					extension,
@@ -733,16 +733,16 @@ export async function probeExtension(extension: string, seams: ProbeSeams): Prom
 			],
 		};
 	}
-	if (!enabled) {
+	if (disabledReason !== undefined) {
 		return {
 			extension,
-			enabled,
+			enabled: false,
 			findings: [
 				{
 					extension,
 					check: "state",
 					severity: "info",
-					detail: "disabled through PI_DISABLED_EXTENSIONS",
+					detail: disabledReason,
 				},
 			],
 		};
@@ -755,7 +755,7 @@ export async function probeExtension(extension: string, seams: ProbeSeams): Prom
 	for (const note of spec.notes ?? []) {
 		findings.push({ extension, check: "platform", severity: "info", detail: note });
 	}
-	return { extension, enabled, findings };
+	return { extension, enabled: true, findings };
 }
 
 /** Probes in flight at once: enough to hide spawn latency, not a burst. */

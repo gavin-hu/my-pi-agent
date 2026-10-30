@@ -802,9 +802,11 @@ finds the rows that need it.
 - Shows whether each one is enabled (`◼`) or disabled (`◻`) in settings.
 - Gives each row one verdict from the doctor's report: the worst severity's
   glyph (`!` degraded, `✕` missing) and its summary. A row that is `◻` reads
-  `off` instead, because it will not load; a row the session's
-  `PI_DISABLED_EXTENSIONS` excludes reads `env disabled`, so the two axes cannot
-  contradict each other. A row with nothing to report leaves the glyph column
+  `off` instead, because it will not load; a row the session's environment
+  excludes — disabled through `PI_DISABLED_EXTENSIONS`, or an opt-in extension
+  that `PI_ENABLED_EXTENSIONS` does not name — reads `env disabled`, so the two
+  axes cannot contradict each other. The finding beside it names the switch that
+  would change the answer. A row with nothing to report leaves the glyph column
   blank and says `ok` in words when a report exists.
 - Toggles the focused extension with `Space`, writing `+pattern` / `-pattern`
   into `extensions` (and package filter objects) in the write scope. A row in
@@ -1297,10 +1299,13 @@ why the line says so, and each source the manager reports is shown while it runs
 - **`doctor` can only check what is declared.** A new extension with no
   `REQUIREMENTS` entry is invisible to it — `test/structure.test.ts` fails on
   exactly that, which is why the table cannot rot quietly.
-- **The disabled check reads `PI_DISABLED_EXTENSIONS`** through `lib/env.ts`; it
-  does not read Pi's own `settings.json` disable list, so an extension disabled
-  only there may still be probed. The row labels that state `env disabled`,
-  separately from the picker's `off`.
+- **The disabled check reads the environment** through `lib/env.ts`: the disable
+  list, and the opt-in list that a default-off extension needs. It does not read
+  Pi's own `settings.json` disable list, so an extension disabled only there may
+  still be probed. The row labels that state `env disabled`, separately from the
+  picker's `off` — the picker's `Space` writes settings patterns and cannot set
+  an environment variable, so an opt-in extension is switched on in the shell,
+  not on that screen.
 - **A probe proves a binary runs, not that it works:** a `git` that crashes on a
   specific repository is still `ok`.
 - **Config scope is checked for `<agent-dir>/bytefly.json` and

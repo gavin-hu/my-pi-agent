@@ -27,9 +27,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { ROOT_TOOL_NAMES } from "../extensions/worktree/root-tools.ts";
-import { ENV_DISABLED_EXTENSIONS } from "../lib/env.ts";
 import { posix, walkFiles } from "./helpers/files.ts";
-import { withAgentDir, withEnv } from "./helpers/env.ts";
+import { ALL_EXTENSIONS_ENV, withAgentDir, withEnv } from "./helpers/env.ts";
 import { createFakePi } from "./helpers/fakes.ts";
 
 const root = join(import.meta.dir, "..");
@@ -139,9 +138,10 @@ describe("every extension loads through the fake runtime", () => {
 			expect(typeof module.default).toBe("function");
 
 			// A fresh double per extension, a temp agent directory so no extension can
-			// read or write the real one, and no inherited disabled list.
+			// read or write the real one, and the environment that loads the whole pack:
+			// nothing disabled, every opt-in extension named.
 			await withAgentDir(async () => {
-				await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
+				await withEnv(ALL_EXTENSIONS_ENV, () => {
 					const fake = createFakePi();
 					(module.default as (pi: unknown) => void)(fake.pi);
 					expect(registrations(fake)).toBeGreaterThan(0);
@@ -161,7 +161,7 @@ function registeredTools(): Promise<Set<string>> {
 		for (const entry of manifest) {
 			const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
 			await withAgentDir(async () => {
-				await withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
+				await withEnv(ALL_EXTENSIONS_ENV, () => {
 					const fake = createFakePi();
 					module.default?.(fake.pi);
 					for (const name of fake.tools.keys()) tools.add(name);

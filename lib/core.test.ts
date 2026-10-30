@@ -40,10 +40,14 @@ import {
 } from "./config.ts";
 import {
 	ENV_DISABLED_EXTENSIONS,
+	ENV_ENABLED_EXTENSIONS,
 	ENV_OFFLINE,
 	ENV_ROOT,
+	extensionDisabledReason,
+	extensionEnablement,
 	isExtensionEnabled,
 	isOffline,
+	OPT_IN_EXTENSIONS,
 	resolveEffectiveCwd,
 	worktreeRoot,
 } from "./env.ts";
@@ -65,7 +69,12 @@ import { createReadOnlyPolicy } from "./policy.ts";
 import { errorResult, failedResult, textResult, toolError } from "./tool-result.ts";
 
 const temps = makeTempTracker();
-const env = useEnv({ [ENV_ROOT]: undefined, [ENV_DISABLED_EXTENSIONS]: undefined, [ENV_OFFLINE]: undefined });
+const env = useEnv({
+	[ENV_ROOT]: undefined,
+	[ENV_DISABLED_EXTENSIONS]: undefined,
+	[ENV_ENABLED_EXTENSIONS]: undefined,
+	[ENV_OFFLINE]: undefined,
+});
 
 afterAll(() => {
 	env.restore();
@@ -558,6 +567,67 @@ describe("isExtensionEnabled", () => {
 
 	test("compares names case-insensitively", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "TODO" }, () => expect(isExtensionEnabled("todo")).toBe(false));
+	});
+
+	test("leaves an opt-in extension off until the enable list names it", async () => {
+		for (const name of OPT_IN_EXTENSIONS) {
+			await withEnv({ [ENV_DISABLED_EXTENSIONS]: undefined, [ENV_ENABLED_EXTENSIONS]: undefined }, () =>
+				expect(isExtensionEnabled(name), name).toBe(false),
+			);
+			await withEnv({ [ENV_DISABLED_EXTENSIONS]: "", [ENV_ENABLED_EXTENSIONS]: name.toUpperCase() }, () =>
+				expect(isExtensionEnabled(name), name).toBe(true),
+			);
+		}
+	});
+
+	test("keeps every other extension on whatever the enable list says", async () => {
+		await withEnv({ [ENV_ENABLED_EXTENSIONS]: "todo, job" }, () => {
+			expect(isExtensionEnabled("todo")).toBe(true);
+			expect(isExtensionEnabled("plan")).toBe(true);
+		});
+	});
+
+	test("lets an explicit disable beat an opt-in name", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "board", [ENV_ENABLED_EXTENSIONS]: "board" }, () =>
+			expect(isExtensionEnabled("board")).toBe(false),
+		);
+	});
+});
+
+describe("extensionEnablement", () => {
+	test("answers with the state the report words", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: undefined, [ENV_ENABLED_EXTENSIONS]: undefined }, () => {
+			expect(extensionEnablement("todo")).toBe("on");
+			expect(extensionEnablement("board")).toBe("opt-in");
+		});
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "todo", [ENV_ENABLED_EXTENSIONS]: "board" }, () => {
+			expect(extensionEnablement("todo")).toBe("disabled");
+			expect(extensionEnablement("board")).toBe("on");
+		});
+	});
+});
+
+describe("extensionDisabledReason", () => {
+	test("says nothing for an extension that loads", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: undefined }, () =>
+			expect(extensionDisabledReason("todo")).toBeUndefined(),
+		);
+	});
+
+	test("names the disable list for a disabled extension", async () => {
+		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "todo" }, () =>
+			expect(extensionDisabledReason("todo")).toContain("PI_DISABLED_EXTENSIONS"),
+		);
+	});
+
+	test("names the opt-in switch, and the name to put in it", async () => {
+		for (const name of OPT_IN_EXTENSIONS) {
+			await withEnv({ [ENV_ENABLED_EXTENSIONS]: undefined }, () => {
+				const reason = extensionDisabledReason(name) ?? "";
+				expect(reason).toContain(`PI_ENABLED_EXTENSIONS=${name}`);
+				expect(reason).not.toContain("PI_DISABLED_EXTENSIONS");
+			});
+		}
 	});
 });
 
