@@ -43,16 +43,17 @@ describe("panel entries", () => {
 		expect(entries[3] && entryKey(entries[3])).toBe("auto:/agent/extensions/a.ts");
 	});
 
-	test("groups the Settings list under its four headings, in catalogue order", () => {
+	test("groups the Settings list under its five headings, in catalogue order", () => {
 		const entries = settingEntries(settingViews(settingsSnapshot(), "global"));
 
 		expect(entries.filter((entry) => entry.kind === "group").map((entry) => entry.label)).toEqual([
 			"Startup",
 			"Notifications",
 			"Session",
+			"Board",
 			"Price",
 		]);
-		expect(entries.filter((entry) => entry.kind === "setting")).toHaveLength(12);
+		expect(entries.filter((entry) => entry.kind === "setting")).toHaveLength(15);
 		expect(entryKey(entries[1])).toBe("byteflyUi");
 		expect(entryKey(entries.at(-1))).toBe("price.budget");
 	});

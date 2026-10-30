@@ -2,16 +2,17 @@
  * `/board` — the page's one entry point, and the person's door to the two signs.
  *
  * `team` opens the page on the Team tab, `status` prints one line, `stop` closes it, and
- * `approve <id>` / `review <id>` write the two signs a session that holds the card may not
- * give. Everything else opens the page. The command is a thin parser — the lifecycle is
- * `page.ts`'s, the transitions are `lib/board/steps.ts`'s — so the idle grace and
- * `session_shutdown` close the same server this opens.
+ * `approve <id>` / `review <id>` write the two signs as the person at the keyboard, which is what
+ * a session that is not the board's lead cannot do. Everything else opens the page. The command
+ * is a thin parser — the lifecycle is `page.ts`'s, the transitions are `lib/board/steps.ts`'s —
+ * so the idle grace and `session_shutdown` close the same server this opens.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { cardRef, normalizeCardId } from "../../lib/board/card.ts";
+import { PERSON_LABEL, personActor, type Sign, signOf } from "../../lib/board/lead.ts";
 import { plural } from "../../lib/board/round-text.ts";
-import { type BoardSession, PERSON_LABEL, personActor } from "../../lib/board/session.ts";
+import { type BoardSession } from "../../lib/board/session.ts";
 import type { JoinResult } from "../../lib/session-tool.ts";
 import { createTeamJoin, type TeamJoin } from "../../lib/session-tool.ts";
 import { teamLine } from "./join.ts";
@@ -23,14 +24,6 @@ export const BOARD_COMMAND = "board";
 /** The words the command accepts, in the order a user is likely to want them. */
 const BOARD_WORDS = ["approve", "review", "status", "stop", "team"] as const;
 
-/** The two signs a person gives, and where each is written. */
-const SIGN_WORDS = ["approve", "review"] as const;
-
-/** One of the signs, or undefined when the word is not one. */
-function signOf(word: string): (typeof SIGN_WORDS)[number] | undefined {
-	return SIGN_WORDS.find((sign) => sign === word);
-}
-
 export function registerCommands(
 	pi: ExtensionAPI,
 	session: BoardSession,
@@ -40,7 +33,7 @@ export function registerCommands(
 	const team = deps.team ?? createTeamJoin(pi);
 	pi.registerCommand(BOARD_COMMAND, {
 		description:
-			"Open the shared board in a local browser, or sign its two gates: /board [team | status | stop | approve <id> | review <id>]",
+			"Open the shared board in a local browser, or sign its two gates as the person: /board [team | status | stop | approve <id> | review <id>]",
 		getArgumentCompletions: (prefix: string) => {
 			const text = prefix.trimStart();
 			if (text.includes(" ")) return null;
@@ -113,11 +106,11 @@ export function registerCommands(
 	});
 }
 
-/** The words, as the warning that names them. */
+/** The words, as the warning that names them: a sign takes a card, and nothing else does. */
 function wordHelp(): string {
-	return BOARD_WORDS.map((entry) =>
-		/^(approve|review)$/.test(entry) ? `/board ${entry} <id>` : `/board ${entry}`,
-	).join(", ");
+	return BOARD_WORDS.map((entry) => (signOf(entry) === undefined ? `/board ${entry}` : `/board ${entry} <id>`)).join(
+		", ",
+	);
 }
 
 /**
@@ -126,11 +119,12 @@ function wordHelp(): string {
  * The write is the same `mutate` the tool uses, so the rules are the state machine's: an
  * `approve` outside `plan`, a `review` outside `execute`, an unknown id, and a card already
  * signed are each refused with the sentence the tool would give. The one thing that differs
- * is the actor — a label with no session id — which is what makes the sign allowed.
+ * is the actor — the person, whose id no session can have — which is what makes the sign a
+ * sign even when the session that typed it holds the card.
  */
 async function signLine(
 	session: BoardSession,
-	sign: (typeof SIGN_WORDS)[number],
+	sign: Sign,
 	rawCard: string | undefined,
 	ctx: ExtensionCommandContext,
 ): Promise<string> {

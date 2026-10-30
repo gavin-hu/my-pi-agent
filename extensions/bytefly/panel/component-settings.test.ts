@@ -203,10 +203,10 @@ describe("PanelComponent settings review", () => {
 
 		const global = component.render(80).join("\n");
 		expect(global).toContain("showing");
-		expect(global).toContain("of 12");
+		expect(global).toContain("of 15");
 
 		component.handleInput("s");
-		expect(component.render(80).join("\n")).toContain("of 10");
+		expect(component.render(80).join("\n")).toContain("of 13");
 	});
 
 	test("ignores a click below the last body row", () => {
@@ -297,7 +297,8 @@ describe("PanelComponent settings review", () => {
 
 describe("PanelComponent settings frame", () => {
 	test("shows every curated setting and nothing that left the catalogue", () => {
-		const { component } = buildPanel({ items: [], section: "settings" });
+		// Tall enough for the whole catalogue: at 96 columns the list scrolls a shorter terminal.
+		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
 		const text = component.render(96).join("\n");
 
 		for (const gone of ["Notification title", "Probe timeout", "Rail glyph", "Base ref", "Snapshots kept"]) {
@@ -306,18 +307,23 @@ describe("PanelComponent settings frame", () => {
 		expect(text).toContain("Session budget");
 	});
 
-	test("fits all twelve settings on a 24-row terminal with no range row", () => {
+	test("scrolls the list on a 24-row terminal, saying how much it shows", () => {
+		// Fifteen rows and five headings are taller than a 24-row terminal, which is the trade the
+		// catalogue's cap states: the screen keeps its frame and scrolls the list.
 		const { component } = buildPanel({ items: [], section: "settings", rows: 24 });
 		const lines = component.render(96);
 
-		expect(lines).toHaveLength(22);
-		expect(lines.join("\n")).not.toContain("showing");
-		expect(lines.join("\n")).toContain("Session budget");
+		expect(lines).toHaveLength(24);
+		expect(lines.join("\n")).toContain("showing 1–13 of 15");
 	});
 
-	test("stays content-sized on a tall terminal", () => {
+	test("fits the whole catalogue on a terminal tall enough for it", () => {
 		const { component } = buildPanel({ items: [], section: "settings", rows: 40 });
-		expect(component.render(96)).toHaveLength(22);
+		const lines = component.render(96);
+
+		expect(lines).toHaveLength(26);
+		expect(lines.join("\n")).not.toContain("showing");
+		expect(lines.join("\n")).toContain("Session budget");
 	});
 
 	test("keeps a value beside its label on a wide terminal", () => {

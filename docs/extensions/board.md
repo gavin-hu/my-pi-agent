@@ -18,16 +18,19 @@ board claim 4            the card is yours, in plan
 /plan (plan mode on)     design it, write_plan saves the artifact
 exit_plan_mode           the user approves the plan
 board contract 4 path …  goal, acceptance, scopeOut, and that file — it must exist
-/board approve 4         or a peer's board approve; the holder may not sign
+board approve 4          or /board approve 4 as the person; the holder may never sign
 board move 4 execute     the plan is re-checked, then the work starts
-/board review 4          or a peer's board review, before it can be called done
+board review 4           or /board review 4, before it can be called done
 board move 4 done
 ```
 
-Two gates are humans'. A card cannot enter `execute` until somebody other than its holder
-has approved the contract, and cannot be finished until somebody has spot-checked the
-work; that somebody is a peer session **or the person at the keyboard**, through
-`/board approve` and `/board review`, which is what makes a one-session flow possible. A
+Two gates are humans'. A card cannot enter `execute` until **the lead** — `board.lead` in
+`bytefly.json`, `lead` by default — has approved the contract, and cannot be finished until
+the lead has spot-checked the work. The lead is a team name, so it signs as a session that
+joined under it, and never while holding the card: a lead releases a card before signing it.
+The person at the keyboard is the other way in — `/board approve` and `/board review` write
+as `you` — which is what makes a one-session flow possible, and the reason a repository
+nobody configured can still finish work. A
 card cannot skip the artifact either: `contract` requires the plan file `write_plan`
 returned, inside this repository's plan store, and a move to `execute` or `done` re-checks
 that the file is still there. `plan` and `execute` are held to a WIP limit, so the board
@@ -74,8 +77,8 @@ row as an opt-in extension and names the switch.
 | Take a feature | `board` action `claim` | The card is pulled into `plan` and owned by this session — or refused, naming the count, when `plan` is full. The result names the next step, because the claim is what commits the session to a plan |
 | Hand it back | `board` action `release` | The card is back in `backlog` with no owner; the contract and its approval stay, because the plan did not change |
 | Write the contract | `board` action `contract` | The plan file and the three lines the card promises — `goal`, `acceptance`, `scopeOut` — written in one call; `path` is required, and it must be the plan `write_plan` saved in this repository's plan store, so a contract cannot name a file that does not exist. Any change to a line or to the file drops the approval, because the sign named both |
-| Approve the contract | `board` action `approve`, or `/board approve <id>` | Somebody who does not hold the card records that the wording is right — a peer session, or the person at the keyboard; only then may the card enter `execute` |
-| Spot-check the work | `board` action `review`, or `/board review <id>` | Somebody who does not hold the card records that they looked at the finished work in `execute` — a peer session, or the person; only then may the card be finished |
+| Approve the contract | `board` action `approve`, or `/board approve <id>` | The lead records that the wording is right — a session that joined under `board.lead`, and never the holder — or the person at the keyboard signs; only then may the card enter `execute` |
+| Spot-check the work | `board` action `review`, or `/board review <id>` | The lead records that they looked at the finished work in `execute` — never the holder — or the person does; only then may the card be finished |
 | Change lane | `board` action `move` | Wherever the board allows from where the card is: `plan` to `execute` (no unfinished dependency, a complete contract, a plan that is still in the store, an approval by somebody other than the holder) or `blocked`, `execute` to `plan` (re-plan), `blocked`, or `done` (no unfinished dependency, spot-checked, the same plan check), `blocked` back to `plan` when that lane has room, or to `execute` once its contract is approved and its plan is there |
 | Record what happened | `board` action `note` | A note appended to the card's history, attributed and stamped — one line, at most 1000 characters; its holder writes it, or anyone while nobody holds the card, the way `edit` works |
 | Fix what a card says | `board` action `edit` | A new title, path hints, priority, or the cards it waits for — by its holder, or by anyone while nobody holds it |
@@ -109,7 +112,7 @@ peer: pull the first, design it, then write down what it promises
       → /plan … write_plan … exit_plan_mode   (the user reads the plan and approves it)
       → board contract 1 path <the file write_plan returned> goal … acceptance … scopeOut …
       → board move 1 execute  — refused: the contract is not approved yet
-lead: board approve 1                       (or the person: /board approve 1)
+lead: board approve 1                       (/team join lead first; else /board approve 1)
 peer: board move 1 execute → board note 1 …
 lead: board review 1                        (or the person: /board review 1)
 peer: board move 1 done
@@ -124,7 +127,7 @@ lead: board list round: true
 |---|---|---|
 | `/board` | lead | Serves the page as `team-lead`, or opens the one another session already serves — and opens it again when it is already up, so a closed tab is one command away. The line it prints names the repository and the address |
 | `/board team` | lead | The same, opened on the Team tab |
-| `/board approve <id>` | the person | Signs the card's contract as `you`, which is what a solo session cannot do for itself: the holder may not approve its own wording. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence |
+| `/board approve <id>` | the person | Signs the card's contract as `you`, the other actor the gate takes: a session must be the lead (`board.lead`), and the holder may sign nothing at all. Only a card in `plan` with a complete contract can be signed, and the refusal is the tool's own sentence |
 | `/board review <id>` | the person | Records the spot-check of finished work as `you`; only a card in `execute` can be signed |
 | `/board status` | both | One line: the seat, the repository, the port, how many tabs are watching, the store's path, and the team the last `/board` joined — or the page being watched, and whether the note behind it still answers |
 | `/board stop` | lead | Stops the page this session serves; a watched page that has stopped answering is dropped instead, and a watched page that is alive is its owner's to stop |
@@ -142,12 +145,18 @@ one a crash left. `/board status` probes the note it is watching, and names one 
 answers nobody; `/board stop` then drops it (a token-safe clear, so a page that came back
 keeps its own note) instead of waiting for the next `/board` to trip over it.
 
-**The person's door.** `approve` and `review` are refused to the session holding the card,
-and a repository worked by one session would otherwise never get a card past `plan` or
-`execute`. `/board approve` and `/board review` write the same two signs as `you` — a label,
-with no session id — so the rule is unchanged ("somebody other than the holder") and the
-card says who signed. A peer session's `approve` is still the better sign: it is a second
-pair of eyes, where `you` is the person who read the plan.
+**Who signs.** The two gates take the lead's signature and nothing else: `approve` and
+`review` accept a session only while its team name is `board.lead` (`{"board": {"lead":
+"team-lead"}}` in the shared document, `lead` by default), and never while that session holds
+the card — a lead releases a card before signing it, so the gate is never its own. It is a
+label check and nothing more, which is the half of "somebody read this" a file can hold.
+
+**The person's door.** A repository worked by one session would otherwise never get a card
+past `plan` or `execute`, so `/board approve` and `/board review` write the same two signs as
+`you` — a label, with no session id — whatever the lead is called and whether or not the
+session typing it holds the card. The card says who signed, and the two read differently
+because they are different: `you` is the person who read the plan, the lead is a second pair
+of eyes.
 
 **Joining.** One thing, done for you: `/board` puts this session on the team — as
 `team-lead` when it serves the page, under its own name when it watches one — and so does
@@ -193,8 +202,8 @@ name there is the project's, and the seat is read off the roster where it belong
 | `move` | `card`, `lane`, `blockedBy?`, `blocker?` | the card in its new lane, through the one transition the board allows from where it is; `blocker` (`contract`, `dependency`, or `decision`) is required for `blocked` and is recorded with `blockedBy` (one line, ≤200 characters) as the card's one `blocked` record — sent with any other lane it is refused, and it cannot change while the card is parked, because a reason is what the card was parked on; a re-plan from `execute` or a resume from `blocked` is an entry into `plan` and so is held to that lane's limit. A move to `execute` or `done` re-checks the plan the card recorded — a deleted file, or one outside the store, is refused with `contract` as the way out — and a move to `done` records the commit `HEAD` resolved to, when the directory is a repository |
 | `note` | `card`, `text` | the card with the note appended |
 | `contract` | `card`, `path`, `goal?`, `acceptance?`, `scopeOut?` | the card with its plan file and its contract recorded, and any approval dropped: a changed line is an unapproved one. `path` is required and must resolve inside this repository's plan store (a bare name is read there, `~/…` is accepted) and exist; a path outside it is refused with the store named |
-| `approve` | `card` | the card with its contract approved, by a session that does not hold it — the gate in front of `execute`. The person signs the same gate with `/board approve <id>` |
-| `review` | `card` | the card with a spot-check recorded, by a session that does not hold it — the gate in front of `done`. The person signs with `/board review <id>` |
+| `approve` | `card` | the card with its contract approved, by the lead and not by its holder — the gate in front of `execute` (see **Who signs**). The person signs the same gate with `/board approve <id>` |
+| `review` | `card` | the card with a spot-check recorded, by the lead and not by its holder — the gate in front of `done`. The person signs with `/board review <id>` |
 | `edit` | `card`, `title?`, `paths?`, `priority?`, `dependsOn?` | the card with what it says corrected; an omitted field is left alone, and `dependsOn: []` removes every link |
 | `archive` | `card?` | the ids set aside — one finished card, or every finished card when no card is named; a card still in flight is refused |
 | `drop` | `card` | the id that was dropped, whose number is now spent |
@@ -296,9 +305,9 @@ The board as a posting card — the same rules, drawn to be read at half width:
 
 *`board-team`: `assign`, `offer`, and `reclaim` — the two that reach the bus, and the one that writes the card alone (`screenshot:cards team`).*
 
-<img src="../../assets/cards/board-parallel.png" alt="Two lanes of three rows each. In the plan lane, #4 billing-core, #5 api-core, and #6 web-core each carry a contract node reading contract, 契约, and plan file, side by side, with goal, acceptance, and scope out named under them; every row crosses one vertical approve line, a signature only a session that does not hold the card may give. In the execute lane the same three run at once under their owners, each row crossing a vertical review spot-check line into done. Each lane's floor states its count — 3/3 contracts, 3/5 owners executing — and the round beneath counts 0 unplanned, 1 awaiting approval, and 2 done; the foot says execute opens only on a peer's approval and that assign and offer hand a card over without starting a turn" width="100%">
+<img src="../../assets/cards/board-parallel.png" alt="Two lanes of three rows each. In the plan lane, #4 billing-core, #5 api-core, and #6 web-core each carry a contract node reading contract, 契约, and plan file, side by side, with goal, acceptance, and scope out named under them; every row crosses one vertical approve line, a signature only the lead may give and never while holding the card. In the execute lane the same three run at once under their owners, each row crossing a vertical review spot-check line into done. Each lane's floor states its count — 3/3 contracts, 3/5 owners executing — and the round beneath counts 0 unplanned, 1 awaiting approval, and 2 done; the foot says execute opens only on the lead's approval and that assign and offer hand a card over without starting a turn" width="100%">
 
-*`board-parallel`: plan three at once, then execute three at once — `approve` is a peer's signature on the contract, `review` a peer's look before `done`, and both are lines every row crosses (`screenshot:cards parallel`).*
+*`board-parallel`: plan three at once, then execute three at once — `approve` is the lead's signature on the contract, `review` the lead's look before `done`, and both are lines every row crosses (`screenshot:cards parallel`).*
 
 ## Keys
 
@@ -445,9 +454,14 @@ it always meant: when the card was last touched, which is not when it last chang
   sentence, which names the order — claim before you plan, record the plan once it is
   approved — so a model that tries to claim mid-plan is told what to do instead. The contract
   is recorded **after** the plan is approved, when the writing verbs work again.
-- **`bytefly`**: `board.wip` in the shared document is where a lead raises a limit —
-  `{ "plan": 3, "execute": 5 }` by default, each clamped to `1..20` — and the page's heads
-  show the same numbers, from the store that read them once.
+- **`bytefly`**: the board's own section of the shared document, in one place:
+  `{"board": {"wip": {"plan": 3, "execute": 5}, "lead": "lead"}}`. Each number is clamped to
+  `1..20` and the page's heads show the numbers the store read once; `lead` is the team name
+  the two signatures must carry, and a project file overrides the global one. Every key falls
+  back on its own, so setting one leaves the others alone. `/bytefly settings` carries all
+  three as rows — `Plan limit`, `Execute limit`, and `Lead` — and a change lands in the file at
+  once and in the board at the next session, because the section is read when the store
+  opens.
 - **`todo`**: the approved plan's steps are seeded into `todo`. Steps never become
   cards. A `list` call is a read for the lag reminder too, so reading the board never
   forces a todo update, while `add` or `claim` counts as work like any other write.
@@ -588,23 +602,29 @@ it always meant: when the card was last touched, which is not when it last chang
   whole vocabulary and a fifth would double the counts and the heads. The flow changed
   that: a card now moves `backlog → plan → execute → done`, and `blocked` is the pool a
   decision parks in. Two of those lanes exist because an agent is a poor judge of itself —
-  `plan` holds a contract until a session that does not hold the card approves it, and
-  `done` is refused until one has spot-checked the work — and a WIP limit on `plan` and
+  `plan` holds a contract until the lead, who is not its holder, approves it, and `done` is
+  refused until the lead has spot-checked the work — and a WIP limit on `plan` and
   `execute`, counted over the whole board because a repository has one, is what keeps a
   review queue from turning into a shelf. The cost is real (one more tray, one more head)
   and is paid once, in `lib/board/lanes.ts`: the label, the empty word, the colour, the
   ownership rule, and the limit are that table's, and the page receives them in its
   snapshot instead of keeping a copy.
-- **The gates are a label check, and say so.** `approve` and `review` refuse the card's own
-  holder, which is the half of "a person read this" a file can hold; the board cannot tell a
-  person from a session, and does not pretend it can. The person gets a door of their own —
-  `/board approve` and `/board review` write as `you`, a label with no session id — because
-  one session alone would otherwise hold a card it could never sign. That is a weaker sign
-  than a peer's and reads differently on the card, which is the honest way to say it: `you`
-  is the person who read the plan, a peer is a second pair of eyes. The contract is three one-line fields
-  written by `contract`, and a changed line or a different plan file drops the sign, because
-  the sign named both the wording and the artifact. A card too small to state an acceptance does not belong on the board — it belongs
-  in `todo` — which is the honest answer to "this is ceremony for a typo fix".
+- **The gates are a label check, and say so.** `approve` and `review` take the lead's name —
+  `board.lead`, `lead` by default — and refuse the card's own holder even when that holder is
+  the lead, which is the half of "somebody read this" a file can hold; the board cannot tell a
+  person from a session, and does not pretend it can. The name is a team name rather than a
+  session, because that is what a pure rule can be handed and what a card file can record: a
+  session signs by joining under it, and `board.lead` moving is the board saying who is
+  accountable now. The person gets a door of their own — `/board approve` and `/board review`
+  write as `you`, a label with no session id — because one session alone would otherwise hold
+  a card it could never sign, and because a repository should not need a second process to
+  finish its work. The two read differently on the card, which is the honest way to say it:
+  `you` is the person who read the plan, the lead is a second pair of eyes. The contract is
+  three one-line fields written by `contract`, and a changed line or a different plan file
+  drops the sign, because the sign named both the wording and the artifact — so a re-worded
+  card is signed again, by the lead that signed the last one. A card too small to state an
+  acceptance does not belong on the board — it belongs in `todo` — which is the honest answer
+  to "this is ceremony for a typo fix".
 - **`status` became `lane` because a card now has two states.** The field, the parameter, and
   the page's attribute were renamed in one step with no behaviour change: once a card can be
   approved and reviewed, "status" answers more than one question, and the docs had always

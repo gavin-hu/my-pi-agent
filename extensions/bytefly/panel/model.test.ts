@@ -398,9 +398,9 @@ describe("panel text projection", () => {
 		const views = settingViews(settingsSnapshot(), "global");
 		const lines = formatSettingsListing(views).split("\n");
 
-		expect(lines[0]).toBe("bytefly: Settings · Global · 12 settings");
+		expect(lines[0]).toBe("bytefly: Settings · Global · 15 settings");
 		expect(lines[1]).toContain("Startup screen: Off");
-		expect(lines).toHaveLength(13);
+		expect(lines).toHaveLength(16);
 		expect(lines.join("\n")).not.toContain("Notifications (");
 		for (const row of [
 			"Startup screen: Off",
@@ -413,6 +413,9 @@ describe("panel text projection", () => {
 			"Resume after a job: Off",
 			"Snapshot before a turn: On",
 			"Health check at startup: On",
+			"Plan limit: 3",
+			"Execute limit: 5",
+			"Lead: lead",
 			"Currency: CNY (¥)",
 			"Session budget: Off",
 		]) {

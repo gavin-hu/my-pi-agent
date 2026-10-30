@@ -32,6 +32,8 @@ import {
 } from "./card.ts";
 import { type ArtifactCheck, contractRoute } from "./artifact.ts";
 import { CONTRACT_FIELDS, mergedContract, missingContractFields, normalizeContractField } from "./contract.ts";
+import { type BoardConfig } from "./config.ts";
+import { holderRefusal, missingSign, signRefusal } from "./lead.ts";
 import { type WipLimits, wipRefusal } from "./limits.ts";
 import { LANE_RULES, type Lane, type Requirement, targetsFrom, transitionOf } from "./lanes.ts";
 import { type BoardIndex, dependedOn, normalizeDepends, waitingOn } from "./links.ts";
@@ -107,7 +109,7 @@ export function move(
 	actor: Actor,
 	now: number,
 	board: BoardIndex,
-	limits: WipLimits,
+	config: BoardConfig,
 ): Prepared {
 	const target = op.lane;
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be moved.` };
@@ -138,7 +140,7 @@ export function move(
 	const transition = transitionOf(card.lane, target);
 	if (transition === undefined) return { error: noRoute(card, target) };
 	for (const need of transition.needs) {
-		const refusal = unmet(need, card, board, op.artifact);
+		const refusal = unmet(need, card, board, op.artifact, config);
 		if (refusal !== undefined) return { error: refusal };
 	}
 	const fields: Partial<Card> = { lane: target };
@@ -149,7 +151,7 @@ export function move(
 	// that dropped the sign here could never be signed again.
 	if (card.lane === "execute" && (target === "blocked" || target === "plan")) fields.review = undefined;
 	if (target === "done" && op.landed !== undefined) fields.landed = { commit: op.landed.commit, at: now };
-	if (target === "execute" || target === "plan") return enter(card, target, board, limits, fields);
+	if (target === "execute" || target === "plan") return enter(card, target, board, config.wip, fields);
 	return { changed: true, fields };
 }
 
@@ -187,6 +189,7 @@ function unmet(
 	card: Card,
 	board: BoardIndex,
 	artifact: ArtifactCheck | undefined,
+	config: BoardConfig,
 ): string | undefined {
 	switch (need) {
 		case "waiting":
@@ -197,9 +200,9 @@ function unmet(
 			return `${cardRef(card.id)} is in ${card.lane}; its contract needs ${listOf(CONTRACT_FIELDS, "and")} — missing: ${missing.join(", ")}.`;
 		}
 		case "approval":
-			return card.contract?.approved === undefined ? notApproved(card) : undefined;
+			return card.contract?.approved === undefined ? missingSign(card, config.lead, "approve") : undefined;
 		case "review":
-			return card.review === undefined ? notReviewed(card) : undefined;
+			return card.review === undefined ? missingSign(card, config.lead, "review") : undefined;
 		case "artifact": {
 			if (card.planPath === undefined) return noArtifact(card);
 			// Fail closed: a lane that requires a proved plan refuses when the caller did not
@@ -225,14 +228,6 @@ function noRoute(card: Card, target: Lane): string {
 	const targets = targetsFrom(card.lane);
 	const where = card.lane === "done" ? "it is finished" : `it can move to ${listOf(targets)}`;
 	return `${cardRef(card.id)} is in ${card.lane}; ${where}, not ${target}.`;
-}
-
-function notApproved(card: Card): string {
-	return `${cardRef(card.id)} is in plan; its contract is not approved yet. A session that does not hold it approves with \`approve\`.`;
-}
-
-function notReviewed(card: Card): string {
-	return `${cardRef(card.id)} has no spot-check recorded; a session that does not hold it records one with \`review\`.`;
 }
 
 function noArtifact(card: Card): string {
@@ -320,18 +315,19 @@ export function contractOp(card: Card, op: Extract<CardOp, { kind: "contract" }>
 }
 
 /**
- * Approve the contract: a session that does not hold the card says the wording is right.
+ * Approve the contract: the lead, who does not hold the card, says the wording is right.
  *
- * The holder is refused because a session approving what it wrote is the gate approving
- * itself. It is a label check and nothing more — the board cannot tell a person from a
- * session — but it is the half of the gate a file can hold.
+ * Two refusals, and the order between them is the point: a holder that is also the lead is told
+ * to release the card first, because a session signing its own wording is the gate approving
+ * itself, and a session that is neither the lead nor the person is told whose signature the gate
+ * takes. The person's `/board approve` is the other way in.
  */
-export function approve(card: Card, actor: Actor, now: number): Prepared {
+export function approve(card: Card, actor: Actor, now: number, config: BoardConfig): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; its contract is closed.` };
 	if (card.lane !== "plan") return { error: `${cardRef(card.id)} is in ${card.lane}; a contract is approved in plan.` };
-	if (holds(card, actor)) {
-		return { error: `${heldBy(card)} Its contract is approved by a session that does not hold it.` };
-	}
+	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "approve")}` };
+	const wrongSigner = signRefusal(card, actor, config.lead, "approve");
+	if (wrongSigner !== undefined) return { error: wrongSigner };
 	const contract = card.contract;
 	const missing = missingContractFields(contract);
 	// One refusal for both shapes: a card with no contract names every field, and one with a
@@ -345,15 +341,15 @@ export function approve(card: Card, actor: Actor, now: number): Prepared {
 	return { changed: true, fields: { contract: { ...contract, approved: { by: actor.label, at: now } } } };
 }
 
-/** Record the spot-check of finished work, by a session that does not hold the card. */
-export function review(card: Card, actor: Actor, now: number): Prepared {
+/** Record the spot-check of finished work: the lead's, and never the holder's. */
+export function review(card: Card, actor: Actor, now: number, config: BoardConfig): Prepared {
 	if (LANE_RULES[card.lane].terminal) return { error: `${cardRef(card.id)} is done; it cannot be reviewed.` };
 	if (card.lane !== "execute") {
 		return { error: `${cardRef(card.id)} is in ${card.lane}; finished work is spot-checked in execute.` };
 	}
-	if (holds(card, actor)) {
-		return { error: `${heldBy(card)} A card is spot-checked by a session that does not hold it.` };
-	}
+	if (holds(card, actor)) return { error: `${heldBy(card)} ${holderRefusal(actor, config.lead, "review")}` };
+	const wrongSigner = signRefusal(card, actor, config.lead, "review");
+	if (wrongSigner !== undefined) return { error: wrongSigner };
 	if (card.review?.by === actor.label) return { changed: false, fields: null };
 	return { changed: true, fields: { review: { by: actor.label, at: now } } };
 }

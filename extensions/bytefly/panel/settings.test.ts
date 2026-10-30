@@ -1,5 +1,5 @@
 /**
- * The Settings catalogue: the twelve curated rows, the view and origin each one
+ * The Settings catalogue: the fifteen curated rows, the view and origin each one
  * reports per scope, its cycling and stored-value mapping, and the theme row's
  * shortlist.
  *
@@ -20,7 +20,7 @@ import { nextValue, rowsForScope, SETTING_ROWS, settingViews, storedValue, textE
 import { SHIPPED_THEMES_DIR, shippedThemeNames } from "./themes.ts";
 
 describe("settings catalogue", () => {
-	test("lists the curated rows in screen order and stays inside the 24-row ceiling", () => {
+	test("lists the curated rows in screen order and stays inside the row ceiling", () => {
 		expect(SETTING_ROWS.map((entry) => entry.id)).toEqual([
 			"byteflyUi",
 			"theme",
@@ -32,16 +32,19 @@ describe("settings catalogue", () => {
 			"job.wakeOnFinish",
 			"rewind.autoSnapshots",
 			"doctor.proactive",
+			"board.wip.plan",
+			"board.wip.execute",
+			"board.lead",
 			"price.currency.code",
 			"price.budget",
 		]);
-		expect(SETTING_ROWS.length).toBeLessThanOrEqual(12);
+		expect(SETTING_ROWS.length).toBeLessThanOrEqual(15);
 		expect(new Set(SETTING_ROWS.map((entry) => entry.id)).size).toBe(SETTING_ROWS.length);
 	});
 
 	test("groups the rows as what a session starts with, tells you, keeps, and costs", () => {
 		expect(new Set(SETTING_ROWS.map((entry) => entry.group))).toEqual(
-			new Set(["Startup", "Notifications", "Session", "Price"]),
+			new Set(["Startup", "Notifications", "Session", "Board", "Price"]),
 		);
 		expect(SETTING_ROWS.map((entry) => entry.group)).toEqual([
 			"Startup",
@@ -54,6 +57,9 @@ describe("settings catalogue", () => {
 			"Session",
 			"Session",
 			"Session",
+			"Board",
+			"Board",
+			"Board",
 			"Price",
 			"Price",
 		]);
@@ -67,8 +73,8 @@ describe("settings catalogue", () => {
 				.filter((entry) => entry.config !== undefined)
 				.map((entry) => entry.id),
 		);
-		expect(global).toHaveLength(12);
-		expect(rowsForScope("project")).toHaveLength(10);
+		expect(global).toHaveLength(15);
+		expect(rowsForScope("project")).toHaveLength(13);
 	});
 
 	test("names every row and describes it", () => {
@@ -97,12 +103,15 @@ describe("settings catalogue", () => {
 			["job.wakeOnFinish", "false", "Off", "default"],
 			["rewind.autoSnapshots", "true", "On", "default"],
 			["doctor.proactive", "true", "On", "default"],
+			["board.wip.plan", "3", "3", "default"],
+			["board.wip.execute", "5", "5", "default"],
+			["board.lead", "lead", "lead", "default"],
 			["price.currency.code", "CNY", "CNY (¥)", "default"],
 			["price.budget", "0", "Off", "default"],
 		]);
 
 		expect(settingViews(settingsSnapshot(), "project").map((entry) => entry.origin)).toEqual(
-			Array.from({ length: 10 }, () => "default"),
+			Array.from({ length: 13 }, () => "default"),
 		);
 		const inherited = settingsSnapshot({ global: { notify: { enabled: true } } });
 		expect(settingView(inherited, "project", "notify.enabled")).toMatchObject({ value: "true", origin: "inherited" });

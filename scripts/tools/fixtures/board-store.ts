@@ -12,6 +12,9 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { BoardConfig } from "../../../lib/board/config.ts";
+import { personActor } from "../../../lib/board/lead.ts";
+import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
 import type { Actor } from "../../../lib/board/rules.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
 import { type BoardStore, createStore } from "../../../lib/board/store.ts";
@@ -93,9 +96,19 @@ function planOf(spec: (typeof FIXTURE_CARDS)[number]): string {
 	return plan;
 }
 
+/**
+ * The settings the fixture board works by: `billing-lead` signs, and the lanes hold the
+ * default numbers.
+ *
+ * The lead is what the two gates take, so a fixture that wants cards in `execute` and `done`
+ * has to name one — and the signer that is not the owner is the person at the keyboard, which
+ * is what a case where the lead owns the card needs.
+ */
+const FIXTURE_CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: LEAD.label };
+
 /** A store with the fixture's cards in it, in a temp directory. */
 export async function seedStore(directory: string): Promise<void> {
-	const store = createStore(directory);
+	const store = createStore(directory, { config: FIXTURE_CONFIG });
 	await store.ensure();
 	// Stamped relative to now, so the page's ages read as a working board's would.
 	const now = Date.now();
@@ -139,9 +152,9 @@ export async function seedStore(directory: string): Promise<void> {
 				at + 3_500,
 			);
 		}
-		// The gates are two sessions' work: this fixture's owner writes, the lead approves.
+		// The gates are the lead's, or the person's when the lead owns the card.
 		if (spec.lane === "execute" || spec.lane === "done") {
-			const approver = owner.label === LEAD.label ? CORE : LEAD;
+			const approver = owner.label === LEAD.label ? personActor() : LEAD;
 			await store.mutate(card.id, { kind: "approve" }, approver, at + 3_800);
 			await store.mutate(
 				card.id,
@@ -151,7 +164,7 @@ export async function seedStore(directory: string): Promise<void> {
 			);
 		}
 		if (spec.lane === "done") {
-			const reviewer = owner.label === LEAD.label ? CORE : LEAD;
+			const reviewer = owner.label === LEAD.label ? personActor() : LEAD;
 			await store.mutate(card.id, { kind: "review" }, reviewer, at + 4_200);
 			await store.mutate(
 				card.id,
@@ -219,5 +232,5 @@ export function fixtureRoster(now: number): RosterSession[] {
 export async function fixtureBoard(): Promise<{ directory: string; store: BoardStore }> {
 	const directory = mkdtempSync(join(tmpdir(), "pi-board-shot-"));
 	await seedStore(directory);
-	return { directory, store: createStore(directory) };
+	return { directory, store: createStore(directory, { config: FIXTURE_CONFIG }) };
 }

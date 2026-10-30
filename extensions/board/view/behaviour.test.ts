@@ -20,6 +20,7 @@ import { makeClock } from "../../../test/helpers/clock.ts";
 import { type Browser, chromium, type Page } from "playwright-core";
 import { findChrome } from "../../../scripts/capture/chrome.ts";
 import type { Actor } from "../../../lib/board/rules.ts";
+import { DEFAULT_WIP } from "../../../lib/board/limits.ts";
 import { createStore } from "../../../lib/board/store.ts";
 import { advance } from "../../../test/helpers/board-flow.ts";
 import type { RosterSession } from "../../../lib/session-roster.ts";
@@ -49,7 +50,8 @@ let store: ReturnType<typeof createStore>;
  * state the reader has to click to see.
  */
 async function seedBoard(): Promise<void> {
-	store = createStore(directory);
+	// The page prints who signed, so the board names `billing-lead` as its lead.
+	store = createStore(directory, { config: { wip: DEFAULT_WIP, lead: LEAD.label } });
 	await store.ensure();
 	const now = clock.now();
 	const todo = [
@@ -106,7 +108,7 @@ async function seedBoard(): Promise<void> {
 			LEAD,
 			now - index * 300_000,
 		);
-		await advance(store, card.id, "done", { owner: CORE, reviewer: LEAD }, now - index * 300_000 + 1_000);
+		await advance(store, card.id, "done", { owner: CORE }, now - index * 300_000 + 1_000);
 	}
 }
 
@@ -978,7 +980,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 		// list only grows, which is why the page states them once — and the holder is the row the
 		// fold must not take, because the queue is reporting its work as free.
 		const folder = mkdtempSync(join(tmpdir(), "pi-board-history-"));
-		const history = createStore(folder);
+		const history = createStore(folder, { config: { wip: DEFAULT_WIP, lead: LEAD.label } });
 		await history.ensure();
 		const at = clock.now();
 		// The bus's own clock, moved by hand: a heartbeat rewrites `lastSeen` without changing one
@@ -999,7 +1001,7 @@ describe.skipIf(CHROME === undefined)("the served page", () => {
 					owner,
 					at - index * 1_000,
 				);
-				await advance(history, card.id, "done", { owner, reviewer: LEAD }, at - index * 1_000 + 1);
+				await advance(history, card.id, "done", { owner }, at - index * 1_000 + 1);
 			}
 		}
 		const holder: Actor = { id: "s-holder", label: "billing-holder" };
