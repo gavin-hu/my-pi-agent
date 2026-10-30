@@ -21,9 +21,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `bytefly`: the live run line is drawn on the composer's top border, beside Pi's spinner,
+  instead of in a row above it — the mode editor opts into Pi's embedded working indicator,
+  as Pi's own editor does — and it reads `working · 12s`, then `working · 3 tools · 12s`:
+  the word replaces the running tool's name, which the transcript already draws as its own
+  block. The border's role colours the pair, so it is `success` in auto and `warning` while
+  planning.
+- dev: `assets/screens/chrome.png`, `assets/screens/transcript.png` and
+  `scripts/screens/frames.json` are regenerated. Both frames draw the footer, so the mode
+  segment that moved to lead the resource line left the pictures behind their renderer.
 - `bytefly` + `plan`: `Shift+Tab` at the main editor toggles plan mode. The footer's mode
-  segment leads the resource line with `▶ auto` in success or plan's own `≡ plan` in warning,
-  and the composer border follows the mode (`success` in auto, `warning` while planning).
+  segment leads the resource line with `▶ auto` in success or plan's own `≡ plan` in the
+  session's text colour — the chip is plan's wording, and the colour that says "planning"
+  is the composer's — and the composer border follows the mode (`success` in auto, `warning`
+  while planning).
   Bytefly unsets the reserved `app.thinking.cycle` chord while it holds the key and restores
   it on shutdown, so `/hotkeys` tells the truth; `plan` no longer registers `Ctrl+Alt+P`,
   and `/plan` remains the toggle when bytefly is not loaded.

@@ -1,20 +1,20 @@
 /**
  * Pure text for the live working line.
  *
- * Before the first tool starts it is a plain count (`Working… 42s`). After that
- * it names the last top-level tool and how many this run has started, then the
- * elapsed time (`edit · 3 tools · 42s`). Whole seconds, because the tick
- * advances once a second; negative and non-finite input reads as `0s`.
+ * A plain count while the run has started nothing (`working · 42s`), then how
+ * many top-level tools this run has started and the elapsed time
+ * (`working · 3 tools · 42s`). The line no longer names the tool: it is one word
+ * a reader can skim, and the transcript already draws each call as its own block.
+ * Whole seconds, because the tick advances once a second; negative and
+ * non-finite input reads as `0s`.
  */
 
-import { sanitizeLine, formatToolCount } from "../../../lib/format.ts";
+import { formatToolCount } from "../../../lib/format.ts";
 import { SEPARATORS } from "../../../lib/tui/glyphs.ts";
 import { WORKING_CONFIG } from "./config.ts";
 
 /** What the current run has done so far, for the live line. */
 export interface WorkingRun {
-	/** The last top-level tool started, or `null` before the first one. */
-	readonly tool: string | null;
 	/** Top-level tool calls started in this run. */
 	readonly tools: number;
 }
@@ -30,13 +30,10 @@ export function formatElapsed(ms: number): string {
 	return `${seconds}s`;
 }
 
-/** The working-row message: `Working… 4s` until a tool starts, then the run line. */
+/** The working line's message: `working · 4s`, then `working · 3 tools · 4s`. */
 export function workingCounter(ms: number, run?: WorkingRun): string {
 	const elapsed = formatElapsed(ms);
 	const tools = run?.tools ?? 0;
-	const tool = run?.tool ? sanitizeLine(run.tool) : "";
-	if (tools > 0) {
-		return [tool, formatToolCount(tools), elapsed].filter((part) => part !== "").join(SEPARATORS.item);
-	}
-	return `${WORKING_CONFIG.working}${WORKING_CONFIG.ellipsis} ${elapsed}`;
+	const count = tools > 0 ? formatToolCount(tools) : "";
+	return [WORKING_CONFIG.working, count, elapsed].filter((part) => part !== "").join(SEPARATORS.item);
 }

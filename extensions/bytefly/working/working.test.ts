@@ -6,7 +6,7 @@ import { formatElapsed, workingCounter } from "./format.ts";
 import { registerWorkingTimer } from "./register.ts";
 
 /**
- * The working row's message recorder plus a scheduler a test advances by hand.
+ * The working line's message recorder plus a scheduler a test advances by hand.
  * The real timer is the one seam the suite never uses.
  */
 function workingHarness(clock = makeClock()) {
@@ -67,34 +67,28 @@ describe("formatElapsed", () => {
 
 describe("workingCounter", () => {
 	test("keeps the plain count before the first tool starts", () => {
-		expect(workingCounter(4000)).toBe("Working… 4s");
-		expect(workingCounter(4000, { tool: null, tools: 0 })).toBe("Working… 4s");
+		expect(workingCounter(4000)).toBe("working · 4s");
+		expect(workingCounter(4000, { tools: 0 })).toBe("working · 4s");
 	});
 
-	test("names the latest tool and counts the run's top-level calls", () => {
-		expect(workingCounter(4000, { tool: "edit", tools: 1 })).toBe("edit · 1 tool · 4s");
-		expect(workingCounter(4000, { tool: "edit", tools: 3 })).toBe("edit · 3 tools · 4s");
-	});
-
-	test("omits an empty tool name but keeps the count", () => {
-		expect(workingCounter(4000, { tool: "", tools: 2 })).toBe("2 tools · 4s");
-	});
-
-	test("sanitizes a tool name to one line", () => {
-		expect(workingCounter(4000, { tool: "a\nb", tools: 1 })).toBe("a b · 1 tool · 4s");
+	test("counts the run's top-level calls rather than naming the tool", () => {
+		// The word leads, so the line reads the same whichever tool is running: the
+		// transcript already draws each call as its own block.
+		expect(workingCounter(4000, { tools: 1 })).toBe("working · 1 tool · 4s");
+		expect(workingCounter(4000, { tools: 3 })).toBe("working · 3 tools · 4s");
 	});
 });
 
 describe("registerWorkingTimer", () => {
-	test("counts elapsed seconds while the working row is up", async () => {
+	test("counts elapsed seconds while the working line is up", async () => {
 		const h = workingHarness();
 		await emit(h.pi, "turn_start", {}, h.ctx);
-		expect(h.messages.at(-1)).toBe("Working… 0s");
+		expect(h.messages.at(-1)).toBe("working · 0s");
 
 		h.advance(1000);
-		expect(h.messages.at(-1)).toBe("Working… 1s");
+		expect(h.messages.at(-1)).toBe("working · 1s");
 		h.advance(2000);
-		expect(h.messages.at(-1)).toBe("Working… 3s");
+		expect(h.messages.at(-1)).toBe("working · 3s");
 	});
 
 	test("keeps one count across later turns of the same run", async () => {
@@ -103,21 +97,21 @@ describe("registerWorkingTimer", () => {
 		h.advance(5000);
 		await emit(h.pi, "turn_start", {}, h.ctx);
 
-		expect(h.messages.at(-1)).toBe("Working… 5s");
+		expect(h.messages.at(-1)).toBe("working · 5s");
 	});
 
-	test("names and counts the latest top-level tool immediately", async () => {
+	test("counts a top-level tool immediately", async () => {
 		const h = workingHarness();
 		await emit(h.pi, "turn_start", {}, h.ctx);
 		await emit(h.pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, h.ctx);
-		expect(h.messages.at(-1)).toBe("read · 1 tool · 0s");
+		expect(h.messages.at(-1)).toBe("working · 1 tool · 0s");
 
 		await emit(h.pi, "tool_execution_start", { toolCallId: "2", toolName: "edit" }, h.ctx);
 		await emit(h.pi, "tool_execution_start", { toolCallId: "3", toolName: "bash" }, h.ctx);
-		expect(h.messages.at(-1)).toBe("bash · 3 tools · 0s");
+		expect(h.messages.at(-1)).toBe("working · 3 tools · 0s");
 
 		h.advance(1000);
-		expect(h.messages.at(-1)).toBe("bash · 3 tools · 1s");
+		expect(h.messages.at(-1)).toBe("working · 3 tools · 1s");
 	});
 
 	test("ignores a nested tool, which is its parent's implementation detail", async () => {
@@ -128,7 +122,7 @@ describe("registerWorkingTimer", () => {
 		await emit(h.pi, "tool_execution_start", { toolCallId: "2", toolName: "inner", parentToolCallId: "1" }, h.ctx);
 
 		expect(h.messages).toHaveLength(before);
-		expect(h.messages.at(-1)).toBe("read · 1 tool · 0s");
+		expect(h.messages.at(-1)).toBe("working · 1 tool · 0s");
 	});
 
 	test("ignores a tool that starts outside a run", async () => {
@@ -137,7 +131,7 @@ describe("registerWorkingTimer", () => {
 		expect(h.messages).toHaveLength(0);
 
 		await emit(h.pi, "turn_start", {}, h.ctx);
-		expect(h.messages.at(-1)).toBe("Working… 0s");
+		expect(h.messages.at(-1)).toBe("working · 0s");
 	});
 
 	test("starts a new run from zero after the previous one ends", async () => {
@@ -148,7 +142,7 @@ describe("registerWorkingTimer", () => {
 		await emit(h.pi, "agent_end", {}, h.ctx);
 		await emit(h.pi, "turn_start", {}, h.ctx);
 
-		expect(h.messages.at(-1)).toBe("Working… 0s");
+		expect(h.messages.at(-1)).toBe("working · 0s");
 	});
 
 	test("cancels the tick and gives the working message back when the run ends", async () => {

@@ -79,16 +79,16 @@ describe("bytefly extension registration", () => {
 });
 
 describe("bytefly interactive surfaces", () => {
-	test("drives the working line while the working row is up", async () => {
+	test("drives the working line while the working indicator is up", async () => {
 		const { pi } = makeFakePi();
 		bootBytefly(pi);
 		const { ctx, workingMessages } = fakeFooterCtx({ mode: "tui" });
 
 		await emit(pi, "turn_start", {}, ctx);
-		expect(workingMessages.at(-1)).toMatch(/^Working… \d+s$/);
+		expect(workingMessages.at(-1)).toMatch(/^working · \d+s$/);
 
 		await emit(pi, "tool_execution_start", { toolCallId: "1", toolName: "read" }, ctx);
-		expect(workingMessages.at(-1)).toMatch(/^read · 1 tool · \d+s$/);
+		expect(workingMessages.at(-1)).toMatch(/^working · 1 tool · \d+s$/);
 
 		await emit(pi, "agent_end", {}, ctx);
 		expect(workingMessages.at(-1)).toBeUndefined();

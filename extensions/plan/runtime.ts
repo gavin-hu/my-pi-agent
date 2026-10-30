@@ -25,7 +25,6 @@ import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import type { ReadOnlyPolicy } from "../../lib/policy.ts";
 import { PLAN_ENTER_TOOL } from "../../lib/tool-names.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
-import { paint } from "../../lib/tui/tokens.ts";
 import { createPlanStore, type PlanStore } from "./plans.ts";
 import { sameSections, sectionDigests, type SectionDigest } from "./plan-text.ts";
 import type { PlanModeEntry, ReviewBaselineEntry, SeededStepsEntry } from "./types.ts";
@@ -237,7 +236,9 @@ export function createPlanRuntime(
 		lastPlanPath ? `${GLYPHS.plan} plan · ${statusName(lastPlanPath)}` : `${GLYPHS.plan} plan`;
 
 	const setStatus = (ctx: ExtensionContext): void => {
-		ctx.ui.setStatus(STATUS_KEYS.planMode, enabled ? paint(ctx.ui.theme, "warn", statusText()) : undefined);
+		// Published unstyled, so the chip reads in the session's current text colour: the
+		// colour that says planning is the composer's border, not a warning in the footer.
+		ctx.ui.setStatus(STATUS_KEYS.planMode, enabled ? statusText() : undefined);
 	};
 
 	const setEnabled = (next: boolean, ctx: ExtensionContext | undefined, persist: boolean): void => {

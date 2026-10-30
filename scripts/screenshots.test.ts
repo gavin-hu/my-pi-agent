@@ -38,6 +38,7 @@ import { pageColors, readPageColors, repo, setThemeInstance, theme } from "./the
 import { FIXTURES } from "./tools/fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./tools/index.ts";
 import { planForContract } from "../lib/board/artifact.ts";
+import { GLYPHS } from "../lib/tui/glyphs.ts";
 
 /** Every capturable frame, the whole-chrome preview included. */
 const FRAMES = SCREENS;
@@ -183,6 +184,39 @@ describe("docs screenshots", () => {
 		// so a rail naming a version could contradict it.
 		for (const rail of [HERO_GOAL, HERO_TODOS]) {
 			expect(JSON.stringify(rail)).not.toMatch(/\bv?\d+\.\d+\.\d+/);
+		}
+	});
+
+	test("the mode chip reads in the session's own colour, not in a role", () => {
+		// Plan publishes the chip unstyled, so the footer shows it in whatever text colour the
+		// terminal is set to. A picture that painted it would show a colour no session draws.
+		const size = SCREENS.chrome?.size ?? { width: 0, rows: 0 };
+		const lines = frameLines(SCREENS.chrome, size.width, size.rows);
+		const footer = lines.find((line) => stripTerminalSequences(line).startsWith(`${GLYPHS.plan} plan`));
+		expect(footer).toBeDefined();
+		// No SGR before the glyph: the chip opens the line bare, exactly as `plan` sets it.
+		expect(footer?.startsWith(GLYPHS.plan)).toBe(true);
+	});
+
+	test("every colour the hero draws comes from the shipped palette", () => {
+		// The frame is the documentation for the theme, so a colour outside `themes/bytefly-dark.json`
+		// is either a hardcoded hex or a token that left the palette — both invisible in a review.
+		const size = SCREENS.chrome?.size ?? { width: 0, rows: 0 };
+		const lines = frameLines(SCREENS.chrome, size.width, size.rows);
+		const document = JSON.parse(readFileSync(join(repo, "themes", "bytefly-dark.json"), "utf8")) as {
+			vars: Record<string, string>;
+		};
+		const palette = new Set(Object.values(document.vars).map((hex) => hex.toLowerCase()));
+		expect(palette.size).toBeGreaterThan(5);
+
+		const drawn = new Set([...lines.join("\n").matchAll(/\u001b\[38;2;(\d+;\d+;\d+)m/g)].map((match) => match[1]));
+		expect(drawn.size).toBeGreaterThan(5);
+		for (const rgb of drawn) {
+			const hex = `#${(rgb ?? "")
+				.split(";")
+				.map((part) => Number(part).toString(16).padStart(2, "0"))
+				.join("")}`;
+			expect(palette.has(hex), `${rgb} is not a colour in themes/bytefly-dark.json`).toBe(true);
 		}
 	});
 

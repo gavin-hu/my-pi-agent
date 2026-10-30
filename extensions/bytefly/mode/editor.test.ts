@@ -108,6 +108,28 @@ describe("ModeEditor", () => {
 		planning = true;
 		expect(subject.render(20)[0]).toContain("[warning]");
 	});
+
+	test("carries the working line on its top border, as Pi's own editor does", () => {
+		const subject = editor(
+			() => false,
+			() => {},
+		);
+		// The host only hands the indicator to an editor that opted in, so a `false` here
+		// is a working line pushed back into a row above the composer.
+		expect(subject.embedWorkingStatus).toBe(true);
+
+		subject.setWorkingStatusIndicator({
+			kind: "working",
+			renderInBorder: () => "◐ working · 3 tools · 12s",
+			renderSpinnerInBorder: () => "◐",
+			dispose: () => {},
+		} as unknown as Parameters<ModeEditor["setWorkingStatusIndicator"]>[0]);
+
+		const top = subject.render(60)[0] ?? "";
+		expect(top).toContain("◐ working · 3 tools · 12s");
+		// The rules around it take the mode's role, the same one the border paints with.
+		expect(top).toContain("[success]");
+	});
 });
 
 describe("attachModeKey", () => {

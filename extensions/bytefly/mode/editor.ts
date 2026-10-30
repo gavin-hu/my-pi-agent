@@ -1,12 +1,17 @@
 /**
  * The Shift+Tab chord at the main editor: the plan-mode toggle and the border
- * that says which mode the composer is in.
+ * that says which mode the composer is in, with the live working line riding it.
  *
  * Pi reserves `app.thinking.cycle` on Shift+Tab, so an extension shortcut for the
  * key is refused. The editor is the narrower place to own it: an overlay or a
  * picker has focus instead, so a dialog keeps its own Shift+Tab. Attaching also
  * unsets the built-in cycle binding, because a key that acts and a key the help
  * still claims are two different answers to the same press.
+ *
+ * Replacing Pi's editor means opting back into what that editor did:
+ * `embedWorkingStatus` is what makes the host hand the working indicator over for
+ * the top border, as Pi's own editor asks for. Without it the indicator falls back
+ * to a row above the composer, and the border would carry the mode colour alone.
  *
  * The mode is plan's to own; this module only asks over the shared channel and
  * reads the branch for the border. Attach once per session and release with the
@@ -47,8 +52,10 @@ export class ModeEditor extends CustomEditor {
 		private readonly options: ModeEditorOptions,
 	) {
 		// Pi's manager carries the resolved keybindings config on top of the TUI one;
-		// the editor only calls `matches()`, which both provide.
-		super(tui, theme, keybindings as unknown as AppKeybindingsManager);
+		// the editor only calls `matches()`, which both provide. The option is the same
+		// one Pi's own editor sets, so the working line lands on this border instead of
+		// in a row of its own above the composer.
+		super(tui, theme, keybindings as unknown as AppKeybindingsManager, { embedWorkingStatus: true });
 	}
 
 	override handleInput(data: string): void {
