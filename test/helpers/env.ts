@@ -64,7 +64,7 @@ export async function withAgentDir<T>(fn: (dir: string) => Promise<T> | T, prefi
 /**
  * Set environment variables for a block, restoring the previous values after.
  * A `undefined` value deletes the variable. Use this instead of writing to
- * `process.env` in a test; the `test/structure.test.ts` scan rejects direct
+ * `process.env` in a test; the `test/conventions.test.ts` scan rejects direct
  * writes.
  */
 export function useEnv(vars: Record<string, string | undefined>): { restore: () => void } {

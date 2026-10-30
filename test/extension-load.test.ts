@@ -116,7 +116,7 @@ describe("skill manifest", () => {
 
 	// The entry READMEs are the catalog: a skill with no row is a workflow nobody
 	// finds, so the row ships with the skill. The reverse — a row naming a skill
-	// that is not on disk — is caught by `structure.test.ts`'s doc-link check.
+	// that is not on disk — is caught by `test/doc-links.test.ts`'s check.
 	test("gives every packaged skill a row in both entry READMEs", () => {
 		const pages = ["README.md", "README.zh-CN.md"].map((page) => ({
 			page,

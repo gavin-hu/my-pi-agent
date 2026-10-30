@@ -37,7 +37,7 @@ export const ENV_OFFLINE = "PI_OFFLINE";
  * They are declared in the package manifest like every other extension, so Pi
  * still discovers them and their docs stay in the pack; the surface is simply
  * not registered until the session asks for it. `new Set` rather than an array
- * literal because `test/structure.test.ts` rejects a module-level array in
+ * literal because `test/boundaries.test.ts` rejects a module-level array in
  * `lib/`, and a fixed keyword table is the one container that rule allows.
  */
 export const OPT_IN_EXTENSIONS: ReadonlySet<string> = new Set(["board", "team"]);

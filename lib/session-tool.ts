@@ -2,7 +2,7 @@
  * The `session` tool, as the extensions that are not `session-bus` call it.
  *
  * `board` and `team` are the user's surface for the team; the bus is the transport
- * underneath, and neither may import it (`test/structure.test.ts`). So the one place
+ * underneath, and neither may import it (`test/boundaries.test.ts`). So the one place
  * that turns a call into a typed answer lives here, next to the tool's name in
  * `lib/tool-names.ts` — two copies would be two copies of the details-shape
  * knowledge, and a bus that renamed a field would be broken in one of them.

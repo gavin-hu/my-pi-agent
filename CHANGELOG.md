@@ -29,6 +29,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   suite fails, a suite past the bar that is not named fails, and an entry that went back
   under the bar fails until it is deleted. The line count is what the guard reads, since a
   table-driven suite hides its case count, so the doc's "or 40 tests" half now says so.
+- `test`: `test/structure.test.ts` — 613 lines holding seven unrelated guards, and the tree's
+  most-changed file at 78 commits over 90 days — is split into one root test per gate:
+  `layout.test.ts`, `conventions.test.ts`, `tui-conventions.test.ts`, `module-sizes.test.ts`,
+  `boundaries.test.ts`, `prerequisites.test.ts`, and `doc-links.test.ts`, over a shared
+  `test/helpers/scan.ts`. Every assertion and message moved verbatim; `ROOT_TEST_FILES`, the
+  test README, and every comment that pointed at the old file now name the gate it meant.
 
 ### Changed
 

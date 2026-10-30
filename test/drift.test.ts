@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { walkFiles } from "./helpers/files.ts";
+import { relative } from "./helpers/scan.ts";
 
 // `join` resolves the `..` on every platform, including Windows, where the
 // backslashed absolute path is one long name to `posix.join`.
@@ -31,8 +32,6 @@ const libDir = join(repo, "lib");
 function relativeTo(root: string, file: string): string {
 	return file.slice(root.length + 1).replaceAll("\\", "/");
 }
-
-const relative = (file: string): string => relativeTo(repo, file);
 
 /** Every non-test TypeScript module under `lib/`. */
 function libModules(): string[] {

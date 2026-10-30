@@ -16,13 +16,9 @@
  * worth a second number.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { posix } from "./helpers/files.ts";
+import { lineCount } from "./helpers/scan.ts";
 import { declaredSuiteFiles } from "./suite-manifest.ts";
-
-const repo = posix(join(import.meta.dir, ".."));
 
 /** The bar `test/README.md` states, in lines. */
 const SUITE_BAR = 400;
@@ -107,11 +103,6 @@ const LONG_SUITES: Record<string, number> = {
 
 /** The named suites' total, written down so only a split can move it. */
 const LONG_SUITE_TOTAL = 61025;
-
-/** Lines in a suite, counted the way `wc -l` does: a trailing newline does not count. */
-function lineCount(file: string): number {
-	return readFileSync(join(repo, file), "utf-8").replace(/\n$/, "").split("\n").length;
-}
 
 const named = Object.entries(LONG_SUITES).sort(([left], [right]) => left.localeCompare(right));
 

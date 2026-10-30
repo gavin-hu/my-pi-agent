@@ -4,7 +4,7 @@
  * `EXTENSION_SUITES`, `LIB_SUITES`, and `SCRIPT_SUITES` are the complete layout:
  * a suite stem is relative to its owner directory and omits `.test.ts`. Every
  * test file under `extensions/`, `lib/`, and `scripts/` must be declared here;
- * `test/structure.test.ts` enforces that and requires each declared suite.
+ * `test/layout.test.ts` enforces that and requires each declared suite.
  * `declaredSuiteFiles` is the same layout as repo-relative paths, so the size bar
  * and the layout guard read one list rather than composing it twice.
  */

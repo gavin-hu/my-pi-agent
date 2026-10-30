@@ -258,7 +258,7 @@ function repoRelative(file: string): string {
 }
 
 /** Every `.ts` module under `extensions/` and `lib/`, for the rule and map checks. */
-function sourceFiles(): string[] {
+function everySourceFile(): string[] {
 	const found: string[] = [];
 	const walk = (dir: string): void => {
 		for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -315,7 +315,7 @@ describe("registration module budget", () => {
 	test("every rule still names a module on disk", () => {
 		// A rule that matches nothing has quietly stopped applying, the same failure
 		// mode `LONG_MODULES`' stale-entry test covers.
-		const files = sourceFiles().map(repoRelative);
+		const files = everySourceFile().map(repoRelative);
 		const dead = DEFERRED_BY_RULE.filter((rule) => !files.some((file) => rule.test(file)));
 		expect(dead.map(String), "a rule that matches nothing has stopped applying; fix it or drop it").toEqual([]);
 	});
