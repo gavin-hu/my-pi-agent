@@ -36,6 +36,25 @@ describe("wechat registration", () => {
 		expect(fake.tools.has("send_wechat")).toBe(true);
 	});
 
+	test("loads the bridge only when an account is stored", async () => {
+		await withAgentDir(async () => {
+			let loads = 0;
+			const fake = createFakePi();
+			wechat(fake.pi, {
+				loadBridge: () => {
+					loads += 1;
+					return import("./bridge.ts");
+				},
+			});
+			const { ctx } = fakeCtx({ mode: "rpc" });
+			await emit(fake.pi, "session_start", { type: "session_start" }, ctx);
+			await fake.commands.get("wechat").handler("status", ctx);
+			await emit(fake.pi, "session_shutdown", { type: "session_shutdown" }, ctx);
+			// No account, so nothing a session start or a command does reaches the module.
+			expect(loads).toBe(0);
+		});
+	});
+
 	test("registers nothing when disabled through PI_DISABLED_EXTENSIONS", async () => {
 		await withEnv({ [ENV_DISABLED_EXTENSIONS]: "wechat" }, () => {
 			const fake = createFakePi();

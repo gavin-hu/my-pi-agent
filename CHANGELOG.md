@@ -54,6 +54,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Bytefly unsets the reserved `app.thinking.cycle` chord while it holds the key and restores
   it on shutdown, so `/hotkeys` tells the truth; `plan` no longer registers `Ctrl+Alt+P`,
   and `/plan` remains the toggle when bytefly is not loaded.
+- `wechat`: the bridge loads when an account is stored, not at registration. `index.ts` defers
+  `bridge.ts` and everything a live bridge composes — the peer worker, the dialog UI, the
+  transport client, the lock, the slash table, the history reader and the state files — so a
+  session with no account evaluates none of it, and `/wechat login` on a host that never emits
+  `session_start` still awaits the load. `ensureBridge` and `createLoginClient` are async now;
+  `isAllowedPeer` loads with its use. Registration drops from 781 to 760 modules and the summed
+  static graph from 747 to 727.
 - every full-screen surface now lives under `view/` and loads on first use, and a rule keeps it
   there: `test/dependencies.test.ts` refuses a registration graph that reaches `extensions/*/view/`
   or any `lib/http/` module but `mount.ts`, so a new screen is lazy by where it is filed rather

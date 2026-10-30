@@ -137,7 +137,7 @@ function harness(
 	return {
 		deps: {
 			getBridge: () => (exists ? bridge : undefined),
-			ensureBridge: () => bridge,
+			ensureBridge: async () => bridge,
 			loadConfig: () => DEFAULT_CONFIG,
 			createLoginClient: () => {
 				throw new Error("login client is not used by these commands");
@@ -325,7 +325,7 @@ describe("/wechat login", () => {
 
 	test("reports a QR fetch failure without opening the screen", async () => {
 		const { deps } = harness();
-		deps.createLoginClient = () =>
+		deps.createLoginClient = async () =>
 			({
 				fetchQr: async () => {
 					throw new Error("ilink down");
@@ -340,7 +340,7 @@ describe("/wechat login", () => {
 
 	test("stores the scanned account and connects", async () => {
 		const { deps, saved, opens } = harness();
-		deps.createLoginClient = () =>
+		deps.createLoginClient = async () =>
 			({
 				fetchQr: async () => ({ qrcode: "Q", imgContent: "url" }),
 			}) as unknown as WechatClient;
