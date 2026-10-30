@@ -16,11 +16,12 @@
  * in, and the viewport options are explicit.
  */
 
-import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Text, truncateToWidth, visibleWidth, type EditorTheme, type OverlayOptions } from "@earendil-works/pi-tui";
 import { SEPARATORS } from "./glyphs.ts";
 import { BODY_INDENT } from "./indent.ts";
 import { plainRule } from "./rules.ts";
+import { paint, type TuiRole } from "./tokens.ts";
 
 /**
  * `ctx.ui.custom` options that give a screen the whole terminal.
@@ -61,15 +62,15 @@ export function viewportRows(source: ViewportRowsSource | undefined, options: Vi
 }
 
 /**
- * One key-hint entry: plain dim text, or text in a chosen semantic color so a
- * primary action (approve, submit) stands out from the scroll hints.
+ * One key-hint entry: plain faint text, or text in a chosen role so a primary
+ * action (approve, submit) stands out from the scroll hints.
  */
-export type ScreenHint = string | { text: string; color?: ThemeColor };
+export type ScreenHint = string | { text: string; color?: TuiRole };
 
 /**
  * A key-hint footer indented by `indent` columns (default `BODY_INDENT`, which
- * hangs it under a screen's title rule), joined with ` · `. Plain hints are dim;
- * an object hint uses its color (dim when omitted). Hints are added while they
+ * hangs it under a screen's title rule), joined with ` · `. Plain hints are
+ * `faint`; an object hint names a role (`faint` when omitted). Hints are added while they
  * fit, so a narrow terminal drops whole keys instead of truncating one in half.
  * The first hint is always kept; the result is clipped to `width`.
  */
@@ -78,8 +79,8 @@ export function screenHint(theme: Theme, width: number, hints: ScreenHint[], ind
 	// Keep a column for the hint itself, however deep the caller indents.
 	const lead = " ".repeat(Math.max(0, Math.min(Math.floor(indent), target - 1)));
 	const render = (hint: ScreenHint): string =>
-		typeof hint === "string" ? theme.fg("dim", hint) : theme.fg(hint.color ?? "dim", hint.text);
-	const separator = theme.fg("dim", SEPARATORS.item);
+		typeof hint === "string" ? paint(theme, "faint", hint) : paint(theme, hint.color ?? "faint", hint.text);
+	const separator = paint(theme, "faint", SEPARATORS.item);
 	const kept: ScreenHint[] = [];
 	for (const hint of hints) {
 		const candidate = [...kept, hint].map(render).join(separator);
@@ -196,16 +197,16 @@ export function toolDetails<T extends object>(details: unknown): T | undefined {
 	return Object.keys(details).length > 0 ? (details as T) : undefined;
 }
 
-/** Minimal editor theme for an extension-owned inline editor, on semantic tokens. */
+/** Minimal editor theme for an extension-owned inline editor, on semantic roles. */
 export function editorTheme(theme: Theme): EditorTheme {
 	return {
-		borderColor: (text) => theme.fg("borderMuted", text),
+		borderColor: (text) => paint(theme, "rule", text),
 		selectList: {
-			selectedPrefix: (text) => theme.fg("accent", text),
-			selectedText: (text) => theme.fg("accent", text),
-			description: (text) => theme.fg("muted", text),
-			scrollInfo: (text) => theme.fg("dim", text),
-			noMatch: (text) => theme.fg("warning", text),
+			selectedPrefix: (text) => paint(theme, "accent", text),
+			selectedText: (text) => paint(theme, "accent", text),
+			description: (text) => paint(theme, "meta", text),
+			scrollInfo: (text) => paint(theme, "faint", text),
+			noMatch: (text) => paint(theme, "warn", text),
 		},
 	};
 }

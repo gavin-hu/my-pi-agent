@@ -100,10 +100,10 @@ const GAUGE_SEGMENTS = 10;
 /** Footer hints shared by the review and the inline editor's primary actions. */
 const PRIMARY_HINTS: ScreenHint[] = [
 	"Esc keep plan",
-	{ text: "a approve", color: "success" },
+	{ text: "a approve", color: "ok" },
 	{ text: "r refine", color: "accent" },
 	{ text: "w browser", color: "accent" },
-	{ text: "x exit plan", color: "warning" },
+	{ text: "x exit plan", color: "warn" },
 ];
 /** Scroll keys appended to the review footer while the plan overflows. */
 const SCROLL_HINTS: ScreenHint[] = ["j/k scroll", "space page", "g/G ends"];
@@ -407,7 +407,7 @@ export class PlanViewComponent implements Component {
 			lines.push(truncateToWidth(`  ${paint(theme, "meta", "Refine the plan:")}`, w));
 			for (const line of editorLines) lines.push(truncateToWidth(`  ${line}`, w));
 			lines.push("");
-			lines.push(screenHint(theme, w, ["Esc back to plan", { text: "Enter submit", color: "success" }]));
+			lines.push(screenHint(theme, w, ["Esc back to plan", { text: "Enter submit", color: "ok" }]));
 		} else {
 			if (this.maxOffset > 0) lines.push(scrollRow(theme, w, this.offset, end, body.length, sectionLabel));
 			else lines.push("");

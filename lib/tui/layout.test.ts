@@ -118,7 +118,7 @@ describe("screenHint", () => {
 	});
 
 	test("colors a primary hint while plain hints stay dim", () => {
-		const line = screenHint(coloringTheme, 80, ["Esc close", { text: "a approve", color: "success" }]);
+		const line = screenHint(coloringTheme, 80, ["Esc close", { text: "a approve", color: "ok" }]);
 		expect(line).toContain("[dim]Esc close");
 		expect(line).toContain("[success]a approve");
 	});

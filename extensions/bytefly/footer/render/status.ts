@@ -29,14 +29,3 @@ export function compactStatus(status: string): string {
 	const text = tokens.length === 2 && /^\d+$/.test(tokens[1]) ? `${icon}${tokens[1]}` : icon;
 	return `${prefix}${text}${suffix}`;
 }
-
-/**
- * Drop a status's trailing ` · detail` while keeping its SGR styling.
- *
- * The `plan-mode` chip carries the plan file name as detail (`≡ plan · name`);
- * the bar shows only the mode. Matching `[^ESC]*` removes the visible suffix
- * without consuming the closing reset, so the chip's color stays balanced.
- */
-export function dropStatusDetail(status: string): string {
-	return status.replace(/ · [^\x1b]*/, "");
-}

@@ -65,7 +65,7 @@ import {
 	windowSegment,
 	worktreeSegment,
 } from "./render/segments.ts";
-import { compactStatus, dropStatusDetail } from "./render/status.ts";
+import { compactStatus } from "./render/status.ts";
 import { NAMED_MODELS, unpricedBody, unpricedNotice } from "./unpriced.ts";
 import type { UsageRecord } from "./types.ts";
 
@@ -1219,15 +1219,6 @@ describe("status transforms", () => {
 	test("does not mistake a numeric label for a count", () => {
 		expect(compactStatus(`${GLYPHS.plan} plan · 2024`)).toBe(GLYPHS.plan);
 	});
-
-	test("removes a trailing detail but keeps leading styling", () => {
-		expect(dropStatusDetail(`${GLYPHS.plan} plan · add-rate-limiting`)).toBe(`${GLYPHS.plan} plan`);
-		expect(dropStatusDetail(`\x1b[33m${GLYPHS.plan} plan · add-rate-limiting\x1b[39m`)).toBe(
-			`\x1b[33m${GLYPHS.plan} plan\x1b[39m`,
-		);
-		expect(dropStatusDetail(`${GLYPHS.plan} plan`)).toBe(`${GLYPHS.plan} plan`);
-		expect(dropStatusDetail("↺ 2")).toBe("↺ 2");
-	});
 });
 
 describe("footer segments", () => {
@@ -1324,10 +1315,12 @@ describe("footer segments", () => {
 		expect(ordered?.forms[0]).toBe("A · Z");
 	});
 
-	test("drops the plan file name from the mode chip and keeps the wechat chip", () => {
+	test("draws the plan mode in warning, whatever the chip carries", () => {
+		const theme = makeRecordingTheme() as any;
 		const themed = `\x1b[33m${GLYPHS.plan} plan · add-rate-limiting\x1b[39m`;
-		const plan = modeSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }), fakeTheme);
-		expect(plan?.forms[0]).toBe(`\x1b[33m${GLYPHS.plan} plan\x1b[39m`);
+		const plan = modeSegment(fullSnapshot({ statuses: new Map([[STATUS_KEYS.planMode, themed]]) }), theme);
+		expect(plan?.forms).toEqual([`${GLYPHS.plan} plan`, GLYPHS.plan]);
+		expect(theme.calls).toContainEqual(["warning", `${GLYPHS.plan} plan`]);
 
 		const wechat = modesSegment(
 			fullSnapshot({ statuses: new Map([[STATUS_KEYS.wechat, `${GLYPHS.wechat} wechat`]]) }),
@@ -1336,12 +1329,12 @@ describe("footer segments", () => {
 		expect(wechat?.forms).toEqual([`${GLYPHS.wechat} wechat`, GLYPHS.wechat]);
 	});
 
-	test("names auto in success when no plan chip is published", () => {
+	test("names auto in accent when no plan chip is published", () => {
 		const theme = makeRecordingTheme() as any;
 		expect(modeSegment(fullSnapshot({ statuses: new Map() }), fakeTheme)?.forms).toEqual([`${GLYPHS.autoMode} auto`]);
 
 		modeSegment(fullSnapshot({ statuses: new Map() }), theme);
-		expect(theme.calls).toContainEqual(["success", `${GLYPHS.autoMode} auto`]);
+		expect(theme.calls).toContainEqual(["accent", `${GLYPHS.autoMode} auto`]);
 	});
 
 	test("has no status slot when every status is routed elsewhere", () => {

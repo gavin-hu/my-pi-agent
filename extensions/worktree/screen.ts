@@ -167,8 +167,8 @@ export class WorktreeListComponent extends DockListScreen<WorktreeRow> {
 			"↑/↓ or j/k select",
 			{ text: "Enter or l detail", color: "accent" },
 			{ text: "e enter", color: "accent" },
-			{ text: "x exit", color: "warning" },
-			{ text: "p prune", color: "warning" },
+			{ text: "x exit", color: "warn" },
+			{ text: "p prune", color: "warn" },
 		];
 	}
 

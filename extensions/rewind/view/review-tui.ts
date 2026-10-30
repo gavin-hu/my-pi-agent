@@ -193,10 +193,10 @@ export class ReviewListComponent extends ChecklistScreen<ReviewEntry> {
 	protected hint(width: number): string {
 		return screenHint(this.theme, width, [
 			"Esc close",
-			{ text: "Enter diff", color: "accent" },
+			{ text: "Enter diff", color: "accent" as const },
 			"Space select",
-			{ text: "r revert", color: "warning" },
-			{ text: "R all", color: "warning" },
+			{ text: "r revert", color: "warn" },
+			{ text: "R all", color: "warn" },
 			"a/n all/none",
 		]);
 	}
@@ -314,7 +314,7 @@ export class ReviewDiffComponent implements Component {
 		return screenHint(this.theme, width, [
 			"Esc back",
 			...(this.options.canRevertHunks ? [{ text: "h hunks", color: "accent" as const }] : []),
-			{ text: "r revert file", color: "warning" },
+			{ text: "r revert file", color: "warn" },
 			"j/k scroll",
 			"g/G top/end",
 		]);

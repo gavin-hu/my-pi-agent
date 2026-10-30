@@ -521,7 +521,7 @@ export class MemoryPickerComponent implements Component {
 							"Esc close",
 							{ text: "Enter/e edit", color: "accent" },
 							{ text: "a add", color: "accent" },
-							{ text: "d forget", color: "warning" },
+							{ text: "d forget", color: "warn" },
 							"m merge",
 							"p move",
 							"s/Tab scope",

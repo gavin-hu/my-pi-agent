@@ -38,7 +38,7 @@ import { pageColors, readPageColors, repo, setThemeInstance, theme } from "./the
 import { FIXTURES } from "./tools/fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./tools/index.ts";
 import { planForContract } from "../lib/board/artifact.ts";
-import { GLYPHS } from "../lib/tui/glyphs.ts";
+import { GLYPHS, SEPARATORS } from "../lib/tui/glyphs.ts";
 
 /** Every capturable frame, the whole-chrome preview included. */
 const FRAMES = SCREENS;
@@ -187,15 +187,24 @@ describe("docs screenshots", () => {
 		}
 	});
 
-	test("the mode chip reads in the session's own colour, not in a role", () => {
-		// Plan publishes the chip unstyled, so the footer shows it in whatever text colour the
-		// terminal is set to. A picture that painted it would show a colour no session draws.
+	test("the mode chip reads in the warning role and names only the mode", () => {
+		// The bar draws the mode's own word in the planning role, so the frame carries the
+		// theme's warning colour and neither the plan file name nor a truncation ellipsis.
 		const size = SCREENS.chrome?.size ?? { width: 0, rows: 0 };
 		const lines = frameLines(SCREENS.chrome, size.width, size.rows);
 		const footer = lines.find((line) => stripTerminalSequences(line).startsWith(`${GLYPHS.plan} plan`));
 		expect(footer).toBeDefined();
-		// No SGR before the glyph: the chip opens the line bare, exactly as `plan` sets it.
-		expect(footer?.startsWith(GLYPHS.plan)).toBe(true);
+
+		const document = JSON.parse(readFileSync(join(repo, "themes", "bytefly-dark.json"), "utf8")) as {
+			vars: Record<string, string>;
+			colors: Record<string, string>;
+		};
+		const warning = document.vars[document.colors.warning ?? ""] ?? "";
+		const rgb = [1, 3, 5].map((at) => Number.parseInt(warning.slice(at, at + 2), 16)).join(";");
+		expect(footer?.startsWith(`\u001b[38;2;${rgb}m`)).toBe(true);
+		expect(stripTerminalSequences(footer ?? "").startsWith(`${GLYPHS.plan} plan${SEPARATORS.item.trimEnd()}`)).toBe(
+			true,
+		);
 	});
 
 	test("every colour the hero draws comes from the shipped palette", () => {

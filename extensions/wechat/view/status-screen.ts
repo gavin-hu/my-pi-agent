@@ -302,12 +302,12 @@ export class StatusScreenComponent implements Component {
 	private hints(view: StatusView): ScreenHint[] {
 		const hints: ScreenHint[] = ["Esc close"];
 		if (view.peerRows.length > 0) {
-			hints.push("j/k move", { text: "s stop", color: "warning" }, { text: "d reset", color: "warning" }, "h history");
+			hints.push("j/k move", { text: "s stop", color: "warn" }, { text: "d reset", color: "warn" }, "h history");
 		}
 		hints.push(
 			{ text: "l login", color: "accent" },
 			{ text: "n new", color: "accent" },
-			{ text: "o logout", color: "error" },
+			{ text: "o logout", color: "bad" },
 			"r refresh",
 		);
 		return hints;

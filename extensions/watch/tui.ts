@@ -157,8 +157,8 @@ export class WatchListComponent extends DockListScreen<WatchRecord> {
 			"Esc close",
 			"↑/↓ or j/k select",
 			{ text: "Enter or l matches", color: "accent" },
-			{ text: "x or K stop", color: "warning" },
-			{ text: "d clear stopped", color: "warning" },
+			{ text: "x or K stop", color: "warn" },
+			{ text: "d clear stopped", color: "warn" },
 			"PgUp/PgDn",
 		];
 	}

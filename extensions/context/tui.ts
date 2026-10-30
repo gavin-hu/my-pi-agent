@@ -221,9 +221,9 @@ export class ContextComponent implements Component {
 			width,
 			[
 				{ text: "c compact", color: "accent" },
-				{ text: "r refresh", color: "dim" },
-				{ text: "↑↓ scroll", color: "dim" },
-				{ text: "Esc close", color: "dim" },
+				{ text: "r refresh", color: "faint" },
+				{ text: "↑↓ scroll", color: "faint" },
+				{ text: "Esc close", color: "faint" },
 			],
 			BODY_INDENT,
 		);

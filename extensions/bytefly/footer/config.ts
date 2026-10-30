@@ -31,6 +31,7 @@ export const CONFIG = {
 		http: GLYPHS.http,
 		delegation: GLYPHS.delegation,
 		autoMode: GLYPHS.autoMode,
+		planMode: GLYPHS.plan,
 	},
 	/** Status key the worktree extension uses; routed to line 1's right zone. */
 	worktreeStatusKey: STATUS_KEYS.worktree,
@@ -44,7 +45,7 @@ export const CONFIG = {
 	 * once its chip is off the bar.
 	 */
 	alertStatusKeys: ALERT_STATUS_KEYS,
-	labels: { noModel: "no model", detached: "detached", autoMode: "auto" },
+	labels: { noModel: "no model", detached: "detached", autoMode: "auto", planMode: "plan" },
 	/** Minimum gap kept between the left and right zones. */
 	minGap: 2,
 	/** Worktree label length before the compact form truncates it. */
