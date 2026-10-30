@@ -10,7 +10,7 @@
  * Registration only — no session hook runs, so nothing touches disk or network.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { ToolCallText } from "../lib/tui/tool.ts";
 import board from "../extensions/board/index.ts";
@@ -30,6 +30,12 @@ import watch from "../extensions/watch/index.ts";
 import webAccess from "../extensions/web-access/index.ts";
 import wechat from "../extensions/wechat/index.ts";
 import { createFakePi, fakeTheme } from "./helpers/fakes.ts";
+import { ALL_EXTENSIONS_ENV, useEnv } from "./helpers/env.ts";
+
+/** Every tool here is rendered, so the fake session loads the whole pack. */
+const env = useEnv(ALL_EXTENSIONS_ENV);
+
+afterAll(() => env.restore());
 
 /** Every extension that registers a tool with a renderer, as the gallery does. */
 const EXTENSIONS: Array<(pi: any) => void> = [

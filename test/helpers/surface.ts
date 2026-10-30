@@ -20,8 +20,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT_TOOL_NAMES } from "../../extensions/worktree/root-tools.ts";
-import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
-import { withAgentDir, withEnv } from "./env.ts";
+import { ALL_EXTENSIONS_ENV, withAgentDir, withEnv } from "./env.ts";
 import { createFakePi } from "./fakes.ts";
 
 const root = join(import.meta.dir, "..", "..");
@@ -52,7 +51,7 @@ export function catalogCounts(): { extensions: number; skills: number; themes: n
 export async function registeredSurface(entry: string): Promise<{ tools: string[]; commands: string[] }> {
 	const module = (await import(join(root, entry))) as { default?: (pi: unknown) => void };
 	return await withAgentDir(async () =>
-		withEnv({ [ENV_DISABLED_EXTENSIONS]: "" }, () => {
+		withEnv(ALL_EXTENSIONS_ENV, () => {
 			const fake = createFakePi();
 			module.default?.(fake.pi);
 			// Pi's own path tools are re-registered by `worktree` to follow the active

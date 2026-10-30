@@ -42,7 +42,7 @@ function seams(overrides: Partial<ProbeSeams> = {}): ProbeSeams {
 		readJson: () => ({ state: "absent" }),
 		dirs: { agentDir: AGENT_DIR, cwd: CWD, configDirName: CONFIG_DIR },
 		platform: "darwin",
-		isEnabled: () => true,
+		disabledReason: () => undefined,
 		loadModule: async () => ({}),
 		invocation: () => ({ command: "pi", args: ["--version"] }),
 		...overrides,
@@ -196,7 +196,7 @@ describe("the report shape", () => {
 		const report = await probeExtension(
 			"file-read",
 			seams({
-				isEnabled: () => false,
+				disabledReason: () => "disabled through PI_DISABLED_EXTENSIONS",
 				exec: async () => {
 					spawned += 1;
 					return { code: 0 };
@@ -204,8 +204,17 @@ describe("the report shape", () => {
 			}),
 		);
 		expect(report.enabled).toBe(false);
-		expect(report.findings[0]?.detail).toContain("PI_DISABLED_EXTENSIONS");
+		expect(report.findings[0]?.detail).toContain("disabled through");
 		expect(spawned).toBe(0);
+	});
+
+	test("prints the seam's reason, so the switch it names is the one that would change it", async () => {
+		const report = await probeExtension(
+			"board",
+			seams({ disabledReason: () => "an opt-in extension; load it with PI_ENABLED_EXTENSIONS=board" }),
+		);
+		expect(report.enabled).toBe(false);
+		expect(report.findings[0]?.detail).toContain("PI_ENABLED_EXTENSIONS=board");
 	});
 
 	test("flags an extension with no declaration", async () => {

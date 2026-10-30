@@ -197,7 +197,7 @@ because `/resume` and `/tree` rebuild from it.
 | Agent directory | Global notes and config, the plan store, job logs, session-bus state, the board store, WeChat state | The owning extension, by path |
 | A repository-keyed directory | One board: `cards/*.json` under `<agent-dir>/board/<repo-key>/`, with an `archive/*.json` pile beside it for finished cards set aside, written only by [`../lib/board/store.ts`](../lib/board/store.ts) | `board`, and `team` through it |
 | Git refs | Rewind snapshots under `refs/pi/rewind` | `rewind`, by ref name |
-| Environment | `PI_WORKTREE_*` and `PI_DISABLED_EXTENSIONS` | The process-wide seams in [`../lib/env.ts`](../lib/env.ts) |
+| Environment | `PI_WORKTREE_*`, `PI_DISABLED_EXTENSIONS`, and `PI_ENABLED_EXTENSIONS` | The process-wide seams in [`../lib/env.ts`](../lib/env.ts) |
 
 Three rules follow from the table.
 

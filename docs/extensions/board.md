@@ -37,6 +37,19 @@ The steps of the work are deliberately *not* on the board. They live in the
 owner's plan and in `todo`; the board answers who is holding what, and what needs a
 decision.
 
+The board is **opt-in**. Its tool, its command, and its page belong to a workflow a
+session either runs or does not, so nothing is registered until the session asks for
+it:
+
+```bash
+PI_ENABLED_EXTENSIONS=board pi
+```
+
+The extension is still declared in the package manifest, so Pi discovers it and
+documents its surface with the rest; the gate is the variable, in `lib/env.ts` beside
+`PI_DISABLED_EXTENSIONS`, which still wins when it names `board`. `doctor` reports the
+row as an opt-in extension and names the switch.
+
 <img src="../../assets/screens/board.png" alt="The board page: a toolbar with the repository's name and a live badge, Board and Team tabs, done-of-total progress, a filter, the keys button and a theme toggle; five lane trays, each with a dot, a count and a fold control; and cards carrying an owner chip, a note count and its age, path hints, a line naming what the card waits for, a line naming the cards it holds up, and a reason line, with no button on any of them" width="100%">
 
 *`/board`: the five lanes, with the round one tab away and every card opened by its title.*
@@ -635,7 +648,7 @@ it always meant: when the card was last touched, which is not when it last chang
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the runtime and the lazy page, register both, close on shutdown |
+| `index.ts` | The factory: gate on the opt-in switch (`PI_ENABLED_EXTENSIONS`) and `PI_DISABLED_EXTENSIONS`, build the runtime and the lazy page, register both, close on shutdown |
 | `schema.ts` | The tool's parameters |
 | `types.ts` | The shapes the tool registers and reports — the actions and the fields each acts on, the card an action produced, the cards a list read, the rollup when it was asked for, and the card a refusal carries |
 | `tools.ts` | Action dispatch and the refusal shape |

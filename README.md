@@ -123,7 +123,7 @@ has the full tool and command surface, opening with its capabilities.
 | [`watch`](./docs/extensions/watch.md) | `watch`, `/watch` | Tail a file or command output, match lines against patterns, and alert you or hand matching lines to the agent. |
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions` (screen) | Coordinate parallel Pi sessions on one repository: discover peers, exchange short messages/events, consume an inbox, or claim paths before editing, with `/sessions` as a live board of peers, unread mail, and claims. Local, pull-based by default, with an opt-in inbox watch that raises this session's turn once it is idle; it never spawns an agent. |
 | [`serve`](./docs/extensions/serve.md) | — | The session's one loopback server. `/board`, `/browse`, and a browser plan review mount path prefixes on it instead of binding their own listeners, so a session has one port, one chip, and one close path — and a second session (a peer conversation, another worktree, another Pi) still gets its own. `serve.port` in `bytefly.json` pins that port, so a bookmarked URL survives a restart, and a shared review borrows exactly one LAN address for the one page that asked. |
-| [`board`](./docs/extensions/board.md) | `board`, `/board` | One shared feature board per repository: a card per feature, moving through five lanes — `backlog`, `plan`, `execute`, `blocked`, `done` — where a contract (`goal`, `acceptance`, `scopeOut`) must name the plan `write_plan` saved in this repository's plan store and be approved by someone other than the card's holder — a peer session, or the person with `/board approve` — before it may be executed, and the finished work spot-checked the same way (`/board review`) before it may be done; `plan` and `execute` are held to a WIP limit from `bytefly.json`. A finished card leaves the board for an `archive/` pile with its notes and landed commit still readable, and one loopback page shows the same cards live in a **Board** and a **Team** tab. The page is a read view — the tools are the only writers — served as the seat `team-lead`, so a second session opens the same page instead of starting a rival one, and handing a card to a teammate is `team`'s job because only it can message them. A card can carry a priority and name the cards it waits on. Steps stay in the owner's plan and `todo`; a card is the feature, its owner, and the history that explains it. The Team tab folds the owners a bus has no record of into one row, because a label that ever claimed a card stays an owner. The page answers at `/board` on the session's one port, so `serve.port` is the address to bookmark. |
+| [`board`](./docs/extensions/board.md) | `board`, `/board` | One shared feature board per repository: a card per feature, moving through five lanes — `backlog`, `plan`, `execute`, `blocked`, `done` — where a contract (`goal`, `acceptance`, `scopeOut`) must name the plan `write_plan` saved in this repository's plan store and be approved by someone other than the card's holder — a peer session, or the person with `/board approve` — before it may be executed, and the finished work spot-checked the same way (`/board review`) before it may be done; `plan` and `execute` are held to a WIP limit from `bytefly.json`. A finished card leaves the board for an `archive/` pile with its notes and landed commit still readable, and one loopback page shows the same cards live in a **Board** and a **Team** tab. The page is a read view — the tools are the only writers — served as the seat `team-lead`, so a second session opens the same page instead of starting a rival one, and handing a card to a teammate is `team`'s job because only it can message them. A card can carry a priority and name the cards it waits on. Steps stay in the owner's plan and `todo`; a card is the feature, its owner, and the history that explains it. The Team tab folds the owners a bus has no record of into one row, because a label that ever claimed a card stays an owner. The page answers at `/board` on the session's one port, so `serve.port` is the address to bookmark. Off by default: load it with `PI_ENABLED_EXTENSIONS=board`. |
 | [`team`](./docs/extensions/team.md) | `team`, `/team` | The lead's round over the same board. `/team join <label>` puts a session on the team, and `/board` does it for the lead as `team-lead`; then `assign` hands a feature to a running session, `offer` hands one to whoever is free — a broadcast that writes nothing, claimed by the first taker — and `reclaim` takes a card back to Backlog. A result says who will be woken for it and who will read it at their next turn, `/team` prints the round in the terminal without a browser, and nothing is spawned. |
 | [`context`](./docs/extensions/context.md) | `/context` | Show where the context window goes — system prompt, tool definitions, conversation by role, injected notes — and compact from the report with the before and after numbers. |
 
@@ -218,7 +218,15 @@ around its keys, and
 settings screen walkthrough, and every section's keys with their type, default,
 and bounds.
 
-Every extension is on by default. To load the pack without some of them, set
+Almost every extension is on by default. `board` is the exception: it is opt-in,
+because a session that never works a board should not carry its tool, its command,
+and its page. Set `PI_ENABLED_EXTENSIONS` to the opt-in names to load:
+
+```bash
+PI_ENABLED_EXTENSIONS=board pi -e .
+```
+
+To load the pack without some of the extensions that are on by default, set
 `PI_DISABLED_EXTENSIONS` to a comma- or whitespace-separated list of extension
 names (the directory names under [`extensions/`](./extensions/)):
 
@@ -226,9 +234,11 @@ names (the directory names under [`extensions/`](./extensions/)):
 PI_DISABLED_EXTENSIONS=todo,job pi -e .
 ```
 
-Names are compared case-insensitively and unknown names are ignored. This only
-stops the factories from registering; to drop the whole package, use Pi's
-`--no-extensions` or remove the package from your settings.
+Names are compared case-insensitively and unknown names are ignored.
+`PI_ENABLED_EXTENSIONS` only switches on the opt-in extensions, so naming one
+there never disables another, and `PI_DISABLED_EXTENSIONS` still wins over it.
+Both only stop the factories from registering; to drop the whole package, use
+Pi's `--no-extensions` or remove the package from your settings.
 
 ## Documentation
 

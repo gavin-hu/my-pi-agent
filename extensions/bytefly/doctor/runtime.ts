@@ -12,7 +12,7 @@ import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI } from "@earendil-works
 import type { WebSearchProviderEvent } from "../../../lib/events.ts";
 import { PRICE_VERIFIED_AT } from "../footer/price/config.ts";
 import { readJsonResult } from "../../../lib/config.ts";
-import { isExtensionEnabled } from "../../../lib/env.ts";
+import { extensionDisabledReason } from "../../../lib/env.ts";
 import {
 	hardRequirementExtensions,
 	probeAll as probeDeclared,
@@ -91,7 +91,10 @@ export function createDoctorRuntime(
 		readJson: readJsonResult,
 		dirs: { agentDir: getAgentDir(), cwd, configDirName: CONFIG_DIR_NAME },
 		platform: process.platform,
-		isEnabled: (extension) => isExtensionEnabled(extension) && !config.skip.includes(extension),
+		// The doctor's own skip list is this report's decision, not the environment's,
+		// so it answers for the extension it holds back.
+		disabledReason: (extension) =>
+			config.skip.includes(extension) ? "skipped by `doctor.skip`" : extensionDisabledReason(extension),
 		notify: notifySeam(cwd),
 		isTTY: process.stdout.isTTY === true,
 		searchProvider: () => searchProvider,
