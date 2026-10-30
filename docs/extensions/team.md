@@ -159,8 +159,8 @@ A handoff is an instruction, not a notification: the peer's notice is headlined
 `1 handoff`, carries enough of the body to be actionable, and says the work is theirs —
 read it with `session inbox`, record the plan, and start. The card is already theirs
 (`assign` wrote the owner), so there is no claim step; the peer writes the contract, works,
-notes, and moves it on — into `execute` once somebody else has approved the contract, and to
-`done` once somebody else has spot-checked it.
+notes, and moves it on — into `execute` once the lead has approved the contract, and to
+`done` once the lead has spot-checked it.
 
 An offer is advice: nothing is theirs until they claim it, and a card nobody claims stays
 `backlog`, so it keeps showing up as unassigned in the round — with its age, which is the one
@@ -210,7 +210,7 @@ moves, and finish are `board`'s in this same session.
 - **Plan mode makes this unavailable.** Neither `team` nor `session` is a read-only tool, so
   plan mode refuses both by name and tells the model to exit and get approval; the board
   stays readable, since `list` is the one action it admits. Assign after the plan is
-  approved.
+  approved by the lead — or the person, with `/board approve`.
 - **Ownership is advisory.** `assign` does not create a path claim; the peer still claims
   the paths it edits through `session`.
 

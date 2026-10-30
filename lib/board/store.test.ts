@@ -26,8 +26,8 @@ const CORE: Actor = { id: "s-core", label: "billing-core" };
 const OTHER: Actor = { id: "s-other", label: "billing-other" };
 const NOW = 10_000;
 
-/** The two sessions a seeded card needs: its owner, and the one who approves and reviews. */
-const SEED = { owner: CORE, reviewer: LEAD };
+/** The session a seeded card belongs to; the seams sign as the person. */
+const SEED = { owner: CORE };
 
 /** A fresh store over a temp directory, possibly with a suite's seam. */
 function scratchStore(options: Parameters<typeof createStore>[1] = {}): {

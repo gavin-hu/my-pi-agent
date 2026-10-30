@@ -174,8 +174,8 @@ async function assignCard(
 	const owner: Actor = { label: to };
 	// The board, not just the card: a card that waits on unfinished work, or a `plan` lane
 	// with no room, is refused here, so a handoff for it is never sent. `mayOp` is the
-	// store's own check without the write, and the limits are the store's, not a default.
-	const refused = mayOp(card, { kind: "assign", to: owner }, me, indexOf(await store.list()), store.limits());
+	// store's own check without the write, and the board's settings are the store's, not a default.
+	const refused = mayOp(card, { kind: "assign", to: owner }, me, indexOf(await store.list()), store.config());
 	if (refused !== undefined) return refusal("assign", refused, card);
 
 	let delivered: string[];
@@ -230,7 +230,7 @@ async function offerCard(
 	// The board, not just the card: a card that waits on unfinished work, one somebody
 	// holds, or a `plan` lane with no room is refused here, so a broadcast for it is never
 	// sent. This is the offer's own rule, asked without the write.
-	const refused = mayOp(card, { kind: "offer" }, me, indexOf(await store.list()), store.limits());
+	const refused = mayOp(card, { kind: "offer" }, me, indexOf(await store.list()), store.config());
 	if (refused !== undefined) return refusal("offer", refused, card);
 
 	let delivered: string[];

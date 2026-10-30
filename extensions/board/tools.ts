@@ -137,8 +137,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 			"belong on the board - they belong in the plan and in `todo`.",
 		promptSnippet: `The shared feature list for this repository: ${BOARD_ACTIONS.join(", ")}.`,
 		promptGuidelines: [
-			"Claim a card to pull it from backlog into plan, design it in plan mode, then record the contract with `contract`: goal, acceptance, scopeOut, and the plan file `write_plan` returned — a path outside this repository's plan store is refused. Move it to execute only once a session that does not hold it has approved that contract, or the person has signed with `/board approve`.",
-			"Before a card is done, a session that does not hold it records a spot-check with `review`, or the person signs with `/board review`; the plan it recorded must still be in the store, and `contract` is how it is re-recorded.",
+			"Claim a card to pull it from backlog into plan, design it in plan mode, then record the contract with `contract`: goal, acceptance, scopeOut, and the plan file `write_plan` returned — a path outside this repository's plan store is refused. Move it to execute only once the lead (`board.lead` in `bytefly.json`) has approved that contract, or the person has signed with `/board approve` — a lead releases a card before signing it.",
+			"Before a card is done, the lead records a spot-check with `review`, or the person signs with `/board review`; the plan it recorded must still be in the store, and `contract` is how it is re-recorded.",
 			"Move a card to `blocked` with a `blocker` kind and one line about what is waited on: it resumes in `plan`, or in `execute` once its contract is approved.",
 			"Note each phase of the work, and release or reclaim a card you stop holding, so the lane count means what it says.",
 			"A card that waits on another is linked with `edit` and `dependsOn`, so the order is on the board instead of in a refusal.",

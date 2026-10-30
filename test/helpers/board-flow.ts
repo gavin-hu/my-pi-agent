@@ -1,23 +1,25 @@
 /**
  * Driving a card through the board's gates, for the tests that are not about the gates.
  *
- * A card cannot reach `execute` without a contract somebody else approved, and cannot be
- * finished without a spot-check, so a suite that wants a card in a lane would otherwise
- * repeat four operations — and repeat them slightly differently. The helpers here perform
- * exactly what the tool does, through `store.mutate`, so a test that seeds a board cannot
- * seed a state the rules would refuse. The plan proof is the one fact a helper cannot mint
- * for the tool: a suite that seeds here and then drives `board move` passes `planPath` inside
- * its own plan directory, because the tool re-checks that the file is there.
+ * A card cannot reach `execute` without the lead's approval, and cannot be finished without the
+ * lead's spot-check, so a suite that wants a card in a lane would otherwise repeat four
+ * operations — and repeat them slightly differently. The helpers here perform exactly what the
+ * tool does, through `store.mutate`, so a test that seeds a board cannot seed a state the rules
+ * would refuse. Both signatures are the person at the keyboard's, which is the one actor no board
+ * has to be configured to accept; a suite that means a session's signature drives the tool
+ * instead. The plan proof is the one fact a helper cannot mint for the tool: a suite that seeds
+ * here and then drives `board move` passes `planPath` inside its own plan directory, because the
+ * tool re-checks that the file is there.
  */
 
+import { personActor } from "../../lib/board/lead.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { Lane } from "../../lib/board/lanes.ts";
 import type { BoardStore } from "../../lib/board/store.ts";
 
-/** Who a seeded card belongs to, and who approves it: two sessions, as the gate requires. */
+/** Who a seeded card belongs to. */
 export interface Seeded {
 	owner: Actor;
-	reviewer: Actor;
 	/** The commit a seed records on the way to `done`; absent leaves the card with none. */
 	landed?: string;
 	/**
@@ -38,7 +40,7 @@ export const TEST_CONTRACT = {
 };
 
 /**
- * Move `id` to `lane`, performing the gates on the way.
+ * Move `id` to `lane`, performing the gates on the way, as the person signs them.
  *
  * The lane is a target, not a path: the helper reads where the card is and applies only the
  * operations that are still owed, so `advance(store, id, "done")` works from the pool or
@@ -75,7 +77,7 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	}
 	const written = await read();
 	if (written.contract?.approved === undefined) {
-		const result = await store.mutate(id, { kind: "approve" }, who.reviewer, now);
+		const result = await store.mutate(id, { kind: "approve" }, personActor(), now);
 		if (!result.ok) fail(result.error);
 	}
 	const contract = (await read()).planPath;
@@ -84,7 +86,7 @@ export async function advance(store: BoardStore, id: string, lane: Lane, who: Se
 	}
 	if (lane === "execute") return;
 	if ((await read()).review === undefined) {
-		const result = await store.mutate(id, { kind: "review" }, who.reviewer, now);
+		const result = await store.mutate(id, { kind: "review" }, personActor(), now);
 		if (!result.ok) fail(result.error);
 	}
 	// No commit unless the caller names one: a board outside a repository finishes cards

@@ -7,13 +7,14 @@
  * session can start. The limit is a hard gate rather than a hint — a lane that is over its
  * limit is a queue nobody is reviewing, and a warning nobody reads is the same as no limit.
  *
- * The two numbers live in `bytefly.json` (`board.wip`, `{ "plan": 3, "execute": 5 }`) and
- * each is clamped to `1..MAX_WIP`, so a typo cannot stop a board. It is read once per store
- * and handed to `applyOp`, which keeps `rules.ts` pure: the rule decides, the owner of the
- * setting supplies the number.
+ * The two numbers are turned into a {@link WipLimits} here and clamped to `1..MAX_WIP`, so a
+ * typo cannot stop a board; where they are read from is `config.ts`, which reads the whole
+ * `board` section once per store and hands it to `applyOp`. That keeps `rules.ts` pure: the
+ * rule decides, the owner of the setting supplies the number, and this module is only the
+ * arithmetic and the sentence.
  */
 
-import { asRecord, clampInteger, loadConfigSection } from "../config.ts";
+import { clampInteger } from "../config.ts";
 import { LANE_RULES, type Lane } from "./lanes.ts";
 
 /** The lanes a limit applies to: the two a card is pulled into. */
@@ -39,11 +40,6 @@ export function normalizeWip(raw: Record<string, unknown> | undefined, base: Wip
 		plan: clampInteger(raw?.plan, base.plan, 1, MAX_WIP),
 		execute: clampInteger(raw?.execute, base.execute, 1, MAX_WIP),
 	};
-}
-
-/** One board's limits: the project's `bytefly.json` over the global one. */
-export function readWip(cwd: string, options: { agentDir?: string } = {}): WipLimits {
-	return loadConfigSection(cwd, "board", DEFAULT_WIP, (raw, base) => normalizeWip(asRecord(raw?.wip), base), options);
 }
 
 /** The limit a lane is held to, or `undefined` when the lane is not pulled. */

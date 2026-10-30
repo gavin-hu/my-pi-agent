@@ -58,10 +58,17 @@ function recordingTeam(
 	return { team, calls, labels };
 }
 
-/** A registered tool plus the context it will be called with. */
-function harness(options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin; exec?: FakePiOptions["exec"] } = {}) {
-	const { agentDir, team, exec, ...ctxOptions } = options;
-	const board = boardHarness({ agentDir, exec, now: NOW, track: temps.track, ...ctxOptions });
+/**
+ * A registered tool plus the context it will be called with.
+ *
+ * `lead` is the board's `board.lead`: the reviewer a seed signs as by default, so the seeded
+ * fixtures reach a lane through the gate; a case about the gate names the session it means.
+ */
+function harness(
+	options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin; exec?: FakePiOptions["exec"]; lead?: string } = {},
+) {
+	const { agentDir, team, exec, lead = REVIEWER.label, ...ctxOptions } = options;
+	const board = boardHarness({ agentDir, exec, lead, now: NOW, track: temps.track, ...ctxOptions });
 	registerTools(board.fake.pi, board.runtime, team === undefined ? {} : { team });
 	const tool = board.fake.pi.tools.get("board");
 	if (!tool) throw new Error("the board tool was not registered");
@@ -80,7 +87,7 @@ function harness(options: FakeCtxOptions & { agentDir?: string; team?: TeamJoin;
 	};
 }
 
-/** The session a harness writes as, and the reviewer a fixture uses for the gates. */
+/** The signer a seeded fixture uses, and the lead every harness names unless a case says so. */
 const REVIEWER = { id: "s-reviewer", label: "reviewer" };
 
 /**
@@ -98,7 +105,7 @@ async function seed(
 	const me = await board.runtime.who(board.ctx, board.ctx.cwd);
 	// The plan is a real file in this board's plan store: `move` re-checks it, so a seed
 	// that named a path to nothing would be a board the tool refuses.
-	await advance(store, id, lane, { owner: me, reviewer: REVIEWER, planPath: await writePlan(board) }, NOW);
+	await advance(store, id, lane, { owner: me, planPath: await writePlan(board) }, NOW);
 }
 
 /** A plan file in this board's plan store, which is what `contract` requires. */
@@ -297,7 +304,7 @@ describe("list", () => {
 		await call({ action: "add", title: "One" });
 		const store = await runtime.store(ctx.cwd);
 		const me = await runtime.who(ctx, ctx.cwd);
-		await advance(store, "1", "plan", { owner: me, reviewer: REVIEWER }, NOW);
+		await advance(store, "1", "plan", { owner: me }, NOW);
 		// The card stores the path resolved, so a read of it is where the home directory
 		// has to be elided: it is the same plan whoever reads the board, and the prefix is
 		// not the part that says which one.
@@ -340,7 +347,7 @@ describe("list", () => {
 		for (const [index, [id, label]] of finished.entries()) {
 			const owner = { id, label };
 			const card = await store.create({ title: `${label} shipped ${index}`, paths: [] }, owner, NOW);
-			await advance(store, card.id, "done", { owner, reviewer: REVIEWER }, NOW);
+			await advance(store, card.id, "done", { owner }, NOW);
 		}
 		// This session is on the bus, so its own row is not history — and the rollup is the only
 		// read that goes near it.
@@ -370,8 +377,8 @@ describe("list", () => {
 	test("shows only what this session holds, and nothing for one that holds nothing", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "Mine" });
 		await lead.call({ action: "add", title: "Theirs" });
 		await lead.call({ action: "claim", card: "1" });
@@ -380,7 +387,7 @@ describe("list", () => {
 		// The same rule a claim is checked against: a lane filter narrows it, it does not
 		// widen it, and a session holding nothing gets an empty list rather than the board.
 		expect((await lead.call({ action: "list", mine: true, lane: "backlog" })).details.cards).toEqual([]);
-		const stranger = harness({ cwd, agentDir, sessionId: "s-other" });
+		const stranger = harness({ cwd, agentDir, sessionId: "s-other", lead: LEAD });
 		expect((await stranger.call({ action: "list", mine: true })).details.cards).toEqual([]);
 	});
 
@@ -543,8 +550,8 @@ describe("claim, release, and move", () => {
 	test("a claim another session made is refused with that session's name", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		const result = await lead.call({ action: "claim", card: "1" });
@@ -660,8 +667,8 @@ describe("claim, release, and move", () => {
 	test("reclaim takes the card back from whoever holds it, and keeps its notes", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		await peer.call({ action: "note", card: "1", text: "half done" });
@@ -684,8 +691,8 @@ describe("edit and the links between cards", () => {
 	test("refuses an edit with nothing to change, and one another session holds", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		expect(resultText(await lead.call({ action: "edit", card: "1" }))).toContain(
 			"edit needs a title, paths, priority, or dependsOn.",
@@ -780,8 +787,8 @@ describe("note and plan", () => {
 	test("plan records the file, and only the owner may", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		expect(
@@ -843,11 +850,11 @@ describe("the flow: contract, approval, spot-check", () => {
 		);
 	});
 
-	test("execute is refused until a session that does not hold the card approves", async () => {
+	test("execute is refused until the lead approves the contract", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		await peer.call({
@@ -860,7 +867,7 @@ describe("the flow: contract, approval, spot-check", () => {
 		});
 		// The holder cannot approve its own wording, and the move is refused before it.
 		expect(resultText(await peer.call({ action: "approve", card: "1" }))).toContain(
-			"Its contract is approved by a session that does not hold it.",
+			"Its contract is signed by the lead, who does not hold it.",
 		);
 		expect(resultText(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain(
 			"is not approved yet",
@@ -895,8 +902,8 @@ describe("the flow: contract, approval, spot-check", () => {
 	test("hears the ownership refusal before the plan's, so the first fix is the right one", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		// Both facts are wrong; the state machine's rule is the one a caller can act on.
@@ -908,8 +915,8 @@ describe("the flow: contract, approval, spot-check", () => {
 	test("refuses execute when the plan it recorded is gone", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		const plan = await writePlan(peer);
@@ -935,8 +942,8 @@ describe("the flow: contract, approval, spot-check", () => {
 		// an executing card into a second refusal.
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		const plan = await writePlan(peer);
@@ -954,8 +961,8 @@ describe("the flow: contract, approval, spot-check", () => {
 	test("a re-pointed plan loses the sign, so execute waits for a new approval", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		const first = await writePlan(peer, "first.md");
@@ -971,11 +978,11 @@ describe("the flow: contract, approval, spot-check", () => {
 		);
 	});
 
-	test("done is refused until somebody else spot-checks the work", async () => {
+	test("done is refused until the lead records a spot-check", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		await peer.call({
@@ -989,7 +996,7 @@ describe("the flow: contract, approval, spot-check", () => {
 		await lead.call({ action: "approve", card: "1" });
 		await peer.call({ action: "move", card: "1", lane: "execute" });
 		expect(resultText(await peer.call({ action: "review", card: "1" }))).toContain(
-			"A card is spot-checked by a session that does not hold it.",
+			"A card is spot-checked by the lead, who does not hold it.",
 		);
 		expect(resultText(await peer.call({ action: "move", card: "1", lane: "done" }))).toContain(
 			"has no spot-check recorded",
@@ -1003,8 +1010,8 @@ describe("the whole flow, two sessions", () => {
 	test("walks claim, contract, approval, execute, review, done, and refuses the gate it skips", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const board = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const board = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await board.call({ action: "add", title: "One" });
 
 		// The claim is the last call with no plan behind it, and it says so.
@@ -1031,7 +1038,7 @@ describe("the whole flow, two sessions", () => {
 
 		// The holder's own signature is refused; the lead's opens the gate.
 		expect(resultText(await peer.call({ action: "approve", card: "1" }))).toContain(
-			"approved by a session that does not hold it",
+			"signed by the lead, who does not hold it",
 		);
 		expect(resultText(await peer.call({ action: "move", card: "1", lane: "execute" }))).toContain(
 			"is not approved yet",
@@ -1062,8 +1069,8 @@ describe("drop", () => {
 	test("refuses a live card another session holds", async () => {
 		const cwd = temps.track(tempDir("pi-repo-"));
 		const agentDir = temps.track(tempDir("pi-agent-"));
-		const lead = harness({ cwd, agentDir, sessionId: "s-lead" });
-		const peer = harness({ cwd, agentDir, sessionId: "s-peer" });
+		const lead = harness({ cwd, agentDir, sessionId: "s-lead", lead: LEAD });
+		const peer = harness({ cwd, agentDir, sessionId: "s-peer", lead: LEAD });
 		await lead.call({ action: "add", title: "One" });
 		await peer.call({ action: "claim", card: "1" });
 		const result = await lead.call({ action: "drop", card: "1" });
@@ -1100,7 +1107,7 @@ describe("archive", () => {
 	});
 
 	test("names a card the sweep could not set aside, instead of dropping it from the report", async () => {
-		const board = boardHarness({ now: NOW, track: temps.track });
+		const board = boardHarness({ lead: REVIEWER.label, now: NOW, track: temps.track });
 		// A store where one card changes underneath the sweep: the refusal is the case the
 		// report must not swallow, because "every finished card" would read as fewer.
 		const inner = board.runtime;

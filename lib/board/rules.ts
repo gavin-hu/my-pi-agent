@@ -20,8 +20,9 @@
  * The board index is a parameter rather than a lookup because three operations need a
  * *different* card: a claim or a move is refused while a dependency is unfinished, and
  * a drop is refused while somebody waits on the card. `lib/board/links.ts` answers those
- * questions; this module decides what to do with the answer. The limits are a parameter
- * for the same reason: the rule decides, the owner of the setting supplies the number.
+ * questions; this module decides what to do with the answer. The board's settings — its WIP
+ * limits and the name its two signatures must carry — are one parameter for the same reason:
+ * the rule decides, the reader of `bytefly.json` supplies them.
  *
  * `add` is {@link createCard} rather than an operation, because it has no card to
  * transition — and because a card is born in `backlog` with no owner, which is the one
@@ -30,7 +31,7 @@
 
 import type { ArtifactCheck } from "./artifact.ts";
 import { type Card, type CardBlock, CARD_VERSION, DEFAULT_PRIORITY, MAX_LOG, type Priority } from "./card.ts";
-import { DEFAULT_WIP, type WipLimits } from "./limits.ts";
+import { type BoardConfig, DEFAULT_BOARD_CONFIG } from "./config.ts";
 import type { Lane } from "./lanes.ts";
 import type { BoardIndex } from "./links.ts";
 import {
@@ -89,9 +90,9 @@ export type CardOp =
 	 * so a caller cannot skip the check by omitting it.
 	 */
 	| { kind: "contract"; artifact?: ArtifactCheck; goal?: unknown; acceptance?: unknown; scopeOut?: unknown }
-	/** Read the contract and approve it: a session that does not hold the card. */
+	/** Read the contract and approve it: the lead, and never the card's holder. */
 	| { kind: "approve" }
-	/** Spot-check the finished work: a session that does not hold the card, in `execute`. */
+	/** Spot-check the finished work: the lead, in `execute`, and never the card's holder. */
 	| { kind: "review" }
 	// Every field but `kind` is optional, and an absent one is left as it was: the page
 	// sends the three it can show, and omitting a link must not clear it.
@@ -156,9 +157,9 @@ export function mayOp(
 	op: CardOp,
 	actor: Actor,
 	board: BoardIndex,
-	limits: WipLimits = DEFAULT_WIP,
+	config: BoardConfig = DEFAULT_BOARD_CONFIG,
 ): string | undefined {
-	const prepared = prepare(card, op, actor, 0, board, limits);
+	const prepared = prepare(card, op, actor, 0, board, config);
 	return "error" in prepared ? prepared.error : undefined;
 }
 
@@ -174,9 +175,9 @@ export function applyOp(
 	actor: Actor,
 	now: number,
 	board: BoardIndex,
-	limits: WipLimits = DEFAULT_WIP,
+	config: BoardConfig = DEFAULT_BOARD_CONFIG,
 ): OpResult {
-	const prepared = prepare(card, op, actor, now, board, limits);
+	const prepared = prepare(card, op, actor, now, board, config);
 	if ("error" in prepared) return { ok: false, error: prepared.error };
 	if (!prepared.changed) return { ok: true, card, changed: false };
 	// `archive` changes the pile a card's file lies in and no field at all, which is why
@@ -186,30 +187,30 @@ export function applyOp(
 }
 
 /** The one place an operation becomes a write: each `step*` decides, this applies. */
-function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: BoardIndex, limits: WipLimits): Prepared {
+function prepare(card: Card, op: CardOp, actor: Actor, now: number, board: BoardIndex, config: BoardConfig): Prepared {
 	switch (op.kind) {
 		case "claim":
-			return claim(card, actor, board, limits);
+			return claim(card, actor, board, config.wip);
 		case "assign":
-			return assign(card, op.to, board, limits);
+			return assign(card, op.to, board, config.wip);
 		case "release":
 			return release(card, actor);
 		case "move":
-			return move(card, op, actor, now, board, limits);
+			return move(card, op, actor, now, board, config);
 		case "note":
 			return note(card, op.text, actor, now);
 		case "contract":
 			return contractOp(card, op, actor);
 		case "approve":
-			return approve(card, actor, now);
+			return approve(card, actor, now, config);
 		case "review":
-			return review(card, actor, now);
+			return review(card, actor, now, config);
 		case "edit":
 			return edit(card, op, actor, board);
 		case "reclaim":
 			return reclaim(card);
 		case "offer":
-			return offer(card, now, board, limits);
+			return offer(card, now, board, config.wip);
 		case "archive":
 			return archive(card);
 		case "drop":

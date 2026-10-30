@@ -1,22 +1,14 @@
 /**
- * The WIP limits: the numbers a board enforces, where they are read from, and the one
- * sentence a full lane refuses with.
+ * The WIP limits: the numbers themselves, and the one sentence a full lane refuses with.
  *
- * A limit is only a gate if the refusal names the number and the way out, so the cases
- * here are about the sentence as much as the count — and about a misconfigured file
- * falling back rather than freezing a board.
+ * A limit is only a gate if the refusal names the number and the way out, so the cases here are
+ * about the sentence as much as the count — and about a misconfigured file being clamped rather
+ * than freezing a board. Where the numbers are read from is `config.test.ts`.
  */
 
-import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { tempDir } from "../../test/helpers/env.ts";
-import { makeTempTracker } from "../../test/helpers/git.ts";
+import { describe, expect, test } from "bun:test";
 import type { Card } from "./card.ts";
-import { countIn, DEFAULT_WIP, limitOf, MAX_WIP, normalizeWip, readWip, wipRefusal } from "./limits.ts";
-
-const temps = makeTempTracker();
-afterAll(() => temps.flush());
+import { countIn, DEFAULT_WIP, limitOf, MAX_WIP, normalizeWip, wipRefusal } from "./limits.ts";
 
 /** `n` cards in one lane, which is all a count needs. */
 function cards(lane: Card["lane"], count: number): Card[] {
@@ -35,22 +27,6 @@ describe("normalizeWip", () => {
 		expect(normalizeWip({ plan: "4", execute: 2.6 })).toEqual({ plan: 4, execute: 3 });
 		// A value that says nothing is not a zero: it is the default.
 		expect(normalizeWip({ plan: null, execute: "lots" })).toEqual({ plan: 3, execute: 5 });
-	});
-});
-
-describe("readWip", () => {
-	test("reads board.wip from the project's bytefly.json", () => {
-		const cwd = temps.track(tempDir("pi-wip-"));
-		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "bytefly.json"), JSON.stringify({ board: { wip: { plan: 2, execute: 4 } } }));
-		expect(readWip(cwd, { agentDir: temps.track(tempDir("pi-wip-agent-")) })).toEqual({ plan: 2, execute: 4 });
-	});
-
-	test("a malformed file is the default board, not a broken one", () => {
-		const cwd = temps.track(tempDir("pi-wip-"));
-		mkdirSync(join(cwd, ".pi"), { recursive: true });
-		writeFileSync(join(cwd, ".pi", "bytefly.json"), "{ not json");
-		expect(readWip(cwd, { agentDir: temps.track(tempDir("pi-wip-agent-")) })).toEqual(DEFAULT_WIP);
 	});
 });
 

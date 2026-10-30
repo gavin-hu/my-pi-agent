@@ -224,13 +224,7 @@ describe("assign", () => {
 		const { call, seed, store, sent } = harness();
 		const id = await seed();
 		// Finish it through the gates, as two sessions would.
-		await advance(
-			await store(),
-			id,
-			"done",
-			{ owner: { label: "billing-core" }, reviewer: { label: "billing-lead" } },
-			NOW,
-		);
+		await advance(await store(), id, "done", { owner: { label: "billing-core" } }, NOW);
 		const result = await call({ action: "assign", card: id, to: "billing-other" });
 		expect(result.isError).toBe(true);
 		expect(resultText(result)).toContain("is done");
@@ -481,13 +475,7 @@ describe("reclaim", () => {
 
 		const board = await store();
 		const other = await board.create({ title: "Second", paths: [] }, { label: "billing-lead" }, NOW);
-		await advance(
-			board,
-			other.id,
-			"done",
-			{ owner: { label: "billing-core" }, reviewer: { label: "billing-lead" } },
-			NOW,
-		);
+		await advance(board, other.id, "done", { owner: { label: "billing-core" } }, NOW);
 		expect(resultText(await call({ action: "reclaim", card: other.id }))).toContain("is done");
 	});
 

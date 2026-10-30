@@ -249,8 +249,12 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  *
  * Like `LONG_MODULES`, the bar may only fall: a feature that needs more modules
  * has to justify the raise here, and a deferral that lands lowers it.
+ *
+ * 727 → 731: the board's `bytefly.json` section became one module (`board/config.ts`, read by
+ * `board` and by `team` through the store) and the signer rule another (`board/lead.ts`), so the
+ * two entries that load the board's rules load two more modules each. Nothing was deferred.
  */
-const MODULE_BUDGET = 727;
+const MODULE_BUDGET = 731;
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {

@@ -94,25 +94,6 @@ export interface BoardSession {
 	team: TeamStanding;
 }
 
-/**
- * The person at the keyboard, as a write is made.
- *
- * The two signs — `approve` and `review` — are refused to the session holding the card, and
- * a repository worked by one session would otherwise never get past `plan`. The person is
- * the one actor a file can name that is not the holder: `/board approve` and `/board review`
- * write as this label, so the rule ("somebody other than the holder") is unchanged and the
- * record says who signed.
- */
-export const PERSON_LABEL = "you";
-
-/** The id the person's actor carries: a prefix no session id uses, so a label cannot stand in. */
-export const PERSON_ID = "person:you";
-
-/** The actor a command writes as: the person's label, and an id a session cannot have. */
-export function personActor(): Actor {
-	return { id: PERSON_ID, label: PERSON_LABEL };
-}
-
 /** Test seams and the one place a caller may redirect the store. */
 export interface BoardSessionOptions {
 	now?: () => number;

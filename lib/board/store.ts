@@ -45,7 +45,7 @@ import {
 import { LANES } from "./lanes.ts";
 import { readCard } from "./read.ts";
 import { indexOf } from "./links.ts";
-import { DEFAULT_WIP, type WipLimits, readWip } from "./limits.ts";
+import { type BoardConfig, DEFAULT_BOARD_CONFIG, readBoardConfig } from "./config.ts";
 import { type Actor, applyOp, type CardOp, createCard } from "./rules.ts";
 
 /** The directory under the agent directory that holds every board. */
@@ -121,12 +121,12 @@ export interface BoardStore {
 	 */
 	readonly key: string;
 	/**
-	 * The WIP limits this board enforces.
+	 * The settings this board works by: its WIP limits and the name its two signatures carry.
 	 *
-	 * Read once when the store opened, and handed to every operation: the page shows the
-	 * same numbers a refusal would, so a head cannot claim room a claim would refuse.
+	 * Read once when the store opened, and handed to every operation: the page shows the same
+	 * numbers a refusal would, so a head cannot claim room a claim would refuse.
 	 */
-	limits(): WipLimits;
+	config(): BoardConfig;
 	/** Create the directories and sweep a temp file a dead process left. */
 	ensure(): Promise<void>;
 	/** Every card on the board, in lane order: backlog, plan, execute, blocked, done. */
@@ -189,13 +189,13 @@ export async function openBoard(
 	// environment carries the active root, so the two are reconciled before the
 	// repository lookup — the same path `plan` and `session-bus` take.
 	const repo = await repoKeyFor(pi, resolveEffectiveCwd(cwd));
-	// Read once per store: the limits are a setting, not a card, and a board that re-read
+	// Read once per store: the settings are a setting, not a card, and a board that re-read
 	// a file on every write would spend a stat to answer a question nobody changed.
-	const limits = readWip(resolveEffectiveCwd(cwd), { agentDir });
+	const config = readBoardConfig(resolveEffectiveCwd(cwd), { agentDir });
 	// The key is handed on, not left to be read off the directory it named: `session-bus`
 	// files this repository's records under the same key, so the two must not be able to
 	// disagree about it.
-	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root, key: repo.key, limits });
+	return createStore(boardDirFor(agentDir, repo.key), { root: repo.root, key: repo.key, config });
 }
 
 /** Build a store over one directory. Exported for tests and for a second backend. */
@@ -204,7 +204,7 @@ export function createStore(
 	options: {
 		root?: string;
 		key?: string;
-		limits?: WipLimits;
+		config?: BoardConfig;
 		/**
 		 * A suite's seam: called once an operation is ready to write and before the re-read that
 		 * decides whether it still may.
@@ -223,7 +223,7 @@ export function createStore(
 	// A store built over a directory by hand has no repository to name, so it names its
 	// own directory: the page then says something true instead of something blank.
 	const root = options.root ?? dir;
-	const limits = options.limits ?? DEFAULT_WIP;
+	const config = options.config ?? DEFAULT_BOARD_CONFIG;
 	const cardsDir = join(dir, CARDS_DIR_NAME);
 	const endedDir = join(dir, ENDED_DIR_NAME);
 	const archiveDir = join(dir, ARCHIVE_DIR_NAME);
@@ -324,7 +324,7 @@ export function createStore(
 			// The preconditions are checked against the card as it is *now*, and against the
 			// board as it is now, so an operation re-applied to a card that changed is refused
 			// rather than forced.
-			const result = applyOp(card, op, actor, now, indexOf(await list()), limits);
+			const result = applyOp(card, op, actor, now, indexOf(await list()), config);
 			if (!result.ok) return { ok: false, error: result.error, card };
 			if (!result.changed) {
 				return { ok: true, card: result.card, changed: false, dropped: false, archived: false };
@@ -380,7 +380,7 @@ export function createStore(
 	return {
 		dir,
 		key,
-		limits: () => limits,
+		config: () => config,
 		ensure,
 		list,
 		scan,

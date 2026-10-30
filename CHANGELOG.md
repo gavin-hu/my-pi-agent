@@ -19,12 +19,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   lanes of three rows: three cards each carrying their contract through one `approve`
   line, then the same three executing at once under their owners, each row crossing one
   `review` line into `done`. It states the two rules a reader of the picture cannot see —
-  approval is given by a session that does not hold the card, and a handoff is a message
+  approval is given by the lead, who does not hold the card, and a handoff is a message
   that never starts a peer's turn — in the shell's foot, and its lane floors carry the
   WIP counts and the lead's round. The stylesheet gains the plan lane's own `--warn`
   role and the 380px box the two-line head pays for.
 - `test`: the 400-line suite bar `test/README.md` states is a gate now.
-  `test/suite-sizes.test.ts` names every declared suite already past it — 74 of them, 61,025
+  `test/suite-sizes.test.ts` names every declared suite already past it — 74 of them, 60,933
   lines — at its exact height, with a total that may only fall: one added line in a named
   suite fails, a suite past the bar that is not named fails, and an entry that went back
   under the bar fails until it is deleted. The line count is what the guard reads, since a
@@ -37,6 +37,15 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   test README, and every comment that pointed at the old file now name the gate it meant.
 
 ### Changed
+
+- `board`: `approve` and `review` take the lead's signature, and nobody else's. The lead is a
+  team name in `bytefly.json` (`{"board": {"lead": "team-lead"}}`, `lead` by default), so it
+  signs as a session that joined under it, and never while holding the card — a lead releases a
+  card before signing it. Two peers can no longer sign each other's cards. `/board approve` and
+  `/board review` remain the other way in, writing as the person `you`, which is what lets a
+  repository worked by one session finish its work; the refusal names both the lead and that
+  door. The board's `bytefly.json` section is read once, in `lib/board/config.ts`, and handed to
+  the rules as one `BoardConfig` (the WIP limits and the lead), so no rule learns to read a file.
 
 - `lib`: `TUI_TOKENS` names Pi's tool vocabulary too — `toolTitle` and `toolOutput` join the role
   map, so no kit module or renderer names a token and the documented carve-out is gone. Rendered
