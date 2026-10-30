@@ -30,13 +30,17 @@ export const ENV_OFFLINE = "PI_OFFLINE";
 /**
  * Extensions that stay unloaded unless `PI_ENABLED_EXTENSIONS` names them.
  *
+ * `board` and `team` are one workflow — a work list, and the lead's half of it
+ * — so a session opts into both or neither. They stay independent at runtime:
+ * naming one never loads the other.
+ *
  * They are declared in the package manifest like every other extension, so Pi
  * still discovers them and their docs stay in the pack; the surface is simply
  * not registered until the session asks for it. `new Set` rather than an array
  * literal because `test/structure.test.ts` rejects a module-level array in
  * `lib/`, and a fixed keyword table is the one container that rule allows.
  */
-export const OPT_IN_EXTENSIONS: ReadonlySet<string> = new Set(["board"]);
+export const OPT_IN_EXTENSIONS: ReadonlySet<string> = new Set(["board", "team"]);
 
 /** What the environment says about one extension this session. */
 export type ExtensionEnablement = "on" | "disabled" | "opt-in";

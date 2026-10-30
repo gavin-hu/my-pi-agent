@@ -11,6 +11,16 @@ The report says what the peer will actually do with it.
 Nothing starts a process. A message lands in the peer's inbox and is reported at its next
 turn, so `assign` and `offer` are messages, not launches.
 
+Both halves are **opt-in**, because the board is a workflow a session either runs or does
+not. A lead names both — `PI_ENABLED_EXTENSIONS=board,team` — and a worker session that
+only works cards names neither. They stay independent at runtime: naming one never loads
+the other, and `team` is refused by `PI_DISABLED_EXTENSIONS` like every extension.
+
+Naming `team` alone is legal and stays so — the factory needs no board to register — but
+it is the crippled case: every card it moves is one no `board` tool can read. `doctor`
+reports the board row as opt-in and names the switch that adds it, which is the one place
+a reader who took that shortcut is told.
+
 <img src="../../assets/screens/team.png" alt="The Team tab as a dashboard: on the left, a Needs a decision queue of rows with a coloured kind edge, the reason on its own line, and the owner as a chip on the row's right; on the right, a Teammates list of one-line rows, each a state dot, a label, a you chip, a mail badge, a not listening chip on a peer whose watch is off, and what that teammate holds at the row's right; and one muted Done line under both" width="100%">
 
 *The Team tab: the cards that need the lead, then who is on the team — including an
@@ -199,7 +209,8 @@ decision the plain unassigned row never offered: re-offer, `assign` it, or take 
 - **`board`**: the same store, the same cards, the same rules — `team` calls `lib/board/`
   directly, so a card it hands over is one `board` can see. Either extension works without
   the other: without `team` the page still reclaims, and without `board` there is nothing
-  to assign.
+  to assign — which is why the lead enables both, and why enabling one never loads the
+  other.
 - **`session-bus`**: the transport, and the one extension `team` talks to — through
   `lib/session-tool.ts`, whose `join` is an in-process request (a command context cannot
   call a tool) and whose `peers` and `send` are nested tool calls. The bus's actions and
@@ -247,7 +258,7 @@ decision the plain unassigned row never offered: re-offer, `assign` it, or take 
 
 | File | Responsibility |
 |---|---|
-| `index.ts` | The factory: gate on `PI_DISABLED_EXTENSIONS`, build the session, register the tool and the command |
+| `index.ts` | The factory: gate on the opt-in switch (`PI_ENABLED_EXTENSIONS`) and `PI_DISABLED_EXTENSIONS`, build the session, register the tool and the command |
 | `schema.ts` | The tool's three actions and their parameters |
 | `tools.ts` | The dispatch order, the refusals, and the report |
 | `dispatch.ts` | The handoff and offer text, the bus behind a seam, and who is not listening |

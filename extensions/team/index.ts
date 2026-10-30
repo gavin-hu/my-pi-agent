@@ -8,11 +8,11 @@
  * Its one
  * command, `/team`, prints the round the board's Team tab draws, without a browser.
  *
- * Either extension works without the other: `board` is the work list any session
- * uses, and `team` is the lead's. The factory only registers; the store is opened on
- * first use.
+ * Either extension works without the other: `board` is the work list, and `team` is
+ * the lead's half of it; both are opt-in, so a session names the ones it runs. The
+ * factory only registers; the store is opened on first use.
  *
- * Load with:  pi --extension ./extensions/team --extension ./extensions/session-bus
+ * Load with:  PI_ENABLED_EXTENSIONS=board,team pi --extension ./extensions/team --extension ./extensions/session-bus
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
