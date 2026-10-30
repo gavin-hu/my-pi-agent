@@ -661,7 +661,7 @@ has started:
 ```
 
 The spinner and the colour are Pi's: the indicator owns the `◐` frame and takes
-the composer border's role, so it is `success` in auto and `warning` while
+the composer border's role, so it is `accent` in auto and `warning` while
 planning. The line deliberately does not name the tool — the transcript already
 draws each call as its own block, and one word reads faster than a name that
 changes under you.

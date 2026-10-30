@@ -43,7 +43,7 @@ interface ModeEditorOptions {
 	theme: () => Theme;
 }
 
-/** The composer with Shift+Tab bound to plan mode and its border to the mode. */
+/** The composer with Shift+Tab bound to plan mode and its border to the mode's own colour. */
 export class ModeEditor extends CustomEditor {
 	constructor(
 		tui: TUI,
@@ -67,7 +67,8 @@ export class ModeEditor extends CustomEditor {
 	}
 
 	override render(width: number): string[] {
-		const role = this.options.isPlanning() ? "warn" : "ok";
+		// The two roles the footer's mode segment draws, so the bar and the composer agree.
+		const role = this.options.isPlanning() ? "warn" : "accent";
 		this.borderColor = (text) => paint(this.options.theme(), role, text);
 		return super.render(width);
 	}
