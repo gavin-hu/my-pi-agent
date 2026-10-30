@@ -9,26 +9,14 @@
 
 import { describe, expect, test } from "bun:test";
 import { type Card, signatureOf } from "./card.ts";
+import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { buildView } from "./view.ts";
 
 const NOW = 5_000;
 
 /** A card in one lane. */
 function card(id: string, overrides: Partial<Card> = {}): Card {
-	const base: Card = {
-		v: 2,
-		id,
-		title: `Card ${id}`,
-		lane: "backlog",
-		paths: [],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: 0,
-		updatedAt: NOW,
-		by: "billing-lead",
-	};
-	return { ...base, ...overrides };
+	return cardFixture(id, { updatedAt: NOW, ...overrides });
 }
 
 const ME = { id: "s-lead", label: "billing-lead" };

@@ -39,24 +39,8 @@ import {
 	priorityOf,
 	priorityRank,
 } from "./card.ts";
-
-/** A card that passes, so each refusal case changes exactly one field. */
-function card(overrides: Partial<Card> = {}): Card {
-	return {
-		v: CARD_VERSION,
-		id: "4",
-		title: "Billing webhook accepts orders",
-		lane: "backlog",
-		paths: ["src/billing"],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: 1_000,
-		updatedAt: 1_000,
-		by: "billing-lead",
-		...overrides,
-	};
-}
+// A card that passes, so each refusal case changes exactly one field.
+import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
 
 describe("normalizeTitle", () => {
 	test("keeps one sanitized line", () => {

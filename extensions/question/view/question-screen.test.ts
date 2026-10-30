@@ -11,7 +11,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
-import { coloringTheme, createFakePi, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { registeredTool } from "../../../test/helpers/fixtures/question.ts";
 import { OTHER_LABEL } from "../answers.ts";
 import { askViaDialogs, batchPrompt, parseBatchAnswers, parseMultiSelect, type QuestionUI } from "../dialogs.ts";
 import { askViaTui } from "./question-screen.ts";
@@ -25,7 +26,6 @@ import {
 	type KeyAction,
 	type TuiState,
 } from "../tui-state.ts";
-import { TOOL_NAME, registerTools } from "../tools.ts";
 import type { Question, Selection } from "../types.ts";
 
 const auth: Question = {
@@ -715,12 +715,6 @@ describe("askViaTui viewport", () => {
 });
 
 /** The registered tool whose transcript renderers these tests exercise. */
-function registeredTool() {
-	const { pi, tools } = createFakePi();
-	registerTools(pi);
-	return tools.get(TOOL_NAME);
-}
-
 describe("ask_user_question transcript rendering", () => {
 	test("the call line lists one options line per question", () => {
 		const lines = registeredTool()

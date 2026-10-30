@@ -8,8 +8,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { graceTimer } from "../../test/helpers/fixtures/http.ts";
 import type { ServerResponse } from "node:http";
-import type { ArmTimer } from "../timer.ts";
 import { createSinks } from "./sink.ts";
 
 /** A response that records what was written to it, so the sink can own liveness. */
@@ -32,29 +32,6 @@ function pageResponse(): ServerResponse & { frames: string[]; ended: boolean } {
 	// The sink reads only `write`, `end`, `writableEnded`, and `destroyed`, which is
 	// everything a route can observe about one response.
 	return double as unknown as ServerResponse & { frames: string[]; ended: boolean };
-}
-
-/** A grace timer that only fires when the test says so. */
-function graceTimer(): { timer: ArmTimer; fire(): void; armed: number; cancelled: number } {
-	let pending: (() => void) | undefined;
-	const state = {
-		armed: 0,
-		cancelled: 0,
-		timer: ((_ms: number, run: () => void) => {
-			state.armed += 1;
-			pending = run;
-			return () => {
-				state.cancelled += 1;
-				pending = undefined;
-			};
-		}) as ArmTimer,
-		fire: () => {
-			const run = pending;
-			pending = undefined;
-			run?.();
-		},
-	};
-	return state;
 }
 
 describe("event sinks", () => {

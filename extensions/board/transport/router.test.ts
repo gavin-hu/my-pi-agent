@@ -10,29 +10,12 @@
 import { describe, expect, test } from "bun:test";
 import { LOOPBACK_HOSTS, PAGE_CSP } from "../../../lib/http/index.ts";
 import { buildView, type BoardView } from "../../../lib/board/view.ts";
-import type { Card } from "../../../lib/board/card.ts";
 import type { BoardRouterContext } from "./router.ts";
 import { handleBoardRequest } from "./router.ts";
+// A card that passes, so a case can change one thing.
+import { billingCard as card } from "../../../test/helpers/fixtures/board.ts";
 
 const TOKEN = "0123456789abcdef0123456789abcdef";
-
-/** A card that passes, so a case can change one thing. */
-function card(overrides: Partial<Card> = {}): Card {
-	return {
-		v: 2,
-		id: "4",
-		title: "Billing webhook accepts orders",
-		lane: "backlog",
-		paths: ["src/billing"],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: 1_000,
-		updatedAt: 1_000,
-		by: "billing-lead",
-		...overrides,
-	};
-}
 
 /** The snapshot a fake view answers with. Its one card is ordinary and waits on nothing. */
 function view(): BoardView {

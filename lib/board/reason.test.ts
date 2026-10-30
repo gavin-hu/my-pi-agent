@@ -8,7 +8,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { CARD_VERSION, type Card } from "./card.ts";
+import { type Card } from "./card.ts";
+import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { reasonFor, REASON_FOR_JS, REASON_KINDS } from "./reason.ts";
 
 const NOW = 1_000_000;
@@ -16,20 +17,7 @@ const NOW = 1_000_000;
 const ago = (at: number): string => `${Math.round((NOW - at) / 60_000)}m`;
 
 function card(overrides: Partial<Card> = {}): Card {
-	return {
-		v: CARD_VERSION,
-		id: "4",
-		title: "feature",
-		lane: "backlog",
-		paths: [],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-		by: "billing-lead",
-		...overrides,
-	};
+	return cardFixture("4", { title: "feature", createdAt: NOW, updatedAt: NOW, ...overrides });
 }
 
 const COMPLETE = { goal: "g", acceptance: "a", scopeOut: "s" };

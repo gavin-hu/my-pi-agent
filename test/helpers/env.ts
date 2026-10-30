@@ -28,6 +28,15 @@ export function tempDir(prefix: string): string {
 	return mkdtempSync(join(tmpdir(), prefix));
 }
 
+/**
+ * A temp directory a suite's tracker removes at teardown: `makeTempTracker().track`
+ * plus a prefix, which is the one line every suite that makes a working directory
+ * repeats.
+ */
+export function scratchDir(tracker: { track: (dir: string) => string }, prefix: string): string {
+	return tracker.track(tempDir(prefix));
+}
+
 /** Point `PI_CODING_AGENT_DIR` at a temp dir, returning a restore callback. */
 export function useAgentDir(prefix = "pi-agent-"): { dir: string; restore: () => void } {
 	const original = process.env.PI_CODING_AGENT_DIR;

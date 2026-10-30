@@ -9,8 +9,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { fakeCtx } from "../../test/helpers/context.ts";
+import { bareCtx, fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { tempDir, useEnv, withAgentDir, withEnv } from "../../test/helpers/env.ts";
 import checkExtension, { registerCheck } from "./index.ts";
@@ -85,15 +84,11 @@ function project(script: string, config: Record<string, unknown> = {}): string {
 }
 
 /** A context the runtime only reads cwd from. */
-function ctx(cwd: string): ExtensionContext {
-	return { cwd } as unknown as ExtensionContext;
-}
-
 describe("check runtime with a real process", () => {
 	test("passes a zero-exit command", async () => {
 		await withAgentDir(async () => {
 			const dir = project("process.exit(0);\n");
-			const result = await createCheckRuntime().run("all", ctx(dir));
+			const result = await createCheckRuntime().run("all", bareCtx(dir));
 
 			expect(result).toMatchObject({ status: "passed", exitCode: 0, commands: ["node script.js"] });
 		});
@@ -102,7 +97,7 @@ describe("check runtime with a real process", () => {
 	test("parses a generic failure from a real process", async () => {
 		await withAgentDir(async () => {
 			const dir = project('console.log("src/a.ts:2:3: error: nope"); process.exit(1);\n');
-			const result = await createCheckRuntime().run("all", ctx(dir));
+			const result = await createCheckRuntime().run("all", bareCtx(dir));
 
 			expect(result.status).toBe("failed");
 			expect(result.failures[0]).toMatchObject({ path: "src/a.ts", line: 2, column: 3, command: "node script.js" });
@@ -112,7 +107,7 @@ describe("check runtime with a real process", () => {
 	test("falls back to the tail when nothing parses", async () => {
 		await withAgentDir(async () => {
 			const dir = project('console.log("prose only"); process.exit(2);\n');
-			const result = await createCheckRuntime().run("all", ctx(dir));
+			const result = await createCheckRuntime().run("all", bareCtx(dir));
 
 			expect(result.status).toBe("failed");
 			expect(result.failures[0]?.message).toContain("status 2");
@@ -123,14 +118,14 @@ describe("check runtime with a real process", () => {
 	test("times out and cancels a live process", async () => {
 		await withAgentDir(async () => {
 			const dir = project("for (;;) {}\n", { timeoutMs: 50 });
-			const result = await createCheckRuntime().run("all", ctx(dir));
+			const result = await createCheckRuntime().run("all", bareCtx(dir));
 			expect(result.status).toBe("timeout");
 		});
 
 		await withAgentDir(async () => {
 			const dir = project("for (;;) {}\n", { timeoutMs: 5_000 });
 			const runtime = createCheckRuntime();
-			const active = runtime.start("all", ctx(dir));
+			const active = runtime.start("all", bareCtx(dir));
 			active.cancel();
 			const result = await active.promise;
 			expect(result.status).toBe("cancelled");

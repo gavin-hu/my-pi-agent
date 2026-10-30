@@ -255,8 +255,10 @@ to its size so it can only shrink:
   library. The two exception maps carry the reason a
   same-name wrapper is legitimate (a different shape, an injected seam), and the
   guard reads declarations through the TypeScript AST, so an annotated arrow or a
-  nested helper is in scope. Its map sizes are pinned: a new copy is extracted,
-  not excepted.
+  nested helper is in scope. It holds the test tree too: a `*.test.ts` body
+  identical to another test file's is a duplicate, so a scenario two suites need
+  is one fixture in `test/helpers` rather than two copies. Its map sizes are
+  pinned: a new copy is extracted, not excepted.
 - **No module grows** is `LONG_MODULES` in `test/structure.test.ts`: every module
   past 600 lines — under `extensions/`, `lib/`, or `scripts/` — carries the one
   responsibility that keeps it whole and its own height. One added line fails. A height is lowered with the file, deleted once the

@@ -6,7 +6,7 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";
 import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
 import { fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
-import { resultEntry } from "../../test/helpers/fixtures/goal.ts";
+import { resultEntry, todoEntry } from "../../test/helpers/fixtures/goal.ts";
 import { DEFAULT_GOAL_CONFIG, loadGoalConfig, normalizeGoalConfig } from "./config.ts";
 import { createGoalRuntime } from "./runtime.ts";
 import { openTodoCount, reconstructGoal, settledGoal } from "./state.ts";
@@ -15,11 +15,6 @@ import type { Goal } from "./types.ts";
 const planning = (objective: string): Goal => ({ objective, status: "planning" });
 const active = (objective: string): Goal => ({ objective, status: "active" });
 const achieved = (objective: string): Goal => ({ objective, status: "achieved" });
-
-/** A session entry carrying one todo tool result. */
-function todoResult(todos: unknown): unknown {
-	return { type: "message", message: { role: "toolResult", toolName: "todo", details: { todos, action: "write" } } };
-}
 
 describe("goal state", () => {
 	test("reads the last goal written on the branch", () => {
@@ -46,7 +41,7 @@ describe("goal state", () => {
 
 	test("openTodoCount counts only the items the list still has open", () => {
 		const branch = [
-			todoResult([
+			todoEntry([
 				{ content: "Close the docs", status: "completed" },
 				{ content: "Ship the parser", status: "in_progress" },
 				{ content: "Write the notes", status: "pending" },

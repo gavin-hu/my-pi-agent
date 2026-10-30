@@ -17,7 +17,7 @@ import { SUBAGENT_FINISHED_CHANNEL } from "../../../lib/events.ts";
 import { NOTICE_TYPE } from "../../../lib/notice.ts";
 import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
 import { zeroUsage } from "../../../lib/usage.ts";
-import { tempDir, withAgentDir } from "../../../test/helpers/env.ts";
+import { scratchDir, withAgentDir } from "../../../test/helpers/env.ts";
 import { emit, fakeTheme, makeFakePi, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
 import { fakeFooterCtx, fullSnapshot, renderFooter, usageOf } from "../../../test/helpers/fixtures/bytefly.ts";
 import { makeTempTracker } from "../../../test/helpers/git.ts";
@@ -71,10 +71,6 @@ import type { UsageRecord } from "./types.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-function tempCwd(prefix: string): string {
-	return temps.track(tempDir(prefix));
-}
 
 function writeConfig(dir: string, name: string, value: unknown): void {
 	mkdirSync(dir, { recursive: true });
@@ -168,7 +164,7 @@ describe("price config", () => {
 	});
 
 	test("a project currency code supplies the new currency's precision", async () => {
-		const cwd = tempCwd("bytefly-price-cwd-");
+		const cwd = scratchDir(temps, "bytefly-price-cwd-");
 		writeProjectConfig(cwd, { currency: { code: "USD" } });
 		await withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", { price: { currency: { decimals: 0 } } });
@@ -229,7 +225,7 @@ describe("price config", () => {
 	});
 
 	test("prices DeepSeek in yuan with no file at all", async () => {
-		const cwd = tempCwd("bytefly-price-cwd-");
+		const cwd = scratchDir(temps, "bytefly-price-cwd-");
 		await withAgentDir(() => {
 			const loaded = loadByteflyConfig(cwd);
 			expect(loaded.currency).toEqual({ code: "CNY", decimals: 2 });
@@ -240,7 +236,7 @@ describe("price config", () => {
 	});
 
 	test("layers the global file, then the project file over it", async () => {
-		const cwd = tempCwd("bytefly-price-cwd-");
+		const cwd = scratchDir(temps, "bytefly-price-cwd-");
 		writeProjectConfig(cwd, { currency: {} });
 		await withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", { price: { currency: { decimals: 3 } } });
@@ -249,7 +245,7 @@ describe("price config", () => {
 	});
 
 	test("merges rates key by key, the project file replacing a shared key", async () => {
-		const cwd = tempCwd("bytefly-price-cwd-");
+		const cwd = scratchDir(temps, "bytefly-price-cwd-");
 		writeProjectConfig(cwd, { rates: { shared: { input: 1 }, "only-project": { input: 3 } } });
 		await withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", {
@@ -269,7 +265,7 @@ describe("price config", () => {
 	});
 
 	test("keeps the global windows when a project file only overrides the zone", async () => {
-		const cwd = tempCwd("bytefly-price-cwd-");
+		const cwd = scratchDir(temps, "bytefly-price-cwd-");
 		writeProjectConfig(cwd, { peak: { timezone: "UTC" } });
 		await withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", {
@@ -282,7 +278,7 @@ describe("price config", () => {
 	});
 
 	test("replaces the windows when a project file states them", async () => {
-		const cwd = tempCwd("bytefly-price-cwd-");
+		const cwd = scratchDir(temps, "bytefly-price-cwd-");
 		writeProjectConfig(cwd, { peak: { windows: [{ from: "09:00", to: "12:00" }] } });
 		await withAgentDir((agentDir) => {
 			writeConfig(agentDir, "bytefly.json", {
@@ -293,7 +289,7 @@ describe("price config", () => {
 	});
 
 	test("ignores a malformed file", async () => {
-		const cwd = tempCwd("bytefly-price-cwd-");
+		const cwd = scratchDir(temps, "bytefly-price-cwd-");
 		writeConfig(join(cwd, ".pi"), "bytefly.json", { price: {} });
 		writeFileSync(join(cwd, ".pi", "bytefly.json"), "{ not json");
 		await withAgentDir(() => {

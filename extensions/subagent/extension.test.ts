@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import { callTool } from "../../test/helpers/tools.ts";
 import subagent, { TOOL_NAME } from "./index.ts";
 import type { BackgroundRun, BackgroundRuntime } from "./background.ts";
 import { registerAgentsCommand } from "./commands.ts";
@@ -55,7 +56,7 @@ function register(run: (options: RunOptions) => Promise<SingleResult>) {
 }
 
 function call(tool: any, params: unknown, ctx = fakeToolCtx()): Promise<any> {
-	return tool.execute("call-1", params, undefined, undefined, ctx);
+	return callTool(tool, params, ctx);
 }
 
 describe("subagent registration", () => {

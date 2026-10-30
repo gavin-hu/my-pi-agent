@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { type Card } from "./card.ts";
+import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { LANES } from "./lanes.ts";
 import { buildRound, IDLE_MS } from "./round.ts";
 
@@ -15,20 +16,7 @@ const NOW = 1_000_000;
 
 /** A card in a given lane, held by `owner` unless it is a todo. */
 function card(id: string, overrides: Partial<Card> = {}): Card {
-	const base: Card = {
-		v: 2,
-		id,
-		title: `Card ${id}`,
-		lane: "backlog",
-		paths: [],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: 0,
-		updatedAt: NOW,
-		by: "lead",
-	};
-	return { ...base, ...overrides };
+	return cardFixture(id, { updatedAt: NOW, by: "lead", ...overrides });
 }
 
 /** An executing card, which is where most groups come from. */

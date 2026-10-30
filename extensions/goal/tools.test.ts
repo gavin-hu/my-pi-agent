@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { PLAN_CONSENT, PLAN_ENTER_REQUEST, type PlanModeRequest } from "../../lib/plan-entry.ts";
 import { fakeCtx, type FakeCtxOptions } from "../../test/helpers/context.ts";
+import { callTool } from "../../test/helpers/tools.ts";
 import { lastWidget } from "../../test/helpers/entries.ts";
 import { fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
-import { clarifyRegistry, clarifyReply, SCOPE_QUESTION } from "../../test/helpers/fixtures/goal.ts";
+import { clarifyRegistry, clarifyReply, SCOPE_QUESTION, todoEntry } from "../../test/helpers/fixtures/goal.ts";
 import { clarifyGoalPrompt, NOTES_FENCE, prepareGoalPrompt, stripNotes } from "./clarify.ts";
 import { MAX_QUESTIONS, parseClarification } from "./clarify-parse.ts";
 import { buildClarifyMessages, buildClarifyUserText, CLARIFY_SYSTEM_PROMPT } from "./clarify-prompt.ts";
@@ -491,13 +492,6 @@ function setup(options: { plan?: boolean } = {}) {
 	return { pi, tool, runtime };
 }
 
-const call = (tool: any, params: unknown, ctx: any) => tool.execute("call-1", params, undefined, undefined, ctx);
-
-/** A session entry carrying one todo tool result. */
-function todoResult(todos: unknown): unknown {
-	return { type: "message", message: { role: "toolResult", toolName: "todo", details: { todos, action: "write" } } };
-}
-
 describe("goal tool", () => {
 	test("registers a sequential, non-read-only, idempotent tool", () => {
 		const { tool } = setup();
@@ -512,7 +506,7 @@ describe("goal tool", () => {
 	test("sets the goal and returns it", async () => {
 		const { tool, runtime } = setup();
 		const { ctx } = fakeCtx();
-		const result = await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser" }, ctx);
 
 		expect(result.isError).toBeUndefined();
 		expect(result.details.action).toBe("set");
@@ -526,7 +520,7 @@ describe("goal tool", () => {
 		const { ctx } = fakeCtx();
 		expect(tool.outputSchema).toBeDefined();
 
-		const result = await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser" }, ctx);
 		expect(result.structuredContent).toEqual({
 			goal: { objective: "Ship the parser", status: "active" },
 			action: "set",
@@ -536,18 +530,18 @@ describe("goal tool", () => {
 	test("structured content reports a clear as a null goal", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
-		await call(tool, { objective: "Ship the parser" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
 
-		const result = await call(tool, { objective: "" }, ctx);
+		const result = await callTool(tool, { objective: "" }, ctx);
 		expect(result.structuredContent).toEqual({ goal: null, action: "clear" });
 	});
 
 	test("structured content mirrors a rejected call's unchanged goal and error", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
-		await call(tool, { objective: "Keep me" }, ctx);
+		await callTool(tool, { objective: "Keep me" }, ctx);
 
-		const result = await call(tool, { objective: "x".repeat(MAX_OBJECTIVE + 1) }, ctx);
+		const result = await callTool(tool, { objective: "x".repeat(MAX_OBJECTIVE + 1) }, ctx);
 
 		expect(result.isError).toBe(true);
 		expect(result.structuredContent).toEqual({
@@ -562,8 +556,8 @@ describe("goal tool", () => {
 	test("marks the goal achieved", async () => {
 		const { tool, runtime } = setup();
 		const { ctx } = fakeCtx();
-		await call(tool, { objective: "Ship the parser" }, ctx);
-		const result = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
 
 		expect(result.details.action).toBe("achieve");
 		expect(result.details.goal.status).toBe("achieved");
@@ -575,7 +569,7 @@ describe("goal tool", () => {
 		const { ctx, confirms } = fakeCtx({ confirm: true });
 		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanModeRequest).respond(true));
 
-		const result = await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser" }, ctx);
 
 		expect(confirms).toEqual([{ title: PLAN_ASK, message: PLAN_CONSENT }]);
 		expect(result.details.goal).toEqual({ objective: "Ship the parser", status: "planning" });
@@ -590,7 +584,7 @@ describe("goal tool", () => {
 		const { tool } = setup({ plan: true });
 		const { ctx } = fakeCtx({ confirm: false });
 
-		const result = await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser" }, ctx);
 		expect(result.details.goal).toEqual({ objective: "Ship the parser", status: "active" });
 	});
 
@@ -599,10 +593,10 @@ describe("goal tool", () => {
 		const { ctx, confirms } = fakeCtx({ confirm: true });
 		pi.events.on(PLAN_ENTER_REQUEST, (data: unknown) => (data as PlanModeRequest).respond(true));
 
-		const draft = await call(tool, { objective: "Ship the parser" }, ctx);
+		const draft = await callTool(tool, { objective: "Ship the parser" }, ctx);
 		expect(draft.details.goal.status).toBe("planning");
 
-		const result = await call(tool, { objective: "Ship it well", status: "active" }, ctx);
+		const result = await callTool(tool, { objective: "Ship it well", status: "active" }, ctx);
 		expect(confirms).toHaveLength(1);
 		expect(result.details.goal).toEqual({ objective: "Ship it well", status: "active" });
 	});
@@ -610,10 +604,10 @@ describe("goal tool", () => {
 	test("does not ask again when an active goal is refined", async () => {
 		const { tool } = setup({ plan: true });
 		const { ctx, confirms } = fakeCtx({ confirm: true });
-		await call(tool, { objective: "Ship the parser" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
 		confirms.length = 0;
 
-		const result = await call(tool, { objective: "Ship it well" }, ctx);
+		const result = await callTool(tool, { objective: "Ship it well" }, ctx);
 		expect(confirms).toEqual([]);
 		expect(result.details.goal).toEqual({ objective: "Ship it well", status: "active" });
 	});
@@ -621,10 +615,10 @@ describe("goal tool", () => {
 	test("does not ask before marking an achieved goal", async () => {
 		const { tool } = setup({ plan: true });
 		const { ctx, confirms } = fakeCtx();
-		await call(tool, { objective: "Ship the parser" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
 		confirms.length = 0;
 
-		await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		await callTool(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
 		expect(confirms).toEqual([]);
 	});
 
@@ -632,14 +626,14 @@ describe("goal tool", () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx({
 			branch: [
-				todoResult([
+				todoEntry([
 					{ content: "Close the docs", status: "completed" },
 					{ content: "Ship the parser", status: "in_progress" },
 				]),
 			],
 		});
-		await call(tool, { objective: "Ship the parser" }, ctx);
-		const result = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
 
 		expect(result.content[0].text).toContain("1 todo item is still open");
 		expect(result.structuredContent).toEqual({
@@ -650,9 +644,9 @@ describe("goal tool", () => {
 
 	test("says nothing about the list when it is empty or the goal is only set", async () => {
 		const { tool } = setup();
-		const { ctx } = fakeCtx({ branch: [todoResult([{ content: "Done", status: "completed" }])] });
-		await call(tool, { objective: "Ship the parser" }, ctx);
-		const result = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		const { ctx } = fakeCtx({ branch: [todoEntry([{ content: "Done", status: "completed" }])] });
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
 
 		expect(result.content[0].text).toBe("Goal achieved: Ship the parser");
 	});
@@ -660,7 +654,7 @@ describe("goal tool", () => {
 	test("updates the widget on a TUI session", async () => {
 		const { tool } = setup();
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui" });
-		await call(tool, { objective: "Ship the parser" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
 
 		expect(widgetCalls.at(-1)?.key).toBe(WIDGET_KEY);
 		expect(lastWidget(widgetCalls)).toBeInstanceOf(Function);
@@ -669,8 +663,8 @@ describe("goal tool", () => {
 	test("clearing removes the goal and the widget", async () => {
 		const { tool, runtime } = setup();
 		const { ctx, widgetCalls } = fakeCtx({ mode: "tui" });
-		await call(tool, { objective: "Ship the parser" }, ctx);
-		const result = await call(tool, { objective: "" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "" }, ctx);
 
 		expect(result.details.action).toBe("clear");
 		expect(result.details.goal).toBeNull();
@@ -682,9 +676,9 @@ describe("goal tool", () => {
 	test("rejects an over-long objective without changing the goal", async () => {
 		const { tool, runtime } = setup();
 		const { ctx } = fakeCtx();
-		await call(tool, { objective: "Keep me" }, ctx);
+		await callTool(tool, { objective: "Keep me" }, ctx);
 
-		const result = await call(tool, { objective: "x".repeat(MAX_OBJECTIVE + 1) }, ctx);
+		const result = await callTool(tool, { objective: "x".repeat(MAX_OBJECTIVE + 1) }, ctx);
 
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toContain("longer than");
@@ -695,9 +689,9 @@ describe("goal tool", () => {
 	test("rejects an empty achieved objective without clearing the goal", async () => {
 		const { tool, runtime } = setup();
 		const { ctx } = fakeCtx();
-		await call(tool, { objective: "Keep me" }, ctx);
+		await callTool(tool, { objective: "Keep me" }, ctx);
 
-		const result = await call(tool, { objective: "", status: "achieved" }, ctx);
+		const result = await callTool(tool, { objective: "", status: "achieved" }, ctx);
 
 		expect(result.isError).toBe(true);
 		expect(result.details.error).toContain("resend the full objective");
@@ -709,9 +703,9 @@ describe("goal tool", () => {
 	test("a rejected achieve reports the attempted action", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
-		await call(tool, { objective: "Keep me" }, ctx);
+		await callTool(tool, { objective: "Keep me" }, ctx);
 
-		const result = await call(tool, { objective: "x".repeat(MAX_OBJECTIVE + 1), status: "achieved" }, ctx);
+		const result = await callTool(tool, { objective: "x".repeat(MAX_OBJECTIVE + 1), status: "achieved" }, ctx);
 
 		expect(result.isError).toBe(true);
 		expect(result.details.action).toBe("achieve");
@@ -719,7 +713,7 @@ describe("goal tool", () => {
 
 	test("works without a UI context", async () => {
 		const { tool, runtime } = setup();
-		const result = await call(tool, { objective: "Headless" }, undefined);
+		const result = await callTool(tool, { objective: "Headless" }, undefined);
 		expect(result.isError).toBeUndefined();
 		expect(runtime.getGoal()).toEqual({ objective: "Headless", status: "active" });
 	});
@@ -749,7 +743,7 @@ describe("goal tool rendering", () => {
 	test("renderResult states the status without repeating the objective", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
-		const result = await call(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser" }, ctx);
 		const lines = tool
 			.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true })
 			.render(80);
@@ -760,7 +754,7 @@ describe("goal tool rendering", () => {
 	test("renderResult reads as done for an achieved goal, at any expansion", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
-		const result = await call(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
+		const result = await callTool(tool, { objective: "Ship the parser", status: "achieved" }, ctx);
 		const withOptions = (expanded: boolean) =>
 			render(tool.renderResult(result, { expanded, isPartial: false }, theme, { argsComplete: true }), 200);
 		expect(withOptions(false)).toContain("Goal · achieved");
@@ -771,8 +765,8 @@ describe("goal tool rendering", () => {
 	test("renders a clear with a neutral marker, not the achieved check", async () => {
 		const { tool } = setup();
 		const { ctx } = fakeCtx();
-		await call(tool, { objective: "Ship the parser" }, ctx);
-		const result = await call(tool, { objective: "" }, ctx);
+		await callTool(tool, { objective: "Ship the parser" }, ctx);
+		const result = await callTool(tool, { objective: "" }, ctx);
 
 		const text = render(
 			tool.renderResult(result, { expanded: false, isPartial: false }, theme, { argsComplete: true }),

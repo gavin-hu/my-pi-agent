@@ -3,7 +3,7 @@ import { mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir } from "../../test/helpers/env.ts";
+import { scratchDir } from "../../test/helpers/env.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import { settle } from "../../test/helpers/process.ts";
@@ -13,10 +13,6 @@ import { createBusStore } from "./store.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-function busDir(): string {
-	return temps.track(tempDir("pi-session-bus-"));
-}
 
 function context(cwd: string, sessionId: string, sessionName: string, mode = "tui"): ExtensionContext {
 	return fakeCtx({ cwd, sessionId, sessionName, mode, hasUI: mode === "tui" }).ctx as ExtensionContext;
@@ -57,7 +53,7 @@ async function acting(session: SessionBus, ctx: ExtensionContext): Promise<void>
 
 describe("registration", () => {
 	test("reads the start token when the bus starts, not when the bus is constructed", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		let calls = 0;
 		const session = runtime(dir, {
 			repo: { root: "/repo/frontend", key: "shared" },
@@ -74,7 +70,7 @@ describe("registration", () => {
 	});
 
 	test("no mode joins on start; a name joins, and a reader stays off the bus", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const terminal = bus(dir, "/repo/frontend", now);
 		const terminalCtx = context("/repo/frontend", "s1", "frontend");
@@ -98,7 +94,7 @@ describe("registration", () => {
 	});
 
 	test("stop removes the record and releases claims", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
@@ -113,7 +109,7 @@ describe("registration", () => {
 	});
 
 	test("stopping one process of a resumed session leaves the survivor its claims", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		// `/resume` in a second pane registers one session id from two processes.
 		const first = runtime(dir, { repo: { root: "/repo/frontend", key: "shared" }, now, pid: 100 });
@@ -134,7 +130,7 @@ describe("registration", () => {
 
 describe("messages", () => {
 	test("sends to a label and consumes once", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
@@ -152,7 +148,7 @@ describe("messages", () => {
 	});
 
 	test("broadcasts only an event", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
@@ -167,7 +163,7 @@ describe("messages", () => {
 	});
 
 	test("a peer whose process is gone is not a recipient", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const store = createBusStore({ dir });
 		await store.ensure();
@@ -202,7 +198,7 @@ describe("messages", () => {
 
 describe("claims and labels", () => {
 	test("conflicts on the same logical path across worktrees", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
@@ -218,7 +214,7 @@ describe("claims and labels", () => {
 	});
 
 	test("refuses a claim on the repository root in the sentence that owns it", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const atRoot = bus(dir, "/repo", () => 1_000);
 		await acting(atRoot, context("/repo", "s1", "root"));
 		// Not "outside the repository": the path is inside it, and is the whole of it.
@@ -233,7 +229,7 @@ describe("claims and labels", () => {
 	});
 
 	test("joins under a unique label", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const first = bus(dir, "/repo/frontend", now);
 		const second = bus(dir, "/repo/backend", now);
@@ -267,7 +263,7 @@ describe("the inbox watch", () => {
 	}
 
 	test("queues new mail once and leaves it on disk", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend, calls } = await pair(dir);
 		expect((await backend.join({ wake: true })).watching).toEqual({ armed: true, wake: true });
 		await frontend.send({ to: "backend", text: "contract v2" });
@@ -283,7 +279,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("a watch without wake queues mail and leaves the turn alone", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend, calls } = await pair(dir);
 		await backend.join({});
 		await frontend.send({ to: "backend", text: "next turn, please" });
@@ -295,7 +291,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("a message read with inbox is never announced afterwards", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend, calls } = await pair(dir);
 		await backend.join({ wake: true });
 		await frontend.send({ to: "backend", text: "read me first" });
@@ -308,7 +304,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("reports a broadcast once, whatever the number of recipients", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend } = await pair(dir);
 		const third = bus(dir, "/repo/third", () => 1_000);
 		await acting(third, context("/repo/third", "s3", "third"));
@@ -322,7 +318,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("the record says whether this session is listening, so a peer reads it from disk", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend } = await pair(dir);
 		const store = createBusStore({ dir });
 		await backend.join({ wake: true });
@@ -337,7 +333,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("arming is idempotent, an explicit wake sets the mode, and stop is safe when unarmed", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { backend } = await pair(dir);
 		expect((await backend.join({ wake: true })).watching).toEqual({ armed: true, wake: true });
 		// An omitted `wake` keeps an armed watch's mode.
@@ -353,7 +349,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("enabling wake over mail already queued signals that burst", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend, calls } = await pair(dir);
 		await backend.join({});
 		await frontend.send({ to: "backend", text: "queued first" });
@@ -369,7 +365,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("the ticker starts on arm and stops on disarm and shutdown", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const ticks: Array<() => void> = [];
 		let stopped = 0;
 		const backend = createSessionBus({} as ExtensionAPI, {
@@ -395,7 +391,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("reported mail leaves the queue but stays unread until inbox runs", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend } = await pair(dir);
 		await backend.join({});
 		await frontend.send({ to: "backend", text: "notice me" });
@@ -412,7 +408,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("a peer whose clock is behind cannot make the watch announce mail twice", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend } = await pair(dir);
 		const store = createBusStore({ dir });
 		// One millisecond, fifty messages: the watch remembers what it reported from the only
@@ -447,7 +443,7 @@ describe("the inbox watch", () => {
 	});
 
 	test("nothing is queued while the watch is off", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { frontend, backend, calls } = await pair(dir);
 		await frontend.send({ to: "backend", text: "ignored" });
 		await backend.poll();
@@ -460,7 +456,7 @@ describe("the inbox watch", () => {
 
 describe("pruning", () => {
 	test("drops a stale peer on status", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		let now = 1_000;
 		const first = bus(dir, "/repo/frontend", () => now);
 		const second = bus(dir, "/repo/backend", () => now);
@@ -476,7 +472,7 @@ describe("pruning", () => {
 
 describe("board reads", () => {
 	test("peek reads mail without consuming or queueing it", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const frontend = bus(dir, "/repo/frontend", now);
 		const backend = bus(dir, "/repo/backend", now);
@@ -495,7 +491,7 @@ describe("board reads", () => {
 	});
 
 	test("releaseStored releases a stored path that a cwd-relative release would rewrite", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const root = "/repo/frontend";
 		const frontend = bus(dir, root, () => 1_000);
 		await acting(frontend, context(`${root}/src`, "s1", "frontend"));
@@ -510,7 +506,7 @@ describe("board reads", () => {
 	});
 
 	test("releaseStored never releases another session's claim", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const frontend = bus(dir, "/repo/frontend", () => 1_000);
 		const backend = bus(dir, "/repo/backend", () => 1_000);
 		await acting(frontend, context("/repo/frontend", "s1", "frontend"));
@@ -526,7 +522,7 @@ describe("board reads", () => {
 
 describe("snapshot", () => {
 	test("shows the live bus and this session without writing or pruning", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		let now = 1_000;
 		const first = bus(dir, "/repo/frontend", () => now);
 		const second = bus(dir, "/repo/backend", () => now);
@@ -561,7 +557,9 @@ describe("snapshot", () => {
 	});
 
 	test("refuses to read a bus that never started", async () => {
-		await expect(bus(busDir(), "/repo/frontend", () => 1_000).snapshot()).rejects.toThrow("not started");
+		await expect(bus(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", () => 1_000).snapshot()).rejects.toThrow(
+			"not started",
+		);
 	});
 });
 
@@ -578,7 +576,7 @@ describe("labels", () => {
 	});
 
 	test("a stale record's label is free at join, and a peer reaches it by name", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
 		await store.writeSession(stale("gone", "lead"));
@@ -595,7 +593,7 @@ describe("labels", () => {
 	});
 
 	test("joins onto a stale session's label instead of refusing it", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
 		await store.writeSession(stale("gone", "lead"));
@@ -607,7 +605,7 @@ describe("labels", () => {
 	});
 
 	test("two joins in the same instant end with distinct labels", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const first = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		await Promise.all([acting(first, context("/repo", "s1", "lead")), acting(second, context("/repo", "s2", "lead"))]);
@@ -622,7 +620,7 @@ describe("labels", () => {
 	});
 
 	test("a dead pid's label is free at once, not after the TTL", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
 		// Fresh heartbeat, dead process: the crash a TTL cannot see.
@@ -635,7 +633,7 @@ describe("labels", () => {
 	});
 
 	test("a dead pid's claim is nobody's at once, and its row lasts until the TTL", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
 		await store.writeSession({ ...stale("dead", "lead"), pid: 4242, lastSeen: 1_000 });
@@ -670,7 +668,7 @@ describe("labels", () => {
 	});
 
 	test("a quiet peer is still dropped from the board, and a gone one is not", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const store = createBusStore({ dir });
 		await store.ensure();
 		// One aged out and is still running, one crashed just now: the board drops the
@@ -685,7 +683,7 @@ describe("labels", () => {
 	});
 
 	test("a duplicate at the label limit still ends distinct", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const name = "l".repeat(40);
 		const first = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
@@ -698,7 +696,7 @@ describe("labels", () => {
 	});
 
 	test("two joins to one label in the same instant end distinct", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const first = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		const second = runtime(dir, { repo: { root: "/repo", key: "shared" } });
 		await acting(first, context("/repo", "s1", "one"));
@@ -718,7 +716,7 @@ describe("labels", () => {
 
 describe.skipIf(!canCreateSymlinks())("symlinked paths", () => {
 	test("the cwd a session records is its real path", async () => {
-		const real = busDir();
+		const real = scratchDir(temps, "pi-session-bus-");
 		const link = temps.track(join(dirname(real), `${basename(real)}-link`));
 		symlinkSync(real, link, "dir");
 
@@ -730,7 +728,7 @@ describe.skipIf(!canCreateSymlinks())("symlinked paths", () => {
 	});
 
 	test("a link inside the repository and its target are one claim", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		mkdirSync(join(dir, "target"), { recursive: true });
 		symlinkSync(join(dir, "target"), join(dir, "link"), "dir");
 
@@ -744,7 +742,7 @@ describe.skipIf(!canCreateSymlinks())("symlinked paths", () => {
 		expect(blocked.claimed).toEqual([]);
 		expect(blocked.conflicts[0]?.ownerLabel).toBe("one");
 
-		const outside = busDir();
+		const outside = scratchDir(temps, "pi-session-bus-");
 		symlinkSync(outside, join(dir, "escape"), "dir");
 		expect(
 			await second.claim(["escape/secret.ts"]).then(
@@ -773,7 +771,7 @@ describe("heartbeat", () => {
 	}
 
 	test("a session whose heartbeat fires outlives a TTL a silent one does not", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		let now = 1_000;
 		const ticks: Array<() => void> = [];
 		const live = runtime(dir, {
@@ -811,7 +809,7 @@ describe("heartbeat", () => {
 	});
 
 	test("a session that revived after its label was taken yields on the next tick", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		let now = 1_000;
 		const ticks: Array<() => void> = [];
 		const revived = runtime(dir, {
@@ -846,7 +844,7 @@ describe("heartbeat", () => {
 	});
 
 	test("a session that names itself instead of acting still heartbeats, once", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const ticks: Array<() => void> = [];
 		const named = runtime(dir, {
 			repo: { root: "/repo", key: "shared" },
@@ -880,7 +878,7 @@ describe.skipIf(!runSlowSuites)("a real repository", () => {
 		const worktree = temps.track(join(dirname(repo), `${basename(repo)}-wt`));
 		await execP("git", ["worktree", "add", "-q", "-b", "side", worktree], { cwd: repo });
 
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const main = createSessionBus(realGit, { dir, heartbeatMs: 0, watchMs: 0 });
 		const side = createSessionBus(realGit, { dir, heartbeatMs: 0, watchMs: 0 });
 		await acting(main, context(repo, "w1", "frontend"));
@@ -902,7 +900,7 @@ describe.skipIf(!runSlowSuites)("a real repository", () => {
 		const link = temps.track(join(dirname(repo), `${basename(repo)}-link`));
 		symlinkSync(repo, link, "dir");
 
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const linked = createSessionBus(realGit, { dir, heartbeatMs: 0, watchMs: 0 });
 		await acting(linked, context(link, "l1", "linked"));
 		expect((await linked.claim(["src/api"])).claimed).toEqual(["src/api"]);
@@ -917,7 +915,7 @@ describe("a resume", () => {
 	 * and name.
 	 */
 	test("drops membership and keeps the mail, so the label comes back when it rejoins", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const now = () => 1_000;
 		const store = createBusStore({ dir });
 		const peer = bus(dir, "/repo/backend", now);

@@ -10,6 +10,8 @@
  * Value-only: every recorder and queue is created per call.
  */
 
+import type { BridgeStatus } from "../../../extensions/wechat/bridge.ts";
+
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { WechatClient, WechatClientOptions } from "../../../extensions/wechat/transport/client.ts";
@@ -185,5 +187,24 @@ export function fakePeerSession(answer: string | (() => string)): {
 		prompts,
 		fresh,
 		disposed: () => disposals,
+	};
+}
+
+/** A bridge status with nothing wrong, which is what a status case varies one field of. */
+export function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
+	return {
+		open: false,
+		expired: false,
+		paused: false,
+		running: false,
+		peerCount: 0,
+		queued: 0,
+		peerStates: [],
+		refused: 0,
+		refusedPeers: [],
+		mediaDropped: 0,
+		promptPending: false,
+		prompts: [],
+		...overrides,
 	};
 }

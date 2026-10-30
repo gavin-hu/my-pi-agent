@@ -8,8 +8,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { registeredTool } from "../../test/helpers/fixtures/question.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { createFakePi } from "../../test/helpers/fakes.ts";
 import { remoteCtx } from "../../test/helpers/remote-ui.ts";
 import {
 	buildAnswer,
@@ -22,7 +22,6 @@ import {
 	unavailableResult,
 } from "./answers.ts";
 import { MAX_OPTIONS, MAX_QUESTIONS, normalizeQuestions } from "./schema.ts";
-import { TOOL_NAME, registerTools } from "./tools.ts";
 import type { Question, Selection } from "./types.ts";
 
 const auth: Question = {
@@ -39,12 +38,6 @@ const scope: Question = { ...auth, id: "q2", header: "Scope", question: "Which s
 const oauth: Selection = { type: "options", values: ["OAuth"], labels: ["OAuth"], indices: [1] };
 
 /** The registered tool, built through the extension's own registration path. */
-function registeredTool() {
-	const { pi, tools } = createFakePi();
-	registerTools(pi);
-	return tools.get(TOOL_NAME);
-}
-
 function execute(args: unknown, ctx: unknown) {
 	return registeredTool().execute("call-1", args, undefined, undefined, ctx);
 }

@@ -292,6 +292,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   contract, moves, and finish stay `board`'s. `assign` to the caller's own label or id is now
   refused, naming `claim`: it recorded an owner and mailed the lead its own inbox. The join a
   claim asks for moved to `lib/board/join.ts` so both tools answer it once.
+- `test`: the duplication guard covers the test tree itself — a `*.test.ts` body identical to
+  another test file's now fails, so a scenario two suites need is one fixture instead of a copy.
+  Twelve board `card()` builders became `test/helpers/fixtures/board.ts`, and sixteen other
+  copies moved to the module that owns them (`fixtures/{http,question,session-bus}.ts`,
+  `helpers/tools.ts`, `scratchDir` and `bareCtx` in `helpers/`, `screenText` in `fakes.ts`).
+  No test's assertions changed.
 
 ### Removed
 

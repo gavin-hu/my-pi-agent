@@ -8,10 +8,10 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { graceTimer } from "../../test/helpers/fixtures/http.ts";
 import { createConnection } from "node:net";
 import { eventHeaders, textResponse } from "./index.ts";
 import { type ServedServer, serveHttp } from "./serve.ts";
-import type { ArmTimer } from "../timer.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 
 const running: ServedServer[] = [];
@@ -38,29 +38,6 @@ function connectionRefused(port: number): Promise<boolean> {
 		socket.once("connect", () => settleIt(false));
 		socket.once("error", () => settleIt(true));
 	});
-}
-
-/** A grace timer that only fires when the test says so. */
-function graceTimer(): { timer: ArmTimer; fire(): void; armed: number; cancelled: number } {
-	let pending: (() => void) | undefined;
-	const state = {
-		armed: 0,
-		cancelled: 0,
-		timer: ((_ms: number, run: () => void) => {
-			state.armed += 1;
-			pending = run;
-			return () => {
-				state.cancelled += 1;
-				pending = undefined;
-			};
-		}) as ArmTimer,
-		fire: () => {
-			const run = pending;
-			pending = undefined;
-			run?.();
-		},
-	};
-	return state;
 }
 
 describe("serveHttp", () => {

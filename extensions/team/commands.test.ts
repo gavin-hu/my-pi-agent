@@ -11,7 +11,7 @@ import { boardHarness } from "../../test/helpers/board.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { CARD_VERSION, type Card } from "../../lib/board/card.ts";
+import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import { presetNameFor } from "../../lib/session-label.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import type { JoinResult, TeamJoin } from "../../lib/session-tool.ts";
@@ -22,23 +22,8 @@ afterAll(() => temps.flush());
 
 const NOW = 1_760_000_000_000;
 
-/** A card built the way the store holds it. */
-function card(id: string, overrides: Partial<Card> = {}): Card {
-	return {
-		v: CARD_VERSION,
-		id,
-		title: `feature ${id}`,
-		lane: "backlog",
-		paths: [],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: NOW - 60_000,
-		updatedAt: NOW - 60_000,
-		by: "billing-lead",
-		...overrides,
-	};
-}
+// A card a minute old, as the store would have written it.
+const card = minuteOldCards(NOW);
 
 /** A bus record. */
 function mate(label: string, lastSeen: number): RosterSession {

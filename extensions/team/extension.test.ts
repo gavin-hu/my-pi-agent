@@ -8,31 +8,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { BoardSession } from "../../lib/board/session.ts";
 import { ENV_DISABLED_EXTENSIONS, ENV_ENABLED_EXTENSIONS } from "../../lib/env.ts";
+import { stubSession } from "../../test/helpers/board.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import team from "./index.ts";
-
-/** A session that never touches the disk. */
-function stubSession(): BoardSession {
-	return {
-		store: () => {
-			throw new Error("the factory must not open a store");
-		},
-		who: async () => ({ label: "billing-lead" }),
-		now: () => 0,
-		busDir: async () => {
-			throw new Error("the factory must not read the bus");
-		},
-		planDir: async () => {
-			throw new Error("the factory must not read the plan store");
-		},
-		serving: () => undefined,
-		serve: () => {},
-		team: { last: () => undefined, record: () => {} },
-	};
-}
 
 /**
  * The environment that opts the lead's round in: the switch it is gated on,

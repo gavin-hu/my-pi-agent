@@ -7,6 +7,7 @@
  * to `ctx` so tests that read `ctx.statuses` / `ctx.notices` keep working.
  */
 
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fakeTheme } from "./fakes.ts";
 
 export interface FakeCtxOptions {
@@ -213,4 +214,12 @@ export function fakeCtx(options: FakeCtxOptions = {}): FakeCtxResult {
 			executeError = value;
 		},
 	};
+}
+
+/**
+ * The barest context: only a working directory, which is what a runtime that reads
+ * nothing else needs. A test that wants a UI or a session passes `fakeCtx` instead.
+ */
+export function bareCtx(cwd: string): ExtensionContext {
+	return { cwd } as unknown as ExtensionContext;
 }

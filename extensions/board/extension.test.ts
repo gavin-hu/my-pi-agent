@@ -10,31 +10,11 @@
 import { describe, expect, test } from "bun:test";
 import { ENV_DISABLED_EXTENSIONS, ENV_ENABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
+import { stubSession } from "../../test/helpers/board.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
 import board from "./index.ts";
 import type { BoardPage } from "./page.ts";
-import type { BoardSession } from "../../lib/board/session.ts";
-
-/** A session that never touches the disk. */
-function stubSession(): BoardSession {
-	return {
-		store: () => {
-			throw new Error("the factory must not open a store");
-		},
-		who: async () => ({ label: "billing-lead" }),
-		now: () => 0,
-		busDir: async () => {
-			throw new Error("the factory must not read the bus");
-		},
-		planDir: async () => {
-			throw new Error("the factory must not read the plan store");
-		},
-		serving: () => undefined,
-		serve: () => {},
-		team: { last: () => undefined, record: () => {} },
-	};
-}
 
 /** A page that records its lifecycle. */
 function stubPage(calls: string[]): BoardPage {

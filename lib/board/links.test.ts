@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { CARD_VERSION, type Card, MAX_DEPENDS } from "./card.ts";
+import { MAX_DEPENDS, type Card } from "./card.ts";
 import {
 	blockersOf,
 	dependentsOf,
@@ -21,23 +21,8 @@ import {
 	wouldCycle,
 } from "./links.ts";
 
-/** A card that passes, so each case changes one field. */
-function card(id: string, overrides: Partial<Card> = {}): Card {
-	return {
-		v: CARD_VERSION,
-		id,
-		title: `feature ${id}`,
-		lane: "backlog",
-		paths: [],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: 1_000,
-		updatedAt: 1_000,
-		by: "billing-lead",
-		...overrides,
-	};
-}
+// A card that passes, so each case changes one field.
+import { numberedCard as card } from "../../test/helpers/fixtures/board.ts";
 
 /** A card somebody holds, which is the only way one leaves the pool. */
 function held(id: string, lane: "execute" | "blocked" | "done" = "execute", overrides: Partial<Card> = {}): Card {

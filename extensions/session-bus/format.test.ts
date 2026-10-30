@@ -7,9 +7,10 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { busStatus } from "../../test/helpers/fixtures/session-bus.ts";
 import { formatClaim, formatInbox, formatJoin, formatRelease, formatSend, formatStatus } from "./format.ts";
 import type { RosterState } from "../../lib/session-roster.ts";
-import type { BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
+import type { BusMessage, ClaimRecord, SessionRecord } from "./types.ts";
 
 type ListedSession = SessionRecord & { unread: number; state: RosterState };
 
@@ -33,10 +34,6 @@ function claim(overrides: Partial<ClaimRecord> = {}): ClaimRecord {
 	return { path: "src/api", owner: "abcdef123456", ownerLabel: "frontend", at: 20, ...overrides };
 }
 
-function status(sessions: ListedSession[], claims: ClaimRecord[] = []): SessionStatus {
-	return { me: { id: "abcdef123456", label: "frontend" }, onBus: true, sessions, claims };
-}
-
 function message(overrides: Partial<BusMessage> = {}): BusMessage {
 	return {
 		id: "100-a",
@@ -54,7 +51,7 @@ function message(overrides: Partial<BusMessage> = {}): BusMessage {
 describe("status", () => {
 	test("lists sessions with unread counts, claims, and this session", () => {
 		const out = formatStatus(
-			status([session(), session({ id: "fedcba654321", label: "backend", unread: 2 })], [claim()]),
+			busStatus([session(), session({ id: "fedcba654321", label: "backend", unread: 2 })], [claim()]),
 		);
 		expect(out).toContain("Sessions (2)");
 		expect(out).toContain("- backend (654321) · /repo · tui · 2 unread");
@@ -64,15 +61,17 @@ describe("status", () => {
 	});
 
 	test("says none for an empty bus on both lists", () => {
-		const lines = formatStatus(status([])).split("\n");
+		const lines = formatStatus(busStatus([])).split("\n");
 		expect(lines.filter((line) => line === "- none")).toHaveLength(2);
 		expect(lines[0]).toBe("Sessions (0)");
 	});
 
 	test("names the inbox watch only while it is armed", () => {
-		expect(formatStatus(status([]))).not.toContain("Alerts:");
-		expect(formatStatus({ ...status([]), watching: { armed: true, wake: false } })).toContain("Alerts: inbox watch on");
-		expect(formatStatus({ ...status([]), watching: { armed: true, wake: true } })).toContain(
+		expect(formatStatus(busStatus([]))).not.toContain("Alerts:");
+		expect(formatStatus({ ...busStatus([]), watching: { armed: true, wake: false } })).toContain(
+			"Alerts: inbox watch on",
+		);
+		expect(formatStatus({ ...busStatus([]), watching: { armed: true, wake: true } })).toContain(
 			"Alerts: inbox watch on (wake)",
 		);
 	});
@@ -146,7 +145,7 @@ describe("untrusted text", () => {
 
 	test("message text, labels, and a working directory stay on one line", () => {
 		const out = formatStatus(
-			status(
+			busStatus(
 				[session({ cwd: "/repo/\u001b[2J", label: "front\nend" })],
 				[claim({ path: forgeries[0], ownerLabel: "back\u0007end" })],
 			),

@@ -7,13 +7,14 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import { PLAN_MODE_ENTRY_TYPE } from "../../lib/plan-state.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir, withAgentDir } from "../../test/helpers/env.ts";
-import { createFakePi, fakeTheme, makeFakePi } from "../../test/helpers/fakes.ts";
+import { scratchDir, withAgentDir } from "../../test/helpers/env.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
+import { createFakePi, fakeTheme, makeFakePi, screenText } from "../../test/helpers/fakes.ts";
 import { registerCheckCommand } from "./commands.ts";
 import { DEFAULT_CONFIG, loadConfig, normalizeConfig, type CheckConfig } from "./config.ts";
 import { parseFailures } from "./failures.ts";
@@ -33,17 +34,8 @@ import { TOOL_NAME, registerCheckTool } from "./tools.ts";
 import { CheckResultComponent, CheckRunComponent } from "./view/check-screens.ts";
 import type { CheckResult, CheckTarget, Failure, RunCheckDetails } from "./types.ts";
 
-const directories: string[] = [];
-afterAll(() => {
-	for (const directory of directories) rmSync(directory, { recursive: true, force: true });
-});
-
-/** A tracked temp directory. */
-function tempProject(prefix: string): string {
-	const dir = tempDir(prefix);
-	directories.push(dir);
-	return dir;
-}
+const temps = makeTempTracker();
+afterAll(() => temps.flush());
 
 const FAILURE: Failure = {
 	path: "src/a.ts",
@@ -104,7 +96,7 @@ describe("config", () => {
 				join(agentDir, "bytefly.json"),
 				JSON.stringify({ check: { command: " global ", timeoutMs: 1, maxLogBytes: 99_999_999 } }),
 			);
-			const dir = tempProject("pi-check-config-");
+			const dir = scratchDir(temps, "pi-check-config-");
 			mkdirSync(join(dir, ".pi"), { recursive: true });
 			writeFileSync(join(dir, ".pi", "bytefly.json"), JSON.stringify({ check: { command: "project", timeoutMs: 0 } }));
 
@@ -114,7 +106,7 @@ describe("config", () => {
 
 	test("returns the defaults outside a configured project", async () => {
 		await withAgentDir(async () => {
-			expect(loadConfig(tempProject("pi-check-empty-config-"))).toEqual(DEFAULT_CONFIG);
+			expect(loadConfig(scratchDir(temps, "pi-check-empty-config-"))).toEqual(DEFAULT_CONFIG);
 		});
 	});
 });
@@ -581,10 +573,6 @@ function screen(overrides: Partial<CheckResult> = {}, cwd = "/tmp") {
 }
 
 /** Render a screen to plain text. */
-function screenText(component: { render: (width: number) => string[] }, width = 80): string {
-	return stripTerminalSequences(component.render(width).join("\n"));
-}
-
 describe("check run screen", () => {
 	test("tails the output, shows the command and elapsed time, and cancels", () => {
 		const lines = ["$ bun run test", "✓ one", "✗ two"];
@@ -663,7 +651,7 @@ describe("check result screen", () => {
 	});
 
 	test("reads the source around the focused failure", () => {
-		const cwd = tempProject("pi-check-tui-source-");
+		const cwd = scratchDir(temps, "pi-check-tui-source-");
 		mkdirSync(join(cwd, "src"), { recursive: true });
 		writeFileSync(join(cwd, "src", "a.ts"), Array.from({ length: 20 }, (_, index) => `line ${index + 1}`).join("\n"));
 		const { component } = screen(

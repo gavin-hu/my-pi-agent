@@ -7,7 +7,7 @@
  */
 
 import type { MarkdownTransformer, ToolRendererResolver } from "@earendil-works/pi-coding-agent";
-import type { MarkdownTheme, Component } from "@earendil-works/pi-tui";
+import { stripTerminalSequences, type MarkdownTheme, type Component } from "@earendil-works/pi-tui";
 
 export type AnyHandler = (...args: any[]) => any;
 
@@ -298,4 +298,9 @@ export async function emitFirst(pi: any, event: string, payload: unknown, ctx: a
 		if (value !== undefined && result === undefined) result = value;
 	}
 	return result;
+}
+
+/** A rendered frame as text: every line, with the styling stripped so a case can assert words. */
+export function screenText(component: Pick<Component, "render">, width = 80): string {
+	return stripTerminalSequences(component.render(width).join("\n"));
 }

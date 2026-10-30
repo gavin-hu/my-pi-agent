@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, symlink
 import { join } from "node:path";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { CONFIG_DIR_NAME, type ToolAnnotations } from "@earendil-works/pi-coding-agent";
-import { tempDir, useEnv, withAgentDir, withEnv } from "../test/helpers/env.ts";
+import { scratchDir, useEnv, withAgentDir, withEnv } from "../test/helpers/env.ts";
 import { makeTempTracker } from "../test/helpers/git.ts";
 import { canCreateSymlinks } from "../test/helpers/platform.ts";
 import {
@@ -82,20 +82,16 @@ afterAll(() => {
 });
 
 /** A temp directory, removed at teardown. */
-function scratch(prefix: string): string {
-	return temps.track(tempDir(prefix));
-}
-
 /** A temp file holding `contents`, removed at teardown. */
 function wrote(prefix: string, contents: string): string {
-	const path = join(scratch(prefix), SHARED_CONFIG_FILE);
+	const path = join(scratchDir(temps, prefix), SHARED_CONFIG_FILE);
 	writeFileSync(path, contents);
 	return path;
 }
 
 /** A file the suite may write, without creating it. */
 function documentPath(prefix: string): string {
-	return join(scratch(prefix), SHARED_CONFIG_FILE);
+	return join(scratchDir(temps, prefix), SHARED_CONFIG_FILE);
 }
 
 // --- Config coercion --------------------------------------------------------
@@ -185,7 +181,7 @@ describe("config value narrowing", () => {
 
 describe("readJsonResult", () => {
 	test("reports a missing file as absent, not as an error", () => {
-		expect(readJsonResult(join(scratch("pi-config-"), "nope.json"))).toEqual({ state: "absent" });
+		expect(readJsonResult(join(scratchDir(temps, "pi-config-"), "nope.json"))).toEqual({ state: "absent" });
 	});
 
 	test("returns the parsed object", () => {
@@ -209,7 +205,7 @@ describe("readJsonResult", () => {
 	});
 
 	test("reports an unreadable path as an error", () => {
-		const dir = scratch("pi-config-");
+		const dir = scratchDir(temps, "pi-config-");
 		mkdirSync(join(dir, "sub"));
 		expect(readJsonResult(join(dir, "sub")).state).toBe("error");
 	});
@@ -220,7 +216,7 @@ describe("readJson", () => {
 		expect(readJson(wrote("pi-config-", '{"mode":"always"}'))).toEqual({ mode: "always" });
 		expect(readJson(wrote("pi-config-", "{ not json"))).toBeUndefined();
 		expect(readJson(wrote("pi-config-", "[]"))).toBeUndefined();
-		expect(readJson(join(scratch("pi-config-"), "nope.json"))).toBeUndefined();
+		expect(readJson(join(scratchDir(temps, "pi-config-"), "nope.json"))).toBeUndefined();
 	});
 });
 
@@ -239,7 +235,7 @@ describe("config loading", () => {
 
 	test("loadConfigFile layers the base, then the global file, then the project file", async () => {
 		await withAgentDir(async (agentDir) => {
-			const cwd = scratch("pi-config-cwd-");
+			const cwd = scratchDir(temps, "pi-config-cwd-");
 			writeFileSync(join(agentDir, SHARED_CONFIG_FILE), '{"size":2000,"mode":"global"}');
 			projectConfig(cwd, '{"mode":"project"}');
 
@@ -249,7 +245,7 @@ describe("config loading", () => {
 
 	test("ignores a malformed file and keeps the value already in hand", async () => {
 		await withAgentDir(async (agentDir) => {
-			const cwd = scratch("pi-config-cwd-");
+			const cwd = scratchDir(temps, "pi-config-cwd-");
 			writeFileSync(join(agentDir, SHARED_CONFIG_FILE), "{ not json");
 			projectConfig(cwd, "{ still not json");
 
@@ -259,7 +255,7 @@ describe("config loading", () => {
 
 	test("loadConfigSection layers the global section, then the project section", async () => {
 		await withAgentDir(async (agentDir) => {
-			const cwd = scratch("pi-config-section-");
+			const cwd = scratchDir(temps, "pi-config-section-");
 			writeFileSync(join(agentDir, SHARED_CONFIG_FILE), '{"thing":{"size":2000,"mode":"global"}}');
 			projectConfig(cwd, '{"thing":{"mode":"project"}}');
 
@@ -268,8 +264,8 @@ describe("config loading", () => {
 	});
 
 	test("loadConfigSection reads a section from an explicit agent directory", () => {
-		const agentDir = scratch("pi-config-agent-");
-		const cwd = scratch("pi-config-cwd-");
+		const agentDir = scratchDir(temps, "pi-config-agent-");
+		const cwd = scratchDir(temps, "pi-config-cwd-");
 		writeFileSync(join(agentDir, SHARED_CONFIG_FILE), '{"thing":{"size":3000}}');
 
 		expect(loadConfigSection(cwd, "thing", base, normalize, { agentDir })).toEqual({ size: 3000, mode: "base" });
@@ -300,7 +296,7 @@ describe("config loading", () => {
 
 describe("writeConfigSection", () => {
 	test("writes a new document with two-space JSON and a trailing newline", () => {
-		const path = join(scratch("pi-config-write-"), "nested", SHARED_CONFIG_FILE);
+		const path = join(scratchDir(temps, "pi-config-write-"), "nested", SHARED_CONFIG_FILE);
 		writeConfigSection(path, "job", { maxJobs: 5 });
 
 		expect(readJson(path)).toEqual({ job: { maxJobs: 5 } });
@@ -317,7 +313,7 @@ describe("writeConfigSection", () => {
 
 describe("writeConfigValue", () => {
 	test("creates a missing file and section, leaving no temp file behind", () => {
-		const dir = scratch("pi-config-value-");
+		const dir = scratchDir(temps, "pi-config-value-");
 		const path = join(dir, "nested", SHARED_CONFIG_FILE);
 
 		writeConfigValue(path, "notify", "enabled", true);
@@ -505,12 +501,12 @@ describe("unsetConfigValueAt", () => {
 
 describe("worktreeRoot", () => {
 	test("is the env root when that directory is still on disk", async () => {
-		const dir = scratch("pi-worktree-env-");
+		const dir = scratchDir(temps, "pi-worktree-env-");
 		await withEnv({ [ENV_ROOT]: dir }, () => expect(worktreeRoot()).toBe(dir));
 	});
 
 	test("ignores a root that no longer exists", async () => {
-		await withEnv({ [ENV_ROOT]: join(scratch("pi-worktree-env-"), "gone") }, () =>
+		await withEnv({ [ENV_ROOT]: join(scratchDir(temps, "pi-worktree-env-"), "gone") }, () =>
 			expect(worktreeRoot()).toBeUndefined(),
 		);
 	});
@@ -523,7 +519,7 @@ describe("worktreeRoot", () => {
 
 describe("resolveEffectiveCwd", () => {
 	test("prefers the active worktree root over the session cwd", async () => {
-		const dir = scratch("pi-worktree-env-");
+		const dir = scratchDir(temps, "pi-worktree-env-");
 		await withEnv({ [ENV_ROOT]: dir }, () => expect(resolveEffectiveCwd("/main/checkout")).toBe(dir));
 	});
 
@@ -531,7 +527,7 @@ describe("resolveEffectiveCwd", () => {
 		await withEnv({ [ENV_ROOT]: undefined }, () =>
 			expect(resolveEffectiveCwd("/main/checkout")).toBe("/main/checkout"),
 		);
-		await withEnv({ [ENV_ROOT]: join(scratch("pi-worktree-env-"), "gone") }, () =>
+		await withEnv({ [ENV_ROOT]: join(scratchDir(temps, "pi-worktree-env-"), "gone") }, () =>
 			expect(resolveEffectiveCwd("/main/checkout")).toBe("/main/checkout"),
 		);
 	});
@@ -672,14 +668,14 @@ describe("escapeHtml", () => {
 
 describe("path containment", () => {
 	test("accepts the root itself and a descendant", () => {
-		const root = join(scratch("pi-path-"), "b");
+		const root = join(scratchDir(temps, "pi-path-"), "b");
 		expect(isInside(root, root)).toBe(true);
 		expect(isInside(root, join(root, "c"))).toBe(true);
 		expect(isInside(root, join(root, "c", "d"))).toBe(true);
 	});
 
 	test("rejects a sibling, a parent, and a shared name prefix", () => {
-		const base = scratch("pi-path-");
+		const base = scratchDir(temps, "pi-path-");
 		const root = join(base, "b");
 		expect(isInside(root, join(base, "c"))).toBe(false);
 		expect(isInside(root, base)).toBe(false);
@@ -687,14 +683,14 @@ describe("path containment", () => {
 	});
 
 	test("realPathOfNearest resolves a missing leaf through its parent", () => {
-		const base = scratch("pi-path-real-");
+		const base = scratchDir(temps, "pi-path-real-");
 		expect(realPathOfNearest(join(base, "missing", "deep.txt"))).toBe(
 			join(realpathSync.native(base), "missing", "deep.txt"),
 		);
 	});
 
 	test("isInsideReal keeps ordinary paths inside the root", () => {
-		const root = join(scratch("pi-path-real-"), "root");
+		const root = join(scratchDir(temps, "pi-path-real-"), "root");
 		mkdirSync(root);
 		writeFileSync(join(root, "real.txt"), "x");
 		expect(isInsideReal(root, join(root, "real.txt"))).toBe(true);
@@ -705,7 +701,7 @@ describe("path containment", () => {
 	const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
 
 	symlinkTest("isInsideReal refuses a symlink that leaves the root", () => {
-		const base = scratch("pi-path-symlink-");
+		const base = scratchDir(temps, "pi-path-symlink-");
 		const root = join(base, "root");
 		const outside = join(base, "outside");
 		mkdirSync(root);
