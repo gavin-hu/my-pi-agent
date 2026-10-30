@@ -20,6 +20,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
 import { viewportRows, type ViewportRowsSource } from "./chrome.ts";
 import { GLYPHS } from "./glyphs.ts";
+import { paint } from "./tokens.ts";
 
 /**
  * Rows that fit for a list of `itemCount`, reserving one extra line when the
@@ -76,11 +77,11 @@ export function wheelDelta(event: TuiMouseEvent): number | undefined {
 
 /** The `❯ ` selection marker (accent) or a same-width blank. */
 export function selectionMarker(theme: Theme, selected: boolean): string {
-	return selected ? theme.fg("accent", `${GLYPHS.prompt} `) : "  ";
+	return selected ? paint(theme, "accent", `${GLYPHS.prompt} `) : "  ";
 }
 
 /**
- * One dim, two-space-indented range row: `showing A–B of N` by default, or
+ * One faint, two-space-indented range row: `showing A–B of N` by default, or
  * `line A–B of N` for a log pane. Clipped to `width`.
  */
 export function formatRange(
@@ -90,7 +91,7 @@ export function formatRange(
 ): string {
 	const label = range.label ?? "showing";
 	const text = `  ${label} ${range.start + 1}–${range.end} of ${range.total}`;
-	return truncateToWidth(theme.fg("dim", text), Math.max(1, width));
+	return truncateToWidth(paint(theme, "faint", text), Math.max(1, width));
 }
 
 /**

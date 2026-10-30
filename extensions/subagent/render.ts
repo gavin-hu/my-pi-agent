@@ -179,7 +179,7 @@ function indentBody(text: string, theme: Theme): string {
 	return stripControlChars(text)
 		.trim()
 		.split("\n")
-		.map((line) => indent + theme.fg("toolOutput", line))
+		.map((line) => indent + paint(theme, "toolOutput", line))
 		.join("\n");
 }
 
@@ -192,7 +192,7 @@ function renderDisplayItems(items: DisplayItem[], theme: Theme, limit?: number, 
 		if (item.type === "text") {
 			const safe = stripControlChars(item.text);
 			const text = preview ? safe.split("\n").slice(0, COLLAPSED_TEXT_LINES).join("\n") : safe;
-			lines.push(theme.fg("toolOutput", text));
+			lines.push(paint(theme, "toolOutput", text));
 		} else {
 			lines.push(paint(theme, "meta", "→ ") + formatToolCall(item.name, item.args, theme, preview));
 		}
@@ -419,7 +419,7 @@ function multiHeader(details: SubagentDetails, theme: Theme, now: number): strin
 			: bad > 0
 				? paint(theme, bad === total ? "bad" : "warn", bad === total ? GLYPHS.jobsFailure : GLYPHS.half)
 				: paint(theme, "ok", GLYPHS.check);
-	return `${icon} ${theme.fg("toolTitle", theme.bold(`${details.mode} · `))}${paint(theme, "accent", status)}`;
+	return `${icon} ${paint(theme, "toolTitle", theme.bold(`${details.mode} · `))}${paint(theme, "accent", status)}`;
 }
 
 function collapsedMultiText(details: SubagentDetails, theme: Theme, now: number): string {

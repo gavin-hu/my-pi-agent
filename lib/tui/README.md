@@ -111,10 +111,12 @@ clipped mid-word at the widths the screen runs at.
 
 Resolve colors through a [`tokens.ts`](./tokens.ts) role
 (`paint(theme, role, text)`), never a literal ANSI sequence, hex value, or Pi
-token named inline; a theme swap must re-skin every surface. Use the shared
-`selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS` instead of retyping
-their literals, `screenHint` / Pi's `keyHint` for the hint row, and
-`screenFooter` for the hint row with its blank and closing rule.
+token named inline; a theme swap must re-skin every surface. The role table is
+the one place a Pi token is named, its tool vocabulary (`toolTitle`,
+`toolOutput`) included, so a renderer draws a tool block the way it draws a
+list. Use the shared `selectionMarker`, `GLYPHS`, `SEPARATORS`, and `STATUS_KEYS`
+instead of retyping their literals, `screenHint` / Pi's `keyHint` for the hint
+row, and `screenFooter` for the hint row with its blank and closing rule.
 
 A list accents the focused row's label (`labelRole: selected ? "accent" :
 "label"`); the `❯` marker alone is not enough to tell which row is live. The

@@ -114,7 +114,7 @@ export function resultFallback(
 	if (!text) return "";
 	const lines = text.split("\n");
 	const shown = expanded ? lines : lines.slice(0, FALLBACK_PREVIEW_LINES);
-	let output = theme.fg("toolOutput", shown.join("\n"));
+	let output = paint(theme, "toolOutput", shown.join("\n"));
 	const remaining = lines.length - shown.length;
 	if (remaining > 0) output += `\n${paint(theme, "meta", `... (${remaining} more lines)`)}`;
 	return output;

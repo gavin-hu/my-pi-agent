@@ -31,9 +31,9 @@ export interface ToolMessageResult {
 	isError?: boolean;
 }
 
-/** The bold tool name in Pi's tool-title token, the block's only accent. */
+/** The bold tool name in the toolTitle role, the block's only accent. */
 export function toolCallTitle(theme: Theme, name: string): string {
-	return theme.fg("toolTitle", theme.bold(name));
+	return paint(theme, "toolTitle", theme.bold(name));
 }
 
 /**
@@ -275,7 +275,7 @@ export class TailResult<Row> implements Component {
 			return lines;
 		}
 		if (input.earlier > 0) lines.push(clip(earlierHint(this.theme, input.earlier, input.earlierLabel), w));
-		for (const line of input.lines) lines.push(this.theme.fg("toolOutput", clip(line, w)));
+		for (const line of input.lines) lines.push(paint(this.theme, "toolOutput", clip(line, w)));
 		return lines;
 	}
 }

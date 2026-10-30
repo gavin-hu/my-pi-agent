@@ -8,6 +8,7 @@
  */
 
 import { keyText, type Theme } from "@earendil-works/pi-coding-agent";
+import { paint } from "./tokens.ts";
 
 /**
  * Leading glyphs for status chips, footer segments, and transcript rails.
@@ -83,25 +84,25 @@ export const STATUS_KEYS = {
  */
 export const EXPAND_KEYBINDING = "app.tools.expand";
 
-/** The bound expand key, styled dim, or `""` when the binding is unknown. */
+/** The bound expand key, in the faint role, or `""` when the binding is unknown. */
 export function expandKey(theme: Theme): string {
 	const key = keyText(EXPAND_KEYBINDING);
-	return key ? theme.fg("dim", key) : "";
+	return key ? paint(theme, "faint", key) : "";
 }
 
 /**
- * Pi's key-hint format: the key dim, its description muted. An unbound key
+ * Pi's key-hint format: the key faint, its description meta. An unbound key
  * (`""`) yields `""`, so a hint never prints a stray description.
  */
 export function keyHintText(theme: Theme, key: string, description: string): string {
-	return key ? theme.fg("dim", key) + theme.fg("muted", ` ${description}`) : "";
+	return key ? paint(theme, "faint", key) + paint(theme, "meta", ` ${description}`) : "";
 }
 
 /**
- * The built-in-style expand affordance: a muted `(ctrl+o to expand)` with the
- * key in dim. Degrades to `(to expand)` when the binding is unknown.
+ * The built-in-style expand affordance: a meta `(ctrl+o to expand)` with the
+ * key in faint. Degrades to `(to expand)` when the binding is unknown.
  */
 export function expandHint(theme: Theme): string {
 	const hint = keyHintText(theme, keyText(EXPAND_KEYBINDING), "to expand)");
-	return theme.fg("muted", "(") + (hint || theme.fg("muted", "to expand)"));
+	return paint(theme, "meta", "(") + (hint || paint(theme, "meta", "to expand)"));
 }

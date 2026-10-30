@@ -25,10 +25,10 @@ export const PREVIEW_LINES = 20;
 
 /** Render the argument path: body colour, `~`-shortened, OSC-8 linked when supported. */
 export function renderReadPath(rawPath: string | undefined, theme: Theme, cwd: string, argsComplete = true): string {
-	if (rawPath === undefined && !argsComplete) return theme.fg("toolOutput", "...");
+	if (rawPath === undefined && !argsComplete) return paint(theme, "toolOutput", "...");
 	if (typeof rawPath !== "string") return paint(theme, "bad", "[invalid arg]");
 	const value = sanitizeLine(rawPath);
-	if (!value) return theme.fg("toolOutput", "...");
+	if (!value) return paint(theme, "toolOutput", "...");
 	const styled = paint(theme, "label", shortenPath(value));
 	if (!getCapabilities().hyperlinks) return styled;
 	const abs = isAbsolute(value) ? value : resolve(cwd, value);
@@ -93,14 +93,14 @@ export function formatReadResult(result: ReadRenderResult, options: ReadRenderOp
 
 	const summary = summarizeRead(details);
 	const sep = paint(theme, "faint", SEPARATORS.item);
-	let text = paint(theme, "meta", summary.format) + sep + theme.fg("toolOutput", summary.detail);
+	let text = paint(theme, "meta", summary.format) + sep + paint(theme, "toolOutput", summary.detail);
 	if (summary.note) text += paint(theme, summary.truncated ? "accent" : "faint", SEPARATORS.item + summary.note);
 
 	if (details.text.length > 0) {
 		if (options.expanded) {
 			const { body, moreLines } = previewText(details.text, PREVIEW_LINES);
 			// Blank line before the body, matching the built-ins' header/output gap.
-			text += `\n\n${theme.fg("toolOutput", body)}`;
+			text += `\n\n${paint(theme, "toolOutput", body)}`;
 			if (moreLines > 0) text += `\n${paint(theme, "meta", `... (${moreLines} more lines)`)}`;
 		} else {
 			const hint = expandKey(theme);
