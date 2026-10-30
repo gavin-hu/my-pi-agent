@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
+import { resultText } from "../../test/helpers/fixtures/board.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { advance } from "../../test/helpers/board-flow.ts";
 import { openBoardSession } from "../../lib/board/session.ts";
@@ -87,11 +88,6 @@ function harness(options: { fail?: string; peers?: Peer[]; joinLabel?: string } 
 	};
 }
 
-/** The text the model reads. */
-function text(result: { content: Array<{ text: string }> }): string {
-	return result.content.map((block) => block.text).join("\n");
-}
-
 describe("the registration", () => {
 	test("declares the surface the tool needs", () => {
 		const { tool } = harness();
@@ -119,7 +115,7 @@ describe("the registration", () => {
 
 	test("refuses a card id that is not one", async () => {
 		const { call } = harness();
-		expect(text(await call({ action: "reclaim", card: "four" }))).toContain('"four" is not a card id.');
+		expect(resultText(await call({ action: "reclaim", card: "four" }))).toContain('"four" is not a card id.');
 	});
 });
 
@@ -194,16 +190,16 @@ describe("assign", () => {
 			owner: { id: "s-billing-core", label: "billing-core" },
 		});
 		expect(result.details.delivered).toEqual(["billing-core"]);
-		expect(text(result)).toContain("#1 handed off to billing-core.");
+		expect(resultText(result)).toContain("#1 handed off to billing-core.");
 		// Listening is the default the stub reports, so no warning line is added.
-		expect(text(result)).not.toContain("Not listening");
+		expect(resultText(result)).not.toContain("Not listening");
 	});
 
 	test("names the peer when its record says it is not listening", async () => {
 		const { call, seed } = harness({ peers: [{ id: "s-billing-core", label: "billing-core", listening: false }] });
 		const id = await seed();
 		const result = await call({ action: "assign", card: id, to: "billing-core" });
-		expect(text(result)).toContain("Not listening: billing-core — it reads this at its next turn.");
+		expect(resultText(result)).toContain("Not listening: billing-core — it reads this at its next turn.");
 		expect(result.details.notListening).toEqual(["billing-core"]);
 	});
 
@@ -212,7 +208,7 @@ describe("assign", () => {
 		const id = await seed();
 		const result = await call({ action: "assign", card: id });
 		expect(result.isError).toBe(true);
-		expect(text(result)).toContain("assign needs a peer");
+		expect(resultText(result)).toContain("assign needs a peer");
 		expect(sent).toEqual([]);
 	});
 
@@ -220,7 +216,7 @@ describe("assign", () => {
 		const { call, sent } = harness();
 		const result = await call({ action: "assign", card: "9", to: "billing-core" });
 		expect(result.isError).toBe(true);
-		expect(text(result)).toContain("#9 does not exist.");
+		expect(resultText(result)).toContain("#9 does not exist.");
 		expect(sent).toEqual([]);
 	});
 
@@ -237,7 +233,7 @@ describe("assign", () => {
 		);
 		const result = await call({ action: "assign", card: id, to: "billing-other" });
 		expect(result.isError).toBe(true);
-		expect(text(result)).toContain("is done");
+		expect(resultText(result)).toContain("is done");
 		expect(sent).toEqual([]);
 	});
 
@@ -246,8 +242,8 @@ describe("assign", () => {
 		const id = await seed();
 		const result = await call({ action: "assign", card: id, to: "billing-core" });
 		expect(result.isError).toBe(true);
-		expect(text(result)).toContain("was not handed off to billing-core: the bus is not loaded.");
-		expect(text(result)).toContain("The card is unchanged.");
+		expect(resultText(result)).toContain("was not handed off to billing-core: the bus is not loaded.");
+		expect(resultText(result)).toContain("The card is unchanged.");
 		expect(sent).toEqual([]);
 		expect(result.details.card).toMatchObject({ lane: "backlog" });
 		expect(result.details.card?.owner).toBeUndefined();
@@ -264,7 +260,7 @@ describe("assign", () => {
 		for (const to of targets) {
 			const result = await call({ action: "assign", card: id, to });
 			expect(result.isError, to).toBe(true);
-			expect(text(result)).toContain(`#${id} cannot be handed to yourself: \`claim\` takes one.`);
+			expect(resultText(result)).toContain(`#${id} cannot be handed to yourself: \`claim\` takes one.`);
 		}
 		// Nothing was mailed into the lead's own inbox, and the card never moved.
 		expect(sent).toEqual([]);
@@ -280,7 +276,7 @@ describe("claim", () => {
 		const result = await call({ action: "claim", card: id });
 		expect(result.isError).toBeFalsy();
 		expect(result.details.card).toMatchObject({ lane: "plan", owner: { label: self.label } });
-		expect(text(result)).toContain(`#${id} is yours, in plan.`);
+		expect(resultText(result)).toContain(`#${id} is yours, in plan.`);
 		// The claim's one side effect outside the card: a claim is what makes the session a
 		// teammate, so it asks the same join `board`'s claim asks for — once per session.
 		expect(joined).toEqual([self.label]);
@@ -305,7 +301,7 @@ describe("claim", () => {
 		await board.mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
 		const held = await call({ action: "claim", card: first });
 		expect(held.isError).toBe(true);
-		expect(text(held)).toContain("is held by billing-core");
+		expect(resultText(held)).toContain("is held by billing-core");
 
 		const second = await seed("Second");
 		await board.mutate(
@@ -316,7 +312,7 @@ describe("claim", () => {
 		);
 		const waiting = await call({ action: "claim", card: second });
 		expect(waiting.isError).toBe(true);
-		expect(text(waiting)).toContain("waits on");
+		expect(resultText(waiting)).toContain("waits on");
 	});
 
 	test("refuses a field the action does not read", async () => {
@@ -331,7 +327,7 @@ describe("claim", () => {
 		const { call } = harness();
 		const result = await call({ action: "claim", card: "9" });
 		expect(result.isError).toBe(true);
-		expect(text(result)).toContain("#9 does not exist.");
+		expect(resultText(result)).toContain("#9 does not exist.");
 	});
 });
 
@@ -355,8 +351,8 @@ describe("offer", () => {
 		expect(after?.lane).toBe("backlog");
 		expect(after?.owner).toBeUndefined();
 		expect(result.details.card?.offeredAt).toBe(NOW);
-		expect(text(result)).toContain("#1 offered to billing-core, billing-web.");
-		expect(text(result)).toContain("unowned until one of them claims it");
+		expect(resultText(result)).toContain("#1 offered to billing-core, billing-web.");
+		expect(resultText(result)).toContain("unowned until one of them claims it");
 	});
 
 	test("a claim answers the offer, so the record goes with it", async () => {
@@ -376,7 +372,7 @@ describe("offer", () => {
 		await board.mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
 		const held = await call({ action: "offer", card: first });
 		expect(held.isError).toBe(true);
-		expect(text(held)).toContain("is held by billing-core");
+		expect(resultText(held)).toContain("is held by billing-core");
 
 		const second = await seed("Second");
 		await board.mutate(
@@ -387,7 +383,7 @@ describe("offer", () => {
 		);
 		const waiting = await call({ action: "offer", card: second });
 		expect(waiting.isError).toBe(true);
-		expect(text(waiting)).toContain("waits on");
+		expect(resultText(waiting)).toContain("waits on");
 		expect(sent).toEqual([]);
 	});
 
@@ -397,8 +393,8 @@ describe("offer", () => {
 		const before = await (await store()).read(id);
 		const result = await call({ action: "offer", card: id });
 		expect(result.isError).toBe(true);
-		expect(text(result)).toContain("#1 was not offered: no other active sessions.");
-		expect(text(result)).toContain("The card is unchanged.");
+		expect(resultText(result)).toContain("#1 was not offered: no other active sessions.");
+		expect(resultText(result)).toContain("The card is unchanged.");
 		expect((await (await store()).read(id))?.rev).toBe(before?.rev);
 	});
 
@@ -410,7 +406,7 @@ describe("offer", () => {
 		const { call, seed } = harness({ peers });
 		const id = await seed();
 		const result = await call({ action: "offer", card: id });
-		expect(text(result)).toContain("Not listening: billing-web");
+		expect(resultText(result)).toContain("Not listening: billing-web");
 		expect(result.details.notListening).toEqual(["billing-web"]);
 	});
 });
@@ -431,8 +427,8 @@ describe("the board's WIP limits", () => {
 		await (await store()).mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
 		const refused = await call({ action: "assign", card: second, to: "billing-core" });
 		expect(refused.isError).toBe(true);
-		expect(text(refused)).toContain(`#${second} cannot enter plan`);
-		expect(text(refused)).toContain("the limit is 1");
+		expect(resultText(refused)).toContain(`#${second} cannot enter plan`);
+		expect(resultText(refused)).toContain("the limit is 1");
 		expect(sent).toEqual([]);
 	});
 
@@ -443,8 +439,8 @@ describe("the board's WIP limits", () => {
 		await (await store()).mutate(first, { kind: "claim" }, { label: "billing-core" }, NOW);
 		const refused = await call({ action: "offer", card: second });
 		expect(refused.isError).toBe(true);
-		expect(text(refused)).toContain(`#${second} cannot be offered`);
-		expect(text(refused)).toContain("the limit is 1");
+		expect(resultText(refused)).toContain(`#${second} cannot be offered`);
+		expect(resultText(refused)).toContain("the limit is 1");
 		expect(sent).toEqual([]);
 	});
 
@@ -456,8 +452,8 @@ describe("the board's WIP limits", () => {
 		const refused = await call({ action: "claim", card: second });
 		expect(refused.isError).toBe(true);
 		// The store's own refusal: the round adds no rule of its own to a claim.
-		expect(text(refused)).toContain(`#${second} cannot enter plan`);
-		expect(text(refused)).toContain("the limit is 1");
+		expect(resultText(refused)).toContain(`#${second} cannot enter plan`);
+		expect(resultText(refused)).toContain("the limit is 1");
 		expect((await (await store()).read(second))?.lane).toBe("backlog");
 	});
 });
@@ -475,13 +471,13 @@ describe("reclaim", () => {
 		expect(result.details.card).toMatchObject({ lane: "backlog" });
 		expect(result.details.card?.owner).toBeUndefined();
 		expect(result.details.card?.notes.map((note) => note.text)).toEqual(["half done"]);
-		expect(text(result)).toContain("#1 reclaimed from billing-core");
+		expect(resultText(result)).toContain("#1 reclaimed from billing-core");
 	});
 
 	test("refuses a card nobody holds, and one that is finished", async () => {
 		const { call, seed, store } = harness();
 		const id = await seed();
-		expect(text(await call({ action: "reclaim", card: id }))).toContain("has no owner to reclaim.");
+		expect(resultText(await call({ action: "reclaim", card: id }))).toContain("has no owner to reclaim.");
 
 		const board = await store();
 		const other = await board.create({ title: "Second", paths: [] }, { label: "billing-lead" }, NOW);
@@ -492,7 +488,7 @@ describe("reclaim", () => {
 			{ owner: { label: "billing-core" }, reviewer: { label: "billing-lead" } },
 			NOW,
 		);
-		expect(text(await call({ action: "reclaim", card: other.id }))).toContain("is done");
+		expect(resultText(await call({ action: "reclaim", card: other.id }))).toContain("is done");
 	});
 
 	test("sends nothing", async () => {

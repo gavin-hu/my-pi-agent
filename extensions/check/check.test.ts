@@ -7,11 +7,12 @@
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { makeClock } from "../../test/helpers/clock.ts";
-import { tempDir, useEnv } from "../../test/helpers/env.ts";
+import { bareCtx } from "../../test/helpers/context.ts";
+import { scratchDir, useEnv } from "../../test/helpers/env.ts";
+import { makeTempTracker } from "../../test/helpers/git.ts";
 import { JobChild as FakeChild, settle } from "../../test/helpers/process.ts";
 import type { CheckConfig } from "./config.ts";
 import { DETECTORS, detectCommands, packageManager, planCommands } from "./detect.ts";
@@ -21,19 +22,12 @@ import { MAX_SOURCE_BYTES, readSourceExcerpt } from "./source.ts";
 import type { CheckResult, DetectedCommands, Failure } from "./types.ts";
 
 const env = useEnv({ PI_WORKTREE_ROOT: undefined });
-const directories: string[] = [];
+const temps = makeTempTracker();
 
 afterAll(() => {
 	env.restore();
-	for (const directory of directories) rmSync(directory, { recursive: true, force: true });
+	temps.flush();
 });
-
-/** A temp project tracked for teardown. */
-function project(prefix: string): string {
-	const dir = tempDir(prefix);
-	directories.push(dir);
-	return dir;
-}
 
 /** One project file. */
 function file(dir: string, name: string, content = ""): void {
@@ -110,7 +104,7 @@ const FAMILIES: readonly Family[] = [
 describe("detectCommands", () => {
 	for (const family of FAMILIES) {
 		test(`reads ${family.name}`, () => {
-			const dir = project("pi-check-detect-");
+			const dir = scratchDir(temps, "pi-check-detect-");
 			for (const [name, content] of Object.entries(family.files)) file(dir, name, content);
 
 			expect(detectCommands(dir)).toEqual(family.expected);
@@ -118,7 +112,7 @@ describe("detectCommands", () => {
 	}
 
 	test("stops at the first family that declares a command", () => {
-		const dir = project("pi-check-priority-");
+		const dir = scratchDir(temps, "pi-check-priority-");
 		file(dir, "Makefile", "test:\n\ttrue\n");
 		file(dir, "package.json", JSON.stringify({ scripts: { test: "node --test" } }));
 		file(dir, "package-lock.json", "{}");
@@ -127,7 +121,7 @@ describe("detectCommands", () => {
 	});
 
 	test("returns undefined without a manifest", () => {
-		expect(detectCommands(project("pi-check-empty-"))).toBeUndefined();
+		expect(detectCommands(scratchDir(temps, "pi-check-empty-"))).toBeUndefined();
 	});
 
 	test("keeps the detector registry generic and ordered", () => {
@@ -152,7 +146,7 @@ describe("packageManager", () => {
 
 	for (const { lockfile, manager } of MANAGERS) {
 		test(`reads ${lockfile} as ${manager}`, () => {
-			const dir = project("pi-check-pm-");
+			const dir = scratchDir(temps, "pi-check-pm-");
 			file(dir, lockfile);
 
 			expect(packageManager(dir)).toBe(manager);
@@ -160,7 +154,7 @@ describe("packageManager", () => {
 	}
 
 	test("defaults to npm without a recognized lockfile", () => {
-		const dir = project("pi-check-npm-");
+		const dir = scratchDir(temps, "pi-check-npm-");
 		file(dir, "package.json", JSON.stringify({ scripts: { test: "node --test" } }));
 
 		expect(detectCommands(dir)?.test?.command).toBe("npm run test");
@@ -170,7 +164,7 @@ describe("packageManager", () => {
 
 describe("planCommands", () => {
 	test("uses an override for every target", () => {
-		const dir = project("pi-check-plan-override-");
+		const dir = scratchDir(temps, "pi-check-plan-override-");
 
 		expect(planCommands(dir, "test", "  make verify  ")).toEqual({
 			ok: true,
@@ -179,7 +173,7 @@ describe("planCommands", () => {
 	});
 
 	test("prefers a declared all-command over expanding the targets", () => {
-		const dir = project("pi-check-plan-all-");
+		const dir = scratchDir(temps, "pi-check-plan-all-");
 		file(
 			dir,
 			"package.json",
@@ -193,7 +187,7 @@ describe("planCommands", () => {
 	});
 
 	test("expands all into the detected targets in order", () => {
-		const dir = project("pi-check-plan-expand-");
+		const dir = scratchDir(temps, "pi-check-plan-expand-");
 		file(dir, "package.json", JSON.stringify({ scripts: { test: "node --test", lint: "eslint ." } }));
 
 		expect(planCommands(dir, "all")).toEqual({
@@ -206,11 +200,11 @@ describe("planCommands", () => {
 	});
 
 	test("reports a missing target or a missing manifest", () => {
-		const dir = project("pi-check-missing-");
+		const dir = scratchDir(temps, "pi-check-missing-");
 		file(dir, "package.json", JSON.stringify({ scripts: { test: "node --test" } }));
 
 		expect(planCommands(dir, "lint")).toMatchObject({ ok: false });
-		expect(planCommands(project("pi-check-nowhere-"), "all")).toMatchObject({ ok: false });
+		expect(planCommands(scratchDir(temps, "pi-check-nowhere-"), "all")).toMatchObject({ ok: false });
 	});
 });
 
@@ -354,10 +348,6 @@ describe("checkEnv", () => {
 const CONFIG: CheckConfig = { command: "fake-check", timeoutMs: 0, maxLogBytes: 1024 };
 
 /** A minimal context: the runtime only reads cwd. */
-function ctx(cwd = "/tmp/project"): ExtensionContext {
-	return { cwd } as unknown as ExtensionContext;
-}
-
 /** One runner outcome. */
 function outcome(overrides: Partial<RunOutcome> = {}): RunOutcome {
 	return {
@@ -385,7 +375,7 @@ describe("createCheckRuntime", () => {
 			},
 		});
 
-		const active = runtime.start("test", ctx());
+		const active = runtime.start("test", bareCtx("/tmp/project"));
 		const result = await active.promise;
 
 		expect(result).toMatchObject({
@@ -408,7 +398,7 @@ describe("createCheckRuntime", () => {
 			},
 		});
 
-		const result = await runtime.run("test", ctx());
+		const result = await runtime.run("test", bareCtx("/tmp/project"));
 
 		expect(result.status).toBe("failed");
 		expect(result.failures[0]).toMatchObject({ path: "src/a.ts", line: 2, column: 3, command: "fake-check" });
@@ -416,7 +406,7 @@ describe("createCheckRuntime", () => {
 	});
 
 	test("expands all into the detected targets in order", async () => {
-		const dir = project("pi-check-runtime-");
+		const dir = scratchDir(temps, "pi-check-runtime-");
 		file(dir, "package.json", JSON.stringify({ scripts: { test: "true", lint: "true" } }));
 		const seen: string[] = [];
 		const runtime = createCheckRuntime({
@@ -427,7 +417,7 @@ describe("createCheckRuntime", () => {
 			},
 		});
 
-		const result = await runtime.run("all", ctx(dir));
+		const result = await runtime.run("all", bareCtx(dir));
 
 		expect(result.status).toBe("passed");
 		expect(seen).toEqual(["npm run test", "npm run lint"]);
@@ -439,7 +429,7 @@ describe("createCheckRuntime", () => {
 			config: { command: "", timeoutMs: 0, maxLogBytes: 1024 },
 			runner: async () => outcome(),
 		});
-		const result = await runtime.run("all", ctx(project("pi-check-nothing-")));
+		const result = await runtime.run("all", bareCtx(scratchDir(temps, "pi-check-nothing-")));
 
 		expect(result.status).toBe("error");
 		expect(result.error).toContain("check.command");
@@ -452,14 +442,14 @@ describe("createCheckRuntime", () => {
 			runner: () => new Promise<RunOutcome>((resolve) => (release = resolve)),
 		});
 
-		const active = runtime.start("test", ctx());
+		const active = runtime.start("test", bareCtx("/tmp/project"));
 		expect(runtime.isRunning()).toBe(true);
-		expect(() => runtime.start("test", ctx())).toThrow(CheckError);
+		expect(() => runtime.start("test", bareCtx("/tmp/project"))).toThrow(CheckError);
 
 		release?.(outcome());
 		await active.promise;
 		expect(runtime.isRunning()).toBe(false);
-		expect(() => runtime.start("test", ctx())).not.toThrow();
+		expect(() => runtime.start("test", bareCtx("/tmp/project"))).not.toThrow();
 	});
 
 	const OUTCOME_STATUS: ReadonlyArray<{
@@ -474,7 +464,7 @@ describe("createCheckRuntime", () => {
 	for (const { name, partial, status } of OUTCOME_STATUS) {
 		test(`reports ${name} as ${status}`, async () => {
 			const runtime = createCheckRuntime({ config: CONFIG, runner: async () => outcome(partial) });
-			const result = await runtime.run("test", ctx());
+			const result = await runtime.run("test", bareCtx("/tmp/project"));
 
 			expect(result.status).toBe(status);
 			if (partial.error) expect(result.error).toBe(partial.error);
@@ -498,7 +488,7 @@ describe("createCheckRuntime", () => {
 				}),
 		});
 
-		const active = runtime.start("test", ctx());
+		const active = runtime.start("test", bareCtx("/tmp/project"));
 		runtime.shutdown();
 		const result = await active.promise;
 
@@ -510,7 +500,7 @@ describe("createCheckRuntime", () => {
 
 /** A temp project with a source file. */
 function sourceProject(lines = 20): { root: string; path: string } {
-	const root = project("pi-check-source-");
+	const root = scratchDir(temps, "pi-check-source-");
 	mkdirSync(join(root, "src"), { recursive: true });
 	const path = join(root, "src", "a.ts");
 	writeFileSync(path, Array.from({ length: lines }, (_, index) => `line ${index + 1}`).join("\n"));
@@ -591,7 +581,7 @@ describe("readSourceExcerpt", () => {
 	test.skipIf(process.platform === "win32")("refuses a symlink that leaves the project", () => {
 		// Creating a symlink needs the real host, so this keeps the platform gate.
 		const { root } = sourceProject();
-		const outside = project("pi-check-source-outside-");
+		const outside = scratchDir(temps, "pi-check-source-outside-");
 		const target = join(outside, "secret.ts");
 		writeFileSync(target, "secret\n");
 		symlinkSync(target, join(root, "src", "link.ts"));

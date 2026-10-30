@@ -9,7 +9,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { coloringTheme } from "../../test/helpers/fakes.ts";
-import { type Card, CARD_VERSION } from "../../lib/board/card.ts";
+import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
+import { type Card } from "../../lib/board/card.ts";
 import { LANE_RULES } from "../../lib/board/lanes.ts";
 import type { Actor } from "../../lib/board/rules.ts";
 import type { RoundSummary } from "../../lib/board/round.ts";
@@ -27,23 +28,17 @@ function colour(role: TuiRole): string {
 const ME: Actor = { id: "s-me", label: "billing-core" };
 const PEER: Actor = { id: "s-peer", label: "api-core" };
 
-/** One card, as a file would carry it. */
+/** One card, as a file would carry it: claimed, because the row shows its owner. */
 function card(overrides: Partial<Card> = {}): Card {
-	return {
-		v: CARD_VERSION,
-		id: "4",
-		title: "Billing webhook accepts orders",
+	return cardFixture("4", {
 		lane: "plan",
-		paths: [],
 		priority: "normal",
 		owner: { label: PEER.label, id: PEER.id },
-		rev: 1,
+		log: [],
 		createdAt: 1_000,
 		updatedAt: 1_000,
-		log: [],
-		notes: [],
 		...overrides,
-	} as Card;
+	});
 }
 
 /** The narrowest width that still shows a card's facts, so a clipped row cannot hide one. */

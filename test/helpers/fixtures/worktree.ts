@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG, type WorktreeConfig } from "../../../extensions/worktree/config.ts";
 import { realPathOfNearest } from "../../../lib/path.ts";
@@ -204,4 +205,12 @@ export async function bootWorktree(repo: string, options: WorktreeBootOptions = 
 		run: (name, params = {}) => pi.tools.get(name).execute("call-1", params, undefined, undefined, ctx),
 		command: (args) => pi.commands.get("worktree").handler(args, ctx),
 	};
+}
+
+/**
+ * Where a managed worktree for `repo` lives once git canonicalizes it: the path a
+ * suite compares against, never the one it typed.
+ */
+export function managedPath(repo: string, name: string): string {
+	return realPathOfNearest(join(repo, ".pi", "worktrees", name));
 }

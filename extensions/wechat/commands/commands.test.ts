@@ -25,6 +25,7 @@ import {
 import { fakeCtx } from "../../../test/helpers/context.ts";
 import { tempDir } from "../../../test/helpers/env.ts";
 import { createFakePi } from "../../../test/helpers/fakes.ts";
+import { bridgeStatus } from "../../../test/helpers/fixtures/wechat.ts";
 import type { Bridge, BridgeStatus } from "../bridge.ts";
 import type { WechatClient } from "../transport/client.ts";
 import { finishLogin, registerCommands, runNew, WECHAT_COMMANDS, WECHAT_USAGE, type CommandDeps } from "./commands.ts";
@@ -59,24 +60,6 @@ const account: BotCredentials = {
 	botAgent: "ag",
 	createdAt: 0,
 };
-
-function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
-	return {
-		open: false,
-		expired: false,
-		paused: false,
-		running: false,
-		peerCount: 0,
-		queued: 0,
-		peerStates: [],
-		refused: 0,
-		refusedPeers: [],
-		mediaDropped: 0,
-		promptPending: false,
-		prompts: [],
-		...overrides,
-	};
-}
 
 interface Harness {
 	deps: CommandDeps;

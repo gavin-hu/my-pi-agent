@@ -13,6 +13,9 @@
  *      a re-declaration, and one whose body matches an exported helper body is a
  *      copy. Only exported helpers count: a private fixture helper cannot be
  *      imported.
+ *   4. A `*.test.ts` declaration whose body matches a declaration in another test
+ *      file is a duplicate. A scenario, a double, or a shaper two suites need is a
+ *      fixture in `test/helpers`, where it has one owner and one shape.
  *
  * Bodies are compared as normalized token sequences, comments and whitespace
  * removed, with a small token floor. The guards catch a copy in the pull request
@@ -295,6 +298,50 @@ export function findTestHelperCopies(
 	return [...new Set(violations)].sort();
 }
 
+/**
+ * Legitimate identical bodies across two test files, each with the reason the two are
+ * not one fixture. Keyed by `<repo-relative path>:<symbol>`; empty on purpose, so the
+ * fix for a copy is a fixture rather than an entry here.
+ */
+const DUPLICATE_TEST_EXCEPTIONS: ReadonlyMap<string, string> = new Map([]);
+
+/**
+ * Rule 4: no two test files carry the same body. A scenario, a double, or a shaper two
+ * suites need is one fixture in `test/helpers`, so the two cases cannot drift onto
+ * different shapes. Exact identity is what is compared, comments and names aside, so a
+ * suite's own default — a different title, a different clock — stays local.
+ */
+export function findDuplicateTestBodies(
+	tests: readonly Source[],
+	exceptions: ReadonlyMap<string, string> = DUPLICATE_TEST_EXCEPTIONS,
+): string[] {
+	const byBody = new Map<string, Declaration[]>();
+	for (const declaration of tests.flatMap(declarationsOf)) {
+		if (declaration.tokens < MIN_TOKENS) continue;
+		const group = byBody.get(declaration.body) ?? [];
+		group.push(declaration);
+		byBody.set(declaration.body, group);
+	}
+
+	const violations: string[] = [];
+	for (const group of byBody.values()) {
+		// One file holding one body twice is a declaration and its alias, which is local
+		// to that suite; two files is the copy this rule is about.
+		if (new Set(group.map((entry) => entry.path)).size < 2) continue;
+		for (const declaration of group) {
+			if (exceptions.has(`${declaration.path}:${declaration.name}`)) continue;
+			const others = group
+				.filter((entry) => entry !== declaration && entry.path !== declaration.path)
+				.map((entry) => `${entry.path}:${entry.name}`)
+				.sort();
+			violations.push(
+				`${declaration.path}:${declaration.name} duplicates ${others.join(", ")} (${declaration.tokens} tokens); move it to a fixture in test/helpers`,
+			);
+		}
+	}
+	return [...new Set(violations)].sort();
+}
+
 /** Where a source sits: `lib/` owns helpers, and extensions and scripts consume them. */
 function surfaceOf(path: string): Surface {
 	if (path.startsWith("lib/")) return "lib";
@@ -536,5 +583,46 @@ export const settle = (ms = 0): Promise<void> => new Promise((resolve) => setTim
 		expect(exported.length).toBeGreaterThan(50);
 		expect(tests.flatMap(declarationsOf).length).toBeGreaterThan(200);
 		expect(findTestHelperCopies(tests, helpers)).toEqual([]);
+	});
+
+	test("fails a body two test files share", () => {
+		const violations = findDuplicateTestBodies([
+			sourceOf("extensions/a/x.test.ts", libFixture),
+			sourceOf("extensions/a/y.test.ts", libFixture),
+		]);
+		expect(violations).toHaveLength(2);
+		expect(violations[0]).toContain("extensions/a/x.test.ts:clip duplicates extensions/a/y.test.ts:clip");
+		expect(violations[0]).toContain("move it to a fixture in test/helpers");
+	});
+
+	test("ignores one file declaring the same body twice", () => {
+		const violations = findDuplicateTestBodies([sourceOf("extensions/a/x.test.ts", libFixture)]);
+		expect(violations).toEqual([]);
+	});
+
+	test("honours a reasoned duplicate-test exception", () => {
+		const violations = findDuplicateTestBodies(
+			[sourceOf("extensions/a/x.test.ts", libFixture), sourceOf("extensions/a/y.test.ts", libFixture)],
+			new Map([["extensions/a/x.test.ts:clip", "the two files measure different things"]]),
+		);
+		expect(violations).toHaveLength(1);
+	});
+
+	test("every duplicate-test exception names a declaration that still exists", () => {
+		const known = new Set(
+			testSources()
+				.flatMap(declarationsOf)
+				.map((entry) => `${entry.path}:${entry.name}`),
+		);
+		const missing = [...DUPLICATE_TEST_EXCEPTIONS.keys()].filter((key) => !known.has(key));
+		expect(missing, "delete the exception: the declaration it names is gone").toEqual([]);
+	});
+
+	test("the duplicate-test exception list has no room to grow", () => {
+		expect(DUPLICATE_TEST_EXCEPTIONS.size).toBe(0);
+	});
+
+	test("no two test files carry the same body", () => {
+		expect(findDuplicateTestBodies(testSources())).toEqual([]);
 	});
 });

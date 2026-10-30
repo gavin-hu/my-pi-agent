@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
+import { screenText } from "../../../test/helpers/fakes.ts";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { stripTerminalSequences, visibleWidth, type Component } from "@earendil-works/pi-tui";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { PLAN_MODE_ENTRY_TYPE } from "../../../lib/plan-state.ts";
 import { fakeTheme, makeRecordingTheme } from "../../../test/helpers/fakes.ts";
 import { cleanup, makeRepo } from "../../../test/helpers/git.ts";
@@ -282,10 +283,6 @@ function diffComponent(overrides: Partial<ConstructorParameters<typeof ReviewDif
 		...overrides,
 	});
 	return { component, closed };
-}
-
-function screenText(component: Component, width = 80): string {
-	return stripTerminalSequences(component.render(width).join("\n"));
 }
 
 describe("review list", () => {

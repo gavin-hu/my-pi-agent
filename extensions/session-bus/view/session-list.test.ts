@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { busStatus } from "../../../test/helpers/fixtures/session-bus.ts";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { fakeTheme } from "../../../test/helpers/fakes.ts";
 import { mailNotice } from "../notice.ts";
@@ -40,10 +41,6 @@ function claim(overrides: Partial<ClaimRecord> = {}): ClaimRecord {
 	return { path: "src/api", owner: "fedcba654321", ownerLabel: "backend", at: 9_000, ...overrides };
 }
 
-function status(sessions: ListedSession[], claims: ClaimRecord[] = []): SessionStatus {
-	return { me: { id: "abcdef123456", label: "frontend" }, onBus: true, sessions, claims };
-}
-
 function message(overrides: Partial<BusMessage> = {}): BusMessage {
 	return {
 		id: "1-a",
@@ -59,7 +56,7 @@ function message(overrides: Partial<BusMessage> = {}): BusMessage {
 }
 
 function board(): SessionStatus {
-	return status(
+	return busStatus(
 		[
 			session({ label: "verify-billing", id: "aaa111", mode: "rpc" }),
 			session({ label: "backend", id: "fedcba654321", unread: 3 }),
@@ -103,7 +100,7 @@ describe("session rows", () => {
 	});
 
 	test("neutralizes a peer label with an escape sequence or a newline", () => {
-		const rows = sessionRows(status([session({ id: "s1", label: "front\u001b[31m\nend" })]));
+		const rows = sessionRows(busStatus([session({ id: "s1", label: "front\u001b[31m\nend" })]));
 		const [row] = rows;
 		if (!row) throw new Error("no row");
 		const line = sessionRowLine(row, fakeTheme, 80);
@@ -118,13 +115,16 @@ describe("session rows", () => {
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("2 claims");
 		expect(summaryCells(fakeTheme, rows, { armed: true, wake: false }).join(" · ")).toContain("watch on");
 		expect(summaryCells(fakeTheme, rows, { armed: true, wake: true }).join(" · ")).toContain("watch wake");
-		const single = sessionRows(status([session({ id: "s1", label: "solo" })]));
+		const single = sessionRows(busStatus([session({ id: "s1", label: "solo" })]));
 		expect(summaryCells(fakeTheme, single, undefined).join(" · ")).toBe("1 session · 0 claims");
 	});
 
 	test("a dead session is counted and rowed as gone, not as a quiet teammate", () => {
 		const rows = sessionRows(
-			status([session({ id: "s1", label: "mine" }), session({ id: "s2", label: "crashed", unread: 0, state: "gone" })]),
+			busStatus([
+				session({ id: "s1", label: "mine" }),
+				session({ id: "s2", label: "crashed", unread: 0, state: "gone" }),
+			]),
 		);
 		// The summary leads with it: a crash is the one cell a lead must not scan past.
 		expect(summaryCells(fakeTheme, rows, undefined).join(" · ")).toContain("1 gone");
@@ -146,7 +146,7 @@ describe("session rows", () => {
 		expect(block[2]).toContain("last seen: 2.0s ago");
 		expect(block.join("\n")).not.toContain("3 unread");
 
-		const many = status(
+		const many = busStatus(
 			[session({ id: "s1" })],
 			[
 				claim({ path: "a", owner: "s1", ownerLabel: "solo" }),
@@ -195,7 +195,7 @@ describe("the /sessions screen", () => {
 	}
 
 	function ownClaimStatus(): SessionStatus {
-		return status(
+		return busStatus(
 			[session({ id: "abcdef123456", label: "frontend" })],
 			[claim({ owner: "abcdef123456", ownerLabel: "frontend" })],
 		);
@@ -311,7 +311,7 @@ describe("the /sessions screen", () => {
 		view.handleInput("j");
 		view.handleInput("\r");
 		expect(view.currentDetailId()).toBe("s:fedcba654321");
-		view.setBoard(snapshot(status([session({ id: "abcdef123456", label: "frontend" })])));
+		view.setBoard(snapshot(busStatus([session({ id: "abcdef123456", label: "frontend" })])));
 		expect(view.render(80).join("\n")).toContain("Sessions");
 		expect(view.currentDetailId()).toBeUndefined();
 	});
@@ -330,7 +330,7 @@ describe("the /sessions screen", () => {
 		const view = screen(snapshot(board()), recorded);
 		view.setBoard(snapshot(board()));
 		expect(recorded.renders).toBe(0);
-		view.setBoard(snapshot(status([session({ id: "abcdef123456", label: "frontend", unread: 2 })])));
+		view.setBoard(snapshot(busStatus([session({ id: "abcdef123456", label: "frontend", unread: 2 })])));
 		expect(recorded.renders).toBe(1);
 		view.setBoard(snapshot(board(), [message()]));
 		expect(recorded.renders).toBe(2);
@@ -339,7 +339,7 @@ describe("the /sessions screen", () => {
 	});
 
 	test("names each scope's empty state, and says how to join", () => {
-		const view = screen(snapshot(status([])), events());
+		const view = screen(snapshot(busStatus([])), events());
 		expect(view.render(80).join("\n")).toContain("No sessions on this bus yet. Press w to join and listen.");
 		view.handleInput("\t");
 		expect(view.render(80).join("\n")).toContain("No unread mail.");
@@ -348,7 +348,7 @@ describe("the /sessions screen", () => {
 	});
 
 	test("a reader that has not named itself says it is not on the bus", () => {
-		const view = screen(snapshot({ ...status([]), onBus: false }), events());
+		const view = screen(snapshot({ ...busStatus([]), onBus: false }), events());
 		expect(view.render(80).join("\n")).toContain("not on the bus");
 	});
 

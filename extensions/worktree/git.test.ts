@@ -9,6 +9,7 @@
  * directories and clean up in one `afterAll`.
  */
 
+import { managedPath } from "../../test/helpers/fixtures/worktree.ts";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, realpathSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -77,10 +78,6 @@ function stubPi(route: (args: string[]) => { stdout?: string; stderr?: string; c
 }
 
 /** The managed worktree directory for a name, canonicalized the way git reports it. */
-function managedPath(repo: string, name: string): string {
-	return realPathOfNearest(join(repo, ".pi", "worktrees", name));
-}
-
 describe("configuration", () => {
 	test("returns the defaults when no file exists", () => {
 		expect(loadConfig(tempDir("worktree-repo-"), tempDir("worktree-global-"))).toEqual(DEFAULT_CONFIG);

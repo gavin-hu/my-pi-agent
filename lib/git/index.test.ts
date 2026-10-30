@@ -10,7 +10,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
-import { tempDir, withEnv } from "../../test/helpers/env.ts";
+import { scratchDir, withEnv } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { canCreateSymlinks } from "../../test/helpers/platform.ts";
 import {
@@ -33,10 +33,6 @@ const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 /** A temp directory, removed at teardown. */
-function scratch(prefix: string): string {
-	return temps.track(tempDir(prefix));
-}
-
 /** A runner that answers from a map or a function, and records every call. */
 function recordingRunner(responses: Map<string, Partial<GitResult>> | ((args: string[]) => Partial<GitResult>)) {
 	const calls: Array<{ args: string[]; options: { cwd: string; timeoutMs?: number; env?: Record<string, string> } }> =
@@ -165,7 +161,7 @@ describe("repoRootFor", () => {
 
 describe("repoRoot", () => {
 	test("returns the repository root, trimmed", async () => {
-		const base = scratch("pi-git-root-");
+		const base = scratchDir(temps, "pi-git-root-");
 		const { run } = recordingRunner(
 			() =>
 				({
@@ -184,7 +180,7 @@ describe("repoRoot", () => {
 	});
 
 	test("falls back to git's own string when the path cannot be resolved", async () => {
-		const gone = join(scratch("pi-git-root-"), "gone");
+		const gone = join(scratchDir(temps, "pi-git-root-"), "gone");
 		const { run } = recordingRunner(() => ({ stdout: gone }) as Partial<GitResult>);
 		expect(await repoRoot(run, "/repo")).toBe(gone);
 	});
@@ -194,7 +190,7 @@ describe("repoRoot", () => {
 	const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
 
 	symlinkTest("canonicalizes a path that reaches the repository through a symlink", async () => {
-		const base = scratch("pi-git-link-");
+		const base = scratchDir(temps, "pi-git-link-");
 		const target = join(base, "repo");
 		mkdirSync(target);
 		const link = join(base, "link");

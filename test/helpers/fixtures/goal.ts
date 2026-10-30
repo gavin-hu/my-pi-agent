@@ -51,3 +51,8 @@ export function clarifyRegistry(replies: Array<string | undefined>): { calls: st
 		},
 	};
 }
+
+/** A session entry carrying one `todo` tool result, which is how the goal reads progress. */
+export function todoEntry(todos: unknown): unknown {
+	return { type: "message", message: { role: "toolResult", toolName: "todo", details: { todos, action: "write" } } };
+}

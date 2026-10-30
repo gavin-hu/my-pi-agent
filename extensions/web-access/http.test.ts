@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { concatBytes } from "../../test/helpers/fixtures/web-access.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { WEB_SEARCH_PROVIDER_CHANNEL } from "../../lib/events.ts";
@@ -35,17 +36,6 @@ const GBK_TEA = new Uint8Array([0xd4, 0xe7, 0xb2, 0xe8]);
 
 function ascii(text: string): Uint8Array {
 	return new TextEncoder().encode(text);
-}
-
-function joined(...parts: Uint8Array[]): Uint8Array {
-	const total = parts.reduce((sum, part) => sum + part.length, 0);
-	const merged = new Uint8Array(total);
-	let offset = 0;
-	for (const part of parts) {
-		merged.set(part, offset);
-		offset += part.length;
-	}
-	return merged;
 }
 
 describe("charsetOf", () => {
@@ -114,7 +104,7 @@ describe("decodeHtml", () => {
 	});
 
 	test("falls back to the document's own <meta charset>", () => {
-		const body = joined(
+		const body = concatBytes(
 			ascii('<html><head><meta charset="gbk"></head><body><p>'),
 			GBK_TEA,
 			ascii("</p></body></html>"),
@@ -123,12 +113,16 @@ describe("decodeHtml", () => {
 	});
 
 	test("prefers a byte-order mark over the declared charset", () => {
-		const body = joined(new Uint8Array([0xef, 0xbb, 0xbf]), ascii("héllo"));
+		const body = concatBytes(new Uint8Array([0xef, 0xbb, 0xbf]), ascii("héllo"));
 		expect(decodeHtml(body, "text/html; charset=gbk")).toBe("héllo");
 	});
 
 	test("prefers the declared charset over <meta>", () => {
-		const body = joined(ascii('<html><head><meta charset="utf-8"></head><body>'), GBK_TEXT, ascii("</body></html>"));
+		const body = concatBytes(
+			ascii('<html><head><meta charset="utf-8"></head><body>'),
+			GBK_TEXT,
+			ascii("</body></html>"),
+		);
 		expect(decodeHtml(body, "text/html; charset=gbk")).toContain("中文页面");
 	});
 });

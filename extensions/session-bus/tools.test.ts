@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir } from "../../test/helpers/env.ts";
+import { scratchDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createFakePi, fakeTheme } from "../../test/helpers/fakes.ts";
 import { createSessionBus, type SessionBus } from "./runtime.ts";
@@ -10,10 +10,6 @@ import { registerTools } from "./tools.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-function busDir(): string {
-	return temps.track(tempDir("pi-session-bus-"));
-}
 
 interface Session {
 	bus: SessionBus;
@@ -68,7 +64,7 @@ async function joins(target: Session): Promise<void> {
 
 describe("session tool", () => {
 	test("status lists both terminal sessions", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const backend = session(dir, "/repo/backend", "s2", "backend");
 		await joins(frontend);
@@ -84,7 +80,7 @@ describe("session tool", () => {
 	});
 
 	test("send and inbox travel between sessions", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const backend = session(dir, "/repo/backend", "s2", "backend");
 		await joins(frontend);
@@ -108,7 +104,7 @@ describe("session tool", () => {
 	});
 
 	test("claim conflicts are reported, not silently stolen", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const backend = session(dir, "/repo/backend", "s2", "backend");
 		await frontend.bus.start(frontend.ctx);
@@ -131,7 +127,7 @@ describe("session tool", () => {
 	});
 
 	test("join listens, reports a turn-start notice, and stops listening", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const backend = session(dir, "/repo/backend", "s2", "backend");
 		await frontend.bus.start(frontend.ctx);
@@ -159,7 +155,7 @@ describe("session tool", () => {
 	});
 
 	test("the join transcript line says which mode is on", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
 			{ content: [], details: { action: "join", label: "frontend", watching: { armed: true, wake: true } } },
 			{ expanded: false },
@@ -169,7 +165,7 @@ describe("session tool", () => {
 	});
 
 	test("join sets the bus label and Pi's session name, and peers address it", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const lead = session(dir, "/repo/mono", "s1", "mono");
 		const owner = session(dir, "/repo/mono", "s2", "billing-core");
 		await lead.bus.start(lead.ctx);
@@ -202,7 +198,7 @@ describe("session tool", () => {
 	});
 
 	test("join refuses a label another live session holds", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const lead = session(dir, "/repo/mono", "s1", "mono");
 		const owner = session(dir, "/repo/mono", "s2", "billing-core");
 		await lead.bus.start(lead.ctx);
@@ -224,7 +220,7 @@ describe("session tool", () => {
 	});
 
 	test("a bare join keeps the label it landed on, and never renames Pi on its own", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const lead = session(dir, "/repo/mono", "s1", "mono");
 		await lead.bus.start(lead.ctx);
 
@@ -240,7 +236,7 @@ describe("session tool", () => {
 	});
 
 	test("the join transcript lines name the label and the state", () => {
-		const lead = session(busDir(), "/repo/mono", "s1", "mono");
+		const lead = session(scratchDir(temps, "pi-session-bus-"), "/repo/mono", "s1", "mono");
 		const call = lead.tool
 			.renderCall({ action: "join", label: "billing-lead" }, fakeTheme, { lastComponent: undefined })
 			.render(80)
@@ -256,7 +252,7 @@ describe("session tool", () => {
 	});
 
 	test("an invalid action returns a model-readable error", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const frontend = session(dir, "/repo/frontend", "s1", "frontend");
 		const result = await frontend.tool.execute("call", { action: "explode" }, undefined, undefined, frontend.ctx);
 		expect(result.isError).toBe(true);
@@ -264,7 +260,7 @@ describe("session tool", () => {
 	});
 
 	test("the transcript line neutralizes a peer label", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
 			{ content: [], details: { action: "send", delivered: ["back\u001b[31m\nend"] } },
 			{ expanded: false },
@@ -276,7 +272,7 @@ describe("session tool", () => {
 	});
 
 	test("the call line names the verb and what it acts on", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const send = frontend.tool
 			.renderCall({ action: "send", to: "backend" }, fakeTheme, { lastComponent: undefined })
 			.render(80)
@@ -295,7 +291,7 @@ describe("session tool", () => {
 	});
 
 	test("expanded status draws the sessions and the claims", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
 			{
 				content: [],
@@ -346,7 +342,7 @@ describe("session tool", () => {
 	});
 
 	test("collapsed status counts in the plural and names the watch", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
 			{
 				content: [],
@@ -379,7 +375,7 @@ describe("session tool", () => {
 	});
 
 	test("expanded inbox lists what was consumed", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
 			{
 				content: [],
@@ -408,7 +404,7 @@ describe("session tool", () => {
 	});
 
 	test("a release names the paths it did not own instead of a green success", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const rendered = frontend.tool.renderResult(
 			{ content: [], details: { action: "release", released: ["src/ok.ts"], notOwned: ["src/theirs.ts"] } },
 			{ expanded: false },
@@ -420,7 +416,7 @@ describe("session tool", () => {
 	});
 
 	test("empty results never print a bare success", () => {
-		const frontend = session(busDir(), "/repo/frontend", "s1", "frontend");
+		const frontend = session(scratchDir(temps, "pi-session-bus-"), "/repo/frontend", "s1", "frontend");
 		const line = (details: unknown): string =>
 			frontend.tool.renderResult({ content: [], details }, { expanded: false }, fakeTheme).render(80).join("\n");
 		expect(line({ action: "send", delivered: [] })).toContain("Delivered to nobody");

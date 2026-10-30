@@ -7,26 +7,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { CARD_VERSION, type Card } from "./card.ts";
+import { CARD_VERSION } from "./card.ts";
 import { readCard } from "./read.ts";
-
-/** A v2 card that passes, so each case changes exactly one thing. */
-function card(overrides: Partial<Card> = {}): Card {
-	return {
-		v: CARD_VERSION,
-		id: "4",
-		title: "Billing webhook accepts orders",
-		lane: "backlog",
-		paths: ["src/billing"],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: 1_000,
-		updatedAt: 1_000,
-		by: "billing-lead",
-		...overrides,
-	};
-}
+import { billingCard as card } from "../../test/helpers/fixtures/board.ts";
 
 describe("readCard", () => {
 	test("reads a v1 card, mapping the three renames onto this build's names", () => {

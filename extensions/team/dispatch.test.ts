@@ -10,26 +10,22 @@
 import { describe, expect, test } from "bun:test";
 import type { Card } from "../../lib/board/card.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
+import { boardCard as cardFixture } from "../../test/helpers/fixtures/board.ts";
 import { MAX_MESSAGE_TEXT } from "../../lib/session-tool.ts";
 import { handoffText, notListening, offerText, ownerFor, peerFor, sessionDispatch } from "./dispatch.ts";
 
 /** A claimed card, which is what a handoff describes. */
 function card(overrides: Partial<Card> = {}): Card {
-	return {
-		v: 2,
-		id: "4",
-		title: "Billing webhook accepts orders",
+	return cardFixture("4", {
 		lane: "execute",
+		title: "Billing webhook accepts orders",
 		owner: { id: "s-lead", label: "billing-lead" },
 		paths: ["src/billing"],
-		notes: [],
-		notesDropped: 0,
 		rev: 2,
 		createdAt: 1_000,
 		updatedAt: 1_000,
-		by: "billing-lead",
 		...overrides,
-	};
+	});
 }
 
 describe("handoffText", () => {

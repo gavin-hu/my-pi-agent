@@ -12,7 +12,7 @@ import { writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createConnection } from "node:net";
 import { join } from "node:path";
-import { tempDir } from "../../test/helpers/env.ts";
+import { scratchDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { eventHeaders, jsonHeaders, PAGE_CSP, pageHeaders, scriptHeaders } from "./headers.ts";
 import { htmlResponse, jsonError, jsonResponse, textResponse } from "./response.ts";
@@ -24,10 +24,6 @@ const temps = makeTempTracker();
 afterAll(() => temps.flush());
 
 /** A temp directory, removed at teardown. */
-function scratch(prefix: string): string {
-	return temps.track(tempDir(prefix));
-}
-
 /** The header sets a page-carrying response uses, by name. */
 const SETS = [
 	["page", pageHeaders, "text/html; charset=utf-8"],
@@ -271,7 +267,7 @@ describe("respond", () => {
 	});
 
 	test("streams a filePath instead of a buffered body", async () => {
-		const file = join(scratch("pi-http-"), "raw.txt");
+		const file = join(scratchDir(temps, "pi-http-"), "raw.txt");
 		writeFileSync(file, "streamed bytes");
 		const server = createServer((request, response) =>
 			respond(request, response, {

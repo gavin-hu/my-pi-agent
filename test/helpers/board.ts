@@ -11,7 +11,7 @@
  * function, so each suite flushes them with the tracker it already owns.
  */
 
-import { openBoardSession } from "../../lib/board/session.ts";
+import { openBoardSession, type BoardSession } from "../../lib/board/session.ts";
 import { fakeCtx } from "./context.ts";
 import { createFakePi, type FakePiOptions } from "./fakes.ts";
 import { tempDir } from "./env.ts";
@@ -50,4 +50,27 @@ export function boardHarness(options: BoardHarnessOptions = {}) {
 		sessionName: options.sessionName ?? "billing-lead",
 	});
 	return { fake, runtime, ctx, notifications, cwd, agentDir, now };
+}
+
+/**
+ * A session that never touches the disk: every read throws, so a factory that opens
+ * one at registration fails the test that boots it rather than passing quietly.
+ */
+export function stubSession(): BoardSession {
+	return {
+		store: () => {
+			throw new Error("the factory must not open a store");
+		},
+		who: async () => ({ label: "billing-lead" }),
+		now: () => 0,
+		busDir: async () => {
+			throw new Error("the factory must not read the bus");
+		},
+		planDir: async () => {
+			throw new Error("the factory must not read the plan store");
+		},
+		serving: () => undefined,
+		serve: () => {},
+		team: { last: () => undefined, record: () => {} },
+	};
 }

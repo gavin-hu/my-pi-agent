@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { coloringTheme, fakeTheme } from "../../../test/helpers/fakes.ts";
+import { bridgeStatus } from "../../../test/helpers/fixtures/wechat.ts";
 import { settle } from "../../../test/helpers/process.ts";
 import type { BridgeStatus } from "../bridge.ts";
 import { DEFAULT_CONFIG } from "../config.ts";
@@ -26,24 +27,6 @@ const screenAccount: BotCredentials = {
 	botAgent: "ag",
 	createdAt: 0,
 };
-
-function bridgeStatus(overrides: Partial<BridgeStatus> = {}): BridgeStatus {
-	return {
-		open: false,
-		expired: false,
-		paused: false,
-		running: false,
-		peerCount: 0,
-		queued: 0,
-		peerStates: [],
-		refused: 0,
-		refusedPeers: [],
-		mediaDropped: 0,
-		promptPending: false,
-		prompts: [],
-		...overrides,
-	};
-}
 
 function view(overrides: Partial<StatusView> = {}): StatusView {
 	return {

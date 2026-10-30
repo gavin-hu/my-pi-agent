@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { CARD_VERSION, type Card } from "./card.ts";
 import { buildRound } from "./round.ts";
+import { minuteOldCards } from "../../test/helpers/fixtures/board.ts";
 import {
 	formatRound,
 	HISTORY_LINE_JS,
@@ -23,23 +23,8 @@ import {
 const NOW = 1_760_000_000_000;
 const IDLE_MS = 30 * 60 * 1_000;
 
-/** A card built the way the store would hold it. */
-function card(id: string, overrides: Partial<Card> = {}): Card {
-	return {
-		v: CARD_VERSION,
-		id,
-		title: `feature ${id}`,
-		lane: "backlog",
-		paths: [],
-		notes: [],
-		notesDropped: 0,
-		rev: 1,
-		createdAt: NOW - 60_000,
-		updatedAt: NOW - 60_000,
-		by: "billing-lead",
-		...overrides,
-	};
-}
+// A card a minute old, as the store would have written it.
+const card = minuteOldCards(NOW);
 
 describe("formatRound", () => {
 	test("counts what a lead decides on, then names each group's cards", () => {

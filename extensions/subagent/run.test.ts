@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, utimesSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { afterAll, describe, expect, test } from "bun:test";
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
+import { screenText } from "../../test/helpers/fakes.ts";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { BUILTIN_AGENTS } from "./agents.ts";
 import {
@@ -1066,10 +1066,6 @@ function board(overrides: Partial<ConstructorParameters<typeof AgentsBoardCompon
 		...overrides,
 	});
 	return { component, actions };
-}
-
-function screenText(component: AgentsBoardComponent, width = 80): string {
-	return stripTerminalSequences(component.render(width).join("\n"));
 }
 
 describe("agents board", () => {

@@ -5,7 +5,7 @@ import { createSessionBus, type SessionBus } from "./runtime.ts";
 import { createBusStore } from "./store.ts";
 import { ENV_DISABLED_EXTENSIONS } from "../../lib/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
-import { tempDir } from "../../test/helpers/env.ts";
+import { scratchDir } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { createFakePi, emit, emitFirst, fakeTheme } from "../../test/helpers/fakes.ts";
 import { withEnv } from "../../test/helpers/env.ts";
@@ -16,10 +16,6 @@ import { SessionListComponent } from "./view/session-list.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());
-
-function busDir(): string {
-	return temps.track(tempDir("pi-session-bus-"));
-}
 
 /** A named session is a joined one: starting the bus puts nobody on it. */
 async function joined(bus: SessionBus, ctx: ExtensionContext, label: string): Promise<void> {
@@ -43,7 +39,7 @@ function setup(dir: string) {
 
 describe("a board's join request", () => {
 	test("joins the session as the label it asked for, and leaves Pi's name alone", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx } = setup(dir);
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		const answered = new Promise<JoinResult>((resolve) => {
@@ -57,7 +53,7 @@ describe("a board's join request", () => {
 	});
 
 	test("names Pi's session too when the caller asks for it", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx } = setup(dir);
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		const answered = new Promise<JoinResult>((resolve) => {
@@ -70,7 +66,7 @@ describe("a board's join request", () => {
 	});
 
 	test("answers a failure rather than leaving the board waiting", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx } = setup(dir);
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		// A label another live session holds is refused, and the refusal is the answer.
@@ -91,7 +87,7 @@ describe("a board's join request", () => {
 
 describe("session-bus extension", () => {
 	test("registers a tool and a command", () => {
-		const { tools, commands } = setup(busDir());
+		const { tools, commands } = setup(scratchDir(temps, "pi-session-bus-"));
 		expect(tools.has("session")).toBe(true);
 		expect(commands.has("sessions")).toBe(true);
 	});
@@ -106,7 +102,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("session_start alone lists nobody; joining puts this session on, and shutdown leaves", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx } = setup(dir);
 		await emit(pi, "session_start", { type: "session_start" }, ctx);
 		const store = createBusStore({ dir });
@@ -119,7 +115,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("prints the listing outside the TUI, where reading is not joining", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, notices, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 		await bus.start(ctx);
@@ -139,7 +135,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("opens the bus board in the TUI and restores the rails", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 		await joined(bus, ctx, "frontend");
@@ -159,7 +155,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("a fresh session joins from the board's w", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 
@@ -183,7 +179,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("reads unread mail and releases its own claim from the board", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, command } = setup(dir);
 		if (!command) throw new Error("sessions command not registered");
 		await bus.start(ctx);
@@ -226,7 +222,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("an armed wake raises exactly one turn for new mail", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, customMessages } = setup(dir);
 		const peer = createSessionBus({} as ExtensionAPI, {
 			dir,
@@ -261,7 +257,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("without wake the notice waits for the next turn, and arrives once", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, customMessages } = setup(dir);
 		const peer = createSessionBus({} as ExtensionAPI, {
 			dir,
@@ -291,7 +287,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("a wake that arrives mid-turn raises one turn once the run settles", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, customMessages } = setup(dir);
 		const peer = createSessionBus({} as ExtensionAPI, {
 			dir,
@@ -325,7 +321,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("an aborted run leaves the inbox wake for the next turn", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, customMessages } = setup(dir);
 		const peer = createSessionBus({} as ExtensionAPI, {
 			dir,
@@ -355,7 +351,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("arming mid-turn wakes for mail already waiting once the run settles", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, customMessages } = setup(dir);
 		const peer = createSessionBus({} as ExtensionAPI, {
 			dir,
@@ -386,7 +382,7 @@ describe("session-bus extension", () => {
 	});
 
 	test("a plain armed watch waits for the next turn after a settle", async () => {
-		const dir = busDir();
+		const dir = scratchDir(temps, "pi-session-bus-");
 		const { pi, bus, ctx, customMessages } = setup(dir);
 		const peer = createSessionBus({} as ExtensionAPI, {
 			dir,

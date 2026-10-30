@@ -8,6 +8,7 @@
  * `bun run check` stays fast while CI keeps the coverage.
  */
 
+import { managedPath } from "../../test/helpers/fixtures/worktree.ts";
 import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -42,10 +43,6 @@ afterAll(() => temps.flush());
 const symlinkTest = (canCreateSymlinks() ? test : test.skip) as typeof test;
 
 /** The managed worktree directory for a name, canonicalized the way git reports it. */
-function managedPath(repo: string, name: string): string {
-	return realPathOfNearest(join(repo, ".pi", "worktrees", name));
-}
-
 describe("file tool guard", () => {
 	const ROOT = "/wt";
 	const config = (guard: Partial<ReturnType<typeof testConfig>["guard"]> = {}) => testConfig({ guard });

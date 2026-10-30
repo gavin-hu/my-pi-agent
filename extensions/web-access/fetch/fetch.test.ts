@@ -12,7 +12,7 @@ import { decodeEntities } from "../html.ts";
 import type { HttpResponse, HttpRunner } from "../http.ts";
 import { tempDir, useEnv } from "../../../test/helpers/env.ts";
 import { createFakePi, emit, fakeTheme } from "../../../test/helpers/fakes.ts";
-import { htmlResponse } from "../../../test/helpers/fixtures/web-access.ts";
+import { concatBytes, htmlResponse } from "../../../test/helpers/fixtures/web-access.ts";
 import type { PdfExtractor } from "../../../lib/pdf.ts";
 import { createPageCache, type CachedPage } from "./cache.ts";
 import { DEFAULT_FETCH_CONFIG, normalizeFetchConfig } from "./config.ts";
@@ -494,17 +494,6 @@ function pdfResponse(): HttpResponse {
 
 /** "中文页面" in GBK. */
 const GBK_TEXT = new Uint8Array([0xd6, 0xd0, 0xce, 0xc4, 0xd2, 0xb3, 0xc3, 0xe6]);
-
-function concatBytes(...parts: Uint8Array[]): Uint8Array {
-	const total = parts.reduce((sum, part) => sum + part.length, 0);
-	const merged = new Uint8Array(total);
-	let offset = 0;
-	for (const part of parts) {
-		merged.set(part, offset);
-		offset += part.length;
-	}
-	return merged;
-}
 
 function gbkPage(prefix: string): HttpResponse {
 	const bytes = concatBytes(

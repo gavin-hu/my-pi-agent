@@ -61,9 +61,10 @@ gate is stated in the test.
    `test/dependencies.test.ts`, `test/skill-bank.test.ts`,
    `test/scripts-surface.test.ts`) — cross-cutting
    contracts. No capability suite may duplicate these. `shared-helpers.test.ts`
-   fails an extension that reimplements what `lib/` owns, by name or by body, and
-   a test that re-declares or copies a `test/helpers` export, and pins its
-   exception maps; `drift.test.ts` keeps every `lib/` module in the `lib/README.md`
+   fails an extension that reimplements what `lib/` owns, by name or by body, a
+   test that re-declares or copies a `test/helpers` export, and one test file
+   that carries a body another test file already carries, and pins its exception
+   maps; `drift.test.ts` keeps every `lib/` module in the `lib/README.md`
    index and `AGENTS.md` inside its word budget; the module line bar and its
    `LONG_MODULES` heights live in `structure.test.ts`.
    `tool-render.test.ts` renders every registered tool's call
@@ -283,14 +284,14 @@ test/
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, boundary, line bar, and doc-link guards
-  drift.test.ts            # duplicate bodies, lib/README index, AGENTS.md budget
+  drift.test.ts            # lib/README index and AGENTS.md word budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
   architecture-doc.test.ts # docs/architecture.md: the paths it names, and every lib/ layer
   extension-load.test.ts   # the pi manifest and every extension loading through the fake runtime
   extension-docs.test.ts   # docs/extensions/: the template's order, the capabilities table, the registered surface in it, a Files row for every module (nested ones too), and a suite behind every `## Testing` stem
   refactor-skill.test.ts   # the `refactor` skill's inventory script: measures, graph, churn, budget
-  shared-helpers.test.ts   # no extension or test re-declares a lib or test/helpers export
+  shared-helpers.test.ts   # no re-declared lib or test/helpers export, and no body two files share
   prompt-budget.test.ts    # injected-context size ceilings
   theme.test.ts            # themes/*.json contract, incl. WCAG AA per semantic role
   config-docs.test.ts      # the configuration reference against the loaders
