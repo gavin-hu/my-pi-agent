@@ -5,6 +5,8 @@
  * a suite stem is relative to its owner directory and omits `.test.ts`. Every
  * test file under `extensions/`, `lib/`, and `scripts/` must be declared here;
  * `test/structure.test.ts` enforces that and requires each declared suite.
+ * `declaredSuiteFiles` is the same layout as repo-relative paths, so the size bar
+ * and the layout guard read one list rather than composing it twice.
  */
 
 export const EXTENSION_SUITES: Record<string, readonly string[]> = {
@@ -168,3 +170,14 @@ export const LIB_SUITES: readonly string[] = [
 ];
 
 export const SCRIPT_SUITES: readonly string[] = ["screenshots", "release", "render-bench"];
+
+/** Every declared suite as a repo-relative path, sorted. */
+export function declaredSuiteFiles(): string[] {
+	return [
+		...Object.entries(EXTENSION_SUITES).flatMap(([name, suites]) =>
+			suites.map((suite) => `extensions/${name}/${suite}.test.ts`),
+		),
+		...LIB_SUITES.map((suite) => `lib/${suite}.test.ts`),
+		...SCRIPT_SUITES.map((suite) => `scripts/${suite}.test.ts`),
+	].sort();
+}

@@ -15,7 +15,7 @@ import { REQUIREMENTS } from "../lib/requirements.ts";
 import { SHARED_CONFIG_FILE } from "../lib/config.ts";
 import { allowsAt } from "./helpers/comments.ts";
 import { posix, walkFiles } from "./helpers/files.ts";
-import { EXTENSION_SUITES, LIB_SUITES, SCRIPT_SUITES } from "./suite-manifest.ts";
+import { EXTENSION_SUITES, declaredSuiteFiles } from "./suite-manifest.ts";
 
 /**
  * A path in posix form, from parts that may arrive with either separator.
@@ -75,6 +75,7 @@ const ROOT_TEST_FILES = new Set([
 	"shared-helpers.test.ts",
 	"skill-bank.test.ts",
 	"structure.test.ts",
+	"suite-sizes.test.ts",
 	"theme.test.ts",
 	"tool-render.test.ts",
 	"wait-budget.test.ts",
@@ -188,17 +189,6 @@ function scanBans(file: string, bans: Ban[] = BANS, exempt: Set<string> = EXEMPT
 		}
 	});
 	return violations;
-}
-
-/** Every suite path declared by the manifest, relative to the repository root. */
-function declaredSuiteFiles(): string[] {
-	return [
-		...Object.entries(EXTENSION_SUITES).flatMap(([name, suites]) =>
-			suites.map((suite) => `extensions/${name}/${suite}.test.ts`),
-		),
-		...LIB_SUITES.map((suite) => `lib/${suite}.test.ts`),
-		...SCRIPT_SUITES.map((suite) => `scripts/${suite}.test.ts`),
-	].sort();
 }
 
 /** Every test file the layout governs, relative to the repository root. */

@@ -23,6 +23,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that never starts a peer's turn — in the shell's foot, and its lane floors carry the
   WIP counts and the lead's round. The stylesheet gains the plan lane's own `--warn`
   role and the 380px box the two-line head pays for.
+- `test`: the 400-line suite bar `test/README.md` states is a gate now.
+  `test/suite-sizes.test.ts` names every declared suite already past it — 74 of them, 61,025
+  lines — at its exact height, with a total that may only fall: one added line in a named
+  suite fails, a suite past the bar that is not named fails, and an entry that went back
+  under the bar fails until it is deleted. The line count is what the guard reads, since a
+  table-driven suite hides its case count, so the doc's "or 40 tests" half now says so.
 
 ### Changed
 
