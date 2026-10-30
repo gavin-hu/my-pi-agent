@@ -8,6 +8,11 @@
  * closed, so the kit only ever references it, never a literal color.
  *
  * Value-only: one frozen lookup table and pure helpers.
+ *
+ * Two vocabularies live here and they do not mix: `ok`/`warn`/`bad` are verdicts —
+ * they say how something *is* — and `hue1`…`hue5` are categories, which say only
+ * "this is not those". A surface that shows hues keeps its verdicts to the places
+ * that earn one, because a reader cannot tell a borrowed green from a judgement.
  */
 
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
@@ -35,7 +40,20 @@ export type TuiRole =
 	/** Error. */
 	| "bad"
 	/** Neutral notice. */
-	| "info";
+	| "info"
+	/**
+	 * A category hue: identity, never a verdict.
+	 *
+	 * Blue, purple, pink, green, and amber are the shipped palette's five colourful
+	 * tokens, so a categorical surface reads as a chart. Green and amber are the same
+	 * tokens `ok` and `warn` resolve to — that is the cost of Pi's closed token set —
+	 * which is why a hue never appears in a slot that also carries a judgement.
+	 */
+	| "hue1"
+	| "hue2"
+	| "hue3"
+	| "hue4"
+	| "hue5";
 
 /** Role -> theme color. The single place the kit names a Pi token. */
 export const TUI_TOKENS: Readonly<Record<TuiRole, ThemeColor>> = {
@@ -50,6 +68,11 @@ export const TUI_TOKENS: Readonly<Record<TuiRole, ThemeColor>> = {
 	warn: "warning",
 	bad: "error",
 	info: "muted",
+	hue1: "accent",
+	hue2: "mdListBullet",
+	hue3: "mdCode",
+	hue4: "success",
+	hue5: "warning",
 };
 
 /** Paint `text` in a role's color. */

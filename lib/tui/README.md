@@ -124,6 +124,18 @@ revert, a kill, a stop, a clear, a forget), and `bad` for one that ends the
 session. Keys that navigate, scroll, or select stay `faint`, so a colored key is
 one worth a second thought.
 
+## A hue identifies, a verdict judges
+
+`ok` / `warn` / `bad` say how something *is*, and a surface that shows them is
+making a judgement. `hue1`…`hue5` — blue, purple, pink, green, amber — say only
+which category a row belongs to, which is what a table or a bar needs to be
+told apart at a glance. They are the same tokens in places (green is `success`,
+amber is `warning`), so the two vocabularies do not mix on one surface: a screen
+that paints hues keeps its verdicts to the gauge, a status word, or a feedback
+line, and a hue never lands in a slot that also carries a judgement. Color is
+redundant there — the label, the order, and the printed number already say what
+the hue repeats — so nothing may be encoded by hue alone.
+
 ## Width is columns
 
 Width is terminal columns, not string length. Use `visibleWidth`,

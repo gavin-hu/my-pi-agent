@@ -207,25 +207,31 @@ describe("docs screenshots", () => {
 		);
 	});
 
-	test("every colour the hero draws comes from the shipped palette", () => {
-		// The frame is the documentation for the theme, so a colour outside `themes/bytefly-dark.json`
+	test("every colour a screen draws comes from the shipped palette", () => {
+		// A frame is the documentation for the theme, so a colour outside `themes/bytefly-dark.json`
 		// is either a hardcoded hex or a token that left the palette — both invisible in a review.
-		const size = SCREENS.chrome?.size ?? { width: 0, rows: 0 };
-		const lines = frameLines(SCREENS.chrome, size.width, size.rows);
 		const document = JSON.parse(readFileSync(join(repo, "themes", "bytefly-dark.json"), "utf8")) as {
 			vars: Record<string, string>;
 		};
 		const palette = new Set(Object.values(document.vars).map((hex) => hex.toLowerCase()));
 		expect(palette.size).toBeGreaterThan(5);
 
-		const drawn = new Set([...lines.join("\n").matchAll(/\u001b\[38;2;(\d+;\d+;\d+)m/g)].map((match) => match[1]));
-		expect(drawn.size).toBeGreaterThan(5);
-		for (const rgb of drawn) {
-			const hex = `#${(rgb ?? "")
-				.split(";")
-				.map((part) => Number(part).toString(16).padStart(2, "0"))
-				.join("")}`;
-			expect(palette.has(hex), `${rgb} is not a colour in themes/bytefly-dark.json`).toBe(true);
+		for (const [name, screen] of Object.entries(FRAMES)) {
+			const size = screen.size ?? { width: 100, rows: 30 };
+			const drawn = new Set(
+				[
+					...frameLines(screen, size.width, size.rows)
+						.join("\n")
+						.matchAll(/\u001b\[38;2;(\d+;\d+;\d+)m/g),
+				].map((match) => match[1]),
+			);
+			for (const rgb of drawn) {
+				const hex = `#${(rgb ?? "")
+					.split(";")
+					.map((part) => Number(part).toString(16).padStart(2, "0"))
+					.join("")}`;
+				expect(palette.has(hex), `${name}: ${rgb} is not a colour in themes/bytefly-dark.json`).toBe(true);
+			}
 		}
 	});
 

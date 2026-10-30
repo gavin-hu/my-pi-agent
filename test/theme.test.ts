@@ -126,7 +126,23 @@ const CONTRAST_RULES: ReadonlyArray<readonly [token: string, surfaces: readonly 
  * for each. A text role is read, so it needs AA's 4.5; a rule is a one-column
  * non-text mark, so it needs the 3.0 that WCAG sets for graphics.
  */
-const TEXT_ROLES: readonly TuiRole[] = ["accent", "title", "label", "meta", "faint", "ok", "warn", "bad", "info"];
+const TEXT_ROLES: readonly TuiRole[] = [
+	"accent",
+	"title",
+	"label",
+	"meta",
+	"faint",
+	"ok",
+	"warn",
+	"bad",
+	"info",
+	"hue1",
+	"hue2",
+	"hue3",
+	"hue4",
+	"hue5",
+];
+const HUE_ROLES: readonly TuiRole[] = ["hue1", "hue2", "hue3", "hue4", "hue5"];
 const LINE_ROLES: readonly TuiRole[] = ["rule", "ruleStrong"];
 const TEXT_MINIMUM = 4.5;
 const LINE_MINIMUM = 3;
@@ -281,6 +297,15 @@ for (const expected of THEMES) {
 					`role ${role} (${TUI_TOKENS[role]}) on canvas`,
 				).toBeGreaterThanOrEqual(LINE_MINIMUM);
 			}
+		});
+
+		test("keeps the categorical hues distinct from one another", () => {
+			// A screen separates its categories by hue alone once the labels are scanned
+			// past, so a palette that collapses two of them has to fail here rather than
+			// in a picture nobody re-reads.
+			const drawn = HUE_ROLES.map((role) => hexOf(theme, theme.colors[TUI_TOKENS[role]]));
+			expect(drawn.every((hex) => hex !== undefined)).toBe(true);
+			expect(new Set(drawn).size).toBe(HUE_ROLES.length);
 		});
 
 		test("keeps the selected row readable", () => {

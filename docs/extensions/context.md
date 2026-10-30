@@ -16,7 +16,7 @@ untouched.
 | Honest drift | `/context` | The difference between Pi's total and the composition estimate, named instead of hidden by forcing the parts to add up. |
 | Compaction history | `/context` | How many compactions the branch has, what the newest one cut from and to, and what its summary costs. |
 | Largest messages | `/context` | The five largest single messages, so a report that is mostly one tool result says so. |
-| Gauge rendering | the `/context` screen | The window and composition bars show ten or eight cells, colored by role, instead of leaving the reader to infer the shape. |
+| Gauge rendering | the `/context` screen | The window and composition bars show ten or eight cells, colored by the row's category — the same hue in the composition table and in the largest-message list — instead of leaving the reader to infer the shape. |
 | Pending total | `/context` after a compaction | The report shows a pending total instead of a fabricated estimate while Pi recalculates the window. |
 | Mode coverage | `/context` | A scrollable screen in the TUI, the same facts as plain text in `rpc`, `json`, and `print`. |
 
@@ -80,6 +80,28 @@ the host's total is the larger one, and `host counts messages only` before the
 first reply, when Pi's fallback leaves the prompt and the tools out. Each bar
 rounds to the nearest cell, so a bar sits within half a cell of the percentage
 printed beside it; the percentage itself is exact.
+
+## The table is a chart
+
+A row's bar and its percentage wear the hue of its category, and the
+largest-message list uses the same table, so a tool result is one colour wherever
+it appears. A hue identifies; it never judges — the gauge is the only verdict on
+the screen, and the footer's feedback line is the transient one. Labels, token
+counts, and notes stay in the body, secondary, and faint roles, so the text still
+reads on its own and the colour repeats an order the row already has.
+
+| Category | Hue | Bucket ids |
+|---|---|---|
+| System prompt | blue (`hue1`) | `system` |
+| Tool definitions | purple (`hue2`) | `tools` |
+| User messages | pink (`hue3`) | `user` |
+| Assistant | green (`hue4`) | `assistant` |
+| Tool results | amber (`hue5`) | `toolResults`, the `tool result` rows |
+| Everything else | neutral (`meta`, children `faint`) | injected context and its children, summaries, shell output |
+
+A category with no entry — an injected type, a role a future Pi adds — reads
+neutral rather than borrowing a hue, so the coloured rows always mean the five
+categories above.
 
 | Row | Source |
 |---|---|
