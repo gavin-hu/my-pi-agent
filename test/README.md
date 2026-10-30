@@ -284,6 +284,7 @@ test/
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
   structure.test.ts        # layout, banned-pattern, boundary, line bar, and doc-link guards
+  suite-sizes.test.ts      # the 400-line suite bar: every oversized suite named at its height, and a falling total
   drift.test.ts            # lib/README index and AGENTS.md word budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
   doc-counts.test.ts       # every count a doc states, derived from the manifest, skills/, themes/, and the registered tools
@@ -310,7 +311,11 @@ Rules:
   and a declared suite that does not exist.
 - A suite groups a capability, not a module: it may cover several modules, and a
   large module may be covered by more than one suite. Keep a suite under roughly
-  400 lines or 40 tests; split it by capability when it grows past that.
+  400 lines; split it by capability when it grows past that. `test/suite-sizes.test.ts`
+  holds the bar: the suites already past it are named there at their height, and a
+  named height may only fall. A suite's case count is not gated — a table-driven
+  suite hides its count — so the line count stands in for the 40 cases this rule
+  used to name.
 - Helper files live only under `test/helpers/`.
 - Root-level `test/*.test.ts` is limited to `naming.test.ts`,
   `structure.test.ts`, `docs-parity.test.ts`,

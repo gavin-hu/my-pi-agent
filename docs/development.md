@@ -264,6 +264,12 @@ to its size so it can only shrink:
   responsibility that keeps it whole and its own height. One added line fails. A height is lowered with the file, deleted once the
   module fits the bar, and the total (`LONG_MODULE_TOTAL`) may only fall — raising
   either number is the refactor this gate exists to prevent.
+- **No suite grows** is `LONG_SUITES` in `test/suite-sizes.test.ts`: the 400-line
+  bar `test/README.md` states, held. Every declared suite past it is named at its
+  exact height, with a total that may only fall, so an oversized suite cannot be
+  written by accident and a named one cannot gain a line — the answer is the split
+  by capability, which deletes the entry. The heights are debt rather than a
+  `LONG_MODULES`-style claim that one responsibility keeps the file whole.
 - **One owner per concept** is `test/drift.test.ts`: every `lib/` module needs a
   row in `lib/README.md`, so the next session reads the index instead of writing a
   fourth copy. The same file keeps `AGENTS.md` inside its word budget, so it stays
