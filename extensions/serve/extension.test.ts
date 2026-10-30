@@ -11,7 +11,8 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi, emit } from "../../test/helpers/fakes.ts";
 import { tempDir, withEnv } from "../../test/helpers/env.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
-import { type LoopbackHandler, requestMount, textResponse } from "../../lib/http/index.ts";
+import { type LoopbackHandler, projectPort, requestMount, textResponse } from "../../lib/http/index.ts";
+import { repoKeyOf } from "../../lib/repo-key.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import serveExtension from "./index.ts";
 
@@ -31,11 +32,12 @@ async function load(disabled?: string) {
 /** Start a session and open its first page. */
 async function opened(disabled?: string) {
 	const fake = await load(disabled);
-	const harness = fakeCtx({ sessionId: "s1", cwd: temps.track(tempDir("pi-serve-")) });
+	const cwd = temps.track(tempDir("pi-serve-"));
+	const harness = fakeCtx({ sessionId: "s1", cwd });
 	await emit(fake.pi, "session_start", {}, harness.ctx);
 	const outcome = await requestMount(fake.pi, { session: "s1", prefix: "/board", handler });
 	if (outcome.kind !== "mounted") throw new Error(`expected a mount, got: ${outcome.reason}`);
-	return { fake, harness, mount: outcome.mount };
+	return { fake, harness, cwd, mount: outcome.mount };
 }
 
 describe("registration", () => {
@@ -54,6 +56,23 @@ describe("registration", () => {
 		expect(fake.handlers.has("session_shutdown")).toBe(false);
 		const outcome = await requestMount(fake.pi, { session: "s1", prefix: "/board", handler });
 		expect(outcome.kind).toBe("refused");
+	});
+});
+
+describe("the project's port", () => {
+	test("is the repository's, so a restart lands on the same one", async () => {
+		const first = await opened();
+		expect(first.mount.port).toBe(projectPort(repoKeyOf(first.cwd)));
+
+		await emit(first.fake.pi, "session_shutdown", {}, first.harness.ctx);
+		// A session started again in the same project is the restart a bookmark sees, and the
+		// number is the repository's rather than a fresh draw.
+		const second = fakeCtx({ sessionId: "s2", cwd: first.cwd });
+		await emit(first.fake.pi, "session_start", {}, second.ctx);
+		const outcome = await requestMount(first.fake.pi, { session: "s2", prefix: "/board", handler });
+		if (outcome.kind !== "mounted") throw new Error(`expected a mount, got: ${outcome.reason}`);
+		expect(outcome.mount.port).toBe(first.mount.port);
+		await outcome.mount.release();
 	});
 });
 

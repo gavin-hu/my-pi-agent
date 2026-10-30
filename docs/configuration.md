@@ -436,12 +436,14 @@ unaffected.
 
 `/bytefly settings` has no row for this; it is a `bytefly.json` edit. `/board`, `/browse`,
 and a browser plan review all answer on this one port, so it is the address to bookmark.
-Pin it in the project document when more than one repository serves pages on the machine: a
-global value is one port for every session, and the second one to start would find it taken.
+Without this key the port is the project's own — its repository key hashed into
+`4780`–`5779` — so two repositories do not compete and a restart lands where it was. Pin
+it in the project document when a repository needs a number of its own: a global value is
+one port for every session.
 
 | Key | Type | Default | Values | What it does |
 |---|---|---|---|---|
-| `port` | integer | `0` | `0`–`65535` | TCP port on `127.0.0.1` for every page of the session; `0` picks a free port for the session, a positive value pins it so a bookmarked URL survives a restart. A pinned port that is already in use is reported with a message naming this key instead of moving the pages to another port. |
+| `port` | integer | `0` | `0`–`65535` | TCP port on `127.0.0.1` for every page of the session; `0` takes the project's own port in `4780`–`5779`, falling back to an OS-chosen one when it is taken, and a positive value pins it. A pinned port that is already in use is reported with a message naming this key instead of moving the pages to another port. |
 
 ## `todo` — the todo widget
 

@@ -30,6 +30,7 @@ afterEach(async () => {
 function registryWith(deps: Partial<ServeRegistryDeps> = {}): ServeRegistry {
 	const registry = createServeRegistry({
 		portFor: () => 0,
+		pickPort: () => 0,
 		interfaces: () => ({}),
 		...deps,
 	});
@@ -135,6 +136,31 @@ describe("the session's server", () => {
 		const board = await mounted(registry, { session: "s1", prefix: "/board" });
 		await registry.closeSession("s1");
 		await expect(fetch(`${board.origin}/board/`)).rejects.toThrow();
+	});
+});
+
+describe("the project's port", () => {
+	test("is where a session's first bind lands", async () => {
+		const project = 53_410;
+		const registry = registryWith({ pickPort: () => project });
+		const board = await mounted(registry, { session: "s1", prefix: "/board" });
+		expect(board.port).toBe(project);
+	});
+
+	test("falls back to an OS-chosen port when another listener holds it", async () => {
+		const blocker = createServer(() => {});
+		blockers.push(blocker);
+		const held = await new Promise<number>((resolve) => {
+			blocker.listen(0, "127.0.0.1", () => {
+				const address = blocker.address();
+				resolve(typeof address === "object" && address ? address.port : 0);
+			});
+		});
+		const registry = registryWith({ pickPort: () => held });
+		// The default is a guess, not a reservation: a bookmark must not cost the session
+		// its server the way a refused pin does.
+		const board = await mounted(registry, { session: "s1", prefix: "/board" });
+		expect(board.port).not.toBe(held);
 	});
 });
 

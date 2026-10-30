@@ -64,9 +64,9 @@ selects the root.
 
 - The root is the effective cwd, so an active `worktree` session serves the
   worktree. `<path>` must resolve inside it.
-- The port is the session's: `serve` picks one in `4780`–`5779` (and `serve.port` pins
-  it), so the origin stays stable across roots and restarts. A busy pinned port is
-  reported, not silently changed.
+- The port is the project's: `serve` hashes the repository key into `4780`–`5779`
+  (and `serve.port` pins it), so the origin stays stable across roots and restarts. A
+  busy pinned port is reported, not silently changed.
 - Starting while already running with the same root reprints the URL without
   restarting; a different root restarts the page.
 - The server is closed when its last page has been gone for ten seconds, so
