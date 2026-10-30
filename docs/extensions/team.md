@@ -60,7 +60,7 @@ its surface is the point: `board` and `team` join this session for you.
 | You are | Action | What happens |
 |---|---|---|
 | The lead | `/board` | The session joins as `team-lead` — the page's own seat name — and listens, so a handoff or an offer is reported at its next turn |
-| A teammate | the first card it claims | The session joins as its own `team-agent-<id>` name and listens, and Pi's footer keeps the name it already had |
+| A teammate | the first card it claims | The session joins under the name it already holds, or its own `team-agent-<id>` name when it has none, and listens; Pi's footer keeps the name it already had |
 | A teammate who wants a name | `/team join billing-core` | The session joins as `billing-core`, and Pi's footer and `/resume` show that name — the one join that renames |
 | A viewer | `/board` on a session that is not serving | The page is somebody else's to serve, so this session joins under its own name instead of the seat |
 

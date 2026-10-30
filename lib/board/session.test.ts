@@ -3,10 +3,11 @@
  *
  * The store cache is the interesting part — one open per working directory, so a
  * second call does not shell out to git again — and the identity is the pair a card
- * records: the session id, and the team name derived from it.
+ * records: the session id, and the name the team already addresses it by.
  */
 
 import { afterAll, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "../../test/helpers/env.ts";
 import { fakeCtx } from "../../test/helpers/context.ts";
@@ -43,34 +44,72 @@ function runtimeFor(agentDir: string) {
 	return openBoardSession(offlinePi().pi, { now: () => NOW, agentDir });
 }
 
+/**
+ * A record on this repository's bus, written where `readRoster` reads it.
+ *
+ * The label a session writes as comes from here, so a case about a name a person chose
+ * has to put the record on the bus first — an empty directory is "no record".
+ */
+async function recordOnBus(
+	runtime: ReturnType<typeof runtimeFor>,
+	cwd: string,
+	record: { id: string; label: string },
+): Promise<void> {
+	const dir = join(await runtime.busDir(cwd), "sessions");
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, `${record.id}.json`), JSON.stringify({ ...record, mode: "tui", lastSeen: NOW }));
+}
+
 describe("who", () => {
 	const agentDir = temps.track(tempDir("pi-agent-"));
 
-	test("names the session for the team from its id, not from the user's own name", () => {
+	test("names the session for the team from its id, not from the user's own name", async () => {
 		const runtime = runtimeFor(agentDir);
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1", sessionName: "billing-core" });
 		// Pi's session name is the user's, and a rename must not move a card's owner: the id
-		// is what the team addresses and what the agent name is derived from.
-		expect(runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-agent-s1" });
+		// is what the team addresses, and no bus record has claimed a name yet.
+		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-agent-s1" });
 	});
 
-	test("names it as the seat while it serves the page, and as itself again after", () => {
-		const runtime = runtimeFor(agentDir);
+	test("writes as the label the bus already holds for this session", async () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
+		// `/team join core-claims` names the session on the bus, so its cards, its notes, and
+		// the join a claim makes are all that one word rather than a name derived past it.
+		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "core-claims" });
+		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "core-claims" });
+	});
+
+	test("keeps its derived name when the record is somebody else's, or blank", async () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
+		await recordOnBus(runtime, "/repo/billing", { id: "s-2", label: "core-claims" });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("team-agent-s1");
+		// A label is text from a file, so it is flattened and capped like any other: an empty
+		// one falls back to the name the id answers to instead of leaving a blank chip.
+		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "" });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("team-agent-s1");
+	});
+
+	test("names it as the seat while it serves the page, and as itself again after", async () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
+		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "core-claims" });
 		expect(runtime.serving()).toBeUndefined();
 		runtime.serve("team-lead");
 		expect(runtime.serving()).toBe("team-lead");
-		expect(runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-lead" });
+		// The page a session serves is a role, so it outranks the name the team gave it.
+		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-lead" });
 		runtime.serve(undefined);
-		expect(runtime.who(ctx, "/repo/billing").label).toBe("team-agent-s1");
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("core-claims");
 	});
 
-	test("keeps the readable chain for a host that reports no id", () => {
+	test("keeps the readable chain for a host that reports no id", async () => {
 		const runtime = runtimeFor(agentDir);
 		const named = fakeCtx({ cwd: "/repo/billing", sessionId: "", sessionName: "billing-core" });
-		expect(runtime.who(named.ctx, "/repo/billing").label).toBe("billing-core");
+		expect((await runtime.who(named.ctx, "/repo/billing")).label).toBe("billing-core");
 		const anonymous = fakeCtx({ cwd: "/repo/billing", sessionId: "" });
-		const who = runtime.who(anonymous.ctx, "/repo/billing");
+		const who = await runtime.who(anonymous.ctx, "/repo/billing");
 		expect(who.id).toBeUndefined();
 		expect(who.label).toBe("billing");
 	});
@@ -107,14 +146,14 @@ describe("one session per host", () => {
 		return { fake, board: openBoardSession(fake.pi, options), team: openBoardSession(fake.pi, options) };
 	}
 
-	test("hands board and team one session, so the seat `/board` sets names both", () => {
+	test("hands board and team one session, so the seat `/board` sets names both", async () => {
 		const { board, team } = sharedHost();
 		expect(team).toBe(board);
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
 		board.serve("team-lead");
 		// The regression: a second session kept its own seat, so `team` wrote every card as
 		// `team-agent-s1` while `board` wrote the same session's cards as `team-lead`.
-		expect(team.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-lead" });
+		expect(await team.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-lead" });
 	});
 
 	test("shares the standing, so a join through either door is the one status reads", () => {

@@ -92,7 +92,7 @@ async function seed(
 	lane: "plan" | "execute" | "blocked" | "done",
 ): Promise<void> {
 	const store = await board.runtime.store(board.ctx.cwd);
-	const me = board.runtime.who(board.ctx, board.ctx.cwd);
+	const me = await board.runtime.who(board.ctx, board.ctx.cwd);
 	// The plan is a real file in this board's plan store: `move` re-checks it, so a seed
 	// that named a path to nothing would be a board the tool refuses.
 	await advance(store, id, lane, { owner: me, reviewer: REVIEWER, planPath: await writePlan(board) }, NOW);
@@ -296,7 +296,7 @@ describe("list", () => {
 		const { call, runtime, ctx } = board;
 		await call({ action: "add", title: "One" });
 		const store = await runtime.store(ctx.cwd);
-		const me = runtime.who(ctx, ctx.cwd);
+		const me = await runtime.who(ctx, ctx.cwd);
 		await advance(store, "1", "plan", { owner: me, reviewer: REVIEWER }, NOW);
 		// The card stores the path resolved, so a read of it is where the home directory
 		// has to be elided: it is the same plan whoever reads the board, and the prefix is
@@ -1221,6 +1221,19 @@ describe("the team", () => {
 		expect(calls).toHaveLength(1);
 		// The label is the card's owner label, so the bus, the roster and the card agree.
 		expect(labels).toEqual([LEAD]);
+	});
+
+	test("a claim writes as the name the session already holds, and joins under it", async () => {
+		const { team, labels } = recordingTeam();
+		const board = harness({ team });
+		const { call } = board;
+		// `/team join core-claims` is the one door that renames a session, and the board's
+		// first claim must not take the name back by joining as the id-derived one.
+		await call({ action: "add", title: "One" });
+		await joinBus(board, LEAD_ID, "core-claims");
+		const claimed = await call({ action: "claim", card: "1" });
+		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: "core-claims" });
+		expect(labels).toEqual(["core-claims"]);
 	});
 
 	test("no other action joins: a read, a new card, a note or an edit enlists nobody", async () => {

@@ -161,10 +161,10 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 					`unknown action "${String(args.action)}"; use ${BOARD_ACTIONS.join(", ")}.`,
 				);
 			}
-			const me = runtime.who(ctx, ctx.cwd);
+			const me = await runtime.who(ctx, ctx.cwd);
 			try {
-				// Before the join and the store: a refused call has done nothing, so it cannot
-				// have enlisted this session as a teammate on its way to the refusal.
+				// Before the join and before a card is read: a refused call has written nothing, so it
+				// cannot have enlisted this session as a teammate on its way to the refusal.
 				const stray = strayField(action, args, ACTION_FIELDS);
 				if (stray !== undefined) return refusal(action, me, stray);
 				const store = await runtime.store(ctx.cwd);
@@ -172,7 +172,8 @@ export function registerTools(pi: ExtensionAPI, runtime: BoardSession, deps: { t
 				switch (action) {
 					case "list":
 						// The round folds the owners a bus has no record of, and the rollup is the only read
-						// that needs the bus: a lazy source, so a plain `list` reads no bus files at all.
+						// that needs the bus for its own sake: a plain `list` reads no bus file beyond the
+						// record that names whoever is calling.
 						return await read(store, action, me, args, now, async () => readRoster(await runtime.busDir(ctx.cwd)));
 					case "add":
 						return await add(store, me, args, now);

@@ -4,8 +4,8 @@
  * One store per working directory, opened on first use and kept for the session:
  * a tool call is frequent and the repository lookup shells out to git, so the
  * answer is remembered per `cwd`. The identity is the same pair a card records — the
- * session id Pi knows, and the team name derived from it — which is why the board can
- * name its owner without reading the bus, and why the name survives a rename.
+ * session id Pi knows, and the name the team addresses it by — so the id is what keeps
+ * a card held across a rename, and the name is read from the bus record where it is.
  *
  * One session per *host*, not one per extension: Pi loads `board` and `team` with
  * separate module caches, so two sessions would mean the seat `/board` sets is
@@ -23,8 +23,8 @@ import { join } from "node:path";
 import { resolveEffectiveCwd } from "../env.ts";
 import { plansDirFor } from "../plans/paths.ts";
 import { repoKeyFor } from "../repo-key.ts";
-import { agentLabel, defaultLabel, sessionNameOf } from "../session-label.ts";
-import { BUS_DIR_NAME } from "../session-roster.ts";
+import { agentLabel, defaultLabel, normalizeLabel, sessionNameOf } from "../session-label.ts";
+import { BUS_DIR_NAME, readRoster } from "../session-roster.ts";
 import type { JoinResult } from "../session-tool.ts";
 import type { Actor } from "./rules.ts";
 import { type BoardStore, openBoard } from "./store.ts";
@@ -52,11 +52,17 @@ export interface BoardSession {
 	/**
 	 * The session a write is made as: its team name, and the id a card keeps.
 	 *
-	 * The label is the seat while this session serves the page, else `team-agent-<id>`,
-	 * else — on a host that reports no id — the readable chain. One name on every
-	 * surface is the point: the card, the bus record, and the roster say the same word.
+	 * Three answers, in order: the seat while this session serves the page; else the name
+	 * the bus already records for it, so `/team join core-claims` is what its cards and
+	 * its notes carry and a claim does not rename it back; else `team-agent-<id>`, or — on
+	 * a host that reports no id — the readable chain. One name on every surface is the
+	 * point: the card, the bus record, and the roster say the same word.
+	 *
+	 * Read rather than remembered, because a join is not this session's event alone: the
+	 * label can arrive through `/team join`, through the bus's own `join`, or on the record
+	 * a `/resume` inherits, and a name cached at `session_start` would miss all three.
 	 */
-	who(ctx: ExtensionContext, cwd: string): Actor;
+	who(ctx: ExtensionContext, cwd: string): Promise<Actor>;
 	/** The clock, so a test drives a deadline instead of waiting on one. */
 	now(): number;
 	/**
@@ -162,14 +168,18 @@ export function openBoardSession(pi: ExtensionAPI, options: BoardSessionOptions 
 			stores.set(cwd, opened);
 			return opened;
 		},
-		who(ctx, cwd) {
+		async who(ctx, cwd) {
 			const id = sessionIdOf(ctx);
-			// The seat is a role and the agent name is derived from the id, so neither moves
-			// when a user renames the session — which is what keeps a card's owner readable
-			// against the roster a year later. A host that reports no id has nothing to derive
-			// from, so it keeps the bus's own readable chain.
-			const label = seat ?? (id === undefined ? defaultLabel(sessionNameOf(ctx), cwd) : agentLabel(id));
-			return id === undefined ? { label } : { id, label };
+			// The seat is a role rather than a session, so it outranks the record: the page a
+			// session serves is the name its cards are read against. A host that reports no id
+			// has no record to look for, so it keeps the bus's own readable chain.
+			if (seat !== undefined) return id === undefined ? { label: seat } : { id, label: seat };
+			if (id === undefined) return { label: defaultLabel(sessionNameOf(ctx), cwd) };
+			// The record is the bus's word for this session, so it is read rather than derived:
+			// a label it does not have falls back to the name the id alone answers to.
+			const roster = await readRoster(await session.busDir(cwd));
+			const held = roster?.find((entry) => entry.id === id)?.label;
+			return { id, label: normalizeLabel(held, agentLabel(id)) };
 		},
 		now: options.now ?? Date.now,
 		busDir(cwd) {

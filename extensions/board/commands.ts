@@ -98,7 +98,7 @@ export function registerCommands(
 			// is the lead's one action.
 			if (started.kind === "failed") return;
 			session.serve(started.kind === "served" ? started.seat : undefined);
-			const joined = await team.join(ctx, { label: session.who(ctx, ctx.cwd).label });
+			const joined = await team.join(ctx, { label: (await session.who(ctx, ctx.cwd)).label });
 			session.team.record(joined);
 			// The address is on the line because the browser is not the only way in: a machine
 			// with no default browser prints it here, and a tab closed by mistake is one
