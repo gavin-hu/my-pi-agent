@@ -13,8 +13,8 @@ import type { CardOwner } from "../../lib/board/card.ts";
 /** The tool's name. `board` owns the cards; `team` owns the round. */
 export const TEAM_TOOL = "team";
 
-/** The three actions: the lead's whole surface — hand out, offer, take back. */
-export const TEAM_ACTIONS = ["assign", "offer", "reclaim"] as const;
+/** The four actions: the lead's round — hand out, offer, take back, and take one itself. */
+export const TEAM_ACTIONS = ["assign", "offer", "reclaim", "claim"] as const;
 
 /** One action. */
 export type TeamAction = (typeof TEAM_ACTIONS)[number];
@@ -57,6 +57,7 @@ export const ACTION_FIELDS: Record<TeamAction, readonly string[]> = {
 	assign: ["card", "to", "note"],
 	offer: ["card", "note"],
 	reclaim: ["card"],
+	claim: ["card"],
 };
 
 /** Whether a value is one of the actions, so an unknown one is a refusal and not a crash. */

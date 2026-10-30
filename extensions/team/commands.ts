@@ -5,7 +5,7 @@
  * open a browser to see what needs a decision, so the command prints the rollup the
  * tool returns, the work a dead owner left behind, and one line saying who is live. It
  * reads the cards and the bus's records and writes nothing: acting on the round is
- * `team`'s tool (`assign`, `reclaim`) or `board`'s.
+ * `team`'s tool (`assign`, `offer`, `reclaim`, `claim`) or `board`'s.
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";

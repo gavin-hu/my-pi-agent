@@ -1,6 +1,6 @@
 # team — the lead's round over the board
 
-`board` owns the cards. `team` owns the lead's three actions: `assign` hands a card to a
+`board` owns the cards. `team` owns the lead's four actions: `assign` hands a card to a
 session that is **already running**, `offer` hands one to whoever is free, and `reclaim`
 takes one back when its owner is gone or has gone quiet. `assign` writes the card and puts
 a handoff on the session bus, `offer` writes only the moment it was made — never an owner,
@@ -37,7 +37,7 @@ line; the owners a bus has no record of collapse to one row*
 | Hand a feature to whoever is free | `team` action `offer` | Every other live session gets an event naming the card; the card stays unowned until one claims it, and it records when the offer was made, so a lead can tell an offer nobody took from a card nobody has looked at |
 | Know whether a message will be woken for | an `assign` or `offer` result, `/team`, and the Team tab | All three name the peers whose record says their next turn is when it lands: the result as `Not listening: <labels>`, `/team` as a lowercase `not listening:` inside its presence line, the Team tab as a chip |
 | Take a card back | `team` action `reclaim` | The owner clears, the card returns to Backlog, and its notes stay |
-| Keep the round to the team | `team` | Only `assign`, `offer`, and `reclaim`: no card is created, moved, contracted, approved, or finished here — that is `board`'s surface |
+| Keep the round to the team | `team` | Only `assign`, `offer`, `reclaim`, and `claim`: no card is created, contracted, approved, or finished here — that is `board`'s surface, which is where a claimed card is planned and moved |
 | See the round without a browser | `/team` | `buildRound`'s summary — the one the page's Team tab is served — laid out as text by `formatRound`: what needs a decision, who holds what, then one line naming the cards a dead owner left behind, and one presence line for who is live, who is not listening, who has gone quiet, and who is gone. The owners the bus has no record of and that hold nothing are one line, `18 owners with no record · 76 done`, in the Team tab's own words — the fold is the same rule and the same sentence on both surfaces, and it keeps a long history from spending the round's cap. The rollup itself is capped at ten lines, then `… N more`, and the gone and presence lines follow the cap rather than counting against it — the cap is a notify's limit, not a screen's. An empty board is one line |
 
 ## Quickstart
@@ -59,6 +59,13 @@ Work nobody has taken instead of work you are routing:
 lead: team({action:"offer", card:"5", note:"whoever is free"})
       → #5 offered to billing-core, billing-web.
 peer: board({action:"claim", card:"5"})                 → the offer becomes work
+```
+
+Nobody free, so the lead takes it:
+
+```
+lead: team({action:"claim", card:"5"})                  → #5 is yours, in plan.
+      → design it in plan mode, write_plan, then `board` action `contract`
 ```
 
 ## Joining the team
@@ -94,9 +101,10 @@ is not: a card that session claimed is the session's, and `release` returns it.
 
 | Action | Parameters | Behaviour |
 |---|---|---|
-| `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner |
+| `assign` | `card`, `to`, `note?` | Checks the card's preconditions, sends the handoff as a `handoff` message, then records the owner. `to` that names this session is refused — a card you will take yourself is `claim` |
 | `offer` | `card`, `note?` | Checks the preconditions a claim would meet, broadcasts the card as an `event` to every other live session, then records the offer on the card — the moment, and nothing else: status and owner are untouched |
 | `reclaim` | `card` | Clears the owner and returns the card to Backlog, keeping its notes, contract, and plan |
+| `claim` | `card` | Takes a pool card for this session: it enters `plan`, owned by the round's session, and the claim asks to join the team once — the same operation and the same join `board`'s claim makes. A card somebody holds, one that waits on unfinished work, and a full `plan` lane are refused with the board's own sentence |
 
 `card` takes `4` or `#4`. `to` is a teammate's label or id, as `/team` lists them — a
 label nobody answers to cannot be handed a card, and the result says so.
@@ -159,7 +167,9 @@ An offer is advice: nothing is theirs until they claim it, and a card nobody cla
 thing an event cannot carry. `board` prints it as `offered 1m ago, and nobody took it`, the
 card face says `offered 1m ago · nobody took it`, and the Team tab's queue says
 `offered 1m ago — nobody took it` in place of "nobody holds it". A lead reading that has a
-decision the plain unassigned row never offered: re-offer, `assign` it, or take it.
+decision the plain unassigned row never offered: re-offer, `assign` it, or take it with
+`claim`, which is yours then — the card sits in `plan` waiting on you, and its contract,
+moves, and finish are `board`'s in this same session.
 
 ## Security
 
@@ -243,10 +253,17 @@ decision the plain unassigned row never offered: re-offer, `assign` it, or take 
   guessing from the send.
 - **Send first.** A card assigned without a message is a card nobody knows about, while a
   message for a card that then changed is one the peer can still claim.
-- **`reclaim` is here, and in `board`.** It is the compensation for a dispatch that did not
-  land, so it belongs in the lead's context — and it is the same operation `board` and its
-  page offer, because a card whose owner went away must not need a second extension to come
-  back.
+- **`reclaim` and `claim` are here, and in `board`.** Every one of them is one store
+  operation, so the lane rules, the WIP limit, the refusal a waiting card gets, and the
+  offer record cleared are the store's answer rather than a second one the round keeps in
+  step by hand. `reclaim` belongs here because it is the compensation for a dispatch that
+  did not land; `claim` belongs here because the round is where a lead sees work nobody
+  took, and a lead told to "take it" should not have to leave the tool to do it. The
+  card's *life* after a claim — plan, contract, moves, finish — stays `board`'s: the round
+  hands work out and takes it, and the card is lived in one place.
+- **Rejected: `assign` to yourself.** Handing a card to your own label records you as the
+  owner and mails your own inbox, which is a claim with an extra message and no next step;
+  it is refused, naming `claim`.
 - **Rejected: `reclaim` messaging the previous owner.** A compensation path must not depend
   on a second delivery — the reclaim is what you do when the owner is gone, so its message
   would fail exactly when it is needed. The card is the record.
@@ -259,7 +276,7 @@ decision the plain unassigned row never offered: re-offer, `assign` it, or take 
 | File | Responsibility |
 |---|---|
 | `index.ts` | The factory: gate on the opt-in switch (`PI_ENABLED_EXTENSIONS`) and `PI_DISABLED_EXTENSIONS`, build the session, register the tool and the command |
-| `schema.ts` | The tool's three actions and their parameters |
+| `schema.ts` | The tool's four actions and their parameters |
 | `tools.ts` | The dispatch order, the refusals, and the report |
 | `dispatch.ts` | The handoff and offer text, the bus behind a seam, and who is not listening |
 | `commands.ts` | `/team` — the round, and `/team join [<label>]` |

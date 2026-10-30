@@ -286,6 +286,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   names both (`PI_ENABLED_EXTENSIONS=board,team`). The two stay independent at runtime
   — one name never loads the other — and `doctor` names the switch each row waits on.
 
+- `team`: the lead's round gains `claim`, so a coordinator can take a card from the round it
+  reads instead of leaving the tool to point at `board`. It writes the same store operation
+  `board`'s claim does — one set of lane rules, one WIP limit, one join — and the card's plan,
+  contract, moves, and finish stay `board`'s. `assign` to the caller's own label or id is now
+  refused, naming `claim`: it recorded an owner and mailed the lead its own inbox. The join a
+  claim asks for moved to `lib/board/join.ts` so both tools answer it once.
+
 ### Removed
 
 - `skills`: the `project-docs` skill is deleted — its `SKILL.md`, its five reference

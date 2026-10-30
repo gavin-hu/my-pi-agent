@@ -1,9 +1,9 @@
 /**
- * The `team` tool's parameters: two actions over one card.
+ * The `team` tool's parameters: four actions over one card.
  *
- * `assign` names the peer a handoff goes to, and `reclaim` takes a card back. Both
- * take the card the way `board` does — `4` or `#4` — because a lead reads ids off
- * the same board.
+ * `assign` names the peer a handoff goes to, and `reclaim` takes a card back; `claim`
+ * takes one for the lead. All of them take the card the way `board` does — `4` or `#4` —
+ * because a lead reads ids off the same board.
  */
 
 import { Type } from "typebox";
@@ -16,7 +16,8 @@ export const TeamParams = Type.Object({
 			description:
 				"`assign` hands a card to a running session and sends it a handoff; `offer` broadcasts an unclaimed card to " +
 				"every other live session and writes nothing, so the first to claim it takes it; `reclaim` takes a card back " +
-				"to Backlog. A lead's three actions — use `board` to create, claim, move, note, and finish the cards themselves.",
+				"to Backlog; `claim` takes one for the lead itself, which then plans and records it with `board`. They are " +
+				"the round's four verbs: `board` creates, plans, moves, and finishes the cards, and the page is a view.",
 		},
 	),
 	card: Type.String({ description: 'The card to act on, e.g. "4" or "#4".' }),

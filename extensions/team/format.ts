@@ -117,3 +117,18 @@ export function formatRacedAssignment(card: Card, to: string, reason: string): s
 export function formatReclaimed(card: Card, previous: string): string {
 	return `${cardRef(card.id)} reclaimed from ${previous} and back in Backlog; its notes are kept.\n  ${card.title}`;
 }
+
+/**
+ * A card the lead took itself.
+ *
+ * The next step is the board's, so it is named: a claim is the one round action that
+ * leaves a card in `plan` waiting on its owner, and a line that stopped at "yours" would
+ * leave the lead holding a card nobody said what to do with.
+ */
+export function formatClaimed(card: Card): string {
+	return (
+		`${cardRef(card.id)} is yours, in plan.\n` +
+		`  ${card.title}\n` +
+		`  next: design it in plan mode, write_plan, then \`board\` action \`contract\``
+	);
+}
