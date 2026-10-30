@@ -30,6 +30,15 @@ export function skillItem(name: string, enabled = true): ResourceItem {
 	return makeItem({ path: `/agent/skills/${name}/SKILL.md`, enabled });
 }
 
+/** A skill this package ships: the `SKILL.md` Pi resolves from its `skills/<name>/`. */
+export function packageSkill(name: string, enabled = true): ResourceItem {
+	return makeItem({
+		path: `/pkg/skills/${name}/SKILL.md`,
+		enabled,
+		metadata: { source: "npm:pkg", origin: "package", scope: "user", baseDir: "/pkg" },
+	});
+}
+
 /**
  * Extensions enabled by default in the maintainer's profile, used by tests to
  * model a realistic list where most rows are disabled. This is a test/doc

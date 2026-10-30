@@ -678,7 +678,7 @@ in [`working/config.ts`](../../extensions/bytefly/working/config.ts).
 
 ## The control center
 
-<img src="../../assets/screens/bytefly.png" alt="The /bytefly control center at 120 columns: a `Bytefly` rule with `1 missing` at its right edge, the `Extensions 9 · Skills 0 · Settings 15` tabs with `writes Global` at the right, one name-first row per extension with its checkbox and verdict, and the focused extension's block beside the list — its findings and their fix, Path, Source, State, and Health" width="100%">
+<img src="../../assets/screens/bytefly-extensions.png" alt="The /bytefly control center at 120 columns: a `Bytefly` rule with `1 missing` at its right edge, the `Extensions 9 · Skills 3 · Settings 15` tabs with `writes Global` at the right, one name-first row per extension with its checkbox and verdict, and the focused extension's block beside the list — its findings and their fix, Path, Source, State, and Health" width="100%">
 
 `/bytefly [extension] [refresh]` opens the control center on **Extensions**: a
 keyboard-driven dock of every resource Pi resolves for the session, so the list
@@ -850,6 +850,8 @@ line until `Enter` expands it. There is nothing to probe, so `r` is not offered
 here; the metadata is read once when the section first appears, so an edited
 `SKILL.md` shows on the next open.
 
+<img src="../../assets/screens/bytefly-skills.png" alt="The /bytefly Skills section at 120 columns: the `Extensions 9 · Skills 3 · Settings 15` tabs with `writes Global` at the right, the three skills this package ships under an `npm:pkg (user) (3)` heading with the focused `init` row marked `hidden`, and its block beside the list — Path, Source, State, the `/skill:init` call, `Model hidden from the model`, and the description the file declares under About" width="100%">
+
 Themes and prompts have no section of their own, by decision rather than by
 omission: a theme is one active selection — a scalar, global setting — and a
 prompt template is a file Pi discovers from a directory, so neither is a scoped
@@ -876,7 +878,7 @@ description, and `Stored in <origin> · <file>` — `Global`, `Project`,
 otherwise). `J` on a `bytefly.json` row appends that section as the active scope
 stores it, under a `── notify ──` rule.
 
-<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly Settings section at 120 columns: the `Startup (2)`, `Notifications (5)`, `Session (3)`, `Board (3)` and `showing 1–11 of 15` rows with each value in one aligned column, the `Extensions 9 · Skills 0 · Settings 15` tabs with `writes Global` at the right, and the focused row's block beside the list — its value, description, and the file the value is stored in" width="100%">
+<img src="../../assets/screens/bytefly-settings.png" alt="The /bytefly Settings section at 120 columns: the `Startup (2)`, `Notifications (5)`, `Session (3)`, `Board (3)` and `showing 1–11 of 15` rows with each value in one aligned column, the `Extensions 9 · Skills 3 · Settings 15` tabs with `writes Global` at the right, and the focused row's block beside the list — its value, description, and the file the value is stored in" width="100%">
 
 | Group | Row | Source | Values |
 |---|---|---|---|
