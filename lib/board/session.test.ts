@@ -110,7 +110,7 @@ describe("who", () => {
 		// The bus hands out a stale record's label, so the draw must too: only `live` counts.
 		await recordOnBus(runtime, "/repo/billing", { id: "s-3", label: mine, lastSeen: NOW - 20 * 60_000 });
 		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1", [mine]));
-		await recordOnBus(runtime, "/repo/billing", { id: "s-4", label: "", lastSeen: NOW, pid: 999_999_999 });
+		await recordOnBus(runtime, "/repo/billing", { id: "s-4", label: mine, lastSeen: NOW, pid: 999_999_999 });
 		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1", [mine]));
 	});
 

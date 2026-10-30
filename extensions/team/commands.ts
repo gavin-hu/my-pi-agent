@@ -13,7 +13,7 @@ import { type Card, cardRef } from "../../lib/board/card.ts";
 import { buildRound } from "../../lib/board/round.ts";
 import { formatRound, plural } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
-import { createTeamJoin, type JoinResult, type TeamJoin } from "../../lib/session-tool.ts";
+import { createTeamJoin, type JoinResult, type TeamJoin, type TeamJoinInput } from "../../lib/session-tool.ts";
 import { readRoster, type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
 import { sessionNameOf } from "../../lib/session-label.ts";
 import { formatJoined, formatNotJoined } from "./format.ts";
@@ -41,19 +41,13 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			const [word = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
 			if (word === "join") {
 				const label = rest.join(" ").trim();
-				if (label !== "") {
-					// The one naming action: a typed label is also Pi's session name, which is what
-					// `/team join` is for.
-					const joined = await team.join(ctx, { label, name: true });
-					ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
-					return;
-				}
-				// With no label, a session Pi already names keeps that name and the bus derives it;
-				// one with no name of its own draws a preset teammate name instead of landing on the
-				// repository's basename. The drawn name is the team's, not the user's, so it renames
-				// nothing: only a typed label does that.
-				const own = (sessionNameOf(ctx) ?? "").trim() === "" ? await session.who(ctx, ctx.cwd) : undefined;
-				const joined = await team.join(ctx, own === undefined ? {} : { label: own.label });
+				// A typed label is the one naming action: it is also Pi's session name, which is what
+				// `/team join` is for. With no label, a session Pi already names keeps that name and
+				// the bus derives it; one with no name of its own draws a preset teammate name
+				// instead of landing on the repository's basename, and the drawn name renames nothing
+				// because it is the team's, not the user's.
+				const input: TeamJoinInput = label === "" ? await unnamedJoin(session, ctx) : { label, name: true };
+				const joined = await team.join(ctx, input);
 				ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
 				return;
 			}
@@ -72,6 +66,18 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			ctx.ui.notify(roundText(cards, session.now(), roster), "info");
 		},
 	});
+}
+
+/**
+ * What a bare `/team join` asks for: nothing, when Pi already names the session and the
+ * bus can derive that, and otherwise the name the board draws for it.
+ *
+ * A drawn name is the team's, not the user's, so `name` is never set here: only a typed
+ * label is meant to rename the footer.
+ */
+async function unnamedJoin(session: BoardSession, ctx: ExtensionCommandContext): Promise<TeamJoinInput> {
+	if ((sessionNameOf(ctx) ?? "").trim() !== "") return {};
+	return { label: (await session.who(ctx, ctx.cwd)).label };
 }
 
 /** `/team join`'s line: who this session is on the team, or why it is on none. */
