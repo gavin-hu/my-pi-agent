@@ -21,6 +21,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `lib`: `TUI_TOKENS` names Pi's tool vocabulary too — `toolTitle` and `toolOutput` join the role
+  map, so no kit module or renderer names a token and the documented carve-out is gone. Rendered
+  output is unchanged.
 - `context`: the composition table reads as a chart. Each row's bar and share percentage wear the
   hue of its category — blue for the system prompt, purple for the tool definitions, pink for user
   messages, green for the assistant, amber for tool results — and the largest-message list uses the
