@@ -96,14 +96,14 @@ describe("ModeEditor", () => {
 		expect(subject.getText()).toBe("a");
 	});
 
-	test("paints the border success in auto and warning while planning", () => {
+	test("paints the border accent in auto and warning while planning", () => {
 		let planning = false;
 		const subject = editor(
 			() => planning,
 			() => {},
 		);
 
-		expect(subject.render(20)[0]).toContain("[success]");
+		expect(subject.render(20)[0]).toContain("[accent]");
 
 		planning = true;
 		expect(subject.render(20)[0]).toContain("[warning]");
@@ -128,7 +128,7 @@ describe("ModeEditor", () => {
 		const top = subject.render(60)[0] ?? "";
 		expect(top).toContain("◐ working · 3 tools · 12s");
 		// The rules around it take the mode's role, the same one the border paints with.
-		expect(top).toContain("[success]");
+		expect(top).toContain("[accent]");
 	});
 });
 
