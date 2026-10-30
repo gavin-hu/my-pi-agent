@@ -35,6 +35,7 @@ import { DEFAULT_CONFIG as DEFAULT_WECHAT_CONFIG } from "../extensions/wechat/co
 import { DEFAULT_FETCH_CONFIG } from "../extensions/web-access/fetch/config.ts";
 import { DEFAULT_SEARCH_CONFIG } from "../extensions/web-access/search/config.ts";
 import { DEFAULT_CONFIG as DEFAULT_WORKTREE_CONFIG } from "../extensions/worktree/config.ts";
+import { DEFAULT_BOARD_CONFIG } from "../lib/board/config.ts";
 
 const docs = join(import.meta.dir, "..", "docs");
 const configuration = readFileSync(join(docs, "configuration.md"), "utf-8");
@@ -55,6 +56,7 @@ type SectionDefaults = unknown | ReadonlyArray<{ prefix: string; defaults: unkno
 
 /** Every section the reference documents, and the defaults that describe it. */
 const SECTIONS: Readonly<Record<string, SectionDefaults>> = {
+	board: DEFAULT_BOARD_CONFIG,
 	check: DEFAULT_CHECK_CONFIG,
 	price: DEFAULT_BYTEFLY_CONFIG,
 	notify: DEFAULT_NOTIFY_CONFIG,
@@ -206,7 +208,6 @@ describe("configuration reference", () => {
 
 	test("leaves no section unchecked", () => {
 		// A board section means a new entry here and its page in configuration.md.
-		// A board section means a new entry here and its page in configuration.md.
-		expect(Object.keys(SECTIONS)).toHaveLength(18);
+		expect(Object.keys(SECTIONS)).toHaveLength(19);
 	});
 });

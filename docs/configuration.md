@@ -16,6 +16,7 @@ section and every key with its type, default, and bounds.
 - [Look up a key](#look-up-a-key)
 - [Section index](#section-index)
 - [Document metadata](#document-metadata)
+- [`board` — the shared feature board](#board--the-shared-feature-board)
 - [`check` — verification runs](#check--verification-runs)
 - [`serve` — the session's page server](#serve--the-sessions-page-server)
 - [`price` — cost calculation](#price--cost-calculation)
@@ -151,9 +152,10 @@ the file for the scope you want, and the next session reads it.
 | pin the port every page of a session shares, so a bookmarked URL survives a restart | [`serve`](#serve--the-sessions-page-server) |
 | use a self-hosted search service or a Brave key | [`web-access`](#web-access--search-and-fetch) |
 | change document read limits | [`file-read`](#file-read--document-and-spreadsheet-extraction) |
+| raise the board's WIP limits, or name the team lead whose signature the board's gates take | **Plan limit**, **Execute limit**, **Lead** in `/bytefly settings`, or `board` below |
 
-`/bytefly settings` is a shortlist of the preferences a session changes — twelve
-rows under four headings (Startup, Notifications, Session, and Price), named in
+`/bytefly settings` is a shortlist of the preferences a session changes — fifteen
+rows under five headings (Startup, Notifications, Session, Board, and Price), named in
 bold above. Everything else — the tuning numbers, the
 cosmetic labels, and the settings Pi's own `/settings` owns — is the file or Pi's
 screen; the rest of this page is the full list.
@@ -170,7 +172,7 @@ The sections, by what they are for:
 
 | Group | Sections |
 |---|---|
-| Plan and delegate | [`check`](#check--verification-runs), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
+| Plan and delegate | [`board`](#board--the-shared-feature-board), [`check`](#check--verification-runs), [`todo`](#todo--the-todo-widget), [`goal`](#goal--the-goal-widget), [`job`](#job--background-jobs), [`watch`](#watch--file-and-command-watchers), [`subagent`](#subagent--delegated-runs) |
 | Keep your work safe | [`worktree`](#worktree--isolated-worktrees), [`rewind`](#rewind--snapshots), [`memory`](#memory--durable-notes) |
 | Reach the world | [`web-access`](#web-access--search-and-fetch), [`serve`](#serve--the-sessions-page-server), [`file-browse`](#file-browse--the-local-file-server), [`file-read`](#file-read--document-and-spreadsheet-extraction), [`wechat`](#wechat--the-wechat-bridge) |
 | Chrome and upkeep | [`price`](#price--cost-calculation), [`notify`](#notify--os-notifications), [`doctor`](#doctor--diagnostics), [`chrome`](#chrome--transcript-chrome) |
@@ -187,6 +189,7 @@ repository root rather than the active working directory.
 
 | Extension | Section | Covers |
 |---|---|---|
+| [`board`](../extensions/board/) | `board` | WIP limits for `plan` and `execute`, and the team name whose signature the board's two gates take. |
 | [`bytefly`](../extensions/bytefly/) | `price`, `notify`, `doctor`, `chrome` | Cost rates/currency/peak schedule, OS notifications, diagnostics settings, and the transcript rail glyph. |
 | [`serve`](../extensions/serve/) | `serve` | The port every page of a session shares. |
 | [`check`](../extensions/check/) | `check` | Detection override, run timeout, and log tail. |
@@ -211,6 +214,21 @@ repository root rather than the active working directory.
 |---|---|---|---|---|
 | `$schema` | string | | | Editor-schema pointer; ignored by the loaders. |
 | `version` | integer | `1` | `1` or newer | Document schema version; a newer value warns, an older one is read as-is. |
+
+## `board` — the shared feature board
+
+The board's own section: how many cards a lane holds, and the team name whose signature its two
+gates take. `/bytefly settings` edits all three. The section is read once, when the board's
+store opens, so a change lands at the next session.
+
+| Key | Type | Default | Values | What it does |
+|---|---|---|---|---|
+| `wip.plan` | integer | `3` | `1`–`20` | Cards a repository may hold in `plan` at once; a claim that would exceed it is refused with the count, the limit, and the ways out. |
+| `wip.execute` | integer | `5` | `1`–`20` | Cards a repository may hold in `execute` at once, on the same terms. |
+| `lead` | string | `"lead"` | a team name, at most 40 characters | The name whose signature approves a contract and spot-checks the work. A session signs by joining under it (`/team join lead`), and never while holding the card; `/board approve` and `/board review` sign as the person `you`, which is what a one-session repository uses. |
+
+The project document's section is normalized over the global one key by key, so a repository
+can raise its own numbers or name its own lead and keep everything else.
 
 ## `price` — cost calculation
 

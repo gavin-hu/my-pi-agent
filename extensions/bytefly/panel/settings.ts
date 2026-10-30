@@ -9,8 +9,9 @@
  * The catalogue is the shortlist a session changes, not the whole document: every
  * row is one a workflow differs on, and each states its own rule so a value the
  * screen accepts is a value the loader keeps. The catalogue order is the screen's
- * order, and it is capped so the section fits a 24-row terminal (`settings.test.ts`
- * holds the ceiling); a new row has to displace one. Everything else stays
+ * order, and it is capped — fifteen rows and their five headings want a 28-row
+ * terminal, and a shorter one scrolls the list rather than the frame
+ * (`settings.test.ts` holds the ceiling); a new row has to displace one. Everything else stays
  * `bytefly.json` — a list (`doctor.skip`), a table (`price.rates`), a schedule
  * (`price.peak`), and the tuning numbers and labels this screen deliberately does
  * not carry — documented in `docs/configuration.md` and reachable from the JSON
@@ -25,6 +26,10 @@
  */
 
 import { configSection, configValueAt } from "../../../lib/config.ts";
+import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../../../lib/board/config.ts";
+import { DEFAULT_LEAD } from "../../../lib/board/lead.ts";
+import { MAX_LABEL } from "../../../lib/session-label.ts";
+import { MAX_WIP } from "../../../lib/board/limits.ts";
 import { DEFAULT_CONFIG as DEFAULT_DOCTOR_CONFIG, normalizeConfig as normalizeDoctorConfig } from "../doctor/config.ts";
 import {
 	CURRENCY_DEFAULTS,
@@ -53,7 +58,7 @@ type SettingOrigin = "default" | "global" | "project" | "inherited";
  * rows read as four short lists: what a session starts with, what it tells you
  * about, what it keeps, and what it costs.
  */
-export type SettingGroup = "Startup" | "Notifications" | "Session" | "Price";
+export type SettingGroup = "Startup" | "Notifications" | "Session" | "Board" | "Price";
 
 /** One curated value a row can take. */
 interface SettingOption {
@@ -70,7 +75,7 @@ interface TextRule {
 }
 
 /** The `bytefly.json` sections a row still reaches. */
-export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job";
+export type ConfigSectionName = "notify" | "doctor" | "price" | "rewind" | "job" | "board";
 
 /** Where a `bytefly.json` row lives: a section, and the path to its leaf. */
 interface SettingConfig {
@@ -154,11 +159,28 @@ function amountRule(min: number, max: number): TextRule {
 }
 
 /**
+ * A text rule for a whole number inside an inclusive range: the board's two WIP limits, at the
+ * `1..MAX_WIP` the loader clamps to, so the screen cannot save a number the board would shorten.
+ */
+function countRule(min: number, max: number): TextRule {
+	return {
+		maxLength: 2,
+		validate(raw) {
+			const text = raw.trim();
+			if (!/^\d+$/.test(text)) return `Use a whole number, ${min} to ${max}.`;
+			const value = Number(text);
+			if (value < min || value > max) return `Out of range: ${min} to ${max}.`;
+			return undefined;
+		},
+	};
+}
+
+/**
  * The catalogue, in screen order.
  *
- * Global scope lists all twelve; Project lists the ten `bytefly.json` rows,
+ * Global scope lists all fifteen; Project lists the thirteen `bytefly.json` rows,
  * because Pi's setters write the personal `settings.json` only. The list is
- * capped so the screen keeps fitting a 24-row terminal.
+ * capped, and the cap with its reason is stated where the screen's height is.
  */
 export const SETTING_ROWS: readonly SettingDescriptor[] = [
 	{
@@ -280,6 +302,50 @@ export const SETTING_ROWS: readonly SettingDescriptor[] = [
 		json: "boolean",
 		options: ON_OFF,
 		config: { section: "doctor", path: ["proactive"] },
+	},
+	{
+		id: "board.wip.plan",
+		group: "Board",
+		label: "Plan limit",
+		description: "How many cards the board lets a repository plan at once, 1 to 20; `bytefly.json` `board.wip.plan`.",
+		source: "bytefly",
+		kind: "text",
+		fallback: String(DEFAULT_BOARD_CONFIG.wip.plan),
+		json: "number",
+		options: [],
+		text: countRule(1, MAX_WIP),
+		config: { section: "board", path: ["wip", "plan"] },
+	},
+	{
+		id: "board.wip.execute",
+		group: "Board",
+		label: "Execute limit",
+		description:
+			"How many cards the board lets a repository execute at once, 1 to 20; `bytefly.json` `board.wip.execute`.",
+		source: "bytefly",
+		kind: "text",
+		fallback: String(DEFAULT_BOARD_CONFIG.wip.execute),
+		json: "number",
+		options: [],
+		text: countRule(1, MAX_WIP),
+		config: { section: "board", path: ["wip", "execute"] },
+	},
+	{
+		id: "board.lead",
+		group: "Board",
+		label: "Lead",
+		description:
+			"The team name whose signature approves a contract and spot-checks the work; a card's holder never signs.",
+		source: "bytefly",
+		kind: "text",
+		fallback: DEFAULT_LEAD,
+		options: [],
+		text: {
+			maxLength: MAX_LABEL,
+			validate: (raw) =>
+				raw.trim() === "" ? "A lead needs a name; `u` clears the key and the default comes back." : undefined,
+		},
+		config: { section: "board", path: ["lead"] },
 	},
 	{
 		id: "price.currency.code",
@@ -432,6 +498,8 @@ const SECTION_READERS: Partial<Record<ConfigSectionName, SectionReader>> = {
 		configValueAt(normalizeDoctorConfig(projectRaw, normalizeDoctorConfig(globalRaw, DEFAULT_DOCTOR_CONFIG)), path),
 	price: (globalRaw, projectRaw, path) =>
 		configValueAt(normalizeByteflyConfig(projectRaw, normalizeByteflyConfig(globalRaw, DEFAULT_BYTEFLY_CONFIG)), path),
+	board: (globalRaw, projectRaw, path) =>
+		configValueAt(normalizeBoardConfig(projectRaw, normalizeBoardConfig(globalRaw, DEFAULT_BOARD_CONFIG)), path),
 };
 
 /**

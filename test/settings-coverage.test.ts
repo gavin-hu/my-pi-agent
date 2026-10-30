@@ -26,6 +26,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { configValueAt } from "../lib/config.ts";
+import { DEFAULT_BOARD_CONFIG, normalizeBoardConfig } from "../lib/board/config.ts";
 import { withLeaf } from "./helpers/config.ts";
 import { DEFAULT_CHROME_CONFIG, normalizeChromeConfig } from "../extensions/bytefly/chrome.ts";
 import {
@@ -84,6 +85,13 @@ const WEB_ACCESS_DEFAULTS = { search: DEFAULT_SEARCH_CONFIG, fetch: DEFAULT_FETC
 
 /** Every section of the shared document, in the order the reference lists them. */
 const SECTIONS: readonly SectionCase[] = [
+	{
+		// The board's whole section is three leaves, and the screen carries one row each.
+		section: "board",
+		defaults: DEFAULT_BOARD_CONFIG,
+		normalize: (raw) => normalizeBoardConfig(raw, DEFAULT_BOARD_CONFIG),
+		jsonOnly: {},
+	},
 	{
 		section: "price",
 		defaults: DEFAULT_BYTEFLY_CONFIG,
@@ -432,7 +440,7 @@ const STATED: readonly { file: string; phrase: string }[] = [
 	{ file: "docs/extensions/bytefly.md", phrase: `the ${count(PROJECT_ROW_COUNT)} \`bytefly.json\` rows` },
 	{ file: "docs/extensions/bytefly.md", phrase: `at ${count(ROW_COUNT)} rows so the screen fits` },
 	{ file: "docs/extensions/bytefly.md", phrase: `catalogue: the ${count(ROW_COUNT)} descriptors` },
-	{ file: "docs/configuration.md", phrase: `${count(ROW_COUNT)} rows under four headings` },
+	{ file: "docs/configuration.md", phrase: `${count(ROW_COUNT)} rows under five headings` },
 ];
 
 /** The spellings those sentences carried before the last row landed, or before a reword. */

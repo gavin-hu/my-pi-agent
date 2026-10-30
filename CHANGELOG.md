@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `bytefly` + `board`: `/bytefly settings` carries the board's three settings — **Plan limit**,
+  **Execute limit**, and **Lead** — under a `Board` group, so the WIP numbers and the name the
+  two gates take are editable where the rest of a session's preferences are. Both numbers are
+  clamped to `1`–`20` and the lead to a 40-character team name by the same rules the loader
+  applies. The list is fifteen rows under five headings now: it wants a 28-row terminal to be
+  seen whole, and a 24-row one scrolls it and says `showing 1–11 of 15`.
 - `board` + `team`: a session with no name of its own joins under a preset teammate name —
   `tom`, `lily`, `ben` — instead of `team-agent-<id>`, drawn from its id and walked past the
   names live teammates hold, falling back to `team-agent-<id>` when every one is taken.
