@@ -273,7 +273,9 @@ already runs read-only:
 `Shift+Tab`, through bytefly) toggles. Because slash commands go through Pi
 directly, `/plan` is the toggle that works with or without bytefly. Bytefly's
 footer shows `▶ auto` in its mode segment, and `≡ plan` there while plan mode is
-on, dropping the plan file name from that chip.
+on, dropping the plan file name from that chip. `auto` is Pi's default mode — every
+tool as it ships, writes included — so the chip says which mode the session is in, not
+that a decision was taken for you.
 
 `/plan list` walks the plans directory and shows every plan with its title,
 modified time, and step progress, newest first — in the TUI as a docked list

@@ -24,7 +24,7 @@ default, and from `bytefly.json` otherwise.
 | Shared notices | the `my-pi-agent/notice` type | Any extension's notice renders at the transcript margin with a severity-coloured rail. |
 | Compaction canvas | the shipped `themes/` palettes | Pi's `/compact` block keeps its content and loses its fill, so it sits on the canvas. |
 | Tool-block frame | `registerToolRenderer` | Every tool block leads with its own call line and hangs its result from the transcript rail. |
-| Working line | `ctx.ui.setWorkingMessage` | The working row counts seconds, then names the running tool and how many tools the run has started. |
+| Working line | `ctx.ui.setWorkingMessage` | The composer's top border carries it beside Pi's spinner: the elapsed count, then how many tools the run has started. |
 | Plan-mode chord | `Shift+Tab` at the main editor | Flips `auto` and plan through `plan`'s request channel; the footer mode segment and the composer border follow. Shift+Tab is taken from Pi's thinking cycle only while `plan` is loaded, and restored on shutdown. |
 
 ### Control center
@@ -347,7 +347,7 @@ Each segment reads a theme role and carries its own drop order:
 | branch | 1 right | muted (warning when detached) | last |
 | worktree | 1 right | success | first |
 | port `◉ 4780` | 1 right | success glyph + accent port | first |
-| mode `≡ plan` / `▶ auto` | 2 left | plan's own chip / success for auto | never |
+| mode `≡ plan` / `▶ auto` | 2 left | plan's own chip in the session's text colour / success for auto | never |
 | context gauge + `%` | 2 left | muted ≤70 · warning 71–90 · error >90 | never |
 | `/window` | 2 left | dim | before cost |
 | cost | 2 left | muted | after tokens |
@@ -367,7 +367,11 @@ the number still says a page is up.
 
 The mode segment leads the resource line: plan's own `≡ plan` chip while planning
 (the trailing plan file name is dropped, so it reads `≡ plan` even though the
-built-in footer keeps the name) and `▶ auto` in success otherwise. `Shift+Tab` at
+built-in footer keeps the name) and `▶ auto` in success otherwise. `auto` is not a
+behaviour of its own: it names Pi's default mode, every tool as it ships and writes
+included, so the segment states which mode the session is in and `≡ plan` is the one
+override that withholds — a mode added later is a third value of this one chip, never a
+second indicator saying what the session may do. `Shift+Tab` at
 the main editor asks [plan](./plan.md) to flip it; the chip and the composer
 border are read from the branch, so `/plan` and the model's own `exit_plan_mode`
 move them too. Bytefly unsets Pi's `app.thinking.cycle` chord while it holds the
@@ -639,28 +643,33 @@ theme that maps `toolTitle` elsewhere is respected rather than overridden.
 
 ## The working line
 
-Pi's working row shows a static `Working`, so a long run reads the same as a
-short one. While the row is up, bytefly advances its message once a second and
-hands it back to Pi when the row comes down. Before the first tool starts it is
-a count:
+Pi's working indicator shows a static `Working`, so a long run reads the same as
+a short one. It is drawn on the composer's top border while a run is up, and
+bytefly advances its message once a second and hands it back to Pi when the run
+settles. Before the first tool starts it is a count:
 
 ```
-Working… 12s
+── ◐ working · 12s ───────────────────
 ```
 
-Once a top-level tool starts, the row becomes a live run line: the tool, how
-many top-level tools this run has started, and the elapsed time.
+Once a top-level tool starts, the border adds how many top-level tools this run
+has started:
 
 ```
-edit · 3 tools · 12s
+── ◐ working · 3 tools · 12s ─────────
 ```
+
+The spinner and the colour are Pi's: the indicator owns the `◐` frame and takes
+the composer border's role, so it is `success` in auto and `warning` while
+planning. The line deliberately does not name the tool — the transcript already
+draws each call as its own block, and one word reads faster than a name that
+changes under you.
 
 A nested tool call (one carrying `parentToolCallId`, such as a codemode script's
-inner call) neither counts nor takes over the line, so the number matches the
-tool blocks in the transcript. The line keeps the last tool name while the
-model streams after it, and a tool event repaints the row immediately instead
-of waiting for the next tick. The line covers the whole run, tool calls
-included. It is tied to the row's visibility: it starts on `turn_start`, stops
+inner call) does not count, so the number matches the tool blocks in the
+transcript. A tool event repaints the border immediately instead of waiting for
+the next tick. The line covers the whole run, tool calls
+included. It is tied to the indicator's visibility: it starts on `turn_start`, stops
 on `agent_end`, and is reset on `session_shutdown`; turns inside one run do not
 restart it, and a retry starts a new run. The words and the interval are tuned
 in [`working/config.ts`](../../extensions/bytefly/working/config.ts).
@@ -1308,11 +1317,14 @@ why the line says so, and each source the manager reports is shown while it runs
   host lacks (or an OSC method off a TTY) and the notification is dropped; only
   `auto` inspects the environment. `doctor` now reports the mismatch as a
   `degraded` finding, which says what to change but does not fix it for you.
-- **The working line is one global row.** `setWorkingMessage` drives the
-  single working row, so bytefly and any other extension setting it race — last
-  writer wins — and the message is reset to Pi's default at `agent_end`. If the
-  row is hidden (`ctx.ui.setWorkingVisible(false)`) the line has no surface,
-  and a reload mid-run does not resume the count until the next turn.
+- **The working line is one global message.** `setWorkingMessage` drives the
+  single working indicator, so bytefly and any other extension setting it race — last
+  writer wins — and the message is reset to Pi's default at `agent_end`. It is drawn
+  on the composer's top border because the mode editor opts into Pi's embedded
+  indicator; an editor that does not (or a host without `embedWorkingStatus`) puts the
+  same line in a row above the composer instead. If the indicator is hidden
+  (`ctx.ui.setWorkingVisible(false)`) the line has no surface, and a reload mid-run
+  does not resume the count until the next turn.
 
 ## Non-goals
 
@@ -1337,7 +1349,7 @@ why the line says so, and each source the manager reports is shown while it runs
 - No sound, action buttons, notification history, or de-duplication; a
   notification is a fire-and-forget message, not an inbox.
 - No frozen per-run working duration: the line is live and is handed back to
-  Pi when the working row comes down, because the extension API exposes no hook
+  Pi when the working indicator comes down, because the extension API exposes no hook
   to keep a finished run's total.
 
 The built-in footer's `(auto)` auto-compact indicator and `(sub)`
@@ -1356,7 +1368,7 @@ rather than showing a wrong value.
 | Tool blocks | `registerToolRenderer` returns, for every tool, `renderShell: "self"`; `renderCall` leaves the tool's own first line as the block's headline (a shell prompt shown as the tool name, its command repainted in the body colour, and a primary subject demoted to the body colour) and indents the rest of the call two columns under it, `renderResult` indents its body the same and leads it with the status-coloured rail, and each wraps the tool's own renderer (or a generic fallback). `edit` and `write` carry their result on the call body, so that body is railed too. |
 | Screen command | `pi.registerCommand("bytefly")` takes `[doctor] [settings] [extension] [refresh]`: `tui` mounts a dock screen via `ctx.ui.custom()` with the rails suppressed; other modes print through `ctx.ui.notify()` — the grouped listing, `run_doctor`'s report for `doctor`, or the flat settings listing with values for `settings`. A named extension is checked against the discovered set before any probe. Tab completes the subcommands, extension names after `doctor`, and `refresh`; `/bytefly settings` rejects a name. |
 | Turn separator | `registerEntryRenderer("bytefly-separator")` draws each stored receipt; `agent_start` opens it, top-level `tool_execution_start`/`tool_execution_end` count tools and failures, and `agent_settled` appends `pi.appendEntry("bytefly-separator", { turn, durationMs, tools, failures, aborted })` in `tui` mode only. The receipt fields are omitted when no `agent_start` was seen, so an older or partially observed entry stays `{ turn }`. |
-| Working line | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage` in `tui` mode; before a tool runs the message is `Working… Ns`, and each top-level `tool_execution_start` repaints it as `tool · N tools · Ns` (nested calls carrying `parentToolCallId` are skipped). `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no persisted state; the count lives in the register's closure. |
+| Working line | `turn_start` starts a 1s tick that drives `ctx.ui.setWorkingMessage` in `tui` mode; before a tool runs the message is `working · Ns`, and each top-level `tool_execution_start` repaints it as `working · N tools · Ns` (nested calls carrying `parentToolCallId` are skipped). It renders on the composer's top border, which the mode editor enables with `embedWorkingStatus`. `agent_end` restores Pi's default and cancels the tick (also on `session_shutdown`). No config file and no persisted state; the count lives in the register's closure. |
 | Notifications | `agent_settled` (skipped when aborted), `ui_prompt_start` only while `agent_start`…`agent_settled` marks a run active, and `my-pi-agent/job-finished` on `pi.events`; the `notify` section of `bytefly.json` gates each. Delivery writes an OSC 777/99 sequence to stdout or spawns `osascript`, `notify-send`, or `powershell.exe`. The bus subscription is created in `session_start` and released in `session_shutdown`, and the `job` extension never imports bytefly. |
 | Picker discovery | `SettingsManager.create(...)` plus `DefaultPackageManager.resolve({ onMissing: "skip" })`, both public exports; both views drop `bytefly`'s own entrypoint. |
 | Picker writes | `SettingsManager` setters (`setExtensionPaths`, `setPackages`, `setProjectExtensionPaths`, `setProjectPackages`) then `flush()`; `ctx.reload()` after the screen closes when changes are pending. |
@@ -1649,7 +1661,7 @@ rather than showing a wrong value.
 The surfaces are folders: `header/`, `footer/` (the status bar and its price
 calculation), `message/` (the user-message marker), `notice/` (the shared notice),
 `block/` (the tool-block frame), `separator/`, `working/` (the live
-run line on Pi's working row), `panel/` (the
+run line on the composer's top border), `panel/` (the
 unified screen and its merged model),
 `picker/` (discovery and the settings store), `doctor/` (the `run_doctor` tool
 and its probe runtime), `notify/`, and `update/` (Pi's package list, Pi's own

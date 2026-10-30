@@ -4,8 +4,8 @@
  * (the two-line, width-adaptive status bar with its price calculation),
  * `message/` (the user-message nameplate), `notice/` (the shared transcript
  * notice renderer), `block/` (the unified tool-block frame), `separator/` (the
- * transcript turn rule), `working/` (the live run line on Pi's working row),
- * `panel/` (the unified `/bytefly` screen and its
+ * transcript turn rule), `working/` (the live run line on the composer's top
+ * border), `panel/` (the unified `/bytefly` screen and its
  * `doctor` report), `doctor/` (the `run_doctor` tool and its session-scoped
  * probe runtime), `notify/` (OS notifications for unattended runs), `mode/`
  * (the editor's Shift+Tab plan-mode toggle and its border), and `update/` (Pi's
