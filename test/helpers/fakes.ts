@@ -68,6 +68,34 @@ export const ansiTheme: any = {
 	bold: (text: string) => text,
 };
 
+/**
+ * Theme that brackets every painted run, `[[role]]text[/]`, so a test can tell
+ * painted text from text that would fall through to the terminal's own colour.
+ *
+ * Printable brackets rather than control characters: the width helpers strip
+ * control characters, which would eat the markers before a test could read them.
+ */
+export const bracketedTheme: any = {
+	fg: (role: string, text: string) => `[[${role}]]${text}[/]`,
+	bg: (_role: string, text: string) => text,
+	bold: (text: string) => text,
+};
+
+/**
+ * What {@link bracketedTheme} did not bracket: the text left in the terminal's own
+ * colour. A complete run first, then a marker whose run the width clipped, and
+ * finally any escape and the `...` pi-tui appends when it clips a line.
+ */
+export function unpaintedText(lines: readonly string[]): string {
+	return lines
+		.join("\n")
+		.replace(/\[\[[^\]]*\]\][^[]*\[\/\]/g, "")
+		.replace(/\[\/?[^\]]*\]\]/g, "")
+		.replace(/\u001b\[[0-9;]*m/g, "")
+		.replace(/\u001b/g, "")
+		.replace(/\.\.\./g, "");
+}
+
 /** The real SGR a {@link roleSgrTheme} colour token opens with. */
 export const ROLE_SGR = {
 	accent: "\u001b[38;2;1;1;1m",

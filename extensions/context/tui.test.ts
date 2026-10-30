@@ -13,9 +13,10 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { buildReport } from "./report.ts";
 import { ContextComponent, type ContextCompactCallbacks, type ContextScreenOptions } from "./tui.ts";
 import type { ContextReport } from "./types.ts";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
+import { bracketedTheme, coloringTheme, fakeTheme, unpaintedText } from "../../test/helpers/fakes.ts";
 import { sampleContext } from "../../test/helpers/fixtures/context.ts";
 import { GLYPHS } from "../../lib/tui/glyphs.ts";
+import { TUI_TOKENS } from "../../lib/tui/tokens.ts";
 
 /** A screen with recorder callbacks and a mutable report source. */
 function makeScreen(overrides: Partial<ContextScreenOptions> = {}, next?: ContextReport) {
@@ -112,6 +113,64 @@ describe("the context screen", () => {
 
 	test("names the composition total above the rows", () => {
 		expect(makeScreen().component.render(80).join("\n")).toContain("Composition · 545 estimate");
+	});
+
+	test("paints each category in its hue, and the neutrals quiet", () => {
+		// The table is a chart: a bucket's bar and its share carry one hue per category, so
+		// the same category is the same colour in the largest-message list below it.
+		const report = buildReport(sampleContext());
+		const crafted: ContextReport = {
+			...report,
+			buckets: [
+				{ id: "system", label: "System prompt", tokens: 600, share: 0.5, depth: 0 },
+				{ id: "tools", label: "Tool definitions", tokens: 9400, share: 7.7, depth: 0, note: "18 active of 24" },
+				{ id: "user", label: "User messages", tokens: 50, share: 0, depth: 0 },
+				{ id: "assistant", label: "Assistant", tokens: 12000, share: 9.8, depth: 0 },
+				{ id: "toolResults", label: "Tool results", tokens: 100000, share: 81.9, depth: 0 },
+				{ id: "injected", label: "Injected context", tokens: 39, share: 0, depth: 0 },
+				{ id: "injected:goal", label: "goal", tokens: 20, share: 0, depth: 1 },
+			],
+			largest: [
+				{ tokens: 80000, role: "tool result", label: "read" },
+				{ tokens: 12000, role: "assistant", label: "a reply" },
+				{ tokens: 50, role: "user", label: "a question" },
+				{ tokens: 20, role: "injected", label: "goal" },
+			],
+		};
+		const lines = makeScreen({ theme: coloringTheme, report: crafted }).component.render(120);
+		const row = (label: string) => lines.find((line) => line.includes(label)) ?? "";
+
+		// `coloringTheme` tags each run with the token the role resolves to, which is the
+		// same table the kit ships.
+		for (const [label, hue] of [
+			["System prompt", "hue1"],
+			["Tool definitions", "hue2"],
+			["User messages", "hue3"],
+			["Assistant", "hue4"],
+			["Tool results", "hue5"],
+		] as const) {
+			expect(row(label), label).toContain(`[${TUI_TOKENS[hue]}]`);
+		}
+		// The catch-alls stay neutral, and a child is quieter than its parent.
+		expect(row("Injected context")).toContain(`[${TUI_TOKENS.meta}]`);
+		expect(row("goal")).toContain(`[${TUI_TOKENS.meta}]`);
+		// The note is faint, so a row reads label · count · hue · faint note.
+		expect(row("Tool definitions")).toContain(`[${TUI_TOKENS.faint}]  18 active of 24`);
+
+		const message = (label: string) => lines.find((line) => line.includes(label)) ?? "";
+		expect(message("read")).toContain(`[${TUI_TOKENS.hue5}]tool result`);
+		expect(message("a reply")).toContain(`[${TUI_TOKENS.hue4}]assistant`);
+		expect(message("a question")).toContain(`[${TUI_TOKENS.hue3}]user`);
+		expect(message("injected")).toContain(`[${TUI_TOKENS.meta}]injected`);
+		// The preview is body text, not the terminal's default.
+		expect(message("a reply")).toContain(`[${TUI_TOKENS.label}]a reply`);
+	});
+
+	test("leaves no word in the terminal's own colour", () => {
+		// Every painted run is bracketed by the theme, so whatever survives removal is
+		// text drawn with no role — the defect this screen shipped with.
+		const lines = makeScreen({ theme: bracketedTheme }).component.render(120);
+		expect(unpaintedText(lines)).not.toMatch(/[A-Za-z0-9]/);
 	});
 
 	test("drops the composition total when the width cannot hold it", () => {

@@ -71,6 +71,34 @@ function shareCell(share: number): string {
 	return `${share.toFixed(1)}%`.padStart(6);
 }
 
+/**
+ * The hue that identifies a context category, keyed by the bucket ids
+ * `report.ts` builds.
+ *
+ * Categories are what the screen tells apart at a glance; a bucket with no
+ * entry here — injected context and its children, summaries, shell output, a
+ * type this build has never seen — reads neutral, so the catch-all rows stay
+ * quiet and the coloured ones mean something. The same table answers for the
+ * largest-message list, so a tool result is one colour in both sections.
+ */
+const CATEGORY_HUES: Readonly<Record<string, TuiRole>> = {
+	system: "hue1",
+	tools: "hue2",
+	user: "hue3",
+	assistant: "hue4",
+	toolResults: "hue5",
+};
+
+/** The hue for a bucket id, or `undefined` when the category is neutral. */
+export function hueOf(id: string): TuiRole | undefined {
+	return CATEGORY_HUES[id];
+}
+
+/** The hue for a message role word; `tool result` is the bucket's own category. */
+export function hueForRole(role: string): TuiRole | undefined {
+	return CATEGORY_HUES[role === "tool result" ? "toolResults" : role];
+}
+
 /** Pad a label to its column with spaces, measured in terminal columns. */
 function padCell(text: string, width: number): string {
 	const clipped = truncateToWidth(text, width, "…");
@@ -151,7 +179,7 @@ export class ContextComponent implements Component {
 	private compositionLine(width: number): string {
 		const label = paint(this.theme, "label", "Composition");
 		const total = paint(this.theme, "meta", `${formatTokens(this.report.estimate)} estimate`);
-		const full = `  ${label} · ${total}`;
+		const full = `  ${label}${paint(this.theme, "faint", " · ")}${total}`;
 		return visibleWidth(full) <= width ? full : truncateToWidth(`  ${label}`, width);
 	}
 
@@ -161,12 +189,15 @@ export class ContextComponent implements Component {
 		const labelWidth = bucket.depth > 0 ? 20 : 22;
 		const label = padCell(bucket.label, labelWidth);
 		const tokens = formatTokens(bucket.tokens).padStart(6);
-		const share = shareCell(bucket.share);
-		const note = bucket.note ? `  ${bucket.note}` : "";
+		// The row's hue carries the category; the label, the count, and the printed
+		// share still say everything the colour repeats.
+		const hue = hueOf(bucket.id) ?? "meta";
+		const share = paint(this.theme, hue, shareCell(bucket.share));
+		const note = bucket.note ? paint(this.theme, "faint", `  ${bucket.note}`) : "";
 		const bar = gaugeBar(this.theme, {
 			percent: bucket.share,
 			blocks: BUCKET_BLOCKS,
-			role: "meta",
+			role: hue,
 			emptyRole: "faint",
 		});
 		const head = `${indent}${paint(this.theme, "label", label)}${paint(this.theme, "meta", tokens)}`;
@@ -204,7 +235,8 @@ export class ContextComponent implements Component {
 			for (const block of report.largest) {
 				const tokens = formatTokens(block.tokens).padStart(6);
 				const role = padCell(block.role, 12);
-				const candidate = `    ${paint(this.theme, "meta", tokens)}  ${paint(this.theme, "label", role)}${block.label}`;
+				const hue = hueForRole(block.role) ?? "meta";
+				const candidate = `    ${paint(this.theme, "meta", tokens)}  ${paint(this.theme, hue, role)}${paint(this.theme, "label", block.label)}`;
 				lines.push(truncateToWidth(candidate, width));
 			}
 		}

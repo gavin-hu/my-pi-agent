@@ -21,6 +21,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `context`: the composition table reads as a chart. Each row's bar and share percentage wear the
+  hue of its category — blue for the system prompt, purple for the tool definitions, pink for user
+  messages, green for the assistant, amber for tool results — and the largest-message list uses the
+  same table, so a tool result is one colour in both places. Injected context, summaries, and shell
+  output stay neutral. The share column, the notes, and the message previews are now painted at all:
+  they used to fall through to the terminal's own foreground, so a `/theme` switch could not move
+  them and a row read in three tones. `lib/tui` gains `hue1`…`hue5` for categories, kept apart from
+  `ok`/`warn`/`bad`, which remain verdicts.
 - `bytefly`: the live run line is drawn on the composer's top border, beside Pi's spinner,
   instead of in a row above it — the mode editor opts into Pi's embedded working indicator,
   as Pi's own editor does — and it reads `working · 12s`, then `working · 3 tools · 12s`:
