@@ -367,7 +367,11 @@ the number still says a page is up.
 
 The mode segment leads the resource line: plan's own `≡ plan` chip while planning
 (the trailing plan file name is dropped, so it reads `≡ plan` even though the
-built-in footer keeps the name) and `▶ auto` in success otherwise. `Shift+Tab` at
+built-in footer keeps the name) and `▶ auto` in success otherwise. `auto` is not a
+behaviour of its own: it names Pi's default mode, every tool as it ships and writes
+included, so the segment states which mode the session is in and `≡ plan` is the one
+override that withholds — a mode added later is a third value of this one chip, never a
+second indicator saying what the session may do. `Shift+Tab` at
 the main editor asks [plan](./plan.md) to flip it; the chip and the composer
 border are read from the branch, so `/plan` and the model's own `exit_plan_mode`
 move them too. Bytefly unsets Pi's `app.thinking.cycle` chord while it holds the
