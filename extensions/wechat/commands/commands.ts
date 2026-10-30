@@ -24,20 +24,15 @@ import { supportsCustomUI } from "../../../lib/interaction.ts";
 import { isAllowedPeer, type Bridge } from "../bridge.ts";
 import type { WechatClient } from "../transport/client.ts";
 import type { WechatConfig } from "../config.ts";
+import type { StatusAction } from "../view/status-screen.ts";
+import type { LoginViewState } from "../view/login-screen.ts";
+import type { LoginOutcome } from "./login.ts";
 import { doctorReport } from "./doctor.ts";
 import { messageOf } from "../errors.ts";
 import { peerLabel, peerKey } from "../text/format.ts";
-import { waitForLogin, type LoginOutcome } from "./login.ts";
 import { defaultSleep } from "../timer.ts";
-import { LoginScreenComponent, type LoginViewState } from "../view/login-screen.ts";
 import { qrLines } from "../../../lib/qr.ts";
-import {
-	statusLine,
-	statusView,
-	StatusScreenComponent,
-	type StatusAction,
-	type StatusView,
-} from "../view/status-screen.ts";
+import { statusLine, statusView, type StatusView } from "../text/status.ts";
 import type { BotCredentials } from "../types.ts";
 
 export interface CommandDeps {
@@ -300,6 +295,10 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		return;
 	}
 
+	// The login screen and its poll loop are the TUI's: the refusal above and
+	// registration load neither.
+	const { waitForLogin } = await import("./login.ts");
+	const { LoginScreenComponent } = await import("../view/login-screen.ts");
 	const state: LoginViewState = { status: "wait", lines: await qrLines(qr.imgContent), url: qr.imgContent };
 	const result = await ctx.ui.custom<LoginOutcome | undefined>((tui, theme, _keybindings, done) => {
 		const controller = new AbortController();
@@ -357,6 +356,8 @@ async function runPanel(ctx: ExtensionCommandContext, deps: CommandDeps): Promis
 		ctx.ui.notify(statusLine(view()));
 		return;
 	}
+	// The control screen is the TUI's: the one-line summary above loads it never.
+	const { StatusScreenComponent } = await import("../view/status-screen.ts");
 	const action = await ctx.ui.custom<StatusAction>(
 		(tui, theme, _keybindings, done) =>
 			new StatusScreenComponent({

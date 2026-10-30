@@ -17,17 +17,15 @@
  * Value-only: every byte of state is in the returned closure.
  */
 
-import {
-	type HttpMount,
-	lanAddresses,
-	type MountOutcome,
-	type MountRequest,
-	type ServedMount,
-	type ServedServer,
-	serveHttp,
-	type SharedListener,
-	randomPort,
-	type NetworkInterfaces,
+import { lazy } from "../../lib/lazy.ts";
+import type {
+	HttpMount,
+	MountOutcome,
+	MountRequest,
+	NetworkInterfaces,
+	ServedMount,
+	ServedServer,
+	SharedListener,
 } from "../../lib/http/index.ts";
 
 /** One prefix as this session's server holds it: the mount, and the spec that remounts it. */
@@ -58,6 +56,8 @@ export interface ServeRegistryDeps {
 	interfaces: () => NetworkInterfaces;
 	/** Told when a session's port comes up and when it goes away, so a chip can say so. */
 	onPort?: (session: string, port: number | undefined) => void;
+	/** The served-page kit; loaded on the first bind, so registration never pays for it. */
+	loadServe?: () => Promise<typeof import("../../lib/http/index.ts")>;
 }
 
 /** The session's servers, as the extension's bus listener drives them. */
@@ -91,9 +91,12 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 	const remembered = new Map<string, number>();
 	/** The session the pinned port belongs to; every later session picks its own. */
 	let pinnedBy: string | undefined;
+	/** The served-page kit: one load, on the first bind, shared by every later one. */
+	const http = lazy(deps.loadServe ?? (() => import("../../lib/http/index.ts")));
 
 	/** Bind `session`'s server on the pin when it is this session's to take. */
 	const bind = async (session: string): Promise<Opened> => {
+		const { serveHttp, randomPort } = await http.get();
 		const pinned = deps.portFor(session);
 		const usePin = pinned > 0 && (pinnedBy === undefined || pinnedBy === session);
 		const preferred = remembered.get(session) ?? (deps.pickPort ?? randomPort)();
@@ -163,6 +166,7 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 	};
 
 	const share = async (session: string, base: string): Promise<SharedListener | undefined> => {
+		const { serveHttp, lanAddresses } = await http.get();
 		const served = sessions.get(session);
 		const held = served?.mounts.get(base);
 		if (served === undefined || held === undefined) return undefined;

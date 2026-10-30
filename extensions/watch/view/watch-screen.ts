@@ -1,87 +1,25 @@
 /**
- * Terminal rendering for the watch extension's `/watch` screen.
+ * The `/watch` screen: a dismissible list with a focused detail pane and a
+ * matches view, drawn as a `DockListScreen`.
  *
- * `WatchListComponent` is the dismissible `/watch` screen with a focused detail
- * pane and a matches view. It reads live state through injected closures and
- * tracks the selection by id so a live re-sort cannot move the cursor, through
- * the shared `IdCursor` and `LinePane`.
+ * It reads live state through injected closures and tracks the selection by id
+ * so a live re-sort cannot move the cursor, through the shared `IdCursor` and
+ * `LinePane`. The frame, the navigation keys, the y/N confirmation, and the
+ * matches pane come from the shared `DockListScreen`, so this module owns only
+ * the watch vocabulary: the rows, the focus block, the counts, the hints, and
+ * what the verbs do. Matched lines arrive already sanitized by the runtime.
  *
- * The frame, the navigation keys, the y/N confirmation, and the matches pane come
- * from the shared `DockListScreen`, so this module owns only the watch
- * vocabulary: the row, the focus block, the counts, the hints, and what the
- * verbs do. Matched lines arrive already sanitized by the runtime, so no
- * untrusted escape sequence reaches the terminal here.
+ * Full-screen surfaces live under `view/` and load on first use: the `/watch`
+ * command imports this module behind its TUI branch, so registration never
+ * pays for it.
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { Component } from "@earendil-works/pi-tui";
-import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
-import { statusRow, type StatusRow } from "../../lib/tui/rows.ts";
-import { TailResult, type TailResultInput } from "../../lib/tui/tool.ts";
-import { paint } from "../../lib/tui/tokens.ts";
-import { compareWatches, formatWatchDetail, shortLabel, statusGlyphChar, statusRole } from "./format.ts";
-import type { WatchRecord } from "./types.ts";
-
-/** One watcher row: marker, status glyph, id, label, and a right-aligned count. */
-function watchRow(
-	watch: WatchRecord,
-	theme: Theme,
-	width: number,
-	options: Pick<StatusRow, "selected" | "marker"> = {},
-): string {
-	return statusRow(theme, width, {
-		...options,
-		glyph: statusGlyphChar(watch.status),
-		glyphRole: statusRole(watch.status),
-		label: `${watch.id}  ${shortLabel(watch)}`,
-		labelRole: options.selected ? "accent" : "label",
-		trailing: `${watch.matchCount}`,
-	});
-}
-
-/** Input for the transcript result: a themed watcher list or a matched-line tail. */
-export type WatchResultInput =
-	| { kind: "list"; watches: WatchRecord[]; more: number }
-	| { kind: "lines"; label: string; lines: string[]; earlier: number };
-
-/** Map the watch vocabulary onto the shared transcript tail block. */
-function watchTail(input: WatchResultInput): TailResultInput<WatchRecord> {
-	if (input.kind === "lines") {
-		return { kind: "lines", lines: input.lines, earlier: input.earlier, earlierLabel: input.label };
-	}
-	return {
-		kind: "list",
-		rows: input.watches,
-		more: input.more,
-		rowLine: (watch, width, theme) => watchRow(watch, theme, width, { marker: false }),
-	};
-}
-
-/**
- * Transcript result block for the `watch` tool: the shared tail block over the
- * `/watch`-style row rail or the themed matched-line tail. Reused across renders.
- */
-export class WatchResult implements Component {
-	private readonly view: TailResult<WatchRecord>;
-
-	constructor(input: WatchResultInput, theme: Theme) {
-		this.view = new TailResult(watchTail(input), theme);
-	}
-
-	/** Update in place so the transcript can reuse this component across renders. */
-	setInput(input: WatchResultInput, theme: Theme): void {
-		this.view.setInput(watchTail(input), theme);
-	}
-
-	invalidate(): void {
-		this.view.invalidate();
-	}
-
-	render(width: number): string[] {
-		return this.view.render(width);
-	}
-}
+import type { ScreenHint, ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { DockListScreen, type DetailContents } from "../../../lib/tui/dock-screen.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { compareWatches, formatWatchDetail, shortLabel, watchRow } from "../format.ts";
+import type { WatchRecord } from "../types.ts";
 
 export interface WatchListCallbacks {
 	/** Current matched lines for a watcher, or undefined when unknown. */

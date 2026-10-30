@@ -276,7 +276,7 @@ commit. These refs are not branches and are not touched by `git push --all`.
 | `transport/store.ts` | Versioned metadata encoding and ref-backed listing/pruning. |
 | `state/policy.ts` | Which tool calls are worth a snapshot. |
 | `transport/temp-index.ts` | Per-process `GIT_INDEX_FILE` paths: create, release, and sweep stale files. |
-| `view/status.ts` | The `↺ N` status chip. |
+| `status.ts` | The `↺ N` status chip. |
 | `transport/queue.ts` | The serialized git operation queue for staging calls (`GIT_INDEX_FILE`). |
 | `state/runtime.ts` | Root/config caches and the snapshot/list/plan/patch/numstat/restore/hunk-revert operations. |
 | `state/timeline.ts` | Pure: prompts on the branch, paired with their snapshots. |

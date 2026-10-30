@@ -25,17 +25,17 @@ import {
 	type TuiMouseEvent,
 	type TuiMouseEventResult,
 } from "@earendil-works/pi-tui";
-import { sanitizeLine } from "../../lib/format.ts";
-import { ConfirmState } from "../../lib/tui/confirm.ts";
-import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../lib/tui/cursor.ts";
-import { dockListFrame, editorTheme, screenHint, type ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { clip } from "../../lib/tui/columns.ts";
-import { emptyState, listRow } from "../../lib/tui/rows.ts";
-import { titleRule } from "../../lib/tui/rules.ts";
-import { paint } from "../../lib/tui/tokens.ts";
-import { messageOf } from "./errors.ts";
-import { scopeLabel, type MemoryEntries } from "./format.ts";
-import type { MemoryScope } from "./types.ts";
+import { sanitizeLine } from "../../../lib/format.ts";
+import { ConfirmState } from "../../../lib/tui/confirm.ts";
+import { fitRows, formatRange, isCloseKey, ListCursor, navigateList, scrollList } from "../../../lib/tui/cursor.ts";
+import { dockListFrame, editorTheme, screenHint, type ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { clip } from "../../../lib/tui/columns.ts";
+import { emptyState, listRow } from "../../../lib/tui/rows.ts";
+import { titleRule } from "../../../lib/tui/rules.ts";
+import { paint } from "../../../lib/tui/tokens.ts";
+import { messageOf } from "../errors.ts";
+import { scopeLabel, type MemoryEntries } from "../format.ts";
+import type { MemoryScope } from "../types.ts";
 
 /** Note limit enforced by the `memory` tool; the picker mirrors it so a save is never rejected late. */
 const MAX_NOTE_CHARS = 500;

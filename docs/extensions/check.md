@@ -250,7 +250,7 @@ never turned into an invented location.
 | `source.ts` | Guarded source excerpt around a failure's `path:line`. |
 | `runtime.ts` | Planning, sequencing, aggregation, live lines, cancel/shutdown. |
 | `format.ts` | Summary, failure rows, source-excerpt/detail text, model report. |
-| `tui.ts` | `CheckRunComponent` (a live tail) and `CheckResultComponent` (a `DockListScreen` over the failures). |
+| `view/check-screens.ts` | `CheckRunComponent` (a live tail) and `CheckResultComponent` (a `DockListScreen` over the failures), loaded on first use. |
 | `tools.ts` | `run_check` schema, registration, the running partial result, and the call/result renderers. |
 | `render.ts` | The transcript result block: status summary, capped failure rows, tail fallback. |
 | `commands.ts` | `/check`, target parsing, completions, TUI/headless flow. |

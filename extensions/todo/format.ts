@@ -5,10 +5,21 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { GLYPH_GAP, GLYPHS } from "../../lib/tui/glyphs.ts";
+import { listRow } from "../../lib/tui/rows.ts";
 import { overflowHint } from "../../lib/tui/tool.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { completedCount, currentTodo } from "./state.ts";
 import type { Todo, TodoStatus } from "./types.ts";
+
+/** One indented item line, clipped to `width`. */
+export function todoRow(todo: Todo, theme: Theme, width: number): string {
+	return listRow(theme, width, {
+		glyph: todoGlyphChar(todo),
+		glyphRole: todoGlyphRole(todo),
+		label: todoLabelText(todo),
+		labelRole: todoLabelRole(todo),
+	});
+}
 
 /** Sort order so the widget and transcript surface current work before finished rows. */
 const STATUS_ORDER: Record<TodoStatus, number> = { in_progress: 0, pending: 1, completed: 2 };

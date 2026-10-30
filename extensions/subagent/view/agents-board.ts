@@ -14,15 +14,15 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { sanitizeLine, stripControlChars } from "../../lib/format.ts";
-import type { ScreenHint, ViewportRowsSource } from "../../lib/tui/chrome.ts";
-import { DockListScreen, type DetailContents } from "../../lib/tui/dock-screen.ts";
-import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { keyValueRow, statusRow } from "../../lib/tui/rows.ts";
-import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
-import type { BackgroundRun, BackgroundStatus } from "./background.ts";
-import { canCollect } from "./background.ts";
-import { formatBackgroundDuration, formatUsageStats } from "./format.ts";
+import { sanitizeLine, stripControlChars } from "../../../lib/format.ts";
+import type { ScreenHint, ViewportRowsSource } from "../../../lib/tui/chrome.ts";
+import { DockListScreen, type DetailContents } from "../../../lib/tui/dock-screen.ts";
+import { GLYPHS, SEPARATORS } from "../../../lib/tui/glyphs.ts";
+import { keyValueRow, statusRow } from "../../../lib/tui/rows.ts";
+import { paint, type TuiRole } from "../../../lib/tui/tokens.ts";
+import type { BackgroundRun, BackgroundStatus } from "../background.ts";
+import { canCollect } from "../background.ts";
+import { formatBackgroundDuration, formatUsageStats } from "../format.ts";
 
 /** One status's glyph, role, and readable label. */
 function statusView(status: BackgroundStatus): { glyph: string; role: TuiRole; label: string } {

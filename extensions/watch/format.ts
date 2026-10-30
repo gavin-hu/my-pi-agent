@@ -14,7 +14,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { boundedTail, sanitizeLine } from "../../lib/format.ts";
 import { clip, clipLabel, labelLine } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { byRunningFirst } from "../../lib/tui/rows.ts";
+import { byRunningFirst, statusRow, type StatusRow } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { PendingMatch, WatchRecord, WatchStatus } from "./types.ts";
 
@@ -27,6 +27,23 @@ export function compileRegex(pattern: string, caseSensitive: boolean): RegExp {
 export function sourceLabel(watch: WatchRecord): string {
 	if (watch.source.kind === "file") return clipLabel(watch.source.path ?? "");
 	return clipLabel(`$ ${watch.source.command ?? ""}`);
+}
+
+/** One watcher row: marker, status glyph, id, label, and a right-aligned count. */
+export function watchRow(
+	watch: WatchRecord,
+	theme: Theme,
+	width: number,
+	options: Pick<StatusRow, "selected" | "marker"> = {},
+): string {
+	return statusRow(theme, width, {
+		...options,
+		glyph: statusGlyphChar(watch.status),
+		glyphRole: statusRole(watch.status),
+		label: `${watch.id}  ${shortLabel(watch)}`,
+		labelRole: options.selected ? "accent" : "label",
+		trailing: `${watch.matchCount}`,
+	});
 }
 
 /** A watcher's label, falling back to its source. */

@@ -34,7 +34,7 @@ import {
 import type { JobsRuntime } from "./runtime.ts";
 import { JobParams, normalizeCall, type JobArgs, type JobCall } from "./schema.ts";
 import { toRecord } from "./store.ts";
-import { jobTail, type JobResultInput } from "./tui.ts";
+import { jobTail, type JobResultInput } from "./render.ts";
 import type { JobDetails, JobRecord } from "./types.ts";
 
 export const TOOL_NAME = "job";

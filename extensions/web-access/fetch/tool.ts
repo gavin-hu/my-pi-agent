@@ -28,9 +28,9 @@ import { charLength } from "../text.ts";
 import { oneLine } from "../transcript.ts";
 import { createPageCache, type PageCache } from "./cache.ts";
 import type { WebFetchConfig } from "./config.ts";
-import { findPassages, type Passage } from "./find.ts";
+import type { Passage } from "./find.ts";
 import { formatMatches, formatPage } from "./format.ts";
-import { runFetch, type FetchDeps, type PageResult } from "./page.ts";
+import type { FetchDeps, PageResult } from "./page.ts";
 import { resolveRequest, WebFetchOutput, WebFetchParams, type FetchResponse, type WebFetchArgs } from "./schema.ts";
 import type { FetchRequest } from "./types.ts";
 import { loadFetchConfig } from "../config.ts";
@@ -66,6 +66,10 @@ async function loadPage(
 	deps: FetchDeps,
 	cache: PageCache,
 ): Promise<LoadedPage> {
+	// The page loader is the call's, not registration's: the schema and the
+	// renderers above never need it, so a listing loads neither it nor its
+	// extract/ssrf/PDF subtree.
+	const { runFetch } = await import("./page.ts");
 	const cacheable = config.cacheEnabled && request.cacheable && !request.refresh;
 	const cachedEntry = cacheable ? cache.get(url, config.cacheTtlMs) : undefined;
 	if (cachedEntry) return { page: cachedEntry, cached: true, fetchedAt: cachedEntry.fetchedAt };
@@ -83,7 +87,10 @@ async function loadPage(
 }
 
 /** Build the response entry and model-facing text for one fetched page. */
-function pageResult(loaded: LoadedPage, request: FetchRequest): { response: FetchResponse; text: string } {
+async function pageResult(
+	loaded: LoadedPage,
+	request: FetchRequest,
+): Promise<{ response: FetchResponse; text: string }> {
 	const { page, cached, fetchedAt } = loaded;
 	const finding = request.find.length > 0;
 
@@ -93,6 +100,7 @@ function pageResult(loaded: LoadedPage, request: FetchRequest): { response: Fetc
 	let matchesTruncated = false;
 
 	if (finding) {
+		const { findPassages } = await import("./find.ts");
 		// Request one extra so a full list proves more hits exist; only the cap is shown.
 		const found = findPassages(page.text, request.find, {
 			mode: request.mode,
@@ -211,7 +219,7 @@ export function registerFetchTool(pi: ExtensionAPI, deps: FetchToolDeps = {}): v
 			let text: string;
 			try {
 				const loaded = await loadPage(request.url, request, config, signal, fetchDeps, cache);
-				({ response: page, text } = pageResult(loaded, request));
+				({ response: page, text } = await pageResult(loaded, request));
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				({ response: page, text } = fetchErrorResult(request.url, request, message));

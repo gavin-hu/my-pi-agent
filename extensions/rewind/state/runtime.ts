@@ -24,7 +24,7 @@ import { createOperationQueue } from "../transport/queue.ts";
 import { applyRestore, planRestore, type PlanResult, type RestoreInput } from "../transport/restore.ts";
 import type { PathStat } from "../text/paths.ts";
 import { createSnapshot } from "../transport/snapshot.ts";
-import { createStatusChip } from "../view/status.ts";
+import { createStatusChip } from "../status.ts";
 import { belongsToRoot, listSnapshots, pruneSnapshots } from "../transport/store.ts";
 import { createTempIndexStore } from "../transport/temp-index.ts";
 import { lastUserEntryId } from "./timeline.ts";

@@ -291,7 +291,7 @@ listening watch is what raises the turn.
 | `overlap.ts` | The one "do these paths collide?" predicate: `claimsConflict`, which normalizes both spellings of a claim path first. |
 | `resolve.ts` | `resolveClaimPaths` and `claimPathMessage`: a claim path made repository-relative, posix, and canonical through its real target, or the refusal naming why. |
 | `types.ts` | The stored shapes — session record, message, claim — and the tool's `details`. |
-| `tui.ts` | The `/sessions` board, its scopes, and the pane over one row; the row grammar is in `rows.ts`. |
+| `view/session-list.ts` | The `/sessions` board, its scopes, and the pane over one row, loaded on first use; the row grammar is in `rows.ts`. |
 | `rows.ts` | The session/claim/message row builders and summaries shared by the board and the transcript. |
 | `result.ts` | The `session` tool's expanded result block and its collapsed line. |
 | `notice.ts` | The mail notice's model text and renderer details. |

@@ -25,7 +25,7 @@ import {
 } from "./format.ts";
 import type { WatchRuntime } from "./runtime.ts";
 import { WatchParams, normalizeCall, type WatchArgs, type WatchCall } from "./schema.ts";
-import { WatchResult, type WatchResultInput } from "./tui.ts";
+import { WatchResult, type WatchResultInput } from "./render.ts";
 import type { WatchDetails } from "./types.ts";
 
 export const TOOL_NAME = "watch";

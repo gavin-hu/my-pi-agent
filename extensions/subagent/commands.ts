@@ -9,9 +9,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { planModeRefusal } from "../../lib/plan-entry.ts";
 import { isPlanModeEnabled } from "../../lib/plan-state.ts";
-import { withRailsSuppressed } from "../../lib/rails.ts";
 import type { BackgroundRuntime } from "./background.ts";
-import { AgentsBoardComponent } from "./background-tui.ts";
 import { formatAgentsList } from "./format.ts";
 
 /** Open `/agents`; the TUI gets the board, other modes get the list. */
@@ -35,6 +33,10 @@ async function openAgents(
 		return;
 	}
 
+	// The board is the TUI's: the list above and registration load neither it nor
+	// its rails wrapper.
+	const { withRailsSuppressed } = await import("../../lib/rails.ts");
+	const { AgentsBoardComponent } = await import("./view/agents-board.ts");
 	let collectId: string | undefined;
 	await withRailsSuppressed(pi, async () => {
 		await ctx.ui.custom<void>((tui, theme, _keybindings, done) => {

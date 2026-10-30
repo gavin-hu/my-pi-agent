@@ -13,7 +13,7 @@
 import { networkInterfaces } from "node:os";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { HTTP_MOUNT_CHANNEL, type MountRequest } from "../../lib/http/index.ts";
+import { HTTP_MOUNT_CHANNEL, type MountRequest } from "../../lib/http/mount.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
 import { loadServeConfig } from "./config.ts";

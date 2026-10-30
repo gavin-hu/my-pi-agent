@@ -385,7 +385,7 @@ rewritten.
 | `index.ts` | Factory: registers the tool/command and wires events, including the shared `lib/report.ts` completion reporter. |
 | `schema.ts` | Parameter schema and pure validation (a `JobCall` union). |
 | `config.ts` | The `job` section of `bytefly.json`: loading and clamping. |
-| `format.ts` | Pure formatting, duration, and transcript outcome-line helpers; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
+| `format.ts` | Pure formatting, duration, and transcript outcome-line helpers, plus the job row both surfaces draw; sanitization is `lib/format.ts`'s `sanitizeUntrustedLine`. |
 | `paths.ts` | Session/marker/registry/status file-name helpers. |
 | `registry.ts` | Per-session registry load/merge under `<agent-dir>/jobs/<project>/`, legacy migration, and pure reconciliation. |
 | `reservations.ts` | Atomic `O_EXCL` job-id reservation and release. |
@@ -397,7 +397,8 @@ rewritten.
 | `waiters.ts` | `wait` resolver bookkeeping. |
 | `log-writer.ts` | Per-job log sink: write stream, line split, rotation queue, and the output-driven repaint window. |
 | `runtime.ts` | Composition: job table, child handles, process events, repaint clock. |
-| `tui.ts` | The `/jobs` screen (a `DockListScreen` subclass: job rows, focus block, counts, verbs) and the `JobResult` transcript block over the shared `TailResult`. |
+| `render.ts` | The `JobResult` transcript block over the shared `TailResult`. |
+| `view/jobs-screen.ts` | The `/jobs` screen (a `DockListScreen` subclass: job rows, focus block, counts, verbs), loaded on first use. |
 | `tools.ts` | The `job` tool and its transcript rendering. |
 | `commands.ts` | The `/jobs` command. |
 | `types.ts` | Shared types. |
@@ -408,7 +409,7 @@ rewritten.
 sanitization (`format`), the durable store (`store`), per-session reconciliation
 (`registry`), id reservation (`reservations`), exit-status recovery (`status`),
 session markers (`session`), bounded log reads and tail flags (`logs`), wait
-bookkeeping (`waiters`), the `job` tool (`tools`), the `/jobs` screen (`tui`),
+bookkeeping (`waiters`), the `job` tool (`tools`), the `/jobs` screen (`view/jobs-screen`),
 the runtime's session-scoped list and failure notification (`runtime`), `send`
 to a job's stdin and the pipe's lifecycle (`runtime`), log rotation, its two
 segments, and the cross-segment read (`runtime`), and the

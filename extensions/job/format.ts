@@ -16,7 +16,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { boundedTail, formatDuration, sanitizeUntrustedLine } from "../../lib/format.ts";
 import { clip, clipLabel, LABEL_WIDTH } from "../../lib/tui/columns.ts";
 import { GLYPHS, SEPARATORS } from "../../lib/tui/glyphs.ts";
-import { byRunningFirst } from "../../lib/tui/rows.ts";
+import { byRunningFirst, statusRow, type StatusRow } from "../../lib/tui/rows.ts";
 import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import type { JobRecord, JobStatus } from "./types.ts";
 
@@ -72,6 +72,27 @@ function statusWord(job: JobRecord): string {
 /** A job's label (falling back to its command) clipped to one safe display line. */
 export function shortLabel(job: JobRecord): string {
 	return clipLabel(job.label || job.command);
+}
+
+/** One row for the `/jobs` screen and its transcript mirror: selection marker,
+ *  status glyph, id, label, and a right-aligned elapsed value, tagged `peer`
+ *  when another session owns it. `statusRow` owns the clipping and alignment. */
+export function jobRow(
+	job: JobRecord,
+	theme: Theme,
+	width: number,
+	options: Pick<StatusRow, "selected" | "marker"> & { foreign?: boolean } = {},
+): string {
+	const elapsed = formatDuration(elapsedMs(job, Date.now()));
+	return statusRow(theme, width, {
+		...options,
+		glyph: statusGlyphChar(job.status),
+		glyphRole: statusRole(job.status),
+		label: `${job.id}  ${shortLabel(job)}`,
+		labelRole: options.selected ? "accent" : "label",
+		// The tag rides the right-aligned cell, which survives a narrow terminal.
+		trailing: options.foreign ? `${elapsed}${SEPARATORS.item}peer` : elapsed,
+	});
 }
 
 /** One-line job summary shared by the model output and the `/jobs` screen. */

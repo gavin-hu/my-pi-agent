@@ -12,7 +12,7 @@ import { withEnv } from "../../test/helpers/env.ts";
 import { type JoinResult, TEAM_JOIN_REQUEST } from "../../lib/session-tool.ts";
 import { waitFor } from "../../test/helpers/process.ts";
 import { onRailsSuppressed } from "../../lib/rails.ts";
-import { SessionListComponent } from "./tui.ts";
+import { SessionListComponent } from "./view/session-list.ts";
 
 const temps = makeTempTracker();
 afterAll(() => temps.flush());

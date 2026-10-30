@@ -33,7 +33,7 @@ import { FIXTURE_PLAN_STORE } from "./tools/fixtures/board.ts";
 import { JOB_RECORDS } from "./tools/fixtures/index.ts";
 import { HERO_GOAL, HERO_TODOS } from "./screens/fixtures/index.ts";
 import { GoalWidget } from "../extensions/goal/tui.ts";
-import { TodoWidget } from "../extensions/todo/tui.ts";
+import { TodoWidget } from "../extensions/todo/widget.ts";
 import { pageColors, readPageColors, repo, setThemeInstance, theme } from "./theme.ts";
 import { FIXTURES } from "./tools/fixtures/index.ts";
 import { galleryHtml, registeredToolNames, renderingFor, renderings } from "./tools/index.ts";

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { createFakePi, fakeTheme as theme } from "../../test/helpers/fakes.ts";
-import { settle } from "../../test/helpers/process.ts";
-import type { MemoryEntries } from "./format.ts";
-import { createMemoryRuntime } from "./runtime.ts";
-import { type MemoryPickerCallbacks, MemoryPickerComponent } from "./tui.ts";
-import { registerTools, TOOL_NAME } from "./tools.ts";
+import { createFakePi, fakeTheme as theme } from "../../../test/helpers/fakes.ts";
+import { settle } from "../../../test/helpers/process.ts";
+import type { MemoryEntries } from "../format.ts";
+import { createMemoryRuntime } from "../runtime.ts";
+import { type MemoryPickerCallbacks, MemoryPickerComponent } from "./memory-picker.ts";
+import { registerTools, TOOL_NAME } from "../tools.ts";
 
 const tui = { requestRender: () => {}, terminal: { rows: 24, columns: 80 } } as any;
 

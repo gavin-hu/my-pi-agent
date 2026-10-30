@@ -14,7 +14,6 @@ import { ASK_USER_QUESTION_TOOL } from "../../lib/tool-names.ts";
 import { UNAVAILABLE_TEXT, formatAnswerText, optionSummary, questionHeaders, unavailableResult } from "./answers.ts";
 import { askViaDialogs, type QuestionUI } from "./dialogs.ts";
 import { AskUserQuestionParams, normalizeQuestions, type AskUserQuestionArgs } from "./schema.ts";
-import { askViaTui } from "./tui.ts";
 import type { AskResult } from "./types.ts";
 
 export const TOOL_NAME = ASK_USER_QUESTION_TOOL;
@@ -59,7 +58,12 @@ export function registerTools(pi: ExtensionAPI): void {
 				// A remote-answered turn falls back to dialogs; only a local TUI turn uses
 				// the full-screen questionnaire.
 				result = await askHuman(ctx, {
-					custom: () => withRailsSuppressed(pi, () => askViaTui(ctx, questions, signal)),
+					custom: async () => {
+						// The questionnaire is the TUI's: a remote or headless answer below loads
+						// neither it nor the rails wrapper.
+						const { askViaTui } = await import("./view/question-screen.ts");
+						return withRailsSuppressed(pi, () => askViaTui(ctx, questions, signal));
+					},
 					dialogs: () => askViaDialogs(dialogUI(ctx), questions, signal),
 				});
 			}

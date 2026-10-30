@@ -12,11 +12,9 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { messageOf } from "../../lib/errors.ts";
 import { sanitizeLine } from "../../lib/format.ts";
-import { withPolledScreen } from "../../lib/screen-session.ts";
 import { formatJoin, formatStatus } from "./format.ts";
 import { COMMAND_NAME } from "./protocol.ts";
 import type { SessionBus } from "./runtime.ts";
-import { SessionListComponent } from "./tui.ts";
 
 /** How often the open board re-reads the bus. */
 const BOARD_POLL_MS = 1_000;
@@ -29,7 +27,7 @@ const BOARD_POLL_MS = 1_000;
  * record fresh, so a poll never has to write. Both reads are read-only: the
  * snapshot neither prunes nor refreshes, and the peek neither consumes nor marks.
  */
-function createBoardReader(bus: SessionBus): (screen: SessionListComponent) => Promise<void> {
+function createBoardReader(bus: SessionBus): (screen: SessionsScreen) => Promise<void> {
 	let busy = false;
 	return async (screen) => {
 		if (busy) return;
@@ -45,12 +43,19 @@ function createBoardReader(bus: SessionBus): (screen: SessionListComponent) => P
 	};
 }
 
+/** The mounted board's type, without loading the screen at registration. */
+type SessionsScreen = InstanceType<typeof import("./view/session-list.ts")["SessionListComponent"]>;
+
 /** Open the TUI board, and resolve when it closes. */
 async function openSessionsScreen(pi: ExtensionAPI, ctx: ExtensionCommandContext, bus: SessionBus): Promise<void> {
+	// The board is the TUI's: the text paths below and registration load neither it
+	// nor the dock screen's poll loop.
+	const { withPolledScreen } = await import("../../lib/screen-session.ts");
+	const { SessionListComponent } = await import("./view/session-list.ts");
 	await bus.start(ctx);
 	const [status, messages] = await Promise.all([bus.snapshot(), bus.peek()]);
 	const first = { status, messages };
-	let read: ((screen: SessionListComponent) => Promise<void>) | undefined;
+	let read: ((screen: SessionsScreen) => Promise<void>) | undefined;
 	await withPolledScreen(
 		pi,
 		ctx,
@@ -59,7 +64,7 @@ async function openSessionsScreen(pi: ExtensionAPI, ctx: ExtensionCommandContext
 			read = reader;
 			// The verbs repaint the board they belong to; their callbacks only run after
 			// construction, so a holder keeps the wiring one-directional.
-			const holder: { screen?: SessionListComponent } = {};
+			const holder: { screen?: SessionsScreen } = {};
 			const component = new SessionListComponent({
 				board: first,
 				theme: screen.theme,

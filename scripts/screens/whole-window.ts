@@ -27,7 +27,7 @@ import { NoticeComponent } from "../../extensions/bytefly/notice/component.ts";
 import { DEFAULT_HOST_PAD } from "../../extensions/bytefly/pad.ts";
 import { SeparatorComponent } from "../../extensions/bytefly/separator/component.ts";
 import { GoalWidget } from "../../extensions/goal/tui.ts";
-import { TodoWidget } from "../../extensions/todo/tui.ts";
+import { TodoWidget } from "../../extensions/todo/widget.ts";
 import { editorTheme } from "../../lib/tui/chrome.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { indentBlockLines } from "../../lib/tui/indent.ts";

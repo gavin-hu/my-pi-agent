@@ -30,7 +30,7 @@ import {
 import { COLLAPSED_ROWS, CheckResultBlock } from "./render.ts";
 import { CheckError, type CheckRuntime } from "./runtime.ts";
 import { TOOL_NAME, registerCheckTool } from "./tools.ts";
-import { CheckResultComponent, CheckRunComponent } from "./tui.ts";
+import { CheckResultComponent, CheckRunComponent } from "./view/check-screens.ts";
 import type { CheckResult, CheckTarget, Failure, RunCheckDetails } from "./types.ts";
 
 const directories: string[] = [];

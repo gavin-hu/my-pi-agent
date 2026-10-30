@@ -22,7 +22,7 @@ import { paint } from "../../lib/tui/tokens.ts";
 import { compareByActivity, formatCallText, formatTodoText, type TodoRailInput } from "./format.ts";
 import type { TodoRuntime } from "./runtime.ts";
 import { TodoParams, TodoResult, type TodoArgs } from "./schema.ts";
-import { TodoResult as TodoResultView } from "./tui.ts";
+import { TodoResult as TodoResultView } from "./render.ts";
 import type { Todo, TodoDetails } from "./types.ts";
 
 export const TOOL_NAME = TODO_TOOL;

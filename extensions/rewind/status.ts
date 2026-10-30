@@ -8,10 +8,10 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { GLYPHS, STATUS_KEYS } from "../../../lib/tui/glyphs.ts";
-import { paint } from "../../../lib/tui/tokens.ts";
-import type { RewindConfig } from "../config/config.ts";
-import { userMessagesFromBranch } from "../state/timeline.ts";
+import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
+import { paint } from "../../lib/tui/tokens.ts";
+import type { RewindConfig } from "./config/config.ts";
+import { userMessagesFromBranch } from "./state/timeline.ts";
 
 const STATUS_KEY = STATUS_KEYS.rewind;
 const STATUS_GLYPH = GLYPHS.rewind;

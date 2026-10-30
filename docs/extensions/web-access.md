@@ -408,11 +408,11 @@ the content type and size.
 | `fetch/tool.ts` | `web_fetch` definition, activation, rendering |
 | `fetch/config.ts` | Fetch config type, defaults, clamping |
 | `fetch/schema.ts` | Params/output schema, `resolveRequest()` |
-| `fetch/page.ts` | Fetch + redirect-following + content-type routing; PDF extraction is injected via `FetchDeps` from the shared `lib/pdf.ts` |
+| `fetch/page.ts` | Fetch + redirect-following + content-type routing; PDF extraction is injected via `FetchDeps` from the shared `lib/pdf.ts`. Loaded by the tool's execute, so a session that never fetches pays nothing |
 | `fetch/structured.ts` | JSON/CSV/XML body → readable text, or `undefined` to keep the raw body |
 | `fetch/ssrf.ts` | URL/host validation and private-address blocking |
 | `fetch/extract.ts` | HTML → title + readable text |
-| `fetch/find.ts` | Passage search (exact/insensitive/fuzzy) |
+| `fetch/find.ts` | Passage search (exact/insensitive/fuzzy); loaded by the tool's execute |
 | `fetch/cache.ts` | Per-registration LRU/TTL page cache (`createPageCache`) |
 | `fetch/format.ts`, `fetch/types.ts` | Result text and data types |
 

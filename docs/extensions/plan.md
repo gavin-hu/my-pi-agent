@@ -998,7 +998,7 @@ both.
 | [`../../lib/qr.ts`](../../lib/qr.ts) | QR matrix, terminal half-blocks, and inline SVG for the share link (shared with `wechat`). |
 | [`../../lib/http/`](../../lib/http/) | The one loopback server entry, the bind, `Host` allowlist, header sets, and response kit both browser surfaces serve through. |
 | [`../../lib/web/index.ts`](../../lib/web/index.ts) | Shared Bytefly web brand system: tokens, base rules, `tok-*` colors, layout, the bootstrap, the toggle wiring, the shortcut sheet (`keysSheet`, `keysDialogScript`), and shared markup. |
-| [`../../lib/http/index.ts`](../../lib/http/index.ts) | Loopback HTTP layer shared with `file-browse`: the page policy and header sets, `ServeResponse`, the request-envelope helpers, bind/respond/close. |
+| [`../../lib/http/index.ts`](../../lib/http/index.ts) | The served-page kit shared with `file-browse`: the page policy and header sets, `ServeResponse`, the request-envelope helpers, bind/respond/close. Reached from the handler that serves a page; the mount contract is the leaf [`mount.ts`](../../lib/http/mount.ts). |
 | `../../lib/policy.ts` | Shared read-only capability policy (default-deny + `readOnlyHint`). |
 | `../../lib/tui/chrome.ts` | Shared screen header, viewport-row helper, and styled key-hint footer. |
 

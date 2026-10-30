@@ -16,7 +16,7 @@ import { lastTodos } from "../../lib/todo-state.ts";
 import { DEFAULT_TODO_CONFIG, type TodoConfig } from "./config.ts";
 import { shouldNudge } from "./nudge.ts";
 import { hasOpenTodos } from "./state.ts";
-import { TodoWidget, WIDGET_KEY } from "./tui.ts";
+import { TodoWidget, WIDGET_KEY } from "./widget.ts";
 import type { Todo } from "./types.ts";
 
 export interface TodoRuntime {

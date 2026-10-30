@@ -9,14 +9,14 @@
 
 import { describe, expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { fakeTheme } from "../../test/helpers/fakes.ts";
-import { mailNotice } from "./notice.ts";
-import { messageRowLine, sessionDetailBlock, sessionRows, sessionRowLine, summaryCells } from "./rows.ts";
-import { TailResult } from "../../lib/tui/tool.ts";
-import { collapsedLine, resultSections } from "./result.ts";
-import { SessionListComponent } from "./tui.ts";
-import type { RosterState } from "../../lib/session-roster.ts";
-import type { BoardSnapshot, BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "./types.ts";
+import { fakeTheme } from "../../../test/helpers/fakes.ts";
+import { mailNotice } from "../notice.ts";
+import { messageRowLine, sessionDetailBlock, sessionRows, sessionRowLine, summaryCells } from "../rows.ts";
+import { TailResult } from "../../../lib/tui/tool.ts";
+import { collapsedLine, resultSections } from "../result.ts";
+import { SessionListComponent } from "./session-list.ts";
+import type { RosterState } from "../../../lib/session-roster.ts";
+import type { BoardSnapshot, BusMessage, ClaimRecord, SessionRecord, SessionStatus } from "../types.ts";
 
 type ListedSession = SessionRecord & { unread: number; state: RosterState };
 

@@ -15,7 +15,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { isExtensionEnabled } from "../../lib/env.ts";
-import { requestMount } from "../../lib/http/index.ts";
+import { requestMount } from "../../lib/http/mount.ts";
 import { registerCommands } from "./commands.ts";
 import { createLazyBoardPage } from "./lazy-page.ts";
 import type { BoardPage } from "./page.ts";
