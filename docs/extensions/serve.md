@@ -6,7 +6,8 @@
 |---|---|---|
 | One port for every page of a session | automatic: the first page that opens binds it | the file browser at `/files/`, the board at `/board/`, and a review at `/plan/<id>/` answer on one origin, so a bookmark, a firewall rule, and a port to remember are one thing |
 | One chip for that port | `◉ <port>` in the status bar | the session's port while anything is served on it, and nothing when no page is open |
-| A port that survives a restart | `serve.port` in `bytefly.json` | the same address after `/resume`, so a saved URL still opens the page it names |
+| A port that survives a restart | automatic: the project's own port | a session that starts again lands where a bookmark already points, so a saved URL still opens the page it names; `serve.port` overrides it |
+| Two projects on one machine | automatic: the port is the repository's, hashed into the band | neither needs a setting to avoid the other, and a worktree of one repository keeps the number the main checkout uses |
 | A second session on its own port | automatic: servers are keyed by Pi session | a WeChat peer conversation never answers on this session's port |
 | One page reachable on the LAN, on request | the asking page calls `mount.share()` | a teammate's link names exactly one address, and only that page answers there |
 
@@ -16,13 +17,14 @@ There is nothing to run: `serve` is infrastructure, and the pages that use it ar
 `/board`, `/browse`, and `/plan review`.
 
 ```bash
-/board          # http://127.0.0.1:4780/board/?token=…
-/browse         # http://127.0.0.1:4780/files/
-/plan review    # http://127.0.0.1:4780/plan/3f9c21aa/?token=…
+/board          # http://127.0.0.1:<port>/board/?token=…
+/browse         # http://127.0.0.1:<port>/files/
+/plan review    # http://127.0.0.1:<port>/plan/3f9c21aa/?token=…
 ```
 
-All three answer on `:4780`; the footer shows `◉ 4780` while any of them is open
-and drops the chip when the last one closes.
+All three answer on that one port — the project's own, in `4780`–`5779` — and the
+footer shows `◉ <port>` while any of them is open, dropping the chip when the last
+one closes.
 
 ## Routes
 
@@ -51,11 +53,15 @@ The `serve` section of the shared `bytefly.json` (global, then project, project 
 
 | Key | Default | What it does |
 |---|---|---|
-| `port` | `0` | `0` takes one free port in `4780`–`5779` for the session and remembers it; a positive value pins the session's server so a bookmarked address survives a restart |
+| `port` | `0` | `0` takes the project's own port — its repository key hashed into `4780`–`5779` — and falls back to an OS-chosen one when that port is taken; a positive value pins the session's server so a bookmarked address survives a restart, and a taken pin is reported by name instead of moved |
 
-The pin belongs to the first session in a process that binds: a second session — a
-WeChat peer conversation loads every extension except the bridge itself — takes an
-OS-chosen port instead of failing on a port the host already holds. A second
+The default is the repository's, so two repositories take two numbers without a
+setting and a restart lands where the bookmark was. A second session of one
+repository — a WeChat peer, or another checkout — prefers the same number and takes
+an OS-chosen port when the first one holds it.
+
+The pin belongs to the first session in a process that binds: a second session takes
+an OS-chosen port instead of failing on a port the host already holds. A second
 *process* that finds the pinned port taken is told so rather than moved silently off
 the address a bookmark names.
 
@@ -75,10 +81,13 @@ that was still sharing it.
 
 - A page needs `serve` loaded. Without it every page refuses with a sentence naming
   the extension, instead of binding a rival socket.
-- One pin is one port for the whole session: two repositories running pages on this
-  machine at once need a project-level `serve.port` each, or neither pinned.
-- The port moves to an OS-chosen one when the pinned port is taken, so an old
-  bookmark keeps failing until the setting or the other process is dealt with.
+- Two projects can hash into the same port, and the second start takes an OS-chosen one
+  instead: its bookmark moves until that project sets `serve.port`.
+- Two checkouts of one repository at once prefer one number, so the second takes an
+  OS-chosen port each session and only the first keeps the address a bookmark names.
+- The default is a guess: a port another process holds moves the session to an
+  OS-chosen one without a word — the chip shows the number — while a pinned port that is
+  taken is refused by name.
 
 ## Non-goals
 
@@ -108,6 +117,12 @@ so the owner responds with the pending bind and only a request nobody claimed is
 refused. Without that distinction a bind that is still starting looks exactly like a
 session with no server.
 
+The default is the repository key hashed into the band rather than a fresh draw. The
+key is the one identity this repository already has — `session-bus` files sessions by
+it, `plan` files plans by it — and every worktree of a repository resolves the same
+one, so a bookmark saved in the main checkout opens the worktree's page. A draw was
+the reason a bookmark only worked until the next start.
+
 ## Files
 
 | Path | Responsibility |
@@ -123,7 +138,8 @@ session with no server.
 
 The registry cases bind real sockets on `127.0.0.1`: one port for two pages of a
 session, a second session on its own port, a refused duplicate prefix, the socket
-closing with its last page and reopening where it was, the pin belonging to the
-first session that binds, and a LAN share reaching one page only. The extension
-cases drive the shipped bus path through `requestMount`, including the chip and the
-shutdown.
+closing with its last page and reopening where it was, the project's port taken by the
+first bind and the OS-chosen fallback when another listener holds it, the pin belonging
+to the first session that binds, and a LAN share reaching one page only. The extension
+cases drive the shipped bus path through `requestMount`, including the project's port
+surviving a restart, the chip, and the shutdown.

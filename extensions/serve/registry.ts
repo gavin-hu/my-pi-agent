@@ -8,9 +8,11 @@
  * and closes a session's socket with its last mount. A page that goes away takes
  * only its own prefix with it.
  *
- * Pinning is the session's, not a page's: `serve.port` belongs to the first session
- * that binds, so a second session in this process (a WeChat peer loads every other
- * extension, `extensions/wechat/peer/peer-session.ts`) falls back to an OS-chosen
+ * The port is a preference, not a reservation: a session's first bind tries the port
+ * it is pinned to, or the project's own number, and falls back to an OS-chosen one when
+ * that port is taken. Pinning is the session's, not a page's: `serve.port` belongs to the
+ * first session that binds, so a second session in this process (a WeChat peer loads every
+ * other extension, `extensions/wechat/peer/peer-session.ts`) falls back to an OS-chosen
  * port instead of failing on the host's pin, and a second *process* is told the pin
  * is in use rather than moved off the address a bookmark names.
  *
@@ -50,8 +52,11 @@ interface Served {
 export interface ServeRegistryDeps {
 	/** The port a session is pinned to, or `0` to pick one. */
 	portFor(session: string): number;
-	/** The candidate port for a session's first bind; defaults to the shared band. */
-	pickPort?: () => number;
+	/**
+	 * The port a session's first bind tries, before the OS-chosen fallback: the project's
+	 * own number, so a session that starts again lands on the one a bookmark names.
+	 */
+	pickPort(session: string): number | Promise<number>;
 	/** The machine's interfaces; a test injects a snapshot instead. */
 	interfaces: () => NetworkInterfaces;
 	/** Told when a session's port comes up and when it goes away, so a chip can say so. */
@@ -96,10 +101,10 @@ export function createServeRegistry(deps: ServeRegistryDeps): ServeRegistry {
 
 	/** Bind `session`'s server on the pin when it is this session's to take. */
 	const bind = async (session: string): Promise<Opened> => {
-		const { serveHttp, randomPort } = await http.get();
+		const { serveHttp } = await http.get();
 		const pinned = deps.portFor(session);
 		const usePin = pinned > 0 && (pinnedBy === undefined || pinnedBy === session);
-		const preferred = remembered.get(session) ?? (deps.pickPort ?? randomPort)();
+		const preferred = remembered.get(session) ?? (await deps.pickPort(session));
 		try {
 			const server = await serveHttp({ ports: usePin ? [pinned] : [preferred, 0] });
 			if (usePin) pinnedBy = session;

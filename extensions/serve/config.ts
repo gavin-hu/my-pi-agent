@@ -2,21 +2,23 @@
  * The session's one port: the `serve` section of the shared `bytefly.json` (global
  * then project, project wins).
  *
- * `0` — the default — takes one free port for the session and remembers it, which
- * is what a session that never bookmarks wants. A positive value pins the session's
- * server, so every page it serves keeps the address a bookmark already points at.
- * A pinned port that is taken fails the start rather than moving the pages out from
- * under the bookmark.
+ * `0` — the default — takes the project's own port: its repository key hashed into the
+ * band `lib/http/port.ts` holds, so a session that starts again lands where a bookmark
+ * already points and two repositories do not compete for one number. A positive value
+ * pins the session's server, so every page it serves keeps the address a bookmark
+ * already points at. Either way a port another process holds costs the start its
+ * OS-chosen fallback — unless it was pinned, which fails the start rather than moving
+ * the pages out from under the bookmark.
  *
- * Pin it in the project document when more than one repository runs pages on the
- * machine: a global value is one port for every session.
+ * Pin it in the project document when a repository needs a number of its own: a global
+ * value is one port for every session.
  */
 
 import { clampInteger, loadConfigSection } from "../../lib/config.ts";
 
 /** The `serve` section. */
 export interface ServeConfig {
-	/** TCP port on `127.0.0.1`; `0` picks one for the session, a positive value pins it. */
+	/** TCP port on `127.0.0.1`; `0` takes the project's port, a positive value pins it. */
 	port: number;
 }
 

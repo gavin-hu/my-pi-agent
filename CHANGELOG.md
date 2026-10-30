@@ -44,6 +44,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `serve`: **the default port is the project's own number** — its repository key hashed into
+  `4780`–`5779` — instead of a fresh random draw per session, so a bookmarked `/board` or
+  `/browse` URL opens the same page after a restart without setting `serve.port`. Two
+  repositories take two numbers without a setting, a worktree keeps the number its main
+  checkout uses, and a port another process holds still falls back to an OS-chosen one;
+  `serve.port` overrides the number and refuses by name when it is taken.
 - `board`: **the page serves as the board's lead**, and the built-in `team-lead` seat is gone —
   a breaking change. `board.lead` (`lead` by default) is now the one name: `/board` serves the
   page under it, the session that serves takes that label, and the gate compares against it, so

@@ -422,8 +422,9 @@ it always meant: when the card was last touched, which is not when it last chang
   prefix held for the session. Either way `/board` starts it again, on the session's port,
   and prints the address it reopened.
 - **The prefix is `/board` on the session's one server.** The port belongs to `serve`, so
-  `/board`, `/browse`, and a browser plan review answer on one origin; `serve.port` in
-  `bytefly.json` pins that origin, so a bookmarked URL survives a restart. A live note still
+  `/board`, `/browse`, and a browser plan review answer on one origin; that port is the
+  project's own number, and `serve.port` in `bytefly.json` pins another, so a bookmarked
+  URL survives a restart. A live note still
   wins: one repository has one page, so this session attaches to the page that note names
   rather than serving a second one — and a session that attaches binds nothing at all.
 - **The note is believed only while it answers.** A page that crashed leaves its note

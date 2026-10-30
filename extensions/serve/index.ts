@@ -5,7 +5,9 @@
  * own. `plan`, `board`, and `file-browse` ask for a path prefix on
  * {@link HTTP_MOUNT_CHANNEL} and the registry answers with the session's origin, so
  * a session has one port, one close path, and one chip instead of one socket per
- * extension. Binding happens on the first page that asks, never in the factory.
+ * extension. Binding happens on the first page that asks, never in the factory, and the
+ * port it binds is the project's own number unless `serve.port` pins another — so a
+ * bookmarked page URL survives a restart.
  *
  * Load with:  pi --extension ./extensions/serve
  */
@@ -26,6 +28,9 @@ export default function serve(pi: ExtensionAPI): void {
 	/** Each session's context, which is where the port chip is drawn. */
 	const contexts = new Map<string, ExtensionContext>();
 
+	/** The directory a session serves: its config and its port both come from it. */
+	const cwdOf = (session: string): string => cwds.get(session) ?? process.cwd();
+
 	/**
 	 * Publish the session's port, or clear the chip with `undefined`. The chip belongs
 	 * to the server, not to a page: one number, shown while anything is served on it.
@@ -45,7 +50,16 @@ export default function serve(pi: ExtensionAPI): void {
 	};
 
 	const registry = createServeRegistry({
-		portFor: (session) => loadServeConfig(cwds.get(session) ?? process.cwd()).port,
+		portFor: (session) => loadServeConfig(cwdOf(session)).port,
+		pickPort: async (session) => {
+			// The repository key is a git answer, so it is paid on the first bind rather than
+			// at registration: a session that opens no page never asks for it.
+			const [{ repoKeyFor }, { projectPort }] = await Promise.all([
+				import("../../lib/repo-key.ts"),
+				import("../../lib/http/port.ts"),
+			]);
+			return projectPort((await repoKeyFor(pi, cwdOf(session))).key);
+		},
 		interfaces: () => networkInterfaces(),
 		onPort: setChip,
 	});
