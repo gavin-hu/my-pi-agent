@@ -225,6 +225,7 @@ function ruleOf(path: string): string {
  * not a screen but still must not be paid at start.
  */
 const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
+	"extensions/wechat/bridge.ts": "the bridge loads when an account is stored",
 	"extensions/plan/web.ts": "the browser review loads on /plan review, /plan share, or exit_plan_mode",
 	"extensions/plan/review.ts": "the review gate and its TUI screen load on the first /plan review or exit_plan_mode",
 	"extensions/plan/git-bash.ts": "the read-only git check loads when plan mode vets a bash call",
@@ -249,7 +250,7 @@ const DEFERRED_FROM_REGISTRATION: Readonly<Record<string, string>> = {
  * Like `LONG_MODULES`, the bar may only fall: a feature that needs more modules
  * has to justify the raise here, and a deferral that lands lowers it.
  */
-const MODULE_BUDGET = 747;
+const MODULE_BUDGET = 727;
 
 /** A repo-relative path with forward slashes, the form the maps use. */
 function repoRelative(file: string): string {

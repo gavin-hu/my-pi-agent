@@ -21,7 +21,7 @@ import { join } from "node:path";
 import { writeConfigValue } from "../../../lib/config.ts";
 import { sanitizeLine } from "../../../lib/format.ts";
 import { supportsCustomUI } from "../../../lib/interaction.ts";
-import { isAllowedPeer, type Bridge } from "../bridge.ts";
+import type { Bridge } from "../bridge.ts";
 import type { WechatClient } from "../transport/client.ts";
 import type { WechatConfig } from "../config.ts";
 import type { StatusAction } from "../view/status-screen.ts";
@@ -37,9 +37,9 @@ import type { BotCredentials } from "../types.ts";
 
 export interface CommandDeps {
 	getBridge: () => Bridge | undefined;
-	ensureBridge: (ctx: ExtensionContext) => Bridge;
+	ensureBridge: (ctx: ExtensionContext) => Promise<Bridge>;
 	loadConfig: (cwd: string) => WechatConfig;
-	createLoginClient: (cwd: string) => WechatClient;
+	createLoginClient: (cwd: string) => Promise<WechatClient>;
 	saveAccount: (account: BotCredentials) => void;
 	primaryAccount: () => BotCredentials | undefined;
 	/** Read a peer's recent messages for `/wechat history`; read-only. */
@@ -197,6 +197,9 @@ async function runAllow(ctx: ExtensionContext, deps: CommandDeps, peerArg?: stri
 	const candidate = peerArg?.trim() || (await chooseRefused(ctx, deps));
 	if (!candidate) return;
 	const config = deps.loadConfig(ctx.cwd);
+	// The admission rule lives with the bridge's intake, which a session that never
+	// runs `/wechat allow` does not load.
+	const { isAllowedPeer } = await import("../intake.ts");
 	if (isAllowedPeer(candidate, undefined, config.allowedPeers)) {
 		ctx.ui.notify(`${sanitizeLine(peerLabel(candidate))} is already allowed.`);
 		return;
@@ -257,7 +260,7 @@ export async function finishLogin(result: LoginOutcome, ctx: ExtensionContext, d
 				// previous client and its token, and `open()` is a no-op while it runs, so
 				// it has to stop before the new credentials are used.
 				await deps.getBridge()?.close();
-				deps.ensureBridge(ctx).open();
+				(await deps.ensureBridge(ctx)).open();
 				ctx.ui.notify(`WeChat connected as ${label} and the bridge is running.`);
 			} catch (error) {
 				ctx.ui.notify(
@@ -284,7 +287,7 @@ async function runLogin(ctx: ExtensionContext, deps: CommandDeps): Promise<void>
 		return;
 	}
 	if (busyWithPeerTurn(ctx, deps, "login")) return;
-	const client = deps.createLoginClient(ctx.cwd);
+	const client = await deps.createLoginClient(ctx.cwd);
 	const config = deps.loadConfig(ctx.cwd);
 
 	let qr: { qrcode: string; imgContent: string };

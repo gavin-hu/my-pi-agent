@@ -15,22 +15,18 @@
 import { getAgentDir, type ExtensionAPI, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
 import { isExtensionEnabled } from "../../lib/env.ts";
+import { lazy } from "../../lib/lazy.ts";
 import { isPidAlive } from "../../lib/spawn.ts";
 import { GLYPHS, STATUS_KEYS } from "../../lib/tui/glyphs.ts";
 import { paint } from "../../lib/tui/tokens.ts";
-import { createBridge, type Bridge, type BridgeState } from "./bridge.ts";
-import { createFetchRunner, WechatClient, type WechatClientOptions } from "./transport/client.ts";
+import type { Bridge, BridgeState } from "./bridge.ts";
+import type { WechatClient, WechatClientOptions } from "./transport/client.ts";
 import { registerCommands, type CommandDeps } from "./commands/commands.ts";
 import { messageOf } from "./errors.ts";
-import { loadWechatConfig } from "./config.ts";
+import { loadWechatConfig, type WechatConfig } from "./config.ts";
 import { clearCredentials, primaryAccount, saveAccount, wechatDir } from "./state/credentials.ts";
-import { acquireLock, lockPath, readLock, refreshLock, releaseLock } from "./state/lock.ts";
-import { openPeerSession, type PeerSession, type PeerSessionOptions } from "./peer/peer-session.ts";
-import { createPeerUIContext } from "./dialog/remote-ui.ts";
+import type { PeerSession, PeerSessionOptions } from "./peer/peer-session.ts";
 import { peerKey } from "./text/format.ts";
-import { readPeerHistory } from "./commands/history.ts";
-import { SLASH_COMMANDS } from "./commands/slash.ts";
-import { readState, statePath, writeState } from "./state/state.ts";
 import { registerTools } from "./tools.ts";
 
 /**
@@ -62,14 +58,20 @@ export interface WechatDeps {
 	 * call a model; production opens a real SDK session per peer.
 	 */
 	openSession?: (peer: string, options: PeerSessionOptions) => Promise<PeerSession>;
+	/** The bridge module; overridden in tests so a load can be counted. */
+	loadBridge?: () => Promise<typeof import("./bridge.ts")>;
 }
 
 export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	if (!isExtensionEnabled("wechat")) return;
 
-	const makeClient = deps.createClient ?? ((options: WechatClientOptions) => new WechatClient(options));
+	/** The bridge and the transport, loaded on the first account, never at registration. */
+	const bridgeModule = lazy(deps.loadBridge ?? (() => import("./bridge.ts")));
+	const clientModule = lazy(() => import("./transport/client.ts"));
 
 	let bridge: Bridge | undefined;
+	/** A build in flight, so a command that races `session_start` joins it instead of loading twice. */
+	let building: Promise<Bridge> | undefined;
 	let ctxRef: ExtensionContext | undefined;
 
 	const lockDeps = () => ({
@@ -78,10 +80,36 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		isAlive: isPidAlive,
 	});
 
-	const build = (ctx: ExtensionContext): Bridge => {
+	/** One iLink client over the fetched transport, from an already-loaded module. */
+	const clientOf = (
+		module: typeof import("./transport/client.ts"),
+		config: WechatConfig,
+		account?: { baseUrl: string },
+	): WechatClient =>
+		(deps.createClient ?? ((options: WechatClientOptions) => new module.WechatClient(options)))({
+			http: module.createFetchRunner(),
+			channelVersion: config.channelVersion,
+			botAgent: config.botAgent,
+			cdnBaseUrl: config.cdnBaseUrl,
+			...(account === undefined ? {} : { baseUrl: account.baseUrl }),
+		});
+
+	const build = async (ctx: ExtensionContext): Promise<Bridge> => {
 		ctxRef = ctx;
 		const config = loadWechatConfig(ctx.cwd);
 		const peerTools = new Map(Object.entries(config.peers).map(([id, peer]) => [peerKey(id), peer.tools] as const));
+		// Everything a live bridge composes loads here, so a session with no account
+		// never evaluates the bridge, the peer worker, the transport or the lock.
+		const [{ createBridge }, client, { openPeerSession }, { createPeerUIContext }] = await Promise.all([
+			bridgeModule.get(),
+			clientModule.get(),
+			import("./peer/peer-session.ts"),
+			import("./dialog/remote-ui.ts"),
+		]);
+		const { acquireLock, lockPath, readLock, refreshLock, releaseLock } = await import("./state/lock.ts");
+		const { readState, statePath, writeState } = await import("./state/state.ts");
+		const { SLASH_COMMANDS } = await import("./commands/slash.ts");
+		const { readPeerHistory } = await import("./commands/history.ts");
 		return createBridge({
 			config,
 			now: () => Date.now(),
@@ -111,14 +139,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			loadAccount: () => primaryAccount(),
 			loadState: () => readState(statePath()),
 			saveState: (state) => writeState(statePath(), state),
-			createClient: (account) =>
-				makeClient({
-					http: createFetchRunner(),
-					channelVersion: config.channelVersion,
-					botAgent: config.botAgent,
-					baseUrl: account.baseUrl,
-					cdnBaseUrl: config.cdnBaseUrl,
-				}),
+			createClient: (account) => clientOf(client, config, account),
 			sleep: deps.sleep,
 			acquireLock: () => acquireLock(lockPath(), lockDeps()),
 			refreshLock: () => refreshLock(lockPath(), lockDeps()),
@@ -147,13 +168,28 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	 * no-op, so a host that binds one session twice (RPC emits `session_start`
 	 * twice on a session switch) cannot start a second poller.
 	 */
-	const autoStart = (ctx: ExtensionContext): void => {
+	/** Build the bridge once, sharing the load with a command that asks while it is in flight. */
+	const ensure = (ctx: ExtensionContext): Promise<Bridge> => {
+		building ??= build(ctx).then(
+			(built) => {
+				bridge = built;
+				return built;
+			},
+			(error: unknown) => {
+				// A failed build is not remembered, so the next command can retry.
+				building = undefined;
+				throw error;
+			},
+		);
+		return building;
+	};
+
+	const autoStart = async (ctx: ExtensionContext): Promise<void> => {
 		if (ctx.mode !== "tui" && ctx.mode !== "rpc") return;
 		if (!primaryAccount()) return;
 		if (bridge?.status().open || bridge?.status().paused) return;
 		try {
-			bridge = bridge ?? build(ctx);
-			bridge.open();
+			(bridge ?? (await ensure(ctx))).open();
 		} catch (error) {
 			ctx.ui.notify(`WeChat did not connect: ${messageOf(error)}`, "warning");
 		}
@@ -161,24 +197,20 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 
 	const commandDeps: CommandDeps = {
 		getBridge: () => bridge,
-		ensureBridge: (ctx) => {
-			if (!bridge) bridge = build(ctx);
-			return bridge;
-		},
+		// Both of these can be the first thing that needs the bridge: `/wechat login`
+		// runs before `session_start` on an RPC host, so the load is awaited here too.
+		ensureBridge: (ctx) => (bridge === undefined ? ensure(ctx) : Promise.resolve(bridge)),
 		loadConfig: (cwd) => loadWechatConfig(cwd),
-		createLoginClient: (cwd) => {
+		createLoginClient: async (cwd) => {
 			const config = loadWechatConfig(cwd);
-			return makeClient({
-				http: createFetchRunner(),
-				channelVersion: config.channelVersion,
-				botAgent: config.botAgent,
-				cdnBaseUrl: config.cdnBaseUrl,
-			});
+			return clientOf(await clientModule.get(), config);
 		},
 		saveAccount,
 		primaryAccount,
-		readHistory: (peer, count) =>
-			readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count),
+		readHistory: async (peer, count) => {
+			const { readPeerHistory } = await import("./commands/history.ts");
+			return readPeerHistory(ctxRef?.cwd ?? process.cwd(), join(wechatDir(), "sessions"), peer, count);
+		},
 		logout: () => {
 			clearCredentials();
 			// The account is the on/off switch: without one there is nothing to report,
@@ -186,6 +218,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 			// counters. The next `ensureBridge`/`autoStart` builds a fresh bridge from
 			// the new account.
 			bridge = undefined;
+			building = undefined;
 		},
 		now: () => Date.now(),
 	};
@@ -193,11 +226,12 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 	registerCommands(pi, commandDeps);
 	registerTools(pi, { getBridge: () => bridge });
 
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", async (_event, ctx) => {
 		ctxRef = ctx;
 		// Stored credentials mean the bridge should be polling, so a new session
 		// (startup, reload, `/new`, resume, fork) reconnects it without a command.
-		autoStart(ctx);
+		// The bridge module loads here, on the first account, not at registration.
+		await autoStart(ctx);
 	});
 	pi.on("session_shutdown", async () => {
 		// Shutdown is emitted before the host resets the UI, so the chip is still ours to clear.
@@ -207,6 +241,7 @@ export default function wechat(pi: ExtensionAPI, deps: WechatDeps = {}): void {
 		} finally {
 			// A throwing close must not leave a live handle on a dead runtime.
 			bridge = undefined;
+			building = undefined;
 			ctxRef = undefined;
 		}
 	});
