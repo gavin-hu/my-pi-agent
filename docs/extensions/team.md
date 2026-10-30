@@ -60,12 +60,14 @@ its surface is the point: `board` and `team` join this session for you.
 | You are | Action | What happens |
 |---|---|---|
 | The lead | `/board` | The session joins as `team-lead` — the page's own seat name — and listens, so a handoff or an offer is reported at its next turn |
-| A teammate | the first card it claims | The session joins under the name it already holds, or its own `team-agent-<id>` name when it has none, and listens; Pi's footer keeps the name it already had |
+| A teammate | the first card it claims | The session joins under the name it already holds, or a preset teammate name (`tom`, `lily`, `ben`) when it has none, and listens; Pi's footer keeps the name it already had |
 | A teammate who wants a name | `/team join billing-core` | The session joins as `billing-core`, and Pi's footer and `/resume` show that name — the one join that renames |
 | A viewer | `/board` on a session that is not serving | The page is somebody else's to serve, so this session joins under its own name instead of the seat |
 
 Joining is listening: mail is reported at that session's next turn, and **no turn is
-raised** for it, so being on the team never spends a turn. `/team` says who is live and
+raised** for it, so being on the team never spends a turn. `/team join` with no name draws
+one when Pi has no name for the session — `lily` rather than the repository's basename — and
+renames nothing; a session Pi already names keeps that name. `/team` says who is live and
 who is live but not listening. `/board status` reports the team this session is on — which
 label, and whether mail reaches it — whichever door put it there, and prints no team clause
 only when this session never joined at all.
@@ -174,6 +176,9 @@ decision the plain unassigned row never offered: re-offer, `assign` it, or take 
   `reclaim`.
 - **A label-only owner is fragile.** If the bus could not name the session behind `to`,
   the card records the label, and a rename would need a `reclaim` and a fresh handoff.
+- **A preset name is drawn, not chosen.** An unnamed session that joins draws one of the
+  preset teammate names and Pi's footer keeps whatever it had; type `/team join <label>` to
+  pick the name and make it Pi's.
 - **An offer is advice.** A card can sit offered indefinitely; the round keeps counting it
   as unassigned, which is the honest signal that nobody took it.
 - **An offer arrives as an `event`.** A burst that mixes one with ordinary messages is

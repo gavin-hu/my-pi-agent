@@ -14,6 +14,7 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { repoKeyOf } from "../repo-key.ts";
+import { presetNameFor, TEAMMATE_NAMES } from "../session-label.ts";
 import { createStore } from "./store.ts";
 import { busDirFor, openBoardSession } from "./session.ts";
 
@@ -39,6 +40,13 @@ function repoPi(root: string) {
 	});
 }
 
+/** The name an id draws, as a string: an empty pool is a broken fixture, not a case. */
+function drawnFor(id: string, taken: readonly string[] = []): string {
+	const name = presetNameFor(id, taken);
+	if (name === undefined) throw new Error(`no preset name is free for ${id}`);
+	return name;
+}
+
 /** A runtime with a temp agent directory and a fixed clock. */
 function runtimeFor(agentDir: string) {
 	return openBoardSession(offlinePi().pi, { now: () => NOW, agentDir });
@@ -53,22 +61,24 @@ function runtimeFor(agentDir: string) {
 async function recordOnBus(
 	runtime: ReturnType<typeof runtimeFor>,
 	cwd: string,
-	record: { id: string; label: string },
+	record: { id: string; label: string; lastSeen?: number; pid?: number },
 ): Promise<void> {
 	const dir = join(await runtime.busDir(cwd), "sessions");
 	mkdirSync(dir, { recursive: true });
-	writeFileSync(join(dir, `${record.id}.json`), JSON.stringify({ ...record, mode: "tui", lastSeen: NOW }));
+	const { lastSeen = NOW, ...rest } = record;
+	writeFileSync(join(dir, `${record.id}.json`), JSON.stringify({ ...rest, lastSeen, mode: "tui" }));
 }
 
 describe("who", () => {
 	const agentDir = temps.track(tempDir("pi-agent-"));
 
-	test("names the session for the team from its id, not from the user's own name", async () => {
+	test("names a session with no record from the preset list, not from the user's own name", async () => {
 		const runtime = runtimeFor(agentDir);
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1", sessionName: "billing-core" });
 		// Pi's session name is the user's, and a rename must not move a card's owner: the id
-		// is what the team addresses, and no bus record has claimed a name yet.
-		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "team-agent-s1" });
+		// picks the preset name, and the same call answers the same word every time.
+		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: drawnFor("s-1") });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1"));
 	});
 
 	test("writes as the label the bus already holds for this session", async () => {
@@ -80,14 +90,36 @@ describe("who", () => {
 		expect(await runtime.who(ctx, "/repo/billing")).toEqual({ id: "s-1", label: "core-claims" });
 	});
 
-	test("keeps its derived name when the record is somebody else's, or blank", async () => {
+	test("draws a preset name when the record is somebody else's, or blank", async () => {
 		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
 		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
 		await recordOnBus(runtime, "/repo/billing", { id: "s-2", label: "core-claims" });
-		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("team-agent-s1");
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1"));
 		// A label is text from a file, so it is flattened and capped like any other: an empty
-		// one falls back to the name the id answers to instead of leaving a blank chip.
+		// one draws like no record at all instead of leaving a blank chip.
 		await recordOnBus(runtime, "/repo/billing", { id: "s-1", label: "" });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1"));
+	});
+
+	test("draws around a name a live peer holds, and reuses a quiet or gone peer's", async () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
+		const mine = drawnFor("s-1");
+		await recordOnBus(runtime, "/repo/billing", { id: "s-2", label: mine });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1", [mine]));
+		// The bus hands out a stale record's label, so the draw must too: only `live` counts.
+		await recordOnBus(runtime, "/repo/billing", { id: "s-3", label: mine, lastSeen: NOW - 20 * 60_000 });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1", [mine]));
+		await recordOnBus(runtime, "/repo/billing", { id: "s-4", label: "", lastSeen: NOW, pid: 999_999_999 });
+		expect((await runtime.who(ctx, "/repo/billing")).label).toBe(drawnFor("s-1", [mine]));
+	});
+
+	test("falls back to the id's own name when every preset name is live", async () => {
+		const runtime = runtimeFor(temps.track(tempDir("pi-agent-")));
+		const { ctx } = fakeCtx({ cwd: "/repo/billing", sessionId: "s-1" });
+		for (const [index, name] of TEAMMATE_NAMES.entries()) {
+			await recordOnBus(runtime, "/repo/billing", { id: `p-${index}`, label: name });
+		}
 		expect((await runtime.who(ctx, "/repo/billing")).label).toBe("team-agent-s1");
 	});
 

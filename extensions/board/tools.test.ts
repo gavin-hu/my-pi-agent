@@ -18,7 +18,7 @@ import type { FakePiOptions } from "../../test/helpers/fakes.ts";
 import { tempDir } from "../../test/helpers/env.ts";
 import { type FakeCtxOptions } from "../../test/helpers/context.ts";
 import { execP, makeRepo, makeTempTracker } from "../../test/helpers/git.ts";
-import { agentLabel } from "../../lib/session-label.ts";
+import { presetNameFor, TEAMMATE_NAMES } from "../../lib/session-label.ts";
 import { MAX_NOTES } from "../../lib/board/card.ts";
 import { shortenPath } from "../../lib/format.ts";
 import { buildRound } from "../../lib/board/round.ts";
@@ -33,11 +33,13 @@ afterAll(() => temps.flush());
 
 const NOW = 100_000;
 
-/** The two sessions these suites work as, and the team names their ids derive. */
+/** The two sessions these suites work as, and the preset names their ids draw. */
 const LEAD_ID = "s-lead";
 const PEER_ID = "s-peer";
-const LEAD = agentLabel(LEAD_ID);
-const PEER = agentLabel(PEER_ID);
+const LEAD = presetNameFor(LEAD_ID) ?? "s-lead";
+const PEER = presetNameFor(PEER_ID) ?? "s-peer";
+/** The pool widened, so a matcher is not pinned to the tuple's literal union. */
+const POOL: readonly string[] = TEAMMATE_NAMES;
 
 /** A team join that records every call and the label it asked for, and answers with `answer`. */
 function recordingTeam(
@@ -1216,11 +1218,14 @@ describe("the team", () => {
 		const { call } = harness({ team });
 		await call({ action: "add", title: "One" });
 		await call({ action: "add", title: "Two" });
-		await call({ action: "claim", card: "1" });
+		const claimed = await call({ action: "claim", card: "1" });
 		await call({ action: "claim", card: "2" });
 		expect(calls).toHaveLength(1);
 		// The label is the card's owner label, so the bus, the roster and the card agree.
 		expect(labels).toEqual([LEAD]);
+		expect(claimed.details.card?.owner).toEqual({ id: LEAD_ID, label: LEAD });
+		// A session the bus has no record of draws a preset name, not an id-derived one.
+		expect(POOL).toContain(LEAD);
 	});
 
 	test("a claim writes as the name the session already holds, and joins under it", async () => {

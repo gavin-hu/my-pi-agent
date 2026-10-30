@@ -15,6 +15,7 @@ import { formatRound, plural } from "../../lib/board/round-text.ts";
 import type { BoardSession } from "../../lib/board/session.ts";
 import { createTeamJoin, type JoinResult, type TeamJoin } from "../../lib/session-tool.ts";
 import { readRoster, type RosterSession, rosterStateOf } from "../../lib/session-roster.ts";
+import { sessionNameOf } from "../../lib/session-label.ts";
 import { formatJoined, formatNotJoined } from "./format.ts";
 
 /** The command's name, which is also the word a user types. */
@@ -40,9 +41,19 @@ export function registerCommands(pi: ExtensionAPI, session: BoardSession, deps: 
 			const [word = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
 			if (word === "join") {
 				const label = rest.join(" ").trim();
-				// The one naming action: a typed label is also Pi's session name, which is what
-				// `/team join` is for. Joining without one leaves both to the bus.
-				const joined = await team.join(ctx, label === "" ? {} : { label, name: true });
+				if (label !== "") {
+					// The one naming action: a typed label is also Pi's session name, which is what
+					// `/team join` is for.
+					const joined = await team.join(ctx, { label, name: true });
+					ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
+					return;
+				}
+				// With no label, a session Pi already names keeps that name and the bus derives it;
+				// one with no name of its own draws a preset teammate name instead of landing on the
+				// repository's basename. The drawn name is the team's, not the user's, so it renames
+				// nothing: only a typed label does that.
+				const own = (sessionNameOf(ctx) ?? "").trim() === "" ? await session.who(ctx, ctx.cwd) : undefined;
+				const joined = await team.join(ctx, own === undefined ? {} : { label: own.label });
 				ctx.ui.notify(joinedLine(joined), joined.ok ? "info" : "warning");
 				return;
 			}
