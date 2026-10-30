@@ -1297,7 +1297,7 @@ why the line says so, and each source the manager reports is shown while it runs
 - **The displayed number is the total, rounded once** — not the sum of rounded
   records.
 - **`doctor` can only check what is declared.** A new extension with no
-  `REQUIREMENTS` entry is invisible to it — `test/structure.test.ts` fails on
+  `REQUIREMENTS` entry is invisible to it — `test/prerequisites.test.ts` fails on
   exactly that, which is why the table cannot rot quietly.
 - **The disabled check reads the environment** through `lib/env.ts`: the disable
   list, and the opt-in list that a default-off extension needs. It does not read

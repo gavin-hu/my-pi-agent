@@ -1,7 +1,8 @@
 # Tests
 
 Testing conventions for this package. Keep this file and the layout in sync;
-`test/structure.test.ts` enforces the layout and the banned-pattern rules below.
+`test/layout.test.ts` and `test/conventions.test.ts` enforce the layout and the
+banned-pattern rules below.
 
 ## Running
 
@@ -52,7 +53,8 @@ gate is stated in the test.
    same grouping over a `lib/` subsystem, keeping pure-unit and platform-seam
    contracts.
 3. **Package-level tests** (`test/naming.test.ts`, `test/release.test.ts`,
-   `test/structure.test.ts`, `test/theme.test.ts`, `test/prompt-budget.test.ts`,
+   `test/layout.test.ts`, `test/conventions.test.ts`, `test/theme.test.ts`,
+   `test/prompt-budget.test.ts`,
    `test/tool-render.test.ts`,
    `test/docs-parity.test.ts`, `test/extension-load.test.ts`,
    `test/drift.test.ts`, `test/shared-helpers.test.ts`,
@@ -66,7 +68,8 @@ gate is stated in the test.
    that carries a body another test file already carries, and pins its exception
    maps; `drift.test.ts` keeps every `lib/` module in the `lib/README.md`
    index and `AGENTS.md` inside its word budget; the module line bar and its
-   `LONG_MODULES` heights live in `structure.test.ts`.
+   `LONG_MODULES` heights live in `module-sizes.test.ts`, and the suite bar in
+   `suite-sizes.test.ts`.
    `tool-render.test.ts` renders every registered tool's call
    and result through bytefly's frame at 80/48/40 and asserts the shared shape,
    and that a second render of the same component at the same width returns the
@@ -172,7 +175,7 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 
 ## Banned patterns (enforced)
 
-`test/structure.test.ts` scans every `*.test.ts` under `extensions/`, `lib/`, and
+`test/conventions.test.ts` scans every `*.test.ts` under `extensions/`, `lib/`, and
 `scripts/`, and fails on:
 
 - `mock.module(` / `mock.restore(`;
@@ -187,7 +190,7 @@ wrap them; tests must not re-declare a theme double, a `makeFakePi` wrapper, or
 - local theme doubles — an object literal with an `fg:` property.
 
 Keep the scan total: a new extension is covered automatically. The check has
-one exemption list in `test/structure.test.ts`. A single line may also opt out
+one exemption list in `test/conventions.test.ts`. A single line may also opt out
 of one ban with an `allow:<name>` comment on that line or in the comment block
 directly above it, when the match is genuine content (for example a
 whitespace-normalisation assertion) and not layout padding. Add to either only
@@ -195,11 +198,12 @@ with a stated reason; do not silently widen a regex.
 
 ## Source conventions (enforced)
 
-The same file scans extension, `lib/`, and `scripts/` **source** (`.ts`, not
-`.test.ts`), so the mechanical half of `AGENTS.md` "Code quality" is a failing
-test rather than a review note. The capture scripts are unshipped dev tooling, so
-they are in the banned-pattern scan and the line bar but not in the renderer and
-boundary scans. It fails:
+`test/conventions.test.ts` scans extension, `lib/`, and `scripts/` **source**
+(`.ts`, not `.test.ts`), so the mechanical half of `AGENTS.md` "Code quality" is a
+failing test rather than a review note. The renderer rules further down are
+`test/tui-conventions.test.ts`, and the line bar is `test/module-sizes.test.ts`.
+The capture scripts are unshipped dev tooling, so they are in the banned-pattern
+scan and the line bar but not in the renderer and boundary scans. It fails:
 
 - a `TODO` / `FIXME` / `HACK` / `XXX` marker — the work is finished, or it is a
   card on the board;
@@ -230,7 +234,7 @@ every tool.
 
 An extension never imports another extension's modules. Pi loads each extension
 in isolation, so the coupling is invisible at runtime and easy to reintroduce
-from a test. `test/structure.test.ts` scans every `.ts` file under
+from a test. `test/boundaries.test.ts` scans every `.ts` file under
 `extensions/<name>/` — tests included — and fails any import that resolves into
 a different `extensions/<other>/`, in every form: `from`, a side-effect import,
 `export ... from`, or a dynamic `import()`. Share the contract instead: tool and
@@ -241,7 +245,7 @@ everything else under `lib/`.
 
 State is the other half of the same boundary: Pi gives each extension its own
 module cache, so a module variable in `lib/` is one copy per extension rather
-than one shared value. `test/structure.test.ts` fails an unindented `let` or
+than one shared value. `test/boundaries.test.ts` fails an unindented `let` or
 `var`, and a module-scope `Map`, `WeakMap`, or empty array, anywhere under `lib/`.
 A `new Set` is allowed because a keyword table is data; the state that has to
 live somewhere is carried in the caller's closure, as `rails.ts` does. A `let`
@@ -283,7 +287,13 @@ test/
     fixtures/<name>.ts     # extension-specific fixtures
     fixtures/files/<name>  # committed binary fixtures (a legacy .doc, etc.)
   naming.test.ts           # package-level contract
-  structure.test.ts        # layout, banned-pattern, boundary, line bar, and doc-link guards
+  layout.test.ts           # the test tree's shape, the root-test set, and the suite manifest
+  conventions.test.ts      # the line bans: mock.module, real timers, wall clock, TODO, any, local themes
+  tui-conventions.test.ts  # the focusable flag, context.lastComponent, the expand keybinding
+  module-sizes.test.ts     # the 600-line bar and LONG_MODULES
+  boundaries.test.ts       # no cross-extension imports, and lib/ holds no module state
+  prerequisites.test.ts    # REQUIREMENTS, and the config files each extension declares
+  doc-links.test.ts        # every relative link, anchor, and table cell in the doc tree
   suite-sizes.test.ts      # the 400-line suite bar: every oversized suite named at its height, and a falling total
   drift.test.ts            # lib/README index and AGENTS.md word budget
   docs-parity.test.ts      # README.md and README.zh-CN.md: sections, tables, and links
@@ -307,7 +317,7 @@ Rules:
 
 - Every directory under `extensions/` declares at least one capability suite.
 - Every `*.test.ts` file under `extensions/`, `lib/`, and `scripts/` is declared
-  in `test/suite-manifest.ts`; `test/structure.test.ts` fails an undeclared one
+  in `test/suite-manifest.ts`; `test/layout.test.ts` fails an undeclared one
   and a declared suite that does not exist.
 - A suite groups a capability, not a module: it may cover several modules, and a
   large module may be covered by more than one suite. Keep a suite under roughly
@@ -317,8 +327,8 @@ Rules:
   suite hides its count — so the line count stands in for the 40 cases this rule
   used to name.
 - Helper files live only under `test/helpers/`.
-- Root-level `test/*.test.ts` is limited to `naming.test.ts`,
-  `structure.test.ts`, `docs-parity.test.ts`,
+- Root-level `test/*.test.ts` is limited to `naming.test.ts`, `layout.test.ts`,
+  `conventions.test.ts`, `docs-parity.test.ts`,
   `extension-load.test.ts`, `extension-docs.test.ts`, `shared-helpers.test.ts`,
   `prompt-budget.test.ts`, `theme.test.ts`, and the other package-level contracts
   listed above.

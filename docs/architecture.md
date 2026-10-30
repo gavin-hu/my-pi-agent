@@ -477,7 +477,7 @@ reviewed against the tree at each release, and none of them is a checklist to ti
   the changelog's one-set-per-window shape.
 - Docs truth tests cover tool names and config keys, and every relative doc link and
   heading anchor resolves — `test/naming.test.ts`, `test/config-docs.test.ts`, and the
-  doc-link guard in `test/structure.test.ts`.
+  doc-link guard in `test/doc-links.test.ts`.
 
 ## Related docs
 

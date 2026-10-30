@@ -259,7 +259,7 @@ to its size so it can only shrink:
   identical to another test file's is a duplicate, so a scenario two suites need
   is one fixture in `test/helpers` rather than two copies. Its map sizes are
   pinned: a new copy is extracted, not excepted.
-- **No module grows** is `LONG_MODULES` in `test/structure.test.ts`: every module
+- **No module grows** is `LONG_MODULES` in `test/module-sizes.test.ts`: every module
   past 600 lines — under `extensions/`, `lib/`, or `scripts/` — carries the one
   responsibility that keeps it whole and its own height. One added line fails. A height is lowered with the file, deleted once the
   module fits the bar, and the total (`LONG_MODULE_TOTAL`) may only fall — raising

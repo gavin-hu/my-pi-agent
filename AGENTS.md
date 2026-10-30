@@ -24,7 +24,7 @@ bun run bench:render              # render benchmark; see docs/development.md
 - `rewind`, `worktree`, and `session-bus`'s real-repository tests skip unless
   `CI` or `PI_SLOW_TESTS=1` is set. Touching one means running it explicitly.
 - A new package-level test goes into `ROOT_TEST_FILES` in
-  `test/structure.test.ts`: that set is compared exactly.
+  `test/layout.test.ts`: that set is compared exactly.
 - A peer change is proved against the newest published Pi by the `compat` CI job;
   `docs/development.md` reproduces it locally. Never commit the peer bump.
 
@@ -68,7 +68,7 @@ plus a GitHub release whose body is that version's changelog section.
 Not caught by types, and easy to get wrong.
 
 - `lib/` loads with isolated module caches, so it stays value-only: no
-  module-level state (`test/structure.test.ts`).
+  module-level state (`test/boundaries.test.ts`).
 - No extension imports another extension's modules. Shared tool and parameter
   names live in `lib/tool-names.ts`; shared glyphs and status keys in
   `lib/tui/glyphs.ts`.
@@ -114,7 +114,7 @@ Three of the four are gates; the fourth is review.
 - **One body, one owner.** A helper two extensions need lives in `lib/`, never in
   both; `test/shared-helpers.test.ts` fails a body identical to an existing one.
 - **No module grows.** One job per module, and a name that says it: past 600
-  lines a module is named in `LONG_MODULES` in `test/structure.test.ts` with the
+  lines a module is named in `LONG_MODULES` in `test/module-sizes.test.ts` with the
   responsibility that keeps it whole, at its own height, which may only fall.
 - **One owner per concept.** Every `lib/` module has a row in `lib/README.md`;
   `test/drift.test.ts` fails the module that has none.
@@ -126,7 +126,7 @@ Three of the four are gates; the fourth is review.
 - `unknown` at a boundary, never `any`. A cast claims something about a value you
   did not build, so it names the guarantee it relies on.
 - No dead branch, commented-out code, or comment that restates its line.
-  `test/structure.test.ts` fails `TODO` markers, suppression comments, `any`, and
+  `test/conventions.test.ts` fails `TODO` markers, suppression comments, `any`, and
   commented-out statements.
 - TUI surfaces follow Pi's built-in design system and the `lib/tui/` kit
   (`lib/tui/README.md` is the contract): colors from a role, text sanitized at the
@@ -156,7 +156,7 @@ when its surface or a printed version is behind.
 - Work planned but not started is a card on the repo's board (`board`), never a
   `TODO` comment or a second list in Markdown.
 - Renaming a heading or moving a file means fixing every relative link and
-  `#anchor`; `test/structure.test.ts` resolves them.
+  `#anchor`; `test/doc-links.test.ts` resolves them.
 - One doc per audience: per-area contracts live in
   `docs/extensions/<name>.md`, `lib/README.md`, `lib/tui/README.md`,
   `scripts/README.md`, and `test/README.md`.

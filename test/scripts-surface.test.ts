@@ -12,10 +12,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { posix, walkFiles } from "./helpers/files.ts";
+import { relative } from "./helpers/scan.ts";
 
 const repo = posix(join(import.meta.dir, ".."));
-const relative = (file: string): string => file.slice(repo.length + 1);
-
 /** Every declared script, so a failure can name the ones the docs forgot. */
 const SCRIPTS: string[] = Object.keys(
 	(JSON.parse(readFileSync(join(repo, "package.json"), "utf-8")) as { scripts: Record<string, string> }).scripts,
