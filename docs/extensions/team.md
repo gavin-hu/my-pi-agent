@@ -43,7 +43,7 @@ line; the owners a bus has no record of collapse to one row*
 ## Quickstart
 
 ```
-lead: /board                                            → on the team as team-lead, listening
+lead: /board                                            → on the team as lead, listening
 peer: /team join billing-core                           → on the team as billing-core, listening
 lead: team({action:"assign", card:"4", to:"billing-core", note:"start with the webhook"})
       → #4 handed off to billing-core.
@@ -76,7 +76,7 @@ its surface is the point: `board` and `team` join this session for you.
 
 | You are | Action | What happens |
 |---|---|---|
-| The lead | `/board` | The session joins as `team-lead` — the page's own seat name — and listens, so a handoff or an offer is reported at its next turn |
+| The lead | `/board` | The session joins as the board's lead (`board.lead`, `lead` by default) — the name the page serves as — and listens, so a handoff or an offer is reported at its next turn |
 | A teammate | the first card it claims | The session joins under the name it already holds, or a preset teammate name (`tom`, `lily`, `ben`) when it has none, and listens; Pi's footer keeps the name it already had |
 | A teammate who wants a name | `/team join billing-core` | The session joins as `billing-core`, and Pi's footer and `/resume` show that name — the one join that renames |
 | A viewer | `/board` on a session that is not serving | The page is somebody else's to serve, so this session joins under its own name instead of the seat |
@@ -89,9 +89,9 @@ who is live but not listening. `/board status` reports the team this session is 
 label, and whether mail reaches it — whichever door put it there, and prints no team clause
 only when this session never joined at all.
 
-**The seat is not a session.** The page is a view: it has one name, `team-lead`, and an id
-of its own derived from it, and it writes nothing, so it holds no card for a lead to take
-back. Its cards come from the session that serves it, whose label is the same and whose id
+**The seat is not a session.** The page is a view: it has one name — the board's lead — and
+an id of its own, `board:<lead>`, and it writes nothing, so it holds no card for a lead to
+take back. Its cards come from the session that serves it, whose label is the same and whose id
 is not: a card that session claimed is the session's, and `release` returns it.
 
 ## Tool
@@ -189,9 +189,9 @@ moves, and finish are `board`'s in this same session.
 - **A held card is not assignable.** `assign` moves a pool card; one somebody already holds
   is refused, because a handoff cannot take work away from its owner — `reclaim` it, then
   assign.
-- **`team-lead` is a label, not a person.** The seat is not a session, so its actor id
-  `board:team-lead` answers no message; the label is the one the session serving the page
-  joins under, so a handoff to `team-lead` reaches whoever is serving the page just now —
+- **The lead's name is a label, not a person.** The seat is not a session, so its actor id
+  `board:<lead>` answers no message; the label is the one the session serving the page joins
+  under, so a handoff to it reaches whoever is serving the page just now —
   and is refused, like any other label, when nobody is. The seat's cards come back with
   `reclaim`.
 - **A label-only owner is fragile.** If the bus could not name the session behind `to`,

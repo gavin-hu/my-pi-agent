@@ -14,7 +14,6 @@
 
 import { asRecord, loadConfigSection } from "../config.ts";
 import { type Lead, normalizeLead } from "./lead.ts";
-import { DEFAULT_SEAT } from "./seat.ts";
 import { DEFAULT_WIP, normalizeWip, type WipLimits } from "./limits.ts";
 
 /** What one board's `board` section says. */
@@ -26,14 +25,17 @@ export interface BoardConfig {
 }
 
 /**
- * A board's settings when nobody said otherwise: three planning, five in flight, and the lead.
+ * The lead when nobody named one.
  *
- * The lead defaults to the page's seat — the role a session takes by serving `/board` — so the
- * shipped board has a signer without being configured, and `board.lead` is the override. It is
- * stated here and nowhere else: `lead.ts` knows the rule, `seat.ts` knows the name, and this is
- * the one place a default is chosen.
+ * A role word rather than a person: the page serves under whatever this is, so the session that
+ * opens `/board` takes it and can sign. A repository renames the lead with `board.lead`, and no
+ * module states a name of its own — `lead.ts` knows the rule, `seat.ts` derives an id from the
+ * name, and this is the one place a default is chosen.
  */
-export const DEFAULT_BOARD_CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: DEFAULT_SEAT };
+export const DEFAULT_LEAD: Lead = "lead";
+
+/** A board's settings when nobody said otherwise: three planning, five in flight, and the lead. */
+export const DEFAULT_BOARD_CONFIG: BoardConfig = { wip: DEFAULT_WIP, lead: DEFAULT_LEAD };
 
 /**
  * The settings a config section asks for.

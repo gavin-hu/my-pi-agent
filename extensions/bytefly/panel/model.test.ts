@@ -415,7 +415,7 @@ describe("panel text projection", () => {
 			"Health check at startup: On",
 			"Plan limit: 3",
 			"Execute limit: 5",
-			"Lead: team-lead",
+			"Lead: lead",
 			"Currency: CNY (¥)",
 			"Session budget: Off",
 		]) {

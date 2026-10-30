@@ -225,7 +225,7 @@ store opens, so a change lands at the next session.
 |---|---|---|---|---|
 | `wip.plan` | integer | `3` | `1`–`20` | Cards a repository may hold in `plan` at once; a claim that would exceed it is refused with the count, the limit, and the ways out. |
 | `wip.execute` | integer | `5` | `1`–`20` | Cards a repository may hold in `execute` at once, on the same terms. |
-| `lead` | string | `"team-lead"` | a team name, at most 40 characters | The name whose signature approves a contract and spot-checks the work. A session signs by joining under it (`/team join lead`), and never while holding the card; `/board approve` and `/board review` sign as the person `you`, which is what a one-session repository uses. |
+| `lead` | string | `"lead"` | a team name, at most 40 characters | The name the page serves as and whose signature approves a contract and spot-checks the work: `/board` makes the serving session that name, so it can sign, and never while holding the card. `/board approve` and `/board review` sign as the person `you`, which is what a one-session repository uses. |
 
 The project document's section is normalized over the global one key by key, so a repository
 can raise its own numbers or name its own lead and keep everything else.
