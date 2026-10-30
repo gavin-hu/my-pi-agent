@@ -9,7 +9,16 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { agentLabel, defaultLabel, MAX_LABEL, normalizeLabel, shortId, TEAM_AGENT_PREFIX } from "./session-label.ts";
+import {
+	agentLabel,
+	defaultLabel,
+	MAX_LABEL,
+	normalizeLabel,
+	presetNameFor,
+	shortId,
+	TEAM_AGENT_PREFIX,
+	TEAMMATE_NAMES,
+} from "./session-label.ts";
 
 describe("normalizeLabel", () => {
 	test("collapses whitespace and trims", () => {
@@ -61,6 +70,53 @@ describe("agentLabel", () => {
 
 	test("keeps a name even when the id has nothing alphanumeric in it", () => {
 		expect(agentLabel("----")).toBe("team-agent-----");
+	});
+});
+
+describe("TEAMMATE_NAMES", () => {
+	test("are distinct names a person answers to, not derived ids", () => {
+		expect(new Set(TEAMMATE_NAMES).size).toBe(TEAMMATE_NAMES.length);
+		for (const name of TEAMMATE_NAMES) {
+			// A name is a label, so it is already one line, inside the cap, and one word.
+			expect(normalizeLabel(name, ""), name).toBe(name);
+			expect(name, name).toMatch(/^[a-z]{2,8}$/);
+		}
+	});
+});
+
+describe("presetNameFor", () => {
+	test("draws the same name for the same id every time", () => {
+		const drawn = presetNameFor("session-9f21ac3b");
+		if (drawn === undefined) throw new Error("the pool is empty");
+		const pool: readonly string[] = TEAMMATE_NAMES;
+		expect(pool).toContain(drawn);
+		expect(presetNameFor("session-9f21ac3b")).toBe(drawn);
+	});
+
+	test("spreads different sessions across the list", () => {
+		const ids = Array.from({ length: 40 }, (_, index) => `session-${index}`);
+		const drawn = new Set(ids.map((id) => presetNameFor(id)));
+		expect(drawn.size).toBeGreaterThan(5);
+	});
+
+	test("skips a name a live teammate holds, and walks on to the next free one", () => {
+		const first = presetNameFor("s-1");
+		if (first === undefined) throw new Error("the pool is empty");
+		const second = presetNameFor("s-1", [first]);
+		if (second === undefined) throw new Error("the pool is empty");
+		expect(second).not.toBe(first);
+		expect(presetNameFor("s-1", [first, second])).not.toBe(first);
+		expect(presetNameFor("s-1", [first, second])).not.toBe(second);
+	});
+
+	test("compares a held label the way a peer is addressed: without case", () => {
+		const first = presetNameFor("s-1");
+		if (first === undefined) throw new Error("the pool is empty");
+		expect(presetNameFor("s-1", [first.toUpperCase()])).not.toBe(first);
+	});
+
+	test("answers nothing when every name is taken, so the caller can fall back", () => {
+		expect(presetNameFor("s-1", TEAMMATE_NAMES)).toBeUndefined();
 	});
 });
 

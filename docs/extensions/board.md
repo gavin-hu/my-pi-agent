@@ -141,9 +141,11 @@ A session that has neither opened the board nor claimed a card is not on it.
 **The two names.** A session's team name is the seat — `team-lead` — while it serves the
 page; otherwise it is the name the session already holds: `/team join billing-core` names
 it, and the cards it claims, the notes it writes, and the join a claim makes all say
-`billing-core` rather than a name derived past it. A session the bus has no record of is
-`team-agent-` plus the last six characters of its id, so `billing-core` before it names
-itself is `team-agent-9f21ac` to the team. The name is never Pi's session name, which means a
+`billing-core` rather than a name derived past it. A session the bus has no record of
+takes a preset teammate name — `tom`, `lily`, `ben` — drawn from its id and walked past the
+names live teammates hold, so `billing-core` before it names itself is `lily` to the team;
+once every preset name is held it is `team-agent-` plus the last six characters of its id
+(`team-agent-9f21ac`). The name is never Pi's session name, which means a
 rename cannot strand a card, two sessions cannot settle on one name, and nothing here ever
 renames your session: `/team join <label>` is the one door that does. Ownership is the id,
 so a name that changes leaves the card where it was. A card records the name as its owner,

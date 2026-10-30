@@ -12,6 +12,7 @@ import { fakeCtx } from "../../test/helpers/context.ts";
 import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { CARD_VERSION, type Card } from "../../lib/board/card.ts";
+import { presetNameFor } from "../../lib/session-label.ts";
 import type { RosterSession } from "../../lib/session-roster.ts";
 import type { JoinResult, TeamJoin } from "../../lib/session-tool.ts";
 import { MAX_ROUND_LINES, registerCommands, roundText, TEAM_COMMAND } from "./commands.ts";
@@ -184,7 +185,7 @@ describe("/team join", () => {
 		expect(notifications.at(-1)).toBe("team: on the team as billing-core, listening for handoffs.");
 	});
 
-	test("a bare join lands on the label the bus already has, and renames nothing", async () => {
+	test("a bare join draws a preset name when Pi has no name for the session", async () => {
 		const board = boardHarness({ now: NOW, track: temps.track });
 		const { team, labels, naming } = fakeTeam();
 		const fake = createFakePi();
@@ -192,6 +193,23 @@ describe("/team join", () => {
 		const command = fake.commands.get(TEAM_COMMAND);
 		if (!command) throw new Error("the team command was not registered");
 		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead" });
+		await command.handler("join", ctx);
+		// The board's own name for the session, so the card it claims and the bus record agree.
+		const drawn = presetNameFor("s-lead");
+		expect(labels).toEqual([drawn]);
+		// A drawn name is the team's, not the user's: it does not rename the footer.
+		expect(naming).toEqual([undefined]);
+		expect(notifications.at(-1)).toBe(`team: on the team as ${drawn}, listening for handoffs.`);
+	});
+
+	test("a bare join leaves a session Pi already names to the bus", async () => {
+		const board = boardHarness({ now: NOW, track: temps.track });
+		const { team, labels, naming } = fakeTeam();
+		const fake = createFakePi();
+		registerCommands(fake.pi, board.runtime, { team });
+		const command = fake.commands.get(TEAM_COMMAND);
+		if (!command) throw new Error("the team command was not registered");
+		const { ctx, notifications } = fakeCtx({ cwd: board.cwd, sessionId: "s-lead", sessionName: "billing-lead" });
 		await command.handler("join", ctx);
 		expect(labels).toEqual([undefined]);
 		expect(naming).toEqual([undefined]);

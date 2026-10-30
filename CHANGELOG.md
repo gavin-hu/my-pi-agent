@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `board` + `team`: a session with no name of its own joins under a preset teammate name —
+  `tom`, `lily`, `ben` — instead of `team-agent-<id>`, drawn from its id and walked past the
+  names live teammates hold, falling back to `team-agent-<id>` when every one is taken.
+  `/team join` with no name draws one and renames nothing; a session Pi already names keeps
+  it, and a typed label still names the session.
 - dev: `assets/cards/board-parallel.html` is the board's third posting card:
   `bun run screenshot:cards parallel`. It titles itself `Plan in parallel, execute in
   parallel` — the English line, then the Chinese — and gives the rest of the card to two
@@ -59,8 +64,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `board`: a session's cards, notes, and joins are written as the label it already holds —
   the one `/team join billing-core` gave it — instead of the `team-agent-<id>` name derived
   past it, which the first claim's join then renamed the session back to. A session the bus
-  has no record of still writes as `team-agent-<id>`, and the seat still wins while it
-  serves the page; ownership stays the session id, so nothing is stranded.
+  has no record of draws a preset teammate name instead (see Added), and the seat still
+  wins while it serves the page; ownership stays the session id, so nothing is stranded.
 
 - `board`: the page's toolbar names the repository it is a board of — `my-pi-agent` as a
   quiet chip, with the root's whole path on its hover — instead of the seat the page is
