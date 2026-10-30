@@ -108,7 +108,7 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 | [`session-bus`](./docs/extensions/session-bus.md) | `session`, `/sessions`（屏幕） | 在同一仓库的多个 Pi 会话之间协调：发现彼此、交换简短消息/事件、读取收件箱、编辑前声明路径；`/sessions` 是显示对等会话、未读邮件和路径声明的实时面板。本地、默认拉取式；收件箱监视需会话自行开启，空闲时会唤起本会话的一轮，从不创建智能体。 |
 | [`serve`](./docs/extensions/serve.md) | — | 每个 session 一个 loopback 服务。`/board`、`/browse` 和浏览器里的 plan review 都在它上面挂载路径前缀，而不是各自监听端口，因此一个 session 只有一个端口、一个 chip、一条关闭路径——而第二个 session（peer 会话、另一个 worktree、另一个 Pi）依然有自己的端口。`bytefly.json` 里的 `serve.port` 可以固定该端口，收藏的地址在重启后依然有效；共享 review 只为发起共享的那一个页面借用同一个网段上的一个地址。 |
 | [`board`](./docs/extensions/board.md) | `board`、`/board` | 每个仓库一块共享看板：一张卡片代表一个 feature，在五条车道间移动——`backlog`、`plan`、`execute`、`blocked`、`done`——契约（`goal`、`acceptance`、`scopeOut`）必须写明，并指向 `write_plan` 存进本仓库 plan store 的那份 plan 文件，由持有者以外的人批准——可以是 peer session，也可以是本人用 `/board approve`——之后才能进入执行，完成的工作同样要经过 `/board review` 抽检才能收尾；`plan` 与 `execute` 受 `bytefly.json` 里的 WIP 上限约束。已完成的卡片会离开看板进入 `archive/`，其注记与落地 commit 仍可读；同一个看板在浏览器里以 **Board** 和 **Team** 两个 tab 实时显示。页面只读——写入只走工具——以固定席位 `team-lead` 对外服务，因此第二个 session 打开的是同一张页面；把卡片交给队友由 `team` 负责，因为只有它能给对端发消息。卡片可以带上优先级、声明自己在等待哪几张卡片。步骤留在 owner 的 plan 和 `todo` 里，卡片就是 feature、它的 owner，以及解释它的历史。Team tab 会把 bus 没有记录的 owner 收成一行，因为只要某张卡片曾归属它，它就会一直是 owner。页面以 `/board` 挂在该 session 唯一的端口上，所以收藏时用 `serve.port`。默认关闭：用 `PI_ENABLED_EXTENSIONS=board` 加载。 |
-| [`team`](./docs/extensions/team.md) | `team`、`/team` | 同一块看板上的 lead 轮次。`/team join <label>` 让一个 session 加入团队，lead 打开 `/board` 时则以 `team-lead` 自动加入；随后 `assign` 把一个 feature 交给运行中的 session，`offer` 交给谁有空谁接——广播而不写卡片，由第一个认领的人拿走——`reclaim` 把卡片收回 Backlog。结果会说明谁会因此被叫醒、谁会在下一轮才读到；`/team` 在终端里打印同一份轮次，不用开浏览器，也不启动任何进程。 |
+| [`team`](./docs/extensions/team.md) | `team`、`/team` | 同一块看板上的 lead 轮次。`/team join <label>` 让一个 session 加入团队，lead 打开 `/board` 时则以 `team-lead` 自动加入；随后 `assign` 把一个 feature 交给运行中的 session，`offer` 交给谁有空谁接——广播而不写卡片，由第一个认领的人拿走——`reclaim` 把卡片收回 Backlog。结果会说明谁会因此被叫醒、谁会在下一轮才读到；`/team` 在终端里打印同一份轮次，不用开浏览器，也不启动任何进程。与 `board` 一并默认关闭：用 `PI_ENABLED_EXTENSIONS=board,team` 加载。 |
 | [`context`](./docs/extensions/context.md) | `/context` | 显示上下文窗口的去向 —— 系统提示、工具定义、按角色拆分的对话、注入的笔记 —— 并从报告中触发压缩，给出压缩前后的数字。 |
 
 ### 保护你的工作
@@ -194,11 +194,12 @@ Pi 自己的版本请求只是被重新绘制，本包的最新版本则来自�
 [`docs/configuration.md`](./docs/configuration.md) 则给出解析规则、设置界面操作方式，
 以及每个 section 的键、类型、默认值和取值范围。
 
-几乎所有扩展默认都开启。例外是 `board`：它是 opt-in 的——从不处理看板的 session
-不该背着它的工具、命令和页面。把 opt-in 扩展名写进 `PI_ENABLED_EXTENSIONS` 就会加载：
+几乎所有扩展默认都开启。例外是 `board` 与 `team`：看板和它的 lead 那一半是同一个
+工作流，session 要么在做，要么不做；从不处理看板的 session 不该背着这些工具、命令和页面。
+把 opt-in 扩展名写进 `PI_ENABLED_EXTENSIONS` 就会加载：
 
 ```bash
-PI_ENABLED_EXTENSIONS=board pi -e .
+PI_ENABLED_EXTENSIONS=board,team pi -e .
 ```
 
 若要在加载整包时排除一些默认开启的扩展，把 `PI_DISABLED_EXTENSIONS`

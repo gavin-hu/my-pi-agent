@@ -45,6 +45,11 @@ it:
 PI_ENABLED_EXTENSIONS=board pi
 ```
 
+`team` — the lead's half of the same workflow, and the only extension that can hand a
+card to a peer — is opt-in beside it, so a lead names both:
+`PI_ENABLED_EXTENSIONS=board,team`. They stay independent: one name never loads the
+other.
+
 The extension is still declared in the package manifest, so Pi discovers it and
 documents its surface with the rest; the gate is the variable, in `lib/env.ts` beside
 `PI_DISABLED_EXTENSIONS`, which still wins when it names `board`. `doctor` reports the

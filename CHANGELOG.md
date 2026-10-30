@@ -280,6 +280,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `doctor` names the switch the row is waiting on. The extension stays in the package
   manifest, so Pi still discovers it and its documented surface does not move.
 
+- `team`: the lead's round is opt-in with the board it moves. Naming neither
+  `PI_ENABLED_EXTENSIONS` value leaves the `team` tool and `/team` unregistered, so a
+  session that never works a board no longer carries the verbs that move one; a lead
+  names both (`PI_ENABLED_EXTENSIONS=board,team`). The two stay independent at runtime
+  — one name never loads the other — and `doctor` names the switch each row waits on.
+
 ### Removed
 
 - `skills`: the `project-docs` skill is deleted — its `SKILL.md`, its five reference

@@ -534,7 +534,7 @@ the extension and need no attention.
 | Variable | Meaning |
 |---|---|
 | `PI_DISABLED_EXTENSIONS` | Comma- or whitespace-separated extension names to load without; case-insensitive, unknown names ignored. Beats `PI_ENABLED_EXTENSIONS` for the same name. See [README → Configuration](../README.md#configuration). |
-| `PI_ENABLED_EXTENSIONS` | Comma- or whitespace-separated names of the opt-in extensions to load — `board`, and any the package adds later. It never disables an extension that loads by default. See [README → Configuration](../README.md#configuration). |
+| `PI_ENABLED_EXTENSIONS` | Comma- or whitespace-separated names of the opt-in extensions to load — `board` and `team`, and any the package adds later. It never disables an extension that loads by default. See [README → Configuration](../README.md#configuration). |
 | `PI_OFFLINE` | Turns off Pi's automatic network activity; `bytefly`'s update check reads it too, so an offline session makes no package-update or version request. |
 | `PI_CODING_AGENT_DIR` | The agent directory the global document resolves against. |
 
