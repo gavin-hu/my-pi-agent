@@ -236,8 +236,8 @@ export function createPlanRuntime(
 		lastPlanPath ? `${GLYPHS.plan} plan · ${statusName(lastPlanPath)}` : `${GLYPHS.plan} plan`;
 
 	const setStatus = (ctx: ExtensionContext): void => {
-		// Published unstyled, so the chip reads in the session's current text colour: the
-		// colour that says planning is the composer's border, not a warning in the footer.
+		// Published unstyled: the chip's text is what a footer without bytefly shows, and
+		// bytefly's mode segment paints the mode by role instead of reading this pill.
 		ctx.ui.setStatus(STATUS_KEYS.planMode, enabled ? statusText() : undefined);
 	};
 

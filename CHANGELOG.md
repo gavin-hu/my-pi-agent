@@ -31,10 +31,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `scripts/screens/frames.json` are regenerated. Both frames draw the footer, so the mode
   segment that moved to lead the resource line left the pictures behind their renderer.
 - `bytefly` + `plan`: `Shift+Tab` at the main editor toggles plan mode. The footer's mode
-  segment leads the resource line with `▶ auto` in success or plan's own `≡ plan` in the
-  session's text colour — the chip is plan's wording, and the colour that says "planning"
-  is the composer's — and the composer border follows the mode (`success` in auto, `warning`
-  while planning).
+  segment leads the resource line with `▶ auto` in accent or `≡ plan` in warning — the bar
+  draws that word from its own label and only reads the plan flag, so the plan file name
+  the chip carries never reaches it, and the composer border follows the mode (`success` in
+  auto, `warning` while planning).
   Bytefly unsets the reserved `app.thinking.cycle` chord while it holds the key and restores
   it on shutdown, so `/hotkeys` tells the truth; `plan` no longer registers `Ctrl+Alt+P`,
   and `/plan` remains the toggle when bytefly is not loaded.

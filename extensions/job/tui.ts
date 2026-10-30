@@ -161,8 +161,8 @@ export class JobListComponent extends DockListScreen<JobRecord> {
 			"Esc close",
 			"↑/↓ or j/k select",
 			{ text: "Enter or l logs", color: "accent" },
-			{ text: "d or K kill", color: "warning" },
-			{ text: "x clear finished", color: "warning" },
+			{ text: "d or K kill", color: "warn" },
+			{ text: "x clear finished", color: "warn" },
 			"PgUp/PgDn",
 		];
 	}

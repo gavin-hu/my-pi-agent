@@ -166,12 +166,7 @@ export class CheckResultComponent extends DockListScreen<Failure> {
 	protected listHints(rows: readonly Failure[]): ScreenHint[] {
 		// An empty list has nothing to open, so it offers only the two ways out.
 		if (rows.length === 0) return ["Esc close", { text: "r rerun", color: "accent" }];
-		return [
-			"Esc close",
-			{ text: "Enter detail", color: "accent" },
-			{ text: "r rerun", color: "warning" },
-			"↑/↓ select",
-		];
+		return ["Esc close", { text: "Enter detail", color: "accent" }, { text: "r rerun", color: "warn" }, "↑/↓ select"];
 	}
 
 	protected detailHints(): ScreenHint[] {

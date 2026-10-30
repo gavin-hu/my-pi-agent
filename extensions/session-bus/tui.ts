@@ -257,7 +257,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 				hints.push(enter("read"), this.watchHint(), "↑/↓", "PgUp/PgDn");
 				break;
 			case "claims":
-				hints.push(enter("open"), { text: "x release", color: "warning" }, "↑/↓", "PgUp/PgDn");
+				hints.push(enter("open"), { text: "x release", color: "warn" }, "↑/↓", "PgUp/PgDn");
 				break;
 		}
 		return hints;
@@ -265,7 +265,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 
 	protected detailHints(row: BoardRow | undefined): ScreenHint[] {
 		if (row?.kind === "claim" && row.claim.owner === this.me()) {
-			return ["Esc back", { text: "x release", color: "warning" }, "↑/↓ scroll", "g/G ends"];
+			return ["Esc back", { text: "x release", color: "warn" }, "↑/↓ scroll", "g/G ends"];
 		}
 		return ["Esc back", "↑/↓ scroll", "g/G ends", "PgUp/PgDn"];
 	}
@@ -366,7 +366,7 @@ export class SessionListComponent extends DockListScreen<BoardRow> {
 
 	private watchHint(): ScreenHint {
 		return this.board?.status.watching
-			? { text: "w watch off", color: "warning" }
+			? { text: "w watch off", color: "warn" }
 			: { text: "w watch on", color: "accent" };
 	}
 

@@ -118,10 +118,11 @@ their literals, `screenHint` / Pi's `keyHint` for the hint row, and
 
 A list accents the focused row's label (`labelRole: selected ? "accent" :
 "label"`); the `❯` marker alone is not enough to tell which row is live. The
-hint row colors by role, not by taste: `accent` for the screen's primary action,
-`warning` for one that discards state (a revert, a kill, a stop, a clear, a
-forget), and `error` for one that ends the session. Keys that navigate, scroll,
-or select stay dim, so a colored key is one worth a second thought.
+hint row colors by role, not by taste — `ScreenHint.color` is a `TuiRole`:
+`accent` for the screen's primary action, `warn` for one that discards state (a
+revert, a kill, a stop, a clear, a forget), and `bad` for one that ends the
+session. Keys that navigate, scroll, or select stay `faint`, so a colored key is
+one worth a second thought.
 
 ## Width is columns
 

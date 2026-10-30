@@ -164,7 +164,7 @@ export class AgentsBoardComponent extends DockListScreen<BackgroundRun> {
 		const focused = this.focusedRow;
 		const hints: ScreenHint[] = ["Esc close", { text: "Enter detail", color: "accent" }];
 		if (focused && canCollect(focused)) hints.push({ text: "c collect", color: "accent" });
-		if (focused?.status === "running") hints.push({ text: "x cancel", color: "warning" });
+		if (focused?.status === "running") hints.push({ text: "x cancel", color: "warn" });
 		hints.push("↑/↓ select");
 		return hints;
 	}
@@ -172,7 +172,7 @@ export class AgentsBoardComponent extends DockListScreen<BackgroundRun> {
 	protected detailHints(run: BackgroundRun | undefined): ScreenHint[] {
 		const hints: ScreenHint[] = ["Esc back"];
 		if (run && canCollect(run)) hints.push({ text: "c collect", color: "accent" });
-		if (run?.status === "running") hints.push({ text: "x cancel", color: "warning" });
+		if (run?.status === "running") hints.push({ text: "x cancel", color: "warn" });
 		hints.push("j/k scroll");
 		return hints;
 	}

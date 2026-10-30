@@ -24,7 +24,7 @@ import {
 	thinkingColor,
 	truncateLabel,
 } from "./format.ts";
-import { compactStatus, dropStatusDetail } from "./status.ts";
+import { compactStatus } from "./status.ts";
 import type { Segment, StatusSnapshot } from "../types.ts";
 
 /** Tertiary text: paths and de-emphasized meters. */
@@ -152,20 +152,21 @@ export function alertSegment(snapshot: StatusSnapshot, theme: Theme): Segment | 
 }
 
 /**
- * The mode: plan's own chip while planning, `▶ auto` otherwise.
+ * The mode: `≡ plan` while planning, `▶ auto` otherwise.
  *
- * Plan owns the flag and paints its chip, so the bar shows that status verbatim
- * minus the plan file name; bytefly supplies the other state. It leads the resource
- * line, before the gauge, so the mode is read before how much room is left. A
- * session without `plan` still reads `auto`: that is the mode it is in.
+ * Plan owns the flag, so the presence of its status key is what the bar reads; the
+ * mode's word and colour are the bar's own, so neither the plan file name nor a
+ * truncated chip can reach it. Planning wears `warn`, the same role the composer's
+ * border takes while it is on. It leads the resource line, before the gauge, so the
+ * mode is read before how much room is left. A session without `plan` still reads
+ * `auto`: that is the mode it is in.
  */
 export function modeSegment(snapshot: StatusSnapshot, theme: Theme): Segment | null {
-	const raw = snapshot.statuses.get(CONFIG.planStatusKey);
-	if (raw !== undefined) {
-		const plan = dropStatusDetail(sanitize(raw));
-		if (plan) return { id: "mode", weight: 1, droppable: false, separator: "", forms: [plan, compactStatus(plan)] };
+	if (snapshot.statuses.has(CONFIG.planStatusKey)) {
+		const plan = paint(theme, "warn", `${CONFIG.icons.planMode} ${CONFIG.labels.planMode}`);
+		return { id: "mode", weight: 1, droppable: false, separator: "", forms: [plan, compactStatus(plan)] };
 	}
-	const auto = paint(theme, "ok", `${CONFIG.icons.autoMode} ${CONFIG.labels.autoMode}`);
+	const auto = paint(theme, "accent", `${CONFIG.icons.autoMode} ${CONFIG.labels.autoMode}`);
 	return { id: "mode", weight: 1, droppable: false, separator: "", forms: [auto] };
 }
 

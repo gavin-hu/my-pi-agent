@@ -347,7 +347,7 @@ Each segment reads a theme role and carries its own drop order:
 | branch | 1 right | muted (warning when detached) | last |
 | worktree | 1 right | success | first |
 | port `◉ 4780` | 1 right | success glyph + accent port | first |
-| mode `≡ plan` / `▶ auto` | 2 left | plan's own chip in the session's text colour / success for auto | never |
+| mode `≡ plan` / `▶ auto` | 2 left | warning while planning, accent otherwise | never |
 | context gauge + `%` | 2 left | muted ≤70 · warning 71–90 · error >90 | never |
 | `/window` | 2 left | dim | before cost |
 | cost | 2 left | muted | after tokens |
@@ -365,9 +365,10 @@ opens. It is a two-tone `<glyph> <port>` with a green glyph and an accent port,
 and it compacts from `◉ 4780` to `◉` before it drops, so a bar too narrow for
 the number still says a page is up.
 
-The mode segment leads the resource line: plan's own `≡ plan` chip while planning
-(the trailing plan file name is dropped, so it reads `≡ plan` even though the
-built-in footer keeps the name) and `▶ auto` in success otherwise. `auto` is not a
+The mode segment leads the resource line: `≡ plan` in the warning role while
+planning, `▶ auto` in accent otherwise. The bar draws that word itself and reads
+only the presence of the `plan-mode` status key, so neither the plan file name nor
+a chip truncated elsewhere can reach it. `auto` is not a
 behaviour of its own: it names Pi's default mode, every tool as it ships and writes
 included, so the segment states which mode the session is in and `≡ plan` is the one
 override that withholds — a mode added later is a third value of this one chip, never a
