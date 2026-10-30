@@ -635,12 +635,13 @@ edges its own `Box` pads itself with, and hands it a theme whose `bg` is inert s
 it never paints a band the rest of the transcript does not have.
 
 The call line is one colour grammar, shared with Pi's built-ins: the tool name is
-`toolTitle` and bold and is the line's only accent; a primary subject (a query, a
-URL, a path, a status) reads in the body role (`label`), counts and summaries are
-`muted`, trailing options are `dim`, and the result body is `toolOutput`. The
-shipped themes point `toolTitle` at the accent and `label` at the body colour, so
-the name is the call line's one accent and the subject follows as body text; a
-theme that maps `toolTitle` elsewhere is respected rather than overridden.
+in the `toolTitle` role, bold, and is the line's only accent; a primary subject (a
+query, a URL, a path, a status) reads in the body role (`label`), counts and
+summaries are `meta`, trailing options are `faint`, and the result body is
+`toolOutput`. The shipped themes point `toolTitle` at the accent and `label` at
+the body colour, so the name is the call line's one accent and the subject follows
+as body text; a theme that maps `toolTitle` elsewhere is respected rather than
+overridden.
 
 ## The working line
 

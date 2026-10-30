@@ -9,6 +9,7 @@
 import { stripTerminalSequences, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { formatDuration, formatTokens, sanitizeLine, shortenPath } from "../../lib/format.ts";
+import { paint, type TuiRole } from "../../lib/tui/tokens.ts";
 import { USAGE_COUNTERS, zeroUsage } from "../../lib/usage.ts";
 import type { BackgroundRun } from "./background.ts";
 import type { UsageSource, UsageStats } from "./types.ts";
@@ -116,13 +117,13 @@ export function formatToolCall(
 	theme: Theme,
 	preview: boolean,
 ): string {
-	const fg = theme.fg.bind(theme);
+	const fg = (role: TuiRole, text: string) => paint(theme, role, text);
 	// Defensive: a malformed tool-call part can carry a null/undefined `arguments`.
 	const a = (args && typeof args === "object" ? args : {}) as Record<string, unknown>;
 
 	switch (toolName) {
 		case "bash":
-			return fg("muted", "$ ") + fg("toolOutput", clip(sanitizeLine(String(a.command ?? "…")), preview ? 60 : 200));
+			return fg("meta", "$ ") + fg("toolOutput", clip(sanitizeLine(String(a.command ?? "…")), preview ? 60 : 200));
 		case "read": {
 			const rawPath = clipPath(shortenPath(sanitizeLine(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
 			const offset = a.offset as number | undefined;
@@ -131,44 +132,43 @@ export function formatToolCall(
 			if (offset !== undefined || limit !== undefined) {
 				const start = offset ?? 1;
 				const end = limit !== undefined ? start + limit - 1 : "";
-				text += fg("warning", `:${start}${end ? `-${end}` : ""}`);
+				text += fg("warn", `:${start}${end ? `-${end}` : ""}`);
 			}
-			return fg("muted", "read ") + text;
+			return fg("meta", "read ") + text;
 		}
 		case "write": {
 			const rawPath = clipPath(shortenPath(sanitizeLine(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200);
 			const content = String(a.content ?? "");
 			const lines = content.split("\n").length;
-			const text = fg("muted", "write ") + fg("accent", rawPath);
-			return lines > 1 ? text + fg("dim", ` (${lines} lines)`) : text;
+			const text = fg("meta", "write ") + fg("accent", rawPath);
+			return lines > 1 ? text + fg("faint", ` (${lines} lines)`) : text;
 		}
 		case "edit":
 			return (
-				fg("muted", "edit ") +
+				fg("meta", "edit ") +
 				fg("accent", clipPath(shortenPath(sanitizeLine(String(a.file_path ?? a.path ?? "…"))), preview ? 60 : 200)) +
-				fg("dim", " (diff)")
+				fg("faint", " (diff)")
 			);
 		case "ls":
 			return (
-				fg("muted", "ls ") +
-				fg("accent", clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 60 : 200))
+				fg("meta", "ls ") + fg("accent", clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 60 : 200))
 			);
 		case "find":
 			return (
-				fg("muted", "find ") +
+				fg("meta", "find ") +
 				fg("accent", clip(sanitizeLine(String(a.pattern ?? "*")), preview ? 40 : 120)) +
-				fg("dim", ` in ${clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 40 : 120)}`)
+				fg("faint", ` in ${clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 40 : 120)}`)
 			);
 		case "grep":
 			return (
-				fg("muted", "grep ") +
+				fg("meta", "grep ") +
 				fg("accent", `/${clip(sanitizeLine(String(a.pattern ?? "")), preview ? 40 : 120)}/`) +
-				fg("dim", ` in ${clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 40 : 120)}`)
+				fg("faint", ` in ${clipPath(shortenPath(sanitizeLine(String(a.path ?? "."))), preview ? 40 : 120)}`)
 			);
 		default: {
 			const json = JSON.stringify(a);
 			const text = clip(json, preview ? 50 : 200);
-			return fg("accent", sanitizeLine(toolName)) + fg("dim", ` ${text}`);
+			return fg("accent", sanitizeLine(toolName)) + fg("faint", ` ${text}`);
 		}
 	}
 }

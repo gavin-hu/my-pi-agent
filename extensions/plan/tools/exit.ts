@@ -299,7 +299,7 @@ export function registerExitTool(pi: ExtensionAPI, runtime: PlanRuntime, web: Pl
 			if (planText) {
 				const { body, more } = expanded ? { body: planText, more: 0 } : preview(planText);
 				// A blank line separates the header block from the plan body.
-				out += `\n\n${theme.fg("toolOutput", body)}`;
+				out += `\n\n${paint(theme, "toolOutput", body)}`;
 				if (more > 0) out += `\n${moreHint(theme, more)}`;
 			}
 			text.setText(out);

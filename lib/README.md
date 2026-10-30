@@ -90,6 +90,6 @@ belongs in that extension instead — see `extensions/web-access/http.ts` and
 - **A color is a role, not a token.** The rules and the primitives are in
   [`tui/README.md`](./tui/README.md#color-is-a-role): draw through
   [`tui/tokens.ts`](./tui/tokens.ts) (`paint(theme, role, text)`) so a theme swap
-  re-skins every surface. The one exception is Pi's tool-rendering vocabulary
-  (`toolOutput`, `toolTitle`), which stays direct: those tokens style a tool
-  block, and no role maps to them.
+  re-skins every surface. `TUI_TOKENS` is the one place a Pi token is named, Pi's
+  tool vocabulary (`toolTitle`, `toolOutput`) included — a renderer names the
+  role, and a theme that maps the token elsewhere is respected.

@@ -5,7 +5,9 @@
  * A component names a role (`title`, `meta`, `bad`) and the active theme
  * supplies the color, so switching themes re-skins every surface without a
  * component changing. The mapping is deliberately indirect: Pi's token set is
- * closed, so the kit only ever references it, never a literal color.
+ * closed, so the kit only ever references it, never a literal color — and this
+ * table is the one place it does, tool vocabulary included, so a remap here
+ * reaches every surface the kit and the renderers draw.
  *
  * Value-only: one frozen lookup table and pure helpers.
  *
@@ -53,7 +55,11 @@ export type TuiRole =
 	| "hue2"
 	| "hue3"
 	| "hue4"
-	| "hue5";
+	| "hue5"
+	/** A tool call's own name: the transcript block's only accent. */
+	| "toolTitle"
+	/** A tool result's body text. */
+	| "toolOutput";
 
 /** Role -> theme color. The single place the kit names a Pi token. */
 export const TUI_TOKENS: Readonly<Record<TuiRole, ThemeColor>> = {
@@ -73,6 +79,8 @@ export const TUI_TOKENS: Readonly<Record<TuiRole, ThemeColor>> = {
 	hue3: "mdCode",
 	hue4: "success",
 	hue5: "warning",
+	toolTitle: "toolTitle",
+	toolOutput: "toolOutput",
 };
 
 /** Paint `text` in a role's color. */
