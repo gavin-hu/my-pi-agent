@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { MAX_LABEL } from "../../lib/session-label.ts";
+import { MAX_LABEL } from "../session-label.ts";
 import { DEFAULT_SEAT, pageActor, SEAT_ID_PREFIX } from "./seat.ts";
 
 describe("pageActor", () => {

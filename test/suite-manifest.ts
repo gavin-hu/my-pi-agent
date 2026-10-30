@@ -43,7 +43,6 @@ export const EXTENSION_SUITES: Record<string, readonly string[]> = {
 	board: [
 		"input",
 		"result",
-		"seat",
 		"tools",
 		"lazy-page",
 		"page",
@@ -134,6 +133,7 @@ export const LIB_SUITES: readonly string[] = [
 	"board/round",
 	"board/round-text",
 	"board/rules",
+	"board/seat",
 	"board/signs",
 	"board/session",
 	"board/skipped",

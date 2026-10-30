@@ -33,7 +33,7 @@ import { mintToken, type MountSource } from "../../lib/http/index.ts";
 import { messageOf } from "../../lib/errors.ts";
 import type { IdleReason } from "../../lib/http/sink.ts";
 import { join } from "node:path";
-import { pageActor } from "./seat.ts";
+import { pageActor } from "../../lib/board/seat.ts";
 import { viewOf } from "./snapshot.ts";
 import { type BoardServer, createBoardServer } from "./transport/server.ts";
 import { BOARD_CLIENT_JS } from "./view/client.ts";

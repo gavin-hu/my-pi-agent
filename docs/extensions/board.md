@@ -25,8 +25,8 @@ board move 4 done
 ```
 
 Two gates are humans'. A card cannot enter `execute` until **the lead** — `board.lead` in
-`bytefly.json`, `lead` by default — has approved the contract, and cannot be finished until
-the lead has spot-checked the work. The lead is a team name, so it signs as a session that
+`bytefly.json`, the page's seat `team-lead` by default — has approved the contract, and cannot be
+finished until the lead has spot-checked the work. The lead is a team name, so it signs as a session that
 joined under it, and never while holding the card: a lead releases a card before signing it.
 The person at the keyboard is the other way in — `/board approve` and `/board review` write
 as `you` — which is what makes a one-session flow possible, and the reason a repository
@@ -146,9 +146,11 @@ answers nobody; `/board stop` then drops it (a token-safe clear, so a page that 
 keeps its own note) instead of waiting for the next `/board` to trip over it.
 
 **Who signs.** The two gates take the lead's signature and nothing else: `approve` and
-`review` accept a session only while its team name is `board.lead` (`{"board": {"lead":
-"team-lead"}}` in the shared document, `lead` by default), and never while that session holds
-the card — a lead releases a card before signing it, so the gate is never its own. It is a
+`review` accept a session only while its team name is `board.lead`, and never while that
+session holds the card — a lead releases a card before signing it, so the gate is never its
+own. `board.lead` **defaults to the page's seat**, `team-lead`, which is the role a session
+takes by serving `/board`: the shipped board therefore has a signer without being configured,
+and a repository that wants another name sets `{"board": {"lead": "billing-lead"}}`. It is a
 label check and nothing more, which is the half of "somebody read this" a file can hold.
 
 **The person's door.** A repository worked by one session would otherwise never get a card
@@ -166,7 +168,8 @@ that session's next turn, and no turn is raised, so being on the team never spen
 A session that has neither opened the board nor claimed a card is not on it.
 
 **The two names.** A session's team name is the seat — `team-lead` — while it serves the
-page; otherwise it is the name the session already holds: `/team join billing-core` names
+page, which is also what makes it the lead unless `board.lead` names someone else; otherwise
+it is the name the session already holds: `/team join billing-core` names
 it, and the cards it claims, the notes it writes, and the join a claim makes all say
 `billing-core` rather than a name derived past it. A session the bus has no record of
 takes a preset teammate name — `tom`, `lily`, `ben` — drawn from its id and walked past the
@@ -455,9 +458,11 @@ it always meant: when the card was last touched, which is not when it last chang
   approved — so a model that tries to claim mid-plan is told what to do instead. The contract
   is recorded **after** the plan is approved, when the writing verbs work again.
 - **`bytefly`**: the board's own section of the shared document, in one place:
-  `{"board": {"wip": {"plan": 3, "execute": 5}, "lead": "lead"}}`. Each number is clamped to
-  `1..20` and the page's heads show the numbers the store read once; `lead` is the team name
-  the two signatures must carry, and a project file overrides the global one. Every key falls
+  `{"board": {"wip": {"plan": 3, "execute": 5}, "lead": "team-lead"}}`. Each number is clamped
+  to `1..20` and the page's heads show the numbers the store read once; `lead` is the team name
+  the two signatures must carry, and it defaults to the page's seat — the role serving `/board`
+  takes — so overriding it is what a repository does to name a different lead. The project
+  file overrides the global one. Every key falls
   back on its own, so setting one leaves the others alone. `/bytefly settings` carries all
   three as rows — `Plan limit`, `Execute limit`, and `Lead` — and a change lands in the file at
   once and in the board at the next session, because the section is read when the store
@@ -572,8 +577,10 @@ it always meant: when the card was last touched, which is not when it last chang
 - **One page is found, not configured.** A note beside the cards carries the port, the
   seat, and the token; it is created exclusively, so two sessions starting at
   once cannot both serve, and the loser attaches to the winner. The alternative —
-  a setting that names the lead — was rejected: the role moves, the seat's name does
-  not. The port in the note is the session's, never a number this page chose.
+  a setting that named the page's address — was rejected: the role moves, the seat's name
+  does not, and a second session has to find the page rather than pick one. (The lead is a
+  different question, and it *is* a setting: see **Who signs**.) The port in the note is the
+  session's, never a number this page chose.
 - **The page is a view because a browser is not an identity.** Every page write was made
   as the seat, so a page `assign` had to write down that nobody had been told, and the
   client's copy of the card rules drifted from `lib/board/rules.ts` — it offered a drop
@@ -610,7 +617,7 @@ it always meant: when the card was last touched, which is not when it last chang
   ownership rule, and the limit are that table's, and the page receives them in its
   snapshot instead of keeping a copy.
 - **The gates are a label check, and say so.** `approve` and `review` take the lead's name —
-  `board.lead`, `lead` by default — and refuse the card's own holder even when that holder is
+  `board.lead`, the page's seat by default — and refuse the card's own holder even when that holder is
   the lead, which is the half of "somebody read this" a file can hold; the board cannot tell a
   person from a session, and does not pretend it can. The name is a team name rather than a
   session, because that is what a pure rule can be handed and what a card file can record: a
@@ -686,7 +693,6 @@ it always meant: when the card was last touched, which is not when it last chang
 | `page.ts` | The page's lifecycle: the `/board` prefix it holds on the session's server, the three closes (`/board stop`, the idle grace, and shutdown — each taking the note with it), and the probe behind `/board status` |
 | `snapshot.ts` | The page's snapshot: the cards, the bus's records, the store's size and path, and the repository's own name, handed to `buildView` |
 | `commands.ts` | `/board`, its three words and their refusals, and the one line `/board status` prints |
-| `seat.ts` | The seat the page is served as: one name, and an id derived from it. The page cannot write, so it is a label now — but the id is still what a card claimed from an older page names |
 | `join.ts` | The board's side of the team: when it asks (the page, or the first claimed card), the name it asks for, and how the outcome reads on a `/board` line |
 | `transport/router.ts` | The five reads — the document, the client script, the theme script, the snapshot, and the frame stream — with the token gate and the guards in front of them |
 | `transport/server.ts` | The loopback listener, the frame push — one read of the board per frame, and a failed read reported rather than thrown — and the close |

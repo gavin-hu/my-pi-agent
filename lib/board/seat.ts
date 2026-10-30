@@ -12,8 +12,8 @@
  * shared with the session serving the page and the ids are not.
  */
 
-import type { Actor } from "../../lib/board/rules.ts";
-import { normalizeLabel } from "../../lib/session-label.ts";
+import type { Actor } from "./rules.ts";
+import { normalizeLabel } from "../session-label.ts";
 
 /** The name a repository's page always serves under, so the lead is a role and not a session. */
 export const DEFAULT_SEAT = "team-lead";

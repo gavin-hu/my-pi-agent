@@ -44,7 +44,7 @@ export const BOARD_ACTION_DOCS: Record<BoardAction, string> = {
 	contract:
 		"records the plan file and the three lines a card promises — `goal`, `acceptance`, `scopeOut` — and drops any approval, because the wording changed; `path` is required and must be the plan `write_plan` saved in this repository's plan store",
 	approve:
-		"approves the contract: the lead (`board.lead`, `lead` by default), who does not hold the card, says the wording is right, which is what `plan` to `execute` requires",
+		"approves the contract: the lead (`board.lead`, the page's seat `team-lead` by default), who does not hold the card, says the wording is right, which is what `plan` to `execute` requires",
 	review:
 		"records a spot-check of the finished work: the lead, who does not hold the card, in `execute`, which is what `done` requires",
 	edit: "fixes what the card says — title, path hints, priority, and what it waits for",
