@@ -39,6 +39,8 @@ import {
 	PANEL_ITEMS,
 	PANEL_REPORTS,
 	PANEL_SETTING_VIEWS,
+	PANEL_SKILL_INDEX,
+	PANEL_SKILL_ITEMS,
 	PLAN,
 	PLAN_BASELINE,
 	QUESTIONS,
@@ -72,6 +74,21 @@ export interface Screen {
 	 */
 	size?: { width: number; rows: number };
 	render(width: number, rows: number): string[];
+}
+
+/**
+ * The control center's runtime: the fixture discovery with its two skills, over
+ * a store that refuses every write. A fresh one per render, so no screen probes
+ * or records anything a later one could read.
+ */
+function panelRuntime(): ReturnType<typeof createPickerRuntime> {
+	const { discovery } = makeDiscovery({
+		extensions: PANEL_ITEMS,
+		skills: PANEL_SKILL_ITEMS,
+		globalStore: makeStore(),
+		trusted: true,
+	});
+	return createPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
 }
 
 export const SCREENS: Record<string, Screen> = {
@@ -322,24 +339,21 @@ export const SCREENS: Record<string, Screen> = {
 		render: (width, rows) =>
 			new MemoryPickerComponent(SCREEN_TUI, theme, MEMORY_CALLBACKS, noop, noop, () => rows).render(width),
 	},
-	bytefly: {
-		asset: "bytefly",
+	"bytefly-extensions": {
+		asset: "bytefly-extensions",
 		title: "π - my-pi-agent · /bytefly",
 		// The frame pads its body to the tallest section, so the window is exactly
 		// the frame: six rows of chrome plus sixteen body rows.
 		bounds: { left: 80, top: 80, right: 1080, bottom: 520 },
 		size: { width: 120, rows: 22 },
 		render: (width, rows) => {
-			// A fresh runtime over a fake discovery per render: no probe, no write.
-			const { discovery } = makeDiscovery({ extensions: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
-			const runtime = createPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
 			const panel = new PanelComponent({
-				runtime,
+				runtime: panelRuntime(),
 				reports: () => PANEL_REPORTS,
 				// The tab row counts the settings, so the extensions screen reads the
 				// real catalogue too; nothing here can write through it.
 				settings: PANEL_SETTING_VIEWS,
-				skills: () => new Map(),
+				skills: () => PANEL_SKILL_INDEX,
 				theme,
 				agentDir: PANEL_AGENT_DIR,
 				cwd: PANEL_CWD,
@@ -355,6 +369,37 @@ export const SCREENS: Record<string, Screen> = {
 			return panel.render(width);
 		},
 	},
+	"bytefly-skills": {
+		asset: "bytefly-skills",
+		title: "π - my-pi-agent · /bytefly skills",
+		// The frame is the same three-section dock, so it shares the Extensions
+		// screen's window: six rows of chrome and sixteen body rows under a short
+		// list, which is what shows the whole block beside it.
+		bounds: { left: 80, top: 80, right: 1080, bottom: 520 },
+		size: { width: 120, rows: 22 },
+		render: (width, rows) => {
+			const panel = new PanelComponent({
+				runtime: panelRuntime(),
+				reports: () => PANEL_REPORTS,
+				settings: PANEL_SETTING_VIEWS,
+				skills: () => PANEL_SKILL_INDEX,
+				section: "skills",
+				theme,
+				agentDir: PANEL_AGENT_DIR,
+				cwd: PANEL_CWD,
+				viewportRows: () => rows,
+				requestRender: noop,
+				refresh: noop,
+				reload: noop,
+				onClose: noop,
+			});
+			// The focused row is the one whose verdict only this section can state: a skill
+			// hidden from the model, which the block spells out under `Model`.
+			focusRow(panel, "init", width);
+			panel.handleInput("\r");
+			return panel.render(width);
+		},
+	},
 	"bytefly-settings": {
 		asset: "bytefly-settings",
 		title: "π - my-pi-agent · /bytefly settings",
@@ -362,13 +407,11 @@ export const SCREENS: Record<string, Screen> = {
 		size: { width: 120, rows: 22 },
 		render: (width, rows) => {
 			// The Settings section over the real catalogue: no probe, no write.
-			const { discovery } = makeDiscovery({ extensions: PANEL_ITEMS, globalStore: makeStore(), trusted: true });
-			const runtime = createPickerRuntime({ discovery, cwd: PANEL_CWD, agentDir: PANEL_AGENT_DIR });
 			return new PanelComponent({
-				runtime,
+				runtime: panelRuntime(),
 				reports: () => PANEL_REPORTS,
 				settings: PANEL_SETTING_VIEWS,
-				skills: () => new Map(),
+				skills: () => PANEL_SKILL_INDEX,
 				section: "settings",
 				theme,
 				agentDir: PANEL_AGENT_DIR,

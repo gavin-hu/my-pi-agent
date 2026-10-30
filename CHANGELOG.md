@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- dev: the control center is one picture per section — `assets/screens/bytefly-extensions.png`,
+  `bytefly-skills.png`, and `bytefly-settings.png`. The Skills tab had none, so a section the doc
+  describes at length was never shown; the Extensions asset takes the name that says which tab it
+  is, and the panel fixtures now carry the three skills this package ships, so all three frames read
+  `Skills 3`.
 - `bytefly` + `board`: `/bytefly settings` carries the board's three settings — **Plan limit**,
   **Execute limit**, and **Lead** — under a `Board` group, so the WIP numbers and the name the
   two gates take are editable where the rest of a session's preferences are. Both numbers are

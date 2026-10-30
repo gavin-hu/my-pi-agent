@@ -1,7 +1,8 @@
 {
   "agents": "4b66b39e749da5ca",
-  "bytefly": "c214e77823d6271f",
-  "bytefly-settings": "d4378be3a3955ce5",
+  "bytefly-extensions": "f7359c086f0298ad",
+  "bytefly-settings": "49f6da129e43bbf3",
+  "bytefly-skills": "18842913b62da61a",
   "check": "61b2abd552567d90",
   "check-detail": "b0e3fb3dde8cf121",
   "chrome": "9ba95bcd2c152844",

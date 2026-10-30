@@ -27,6 +27,7 @@ import {
 	makeItem,
 	makeStore,
 	packageExtension,
+	packageSkill,
 	skillItem,
 } from "../../../test/helpers/fixtures/picker.ts";
 
@@ -37,12 +38,6 @@ const packageItem = (path: string) =>
 		path,
 		metadata: { source: "npm:pkg", origin: "package", scope: "user", baseDir: "/pkg/extensions" },
 	});
-const packageSkill = (path: string) =>
-	makeItem({
-		path,
-		metadata: { source: "npm:pkg", origin: "package", scope: "user", baseDir: "/pkg" },
-	});
-
 /** One view's resolved resources, as the factory seam returns them. */
 const resolved = (extensions: ResourceItem[] = [], skills: ResourceItem[] = []) => ({ extensions, skills });
 
@@ -159,7 +154,7 @@ describe("buildEntries", () => {
 	});
 
 	test("groups and sorts skills under their own source heading", () => {
-		const entries = buildEntries([skillItem("zulu"), packageSkill("/pkg/skills/alpha/SKILL.md")], "/agent", "skills");
+		const entries = buildEntries([skillItem("zulu"), packageSkill("alpha")], "/agent", "skills");
 		const groups = entries.filter((entry) => entry.kind === "group");
 		const rows = entries.filter((entry) => entry.kind === "item");
 
@@ -254,7 +249,7 @@ describe("runtime toggling", () => {
 
 	test("writes a package skill into the entry's skills filter", async () => {
 		const store = makeStore({ packages: ["npm:pkg"] });
-		const { discovery } = makeDiscovery({ skills: [packageSkill("/pkg/skills/pdf/SKILL.md")], globalStore: store });
+		const { discovery } = makeDiscovery({ skills: [packageSkill("pdf")], globalStore: store });
 		const runtime = createPickerRuntime({ discovery, cwd: "/proj", agentDir: "/agent" });
 
 		await runtime.toggle("skills", runtime.items("skills")[0]);
@@ -472,11 +467,11 @@ describe("nextProjectPackages", () => {
 	});
 
 	test("creates the same delta for a skill, in its own list", () => {
-		const packageSkill = makeItem({
+		const skillAt = makeItem({
 			path: "/agent/pkg/skills/z/SKILL.md",
 			metadata: { source: "npm:pkg", origin: "package", scope: "user", baseDir: "/agent/pkg" },
 		});
-		expect(nextProjectPackages([], packageSkill, false, "/proj", "/agent", "skills")).toEqual([
+		expect(nextProjectPackages([], skillAt, false, "/proj", "/agent", "skills")).toEqual([
 			{ source: "npm:pkg", autoload: false, skills: ["-skills/z/SKILL.md"] },
 		]);
 	});

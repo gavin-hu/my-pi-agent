@@ -7,12 +7,13 @@
  */
 
 import { settingViews, type SettingsSnapshot } from "../../../extensions/bytefly/panel/settings.ts";
+import type { SkillIndex } from "../../../extensions/bytefly/panel/skills.ts";
 import type { PanelComponent } from "../../../extensions/bytefly/panel/tui.ts";
 import type { SettingsSurface } from "../../../extensions/bytefly/panel/settings-runtime.ts";
 import type { ResourceItem, Settings } from "../../../extensions/bytefly/picker/types.ts";
 import type { ExtensionReport } from "../../../lib/requirements.ts";
 import { makeFinding, makeReport } from "../../../test/helpers/fixtures/doctor.ts";
-import { packageExtension } from "../../../test/helpers/fixtures/picker.ts";
+import { packageExtension, packageSkill } from "../../../test/helpers/fixtures/picker.ts";
 
 /**
  * The extension list the `/bytefly` panel shows: this package, half of it
@@ -32,6 +33,42 @@ export const PANEL_ITEMS: ResourceItem[] = [
 	packageExtension("web-access", false),
 	packageExtension("wechat", false),
 ];
+/**
+ * The Skills list the same panel shows: the two skills this package ships, as
+ * Pi resolves them from `skills/` inside the installed package.
+ */
+export const PANEL_SKILL_ITEMS: ResourceItem[] = [packageSkill("init"), packageSkill("next"), packageSkill("refactor")];
+/** What each `SKILL.md` declares, keyed by the path the panel joins on. */
+export const PANEL_SKILL_INDEX: SkillIndex = new Map([
+	[
+		"/pkg/skills/init/SKILL.md",
+		{
+			name: "init",
+			description:
+				"Initialize or refresh a project's agent instructions (AGENTS.md, or AGENTS.override.md when it shadows AGENTS.md) through a built-in interactive interview and a reviewed plan. Run /skill:init to start it.",
+			modelHidden: true,
+		},
+	],
+	[
+		"/pkg/skills/next/SKILL.md",
+		{
+			name: "next",
+			description:
+				"Decide what to do next from the current conversation when it has work in it, or from the project's real state when it is empty: loose work, commits since the last tag, unreleased changelog entries, roadmap or plan items still open, and the project's check command. Returns a short list of suggested next todos in priority order, with the evidence for each and the command that starts it; read-only, it never edits, commits, or begins the work. Use when asked what to do next, where to pick up, what is left, or what to work on now.",
+			modelHidden: false,
+		},
+	],
+	[
+		"/pkg/skills/refactor/SKILL.md",
+		{
+			name: "refactor",
+			description:
+				"Audit a project or path for refactoring opportunities — duplication, oversized modules, coupling, drift, high-churn code with weak tests — and return a ranked shortlist with path:line evidence, or carry one chosen candidate through a behaviour-preserving refactor. Use when asked what to refactor, where the code is tangled, for a refactor audit, or to execute a refactor already agreed; discovery is read-only.",
+			modelHidden: false,
+		},
+	],
+]);
+
 /** Health for two extensions: one missing a hard prerequisite, one clean. */
 export const PANEL_REPORTS: ExtensionReport[] = [
 	makeReport("worktree", [
