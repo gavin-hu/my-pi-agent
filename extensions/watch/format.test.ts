@@ -35,8 +35,13 @@ describe("watch formatting", () => {
 		expect(shortLabel(record({ label: "" }))).toBe("/tmp/app.log");
 	});
 
-	test("statusWord includes an exit code or an error", () => {
+	test("statusWord includes an exit code, the signal that ended it, or an error", () => {
 		expect(statusWord(record({ status: "exited", exitCode: 2 }))).toBe("exited (2)");
+		// Node reports a signalled child with a null code, so the signal is the whole account of it.
+		expect(statusWord(record({ status: "exited", exitCode: null, signal: "SIGKILL" }))).toBe("exited (SIGKILL)");
+		// A code is the first answer, even beside a signal, and a record with neither stays bare.
+		expect(statusWord(record({ status: "exited", exitCode: 0, signal: "SIGTERM" }))).toBe("exited (0)");
+		expect(statusWord(record({ status: "exited", exitCode: null, signal: null }))).toBe("exited");
 		expect(statusWord(record({ status: "error", error: "boom" }))).toBe("error (boom)");
 		expect(statusWord(record({ status: "stopped" }))).toBe("stopped");
 	});
