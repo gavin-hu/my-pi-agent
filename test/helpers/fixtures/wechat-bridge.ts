@@ -306,27 +306,3 @@ export function controllableClient(options: ClientOptions = {}): {
 		deliver: (message) => deliver?.(message),
 	};
 }
-
-/** A fake timer seam: nothing fires until the test calls `fire()`. */
-export function fakeTimers(): {
-	arm: (ms: number, fn: () => void) => () => void;
-	fire: () => void;
-	count: () => number;
-} {
-	const pending = new Map<number, () => void>();
-	let next = 0;
-	return {
-		arm: (_ms: number, fn: () => void) => {
-			next += 1;
-			const id = next;
-			pending.set(id, fn);
-			return () => pending.delete(id);
-		},
-		fire: () => {
-			const fns = [...pending.values()];
-			pending.clear();
-			for (const fn of fns) fn();
-		},
-		count: () => pending.size,
-	};
-}

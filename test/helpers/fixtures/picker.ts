@@ -39,32 +39,6 @@ export function packageSkill(name: string, enabled = true): ResourceItem {
 	});
 }
 
-/**
- * Extensions enabled by default in the maintainer's profile, used by tests to
- * model a realistic list where most rows are disabled. This is a test/doc
- * constant only; it does not change what Pi loads.
- */
-export const DEFAULT_ENABLED_EXTENSIONS = ["bytefly", "plan", "todo", "goal", "question", "worktree", "job"] as const;
-
-/** Every extension directory in this package, for default-profile tests. */
-export const PACKAGE_EXTENSIONS = [
-	"worktree",
-	"rewind",
-	"question",
-	"todo",
-	"goal",
-	"plan",
-	"subagent",
-	"job",
-	"web-access",
-	"file-browse",
-	"file-read",
-	"file-open",
-	"memory",
-	"wechat",
-	"bytefly",
-] as const;
-
 /** A package extension item for an extension directory name. */
 export function packageExtension(name: string, enabled: boolean): ResourceItem {
 	return makeItem({
