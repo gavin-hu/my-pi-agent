@@ -30,7 +30,9 @@ One loopback server per session serves every page, and each page mounts a path p
   128-bit token when it starts, compared in constant time, and the URL the browser was
   opened at is the whole credential — there is no cookie and no CORS. Two routes need
   no token at all: `/theme.js` and `/app.js` are the same bytes to every reader and can
-  neither read nor change a card. Because a page is one per repository, a second
+  neither read nor change a card. `plan`'s review page serves the same two kinds of asset
+  the same way — `/theme.js` and `/client.js` are compile-time constants, answered before
+  the token is read, and neither can see a plan. Because a page is one per repository, a second
   session reaches it through the note the serving page leaves beside the cards
   (`page.json`, owner-only): the port, the seat, and that token. The page closes on
   `/board stop`, a minute after its last tab leaves, or at session shutdown. Writing a
