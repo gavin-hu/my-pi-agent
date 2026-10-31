@@ -51,10 +51,10 @@ rebase: `git push origin main` publishes everything on it.
 With the work committed and checked, ask how to reconcile the branch (commit,
 merge, keep, or discard) before `worktree` exits. Exiting with `remove: true,
 keepBranch: true` drops the clean worktree, keeps the branch, and reports the
-commits ahead plus the merge command; merge on the main checkout, push, and
-delete the branch. Never `git add -A` or `git add .`; stage explicit paths. Never
-`git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`,
-`git commit --no-verify`, or force-push `main`.
+commits ahead plus the merge command; merge on the main checkout with
+`git merge --no-ff <branch>`, push, and delete the branch. Never `git add -A` or
+`git add .`; stage explicit paths. Never `git reset --hard`, `git checkout .`,
+`git clean -fd`, `git stash`, `git commit --no-verify`, or force-push `main`.
 
 ## Checks
 

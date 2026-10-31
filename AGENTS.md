@@ -1,8 +1,8 @@
 # AGENTS.md
 
 `@gavin-hu/my-pi-agent` is a Pi package of extensions, themes, skills, and shared
-helpers. Pi reads the `pi` manifest in `package.json` and loads each extension as
-plain TypeScript, so there is no build step to run one.
+helpers. Pi loads each extension as plain TypeScript from the `pi` manifest in
+`package.json`: no build step.
 
 The reasoning lives in the linked docs; do not restate it. `test/drift.test.ts`
 holds the word budget: a new paragraph replaces one.
@@ -19,8 +19,8 @@ bun run check:serial              # what macOS CI runs: --parallel can hang
 bun run bench:render              # render benchmark; see docs/development.md
 ```
 
-- `bun run check` is what a change must pass: run the test you touched while
-  iterating, and the whole check when done.
+- `bun run check` is what a change must pass: the test you touched while
+  iterating, then the whole check.
 - `rewind`, `worktree`, and `session-bus`'s real-repository tests skip unless
   `CI` or `PI_SLOW_TESTS=1` is set. Touching one means running it explicitly.
 - A new package-level test goes into `ROOT_TEST_FILES` in
@@ -38,9 +38,10 @@ bun run bench:render              # render benchmark; see docs/development.md
   `origin/main`, so rebase onto `main` right after.
 - Never commit unless the user asks; before `worktree` exits, ask how to reconcile
   the branch (commit, merge, keep, discard).
-- Commit, then rebase onto `main` before merging, re-running `bun run check`: a
-  rebase needs a clean tree, and `main` moves while you work. `git push origin
-  main` publishes everything on it.
+- Commit first, then rebase onto `main` and re-run `bun run check`: a rebase
+  needs a clean tree, and `main` moves.
+- Land from a checkout on `main`: `git merge --no-ff <branch>`, then `git push
+  origin main`; never push a branch head to `main`.
 - Stage explicit paths; never `git add -A` or `git add .`. Never `git reset
   --hard`, `git checkout .`, `git clean -fd`, `git stash`, `git commit
   --no-verify`, or force-push `main`.
@@ -50,11 +51,11 @@ bun run bench:render              # render benchmark; see docs/development.md
 ## Release
 
 Distribution is git and npm. A release is an annotated `vX.Y.Z` tag on `main`
-plus a GitHub release whose body is that version's changelog section.
+plus a GitHub release whose body is that version's changelog section; landing a
+change is not a release.
 
-- The steps are normative in
-  [`docs/development.md#release`](./docs/development.md#release); follow them in
-  order.
+- Follow the normative steps in
+  [`docs/development.md#release`](./docs/development.md#release).
 - Publish only through `publish.yml`, never `npm publish` locally. Get the user's
   approval for each dispatch — an earlier one expires — and wait for the
   environment review.
@@ -109,7 +110,7 @@ READMEs; a command rename updates its `docs/extensions/` page.
 
 ## Rules
 
-Three of the four are gates; the fourth is review.
+Three are gates; the fourth is review.
 
 - **One body, one owner.** A helper two extensions need lives in `lib/`, never in
   both; `test/shared-helpers.test.ts` fails a body identical to an existing one.
@@ -171,7 +172,7 @@ when its surface or a printed version is behind.
 
 ## Read more
 
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — branch flow, checks, commits.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — checks, commits.
 - [`docs/development.md`](./docs/development.md) — scripts, test tiers, compat,
   release steps.
 - [`docs/architecture.md`](./docs/architecture.md) — the target architecture, state,
