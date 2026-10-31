@@ -15,7 +15,7 @@ import { createFakePi } from "../../test/helpers/fakes.ts";
 import { makeTempTracker } from "../../test/helpers/git.ts";
 import { repoKeyOf } from "../repo-key.ts";
 import { presetNameFor, TEAMMATE_NAMES } from "../session-label.ts";
-import { createStore } from "./store.ts";
+import { createStore, openBoard } from "./store.ts";
 import { busDirFor, openBoardSession } from "./session.ts";
 
 const temps = makeTempTracker();
@@ -214,6 +214,30 @@ describe("store", () => {
 		expect(second).toBe(first);
 	});
 
+	test("asks again after an open that failed, instead of pinning the failure", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		let attempts = 0;
+		const runtime = openBoardSession(offlinePi().pi, {
+			now: () => NOW,
+			agentDir,
+			// The seam the failure needs: every step of a real open answers for itself, so a
+			// transient failure cannot be made to happen through the filesystem.
+			open: async (cwd) => {
+				attempts += 1;
+				if (attempts === 1) throw new Error("the config could not be read");
+				return openBoard(offlinePi().pi, cwd, { agentDir });
+			},
+		});
+		await expect(runtime.store("/repo/billing")).rejects.toThrow("the config could not be read");
+		// The rule `lib/lazy.ts` keeps for a load it owns: one bad read is a moment, not a
+		// session, so the next call asks again rather than replaying the rejection.
+		const store = await runtime.store("/repo/billing");
+		expect(attempts).toBe(2);
+		// And what is remembered is the success: a further call opens nothing new.
+		expect(await runtime.store("/repo/billing")).toBe(store);
+		expect(attempts).toBe(2);
+	});
+
 	test("files a repository-less directory under the agent directory", async () => {
 		const agentDir = temps.track(tempDir("pi-agent-"));
 		const cwd = temps.track(tempDir("pi-cwd-"));
@@ -258,6 +282,27 @@ describe("busDir", () => {
 		const first = runtime.busDir("/repo/billing");
 		expect(runtime.busDir("/repo/billing")).toBe(first);
 		await first;
+	});
+
+	test("asks again after the store it is built on failed", async () => {
+		const agentDir = temps.track(tempDir("pi-agent-"));
+		let attempts = 0;
+		const runtime = openBoardSession(offlinePi().pi, {
+			now: () => NOW,
+			agentDir,
+			open: async (cwd) => {
+				attempts += 1;
+				if (attempts === 1) throw new Error("the store could not be opened");
+				return openBoard(offlinePi().pi, cwd, { agentDir });
+			},
+		});
+		await expect(runtime.busDir("/repo/billing")).rejects.toThrow("the store could not be opened");
+		// The directory is the store's key, so the store's failure is this one's too — and the
+		// retry has to reach both, or the roster stays a rejection for the whole session.
+		expect(await runtime.busDir("/repo/billing")).toBe(
+			join(agentDir, "session-bus", (await runtime.store("/repo/billing")).key),
+		);
+		expect(attempts).toBe(2);
 	});
 });
 
