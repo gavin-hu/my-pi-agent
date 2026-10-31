@@ -99,8 +99,19 @@ export async function titlesAt(text: string, line: number): Promise<string[]> {
 }
 
 /**
+ * What a reader should do with a wait that expired while files ran in parallel.
+ *
+ * The budgets in this repository already survive a machine at load ~52 (measured: the whole
+ * suite under eight busy loops, 6905 pass, 86 s against 30 s idle), so a red here is far more
+ * likely to be contention than a regression — but it is still a red, so the next step is the
+ * serial run CI uses, not a shrug and not a blind re-run of the same parallel check.
+ */
+export const PARALLEL_HAZARD_HINT =
+	"four files at once can starve this on a loaded machine: confirm with `bun run check:serial` before treating it as a regression, and a second red on this same test is still a card";
+
+/**
  * The one-line message an expired wait throws: how long it spent, against what
- * budget, where it waited, and on which predicate.
+ * budget, where it waited, on which predicate, and what to do about it.
  */
 export async function waitTimeoutMessage(
 	timeout: WaitTimeout,
@@ -109,7 +120,7 @@ export async function waitTimeoutMessage(
 	const site = callSite(timeout.stack);
 	const where = site === undefined ? "an unknown call site" : await describeSite(site, read);
 	const spent = `${timeout.elapsedMs}ms of a ${timeout.budgetMs}ms budget`;
-	return `waitFor timed out after ${spent} — ${where}, predicate: ${flatten(timeout.predicate)}`;
+	return `waitFor timed out after ${spent} — ${where}, predicate: ${flatten(timeout.predicate)} — ${PARALLEL_HAZARD_HINT}`;
 }
 
 /** A site as `"describe > test" (path:line)`, or the bare path when no title encloses it. */
